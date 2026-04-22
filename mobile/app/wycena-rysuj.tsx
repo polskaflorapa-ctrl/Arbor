@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { API_URL } from '../constants/api';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 
 const { width: SW } = Dimensions.get('window');
@@ -127,19 +129,23 @@ export default function WycenaRysujScreen() {
         });
 
         if (res.ok) {
+          void triggerHaptic('success');
           Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
             { text: t('common.ok'), onPress: () => router.back() },
           ]);
         } else {
+          void triggerHaptic('error');
           Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
         }
       } else {
+        void triggerHaptic('success');
         // Zwróć URI do ekranu który otworzył rysowanie
         Alert.alert(t('draw.alert.localTitle'), t('draw.alert.localBody'), [
           { text: t('common.ok'), onPress: () => router.back() },
         ]);
       }
     } catch {
+      void triggerHaptic('error');
       Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.saveFail'));
     } finally {
       setSaving(false);
@@ -163,13 +169,23 @@ export default function WycenaRysujScreen() {
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
       {/* Toolbar górny */}
       <View style={s.toolbar}>
-        <TouchableOpacity onPress={() => router.back()} style={s.toolBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            void triggerHaptic('light');
+            router.back();
+          }}
+          style={s.toolBtn}
+        >
           <Text style={s.toolBtnText}>✕</Text>
         </TouchableOpacity>
         <Text style={s.toolbarTitle}>{t('draw.title')}</Text>
-        <TouchableOpacity onPress={save} disabled={saving} style={[s.saveBtn, saving && { opacity: 0.6 }]}>
-          <Text style={s.saveBtnText}>{saving ? t('draw.saving') : t('draw.save')}</Text>
-        </TouchableOpacity>
+        <PlatinumCTA
+          label={saving ? t('draw.saving') : t('draw.save')}
+          onPress={save}
+          disabled={saving}
+          loading={saving}
+          style={s.saveBtn}
+        />
       </View>
 
       {/* Canvas - zdjęcie + rysowanie */}
@@ -256,10 +272,23 @@ export default function WycenaRysujScreen() {
           </View>
 
           <View style={s.actionBtns}>
-            <TouchableOpacity style={s.actionBtn} onPress={undo} disabled={strokes.length === 0}>
+            <TouchableOpacity
+              style={s.actionBtn}
+              onPress={() => {
+                void triggerHaptic('light');
+                undo();
+              }}
+              disabled={strokes.length === 0}
+            >
               <Text style={[s.actionBtnText, strokes.length === 0 && { opacity: 0.3 }]}>{t('draw.undo')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.actionBtn, s.clearBtn]} onPress={clear}>
+            <TouchableOpacity
+              style={[s.actionBtn, s.clearBtn]}
+              onPress={() => {
+                void triggerHaptic('warning');
+                clear();
+              }}
+            >
               <Text style={s.clearBtnText}>{t('draw.clearBtn')}</Text>
             </TouchableOpacity>
           </View>
@@ -282,13 +311,7 @@ function makeDrawStyles(t: Theme) {
     toolBtn: { padding: 8 },
     toolBtnText: { color: t.textMuted, fontSize: 18 },
     toolbarTitle: { color: t.headerText, fontSize: t.fontSection + 1, fontWeight: '700' },
-    saveBtn: {
-      backgroundColor: t.accent,
-      borderRadius: t.radiusMd,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-    },
-    saveBtnText: { color: t.accentText, fontWeight: '700', fontSize: 14 },
+    saveBtn: { minWidth: 110 },
 
     canvasWrap: { flex: 1 },
     canvas: { width: CANVAS_W, height: CANVAS_H, position: 'relative' },

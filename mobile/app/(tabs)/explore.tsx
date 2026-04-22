@@ -15,6 +15,7 @@ import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
 import { API_URL } from '../../constants/api';
 import type { Theme } from '../../constants/theme';
+import { triggerHaptic } from '../../utils/haptics';
 import { getStoredSession } from '../../utils/session';
 
 interface ReportStats {
@@ -171,17 +172,35 @@ export default function ExploreScreen() {
 
       <View style={[S.card, elevationCard(theme)]}>
         <Text style={S.cardTitle}>Szybki dostęp</Text>
-        <TouchableOpacity style={S.menuItem} onPress={() => router.push('/raport-dzienny')}>
+        <TouchableOpacity
+          style={S.menuItem}
+          onPress={() => {
+            void triggerHaptic('light');
+            router.push('/raport-dzienny');
+          }}
+        >
           <Ionicons name="document-text-outline" size={24} color={theme.accent} />
           <Text style={S.menuText}>Raport dzienny</Text>
           <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={S.menuItem} onPress={() => router.push('/harmonogram')}>
+        <TouchableOpacity
+          style={S.menuItem}
+          onPress={() => {
+            void triggerHaptic('light');
+            router.push('/harmonogram');
+          }}
+        >
           <Ionicons name="calendar-outline" size={24} color={theme.accent} />
           <Text style={S.menuText}>Harmonogram</Text>
           <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={S.menuItem} onPress={() => router.push('/rozliczenia')}>
+        <TouchableOpacity
+          style={S.menuItem}
+          onPress={() => {
+            void triggerHaptic('light');
+            router.push('/rozliczenia');
+          }}
+        >
           <Ionicons name="calculator-outline" size={24} color={theme.accent} />
           <Text style={S.menuText}>Moje rozliczenia</Text>
           <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />

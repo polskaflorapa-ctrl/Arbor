@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { OfflineQueueBanner } from '../../components/ui/app-state';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
+import { PlatinumCTA } from '../../components/ui/platinum-cta';
 import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
 import { API_URL } from '../../constants/api';
@@ -19,6 +20,7 @@ import { isFeatureEnabledForOddzial } from '../../utils/oddzial-features';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../../utils/offline-queue';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
+import { triggerHaptic } from '../../utils/haptics';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -135,8 +137,9 @@ export default function ZlecenieDetailScreen() {
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ status: nowyStatus }),
             });
-            if (res.ok) { await loadAll(); Alert.alert(t('common.ok'), t('order.statusChanged')); }
+            if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.statusChanged')); }
             else {
+              void triggerHaptic('warning');
               const queued = await queueRequestWithOfflineFallback({
                 url: `${API_URL}/tasks/${id}/status`,
                 method: 'PUT',
@@ -146,6 +149,7 @@ export default function ZlecenieDetailScreen() {
               Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStatusQueued'));
             }
           } catch {
+            void triggerHaptic('warning');
             const queued = await queueRequestWithOfflineFallback({
               url: `${API_URL}/tasks/${id}/status`,
               method: 'PUT',
@@ -168,8 +172,9 @@ export default function ZlecenieDetailScreen() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
-      if (res.ok) { await loadAll(); Alert.alert(t('common.ok'), t('order.startedTitle')); }
+      if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.startedTitle')); }
       else {
+        void triggerHaptic('warning');
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/start`,
           method: 'POST',
@@ -179,6 +184,7 @@ export default function ZlecenieDetailScreen() {
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
       }
     } catch {
+      void triggerHaptic('warning');
       const queued = await queueRequestWithOfflineFallback({
         url: `${API_URL}/tasks/${id}/start`,
         method: 'POST',
@@ -203,8 +209,9 @@ export default function ZlecenieDetailScreen() {
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ notatki: '' }),
             });
-            if (res.ok) { await loadAll(); Alert.alert(t('common.ok'), t('order.finishedTitle')); }
+            if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.finishedTitle')); }
             else {
+              void triggerHaptic('warning');
               const queued = await queueRequestWithOfflineFallback({
                 url: `${API_URL}/tasks/${id}/finish`,
                 method: 'POST',
@@ -214,6 +221,7 @@ export default function ZlecenieDetailScreen() {
               Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
             }
           } catch {
+            void triggerHaptic('warning');
             const queued = await queueRequestWithOfflineFallback({
               url: `${API_URL}/tasks/${id}/finish`,
               method: 'POST',
@@ -244,6 +252,7 @@ export default function ZlecenieDetailScreen() {
   const zrobZdjecie = async (typ: string) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
+      void triggerHaptic('warning');
       Alert.alert(t('order.cameraDeniedTitle'), t('order.cameraDeniedBody'));
       return;
     }
@@ -271,8 +280,10 @@ export default function ZlecenieDetailScreen() {
           const coordsStr = coords
             ? t('order.photoSavedCoords', { lat: coords.lat.toFixed(5), lng: coords.lng.toFixed(5) })
             : '';
+          void triggerHaptic('success');
           Alert.alert(t('order.photoSavedTitle'), t('order.photoSavedBody', { label: typLabel, coords: coordsStr }));
         } else {
+          void triggerHaptic('warning');
           const queued = await queueRequestWithOfflineFallback({
             url: `${API_URL}/tasks/${id}/zdjecia`,
             method: 'POST',
@@ -286,6 +297,7 @@ export default function ZlecenieDetailScreen() {
           Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
         }
       } catch {
+        void triggerHaptic('warning');
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/zdjecia`,
           method: 'POST',
@@ -314,7 +326,7 @@ export default function ZlecenieDetailScreen() {
   };
 
   const zglosProblem = async () => {
-    if (!problemForm.opis.trim()) { Alert.alert(t('notif.alert.errorTitle'), t('order.problemDescRequired')); return; }
+    if (!problemForm.opis.trim()) { void triggerHaptic('warning'); Alert.alert(t('notif.alert.errorTitle'), t('order.problemDescRequired')); return; }
     try {
       if (!token) { router.replace('/login'); return; }
       const res = await fetch(`${API_URL}/tasks/${id}/problemy`, {
@@ -326,8 +338,10 @@ export default function ZlecenieDetailScreen() {
         setProblemModal(false);
         setProblemForm({ typ: 'usterka', opis: '' });
         await loadAll();
+        void triggerHaptic('success');
         Alert.alert('OK', 'Problem zgłoszony');
       } else {
+        void triggerHaptic('warning');
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/problemy`,
           method: 'POST',
@@ -338,6 +352,7 @@ export default function ZlecenieDetailScreen() {
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
       }
     } catch {
+      void triggerHaptic('warning');
       const queued = await queueRequestWithOfflineFallback({
         url: `${API_URL}/tasks/${id}/problemy`,
         method: 'POST',
@@ -899,12 +914,11 @@ export default function ZlecenieDetailScreen() {
               >
                 <Text style={[S.cancelTxt, { color: theme.textSub }]}>Anuluj</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[S.submitBtn, { backgroundColor: theme.accent }]}
-                onPress={zglosProblem}
-              >
-                <Text style={[S.submitTxt, { color: theme.accentText }]}>Zgłoś</Text>
-              </TouchableOpacity>
+                <PlatinumCTA
+                  style={S.submitBtn}
+                  label="Zgłoś"
+                  onPress={zglosProblem}
+                />
             </View>
           </View>
         </View>
@@ -1093,8 +1107,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cancelBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
   cancelTxt: { fontWeight: '600' },
   submitBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
-  submitTxt: { fontWeight: '700' },
-
   // Modal zdjęcia
   zdjecieTypBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 14,

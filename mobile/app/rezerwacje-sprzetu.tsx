@@ -22,6 +22,7 @@ import {
   View,
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -31,6 +32,7 @@ import { type CalendarBlock, isYmdBlocked, loadCalendarBlocks } from '../utils/c
 import { enqueueOfflineRequest } from '../utils/offline-queue';
 import { tryScheduleReservationDayEndReminder } from '../utils/reservation-end-reminder';
 import { getStoredSession } from '../utils/session';
+import { triggerHaptic } from '../utils/haptics';
 import {
   REZERWACJA_STATUSY,
   addLocalRezerwacja,
@@ -326,20 +328,24 @@ export default function RezerwacjeSprzetuScreen() {
   const saveReservation = async () => {
     if (!token) return;
     if (!isValidYmdDate(formDate)) {
+      void triggerHaptic('warning');
       Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.badDate'));
       return;
     }
     const blocks = await loadCalendarBlocks();
     setCalendarBlocks(blocks);
     if (isYmdBlocked(formDate, blocks)) {
+      void triggerHaptic('warning');
       Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.calendarBlocked'));
       return;
     }
     if (isPastYmdDate(formDate)) {
+      void triggerHaptic('warning');
       Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.pastDate'));
       return;
     }
     if (!formSprzetId || !formEkipaId) {
+      void triggerHaptic('warning');
       Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.pickEquipmentTeam'));
       return;
     }
@@ -350,6 +356,7 @@ export default function RezerwacjeSprzetuScreen() {
       r.status !== 'Zwrócone',
     );
     if (hasVisibleConflict) {
+      void triggerHaptic('warning');
       Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.conflictOnList'));
       return;
     }
@@ -365,6 +372,7 @@ export default function RezerwacjeSprzetuScreen() {
     };
     const res = await postRezerwacjaApi(token, body);
     if (res.ok) {
+      void triggerHaptic('success');
       setModalOpen(false);
       await loadReservations(token);
       void tryScheduleReservationDayEndReminder({
@@ -376,11 +384,13 @@ export default function RezerwacjeSprzetuScreen() {
     }
     const canFallbackOffline = res.notImplemented || res.error === 'network';
     if (!canFallbackOffline) {
+      void triggerHaptic('error');
       Alert.alert(t('wyceny.alert.saveFail'), res.error || t('fleetReserve.alert.serverValidationError'));
       return;
     }
     const hasLocalConflict = await hasLocalReservationConflict(formSprzetId, formDate);
     if (hasLocalConflict) {
+      void triggerHaptic('error');
       Alert.alert(t('wyceny.alert.saveFail'), t('fleetReserve.alert.localConflict'));
       return;
     }
@@ -399,6 +409,7 @@ export default function RezerwacjeSprzetuScreen() {
       method: 'POST',
       body: body as unknown as Record<string, unknown>,
     });
+    void triggerHaptic('success');
     setModalOpen(false);
     await loadReservations(token);
     void tryScheduleReservationDayEndReminder({
@@ -747,17 +758,12 @@ export default function RezerwacjeSprzetuScreen() {
                   <TouchableOpacity style={S.cancelBtn} onPress={() => setModalOpen(false)}>
                     <Text style={S.cancelTxt}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      S.saveBtn,
-                      { backgroundColor: theme.accent },
-                      !canSubmitForm && { opacity: 0.5 },
-                    ]}
+                  <PlatinumCTA
+                    style={[S.saveBtn, !canSubmitForm && { opacity: 0.5 }]}
+                    label={t('fleetReserve.save')}
                     onPress={() => void saveReservation()}
                     disabled={!canSubmitForm}
-                  >
-                    <Text style={[S.saveTxt, { color: theme.accentText }]}>{t('fleetReserve.save')}</Text>
-                  </TouchableOpacity>
+                  />
                 </View>
                 {!canSubmitForm && (
                   <Text style={S.submitHintTxt}>{submitBlockReason}</Text>
@@ -973,7 +979,6 @@ function makeStyles(theme: Theme) {
     cancelBtn: { paddingVertical: 12, paddingHorizontal: 16 },
     cancelTxt: { color: theme.textMuted, fontWeight: '600' },
     saveBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
-    saveTxt: { fontWeight: '700' },
     submitHintTxt: {
       marginTop: 8,
       marginHorizontal: 16,

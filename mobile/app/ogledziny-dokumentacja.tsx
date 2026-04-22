@@ -12,11 +12,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { enqueueOfflineRequest } from '../utils/offline-queue';
 import { getStoredSession } from '../utils/session';
 
@@ -52,9 +54,11 @@ export default function OgledzinyDokumentacjaScreen() {
     if (res.canceled || !res.assets?.[0]?.uri) return;
 
     if (!wycenaId) {
+      void triggerHaptic('warning');
       Alert.alert(t('inspectionDoc.noQuoteTitle'), t('inspectionDoc.noQuoteBody'));
       return;
     }
+    void triggerHaptic('light');
     router.push(`/wycena-rysuj?uri=${encodeURIComponent(res.assets[0].uri)}&wycenaId=${wycenaId}`);
   };
 
@@ -86,6 +90,7 @@ export default function OgledzinyDokumentacjaScreen() {
       });
 
       if (res.ok) {
+        void triggerHaptic('success');
         addHistory({ kind: 'video', label: t('inspectionDoc.videoSent'), state: 'done' });
         return;
       }
@@ -100,6 +105,7 @@ export default function OgledzinyDokumentacjaScreen() {
         },
       });
       addHistory({ kind: 'video', label: t('inspectionDoc.videoQueued'), state: 'queued' });
+      void triggerHaptic('warning');
     } catch {
       const uri = picked.assets[0]?.uri;
       if (uri) {
@@ -110,6 +116,7 @@ export default function OgledzinyDokumentacjaScreen() {
         });
       }
       addHistory({ kind: 'video', label: t('inspectionDoc.videoQueued'), state: 'queued' });
+      void triggerHaptic('warning');
     } finally {
       setBusy(false);
     }
@@ -135,7 +142,13 @@ export default function OgledzinyDokumentacjaScreen() {
     <View style={S.root}>
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
-        <TouchableOpacity style={S.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={S.backBtn}
+          onPress={() => {
+            void triggerHaptic('light');
+            router.back();
+          }}
+        >
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -148,19 +161,23 @@ export default function OgledzinyDokumentacjaScreen() {
         <View style={S.card}>
           <Text style={S.cardTitle}>{t('inspectionDoc.photoCardTitle')}</Text>
           <Text style={S.cardText}>{t('inspectionDoc.photoCardBody')}</Text>
-          <TouchableOpacity style={S.primaryBtn} onPress={pickPhotoAndAnnotate}>
-            <Ionicons name="brush-outline" size={16} color={theme.accentText} />
-            <Text style={[S.btnText, { color: theme.accentText }]}>{t('inspectionDoc.photoBtn')}</Text>
-          </TouchableOpacity>
+          <PlatinumCTA
+            label={t('inspectionDoc.photoBtn')}
+            style={S.primaryBtn}
+            onPress={pickPhotoAndAnnotate}
+          />
         </View>
 
         <View style={S.card}>
           <Text style={S.cardTitle}>{t('inspectionDoc.videoCardTitle')}</Text>
           <Text style={S.cardText}>{t('inspectionDoc.videoCardBody')}</Text>
-          <TouchableOpacity style={S.secondaryBtn} onPress={uploadVideo} disabled={busy}>
-            {busy ? <ActivityIndicator size="small" color={theme.text} /> : <Ionicons name="videocam-outline" size={16} color={theme.text} />}
-            <Text style={[S.btnText, { color: theme.text }]}>{t('inspectionDoc.videoBtn')}</Text>
-          </TouchableOpacity>
+          <PlatinumCTA
+            label={t('inspectionDoc.videoBtn')}
+            style={S.secondaryBtn}
+            onPress={uploadVideo}
+            disabled={busy}
+            loading={busy}
+          />
         </View>
 
         {!wycenaId ? (
@@ -231,29 +248,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardText: { fontSize: 12, color: t.textSub, lineHeight: 18 },
   primaryBtn: {
     marginTop: 2,
-    borderRadius: 10,
-    backgroundColor: t.accent,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
   },
   secondaryBtn: {
     marginTop: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: t.border,
     backgroundColor: t.surface2,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
   },
-  btnText: { fontSize: 13, fontWeight: '700' },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   historyText: { fontSize: 12, color: t.textSub },
 });

@@ -7,11 +7,13 @@ import {
   ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { enqueueOfflineRequest, flushOfflineQueue } from '../utils/offline-queue';
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
@@ -306,10 +308,12 @@ export default function OgledzinyScreen() {
           method: 'POST',
           body: body as Record<string, unknown>,
         });
+        void triggerHaptic('warning');
       }
       setShowCreateModal(false);
       resetCreateForm();
       await fetchLista();
+      void triggerHaptic('success');
     } catch {
       await enqueueOfflineRequest({
         url: `${API_URL}/ogledziny`,
@@ -327,6 +331,7 @@ export default function OgledzinyScreen() {
       resetCreateForm();
       await fetchLista();
       setRuntimeError('Błąd serwera przy tworzeniu oględzin. Zapisano do kolejki offline.');
+      void triggerHaptic('error');
     } finally {
       setCreateSaving(false);
     }
@@ -364,10 +369,12 @@ export default function OgledzinyScreen() {
         });
         setShowStatusModal(false);
         await fetchLista();
+        void triggerHaptic('warning');
         return;
       }
       setShowStatusModal(false);
       await fetchLista();
+      void triggerHaptic('success');
     } catch {
       await enqueueOfflineRequest({
         url: `${API_URL}/ogledziny/${selected.id}/status`,
@@ -376,6 +383,7 @@ export default function OgledzinyScreen() {
       });
       setShowStatusModal(false);
       setRuntimeError('Błąd serwera przy zmianie statusu. Zapisano do kolejki offline.');
+      void triggerHaptic('error');
     } finally {
       setSaving(false);
     }
@@ -779,17 +787,19 @@ export default function OgledzinyScreen() {
                 </ScrollView>
 
                 <View style={S.modalFooter}>
-                  <TouchableOpacity
-                    style={[S.footerBtn, { backgroundColor: theme.accent }]}
-                    onPress={openStatusModal}
-                  >
-                    <Ionicons name="swap-horizontal-outline" size={17} color={theme.accentText} />
-                    <Text style={[S.footerBtnText, { color: theme.accentText }]}>{t('inspections.btnChangeStatus')}</Text>
-                  </TouchableOpacity>
+                  <PlatinumCTA
+                    label={t('inspections.btnChangeStatus')}
+                    style={S.footerBtn}
+                    onPress={() => {
+                      void triggerHaptic('light');
+                      openStatusModal();
+                    }}
+                  />
                   <TouchableOpacity
                     style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border }]}
                     onPress={() => {
                       if (!selected) return;
+                      void triggerHaptic('light');
                       router.push({
                         pathname: '/ogledziny-dokumentacja' as never,
                         params: {
@@ -870,24 +880,20 @@ export default function OgledzinyScreen() {
             <View style={S.modalFooter}>
               <TouchableOpacity
                 style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border }]}
-                onPress={() => setShowStatusModal(false)}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  setShowStatusModal(false);
+                }}
               >
                 <Text style={[S.footerBtnText, { color: theme.textSub }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[S.footerBtn, { backgroundColor: theme.accent, flex: 1 }]}
+              <PlatinumCTA
+                label={t('inspections.btnSave')}
+                style={[S.footerBtn, { flex: 1 }]}
                 onPress={handleChangeStatus}
                 disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color={theme.accentText} />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark" size={17} color={theme.accentText} />
-                    <Text style={[S.footerBtnText, { color: theme.accentText }]}>{t('inspections.btnSave')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                loading={saving}
+              />
             </View>
           </View>
         </View>
@@ -996,17 +1002,20 @@ export default function OgledzinyScreen() {
             <View style={S.modalFooter}>
               <TouchableOpacity
                 style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border }]}
-                onPress={() => setShowCreateModal(false)}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  setShowCreateModal(false);
+                }}
               >
                 <Text style={[S.footerBtnText, { color: theme.textSub }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[S.footerBtn, { backgroundColor: theme.accent, flex: 1 }]}
+              <PlatinumCTA
+                label={t('inspections.btnSave')}
+                style={[S.footerBtn, { flex: 1 }]}
                 onPress={handleCreate}
                 disabled={createSaving}
-              >
-                {createSaving ? <ActivityIndicator size="small" color={theme.accentText} /> : <Text style={[S.footerBtnText, { color: theme.accentText }]}>{t('inspections.btnSave')}</Text>}
-              </TouchableOpacity>
+                loading={createSaving}
+              />
             </View>
           </View>
         </View>

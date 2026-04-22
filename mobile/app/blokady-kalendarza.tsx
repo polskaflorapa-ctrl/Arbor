@@ -12,11 +12,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { type CalendarBlock, loadCalendarBlocks, saveCalendarBlocks } from '../utils/calendar-blocks';
 
 function isYmd(s: string): boolean {
@@ -70,6 +72,7 @@ export default function BlokadyKalendarzaScreen() {
     };
     await saveCalendarBlocks([next, ...blocks]);
     await refresh();
+    void triggerHaptic('success');
     setModal(false);
   };
 
@@ -95,7 +98,12 @@ export default function BlokadyKalendarzaScreen() {
       <ScreenHeader
         title={t('calendarBlocks.title')}
         right={
-          <TouchableOpacity onPress={openAdd}>
+          <TouchableOpacity
+            onPress={() => {
+              void triggerHaptic('light');
+              openAdd();
+            }}
+          >
             <Ionicons name="add-circle-outline" size={26} color={theme.headerText} />
           </TouchableOpacity>
         }
@@ -109,7 +117,13 @@ export default function BlokadyKalendarzaScreen() {
             <View key={b.id} style={S.card}>
               <View style={S.cardTop}>
                 <Text style={S.cardTitle}>{b.label}</Text>
-                <TouchableOpacity onPress={() => void remove(b.id)} hitSlop={8}>
+                <TouchableOpacity
+                  onPress={() => {
+                    void triggerHaptic('warning');
+                    void remove(b.id);
+                  }}
+                  hitSlop={8}
+                >
                   <Ionicons name="trash-outline" size={20} color={theme.danger} />
                 </TouchableOpacity>
               </View>
@@ -135,9 +149,14 @@ export default function BlokadyKalendarzaScreen() {
               <TouchableOpacity style={S.btnGhost} onPress={() => setModal(false)}>
                 <Text style={S.btnGhostTxt}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={S.btnPrimary} onPress={() => void saveNew()}>
-                <Text style={S.btnPrimaryTxt}>{t('calendarBlocks.save')}</Text>
-              </TouchableOpacity>
+              <PlatinumCTA
+                label={t('calendarBlocks.save')}
+                style={S.btnPrimary}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  void saveNew();
+                }}
+              />
             </View>
           </View>
         </View>
@@ -192,7 +211,6 @@ function makeStyles(theme: Theme) {
     modalRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 8 },
     btnGhost: { paddingVertical: 10, paddingHorizontal: 14 },
     btnGhostTxt: { color: theme.textMuted, fontWeight: '700' },
-    btnPrimary: { backgroundColor: theme.accent, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16 },
-    btnPrimaryTxt: { color: theme.accentText, fontWeight: '800' },
+    btnPrimary: { minWidth: 110 },
   });
 }

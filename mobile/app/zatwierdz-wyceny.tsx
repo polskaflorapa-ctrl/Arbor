@@ -14,6 +14,8 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
+import { triggerHaptic } from '../utils/haptics';
 
 const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
 
@@ -116,6 +118,7 @@ export default function ZatwierdzWycenyScreen() {
 
   const handleApprove = async () => {
     if (!approveForm.ekipa_id) {
+      void triggerHaptic('warning');
       Alert.alert(t('notif.alert.errorTitle'), t('approve.pickTeam'));
       return;
     }
@@ -136,13 +139,16 @@ export default function ZatwierdzWycenyScreen() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        void triggerHaptic('error');
         Alert.alert(t('notif.alert.errorTitle'), err.message || t('approve.approveFail'));
         return;
       }
+      void triggerHaptic('success');
       setApproving(null);
       Alert.alert(t('approve.approvedTitle'), t('approve.approvedBody'));
       loadAll();
     } catch {
+      void triggerHaptic('error');
       Alert.alert(t('notif.alert.errorTitle'), t('approve.serverError'));
       setRuntimeError('Błąd serwera przy zatwierdzaniu wyceny.');
     } finally {
@@ -161,14 +167,17 @@ export default function ZatwierdzWycenyScreen() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        void triggerHaptic('error');
         Alert.alert(t('notif.alert.errorTitle'), err.message || t('approve.rejectFail'));
         return;
       }
+      void triggerHaptic('success');
       setRejecting(null);
       setRejectReason('');
       Alert.alert(t('approve.rejectedTitle'), t('approve.rejectedBody'));
       loadAll();
     } catch {
+      void triggerHaptic('error');
       Alert.alert(t('notif.alert.errorTitle'), t('approve.serverError'));
       setRuntimeError('Błąd serwera przy odrzucaniu wyceny.');
     } finally {
@@ -355,15 +364,13 @@ export default function ZatwierdzWycenyScreen() {
                 <Ionicons name="close-circle-outline" size={16} color={theme.danger} />
                 <Text style={S.rejectBtnText}>{t('approve.btn.reject')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[S.approveBtn, saving && { opacity: 0.6 }]}
-                onPress={handleApprove} disabled={saving}>
-                {saving ? <ActivityIndicator color={theme.accentText} /> : (
-                  <>
-                    <Ionicons name="checkmark-circle-outline" size={16} color={theme.accentText} />
-                    <Text style={S.approveBtnText}>{t('approve.btn.approveCreate')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <PlatinumCTA
+                style={[S.approveBtn, saving && { opacity: 0.6 }]}
+                onPress={handleApprove}
+                disabled={saving}
+                loading={saving}
+                label={t('approve.btn.approveCreate')}
+              />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -392,10 +399,13 @@ export default function ZatwierdzWycenyScreen() {
                 <TouchableOpacity style={S.cancelBtn} onPress={() => setRejecting(null)}>
                   <Text style={S.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[S.rejectConfirmBtn, saving && { opacity: 0.6 }]}
-                  onPress={handleReject} disabled={saving}>
-                  {saving ? <ActivityIndicator color={theme.accentText} /> : <Text style={S.rejectConfirmText}>{t('approve.rejectConfirm')}</Text>}
-                </TouchableOpacity>
+                <PlatinumCTA
+                  style={[S.rejectConfirmBtn, saving && { opacity: 0.6 }]}
+                  onPress={handleReject}
+                  disabled={saving}
+                  loading={saving}
+                  label={t('approve.rejectConfirm')}
+                />
               </View>
             </View>
           </View>
@@ -645,7 +655,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 13, alignItems: 'center',
     flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: t.accent + '66',
   },
-  approveBtnText: { color: t.accentText, fontWeight: '800', fontSize: 14, letterSpacing: 0.35 },
 
   cancelBtn: {
     flex: 1, backgroundColor: t.bg, borderRadius: 10,
@@ -659,5 +668,4 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.danger + '55',
   },
-  rejectConfirmText: { color: t.danger, fontWeight: '700', fontSize: 14 },
 });

@@ -10,6 +10,7 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_BASE_URL, API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { flushOfflineQueue, getOfflineQueueSize } from '../utils/offline-queue';
 import { fetchAndApplyMobileRemoteConfig, getLastReportedApiVersion } from '../utils/mobile-remote-config';
 import { getStoredSession } from '../utils/session';
@@ -361,6 +362,7 @@ export default function ApiDiagnostykaScreen() {
 
   const copyReport = async () => {
     await Clipboard.setStringAsync(buildReport());
+    void triggerHaptic('success');
     Alert.alert(t('apiDiag.alert.copiedTitle'), t('apiDiag.alert.copiedBody'));
   };
 
@@ -375,6 +377,7 @@ export default function ApiDiagnostykaScreen() {
   const clearHistory = async () => {
     await AsyncStorage.removeItem(DIAGNOSTIC_HISTORY_KEY);
     setHistory([]);
+    void triggerHaptic('warning');
     Alert.alert(t('apiDiag.alert.clearedTitle'), t('apiDiag.alert.clearedBody'));
   };
 
@@ -390,6 +393,7 @@ export default function ApiDiagnostykaScreen() {
       const result = await flushOfflineQueue(token);
       setOfflineQueueSize(result.left);
       setLastQueueSyncInfo(result);
+      void triggerHaptic('success');
       Alert.alert(t('apiDiag.alert.syncTitle'), t('apiDiag.alert.syncBody', { flushed: result.flushed, left: result.left }));
     } finally {
       setSyncingQueue(false);
@@ -441,11 +445,24 @@ export default function ApiDiagnostykaScreen() {
     <View style={S.root}>
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            void triggerHaptic('light');
+            router.back();
+          }}
+          style={S.backBtn}
+        >
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>{t('apiDiag.title')}</Text>
-        <TouchableOpacity onPress={() => void runDiagnostics()} style={S.refreshBtn} disabled={running}>
+        <TouchableOpacity
+          onPress={() => {
+            void triggerHaptic('light');
+            void runDiagnostics();
+          }}
+          style={S.refreshBtn}
+          disabled={running}
+        >
           {running ? <ActivityIndicator size="small" color={theme.accent} /> : <Ionicons name="refresh" size={20} color={theme.accent} />}
         </TouchableOpacity>
       </View>

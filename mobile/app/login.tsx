@@ -7,11 +7,13 @@ import {
   Platform, StyleSheet, Text, TextInput,
   TouchableOpacity, View, StatusBar,
 } from 'react-native';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
+import { triggerHaptic } from '../utils/haptics';
 import { saveStoredSession } from '../utils/session';
 
 const LAST_LOGIN_KEY = 'last_login_value';
@@ -90,10 +92,12 @@ export default function Login() {
 
   const handleLogin = async () => {
     if (isLocked) {
+      void triggerHaptic('warning');
       setErrorMessage(t('login.lockError', { seconds: lockSecondsLeft }));
       return;
     }
     if (!login.trim() || !haslo) {
+      void triggerHaptic('warning');
       setErrorMessage(t('login.missingCredentials'));
       return;
     }
@@ -127,6 +131,7 @@ export default function Login() {
           await AsyncStorage.multiRemove([LAST_LOGIN_KEY, REMEMBER_LOGIN_KEY]);
         }
         await saveStoredSession(data.token, data.user);
+        void triggerHaptic('success');
         const { fetchAndApplyMobileRemoteConfig } = await import('../utils/mobile-remote-config');
         void fetchAndApplyMobileRemoteConfig(data.token);
         router.replace('/dashboard');
@@ -144,15 +149,18 @@ export default function Login() {
         setLastAttemptLogin(normalizedLogin);
         setFailedAttempts(nextFailedAttempts);
         if (nextFailedAttempts >= 5) {
+          void triggerHaptic('error');
           const nextLockUntil = Date.now() + 30000;
           setLockUntil(nextLockUntil);
           setNowMs(Date.now());
           setErrorMessage(t('login.locked30'));
         } else {
+          void triggerHaptic('warning');
           setErrorMessage(backendMessage || defaultMessage);
         }
       }
     } catch {
+      void triggerHaptic('error');
       setErrorMessage(t('login.networkError'));
     } finally {
       setLoading(false);
@@ -286,17 +294,13 @@ export default function Login() {
           </View>
         ) : null}
 
-        <TouchableOpacity
+        <PlatinumCTA
           style={[S.btn, !canSubmit && S.btnDisabled]}
+          label={t('login.submit')}
           onPress={handleLogin}
           disabled={!canSubmit}
-          activeOpacity={0.85}
-        >
-          {loading
-            ? <ActivityIndicator color={theme.accentText} />
-            : <Text style={S.btnText}>{t('login.submit')}</Text>
-          }
-        </TouchableOpacity>
+          loading={loading}
+        />
       </View>
 
       <Text style={S.footer}>Arbor Services © 2025</Text>
@@ -428,9 +432,5 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     elevation: 5,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: {
-    color: t.accentText, fontSize: 16,
-    fontWeight: '700', letterSpacing: 0.5,
-  },
   footer: { marginTop: 32, fontSize: 12, color: t.textMuted },
 });

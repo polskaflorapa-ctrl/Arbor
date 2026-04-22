@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
@@ -18,6 +19,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
+import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 
 Notifications.setNotificationHandler({
@@ -85,11 +87,13 @@ export default function Powiadomienia() {
     setPushBusy(true);
     try {
       if (!Device.isDevice) {
+        void triggerHaptic('warning');
         Alert.alert('', 'Push: wymagane fizyczne urządzenie.');
         return;
       }
       const perm = await Notifications.requestPermissionsAsync();
       if (perm.status !== 'granted') {
+        void triggerHaptic('warning');
         Alert.alert('', 'Brak zgody na powiadomienia.');
         return;
       }
@@ -101,6 +105,7 @@ export default function Powiadomienia() {
         : await Notifications.getExpoPushTokenAsync();
       setPushToken(res.data);
     } catch (e: unknown) {
+      void triggerHaptic('error');
       const msg = e instanceof Error ? e.message : String(e);
       Alert.alert('', msg || 'Nie udało się pobrać tokena (EAS projectId?).');
     } finally {
@@ -155,6 +160,7 @@ export default function Powiadomienia() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        void triggerHaptic('success');
         Alert.alert(t('notif.alert.sentTitle'), t('notif.alert.sentBody'));
         setShowForm(false); setTresc(''); setSelectedTask('');
         loadData();
@@ -165,6 +171,7 @@ export default function Powiadomienia() {
           body: payload as Record<string, unknown>,
         });
         setOfflineQueueCount(queued);
+        void triggerHaptic('warning');
         Alert.alert(t('notif.alert.noConnectionTitle'), t('notif.alert.noConnectionBody'));
       }
     } catch {
@@ -174,6 +181,7 @@ export default function Powiadomienia() {
         body: { to_user_id: selectedKierownik, task_id: selectedTask || null, typ: selectedTyp, tresc },
       });
       setOfflineQueueCount(queued);
+      void triggerHaptic('warning');
       Alert.alert(t('notif.alert.offlineTitle'), t('notif.alert.offlineBody'));
     }
     finally { setSending(false); }
@@ -208,7 +216,13 @@ export default function Powiadomienia() {
       <ScreenHeader
         title={t('notif.title')}
         right={
-          <TouchableOpacity style={S.headerActionBtn} onPress={() => setShowForm(!showForm)}>
+          <TouchableOpacity
+            style={S.headerActionBtn}
+            onPress={() => {
+              void triggerHaptic('light');
+              setShowForm(!showForm);
+            }}
+          >
             <Ionicons name={showForm ? 'close' : 'add'} size={24} color={theme.accent} />
           </TouchableOpacity>
         }
@@ -233,24 +247,13 @@ export default function Powiadomienia() {
       >
         <Text style={{ fontWeight: '700', color: theme.text, marginBottom: 6 }}>{t('notifications.push.title')}</Text>
         <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>{t('notifications.push.sub')}</Text>
-        <TouchableOpacity
-          style={{
-            alignSelf: 'flex-start',
-            backgroundColor: theme.accent,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
-            borderRadius: 8,
-            marginBottom: 10,
-          }}
+        <PlatinumCTA
+          label={t('notifications.push.permission')}
+          style={{ alignSelf: 'flex-start', marginBottom: 10 }}
           onPress={() => { void registerPush(); }}
           disabled={pushBusy}
-        >
-          {pushBusy ? (
-            <ActivityIndicator color={theme.accentText} size="small" />
-          ) : (
-            <Text style={{ color: theme.accentText, fontWeight: '700' }}>{t('notifications.push.permission')}</Text>
-          )}
-        </TouchableOpacity>
+          loading={pushBusy}
+        />
         <Text style={{ color: theme.textSub, fontSize: 11, marginBottom: 6 }} selectable>
           {pushToken || t('notifications.push.none')}
         </Text>
@@ -326,11 +329,13 @@ export default function Powiadomienia() {
             value={tresc} onChangeText={setTresc}
             placeholder={t('notif.placeholder.message')} placeholderTextColor={theme.inputPlaceholder} />
 
-          <TouchableOpacity style={[S.sendBtn, sending && { opacity: 0.6 }]} onPress={wyslij} disabled={sending}>
-            {sending ? <ActivityIndicator color={theme.accentText} /> : (
-              <><Ionicons name="send" size={16} color={theme.accentText} /><Text style={S.sendText}>  {t('notif.send')}</Text></>
-            )}
-          </TouchableOpacity>
+          <PlatinumCTA
+            label={t('notif.send')}
+            style={S.sendBtn}
+            onPress={wyslij}
+            disabled={sending}
+            loading={sending}
+          />
           <View style={{ height: 30 }} />
         </ScrollView>
       )}
@@ -417,12 +422,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     fontSize: 14, borderWidth: 1, borderColor: t.inputBorder,
     minHeight: 90, textAlignVertical: 'top', color: t.inputText,
   },
-  sendBtn: {
-    backgroundColor: t.accent, padding: 16, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    marginTop: 16, flexDirection: 'row',
-  },
-  sendText: { color: t.accentText, fontWeight: '700', fontSize: 15 },
+  sendBtn: { marginTop: 16 },
   list: { flex: 1, padding: 14 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: t.text },

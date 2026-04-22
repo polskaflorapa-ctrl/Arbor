@@ -9,6 +9,7 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { getStoredSession } from '../utils/session';
+import { triggerHaptic } from '../utils/haptics';
 
 export default function PomocnikScreen() {
   const { theme } = useTheme();
@@ -52,7 +53,13 @@ export default function PomocnikScreen() {
 
       {/* Header */}
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            void triggerHaptic('light');
+            router.back();
+          }}
+          style={S.backBtn}
+        >
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>

@@ -6,11 +6,13 @@ import {
   StyleSheet, StatusBar, Text, TouchableOpacity, View
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 
 function getCalendarDays(year: number, month: number) {
@@ -319,9 +321,14 @@ export default function HarmonogramScreen() {
               <View style={S.emptyDay}>
                 <Text style={S.emptyDayText}>{t('harmonogram.emptyDay')}</Text>
                 {isManager && (
-                  <TouchableOpacity style={S.addBtn} onPress={() => router.push('/nowe-zlecenie')}>
-                    <Text style={S.addBtnText}>{t('harmonogram.addOrder')}</Text>
-                  </TouchableOpacity>
+                  <PlatinumCTA
+                    label={t('harmonogram.addOrder')}
+                    style={S.addBtn}
+                    onPress={() => {
+                      void triggerHaptic('light');
+                      router.push('/nowe-zlecenie');
+                    }}
+                  />
                 )}
               </View>
             ) : (
@@ -368,9 +375,14 @@ export default function HarmonogramScreen() {
                   </TouchableOpacity>
                 ))}
                 {isManager && (
-                  <TouchableOpacity style={S.addBtn} onPress={() => router.push('/nowe-zlecenie')}>
-                    <Text style={S.addBtnText}>{t('harmonogram.addOrder')}</Text>
-                  </TouchableOpacity>
+                  <PlatinumCTA
+                    label={t('harmonogram.addOrder')}
+                    style={S.addBtn}
+                    onPress={() => {
+                      void triggerHaptic('light');
+                      router.push('/nowe-zlecenie');
+                    }}
+                  />
                 )}
               </>
             )}
@@ -441,12 +453,15 @@ export default function HarmonogramScreen() {
                     <Text style={S.modalRow}>{r.val}</Text>
                   </View>
                 ))}
-                <TouchableOpacity
+                <PlatinumCTA
+                  label={t('harmonogram.openTask')}
                   style={S.openBtn}
-                  onPress={() => { setModalVisible(false); router.push(`/zlecenie/${selectedTask.id}`); }}
-                >
-                  <Text style={S.openBtnText}>{t('harmonogram.openTask')}</Text>
-                </TouchableOpacity>
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    setModalVisible(false);
+                    router.push(`/zlecenie/${selectedTask.id}`);
+                  }}
+                />
               </>
             )}
           </TouchableOpacity>
@@ -504,11 +519,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyDay: { alignItems: 'center', paddingVertical: 20 },
   emptyDayText: { color: t.textMuted, fontSize: 14, marginBottom: 12 },
   addBtn: {
-    backgroundColor: t.bg, borderRadius: 10, paddingVertical: 10,
-    paddingHorizontal: 20, alignItems: 'center', marginTop: 8,
-    borderWidth: 1, borderColor: t.border,
+    marginTop: 8,
   },
-  addBtnText: { color: t.accent, fontWeight: '600', fontSize: 14 },
 
   taskCard: {
     flexDirection: 'row', borderRadius: 12, backgroundColor: t.surface2,
@@ -551,6 +563,5 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: t.text, flex: 1, marginRight: 8 },
   modalRow: { fontSize: 14, color: t.textSub, flex: 1 },
-  openBtn: { backgroundColor: t.accent, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
-  openBtnText: { color: t.accentText, fontWeight: 'bold', fontSize: 15 },
+  openBtn: { marginTop: 16 },
 });

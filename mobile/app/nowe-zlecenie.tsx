@@ -7,12 +7,14 @@ import {
 } from 'react-native';
 import { ErrorBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { enqueueOfflineRequest, flushOfflineQueue } from '../utils/offline-queue';
+import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 import { isPositiveNumber, isValidIsoDate, isValidPolishPhone, isValidTimeHHMM } from '../utils/validators';
 
@@ -113,10 +115,12 @@ export default function NoweZlecenieScreen() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        void triggerHaptic('success');
         Alert.alert(t('newOrder.alert.createdTitle'), t('newOrder.alert.createdBody', { id: data.id }), [
           { text: t('common.ok'), onPress: () => router.back() }
         ]);
       } else {
+        void triggerHaptic('error');
         Alert.alert(t('notif.alert.errorTitle'), data.error || t('newOrder.alert.saveError'));
       }
     } catch {
@@ -125,6 +129,7 @@ export default function NoweZlecenieScreen() {
         method: 'POST',
         body: payload as Record<string, unknown>,
       });
+      void triggerHaptic('warning');
       Alert.alert(t('notif.alert.offlineTitle'), t('newOrder.alert.offlineBody'));
       router.back();
     } finally {
@@ -329,16 +334,13 @@ export default function NoweZlecenieScreen() {
           <TouchableOpacity style={S.cancelBtn} onPress={() => router.back()}>
             <Text style={S.cancelText}>Anuluj</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[S.submitBtn, { backgroundColor: theme.accent }]} onPress={handleSubmit} disabled={saving}>
-            {saving
-              ? <ActivityIndicator color={theme.accentText} />
-              : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="checkmark" size={18} color={theme.accentText} />
-                  <Text style={[S.submitText, { color: theme.accentText }]}>Utwórz zlecenie</Text>
-                </View>
-              )}
-          </TouchableOpacity>
+          <PlatinumCTA
+            label="Utwórz zlecenie"
+            style={S.submitBtn}
+            onPress={handleSubmit}
+            disabled={saving}
+            loading={saving}
+          />
         </View>
       </ScrollView>
     </KeyboardSafeScreen>
@@ -390,6 +392,5 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center', borderWidth: 1, borderColor: t.border,
   },
   cancelText: { color: t.textMuted, fontWeight: '600', fontSize: 15 },
-  submitBtn: { flex: 2, padding: 16, borderRadius: 12, alignItems: 'center' },
-  submitText: { fontWeight: 'bold', fontSize: 15 },
+  submitBtn: { flex: 2 },
 });

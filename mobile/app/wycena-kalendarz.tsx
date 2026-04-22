@@ -12,11 +12,13 @@ import {
 import { useLanguage } from '../constants/LanguageContext';
 import { API_URL } from '../constants/api';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { elevationCard } from '../constants/elevation';
+import { triggerHaptic } from '../utils/haptics';
 
 const WYCENA_ROLES = ['Wyceniający', 'Kierownik', 'Administrator', 'Dyrektor'];
 
@@ -216,7 +218,6 @@ function makeCalendarStyles(t: Theme) {
       marginHorizontal: 20, marginTop: 8, alignItems: 'center', borderWidth: 1, borderColor: platinumBorder,
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitBtnText: { color: t.accentText, fontWeight: '800', fontSize: 16, letterSpacing: 0.35 },
   });
 }
 
@@ -460,14 +461,17 @@ export default function WycenaKalendarzScreen() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        void triggerHaptic('error');
         Alert.alert(t('wyceny.alert.saveFail'), err.message || t('wycenyCal.alert.saveFail'));
         return;
       }
+      void triggerHaptic('success');
       setShowModal(false);
       resetForm();
       loadAll();
       Alert.alert(t('wycenyCal.alert.sentTitle'), t('wycenyCal.alert.sentBody'));
     } catch {
+      void triggerHaptic('error');
       Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.network'));
       setRuntimeError('Błąd serwera przy zapisie wyceny.');
     } finally {
@@ -523,15 +527,18 @@ export default function WycenaKalendarzScreen() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        void triggerHaptic('error');
         Alert.alert('Błąd', err.error || 'Nie udało się zapisać rezerwacji.');
         return;
       }
+      void triggerHaptic('success');
       Alert.alert('Gotowe', 'Termin zarezerwowany wstępnie. Czeka na akceptację specjalisty.');
       setReserveModal(null);
       setReserveDiag(null);
       setReserveRuleWarning('');
       loadAll();
     } catch {
+      void triggerHaptic('error');
       Alert.alert('Błąd', 'Błąd sieci podczas zapisu rezerwacji.');
       setRuntimeError('Błąd serwera przy zapisie rezerwacji.');
     }
@@ -897,16 +904,13 @@ export default function WycenaKalendarzScreen() {
               </Text>
             </ScrollView>
 
-            <TouchableOpacity
+            <PlatinumCTA
               style={[s.submitBtn, saving && s.submitBtnDisabled]}
+              label={t('wycenyCal.submit')}
               onPress={handleSubmit}
               disabled={saving}
-            >
-              {saving
-                ? <ActivityIndicator color={theme.accentText} />
-                : <Text style={s.submitBtnText}>{t('wycenyCal.submit')}</Text>
-              }
-            </TouchableOpacity>
+              loading={saving}
+            />
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1001,9 +1005,13 @@ export default function WycenaKalendarzScreen() {
                 ))}
               </ScrollView>
             </ScrollView>
-            <TouchableOpacity style={s.submitBtn} onPress={saveReservation}>
-              <Text style={s.submitBtnText}>Zapisz rezerwację</Text>
-            </TouchableOpacity>
+            <PlatinumCTA
+              style={s.submitBtn}
+              label="Zapisz rezerwację"
+              onPress={saveReservation}
+              loading={saving}
+              disabled={saving}
+            />
           </View>
         </KeyboardAvoidingView>
       </Modal>

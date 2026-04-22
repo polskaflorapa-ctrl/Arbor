@@ -17,11 +17,13 @@ import {
 } from 'react-native';
 import { OfflineQueueBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { triggerHaptic } from '../utils/haptics';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { getStoredSession } from '../utils/session';
 
@@ -194,6 +196,7 @@ export default function RaportDzienny() {
       });
 
       setExistingReport({ id: res.data.id, status: 'Roboczy' });
+      void triggerHaptic('success');
       Alert.alert(t('dailyReport.alert.savedTitle'), t('dailyReport.alert.savedBody'));
     } catch {
       const queued = await queueRequestWithOfflineFallback({
@@ -201,6 +204,7 @@ export default function RaportDzienny() {
         method: 'POST',
         body: payload as Record<string, unknown>,
       });
+      void triggerHaptic('warning');
       setOfflineQueueCount(queued);
       Alert.alert(t('dailyReport.offlineTitle'), t('dailyReport.alert.offlineSave'));
     } finally {
@@ -231,6 +235,7 @@ export default function RaportDzienny() {
               await axios.post(`${API_URL}/raporty-dzienne/${existingReport.id}/wyslij`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
               });
+              void triggerHaptic('success');
               Alert.alert(t('dailyReport.alert.sentTitle'), t('dailyReport.alert.sentBody'));
               setExistingReport(r => (r ? { ...r, status: 'Wyslany' } : r));
             } catch {
@@ -239,6 +244,7 @@ export default function RaportDzienny() {
                 method: 'POST',
                 body: {},
               });
+              void triggerHaptic('warning');
               setOfflineQueueCount(queued);
               Alert.alert(t('dailyReport.offlineTitle'), t('dailyReport.alert.offlineSend'));
             } finally {
@@ -457,19 +463,20 @@ export default function RaportDzienny() {
 
       {/* Przyciski */}
       <View style={S.btnRow}>
-        <TouchableOpacity style={[S.saveBtn, { backgroundColor: theme.surface }]} onPress={saveRaport} disabled={saving}>
-          {saving
-            ? <ActivityIndicator color={theme.accent} />
-            : <><Ionicons name="save-outline" size={16} color={theme.accent} /><Text style={[S.saveBtnText, { color: theme.accent }]}>Zapisz</Text></>}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[S.sendBtn, { backgroundColor: theme.success }, (!existingReport || !podpisData) && S.btnDisabled]}
+        <PlatinumCTA
+          label="Zapisz"
+          style={S.saveBtn}
+          onPress={saveRaport}
+          disabled={saving}
+          loading={saving}
+        />
+        <PlatinumCTA
+          label="Wyślij"
+          style={[S.sendBtn, (!existingReport || !podpisData) && S.btnDisabled]}
           onPress={wyslijRaport}
-          disabled={sending || !existingReport || !podpisData}>
-          {sending
-            ? <ActivityIndicator color={theme.accentText} />
-            : <><Ionicons name="send-outline" size={16} color={theme.accentText} /><Text style={[S.sendBtnText, { color: theme.accentText }]}>Wyślij</Text></>}
-        </TouchableOpacity>
+          disabled={sending || !existingReport || !podpisData}
+          loading={sending}
+        />
       </View>
 
       {/* Modal podpisu */}
@@ -585,10 +592,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   podpisBtn: { borderWidth: 1, borderRadius: 12, padding: 20, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
   podpisBtnText: { fontSize: 15, fontWeight: '600' },
   btnRow: { flexDirection: 'row', gap: 12, margin: 12 },
-  saveBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: 'transparent' },
-  saveBtnText: { fontSize: 14, fontWeight: '700' },
-  sendBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  sendBtnText: { fontSize: 14, fontWeight: '700' },
+  saveBtn: { flex: 1 },
+  sendBtn: { flex: 1, backgroundColor: t.success },
   btnDisabled: { opacity: 0.5 },
 });
 
