@@ -15,16 +15,22 @@ import { getStoredSession } from '../utils/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 
-const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor'];
+const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
 
-const TABS = ['oczekuje', 'zatwierdzono', 'odrzucono'] as const;
+const TABS = ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty', 'zatwierdzono', 'odrzucono'] as const;
 type TabKey = typeof TABS[number];
 
 const tabLabelKey = (k: TabKey) =>
-  k === 'oczekuje' ? 'approve.tab.pending' : k === 'zatwierdzono' ? 'approve.tab.approved' : 'approve.tab.rejected';
+  k === 'oczekuje' ? 'approve.tab.pending'
+    : k === 'rezerwacja_wstepna' ? 'Rezerwacja'
+      : k === 'do_specjalisty' ? 'Do specjalisty'
+        : k === 'zatwierdzono' ? 'approve.tab.approved' : 'approve.tab.rejected';
 
 const tabEmptyKey = (k: TabKey) =>
-  k === 'oczekuje' ? 'approve.empty.pending' : k === 'zatwierdzono' ? 'approve.empty.approved' : 'approve.empty.rejected';
+  k === 'oczekuje' ? 'approve.empty.pending'
+    : k === 'rezerwacja_wstepna' ? 'Brak rezerwacji do zatwierdzenia'
+      : k === 'do_specjalisty' ? 'Brak pozycji do specjalisty'
+        : k === 'zatwierdzono' ? 'approve.empty.approved' : 'approve.empty.rejected';
 
 export default function ZatwierdzWycenyScreen() {
   const { theme } = useTheme();
@@ -32,6 +38,8 @@ export default function ZatwierdzWycenyScreen() {
   const { t } = useLanguage();
   const statusColor = useMemo(() => ({
     oczekuje: theme.warning,
+    rezerwacja_wstepna: theme.success,
+    do_specjalisty: theme.info,
     zatwierdzono: theme.success,
     odrzucono: theme.danger,
   }), [theme]);
@@ -95,9 +103,9 @@ export default function ZatwierdzWycenyScreen() {
 
   const openApprove = (w: any) => {
     setApproveForm({
-      ekipa_id: w.ekipa_id || '',
-      data: (w.data_wykonania || '').slice(0, 10),
-      godzina: (w.godzina_rozpoczecia || '').slice(0, 5),
+      ekipa_id: w.proponowana_ekipa_id || w.ekipa_id || '',
+      data: (w.proponowana_data || w.data_wykonania || '').slice(0, 10),
+      godzina: (w.proponowana_godzina || w.godzina_rozpoczecia || '').slice(0, 5),
       wartosc: w.wartosc_planowana ? String(w.wartosc_planowana) : w.wartosc_szacowana ? String(w.wartosc_szacowana) : '',
       uwagi: '',
     });
@@ -394,6 +402,8 @@ function WycenaItem({
   const S = makeStyles(theme);
   const statusMap = {
     oczekuje: theme.warning,
+    rezerwacja_wstepna: theme.success,
+    do_specjalisty: theme.info,
     zatwierdzono: theme.success,
     odrzucono: theme.danger,
   } as const;
@@ -439,6 +449,7 @@ function WycenaItem({
         </View>
       </TouchableOpacity>
       {tab === 'oczekuje' && (
+      {(tab === 'oczekuje' || tab === 'rezerwacja_wstepna' || tab === 'do_specjalisty') && (
         <View style={S.actionRow}>
           <TouchableOpacity style={S.rejectBtn} onPress={onReject}>
             <Ionicons name="close-circle-outline" size={14} color={theme.danger} />

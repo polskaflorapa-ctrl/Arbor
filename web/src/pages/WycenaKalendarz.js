@@ -21,12 +21,14 @@ const USLUGI = [
 
 const STATUS_KOLOR = {
   oczekuje: '#F59E0B',
+  rezerwacja_wstepna: '#22C55E',
   do_specjalisty: '#60A5FA',
   zatwierdzono: '#34D399',
   odrzucono: '#EF4444',
 };
 const STATUS_LABEL = {
   oczekuje: '⏳ Oczekuje',
+  rezerwacja_wstepna: '📌 Rezerwacja wstępna',
   do_specjalisty: '🧠 Do specjalisty',
   zatwierdzono: '✅ Zatwierdzone',
   odrzucono: '❌ Odrzucone',
@@ -46,6 +48,21 @@ function getCalDays(year, month) {
 function fmt(v) {
   if (!v) return '—';
   return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(v);
+}
+
+function etaReasonLabel(reason) {
+  if (reason === 'no_target_point') return 'brak pinezki klienta';
+  if (reason === 'no_team_gps') return 'brak sygnału GPS ekipy';
+  return '';
+}
+
+function pickBestOperationalSlot(slots, etaThresholdMinutes) {
+  const withEta = (slots || []).filter((s) => s.eta_minutes != null);
+  const safeEta = withEta.filter((s) => Number(s.eta_minutes) <= etaThresholdMinutes);
+  if (safeEta.length > 0) return { best: safeEta[0], warning: '' };
+  if (withEta.length > 0) return { best: withEta[0], warning: `Brak slotu ETA <= ${etaThresholdMinutes} min. Wybrano najlepszy dostępny.` };
+  const fallback = (slots || [])[0] || null;
+  return { best: fallback, warning: 'Brak slotów z ETA. Sprawdź GPS/pinezkę klienta.' };
 }
 
 export default function WycenaKalendarz() {
@@ -73,6 +90,12 @@ export default function WycenaKalendarz() {
   const [annotateFile, setAnnotateFile] = useState(null);
   const [annotatedPayloads, setAnnotatedPayloads] = useState([]);
   const [videoFiles, setVideoFiles] = useState([]);
+  const [reserveDraft, setReserveDraft] = useState(null);
+  const [reserveDiag, setReserveDiag] = useState(null);
+  const [reserveRuleWarning, setReserveRuleWarning] = useState('');
+  const [slotLoading, setSlotLoading] = useState(false);
+  const [liveByTeam, setLiveByTeam] = useState({});
+  const [etaThreshold, setEtaThreshold] = useState(25);
 
   const [form, setForm] = useState({
     klient_nazwa: '',
@@ -88,6 +111,36 @@ export default function WycenaKalendarz() {
     wycena_uwagi: '',
   });
 
+  useEffect(() => {
+    const raw = localStorage.getItem(`arbor_eta_threshold_${user?.id || 'global'}`);
+    const val = Number(raw);
+    if ([20, 25, 30].includes(val)) setEtaThreshold(val);
+  }, [user?.id]);
+
+  const setEtaThresholdPersisted = (next) => {
+    setEtaThreshold(next);
+    localStorage.setItem(`arbor_eta_threshold_${user?.id || 'global'}`, String(next));
+  };
+
+  const gpsAgeMin = (iso) => {
+    if (!iso) return null;
+    const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    return Number.isFinite(m) ? Math.max(0, m) : null;
+  };
+
+  const dataQualityFlags = (w) => {
+    const hasGeo = Number.isFinite(Number(w.lat)) && Number.isFinite(Number(w.lon));
+    const teamId = String(w.proponowana_ekipa_id || w.ekipa_id || '');
+    const live = teamId ? liveByTeam[teamId] : null;
+    const ageMin = gpsAgeMin(live?.recorded_at);
+    return {
+      noPin: !hasGeo,
+      noGps: Boolean(teamId) && !live,
+      staleGps: Boolean(live) && ageMin != null && ageMin > 15,
+      gpsAge: ageMin,
+    };
+  };
+
   const load = useCallback(async () => {
     try {
       const token = getStoredToken();
@@ -95,17 +148,24 @@ export default function WycenaKalendarz() {
       const u = getLocalStorageJson('user', {});
       setUser(u);
       const h = authHeaders(token);
-      const [wRes, eRes, oRes, ogRes] = await Promise.all([
+      const [wRes, eRes, oRes, ogRes, liveRes] = await Promise.all([
         api.get('/wyceny', { headers: h }),
         api.get('/ekipy', { headers: h }),
         api.get('/oddzialy', { headers: h }),
         api.get('/ogledziny', { headers: h }).catch(() => ({ data: [] })),
+        api.get('/ekipy/live-locations', { headers: h }).catch(() => ({ data: { items: [] } })),
       ]);
       setWyceny(Array.isArray(wRes.data) ? wRes.data : (wRes.data.wyceny || []));
       setEkipy(eRes.data.ekipy || eRes.data || []);
       setOddzialy(oRes.data.oddzialy || oRes.data || []);
       const og = Array.isArray(ogRes.data) ? ogRes.data : (ogRes.data?.ogledziny || []);
       setOgledziny(og);
+      const liveItems = Array.isArray(liveRes.data?.items) ? liveRes.data.items : [];
+      const map = {};
+      for (const item of liveItems) {
+        if (item?.ekipa_id != null) map[String(item.ekipa_id)] = item;
+      }
+      setLiveByTeam(map);
       if (u?.oddzial_id) setForm(f => ({ ...f, oddzial_id: u.oddzial_id.toString() }));
     } catch (e) { console.error(e); }
   }, [navigate]);
@@ -201,6 +261,73 @@ export default function WycenaKalendarz() {
       load();
     } catch (err) {
       setMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, err.message)}`));
+    }
+  };
+
+  const openReserve = async (w) => {
+    const data = (w.data_wykonania || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+    const ekipa_id = String(w.proponowana_ekipa_id || w.ekipa_id || '');
+    const godzina = (w.proponowana_godzina || w.godzina_rozpoczecia || '08:00').slice(0, 5);
+    const draft = { wycenaId: w.id, data, ekipa_id, godzina, slots: [] };
+    setReserveDraft(draft);
+    setReserveDiag(null);
+    setReserveRuleWarning('');
+    if (!ekipa_id) return;
+    try {
+      setSlotLoading(true);
+      const token = getStoredToken();
+      const res = await api.get(`/wyceny/availability/slots?ekipa_id=${encodeURIComponent(ekipa_id)}&data=${encodeURIComponent(data)}&exclude_wycena_id=${w.id}&wycena_id=${w.id}`, { headers: authHeaders(token) });
+      const slots = (Array.isArray(res.data?.items) ? res.data.items : []).sort((a, b) => (b.score || 0) - (a.score || 0));
+      const picked = pickBestOperationalSlot(slots, etaThreshold);
+      setReserveDraft((prev) => (prev ? { ...prev, slots, godzina: picked.best?.time || prev.godzina } : prev));
+      setReserveDiag(res.data?.diagnostics || null);
+      setReserveRuleWarning(picked.warning);
+    } catch {
+      setReserveDraft((prev) => (prev ? { ...prev, slots: [] } : prev));
+    } finally {
+      setSlotLoading(false);
+    }
+  };
+
+  const fetchSlotsForDraft = async (draft, thresholdOverride = null) => {
+    if (!draft?.ekipa_id || !draft?.data) return;
+    try {
+      setSlotLoading(true);
+      const token = getStoredToken();
+      const res = await api.get(`/wyceny/availability/slots?ekipa_id=${encodeURIComponent(draft.ekipa_id)}&data=${encodeURIComponent(draft.data)}&exclude_wycena_id=${draft.wycenaId}&wycena_id=${draft.wycenaId}`, { headers: authHeaders(token) });
+      const slots = (Array.isArray(res.data?.items) ? res.data.items : []).sort((a, b) => (b.score || 0) - (a.score || 0));
+      const picked = pickBestOperationalSlot(slots, thresholdOverride ?? etaThreshold);
+      setReserveDraft((prev) => (prev ? { ...prev, slots, godzina: picked.best?.time || prev.godzina } : prev));
+      setReserveDiag(res.data?.diagnostics || null);
+      setReserveRuleWarning(picked.warning);
+    } catch {
+      setReserveDraft((prev) => (prev ? { ...prev, slots: [] } : prev));
+      setReserveDiag(null);
+      setReserveRuleWarning('');
+    } finally {
+      setSlotLoading(false);
+    }
+  };
+
+  const zapiszRezerwacje = async () => {
+    if (!reserveDraft?.wycenaId || !reserveDraft?.ekipa_id || !reserveDraft?.data || !reserveDraft?.godzina) {
+      setMsg(warningMessage('Uzupełnij ekipę, datę i godzinę rezerwacji.'));
+      return;
+    }
+    try {
+      const token = getStoredToken();
+      await api.post(`/wyceny/${reserveDraft.wycenaId}/rezerwuj-termin`, {
+        ekipa_id: reserveDraft.ekipa_id,
+        data_wykonania: reserveDraft.data,
+        godzina_rozpoczecia: reserveDraft.godzina,
+      }, { headers: authHeaders(token) });
+      setMsg(successMessage('Termin ekipy zarezerwowany wstępnie. Specjalista może teraz zatwierdzić.'));
+      setReserveDraft(null);
+      setReserveDiag(null);
+      setReserveRuleWarning('');
+      load();
+    } catch (err) {
+      setMsg(errorMessage(`Błąd rezerwacji: ${getApiErrorMessage(err, err.message)}`));
     }
   };
 
@@ -399,6 +526,16 @@ export default function WycenaKalendarz() {
           )}
           {calView !== 'ogledziny' && wycenyWybrany.length > 0 && wycenyWybrany.map(w => (
               <div key={w.id} style={S.wycenaCard} onClick={() => setWybranaWycena(wybranaWycena?.id === w.id ? null : w)}>
+                {(() => {
+                  const q = dataQualityFlags(w);
+                  return (q.noPin || q.noGps || q.staleGps) ? (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                      {q.noPin ? <span style={{ ...S.metaChip, color: '#F59E0B' }}>Brak pinezki klienta</span> : null}
+                      {q.noGps ? <span style={{ ...S.metaChip, color: '#F87171' }}>Brak GPS ekipy</span> : null}
+                      {q.staleGps ? <span style={{ ...S.metaChip, color: '#F87171' }}>Stary GPS ({q.gpsAge} min)</span> : null}
+                    </div>
+                  ) : null;
+                })()}
                 <div style={S.wycenaTop}>
                   <div style={{ flex: 1 }}>
                     <div style={S.wycenaKlient}>{w.klient_nazwa || w.adres}</div>
@@ -422,10 +559,15 @@ export default function WycenaKalendarz() {
                     {w.czas_planowany_godziny && <div style={S.detailRow}><span style={S.detailLabel}>Czas:</span><span style={S.detailVal}>{w.czas_planowany_godziny}h</span></div>}
                     {w.wyceniajacy_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Wyceniający:</span><span style={S.detailVal}>{w.wyceniajacy_nazwa}</span></div>}
                     {w.zatwierdzone_przez_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Zatwierdził:</span><span style={S.detailVal}>{w.zatwierdzone_przez_nazwa}</span></div>}
-                    {w.status_akceptacji === 'oczekuje' && (
-                      <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); oznaczKlientAkceptuje(w.id); }}>
-                        Klient zaakceptował → do specjalisty
-                      </button>
+                    {(w.status_akceptacji === 'oczekuje' || w.status_akceptacji === 'rezerwacja_wstepna') && (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); openReserve(w); }}>
+                          Rezerwuj termin ekipy
+                        </button>
+                        <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); oznaczKlientAkceptuje(w.id); }}>
+                          Klient zaakceptował → do specjalisty
+                        </button>
+                      </div>
                     )}
                     {w.status_akceptacji === 'zatwierdzono' && w.task_id && (
                       <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); navigate(`/zlecenia/${w.task_id}`); }}>
@@ -642,6 +784,100 @@ export default function WycenaKalendarz() {
             setAnnotateFile(null);
           }}
         />
+      )}
+      {reserveDraft && (
+        <div style={S.overlay} onClick={() => setReserveDraft(null)}>
+          <div style={S.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <div style={S.modalTitle}>📌 Rezerwacja terminu ekipy</div>
+              <button style={S.closeBtn} onClick={() => setReserveDraft(null)}>✕</button>
+            </div>
+            <div style={S.form}>
+              <div style={S.fieldWrap}>
+                <label style={S.label}>Ekipa</label>
+                <select style={S.input} value={reserveDraft.ekipa_id} onChange={(e) => {
+                  const next = { ...reserveDraft, ekipa_id: e.target.value };
+                  setReserveDraft(next);
+                  fetchSlotsForDraft(next);
+                }}>
+                  <option value="">— wybierz ekipę —</option>
+                  {ekipy.map((e) => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
+                </select>
+              </div>
+              <div style={S.row2}>
+                <div style={S.fieldWrap}>
+                  <label style={S.label}>Data</label>
+                  <input style={S.input} type="date" value={reserveDraft.data} onChange={(e) => {
+                    const next = { ...reserveDraft, data: e.target.value };
+                    setReserveDraft(next);
+                    fetchSlotsForDraft(next);
+                  }} />
+                </div>
+                <div style={S.fieldWrap}>
+                  <label style={S.label}>Godzina (ręcznie)</label>
+                  <input style={S.input} type="time" value={reserveDraft.godzina} onChange={(e) => setReserveDraft((p) => ({ ...p, godzina: e.target.value }))} />
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Proponowane wolne sloty:
+              </div>
+              {reserveDiag ? (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  ETA: {reserveDiag.eta_available ? 'dostępne' : `niedostępne (${etaReasonLabel(reserveDiag.eta_unavailable_reason) || 'brak danych'})`}
+                  {reserveDiag.target_source === 'task_pin' ? ' • punkt: pin zadania' : ''}
+                  {reserveDiag.target_source === 'wycena' ? ' • punkt: wycena' : ''}
+                  {reserveDiag.team_gps_age_min != null ? ` • wiek GPS: ${reserveDiag.team_gps_age_min} min` : ''}
+                </div>
+              ) : null}
+              {reserveRuleWarning ? (
+                <div style={{ fontSize: 12, color: '#F59E0B' }}>{reserveRuleWarning}</div>
+              ) : null}
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Najpierw pokazujemy sloty z ETA, potem bez ETA.
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                Próg ETA: {etaThreshold} min
+                <div style={{ display: 'inline-flex', gap: 6, marginLeft: 8 }}>
+                  {[20, 25, 30].map((v) => (
+                    <button key={v} type="button" style={{ ...S.ekipaPill, opacity: etaThreshold === v ? 1 : 0.75 }} onClick={() => {
+                      setEtaThresholdPersisted(v);
+                      if (reserveDraft) fetchSlotsForDraft(reserveDraft, v);
+                    }}>
+                      {v}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={S.ekipyGrid}>
+                {slotLoading ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Liczenie slotów...</span> : null}
+                {!slotLoading && reserveDraft.slots?.length === 0 ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Brak sugestii dla tej daty.</span> : null}
+                {(reserveDraft.slots || []).filter((s) => s.eta_minutes != null).map((slotObj) => (
+                  <button key={slotObj.time || slotObj} type="button" style={S.ekipaPill} onClick={() => setReserveDraft((p) => ({ ...p, godzina: slotObj.time || slotObj }))}>
+                    {(slotObj.time || slotObj)}
+                    {slotObj.eta_minutes != null ? ` • ETA ${slotObj.eta_minutes} min` : ''}
+                    {slotObj.eta_source === 'task_pin' ? ' • pin' : ''}
+                    {slotObj.eta_minutes == null && slotObj.eta_unavailable_reason ? ` • ${etaReasonLabel(slotObj.eta_unavailable_reason)}` : ''}
+                  </button>
+                ))}
+              </div>
+              {(reserveDraft.slots || []).some((s) => s.eta_minutes == null) ? (
+                <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 4 }}>Sloty bez ETA (niższy priorytet):</div>
+              ) : null}
+              <div style={S.ekipyGrid}>
+                {(reserveDraft.slots || []).filter((s) => s.eta_minutes == null).map((slotObj) => (
+                  <button key={slotObj.time || slotObj} type="button" style={{ ...S.ekipaPill, opacity: 0.85 }} onClick={() => setReserveDraft((p) => ({ ...p, godzina: slotObj.time || slotObj }))}>
+                    {(slotObj.time || slotObj)}
+                    {slotObj.eta_unavailable_reason ? ` • ${etaReasonLabel(slotObj.eta_unavailable_reason)}` : ''}
+                  </button>
+                ))}
+              </div>
+              <div style={S.formBtns}>
+                <button type="button" style={S.cancelBtn} onClick={() => setReserveDraft(null)}>Anuluj</button>
+                <button type="button" style={S.submitBtn} onClick={zapiszRezerwacje}>Zapisz rezerwację</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

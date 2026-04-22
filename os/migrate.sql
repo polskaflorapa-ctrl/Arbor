@@ -143,6 +143,13 @@ CREATE INDEX IF NOT EXISTS idx_wyceny_autor         ON wyceny(autor_id);
 CREATE INDEX IF NOT EXISTS idx_wyceny_status        ON wyceny(status);
 CREATE INDEX IF NOT EXISTS idx_wyceny_status_akc    ON wyceny(status_akceptacji);
 CREATE INDEX IF NOT EXISTS idx_wyceny_zdjecia_wycena ON wyceny_zdjecia(wycena_id);
+ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_ekipa_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
+ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_data DATE;
+ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_godzina TIME;
+ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_przez INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_at TIMESTAMP;
+ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS rezerwacja_wygasa_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_wyceny_proponowana_ekipa_data ON wyceny(proponowana_ekipa_id, proponowana_data);
 
 -- ─── 6. KLIENCI ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS klienci (

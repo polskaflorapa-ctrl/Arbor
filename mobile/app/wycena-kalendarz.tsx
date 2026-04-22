@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../constants/ThemeContext';
@@ -33,6 +34,8 @@ const USLUGI_OPTIONS: { apiValue: string; labelKey: string }[] = [
 function approvalStatusColors(theme: Theme) {
   return {
     oczekuje: theme.warning,
+    rezerwacja_wstepna: theme.success,
+    do_specjalisty: theme.info,
     zatwierdzono: theme.success,
     odrzucono: theme.danger,
   };
@@ -184,6 +187,10 @@ function wycenaApprovalTabKey(status: string | undefined): string | null {
   switch (status) {
     case 'oczekuje':
       return 'approve.tab.pending';
+    case 'rezerwacja_wstepna':
+      return 'Rezerwacja wstępna';
+    case 'do_specjalisty':
+      return 'approve.tab.toSpecialist';
     case 'zatwierdzono':
       return 'approve.tab.approved';
     case 'odrzucono':
@@ -191,6 +198,15 @@ function wycenaApprovalTabKey(status: string | undefined): string | null {
     default:
       return null;
   }
+}
+
+function pickBestOperationalSlot(slots: Array<{ time: string; eta_minutes?: number | null }>, etaThresholdMinutes: number) {
+  const withEta = (slots || []).filter((s) => s.eta_minutes != null);
+  const safeEta = withEta.filter((s) => Number(s.eta_minutes) <= etaThresholdMinutes);
+  if (safeEta.length > 0) return { best: safeEta[0], warning: '' };
+  if (withEta.length > 0) return { best: withEta[0], warning: `Brak slotu ETA <= ${etaThresholdMinutes} min. Wybrano najlepszy dostępny.` };
+  const fallback = (slots || [])[0] || null;
+  return { best: fallback, warning: 'Brak slotów z ETA. Sprawdź GPS/pinezkę klienta.' };
 }
 
 export default function WycenaKalendarzScreen() {
@@ -238,6 +254,13 @@ export default function WycenaKalendarzScreen() {
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
+  const [reserveModal, setReserveModal] = useState<any | null>(null);
+  const [reserveDraft, setReserveDraft] = useState({ ekipa_id: '', data: '', godzina: '08:00', slots: [] as Array<{ time: string; score?: number; eta_minutes?: number | null; eta_source?: string | null; eta_unavailable_reason?: string | null }> });
+  const [reserveDiag, setReserveDiag] = useState<{ eta_available?: boolean; eta_unavailable_reason?: string | null; target_source?: string | null; team_gps_age_min?: number | null } | null>(null);
+  const [reserveRuleWarning, setReserveRuleWarning] = useState('');
+  const [slotLoading, setSlotLoading] = useState(false);
+  const [etaThreshold, setEtaThreshold] = useState(25);
+  const [liveByTeam, setLiveByTeam] = useState<Record<string, any>>({});
   const [form, setForm] = useState({
     klient_nazwa: '',
     adres: '',
@@ -258,6 +281,25 @@ export default function WycenaKalendarzScreen() {
     return `${y}-${m}-${day}`;
   }
 
+  const etaReasonLabel = (reason?: string | null) => {
+    if (reason === 'no_target_point') return 'brak pinezki klienta';
+    if (reason === 'no_team_gps') return 'brak sygnału GPS ekipy';
+    return '';
+  };
+
+  useEffect(() => {
+    (async () => {
+      const raw = await AsyncStorage.getItem(`arbor_eta_threshold_${user?.id || 'global'}`);
+      const val = Number(raw);
+      if ([20, 25, 30].includes(val)) setEtaThreshold(val);
+    })();
+  }, [user?.id]);
+
+  const setEtaThresholdPersisted = async (next: number) => {
+    setEtaThreshold(next);
+    await AsyncStorage.setItem(`arbor_eta_threshold_${user?.id || 'global'}`, String(next));
+  };
+
   const loadAll = useCallback(
     async (tokenOverride?: string, sessionUser?: { id?: unknown; rola?: string } | null) => {
       try {
@@ -273,6 +315,7 @@ export default function WycenaKalendarzScreen() {
           fetch(`${API_URL}/ekipy`, { headers }),
           fetch(`${API_URL}/oddzialy`, { headers }),
         ]);
+        const liveRes = await fetch(`${API_URL}/ekipy/live-locations`, { headers }).catch(() => null);
         if (wRes.ok) {
           const wData = await wRes.json();
           let list = Array.isArray(wData) ? wData : wData.wyceny || [];
@@ -281,6 +324,17 @@ export default function WycenaKalendarzScreen() {
         }
         if (eRes.ok) setEkipy(await eRes.json());
         if (oRes.ok) setOddzialy(await oRes.json());
+        if (liveRes && liveRes.ok) {
+          const liveData = await liveRes.json().catch(() => ({ items: [] }));
+          const map: Record<string, any> = {};
+          const items = Array.isArray(liveData?.items) ? liveData.items : [];
+          for (const item of items) {
+            if (item?.ekipa_id != null) map[String(item.ekipa_id)] = item;
+          }
+          setLiveByTeam(map);
+        } else {
+          setLiveByTeam({});
+        }
       } catch {
         setWyceny([]);
       } finally {
@@ -375,6 +429,67 @@ export default function WycenaKalendarzScreen() {
       Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.network'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openReserveModal = async (w: any) => {
+    const ekipa_id = String(w.proponowana_ekipa_id || w.ekipa_id || '');
+    const data = (w.proponowana_data || w.data_wykonania || '').slice(0, 10) || formatDate(new Date());
+    const godzina = (w.proponowana_godzina || w.godzina_rozpoczecia || '08:00').slice(0, 5);
+    const next = { ekipa_id, data, godzina, slots: [] as string[] };
+    setReserveModal(w);
+    setReserveDraft(next);
+    setReserveDiag(null);
+    setReserveRuleWarning('');
+    if (ekipa_id) await fetchSlots(next, w.id);
+  };
+
+  const fetchSlots = async (draft: { ekipa_id: string; data: string }, wycenaId: number, thresholdOverride: number | null = null) => {
+    if (!draft.ekipa_id || !draft.data || !token) return;
+    try {
+      setSlotLoading(true);
+      const res = await fetch(`${API_URL}/wyceny/availability/slots?ekipa_id=${encodeURIComponent(draft.ekipa_id)}&data=${encodeURIComponent(draft.data)}&exclude_wycena_id=${wycenaId}&wycena_id=${wycenaId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      const slots = (Array.isArray(data?.items) ? data.items : []).sort((a, b) => (b.score || 0) - (a.score || 0));
+      const picked = pickBestOperationalSlot(slots, thresholdOverride ?? etaThreshold);
+      setReserveDraft((prev) => ({ ...prev, slots, godzina: picked.best?.time || prev.godzina }));
+      setReserveDiag(data?.diagnostics || null);
+      setReserveRuleWarning(picked.warning);
+    } finally {
+      setSlotLoading(false);
+    }
+  };
+
+  const saveReservation = async () => {
+    if (!reserveModal || !token) return;
+    if (!reserveDraft.ekipa_id || !reserveDraft.data || !reserveDraft.godzina) {
+      Alert.alert('Brak danych', 'Wybierz ekipę, datę i godzinę.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/wyceny/${reserveModal.id}/rezerwuj-termin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ekipa_id: reserveDraft.ekipa_id,
+          data_wykonania: reserveDraft.data,
+          godzina_rozpoczecia: reserveDraft.godzina,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        Alert.alert('Błąd', err.error || 'Nie udało się zapisać rezerwacji.');
+        return;
+      }
+      Alert.alert('Gotowe', 'Termin zarezerwowany wstępnie. Czeka na akceptację specjalisty.');
+      setReserveModal(null);
+      setReserveDiag(null);
+      setReserveRuleWarning('');
+      loadAll();
+    } catch {
+      Alert.alert('Błąd', 'Błąd sieci podczas zapisu rezerwacji.');
     }
   };
 
@@ -550,7 +665,7 @@ export default function WycenaKalendarzScreen() {
               </View>
             ) : (
               selectedWyceny.map(w => (
-                <WycenaCard key={w.id} wycena={w} ekipy={ekipy} theme={theme} s={s} />
+                <WycenaCard key={w.id} wycena={w} ekipy={ekipy} liveByTeam={liveByTeam} theme={theme} s={s} onReserve={() => openReserveModal(w)} />
               ))
             )}
           </View>
@@ -565,7 +680,7 @@ export default function WycenaKalendarzScreen() {
             </View>
           ) : (
             wyceny.slice(0, 20).map(w => (
-              <WycenaCard key={w.id} wycena={w} ekipy={ekipy} theme={theme} s={s} />
+              <WycenaCard key={w.id} wycena={w} ekipy={ekipy} liveByTeam={liveByTeam} theme={theme} s={s} onReserve={() => openReserveModal(w)} />
             ))
           )}
         </View>
@@ -741,23 +856,133 @@ export default function WycenaKalendarzScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <Modal visible={!!reserveModal} animationType="slide" transparent>
+        <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={s.modalSheet}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Rezerwacja terminu ekipy</Text>
+              <TouchableOpacity onPress={() => setReserveModal(null)}>
+                <Ionicons name="close" size={24} color={theme.textSub} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={s.modalScroll}>
+              <Text style={s.label}>Ekipa</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
+                {ekipy.map((e) => {
+                  const active = String(reserveDraft.ekipa_id) === String(e.id);
+                  return (
+                    <TouchableOpacity key={e.id} style={[s.ekipaPill, active && s.pillActive]} onPress={() => {
+                      const next = { ...reserveDraft, ekipa_id: String(e.id) };
+                      setReserveDraft(next);
+                      if (reserveModal) fetchSlots(next, reserveModal.id);
+                    }}>
+                      <Text style={[s.ekipaText, active && s.pillTextActive]}>{e.nazwa}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <Text style={s.label}>Data</Text>
+              <TextInput style={s.input} value={reserveDraft.data} onChangeText={(txt) => {
+                const next = { ...reserveDraft, data: txt };
+                setReserveDraft(next);
+                if (reserveModal) fetchSlots(next, reserveModal.id);
+              }} />
+              <Text style={s.label}>Godzina</Text>
+              <TextInput style={s.input} value={reserveDraft.godzina} onChangeText={(txt) => setReserveDraft((p) => ({ ...p, godzina: txt }))} />
+              <Text style={s.label}>Sugerowane sloty</Text>
+              {reserveDiag ? (
+                <Text style={s.helpText}>
+                  ETA: {reserveDiag.eta_available ? 'dostępne' : `niedostępne (${etaReasonLabel(reserveDiag.eta_unavailable_reason) || 'brak danych'})`}
+                  {reserveDiag.target_source === 'task_pin' ? ' • punkt: pin zadania' : ''}
+                  {reserveDiag.target_source === 'wycena' ? ' • punkt: wycena' : ''}
+                  {reserveDiag.team_gps_age_min != null ? ` • wiek GPS: ${reserveDiag.team_gps_age_min} min` : ''}
+                </Text>
+              ) : null}
+              {reserveRuleWarning ? (
+                <Text style={[s.helpText, { color: theme.warning }]}>{reserveRuleWarning}</Text>
+              ) : null}
+              <Text style={[s.helpText, { marginTop: 0 }]}>Próg ETA: {etaThreshold} min</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
+                {[20, 25, 30].map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[s.pill, etaThreshold === v && s.pillActive]}
+                    onPress={async () => {
+                        await setEtaThresholdPersisted(v);
+                      if (reserveModal) {
+                        const next = { ekipa_id: reserveDraft.ekipa_id, data: reserveDraft.data };
+                        await fetchSlots(next, reserveModal.id, v);
+                      }
+                    }}
+                  >
+                    <Text style={[s.pillText, etaThreshold === v && s.pillTextActive]}>{v}m</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={[s.helpText, { marginTop: 0 }]}>Najpierw sloty z ETA, potem bez ETA.</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
+                {slotLoading ? <Text style={s.helpText}>Liczenie slotów...</Text> : null}
+                {!slotLoading && reserveDraft.slots.filter((slot) => slot.eta_minutes != null).map((slot) => (
+                  <TouchableOpacity key={slot.time} style={s.pill} onPress={() => setReserveDraft((p) => ({ ...p, godzina: slot.time }))}>
+                    <Text style={s.pillText}>
+                      {slot.time}
+                      {slot.eta_minutes != null ? ` • ETA ${slot.eta_minutes}m` : ''}
+                      {slot.eta_source === 'task_pin' ? ' • pin' : ''}
+                      {slot.eta_minutes == null && slot.eta_unavailable_reason ? ` • ${etaReasonLabel(slot.eta_unavailable_reason)}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {reserveDraft.slots.some((slot) => slot.eta_minutes == null) ? (
+                <Text style={[s.helpText, { marginTop: 0, color: theme.warning }]}>Sloty bez ETA (niższy priorytet):</Text>
+              ) : null}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
+                {reserveDraft.slots.filter((slot) => slot.eta_minutes == null).map((slot) => (
+                  <TouchableOpacity key={slot.time} style={[s.pill, { opacity: 0.85 }]} onPress={() => setReserveDraft((p) => ({ ...p, godzina: slot.time }))}>
+                    <Text style={s.pillText}>
+                      {slot.time}
+                      {slot.eta_unavailable_reason ? ` • ${etaReasonLabel(slot.eta_unavailable_reason)}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </ScrollView>
+            <TouchableOpacity style={s.submitBtn} onPress={saveReservation}>
+              <Text style={s.submitBtnText}>Zapisz rezerwację</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardSafeScreen>
   );
 }
 
 // ─── Wycena card component ──────────────────────────────────────────────────
 
-function WycenaCard({ wycena: w, ekipy, theme, s }: { wycena: any; ekipy: any[]; theme: Theme; s: CalendarScreenStyles }) {
+function WycenaCard({ wycena: w, ekipy, liveByTeam, theme, s, onReserve }: { wycena: any; ekipy: any[]; liveByTeam: Record<string, any>; theme: Theme; s: CalendarScreenStyles; onReserve: () => void }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ac = approvalStatusColors(theme);
   const statusColor = ac[w.status_akceptacji as keyof typeof ac] || theme.textMuted;
   const ekipa = ekipy.find(e => String(e.id) === String(w.ekipa_id));
   const statusKey = wycenaApprovalTabKey(w.status_akceptacji);
+  const hasGeo = Number.isFinite(Number(w.lat)) && Number.isFinite(Number(w.lon));
+  const teamId = String(w.proponowana_ekipa_id || w.ekipa_id || '');
+  const live = teamId ? liveByTeam[teamId] : null;
+  const gpsAge = live?.recorded_at ? Math.max(0, Math.round((Date.now() - new Date(live.recorded_at).getTime()) / 60000)) : null;
+  const noGps = Boolean(teamId) && !live;
+  const staleGps = Boolean(live) && gpsAge != null && gpsAge > 15;
 
   return (
     <TouchableOpacity style={s.wCard} onPress={() => setOpen(o => !o)} activeOpacity={0.85}>
       <View style={[s.wCardLeft, { borderLeftColor: statusColor }]}>
+        {(!hasGeo || noGps || staleGps) && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+            {!hasGeo ? <Text style={[s.wCardMetaText, { color: theme.warning }]}>Brak pinezki klienta</Text> : null}
+            {noGps ? <Text style={[s.wCardMetaText, { color: theme.danger }]}>Brak GPS ekipy</Text> : null}
+            {staleGps ? <Text style={[s.wCardMetaText, { color: theme.danger }]}>Stary GPS ({gpsAge} min)</Text> : null}
+          </View>
+        )}
         <View style={s.wCardTop}>
           <Text style={s.wCardTitle} numberOfLines={1}>{w.adres || t('approve.card.unknownAddress')}</Text>
           <View style={[s.badge, { backgroundColor: statusColor + '30', borderColor: statusColor }]}>
@@ -779,6 +1004,11 @@ function WycenaCard({ wycena: w, ekipy, theme, s }: { wycena: any; ekipy: any[];
             <Text style={s.wCardMetaText}>  👷 {ekipa.nazwa}</Text>
           )}
         </View>
+        {(w.status_akceptacji === 'oczekuje' || w.status_akceptacji === 'rezerwacja_wstepna') && (
+          <TouchableOpacity style={[s.pill, { marginTop: 8, alignSelf: 'flex-start' }]} onPress={onReserve}>
+            <Text style={s.pillText}>Rezerwuj termin ekipy</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
     </TouchableOpacity>

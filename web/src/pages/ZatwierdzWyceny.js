@@ -8,8 +8,8 @@ import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 
-const STATUS_KOLOR = { oczekuje: '#F59E0B', do_specjalisty: '#60A5FA', zatwierdzono: '#34D399', odrzucono: '#EF4444' };
-const STATUS_LABEL = { oczekuje: '⏳ Oczekuje', do_specjalisty: '🧠 Do specjalisty', zatwierdzono: '✅ Zatwierdzono', odrzucono: '❌ Odrzucono' };
+const STATUS_KOLOR = { oczekuje: '#F59E0B', rezerwacja_wstepna: '#22C55E', do_specjalisty: '#60A5FA', zatwierdzono: '#34D399', odrzucono: '#EF4444' };
+const STATUS_LABEL = { oczekuje: '⏳ Oczekuje', rezerwacja_wstepna: '📌 Rezerwacja wstępna', do_specjalisty: '🧠 Do specjalisty', zatwierdzono: '✅ Zatwierdzono', odrzucono: '❌ Odrzucono' };
 
 function fmt(v) {
   if (!v) return '—';
@@ -42,6 +42,7 @@ function setPlannerDefaultHour(userId, value) {
 function countByStatus(items) {
   return {
     oczekuje: items.filter((w) => w.status_akceptacji === 'oczekuje').length,
+      rezerwacja_wstepna: items.filter((w) => w.status_akceptacji === 'rezerwacja_wstepna').length,
     do_specjalisty: items.filter((w) => w.status_akceptacji === 'do_specjalisty').length,
     zatwierdzono: items.filter((w) => w.status_akceptacji === 'zatwierdzono').length,
     odrzucono: items.filter((w) => w.status_akceptacji === 'odrzucono').length,
@@ -85,9 +86,9 @@ export default function ZatwierdzWyceny() {
     const defaultHour = getPlannerDefaultHour(user?.id);
     setWybranaId(wybranaId === w.id ? null : w.id);
     setEditForm({
-      ekipa_id: w.ekipa_id?.toString() || '',
-      data_wykonania: w.data_wykonania?.split('T')[0] || '',
-      godzina_rozpoczecia: w.godzina_rozpoczecia || defaultHour,
+      ekipa_id: (w.proponowana_ekipa_id || w.ekipa_id)?.toString() || '',
+      data_wykonania: (w.proponowana_data || w.data_wykonania)?.split('T')[0] || '',
+      godzina_rozpoczecia: (w.proponowana_godzina || w.godzina_rozpoczecia || defaultHour),
       wartosc_planowana: w.wartosc_planowana?.toString() || '',
       uwagi: '',
     });
@@ -154,6 +155,10 @@ export default function ZatwierdzWyceny() {
             <div style={{ ...S.metricValue, color: STATUS_KOLOR.oczekuje }}>{statusCounts.oczekuje}</div>
           </div>
           <div style={S.metricCard}>
+            <div style={S.metricLabel}>Rezerwacje</div>
+            <div style={{ ...S.metricValue, color: STATUS_KOLOR.rezerwacja_wstepna }}>{statusCounts.rezerwacja_wstepna}</div>
+          </div>
+          <div style={S.metricCard}>
             <div style={S.metricLabel}>Do specjalisty</div>
             <div style={{ ...S.metricValue, color: STATUS_KOLOR.do_specjalisty }}>{statusCounts.do_specjalisty}</div>
           </div>
@@ -168,7 +173,7 @@ export default function ZatwierdzWyceny() {
         </div>
 
         <div style={S.filtrRow}>
-          {['oczekuje', 'do_specjalisty', 'zatwierdzono', 'odrzucono'].map(f => (
+          {['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty', 'zatwierdzono', 'odrzucono'].map(f => (
             <button
               key={f}
               style={{ ...S.filtrBtn, ...(filtr === f ? { backgroundColor: STATUS_KOLOR[f], color: '#fff', borderColor: STATUS_KOLOR[f] } : {}) }}
@@ -219,7 +224,7 @@ export default function ZatwierdzWyceny() {
                 </div>
               </div>
 
-              {wybranaId === w.id && canApprove && ['oczekuje', 'do_specjalisty'].includes(w.status_akceptacji) && (
+              {wybranaId === w.id && canApprove && ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji) && (
                 <div style={S.approvePanel}>
                   <div style={S.approveTit}>Zatwierdź lub odrzuć — możesz zmodyfikować dane przed zatwierdzeniem:</div>
 
@@ -377,7 +382,7 @@ const S = {
     fontWeight: 600,
   },
   msgBox: { marginBottom: 16 },
-  metricsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 14 },
+  metricsRow: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 12, marginBottom: 14 },
   metricCard: {
     backgroundColor: 'var(--bg-card)',
     borderRadius: 14,
