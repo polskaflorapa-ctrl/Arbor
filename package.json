@@ -1,0 +1,15 @@
+{
+  "name": "arbor",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "web",
+    "os"
+  ],
+  "scripts": {
+    "mobile": "npm run start -w arbor-mobile",
+    "web": "npm run start -w arbor-web",
+    "os": "npm run dev -w arbor-os",
+    "os:stack": "npm run dev:stack -w arbor-os"
+  }
+}

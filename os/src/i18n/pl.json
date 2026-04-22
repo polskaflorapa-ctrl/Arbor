@@ -1,0 +1,147 @@
+{
+  "errors": {
+    "validation": {
+      "invalidInput": "Nieprawidlowe dane wejsciowe",
+      "zod": {
+        "loginRequired": "Login jest wymagany",
+        "passwordRequired": "Haslo jest wymagane",
+        "oldPasswordRequired": "Stare haslo jest wymagane",
+        "newPasswordMin8": "Nowe haslo musi miec min. 8 znakow",
+        "clientNameRequired": "klient_nazwa jest wymagane",
+        "addressRequired": "adres jest wymagany",
+        "cityRequired": "miasto jest wymagane",
+        "plannedDateRequired": "data_planowana jest wymagana",
+        "typeRequired": "typ jest wymagany",
+        "roleRequired": "Rola jest wymagana",
+        "userActiveRequired": "Pole aktywny jest wymagane",
+        "userActiveBoolean": "Pole aktywny musi byc true lub false",
+        "invoiceLinesMin1": "Wymagana jest co najmniej jedna pozycja faktury",
+        "invoiceClientNameRequired": "Nazwa klienta jest wymagana",
+        "invoiceLineNameRequired": "Nazwa pozycji jest wymagana",
+        "branchNameRequired": "Nazwa oddzialu jest wymagana",
+        "teamNameRequired": "Nazwa ekipy jest wymagana",
+        "workDateRequired": "Data pracy jest wymagana",
+        "notificationBodyRequired": "Tresc jest wymagana"
+      }
+    },
+    "auth": {
+      "missingToken": "Brak tokenu autoryzacji",
+      "badTokenFormat": "Nieprawidlowy format tokenu",
+      "invalidToken": "Nieprawidlowy token",
+      "forbidden": "Brak uprawnien",
+      "forbiddenEdit": "Brak uprawnien do edycji",
+      "helperForbidden": "Pomocnik nie ma tego uprawnienia",
+      "branchAccessDenied": "Brak dostepu do tego oddzialu"
+    },
+    "http": {
+      "notFound": "Endpoint nie znaleziony",
+      "serverError": "Blad serwera"
+    },
+    "payroll": {
+      "blocked": "Podglad rozliczen wyplat jest zablokowany"
+    },
+    "login": {
+      "invalidCredentials": "Nieprawidlowy login lub haslo",
+      "tooManyAttempts": "Za duzo prob logowania. Sprobuj ponownie za chwile."
+    },
+    "user": {
+      "notFound": "Uzytkownik nie znaleziony",
+      "loginExists": "Login juz istnieje"
+    },
+    "password": {
+      "oldWrong": "Stare haslo jest nieprawidlowe"
+    },
+    "tasks": {
+      "accessDenied": "Brak uprawnien",
+      "missingFile": "Brak pliku",
+      "startLocationRequired": "Dla ekipy w terenie wymagane sa wspolrzedne GPS (lat, lng) przy rozpoczeciu zlecenia",
+      "startChecklistIncomplete": "Uzupelnij checkliste sprzetu: dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol (wartosci true/false)",
+      "bhpMustConfirm": "Potwierdz zapoznanie z zasadami BHP: bhp_potwierdzone musi byc true"
+    },
+    "generic": {
+      "notFound": "Nie znaleziono"
+    },
+    "branch": {
+      "cannotDeleteWithActiveEmployees": "Nie mozna usunac oddzialu z aktywnymi pracownikami"
+    },
+    "klienci": {
+      "clientNotFound": "Klient nie znaleziony",
+      "phoneOrEmailRequired": "Podaj telefon lub email"
+    },
+    "ai": {
+      "messagesRequired": "Brak wiadomosci",
+      "anthropicKeyInvalid": "Nieprawidlowy klucz API Anthropic",
+      "genericAi": "Blad AI",
+      "imageRequired": "Brak zdjecia",
+      "imageAnalysisFailed": "Blad analizy zdjecia"
+    },
+    "raportyDaily": {
+      "reportNotFound": "Raport nie znaleziony",
+      "reportAccessDenied": "Brak dostepu do tego raportu",
+      "reportDateRequired": "Data raportu jest wymagana",
+      "cannotEditSent": "Nie mozna edytowac juz wyslanegoraportu",
+      "noRecipientEmails": "Brak adresow email odbiorcow w systemie",
+      "cannotDeleteSent": "Nie mozna usunac juz wyslanegoraportu"
+    },
+    "ogledziny": {
+      "inspectionNotFound": "Ogledziny nie znalezione",
+      "provideClientId": "Podaj klient_id",
+      "invalidStatus": "Nieprawidlowy status",
+      "manageDenied": "Brak uprawnien"
+    },
+    "mobile": {
+      "invoicesTableMissing": "Brak tabeli faktur",
+      "invoiceNotFound": "Faktura nie znaleziona",
+      "requiredDataMissing": "Brak wymaganych danych",
+      "deleteInvoiceForbidden": "Brak uprawnien. Tylko dyrektor moze usuwac faktury."
+    },
+    "wyceny": {
+      "clientNameRequired": "klient_nazwa jest wymagane"
+    },
+    "godziny": {
+      "missingFields": "Brak wymaganych pol",
+      "notAssignedToTask": "Nie jestes przypisany do tego zlecenia"
+    },
+    "pdf": {
+      "taskNotFound": "Zlecenie nie znalezione",
+      "taskAccessDenied": "Brak dostepu do tego zlecenia",
+      "invoiceNotFound": "Faktura nie znaleziona",
+      "generationFailed": "Blad generowania PDF"
+    },
+    "role": {
+      "roleNotFound": "Rola nie istnieje",
+      "roleNameRequired": "Nazwa roli jest wymagana",
+      "roleNameExists": "Rola o tej nazwie juz istnieje",
+      "cannotDeleteSystem": "Nie mozna usunac roli systemowej",
+      "cannotDeleteInUse": "Nie mozna usunac - {{count}} uzytkownikow ma te role"
+    },
+    "flota": {
+      "duplicatePlate": "Nr rejestracyjny juz istnieje"
+    },
+    "sms": {
+      "phoneAndBodyRequired": "Podaj telefon i tresc SMS",
+      "twilioNotConfigured": "Brak konfiguracji SMS (Twilio)",
+      "twilioFromMissing": "Brak numeru nadawcy (TWILIO_PHONE)",
+      "taskNotFound": "Zlecenie nie znalezione",
+      "clientPhoneMissing": "Brak numeru telefonu klienta",
+      "unknownType": "Nieznany typ SMS: {{typ}}"
+    },
+    "telefon": {
+      "publicUrlMissing": "Brak PUBLIC_BASE_URL — Twilio nie moze pobrac TwiML (ustaw publiczny HTTPS, np. ngrok)",
+      "twilioNotConfigured": "Brak konfiguracji Twilio (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN)",
+      "twilioFromMissing": "Brak numeru nadawcy (TWILIO_PHONE)",
+      "staffPhoneMissing": "Brak numeru telefonu w profilu uzytkownika — uzupelnij pole telefon",
+      "invalidDestination": "Nieprawidlowy numer docelowy",
+      "sameNumber": "Numer klienta nie moze byc taki sam jak telefon pracownika",
+      "rozmowaNotFound": "Rozmowa nie znaleziona lub brak dostepu",
+      "recordingNotAvailable": "Nagranie jeszcze niedostepne lub wylaczone archiwum (PHONE_RECORDING_STORAGE)",
+      "teamRoleForbidden": "Polaczenia z klientem i archiwum rozmow sa dostepne tylko dla kierownictwa — ekipa korzysta ze zlecen i zdjec w terenie"
+    }
+  },
+  "messages": {
+    "passwordChanged": "Haslo zostalo zmienione",
+    "telefon": {
+      "callStarted": "Zainicjowano polaczenie — Twilio dzwoni na Twoj numer, po odebraniu nastapi polaczenie z klientem"
+    }
+  }
+}

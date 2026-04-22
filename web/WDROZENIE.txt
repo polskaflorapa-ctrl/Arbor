@@ -1,0 +1,79 @@
+ARBOR-WEB — wdrożenie na istniejącej stronie / hostingu
+=======================================================
+
+0) Produkcja Render (Twój adres)
+-------------------------------
+Panel: https://arbo-web.onrender.com/
+
+W Render → usługa **arbo-web** → **Environment** ustaw m.in.:
+  REACT_APP_API_URL = https://.../api
+(adres backendu z końcówką `/api`). Po zmianie zmiennych: **Manual Deploy** (ew. wyczyść cache buildu).
+
+Repozytorium może zawierać plik **render.yaml** (Blueprint) — ten sam typ: static + `npm ci && npm run build` + katalog `build/`.
+
+Uwaga: na planie **Free** usługa usypia się po bezczynności — pierwsze wejście po przerwie może trwać ok. 30–60 s.
+
+
+
+1) CO WGrywasZ
+--------------
+To jest aplikacja React (CRA). Po `npm run build` cała zawartość katalogu `build/` to gotowa strona:
+  - index.html
+  - folder static/ (JS, CSS)
+  - manifest.json, favicon itd.
+
+Wgraj WSZYSTKO z `build/` na serwer (FTP, SFTP, menedżer plików w cPanel itd.).
+
+
+2) ADRES API (ważne)
+---------------------
+Frontend woła backend przez `REACT_APP_API_URL` (patrz `src/api.js`).
+
+Przed buildem produkcyjnym:
+  - skopiuj `.env.production.example` → `.env.production`
+  - ustaw prawdziwy `REACT_APP_API_URL=...`
+  - uruchom: npm run build
+
+Bez tego panel może strzelać w zły adres lub w `/api` na tej samej domenie (musisz wtedy mieć proxy).
+
+
+3) ROUTING (HashRouter)
+-----------------------
+Aplikacja używa HashRouter — adresy wyglądają np.:
+  https://twoja-domena.pl/#/dashboard
+  https://twoja-domena.pl/#/zlecenia
+
+Nie musisz konfigurować nginx/Apache pod „fallback do index.html” dla ścieżek /zlecenia itd.
+Wystarczy, że serwer serwuje `index.html` dla katalogu, w którym leży panel.
+
+
+4) PANEL W KATALOGU (np. /panel/)
+---------------------------------
+Jeśli strona ma być pod adresem https://domena.pl/panel/ a nie w katalogu głównym:
+
+  a) W pliku `package.json` dodaj pole (z końcowym slashem):
+       "homepage": "/panel"
+  b) npm run build
+  c) Wgraj zawartość `build/` do folderu `panel/` na serwerze (nie wgrywaj folderu „build” jako nazwy — tylko jego zawartość).
+
+Potem wejdziesz na: https://domena.pl/panel/#/
+
+
+5) PANEL W KATALOGU GŁÓWNYM
+---------------------------
+Wgraj zawartość `build/` do `public_html/` (lub `www/`, `htdocs/` — zależnie od hostingu).
+Uwaga: jeśli w `public_html` masz już inny `index.html`, zrób kopię zapasową — nowy nadpisze stronę główną, chyba że panel wrzucisz do podkatalogu (pkt 4).
+
+
+6) HTTPS I CORS
+---------------
+- Hosting powinien serwować stronę przez HTTPS (jak reszta strony).
+- Backend musi akceptować żądania z domeny panelu (nagłówki CORS) albo API musi być pod tą samą domeną przez reverse proxy (/api → backend).
+
+
+7) SZYBKI CHECKLISTA
+--------------------
+[ ] .env.production z poprawnym REACT_APP_API_URL
+[ ] npm run build
+[ ] Wgranie całej zawartości build/
+[ ] Test: logowanie, jedna zakładka z danymi z API

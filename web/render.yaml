@@ -1,0 +1,16 @@
+# Render Blueprint — statyczny build CRA (arbor-web)
+# Dokumentacja: https://render.com/docs/blueprint-spec
+#
+# Po podpięciu repozytorium w Render: New → Blueprint → wybierz branch z tym plikiem.
+# Adres usługi: https://<name>.onrender.com/ — tutaj name: arbo-web → https://arbo-web.onrender.com/
+
+services:
+  - type: web
+    name: arbo-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./build
+    envVars:
+      # Ustaw w Render Dashboard → Environment (wartość nie jest w repo)
+      - key: REACT_APP_API_URL
+        sync: false

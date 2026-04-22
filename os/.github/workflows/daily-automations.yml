@@ -1,0 +1,29 @@
+# Wymaga sekretów repozytorium: PROD_URL (np. https://arbo-web.onrender.com), ADMIN_TOKEN (JWT admina).
+# Harmonogram UTC — dostosuj cron do swojej strefy (np. 06:00 UTC ≈ 07:00 zimą w PL).
+name: Daily automations
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: POST run-daily
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          SMOKE_TOKEN: ${{ secrets.SMOKE_TOKEN }}
+        run: node scripts/trigger-daily-automations.js

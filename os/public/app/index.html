@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ARBOR-OS — system</title>
+  <base href="/app/" />
+  <link rel="stylesheet" href="/app/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <strong>ARBOR-OS</strong>
+    <span class="muted app-subtitle">jeden panel — cała firma</span>
+    <span id="user-bar" class="muted user-bar-right" hidden></span>
+    <button type="button" id="btn-logout" class="btn ghost" hidden>Wyloguj</button>
+  </header>
+
+  <main class="wrap">
+    <section id="view-login" class="card">
+      <h1>Logowanie</h1>
+      <form id="form-login">
+        <label>Login <input name="login" autocomplete="username" required /></label>
+        <label>Hasło <input name="haslo" type="password" autocomplete="current-password" required /></label>
+        <button type="submit" class="btn primary">Zaloguj</button>
+        <p id="login-error" class="error" hidden></p>
+      </form>
+    </section>
+
+    <section id="view-app" hidden>
+      <div class="app-shell">
+        <aside class="app-nav" aria-label="Menu modułów">
+          <div class="nav-group">
+            <p class="nav-group-title">Start</p>
+            <button type="button" class="nav-item active" data-panel="panel-pulpit">Pulpit</button>
+          </div>
+
+          <div class="nav-group">
+            <p class="nav-group-title">Operacja</p>
+            <button type="button" class="nav-item" data-panel="panel-zlecenia">Zlecenia</button>
+            <button type="button" class="nav-item" data-panel="panel-flota">Flota</button>
+            <button type="button" class="nav-item" data-panel="panel-telefon">Telefon</button>
+          </div>
+
+          <div class="nav-group">
+            <p class="nav-group-title">Sprzedaż</p>
+            <button type="button" class="nav-item" data-panel="panel-klienci">Klienci</button>
+            <button type="button" class="nav-item" data-panel="panel-wyceny">Wyceny</button>
+            <button type="button" class="nav-item" data-panel="panel-ogledziny">Oględziny</button>
+          </div>
+
+          <div class="nav-group">
+            <p class="nav-group-title">Organizacja</p>
+            <button type="button" class="nav-item" data-panel="panel-organizacja">Oddziały, ekipy, ludzie</button>
+          </div>
+
+          <div class="nav-group">
+            <p class="nav-group-title">Czas i raporty</p>
+            <button type="button" class="nav-item" data-panel="panel-godziny-raporty">Godziny i raporty</button>
+          </div>
+
+          <div class="nav-group">
+            <p class="nav-group-title">Komunikacja</p>
+            <button type="button" class="nav-item" data-panel="panel-powiadomienia">Powiadomienia</button>
+            <button type="button" class="nav-item" data-panel="panel-sms-ai">SMS i AI</button>
+          </div>
+
+          <div class="nav-group">
+            <p class="nav-group-title">Biuro</p>
+            <button type="button" class="nav-item" data-panel="panel-pdf">PDF</button>
+            <button type="button" class="nav-item" data-panel="panel-ksiegowosc">Księgowość</button>
+            <button type="button" class="nav-item" data-panel="panel-audit">Audyt</button>
+          </div>
+        </aside>
+
+        <div class="app-content">
+
+          <div id="panel-pulpit" class="panel">
+            <div class="card">
+              <h2>Pulpit</h2>
+              <p class="muted">Stan API i dokumentacja techniczna.</p>
+              <div class="row">
+                <button type="button" id="btn-pulpit-refresh" class="btn">Odśwież status</button>
+                <a class="btn" href="/api/docs/openapi.yaml" target="_blank" rel="noopener">OpenAPI (YAML)</a>
+              </div>
+              <pre id="pulpit-status" class="box">—</pre>
+            </div>
+            <div class="card">
+              <h2>Panel Szefa (KPI)</h2>
+              <div class="row">
+                <label>Zakres dni <input id="dash-days" type="number" min="1" max="60" value="14" /></label>
+                <label>oddział_id (opc.) <input id="dash-oddzial" type="number" min="1" /></label>
+                <button type="button" id="btn-dashboard-refresh" class="btn">Odśwież KPI</button>
+              </div>
+              <pre id="dashboard-out" class="box">—</pre>
+            </div>
+            <div class="card">
+              <h2>AI — plan dnia</h2>
+              <div class="row">
+                <label>Horyzont dni <input id="ai-plan-days" type="number" min="1" max="14" value="3" /></label>
+                <button type="button" id="btn-ai-today-plan" class="btn primary">Generuj plan dnia</button>
+              </div>
+              <pre id="ai-plan-out" class="box">—</pre>
+            </div>
+            <div class="card">
+              <h2>Automatyzacje dzienne</h2>
+              <p class="muted">Uruchamia przypomnienia o zaległych zleceniach + webhook operacyjny.</p>
+              <button type="button" id="btn-automation-run" class="btn">Uruchom teraz</button>
+              <pre id="automation-out" class="box">—</pre>
+            </div>
+          </div>
+
+          <div id="panel-zlecenia" class="panel" hidden>
+            <div id="card-zlecenia-stats" class="card">
+              <h2>Statystyki zleceń</h2>
+              <button type="button" id="btn-tasks-stats" class="btn">Pobierz</button>
+              <pre id="tasks-stats-out" class="box">—</pre>
+            </div>
+            <div id="card-zlecenia-wszystkie" class="card">
+              <h2>Wszystkie zlecenia</h2>
+              <button type="button" id="btn-tasks-all" class="btn">Odśwież (limit 80)</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Status</th><th>Klient</th><th>Adres</th><th>Data</th><th></th></tr></thead>
+                  <tbody id="tbody-tasks-all"></tbody>
+                </table>
+              </div>
+            </div>
+            <div id="card-zlecenia-nowe" class="card">
+              <h2>Nowe zlecenie</h2>
+              <form id="form-task-nowe" class="grid2">
+                <label>Klient <input name="klient_nazwa" required /></label>
+                <label>Telefon <input name="klient_telefon" /></label>
+                <label>Adres <input name="adres" required /></label>
+                <label>Miasto <input name="miasto" required /></label>
+                <label>Typ usługi <input name="typ_uslugi" placeholder="Wycinka" /></label>
+                <label>Data planowana <input name="data_planowana" type="date" required /></label>
+                <label>oddział_id (opcj.) <input name="oddzial_id" type="number" min="1" /></label>
+                <label>ekipa_id (opcj.) <input name="ekipa_id" type="number" min="1" /></label>
+                <button type="submit" class="btn primary">Utwórz</button>
+              </form>
+              <p id="task-nowe-msg" class="ok" hidden></p>
+            </div>
+            <div class="card">
+              <h2>Moje zlecenia (dziś)</h2>
+              <button type="button" id="btn-moje" class="btn">Odśwież</button>
+              <ul id="list-moje" class="list"></ul>
+            </div>
+            <div id="card-zlecenia-detail" class="card">
+              <h2>Szczegóły zlecenia</h2>
+              <p class="muted">Wpisz ID lub wybierz z listy / tabeli, potem „Pobierz”. Status — wartości zgodne z API (Nowe, Zaplanowane, W_Realizacji, Zakonczone).</p>
+              <div class="row">
+                <label>ID zlecenia <input id="task-detail-id" type="number" min="1" /></label>
+                <button type="button" id="btn-task-detail-load" class="btn">Pobierz</button>
+                <button type="button" id="btn-task-detail-pdf" class="btn">PDF zlecenia</button>
+              </div>
+              <div class="table-wrap detail-wrap">
+                <table class="data" id="task-detail-table">
+                  <tbody id="tbody-task-detail"></tbody>
+                </table>
+              </div>
+              <p id="task-detail-status-note" class="muted small-hint" hidden></p>
+              <form id="form-task-status" class="row">
+                <label>Nowy status
+                  <select id="task-detail-status" required>
+                    <option value="Nowe">Nowe</option>
+                    <option value="Zaplanowane">Zaplanowane</option>
+                    <option value="W_Realizacji">W realizacji</option>
+                    <option value="Zakonczone">Zakończone</option>
+                  </select>
+                </label>
+                <button type="submit" class="btn primary">Zapisz status</button>
+              </form>
+              <h3 class="h-inline">Edycja zlecenia</h3>
+              <p class="muted small-hint">Przy dodatkowej pracy zaktualizuj <strong>wartość rzeczywistą</strong> i opis zakresu. Wartość planowana może się zmienić (np. po uzgodnieniu z klientem).</p>
+              <form id="form-task-edit" class="grid2">
+                <label>Klient <input name="klient_nazwa" required /></label>
+                <label>Telefon <input name="klient_telefon" /></label>
+                <label>Adres <input name="adres" required /></label>
+                <label>Miasto <input name="miasto" required /></label>
+                <label>Typ usługi <input name="typ_uslugi" /></label>
+                <label>Priorytet <input name="priorytet" placeholder="Normalny" /></label>
+                <label>Data planowana <input name="data_planowana" type="datetime-local" required /></label>
+                <label>Czas planowany (h) <input name="czas_planowany_godziny" type="number" step="0.25" min="0" /></label>
+                <label>Wartość planowana (PLN) <input name="wartosc_planowana" type="number" step="0.01" min="0" /></label>
+                <label>Wartość rzeczywista (PLN) <input name="wartosc_rzeczywista" type="number" step="0.01" min="0" placeholder="po dodatkowej pracy" /></label>
+                <label class="span-2">Opis / dodatkowa praca <textarea name="opis" rows="3" placeholder="np. dosadzone 2 drzewa, frez 1 pień"></textarea></label>
+                <label class="span-2">Notatki wewnętrzne <textarea name="notatki_wewnetrzne" rows="2"></textarea></label>
+                <label class="span-2">Notatki dla klienta <textarea name="notatki_klienta" rows="2"></textarea></label>
+                <button type="submit" class="btn primary">Zapisz dane zlecenia</button>
+              </form>
+              <p id="task-detail-msg" class="ok" hidden></p>
+              <p id="task-detail-err" class="error" hidden></p>
+            </div>
+            <div class="card">
+              <h2>Rozpoczęcie pracy (ekipa)</h2>
+              <p class="muted">Wymagane: GPS + checklista + BHP. Użyj „Pobierz GPS” przed wysłaniem.</p>
+              <form id="form-start">
+                <label>ID zlecenia <input name="task_id" type="number" min="1" required /></label>
+                <div class="row">
+                  <button type="button" id="btn-gps" class="btn">Pobierz GPS</button>
+                  <span id="gps-readout" class="muted"></span>
+                </div>
+                <input type="hidden" name="lat" id="in-lat" />
+                <input type="hidden" name="lng" id="in-lng" />
+                <label><input type="checkbox" id="chk-dmuchawa" /> Dmuchawa / filtr OK</label>
+                <label><input type="checkbox" id="chk-rebak" /> Rębak zatankowany</label>
+                <label><input type="checkbox" id="chk-kaski" /> Kaski — cała ekipa</label>
+                <label><input type="checkbox" id="chk-bhp" required /> Zapoznałem/am się z BHP</label>
+                <button type="submit" class="btn primary">Rozpocznij</button>
+              </form>
+              <p id="start-msg" class="ok" hidden></p>
+            </div>
+            <div class="card">
+              <h2>Zdjęcie z GPS</h2>
+              <form id="form-zdjecie" enctype="multipart/form-data">
+                <label>ID zlecenia <input name="task_id_z" type="number" min="1" required /></label>
+                <label>Plik <input name="zdjecie" type="file" accept="image/*" required /></label>
+                <label>typ <input name="typ" value="Przed" /></label>
+                <button type="button" id="btn-gps-z" class="btn">GPS do zdjęcia</button>
+                <input type="hidden" name="lat" id="z-lat" />
+                <input type="hidden" name="lng" id="z-lng" />
+                <button type="submit" class="btn primary">Wyślij</button>
+              </form>
+              <p id="zdjecie-msg" class="ok" hidden></p>
+            </div>
+          </div>
+
+          <div id="panel-flota" class="panel" hidden>
+            <div class="card">
+              <h2>Katalog pojazdów (import)</h2>
+              <div class="row">
+                <label>Arkusz
+                  <select id="flt-arkusz"><option value="">— wszystkie —</option></select>
+                </label>
+                <label>Szukaj <input id="flt-q" type="search" placeholder="nr rej., marka…" /></label>
+                <button type="button" id="btn-katalog-refresh" class="btn">Odśwież</button>
+              </div>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th></th><th>Arkusz</th><th>Marka</th><th>Model</th><th>Nr rej.</th><th>VIN</th><th>Notatka</th></tr></thead>
+                  <tbody id="tbody-katalog"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Dodaj pojazd z katalogu</h2>
+              <p class="muted">Zaznacz wiersz w tabeli lub uzupełnij ręcznie. Oddział — pierwszy z listy API lub wpisz ID.</p>
+              <form id="form-pojazd" class="grid2">
+                <label>oddział_id <input name="oddzial_id" type="number" min="1" /></label>
+                <label>marka <input name="marka" required /></label>
+                <label>model <input name="model" required /></label>
+                <label>nr_rejestracyjny <input name="nr_rejestracyjny" required /></label>
+                <label>rok_produkcji <input name="rok_produkcji" type="number" /></label>
+                <label>typ <input name="typ" placeholder="np. Ciężarówka" /></label>
+                <button type="submit" class="btn primary">Zapisz pojazd</button>
+              </form>
+              <p id="pojazd-msg" class="ok" hidden></p>
+            </div>
+          </div>
+
+          <div id="panel-telefon" class="panel" hidden>
+            <div id="telefon-blocked" class="card warn" hidden>
+              <p>Połączenia z klientem i archiwum rozmów są niedostępne dla roli ekipy (Brygadzista / Pomocnik).</p>
+            </div>
+            <div id="telefon-active">
+              <div class="card">
+                <h2>Połączenie z klientem</h2>
+                <form id="form-polacz" class="row">
+                  <label>Numer klienta (9+ cyfr) <input name="do" placeholder="np. 791234567" required /></label>
+                  <label>task_id (opcj.) <input name="task_id" type="number" /></label>
+                  <button type="submit" class="btn primary">Zadzwoń</button>
+                </form>
+                <p id="polacz-msg" class="ok" hidden></p>
+              </div>
+              <div class="card">
+                <h2>Rozmowy</h2>
+                <button type="button" id="btn-rozmowy" class="btn">Odśwież listę</button>
+                <div class="table-wrap">
+                  <table class="data">
+                    <thead><tr><th>ID</th><th>Status</th><th>Klient</th><th>Utw.</th><th></th></tr></thead>
+                    <tbody id="tbody-rozmowy"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div id="rozmowa-detail" class="card" hidden>
+                <h3>Szczegóły rozmowy <span id="rozmowa-id"></span></h3>
+                <p><strong>Raport:</strong></p>
+                <pre id="rozmowa-raport" class="box"></pre>
+                <p><strong>Wskazówki dla specjalisty:</strong></p>
+                <pre id="rozmowa-wsk" class="box"></pre>
+                <p><strong>Transkrypt:</strong></p>
+                <pre id="rozmowa-trans" class="box"></pre>
+                <button type="button" id="btn-nagranie" class="btn">Pobierz / odtwórz nagranie</button>
+                <audio id="audio-nagranie" controls class="full" hidden></audio>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-klienci" class="panel" hidden>
+            <div class="card">
+              <h2>Klienci</h2>
+              <button type="button" id="btn-klienci-refresh" class="btn">Odśwież listę</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Imię</th><th>Nazwisko</th><th>Firma</th><th>Telefon</th><th>Miasto</th></tr></thead>
+                  <tbody id="tbody-klienci"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Nowy klient</h2>
+              <form id="form-klient-nowy" class="grid2">
+                <label>Imię <input name="imie" /></label>
+                <label>Nazwisko <input name="nazwisko" /></label>
+                <label>Firma <input name="firma" /></label>
+                <label>Telefon <input name="telefon" /></label>
+                <label>Email <input name="email" type="email" /></label>
+                <label>Miasto <input name="miasto" /></label>
+                <label>Adres <input name="adres" /></label>
+                <button type="submit" class="btn primary">Zapisz</button>
+              </form>
+              <p id="klient-nowy-msg" class="ok" hidden></p>
+            </div>
+          </div>
+
+          <div id="panel-wyceny" class="panel" hidden>
+            <div class="card">
+              <h2>Wyceny</h2>
+              <button type="button" id="btn-wyceny-refresh" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Status</th><th>Kwota</th><th>Utw.</th></tr></thead>
+                  <tbody id="tbody-wyceny"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-ogledziny" class="panel" hidden>
+            <div class="card">
+              <h2>Oględziny</h2>
+              <button type="button" id="btn-ogledziny-refresh" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Status</th><th>Adres</th><th>Data</th></tr></thead>
+                  <tbody id="tbody-ogledziny"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-organizacja" class="panel" hidden>
+            <div class="card">
+              <h2>Oddziały</h2>
+              <button type="button" id="btn-oddzialy-refresh" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Nazwa</th><th>Miasto</th></tr></thead>
+                  <tbody id="tbody-oddzialy"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Ekipy</h2>
+              <button type="button" id="btn-ekipy-refresh" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Nazwa</th><th>Oddział</th></tr></thead>
+                  <tbody id="tbody-ekipy"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Użytkownicy</h2>
+              <button type="button" id="btn-users-refresh" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Login</th><th>Imię i nazwisko</th><th>Rola</th></tr></thead>
+                  <tbody id="tbody-users"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Role</h2>
+              <button type="button" id="btn-role-refresh" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Nazwa</th><th>Poziom</th></tr></thead>
+                  <tbody id="tbody-role"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-godziny-raporty" class="panel" hidden>
+            <div class="card">
+              <h2>Godziny pracy</h2>
+              <div class="row">
+                <button type="button" id="btn-godz-moje" class="btn">Moje</button>
+                <button type="button" id="btn-godz-pending" class="btn">Do potwierdzenia</button>
+                <button type="button" id="btn-godz-all" class="btn">Wszystkie</button>
+              </div>
+              <p id="godziny-hint" class="muted">Wybierz widok.</p>
+              <p class="muted small-hint">Brygadzista: przy statusie „Oczekuje” i Twoim zgłoszeniu użyj <strong>Potwierdź</strong> / <strong>Odrzuć</strong> w kolumnie Akcje.</p>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Data</th><th>Godz.</th><th>Status</th><th>Zlecenie / klient</th><th>Osoby</th><th>Akcje</th></tr></thead>
+                  <tbody id="tbody-godziny"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Raport czasu pracy (zlecenia)</h2>
+              <div class="row">
+                <label>oddział_id (opcj.) <input id="rap-czas-oddzial" type="number" min="1" /></label>
+                <button type="button" id="btn-rap-czas" class="btn">Pobierz</button>
+              </div>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>Zlec.</th><th>Klient</th><th>Adres</th><th>Status</th><th>Minuty</th><th>Ekipa</th><th>Brygadzista</th></tr></thead>
+                  <tbody id="tbody-rap-czas"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Raporty dzienne</h2>
+              <button type="button" id="btn-rap-dzienne" class="btn">Lista (limit 40)</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Data</th><th>Status</th><th>Min</th><th>Pracownik</th><th>Oddział</th><th>Opis</th></tr></thead>
+                  <tbody id="tbody-rap-dzienne"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-powiadomienia" class="panel" hidden>
+            <div class="card">
+              <h2>Powiadomienia</h2>
+              <div class="row">
+                <button type="button" id="btn-notif-refresh" class="btn">Odśwież</button>
+                <button type="button" id="btn-notif-readall" class="btn">Oznacz wszystkie jako przeczytane</button>
+              </div>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Data</th><th>Status</th><th>Typ</th><th>Treść</th><th>Od</th><th>Zlecenie</th></tr></thead>
+                  <tbody id="tbody-notif"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-sms-ai" class="panel" hidden>
+            <div class="card">
+              <h2>SMS</h2>
+              <form id="form-sms" class="grid2">
+                <label>Telefon <input name="telefon" required /></label>
+                <label>Treść <textarea name="tresc" rows="3" required></textarea></label>
+                <label>task_id (opcj.) <input name="task_id" type="number" min="1" /></label>
+                <button type="submit" class="btn primary">Wyślij</button>
+              </form>
+              <p id="sms-msg" class="ok" hidden></p>
+              <h3 class="h-inline">Historia SMS</h3>
+              <button type="button" id="btn-sms-historia" class="btn">Odśwież</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>Data</th><th>Telefon</th><th>Status</th><th>Treść</th><th>Zlecenie</th></tr></thead>
+                  <tbody id="tbody-sms-historia"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Asystent AI</h2>
+              <p class="muted">Wymaga ANTHROPIC_API_KEY na serwerze.</p>
+              <form id="form-ai">
+                <label>Wiadomość <textarea name="tresc" rows="4" required></textarea></label>
+                <button type="submit" class="btn primary">Wyślij</button>
+              </form>
+              <pre id="ai-out" class="box">—</pre>
+            </div>
+          </div>
+
+          <div id="panel-pdf" class="panel" hidden>
+            <div class="card">
+              <h2>PDF — pobierz w nowej karcie</h2>
+              <p class="muted">Przeglądarka wyświetli lub pobierze plik (zalogowana sesja JWT w nagłówku nie działa w zwykłym linku — użyj przycisków).</p>
+              <div class="row">
+                <label>ID zlecenia <input id="pdf-task-id" type="number" min="1" /></label>
+                <button type="button" id="btn-pdf-zlecenie" class="btn">PDF zlecenia</button>
+              </div>
+              <div class="row">
+                <label>ID faktury <input id="pdf-fv-id" type="number" min="1" /></label>
+                <button type="button" id="btn-pdf-faktura" class="btn">PDF faktury</button>
+              </div>
+              <div class="row">
+                <label>Data raportu dziennego <input id="pdf-dzien" type="date" /></label>
+                <button type="button" id="btn-pdf-dzien" class="btn">PDF raportu</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-ksiegowosc" class="panel" hidden>
+            <div class="card">
+              <h2>Ustawienia firmy</h2>
+              <button type="button" id="btn-ks-settings" class="btn">Pobierz</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>Pole</th><th>Wartość</th></tr></thead>
+                  <tbody id="tbody-ks-settings"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <h2>Faktury</h2>
+              <button type="button" id="btn-ks-faktury" class="btn">Lista (limit 50)</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Numer</th><th>Klient</th><th>Brutto</th><th>Status</th><th>Data wyst.</th><th>Oddział</th></tr></thead>
+                  <tbody id="tbody-ks-faktury"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-audit" class="panel" hidden>
+            <div class="card">
+              <h2>Rejestr audytu</h2>
+              <p class="muted">Dostęp: Dyrektor / Administrator.</p>
+              <button type="button" id="btn-audit-refresh" class="btn">Odśwież (limit 60)</button>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>ID</th><th>Czas</th><th>Użytkownik</th><th>Rola</th><th>Akcja</th><th>Encja</th><th>ID encji</th></tr></thead>
+                  <tbody id="tbody-audit"></tbody>
+                </table>
+              </div>
+              <p id="audit-err" class="error" hidden></p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app/app.js"></script>
+</body>
+</html>

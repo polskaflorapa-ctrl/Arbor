@@ -1,0 +1,1023 @@
+{
+  "zrodlo_pliku": "Данные по машинам.xlsx",
+  "wygenerowano": "2026-04-20T23:07:07.865Z",
+  "liczba": 112,
+  "arkusze": [
+    "BDO",
+    "Katowice",
+    "Kielce",
+    "Kraków",
+    "Ponomarenko",
+    "Prots"
+  ],
+  "items": [
+    {
+      "arkusz": "Kraków",
+      "lp": 18,
+      "marka": "BMW",
+      "model": "-",
+      "nr_rejestracyjny": "KK 72596",
+      "vin": "WBAJU810509N30141",
+      "notatki": "Kovalov Volodymyr"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 9,
+      "marka": "BMW",
+      "model": "X5",
+      "nr_rejestracyjny": "WF 3251Y",
+      "vin": "WBA11EV0709U30608",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 2,
+      "marka": "DAEWOO",
+      "model": "LANOS",
+      "nr_rejestracyjny": "ST 7324P",
+      "vin": "KLATF69YEWB245646",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 8,
+      "marka": "DAEWOO",
+      "model": "LANOS",
+      "nr_rejestracyjny": "SBI 54143",
+      "vin": "KLATF696EXB341385",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 11,
+      "marka": "FARO",
+      "model": "TRACTUS MULTI (PRZYCZEPA)",
+      "nr_rejestracyjny": "SK 1A066",
+      "vin": "SVNFA750A00009329",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Prots",
+      "lp": 4,
+      "marka": "FIAT",
+      "model": "PUNTO",
+      "nr_rejestracyjny": "EZG 8LT9",
+      "vin": "ZFA18800001097460",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 3,
+      "marka": "FORD",
+      "model": "FIESTA",
+      "nr_rejestracyjny": "PO 3RU31",
+      "vin": "WF0JXXGAJJ9B47492",
+      "notatki": "Yuzhenko Yurii"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 4,
+      "marka": "FORD",
+      "model": "MUSTANG",
+      "nr_rejestracyjny": "K 84H",
+      "vin": "1ZVBP8AM7C5248481",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 16,
+      "marka": "FORD",
+      "model": "TRANSIT CUSTOM",
+      "nr_rejestracyjny": "KK 4267N",
+      "vin": "WF0RXXTA5RSU69762",
+      "notatki": "Maksymets Oleh"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 13,
+      "marka": "FORD",
+      "model": "TRANSIT DC 350M",
+      "nr_rejestracyjny": "KOL MG13",
+      "vin": "WF0CXXGBFC3P65674",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 13,
+      "marka": "GREENMECH",
+      "model": "-",
+      "nr_rejestracyjny": "SK 020VY",
+      "vin": "SKHBKGA000C160799",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 26,
+      "marka": "GREENMECH",
+      "model": "-",
+      "nr_rejestracyjny": "SK 039XY",
+      "vin": "SKHRKGF000C170384",
+      "notatki": "Wroclaw"
+    },
+    {
+      "arkusz": "Prots",
+      "lp": 3,
+      "marka": "GREENMECH",
+      "model": "ARB. 150",
+      "nr_rejestracyjny": "WJ 491AK",
+      "vin": "SXW1AA011SR000908",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 17,
+      "marka": "GREENMECH",
+      "model": "ARBORIST",
+      "nr_rejestracyjny": "KK 8594P",
+      "vin": "SA9BWGC00EC132609",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 24,
+      "marka": "GREENMECH",
+      "model": "ARBORIST 150",
+      "nr_rejestracyjny": "KK 915OP",
+      "vin": "SKHBKGA000C250439",
+      "notatki": null
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 25,
+      "marka": "GREENMECH",
+      "model": "ARBORIST 150",
+      "nr_rejestracyjny": "KK 9149P",
+      "vin": "SKHBKGA000C250440",
+      "notatki": null
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 10,
+      "marka": "GREENMECH",
+      "model": "ARBORIST 150",
+      "nr_rejestracyjny": "DWL PP08",
+      "vin": "SKHBKGA000C240065",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Prots",
+      "lp": 2,
+      "marka": "GREENMECH",
+      "model": "ARBORIST 150",
+      "nr_rejestracyjny": "KK 7849P",
+      "vin": "SKHBGA000C190963",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Ponomarenko",
+      "lp": 1,
+      "marka": "GREENMECH",
+      "model": "ARBORIST 150",
+      "nr_rejestracyjny": "ZS 937VA",
+      "vin": "SKHBKGA000C170848",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 7,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "SK 141WS",
+      "vin": "SKHBKGA000C150657",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 14,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "SK 144VJ",
+      "vin": "SKHBKGA000C150449",
+      "notatki": "Pshenychnyi Ruslan"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 15,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "KK 5161P",
+      "vin": "SKHBKGA000C230268",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 19,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "KK 4687P",
+      "vin": "SKHBKGA000C230265",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 20,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "KK 4686P",
+      "vin": "SKHBKGA000C230267",
+      "notatki": "Kushnarenko Vitalii"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 4,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "SK 029YL",
+      "vin": "SKHRKGF000C160149",
+      "notatki": "Wroclaw"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 2,
+      "marka": "GREENMECH",
+      "model": "GM1",
+      "nr_rejestracyjny": "SK 128YX",
+      "vin": "SA9BWGC00DC132171",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 3,
+      "marka": "GREENMECH",
+      "model": "GM1/RĘBAK",
+      "nr_rejestracyjny": "SK 045XK",
+      "vin": "SKNBKGA000C150972",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 4,
+      "marka": "GREENMECH",
+      "model": "GM1/RĘBAK",
+      "nr_rejestracyjny": "KR 9P937",
+      "vin": "SKHBKGA000C200599",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 6,
+      "marka": "GREENMECH",
+      "model": "GM1/RĘBAK",
+      "nr_rejestracyjny": "SK 078XR",
+      "vin": "SKHRKGF000CC150612",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 8,
+      "marka": "GREENMECH",
+      "model": "GM1/RĘBAK",
+      "nr_rejestracyjny": "SK 040XY",
+      "vin": "SKHBKCA000C180624",
+      "notatki": "База"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 5,
+      "marka": "GREENMECH",
+      "model": "GM2",
+      "nr_rejestracyjny": "SK 031YL",
+      "vin": "SA9T0GF00EC132296",
+      "notatki": "Wroclaw"
+    },
+    {
+      "arkusz": "Ponomarenko",
+      "lp": 4,
+      "marka": "GREENMECH",
+      "model": "QUAD CHIP",
+      "nr_rejestracyjny": "ZS 375WA",
+      "vin": "SKHRKGF000C160486",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 1,
+      "marka": "GREENMECH",
+      "model": "QUADCHIP",
+      "nr_rejestracyjny": "SK 095XT",
+      "vin": "SA9RWGF00EC132016",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 4,
+      "marka": "GREENMECH",
+      "model": "QUADCHIP 160",
+      "nr_rejestracyjny": "KK 9653P",
+      "vin": "SA9RWGF00EC132516",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 27,
+      "marka": "GREENMECH",
+      "model": "самоходный",
+      "nr_rejestracyjny": "-",
+      "vin": "SA9FWGH00DC132247",
+      "notatki": "РЕЗЕРВ BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 14,
+      "marka": "HARLEY",
+      "model": "DAVIDSON",
+      "nr_rejestracyjny": "KR 20X3",
+      "vin": "5HD1KB741RS620187",
+      "notatki": "Kovalov Volodymyr"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 1,
+      "marka": "HARLEY",
+      "model": "DAVIDSON",
+      "nr_rejestracyjny": "WW LN76H",
+      "vin": "1HD1FCM10DB684774",
+      "notatki": "Kovalov Volodymyr"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 7,
+      "marka": "ISUZU",
+      "model": "-",
+      "nr_rejestracyjny": "SK 1C916",
+      "vin": "JAANPR77G67100200",
+      "notatki": "Rogozinskyi Mykhailo"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 1,
+      "marka": "ISUZU",
+      "model": "-",
+      "nr_rejestracyjny": "SK 643XF",
+      "vin": "JAANLR85H97101125",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 2,
+      "marka": "ISUZU",
+      "model": "-",
+      "nr_rejestracyjny": "TKI 2085L",
+      "vin": "JAANPR85L77100411",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 1,
+      "marka": "ISUZU",
+      "model": "-",
+      "nr_rejestracyjny": "SK 5A931",
+      "vin": "JAANPR77L47101055",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 12,
+      "marka": "ISUZU",
+      "model": "TROOPER",
+      "nr_rejestracyjny": "SK 682XF",
+      "vin": "JAANPR77L47100578",
+      "notatki": "Wroclaw"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 5,
+      "marka": "IVECO",
+      "model": "-",
+      "nr_rejestracyjny": "KCH 22763",
+      "vin": "ZCFC3584005646069",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 36,
+      "marka": "IVECO",
+      "model": "35C13",
+      "nr_rejestracyjny": "KK 7591S",
+      "vin": "ZCFC3593005963525",
+      "notatki": "Wroclaw"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 17,
+      "marka": "IVECO",
+      "model": "DAILY",
+      "nr_rejestracyjny": "KK 76953",
+      "vin": "ZCFCH35AX0D679656",
+      "notatki": "Kraków"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 35,
+      "marka": "IVECO",
+      "model": "DAILY",
+      "nr_rejestracyjny": "KK 2590S",
+      "vin": "ZCFC359300D533907",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 2,
+      "marka": "IVECO",
+      "model": "DAILY",
+      "nr_rejestracyjny": "SK 826YP",
+      "vin": "ZCFC50C100D460176",
+      "notatki": null
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 12,
+      "marka": "IVECO",
+      "model": "DAILY",
+      "nr_rejestracyjny": "KK 5975W",
+      "vin": "ZCFC3584005752268",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 3,
+      "marka": "IVECO",
+      "model": "DAILY",
+      "nr_rejestracyjny": "RLA 50774",
+      "vin": "RLA001210005",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 16,
+      "marka": "IVECO",
+      "model": "DAILY 35C12",
+      "nr_rejestracyjny": "EBE 56264",
+      "vin": "ZCFC3584005651314",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 1,
+      "marka": "JENSEN",
+      "model": "-",
+      "nr_rejestracyjny": "UEM HB333",
+      "vin": "5506072023",
+      "notatki": "Cherednyk Vladyslav"
+    },
+    {
+      "arkusz": "BDO",
+      "lp": "MERCEDES 903.6",
+      "marka": "K0",
+      "model": "260U",
+      "nr_rejestracyjny": "WDB9036131R740200",
+      "vin": null,
+      "notatki": null
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 4,
+      "marka": "KIA",
+      "model": "CERATO",
+      "nr_rejestracyjny": "TK 678EK",
+      "vin": "KNEFE242255158492",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "BDO",
+      "lp": "IVECO DAILY",
+      "marka": "KK",
+      "model": "2590S",
+      "nr_rejestracyjny": "ZCFC359300D533907",
+      "vin": null,
+      "notatki": null
+    },
+    {
+      "arkusz": "BDO",
+      "lp": "NISSAN CABSTAR",
+      "marka": "KK",
+      "model": "5563W",
+      "nr_rejestracyjny": "VWASHFF2481056902",
+      "vin": null,
+      "notatki": null
+    },
+    {
+      "arkusz": "BDO",
+      "lp": "IVECO 35C13",
+      "marka": "KK",
+      "model": "7591S",
+      "nr_rejestracyjny": "ZCFC3593005963525",
+      "vin": null,
+      "notatki": null
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 13,
+      "marka": "LAND",
+      "model": "ROVER/RANGE ROVER",
+      "nr_rejestracyjny": "S A9Y",
+      "vin": "SALAC2D44BA550599",
+      "notatki": "Kovalov Volodymyr"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 5,
+      "marka": "LEXUS",
+      "model": "CT 200H",
+      "nr_rejestracyjny": "KR 7JY34",
+      "vin": "JTHKD5BHX02021115",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 2,
+      "marka": "MAN",
+      "model": "L2000",
+      "nr_rejestracyjny": "SK 068UY",
+      "vin": "WMAL207103G098210",
+      "notatki": "Shevchenko Yurii"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 23,
+      "marka": "MAN",
+      "model": "TGL",
+      "nr_rejestracyjny": "PO 8KU54",
+      "vin": "WMAN03ZZ78Y214895",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 1,
+      "marka": "MAZDA",
+      "model": "-",
+      "nr_rejestracyjny": "AH 1199KX",
+      "vin": "JMZKE197800137392",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 32,
+      "marka": "MERCEDES",
+      "model": "903.6",
+      "nr_rejestracyjny": "K0 260U",
+      "vin": "WDB9036131R740200",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 21,
+      "marka": "MERCEDES-BENZ",
+      "model": "-",
+      "nr_rejestracyjny": "PWR 680AS",
+      "vin": "WDB9036121R191246",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 6,
+      "marka": "MINI",
+      "model": "COOPER",
+      "nr_rejestracyjny": "SK 4E566",
+      "vin": "WMW21GD0502W10504",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 3,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "SK 478WK",
+      "vin": "TYBFB83SD4DV05996",
+      "notatki": "Samoilenko Oleksii"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 9,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "SK 450UM",
+      "vin": "TYBFB83BE4DT10754",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 10,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "SK 147VV",
+      "vin": "TYBFB83SD4DV04513",
+      "notatki": "Kravchenko Oleksandr"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 11,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "SK 321XF",
+      "vin": "TYBFB83SE4DV09625",
+      "notatki": "Kraków"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 24,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "SK 682YE",
+      "vin": "TYBFEB01CLDY01755",
+      "notatki": "Kraków"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 11,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "KR 307JJ",
+      "vin": "TYBFB631D4DR00487",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Ponomarenko",
+      "lp": 2,
+      "marka": "MITSUBISHI",
+      "model": "CANTER",
+      "nr_rejestracyjny": "ZS 938UU",
+      "vin": "TYBFB83BD4DU11625",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 1,
+      "marka": "MITSUBISHI",
+      "model": "FUSO",
+      "nr_rejestracyjny": "SK 8C753",
+      "vin": "TYBFB83BD4DU14629",
+      "notatki": "Katowice Андрей"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 23,
+      "marka": "MOTOCYKL",
+      "model": "KTM",
+      "nr_rejestracyjny": "SK 827T",
+      "vin": "VBKV79406NM961314",
+      "notatki": "Kovalov Volodymyr"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 31,
+      "marka": "NEPTUN",
+      "model": "N7 (PRZYCZEPA)",
+      "nr_rejestracyjny": "KK 8885P",
+      "vin": "SXE11236NPS300476",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 29,
+      "marka": "NEPTUN",
+      "model": "TR1 (PRZYCZEPA)",
+      "nr_rejestracyjny": "SK 151YX",
+      "vin": "SXE10305NRS300067",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 22,
+      "marka": "NISSAN",
+      "model": "ATLEON",
+      "nr_rejestracyjny": "SK 579YC",
+      "vin": "VWANFTTK084061038",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 1,
+      "marka": "NISSAN",
+      "model": "ATLEON",
+      "nr_rejestracyjny": "SK 827YP",
+      "vin": "VWANFFTK074021446",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 2,
+      "marka": "Nissan",
+      "model": "Cabstar",
+      "nr_rejestracyjny": "SK 3F569",
+      "vin": "VWASHFF24B2124435",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 37,
+      "marka": "NISSAN",
+      "model": "CABSTAR",
+      "nr_rejestracyjny": "KK 5563W",
+      "vin": "VWASHFF2481056902",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 3,
+      "marka": "NISSAN",
+      "model": "CABSTAR",
+      "nr_rejestracyjny": "GTC 01690",
+      "vin": "VWADBFTL063829169",
+      "notatki": "Aliabiev Andrii"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 1,
+      "marka": "NISSAN",
+      "model": "CABSTAR",
+      "nr_rejestracyjny": "ZKA 42159",
+      "vin": "VWADBFTL022154055",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Ponomarenko",
+      "lp": 6,
+      "marka": "NISSAN",
+      "model": "CABSTAR",
+      "nr_rejestracyjny": "DJEEY54",
+      "vin": "VWADBFTL0Y1117168",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 2,
+      "marka": "NISSAN",
+      "model": "CABSTAR E",
+      "nr_rejestracyjny": "TK 309EV",
+      "vin": "VWADBFTL012143984",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 9,
+      "marka": "OPEL",
+      "model": "-",
+      "nr_rejestracyjny": "SZA 2669C",
+      "vin": "W0L0ZCF3581014422",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 5,
+      "marka": "OPEL",
+      "model": "MOVANO",
+      "nr_rejestracyjny": "RLS 02000",
+      "vin": "VN1H9CUK634371850",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 4,
+      "marka": "RANAULT",
+      "model": "CLIO III",
+      "nr_rejestracyjny": "SK 318WW",
+      "vin": "VF1CR2V0H44700826",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 28,
+      "marka": "RENAULT",
+      "model": "CLIO II",
+      "nr_rejestracyjny": "KR 3R864",
+      "vin": "VF1CR270E43476167",
+      "notatki": "Rogozinskyi Mykhailo"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 21,
+      "marka": "RENAULT",
+      "model": "KANGOO",
+      "nr_rejestracyjny": "KSU 4U76",
+      "vin": "VF1FC0NAF27299294",
+      "notatki": "РЕЗЕРВ BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 25,
+      "marka": "RENAULT",
+      "model": "KANGOO",
+      "nr_rejestracyjny": "KMI 26V9",
+      "vin": "VF1FW1AB545523915",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 10,
+      "marka": "RENAULT",
+      "model": "MASTER",
+      "nr_rejestracyjny": "SK 1C813",
+      "vin": "VF1MB000672624846",
+      "notatki": "Zahorianskyi Dmytro"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 15,
+      "marka": "RENAULT",
+      "model": "MASTER",
+      "nr_rejestracyjny": "KK 43529",
+      "vin": "VF6VGU6J346016496",
+      "notatki": "Prots Oleksii"
+    },
+    {
+      "arkusz": "Ponomarenko",
+      "lp": 3,
+      "marka": "RENAULT",
+      "model": "MASTER",
+      "nr_rejestracyjny": "ZGL 51221",
+      "vin": "VF1MAFCYC52482028",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 30,
+      "marka": "RENAULT",
+      "model": "MB",
+      "nr_rejestracyjny": "WY 432EN",
+      "vin": "VF1MB000873116663",
+      "notatki": "Wroclaw"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 4,
+      "marka": "RENAULT",
+      "model": "MEGANE",
+      "nr_rejestracyjny": "KWA 5VH3",
+      "vin": "VF1BM0B0H28147084",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kielce",
+      "lp": 3,
+      "marka": "RENAULT",
+      "model": "TRAFIC",
+      "nr_rejestracyjny": "TPI 82JC",
+      "vin": "VF1FLABA52V133077",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 7,
+      "marka": "SUZUKI",
+      "model": "SWIFT",
+      "nr_rejestracyjny": "KOL MY36",
+      "vin": "TSMMZA11S00401828",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 5,
+      "marka": "TEMARED",
+      "model": "PRZYCZEPA CIĘŻAROWA",
+      "nr_rejestracyjny": "KOS 06Y5",
+      "vin": "SWH4S50400H145328",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 18,
+      "marka": "TIMBERWOLF",
+      "model": "(PRZYCZEPA LEKKA)",
+      "nr_rejestracyjny": "KK 8650P",
+      "vin": "SBXTW35A5KS209042",
+      "notatki": "Samoilenko Oleksii"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 19,
+      "marka": "TIMBERWOLF",
+      "model": "(PRZYCZEPA LEKKA)",
+      "nr_rejestracyjny": "KK 9201P",
+      "vin": "SBXTW35A4HS209132",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 12,
+      "marka": "TIMBERWOLF",
+      "model": "(PRZYCZEPA)",
+      "nr_rejestracyjny": "SK 1A067",
+      "vin": "SBXTW35A5JS209143",
+      "notatki": "Fiutek Dominik"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 8,
+      "marka": "TUNNISSEN",
+      "model": "160M",
+      "nr_rejestracyjny": "SK 042VN",
+      "vin": "0000RIGIN0530318A",
+      "notatki": "РЕЗЕРВ BAZA"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 6,
+      "marka": "VERMEER",
+      "model": "BC1000XL",
+      "nr_rejestracyjny": "SK 031US",
+      "vin": "1VRY11190A1011997",
+      "notatki": "РЕЗЕРВ BAZA"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 3,
+      "marka": "VOLKSWAGEN",
+      "model": "CADDY",
+      "nr_rejestracyjny": "ST 1646K",
+      "vin": "WV2ZZZ9KZWR518949",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 16,
+      "marka": "VOLKSWAGEN",
+      "model": "CRAFTER",
+      "nr_rejestracyjny": "SK 738XP",
+      "vin": "WV1ZZZ2FZA7003256",
+      "notatki": "Cherednyk Vladyslav"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 8,
+      "marka": "VOLKSWAGEN",
+      "model": "CRAFTER",
+      "nr_rejestracyjny": "SK 8A744",
+      "vin": "WV1ZZZ2FZ97007857",
+      "notatki": "Dzedziulia Vadzim"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 9,
+      "marka": "VOLKSWAGEN",
+      "model": "CRAFTER",
+      "nr_rejestracyjny": "SK 8A768",
+      "vin": "WV1ZZZ2FZ97007858",
+      "notatki": "Yuzhenko Yurii"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 20,
+      "marka": "VOLKSWAGEN",
+      "model": "CRAFTER",
+      "nr_rejestracyjny": "KK 5384U",
+      "vin": "WV1ZZZ2FZA7004855",
+      "notatki": "BAZA"
+    },
+    {
+      "arkusz": "Ponomarenko",
+      "lp": 5,
+      "marka": "VOLKSWAGEN",
+      "model": "GOLF V",
+      "nr_rejestracyjny": "ZS 119VT",
+      "vin": "WVWZZZ1KZ8WO28193",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": 6,
+      "marka": "VOLKSWAGEN",
+      "model": "LT 46",
+      "nr_rejestracyjny": "DBA 16966",
+      "vin": "WV1ZZZ2DZ2H013023",
+      "notatki": "BB"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 3,
+      "marka": "VOLKSWAGEN",
+      "model": "PASSAT",
+      "nr_rejestracyjny": "SRB GA28",
+      "vin": "WVWZZZ3BZXE099945",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Katowice",
+      "lp": 1,
+      "marka": "ZASŁAW",
+      "model": "PRZYCZEPA",
+      "nr_rejestracyjny": "WR 4487P",
+      "vin": "SVHPKZ11000007352",
+      "notatki": "-"
+    },
+    {
+      "arkusz": "Kraków",
+      "lp": "№ п/п",
+      "marka": "Модель",
+      "model": "-",
+      "nr_rejestracyjny": "НОМЕР РЕЕСТРАЦИОННЫЙ",
+      "vin": "Номер VIN",
+      "notatki": "Кто пользуется"
+    }
+  ]
+}

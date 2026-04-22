@@ -1,0 +1,1 @@
+const fs=require('fs'); const acorn=require('acorn'); const path='c:/Users/paha1/arbor-web/src/pages/Ekipy.js'; const text=fs.readFileSync(path,'utf8'); try { acorn.parse(text,{ecmaVersion:2020, sourceType:'module'}); console.log('parse ok'); } catch(e){ console.error(e.message); console.error('line', e.loc && e.loc.line, 'column', e.loc && e.loc.column); }

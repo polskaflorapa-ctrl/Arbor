@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0e14" />
+    <meta
+      name="description"
+      content="ARBOR-OS — panel operacyjny"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <!--
+      manifest.json provides metadata used when your web app is installed on a
+      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
+    -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <!--
+      Notice the use of %PUBLIC_URL% in the tags above.
+      It will be replaced with the URL of the `public` folder during the build.
+      Only files inside the `public` folder can be referenced from the HTML.
+
+      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
+      work correctly both with client-side routing and a non-root public URL.
+      Learn how to configure a non-root public URL by running `npm run build`.
+    -->
+    <title>ARBOR-OS</title>
+    <!-- Przed Reactem: usuwa śmieci z LS (literal "undefined", token/user), żeby żaden bundel nie robił JSON.parse na tym. -->
+    <script>
+      (function () {
+        try {
+          var ls = window.localStorage;
+          if (!ls) return;
+          function badScalar(t) {
+            return t === '' || t === 'undefined' || t === 'null';
+          }
+          function stripZW(s) {
+            return String(s).replace(/[\uFEFF\u200B-\u200D]/g, '').trim();
+          }
+          for (var i = ls.length - 1; i >= 0; i--) {
+            var key = ls.key(i);
+            if (!key) continue;
+            var val = ls.getItem(key);
+            if (val == null) continue;
+            var t = stripZW(val);
+            if (badScalar(t)) ls.removeItem(key);
+          }
+          var u = ls.getItem('user');
+          if (u != null) {
+            var ut = stripZW(u);
+            if (badScalar(ut) || ut.charAt(0) !== '{') ls.removeItem('user');
+          }
+          var tok = ls.getItem('token');
+          if (tok != null && badScalar(stripZW(tok))) ls.removeItem('token');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <!--
+      This HTML file is a template.
+      If you open it directly in the browser, you will see an empty page.
+
+      You can add webfonts, meta tags, or analytics to this file.
+      The build step will place the bundled scripts into the <body> tag.
+
+      To begin the development, run `npm start` or `yarn start`.
+      To create a production bundle, use `npm run build` or `yarn build`.
+    -->
+  </body>
+</html>

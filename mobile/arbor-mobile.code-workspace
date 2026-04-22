@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../arbor-os"
+		},
+		{
+			"path": "../arbor-web"
+		}
+	]
+}

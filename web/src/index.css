@@ -1,0 +1,234 @@
+/* ─── ARBOR-OS: design tokens & global styles ───────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── DARK THEME (default) — slate + emerald, restrained contrast ─────────── */
+:root,
+body.theme-dark {
+  --bg: #0a0e14;
+  --bg-card: #121a24;
+  --bg-deep: #0e1218;
+  --bg-card2: #1a2330;
+  --sidebar: #070a0f;
+  --accent: #10b981;
+  --accent-dk: #059669;
+  --on-accent: #f0fdf4;
+  --text: #e8edf4;
+  --text-sub: #94a3b8;
+  --text-muted: #64748b;
+  --border: rgba(148, 163, 184, 0.14);
+  --border2: rgba(148, 163, 184, 0.22);
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --info: #38bdf8;
+  --purple: #a78bfa;
+  --input-bg: #0e1218;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --focus-ring: rgba(16, 185, 129, 0.28);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --nav-active-bg: rgba(16, 185, 129, 0.12);
+  --nav-hover-bg: rgba(255, 255, 255, 0.05);
+  --logo-tint-bg: rgba(16, 185, 129, 0.1);
+  --logo-tint-border: rgba(16, 185, 129, 0.22);
+  --glow-accent: radial-gradient(circle, rgba(16, 185, 129, 0.16) 0%, transparent 68%);
+  --glow-secondary: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 68%);
+  --accent-surface: rgba(16, 185, 129, 0.06);
+}
+
+/* ── LIGHT THEME ───────────────────────────────────────────────────────────── */
+body.theme-light {
+  --bg: #eef2f6;
+  --bg-card: #ffffff;
+  --bg-deep: #e2e8f0;
+  --bg-card2: #f1f5f9;
+  --sidebar: #0f172a;
+  --accent: #059669;
+  --accent-dk: #047857;
+  --on-accent: #ffffff;
+  --text: #0f172a;
+  --text-sub: #475569;
+  --text-muted: #64748b;
+  --border: rgba(15, 23, 42, 0.1);
+  --border2: rgba(15, 23, 42, 0.14);
+  --danger: #dc2626;
+  --warning: #d97706;
+  --info: #2563eb;
+  --purple: #7c3aed;
+  --input-bg: #f8fafc;
+  --shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 20px 50px rgba(15, 23, 42, 0.12);
+  --focus-ring: rgba(5, 150, 105, 0.22);
+  --nav-active-bg: rgba(5, 150, 105, 0.12);
+  --nav-hover-bg: rgba(15, 23, 42, 0.06);
+  --logo-tint-bg: rgba(5, 150, 105, 0.1);
+  --logo-tint-border: rgba(5, 150, 105, 0.22);
+  --glow-accent: radial-gradient(circle, rgba(5, 150, 105, 0.12) 0%, transparent 68%);
+  --glow-secondary: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 68%);
+  --accent-surface: rgba(5, 150, 105, 0.06);
+}
+
+/* ── GREEN THEME ───────────────────────────────────────────────────────────── */
+body.theme-green {
+  --bg: #071209;
+  --bg-card: #0f1f12;
+  --bg-deep: #0a160c;
+  --bg-card2: #152b19;
+  --sidebar: #040806;
+  --accent: #5eead4;
+  --accent-dk: #2dd4bf;
+  --on-accent: #042f2e;
+  --text: #ecfdf5;
+  --text-sub: #a7f3d0;
+  --text-muted: #5dae8f;
+  --border: rgba(94, 234, 212, 0.12);
+  --border2: rgba(94, 234, 212, 0.2);
+  --danger: #fca5a5;
+  --warning: #fcd34d;
+  --info: #93c5fd;
+  --purple: #c4b5fd;
+  --input-bg: #0a160c;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.42);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --focus-ring: rgba(94, 234, 212, 0.28);
+  --nav-active-bg: rgba(94, 234, 212, 0.12);
+  --nav-hover-bg: rgba(255, 255, 255, 0.06);
+  --logo-tint-bg: rgba(94, 234, 212, 0.1);
+  --logo-tint-border: rgba(94, 234, 212, 0.22);
+  --glow-accent: radial-gradient(circle, rgba(94, 234, 212, 0.14) 0%, transparent 68%);
+  --glow-secondary: radial-gradient(circle, rgba(147, 197, 253, 0.1) 0%, transparent 68%);
+  --accent-surface: rgba(94, 234, 212, 0.06);
+}
+
+html {
+  font-size: 15px;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: rgba(16, 185, 129, 0.28);
+  color: var(--text);
+}
+
+body.theme-light ::selection {
+  background: rgba(5, 150, 105, 0.2);
+}
+
+a,
+button {
+  color: inherit;
+}
+
+button,
+[role='button'] {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Inputs globalne */
+input,
+select,
+textarea {
+  background: var(--input-bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--focus-ring) !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+select option {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 12px !important;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

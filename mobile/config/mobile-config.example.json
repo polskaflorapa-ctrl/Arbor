@@ -1,0 +1,30 @@
+{
+  "_readme": "Przykład odpowiedzi GET /api/mobile-config (lub GET /api/config/mobile). Usuń _readme w produkcji. Nagłówek X-Api-Version (np. 1.4.0) jest zapisywany przez aplikację — zalecany przy każdej odpowiedzi.",
+  "appFlags": {
+    "autoplanRelaxApplyRoles": false
+  },
+  "oddzialFeatureOverrides": {
+    "1": {
+      "name": "Oddział #1 — tryb zdalny",
+      "mission": "Skrócony zestaw ekranów",
+      "focus": "Zlecenia i misja dnia",
+      "startPath": "/misja-dnia",
+      "allowed": [
+        "/misja-dnia",
+        "/zlecenia",
+        "/harmonogram",
+        "/wycena",
+        "/ogledziny",
+        "/powiadomienia",
+        "/profil",
+        "/magazyn-mobile",
+        "/api-diagnostyka"
+      ],
+      "priorityOrder": ["/misja-dnia", "/zlecenia", "/harmonogram", "/powiadomienia", "/profil"]
+    },
+    "2": {
+      "allowed": ["/wyceniajacy-hub", "/wycena", "/wycena-kalendarz", "/ogledziny", "/profil", "/api-diagnostyka"],
+      "startPath": "/wyceniajacy-hub"
+    }
+  }
+}

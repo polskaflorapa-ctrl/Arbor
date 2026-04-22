@@ -1,0 +1,37 @@
+{
+  "_readme": "Kontrakt REST pod moduł rezerwacji sprzętu (mobile). Prefix: {API_URL} = .../api",
+  "GET_flota_rezerwacje": {
+    "path": "/flota/rezerwacje?from=2026-04-01&to=2026-04-30",
+    "response_200": [
+      {
+        "id": 101,
+        "sprzet_id": 12,
+        "sprzet_nazwa": "Glebogryzarka",
+        "ekipa_id": 3,
+        "ekipa_nazwa": "Kravchenko",
+        "data_od": "2026-04-29",
+        "data_do": "2026-04-29",
+        "caly_dzien": true,
+        "status": "Zarezerwowane"
+      }
+    ]
+  },
+  "POST_flota_rezerwacje": {
+    "path": "/flota/rezerwacje",
+    "body": {
+      "sprzet_id": 12,
+      "ekipa_id": 3,
+      "data_od": "2026-04-29",
+      "data_do": "2026-04-29",
+      "caly_dzien": true,
+      "status": "Zarezerwowane"
+    },
+    "response_201": { "id": 101 }
+  },
+  "PUT_flota_rezerwacja_status": {
+    "path": "/flota/rezerwacje/101/status",
+    "body": { "status": "Wydane" },
+    "response_200": {}
+  },
+  "statusy": ["Zarezerwowane", "Wydane", "Zwrócone", "Anulowane"]
+}

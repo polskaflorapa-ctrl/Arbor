@@ -1,0 +1,102 @@
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes bounceIn {
+  0% { transform: scale(0.9); opacity: 0; }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes treeSway {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+.slide-in { animation: slideIn 0.3s ease forwards; }
+.bounce-in { animation: bounceIn 0.4s ease forwards; }
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+}
+.btn-hover {
+  transition: all 0.2s ease !important;
+}
+.btn-hover:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: var(--shadow-sm) !important;
+}
+.btn-hover:active {
+  transform: scale(0.96);
+}
+.nav-item-hover {
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.nav-item-hover:hover {
+  background: rgba(255,255,255,0.15) !important;
+  transform: translateX(4px);
+}
+.kpi-card {
+  animation: bounceIn 0.4s ease forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+}
+.table-row-hover {
+  transition: background 0.15s ease;
+}
+.table-row-hover:hover {
+  background: var(--accent-surface) !important;
+}
+.logo-tree {
+  display: inline-block;
+  animation: treeSway 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .slide-in,
+  .bounce-in,
+  .kpi-card,
+  .logo-tree {
+    animation: none !important;
+  }
+
+  .card-hover,
+  .btn-hover,
+  .nav-item-hover,
+  .table-row-hover {
+    transition: none !important;
+  }
+}

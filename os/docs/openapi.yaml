@@ -1,0 +1,2295 @@
+openapi: 3.0.3
+info:
+  title: ARBOR-OS API
+  version: "2.1.1"
+  description: |
+    REST API systemu ARBOR-OS. Odpowiedzi błędów zawierają `error` (po polsku), opcjonalnie `code` (stabilny identyfikator), `requestId`.
+servers:
+  - url: /api
+paths:
+  /health:
+    get:
+      summary: Stan serwera
+      responses:
+        "200":
+          description: OK
+  /ready:
+    get:
+      summary: Gotowość (baza danych)
+      responses:
+        "200":
+          description: Baza dostępna
+        "503":
+          description: Baza niedostępna
+  /auth/login:
+    post:
+      summary: Logowanie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login, haslo]
+              properties:
+                login: { type: string }
+                haslo: { type: string }
+      responses:
+        "200":
+          description: Token JWT
+        "400":
+          description: Walidacja (Zod) — `code: VALIDATION_FAILED`
+        "401":
+          description: Błędne dane — `code: LOGIN_INVALID_CREDENTIALS`
+        "429":
+          description: Limit prób — `code: LOGIN_TOO_MANY_ATTEMPTS`
+  /tasks/wszystkie:
+    get:
+      summary: Lista zleceń
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          description: Paginacja (1–100); jeśli podane, odpowiedź `{ items, total, limit, offset }`
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica zleceń lub obiekt stronicowany
+  /docs/openapi.yaml:
+    get:
+      summary: Specyfikacja OpenAPI (ten plik)
+      responses:
+        "200":
+          description: YAML
+  /metrics:
+    get:
+      summary: Metryki Prometheus (włączone gdy METRICS_ENABLED=true)
+      responses:
+        "200":
+          description: text/plain
+  /audit:
+    get:
+      summary: Rejestr audytu (tylko Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0, minimum: 0 }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: entity_type
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          description: Filtr początku okresu (timestamptz)
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: "{ items, total, limit, offset }"
+        "403":
+          description: Brak roli
+  /klienci:
+    get:
+      summary: Lista klientów
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: szukaj
+          in: query
+          schema: { type: string }
+        - name: miasto
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          description: Paginacja 1–100 → `{ items, total, limit, offset }`
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub obiekt stronicowany
+    post:
+      summary: Nowy klient (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KlientWrite'
+      responses:
+        "201":
+          description: Utworzony klient
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /wyceny:
+    get:
+      summary: Lista wycen
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status_akceptacji
+          in: query
+          schema: { type: string, enum: [oczekuje, zatwierdzono, odrzucono] }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowa wycena (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WycenaCreate'
+      responses:
+        "201":
+          description: Utworzona wycena
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /uzytkownicy:
+    get:
+      summary: Lista użytkowników
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowy użytkownik (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        "200":
+          description: `{ id, message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /ksiegowosc/ustawienia:
+    get:
+      summary: Ustawienia firmy (księgowość)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Obiekt ustawień lub `{}`
+    put:
+      summary: Zapis ustawień firmy (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanySettingsWrite'
+      responses:
+        "200":
+          description: Zapisano
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /ksiegowosc/faktury:
+    get:
+      summary: Lista faktur (księgowość)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: rok
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub obiekt stronicowany
+    post:
+      summary: Nowa faktura (księgowość, walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceCreate'
+      responses:
+        "200":
+          description: `{ id, numer }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /tasks/moje:
+    get:
+      summary: Zlecenia na dany dzień (brygadzista / ekipa)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: data
+          in: query
+          description: Data YYYY-MM-DD (domyślnie dziś)
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tablica zleceń
+  /ogledziny:
+    get:
+      summary: Lista oględzin
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowe oględziny (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OgledzinyCreate'
+      responses:
+        "201":
+          description: Utworzone oględziny
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /raporty-dzienne:
+    get:
+      summary: Raporty dzienne
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Utwórz lub zaktualizuj raport dzienny (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyReportUpsert'
+      responses:
+        "200":
+          description: `{ success, id, message }`
+        "400":
+          description: Walidacja lub reguły biznesowe
+  /mobile/ustawienia:
+    get:
+      summary: Ustawienia firmy (mobile)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Obiekt ustawień lub `{}`
+    put:
+      summary: Zapis ustawień firmy (mobile, walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanySettingsWrite'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /mobile/faktury:
+    get:
+      summary: Faktury (aplikacja mobilna)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowa faktura (mobile, walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceCreate'
+      responses:
+        "200":
+          description: `{ success, id, numer }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /mobile/faktury/stats:
+    get:
+      summary: Statystyki faktur (mobile)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Agregaty `total`, `przychod_total`, `oplacone`, `nieoplacone`, itd.
+  /mobile/faktury/{id}:
+    get:
+      summary: Faktura po id (mobile)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Faktura + `pozycje`
+        "404":
+          description: Nie znaleziono
+    delete:
+      summary: Usunięcie faktury (tylko Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Brak roli
+        "404":
+          description: Nie znaleziono
+  /mobile/faktury/{id}/status:
+    put:
+      summary: Zmiana statusu faktury (mobile)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "404":
+          description: Nie znaleziono
+  /mobile/rozliczenia:
+    get:
+      summary: Rozliczenia / sumy faktur (rok, opcjonalnie miesiąc)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: rok
+          in: query
+          schema: { type: integer }
+        - name: miesiac
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 12 }
+      responses:
+        "200":
+          description: Sumy + tablica `miesiace`
+  /role:
+    get:
+      summary: Role systemowe
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowa rola (Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCreate'
+      responses:
+        "201":
+          description: Utworzona rola
+        "400":
+          description: Duplikat nazwy / walidacja — `code: VALIDATION_FAILED`
+  /role/permissions/schema:
+    get:
+      summary: Schemat uprawnień (UI)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: JSON
+  /oddzialy:
+    get:
+      summary: Oddziały
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowy oddział (Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OddzialCreate'
+      responses:
+        "200":
+          description: `{ id, message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak roli
+  /ekipy:
+    get:
+      summary: Ekipy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowa ekipa (bez roli Brygadzista)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EkipaCreate'
+      responses:
+        "200":
+          description: `{ id, message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /flota/katalog-pojazdow:
+    get:
+      summary: Katalog pojazdów do wyboru (dane z importu Excel → JSON)
+      description: |
+        Zwraca listę z `data/flota-pojazdy-katalog.json` (pole `arkusz` = nazwa arkusza z pliku źródłowego).
+        Odświeżenie pliku: `npm run flota:katalog -- \"ścieżka/do/Данные по машинам.xlsx\"`
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: arkusz
+          in: query
+          description: Filtr dokładnej nazwy arkusza (np. Kraków)
+          schema: { type: string, maxLength: 80 }
+        - name: q
+          in: query
+          description: Szukanie po numerze rejestracyjnym, marce, modelu, VIN, notatce
+          schema: { type: string, maxLength: 80 }
+      responses:
+        "200":
+          description: |
+            `{ liczba, arkusze[], zrodlo, wygenerowano, items[] }` — element `items`: `arkusz`, `marka`, `model`, `nr_rejestracyjny`, `vin`, `notatki`
+  /flota/pojazdy:
+    get:
+      summary: Pojazdy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowy pojazd
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaPojazdCreate'
+      responses:
+        "200":
+          description: `{ id }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /flota/pojazdy/{id}/status:
+    put:
+      summary: Status pojazdu
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /flota/sprzet:
+    get:
+      summary: Sprzęt / maszyny
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowy wpis sprzętu
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaSprzetCreate'
+      responses:
+        "200":
+          description: `{ id }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /flota/sprzet/{id}/status:
+    put:
+      summary: Status sprzętu
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /flota/naprawy:
+    get:
+      summary: Historia napraw
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: typ_zasobu
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Nowa naprawa
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaNaprawaCreate'
+      responses:
+        "200":
+          description: `{ id }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /godziny/moje:
+    get:
+      summary: Godziny pomocnika
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+  /notifications:
+    get:
+      summary: Powiadomienia dla zalogowanego użytkownika
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+    post:
+      summary: Wysłanie powiadomienia do użytkownika
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationCreate'
+      responses:
+        "200":
+          description: `{ message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /notifications/odczytaj-wszystkie:
+    put:
+      summary: Oznaczenie wszystkich jako odczytane
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+  /notifications/{id}/odczytaj:
+    put:
+      summary: Oznaczenie jednego powiadomienia jako odczytane
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+  /sms/wyslij:
+    post:
+      summary: Ręczne wysłanie SMS (Twilio)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsWyslij'
+      responses:
+        "200":
+          description: `{ success, sid }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "500":
+          description: Twilio / błąd wysyłki
+  /sms/zlecenie/{id}:
+    post:
+      summary: SMS z szablonu dla zlecenia (aktualizuje status przy wybranych typach)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsZlecenie'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "404":
+          description: Zlecenie nie znalezione
+        "500":
+          description: Twilio / błąd
+  /sms/wyslij-do-wszystkich:
+    post:
+      summary: Masowe SMS dla zleceń na datę (Dyrektor / Administrator / Kierownik)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsBulk'
+      responses:
+        "200":
+          description: Podsumowanie wysyłki
+        "403":
+          description: Brak roli
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /sms/test:
+    get:
+      summary: Diagnostyka konfiguracji Twilio
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Obiekt ze statusem konfiguracji
+  /telefon/polacz-do-klienta:
+    post:
+      summary: Telefonia (Twilio Voice) — połączenie z klientem przez Twój telefon z profilu
+      description: |
+        Wymaga `PUBLIC_BASE_URL` (publiczny HTTPS), `TWILIO_*` oraz uzupełnionego `telefon` użytkownika w bazie.
+        Twilio najpierw dzwoni na numer pracownika; po odebraniu pobiera TwiML z `/api/telefon/twiml/dial?t=…` i łączy z numerem `do`.
+        Połączenie z klientem jest **nagrywane** (`record-from-answer-dual`); po zakończeniu nagrania webhook uruchamia **transkrypcję** (OpenAI `OPENAI_API_KEY`) i **krótki raport AI** (Anthropic `ANTHROPIC_API_KEY`). Bez OpenAI status `needs_transcription`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelefonPolaczDoKlienta'
+      responses:
+        "200":
+          description: `{ success, sid, message }`
+        "400":
+          description: Walidacja lub brak telefonu pracownika — `code: VALIDATION_FAILED` / `TELEFON_STAFF_PHONE_MISSING`
+        "403":
+          description: Rola ekipy polowej — `code: TELEFON_TEAM_ROLE_FORBIDDEN` (Brygadzista / Pomocnik nie dzwonią do klientów z tego endpointu)
+        "503":
+          description: Brak `PUBLIC_BASE_URL` lub Twilio — `TELEFON_PUBLIC_URL_MISSING` / `TELEFON_TWILIO_NOT_CONFIGURED`
+        "500":
+          description: Błąd Twilio
+  /telefon/twiml/dial:
+    get:
+      summary: TwiML — wywoływane przez serwery Twilio (bez tokenu API)
+      parameters:
+        - name: t
+          in: query
+          required: true
+          description: Krótkotrwały JWT (`aud: twilio-twiml`) z numerem docelowym
+          schema: { type: string }
+      responses:
+        "200":
+          description: `text/xml` — TwiML z `<Dial record="record-from-answer-dual">` i `recordingStatusCallback` na `/api/telefon/webhooks/recording`
+  /telefon/rozmowy:
+    get:
+      summary: Lista rozmów z nagraniami / transkryptami / raportami
+      description: |
+        **Kierownik**, **Dyrektor** i **Administrator** — wszystkie rozmowy w systemie.
+        **Brygadzista / Pomocnik** — brak dostępu (`403` `TELEFON_TEAM_ROLE_FORBIDDEN`). Pozostałe role — tylko własne rozmowy (`user_id`).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }` — pola m.in. `status`, `transcript`, `raport`, `wskazowki_specjalisty` (coaching / na co zwrócić uwagę przy rozmowach z klientem), `recording_duration_sec`, `recording_archive_*`
+        "403":
+          description: Brygadzista / Pomocnik — `TELEFON_TEAM_ROLE_FORBIDDEN`
+  /telefon/rozmowy/{id}/nagranie:
+    get:
+      summary: Odtwarzanie / pobranie zarchiwizowanego nagrania
+      description: |
+        Dostęp wg roli jak przy `GET /telefon/rozmowy/{id}` (kierownik / dyrektor / administrator — dowolna rozmowa).
+        Zwraca strumień audio (lokalne archiwum), przekierowanie 302 (presigned URL do S3) lub na plik w Google Drive,
+        jeśli po przetworzeniu webhooka zapisano archiwum (`PHONE_RECORDING_STORAGE`). Gdy archiwum wyłączone lub jeszcze brak — `404`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Ciało audio lub przekierowanie do zewnętrznego URL
+        "302":
+          description: Przekierowanie do S3 (presigned) lub widoku pliku w Google Drive
+        "403":
+          description: Brygadzista / Pomocnik — `TELEFON_TEAM_ROLE_FORBIDDEN`
+        "404":
+          description: Brak rozmowy, brak dostępu lub brak zapisanego nagrania
+  /telefon/rozmowy/{id}:
+    get:
+      summary: Szczegóły jednej rozmowy
+      description: Ten sam zakres co lista `/telefon/rozmowy` (własne vs cała firma dla kierownika i wyżej).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Rekord rozmowy (`raport`, `wskazowki_specjalisty`, transkrypt, status archiwum nagrania itd.)
+        "404":
+          description: Nie znaleziono lub cudzy rekord
+  /telefon/webhooks/recording:
+    post:
+      summary: Webhook Twilio — zakończenie nagrania (application/x-www-form-urlencoded)
+      description: |
+        Wywoływany przez Twilio po `RecordingStatus=completed`. Zapisuje URL nagrania i asynchronicznie uruchamia transkrypcję, raport operacyjny oraz `wskazowki_specjalisty` (coaching dla specjalisty).
+        W produkcji weryfikowany jest nagłówek `X-Twilio-Signature` (chyba że `TWILIO_SKIP_SIGNATURE_VALIDATION=true`).
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                CallSid: { type: string }
+                RecordingSid: { type: string }
+                RecordingUrl: { type: string }
+                RecordingStatus: { type: string }
+                RecordingDuration: { type: string }
+      responses:
+        "204":
+          description: Przyjęto (obróbka w tle)
+        "403":
+          description: Niepoprawny podpis Twilio
+  /sms/historia:
+    get:
+      summary: Historia SMS
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+  /sms/historia/zlecenie/{taskId}:
+    get:
+      summary: Historia SMS dla jednego zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica wpisów historii
+  /pdf/zlecenie/{id}:
+    get:
+      summary: PDF protokołu zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: application/pdf
+        "403":
+          description: Brak dostępu
+        "404":
+          description: Nie znaleziono
+        "500":
+          description: Błąd generowania
+  /pdf/faktura/{id}:
+    get:
+      summary: PDF faktury
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: application/pdf
+        "404":
+          description: Nie znaleziono
+  /pdf/raport/dzienny/{data}:
+    get:
+      summary: PDF raportu dziennego (zlecenia na datę; zakres wg roli)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: data
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: application/pdf
+        "500":
+          description: Błąd generowania
+  /raporty/czas-pracy:
+    get:
+      summary: Raport czasu pracy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+  /ai/chat:
+    post:
+      summary: Chat AI (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiChatRequest'
+      responses:
+        "200":
+          description: `{ reply }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /db-test:
+    get:
+      summary: Test połączenia z bazą (bez tokenu)
+      responses:
+        "200":
+          description: `{ success, time }`
+        "500":
+          description: Błąd zapytania SQL
+  /tasks/stats:
+    get:
+      summary: Statystyki zleceń według statusu
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Pola `nowe`, `w_realizacji`, `zakonczone`
+  /tasks/nowe:
+    post:
+      summary: Nowe zlecenie (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        "200":
+          description: `{ id }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /tasks/{id}:
+    get:
+      summary: Szczegóły zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Rekord zlecenia
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+        "404":
+          description: Nie znaleziono
+    put:
+      summary: Aktualizacja danych zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        "200":
+          description: `{ message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/przypisz:
+    put:
+      summary: Przypisanie ekipy (status → Zaplanowane)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskAssign'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/status:
+    put:
+      summary: Zmiana statusu zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/start:
+    post:
+      summary: Rozpoczęcie pracy (work_log + status zlecenia + checklista BHP/sprzętu dla ekipy)
+      description: |
+        Dla **Brygadzista** i **Pomocnik** wymagane są `lat`, `lng` (GPS w terenie), pola boolean `dmuchawa_filtr_ok`, `rebak_zatankowany`, `kaski_zespol` oraz `bhp_potwierdzone: true`.
+        Dla kierownictwa pola checklisty są opcjonalne (NULL w work_log).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskStartPayload'
+      responses:
+        "200":
+          description: `{ work_log_id }`
+        "400":
+          description: Walidacja / brak GPS lub checklisty dla ekipy — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/stop:
+    post:
+      summary: Zakończenie pracy (zamyka work_log, status Zakonczone)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskStop'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/problem:
+    post:
+      summary: Zgłoszenie problemu na zleceniu
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskProblem'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/logi:
+    get:
+      summary: Rejestr czasu pracy dla zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica wpisów work_logs
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/problemy:
+    get:
+      summary: Lista zgłoszeń problemów
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica issues
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/zdjecia:
+    get:
+      summary: Zdjęcia przypisane do zlecenia
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica zdjęć
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+    post:
+      summary: Upload zdjęcia (multipart, pole `zdjecie`)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [zdjecie]
+              properties:
+                zdjecie:
+                  type: string
+                  format: binary
+                typ:
+                  type: string
+                  description: Domyślnie `Przed`
+                lat:
+                  type: string
+                  description: Szerokość geograficzna z GPS w momencie zdjęcia (opcjonalnie)
+                lon:
+                  type: string
+                  description: Długość geograficzna z GPS (opcjonalnie)
+      responses:
+        "200":
+          description: `{ message, sciezka }`
+        "400":
+          description: Brak pliku / nie obraz
+        "403":
+          description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /klienci/{id}:
+    get:
+      summary: Klient z historią zleceń i oględzin
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Klient + `zlecenia`, `ogledziny`
+        "404":
+          description: Nie znaleziono
+    put:
+      summary: Aktualizacja klienta (telefon lub email wymagane)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KlientWrite'
+      responses:
+        "200":
+          description: Zaktualizowany klient
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "404":
+          description: Nie znaleziono
+    delete:
+      summary: Usunięcie klienta (tylko Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: `{ ok: true }`
+        "403":
+          description: Brak roli
+        "404":
+          description: Nie znaleziono
+  /wyceny/{id}:
+    get:
+      summary: Wycena po id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Rekord wyceny
+        "404":
+          description: Nie znaleziono
+    delete:
+      summary: Usunięcie wyceny (tylko Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: `{ ok: true }`
+        "403":
+          description: Brak roli
+        "404":
+          description: Nie znaleziono
+  /wyceny/{id}/status:
+    patch:
+      summary: Zmiana statusu wyceny (workflow)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WycenaPatchStatus'
+      responses:
+        "200":
+          description: Zaktualizowana wycena
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "404":
+          description: Nie znaleziono
+  /wyceny/{id}/zatwierdz:
+    post:
+      summary: Zatwierdzenie wyceny (Kierownik / Dyrektor)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WycenaZatwierdz'
+      responses:
+        "200":
+          description: Zaktualizowana wycena
+        "403":
+          description: Brak uprawnień
+        "404":
+          description: Nie znaleziono
+  /wyceny/{id}/odrzuc:
+    post:
+      summary: Odrzucenie wyceny (Kierownik / Dyrektor)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WycenaOdrzuc'
+      responses:
+        "200":
+          description: Zaktualizowana wycena
+        "403":
+          description: Brak uprawnień
+        "404":
+          description: Nie znaleziono
+  /uzytkownicy/{id}/aktywny:
+    put:
+      summary: Aktywacja / dezaktywacja użytkownika
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserAktywny'
+      responses:
+        "200":
+          description: `{ message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /oddzialy/delegacje/wszystkie:
+    get:
+      summary: Lista delegacji (wszystkie oddziały)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+  /oddzialy/delegacje:
+    post:
+      summary: Nowa delegacja
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DelegacjaCreate'
+      responses:
+        "200":
+          description: `{ id, message }`
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /oddzialy/delegacje/{id}/status:
+    put:
+      summary: Status delegacji
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DelegacjaStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /oddzialy/pracownik/{userId}/przenies:
+    put:
+      summary: Przeniesienie pracownika do innego oddziału (Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrzeniesPracownika'
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Brak roli
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /oddzialy/{id}/delegacje:
+    get:
+      summary: Delegacje powiązane z oddziałem (z lub do)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tablica delegacji
+  /oddzialy/{id}:
+    get:
+      summary: Oddział z pracownikami i ekipami
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Oddział + `pracownicy`, `ekipy`
+        "404":
+          description: Nie znaleziono
+    put:
+      summary: Aktualizacja oddziału (Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OddzialWrite'
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Brak roli
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+    delete:
+      summary: Usunięcie oddziału (Dyrektor; brak aktywnych pracowników)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Oddział z aktywnymi pracownikami
+        "403":
+          description: Brak roli
+  /ekipy/rozliczenie/{taskId}:
+    get:
+      summary: Rozliczenie zlecenia (zablokowane — zwraca 403)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "403":
+          description: `code: PAYROLL_SETTLEMENTS_BLOCKED`
+    post:
+      summary: Rozliczenie zlecenia — POST (zablokowane — 403)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "403":
+          description: `code: PAYROLL_SETTLEMENTS_BLOCKED`
+  /ekipy/{id}:
+    get:
+      summary: Ekipa z listą członków
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Ekipa + `czlonkowie`
+        "404":
+          description: Nie znaleziono
+    put:
+      summary: Aktualizacja ekipy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EkipaUpdate'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+    delete:
+      summary: Usunięcie ekipy (tylko Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Brak roli
+  /ekipy/{id}/czlonkowie:
+    post:
+      summary: Dodanie członka do ekipy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamMemberAdd'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+  /ekipy/{id}/czlonkowie/{userId}:
+    delete:
+      summary: Usunięcie członka z ekipy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+  /godziny:
+    post:
+      summary: Zgłoszenie godzin przez pomocnika (walidacja Zod)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GodzinyCreate'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Brak przypisania do zlecenia
+  /godziny/do-potwierdzenia:
+    get:
+      summary: Godziny oczekujące na potwierdzenie (brygadzista)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+  /godziny/wszystkie:
+    get:
+      summary: Wszystkie zgłoszenia godzin (Kierownik — filtr oddziału)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica lub `{ items, total, limit, offset }`
+  /godziny/{id}/status:
+    put:
+      summary: Potwierdzenie / odrzucenie godzin (brygadzista)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GodzinyStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+        "403":
+          description: Tylko brygadzista wpisu
+  /role/{id}:
+    get:
+      summary: Rola po id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Rekord roli
+        "404":
+          description: Nie znaleziono
+    put:
+      summary: Aktualizacja roli (Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdate'
+      responses:
+        "200":
+          description: Zaktualizowana rola
+        "400":
+          description: Duplikat nazwy / walidacja
+        "404":
+          description: Nie znaleziono
+    delete:
+      summary: Usunięcie roli (Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Rola systemowa lub w użyciu
+        "404":
+          description: Nie znaleziono
+  /ksiegowosc/faktury/stats:
+    get:
+      summary: Statystyki faktur (agregaty kwot)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Pola `total`, `przychod_total`, `oplacone`, `nieoplacone` (nazwy jak w API)
+  /ksiegowosc/faktury/{id}:
+    get:
+      summary: Faktura z pozycjami
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Faktura + `pozycje`
+        "404":
+          description: Nie znaleziono
+    delete:
+      summary: Usunięcie faktury (tylko Dyrektor / Administrator)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Brak roli
+        "404":
+          description: Nie znaleziono
+  /ksiegowosc/faktury/{id}/status:
+    put:
+      summary: Zmiana statusu faktury
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceStatusBody'
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Walidacja — `code: VALIDATION_FAILED`
+components:
+  schemas:
+    KlientWrite:
+      type: object
+      description: Co najmniej jedno z pól `telefon` lub `email` musi być niepuste (Zod).
+      properties:
+        imie: { type: string, nullable: true }
+        nazwisko: { type: string, nullable: true }
+        firma: { type: string, nullable: true }
+        telefon: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        adres: { type: string, nullable: true }
+        miasto: { type: string, nullable: true }
+        kod_pocztowy: { type: string, nullable: true }
+        notatki: { type: string, nullable: true }
+        zrodlo: { type: string, nullable: true }
+    WycenaCreate:
+      type: object
+      required: [klient_nazwa]
+      properties:
+        klient_nazwa: { type: string }
+        klient_telefon: { type: string, nullable: true }
+        adres: { type: string, nullable: true }
+        miasto: { type: string, nullable: true }
+        typ_uslugi: { type: string, nullable: true }
+        wartosc_szacowana: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        opis: { type: string, nullable: true }
+        notatki_wewnetrzne: { type: string, nullable: true }
+        lat: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        lon: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        ekipa_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+        data_wykonania: { type: string, nullable: true }
+        godzina_rozpoczecia: { type: string, nullable: true }
+        czas_planowany_godziny: { oneOf: [{ type: number }, { type: string }], nullable: true }
+    UserCreate:
+      type: object
+      required: [login, haslo, rola]
+      properties:
+        login: { type: string }
+        haslo: { type: string, minLength: 8 }
+        imie: { type: string, nullable: true }
+        nazwisko: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        telefon: { type: string, nullable: true }
+        rola: { type: string }
+        oddzial_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+        stawka_godzinowa: { oneOf: [{ type: number }, { type: string }], nullable: true }
+    CompanySettingsWrite:
+      type: object
+      properties:
+        nazwa: { type: string, nullable: true }
+        nip: { type: string, nullable: true }
+        adres: { type: string, nullable: true }
+        kod_pocztowy: { type: string, nullable: true }
+        miasto: { type: string, nullable: true }
+        konto_bankowe: { type: string, nullable: true }
+        bank_nazwa: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        telefon: { type: string, nullable: true }
+    InvoiceLine:
+      type: object
+      required: [nazwa, ilosc, cena_netto, vat_stawka]
+      properties:
+        nazwa: { type: string }
+        jednostka: { type: string }
+        ilosc: { type: number }
+        cena_netto: { type: number }
+        vat_stawka: { type: number }
+    InvoiceCreate:
+      type: object
+      required: [klient_nazwa, pozycje]
+      properties:
+        task_id: { type: integer, nullable: true }
+        klient_nazwa: { type: string }
+        klient_nip: { type: string, nullable: true }
+        klient_adres: { type: string, nullable: true }
+        klient_email: { type: string, nullable: true }
+        klient_typ: { type: string, nullable: true }
+        data_wystawienia: { type: string, nullable: true }
+        data_sprzedazy: { type: string, nullable: true }
+        termin_platnosci: { type: string, nullable: true }
+        forma_platnosci: { type: string, nullable: true }
+        uwagi: { type: string, nullable: true }
+        oddzial_id: { type: integer, nullable: true }
+        pozycje:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/InvoiceLine'
+    DailyReportUpsert:
+      type: object
+      required: [data_raportu]
+      properties:
+        data_raportu: { type: string }
+        opis_pracy: { type: string, nullable: true }
+        podpis_url: { type: string, nullable: true }
+        zadania:
+          type: array
+          items:
+            type: object
+            properties:
+              task_id: { type: integer }
+              czas_minuty: { type: integer }
+              uwagi: { type: string, nullable: true }
+        materialy:
+          type: array
+          items:
+            type: object
+            required: [nazwa]
+            properties:
+              nazwa: { type: string }
+              ilosc: { type: number }
+              jednostka: { type: string }
+              koszt_jednostkowy: { type: number }
+    OgledzinyCreate:
+      type: object
+      required: [klient_id]
+      properties:
+        klient_id: { type: integer }
+        brygadzista_id: { type: integer, nullable: true }
+        data_planowana: { type: string, nullable: true }
+        adres: { type: string, nullable: true }
+        miasto: { type: string, nullable: true }
+        notatki: { type: string, nullable: true }
+    AiChatRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [role, content]
+            properties:
+              role: { type: string }
+              content: { type: string }
+        context: { type: string, maxLength: 2000 }
+    TaskCreate:
+      type: object
+      required: [klient_nazwa, adres, miasto, data_planowana]
+      properties:
+        klient_nazwa: { type: string }
+        klient_telefon: { type: string, nullable: true }
+        adres: { type: string }
+        miasto: { type: string }
+        typ_uslugi: { type: string, nullable: true }
+        priorytet: { type: string, nullable: true }
+        wartosc_planowana: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        czas_planowany_godziny: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        data_planowana: { type: string }
+        notatki_wewnetrzne: { type: string, nullable: true }
+        oddzial_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+        ekipa_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+    TaskUpdate:
+      type: object
+      required: [klient_nazwa, adres, miasto, data_planowana]
+      properties:
+        klient_nazwa: { type: string }
+        klient_telefon: { type: string, nullable: true }
+        adres: { type: string }
+        miasto: { type: string }
+        typ_uslugi: { type: string, nullable: true }
+        priorytet: { type: string, nullable: true }
+        wartosc_planowana: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        wartosc_rzeczywista: { oneOf: [{ type: number }, { type: string }], nullable: true, description: Kwota po korekcie / dodatkowej pracy }
+        czas_planowany_godziny: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        data_planowana: { type: string }
+        notatki_wewnetrzne: { type: string, nullable: true }
+        opis: { type: string, nullable: true, description: Zakres lub dodatkowa praca }
+        notatki_klienta: { type: string, nullable: true }
+    TaskAssign:
+      type: object
+      required: [ekipa_id]
+      properties:
+        ekipa_id: { oneOf: [{ type: integer }, { type: string }] }
+    TaskStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [Nowe, Zaplanowane, W_Realizacji, Zakonczone]
+    TaskGeoOptional:
+      type: object
+      properties:
+        lat: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        lng: { oneOf: [{ type: number }, { type: string }], nullable: true }
+    TaskStartPayload:
+      allOf:
+        - $ref: '#/components/schemas/TaskGeoOptional'
+      type: object
+      properties:
+        dmuchawa_filtr_ok: { type: boolean, description: Dmuchawa / filtr — OK (wymagane dla ekipy) }
+        rebak_zatankowany: { type: boolean, description: Rębak zatankowany (wymagane dla ekipy) }
+        kaski_zespol: { type: boolean, description: Kaski u pomocników i brygadzisty (wymagane dla ekipy) }
+        bhp_potwierdzone: { type: boolean, description: Zapoznanie z krótkim BHP — musi być true dla ekipy }
+    TaskStop:
+      type: object
+      required: [work_log_id]
+      properties:
+        lat: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        lng: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        work_log_id: { oneOf: [{ type: integer }, { type: string }] }
+    TaskProblem:
+      type: object
+      required: [typ]
+      properties:
+        typ: { type: string }
+    WycenaPatchStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    WycenaZatwierdz:
+      type: object
+      properties:
+        ekipa_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+        data_wykonania: { type: string, nullable: true }
+        wartosc_planowana: { oneOf: [{ type: number }, { type: string }], nullable: true }
+    WycenaOdrzuc:
+      type: object
+      properties:
+        powod: { type: string, nullable: true }
+    UserAktywny:
+      type: object
+      required: [aktywny]
+      properties:
+        aktywny: { type: boolean }
+    OddzialCreate:
+      type: object
+      required: [nazwa]
+      properties:
+        nazwa: { type: string }
+        adres: { type: string, nullable: true }
+        miasto: { type: string, nullable: true }
+        kod_pocztowy: { type: string, nullable: true }
+        telefon: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        kierownik_id: { type: integer, nullable: true }
+    OddzialWrite:
+      type: object
+      description: Częściowa aktualizacja oddziału (wszystkie pola opcjonalne)
+      properties:
+        nazwa: { type: string }
+        adres: { type: string, nullable: true }
+        miasto: { type: string, nullable: true }
+        kod_pocztowy: { type: string, nullable: true }
+        telefon: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        kierownik_id: { type: integer, nullable: true }
+    DelegacjaCreate:
+      type: object
+      required: [ekipa_id, oddzial_z, oddzial_do, data_od]
+      properties:
+        ekipa_id: { type: integer }
+        oddzial_z: { type: integer }
+        oddzial_do: { type: integer }
+        data_od: { type: string }
+        data_do: { type: string, nullable: true }
+        cel: { type: string, nullable: true }
+        uwagi: { type: string, nullable: true }
+    DelegacjaStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    PrzeniesPracownika:
+      type: object
+      required: [oddzial_id]
+      properties:
+        oddzial_id: { type: integer }
+    EkipaCreate:
+      type: object
+      required: [nazwa]
+      properties:
+        nazwa: { type: string }
+        brygadzista_id: { type: integer, nullable: true }
+        oddzial_id: { type: integer, nullable: true }
+    EkipaUpdate:
+      type: object
+      properties:
+        nazwa: { type: string }
+        brygadzista_id: { type: integer, nullable: true }
+    TeamMemberAdd:
+      type: object
+      required: [user_id]
+      properties:
+        user_id: { type: integer }
+        rola: { type: string }
+    RoleCreate:
+      type: object
+      required: [nazwa]
+      properties:
+        nazwa: { type: string }
+        kolor: { type: string, nullable: true }
+        opis: { type: string, nullable: true }
+        poziom: { type: integer }
+        uprawnienia:
+          type: object
+          additionalProperties: { type: boolean }
+    RoleUpdate:
+      type: object
+      properties:
+        nazwa: { type: string, nullable: true }
+        kolor: { type: string, nullable: true }
+        opis: { type: string, nullable: true }
+        poziom: { type: integer, nullable: true }
+        aktywna: { type: boolean }
+        uprawnienia:
+          type: object
+          additionalProperties: { type: boolean }
+    GodzinyCreate:
+      type: object
+      required: [task_id, godziny, data_pracy]
+      properties:
+        task_id: { type: integer }
+        godziny: { type: number }
+        data_pracy: { type: string }
+    GodzinyStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [Potwierdzone, Odrzucone]
+    FlotaPojazdCreate:
+      type: object
+      required: [marka, model, nr_rejestracyjny]
+      properties:
+        marka: { type: string }
+        model: { type: string }
+        nr_rejestracyjny: { type: string }
+        rok_produkcji: { type: integer, nullable: true }
+        typ: { type: string, nullable: true }
+        ekipa_id: { type: integer, nullable: true }
+        data_przegladu: { type: string, nullable: true }
+        data_ubezpieczenia: { type: string, nullable: true }
+        przebieg: { type: number, nullable: true }
+        notatki: { type: string, nullable: true }
+        oddzial_id: { type: integer, nullable: true }
+    FlotaSprzetCreate:
+      type: object
+      required: [nazwa]
+      properties:
+        nazwa: { type: string }
+        typ: { type: string, nullable: true }
+        nr_seryjny: { type: string, nullable: true }
+        rok_produkcji: { type: integer, nullable: true }
+        ekipa_id: { type: integer, nullable: true }
+        data_przegladu: { type: string, nullable: true }
+        koszt_motogodziny: { type: number, nullable: true }
+        notatki: { type: string, nullable: true }
+        oddzial_id: { type: integer, nullable: true }
+    FlotaNaprawaCreate:
+      type: object
+      required: [typ_zasobu, zasob_id, data_naprawy]
+      properties:
+        typ_zasobu: { type: string }
+        zasob_id: { type: integer }
+        nr_faktury: { type: string, nullable: true }
+        data_naprawy: { type: string }
+        koszt: { type: number, nullable: true }
+        opis_usterki: { type: string, nullable: true }
+        opis_naprawy: { type: string, nullable: true }
+        wykonawca: { type: string, nullable: true }
+        status: { type: string, nullable: true }
+        oddzial_id: { type: integer, nullable: true }
+    FlotaStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    SmsWyslij:
+      type: object
+      required: [telefon, tresc]
+      properties:
+        telefon: { type: string }
+        tresc: { type: string }
+        task_id: { type: integer, nullable: true }
+    SmsZlecenie:
+      type: object
+      required: [typ]
+      properties:
+        typ: { type: string, description: "Szablon, np. zaplanowane, w_drodze, problem" }
+        powod: { type: string, nullable: true }
+    SmsBulk:
+      type: object
+      required: [typ]
+      properties:
+        typ: { type: string }
+        data: { type: string, description: "YYYY-MM-DD, domyślnie dziś" }
+    NotificationCreate:
+      type: object
+      required: [to_user_id, typ, tresc]
+      properties:
+        to_user_id: { type: integer }
+        task_id: { type: integer, nullable: true }
+        typ: { type: string }
+        tresc: { type: string }
+    TelefonPolaczDoKlienta:
+      type: object
+      required: [do]
+      properties:
+        do:
+          type: string
+          description: Numer klienta (np. 791234567 lub +48791234567)
+        task_id: { type: integer, nullable: true }
+    InvoiceStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
