@@ -59,6 +59,7 @@ export default function ZatwierdzWycenyScreen() {
   const [rejectReason, setRejectReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = useState('');
 
   const loadAll = useCallback(async (tokenOverride?: string) => {
     try {
@@ -76,6 +77,7 @@ export default function ZatwierdzWycenyScreen() {
       if (eRes.ok) setEkipy(await eRes.json());
     } catch {
       setWyceny([]);
+      setRuntimeError('Błąd serwera przy pobieraniu wycen do zatwierdzenia.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -142,6 +144,7 @@ export default function ZatwierdzWycenyScreen() {
       loadAll();
     } catch {
       Alert.alert(t('notif.alert.errorTitle'), t('approve.serverError'));
+      setRuntimeError('Błąd serwera przy zatwierdzaniu wyceny.');
     } finally {
       setSaving(false);
     }
@@ -167,6 +170,7 @@ export default function ZatwierdzWycenyScreen() {
       loadAll();
     } catch {
       Alert.alert(t('notif.alert.errorTitle'), t('approve.serverError'));
+      setRuntimeError('Błąd serwera przy odrzucaniu wyceny.');
     } finally {
       setSaving(false);
     }
@@ -208,6 +212,16 @@ export default function ZatwierdzWycenyScreen() {
         <Text style={S.headerTitle}>{t('approve.screenTitle')}</Text>
         <View style={{ width: 36 }} />
       </View>
+      <View style={S.platinumBar}>
+        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <Text style={S.platinumBarText}>Platinum Approval Deck</Text>
+      </View>
+      {runtimeError ? (
+        <View style={S.errorBar}>
+          <Ionicons name="warning-outline" size={14} color={theme.warning} />
+          <Text style={S.errorBarText}>{runtimeError}</Text>
+        </View>
+      ) : null}
 
       {/* Tabs */}
       <View style={S.tabsRow}>
@@ -448,7 +462,6 @@ function WycenaItem({
           )}
         </View>
       </TouchableOpacity>
-      {tab === 'oczekuje' && (
       {(tab === 'oczekuje' || tab === 'rezerwacja_wstepna' || tab === 'do_specjalisty') && (
         <View style={S.actionRow}>
           <TouchableOpacity style={S.rejectBtn} onPress={onReject}>
@@ -486,6 +499,7 @@ function InfoRow({ label, value, theme }: { label: string; value: string; theme:
 }
 
 const makeStyles = (t: Theme) => StyleSheet.create({
+  // Platinum style accents
   root: { flex: 1, backgroundColor: t.bg },
   centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 12, paddingBottom: 40 },
@@ -493,21 +507,57 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-    backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border,
+    backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.accent + '55',
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: t.headerText },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, letterSpacing: 0.35 },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  platinumBar: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: t.accent + '88',
+    backgroundColor: t.accent + '1F',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  platinumBarText: {
+    color: t.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  errorBar: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: t.warning + '66',
+    backgroundColor: t.warning + '1A',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
 
   tabsRow: {
     flexDirection: 'row', backgroundColor: t.cardBg,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    borderBottomWidth: 1, borderBottomColor: t.accent + '2E',
   },
   tabBtn: {
     flex: 1, paddingVertical: 12, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: 6,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  tabText: { fontSize: 13, fontWeight: '600', color: t.textMuted },
+  tabText: { fontSize: 12, fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 },
   tabBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 11, fontWeight: '700', color: t.accentText },
 
@@ -516,22 +566,22 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   card: {
     backgroundColor: t.cardBg, borderRadius: 14, marginBottom: 10,
-    overflow: 'hidden', borderWidth: 1, borderColor: t.cardBorder,
+    overflow: 'hidden', borderWidth: 1, borderColor: t.accent + '2E',
   },
   cardBorder: { borderLeftWidth: 4, padding: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: t.text, flex: 1, marginRight: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, marginRight: 8, letterSpacing: 0.2 },
   cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
   cardFooter: {},
   cardOpisText: { fontSize: 13, color: t.textSub },
   expandedSection: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.border },
 
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.25 },
 
   metaTag: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: t.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+    backgroundColor: t.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: t.accent + '22',
   },
   metaTagText: { fontSize: 12, color: t.textSub },
   ekipaDotSmall: { width: 7, height: 7, borderRadius: 4 },
@@ -555,14 +605,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   approveSmallBtn: {
     flex: 1, paddingVertical: 11, alignItems: 'center',
     flexDirection: 'row', justifyContent: 'center', gap: 6,
-    backgroundColor: t.accent + '15',
+    backgroundColor: t.accent + '15', borderLeftWidth: 1, borderLeftColor: t.accent + '44',
   },
   approveSmallText: { fontSize: 14, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    maxHeight: '90%', paddingBottom: 24,
+    maxHeight: '90%', paddingBottom: 24, borderTopWidth: 1, borderTopColor: t.accent + '4A',
   },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -573,10 +623,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalScroll: { paddingHorizontal: 20, paddingTop: 8 },
   modalActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 8 },
 
-  label: { fontSize: 13, fontWeight: '600', color: t.textMuted, marginBottom: 6, marginTop: 14 },
+  label: { fontSize: 12, fontWeight: '800', color: t.textMuted, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.7 },
   input: {
     backgroundColor: t.inputBg, borderRadius: 10, borderWidth: 1,
-    borderColor: t.inputBorder, color: t.inputText, paddingHorizontal: 14,
+    borderColor: t.accent + '33', color: t.inputText, paddingHorizontal: 14,
     paddingVertical: 10, fontSize: 14,
   },
   inputMulti: { minHeight: 80, textAlignVertical: 'top' },
@@ -585,7 +635,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   ekipaPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: t.bg, borderRadius: 20, paddingHorizontal: 12,
-    paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.border,
+    paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.accent + '33',
   },
   ekipaDot: { width: 8, height: 8, borderRadius: 4 },
   ekipaText: { fontSize: 13, color: t.text, fontWeight: '500' },
@@ -593,9 +643,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   approveBtn: {
     flex: 1, backgroundColor: t.accent, borderRadius: 10,
     paddingVertical: 13, alignItems: 'center',
-    flexDirection: 'row', justifyContent: 'center', gap: 6,
+    flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: t.accent + '66',
   },
-  approveBtnText: { color: t.accentText, fontWeight: '700', fontSize: 14 },
+  approveBtnText: { color: t.accentText, fontWeight: '800', fontSize: 14, letterSpacing: 0.35 },
 
   cancelBtn: {
     flex: 1, backgroundColor: t.bg, borderRadius: 10,

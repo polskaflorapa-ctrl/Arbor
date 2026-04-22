@@ -918,7 +918,7 @@ function makeStyles(theme: Theme) {
     cardMain: { fontSize: 17, fontWeight: '700', color: theme.text, flex: 1 },
     pillWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-    pillTxt: { fontSize: 11, fontWeight: '700', color: '#fff' },
+    pillTxt: { fontSize: 11, fontWeight: '700', color: theme.accentText },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
     metaTxt: { fontSize: 14, color: theme.textSub },
     statusHint: { fontSize: 12, color: theme.textMuted, marginTop: 8, marginBottom: 6 },
@@ -931,7 +931,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.border,
     },
     statusChipTxt: { fontSize: 12, fontWeight: '600', color: theme.text },
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.88)', justifyContent: 'flex-end' },
     modalBox: {
       backgroundColor: theme.surface,
       borderTopLeftRadius: 16,

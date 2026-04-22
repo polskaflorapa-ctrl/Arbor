@@ -42,6 +42,8 @@ function approvalStatusColors(theme: Theme) {
 }
 
 function makeCalendarStyles(t: Theme) {
+  const platinumBorder = t.accent + '88';
+  const platinumSoft = t.accent + '22';
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
     centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
@@ -50,13 +52,49 @@ function makeCalendarStyles(t: Theme) {
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-      backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.border,
+      backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: platinumBorder,
     },
-    headerTitle: { fontSize: t.fontSection + 2, fontWeight: '700', color: t.headerText },
+    headerTitle: { fontSize: t.fontSection + 2, fontWeight: '800', color: t.headerText, letterSpacing: 0.4 },
     backBtn: { padding: 4 },
     addBtn: {
-      backgroundColor: t.success, borderRadius: t.radiusSm, padding: 6,
+      backgroundColor: t.success, borderRadius: t.radiusSm, padding: 6, borderWidth: 1, borderColor: platinumBorder,
     },
+    platinumBar: {
+      marginHorizontal: 12,
+      marginTop: 10,
+      marginBottom: 4,
+      borderWidth: 1,
+      borderColor: platinumBorder,
+      backgroundColor: platinumSoft,
+      borderRadius: 12,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    platinumBarText: {
+      color: t.accent,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 1.1,
+      textTransform: 'uppercase',
+    },
+    errorBar: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      marginBottom: 2,
+      borderWidth: 1,
+      borderColor: t.warning + '66',
+      backgroundColor: t.warning + '1A',
+      borderRadius: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
 
     monthNav: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -71,7 +109,7 @@ function makeCalendarStyles(t: Theme) {
     calCard: {
       marginHorizontal: 12, backgroundColor: t.cardBg,
       borderRadius: t.radiusLg, padding: 12,
-      borderWidth: 1, borderColor: t.cardBorder,
+      borderWidth: 1, borderColor: platinumBorder,
       ...elevationCard(t),
     },
     dayNamesRow: { flexDirection: 'row', marginBottom: 6 },
@@ -110,12 +148,12 @@ function makeCalendarStyles(t: Theme) {
     emptyDayText: { color: t.textMuted, fontSize: 14 },
 
     section: { marginHorizontal: 12, marginTop: 16 },
-    sectionTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginBottom: 8 },
+    sectionTitle: { fontSize: 15, fontWeight: '800', color: t.text, marginBottom: 8, letterSpacing: 0.3 },
 
     wCard: {
       backgroundColor: t.cardBg, borderRadius: t.radiusMd, padding: 12,
       marginBottom: 8, flexDirection: 'row', alignItems: 'center',
-      borderWidth: 1, borderColor: t.cardBorder,
+      borderWidth: 1, borderColor: platinumBorder,
       ...elevationCard(t),
     },
     wCardLeft: { flex: 1, borderLeftWidth: 3, paddingLeft: 10 },
@@ -125,17 +163,18 @@ function makeCalendarStyles(t: Theme) {
     wCardMetaText: { fontSize: t.fontMicro, color: t.textSub },
     badge: {
       paddingHorizontal: 7, paddingVertical: 2, borderRadius: t.radiusXs,
-      borderWidth: 1,
+      borderWidth: 1, borderColor: platinumBorder,
     },
-    badgeText: { fontSize: t.fontMicro, fontWeight: '600' },
+    badgeText: { fontSize: t.fontMicro, fontWeight: '700', letterSpacing: 0.2 },
 
     modalOverlay: {
-      flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+      flex: 1, backgroundColor: 'rgba(5,8,15,0.9)',
       justifyContent: 'flex-end',
     },
     modalSheet: {
       backgroundColor: t.surface2, borderTopLeftRadius: t.radiusXl, borderTopRightRadius: t.radiusXl,
       maxHeight: '90%', paddingBottom: 24,
+      borderTopWidth: 1, borderTopColor: platinumBorder,
     },
     modalHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -144,7 +183,7 @@ function makeCalendarStyles(t: Theme) {
     modalTitle: { fontSize: t.fontSection + 2, fontWeight: '700', color: t.text },
     modalScroll: { paddingHorizontal: 20, paddingTop: 12 },
 
-    label: { fontSize: 13, fontWeight: '600', color: t.textSub, marginBottom: 6, marginTop: 14 },
+    label: { fontSize: 12, fontWeight: '800', color: t.textSub, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.7 },
     required: { color: t.warning },
     input: {
       backgroundColor: t.inputBg, borderRadius: t.radiusMd, borderWidth: 1,
@@ -153,31 +192,31 @@ function makeCalendarStyles(t: Theme) {
     },
     inputMulti: { minHeight: 80, textAlignVertical: 'top' },
 
-    pillsScroll: { marginBottom: 4 },
+    pillsScroll: { marginBottom: 6 },
     pill: {
       backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 14,
-      paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
+      paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: platinumBorder,
     },
     pillActive: { backgroundColor: t.success, borderColor: t.success },
-    pillText: { fontSize: 13, color: t.textSub, fontWeight: '500' },
-    pillTextActive: { color: t.accentText, fontWeight: '700' },
+    pillText: { fontSize: 13, color: t.textSub, fontWeight: '600' },
+    pillTextActive: { color: t.accentText, fontWeight: '800' },
 
     ekipaPill: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 12,
-      paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
+      paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.accent + '33',
     },
     ekipaDot: { width: 8, height: 8, borderRadius: 4 },
     ekipaText: { fontSize: 13, color: t.text, fontWeight: '500' },
 
-    helpText: { fontSize: t.fontCaption, color: t.textMuted, textAlign: 'center', marginVertical: 16 },
+    helpText: { fontSize: t.fontCaption, color: t.textMuted, textAlign: 'center', marginVertical: 12, lineHeight: 18 },
 
     submitBtn: {
       backgroundColor: t.success, borderRadius: t.radiusMd, paddingVertical: 14,
-      marginHorizontal: 20, marginTop: 8, alignItems: 'center',
+      marginHorizontal: 20, marginTop: 8, alignItems: 'center', borderWidth: 1, borderColor: platinumBorder,
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitBtnText: { color: t.accentText, fontWeight: '700', fontSize: 16 },
+    submitBtnText: { color: t.accentText, fontWeight: '800', fontSize: 16, letterSpacing: 0.35 },
   });
 }
 
@@ -224,6 +263,7 @@ export default function WycenaKalendarzScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = useState('');
 
   // Calendar state
   const today = new Date();
@@ -303,6 +343,7 @@ export default function WycenaKalendarzScreen() {
   const loadAll = useCallback(
     async (tokenOverride?: string, sessionUser?: { id?: unknown; rola?: string } | null) => {
       try {
+        setRuntimeError('');
         const authToken = tokenOverride || token;
         if (!authToken) {
           router.replace('/login');
@@ -337,6 +378,7 @@ export default function WycenaKalendarzScreen() {
         }
       } catch {
         setWyceny([]);
+        setRuntimeError('Błąd serwera przy pobieraniu kalendarza wycen.');
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -427,6 +469,7 @@ export default function WycenaKalendarzScreen() {
       Alert.alert(t('wycenyCal.alert.sentTitle'), t('wycenyCal.alert.sentBody'));
     } catch {
       Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.network'));
+      setRuntimeError('Błąd serwera przy zapisie wyceny.');
     } finally {
       setSaving(false);
     }
@@ -490,6 +533,7 @@ export default function WycenaKalendarzScreen() {
       loadAll();
     } catch {
       Alert.alert('Błąd', 'Błąd sieci podczas zapisu rezerwacji.');
+      setRuntimeError('Błąd serwera przy zapisie rezerwacji.');
     }
   };
 
@@ -567,6 +611,16 @@ export default function WycenaKalendarzScreen() {
           </TouchableOpacity>
         ) : <View style={{ width: 36 }} />}
       </View>
+      <View style={s.platinumBar}>
+        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <Text style={s.platinumBarText}>Platinum Dispatch Console</Text>
+      </View>
+      {runtimeError ? (
+        <View style={s.errorBar}>
+          <Ionicons name="warning-outline" size={14} color={theme.warning} />
+          <Text style={s.errorBarText}>{runtimeError}</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.success} />}

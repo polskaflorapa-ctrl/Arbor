@@ -283,7 +283,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   section: {
     backgroundColor: t.surface, marginHorizontal: 16, marginTop: 16,
     borderRadius: 18, padding: 18, borderWidth: 1, borderColor: t.border,
-    boxShadow: t.name === 'dark' ? '0px 3px 10px rgba(0, 0, 0, 0.25)' : '0px 3px 10px rgba(0, 0, 0, 0.04)',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.65,
+    shadowRadius: t.shadowRadius,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
     elevation: 3,
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginBottom: 14 },

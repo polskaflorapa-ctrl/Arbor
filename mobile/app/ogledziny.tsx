@@ -161,6 +161,7 @@ export default function OgledzinyScreen() {
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [runtimeError, setRuntimeError] = useState('');
   const [ekipy, setEkipy] = useState<any[]>([]);
   const [liveLocationsByTeam, setLiveLocationsByTeam] = useState<Record<string, LiveTeamLocation>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -247,6 +248,7 @@ export default function OgledzinyScreen() {
       }
     } catch {
       setLista([]);
+      setRuntimeError('Błąd serwera przy pobieraniu listy oględzin.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -324,6 +326,7 @@ export default function OgledzinyScreen() {
       setShowCreateModal(false);
       resetCreateForm();
       await fetchLista();
+      setRuntimeError('Błąd serwera przy tworzeniu oględzin. Zapisano do kolejki offline.');
     } finally {
       setCreateSaving(false);
     }
@@ -372,6 +375,7 @@ export default function OgledzinyScreen() {
         body: { status: newStatus, notatki_wyniki: notatki || null },
       });
       setShowStatusModal(false);
+      setRuntimeError('Błąd serwera przy zmianie statusu. Zapisano do kolejki offline.');
     } finally {
       setSaving(false);
     }
@@ -521,6 +525,16 @@ export default function OgledzinyScreen() {
         </TouchableOpacity>
         <Text style={S.headerCount}>{displayLista.length}</Text>
       </View>
+      <View style={S.platinumBar}>
+        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <Text style={S.platinumBarText}>Platinum Field Intelligence</Text>
+      </View>
+      {runtimeError ? (
+        <View style={S.errorBar}>
+          <Ionicons name="warning-outline" size={14} color={theme.warning} />
+          <Text style={S.errorBarText}>{runtimeError}</Text>
+        </View>
+      ) : null}
 
       {/* Filtry */}
       <View style={S.filterRow}>
@@ -1059,47 +1073,83 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.headerBg, paddingHorizontal: 16,
     paddingTop: 56, paddingBottom: 14,
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    borderBottomWidth: 1, borderBottomColor: t.accent + '55',
   },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: t.headerText, flex: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, flex: 1, letterSpacing: 0.35 },
   headerCount: { fontSize: 13, color: t.textMuted, fontWeight: '600' },
+  platinumBar: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: t.accent + '88',
+    backgroundColor: t.accent + '1F',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  platinumBarText: {
+    color: t.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  errorBar: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: t.warning + '66',
+    backgroundColor: t.warning + '1A',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
   filterRow: {
     paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    borderBottomWidth: 1, borderBottomColor: t.accent + '2E',
     backgroundColor: t.cardBg,
   },
 
   card: {
     backgroundColor: t.cardBg, padding: 14, borderRadius: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: t.cardBorder,
+    marginBottom: 10, borderWidth: 1, borderColor: t.accent + '2E',
     elevation: 1,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: t.text, flex: 1 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, letterSpacing: 0.2 },
   cardSub: { fontSize: 12, color: t.textSub },
   cardMuted: { fontSize: 12, color: t.textMuted, flex: 1 },
 
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  statusText: { fontSize: 10, fontWeight: '700' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: t.accent + '44' },
+  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
 
   emptyBox: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyText: { color: t.textMuted, fontSize: 15, textAlign: 'center' },
 
   // Modal
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    flex: 1, backgroundColor: 'rgba(5,8,15,0.9)',
     justifyContent: 'flex-end',
   },
   modalBox: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     maxHeight: '90%', minHeight: '50%',
-    borderTopWidth: 1, borderColor: t.border,
+    borderTopWidth: 1, borderColor: t.accent + '4A',
   },
   modalHeader: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     padding: 16, borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: t.text },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: t.text, letterSpacing: 0.25 },
   modalSub: { fontSize: 13, marginTop: 2 },
   modalClose: { padding: 4 },
   modalFooter: {
@@ -1119,13 +1169,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   statusRowText: { fontSize: 14, fontWeight: '700' },
 
   notatkiBox: {
-    borderRadius: 12, padding: 12, marginBottom: 4,
+    borderRadius: 12, padding: 12, marginBottom: 4, borderWidth: 1, borderColor: t.accent + '22',
   },
   notatkiText: { fontSize: 13, lineHeight: 20 },
 
   wycenaRow: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 12, borderRadius: 12, borderWidth: 1,
+    padding: 12, borderRadius: 12, borderWidth: 1, borderColor: t.accent + '33',
   },
   wycenaTitle: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   wycenaVal: { fontSize: 15, fontWeight: '700' },
@@ -1133,9 +1183,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   statusChip: {
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 2,
   },
-  statusChipText: { fontSize: 13, fontWeight: '700' },
+  statusChipText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
 
-  fieldLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  fieldLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 },
   textarea: {
     borderWidth: 1, borderRadius: 12, padding: 12,
     fontSize: 14, minHeight: 100,

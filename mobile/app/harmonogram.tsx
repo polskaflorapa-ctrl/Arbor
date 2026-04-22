@@ -471,7 +471,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   calendarBox: {
     backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 12,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)', elevation: 2,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.5,
+    shadowRadius: t.shadowRadius,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
+    elevation: 2,
     borderWidth: 1, borderColor: t.cardBorder,
   },
   weekRow: { flexDirection: 'row' },
@@ -490,7 +494,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   daySection: {
     backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: t.cardBorder,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)', elevation: 2,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.5,
+    shadowRadius: t.shadowRadius,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
+    elevation: 2,
   },
   daySectionTitle: { fontSize: 16, fontWeight: 'bold', color: t.accent, marginBottom: 12 },
   emptyDay: { alignItems: 'center', paddingVertical: 20 },
@@ -518,7 +526,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   ekipySection: {
     backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: t.cardBorder,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)', elevation: 2,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.5,
+    shadowRadius: t.shadowRadius,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
+    elevation: 2,
   },
   ekipySectionTitle: { fontSize: 15, fontWeight: 'bold', color: t.text },
   ekipaRow: {
@@ -530,7 +542,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   ekipaInfo: { fontSize: 12, color: t.textMuted, marginTop: 2 },
   ekipaDostepnosc: { fontSize: 13, fontWeight: '600' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.88)', justifyContent: 'flex-end' },
   modalBox: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, paddingBottom: 40,

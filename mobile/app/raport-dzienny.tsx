@@ -593,7 +593,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 });
 
 const P = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
   modal: { borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 24, paddingBottom: 44 },
   title: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   sub: { fontSize: 13, marginBottom: 16 },

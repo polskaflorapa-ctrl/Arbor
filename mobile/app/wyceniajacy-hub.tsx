@@ -46,9 +46,11 @@ export default function WyceniajacyHubScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [items, setItems] = useState<OgledzinyLite[]>([]);
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [runtimeError, setRuntimeError] = useState('');
 
   const load = useCallback(async () => {
     try {
+      setRuntimeError('');
       const { token, user } = await getStoredSession();
       if (!token || !user) {
         router.replace('/login');
@@ -71,7 +73,11 @@ export default function WyceniajacyHubScreen() {
         setItems(filtered);
       } else {
         setItems([]);
+        setRuntimeError('Błąd serwera przy pobieraniu danych hubu.');
       }
+    } catch {
+      setItems([]);
+      setRuntimeError('Błąd serwera przy pobieraniu danych hubu.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -119,6 +125,16 @@ export default function WyceniajacyHubScreen() {
           <Text style={S.subtitle}>{t('hub.subtitleEstimator')}</Text>
         </View>
       </View>
+      <View style={S.platinumBar}>
+        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <Text style={S.platinumBarText}>Platinum Estimator Command Hub</Text>
+      </View>
+      {runtimeError ? (
+        <View style={S.errorBar}>
+          <Ionicons name="warning-outline" size={14} color={theme.warning} />
+          <Text style={S.errorBarText}>{runtimeError}</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         style={S.scroll}
@@ -204,7 +220,7 @@ function ActionTile({
   theme: Theme;
 }) {
   return (
-    <TouchableOpacity style={[stylesAction.tile, { backgroundColor: theme.surface2, borderColor: theme.border }]} onPress={onPress}>
+    <TouchableOpacity style={[stylesAction.tile, { backgroundColor: theme.surface2, borderColor: theme.accent + '44' }]} onPress={onPress}>
       <Ionicons name={icon} size={20} color={theme.accent} />
       <Text style={[stylesAction.label, { color: theme.text }]}>{label}</Text>
     </TouchableOpacity>
@@ -221,7 +237,7 @@ const stylesAction = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  label: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  label: { fontSize: 12, fontWeight: '800', textAlign: 'center', letterSpacing: 0.2 },
 });
 
 const makeStyles = (t: Theme) => StyleSheet.create({
@@ -237,28 +253,64 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: t.border,
+    borderBottomColor: t.accent + '55',
   },
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '800', color: t.headerText },
-  subtitle: { fontSize: 12, color: t.headerSub },
+  subtitle: { fontSize: 12, color: t.headerSub, opacity: 0.95 },
+  platinumBar: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: t.accent + '88',
+    backgroundColor: t.accent + '1F',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  platinumBarText: {
+    color: t.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  errorBar: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: t.warning + '66',
+    backgroundColor: t.warning + '1A',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
   kpiRow: { flexDirection: 'row', gap: 8, padding: 12 },
   kpiCard: {
     flex: 1,
     borderWidth: 1,
-    borderColor: t.border,
+    borderColor: t.accent + '2E',
     borderRadius: 12,
     backgroundColor: t.surface,
     padding: 12,
     alignItems: 'center',
   },
-  kpiNum: { fontSize: 20, fontWeight: '800', color: t.accent },
+  kpiNum: { fontSize: 20, fontWeight: '900', color: t.accent, letterSpacing: 0.25 },
   kpiLabel: { fontSize: 11, color: t.textSub, marginTop: 2 },
   hintBox: {
     marginHorizontal: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: t.border,
+    borderColor: t.accent + '33',
     borderRadius: 10,
     padding: 10,
     backgroundColor: t.infoBg,
@@ -271,12 +323,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: t.border,
+    borderColor: t.accent + '2E',
     borderRadius: 12,
     backgroundColor: t.surface,
     padding: 12,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginBottom: 10 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: t.text, marginBottom: 10, letterSpacing: 0.25 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  flowText: { fontSize: 13, color: t.textSub, marginBottom: 6 },
+  flowText: { fontSize: 13, color: t.textSub, marginBottom: 6, lineHeight: 19 },
 });

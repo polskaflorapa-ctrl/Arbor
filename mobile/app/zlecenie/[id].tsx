@@ -1001,7 +1001,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   card: {
     borderRadius: 14, padding: 14, marginBottom: 12,
     borderWidth: 1,
-    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.04)',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.45,
+    shadowRadius: t.shadowRadius,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
     elevation: 2,
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
@@ -1069,7 +1072,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyTxt: { fontSize: 14 },
 
   // Modal
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
   modalBox: {
     borderTopLeftRadius: 22, borderTopRightRadius: 22,
     padding: 20, paddingBottom: 44,

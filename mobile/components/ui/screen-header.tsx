@@ -70,6 +70,11 @@ function makeStyles(
       justifyContent: 'space-between',
       borderBottomWidth: 1,
       borderBottomColor: t.border,
+      shadowColor: t.shadowColor,
+      shadowOpacity: t.shadowOpacity * 0.5,
+      shadowRadius: t.shadowRadius,
+      shadowOffset: { width: 0, height: t.shadowOffsetY },
+      elevation: t.cardElevation,
     },
     edgeSlot: {
       minHeight: opts.edgeSlotWidth,
@@ -77,7 +82,8 @@ function makeStyles(
     },
     title: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: '800',
+      letterSpacing: 0.3,
       color: t.headerText,
       flex: 1,
       textAlign: 'center',

@@ -613,7 +613,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   statusMiniBtnTxt: { fontSize: 11, color: t.textSub },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyTxt: { color: t.textMuted, fontSize: 14 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.88)', justifyContent: 'flex-end' },
   modalBox: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 20, paddingBottom: 40, maxHeight: '85%',

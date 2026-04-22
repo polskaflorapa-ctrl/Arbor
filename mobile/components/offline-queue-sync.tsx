@@ -82,7 +82,20 @@ export function OfflineQueueSync() {
 
   return (
     <View style={styles.overlay}>
-      <View style={[styles.banner, { backgroundColor, borderColor: theme.border }]}>
+      <View
+        style={[
+          styles.banner,
+          {
+            backgroundColor,
+            borderColor: theme.border,
+            shadowColor: theme.shadowColor,
+            shadowOpacity: theme.shadowOpacity * 0.45,
+            shadowRadius: theme.shadowRadius,
+            shadowOffset: { width: 0, height: theme.shadowOffsetY },
+            elevation: theme.cardElevation,
+          },
+        ]}
+      >
         <Ionicons name={iconName} size={14} color={iconColor} />
         <Text style={[styles.text, { color: iconColor }]}>{banner.message}</Text>
         {isSyncing ? <ActivityIndicator size="small" color={iconColor} /> : null}
@@ -102,7 +115,7 @@ const styles = StyleSheet.create({
   },
   banner: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
