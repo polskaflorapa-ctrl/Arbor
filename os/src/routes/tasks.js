@@ -83,6 +83,12 @@ const toNum = (val) => {
   return isNaN(n) ? null : n;
 };
 
+const toInt = (val) => {
+  if (val === '' || val === null || val === undefined) return null;
+  const n = parseInt(String(val), 10);
+  return Number.isNaN(n) ? null : n;
+};
+
 const toStr = (val) => {
   if (val === '' || val === null || val === undefined) return null;
   return val;
@@ -101,6 +107,10 @@ const taskCreateSchema = z.object({
   notatki_wewnetrzne: z.string().optional().nullable(),
   oddzial_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  pin_lat: z.union([z.number(), z.string()]).optional().nullable(),
+  pin_lng: z.union([z.number(), z.string()]).optional().nullable(),
+  ankieta_uproszczona: z.boolean().optional(),
 });
 
 const taskUpdateSchema = z.object({
@@ -271,7 +281,8 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
       czas_planowany_godziny, data_planowana,
-      notatki_wewnetrzne, oddzial_id, ekipa_id
+      notatki_wewnetrzne, oddzial_id, ekipa_id,
+      wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona
     } = req.body;
 
     const finalOddzialId = isDyrektor(req.user)
@@ -284,8 +295,8 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         typ_uslugi, priorytet, wartosc_planowana,
         czas_planowany_godziny, data_planowana,
         notatki_wewnetrzne, status, kierownik_id,
-        oddzial_id, ekipa_id
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Nowe',$11,$12,$13)
+        oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Nowe',$11,$12,$13,$14,$15,$16,$17)
       RETURNING id`,
       [
         klient_nazwa,
@@ -300,10 +311,44 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         toStr(notatki_wewnetrzne),
         req.user.id,
         toNum(finalOddzialId),
-        toNum(ekipa_id)
+        toNum(ekipa_id),
+        toInt(wyceniajacy_id),
+        toNum(pin_lat),
+        toNum(pin_lng),
+        ankieta_uproszczona === true
       ]
     );
-    res.json({ id: result.rows[0].id });
+    const taskId = result.rows[0].id;
+
+    let wycenaId = null;
+    if (toInt(wyceniajacy_id)) {
+      const wycenaR = await pool.query(
+        `INSERT INTO wyceny (
+          klient_nazwa, klient_telefon, adres, miasto, typ_uslugi,
+          wartosc_szacowana, wartosc_planowana, opis, notatki_wewnetrzne,
+          lat, lon, autor_id, status, status_akceptacji, data_wykonania
+        ) VALUES (
+          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,'Nowa','oczekuje',$12
+        ) RETURNING id`,
+        [
+          klient_nazwa,
+          toStr(klient_telefon),
+          adres,
+          miasto,
+          typ_uslugi || 'Wycena',
+          toNum(wartosc_planowana),
+          `AUTO zlecenie #${taskId} (${ankieta_uproszczona ? 'ankieta uproszczona' : 'pełna ankieta'})`,
+          toStr(notatki_wewnetrzne),
+          toNum(pin_lat),
+          toNum(pin_lng),
+          toInt(wyceniajacy_id),
+          data_planowana,
+        ]
+      );
+      wycenaId = wycenaR.rows[0]?.id || null;
+    }
+
+    res.json({ id: taskId, wycena_id: wycenaId });
   } catch (err) {
     logger.error('Blad tworzenia zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message });

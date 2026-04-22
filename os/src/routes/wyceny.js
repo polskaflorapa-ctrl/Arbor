@@ -33,7 +33,8 @@ const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
 const isKierownik = (u) => u.rola === 'Kierownik';
-const canManage = (u) => isDyrektor(u) || isKierownik(u);
+const isSpecjalista = (u) => u.rola === 'Specjalista';
+const canManage = (u) => isDyrektor(u) || isKierownik(u) || isSpecjalista(u);
 
 const wycenyListQuerySchema = z.object({
   status_akceptacji: z.string().max(30).optional(),
@@ -52,12 +53,23 @@ const wycenaPatchStatusSchema = z.object({
 const wycenaZatwierdzSchema = z.object({
   ekipa_id: z.union([z.number(), z.string()]).optional().nullable(),
   data_wykonania: z.string().optional().nullable(),
+  godzina_rozpoczecia: z.string().optional().nullable(),
   wartosc_planowana: z.union([z.number(), z.string()]).optional().nullable(),
 });
 
 const wycenaOdrzucSchema = z.object({
   powod: z.string().optional().nullable(),
 });
+
+const wycenaKlientAcceptSchema = z.object({
+  uwagi: z.string().optional().nullable(),
+});
+
+function buildTaskPlannedDateTime(dataWykonania, godzinaRozpoczecia) {
+  if (!dataWykonania) return null;
+  const hhmm = (godzinaRozpoczecia || '08:00').slice(0, 5);
+  return `${dataWykonania} ${hhmm}:00`;
+}
 
 const wycenyCreateSchema = z.object({
   klient_nazwa: z.string().trim().min(1, 'klient_nazwa jest wymagane'),
@@ -79,7 +91,7 @@ const wycenyCreateSchema = z.object({
 router.get('/', authMiddleware, validateQuery(wycenyListQuerySchema), async (req, res) => {
   try {
     const { status_akceptacji, limit, offset } = req.query;
-    const dopuszczalne = ['oczekuje', 'zatwierdzono', 'odrzucono'];
+    const dopuszczalne = ['oczekuje', 'do_specjalisty', 'zatwierdzono', 'odrzucono'];
     const filterStatus = dopuszczalne.includes(status_akceptacji) ? status_akceptacji : null;
 
     let whereClause = '';
@@ -97,8 +109,8 @@ router.get('/', authMiddleware, validateQuery(wycenyListQuerySchema), async (req
       params = [req.user.id];
     }
 
-    const joins = `FROM wyceny w LEFT JOIN users u ON u.id = w.autor_id LEFT JOIN teams e ON e.id = w.ekipa_id`;
-    const selectList = `SELECT w.*, u.imie || ' ' || u.nazwisko AS autor_nazwa, e.nazwa AS ekipa_nazwa`;
+    const joins = `FROM wyceny w LEFT JOIN users u ON u.id = w.autor_id LEFT JOIN teams e ON e.id = w.ekipa_id LEFT JOIN tasks t ON t.source_wycena_id = w.id`;
+    const selectList = `SELECT w.*, u.imie || ' ' || u.nazwisko AS autor_nazwa, e.nazwa AS ekipa_nazwa, t.id AS task_id`;
 
     if (limit != null) {
       const lim = Number(limit);
@@ -141,7 +153,14 @@ router.post('/', authMiddleware, validateBody(wycenyCreateSchema), async (req, r
 
 router.get('/:id', authMiddleware, validateParams(wycenaIdParamsSchema), async (req, res) => {
   try {
-    const { rows } = await pool.query(`SELECT w.*, u.imie || ' ' || u.nazwisko AS autor_nazwa FROM wyceny w LEFT JOIN users u ON u.id = w.autor_id WHERE w.id = $1`, [req.params.id]);
+    const { rows } = await pool.query(
+      `SELECT w.*, u.imie || ' ' || u.nazwisko AS autor_nazwa, t.id AS task_id
+       FROM wyceny w
+       LEFT JOIN users u ON u.id = w.autor_id
+       LEFT JOIN tasks t ON t.source_wycena_id = w.id
+       WHERE w.id = $1`,
+      [req.params.id]
+    );
     if (!rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
     res.json(rows[0]);
   } catch (e) {
@@ -165,15 +184,106 @@ router.patch('/:id/status', authMiddleware, validateParams(wycenaIdParamsSchema)
 router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaZatwierdzSchema), async (req, res) => {
   if (!canManage(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
-    const { ekipa_id, data_wykonania, wartosc_planowana } = req.body;
+    const { ekipa_id, data_wykonania, godzina_rozpoczecia, wartosc_planowana } = req.body;
+    if (!ekipa_id || !data_wykonania || !godzina_rozpoczecia) {
+      return res.status(400).json({
+        error: 'Do zatwierdzenia wymagane są: ekipa, data realizacji i godzina rozpoczęcia.',
+      });
+    }
     const { rows } = await pool.query(
-      `UPDATE wyceny SET status_akceptacji='zatwierdzono', ekipa_id=$1, data_wykonania=COALESCE($2,data_wykonania), wartosc_planowana=COALESCE($3,wartosc_planowana), zatwierdzone_przez=$4, zatwierdzone_at=NOW(), status='Zaakceptowana', updated_at=NOW() WHERE id=$5 RETURNING *`,
-      [ekipa_id?parseInt(ekipa_id):null, data_wykonania||null, wartosc_planowana?parseFloat(wartosc_planowana):null, req.user.id, req.params.id]
+      `UPDATE wyceny SET
+         status_akceptacji='zatwierdzono',
+         ekipa_id=$1,
+         data_wykonania=COALESCE($2,data_wykonania),
+         godzina_rozpoczecia=COALESCE($3,godzina_rozpoczecia),
+         wartosc_planowana=COALESCE($4,wartosc_planowana),
+         zatwierdzone_przez=$5,
+         zatwierdzone_at=NOW(),
+         status='Zaakceptowana',
+         updated_at=NOW()
+       WHERE id=$6
+       RETURNING *`,
+      [
+        ekipa_id ? parseInt(ekipa_id, 10) : null,
+        data_wykonania || null,
+        godzina_rozpoczecia || null,
+        wartosc_planowana ? parseFloat(wartosc_planowana) : null,
+        req.user.id,
+        req.params.id,
+      ]
+    );
+    if (!rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    const wycena = rows[0];
+    const existingTask = await pool.query('SELECT id FROM tasks WHERE source_wycena_id = $1 LIMIT 1', [wycena.id]);
+    let taskId = existingTask.rows[0]?.id || null;
+    if (!taskId) {
+      const taskInsert = await pool.query(
+        `INSERT INTO tasks (
+          klient_nazwa, klient_telefon, adres, miasto, typ_uslugi,
+          priorytet, wartosc_planowana, data_planowana, notatki_wewnetrzne,
+          status, oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, source_wycena_id
+        )
+        VALUES (
+          $1,$2,$3,$4,$5,'Normalny',$6,$7,$8,'Zaplanowane',$9,$10,$11,$12,$13,$14
+        ) RETURNING id`,
+        [
+          wycena.klient_nazwa,
+          wycena.klient_telefon,
+          wycena.adres,
+          wycena.miasto,
+          wycena.typ_uslugi || 'Wycena',
+          wycena.wartosc_planowana,
+          buildTaskPlannedDateTime(wycena.data_wykonania, wycena.godzina_rozpoczecia),
+          wycena.notatki_wewnetrzne,
+          req.user.oddzial_id || null,
+          wycena.ekipa_id || null,
+          wycena.autor_id || null,
+          wycena.lat || null,
+          wycena.lon || null,
+          wycena.id,
+        ]
+      );
+      taskId = taskInsert.rows[0]?.id || null;
+    } else {
+      await pool.query(
+        `UPDATE tasks SET
+          ekipa_id = COALESCE($1, ekipa_id),
+          wartosc_planowana = COALESCE($2, wartosc_planowana),
+          data_planowana = COALESCE($3, data_planowana),
+          status = 'Zaplanowane'
+        WHERE id = $4`,
+        [
+          wycena.ekipa_id || null,
+          wycena.wartosc_planowana || null,
+          buildTaskPlannedDateTime(wycena.data_wykonania, wycena.godzina_rozpoczecia),
+          taskId,
+        ]
+      );
+    }
+    res.json({ ...wycena, task_id: taskId });
+  } catch (e) {
+    logger.error('Blad zatwierdzania wyceny', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/:id/klient-akceptuje', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaKlientAcceptSchema), async (req, res) => {
+  try {
+    const { uwagi } = req.body;
+    const { rows } = await pool.query(
+      `UPDATE wyceny
+       SET status_akceptacji='do_specjalisty',
+           status='Klient zaakceptował - do specjalisty',
+           wycena_uwagi = COALESCE(NULLIF($1,''), wycena_uwagi),
+           updated_at = NOW()
+       WHERE id=$2
+       RETURNING *`,
+      [uwagi || null, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
     res.json(rows[0]);
   } catch (e) {
-    logger.error('Blad zatwierdzania wyceny', { message: e.message, requestId: req.requestId });
+    logger.error('Blad oznaczania akceptacji klienta', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

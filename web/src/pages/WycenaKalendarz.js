@@ -21,11 +21,13 @@ const USLUGI = [
 
 const STATUS_KOLOR = {
   oczekuje: '#F59E0B',
+  do_specjalisty: '#60A5FA',
   zatwierdzono: '#34D399',
   odrzucono: '#EF4444',
 };
 const STATUS_LABEL = {
   oczekuje: '⏳ Oczekuje',
+  do_specjalisty: '🧠 Do specjalisty',
   zatwierdzono: '✅ Zatwierdzone',
   odrzucono: '❌ Odrzucone',
 };
@@ -188,6 +190,17 @@ export default function WycenaKalendarz() {
       setMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, err.message)}`));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const oznaczKlientAkceptuje = async (wycenaId) => {
+    try {
+      const token = getStoredToken();
+      await api.post(`/wyceny/${wycenaId}/klient-akceptuje`, {}, { headers: authHeaders(token) });
+      setMsg(successMessage('Klient zaakceptował — wycena przekazana do specjalisty.'));
+      load();
+    } catch (err) {
+      setMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, err.message)}`));
     }
   };
 
@@ -409,8 +422,13 @@ export default function WycenaKalendarz() {
                     {w.czas_planowany_godziny && <div style={S.detailRow}><span style={S.detailLabel}>Czas:</span><span style={S.detailVal}>{w.czas_planowany_godziny}h</span></div>}
                     {w.wyceniajacy_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Wyceniający:</span><span style={S.detailVal}>{w.wyceniajacy_nazwa}</span></div>}
                     {w.zatwierdzone_przez_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Zatwierdził:</span><span style={S.detailVal}>{w.zatwierdzone_przez_nazwa}</span></div>}
-                    {w.status_akceptacji === 'zatwierdzono' && (
-                      <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); navigate(`/zlecenia/${w.id}`); }}>
+                    {w.status_akceptacji === 'oczekuje' && (
+                      <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); oznaczKlientAkceptuje(w.id); }}>
+                        Klient zaakceptował → do specjalisty
+                      </button>
+                    )}
+                    {w.status_akceptacji === 'zatwierdzono' && w.task_id && (
+                      <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); navigate(`/zlecenia/${w.task_id}`); }}>
                         Otwórz zlecenie →
                       </button>
                     )}

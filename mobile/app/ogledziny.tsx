@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -17,6 +18,31 @@ import { openAddressInMaps } from '../utils/maps-link';
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'] as const;
 type Status = typeof STATUSY[number];
+const ZONE_ORDER = ['Krakow-POLNOC', 'Krakow-WSCHOD', 'Krakow-POŁUDNIE', 'Krakow-ZACHOD'] as const;
+const ZONE_LABEL: Record<string, string> = {
+  'Krakow-POLNOC': 'Kraków - Północ',
+  'Krakow-WSCHOD': 'Kraków - Wschód',
+  'Krakow-POŁUDNIE': 'Kraków - Południe',
+  'Krakow-ZACHOD': 'Kraków - Zachód',
+  'Krakow-NIEJEDNOZNACZNA': 'Kraków - Niejednoznaczna',
+  'POZA-KRAKOWEM': 'Poza Krakowem',
+};
+const ZONE_RULES: Record<string, string[]> = {
+  'Krakow-POLNOC': ['pradnik bialy', 'prądnik biały', 'pradnik czerwony', 'prądnik czerwony', 'bronowice', 'krowodrza'],
+  'Krakow-WSCHOD': ['nowa huta', 'czyzyny', 'czyżyny', 'bienczyce', 'bieńczyce', 'mistrzejowice'],
+  'Krakow-POŁUDNIE': ['podgorze', 'podgórze', 'swoszowice', 'łagiewniki', 'lagniki', 'debniki', 'dębniki', 'prokocim', 'biezanow', 'bieżanów'],
+  'Krakow-ZACHOD': ['zwierzyniec', 'wola justowska', 'ruczaj', 'tyniec', 'salwator'],
+};
+const ZONE_COLOR = {
+  'Krakow-POLNOC': '#60A5FA',
+  'Krakow-WSCHOD': '#A78BFA',
+  'Krakow-POŁUDNIE': '#34D399',
+  'Krakow-ZACHOD': '#F59E0B',
+  'Krakow-NIEJEDNOZNACZNA': '#F87171',
+  'POZA-KRAKOWEM': '#94A3B8',
+} as const;
+const ZONE_OVERRIDE_KEY = 'ogledziny_zone_overrides_mobile_v1';
+const ZONE_CLIENT_DEFAULT_KEY = 'ogledziny_zone_client_defaults_mobile_v1';
 
 function statusColor(s: string, th: Theme): string {
   switch (s) {
@@ -41,8 +67,43 @@ function quoteStatusLabel(code: string | undefined, tr: (key: string) => string)
   return r === k ? code.replace(/_/g, ' ') : r;
 }
 
+function normalizeText(v: unknown): string {
+  return String(v || '').trim().toLowerCase();
+}
+
+function detectKrakowZone(item: Pick<Ogledziny, 'miasto' | 'adres'>): string {
+  const city = normalizeText(item.miasto);
+  const address = normalizeText(item.adres);
+  const blob = `${city} ${address}`;
+  const isKrakow = city.includes('krakow') || city.includes('kraków') || address.includes('krakow') || address.includes('kraków');
+  if (!isKrakow) return 'POZA-KRAKOWEM';
+
+  const matches: string[] = [];
+  for (const [zone, keys] of Object.entries(ZONE_RULES)) {
+    if (keys.some((k) => blob.includes(k))) matches.push(zone);
+  }
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) return 'Krakow-NIEJEDNOZNACZNA';
+  return 'Krakow-NIEJEDNOZNACZNA';
+}
+
+function zoneRank(zone: string): number {
+  const idx = ZONE_ORDER.indexOf(zone as any);
+  return idx === -1 ? 99 : idx;
+}
+
+function compareByRoute(a: Ogledziny, b: Ogledziny): number {
+  const da = a.data_planowana ? new Date(a.data_planowana).getTime() : Number.MAX_SAFE_INTEGER;
+  const db = b.data_planowana ? new Date(b.data_planowana).getTime() : Number.MAX_SAFE_INTEGER;
+  if (da !== db) return da - db;
+  const cityCmp = normalizeText(a.miasto).localeCompare(normalizeText(b.miasto), 'pl');
+  if (cityCmp !== 0) return cityCmp;
+  return normalizeText(a.adres).localeCompare(normalizeText(b.adres), 'pl');
+}
+
 interface Ogledziny {
   id: number;
+  klient_id?: number;
   klient_nazwa: string;
   klient_telefon?: string;
   klient_firma?: string;
@@ -67,6 +128,16 @@ type SessionUser = {
   oddzial_id?: number | string;
 };
 
+type LiveTeamLocation = {
+  ekipa_id?: number;
+  ekipa_nazwa?: string;
+  nr_rejestracyjny?: string;
+  recorded_at?: string;
+  speed_kmh?: number | null;
+  lat?: number;
+  lng?: number;
+};
+
 export default function OgledzinyScreen() {
   const { theme } = useTheme();
   const { t, language } = useLanguage();
@@ -77,6 +148,11 @@ export default function OgledzinyScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lista, setLista] = useState<Ogledziny[]>([]);
   const [filterStatus, setFilterStatus] = useState<Status | ''>('');
+  const [zoneFilter, setZoneFilter] = useState<string>('');
+  const [routeMode, setRouteMode] = useState(false);
+  const [zoneMode, setZoneMode] = useState(false);
+  const [zoneOverrides, setZoneOverrides] = useState<Record<string, string>>({});
+  const [clientZoneDefaults, setClientZoneDefaults] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Ogledziny | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -86,6 +162,7 @@ export default function OgledzinyScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ekipy, setEkipy] = useState<any[]>([]);
+  const [liveLocationsByTeam, setLiveLocationsByTeam] = useState<Record<string, LiveTeamLocation>>({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -100,6 +177,29 @@ export default function OgledzinyScreen() {
 
   const S = makeStyles(theme);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const [ovRaw, defRaw] = await Promise.all([
+          AsyncStorage.getItem(ZONE_OVERRIDE_KEY),
+          AsyncStorage.getItem(ZONE_CLIENT_DEFAULT_KEY),
+        ]);
+        if (ovRaw) setZoneOverrides(JSON.parse(ovRaw));
+        if (defRaw) setClientZoneDefaults(JSON.parse(defRaw));
+      } catch {
+        // ignore malformed local storage
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(ZONE_OVERRIDE_KEY, JSON.stringify(zoneOverrides)).catch(() => {});
+  }, [zoneOverrides]);
+
+  useEffect(() => {
+    AsyncStorage.setItem(ZONE_CLIENT_DEFAULT_KEY, JSON.stringify(clientZoneDefaults)).catch(() => {});
+  }, [clientZoneDefaults]);
+
   const fetchLista = useCallback(async () => {
     try {
       const { token: storedToken, user: storedUser } = await getStoredSession();
@@ -112,6 +212,9 @@ export default function OgledzinyScreen() {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const ekipyRes = await fetch(`${API_URL}/ekipy`, {
+        headers: { Authorization: `Bearer ${storedToken}` },
+      });
+      const liveRes = await fetch(`${API_URL}/ekipy/live-locations`, {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
@@ -132,6 +235,16 @@ export default function OgledzinyScreen() {
           : rawEkipy;
         setEkipy(filteredEkipy);
       }
+      if (liveRes.ok) {
+        const liveData = await liveRes.json();
+        const items = Array.isArray(liveData?.items) ? liveData.items : [];
+        const map: Record<string, LiveTeamLocation> = {};
+        for (const item of items) {
+          if (item?.ekipa_id == null) continue;
+          map[String(item.ekipa_id)] = item;
+        }
+        setLiveLocationsByTeam(map);
+      }
     } catch {
       setLista([]);
     } finally {
@@ -141,6 +254,12 @@ export default function OgledzinyScreen() {
   }, [filterStatus]);
 
   useEffect(() => { fetchLista(); }, [fetchLista]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchLista();
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [fetchLista]);
 
   const onRefresh = () => { setRefreshing(true); fetchLista(); };
 
@@ -265,14 +384,67 @@ export default function OgledzinyScreen() {
       hour: '2-digit', minute: '2-digit',
     });
   };
+  const fmtGpsAge = (iso?: string) => {
+    if (!iso) return 'brak czasu';
+    const diffMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (diffMin < 1) return 'teraz';
+    if (diffMin < 60) return `${diffMin} min temu`;
+    const h = Math.floor(diffMin / 60);
+    const m = diffMin % 60;
+    return `${h}h ${m}m temu`;
+  };
+  const gpsState = (live?: LiveTeamLocation) => {
+    const ageMin = live?.recorded_at ? (Date.now() - new Date(live.recorded_at).getTime()) / 60000 : Number.POSITIVE_INFINITY;
+    const speed = Number(live?.speed_kmh || 0);
+    if (ageMin > 15) return { label: 'stary sygnał', color: '#F87171' };
+    if (speed > 5) return { label: 'jazda', color: '#34D399' };
+    return { label: 'postój', color: '#60A5FA' };
+  };
+  const liveTeamList = Object.values(liveLocationsByTeam)
+    .filter((x) => x?.ekipa_id != null)
+    .sort((a, b) => String(a.ekipa_nazwa || '').localeCompare(String(b.ekipa_nazwa || ''), 'pl'));
+
+  const zoneFor = (item: Ogledziny) =>
+    zoneOverrides[String(item.id)] || (item.klient_id != null ? clientZoneDefaults[String(item.klient_id)] : undefined) || detectKrakowZone(item);
+  const setInspectionZoneOverride = (inspectionId: number, zone: string) => {
+    setZoneOverrides((prev) => {
+      const next = { ...prev };
+      if (!zone) delete next[String(inspectionId)];
+      else next[String(inspectionId)] = zone;
+      return next;
+    });
+  };
+  const setClientDefaultZone = (clientId: number | undefined, zone: string) => {
+    if (clientId == null) return;
+    setClientZoneDefaults((prev) => {
+      const next = { ...prev };
+      if (!zone) delete next[String(clientId)];
+      else next[String(clientId)] = zone;
+      return next;
+    });
+  };
+  const filteredByZone = zoneFilter ? lista.filter((item) => zoneFor(item) === zoneFilter) : lista;
+  const displayLista = routeMode
+    ? [...filteredByZone].sort((a, b) => {
+        if (zoneMode) {
+          const zr = zoneRank(zoneFor(a)) - zoneRank(zoneFor(b));
+          if (zr !== 0) return zr;
+        }
+        return compareByRoute(a, b);
+      })
+    : filteredByZone;
 
   const renderItem = ({ item }: { item: Ogledziny }) => {
     const sc = statusColor(item.status, theme);
+    const zone = zoneFor(item);
+    const routeIndex = displayLista.findIndex((x) => x.id === item.id);
+    const live = item.ekipa_id != null ? liveLocationsByTeam[String(item.ekipa_id)] : undefined;
     return (
       <TouchableOpacity style={S.card} onPress={() => openDetail(item)} activeOpacity={0.7}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
             <Text style={S.cardTitle} numberOfLines={1}>
+              {routeMode && routeIndex >= 0 ? `${routeIndex + 1}. ` : ''}
               {item.klient_nazwa?.trim() || t('inspections.unknownClient')}
             </Text>
             <View style={[S.statusBadge, { backgroundColor: sc + '22' }]}>
@@ -300,6 +472,22 @@ export default function OgledzinyScreen() {
               <Text style={S.cardMuted}>{item.klient_telefon}</Text>
             </View>
           )}
+          <View style={{ marginTop: 7, flexDirection: 'row', alignItems: 'center' }}>
+            <View style={[S.statusBadge, { backgroundColor: (ZONE_COLOR[zone as keyof typeof ZONE_COLOR] || theme.textMuted) + '22' }]}>
+              <Text style={[S.statusText, { color: ZONE_COLOR[zone as keyof typeof ZONE_COLOR] || theme.textMuted }]}>
+                {ZONE_LABEL[zone] || zone}
+              </Text>
+            </View>
+          </View>
+          {live ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }}>
+              <Ionicons name="navigate-outline" size={13} color={theme.textMuted} />
+              <Text style={S.cardMuted}>
+                GPS: {fmtGpsAge(live.recorded_at)}
+                {live.speed_kmh != null ? ` • ${Math.round(Number(live.speed_kmh))} km/h` : ''}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </TouchableOpacity>
     );
@@ -331,7 +519,7 @@ export default function OgledzinyScreen() {
         >
           <Ionicons name="add-circle-outline" size={22} color={theme.headerText} />
         </TouchableOpacity>
-        <Text style={S.headerCount}>{lista.length}</Text>
+        <Text style={S.headerCount}>{displayLista.length}</Text>
       </View>
 
       {/* Filtry */}
@@ -355,6 +543,67 @@ export default function OgledzinyScreen() {
             />
           ))}
         </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 8 }}>
+          <FilterChip label="Wszystkie strefy" active={zoneFilter === ''} color={theme.accent} theme={theme} onPress={() => setZoneFilter('')} />
+          {Object.entries(ZONE_LABEL).map(([zone, label]) => (
+            <FilterChip
+              key={zone}
+              label={label}
+              active={zoneFilter === zone}
+              color={ZONE_COLOR[zone as keyof typeof ZONE_COLOR] || theme.textMuted}
+              theme={theme}
+              onPress={() => setZoneFilter(zone)}
+            />
+          ))}
+        </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 8 }}>
+          <FilterChip
+            label={routeMode ? 'Widok standard' : 'Ułóż trasę'}
+            active={routeMode}
+            color={theme.success}
+            theme={theme}
+            onPress={() => setRouteMode((v) => !v)}
+          />
+          <FilterChip
+            label={zoneMode ? 'Bez stref' : 'Tryb 4 stref'}
+            active={zoneMode}
+            color={theme.info}
+            theme={theme}
+            onPress={() => setZoneMode((v) => !v)}
+          />
+        </ScrollView>
+        {liveTeamList.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }}>
+            {liveTeamList.map((live) => {
+              const state = gpsState(live);
+              return (
+                <View
+                  key={`${live.ekipa_id}-${live.nr_rejestracyjny || 'vehicle'}`}
+                  style={{
+                    backgroundColor: theme.surface2,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    borderRadius: 10,
+                    paddingVertical: 6,
+                    paddingHorizontal: 9,
+                    minWidth: 180,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text }}>
+                    {live.ekipa_nazwa || `Ekipa #${live.ekipa_id}`}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: theme.textMuted }}>
+                    GPS: {fmtGpsAge(live.recorded_at)}
+                    {live.speed_kmh != null ? ` • ${Math.round(Number(live.speed_kmh))} km/h` : ''}
+                  </Text>
+                  <Text style={{ fontSize: 10, color: state.color, fontWeight: '700' }}>
+                    {state.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        ) : null}
       </View>
 
       {!guard.ready || loading ? (
@@ -363,7 +612,7 @@ export default function OgledzinyScreen() {
         </View>
       ) : (
         <FlatList
-          data={lista}
+          data={displayLista}
           keyExtractor={item => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
@@ -430,6 +679,41 @@ export default function OgledzinyScreen() {
                         <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('inspections.openMaps')}</Text>
                       </TouchableOpacity>
                     ) : null}
+
+                    <SectionHeader icon="git-branch-outline" label="Strefa trasy" theme={theme} />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                      <FilterChip
+                        label="Auto"
+                        active={!zoneOverrides[String(selected.id)]}
+                        color={theme.accent}
+                        theme={theme}
+                        onPress={() => setInspectionZoneOverride(selected.id, '')}
+                      />
+                      {Object.entries(ZONE_LABEL).map(([zone, label]) => (
+                        <FilterChip
+                          key={zone}
+                          label={label}
+                          active={zoneOverrides[String(selected.id)] === zone}
+                          color={ZONE_COLOR[zone as keyof typeof ZONE_COLOR] || theme.textMuted}
+                          theme={theme}
+                          onPress={() => setInspectionZoneOverride(selected.id, zone)}
+                        />
+                      ))}
+                    </ScrollView>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border, flex: 1 }]}
+                        onPress={() => setClientDefaultZone(selected.klient_id, zoneFor(selected))}
+                      >
+                        <Text style={[S.footerBtnText, { color: theme.textSub, fontSize: 13 }]}>Ustaw domyślną dla klienta</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border, flex: 1 }]}
+                        onPress={() => setClientDefaultZone(selected.klient_id, '')}
+                      >
+                        <Text style={[S.footerBtnText, { color: theme.textSub, fontSize: 13 }]}>Usuń domyślną</Text>
+                      </TouchableOpacity>
+                    </View>
 
                     {/* Sekcja: klient */}
                     <SectionHeader icon="person-outline" label={t('inspections.sectionClient')} theme={theme} />

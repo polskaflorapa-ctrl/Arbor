@@ -10,6 +10,27 @@
     "mobile": "npm run start -w arbor-mobile",
     "web": "npm run start -w arbor-web",
     "os": "npm run dev -w arbor-os",
-    "os:stack": "npm run dev:stack -w arbor-os"
+    "os:stack": "npm run dev:stack -w arbor-os",
+    "api": "npm run server -w arbor-web",
+    "api:dev": "npm run server:dev -w arbor-web",
+    "dev:web": "npm run web",
+    "dev:mobile": "npm run mobile",
+    "dev:os": "npm run os",
+    "dev:api": "npm run api",
+    "dev": "node ./scripts/dev-smart.cjs",
+    "dev:all": "npx --yes concurrently -n API,WEB,OS \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:os\"",
+    "health": "node ./scripts/health-check.cjs",
+    "status": "node ./scripts/status.cjs",
+    "status:json": "node ./scripts/status.cjs --json",
+    "status:json:strict": "node ./scripts/status.cjs --json --strict",
+    "ci:check": "node ./scripts/ci-check.cjs",
+    "doctor": "node ./scripts/doctor.cjs",
+    "up": "node ./scripts/up.cjs",
+    "up:force": "node ./scripts/up.cjs --force",
+    "down": "node ./scripts/down.cjs",
+    "restart:force": "node ./scripts/restart-force.cjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

@@ -94,6 +94,13 @@ CREATE INDEX IF NOT EXISTS idx_tasks_data        ON tasks(data_planowana);
 CREATE INDEX IF NOT EXISTS idx_tasks_oddzial     ON tasks(oddzial_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_brygadzista ON tasks(brygadzista_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_ekipa       ON tasks(ekipa_id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wyceniajacy_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lat DECIMAL(10,7);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lng DECIMAL(10,7);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ankieta_uproszczona BOOLEAN DEFAULT false;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_wycena_id INTEGER REFERENCES wyceny(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_wyceniajacy ON tasks(wyceniajacy_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source_wycena_unique ON tasks(source_wycena_id) WHERE source_wycena_id IS NOT NULL;
 
 -- ─── 5. WYCENY ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS wyceny (
@@ -536,6 +543,39 @@ CREATE TABLE IF NOT EXISTS photos (
 );
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS lat DECIMAL(10,7);
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS lon DECIMAL(10,7);
+
+-- ─── GPS LIVE (Juwentus) ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS gps_vehicle_positions (
+  id            BIGSERIAL PRIMARY KEY,
+  provider      VARCHAR(40) NOT NULL,
+  external_id   VARCHAR(120) NOT NULL,
+  plate_number  VARCHAR(50),
+  lat           DECIMAL(10,7) NOT NULL,
+  lng           DECIMAL(10,7) NOT NULL,
+  speed_kmh     DECIMAL(8,2),
+  heading       DECIMAL(8,2),
+  recorded_at   TIMESTAMP NOT NULL,
+  source_payload JSONB DEFAULT '{}'::jsonb,
+  created_at    TIMESTAMP DEFAULT NOW(),
+  UNIQUE(provider, external_id, recorded_at)
+);
+CREATE INDEX IF NOT EXISTS idx_gps_vehicle_positions_plate_time
+  ON gps_vehicle_positions(plate_number, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gps_vehicle_positions_provider_time
+  ON gps_vehicle_positions(provider, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS gps_user_vehicle_assignments (
+  id            SERIAL PRIMARY KEY,
+  user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  plate_number  VARCHAR(50) NOT NULL,
+  active        BOOLEAN DEFAULT true,
+  notes         TEXT,
+  created_at    TIMESTAMP DEFAULT NOW(),
+  updated_at    TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, plate_number)
+);
+CREATE INDEX IF NOT EXISTS idx_gps_user_vehicle_assignments_user_active
+  ON gps_user_vehicle_assignments(user_id, active);
 
 -- ─── 21. PIERWSZE KONTO ADMINISTRATORA ───────────────────────────────────────
 -- Hasło: Admin123! (bcrypt hash)

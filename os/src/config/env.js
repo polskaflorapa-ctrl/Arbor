@@ -62,6 +62,10 @@ const envSchema = z.object({
     .transform((s) => s === 'true' || s === '1'),
   WEBHOOK_URL: z
     .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
+  JUWENTUS_GPS_API_URL: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
+  JUWENTUS_GPS_API_TOKEN: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
 });
 
 const parsed = envSchema.safeParse(process.env);

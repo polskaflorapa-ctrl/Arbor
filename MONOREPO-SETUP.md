@@ -42,3 +42,16 @@ Dla małego zespołu zwykle wygrywa **jeden repo** w `arbor`.
 W katalogu `arbor` uruchom `npm install` (jeśli używasz workspaces z `package.json` w root — dopiero wtedy ma sens).
 
 Skrypty w root `package.json` są przykładowe; dostosuj nazwy skryptów w `web` / `os` / `mobile`, jeśli się różnią.
+
+## Operacyjny zestaw komend (root `arbor`)
+
+```powershell
+npm run status        # szybki podgląd stanu (porty + health + sugestia)
+npm run doctor        # diagnostyka i konkretne "Next"
+npm run up            # uruchamia brakujące serwisy
+npm run up:force      # czyści porty 3000/3001/3002 i stawia API+WEB od zera
+npm run down          # zatrzymuje lokalny stack (porty 3000/3001/3002)
+npm run restart:force # down + up:force (pełny reset)
+npm run health        # sprawdza /api/health przez proxy target
+```
+

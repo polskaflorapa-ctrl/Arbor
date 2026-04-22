@@ -4,6 +4,7 @@ const logger = require('../config/logger');
 const { authMiddleware, requireNieBrygadzista } = require('../middleware/auth');
 const { blockPayrollSettlements } = require('../middleware/payroll-policy');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
+const { syncJuwentusGps, getLiveTeamLocations } = require('../services/juwentus-gps');
 const { z } = require('zod');
 
 const router = express.Router();
@@ -29,6 +30,13 @@ const ekipaIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+const liveLocationsQuerySchema = z.object({
+  refresh: z
+    .preprocess((v) => (v === undefined ? false : ['1', 'true', true].includes(v)), z.boolean())
+    .optional()
+    .default(false),
+});
+
 const taskIdParamsSchema = z.object({
   taskId: z.coerce.number().int().positive(),
 });
@@ -47,6 +55,13 @@ const ekipaUpdateSchema = z.object({
 const czlonkowieAddSchema = z.object({
   user_id: z.coerce.number().int().positive(),
   rola: z.string().max(30).optional(),
+});
+
+const gpsUserAssignmentSchema = z.object({
+  user_id: z.coerce.number().int().positive(),
+  plate_number: z.string().trim().min(3).max(50),
+  active: z.boolean().optional().default(true),
+  notes: z.string().optional().nullable(),
 });
 
 const ekipaCzlonkowieParamsSchema = z.object({
@@ -100,6 +115,93 @@ router.get('/', authMiddleware, validateQuery(ekipaListQuerySchema), async (req,
     res.json(result.rows);
   } catch (err) {
     logger.error('Blad pobierania ekip', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/live-locations', authMiddleware, validateQuery(liveLocationsQuerySchema), async (req, res) => {
+  try {
+    if (req.query.refresh) {
+      try {
+        await syncJuwentusGps();
+      } catch (err) {
+        logger.warn('Nie udalo sie odswiezyc pozycji GPS z Juwentus', {
+          message: err.message,
+          requestId: req.requestId,
+        });
+      }
+    }
+    const scopedOddzialId = isDyrektor(req.user) ? null : req.user.oddzial_id;
+    const rows = await getLiveTeamLocations({ oddzialId: scopedOddzialId });
+    res.json({ items: rows, count: rows.length });
+  } catch (err) {
+    logger.error('Blad pobierania live-locations ekip', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/gps-user-assignments', authMiddleware, async (req, res) => {
+  try {
+    const scopedOddzialId = isDyrektor(req.user) ? null : req.user.oddzial_id;
+    const params = [];
+    let where = '';
+    if (scopedOddzialId != null) {
+      params.push(scopedOddzialId);
+      where = `WHERE u.oddzial_id = $1`;
+    }
+    const result = await pool.query(
+      `SELECT guva.*, u.imie, u.nazwisko, u.oddzial_id
+       FROM gps_user_vehicle_assignments guva
+       JOIN users u ON u.id = guva.user_id
+       ${where}
+       ORDER BY guva.active DESC, u.nazwisko, u.imie`,
+      params
+    );
+    res.json(result.rows);
+  } catch (err) {
+    logger.error('Blad pobierania gps-user-assignments', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/gps-user-assignments', authMiddleware, requireNieBrygadzista, validateBody(gpsUserAssignmentSchema), async (req, res) => {
+  try {
+    const { user_id, plate_number, active, notes } = req.body;
+    await pool.query(
+      `INSERT INTO gps_user_vehicle_assignments (user_id, plate_number, active, notes)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, plate_number) DO UPDATE SET
+         active = EXCLUDED.active,
+         notes = EXCLUDED.notes,
+         updated_at = NOW()`,
+      [user_id, plate_number, active, notes || null]
+    );
+    res.json({ message: 'Powiazanie GPS użytkownika zapisane' });
+  } catch (err) {
+    logger.error('Blad zapisu gps-user-assignments', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/:id/live-location', authMiddleware, validateParams(ekipaIdParamsSchema), validateQuery(liveLocationsQuerySchema), async (req, res) => {
+  try {
+    if (req.query.refresh) {
+      try {
+        await syncJuwentusGps();
+      } catch (err) {
+        logger.warn('Nie udalo sie odswiezyc pozycji GPS z Juwentus (single team)', {
+          message: err.message,
+          requestId: req.requestId,
+        });
+      }
+    }
+    const scopedOddzialId = isDyrektor(req.user) ? null : req.user.oddzial_id;
+    const rows = await getLiveTeamLocations({ oddzialId: scopedOddzialId });
+    const match = rows.find((row) => Number(row.ekipa_id) === Number(req.params.id));
+    if (!match) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    res.json(match);
+  } catch (err) {
+    logger.error('Blad pobierania live-location ekipy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
