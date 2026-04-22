@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, RefreshControl, ScrollView,
+  RefreshControl, ScrollView,
   StyleSheet, Text, TouchableOpacity, View, StatusBar,
 } from 'react-native';
+import { DashboardSkeleton } from '../components/ui/skeleton-block';
+import { PlatinumCard } from '../components/ui/platinum-card';
 import { elevationCard } from '../constants/elevation';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
@@ -17,6 +19,7 @@ import {
 } from '../utils/oddzial-features';
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
+import { triggerHaptic } from '../utils/haptics';
 
 // ─── Typy ikon Ionicons ────────────────────────────────────────────────────────
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -236,8 +239,12 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <View style={S.center}>
-        <ActivityIndicator size="large" color={theme.accent} />
+      <View style={S.root}>
+        <StatusBar
+          barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor={theme.headerBg}
+        />
+        <DashboardSkeleton />
       </View>
     );
   }
@@ -302,21 +309,24 @@ export default function DashboardScreen() {
           </View>
         ) : null}
 
-        <View style={[S.section, elevationCard(theme)]}>
+        <PlatinumCard style={[S.section, elevationCard(theme)]}>
           <Text style={S.sectionTitle}>{t('dashboard.branchMode')}</Text>
           <Text style={S.oddzialMission}>{oddzialConfig.mission}</Text>
           <Text style={S.oddzialFocus}>{t('dashboard.priority', { focus: oddzialConfig.focus })}</Text>
-        </View>
+        </PlatinumCard>
 
         {/* ─── SZYBKI DOSTĘP ─────────────────────────────────────────────────── */}
-        <View style={[S.section, elevationCard(theme)]}>
+        <PlatinumCard style={[S.section, elevationCard(theme)]}>
           <Text style={S.sectionTitle}>{t('dashboard.quickAccess')}</Text>
           <View style={S.quickGrid}>
             {quickActionsFiltered.map((a, i) => (
               <TouchableOpacity
                 key={i}
                 style={S.quickCard}
-                onPress={() => router.push(a.path as any)}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  router.push(a.path as any);
+                }}
                 activeOpacity={0.75}
               >
                 <View style={[S.quickIconBg, { backgroundColor: a.color + '22' }]}>
@@ -326,15 +336,15 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </PlatinumCard>
 
         {/* ─── OSTATNIE ZLECENIA ──────────────────────────────────────────────── */}
-        {!isWyceniajacy && <View style={[S.section, elevationCard(theme)]}>
+        {!isWyceniajacy && <PlatinumCard style={[S.section, elevationCard(theme)]}>
           <View style={S.sectionHeader}>
             <Text style={S.sectionTitle}>
               {isPomocnik || isBrygadzista ? t('dashboard.myTasks') : t('dashboard.latestTasks')}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/zlecenia')} style={S.seeAllBtn}>
+            <TouchableOpacity onPress={() => { void triggerHaptic('light'); router.push('/zlecenia'); }} style={S.seeAllBtn}>
               <Text style={S.seeAll}>{t('dashboard.seeAll')}</Text>
               <Ionicons name="chevron-forward" size={14} color={theme.accent} />
             </TouchableOpacity>
@@ -355,7 +365,7 @@ export default function DashboardScreen() {
               <TouchableOpacity
                 key={z.id}
                 style={S.card}
-                onPress={() => router.push(`/zlecenie/${z.id}`)}
+                onPress={() => { void triggerHaptic('light'); router.push(`/zlecenie/${z.id}`); }}
                 activeOpacity={0.8}
               >
                 <View style={[S.cardAccent, { backgroundColor: statusKolor[z.status as keyof typeof statusKolor] || theme.textMuted }]} />
@@ -406,7 +416,7 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             ))
           )}
-        </View>}
+        </PlatinumCard>}
 
         <View style={{ height: 110 }} />
       </ScrollView>

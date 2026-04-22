@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -11,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { DashboardSkeleton } from '../components/ui/skeleton-block';
+import { PlatinumCard } from '../components/ui/platinum-card';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -18,6 +19,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getOddzialFeatureConfig, isFeatureEnabledForOddzial } from '../utils/oddzial-features';
 import { getStoredSession } from '../utils/session';
+import { triggerHaptic } from '../utils/haptics';
 
 type OgledzinyLite = {
   id: number;
@@ -103,8 +105,9 @@ export default function WyceniajacyHubScreen() {
 
   if (!guard.ready || loading) {
     return (
-      <View style={S.center}>
-        <ActivityIndicator size="large" color={theme.accent} />
+      <View style={S.root}>
+        <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+        <DashboardSkeleton />
       </View>
     );
   }
@@ -169,7 +172,7 @@ export default function WyceniajacyHubScreen() {
           </Text>
         </View>
 
-        <View style={S.section}>
+        <PlatinumCard style={S.section}>
           <Text style={S.sectionTitle}>{t('hub.quickActions')}</Text>
           <View style={S.grid}>
             {isFeatureEnabledForOddzial(sessionUser?.oddzial_id, '/ogledziny') ? (
@@ -193,15 +196,15 @@ export default function WyceniajacyHubScreen() {
               />
             ) : null}
           </View>
-        </View>
+        </PlatinumCard>
 
-        <View style={S.section}>
+        <PlatinumCard style={S.section}>
           <Text style={S.sectionTitle}>{t('hub.workflowTitle')}</Text>
           <Text style={S.flowText}>{t('hub.flow1')}</Text>
           <Text style={S.flowText}>{t('hub.flow2')}</Text>
           <Text style={S.flowText}>{t('hub.flow3')}</Text>
           <Text style={S.flowText}>{t('hub.flow4')}</Text>
-        </View>
+        </PlatinumCard>
         <View style={{ height: 24 }} />
       </ScrollView>
     </View>
@@ -220,7 +223,13 @@ function ActionTile({
   theme: Theme;
 }) {
   return (
-    <TouchableOpacity style={[stylesAction.tile, { backgroundColor: theme.surface2, borderColor: theme.accent + '44' }]} onPress={onPress}>
+    <TouchableOpacity
+      style={[stylesAction.tile, { backgroundColor: theme.surface2, borderColor: theme.accent + '44' }]}
+      onPress={() => {
+        void triggerHaptic('light');
+        onPress();
+      }}
+    >
       <Ionicons name={icon} size={20} color={theme.accent} />
       <Text style={[stylesAction.label, { color: theme.text }]}>{label}</Text>
     </TouchableOpacity>
