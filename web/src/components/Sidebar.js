@@ -48,6 +48,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(null);
   const notifRef = useRef(null);
+  const notificationsInFlightRef = useRef(false);
   const { themeId, setTheme } = useTheme();
 
   useEffect(() => {
@@ -91,6 +92,8 @@ export default function Sidebar() {
   }, [currentUser]);
 
   const loadNotifications = async () => {
+    if (notificationsInFlightRef.current) return;
+    notificationsInFlightRef.current = true;
     try {
       const token = getStoredToken();
       const res = await api.get('/notifications', { headers: authHeaders(token) });
@@ -99,6 +102,9 @@ export default function Sidebar() {
       setNotifList(Array.isArray(list) ? list : []);
       setNotifCount(data.unread_count || (Array.isArray(list) ? list.filter(n => n.status === 'Nowe').length : 0));
     } catch { /* ignoruj */ }
+    finally {
+      notificationsInFlightRef.current = false;
+    }
   };
 
   const markAll = async () => {

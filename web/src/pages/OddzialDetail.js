@@ -76,9 +76,12 @@ export default function OddzialDetail() {
     setPracownicy(uRes.data.filter(p => p.oddzial_id === parseInt(id)));
     setWszyscyPracownicy(uRes.data);
   }, [id]);
+  const handleLoadAllError = useCallback((err) => {
+    devWarn('oddzial-detail', 'loadAll failed', err);
+  }, []);
   const { loading, reload: reloadAll } = useAsyncLoad(loadAll, {
     immediate: false,
-    onError: (err) => devWarn('oddzial-detail', 'loadAll failed', err),
+    onError: handleLoadAllError,
   });
 
   useEffect(() => {
@@ -113,7 +116,7 @@ export default function OddzialDetail() {
 
   const handleEkipaSubmit = async (e) => {
     e.preventDefault();
-    setMemberSaving(true);
+    setSaving(true);
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
@@ -161,7 +164,7 @@ export default function OddzialDetail() {
       showMsg(warningMessage('Ten pracownik jest już przypisany do ekipy.'));
       return;
     }
-    setSaving(true);
+    setMemberSaving(true);
     try {
       const token = getStoredToken();
       const result = await addTeamMember(

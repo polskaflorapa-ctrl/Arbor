@@ -57,9 +57,12 @@ export default function Ekipy() {
     setUzytkownicy(uRes.data);
     setOddzialy(oRes.data);
   }, []);
+  const handleLoadAllError = useCallback((err) => {
+    devWarn('ekipy', 'loadAll failed', err);
+  }, []);
   const { loading, reload: reloadAll } = useAsyncLoad(loadAll, {
     immediate: false,
-    onError: (err) => devWarn('ekipy', 'loadAll failed', err),
+    onError: handleLoadAllError,
   });
 
   useEffect(() => {
@@ -105,7 +108,7 @@ export default function Ekipy() {
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    setMemberSaving(true);
+    setSaving(true);
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
@@ -163,7 +166,7 @@ export default function Ekipy() {
       showMsg(warningMessage('Ten pracownik jest już przypisany do ekipy.'));
       return;
     }
-    setSaving(true);
+    setMemberSaving(true);
     try {
       const token = getStoredToken();
       const result = await addTeamMember(
