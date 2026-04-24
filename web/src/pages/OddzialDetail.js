@@ -558,7 +558,7 @@ export default function OddzialDetail() {
                       <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text-sub)', marginBottom: 10 }}>👷 Brygadzista</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 44, height: 44, borderRadius: 22, background: 'linear-gradient(135deg, var(--accent), #66BB6A)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: 15 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 22, background: 'linear-gradient(135deg, var(--sidebar) 0%, #14532d 55%, #34d399 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: 15 }}>
                             {ekipaDetail.brygadzista_imie?.[0]}{ekipaDetail.brygadzista_nazwisko?.[0]}
                           </div>
                           <div>

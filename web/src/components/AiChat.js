@@ -105,11 +105,11 @@ export default function AiChat() {
         style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9000,
           width: 56, height: 56, borderRadius: '50%',
-          background: open ? '#1E293B' : 'linear-gradient(135deg, #34D399, #059669)',
-          border: open ? '2px solid #34D399' : 'none',
-          cursor: 'pointer', boxShadow: '0 4px 20px rgba(52,211,153,0.4)',
+          background: open ? 'var(--bg-card)' : 'linear-gradient(145deg, #059669 0%, #34d399 100%)',
+          border: open ? '2px solid #34d399' : 'none',
+          cursor: 'pointer', boxShadow: open ? '0 8px 28px rgba(0,0,0,0.45)' : '0 8px 28px rgba(5,150,105,0.35)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s', color: '#fff',
+          transition: 'all 0.2s', color: open ? 'var(--text)' : '#fff',
         }}
         title={open ? 'Zamknij asystenta' : 'Asystent AI'}
       >
@@ -279,15 +279,15 @@ const S = {
   panel: {
     position: 'fixed', bottom: 92, right: 24, zIndex: 8999,
     width: 380, height: 520,
-    backgroundColor: 'var(--bg-card, #1E293B)',
-    border: '1px solid var(--border, #1E3A5F)',
+    backgroundColor: 'var(--bg-card)',
+    border: '1px solid var(--border)',
     borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
     display: 'flex', flexDirection: 'column', overflow: 'hidden',
     animation: 'slideUp 0.2s ease',
   },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '14px 16px', borderBottom: '1px solid var(--border, #1E3A5F)',
+    padding: '14px 16px', borderBottom: '1px solid var(--border)',
     background: 'linear-gradient(135deg, rgba(52,211,153,0.08), transparent)',
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },

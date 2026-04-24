@@ -499,7 +499,7 @@ export default function Ekipy() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{
                         width: 48, height: 48, borderRadius: 24,
-                        background: 'linear-gradient(135deg, var(--accent), #66BB6A)',
+                        background: 'linear-gradient(135deg, var(--sidebar) 0%, #14532d 55%, #34d399 100%)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontWeight: 'bold', fontSize: 16,
                       }}>
