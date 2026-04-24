@@ -38,8 +38,8 @@ export default function Ekipy() {
   const [hoveredEkipa, setHoveredEkipa] = useState(null);
   const KOLORY_EKIP = [
     '#22C55E', '#EAB308', '#EF4444', '#3B82F6',
-    '#A855F7', '#F97316', '#14B8A6', '#EC4899',
-    '#6366F1', '#F43F5E', '#10B981', '#6B7280',
+    '#38bdf8', '#F97316', '#14B8A6', '#EC4899',
+    '#64748b', '#F43F5E', '#10B981', '#6B7280',
   ];
   const [form, setForm] = useState({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#22C55E' });
   const [formCzlonek, setFormCzlonek] = useState({ user_id: '', rola: 'Pomocnik' });
@@ -247,9 +247,9 @@ export default function Ekipy() {
   const isAddCzlonekValid = Boolean(formCzlonek.user_id);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: 28 }}>
+      <div style={{ flex: 1, padding: 28, position: 'relative' }}>
 
         <PageHeader
           variant="hero"
@@ -261,7 +261,7 @@ export default function Ekipy() {
               <StatusMessage message={msg} style={{ animation: 'bounceIn 0.3s ease forwards' }} />
               {isDyrektor && (
                 <select
-                  style={{ padding: '8px 12px', borderRadius: 10, border: 'none', fontSize: 13, outline: 'none' }}
+                  style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 13, outline: 'none' }}
                   value={filtrOddzial}
                   onChange={(e) => setFiltrOddzial(e.target.value)}
                 >
@@ -291,9 +291,9 @@ export default function Ekipy() {
                   }}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: 'var(--bg-card)',
+                    backgroundColor: 'var(--bg-card2)',
                     color: 'var(--accent)',
-                    border: 'none',
+                    border: '1px solid var(--border2)',
                     borderRadius: 10,
                     cursor: 'pointer',
                     fontSize: 14,
@@ -307,14 +307,26 @@ export default function Ekipy() {
             </>
           }
         />
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12, marginBottom: 16 }}>
+          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum ekip</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Ekipy: <strong style={{ color: 'var(--text)' }}>{filtrowaneEkipy.length}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{uzytkownicy.length}</strong> · Oddziały: <strong style={{ color: 'var(--text)' }}>{oddzialy.length}</strong></div>
+          </div>
+          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Akcja</div>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
+              Dodaj nową ekipę
+            </button>
+          </div>
+        </div>
 
         {/* Formularz */}
         {showForm && canEdit && (
           <div style={{
-            backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20,
-            boxShadow: '0 4px 16px rgba(56,142,60,0.12)',
+            background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, padding: 24, marginBottom: 20,
+            boxShadow: 'var(--shadow-sm)',
             animation: 'slideIn 0.3s ease forwards',
-            borderTop: '4px solid var(--accent)',
+            borderTop: '1px solid var(--border2)', border: '1px solid var(--border2)',
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 }}>
               {editEkipa ? t('pages.ekipy.formEditTitle') : t('pages.ekipy.formNewTitle')}
@@ -382,7 +394,7 @@ export default function Ekipy() {
                 <p>Ładowanie ekip...</p>
               </div>
             ) : filtrowaneEkipy.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', borderRadius: 16 }}>
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>
                   <GroupsOutlined style={{ fontSize: 48 }} aria-hidden />
                 </div>
@@ -396,8 +408,8 @@ export default function Ekipy() {
                 onMouseEnter={() => setHoveredEkipa(e.id)}
                 onMouseLeave={() => setHoveredEkipa(null)}
                 style={{
-                  backgroundColor: 'var(--bg-card)', borderRadius: 14, padding: 16, marginBottom: 10,
-                  boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#22C55E')}33` : '0 2px 8px rgba(0,0,0,0.1)',
+                  background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14, padding: 16, marginBottom: 10,
+                  boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#22C55E')}33` : 'var(--shadow-sm)',
                   borderLeft: `4px solid ${e.kolor || (selectedEkipa?.id === e.id ? 'var(--accent)' : '#334155')}`,
                   cursor: 'pointer',
                   transform: hoveredEkipa === e.id ? 'translateX(4px)' : 'none',
@@ -468,8 +480,8 @@ export default function Ekipy() {
           {/* Szczegóły */}
           {selectedEkipa && ekipaDetail ? (
             <div style={{
-              backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24,
-              boxShadow: '0 4px 20px rgba(56,142,60,0.12)',
+              background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 24,
+              boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border2)',
               animation: 'fadeIn 0.3s ease forwards',
             }}>
               <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
@@ -628,9 +640,9 @@ export default function Ekipy() {
             </div>
           ) : (
             <div style={{
-              backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 60,
+              background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 60,
               textAlign: 'center', color: 'var(--text-muted)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border2)',
               animation: 'fadeIn 0.4s ease forwards',
             }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--text-muted)', opacity: 0.45 }}>
@@ -739,7 +751,7 @@ function Field({ label, children }) {
 }
 
 const S = {
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-card)' },
-  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-card2)', color: 'var(--text)' },
+  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card2)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
 };

@@ -470,33 +470,46 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : naprawy.length === 0 ? (
             <EmptyBox icon={<ConstructionOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyRepairs')} />
           ) : (
-            <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {repairHeaders.map((h) => (
-                      <th key={h} style={{ padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {naprawy.map((n, i) => (
-                    <tr key={n.id} style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)' }}>
-                      <td style={S.td}><span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 12 }}>{n.typ_zasobu}</span></td>
-                      <td style={{ ...S.td, fontWeight: '600' }}>ID: {n.zasob_id}</td>
-                      <td style={S.td}>{fmt(n.data_naprawy)}</td>
-                      <td style={{ ...S.td, fontWeight: '600', color: '#EF5350' }}>{n.koszt ? `${parseFloat(n.koszt).toLocaleString('pl-PL')} PLN` : '-'}</td>
-                      <td style={S.td}>{n.opis_usterki || '-'}</td>
-                      <td style={S.td}>{n.wykonawca || '-'}</td>
-                      <td style={S.td}>
-                        <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: n.status === 'Zakończona' ? '#4CAF50' : '#F9A825' }}>
-                          {t(`fleetRepairStatus.${n.status}`, { defaultValue: n.status })}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={S.repairsWrap}>
+              <div style={S.repairsHeader}>
+                {(repairHeaders.length ? repairHeaders : ['Typ', 'Zasób', 'Data', 'Koszt', 'Usterka', 'Wykonawca', 'Status']).slice(0, 7).map((h) => (
+                  <span key={h} style={S.repairsHeaderChip}>{h}</span>
+                ))}
+              </div>
+              <div style={S.repairsGrid}>
+                {naprawy.map((n) => (
+                  <div key={n.id} style={S.repairCard}>
+                    <div style={S.repairTop}>
+                      <span style={S.repairType}>{n.typ_zasobu}</span>
+                      <span style={{ ...S.repairStatus, backgroundColor: n.status === 'Zakończona' ? '#4CAF50' : '#F9A825' }}>
+                        {t(`fleetRepairStatus.${n.status}`, { defaultValue: n.status })}
+                      </span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Zasób</span>
+                      <span style={S.repairValue}>ID: {n.zasob_id}</span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Data</span>
+                      <span style={S.repairValue}>{fmt(n.data_naprawy)}</span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Koszt</span>
+                      <span style={{ ...S.repairValue, color: '#ff9bb4', fontWeight: 700 }}>
+                        {n.koszt ? `${parseFloat(n.koszt).toLocaleString('pl-PL')} PLN` : '-'}
+                      </span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Usterka</span>
+                      <span style={S.repairValue}>{n.opis_usterki || '-'}</span>
+                    </div>
+                    <div style={S.repairRow}>
+                      <span style={S.repairLabel}>Wykonawca</span>
+                      <span style={S.repairValue}>{n.wykonawca || '-'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )
         )}
@@ -544,4 +557,24 @@ const S = {
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   submitBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  repairsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
+  repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+  repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border2)', borderRadius: 999, padding: '4px 8px', background: 'var(--bg-deep)' },
+  repairsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
+  repairCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  repairTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  repairType: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700 },
+  repairStatus: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 700 },
+  repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  repairLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700 },
+  repairValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
 };

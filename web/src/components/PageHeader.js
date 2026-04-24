@@ -30,12 +30,12 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               background: 'linear-gradient(135deg, var(--sidebar) 0%, var(--bg-deep) 52%, var(--bg-card) 100%)',
               borderWidth: 1,
               borderStyle: 'solid',
-              borderColor: 'var(--border)',
+              borderColor: 'var(--border2)',
               boxShadow: 'var(--shadow-md)',
             }
           : {
               paddingBottom: 20,
-              borderBottom: '1px solid var(--border)',
+              borderBottom: '1px solid var(--border2)',
             }),
       }}
     >
@@ -60,12 +60,14 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               marginTop: 2,
               padding: '6px 10px',
               borderRadius: 10,
-              border: 'none',
-              background: isHero ? 'rgba(255,255,255,0.08)' : 'var(--bg-deep)',
+              border: isHero ? '1px solid rgba(255,255,255,0.22)' : '1px solid var(--border2)',
+              background: isHero ? 'rgba(255,255,255,0.08)' : 'var(--bg-card2)',
               color: isHero ? 'rgba(255,255,255,0.92)' : 'var(--accent)',
               cursor: 'pointer',
               fontSize: 13,
               fontWeight: 600,
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'transform 0.18s ease, filter 0.18s ease',
             }}
           >
             <ChevronLeft style={{ fontSize: 22, margin: '-2px -4px -2px -6px' }} aria-hidden />
@@ -81,12 +83,13 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               background: isHero ? 'rgba(255,255,255,0.1)' : 'var(--logo-tint-bg)',
               borderWidth: 1,
               borderStyle: 'solid',
-              borderColor: isHero ? 'rgba(255,255,255,0.22)' : 'var(--logo-tint-border)',
+              borderColor: isHero ? 'rgba(255,255,255,0.22)' : 'var(--border2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: isHero ? '#fff' : 'var(--accent)',
               flexShrink: 0,
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             {icon}

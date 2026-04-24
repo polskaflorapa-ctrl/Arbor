@@ -6,6 +6,7 @@ import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -240,22 +241,22 @@ export default function FlotaMobileScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-          <Ionicons name="car-sport-outline" size={20} color={theme.headerText} />
+          <PlatinumIconBadge icon="car-sport-outline" color={theme.headerText} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
           <Text style={S.headerTitle}>{t('fleet.screenTitle')}</Text>
         </View>
         {showReservationsBtn && (
           <TouchableOpacity onPress={() => router.push('/rezerwacje-sprzetu' as never)} style={{ padding: 6, marginRight: 4 }}>
-            <Ionicons name="calendar-number-outline" size={22} color={theme.headerText} />
+            <PlatinumIconBadge icon="calendar-number-outline" color={theme.headerText} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
           </TouchableOpacity>
         )}
         {mozeEdytowac && (
           <TouchableOpacity
             onPress={() => aktywnaSekcja === 'pojazdy' ? setModalPojazd(true) : aktywnaSekcja === 'sprzet' ? setModalSprzet(true) : setModalNaprawa(true)}
             style={S.addHeaderBtn}>
-            <Ionicons name="add" size={22} color={theme.headerText} />
+            <PlatinumIconBadge icon="add" color={theme.headerText} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
           </TouchableOpacity>
         )}
       </View>
@@ -265,7 +266,12 @@ export default function FlotaMobileScreen() {
         {SEKCJE.map(s => (
           <TouchableOpacity key={s.key} style={[S.sekcjaBtn, aktywnaSekcja === s.key && S.sekcjaBtnActive]}
             onPress={() => setAktywnaSekcja(s.key)}>
-            <Ionicons name={s.icon} size={14} color={aktywnaSekcja === s.key ? theme.accent : theme.textMuted} />
+            <PlatinumIconBadge
+              icon={s.icon}
+              color={aktywnaSekcja === s.key ? theme.accent : theme.textMuted}
+              size={10}
+              style={{ width: 20, height: 20, borderRadius: 6 }}
+            />
             <Text style={[S.sekcjaTxt, aktywnaSekcja === s.key && { color: theme.accent, fontWeight: '700' }]}>
               {s.label}
             </Text>
@@ -291,25 +297,30 @@ export default function FlotaMobileScreen() {
                     <Text style={S.badgeTxt}>{fleetStatusLabel(p.status, t)}</Text>
                   </View>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                  <Ionicons name="card-outline" size={12} color={theme.textMuted} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <PlatinumIconBadge icon="card-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={S.cardSub}>{p.nr_rejestracyjny} · {p.typ}</Text>
                 </View>
                 {p.oddzial_nazwa && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="business-outline" size={12} color={theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="business-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.cardSub}>{p.oddzial_nazwa}</Text>
                   </View>
                 )}
                 {p.ekipa_nazwa && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="people-outline" size={12} color={theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="people-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.cardSub}>{p.ekipa_nazwa}</Text>
                   </View>
                 )}
                 {p.data_przegladu && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons name="search-outline" size={12} color={new Date(p.data_przegladu) < new Date() ? theme.danger : theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <PlatinumIconBadge
+                      icon="search-outline"
+                      color={new Date(p.data_przegladu) < new Date() ? theme.danger : theme.textMuted}
+                      size={8}
+                      style={{ width: 18, height: 18, borderRadius: 6 }}
+                    />
                     <Text style={[S.cardSub, new Date(p.data_przegladu) < new Date() && { color: theme.danger }]}>
                       {t('fleet.inspectionLabel')} {p.data_przegladu.split('T')[0]}
                       {new Date(p.data_przegladu) < new Date() ? t('fleet.inspectionOverdue') : ''}
@@ -344,25 +355,30 @@ export default function FlotaMobileScreen() {
                     <Text style={S.badgeTxt}>{fleetStatusLabel(s.status, t)}</Text>
                   </View>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                  <Ionicons name="construct-outline" size={12} color={theme.textMuted} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <PlatinumIconBadge icon="construct-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={S.cardSub}>{s.typ}</Text>
                 </View>
                 {s.nr_seryjny && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="barcode-outline" size={12} color={theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="barcode-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.cardSub}>{t('fleet.serialPrefix')} {s.nr_seryjny}</Text>
                   </View>
                 )}
                 {s.oddzial_nazwa && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="business-outline" size={12} color={theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="business-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.cardSub}>{s.oddzial_nazwa}</Text>
                   </View>
                 )}
                 {s.data_przegladu && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons name="search-outline" size={12} color={new Date(s.data_przegladu) < new Date() ? theme.danger : theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <PlatinumIconBadge
+                      icon="search-outline"
+                      color={new Date(s.data_przegladu) < new Date() ? theme.danger : theme.textMuted}
+                      size={8}
+                      style={{ width: 18, height: 18, borderRadius: 6 }}
+                    />
                     <Text style={[S.cardSub, new Date(s.data_przegladu) < new Date() && { color: theme.danger }]}>
                       {t('fleet.inspectionLabel')} {s.data_przegladu.split('T')[0]}
                       {new Date(s.data_przegladu) < new Date() ? t('fleet.inspectionOverdue') : ''}
@@ -393,7 +409,12 @@ export default function FlotaMobileScreen() {
               <View key={n.id} style={[S.card, { borderLeftColor: n.status === 'Zakończona' ? theme.success : theme.warning }]}>
                 <View style={S.cardTop}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                    <Ionicons name={n.typ_zasobu === 'vehicle' ? 'car-outline' : 'construct-outline'} size={14} color={theme.textMuted} />
+                    <PlatinumIconBadge
+                      icon={n.typ_zasobu === 'vehicle' ? 'car-outline' : 'construct-outline'}
+                      color={theme.textMuted}
+                      size={9}
+                      style={{ width: 20, height: 20, borderRadius: 6 }}
+                    />
                     <Text style={S.cardMain}>{t('fleet.repairCardTitle', { id: n.id })}</Text>
                   </View>
                   <View style={[S.badge, { backgroundColor: n.status === 'Zakończona' ? theme.success : theme.warning }]}>
@@ -401,25 +422,25 @@ export default function FlotaMobileScreen() {
                   </View>
                 </View>
                 {n.opis_usterki && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="warning-outline" size={12} color={theme.warning} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.cardSub}>{n.opis_usterki}</Text>
                   </View>
                 )}
                 {n.wykonawca && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="construct-outline" size={12} color={theme.textMuted} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="construct-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.cardSub}>{n.wykonawca}</Text>
                   </View>
                 )}
                 {n.koszt && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <Ionicons name="cash-outline" size={12} color={theme.accent} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <PlatinumIconBadge icon="cash-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.cardSub, { color: theme.accent }]}>{parseFloat(n.koszt).toLocaleString(numberLocale)} PLN</Text>
                   </View>
                 )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="calendar-outline" size={12} color={theme.textMuted} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <PlatinumIconBadge icon="calendar-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={S.cardSub}>{n.data_naprawy?.split('T')[0]}</Text>
                 </View>
               </View>
@@ -440,7 +461,7 @@ export default function FlotaMobileScreen() {
                 <Text style={S.modalTitle}>{t('fleet.modal.newVehicle')}</Text>
               </View>
               <TouchableOpacity onPress={() => setModalPojazd(false)}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
@@ -473,7 +494,7 @@ export default function FlotaMobileScreen() {
                 <Text style={S.modalTitle}>{t('fleet.modal.newEquipment')}</Text>
               </View>
               <TouchableOpacity onPress={() => setModalSprzet(false)}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
@@ -505,7 +526,7 @@ export default function FlotaMobileScreen() {
                 <Text style={S.modalTitle}>{t('fleet.modal.newRepair')}</Text>
               </View>
               <TouchableOpacity onPress={() => setModalNaprawa(false)}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">

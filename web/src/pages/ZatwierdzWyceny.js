@@ -139,6 +139,8 @@ export default function ZatwierdzWyceny() {
 
   return (
     <div style={S.root}>
+      <div style={S.bgOrbTop} />
+      <div style={S.bgOrbBottom} />
       <div style={S.pageWrap}>
         <PageHeader
           variant="hero"
@@ -176,12 +178,27 @@ export default function ZatwierdzWyceny() {
           {['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty', 'zatwierdzono', 'odrzucono'].map(f => (
             <button
               key={f}
-              style={{ ...S.filtrBtn, ...(filtr === f ? { backgroundColor: STATUS_KOLOR[f], color: '#fff', borderColor: STATUS_KOLOR[f] } : {}) }}
+              style={{ ...S.filtrBtn, ...(filtr === f ? { backgroundColor: STATUS_KOLOR[f], color: 'var(--on-accent)', borderColor: STATUS_KOLOR[f] } : {}) }}
               onClick={() => { setFiltr(f); setWybranaId(null); setMsg(''); }}
             >
               {STATUS_LABEL[f]}
             </button>
           ))}
+        </div>
+
+        <div style={S.workflowRow}>
+          <div style={S.workflowStep}>
+            <div style={S.workflowTitle}>1. Rezerwacja</div>
+            <div style={S.workflowText}>Wybór ekipy, data i godzina przed decyzją.</div>
+          </div>
+          <div style={S.workflowStep}>
+            <div style={S.workflowTitle}>2. Decyzja</div>
+            <div style={S.workflowText}>Akceptacja lub odrzucenie z uzasadnieniem.</div>
+          </div>
+          <div style={S.workflowStep}>
+            <div style={S.workflowTitle}>3. Zlecenie</div>
+            <div style={S.workflowText}>Po zatwierdzeniu automatyczne przejście do realizacji.</div>
+          </div>
         </div>
 
         <div style={S.list}>
@@ -355,15 +372,17 @@ export default function ZatwierdzWyceny() {
 }
 
 const S = {
-  root: { minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--text)' },
-  pageWrap: { maxWidth: 1200, margin: '0 auto', padding: '20px 24px 28px' },
+  root: { minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)', color: 'var(--text)', position: 'relative', overflow: 'hidden' },
+  bgOrbTop: { position: 'fixed', top: -130, right: -120, width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.24) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
+  bgOrbBottom: { position: 'fixed', bottom: -140, left: -120, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(112,182,255,0.17) 0%, transparent 72%)', pointerEvents: 'none', zIndex: 0 },
+  pageWrap: { maxWidth: 1200, margin: '0 auto', padding: '20px 24px 28px', position: 'relative', zIndex: 1 },
   backBtn: {
     padding: '8px 14px',
     borderRadius: 10,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'var(--border2)',
+    backgroundColor: 'var(--bg-card2)',
     color: '#fff',
     fontWeight: 700,
     cursor: 'pointer',
@@ -375,18 +394,19 @@ const S = {
     borderRadius: 20,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'rgba(52,211,153,0.45)',
-    backgroundColor: 'rgba(52,211,153,0.16)',
-    color: '#CFFAEA',
+    borderColor: 'var(--border2)',
+    backgroundColor: 'var(--accent-surface)',
+    color: 'var(--text-sub)',
     fontSize: 12,
     fontWeight: 600,
   },
   msgBox: { marginBottom: 16 },
-  metricsRow: { display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 12, marginBottom: 14 },
+  metricsRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 },
   metricCard: {
-    backgroundColor: 'var(--bg-card)',
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
     borderRadius: 14,
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
+    boxShadow: 'var(--shadow-sm)',
     padding: '12px 14px',
   },
   metricLabel: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase' },
@@ -397,14 +417,29 @@ const S = {
     borderRadius: 20,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--border)',
-    backgroundColor: 'var(--bg-card)',
+    borderColor: 'var(--border2)',
+    backgroundColor: 'var(--bg-card2)',
     color: 'var(--text-sub)',
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: '600',
     transition: 'all 0.15s',
   },
+  workflowRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 10,
+    marginBottom: 14,
+  },
+  workflowStep: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    padding: '10px 12px',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  workflowTitle: { fontSize: 12, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.04em' },
+  workflowText: { marginTop: 4, fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.35 },
 
   list: { display: 'flex', flexDirection: 'column', gap: 12 },
   center: { textAlign: 'center', padding: 40, color: 'var(--text-muted)' },
@@ -414,15 +449,15 @@ const S = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 180,
-    backgroundColor: 'var(--bg-card)',
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
     borderRadius: 14,
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
   },
 
   card: {
-    backgroundColor: 'var(--bg-card)',
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
     borderRadius: 16,
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
     overflow: 'hidden',
     boxShadow: 'var(--shadow-sm)',
   },
@@ -431,16 +466,16 @@ const S = {
   statusChip: { fontSize: 11, fontWeight: '700', padding: '2px 10px', borderRadius: 20 },
   cardMeta: { fontSize: 13, color: 'var(--text-sub)', marginBottom: 4 },
   metaGrid: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  metaChip: { fontSize: 12, padding: '3px 10px', borderRadius: 20, backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', fontWeight: 600 },
-  uwagi: { marginTop: 8, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic', backgroundColor: 'var(--bg-deep)', padding: '8px 12px', borderRadius: 8 },
+  metaChip: { fontSize: 12, padding: '3px 10px', borderRadius: 20, backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border)', fontWeight: 600 },
+  uwagi: { marginTop: 8, fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic', backgroundColor: 'var(--bg-deep)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' },
 
-  approvePanel: { padding: '0 20px 20px', borderTop: '1px solid var(--border)', backgroundColor: 'var(--bg-deep)', display: 'flex', flexDirection: 'column', gap: 14 },
+  approvePanel: { padding: '0 20px 20px', borderTop: '1px solid var(--border2)', backgroundColor: 'var(--bg-deep)', display: 'flex', flexDirection: 'column', gap: 14 },
   approveTit: { fontSize: 14, fontWeight: '700', color: 'var(--accent)', paddingTop: 16 },
   planPreviewBox: {
     marginTop: -4,
     padding: '10px 12px',
     borderRadius: 10,
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
     backgroundColor: 'rgba(52,211,153,0.08)',
     display: 'flex',
     flexDirection: 'column',
@@ -463,7 +498,7 @@ const S = {
 
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
   lbl: { fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' },
-  inp: { padding: '9px 12px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14 },
+  inp: { padding: '9px 12px', backgroundColor: 'var(--bg)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 14 },
 
   ekipyGrid: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   ekipaPill: {
@@ -474,7 +509,7 @@ const S = {
     borderRadius: 20,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--border)',
+    borderColor: 'var(--border2)',
     backgroundColor: 'var(--bg)',
     color: 'var(--text-sub)',
     fontSize: 12,
@@ -485,11 +520,11 @@ const S = {
 
   approveBtns: { display: 'flex', flexDirection: 'column', gap: 8 },
   odrzucRow: { display: 'flex', gap: 8 },
-  odrzucBtn: { padding: '9px 16px', backgroundColor: 'var(--bg)', border: '1px solid #EF4444', color: '#EF4444', borderRadius: 8, fontWeight: '700', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap' },
-  zatwierdzBtn: { padding: '12px 20px', backgroundColor: 'var(--accent)', color: '#052E16', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer' },
+  odrzucBtn: { padding: '9px 16px', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 8, fontWeight: '700', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap' },
+  zatwierdzBtn: { padding: '12px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 
-  histPanel: { padding: '12px 20px 20px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 },
+  histPanel: { padding: '12px 20px 20px', borderTop: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', gap: 8 },
   histRow: { display: 'flex', gap: 12, fontSize: 13 },
   histLabel: { color: 'var(--text-muted)', minWidth: 100, fontWeight: 700 },
-  openBtn: { marginTop: 4, padding: '8px 16px', backgroundColor: 'var(--accent)', color: '#052E16', border: 'none', borderRadius: 8, fontWeight: 800, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-start' },
+  openBtn: { marginTop: 4, padding: '8px 16px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, fontWeight: 800, cursor: 'pointer', fontSize: 13, alignSelf: 'flex-start' },
 };

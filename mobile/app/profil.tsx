@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 import { isPrivacyLockEnabled, setPrivacyLockEnabled } from '../components/app-privacy-lock';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { THEME_LABELS, ThemeName, themes } from '../constants/theme';
+import { THEME_LABELS, ThemeName, themes, getRolaColor } from '../constants/theme';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
@@ -18,7 +18,7 @@ export default function ProfilScreen() {
   const { theme, themeName, setTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const rolaKolorMap = useMemo(() => ({
-    Dyrektor: theme.chartViolet,
+    Dyrektor: getRolaColor('Dyrektor'),
     Administrator: theme.warning,
     Kierownik: theme.info,
     Brygadzista: theme.success,
