@@ -63,8 +63,8 @@ const WORKFLOW_PRESETS = {
 function Toggle({ value, onChange, disabled }) {
   return (
     <button type="button" disabled={disabled} onClick={() => !disabled && onChange(!value)}
-      style={{ width: 52, height: 28, borderRadius: 14, border: 'none', cursor: disabled ? 'default' : 'pointer',
-        backgroundColor: value ? 'var(--accent)' : '#D1D5DB', position: 'relative', transition: 'background 0.2s',
+      style={{ width: 52, height: 28, borderRadius: 14, border: value ? 'none' : '1px solid var(--border2)', cursor: disabled ? 'default' : 'pointer',
+        backgroundColor: value ? '#34D399' : 'var(--bg-deep)', position: 'relative', transition: 'background 0.2s',
         flexShrink: 0, opacity: disabled ? 0.6 : 1 }}>
       <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--bg-card)', position: 'absolute',
         top: 3, left: value ? 27 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
@@ -79,7 +79,7 @@ function TakNie({ label, field, form, onChange, disabled }) {
       padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
       <span style={{ fontSize: 14, color: 'var(--text-sub)' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: form[field] ? 'var(--accent)' : '#9CA3AF', fontWeight: '600', minWidth: 24 }}>
+        <span style={{ fontSize: 12, color: form[field] ? '#34d399' : 'var(--text-muted)', fontWeight: '600', minWidth: 24 }}>
           {form[field] ? t('common.yes') : t('common.no')}
         </span>
         <Toggle value={form[field]} onChange={v => onChange(field, v)} disabled={disabled} />

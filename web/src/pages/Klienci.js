@@ -193,12 +193,12 @@ export default function Klienci() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {Number(k.liczba_zlecen) > 0 && (
-                      <span style={{ fontSize: 10, background: 'rgba(52,211,153,0.15)', color: 'var(--accent)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: 'rgba(52,211,153,0.15)', color: '#34d399', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
                         {k.liczba_zlecen} zleceń
                       </span>
                     )}
                     {Number(k.liczba_ogledzen) > 0 && (
-                      <span style={{ fontSize: 10, background: 'rgba(96,165,250,0.15)', color: '#60A5FA', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
                         {k.liczba_ogledzen} ogl.
                       </span>
                     )}
