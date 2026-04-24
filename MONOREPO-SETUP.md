@@ -54,4 +54,3 @@ npm run down          # zatrzymuje lokalny stack (porty 3000/3001/3002)
 npm run restart:force # down + up:force (pełny reset)
 npm run health        # sprawdza /api/health przez proxy target
 ```
-

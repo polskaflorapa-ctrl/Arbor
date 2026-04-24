@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -6,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
 import type { Theme } from '../../constants/theme';
+import { PlatinumIconBadge } from './platinum-icon-badge';
 
 export type ScreenHeaderProps = {
   title: string;
@@ -43,7 +43,12 @@ export function ScreenHeader({
         accessibilityRole="button"
         accessibilityLabel={t('common.back')}
       >
-        <Ionicons name="arrow-back" size={backIconSize} color={theme.headerText} />
+        <PlatinumIconBadge
+          icon="arrow-back"
+          color={theme.accent}
+          size={Math.max(14, Math.round(backIconSize * 0.62))}
+          style={styles.backIconBadge}
+        />
       </TouchableOpacity>
       <Text style={styles.title} numberOfLines={1}>
         {title}
@@ -69,21 +74,31 @@ function makeStyles(
       alignItems: 'center',
       justifyContent: 'space-between',
       borderBottomWidth: 1,
-      borderBottomColor: t.border,
+      borderBottomColor: t.border + 'CC',
       shadowColor: t.shadowColor,
-      shadowOpacity: t.shadowOpacity * 0.5,
-      shadowRadius: t.shadowRadius,
-      shadowOffset: { width: 0, height: t.shadowOffsetY },
-      elevation: t.cardElevation,
+      shadowOpacity: t.shadowOpacity * 0.62,
+      shadowRadius: t.shadowRadius * 1.05,
+      shadowOffset: { width: 0, height: t.shadowOffsetY + 1 },
+      elevation: t.cardElevation + 1,
     },
     edgeSlot: {
       minHeight: opts.edgeSlotWidth,
+      borderRadius: 999,
+      backgroundColor: t.surface2,
+      borderWidth: 1,
+      borderColor: t.border,
       justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: t.shadowColor,
+      shadowOpacity: t.shadowOpacity * 0.52,
+      shadowRadius: t.shadowRadius * 0.95,
+      shadowOffset: { width: 0, height: Math.max(1, t.shadowOffsetY - 1) },
+      elevation: t.cardElevation,
     },
     title: {
       fontSize: 18,
       fontWeight: '800',
-      letterSpacing: 0.3,
+      letterSpacing: 0.5,
       color: t.headerText,
       flex: 1,
       textAlign: 'center',
@@ -92,6 +107,11 @@ function makeStyles(
       minHeight: opts.edgeSlotWidth,
       justifyContent: 'center',
       alignItems: 'flex-end',
+    },
+    backIconBadge: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
     },
   });
 }

@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { OfflineQueueBanner } from '../../components/ui/app-state';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../../components/ui/platinum-cta';
+import { PlatinumIconBadge } from '../../components/ui/platinum-icon-badge';
 import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
 import { API_URL } from '../../constants/api';
@@ -29,7 +30,7 @@ const TYP_ZDJECIA_KEYS = ['checkin', 'przed', 'po', 'inne'] as const;
 function orderStatusColors(theme: Theme) {
   return {
     Nowe: theme.info,
-    Zaplanowane: theme.chartViolet,
+    Zaplanowane: theme.info,
     W_Realizacji: theme.warning,
     Zakonczone: theme.success,
     Anulowane: theme.danger,
@@ -50,7 +51,7 @@ function orderPhotoTypeMeta(theme: Theme): Record<(typeof TYP_ZDJECIA_KEYS)[numb
     checkin: { icon: 'location', color: theme.info },
     przed: { icon: 'camera', color: theme.warning },
     po: { icon: 'checkmark-circle', color: theme.success },
-    inne: { icon: 'images', color: theme.chartViolet },
+    inne: { icon: 'images', color: theme.textSub },
   };
 }
 
@@ -387,7 +388,7 @@ export default function ZlecenieDetailScreen() {
 
   if (!zlecenie) return (
     <View style={S.center}>
-      <Ionicons name="alert-circle-outline" size={48} color={theme.textMuted} />
+      <PlatinumIconBadge icon="alert-circle-outline" color={theme.textMuted} size={20} style={{ width: 48, height: 48, borderRadius: 14 }} />
       <Text style={S.notFoundTxt}>{t('order.notFound')}</Text>
       <TouchableOpacity onPress={() => router.back()} style={S.backLink}>
         <Text style={[S.backLinkTxt, { color: theme.accent }]}>{t('order.back')}</Text>
@@ -412,7 +413,7 @@ export default function ZlecenieDetailScreen() {
       {/* ── HEADER ── */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={S.headerCenter}>
           <Text style={S.headerTitle}>{t('order.headerTitle', { id })}</Text>
@@ -440,9 +441,9 @@ export default function ZlecenieDetailScreen() {
             } as never);
           }}
         >
-          <Ionicons name="calendar-number-outline" size={18} color={theme.accent} />
+          <PlatinumIconBadge icon="calendar-number-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
           <Text style={[S.linkRowTxt, { color: theme.accent }]}>{t('order.linkReservations')}</Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+          <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
         </TouchableOpacity>
       ) : null}
 
@@ -454,7 +455,12 @@ export default function ZlecenieDetailScreen() {
             style={[S.actionBtn, { backgroundColor: hasCheckin ? theme.successBg : theme.info }]}
             onPress={checkin}
           >
-            <Ionicons name="location" size={16} color={hasCheckin ? theme.success : theme.accentText} />
+            <PlatinumIconBadge
+              icon="location"
+              color={hasCheckin ? theme.success : theme.accentText}
+              size={10}
+              style={{ width: 22, height: 22, borderRadius: 7 }}
+            />
             <Text style={[S.actionBtnTxt, { color: hasCheckin ? theme.success : theme.accentText }]}>
               {hasCheckin ? t('order.checkinDone') : t('order.checkin')}
             </Text>
@@ -470,7 +476,7 @@ export default function ZlecenieDetailScreen() {
               {changingStatus
                 ? <ActivityIndicator size="small" color={theme.accentText} />
                 : <>
-                  <Ionicons name="play" size={16} color={theme.accentText} />
+                  <PlatinumIconBadge icon="play" color={theme.accentText} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={S.actionBtnTxt}>{t('order.btn.start')}</Text>
                 </>
               }
@@ -485,7 +491,7 @@ export default function ZlecenieDetailScreen() {
               {changingStatus
                 ? <ActivityIndicator size="small" color={theme.accentText} />
                 : <>
-                  <Ionicons name="checkmark" size={16} color={theme.accentText} />
+                  <PlatinumIconBadge icon="checkmark" color={theme.accentText} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={S.actionBtnTxt}>Zakończ</Text>
                 </>
               }
@@ -495,18 +501,24 @@ export default function ZlecenieDetailScreen() {
           {/* Zdjęcie */}
           <TouchableOpacity
             style={[S.actionBtn, { backgroundColor: theme.warning }]}
-            onPress={() => setZdjecieModal(true)}
+            onPress={() => {
+              void triggerHaptic('light');
+              setZdjecieModal(true);
+            }}
           >
-            <Ionicons name="camera" size={16} color={theme.accentText} />
+            <PlatinumIconBadge icon="camera" color={theme.accentText} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
             <Text style={S.actionBtnTxt}>Zdjęcie</Text>
           </TouchableOpacity>
 
-          {/* Problem */}
+          {/* Problem (cyan — odróżnienie od „Zakończ” = danger) */}
           <TouchableOpacity
-            style={[S.actionBtn, { backgroundColor: theme.chartViolet }]}
-            onPress={() => setProblemModal(true)}
+            style={[S.actionBtn, { backgroundColor: theme.chartCyan }]}
+            onPress={() => {
+              void triggerHaptic('light');
+              setProblemModal(true);
+            }}
           >
-            <Ionicons name="warning" size={16} color={theme.accentText} />
+            <PlatinumIconBadge icon="warning" color={theme.accentText} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
             <Text style={S.actionBtnTxt}>Problem</Text>
           </TouchableOpacity>
         </View>
@@ -515,7 +527,7 @@ export default function ZlecenieDetailScreen() {
       {/* ── PASEK CZASU (jeśli są logi) ── */}
       {logi.length > 0 && (
         <View style={[S.timerBar, { backgroundColor: theme.surface }]}>
-          <Ionicons name="time-outline" size={14} color={theme.accent} />
+          <PlatinumIconBadge icon="time-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
           <Text style={[S.timerTxt, { color: theme.textSub }]}>
             Czas pracy: <Text style={{ color: theme.accent, fontWeight: '700' }}>{totalGodziny.toFixed(1)} godz.</Text>
             {'  '}|{'  '}
@@ -560,7 +572,10 @@ export default function ZlecenieDetailScreen() {
           <TouchableOpacity
             key={tab.key}
             style={[S.tab, activeTab === tab.key && { borderBottomColor: theme.accent }]}
-            onPress={() => setActiveTab(tab.key as any)}
+            onPress={() => {
+              void triggerHaptic('light');
+              setActiveTab(tab.key as any);
+            }}
           >
             <Ionicons
               name={tab.icon}
@@ -587,18 +602,18 @@ export default function ZlecenieDetailScreen() {
           <View>
             <View style={[S.card, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={S.cardTitleRow}>
-                <Ionicons name="person-circle-outline" size={18} color={theme.accent} />
+                <PlatinumIconBadge icon="person-circle-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 <Text style={[S.cardTitle, { color: theme.text }]}>Klient</Text>
               </View>
               <Text style={[S.bigVal, { color: theme.text }]}>{zlecenie.klient_nazwa}</Text>
               {zlecenie.klient_telefon && (
                 <View style={S.metaRow}>
-                  <Ionicons name="call-outline" size={13} color={theme.textMuted} />
+                  <PlatinumIconBadge icon="call-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={[S.metaTxt, { color: theme.textSub }]}> {zlecenie.klient_telefon}</Text>
                 </View>
               )}
               <View style={S.metaRow}>
-                <Ionicons name="location-outline" size={13} color={theme.textMuted} />
+                <PlatinumIconBadge icon="location-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 <Text style={[S.metaTxt, { color: theme.textSub }]}>
                   {' '}{zlecenie.adres}{zlecenie.miasto ? `, ${zlecenie.miasto}` : ''}
                 </Text>
@@ -608,7 +623,7 @@ export default function ZlecenieDetailScreen() {
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}
                   onPress={() => { void openAddressInMaps(zlecenie.adres || '', zlecenie.miasto || ''); }}
                 >
-                  <Ionicons name="map-outline" size={18} color={theme.accent} />
+                  <PlatinumIconBadge icon="map-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('order.openMaps')}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -616,7 +631,7 @@ export default function ZlecenieDetailScreen() {
 
             <View style={[S.card, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <View style={S.cardTitleRow}>
-                <Ionicons name="construct-outline" size={18} color={theme.accent} />
+                <PlatinumIconBadge icon="construct-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                 <Text style={[S.cardTitle, { color: theme.text }]}>Zlecenie</Text>
               </View>
               <InfoRow theme={theme} label="Typ usługi" val={zlecenie.typ_uslugi} />
@@ -645,7 +660,7 @@ export default function ZlecenieDetailScreen() {
             {(zlecenie.ekipa_nazwa || zlecenie.brygadzista_nazwa) && (
               <View style={[S.card, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <View style={S.cardTitleRow}>
-                  <Ionicons name="people-outline" size={18} color={theme.accent} />
+                  <PlatinumIconBadge icon="people-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={[S.cardTitle, { color: theme.text }]}>Ekipa</Text>
                 </View>
                 {zlecenie.oddzial_nazwa && <InfoRow theme={theme} label="Oddział" val={zlecenie.oddzial_nazwa} />}
@@ -653,7 +668,7 @@ export default function ZlecenieDetailScreen() {
                 {zlecenie.brygadzista_nazwa && <InfoRow theme={theme} label="Brygadzista" val={zlecenie.brygadzista_nazwa} />}
                 {pomocnicy.map((p: any) => (
                   <View key={p.id} style={S.metaRow}>
-                    <Ionicons name="person-outline" size={12} color={theme.textMuted} />
+                    <PlatinumIconBadge icon="person-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.metaTxt, { color: theme.textMuted }]}> {p.imie} {p.nazwisko}</Text>
                   </View>
                 ))}
@@ -669,13 +684,13 @@ export default function ZlecenieDetailScreen() {
             {logi.length > 0 && (
               <View style={[S.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <View style={S.summaryItem}>
-                  <Ionicons name="time" size={22} color={theme.accent} />
+                  <PlatinumIconBadge icon="time" color={theme.accent} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={[S.summaryNum, { color: theme.accent }]}>{totalGodziny.toFixed(1)}</Text>
                   <Text style={[S.summaryLbl, { color: theme.textMuted }]}>godzin łącznie</Text>
                 </View>
                 <View style={[S.summaryDiv, { backgroundColor: theme.border }]} />
                 <View style={S.summaryItem}>
-                  <Ionicons name="list-outline" size={22} color={theme.info} />
+                  <PlatinumIconBadge icon="list-outline" color={theme.info} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={[S.summaryNum, { color: theme.info }]}>{logi.length}</Text>
                   <Text style={[S.summaryLbl, { color: theme.textMuted }]}>wpisów</Text>
                 </View>
@@ -684,7 +699,7 @@ export default function ZlecenieDetailScreen() {
             {logi.length === 0
               ? (
                 <View style={S.empty}>
-                  <Ionicons name="time-outline" size={44} color={theme.textMuted} />
+                  <PlatinumIconBadge icon="time-outline" color={theme.textMuted} size={18} style={{ width: 44, height: 44, borderRadius: 12 }} />
                   <Text style={[S.emptyTxt, { color: theme.textMuted }]}>Brak logów pracy</Text>
                 </View>
               )
@@ -692,7 +707,7 @@ export default function ZlecenieDetailScreen() {
                 <View key={log.id} style={[S.logCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                   <View style={S.logTop}>
                     <View style={S.metaRow}>
-                      <Ionicons name="person-outline" size={14} color={theme.accent} />
+                      <PlatinumIconBadge icon="person-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                       <Text style={[S.logPrac, { color: theme.text }]}> {log.pracownik || 'Nieznany'}</Text>
                     </View>
                     {log.duration_hours && (
@@ -704,14 +719,14 @@ export default function ZlecenieDetailScreen() {
                     )}
                   </View>
                   <View style={S.metaRow}>
-                    <Ionicons name="calendar-outline" size={12} color={theme.textMuted} />
+                    <PlatinumIconBadge icon="calendar-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.logTime, { color: theme.textSub }]}>
                       {' '}{new Date(log.start_time).toLocaleString('pl-PL')}
                     </Text>
                   </View>
                   {log.end_time && (
                     <View style={S.metaRow}>
-                      <Ionicons name="flag-outline" size={12} color={theme.textMuted} />
+                      <PlatinumIconBadge icon="flag-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                       <Text style={[S.logTime, { color: theme.textSub }]}>
                         {' '}{new Date(log.end_time).toLocaleString('pl-PL')}
                       </Text>
@@ -719,7 +734,7 @@ export default function ZlecenieDetailScreen() {
                   )}
                   {!log.end_time && (
                     <View style={S.metaRow}>
-                      <Ionicons name="ellipse" size={8} color={theme.warning} />
+                      <PlatinumIconBadge icon="ellipse" color={theme.warning} size={6} style={{ width: 16, height: 16, borderRadius: 5 }} />
                       <Text style={[S.logTime, { color: theme.warning }]}> W trakcie...</Text>
                     </View>
                   )}
@@ -734,15 +749,18 @@ export default function ZlecenieDetailScreen() {
           <View>
             <TouchableOpacity
               style={[S.addBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              onPress={() => setProblemModal(true)}
+              onPress={() => {
+                void triggerHaptic('light');
+                setProblemModal(true);
+              }}
             >
-              <Ionicons name="add-circle-outline" size={18} color={theme.accent} />
+              <PlatinumIconBadge icon="add-circle-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
               <Text style={[S.addBtnTxt, { color: theme.accent }]}>Zgłoś problem</Text>
             </TouchableOpacity>
             {problemy.length === 0
               ? (
                 <View style={S.empty}>
-                  <Ionicons name="checkmark-circle-outline" size={44} color={theme.success} />
+                  <PlatinumIconBadge icon="checkmark-circle-outline" color={theme.success} size={18} style={{ width: 44, height: 44, borderRadius: 12 }} />
                   <Text style={[S.emptyTxt, { color: theme.textMuted }]}>Brak problemów</Text>
                 </View>
               )
@@ -771,15 +789,18 @@ export default function ZlecenieDetailScreen() {
           <View>
             <TouchableOpacity
               style={[S.addBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              onPress={() => setZdjecieModal(true)}
+              onPress={() => {
+                void triggerHaptic('light');
+                setZdjecieModal(true);
+              }}
             >
-              <Ionicons name="camera-outline" size={18} color={theme.accent} />
+              <PlatinumIconBadge icon="camera-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
               <Text style={[S.addBtnTxt, { color: theme.accent }]}>{t('order.takePhotoGps')}</Text>
             </TouchableOpacity>
 
             {lokalizacja && (
               <View style={[S.gpsInfo, { backgroundColor: theme.successBg }]}>
-                <Ionicons name="location" size={13} color={theme.success} />
+                <PlatinumIconBadge icon="location" color={theme.success} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 <Text style={[S.gpsTxt, { color: theme.success }]}>
                   {' '}GPS: {lokalizacja.lat.toFixed(5)}, {lokalizacja.lng.toFixed(5)}
                 </Text>
@@ -794,7 +815,7 @@ export default function ZlecenieDetailScreen() {
               return (
                 <View key={typ.key}>
                   <View style={S.grupaTitleRow}>
-                    <Ionicons name={typ.icon} size={14} color={typ.color} />
+                    <PlatinumIconBadge icon={typ.icon} color={typ.color} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.grupaTitle, { color: typ.color }]}>{typ.label} ({grupa.length})</Text>
                   </View>
                   <View style={S.grid}>
@@ -807,7 +828,7 @@ export default function ZlecenieDetailScreen() {
                         </Text>
                         {z.lokalizacja && (
                           <View style={S.metaRow}>
-                            <Ionicons name="location-outline" size={10} color={theme.textMuted} />
+                            <PlatinumIconBadge icon="location-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                             <Text style={[S.zdjecieGps, { color: theme.textMuted }]}> {z.lokalizacja}</Text>
                           </View>
                         )}
@@ -820,7 +841,7 @@ export default function ZlecenieDetailScreen() {
 
             {zdjecia.length === 0 && (
               <View style={S.empty}>
-                <Ionicons name="camera-outline" size={44} color={theme.textMuted} />
+                <PlatinumIconBadge icon="camera-outline" color={theme.textMuted} size={18} style={{ width: 44, height: 44, borderRadius: 12 }} />
                 <Text style={[S.emptyTxt, { color: theme.textMuted }]}>{t('order.noPhotos')}</Text>
               </View>
             )}
@@ -837,7 +858,7 @@ export default function ZlecenieDetailScreen() {
             <View style={S.modalHeader}>
               <Text style={[S.modalTitle, { color: theme.text }]}>{t('order.choosePhotoType')}</Text>
               <TouchableOpacity onPress={() => setZdjecieModal(false)}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             {TYP_ZDJECIA_KEYS.map((key) => {
@@ -850,10 +871,10 @@ export default function ZlecenieDetailScreen() {
                 disabled={uploadingPhoto}
               >
                 <View style={[S.zdjecieTypIcon, { backgroundColor: typ.color + '22' }]}>
-                  <Ionicons name={typ.icon} size={24} color={typ.color} />
+                  <PlatinumIconBadge icon={typ.icon} color={typ.color} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
                 </View>
                 <Text style={[S.zdjecieTypLabel, { color: theme.text }]}>{typ.label}</Text>
-                <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
               </TouchableOpacity>
             );})}
             {uploadingPhoto && (
@@ -873,11 +894,11 @@ export default function ZlecenieDetailScreen() {
           <View style={[S.modalBox, { backgroundColor: theme.surface }]}>
             <View style={S.modalHeader}>
               <View style={S.metaRow}>
-                <Ionicons name="warning" size={20} color={theme.warning} />
+                <PlatinumIconBadge icon="warning" color={theme.warning} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                 <Text style={[S.modalTitle, { color: theme.text, marginLeft: 8 }]}>Zgłoś problem</Text>
               </View>
               <TouchableOpacity onPress={() => setProblemModal(false)}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <Text style={[S.modalLbl, { color: theme.textSub }]}>Typ:</Text>
@@ -1038,7 +1059,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row', borderRadius: 14, padding: 16,
     marginBottom: 12, borderWidth: 1, alignItems: 'center',
   },
-  summaryItem: { flex: 1, alignItems: 'center', gap: 4 },
+  summaryItem: { flex: 1, alignItems: 'center', gap: 6 },
   summaryDiv: { width: 1, height: 40 },
   summaryNum: { fontSize: 24, fontWeight: '800' },
   summaryLbl: { fontSize: 11 },

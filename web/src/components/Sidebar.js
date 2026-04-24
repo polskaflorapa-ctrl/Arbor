@@ -11,7 +11,7 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
   problem: '#F87171', potrzebuje_czasu: '#FBBF24', skonczylem_wczesniej: 'var(--accent)',
-  pytanie: '#60A5FA', info: '#94A3B8', nowe_zlecenie: '#A78BFA',
+  pytanie: '#60A5FA', info: '#94A3B8', nowe_zlecenie: 'var(--accent)',
   potwierdzenie_godzin: 'var(--accent)', delegacja: '#FBBF24', przypomnienie: '#F87171',
 };
 // SVG ikony nawigacji
@@ -381,13 +381,13 @@ export default function Sidebar() {
 const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
-    background: 'var(--sidebar)', display: 'flex', flexDirection: 'column',
+    background: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-deep) 100%)', display: 'flex', flexDirection: 'column',
     borderRight: '1px solid var(--border)', transition: 'width 0.25s ease',
-    overflow: 'hidden',
+    overflow: 'hidden', boxShadow: 'var(--shadow-md)',
   },
   collapseBtn: {
     position: 'absolute', right: -12, top: 28, width: 24, height: 24,
-    borderRadius: '50%', background: 'var(--bg-card)',
+    borderRadius: '50%', background: 'var(--bg-card2)',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border2)',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: 'var(--text-sub)', zIndex: 201, boxShadow: 'var(--shadow-sm)',
@@ -398,7 +398,7 @@ const sb = {
     padding: '20px 16px 16px', borderBottom: '1px solid var(--border)',
   },
   logoIcon: {
-    width: 38, height: 38, borderRadius: 10, background: 'var(--logo-tint-bg)',
+    width: 38, height: 38, borderRadius: 12, background: 'var(--logo-tint-bg)',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--logo-tint-border)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
@@ -407,8 +407,9 @@ const sb = {
   logoSub: { fontSize: 9, color: 'var(--accent)', letterSpacing: 1.5, marginTop: 2, fontWeight: 600 },
   userCard: {
     display: 'flex', alignItems: 'center', gap: 10, margin: '12px 12px 4px',
-    background: 'var(--bg-deep)', borderRadius: 12,
+    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14,
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)',
+    boxShadow: 'var(--shadow-sm)',
   },
   avatar: {
     width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center',
@@ -423,7 +424,7 @@ const sb = {
   navItem: {
     display: 'flex', alignItems: 'center', borderRadius: 10, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
-    marginBottom: 2, userSelect: 'none',
+    marginBottom: 4, userSelect: 'none',
   },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' },
   bottom: { padding: '4px 8px 16px', flexShrink: 0 },
@@ -433,7 +434,7 @@ const sb = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px',
   },
   notifPanel: {
-    position: 'fixed', bottom: 80, width: 340, background: 'var(--bg-card)',
+    position: 'fixed', bottom: 80, width: 340, background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 16,
     boxShadow: 'var(--shadow-lg)',
     zIndex: 1000, maxHeight: 460, overflowY: 'auto',
@@ -441,7 +442,7 @@ const sb = {
   notifHeader: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '14px 16px', borderBottom: '1px solid var(--border)',
-    position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1,
+    position: 'sticky', top: 0, background: 'var(--bg-card2)', zIndex: 1,
   },
   notifTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text)' },
   markAllBtn: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 },

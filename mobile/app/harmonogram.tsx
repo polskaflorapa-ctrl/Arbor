@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
+import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -182,7 +183,7 @@ export default function HarmonogramScreen() {
 
   const statusKolorMap = useMemo(() => ({
     Nowe: theme.info,
-    Zaplanowane: theme.chartViolet,
+    Zaplanowane: theme.info,
     W_Realizacji: theme.warning,
     Zakonczone: theme.success,
     Anulowane: theme.danger,
@@ -241,11 +242,11 @@ export default function HarmonogramScreen() {
         {/* Month navigator */}
         <View style={S.monthNav}>
           <TouchableOpacity onPress={prevMonth} style={S.navBtn}>
-            <Ionicons name="chevron-back" size={22} color={theme.accent} />
+            <PlatinumIconBadge icon="chevron-back" color={theme.accent} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
           </TouchableOpacity>
           <Text style={S.monthTitle}>{monthTitle}</Text>
           <TouchableOpacity onPress={nextMonth} style={S.navBtn}>
-            <Ionicons name="chevron-forward" size={22} color={theme.accent} />
+            <PlatinumIconBadge icon="chevron-forward" color={theme.accent} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
           </TouchableOpacity>
         </View>
 
@@ -349,25 +350,25 @@ export default function HarmonogramScreen() {
                           </Text>
                         </View>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                        <Ionicons name="location-outline" size={11} color={theme.textMuted} />
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <PlatinumIconBadge icon="location-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                         <Text style={S.taskAddr}>{task.adres}, {task.miasto}</Text>
                       </View>
                       {task.godzina_rozpoczecia ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Ionicons name="time-outline" size={11} color={theme.textMuted} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <PlatinumIconBadge icon="time-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                           <Text style={S.taskMeta}>{task.godzina_rozpoczecia}</Text>
                         </View>
                       ) : null}
                       {task.ekipa_nazwa ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Ionicons name="people-outline" size={11} color={theme.textMuted} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <PlatinumIconBadge icon="people-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                           <Text style={S.taskMeta}>{task.ekipa_nazwa}</Text>
                         </View>
                       ) : null}
                       {task.typ_uslugi ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <Ionicons name="leaf-outline" size={11} color={theme.textMuted} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <PlatinumIconBadge icon="leaf-outline" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                           <Text style={S.taskMeta}>{task.typ_uslugi}</Text>
                         </View>
                       ) : null}
@@ -393,7 +394,7 @@ export default function HarmonogramScreen() {
         {isManager && ekipy.length > 0 && selectedDay > 0 && (
           <View style={S.ekipySection}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Ionicons name="people-outline" size={16} color={theme.accent} />
+              <PlatinumIconBadge icon="people-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
               <Text style={S.ekipySectionTitle}>{t('harmonogram.teamsTitle')}</Text>
             </View>
             {ekipy.map((ekipa: any) => {
@@ -430,7 +431,7 @@ export default function HarmonogramScreen() {
                 <View style={S.modalHeader}>
                   <Text style={S.modalTitle}>{selectedTask.klient_nazwa}</Text>
                   <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <Ionicons name="close" size={22} color={theme.textMuted} />
+                    <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
                   </TouchableOpacity>
                 </View>
                 <View style={[S.statusBadge, { backgroundColor: getKolor(selectedTask) + '22', alignSelf: 'flex-start', marginBottom: 12 }]}>
@@ -449,7 +450,7 @@ export default function HarmonogramScreen() {
                   { icon: 'document-text-outline' as const, val: selectedTask.notatki_wewnetrzne || null },
                 ].filter(r => r.val).map((r, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Ionicons name={r.icon} size={14} color={theme.textMuted} />
+                    <PlatinumIconBadge icon={r.icon} color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.modalRow}>{r.val}</Text>
                   </View>
                 ))}

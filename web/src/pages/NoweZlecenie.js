@@ -308,7 +308,7 @@ export default function NoweZlecenie() {
               </Section>
 
               {/* Przypisanie */}
-              <Section title="Przypisanie" icon={IKONY.ekipa} accent="#A78BFA">
+              <Section title="Przypisanie" icon={IKONY.ekipa} accent="var(--accent)">
                 <Field label="Oddział" icon={IKONY.branch}>
                   {isDyrektor ? (
                     <select style={S.input} value={form.oddzial_id} onChange={e => setForm({ ...form, oddzial_id: e.target.value, ekipa_id: '' })} required>

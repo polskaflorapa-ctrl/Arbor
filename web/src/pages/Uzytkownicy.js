@@ -226,17 +226,17 @@ export default function Uzytkownicy() {
  
   const getRolaColor = (rola) => {
     const map = {
-      'Dyrektor':                   '#8B5CF6',
-      'Administrator':              '#F59E0B',
-      'Kierownik':                  '#3B82F6',
-      'Brygadzista':                '#10B981',
-      'Specjalista':                '#06B6D4',
-      'Wyceniający':                '#A78BFA',
-      'Pomocnik':                   '#94A3B8',
-      'Pomocnik bez doświadczenia': '#64748B',
-      'Magazynier':                 '#F97316',
+      'Dyrektor':                   '#f59e0b',
+      'Administrator':              '#fbbf24',
+      'Kierownik':                  '#38bdf8',
+      'Brygadzista':                '#34d399',
+      'Specjalista':                '#22d3ee',
+      'Wyceniający':                '#94a3b8',
+      'Pomocnik':                   '#94a3b8',
+      'Pomocnik bez doświadczenia': '#64748b',
+      'Magazynier':                 '#fb923c',
     };
-    return map[rola] || '#64748B';
+    return map[rola] || '#94a3b8';
   };
  
   const isWazna = (data) => {
@@ -304,72 +304,58 @@ export default function Uzytkownicy() {
             {loading ? (
               <div style={s.loading}>⏳ Ładowanie...</div>
             ) : (
-              <div style={s.card}>
-                <div style={s.tableScroll}>
-                  <table style={s.table}>
-                    <thead>
-                      <tr>
-                        <th style={s.th}>Pracownik</th>
-                        <th style={s.th}>Rola</th>
-                        <th style={s.th}>Oddział</th>
-                        <th style={s.th}>Kontakt</th>
-                        <th style={s.th}>Status</th>
-                        <th style={s.th}>Akcje</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtrowane.length === 0 ? (
-                        <tr><td colSpan={6} style={{ ...s.td, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-                          Brak użytkowników spełniających kryteria
-                        </td></tr>
-                      ) : filtrowane.map((u, i) => (
-                        <tr key={u.id} style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)', cursor: 'pointer' }}
-                          onClick={() => otworzSzczegoly(u)}>
-                          <td style={s.td}>
-                            <div style={s.avatarRow}>
-                              <div style={{ ...s.avatar, backgroundColor: getRolaColor(u.rola) }}>
-                                {u.imie?.[0]}{u.nazwisko?.[0]}
-                              </div>
-                              <div>
-                                <div style={s.fullName}>{u.imie} {u.nazwisko}</div>
-                                <div style={s.loginText}>@{u.login}</div>
-                              </div>
+              <div style={s.listCardsWrap}>
+                {filtrowane.length === 0 ? (
+                  <div style={{ ...s.card, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                    Brak użytkowników spełniających kryteria
+                  </div>
+                ) : (
+                  <div style={s.listCardsGrid}>
+                    {filtrowane.map((u) => (
+                      <div key={u.id} style={s.userListCard} onClick={() => otworzSzczegoly(u)}>
+                        <div style={s.userListTop}>
+                          <div style={s.avatarRow}>
+                            <div style={{ ...s.avatar, backgroundColor: getRolaColor(u.rola) }}>
+                              {u.imie?.[0]}{u.nazwisko?.[0]}
                             </div>
-                          </td>
-                          <td style={s.td}>
-                            <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>
-                              {u.rola}
-                            </span>
-                          </td>
-                          <td style={s.td}>{u.oddzial_nazwa || <span style={s.gray}>—</span>}</td>
-                          <td style={s.td}>
-                            <div style={{ fontSize: 12 }}>{u.email || '—'}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u.telefon || ''}</div>
-                          </td>
-                          <td style={s.td}>
-                            <span style={{ ...s.statusBadge, backgroundColor: u.aktywny ? 'rgba(52,211,153,0.1)' : '#FFEBEE', color: u.aktywny ? 'var(--accent)' : '#C62828', border: `1px solid ${u.aktywny ? '#A5D6A7' : '#EF9A9A'}` }}>
-                              {u.aktywny ? '✅ Aktywny' : '❌ Nieaktywny'}
-                            </span>
-                          </td>
-                          <td style={s.td} onClick={e => e.stopPropagation()}>
-                            <div style={s.akcjeRow}>
-                              <button style={s.btnSm} onClick={() => otworzSzczegoly(u)}>👁</button>
-                              {mozeEdytowac && (
-                                <>
-                                  <button style={s.btnSm} onClick={() => otworzEdycje(u)}>✏️</button>
-                                  <button style={{ ...s.btnSm, backgroundColor: u.aktywny ? '#FFEBEE' : 'rgba(52,211,153,0.1)' }}
-                                    onClick={() => zmienAktywnosc(u.id, !u.aktywny)}>
-                                    {u.aktywny ? '🔒' : '🔓'}
-                                  </button>
-                                </>
-                              )}
+                            <div>
+                              <div style={s.fullName}>{u.imie} {u.nazwisko}</div>
+                              <div style={s.loginText}>@{u.login}</div>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                          <div style={s.akcjeRow} onClick={(e) => e.stopPropagation()}>
+                            <button style={s.btnSm} onClick={() => otworzSzczegoly(u)}>👁</button>
+                            {mozeEdytowac && (
+                              <>
+                                <button style={s.btnSm} onClick={() => otworzEdycje(u)}>✏️</button>
+                                <button style={{ ...s.btnSm, backgroundColor: u.aktywny ? '#2a1118' : 'rgba(52,211,153,0.1)' }}
+                                  onClick={() => zmienAktywnosc(u.id, !u.aktywny)}>
+                                  {u.aktywny ? '🔒' : '🔓'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div style={s.userListMetaRow}>
+                          <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>{u.rola}</span>
+                          <span style={s.userListBranch}>{u.oddzial_nazwa || '—'}</span>
+                        </div>
+                        <div style={s.userListContact}>{u.email || '—'}</div>
+                        <div style={s.userListContactMuted}>{u.telefon || '—'}</div>
+                        <div style={s.userListBottom}>
+                          <span style={{
+                            ...s.statusBadge,
+                            backgroundColor: u.aktywny ? 'rgba(52,211,153,0.1)' : '#2a1118',
+                            color: u.aktywny ? 'var(--accent)' : '#ff9bb4',
+                            border: `1px solid ${u.aktywny ? 'rgba(52,211,153,0.35)' : 'rgba(255,127,169,0.38)'}`
+                          }}>
+                            {u.aktywny ? '✅ Aktywny' : '❌ Nieaktywny'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -761,6 +747,25 @@ const s = {
   clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
   countBadge: { fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' },
   card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 },
+  listCardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
+  listCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 },
+  userListCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    cursor: 'pointer',
+  },
+  userListTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  userListMetaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  userListBranch: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
+  userListContact: { fontSize: 12, color: 'var(--text)', fontWeight: 500 },
+  userListContactMuted: { fontSize: 12, color: 'var(--text-muted)' },
+  userListBottom: { display: 'flex', justifyContent: 'flex-end' },
   cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 0 },
   tableScroll: { overflowX: 'auto' },

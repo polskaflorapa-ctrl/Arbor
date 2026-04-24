@@ -2,24 +2,24 @@ import { formatStatusMessage } from '../utils/statusMessage';
 
 const PALETTE = {
   success: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    color: 'var(--accent)',
-    borderColor: 'var(--accent)',
+    backgroundColor: 'rgba(165, 107, 255, 0.12)',
+    color: 'var(--text)',
+    borderColor: 'var(--border2)',
   },
   warning: {
-    backgroundColor: '#451A03',
-    color: '#FCD34D',
-    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(248, 201, 107, 0.12)',
+    color: 'var(--warning)',
+    borderColor: 'rgba(248, 201, 107, 0.4)',
   },
   error: {
-    backgroundColor: '#4B1515',
-    color: '#FCA5A5',
-    borderColor: '#EF5350',
+    backgroundColor: 'rgba(255, 127, 169, 0.12)',
+    color: 'var(--danger)',
+    borderColor: 'rgba(255, 127, 169, 0.42)',
   },
   neutral: {
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--bg-card2)',
     color: 'var(--text-sub)',
-    borderColor: 'var(--border)',
+    borderColor: 'var(--border2)',
   },
 };
 
@@ -42,10 +42,11 @@ export default function StatusMessage({ message, style, tone: toneOverride }) {
         ...p,
         borderWidth: 1,
         borderStyle: 'solid',
-        borderRadius: 8,
-        padding: '8px 12px',
+        borderRadius: 10,
+        padding: '10px 12px',
         fontSize: 13,
         fontWeight: 600,
+        boxShadow: 'var(--shadow-sm)',
         ...style,
       }}
     >

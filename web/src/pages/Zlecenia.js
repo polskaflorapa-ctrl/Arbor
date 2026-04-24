@@ -467,7 +467,7 @@ export default function Zlecenia() {
   });
   const totalKanbanValue = kanbanStats.reduce((sum, s) => sum + s.total, 0);
  
-  const getStatusColor = (st) => ({ Zakonczone: '#4CAF50', W_Realizacji: '#F9A825', Nowe: '#2196F3', Zaplanowane: '#9C27B0', Anulowane: '#EF5350' }[st] || '#6B7280');
+  const getStatusColor = (st) => ({ Zakonczone: '#4CAF50', W_Realizacji: '#F9A825', Nowe: '#2196F3', Zaplanowane: '#64748b', Anulowane: '#EF5350' }[st] || '#6B7280');
   const getPriorytetColor = (p) => ({ Pilny: '#EF5350', Wysoki: '#F9A825', Normalny: '#2196F3', Niski: '#9CA3AF' }[p] || '#6B7280');
   const formatCurrency = (v) => !v ? '—' : parseFloat(v).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' PLN';
  
@@ -517,6 +517,19 @@ export default function Zlecenia() {
                 </>
               }
             />
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12, marginBottom: 12 }}>
+              <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 12, padding: '10px 12px', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Panel operacyjny</div>
+                <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Łącznie: <strong style={{ color: 'var(--text)' }}>{zlecenia.length}</strong> · Widoczne: <strong style={{ color: 'var(--text)' }}>{filtrowane.length}</strong> · Wartość: <strong style={{ color: 'var(--text)' }}>{formatCurrency(filtrowane.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0))}</strong></div>
+              </div>
+              <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 12, padding: '10px 12px', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Quick actions</div>
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" style={s.btnSecondary} onClick={() => setTryb('kanban')}>Kanban</button>
+                  <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>CSV</button>
+                </div>
+              </div>
+            </div>
  
             <div style={s.filtryRow}>
               <input style={s.searchInput} placeholder={t('pages.zlecenia.searchPlaceholder')}
@@ -556,71 +569,67 @@ export default function Zlecenia() {
             )}
  
             {loading ? <div style={s.loading}>{t('pages.zlecenia.loading')}</div> : (
-              <div style={s.card}>
-                <div style={s.tableScroll}>
-                  <table style={s.table}>
-                    <thead>
-                      <tr>
-                        <th style={s.thCheck}>
-                          <input type="checkbox" checked={areAllVisibleSelected} onChange={toggleSelectAllVisible} />
-                        </th>
-                        <th style={s.th}>{t('pages.zlecenia.thId')}</th><th style={s.th}>{t('pages.zlecenia.thClient')}</th><th style={s.th}>{t('pages.zlecenia.thAddress')}</th>
-                        <th style={s.th}>{t('pages.zlecenia.thType')}</th><th style={s.th}>{t('pages.zlecenia.thStatus')}</th><th style={s.th}>{t('pages.zlecenia.thPriority')}</th>
-                        <th style={s.th}>{t('pages.zlecenia.thSla')}</th><th style={s.th}>{t('pages.zlecenia.thDate')}</th><th style={s.th}>{t('pages.zlecenia.thValue')}</th><th style={s.th}>{t('pages.zlecenia.thActions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtrowane.length === 0 ? (
-                        <tr><td colSpan={11} style={{ ...s.td, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>{t('pages.zlecenia.emptyList')}</td></tr>
-                      ) : filtrowane.map((z, i) => (
-                        <tr key={z.id} style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)', cursor: 'pointer' }}
-                          onClick={() => otworzSzczegoly(z)}>
-                          <td style={s.tdCheck} onClick={(e) => e.stopPropagation()}>
+              <div style={s.listCardsWrap}>
+                <div style={s.listCardsHeader}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={areAllVisibleSelected} onChange={toggleSelectAllVisible} />
+                    <span style={s.listCardsHeaderText}>Zaznacz wszystkie</span>
+                  </div>
+                  <span style={s.listCardsHeaderText}>Kliknij kartę, aby otworzyć szczegóły</span>
+                </div>
+                {filtrowane.length === 0 ? (
+                  <div style={{ ...s.card, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>{t('pages.zlecenia.emptyList')}</div>
+                ) : (
+                  <div style={s.listCardsGrid}>
+                    {filtrowane.map((z) => (
+                      <div key={z.id} style={s.listTaskCard} onClick={() => otworzSzczegoly(z)}>
+                        <div style={s.listTaskTop}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               checked={selectedTaskIds.includes(z.id)}
                               onChange={() => toggleTaskSelection(z.id)}
                             />
-                          </td>
-                          <td style={s.td}><span style={s.idBadge}>#{z.id}</span></td>
-                          <td style={{ ...s.td, fontWeight: '600' }}>{z.klient_nazwa}</td>
-                          <td style={s.td}>{z.adres ? `${z.adres}${z.miasto ? ', ' + z.miasto : ''}` : z.miasto || '—'}</td>
-                          <td style={s.td}>{t(`serviceType.${z.typ_uslugi}`, { defaultValue: z.typ_uslugi })}</td>
-                          <td style={s.td}><span style={{ ...s.badge, backgroundColor: getStatusColor(z.status) }}>{t(`taskStatus.${z.status}`, { defaultValue: z.status })}</span></td>
-                          <td style={s.td}><span style={{ ...s.badge, backgroundColor: getPriorytetColor(z.priorytet) }}>{z.priorytet}</span></td>
-                          <td style={s.td}>
-                            <div style={s.slaWrap}>
-                              {getSlaFlags(z).length === 0 ? (
-                                <span style={s.slaOk}>{t('pages.zlecenia.slaOk')}</span>
-                              ) : getSlaFlags(z).map((flag) => (
-                                <span key={flag} style={s.slaBadge}>{slaFlagLabel(flag)}</span>
-                              ))}
-                            </div>
-                          </td>
-                          <td style={s.td}>{z.data_planowana ? z.data_planowana.split('T')[0] : '—'}</td>
-                          <td style={{ ...s.td, fontWeight: '600', color: 'var(--accent)' }}>{formatCurrency(z.wartosc_planowana)}</td>
-                          <td style={s.td} onClick={e => e.stopPropagation()}>
-                            <div style={s.akcjeRow}>
-                              <button type="button" style={s.btnSm} onClick={() => otworzSzczegoly(z)} title={t('common.details')} aria-label={t('common.details')}>
-                                <VisibilityOutlined style={{ fontSize: 18, display: 'block' }} />
+                            <span style={s.idBadge}>#{z.id}</span>
+                          </div>
+                          <div style={s.akcjeRow} onClick={(e) => e.stopPropagation()}>
+                            <button type="button" style={s.btnSm} onClick={() => otworzSzczegoly(z)} title={t('common.details')} aria-label={t('common.details')}>
+                              <VisibilityOutlined style={{ fontSize: 18, display: 'block' }} />
+                            </button>
+                            {mozeEdytowac && (
+                              <button type="button" style={s.btnSm} onClick={() => otworzEdycje(z)} title={t('common.edit')} aria-label={t('common.edit')}>
+                                <EditOutlined style={{ fontSize: 18, display: 'block' }} />
                               </button>
-                              {mozeEdytowac && (
-                                <button type="button" style={s.btnSm} onClick={() => otworzEdycje(z)} title={t('common.edit')} aria-label={t('common.edit')}>
-                                  <EditOutlined style={{ fontSize: 18, display: 'block' }} />
-                                </button>
-                              )}
-                              {mozeUsuwac && (
-                                <button type="button" style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.1)', color: '#C62828' }} onClick={() => setPotwierdzUsuniecie(z)} title={t('common.delete')} aria-label={t('common.delete')}>
-                                  <DeleteOutline style={{ fontSize: 18, display: 'block' }} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            )}
+                            {mozeUsuwac && (
+                              <button type="button" style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.1)', color: '#C62828' }} onClick={() => setPotwierdzUsuniecie(z)} title={t('common.delete')} aria-label={t('common.delete')}>
+                                <DeleteOutline style={{ fontSize: 18, display: 'block' }} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div style={s.listTaskClient}>{z.klient_nazwa}</div>
+                        <div style={s.listTaskMeta}>{z.adres ? `${z.adres}${z.miasto ? ', ' + z.miasto : ''}` : z.miasto || '—'}</div>
+                        <div style={s.listTaskMeta}>{t(`serviceType.${z.typ_uslugi}`, { defaultValue: z.typ_uslugi })}</div>
+                        <div style={s.listTaskChips}>
+                          <span style={{ ...s.badge, backgroundColor: getStatusColor(z.status) }}>{t(`taskStatus.${z.status}`, { defaultValue: z.status })}</span>
+                          <span style={{ ...s.badge, backgroundColor: getPriorytetColor(z.priorytet) }}>{z.priorytet}</span>
+                        </div>
+                        <div style={s.slaWrap}>
+                          {getSlaFlags(z).length === 0 ? (
+                            <span style={s.slaOk}>{t('pages.zlecenia.slaOk')}</span>
+                          ) : getSlaFlags(z).map((flag) => (
+                            <span key={flag} style={s.slaBadge}>{slaFlagLabel(flag)}</span>
+                          ))}
+                        </div>
+                        <div style={s.listTaskFooter}>
+                          <span style={s.listTaskDate}>{z.data_planowana ? z.data_planowana.split('T')[0] : '—'}</span>
+                          <span style={s.listTaskValue}>{formatCurrency(z.wartosc_planowana)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -646,6 +655,12 @@ export default function Zlecenia() {
                 </>
               }
             />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginBottom: 10 }}>
+              <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 12, padding: '10px 12px', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Kanban control</div>
+                <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Przeciągaj zlecenia między kolumnami i zarządzaj automatyzacjami workflow.</div>
+              </div>
+            </div>
 
             {showWorkflowPanel && (
               <div style={s.workflowPanel}>
@@ -1104,28 +1119,37 @@ export default function Zlecenia() {
 }
  
 const s = {
-  container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
-  main: { flex: 1, padding: '24px', overflowX: 'hidden' },
+  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' },
+  main: { flex: 1, padding: '24px', overflowX: 'hidden', position: 'relative' },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
   backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
-  filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '12px 16px', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', flexWrap: 'wrap' },
+  filtryRow: {
+    display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center',
+    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    padding: '12px 16px', borderRadius: 14, border: '1px solid var(--border2)',
+    boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap'
+  },
   searchInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 200, flex: 1 },
   filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
-  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
+  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(255,127,169,0.14)', color: 'var(--danger)', border: '1px solid rgba(255,127,169,0.3)', borderRadius: 9, cursor: 'pointer', fontSize: 12 },
   countBadge: { fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' },
-  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 },
+  card: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    borderRadius: 18, padding: 20, border: '1px solid var(--border2)',
+    boxShadow: 'var(--shadow-sm)', marginBottom: 16
+  },
   cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 0 },
   tableScroll: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 700 },
   thCheck: { padding: '11px 8px', backgroundColor: 'var(--bg-deep)', width: 28 },
-  th: { padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' },
+  th: { padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--text)', textAlign: 'left', fontSize: 13, fontWeight: '600' },
   tdCheck: { padding: '11px 8px', borderBottom: '1px solid var(--border)' },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  idBadge: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
+  idBadge: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, fontWeight: '600' },
   badge: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
   akcjeRow: { display: 'flex', gap: 6 },
   btnSm: { padding: '5px 9px', backgroundColor: 'var(--bg-deep)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
@@ -1136,14 +1160,14 @@ const s = {
     color: 'var(--accent)',
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: '#A5D6A7',
+    borderColor: 'var(--border2)',
     borderRadius: 10,
     cursor: 'pointer',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  btnGray: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
-  btnDanger: { padding: '10px 20px', backgroundColor: '#EF5350', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '600' },
+  btnGray: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border2)', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
+  btnDanger: { padding: '10px 20px', backgroundColor: 'var(--danger)', color: 'var(--on-accent)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '600' },
   detailRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },
   detailLabel: { fontSize: 13, color: 'var(--text-muted)', minWidth: 130 },
   detailValue: { fontSize: 13, color: 'var(--text)', fontWeight: '500', textAlign: 'right' },
@@ -1212,9 +1236,9 @@ const s = {
     marginBottom: 12,
   },
   kpiItem: {
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--bg-card2)',
     borderRadius: 10,
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
     borderTop: '3px solid var(--accent)',
     padding: '10px 12px',
   },
@@ -1238,8 +1262,8 @@ const s = {
     fontWeight: 700,
   },
   workflowPanel: {
-    backgroundColor: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    backgroundColor: 'var(--bg-card2)',
+    border: '1px solid var(--border2)',
     borderRadius: 10,
     padding: '10px 12px',
     marginBottom: 12,
@@ -1287,7 +1311,7 @@ const s = {
   },
   kanbanCol: {
     backgroundColor: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
     borderRadius: 12,
     minHeight: 220,
     display: 'flex',
@@ -1320,9 +1344,9 @@ const s = {
     borderRadius: 8,
   },
   kanbanCard: {
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border2)',
     borderRadius: 10,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--bg-card2)',
     padding: 10,
     transition: 'transform 0.12s ease, box-shadow 0.12s ease',
   },
@@ -1364,5 +1388,51 @@ const s = {
     fontWeight: 700,
   },
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modal: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 32, maxWidth: 420, width: '90%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' },
+  modal: { backgroundColor: 'var(--bg-card)', borderRadius: 18, border: '1px solid var(--border2)', padding: 32, maxWidth: 420, width: '90%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' },
+  listCardsWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+  },
+  listCardsHeader: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 12,
+    padding: '10px 12px',
+    boxShadow: 'var(--shadow-sm)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  listCardsHeaderText: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
+  listCardsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
+    gap: 12,
+  },
+  listTaskCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 7,
+    cursor: 'pointer',
+  },
+  listTaskTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  listTaskClient: { fontSize: 14, fontWeight: 700, color: 'var(--text)' },
+  listTaskMeta: { fontSize: 12, color: 'var(--text-muted)' },
+  listTaskChips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  listTaskFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  listTaskDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
+  listTaskValue: { fontSize: 13, color: 'var(--accent)', fontWeight: 800 },
 };

@@ -8,7 +8,7 @@ import Sidebar from '../components/Sidebar';
 
 const STATUS_KOLOR = {
   Nowe: '#3B82F6',
-  Zaplanowane: '#8B5CF6',
+  Zaplanowane: '#64748b',
   W_Realizacji: '#F9A825',
   Zakonczone: '#22C55E',
   Anulowane: '#EF5350'

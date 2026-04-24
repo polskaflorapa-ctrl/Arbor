@@ -273,7 +273,7 @@ export default function Raporty() {
                 { key: 'Zakonczone', label: t('taskStatus.Zakonczone'), count: zakonczone.length, color: 'var(--accent)' },
                 { key: 'W_Realizacji', label: t('taskStatus.W_Realizacji'), count: wRealizacji.length, color: '#F9A825' },
                 { key: 'Nowe', label: t('taskStatus.Nowe'), count: nowe.length, color: '#2196F3' },
-                { key: 'Zaplanowane', label: t('taskStatus.Zaplanowane'), count: zaplanowane.length, color: '#9C27B0' },
+                { key: 'Zaplanowane', label: t('taskStatus.Zaplanowane'), count: zaplanowane.length, color: '#64748b' },
                 { key: 'Anulowane', label: t('taskStatus.Anulowane'), count: anulowane.length, color: '#EF5350' },
               ].map(s => (
                 <div key={s.key} style={styles.statusRow}>
@@ -320,66 +320,66 @@ export default function Raporty() {
         {activeTab === 'oddzialy' && (
           <div style={styles.card}>
             <div style={styles.cardTitle}>{t('pages.raporty.branchResultsTitle')}</div>
-            <div style={styles.tableScroll}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>{t('pages.raporty.thBranch')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thTasks')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thDone')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thEffectiveness')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thValue')}</th>
-                    <th style={styles.th}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statsByOddzial.map((o, i) => {
-                    const skut = o.total > 0 ? Math.round((o.zakonczone / o.total) * 100) : 0;
-                    return (
-                      <tr key={o.id} style={{backgroundColor: i%2===0?'var(--bg-card)':'var(--bg-deep)', cursor:'pointer'}}
-                        onClick={() => { setFiltrOddzial(o.id.toString()); setActiveTab('zlecenia'); }}>
-                        <td style={{ ...styles.td, fontWeight: '600' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
-                            {o.nazwa}
-                          </span>
-                        </td>
-                        <td style={styles.td}>{o.total}</td>
-                        <td style={styles.td}>{o.zakonczone}</td>
-                        <td style={styles.td}>
-                          <span style={{...styles.badge, backgroundColor: getSkutecznoscColor(skut)}}>
-                            {skut}%
-                          </span>
-                        </td>
-                        <td style={{...styles.td, fontWeight:'600', color:'var(--accent)'}}>
-                          {formatCurrency(o.wartosc)}
-                        </td>
-                        <td style={styles.td}>
-                          <button type="button" style={styles.viewBtn} aria-label={t('common.details')}>
-                            <SearchOutlined sx={{ fontSize: 18, color: 'var(--text-sub)' }} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{backgroundColor:'rgba(52,211,153,0.1)'}}>
-                    <td style={{...styles.td, fontWeight:'bold'}}>{t('pages.raporty.footerTotal')}</td>
-                    <td style={{...styles.td, fontWeight:'bold'}}>{zlecenia.length}</td>
-                    <td style={{...styles.td, fontWeight:'bold'}}>{zlecenia.filter(z => z.status === 'Zakonczone').length}</td>
-                    <td style={styles.td}>
-                      <span style={{...styles.badge, backgroundColor: 'var(--bg-deep)'}}>
-                        {zlecenia.length > 0 ? Math.round((zlecenia.filter(z => z.status === 'Zakonczone').length / zlecenia.length) * 100) : 0}%
+            <div style={styles.reportCardsGrid}>
+              {statsByOddzial.map((o) => {
+                const skut = o.total > 0 ? Math.round((o.zakonczone / o.total) * 100) : 0;
+                return (
+                  <div
+                    key={o.id}
+                    style={styles.reportMetricCard}
+                    onClick={() => { setFiltrOddzial(o.id.toString()); setActiveTab('zlecenia'); }}
+                  >
+                    <div style={styles.reportTaskTop}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text)' }}>
+                        <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+                        {o.nazwa}
                       </span>
-                    </td>
-                    <td style={{...styles.td, fontWeight:'bold', color:'var(--accent)', fontSize:'16px'}}>
-                      {formatCurrency(zlecenia.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0))}
-                    </td>
-                    <td style={styles.td}></td>
-                  </tr>
-                </tfoot>
-              </table>
+                      <button type="button" style={styles.viewBtn} aria-label={t('common.details')}>
+                        <SearchOutlined sx={{ fontSize: 18, color: 'var(--text-sub)' }} />
+                      </button>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thTasks')}</span>
+                      <span style={styles.reportMetaValue}>{o.total}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thDone')}</span>
+                      <span style={styles.reportMetaValue}>{o.zakonczone}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thEffectiveness')}</span>
+                      <span style={{ ...styles.badge, backgroundColor: getSkutecznoscColor(skut) }}>{skut}%</span>
+                    </div>
+                    <div style={styles.reportTaskFooter}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thValue')}</span>
+                      <span style={styles.reportValue}>{formatCurrency(o.wartosc)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ ...styles.reportMetricCard, borderColor: 'var(--accent)' }}>
+                <div style={{ ...styles.reportTaskClient, marginBottom: 4 }}>{t('pages.raporty.footerTotal')}</div>
+                <div style={styles.reportTaskMeta}>
+                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thTasks')}</span>
+                  <span style={styles.reportMetaValue}>{zlecenia.length}</span>
+                </div>
+                <div style={styles.reportTaskMeta}>
+                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thDone')}</span>
+                  <span style={styles.reportMetaValue}>{zlecenia.filter(z => z.status === 'Zakonczone').length}</span>
+                </div>
+                <div style={styles.reportTaskMeta}>
+                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thEffectiveness')}</span>
+                  <span style={{ ...styles.badge, backgroundColor: 'var(--bg-deep)' }}>
+                    {zlecenia.length > 0 ? Math.round((zlecenia.filter(z => z.status === 'Zakonczone').length / zlecenia.length) * 100) : 0}%
+                  </span>
+                </div>
+                <div style={styles.reportTaskFooter}>
+                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thValue')}</span>
+                  <span style={styles.reportValue}>
+                    {formatCurrency(zlecenia.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0))}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -388,46 +388,41 @@ export default function Raporty() {
         {activeTab === 'ekipy' && (
           <div style={styles.card}>
             <div style={styles.cardTitle}>{t('pages.raporty.teamResultsTitle')}</div>
-            <div style={styles.tableScroll}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>{t('pages.raporty.thTeam')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thBranch')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thTasks')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thDone')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thEffectiveness')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thValue')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statsByEkipa.filter(e => e.total > 0).map((e, i) => {
-                    const skut = e.total > 0 ? Math.round((e.zakonczone / e.total) * 100) : 0;
-                    return (
-                      <tr key={e.id} style={{backgroundColor: i%2===0?'var(--bg-card)':'var(--bg-deep)', cursor:'pointer'}}
-                        onClick={() => { setFiltrEkipa(e.id.toString()); setActiveTab('zlecenia'); }}>
-                        <td style={{ ...styles.td, fontWeight: '600' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <GroupsOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
-                            {e.nazwa}
-                          </span>
-                        </td>
-                        <td style={styles.td}>{e.oddzial_nazwa || '-'}</td>
-                        <td style={styles.td}>{e.total}</td>
-                        <td style={styles.td}>{e.zakonczone}</td>
-                        <td style={styles.td}>
-                          <span style={{...styles.badge, backgroundColor: getSkutecznoscColor(skut)}}>
-                            {skut}%
-                          </span>
-                        </td>
-                        <td style={{...styles.td, fontWeight:'600', color:'var(--accent)'}}>
-                          {formatCurrency(e.wartosc)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div style={styles.reportCardsGrid}>
+              {statsByEkipa.filter(e => e.total > 0).map((e) => {
+                const skut = e.total > 0 ? Math.round((e.zakonczone / e.total) * 100) : 0;
+                return (
+                  <div
+                    key={e.id}
+                    style={styles.reportMetricCard}
+                    onClick={() => { setFiltrEkipa(e.id.toString()); setActiveTab('zlecenia'); }}
+                  >
+                    <div style={styles.reportTaskTop}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text)' }}>
+                        <GroupsOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+                        {e.nazwa}
+                      </span>
+                      <span style={styles.reportMetaValue}>{e.oddzial_nazwa || '-'}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thTasks')}</span>
+                      <span style={styles.reportMetaValue}>{e.total}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thDone')}</span>
+                      <span style={styles.reportMetaValue}>{e.zakonczone}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thEffectiveness')}</span>
+                      <span style={{ ...styles.badge, backgroundColor: getSkutecznoscColor(skut) }}>{skut}%</span>
+                    </div>
+                    <div style={styles.reportTaskFooter}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thValue')}</span>
+                      <span style={styles.reportValue}>{formatCurrency(e.wartosc)}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -436,37 +431,43 @@ export default function Raporty() {
         {activeTab === 'miesiace' && (
           <div style={styles.card}>
             <div style={styles.cardTitle}>{t('pages.raporty.monthlyTitle', { year: filtrRok })}</div>
-            <div style={styles.tableScroll}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>{t('pages.raporty.thMonth')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thTaskCount')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thValue')}</th>
-                    <th style={styles.th}>{t('pages.raporty.thAvgValue')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statystykiMiesieczne.map((m, i) => (
-                    <tr key={i} style={{backgroundColor: i%2===0?'var(--bg-card)':'var(--bg-deep)'}}>
-                      <td style={{...styles.td, fontWeight:'600'}}>{m.nazwa}</td>
-                      <td style={styles.td}>{m.liczba}</td>
-                      <td style={{...styles.td, fontWeight:'600', color:'var(--accent)'}}>{formatCurrency(m.wartosc)}</td>
-                      <td style={styles.td}>{m.liczba > 0 ? formatCurrency(m.wartosc / m.liczba) : '0 PLN'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{backgroundColor:'rgba(52,211,153,0.1)'}}>
-                    <td style={{...styles.td, fontWeight:'bold'}}>{t('pages.raporty.footerSum')}</td>
-                    <td style={{...styles.td, fontWeight:'bold'}}>{statystykiMiesieczne.reduce((s, m) => s + m.liczba, 0)}</td>
-                    <td style={{...styles.td, fontWeight:'bold', color:'var(--accent)', fontSize:'16px'}}>
-                      {formatCurrency(statystykiMiesieczne.reduce((s, m) => s + m.wartosc, 0))}
-                    </td>
-                    <td style={styles.td}>-</td>
-                  </tr>
-                </tfoot>
-              </table>
+            <div style={styles.reportCardsGrid}>
+              {statystykiMiesieczne.map((m, i) => {
+                const maxVal = Math.max(...statystykiMiesieczne.map((x) => x.wartosc), 1);
+                const width = Math.max(6, Math.round((m.wartosc / maxVal) * 100));
+                return (
+                  <div key={i} style={styles.reportMetricCard}>
+                    <div style={styles.reportTaskTop}>
+                      <span style={styles.reportTaskClient}>{m.nazwa}</span>
+                      <span style={styles.reportMetaValue}>{m.liczba} {t('pages.raporty.thTaskCount').toLowerCase()}</span>
+                    </div>
+                    <div style={styles.monthBarTrack}>
+                      <div style={{ ...styles.monthBarFill, width: `${width}%` }} />
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thValue')}</span>
+                      <span style={styles.reportValue}>{formatCurrency(m.wartosc)}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thAvgValue')}</span>
+                      <span style={styles.reportMetaValue}>{m.liczba > 0 ? formatCurrency(m.wartosc / m.liczba) : '0 PLN'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ ...styles.reportMetricCard, borderColor: 'var(--accent)' }}>
+                <div style={{ ...styles.reportTaskClient, marginBottom: 4 }}>{t('pages.raporty.footerSum')}</div>
+                <div style={styles.reportTaskMeta}>
+                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thTaskCount')}</span>
+                  <span style={styles.reportMetaValue}>{statystykiMiesieczne.reduce((s, m) => s + m.liczba, 0)}</span>
+                </div>
+                <div style={styles.reportTaskMeta}>
+                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thValue')}</span>
+                  <span style={styles.reportValue}>
+                    {formatCurrency(statystykiMiesieczne.reduce((s, m) => s + m.wartosc, 0))}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -488,41 +489,35 @@ export default function Raporty() {
                 <p>{t('pages.raporty.emptyList')}</p>
               </div>
             ) : (
-              <div style={styles.tableScroll}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>{t('pages.raporty.thId')}</th>
-                      <th style={styles.th}>{t('pages.raporty.thClient')}</th>
-                      <th style={styles.th}>{t('pages.raporty.thBranch')}</th>
-                      <th style={styles.th}>{t('pages.raporty.thTeam')}</th>
-                      <th style={styles.th}>{t('pages.zlecenia.thDate')}</th>
-                      <th style={styles.th}>{t('pages.zlecenia.thStatus')}</th>
-                      <th style={styles.th}>{t('pages.raporty.thValue')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtrowane.map((z, i) => (
-                      <tr key={z.id} style={{backgroundColor: i%2===0?'var(--bg-card)':'var(--bg-deep)', cursor:'pointer'}}
-                        onClick={() => navigate(`/zlecenia/${z.id}`)}>
-                        <td style={styles.td}><span style={styles.idBadge}>#{z.id}</span></td>
-                        <td style={{...styles.td, fontWeight:'600'}}>{z.klient_nazwa}</td>
-                        <td style={styles.td}>{z.oddzial_nazwa || '-'}</td>
-                        <td style={styles.td}>{z.ekipa_nazwa || <span style={styles.gray}>{t('common.missing')}</span>}</td>
-                        <td style={styles.td}>{formatDate(z.data_planowana)}</td>
-                        <td style={styles.td}>
-                          <span style={{ ...styles.badge, backgroundColor: getStatusColor(z.status), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <TaskStatusIcon status={z.status} size={15} color="#fff" />
-                            {t(`taskStatus.${z.status}`, { defaultValue: z.status })}
-                          </span>
-                        </td>
-                        <td style={{...styles.td, fontWeight:'600', color:'var(--accent)'}}>
-                          {formatCurrency(z.wartosc_planowana)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={styles.reportCardsGrid}>
+                {filtrowane.map((z) => (
+                  <div
+                    key={z.id}
+                    style={styles.reportTaskCard}
+                    onClick={() => navigate(`/zlecenia/${z.id}`)}
+                  >
+                    <div style={styles.reportTaskTop}>
+                      <span style={styles.idBadge}>#{z.id}</span>
+                      <span style={{ ...styles.badge, backgroundColor: getStatusColor(z.status), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <TaskStatusIcon status={z.status} size={15} color="#fff" />
+                        {t(`taskStatus.${z.status}`, { defaultValue: z.status })}
+                      </span>
+                    </div>
+                    <div style={styles.reportTaskClient}>{z.klient_nazwa}</div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thBranch')}</span>
+                      <span style={styles.reportMetaValue}>{z.oddzial_nazwa || '-'}</span>
+                    </div>
+                    <div style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{t('pages.raporty.thTeam')}</span>
+                      <span style={styles.reportMetaValue}>{z.ekipa_nazwa || t('common.missing')}</span>
+                    </div>
+                    <div style={styles.reportTaskFooter}>
+                      <span style={styles.reportDate}>{formatDate(z.data_planowana)}</span>
+                      <span style={styles.reportValue}>{formatCurrency(z.wartosc_planowana)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -542,7 +537,7 @@ function getStatusColor(status) {
     case 'Zakonczone': return '#4CAF50';
     case 'W_Realizacji': return '#F9A825';
     case 'Nowe': return '#2196F3';
-    case 'Zaplanowane': return '#9C27B0';
+    case 'Zaplanowane': return '#64748b';
     case 'Anulowane': return '#EF5350';
     default: return '#6B7280';
   }
@@ -594,5 +589,38 @@ const styles = {
   loading: { textAlign: 'center', padding: 40, color: 'var(--text-muted)' },
   empty: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { marginBottom: 12, display: 'flex', justifyContent: 'center' },
+  reportCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 },
+  reportTaskCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    cursor: 'pointer',
+  },
+  reportMetricCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    cursor: 'pointer',
+  },
+  reportTaskTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  reportTaskClient: { fontSize: 14, fontWeight: 700, color: 'var(--text)' },
+  reportTaskMeta: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  reportMetaLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700 },
+  reportMetaValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
+  reportTaskFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  reportDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
+  reportValue: { fontSize: 13, color: 'var(--accent)', fontWeight: 800 },
+  monthBarTrack: { width: '100%', height: 8, backgroundColor: 'var(--bg-deep)', borderRadius: 999, overflow: 'hidden' },
+  monthBarFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--accent-dk), var(--accent))' },
 };
  

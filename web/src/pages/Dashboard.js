@@ -9,12 +9,12 @@ import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 const STATUS_KOLOR = {
-  Nowe: 'var(--accent)', Zaplanowane: '#60A5FA',
-  W_Realizacji: '#FBBF24', Zakonczone: '#10B981', Anulowane: '#F87171',
+  Nowe: 'var(--accent)', Zaplanowane: 'var(--info)',
+  W_Realizacji: 'var(--warning)', Zakonczone: 'var(--accent-dk)', Anulowane: 'var(--danger)',
 };
 const STATUS_BG = {
-  Nowe: 'rgba(52,211,153,0.12)', Zaplanowane: 'rgba(96,165,250,0.12)',
-  W_Realizacji: 'rgba(251,191,36,0.12)', Zakonczone: 'rgba(16,185,129,0.12)', Anulowane: 'rgba(248,113,113,0.12)',
+  Nowe: 'var(--accent-surface)', Zaplanowane: 'rgba(112,182,255,0.16)',
+  W_Realizacji: 'rgba(248,201,107,0.16)', Zakonczone: 'rgba(127,69,230,0.16)', Anulowane: 'rgba(255,127,169,0.16)',
 };
 
 function AnimatedNumber({ value, duration = 900 }) {
@@ -93,6 +93,11 @@ export default function Dashboard() {
   const isPomocnik    = user?.rola === 'Pomocnik' || user?.rola === 'Pomocnik bez doświadczenia';
   const isWorker      = isBrygadzista || isSpecjalista || isPomocnik || isMagazynier;
   const sumaWartosci = ostatnie.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
+  const statusCounts = ostatnie.reduce((acc, z) => {
+    const key = z.status || 'Nowe';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
   const dzisiaj = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
   const rolaColor = getRolaColor(user?.rola);
 
@@ -100,17 +105,17 @@ export default function Dashboard() {
     { label: 'Nowe zlecenia',   sub: 'Oczekują na przypisanie', value: stats.nowe || 0,         icon: 'nowe',       color: 'var(--accent)', path: '/zlecenia' },
     { label: 'W realizacji',    sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', color: '#FBBF24', path: '/zlecenia' },
     { label: 'Zakończone',      sub: 'Zrealizowane zlecenia',   value: stats.zakonczone || 0,    icon: 'zakonczone', color: 'var(--accent-dk)', path: '/zlecenia' },
-    ...(!isWorker && !isWyceniajacy ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', color: '#A78BFA', suffix: ' PLN' }] : []),
+    ...(!isWorker && !isWyceniajacy ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', color: 'var(--accent)', suffix: ' PLN' }] : []),
   ];
 
   const quickLinks = [
     { label: 'Nowe zlecenie',  sub: 'Utwórz zlecenie',       path: '/nowe-zlecenie', color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
-    { label: 'Planowanie',     sub: 'Przypisz ekipy',         path: '/kierownik',     color: '#A78BFA', roles: ['Dyrektor','Administrator','Kierownik'] },
+    { label: 'Planowanie',     sub: 'Przypisz ekipy',         path: '/kierownik',     color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Ekipy',          sub: 'Zarządzaj ekipami',      path: '/ekipy',         color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Raporty',        sub: 'Analiza wydajności',     path: '/raporty',           color: 'var(--accent-dk)', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista'] },
     { label: 'Flota i sprzęt', sub: 'Pojazdy i narzędzia',   path: '/flota',             color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Harmonogram',    sub: 'Kalendarz zleceń',       path: '/harmonogram',       color: '#60A5FA', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Magazynier'] },
-    { label: 'Kal. wycen',     sub: 'Wyceny w terenie',       path: '/wycena-kalendarz',  color: '#A78BFA', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
+    { label: 'Kal. wycen',     sub: 'Wyceny w terenie',       path: '/wycena-kalendarz',  color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Rozliczenie wyc.', sub: 'Stawka + % realizacji', path: '/wynagrodzenie-wyceniajacych', color: '#34D399', roles: ['Wyceniający','Kierownik','Dyrektor','Administrator'] },
     { label: 'Oddziały',       sub: 'Zarządzanie',            path: '/oddzialy',          color: '#60A5FA', roles: ['Dyrektor','Administrator'] },
     { label: 'Użytkownicy',    sub: 'Konta i uprawnienia',    path: '/uzytkownicy',       color: '#F87171', roles: ['Dyrektor','Administrator'] },
@@ -136,7 +141,7 @@ export default function Dashboard() {
           </div>
           {!isBrygadzista && !isWyceniajacy && (
             <button onClick={() => navigate('/nowe-zlecenie')} style={d.heroBtn}
-              onMouseEnter={e => { e.currentTarget.style.background = '#10B981'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-dk)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)'; }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Nowe zlecenie
@@ -168,6 +173,37 @@ export default function Dashboard() {
             ))}
           </div>
         )}
+
+        <div style={d.commandGrid}>
+          <div style={d.commandCard}>
+            <div style={d.commandTitle}>Centrum operacyjne</div>
+            <div style={d.commandText}>Priorytetowe akcje na teraz</div>
+            <div style={d.commandButtons}>
+              <button style={d.commandBtnAccent} onClick={() => navigate('/zlecenia')}>Zarządzaj zleceniami</button>
+              <button style={d.commandBtnGhost} onClick={() => navigate('/harmonogram')}>Sprawdź harmonogram</button>
+              <button style={d.commandBtnGhost} onClick={() => navigate('/powiadomienia')}>Powiadomienia</button>
+            </div>
+          </div>
+          <div style={d.commandCard}>
+            <div style={d.commandTitle}>Pipeline live</div>
+            <div style={d.pipelineRow}>
+              <span style={d.pipelineLabel}>Nowe</span>
+              <span style={d.pipelineValue}>{statusCounts.Nowe || 0}</span>
+            </div>
+            <div style={d.pipelineRow}>
+              <span style={d.pipelineLabel}>Zaplanowane</span>
+              <span style={d.pipelineValue}>{statusCounts.Zaplanowane || 0}</span>
+            </div>
+            <div style={d.pipelineRow}>
+              <span style={d.pipelineLabel}>W realizacji</span>
+              <span style={d.pipelineValue}>{statusCounts.W_Realizacji || 0}</span>
+            </div>
+            <div style={d.pipelineRow}>
+              <span style={d.pipelineLabel}>Zakończone</span>
+              <span style={d.pipelineValue}>{statusCounts.Zakonczone || 0}</span>
+            </div>
+          </div>
+        </div>
 
         {/* ─── GŁÓWNA SIATKA ───────────────────────────────────────────────── */}
         <div style={d.mainGrid}>
@@ -232,8 +268,8 @@ export default function Dashboard() {
                   onMouseEnter={() => setHovered(`ql${i}`)}
                   onMouseLeave={() => setHovered(null)}
                   style={{ ...d.qlItem,
-                    background: hovered === `ql${i}` ? 'rgba(255,255,255,0.05)' : '#162032',
-                    borderColor: hovered === `ql${i}` ? item.color + '44' : '#1E3A5F',
+                    background: hovered === `ql${i}` ? 'rgba(255,255,255,0.06)' : 'var(--bg-card2)',
+                    borderColor: hovered === `ql${i}` ? item.color + '55' : 'var(--border2)',
                     transform: hovered === `ql${i}` ? 'translateY(-2px)' : 'none',
                   }}>
                   <div style={{ ...d.qlIcon, background: item.color + '18', color: item.color }}>
@@ -252,8 +288,8 @@ export default function Dashboard() {
 }
 
 const d = {
-  root: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  content: { flex: 1, padding: '28px 32px', overflowX: 'hidden', minWidth: 0 },
+  root: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' },
+  content: { flex: 1, padding: '28px 32px', overflowX: 'hidden', minWidth: 0, position: 'relative' },
   errorBanner: {
     padding: '10px 14px',
     borderRadius: 10,
@@ -269,12 +305,13 @@ const d = {
   hero: {
     position: 'relative', borderRadius: 20, padding: '28px 32px', marginBottom: 24,
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    background: 'var(--bg-card)', border: '1px solid var(--border)', overflow: 'hidden',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)', overflow: 'hidden',
+    boxShadow: 'var(--shadow-md)',
   },
   heroBg: {
     position: 'absolute', top: -60, right: -60, width: 200, height: 200,
-    borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)',
+    borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.22) 0%, transparent 70%)',
     pointerEvents: 'none',
   },
   heroLeft: { position: 'relative' },
@@ -283,25 +320,51 @@ const d = {
   rolaBadge: { display: 'inline-block', borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 700 },
   heroBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
-    background: 'var(--accent)', color: '#0F172A', border: 'none', borderRadius: 12,
+    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 12,
     fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s',
-    position: 'relative', flexShrink: 0,
+    position: 'relative', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
   },
 
   // KPI
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 },
   kpiCard: {
-    background: 'var(--bg-card)', borderRadius: 16, padding: 20, borderTop: '3px solid #334155',
-    border: '1px solid var(--border)', transition: 'all 0.2s',
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    borderRadius: 18, padding: 20, borderTop: '3px solid var(--border2)',
+    border: '1px solid var(--border2)', transition: 'all 0.2s',
   },
   kpiIcon: { width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   kpiNum: { fontSize: 28, fontWeight: 800, marginBottom: 4 },
   kpiLabel: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 },
   kpiSub: { fontSize: 11, color: 'var(--text-muted)' },
+  commandGrid: { display: 'grid', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
+  commandCard: {
+    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 16,
+    padding: 18,
+    boxShadow: 'var(--shadow-sm)',
+  },
+  commandTitle: { fontSize: 16, fontWeight: 800, color: 'var(--text)' },
+  commandText: { marginTop: 4, fontSize: 12, color: 'var(--text-muted)' },
+  commandButtons: { marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' },
+  commandBtnAccent: {
+    padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border2)',
+    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+  },
+  commandBtnGhost: {
+    padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border2)',
+    background: 'var(--bg-deep)', color: 'var(--text-sub)', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+  },
+  pipelineRow: { marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 6 },
+  pipelineLabel: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
+  pipelineValue: { fontSize: 17, color: 'var(--accent)', fontWeight: 800 },
 
   // Main grid
-  mainGrid: { display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 },
-  card: { background: 'var(--bg-card)', borderRadius: 16, padding: 20, border: '1px solid var(--border)' },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
+  card: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    borderRadius: 18, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)'
+  },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   cardTitle: { fontSize: 15, fontWeight: 700, color: 'var(--text)' },
   seeAll: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 },
@@ -327,7 +390,7 @@ const d = {
     display: 'flex', flexDirection: 'column', gap: 6, padding: 14,
     borderRadius: 12, cursor: 'pointer',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)',
-    transition: 'all 0.18s',
+    transition: 'all 0.18s', boxShadow: 'var(--shadow-sm)',
   },
   qlIcon: { width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   qlLabel: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },

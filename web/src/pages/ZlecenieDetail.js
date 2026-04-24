@@ -703,8 +703,8 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiNum}>{zdjecia.length}</div>
             <div style={styles.kpiLabel}>Zdjęcia</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#8B5CF6' }}>
-            <div style={styles.kpiIcon}><SmartDisplayOutlined sx={{ fontSize: 26, color: '#8B5CF6' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: '#38bdf8' }}>
+            <div style={styles.kpiIcon}><SmartDisplayOutlined sx={{ fontSize: 26, color: '#38bdf8' }} /></div>
             <div style={styles.kpiNum}>{wideo.length}</div>
             <div style={styles.kpiLabel}>Filmy</div>
           </div>
@@ -1096,7 +1096,7 @@ export default function ZlecenieDetail() {
                 {integrationLogs.map((log) => (
                   <div key={log.id} style={styles.issueCard}>
                     <div style={styles.issueHeader}>
-                      <span style={{ ...styles.badge, backgroundColor: '#8B5CF6' }}>{String(log.channel || '').toUpperCase()}</span>
+                      <span style={{ ...styles.badge, backgroundColor: '#38bdf8' }}>{String(log.channel || '').toUpperCase()}</span>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDateTime(log.created_at)}</span>
                     </div>
                     <div style={styles.issueOpis}>{log.title}</div>
@@ -1447,7 +1447,7 @@ function VideoSection({ title, videos, base, formatDateTime, onSelect, onDelete 
         {videos.map(v => (
           <div key={v.id} style={styles.photoCard} onClick={() => onSelect(v)}>
             <div style={styles.videoThumb}>
-              <SmartDisplayOutlined sx={{ fontSize: 42, color: '#8B5CF6' }} />
+              <SmartDisplayOutlined sx={{ fontSize: 42, color: '#38bdf8' }} />
             </div>
             <div style={styles.photoInfo}>
               <div style={styles.photoAutor}>{v.nazwa || 'Film'}</div>

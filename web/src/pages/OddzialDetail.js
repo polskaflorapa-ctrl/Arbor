@@ -19,15 +19,15 @@ const STATUS_KOLOR = {
 };
 
 const ROLA_KOLOR = {
-  'Dyrektor':                   '#8B5CF6',
-  'Administrator':              '#F59E0B',
-  'Kierownik':                  '#3B82F6',
-  'Brygadzista':                '#10B981',
-  'Specjalista':                '#06B6D4',
-  'Wyceniający':                '#A78BFA',
-  'Pomocnik':                   '#94A3B8',
-  'Pomocnik bez doświadczenia': '#64748B',
-  'Magazynier':                 '#F97316',
+  'Dyrektor':                   '#f59e0b',
+  'Administrator':              '#fbbf24',
+  'Kierownik':                  '#38bdf8',
+  'Brygadzista':                '#34d399',
+  'Specjalista':                '#22d3ee',
+  'Wyceniający':                '#94a3b8',
+  'Pomocnik':                   '#94a3b8',
+  'Pomocnik bez doświadczenia': '#64748b',
+  'Magazynier':                 '#fb923c',
 };
 
 export default function OddzialDetail() {
@@ -305,9 +305,9 @@ export default function OddzialDetail() {
   if (!oddzial) return <div style={{ padding: 40, textAlign: 'center' }}>Nie znaleziono oddziału</div>;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
+      <div style={{ flex: 1, padding: 28, overflowX: 'hidden', position: 'relative' }}>
 
         {/* Breadcrumb */}
         <div style={{ display: 'flex', gap: 8, fontSize: 14, marginBottom: 20, alignItems: 'center' }}>
@@ -319,11 +319,11 @@ export default function OddzialDetail() {
 
         {/* Hero */}
         <div style={{
-          background: 'linear-gradient(135deg, #0A1628, var(--accent))',
+          background: 'linear-gradient(135deg, var(--sidebar), var(--bg-card2))',
           borderRadius: 20, padding: '24px 28px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           flexWrap: 'wrap', gap: 16,
-          boxShadow: '0 4px 20px rgba(56,142,60,0.3)',
+          border: '1px solid var(--border2)', boxShadow: 'var(--shadow-md)',
           animation: 'fadeIn 0.4s ease forwards',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -364,15 +364,27 @@ export default function OddzialDetail() {
             { label: '✅ Zakończone', value: statsByStatus('Zakonczone'), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
           ].map(k => (
             <div key={k.label} style={{
-              backgroundColor: k.bg, borderRadius: 12, padding: '14px 16px',
+              background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, padding: '14px 16px',
               borderTop: `3px solid ${k.color}`,
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)',
               animation: 'bounceIn 0.4s ease forwards', opacity: 0,
             }}>
               <div style={{ fontSize: 26, fontWeight: 'bold', color: k.color }}>{k.value}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{k.label}</div>
             </div>
           ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr .7fr', gap: 12, marginBottom: 16 }}>
+          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum oddziału</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Nowe: <strong style={{ color: 'var(--text)' }}>{statsByStatus('Nowe')}</strong> · W realizacji: <strong style={{ color: 'var(--text)' }}>{statsByStatus('W_Realizacji')}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{pracownicy.length}</strong></div>
+          </div>
+          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Szybkie akcje</div>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button style={S.addBtn} onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
+            </div>
+          </div>
         </div>
 
         <StatusMessage
@@ -418,7 +430,7 @@ export default function OddzialDetail() {
 
         {/* ===== ZLECENIA ===== */}
         {activeTab === 'zlecenia' && (
-          <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
             {zlecenia.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
@@ -497,7 +509,7 @@ export default function OddzialDetail() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 20, alignItems: 'start' }}>
               <div>
                 {ekipy.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', borderRadius: 16 }}>
+                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 16 }}>
                     <div style={{ fontSize: 48, marginBottom: 12 }}>👷</div>
                     <p>Brak ekip w tym oddziale</p>
                   </div>
@@ -505,8 +517,8 @@ export default function OddzialDetail() {
                   <div key={e.id}
                     onClick={() => { setSelectedEkipa(e); loadEkipaDetail(e.id); setShowAddCzlonek(false); }}
                     style={{
-                      backgroundColor: 'var(--bg-card)', borderRadius: 14, padding: 16, marginBottom: 10,
-                      boxShadow: selectedEkipa?.id === e.id ? '0 4px 16px rgba(56,142,60,0.2)' : '0 2px 8px rgba(0,0,0,0.06)',
+                      background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14, padding: 16, marginBottom: 10,
+                      boxShadow: selectedEkipa?.id === e.id ? '0 4px 16px rgba(165,107,255,0.25)' : 'var(--shadow-sm)',
                       borderLeft: `4px solid ${selectedEkipa?.id === e.id ? 'var(--accent)' : 'var(--border)'}`,
                       cursor: 'pointer', transition: 'all 0.2s',
                       animation: `slideIn 0.3s ease ${i * 0.06}s forwards`, opacity: 0,
@@ -536,7 +548,7 @@ export default function OddzialDetail() {
               </div>
 
               {selectedEkipa && ekipaDetail ? (
-                <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, boxShadow: '0 4px 20px rgba(56,142,60,0.12)', animation: 'fadeIn 0.3s ease forwards' }}>
+                <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 24, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', animation: 'fadeIn 0.3s ease forwards' }}>
                   <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
                     <h3 style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)', margin: 0 }}>{ekipaDetail.nazwa}</h3>
                   </div>
@@ -635,7 +647,7 @@ export default function OddzialDetail() {
                   {ekipaDetail.brygadzista_imie && <KalkulatorWynagrodzenia ekipa={ekipaDetail} />}
                 </div>
               ) : (
-                <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 60, textAlign: 'center', color: 'var(--text-muted)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 60, textAlign: 'center', color: 'var(--text-muted)', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12, animation: 'treeSway 3s ease-in-out infinite' }}>🌳</div>
                   <p style={{ fontWeight: '600', color: 'var(--text-sub)' }}>Wybierz ekipę</p>
                   <p style={{ fontSize: 13 }}>Kliknij na ekipę aby zobaczyć szczegóły</p>
@@ -695,7 +707,7 @@ export default function OddzialDetail() {
               </div>
             )}
 
-            <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
               {pracownicy.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
@@ -843,16 +855,16 @@ function Field({ label, children }) {
 
 const S = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  addBtn: { padding: '8px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  addBtn: { padding: '8px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   editBtn: { padding: '4px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   detailBtn: { padding: '5px 12px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
-  formBox: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '4px solid var(--accent)' },
+  formBox: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', borderTop: '1px solid var(--border2)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-card2)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
-  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card2)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
 };

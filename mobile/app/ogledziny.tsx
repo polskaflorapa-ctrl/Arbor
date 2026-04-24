@@ -8,6 +8,11 @@ import {
   TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
+import { PlatinumAppear } from '../components/ui/platinum-appear';
+import { PlatinumFilterChip } from '../components/ui/platinum-filter-chip';
+import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
+import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
+import { PlatinumPressable } from '../components/ui/platinum-pressable';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -37,7 +42,7 @@ const ZONE_RULES: Record<string, string[]> = {
 };
 const ZONE_COLOR = {
   'Krakow-POLNOC': '#60A5FA',
-  'Krakow-WSCHOD': '#A78BFA',
+  'Krakow-WSCHOD': '#fb923c',
   'Krakow-POŁUDNIE': '#34D399',
   'Krakow-ZACHOD': '#F59E0B',
   'Krakow-NIEJEDNOZNACZNA': '#F87171',
@@ -446,14 +451,15 @@ export default function OgledzinyScreen() {
       })
     : filteredByZone;
 
-  const renderItem = ({ item }: { item: Ogledziny }) => {
+  const renderItem = ({ item, index }: { item: Ogledziny; index: number }) => {
     const sc = statusColor(item.status, theme);
     const zone = zoneFor(item);
     const routeIndex = displayLista.findIndex((x) => x.id === item.id);
     const live = item.ekipa_id != null ? liveLocationsByTeam[String(item.ekipa_id)] : undefined;
     return (
-      <TouchableOpacity style={S.card} onPress={() => openDetail(item)} activeOpacity={0.7}>
-        <View style={{ flex: 1 }}>
+      <PlatinumAppear delayMs={18 * Math.min(index, 10)}>
+        <PlatinumPressable style={S.card} onPress={() => openDetail(item)}>
+          <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
             <Text style={S.cardTitle} numberOfLines={1}>
               {routeMode && routeIndex >= 0 ? `${routeIndex + 1}. ` : ''}
@@ -465,13 +471,13 @@ export default function OgledzinyScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-            <Ionicons name="calendar-outline" size={13} color={theme.textMuted} />
+            <PlatinumIconBadge icon="calendar-outline" color={theme.textMuted} size={11} style={S.metaIconBadge} />
             <Text style={S.cardSub}>{fmtDate(item.data_planowana)}</Text>
           </View>
 
           {(item.adres || item.miasto) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-              <Ionicons name="location-outline" size={13} color={theme.textMuted} />
+              <PlatinumIconBadge icon="location-outline" color={theme.textMuted} size={11} style={S.metaIconBadge} />
               <Text style={S.cardMuted} numberOfLines={1}>
                 {[item.adres, item.miasto].filter(Boolean).join(', ')}
               </Text>
@@ -480,7 +486,7 @@ export default function OgledzinyScreen() {
 
           {item.klient_telefon && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <Ionicons name="call-outline" size={13} color={theme.textMuted} />
+              <PlatinumIconBadge icon="call-outline" color={theme.textMuted} size={11} style={S.metaIconBadge} />
               <Text style={S.cardMuted}>{item.klient_telefon}</Text>
             </View>
           )}
@@ -493,15 +499,16 @@ export default function OgledzinyScreen() {
           </View>
           {live ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 }}>
-              <Ionicons name="navigate-outline" size={13} color={theme.textMuted} />
+              <PlatinumIconBadge icon="navigate-outline" color={theme.textMuted} size={11} style={S.metaIconBadge} />
               <Text style={S.cardMuted}>
                 GPS: {fmtGpsAge(live.recorded_at)}
                 {live.speed_kmh != null ? ` • ${Math.round(Number(live.speed_kmh))} km/h` : ''}
               </Text>
             </View>
           ) : null}
-        </View>
-      </TouchableOpacity>
+          </View>
+        </PlatinumPressable>
+      </PlatinumAppear>
     );
   };
 
@@ -511,6 +518,8 @@ export default function OgledzinyScreen() {
 
   return (
     <View style={S.container}>
+      <View pointerEvents="none" style={S.bgOrbTop} />
+      <View pointerEvents="none" style={S.bgOrbBottom} />
       <StatusBar
         barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={theme.headerBg}
@@ -519,22 +528,22 @@ export default function OgledzinyScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Ionicons name="search-outline" size={20} color={theme.headerText} />
+          <PlatinumIconBadge icon="search-outline" color={theme.accent} size={11} style={S.headerIconBadge} />
           <Text style={S.headerTitle}>{t('inspections.title')}</Text>
         </View>
         <TouchableOpacity
           onPress={() => setShowCreateModal(true)}
-          style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+          style={S.addBtn}
         >
-          <Ionicons name="add-circle-outline" size={22} color={theme.headerText} />
+          <PlatinumIconBadge icon="add-circle-outline" color={theme.accent} size={12} style={S.addIconBadge} />
         </TouchableOpacity>
         <Text style={S.headerCount}>{displayLista.length}</Text>
       </View>
       <View style={S.platinumBar}>
-        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={S.platinumBarIcon} />
         <Text style={S.platinumBarText}>Platinum Field Intelligence</Text>
       </View>
       {runtimeError ? (
@@ -551,7 +560,6 @@ export default function OgledzinyScreen() {
             label={t('inspections.filterAll')}
             active={filterStatus === ''}
             color={theme.accent}
-            theme={theme}
             onPress={() => setFilterStatus('')}
           />
           {STATUSY.map(s => (
@@ -560,20 +568,18 @@ export default function OgledzinyScreen() {
               label={inspectionStatusLabel(s, t)}
               active={filterStatus === s}
               color={statusColor(s, theme)}
-              theme={theme}
               onPress={() => setFilterStatus(s)}
             />
           ))}
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingTop: 8 }}>
-          <FilterChip label="Wszystkie strefy" active={zoneFilter === ''} color={theme.accent} theme={theme} onPress={() => setZoneFilter('')} />
+          <FilterChip label="Wszystkie strefy" active={zoneFilter === ''} color={theme.accent} onPress={() => setZoneFilter('')} />
           {Object.entries(ZONE_LABEL).map(([zone, label]) => (
             <FilterChip
               key={zone}
               label={label}
               active={zoneFilter === zone}
               color={ZONE_COLOR[zone as keyof typeof ZONE_COLOR] || theme.textMuted}
-              theme={theme}
               onPress={() => setZoneFilter(zone)}
             />
           ))}
@@ -583,14 +589,12 @@ export default function OgledzinyScreen() {
             label={routeMode ? 'Widok standard' : 'Ułóż trasę'}
             active={routeMode}
             color={theme.success}
-            theme={theme}
             onPress={() => setRouteMode((v) => !v)}
           />
           <FilterChip
             label={zoneMode ? 'Bez stref' : 'Tryb 4 stref'}
             active={zoneMode}
             color={theme.info}
-            theme={theme}
             onPress={() => setZoneMode((v) => !v)}
           />
         </ScrollView>
@@ -599,18 +603,7 @@ export default function OgledzinyScreen() {
             {liveTeamList.map((live) => {
               const state = gpsState(live);
               return (
-                <View
-                  key={`${live.ekipa_id}-${live.nr_rejestracyjny || 'vehicle'}`}
-                  style={{
-                    backgroundColor: theme.surface2,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    borderRadius: 10,
-                    paddingVertical: 6,
-                    paddingHorizontal: 9,
-                    minWidth: 180,
-                  }}
-                >
+                <View key={`${live.ekipa_id}-${live.nr_rejestracyjny || 'vehicle'}`} style={S.liveCard}>
                   <Text style={{ fontSize: 11, fontWeight: '700', color: theme.text }}>
                     {live.ekipa_nazwa || `Ekipa #${live.ekipa_id}`}
                   </Text>
@@ -656,7 +649,7 @@ export default function OgledzinyScreen() {
       <Modal visible={showDetail} animationType="slide" transparent onRequestClose={() => setShowDetail(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={S.modalOverlay}>
-          <View style={S.modalBox}>
+          <PlatinumModalSheet visible={showDetail} style={S.modalBox}>
             {selected && (
               <>
                 <View style={S.modalHeader}>
@@ -667,7 +660,7 @@ export default function OgledzinyScreen() {
                     )}
                   </View>
                   <TouchableOpacity onPress={() => setShowDetail(false)} style={S.modalClose}>
-                    <Ionicons name="close" size={22} color={theme.textMuted} />
+                    <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
                   </TouchableOpacity>
                 </View>
 
@@ -708,7 +701,6 @@ export default function OgledzinyScreen() {
                         label="Auto"
                         active={!zoneOverrides[String(selected.id)]}
                         color={theme.accent}
-                        theme={theme}
                         onPress={() => setInspectionZoneOverride(selected.id, '')}
                       />
                       {Object.entries(ZONE_LABEL).map(([zone, label]) => (
@@ -717,7 +709,6 @@ export default function OgledzinyScreen() {
                           label={label}
                           active={zoneOverrides[String(selected.id)] === zone}
                           color={ZONE_COLOR[zone as keyof typeof ZONE_COLOR] || theme.textMuted}
-                          theme={theme}
                           onPress={() => setInspectionZoneOverride(selected.id, zone)}
                         />
                       ))}
@@ -816,7 +807,7 @@ export default function OgledzinyScreen() {
                 </View>
               </>
             )}
-          </View>
+          </PlatinumModalSheet>
         </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -825,11 +816,11 @@ export default function OgledzinyScreen() {
       <Modal visible={showStatusModal} animationType="slide" transparent onRequestClose={() => setShowStatusModal(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={S.modalOverlay}>
-          <View style={[S.modalBox, { maxHeight: '75%' }]}>
+          <PlatinumModalSheet visible={showStatusModal} style={[S.modalBox, { maxHeight: '75%' }]}>
             <View style={S.modalHeader}>
               <Text style={S.modalTitle}>{t('inspections.statusModalTitle')}</Text>
               <TouchableOpacity onPress={() => setShowStatusModal(false)} style={S.modalClose}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <ScrollView
@@ -895,7 +886,7 @@ export default function OgledzinyScreen() {
                 loading={saving}
               />
             </View>
-          </View>
+          </PlatinumModalSheet>
         </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -904,11 +895,11 @@ export default function OgledzinyScreen() {
       <Modal visible={showCreateModal} animationType="slide" transparent onRequestClose={() => setShowCreateModal(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={S.modalOverlay}>
-          <View style={[S.modalBox, { maxHeight: '80%' }]}>
+          <PlatinumModalSheet visible={showCreateModal} style={[S.modalBox, { maxHeight: '80%' }]}>
             <View style={S.modalHeader}>
               <Text style={S.modalTitle}>{t('inspections.createTitle')}</Text>
               <TouchableOpacity onPress={() => setShowCreateModal(false)} style={S.modalClose}>
-                <Ionicons name="close" size={22} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <ScrollView
@@ -1017,7 +1008,7 @@ export default function OgledzinyScreen() {
                 loading={createSaving}
               />
             </View>
-          </View>
+          </PlatinumModalSheet>
         </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1026,30 +1017,24 @@ export default function OgledzinyScreen() {
 }
 
 // ─── Pomocnicze komponenty ────────────────────────────────────────────────────
-function FilterChip({ label, active, color, theme, onPress }: {
-  label: string; active: boolean; color: string; theme: Theme; onPress: () => void;
+function FilterChip({ label, active, color, onPress }: {
+  label: string; active: boolean; color: string; onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
+    <PlatinumFilterChip
+      label={label}
+      active={active}
+      color={color}
       onPress={onPress}
-      style={{
-        paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-        borderWidth: 1,
-        borderColor: active ? color : theme.border,
-        backgroundColor: active ? color + '18' : theme.surface2,
-      }}
-    >
-      <Text style={{ fontSize: 12, fontWeight: '700', color: active ? color : theme.textMuted }}>
-        {label}
-      </Text>
-    </TouchableOpacity>
+      style={{ paddingVertical: 6, borderWidth: 1 }}
+    />
   );
 }
 
 function SectionHeader({ icon, label, theme }: { icon: string; label: string; theme: Theme }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, marginBottom: 8 }}>
-      <Ionicons name={icon as any} size={14} color={theme.accent} />
+      <PlatinumIconBadge icon={icon as any} color={theme.accent} size={11} style={{ width: 21, height: 21, borderRadius: 7 }} />
       <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
         {label}
       </Text>
@@ -1064,7 +1049,7 @@ function InfoRow({ icon, label, value, theme }: {
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Ionicons name={icon as any} size={14} color={theme.textMuted} />
+        <PlatinumIconBadge icon={icon as any} color={theme.textMuted} size={11} style={{ width: 21, height: 21, borderRadius: 7 }} />
         <Text style={{ fontSize: 13, color: theme.textMuted }}>{label}</Text>
       </View>
       <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text, flex: 1, textAlign: 'right', marginLeft: 12 }}>
@@ -1077,20 +1062,46 @@ function InfoRow({ icon, label, value, theme }: {
 // ─── Style ────────────────────────────────────────────────────────────────────
 const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
+  bgOrbTop: {
+    position: 'absolute',
+    top: -120,
+    right: -90,
+    width: 250,
+    height: 250,
+    borderRadius: 140,
+    backgroundColor: t.accent + '22',
+  },
+  bgOrbBottom: {
+    position: 'absolute',
+    bottom: 120,
+    left: -80,
+    width: 210,
+    height: 210,
+    borderRadius: 110,
+    backgroundColor: t.chartCyan + '15',
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     backgroundColor: t.headerBg, paddingHorizontal: 16,
-    paddingTop: 56, paddingBottom: 14,
+    paddingTop: 56, paddingBottom: 16,
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderBottomWidth: 1, borderBottomColor: t.accent + '55',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.66,
+    shadowRadius: t.shadowRadius * 1.12,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
+    elevation: t.cardElevation,
   },
+  headerIconBadge: { width: 22, height: 22, borderRadius: 8 },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, flex: 1, letterSpacing: 0.35 },
   headerCount: { fontSize: 13, color: t.textMuted, fontWeight: '600' },
+  addBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  addIconBadge: { width: 24, height: 24, borderRadius: 8 },
   platinumBar: {
     marginHorizontal: 12,
     marginTop: 10,
-    marginBottom: 6,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: t.accent + '88',
     backgroundColor: t.accent + '1F',
@@ -1100,7 +1111,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.42,
+    shadowRadius: t.shadowRadius * 0.72,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: t.cardElevation,
   },
+  platinumBarIcon: { width: 22, height: 22, borderRadius: 8 },
   platinumBarText: {
     color: t.accent,
     fontSize: 11,
@@ -1127,16 +1144,38 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: t.accent + '2E',
     backgroundColor: t.cardBg,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.28,
+    shadowRadius: t.shadowRadius * 0.55,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  liveCard: {
+    backgroundColor: t.surface2,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    minWidth: 180,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.2,
+    shadowRadius: t.shadowRadius * 0.42,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   card: {
-    backgroundColor: t.cardBg, padding: 14, borderRadius: 14,
+    backgroundColor: t.cardBg, padding: 14, borderRadius: 18,
     marginBottom: 10, borderWidth: 1, borderColor: t.accent + '2E',
-    elevation: 1,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.68,
+    shadowRadius: t.shadowRadius * 1.04,
+    shadowOffset: { width: 0, height: t.shadowOffsetY + 1 },
+    elevation: t.cardElevation + 1,
   },
   cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, letterSpacing: 0.2 },
   cardSub: { fontSize: 12, color: t.textSub },
   cardMuted: { fontSize: 12, color: t.textMuted, flex: 1 },
+  metaIconBadge: { width: 20, height: 20, borderRadius: 7 },
 
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: t.accent + '44' },
   statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
@@ -1150,7 +1189,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalBox: {
-    backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: t.cardBg, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     maxHeight: '90%', minHeight: '50%',
     borderTopWidth: 1, borderColor: t.accent + '4A',
   },

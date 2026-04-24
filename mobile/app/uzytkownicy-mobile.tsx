@@ -9,14 +9,14 @@ import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
-import type { Theme } from '../constants/theme';
+import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 
 export default function UzytkownicyScreen() {
   const { theme } = useTheme();
   const rolaKolorMap = useMemo(() => ({
-    Dyrektor: theme.chartViolet,
+    Dyrektor: getRolaColor('Dyrektor'),
     Administrator: theme.warning,
     Kierownik: theme.info,
     Brygadzista: theme.success,
