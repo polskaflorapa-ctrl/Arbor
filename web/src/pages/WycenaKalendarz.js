@@ -189,6 +189,11 @@ export default function WycenaKalendarz() {
 
   const wycenyWybrany = wycenyNaDzien(selectedDay);
   const ogledzinyWybrane = ogledzinyNaDzien(selectedDay);
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const monthWyceny = wyceny.filter((w) => (w.data_wykonania || '').startsWith(monthPrefix));
+  const monthOgledziny = ogledziny.filter((o) => (o.data_planowana || '').startsWith(monthPrefix));
+  const monthPending = monthWyceny.filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji)).length;
+  const monthApproved = monthWyceny.filter((w) => w.status_akceptacji === 'zatwierdzono').length;
 
   const setF = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -382,6 +387,8 @@ export default function WycenaKalendarz() {
 
   return (
     <div style={S.root}>
+      <div style={S.bgOrbTop} />
+      <div style={S.bgOrbBottom} />
       {/* Header */}
       <div style={S.header}>
         <button style={S.backBtn} onClick={() => navigate(-1)}>←</button>
@@ -397,6 +404,25 @@ export default function WycenaKalendarz() {
       </div>
 
       <StatusMessage message={msg} style={S.msg} />
+
+      <div style={S.kpiRow}>
+        <div style={S.kpiCard}>
+          <div style={S.kpiLabel}>Miesiąc: wyceny</div>
+          <div style={S.kpiValue}>{monthWyceny.length}</div>
+        </div>
+        <div style={S.kpiCard}>
+          <div style={S.kpiLabel}>Miesiąc: oględziny</div>
+          <div style={S.kpiValue}>{monthOgledziny.length}</div>
+        </div>
+        <div style={S.kpiCard}>
+          <div style={S.kpiLabel}>Do decyzji</div>
+          <div style={{ ...S.kpiValue, color: 'var(--warning)' }}>{monthPending}</div>
+        </div>
+        <div style={S.kpiCard}>
+          <div style={S.kpiLabel}>Zatwierdzone</div>
+          <div style={{ ...S.kpiValue, color: 'var(--accent)' }}>{monthApproved}</div>
+        </div>
+      </div>
 
       <div style={S.body}>
         <div style={S.viewToggle}>
@@ -884,7 +910,9 @@ export default function WycenaKalendarz() {
 }
 
 const S = {
-  root: { minHeight: '100vh', backgroundColor: 'var(--bg)', color: 'var(--text)' },
+  root: { minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)', color: 'var(--text)', position: 'relative', overflow: 'hidden' },
+  bgOrbTop: { position: 'fixed', top: -140, right: -120, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.26) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
+  bgOrbBottom: { position: 'fixed', bottom: -150, left: -130, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(112,182,255,0.18) 0%, transparent 72%)', pointerEvents: 'none', zIndex: 0 },
   viewToggle: {
     width: '100%',
     flexBasis: '100%',
@@ -904,31 +932,48 @@ const S = {
     fontWeight: 600,
     cursor: 'pointer',
   },
-  viewBtnOn: {
-    borderColor: 'var(--accent)',
-    color: 'var(--accent)',
-    background: 'rgba(52, 211, 153, 0.12)',
-  },
+  viewBtnOn: { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--accent-surface)' },
 
-  header: { display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'linear-gradient(135deg, var(--sidebar), #1B4332)', borderBottom: '1px solid var(--border)' },
+  header: {
+    display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px',
+    background: 'linear-gradient(135deg, var(--sidebar), var(--bg-deep))',
+    borderBottom: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
+  },
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { marginLeft: 'auto', padding: '10px 20px', backgroundColor: 'var(--accent)', color: '#052E16', border: 'none', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer' },
+  addBtn: { marginLeft: 'auto', padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 
-  msg: { margin: '12px 24px' },
+  msg: { margin: '12px 24px', position: 'relative', zIndex: 1 },
+  kpiRow: {
+    margin: '0 24px 14px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+    gap: 10,
+    position: 'relative',
+    zIndex: 1,
+  },
+  kpiCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    padding: '10px 12px',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  kpiLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' },
+  kpiValue: { marginTop: 5, fontSize: 22, fontWeight: 800, color: 'var(--text)' },
 
-  body: { display: 'flex', gap: 20, padding: 20, flexWrap: 'wrap' },
+  body: { display: 'flex', gap: 20, padding: 20, flexWrap: 'wrap', position: 'relative', zIndex: 1 },
 
-  calBox: { flex: '0 0 360px', backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, border: '1px solid var(--border)', alignSelf: 'flex-start' },
+  calBox: { flex: '0 0 380px', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border2)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)' },
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 },
   dayHead: { textAlign: 'center', fontSize: 11, fontWeight: '600', color: 'var(--text-muted)', padding: '6px 0' },
-  dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', padding: 2, transition: 'background 0.15s' },
+  dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 10, cursor: 'pointer', padding: 2, transition: 'background 0.15s, transform 0.15s', border: '1px solid transparent' },
   todayCell: { border: '2px solid var(--accent)' },
-  selCell: { backgroundColor: 'var(--accent)', color: '#052E16' },
+  selCell: { backgroundColor: 'var(--accent)', color: 'var(--on-accent)' },
   emptyCell: { aspectRatio: '1' },
   dayNum: { fontSize: 13, color: 'var(--text-sub)' },
   dotRow: { display: 'flex', gap: 2, marginTop: 2 },
@@ -937,15 +982,15 @@ const S = {
   legenda: { display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 6 },
 
-  dayPanel: { flex: 1, minWidth: 300 },
+  dayPanel: { flex: 1, minWidth: 300, background: 'linear-gradient(150deg, rgba(255,255,255,0.02) 0%, transparent 100%)', border: '1px solid var(--border2)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
-  dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', padding: '3px 10px', borderRadius: 20 },
+  dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card2)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border2)' },
 
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, backgroundColor: 'var(--bg-card)', borderRadius: 16, border: '1px solid var(--border)' },
-  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: 'var(--accent)', color: '#052E16', border: 'none', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer' },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' },
+  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer' },
 
-  wycenaCard: { backgroundColor: 'var(--bg-card)', borderRadius: 14, padding: 16, marginBottom: 12, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' },
+  wycenaCard: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 16, marginBottom: 12, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
   wycenaTop: { display: 'flex', gap: 12, justifyContent: 'space-between' },
   wycenaKlient: { fontSize: 15, fontWeight: '600', color: 'var(--text)', marginBottom: 4 },
   wycenaSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
@@ -955,17 +1000,17 @@ const S = {
   detailRow: { display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 },
   detailLabel: { color: 'var(--text-muted)', minWidth: 100 },
   detailVal: { color: 'var(--text)', flex: 1 },
-  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: 'var(--accent)', color: '#052E16', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', fontSize: 13 },
+  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', fontSize: 13 },
 
   // Modal
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { backgroundColor: 'var(--bg-card)', borderRadius: 20, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid var(--border)' },
+  modal: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 20, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-lg)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: 'var(--text)' },
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },
 
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  formSection: { backgroundColor: 'var(--bg-deep)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 },
+  formSection: { backgroundColor: 'var(--bg-deep)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--border)' },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
@@ -991,6 +1036,6 @@ const S = {
   },
 
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
-  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14 },
-  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--accent)', color: '#052E16', border: 'none', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer' },
+  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14 },
+  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 };

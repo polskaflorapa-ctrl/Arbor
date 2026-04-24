@@ -8,21 +8,21 @@ import {
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
-import type { Theme } from '../constants/theme';
+import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 
 export default function OddzialyScreen() {
   const { theme } = useTheme();
   const rolaKolorMap = useMemo(() => ({
-    Dyrektor: theme.chartViolet,
+    Dyrektor: getRolaColor('Dyrektor'),
     Administrator: theme.warning,
     Kierownik: theme.info,
     Brygadzista: theme.success,
   }), [theme]);
   const statusKolorMap = useMemo(() => ({
     Nowe: theme.info,
-    Zaplanowane: theme.chartViolet,
+    Zaplanowane: theme.info,
     W_Realizacji: theme.warning,
     Zakonczone: theme.success,
     Anulowane: theme.danger,
@@ -158,8 +158,8 @@ export default function OddzialyScreen() {
                     <Text style={[S.kpiNum, { color: theme.warning }]}>{detailData.aktywneZlecenia}</Text>
                     <Text style={S.kpiLabel}>W realizacji</Text>
                   </View>
-                  <View style={[S.kpi, { borderTopColor: theme.chartViolet }]}>
-                    <Text style={[S.kpiNum, { color: theme.chartViolet }]}>{detailData.zlecenia.length}</Text>
+                  <View style={[S.kpi, { borderTopColor: theme.accent }]}>
+                    <Text style={[S.kpiNum, { color: theme.accent }]}>{detailData.zlecenia.length}</Text>
                     <Text style={S.kpiLabel}>Zleceń</Text>
                   </View>
                 </View>

@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, Modal, RefreshControl, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar,
+  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, Animated,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
@@ -15,6 +14,10 @@ import { getStoredSession } from '../utils/session';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
+import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
+import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
+import { PlatinumPressable } from '../components/ui/platinum-pressable';
+import { PLATINUM_MOTION } from '../constants/motion';
 import { triggerHaptic } from '../utils/haptics';
 
 const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
@@ -51,6 +54,8 @@ export default function ZatwierdzWycenyScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<TabKey>('oczekuje');
+  const [tabsWidth, setTabsWidth] = useState(0);
+  const tabAnim = useState(new Animated.Value(0))[0];
 
   const [approving, setApproving] = useState<any | null>(null);
   const [approveForm, setApproveForm] = useState({
@@ -104,6 +109,15 @@ export default function ZatwierdzWycenyScreen() {
   const onRefresh = () => { setRefreshing(true); loadAll(); };
 
   const filtered = wyceny.filter(w => w.status_akceptacji === tab);
+
+  useEffect(() => {
+    const idx = TABS.indexOf(tab);
+    Animated.spring(tabAnim, {
+      toValue: idx < 0 ? 0 : idx,
+      ...PLATINUM_MOTION.spring.tabs,
+      useNativeDriver: true,
+    }).start();
+  }, [tab, tabAnim]);
 
   const openApprove = (w: any) => {
     setApproveForm({
@@ -208,6 +222,8 @@ export default function ZatwierdzWycenyScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
+      <View pointerEvents="none" style={S.bgOrbTop} />
+      <View pointerEvents="none" style={S.bgOrbBottom} />
       <StatusBar
         barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={theme.headerBg}
@@ -216,31 +232,56 @@ export default function ZatwierdzWycenyScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>{t('approve.screenTitle')}</Text>
         <View style={{ width: 36 }} />
       </View>
       <View style={S.platinumBar}>
-        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={S.platinumBarIcon} />
         <Text style={S.platinumBarText}>Platinum Approval Deck</Text>
       </View>
       {runtimeError ? (
         <View style={S.errorBar}>
-          <Ionicons name="warning-outline" size={14} color={theme.warning} />
+          <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={S.platinumBarIcon} />
           <Text style={S.errorBarText}>{runtimeError}</Text>
         </View>
       ) : null}
 
       {/* Tabs */}
-      <View style={S.tabsRow}>
+      <View
+        style={S.tabsRow}
+        onLayout={(e) => setTabsWidth(e.nativeEvent.layout.width)}
+      >
+        {tabsWidth > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              S.tabIndicator,
+              {
+                width: tabsWidth / TABS.length,
+                transform: [
+                  {
+                    translateX: tabAnim.interpolate({
+                      inputRange: [0, TABS.length - 1],
+                      outputRange: [0, tabsWidth - tabsWidth / TABS.length],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ) : null}
         {TABS.map((tabKey) => {
           const count = wyceny.filter(w => w.status_akceptacji === tabKey).length;
           return (
             <TouchableOpacity
               key={tabKey}
-              style={[S.tabBtn, tab === tabKey && { borderBottomColor: statusColor[tabKey] }]}
-              onPress={() => setTab(tabKey)}
+              style={[S.tabBtn, tab === tabKey && { backgroundColor: statusColor[tabKey] + '1A' }]}
+              onPress={() => {
+                void triggerHaptic('light');
+                setTab(tabKey);
+              }}
             >
               <Text style={[S.tabText, tab === tabKey && { color: statusColor[tabKey] }]}>
                 {t(tabLabelKey(tabKey))}
@@ -264,7 +305,7 @@ export default function ZatwierdzWycenyScreen() {
       >
         {filtered.length === 0 ? (
           <View style={S.empty}>
-            <Ionicons name="checkmark-circle-outline" size={48} color={theme.textMuted} />
+            <PlatinumIconBadge icon="checkmark-circle-outline" color={theme.textMuted} size={24} style={{ width: 42, height: 42, borderRadius: 13 }} />
             <Text style={S.emptyText}>
               {t(tabEmptyKey(tab))}
             </Text>
@@ -291,14 +332,14 @@ export default function ZatwierdzWycenyScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
-          <View style={S.modalSheet}>
+          <PlatinumModalSheet visible={!!approving} style={S.modalSheet}>
             <View style={S.modalHeader}>
               <View>
                 <Text style={S.modalTitle}>{t('approve.modalApproveTitle')}</Text>
                 <Text style={S.modalSub}>{approving?.adres}</Text>
               </View>
               <TouchableOpacity onPress={() => setApproving(null)}>
-                <Ionicons name="close" size={24} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
 
@@ -361,7 +402,7 @@ export default function ZatwierdzWycenyScreen() {
             <View style={S.modalActions}>
               <TouchableOpacity style={S.rejectBtn}
                 onPress={() => { setApproving(null); setRejecting(approving); setRejectReason(''); }}>
-                <Ionicons name="close-circle-outline" size={16} color={theme.danger} />
+                <PlatinumIconBadge icon="close-circle-outline" color={theme.danger} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                 <Text style={S.rejectBtnText}>{t('approve.btn.reject')}</Text>
               </TouchableOpacity>
               <PlatinumCTA
@@ -372,7 +413,7 @@ export default function ZatwierdzWycenyScreen() {
                 label={t('approve.btn.approveCreate')}
               />
             </View>
-          </View>
+          </PlatinumModalSheet>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -383,11 +424,11 @@ export default function ZatwierdzWycenyScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
-          <View style={[S.modalSheet, { maxHeight: '55%' }]}>
+          <PlatinumModalSheet visible={!!rejecting} style={[S.modalSheet, { maxHeight: '55%' }]}>
             <View style={S.modalHeader}>
               <Text style={S.modalTitle}>{t('approve.rejectModalTitle')}</Text>
               <TouchableOpacity onPress={() => setRejecting(null)}>
-                <Ionicons name="close" size={24} color={theme.textMuted} />
+                <PlatinumIconBadge icon="close" color={theme.textMuted} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <View style={{ padding: 20 }}>
@@ -408,7 +449,7 @@ export default function ZatwierdzWycenyScreen() {
                 />
               </View>
             </View>
-          </View>
+          </PlatinumModalSheet>
         </KeyboardAvoidingView>
       </Modal>
     </KeyboardSafeScreen>
@@ -436,7 +477,7 @@ function WycenaItem({
 
   return (
     <View style={S.card}>
-      <TouchableOpacity onPress={() => setOpen(o => !o)} activeOpacity={0.85}>
+      <PlatinumPressable onPress={() => setOpen(o => !o)}>
         <View style={[S.cardBorder, { borderLeftColor: statusCol }]}>
           <View style={S.cardTop}>
             <Text style={S.cardTitle} numberOfLines={1}>{w.adres || t('approve.card.unknownAddress')}</Text>
@@ -457,7 +498,7 @@ function WycenaItem({
           </View>
           <View style={S.cardFooter}>
             {w.opis && <Text style={S.cardOpisText} numberOfLines={open ? undefined : 1}>{w.opis}</Text>}
-            <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} style={{ alignSelf: 'flex-end', marginTop: 4 }} />
+            <PlatinumIconBadge icon={open ? 'chevron-up' : 'chevron-down'} color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 8, alignSelf: 'flex-end', marginTop: 4 }} />
           </View>
           {open && (
             <View style={S.expandedSection}>
@@ -471,17 +512,19 @@ function WycenaItem({
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </PlatinumPressable>
       {(tab === 'oczekuje' || tab === 'rezerwacja_wstepna' || tab === 'do_specjalisty') && (
         <View style={S.actionRow}>
-          <TouchableOpacity style={S.rejectBtn} onPress={onReject}>
-            <Ionicons name="close-circle-outline" size={14} color={theme.danger} />
-            <Text style={S.rejectBtnText}>{t('approve.btn.reject')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={S.approveSmallBtn} onPress={onApprove}>
-            <Ionicons name="checkmark-circle-outline" size={14} color={theme.accent} />
-            <Text style={[S.approveSmallText, { color: theme.accent }]}>{t('approve.btn.approveShort')}</Text>
-          </TouchableOpacity>
+          <PlatinumCTA
+            style={[S.rejectBtn, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}
+            label={t('approve.btn.reject')}
+            onPress={onReject}
+          />
+          <PlatinumCTA
+            style={[S.approveSmallBtn, { backgroundColor: theme.accent }]}
+            label={t('approve.btn.approveShort')}
+            onPress={onApprove}
+          />
         </View>
       )}
     </View>
@@ -492,7 +535,7 @@ function MetaTag({ icon, text, ekipaColor, theme }: { icon: any; text: string; e
   const S = makeStyles(theme);
   return (
     <View style={S.metaTag}>
-      {ekipaColor ? <View style={[S.ekipaDotSmall, { backgroundColor: ekipaColor }]} /> : <Ionicons name={icon} size={12} color={theme.textMuted} />}
+      {ekipaColor ? <View style={[S.ekipaDotSmall, { backgroundColor: ekipaColor }]} /> : <PlatinumIconBadge icon={icon} color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />}
       <Text style={S.metaTagText}>{text}</Text>
     </View>
   );
@@ -511,6 +554,24 @@ function InfoRow({ label, value, theme }: { label: string; value: string; theme:
 const makeStyles = (t: Theme) => StyleSheet.create({
   // Platinum style accents
   root: { flex: 1, backgroundColor: t.bg },
+  bgOrbTop: {
+    position: 'absolute',
+    top: -120,
+    right: -90,
+    width: 250,
+    height: 250,
+    borderRadius: 140,
+    backgroundColor: t.accent + '20',
+  },
+  bgOrbBottom: {
+    position: 'absolute',
+    bottom: 120,
+    left: -80,
+    width: 220,
+    height: 220,
+    borderRadius: 120,
+    backgroundColor: t.chartCyan + '14',
+  },
   centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 12, paddingBottom: 40 },
 
@@ -518,6 +579,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
     backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.accent + '55',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.58,
+    shadowRadius: t.shadowRadius * 1.05,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: t.cardElevation + 1,
   },
   headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, letterSpacing: 0.35 },
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
@@ -534,7 +600,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.35,
+    shadowRadius: t.shadowRadius * 0.6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: t.cardElevation,
   },
+  platinumBarIcon: { width: 22, height: 22, borderRadius: 8 },
   platinumBarText: {
     color: t.accent,
     fontSize: 11,
@@ -561,11 +633,25 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   tabsRow: {
     flexDirection: 'row', backgroundColor: t.cardBg,
     borderBottomWidth: 1, borderBottomColor: t.accent + '2E',
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.2,
+    shadowRadius: t.shadowRadius * 0.4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  tabIndicator: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    height: 3,
+    backgroundColor: t.accent,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
   },
   tabBtn: {
     flex: 1, paddingVertical: 12, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: 6,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabText: { fontSize: 12, fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 },
   tabBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
@@ -575,8 +661,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyText: { color: t.textMuted, fontSize: 15 },
 
   card: {
-    backgroundColor: t.cardBg, borderRadius: 14, marginBottom: 10,
+    backgroundColor: t.cardBg, borderRadius: 18, marginBottom: 10,
     overflow: 'hidden', borderWidth: 1, borderColor: t.accent + '2E',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.45,
+    shadowRadius: t.shadowRadius,
+    shadowOffset: { width: 0, height: t.shadowOffsetY },
+    elevation: t.cardElevation,
   },
   cardBorder: { borderLeftWidth: 4, padding: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
@@ -590,7 +681,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.25 },
 
   metaTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: t.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: t.accent + '22',
   },
   metaTagText: { fontSize: 12, color: t.textSub },
@@ -603,19 +694,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   infoBox: {
     backgroundColor: t.bg, borderRadius: 10, padding: 12,
     borderWidth: 1, borderColor: t.border, marginBottom: 8,
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.18,
+    shadowRadius: t.shadowRadius * 0.4,
+    shadowOffset: { width: 0, height: 2 },
   },
 
-  actionRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: t.border },
+  actionRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: t.border, padding: 10, gap: 8 },
   rejectBtn: {
-    flex: 1, paddingVertical: 11, alignItems: 'center',
-    flexDirection: 'row', justifyContent: 'center', gap: 6,
-    borderRightWidth: 1, borderRightColor: t.border,
+    flex: 1,
   },
   rejectBtnText: { fontSize: 14, color: t.danger, fontWeight: '600' },
   approveSmallBtn: {
-    flex: 1, paddingVertical: 11, alignItems: 'center',
-    flexDirection: 'row', justifyContent: 'center', gap: 6,
-    backgroundColor: t.accent + '15', borderLeftWidth: 1, borderLeftColor: t.accent + '44',
+    flex: 1,
   },
   approveSmallText: { fontSize: 14, fontWeight: '700' },
 
@@ -623,10 +714,15 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalSheet: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     maxHeight: '90%', paddingBottom: 24, borderTopWidth: 1, borderTopColor: t.accent + '4A',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.42,
+    shadowRadius: t.shadowRadius * 0.85,
+    shadowOffset: { width: 0, height: -4 },
   },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 20, borderBottomWidth: 1, borderBottomColor: t.border,
+    backgroundColor: t.surface3,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: t.text },
   modalSub: { fontSize: 13, color: t.textMuted, marginTop: 2 },
@@ -654,6 +750,11 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1, backgroundColor: t.accent, borderRadius: 10,
     paddingVertical: 13, alignItems: 'center',
     flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: t.accent + '66',
+    shadowColor: t.shadowColor,
+    shadowOpacity: t.shadowOpacity * 0.42,
+    shadowRadius: t.shadowRadius * 0.55,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: t.cardElevation,
   },
 
   cancelBtn: {

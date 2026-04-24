@@ -232,102 +232,62 @@ export default function Kierownik() {
           <div style={styles.filtrCount}>{t('pages.kierownik.countTasks', { count: filtrowane.length })}</div>
         </div>
 
-        {/* Tabela zleceń */}
+        {/* Lista zleceń cards-first */}
         {loading ? (
           <div style={styles.loading}>{t('pages.kierownik.loadingTasks')}</div>
         ) : (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>{t('pages.kierownik.thId')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thClient')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thAddress')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thBranch')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thDate')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thStatus')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thTeam')}</th>
-                  <th style={styles.th}>{t('pages.kierownik.thChangeStatus')}</th>
-                  <th style={styles.th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrowane.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={{...styles.td, textAlign: 'center', color: 'var(--text-muted)', padding: 60}}>
-                      <div style={{ ...styles.emptyIcon, display: 'flex', justifyContent: 'center' }}>
-                        <MapOutlined sx={{ fontSize: 48, opacity: 0.35, color: 'var(--text-muted)' }} />
+          <div style={styles.cardsWrap}>
+            {filtrowane.length === 0 ? (
+              <div style={{ ...styles.tableWrap, textAlign: 'center', color: 'var(--text-muted)', padding: 60 }}>
+                <div style={{ ...styles.emptyIcon, display: 'flex', justifyContent: 'center' }}>
+                  <MapOutlined sx={{ fontSize: 48, opacity: 0.35, color: 'var(--text-muted)' }} />
+                </div>
+                <p>{t('pages.kierownik.emptyFiltered')}</p>
+              </div>
+            ) : (
+              <div style={styles.cardsGrid}>
+                {filtrowane.map((z) => (
+                  <div key={z.id} style={styles.taskCard}>
+                    <div style={styles.taskCardTop}>
+                      <span style={styles.idBadge}>#{z.id}</span>
+                      <span style={{ ...styles.badge, backgroundColor: STATUS_KOLOR[z.status] || '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <TaskStatusIcon status={z.status} size={14} color="#fff" />
+                        {t(`taskStatus.${z.status}`, { defaultValue: z.status })}
+                      </span>
+                    </div>
+                    <div style={styles.klientNazwa}>{z.klient_nazwa}</div>
+                    {z.klient_telefon && (
+                      <div style={{ ...styles.klientTel, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <LocalPhoneOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
+                        {z.klient_telefon}
                       </div>
-                      <p>{t('pages.kierownik.emptyFiltered')}</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filtrowane.map((z, i) => (
-                    <tr key={z.id} style={{backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)'}}>
-                      <td style={styles.td}>
-                        <span style={styles.idBadge}>#{z.id}</span>
-                      </td>
-                      <td style={styles.td}>
-                        <div style={styles.klientNazwa}>{z.klient_nazwa}</div>
-                        {z.klient_telefon && (
-                          <div style={{ ...styles.klientTel, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <LocalPhoneOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
-                            {z.klient_telefon}
-                          </div>
-                        )}
-                      </td>
-                      <td style={styles.td}>
-                        <div>{z.adres}</div>
-                        {z.miasto && <div style={styles.miasto}>{z.miasto}</div>}
-                      </td>
-                      <td style={styles.td}>
-                        <span style={styles.oddzialBadge}>{z.oddzial_nazwa || '-'}</span>
-                      </td>
-                      <td style={styles.td}>
-                        <div>{z.data_planowana ? z.data_planowana.split('T')[0] : '-'}</div>
-                        {z.priorytet && <span style={styles.priorytetBadge(z.priorytet)}>{z.priorytet}</span>}
-                      </td>
-                      <td style={styles.td}>
-                        <span style={{ ...styles.badge, backgroundColor: STATUS_KOLOR[z.status] || '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <TaskStatusIcon status={z.status} size={14} color="#fff" />
-                          {t(`taskStatus.${z.status}`, { defaultValue: z.status })}
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.select}
-                          value={z.ekipa_id || ''}
-                          onChange={e => przypisz(z.id, e.target.value)}
-                        >
-                          <option value="">{t('common.noneShort')}</option>
-                          {ekipyDlaOddzialu(z.oddzial_id).map(e => (
-                            <option key={e.id} value={e.id}>{e.nazwa}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <select
-                          style={styles.select}
-                          value={z.status}
-                          onChange={e => zmienStatus(z.id, e.target.value)}
-                        >
-                          <option value="Nowe">{t('taskStatus.Nowe')}</option>
-                          <option value="Zaplanowane">{t('taskStatus.Zaplanowane')}</option>
-                          <option value="W_Realizacji">{t('taskStatus.W_Realizacji')}</option>
-                          <option value="Zakonczone">{t('taskStatus.Zakonczone')}</option>
-                          <option value="Anulowane">{t('taskStatus.Anulowane')}</option>
-                        </select>
-                      </td>
-                      <td style={styles.td}>
-                        <button style={styles.detailBtn} onClick={() => navigate(`/zlecenia/${z.id}`)}>
-                          {t('pages.kierownik.detailsBtn')}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                    )}
+                    <div style={styles.taskMeta}>{z.adres}{z.miasto ? `, ${z.miasto}` : ''}</div>
+                    <div style={styles.taskRow}>
+                      <span style={styles.oddzialBadge}>{z.oddzial_nazwa || '-'}</span>
+                      <span style={styles.taskDate}>{z.data_planowana ? z.data_planowana.split('T')[0] : '-'}</span>
+                    </div>
+                    {z.priorytet && <span style={styles.priorytetBadge(z.priorytet)}>{z.priorytet}</span>}
+                    <div style={styles.taskActions}>
+                      <select style={styles.select} value={z.ekipa_id || ''} onChange={e => przypisz(z.id, e.target.value)}>
+                        <option value="">{t('common.noneShort')}</option>
+                        {ekipyDlaOddzialu(z.oddzial_id).map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
+                      </select>
+                      <select style={styles.select} value={z.status} onChange={e => zmienStatus(z.id, e.target.value)}>
+                        <option value="Nowe">{t('taskStatus.Nowe')}</option>
+                        <option value="Zaplanowane">{t('taskStatus.Zaplanowane')}</option>
+                        <option value="W_Realizacji">{t('taskStatus.W_Realizacji')}</option>
+                        <option value="Zakonczone">{t('taskStatus.Zakonczone')}</option>
+                        <option value="Anulowane">{t('taskStatus.Anulowane')}</option>
+                      </select>
+                      <button style={styles.detailBtn} onClick={() => navigate(`/zlecenia/${z.id}`)}>
+                        {t('pages.kierownik.detailsBtn')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -355,6 +315,23 @@ const styles = {
   clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   filtrCount: { marginLeft: 'auto', fontSize: 13, color: 'var(--accent)', fontWeight: '600' },
   tableWrap: { backgroundColor: 'var(--bg-card)', borderRadius: 12, overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  cardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
+  cardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 },
+  taskCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  taskCardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  taskMeta: { fontSize: 12, color: 'var(--text-sub)' },
+  taskRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  taskDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
+  taskActions: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center', marginTop: 4 },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 900 },
   th: { padding: '12px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600', position: 'sticky', top: 0 },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' },

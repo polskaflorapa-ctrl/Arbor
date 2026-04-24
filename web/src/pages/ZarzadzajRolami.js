@@ -13,15 +13,15 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 
 // ─── Kolory ról (fallback jeśli brak w DB) ───────────────────
 const DEFAULT_ROLE_COLORS = {
-  Dyrektor: '#8B5CF6',
-  Administrator: '#F59E0B',
-  Kierownik: '#3B82F6',
-  Brygadzista: '#10B981',
-  Specjalista: '#06B6D4',
-  Wyceniający: '#A78BFA',
-  Pomocnik: '#94A3B8',
-  'Pomocnik bez doświadczenia': '#64748B',
-  Magazynier: '#F97316',
+  Dyrektor: '#f59e0b',
+  Administrator: '#fbbf24',
+  Kierownik: '#38bdf8',
+  Brygadzista: '#34d399',
+  Specjalista: '#22d3ee',
+  Wyceniający: '#94a3b8',
+  Pomocnik: '#94a3b8',
+  'Pomocnik bez doświadczenia': '#64748b',
+  Magazynier: '#fb923c',
 };
 
 // ─── Grupy uprawnień (schemat) ───────────────────────────────

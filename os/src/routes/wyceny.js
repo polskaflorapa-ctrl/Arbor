@@ -339,7 +339,7 @@ router.post('/', authMiddleware, validateBody(wycenyCreateSchema), async (req, r
   }
 });
 
-router.get('/:id(\\d+)', authMiddleware, validateParams(wycenaIdParamsSchema), async (req, res) => {
+router.get('/:id', authMiddleware, validateParams(wycenaIdParamsSchema), async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT w.*, u.imie || ' ' || u.nazwisko AS autor_nazwa, pe.nazwa AS proponowana_ekipa_nazwa, t.id AS task_id,
@@ -363,7 +363,7 @@ router.get('/:id(\\d+)', authMiddleware, validateParams(wycenaIdParamsSchema), a
   }
 });
 
-router.patch('/:id(\\d+)/status', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaPatchStatusSchema), async (req, res) => {
+router.patch('/:id/status', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaPatchStatusSchema), async (req, res) => {
   try {
     const { status } = req.body;
     const { rows } = await pool.query(`UPDATE wyceny SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`, [status, req.params.id]);
@@ -375,7 +375,7 @@ router.patch('/:id(\\d+)/status', authMiddleware, validateParams(wycenaIdParamsS
   }
 });
 
-router.post('/:id(\\d+)/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaZatwierdzSchema), async (req, res) => {
+router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaZatwierdzSchema), async (req, res) => {
   if (!canManage(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
     const planEkipa = ekipa_id || null;
@@ -476,7 +476,7 @@ router.post('/:id(\\d+)/zatwierdz', authMiddleware, validateParams(wycenaIdParam
   }
 });
 
-router.post('/:id(\\d+)/klient-akceptuje', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaKlientAcceptSchema), async (req, res) => {
+router.post('/:id/klient-akceptuje', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaKlientAcceptSchema), async (req, res) => {
   try {
     const { uwagi } = req.body;
     const { rows } = await pool.query(
@@ -567,7 +567,7 @@ router.get('/availability/slots', authMiddleware, validateQuery(wycenaSlotsQuery
   }
 });
 
-router.post('/:id(\\d+)/rezerwuj-termin', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaReserveSchema), async (req, res) => {
+router.post('/:id/rezerwuj-termin', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaReserveSchema), async (req, res) => {
   try {
     const wycenaId = Number(req.params.id);
     await backfillWycenaGeoFromTaskPin(wycenaId);
@@ -609,7 +609,7 @@ router.post('/:id(\\d+)/rezerwuj-termin', authMiddleware, validateParams(wycenaI
   }
 });
 
-router.post('/:id(\\d+)/odrzuc', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaOdrzucSchema), async (req, res) => {
+router.post('/:id/odrzuc', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaOdrzucSchema), async (req, res) => {
   if (!canManage(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
     const { powod } = req.body;
@@ -625,7 +625,7 @@ router.post('/:id(\\d+)/odrzuc', authMiddleware, validateParams(wycenaIdParamsSc
   }
 });
 
-router.delete('/:id(\\d+)', authMiddleware, validateParams(wycenaIdParamsSchema), async (req, res) => {
+router.delete('/:id', authMiddleware, validateParams(wycenaIdParamsSchema), async (req, res) => {
   if (!isDyrektor(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
     await pool.query('DELETE FROM wyceny WHERE id=$1', [req.params.id]);

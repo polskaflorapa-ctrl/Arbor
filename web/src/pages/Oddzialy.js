@@ -217,7 +217,7 @@ export default function Oddzialy() {
                       {t('pages.oddzialy.delegation')}
                     </span>
                   </button>
-                  <button type="button" style={S.headerBtn('#8B5CF6')} onClick={() => setShowPrzenies(!showPrzenies)}>
+                  <button type="button" style={S.headerBtn('#38bdf8')} onClick={() => setShowPrzenies(!showPrzenies)}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                       <SwapHorizOutlined sx={{ fontSize: 18 }} />
                       {t('pages.oddzialy.transfer')}
@@ -435,50 +435,61 @@ export default function Oddzialy() {
 
         {/* TAB: Delegacje */}
         {activeTab === 'delegacje' && (
-          <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={S.delegacjeWrap}>
             {delegacje.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
                   <DriveEtaOutlined sx={{ fontSize: 48, opacity: 0.45 }} />
                 </div>
                 <p>{t('pages.oddzialy.emptyDelegations')}</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['Ekipa', 'Z oddziału', 'Do oddziału', 'Cel', 'Data od', 'Data do', 'Status', 'Akcja'].map(h => (
-                      <th key={h} style={{ padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {delegacje.map((d, i) => (
-                    <tr key={d.id} style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)' }}>
-                      <td style={S.td}><strong>{d.ekipa_nazwa || '-'}</strong></td>
-                      <td style={S.td}>{d.oddzial_z_nazwy || '-'}</td>
-                      <td style={S.td}>{d.oddzial_do_nazwy || '-'}</td>
-                      <td style={S.td}>{d.cel || '-'}</td>
-                      <td style={S.td}>{d.data_od?.split('T')[0] || '-'}</td>
-                      <td style={S.td}>{d.data_do?.split('T')[0] || '-'}</td>
-                      <td style={S.td}>
-                        <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 12, fontWeight: '600', backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6B7280' }}>
-                          {d.status}
-                        </span>
-                      </td>
-                      <td style={S.td}>
-                        <select style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, cursor: 'pointer' }}
-                          value={d.status} onChange={e => zmienStatusDelegacji(d.id, e.target.value)}>
-                          <option value="Planowana">Planowana</option>
-                          <option value="W_trakcie">W trakcie</option>
-                          <option value="Zakonczona">Zakończona</option>
-                          <option value="Anulowana">Anulowana</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={S.delegacjeGrid}>
+                {delegacje.map((d) => (
+                  <div key={d.id} style={S.delegacjaCard}>
+                    <div style={S.delegacjaTop}>
+                      <strong style={{ fontSize: 14, color: 'var(--text)' }}>{d.ekipa_nazwa || '-'}</strong>
+                      <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6B7280' }}>
+                        {d.status}
+                      </span>
+                    </div>
+                    <div style={S.delegacjaMetaRow}>
+                      <span style={S.delegacjaMetaLabel}>Z oddziału</span>
+                      <span style={S.delegacjaMetaValue}>{d.oddzial_z_nazwy || '-'}</span>
+                    </div>
+                    <div style={S.delegacjaMetaRow}>
+                      <span style={S.delegacjaMetaLabel}>Do oddziału</span>
+                      <span style={S.delegacjaMetaValue}>{d.oddzial_do_nazwy || '-'}</span>
+                    </div>
+                    <div style={S.delegacjaMetaRow}>
+                      <span style={S.delegacjaMetaLabel}>Cel</span>
+                      <span style={S.delegacjaMetaValue}>{d.cel || '-'}</span>
+                    </div>
+                    <div style={S.delegacjaDates}>
+                      <div style={S.delegacjaDateBox}>
+                        <div style={S.delegacjaDateLabel}>Data od</div>
+                        <div style={S.delegacjaDateValue}>{d.data_od?.split('T')[0] || '-'}</div>
+                      </div>
+                      <div style={S.delegacjaDateBox}>
+                        <div style={S.delegacjaDateLabel}>Data do</div>
+                        <div style={S.delegacjaDateValue}>{d.data_do?.split('T')[0] || '-'}</div>
+                      </div>
+                    </div>
+                    <div style={S.delegacjaActionRow}>
+                      <select
+                        style={S.delegacjaSelect}
+                        value={d.status}
+                        onChange={e => zmienStatusDelegacji(d.id, e.target.value)}
+                      >
+                        <option value="Planowana">Planowana</option>
+                        <option value="W_trakcie">W trakcie</option>
+                        <option value="Zakonczona">Zakończona</option>
+                        <option value="Anulowana">Anulowana</option>
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -508,4 +519,27 @@ const S = {
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   submitBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  delegacjeWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
+  delegacjeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
+  delegacjaCard: {
+    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    border: '1px solid var(--border2)',
+    borderRadius: 14,
+    boxShadow: 'var(--shadow-sm)',
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  delegacjaTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  delegacjaStatus: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 700 },
+  delegacjaMetaRow: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' },
+  delegacjaMetaLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700 },
+  delegacjaMetaValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
+  delegacjaDates: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 2 },
+  delegacjaDateBox: { background: 'var(--bg-deep)', border: '1px solid var(--border2)', borderRadius: 10, padding: '8px 10px' },
+  delegacjaDateLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.04em' },
+  delegacjaDateValue: { fontSize: 12, color: 'var(--text)', fontWeight: 700, marginTop: 2 },
+  delegacjaActionRow: { display: 'flex', justifyContent: 'flex-end', marginTop: 4 },
+  delegacjaSelect: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 12, cursor: 'pointer', minWidth: 140 },
 };

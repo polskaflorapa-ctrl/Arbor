@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -6,12 +5,15 @@ import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import {
   ActivityIndicator, Alert, Modal, RefreshControl, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar,
+  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, Animated,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { API_URL } from '../constants/api';
+import { PLATINUM_MOTION } from '../constants/motion';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
+import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
@@ -48,6 +50,24 @@ function makeCalendarStyles(t: Theme) {
   const platinumSoft = t.accent + '22';
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
+    bgOrbTop: {
+      position: 'absolute',
+      top: -120,
+      right: -90,
+      width: 250,
+      height: 250,
+      borderRadius: 140,
+      backgroundColor: t.accent + '20',
+    },
+    bgOrbBottom: {
+      position: 'absolute',
+      bottom: 120,
+      left: -80,
+      width: 220,
+      height: 220,
+      borderRadius: 120,
+      backgroundColor: t.chartCyan + '14',
+    },
     centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
     scroll: { paddingBottom: 40 },
 
@@ -55,12 +75,19 @@ function makeCalendarStyles(t: Theme) {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
       backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: platinumBorder,
+      shadowColor: t.shadowColor,
+      shadowOpacity: t.shadowOpacity * 0.58,
+      shadowRadius: t.shadowRadius * 1.05,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: t.cardElevation + 1,
     },
     headerTitle: { fontSize: t.fontSection + 2, fontWeight: '800', color: t.headerText, letterSpacing: 0.4 },
     backBtn: { padding: 4 },
     addBtn: {
-      backgroundColor: t.success, borderRadius: t.radiusSm, padding: 6, borderWidth: 1, borderColor: platinumBorder,
+      width: 34, height: 34, alignItems: 'center', justifyContent: 'center',
+      borderRadius: t.radiusSm, borderWidth: 1, borderColor: platinumBorder, backgroundColor: t.surface2,
     },
+    addBtnIcon: { width: 24, height: 24, borderRadius: 8 },
     platinumBar: {
       marginHorizontal: 12,
       marginTop: 10,
@@ -74,7 +101,13 @@ function makeCalendarStyles(t: Theme) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
+      shadowColor: t.shadowColor,
+      shadowOpacity: t.shadowOpacity * 0.35,
+      shadowRadius: t.shadowRadius * 0.6,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: t.cardElevation,
     },
+    platinumBarIcon: { width: 22, height: 22, borderRadius: 8 },
     platinumBarText: {
       color: t.accent,
       fontSize: 11,
@@ -144,7 +177,7 @@ function makeCalendarStyles(t: Theme) {
       marginBottom: 8,
     },
     daySectionTitle: { fontSize: 15, fontWeight: '700', color: t.text },
-    addDayBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    addDayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     addDayText: { fontSize: 13, color: t.success, fontWeight: '600' },
     emptyDay: { alignItems: 'center', paddingVertical: 24, gap: 8 },
     emptyDayText: { color: t.textMuted, fontSize: 14 },
@@ -153,7 +186,7 @@ function makeCalendarStyles(t: Theme) {
     sectionTitle: { fontSize: 15, fontWeight: '800', color: t.text, marginBottom: 8, letterSpacing: 0.3 },
 
     wCard: {
-      backgroundColor: t.cardBg, borderRadius: t.radiusMd, padding: 12,
+      backgroundColor: t.cardBg, borderRadius: t.radiusLg, padding: 14,
       marginBottom: 8, flexDirection: 'row', alignItems: 'center',
       borderWidth: 1, borderColor: platinumBorder,
       ...elevationCard(t),
@@ -174,15 +207,20 @@ function makeCalendarStyles(t: Theme) {
       justifyContent: 'flex-end',
     },
     modalSheet: {
-      backgroundColor: t.surface2, borderTopLeftRadius: t.radiusXl, borderTopRightRadius: t.radiusXl,
+      backgroundColor: t.surface2, borderTopLeftRadius: 28, borderTopRightRadius: 28,
       maxHeight: '90%', paddingBottom: 24,
       borderTopWidth: 1, borderTopColor: platinumBorder,
+      shadowColor: t.shadowColor,
+      shadowOpacity: t.shadowOpacity * 0.42,
+      shadowRadius: t.shadowRadius * 0.85,
+      shadowOffset: { width: 0, height: -4 },
     },
     modalHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       padding: 20, borderBottomWidth: 1, borderBottomColor: t.border,
+      backgroundColor: t.surface3,
     },
-    modalTitle: { fontSize: t.fontSection + 2, fontWeight: '700', color: t.text },
+    modalTitle: { fontSize: t.fontSection + 3, fontWeight: '800', color: t.text, letterSpacing: 0.4 },
     modalScroll: { paddingHorizontal: 20, paddingTop: 12 },
 
     label: { fontSize: 12, fontWeight: '800', color: t.textSub, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.7 },
@@ -197,7 +235,7 @@ function makeCalendarStyles(t: Theme) {
     pillsScroll: { marginBottom: 6 },
     pill: {
       backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 14,
-      paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: platinumBorder,
+      paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: platinumBorder,
     },
     pillActive: { backgroundColor: t.success, borderColor: t.success },
     pillText: { fontSize: 13, color: t.textSub, fontWeight: '600' },
@@ -206,7 +244,7 @@ function makeCalendarStyles(t: Theme) {
     ekipaPill: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 12,
-      paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.accent + '33',
+      paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: t.accent + '33',
     },
     ekipaDot: { width: 8, height: 8, borderRadius: 4 },
     ekipaText: { fontSize: 13, color: t.text, fontWeight: '500' },
@@ -216,6 +254,11 @@ function makeCalendarStyles(t: Theme) {
     submitBtn: {
       backgroundColor: t.success, borderRadius: t.radiusMd, paddingVertical: 14,
       marginHorizontal: 20, marginTop: 8, alignItems: 'center', borderWidth: 1, borderColor: platinumBorder,
+      shadowColor: t.shadowColor,
+      shadowOpacity: t.shadowOpacity * 0.44,
+      shadowRadius: t.shadowRadius * 0.6,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: t.cardElevation,
     },
     submitBtnDisabled: { opacity: 0.6 },
   });
@@ -240,7 +283,7 @@ function wycenaApprovalTabKey(status: string | undefined): string | null {
   }
 }
 
-function pickBestOperationalSlot(slots: Array<{ time: string; eta_minutes?: number | null }>, etaThresholdMinutes: number) {
+function pickBestOperationalSlot(slots: { time: string; eta_minutes?: number | null }[], etaThresholdMinutes: number) {
   const withEta = (slots || []).filter((s) => s.eta_minutes != null);
   const safeEta = withEta.filter((s) => Number(s.eta_minutes) <= etaThresholdMinutes);
   if (safeEta.length > 0) return { best: safeEta[0], warning: '' };
@@ -271,6 +314,7 @@ export default function WycenaKalendarzScreen() {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
+  const monthPulse = useState(new Animated.Value(0))[0];
 
   const monthLocale = language === 'uk' ? 'uk-UA' : language === 'ru' ? 'ru-RU' : 'pl-PL';
   const monthTitleCal = useMemo(
@@ -293,10 +337,24 @@ export default function WycenaKalendarzScreen() {
     });
   }, [viewYear, viewMonth, selectedDay, monthLocale]);
 
+  useEffect(() => {
+    monthPulse.setValue(0);
+    Animated.timing(monthPulse, {
+      toValue: 1,
+      duration: PLATINUM_MOTION.duration.medium,
+      useNativeDriver: true,
+    }).start();
+  }, [monthPulse, viewMonth, viewYear]);
+
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [reserveModal, setReserveModal] = useState<any | null>(null);
-  const [reserveDraft, setReserveDraft] = useState({ ekipa_id: '', data: '', godzina: '08:00', slots: [] as Array<{ time: string; score?: number; eta_minutes?: number | null; eta_source?: string | null; eta_unavailable_reason?: string | null }> });
+  const [reserveDraft, setReserveDraft] = useState<{ ekipa_id: string; data: string; godzina: string; slots: { time: string; score?: number; eta_minutes?: number | null; eta_source?: string | null; eta_unavailable_reason?: string | null }[] }>({
+    ekipa_id: '',
+    data: '',
+    godzina: '08:00',
+    slots: [],
+  });
   const [reserveDiag, setReserveDiag] = useState<{ eta_available?: boolean; eta_unavailable_reason?: string | null; target_source?: string | null; team_gps_age_min?: number | null } | null>(null);
   const [reserveRuleWarning, setReserveRuleWarning] = useState('');
   const [slotLoading, setSlotLoading] = useState(false);
@@ -483,7 +541,12 @@ export default function WycenaKalendarzScreen() {
     const ekipa_id = String(w.proponowana_ekipa_id || w.ekipa_id || '');
     const data = (w.proponowana_data || w.data_wykonania || '').slice(0, 10) || formatDate(new Date());
     const godzina = (w.proponowana_godzina || w.godzina_rozpoczecia || '08:00').slice(0, 5);
-    const next = { ekipa_id, data, godzina, slots: [] as string[] };
+    const next = {
+      ekipa_id,
+      data,
+      godzina,
+      slots: [] as { time: string; score?: number; eta_minutes?: number | null; eta_source?: string | null; eta_unavailable_reason?: string | null }[],
+    };
     setReserveModal(w);
     setReserveDraft(next);
     setReserveDiag(null);
@@ -499,7 +562,9 @@ export default function WycenaKalendarzScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json().catch(() => ({}));
-      const slots = (Array.isArray(data?.items) ? data.items : []).sort((a, b) => (b.score || 0) - (a.score || 0));
+      const slots = (Array.isArray(data?.items) ? data.items : []).sort(
+        (a: { score?: number }, b: { score?: number }) => (b.score || 0) - (a.score || 0),
+      );
       const picked = pickBestOperationalSlot(slots, thresholdOverride ?? etaThreshold);
       setReserveDraft((prev) => ({ ...prev, slots, godzina: picked.best?.time || prev.godzina }));
       setReserveDiag(data?.diagnostics || null);
@@ -604,27 +669,29 @@ export default function WycenaKalendarzScreen() {
 
   return (
     <KeyboardSafeScreen style={s.root}>
+      <View pointerEvents="none" style={s.bgOrbTop} />
+      <View pointerEvents="none" style={s.bgOrbBottom} />
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
 
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{t('wyceny.calendarTitle')}</Text>
         {canAdd ? (
           <TouchableOpacity onPress={openModal} style={s.addBtn}>
-            <Ionicons name="add" size={22} color={theme.accentText} />
+            <PlatinumIconBadge icon="add" color={theme.accent} size={12} style={s.addBtnIcon} />
           </TouchableOpacity>
         ) : <View style={{ width: 36 }} />}
       </View>
       <View style={s.platinumBar}>
-        <Ionicons name="diamond-outline" size={14} color={theme.accent} />
+        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={s.platinumBarIcon} />
         <Text style={s.platinumBarText}>Platinum Dispatch Console</Text>
       </View>
       {runtimeError ? (
         <View style={s.errorBar}>
-          <Ionicons name="warning-outline" size={14} color={theme.warning} />
+          <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={s.platinumBarIcon} />
           <Text style={s.errorBarText}>{runtimeError}</Text>
         </View>
       ) : null}
@@ -639,11 +706,18 @@ export default function WycenaKalendarzScreen() {
         {/* Month nav */}
         <View style={s.monthNav}>
           <TouchableOpacity onPress={prevMonth} style={s.navBtn}>
-            <Ionicons name="chevron-back" size={20} color={theme.text} />
+            <PlatinumIconBadge icon="chevron-back" color={theme.text} size={14} style={{ width: 24, height: 24, borderRadius: 8 }} />
           </TouchableOpacity>
-          <Text style={s.monthLabel}>{monthTitleCal}</Text>
+          <Animated.View
+            style={{
+              opacity: monthPulse.interpolate({ inputRange: [0, 1], outputRange: [0.65, 1] }),
+              transform: [{ scale: monthPulse.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }],
+            }}
+          >
+            <Text style={s.monthLabel}>{monthTitleCal}</Text>
+          </Animated.View>
           <TouchableOpacity onPress={nextMonth} style={s.navBtn}>
-            <Ionicons name="chevron-forward" size={20} color={theme.text} />
+            <PlatinumIconBadge icon="chevron-forward" color={theme.text} size={14} style={{ width: 24, height: 24, borderRadius: 8 }} />
           </TouchableOpacity>
         </View>
 
@@ -713,7 +787,7 @@ export default function WycenaKalendarzScreen() {
               </Text>
               {canAdd && (
                 <TouchableOpacity onPress={openModal} style={s.addDayBtn}>
-                  <Ionicons name="add-circle-outline" size={20} color={theme.success} />
+                  <PlatinumIconBadge icon="add-circle-outline" color={theme.success} size={12} style={{ width: 22, height: 22, borderRadius: 8 }} />
                   <Text style={s.addDayText}>{t('wycenyCal.newQuote')}</Text>
                 </TouchableOpacity>
               )}
@@ -721,7 +795,7 @@ export default function WycenaKalendarzScreen() {
 
             {selectedWyceny.length === 0 ? (
               <View style={s.emptyDay}>
-                <Ionicons name="calendar-outline" size={32} color={theme.textMuted} />
+                <PlatinumIconBadge icon="calendar-outline" color={theme.textMuted} size={18} style={{ width: 36, height: 36, borderRadius: 12 }} />
                 <Text style={s.emptyDayText}>{t('wycenyCal.emptyDay')}</Text>
               </View>
             ) : (
@@ -754,11 +828,11 @@ export default function WycenaKalendarzScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
-          <View style={s.modalSheet}>
+          <PlatinumModalSheet visible={showModal} style={s.modalSheet}>
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>{t('wycenyCal.modalTitle')}</Text>
               <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
-                <Ionicons name="close" size={24} color={theme.textSub} />
+                <PlatinumIconBadge icon="close" color={theme.textSub} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
 
@@ -911,16 +985,16 @@ export default function WycenaKalendarzScreen() {
               disabled={saving}
               loading={saving}
             />
-          </View>
+          </PlatinumModalSheet>
         </KeyboardAvoidingView>
       </Modal>
       <Modal visible={!!reserveModal} animationType="slide" transparent>
         <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={s.modalSheet}>
+          <PlatinumModalSheet visible={!!reserveModal} style={s.modalSheet}>
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>Rezerwacja terminu ekipy</Text>
               <TouchableOpacity onPress={() => setReserveModal(null)}>
-                <Ionicons name="close" size={24} color={theme.textSub} />
+                <PlatinumIconBadge icon="close" color={theme.textSub} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
             <ScrollView style={s.modalScroll}>
@@ -1012,7 +1086,7 @@ export default function WycenaKalendarzScreen() {
               loading={saving}
               disabled={saving}
             />
-          </View>
+          </PlatinumModalSheet>
         </KeyboardAvoidingView>
       </Modal>
     </KeyboardSafeScreen>
@@ -1055,24 +1129,33 @@ function WycenaCard({ wycena: w, ekipy, liveByTeam, theme, s, onReserve }: { wyc
         </View>
         <View style={s.wCardMeta}>
           {w.data_wykonania ? (
-            <Text style={s.wCardMetaText}>
-              <Ionicons name="calendar-outline" size={12} color={theme.textSub} /> {(w.data_wykonania || '').slice(0, 10)}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <PlatinumIconBadge icon="calendar-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+              <Text style={s.wCardMetaText}>{(w.data_wykonania || '').slice(0, 10)}</Text>
+            </View>
           ) : null}
           {w.godzina_rozpoczecia ? (
-            <Text style={s.wCardMetaText}>  🕐 {w.godzina_rozpoczecia.slice(0, 5)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <PlatinumIconBadge icon="time-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+              <Text style={s.wCardMetaText}>{w.godzina_rozpoczecia.slice(0, 5)}</Text>
+            </View>
           ) : null}
           {ekipa && (
-            <Text style={s.wCardMetaText}>  👷 {ekipa.nazwa}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <PlatinumIconBadge icon="people-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+              <Text style={s.wCardMetaText}>{ekipa.nazwa}</Text>
+            </View>
           )}
         </View>
         {(w.status_akceptacji === 'oczekuje' || w.status_akceptacji === 'rezerwacja_wstepna') && (
-          <TouchableOpacity style={[s.pill, { marginTop: 8, alignSelf: 'flex-start' }]} onPress={onReserve}>
-            <Text style={s.pillText}>Rezerwuj termin ekipy</Text>
-          </TouchableOpacity>
+          <PlatinumCTA
+            style={{ marginTop: 8, alignSelf: 'flex-start', minWidth: 190 }}
+            label="Rezerwuj termin ekipy"
+            onPress={onReserve}
+          />
         )}
       </View>
-      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+      <PlatinumIconBadge icon={open ? 'chevron-up' : 'chevron-down'} color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 8 }} />
     </TouchableOpacity>
   );
 }

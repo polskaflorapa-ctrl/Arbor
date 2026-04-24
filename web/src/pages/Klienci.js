@@ -121,7 +121,7 @@ export default function Klienci() {
 
   const taskStatusColor = (s) => ({
     'Nowe': '#60A5FA', 'W_Trakcie': '#FBBF24', 'Zakończone': 'var(--accent)',
-    'Anulowane': '#F87171', 'Wstrzymane': '#A78BFA',
+    'Anulowane': '#F87171', 'Wstrzymane': '#94a3b8',
   }[s] || '#94A3B8');
 
   return (

@@ -15,13 +15,17 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking,
+  ActivityIndicator, Alert, Animated, Image, KeyboardAvoidingView, Linking,
   Modal, PanResponder, Platform, RefreshControl, ScrollView, Share,
   StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { PlatinumAppear } from '../components/ui/platinum-appear';
+import { PlatinumCTA } from '../components/ui/platinum-cta';
+import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
+import { PLATINUM_MOTION } from '../constants/motion';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_BASE_URL, API_URL } from '../constants/api';
@@ -32,6 +36,7 @@ import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { appendContactNote, clientHistoryKey, listContactNotes, type ContactNote } from '../utils/client-contact-history';
 import { deleteWycenaTemplate, listWycenaTemplates, saveWycenaTemplate, type WycenaTemplate } from '../utils/wycena-templates';
 import { openAddressInMaps } from '../utils/maps-link';
+import { triggerHaptic } from '../utils/haptics';
 
 // ─── Typy ─────────────────────────────────────────────────────────────────────
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -68,7 +73,7 @@ function quoteStatusLabel(code: string | undefined, tr: (key: string) => string)
   return r === k ? code.replace(/_/g, ' ') : r;
 }
 
-const KOLORY_RYSOWANIA = ['#EF4444','#F97316','#FBBF24','#34D399','#3B82F6','#8B5CF6','#000000','#ffffff'];
+const KOLORY_RYSOWANIA = ['#EF4444','#F97316','#FBBF24','#34D399','#3B82F6','#14b8a6','#000000','#ffffff'];
 const GRUBOSCI = [3, 6, 12];
 
 // ─── Pusty formularz ──────────────────────────────────────────────────────────
@@ -111,7 +116,7 @@ export default function WycenaScreen() {
   const statusKolor = useMemo(() => ({
     Nowa: theme.info,
     W_Opracowaniu: theme.warning,
-    Wyslana: theme.chartViolet,
+    Wyslana: theme.accent,
     Zaakceptowana: theme.success,
     Odrzucona: theme.danger,
     Zlecenie: theme.accent,
@@ -143,6 +148,8 @@ export default function WycenaScreen() {
   const [showDetail, setShowDetail] = useState(false);
   const [detailPhotos, setDetailPhotos] = useState<any[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const convertPulse = useRef(new Animated.Value(1)).current;
+  const listOpacity = useRef(new Animated.Value(1)).current;
 
   // Inline drawing (po zrobieniu zdjęcia)
   const [drawingUri, setDrawingUri] = useState<string | null>(null);
@@ -218,6 +225,48 @@ export default function WycenaScreen() {
     void listContactNotes(k).then(setHistList);
   }, [showNew, form.klient_telefon, form.klient_nazwa]);
 
+  useEffect(() => {
+    const shouldPulse = !!showDetail && selectedWycena?.status === 'Zaakceptowana';
+    if (!shouldPulse) {
+      convertPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(convertPulse, {
+          toValue: 1.02,
+          duration: PLATINUM_MOTION.duration.medium,
+          easing: PLATINUM_MOTION.easing.smoothInOut,
+          useNativeDriver: true,
+        }),
+        Animated.timing(convertPulse, {
+          toValue: 1,
+          duration: PLATINUM_MOTION.duration.medium,
+          easing: PLATINUM_MOTION.easing.smoothInOut,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [convertPulse, selectedWycena?.status, showDetail]);
+
+  useEffect(() => {
+    listOpacity.setValue(0.55);
+    Animated.timing(listOpacity, {
+      toValue: 1,
+      duration: PLATINUM_MOTION.duration.medium,
+      easing: PLATINUM_MOTION.easing.smoothOut,
+      useNativeDriver: true,
+    }).start();
+  }, [listOpacity, selectedOddzial, wyceny]);
+
+  const applyOddzialFilter = useCallback((oddzialId: string) => {
+    void triggerHaptic('light');
+    setSelectedOddzial(oddzialId);
+    void fetchWyceny();
+  }, [fetchWyceny]);
+
   // ─── GPS ──────────────────────────────────────────────────────────────────
   const captureGPS = async () => {
     try {
@@ -241,7 +290,7 @@ export default function WycenaScreen() {
   // ─── Zdjęcia ──────────────────────────────────────────────────────────────
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(t('wyceny.alert.cameraDeniedTitle'), t('wyceny.alert.cameraDeniedBody')); return; }
+    if (status !== 'granted') { void triggerHaptic('warning'); Alert.alert(t('wyceny.alert.cameraDeniedTitle'), t('wyceny.alert.cameraDeniedBody')); return; }
     if (!gpsRef.current) { gpsRef.current = true; captureGPS(); }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: false });
     if (!result.canceled && result.assets[0]) {
@@ -253,6 +302,7 @@ export default function WycenaScreen() {
   const pickFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsMultipleSelection: true });
     if (!result.canceled) {
+      void triggerHaptic('light');
       setPhotos(p => [...p, ...result.assets.map(a => ({ localUri: a.uri }))]);
     }
   };
@@ -338,7 +388,7 @@ export default function WycenaScreen() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) { const err = await res.json(); Alert.alert(t('wyceny.alert.saveFail'), err.error); return; }
+      if (!res.ok) { const err = await res.json(); void triggerHaptic('error'); Alert.alert(t('wyceny.alert.saveFail'), err.error); return; }
       const saved = await res.json();
       const ck = clientHistoryKey(form.klient_telefon, form.klient_nazwa);
       if (ck !== '_') {
@@ -360,8 +410,9 @@ export default function WycenaScreen() {
       setForm(emptyForm()); setPhotos([]); setGps(null); setGpsName('');
       gpsRef.current = false;
       fetchWyceny();
+      void triggerHaptic('success');
       Alert.alert(t('wyceny.alert.savedTitle'), t('wyceny.alert.savedBody'));
-    } catch { Alert.alert(t('wyceny.alert.saveFail'), t('wyceny.alert.network')); }
+    } catch { void triggerHaptic('error'); Alert.alert(t('wyceny.alert.saveFail'), t('wyceny.alert.network')); }
     finally { setSaving(false); }
   };
 
@@ -429,12 +480,12 @@ export default function WycenaScreen() {
         {/* Toolbar */}
         <View style={S.drawToolbar}>
           <TouchableOpacity onPress={skipDrawing} style={S.drawToolBtn}>
-            <Ionicons name="close" size={22} color={theme.textMuted} />
+            <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
             <Text style={S.drawToolBtnText}>{t('draw.skip')}</Text>
           </TouchableOpacity>
           <Text style={S.drawToolbarTitle}>{t('draw.editPhotoTitle')}</Text>
           <TouchableOpacity onPress={confirmDrawing} style={S.drawSaveBtn}>
-            <Ionicons name="checkmark" size={18} color={theme.accentText} />
+            <PlatinumIconBadge icon="checkmark" color={theme.accentText} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
             <Text style={S.drawSaveBtnText}>{t('draw.done')}</Text>
           </TouchableOpacity>
         </View>
@@ -464,7 +515,7 @@ export default function WycenaScreen() {
           {/* Kolory */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={S.colorRow}>
             <TouchableOpacity style={[S.eraserBtn, eraser && S.eraserBtnActive]} onPress={() => setEraser(!eraser)}>
-              <Ionicons name="remove-circle-outline" size={20} color={eraser ? theme.accentText : theme.textMuted} />
+              <PlatinumIconBadge icon="remove-circle-outline" color={eraser ? theme.accentText : theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
             </TouchableOpacity>
             {KOLORY_RYSOWANIA.map(k => (
               <TouchableOpacity key={k} style={[S.colorDot,
@@ -485,7 +536,7 @@ export default function WycenaScreen() {
               ))}
             </View>
             <TouchableOpacity style={S.undoBtn} onPress={() => setStrokes(s => s.slice(0, -1))} disabled={strokes.length === 0}>
-              <Ionicons name="arrow-undo" size={18} color={strokes.length === 0 ? theme.border : theme.textSub} />
+              <PlatinumIconBadge icon="arrow-undo" color={strokes.length === 0 ? theme.border : theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
               <Text style={[S.undoBtnText, strokes.length === 0 && { color: theme.textMuted }]}>{t('wyceny.draw.undo')}</Text>
             </TouchableOpacity>
           </View>
@@ -502,16 +553,20 @@ export default function WycenaScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.headerText} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle}>{t('wyceny.title')}</Text>
           {user?.rola && <Text style={S.headerSub}>{user.rola}</Text>}
         </View>
-        <TouchableOpacity style={S.newBtn} onPress={() => setShowNew(true)}>
-          <Ionicons name="add" size={22} color={theme.accentText} />
-          <Text style={S.newBtnText}>{t('wyceny.header.newBtn')}</Text>
-        </TouchableOpacity>
+        <PlatinumCTA
+          label={t('wyceny.header.newBtn')}
+          style={S.newBtn}
+          onPress={() => {
+            void triggerHaptic('light');
+            setShowNew(true);
+          }}
+        />
       </View>
 
       {/* Filtry oddziałów */}
@@ -519,13 +574,13 @@ export default function WycenaScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           style={S.oddzialyScroll} contentContainerStyle={S.oddzialyContent}>
           <TouchableOpacity style={[S.oddzialChip, !selectedOddzial && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-            onPress={() => { setSelectedOddzial(''); fetchWyceny(); }}>
+            onPress={() => applyOddzialFilter('')}>
             <Text style={[S.oddzialChipText, !selectedOddzial && { color: theme.accentText }]}>{t('wyceny.list.filterAll')}</Text>
           </TouchableOpacity>
           {oddzialy.map(o => (
             <TouchableOpacity key={o.id}
               style={[S.oddzialChip, selectedOddzial === o.id.toString() && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-              onPress={() => { setSelectedOddzial(o.id.toString()); setTimeout(fetchWyceny, 50); }}>
+              onPress={() => applyOddzialFilter(o.id.toString())}>
               <Text style={[S.oddzialChipText, selectedOddzial === o.id.toString() && { color: theme.accentText }]}>{o.nazwa}</Text>
             </TouchableOpacity>
           ))}
@@ -533,62 +588,68 @@ export default function WycenaScreen() {
       )}
 
       {/* Lista */}
-      <ScrollView style={S.list} showsVerticalScrollIndicator={false}
+      <Animated.ScrollView style={[S.list, { opacity: listOpacity }]} showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchWyceny(); }} tintColor={theme.accent} colors={[theme.accent]} />}>
         {wyceny.length === 0 ? (
           <View style={S.empty}>
-            <Ionicons name="calculator-outline" size={56} color={theme.textMuted} />
+            <PlatinumIconBadge icon="calculator-outline" color={theme.textMuted} size={24} style={{ width: 56, height: 56, borderRadius: 16 }} />
             <Text style={S.emptyTitle}>{t('wyceny.list.emptyTitle')}</Text>
             <Text style={S.emptySub}>{t('wyceny.list.emptySub')}</Text>
-            <TouchableOpacity style={[S.newBtn, { marginTop: 16 }]} onPress={() => setShowNew(true)}>
-              <Ionicons name="add" size={18} color={theme.accentText} />
-              <Text style={S.newBtnText}>{t('wyceny.list.newQuoteCta')}</Text>
-            </TouchableOpacity>
+            <PlatinumCTA
+              label={t('wyceny.list.newQuoteCta')}
+              style={[S.newBtn, { marginTop: 16 }]}
+              onPress={() => {
+                void triggerHaptic('light');
+                setShowNew(true);
+              }}
+            />
           </View>
-        ) : wyceny.map(w => {
+        ) : wyceny.map((w, index) => {
           const wynikInfo = wynikiOptions.find(x => x.value === w.wynik);
           return (
-            <TouchableOpacity key={w.id} style={S.wycenaCard} onPress={() => openDetail(w)} activeOpacity={0.8}>
-              <View style={[S.wycenaStripe, { backgroundColor: statusKolor[w.status as keyof typeof statusKolor] || theme.border }]} />
-              <View style={S.wycenaContent}>
-                <View style={S.wycenaTop}>
-                  <Text style={S.wycenaKlient}>{w.klient_nazwa}</Text>
-                  <View style={[S.badge, { backgroundColor: (statusKolor[w.status as keyof typeof statusKolor] || theme.textMuted) + '28' }]}>
-                    <Text style={[S.badgeText, { color: statusKolor[w.status as keyof typeof statusKolor] || theme.textMuted }]}>{quoteStatusLabel(w.status, t)}</Text>
+            <PlatinumAppear key={w.id} delayMs={(index % 6) * 40}>
+              <TouchableOpacity style={S.wycenaCard} onPress={() => openDetail(w)} activeOpacity={0.8}>
+                <View style={[S.wycenaStripe, { backgroundColor: statusKolor[w.status as keyof typeof statusKolor] || theme.border }]} />
+                <View style={S.wycenaContent}>
+                  <View style={S.wycenaTop}>
+                    <Text style={S.wycenaKlient}>{w.klient_nazwa}</Text>
+                    <View style={[S.badge, { backgroundColor: (statusKolor[w.status as keyof typeof statusKolor] || theme.textMuted) + '28' }]}>
+                      <Text style={[S.badgeText, { color: statusKolor[w.status as keyof typeof statusKolor] || theme.textMuted }]}>{quoteStatusLabel(w.status, t)}</Text>
+                    </View>
                   </View>
-                </View>
-                <View style={S.metaRow}>
-                  <Ionicons name="location-outline" size={12} color={theme.textSub} />
-                  <Text style={S.metaText}> {w.adres}, {w.miasto}</Text>
-                </View>
-                {w.oddzial_nazwa ? (
                   <View style={S.metaRow}>
-                    <Ionicons name="business-outline" size={12} color={theme.textSub} />
-                    <Text style={S.metaText}> {w.oddzial_nazwa}</Text>
+                    <PlatinumIconBadge icon="location-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+                    <Text style={S.metaText}> {w.adres}, {w.miasto}</Text>
                   </View>
-                ) : null}
-                <View style={S.wycenaBottom}>
-                  {w.wartosc_szacowana ? (
-                    <Text style={S.wycenaCena}>{parseFloat(w.wartosc_szacowana).toLocaleString(numberLocale)} {t('wyceny.currency')}</Text>
-                  ) : null}
-                  {wynikInfo ? (
-                    <View style={[S.wynikBadge, { backgroundColor: wynikInfo.color + '22' }]}>
-                      <Ionicons name={wynikInfo.icon} size={11} color={wynikInfo.color} />
-                      <Text style={[S.wynikText, { color: wynikInfo.color }]}> {wynikInfo.label}</Text>
+                  {w.oddzial_nazwa ? (
+                    <View style={S.metaRow}>
+                      <PlatinumIconBadge icon="business-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+                      <Text style={S.metaText}> {w.oddzial_nazwa}</Text>
                     </View>
                   ) : null}
-                  <Text style={S.wycenaDate}>{new Date(w.created_at).toLocaleDateString(numberLocale)}</Text>
+                  <View style={S.wycenaBottom}>
+                    {w.wartosc_szacowana ? (
+                      <Text style={S.wycenaCena}>{parseFloat(w.wartosc_szacowana).toLocaleString(numberLocale)} {t('wyceny.currency')}</Text>
+                    ) : null}
+                    {wynikInfo ? (
+                      <View style={[S.wynikBadge, { backgroundColor: wynikInfo.color + '22' }]}>
+                        <PlatinumIconBadge icon={wynikInfo.icon} color={wynikInfo.color} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+                        <Text style={[S.wynikText, { color: wynikInfo.color }]}> {wynikInfo.label}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={S.wycenaDate}>{new Date(w.created_at).toLocaleDateString(numberLocale)}</Text>
+                  </View>
                 </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={theme.textMuted} style={{ alignSelf: 'center', marginRight: 8 }} />
-            </TouchableOpacity>
+                <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7, alignSelf: 'center', marginRight: 8 }} />
+              </TouchableOpacity>
+            </PlatinumAppear>
           );
         })}
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* ═══════════════════════════════════════════════════════════════════
           NOWA WYCENA — MODAL
@@ -598,7 +659,7 @@ export default function WycenaScreen() {
         <View style={S.modalRoot}>
           <View style={S.modalHeader}>
             <TouchableOpacity onPress={() => setShowNew(false)}>
-              <Ionicons name="close" size={24} color={theme.headerText} />
+              <PlatinumIconBadge icon="close" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
             </TouchableOpacity>
             <Text style={S.modalTitle}>{t('wyceny.modal.newTitle')}</Text>
             <TouchableOpacity onPress={handleSave} disabled={saving}>
@@ -616,8 +677,8 @@ export default function WycenaScreen() {
           >
 
             {/* ── Klient ─────────────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="person-outline" size={15} color={theme.accent} /> {t('wyceny.card.client')}</Text>
+            <PlatinumAppear style={S.card} delayMs={0}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="person-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.client')}</Text>
               <TextInput style={S.input} placeholder={t('wyceny.ph.clientName')} placeholderTextColor={theme.inputPlaceholder}
                 value={form.klient_nazwa} onChangeText={v => setForm(f => ({ ...f, klient_nazwa: v }))} />
               <TextInput style={S.input} placeholder={t('wyceny.ph.phone')} placeholderTextColor={theme.inputPlaceholder}
@@ -638,7 +699,7 @@ export default function WycenaScreen() {
                       <Text style={[S.chipText, S.chipTextActive]}>{tpl.name}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => { void deleteWycenaTemplate(tpl.id).then(() => listWycenaTemplates().then(setTemplates)); }} hitSlop={8}>
-                      <Ionicons name="close-circle" size={18} color={theme.danger} />
+                      <PlatinumIconBadge icon="close-circle" color={theme.danger} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -683,14 +744,14 @@ export default function WycenaScreen() {
               >
                 <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('wyceny.history.add')}</Text>
               </TouchableOpacity>
-            </View>
+            </PlatinumAppear>
 
             {/* ── Lokalizacja ────────────────────────────────────────────── */}
-            <View style={S.card}>
+            <PlatinumAppear style={S.card} delayMs={40}>
               <View style={S.cardTitleRow}>
-                <Text style={S.cardTitle}><Ionicons name="location-outline" size={15} color={theme.accent} /> {t('wyceny.card.location')}</Text>
+                <Text style={S.cardTitle}><PlatinumIconBadge icon="location-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.location')}</Text>
                 <TouchableOpacity style={S.gpsBtn} onPress={captureGPS}>
-                  <Ionicons name="navigate-outline" size={14} color={theme.accent} />
+                  <PlatinumIconBadge icon="navigate-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={[S.gpsBtnText, { color: theme.accent }]}>{t('wyceny.gps')}</Text>
                 </TouchableOpacity>
               </View>
@@ -704,7 +765,7 @@ export default function WycenaScreen() {
                   style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}
                   onPress={() => { void openAddressInMaps(form.adres, form.miasto); }}
                 >
-                  <Ionicons name="map-outline" size={18} color={theme.accent} />
+                  <PlatinumIconBadge icon="map-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={{ color: theme.accent, fontWeight: '600' }}>{t('wyceny.openMaps')}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -725,19 +786,19 @@ export default function WycenaScreen() {
                   </ScrollView>
                 </>
               )}
-            </View>
+            </PlatinumAppear>
 
             {/* ── Zdjęcia ────────────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="camera-outline" size={15} color={theme.accent} /> {t('wyceny.card.photos')}</Text>
+            <PlatinumAppear style={S.card} delayMs={80}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="camera-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.photos')}</Text>
               <Text style={S.cardHint}>{t('wyceny.card.photosHint')}</Text>
               <View style={S.photoBtns}>
                 <TouchableOpacity style={S.photoBtn} onPress={takePhoto}>
-                  <Ionicons name="camera" size={22} color={theme.accent} />
+                  <PlatinumIconBadge icon="camera" color={theme.accent} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={S.photoBtnText}>{t('wyceny.photo.camera')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={S.photoBtn} onPress={pickFromGallery}>
-                  <Ionicons name="images-outline" size={22} color={theme.accent} />
+                  <PlatinumIconBadge icon="images-outline" color={theme.accent} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
                   <Text style={S.photoBtnText}>{t('wyceny.photo.gallery')}</Text>
                 </TouchableOpacity>
               </View>
@@ -748,21 +809,21 @@ export default function WycenaScreen() {
                       <Image source={{ uri: p.annotated || p.localUri }} style={S.thumbImg} />
                       {p.annotated && (
                         <View style={S.thumbAnnotated}>
-                          <Ionicons name="pencil" size={10} color={theme.accentText} />
+                          <PlatinumIconBadge icon="pencil" color={theme.accentText} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                         </View>
                       )}
                       <TouchableOpacity style={S.thumbRemove} onPress={() => setPhotos(ph => ph.filter((_, j) => j !== i))}>
-                        <Ionicons name="close" size={12} color={theme.accentText} />
+                        <PlatinumIconBadge icon="close" color={theme.accentText} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                       </TouchableOpacity>
                     </View>
                   ))}
                 </ScrollView>
               )}
-            </View>
+            </PlatinumAppear>
 
             {/* ── Opis pracy / Pozycje ───────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="list-outline" size={15} color={theme.accent} /> {t('wyceny.card.workDesc')}</Text>
+            <PlatinumAppear style={S.card} delayMs={120}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="list-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.workDesc')}</Text>
               {form.pozycje.map((poz, i) => (
                 <View key={poz.id} style={S.pozycjaRow}>
                   <TextInput style={[S.input, S.pozycjaOpis]} placeholder={t('wyceny.ph.lineItem', { n: i + 1 })}
@@ -774,14 +835,14 @@ export default function WycenaScreen() {
                       value={poz.kwota} onChangeText={v => updatePozycja(poz.id, 'kwota', v)} />
                     {form.pozycje.length > 1 && (
                       <TouchableOpacity onPress={() => removePozycja(poz.id)} style={S.removePozycjaBtn}>
-                        <Ionicons name="trash-outline" size={16} color={theme.danger} />
+                        <PlatinumIconBadge icon="trash-outline" color={theme.danger} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                       </TouchableOpacity>
                     )}
                   </View>
                 </View>
               ))}
               <TouchableOpacity style={S.addPozycjaBtn} onPress={addPozycja}>
-                <Ionicons name="add-circle-outline" size={18} color={theme.accent} />
+                <PlatinumIconBadge icon="add-circle-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 <Text style={[S.addPozycjaBtnText, { color: theme.accent }]}>{t('wyceny.btn.addLine')}</Text>
               </TouchableOpacity>
               {totalCena > 0 && (
@@ -790,28 +851,28 @@ export default function WycenaScreen() {
                   <Text style={[S.totalCena, { color: theme.accent }]}>{totalCena.toLocaleString(numberLocale)} {t('wyceny.currency')}</Text>
                 </View>
               )}
-            </View>
+            </PlatinumAppear>
 
             {/* ── Logistyka ──────────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="car-outline" size={15} color={theme.accent} /> {t('wyceny.card.logistics')}</Text>
+            <PlatinumAppear style={S.card} delayMs={160}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="car-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.logistics')}</Text>
 
               <View style={S.toggleGrid}>
                 <TouchableOpacity style={[S.toggleBtn, form.wywoz && S.toggleBtnOn]}
                   onPress={() => setForm(f => ({ ...f, wywoz: !f.wywoz }))}>
-                  <Ionicons name="trash-outline" size={18} color={form.wywoz ? theme.accentText : theme.textSub} />
+                  <PlatinumIconBadge icon="trash-outline" color={form.wywoz ? theme.accentText : theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={[S.toggleText, form.wywoz && { color: theme.accentText }]}>{t('wyceny.log.haul')}</Text>
                   <Text style={[S.toggleState, form.wywoz && { color: theme.accentText }]}>{form.wywoz ? t('wyceny.param.yes') : t('wyceny.param.no')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[S.toggleBtn, form.usuwanie_pni && S.toggleBtnOn]}
                   onPress={() => setForm(f => ({ ...f, usuwanie_pni: !f.usuwanie_pni }))}>
-                  <Ionicons name="cut-outline" size={18} color={form.usuwanie_pni ? theme.accentText : theme.textSub} />
+                  <PlatinumIconBadge icon="cut-outline" color={form.usuwanie_pni ? theme.accentText : theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={[S.toggleText, form.usuwanie_pni && { color: theme.accentText }]}>{t('wyceny.log.stumpsShort')}</Text>
                   <Text style={[S.toggleState, form.usuwanie_pni && { color: theme.accentText }]}>{form.usuwanie_pni ? t('wyceny.param.yes') : t('wyceny.param.no')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[S.toggleBtn, form.drewno && S.toggleBtnOn]}
                   onPress={() => setForm(f => ({ ...f, drewno: !f.drewno }))}>
-                  <Ionicons name="leaf-outline" size={18} color={form.drewno ? theme.accentText : theme.textSub} />
+                  <PlatinumIconBadge icon="leaf-outline" color={form.drewno ? theme.accentText : theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={[S.toggleText, form.drewno && { color: theme.accentText }]}>{t('wyceny.log.wood')}</Text>
                   <Text style={[S.toggleState, form.drewno && { color: theme.accentText }]}>{form.drewno ? t('wyceny.param.yes') : t('wyceny.param.no')}</Text>
                 </TouchableOpacity>
@@ -820,11 +881,11 @@ export default function WycenaScreen() {
               <Text style={S.label}>{t('wyceny.label.chips')}</Text>
               <View style={S.stepperRow}>
                 <TouchableOpacity style={S.stepBtn} onPress={() => setForm(f => ({ ...f, zrebki: Math.max(0, f.zrebki - 1) }))}>
-                  <Ionicons name="remove" size={20} color={theme.text} />
+                  <PlatinumIconBadge icon="remove" color={theme.text} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 </TouchableOpacity>
                 <Text style={S.stepValue}>{form.zrebki}</Text>
                 <TouchableOpacity style={S.stepBtn} onPress={() => setForm(f => ({ ...f, zrebki: f.zrebki + 1 }))}>
-                  <Ionicons name="add" size={20} color={theme.text} />
+                  <PlatinumIconBadge icon="add" color={theme.text} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 </TouchableOpacity>
               </View>
 
@@ -841,18 +902,18 @@ export default function WycenaScreen() {
               <Text style={S.label}>{t('wyceny.label.crew')}</Text>
               <View style={S.stepperRow}>
                 <TouchableOpacity style={S.stepBtn} onPress={() => setForm(f => ({ ...f, ilosc_osob: Math.max(1, f.ilosc_osob - 1) }))}>
-                  <Ionicons name="remove" size={20} color={theme.text} />
+                  <PlatinumIconBadge icon="remove" color={theme.text} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 </TouchableOpacity>
                 <Text style={S.stepValue}>{form.ilosc_osob}</Text>
                 <TouchableOpacity style={S.stepBtn} onPress={() => setForm(f => ({ ...f, ilosc_osob: f.ilosc_osob + 1 }))}>
-                  <Ionicons name="add" size={20} color={theme.text} />
+                  <PlatinumIconBadge icon="add" color={theme.text} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                 </TouchableOpacity>
               </View>
-            </View>
+            </PlatinumAppear>
 
             {/* ── Sprzęt ─────────────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="build-outline" size={15} color={theme.accent} /> {t('wyceny.card.equipment')}</Text>
+            <PlatinumAppear style={S.card} delayMs={200}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="build-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.equipment')}</Text>
               <View style={S.sprzetGrid}>
                 {sprzetOptions.map(s => {
                   const val = (form as any)[s.key];
@@ -860,33 +921,33 @@ export default function WycenaScreen() {
                     <TouchableOpacity key={s.key}
                       style={[S.sprzetBtn, val && S.sprzetBtnOn]}
                       onPress={() => setForm(f => ({ ...f, [s.key]: !val }))}>
-                      <Ionicons name={s.icon} size={18} color={val ? theme.accentText : theme.textSub} />
+                      <PlatinumIconBadge icon={s.icon} color={val ? theme.accentText : theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                       <Text style={[S.sprzetLabel, val && { color: theme.accentText }]}>{s.label}</Text>
                       <Text style={[S.sprzetState, val && { color: theme.accentText }]}>{val ? t('wyceny.param.yesCheck') : t('wyceny.param.no')}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-            </View>
+            </PlatinumAppear>
 
             {/* ── Wynik wizyty ───────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="flag-outline" size={15} color={theme.accent} /> {t('wyceny.card.visitResult')}</Text>
+            <PlatinumAppear style={S.card} delayMs={240}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="flag-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.visitResult')}</Text>
               <View style={S.wynikRow}>
                 {wynikiOptions.map(w => (
                   <TouchableOpacity key={w.value}
                     style={[S.wynikBtn, form.wynik === w.value && { backgroundColor: w.color, borderColor: w.color }]}
                     onPress={() => setForm(f => ({ ...f, wynik: w.value }))}>
-                    <Ionicons name={w.icon} size={16} color={form.wynik === w.value ? theme.accentText : w.color} />
+                    <PlatinumIconBadge icon={w.icon} color={form.wynik === w.value ? theme.accentText : w.color} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.wynikBtnText, form.wynik === w.value && { color: theme.accentText }]}>{w.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
+            </PlatinumAppear>
 
             {/* ── Finanse ────────────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="wallet-outline" size={15} color={theme.accent} /> {t('wyceny.card.finance')}</Text>
+            <PlatinumAppear style={S.card} delayMs={280}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="wallet-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.finance')}</Text>
               <View style={S.finRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={S.label}>{t('wyceny.label.budget')}</Text>
@@ -902,22 +963,23 @@ export default function WycenaScreen() {
               <Text style={S.label}>{t('wyceny.label.minAmount')}</Text>
               <TextInput style={S.input} placeholder="0" placeholderTextColor={theme.inputPlaceholder}
                 keyboardType="decimal-pad" value={form.kwota_minimalna} onChangeText={v => setForm(f => ({ ...f, kwota_minimalna: v }))} />
-            </View>
+            </PlatinumAppear>
 
             {/* ── Notatki ────────────────────────────────────────────────── */}
-            <View style={S.card}>
-              <Text style={S.cardTitle}><Ionicons name="document-text-outline" size={15} color={theme.accent} /> {t('wyceny.card.notesShort')}</Text>
+            <PlatinumAppear style={S.card} delayMs={320}>
+              <Text style={S.cardTitle}><PlatinumIconBadge icon="document-text-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} /> {t('wyceny.card.notesShort')}</Text>
               <TextInput style={[S.input, S.inputMulti]} placeholder={t('wyceny.ph.notes')} placeholderTextColor={theme.inputPlaceholder}
                 multiline numberOfLines={3} textAlignVertical="top"
                 value={form.notatki_wewnetrzne} onChangeText={v => setForm(f => ({ ...f, notatki_wewnetrzne: v }))} />
-            </View>
+            </PlatinumAppear>
 
-            <TouchableOpacity style={[S.saveMainBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color={theme.accentText} /> : (
-                <><Ionicons name="save-outline" size={18} color={theme.accentText} />
-                <Text style={S.saveMainBtnText}> {t('wyceny.btn.saveMain')}</Text></>
-              )}
-            </TouchableOpacity>
+            <PlatinumCTA
+              label={t('wyceny.btn.saveMain')}
+              style={S.saveMainBtn}
+              onPress={handleSave}
+              disabled={saving}
+              loading={saving}
+            />
             <View style={{ height: 60 }} />
           </ScrollView>
         </View>
@@ -953,10 +1015,10 @@ export default function WycenaScreen() {
                       }}
                       style={{ padding: 4 }}
                     >
-                      <Ionicons name="share-outline" size={22} color={theme.accent} />
+                      <PlatinumIconBadge icon="share-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowDetail(false)} style={{ padding: 4 }}>
-                      <Ionicons name="close" size={22} color={theme.textMuted} />
+                      <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -964,7 +1026,7 @@ export default function WycenaScreen() {
                 {/* Info */}
                 {selectedWycena.klient_telefon ? (
                   <TouchableOpacity style={S.detailRow} onPress={() => Linking.openURL(`tel:${selectedWycena.klient_telefon}`)}>
-                    <Ionicons name="call-outline" size={16} color={theme.success} />
+                    <PlatinumIconBadge icon="call-outline" color={theme.success} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.detailRowText, { color: theme.success }]}> {selectedWycena.klient_telefon}</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -972,18 +1034,18 @@ export default function WycenaScreen() {
                   style={S.detailRow}
                   onPress={() => { void openAddressInMaps(selectedWycena.adres || '', selectedWycena.miasto || ''); }}
                 >
-                  <Ionicons name="map-outline" size={16} color={theme.accent} />
+                  <PlatinumIconBadge icon="map-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                   <Text style={[S.detailRowText, { color: theme.accent }]}> {selectedWycena.adres}, {selectedWycena.miasto}</Text>
                 </TouchableOpacity>
                 {selectedWycena.oddzial_nazwa ? (
                   <View style={S.detailRow}>
-                    <Ionicons name="business-outline" size={16} color={theme.textSub} />
+                    <PlatinumIconBadge icon="business-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.detailRowText}> {selectedWycena.oddzial_nazwa}</Text>
                   </View>
                 ) : null}
                 {selectedWycena.autor_nazwa ? (
                   <View style={S.detailRow}>
-                    <Ionicons name="person-outline" size={16} color={theme.textSub} />
+                    <PlatinumIconBadge icon="person-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.detailRowText}> {selectedWycena.autor_nazwa}</Text>
                   </View>
                 ) : null}
@@ -1038,7 +1100,7 @@ export default function WycenaScreen() {
                     <View style={S.sprzetDetailRow}>
                       {sprzetOptions.filter(s => selectedWycena[s.key]).map(s => (
                         <View key={s.key} style={[S.sprzetDetailChip, { backgroundColor: theme.success + '22' }]}>
-                          <Ionicons name={s.icon} size={13} color={theme.success} />
+                          <PlatinumIconBadge icon={s.icon} color={theme.success} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                           <Text style={[S.sprzetDetailText, { color: theme.success }]}> {s.label}</Text>
                         </View>
                       ))}
@@ -1060,7 +1122,7 @@ export default function WycenaScreen() {
                 {selectedWycena.lat && selectedWycena.lon ? (
                   <TouchableOpacity style={[S.mapsBtn, { backgroundColor: theme.infoBg }]}
                     onPress={() => Linking.openURL(`https://maps.google.com/?q=${selectedWycena.lat},${selectedWycena.lon}`)}>
-                    <Ionicons name="map-outline" size={16} color={theme.info} />
+                    <PlatinumIconBadge icon="map-outline" color={theme.info} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={[S.mapsBtnText, { color: theme.info }]}> {t('wyceny.openMaps')}</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -1076,7 +1138,7 @@ export default function WycenaScreen() {
                           <Image source={{ uri: `${API_BASE_URL}${p.url}` }} style={S.detailPhotoImg} />
                           <TouchableOpacity style={[S.drawPhotoBtn, { backgroundColor: theme.surface3 }]}
                             onPress={() => { setShowDetail(false); router.push(`/wycena-rysuj?uri=${encodeURIComponent(`${API_BASE_URL}${p.url}`)}&wycenaId=${selectedWycena.id}`); }}>
-                            <Ionicons name="pencil" size={12} color={theme.text} />
+                            <PlatinumIconBadge icon="pencil" color={theme.text} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                             <Text style={[S.drawPhotoBtnText, { color: theme.text }]}> {t('wyceny.btn.draw')}</Text>
                           </TouchableOpacity>
                         </View>
@@ -1102,11 +1164,13 @@ export default function WycenaScreen() {
 
                 {/* Konwertuj */}
                 {isManager && selectedWycena.status === 'Zaakceptowana' && (
-                  <TouchableOpacity style={[S.convertBtn, { backgroundColor: theme.success }]}
-                    onPress={() => convertToZlecenie(selectedWycena)}>
-                    <Ionicons name="arrow-forward-circle-outline" size={18} color={theme.accentText} />
-                    <Text style={S.convertBtnText}> {t('wyceny.btn.convert')}</Text>
-                  </TouchableOpacity>
+                  <Animated.View style={{ transform: [{ scale: convertPulse }] }}>
+                    <TouchableOpacity style={[S.convertBtn, { backgroundColor: theme.success }]}
+                      onPress={() => convertToZlecenie(selectedWycena)}>
+                      <PlatinumIconBadge icon="arrow-forward-circle-outline" color={theme.accentText} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
+                      <Text style={S.convertBtnText}> {t('wyceny.btn.convert')}</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
                 )}
 
                 <View style={{ height: 24 }} />
@@ -1135,11 +1199,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: t.headerText },
   headerSub: { fontSize: 11, color: t.headerSub },
   newBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: t.accent, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8,
+    minWidth: 120,
+    borderRadius: 12,
   },
-  newBtnText: { color: t.accentText, fontWeight: '700', fontSize: 13 },
 
   // Oddziały
   oddzialyScroll: { backgroundColor: t.surface, borderBottomWidth: 1, borderBottomColor: t.border },
@@ -1211,7 +1273,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   gruboscBtnActive: { borderColor: t.text, backgroundColor: t.surface3 },
   gruboscLine: { width: 24, borderRadius: 4 },
-  undoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: t.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  undoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.surface2, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   undoBtnText: { color: t.textSub, fontSize: 13, fontWeight: '600' },
 
   // Modal nowej wyceny
@@ -1233,7 +1295,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   cardTitle: { fontSize: 14, fontWeight: '700', color: t.text, marginBottom: 12 },
   cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cardHint: { fontSize: 12, color: t.textMuted, marginBottom: 10 },
-  gpsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: t.accentLight },
+  gpsBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: t.accentLight },
   gpsBtnText: { fontSize: 12, fontWeight: '600' },
   gpsInfo: { fontSize: 12, marginBottom: 8, fontWeight: '500' },
   input: {
@@ -1262,7 +1324,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   thumbImg: { width: 72, height: 72, borderRadius: 10 },
   thumbAnnotated: {
     position: 'absolute', bottom: 4, left: 4,
-    backgroundColor: t.chartViolet, borderRadius: 6, padding: 3,
+    backgroundColor: t.info, borderRadius: 6, padding: 3,
   },
   thumbRemove: {
     position: 'absolute', top: -5, right: -5,
@@ -1326,17 +1388,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   finRow: { flexDirection: 'row' },
 
   // Zapisz główny
-  saveMainBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: t.accent, marginHorizontal: 14, marginTop: 14,
-    borderRadius: 16, padding: 16,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.55,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: 5,
-  },
-  saveMainBtnText: { color: t.accentText, fontWeight: '700', fontSize: 16 },
+  saveMainBtn: { marginHorizontal: 14, marginTop: 14 },
 
   // Szczegóły modal
   overlayBg: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
