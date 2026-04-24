@@ -2,9 +2,9 @@ import { formatStatusMessage } from '../utils/statusMessage';
 
 const PALETTE = {
   success: {
-    backgroundColor: 'rgba(165, 107, 255, 0.12)',
-    color: 'var(--text)',
-    borderColor: 'var(--border2)',
+    backgroundColor: 'var(--accent-surface)',
+    color: 'var(--accent-dk)',
+    borderColor: 'var(--logo-tint-border)',
   },
   warning: {
     backgroundColor: 'rgba(248, 201, 107, 0.12)',

@@ -76,7 +76,7 @@ export default function Login() {
           <div style={s.field}>
             <label htmlFor={loginInputId} style={s.label}>{t('login.loginLabel')}</label>
             <div style={s.inputWrap}>
-              <svg style={s.inputIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round">
+              <svg style={s.inputIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
                 <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
               </svg>
               <input
@@ -95,7 +95,7 @@ export default function Login() {
           <div style={s.field}>
             <label htmlFor={passwordInputId} style={s.label}>{t('login.passwordLabel')}</label>
             <div style={s.inputWrap}>
-              <svg style={s.inputIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round">
+              <svg style={s.inputIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
               <input
@@ -114,8 +114,8 @@ export default function Login() {
                 aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
               >
                 {showPassword
-                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 }
               </button>
             </div>
@@ -137,7 +137,7 @@ export default function Login() {
 
           {error && (
             <div style={s.errBox}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span style={s.errText}>{error}</span>
             </div>
           )}
@@ -219,7 +219,7 @@ const s = {
     display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(248,113,113,0.1)',
     border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, padding: '10px 14px',
   },
-  errText: { fontSize: 13, color: '#F87171', flex: 1 },
+  errText: { fontSize: 13, color: 'var(--danger)', flex: 1 },
   btn: {
     padding: '13px', background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 10,
     fontSize: 14, fontWeight: 600, letterSpacing: '0.02em', cursor: 'pointer', display: 'flex', alignItems: 'center',
