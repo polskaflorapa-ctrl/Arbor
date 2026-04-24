@@ -116,11 +116,11 @@ export default function Klienci() {
 
   const statusColor = (s) => ({
     'Zaplanowane': '#60A5FA', 'W_Trakcie': '#FBBF24',
-    'Zakonczone': 'var(--accent)', 'Anulowane': '#F87171',
+    'Zakonczone': 'var(--accent-dk)', 'Anulowane': '#F87171',
   }[s] || '#94A3B8');
 
   const taskStatusColor = (s) => ({
-    'Nowe': '#60A5FA', 'W_Trakcie': '#FBBF24', 'Zakończone': 'var(--accent)',
+    'Nowe': '#60A5FA', 'W_Trakcie': '#FBBF24', 'Zakończone': 'var(--accent-dk)',
     'Anulowane': '#F87171', 'Wstrzymane': '#94a3b8',
   }[s] || '#94A3B8');
 
@@ -193,12 +193,12 @@ export default function Klienci() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {Number(k.liczba_zlecen) > 0 && (
-                      <span style={{ fontSize: 10, background: 'rgba(52,211,153,0.15)', color: '#34d399', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
                         {k.liczba_zlecen} zleceń
                       </span>
                     )}
                     {Number(k.liczba_ogledzen) > 0 && (
-                      <span style={{ fontSize: 10, background: 'rgba(52, 211, 153, 0.12)', color: '#34d399', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)', borderRadius: 6, padding: '2px 7px', fontWeight: 700 }}>
                         {k.liczba_ogledzen} ogl.
                       </span>
                     )}

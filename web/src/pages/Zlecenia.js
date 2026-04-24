@@ -79,7 +79,7 @@ function TakNie({ label, field, form, onChange, disabled }) {
       padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
       <span style={{ fontSize: 14, color: 'var(--text-sub)' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 12, color: form[field] ? '#34d399' : 'var(--text-muted)', fontWeight: '600', minWidth: 24 }}>
+        <span style={{ fontSize: 12, color: form[field] ? 'var(--accent-dk)' : 'var(--text-muted)', fontWeight: '600', minWidth: 24 }}>
           {form[field] ? t('common.yes') : t('common.no')}
         </span>
         <Toggle value={form[field]} onChange={v => onChange(field, v)} disabled={disabled} />
