@@ -213,7 +213,7 @@ export default function ZarzadzajRolami() {
                   key={r.id}
                   style={{
                     ...S.roleRow,
-                    background: selected?.id === r.id ? '#1E3A5F' : 'transparent',
+                    background: selected?.id === r.id ? 'rgba(52, 211, 153, 0.12)' : 'transparent',
                     borderLeftColor: color,
                     opacity: r.aktywna === false ? 0.5 : 1,
                   }}
@@ -459,7 +459,7 @@ function ToggleSwitch({ value, onChange, disabled }) {
       onClick={() => !disabled && onChange(!value)}
       style={{
         width: 44, height: 24, borderRadius: 12,
-        background: value ? '#34D399' : '#1E3A5F',
+        background: value ? '#34D399' : 'rgba(20, 83, 45, 0.55)',
         position: 'relative', cursor: disabled ? 'default' : 'pointer',
         transition: 'background .2s', opacity: disabled ? 0.5 : 1,
       }}
@@ -512,8 +512,8 @@ const S = {
   roleName: { fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   roleMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 },
   tagSystem: {
-    fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#1E3A5F',
-    color: '#60A5FA', fontWeight: 600,
+    fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(52, 211, 153, 0.14)',
+    color: '#6ee7b7', fontWeight: 600,
   },
   tagInactive: {
     fontSize: 10, padding: '2px 6px', borderRadius: 4, background: '#450A0A',

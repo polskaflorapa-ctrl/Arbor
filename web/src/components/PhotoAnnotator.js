@@ -175,6 +175,6 @@ const btnGhost = {
 };
 const btnPrimary = {
   padding: '8px 18px', borderRadius: 8, border: 'none',
-  background: 'var(--accent)', color: '#052E16', fontWeight: 700, cursor: 'pointer', fontSize: 13,
+  background: '#34D399', color: '#052E16', fontWeight: 700, cursor: 'pointer', fontSize: 13,
 };
 const foot = { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 };
