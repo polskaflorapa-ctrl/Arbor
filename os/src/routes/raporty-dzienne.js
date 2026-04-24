@@ -485,7 +485,7 @@ router.post('/:id/wyslij', authMiddleware, validateParams(dailyReportIdParamsSch
       <html>
       <head><meta charset="UTF-8"><title>Raport dzienny ARBOR-OS</title></head>
       <body style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto">
-        <div style="background:#1F5C9E;color:white;padding:20px;border-radius:8px 8px 0 0">
+        <div style="background:#111111;color:#f4f4f5;padding:20px;border-radius:8px 8px 0 0">
           <h2 style="margin:0">ARBOR-OS - Raport dzienny</h2>
           <p style="margin:8px 0 0 0;opacity:0.8">${raport.oddzial_nazwa}</p>
         </div>
@@ -501,7 +501,7 @@ router.post('/:id/wyslij', authMiddleware, validateParams(dailyReportIdParamsSch
             </div>
             <div>
               <div style="font-size:12px;color:#9ca3af">Laczny czas pracy</div>
-              <div style="font-weight:bold;font-size:16px;color:#1F5C9E">${formatMinutes(raport.czas_pracy_minuty || 0)}</div>
+              <div style="font-weight:bold;font-size:16px;color:#111111">${formatMinutes(raport.czas_pracy_minuty || 0)}</div>
             </div>
           </div>
           <h3 style="color:#1F2937;border-bottom:2px solid #f3f4f6;padding-bottom:8px">Wykonane zlecenia</h3>
