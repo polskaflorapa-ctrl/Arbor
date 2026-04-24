@@ -10,11 +10,11 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 const STATUS_KOLOR = {
   Nowe: 'var(--accent)', Zaplanowane: 'var(--info)',
-  W_Realizacji: 'var(--warning)', Zakonczone: 'var(--accent-dk)', Anulowane: 'var(--danger)',
+  W_Realizacji: 'var(--warning)', Zakonczone: '#047857', Anulowane: 'var(--danger)',
 };
 const STATUS_BG = {
   Nowe: 'var(--accent-surface)', Zaplanowane: 'rgba(112,182,255,0.16)',
-  W_Realizacji: 'rgba(248,201,107,0.16)', Zakonczone: 'rgba(127,69,230,0.16)', Anulowane: 'rgba(255,127,169,0.16)',
+  W_Realizacji: 'rgba(248,201,107,0.16)', Zakonczone: 'rgba(52,211,153,0.16)', Anulowane: 'rgba(255,127,169,0.16)',
 };
 
 function AnimatedNumber({ value, duration = 900 }) {
@@ -104,7 +104,7 @@ export default function Dashboard() {
   const kpiData = [
     { label: 'Nowe zlecenia',   sub: 'Oczekują na przypisanie', value: stats.nowe || 0,         icon: 'nowe',       color: 'var(--accent)', path: '/zlecenia' },
     { label: 'W realizacji',    sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', color: '#FBBF24', path: '/zlecenia' },
-    { label: 'Zakończone',      sub: 'Zrealizowane zlecenia',   value: stats.zakonczone || 0,    icon: 'zakonczone', color: 'var(--accent-dk)', path: '/zlecenia' },
+    { label: 'Zakończone',      sub: 'Zrealizowane zlecenia',   value: stats.zakonczone || 0,    icon: 'zakonczone', color: 'var(--accent)', path: '/zlecenia' },
     ...(!isWorker && !isWyceniajacy ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', color: 'var(--accent)', suffix: ' PLN' }] : []),
   ];
 
@@ -311,7 +311,7 @@ const d = {
   },
   heroBg: {
     position: 'absolute', top: -60, right: -60, width: 200, height: 200,
-    borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.22) 0%, transparent 70%)',
+    borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.14) 0%, transparent 70%)',
     pointerEvents: 'none',
   },
   heroLeft: { position: 'relative' },
@@ -348,8 +348,8 @@ const d = {
   commandText: { marginTop: 4, fontSize: 12, color: 'var(--text-muted)' },
   commandButtons: { marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' },
   commandBtnAccent: {
-    padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border2)',
-    background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+    padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(5,150,105,0.45)',
+    background: 'linear-gradient(180deg, #34d399 0%, #059669 100%)', color: '#052E16', cursor: 'pointer', fontWeight: 700, fontSize: 13,
   },
   commandBtnGhost: {
     padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border2)',
@@ -357,7 +357,7 @@ const d = {
   },
   pipelineRow: { marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 6 },
   pipelineLabel: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
-  pipelineValue: { fontSize: 17, color: 'var(--accent)', fontWeight: 800 },
+  pipelineValue: { fontSize: 17, color: 'var(--accent-dk)', fontWeight: 800 },
 
   // Main grid
   mainGrid: { display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
@@ -370,7 +370,7 @@ const d = {
   seeAll: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 },
 
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0' },
-  spinner: { width: 28, height: 28, border: '2px solid #1E3A5F', borderTop: '2px solid #34D399', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  spinner: { width: 28, height: 28, border: '2px solid var(--border2)', borderTop: '2px solid #34D399', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
 
   // Zlecenia
   zRow: {
