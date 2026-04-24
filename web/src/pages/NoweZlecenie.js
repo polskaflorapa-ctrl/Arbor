@@ -12,7 +12,7 @@ import { errorMessage, successMessage, warningMessage } from '../utils/statusMes
 
 const TYPY = ['Wycinka', 'Pielęgnacja', 'Ogrodnictwo', 'Frezowanie pniaków', 'Inne'];
 const PRIORYTETY = ['Niski', 'Normalny', 'Wysoki', 'Pilny'];
-const PRIORYTET_KOLOR = { Niski: '#6B7280', Normalny: '#3B82F6', Wysoki: '#F59E0B', Pilny: '#EF4444' };
+const PRIORYTET_KOLOR = { Niski: 'var(--text-muted)', Normalny: '#1d4ed8', Wysoki: '#b45309', Pilny: 'var(--danger)' };
 
 const IKONY = {
   klient:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -151,7 +151,7 @@ export default function NoweZlecenie() {
 
   const setField = (field) => (e) => setForm({ ...form, [field]: e.target.value });
   const todayDate = new Date().toISOString().split('T')[0];
-  const priorKolor = PRIORYTET_KOLOR[form.priorytet] || '#3B82F6';
+  const priorKolor = PRIORYTET_KOLOR[form.priorytet] || '#1d4ed8';
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
@@ -160,7 +160,7 @@ export default function NoweZlecenie() {
 
         {/* ── Nagłówek ─────────────────────────────────────────── */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--sidebar) 0%, #1B4332 100%)',
+          background: 'linear-gradient(135deg, var(--sidebar) 0%, #14532d 100%)',
           borderRadius: 20, padding: '22px 28px', marginBottom: 24,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
@@ -205,7 +205,7 @@ export default function NoweZlecenie() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
               {/* Dane klienta */}
-              <Section title="Dane klienta" icon={IKONY.klient} accent="#34D399">
+              <Section title="Dane klienta" icon={IKONY.klient} accent="var(--accent)">
                 <Field label="Klient *" icon={IKONY.klient}>
                   <input style={S.input} value={form.klient_nazwa} onChange={setField('klient_nazwa')} required placeholder="Imię i nazwisko lub firma" />
                 </Field>
@@ -238,7 +238,7 @@ export default function NoweZlecenie() {
               </Section>
 
               {/* Notatki */}
-              <Section title="Notatki wewnętrzne" icon={IKONY.note} accent="#60A5FA">
+              <Section title="Notatki wewnętrzne" icon={IKONY.note} accent="#1d4ed8">
                 <textarea
                   style={{ ...S.input, resize: 'vertical', minHeight: 90, fontFamily: 'inherit', lineHeight: 1.5 }}
                   value={form.notatki_wewnetrzne}
@@ -254,7 +254,7 @@ export default function NoweZlecenie() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
               {/* Szczegóły zlecenia */}
-              <Section title="Szczegóły zlecenia" icon={IKONY.tree} accent="#34D399">
+              <Section title="Szczegóły zlecenia" icon={IKONY.tree} accent="var(--accent)">
                 <Field label="Tryb ankiety" icon={IKONY.note}>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
@@ -358,7 +358,7 @@ export default function NoweZlecenie() {
                             transition: 'all 0.15s',
                           }}
                         >
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: e.kolor || '#6B7280', flexShrink: 0 }} />
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: e.kolor || 'var(--text-muted)', flexShrink: 0 }} />
                           <span style={{ fontSize: 11, fontWeight: 600, color: form.ekipa_id === String(e.id) ? (e.kolor || 'var(--accent)') : 'var(--text-muted)' }}>
                             {e.nazwa}
                           </span>
@@ -405,7 +405,7 @@ export default function NoweZlecenie() {
               style={{
                 padding: '11px 32px', borderRadius: 10, border: 'none',
                 background: loading ? 'var(--bg-deep)' : 'linear-gradient(135deg, var(--accent), var(--accent-dk))',
-                color: '#0A1628', cursor: loading ? 'wait' : 'pointer',
+                color: 'var(--on-accent)', cursor: loading ? 'wait' : 'pointer',
                 fontSize: 14, fontWeight: 800, transition: 'all 0.2s',
                 boxShadow: loading ? 'none' : '0 4px 16px rgba(52,211,153,0.35)',
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -486,7 +486,7 @@ const S = {
   },
   toggleBtnActive: {
     border: '1px solid var(--accent)',
-    background: 'rgba(52,211,153,0.16)',
-    color: 'var(--accent)',
+    background: 'var(--accent-surface)',
+    color: 'var(--accent-dk)',
   },
 };

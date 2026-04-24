@@ -7,12 +7,19 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'];
+const UI_COLORS = {
+  info: '#1d4ed8',
+  warning: '#b45309',
+  success: '#166534',
+  danger: '#dc2626',
+  muted: 'var(--text-muted)',
+};
 
 const STATUS_COLOR = {
-  Zaplanowane: '#60A5FA',
-  W_Trakcie:   '#FBBF24',
+  Zaplanowane: UI_COLORS.info,
+  W_Trakcie:   UI_COLORS.warning,
   Zakonczone:  'var(--accent)',
-  Anulowane:   '#F87171',
+  Anulowane:   UI_COLORS.danger,
 };
 
 const STATUS_LABEL = {
@@ -387,9 +394,9 @@ export default function Ogledziny() {
   const gpsState = (live) => {
     const ageMin = live?.recorded_at ? (Date.now() - new Date(live.recorded_at).getTime()) / 60000 : Infinity;
     const speed = Number(live?.speed_kmh || 0);
-    if (ageMin > 15) return { label: 'stary sygnał', color: '#F87171' };
-    if (speed > 5) return { label: 'jazda', color: '#34D399' };
-    return { label: 'postój', color: '#60A5FA' };
+    if (ageMin > 15) return { label: 'stary sygnał', color: UI_COLORS.danger };
+    if (speed > 5) return { label: 'jazda', color: UI_COLORS.success };
+    return { label: 'postój', color: UI_COLORS.info };
   };
   const fmtEta = (minutes) => {
     if (minutes == null) return null;
@@ -670,7 +677,7 @@ export default function Ogledziny() {
                   </div>
                 </div>
                 {zoneImportError ? (
-                  <div style={{ marginBottom: 8, fontSize: 11, color: '#F87171' }}>{zoneImportError}</div>
+                  <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--danger)' }}>{zoneImportError}</div>
                 ) : null}
                 {dictionaryRows.length === 0 ? (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Brak zapisanych domyślnych stref.</div>
@@ -729,17 +736,17 @@ export default function Ogledziny() {
               {dispatchMode ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sortowanie priorytetem ETA</span> : null}
             </div>
             {dispatchMode && criticalRisks.length > 0 ? (
-              <div style={{ marginTop: 8, fontSize: 11, color: '#F87171', background: 'rgba(248,113,113,0.14)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '7px 9px' }}>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--danger)', background: 'rgba(248,113,113,0.14)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '7px 9px' }}>
                 Krytyczne opóźnienia: {criticalRisks.length}. Najwyższy priorytet przypięty na górę listy.
               </div>
             ) : null}
             {staleSignals.length > 0 ? (
-              <div style={{ marginTop: 8, fontSize: 11, color: '#F87171', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '6px 8px' }}>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--danger)', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '6px 8px' }}>
                 Uwaga: {staleSignals.length} ekip ma stary sygnał GPS (&gt;15 min).
               </div>
             ) : null}
             {withoutGpsRows.length > 0 ? (
-              <div style={{ marginTop: 8, fontSize: 11, color: '#FBBF24', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 8, padding: '6px 8px' }}>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--warning)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 8, padding: '6px 8px' }}>
                 Bez GPS: {withoutGpsRows.length} przypisanych pozycji (np. wyceniający bez lokalizatora).
               </div>
             ) : null}
@@ -842,9 +849,9 @@ export default function Ogledziny() {
                   Widok orientacyjny (siatka GPS), nie pełna mapa drogowa.
                 </div>
                 <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ color: '#34D399' }}>● jazda</span>
-                  <span style={{ color: '#60A5FA' }}>● postój</span>
-                  <span style={{ color: '#F87171' }}>● stary sygnał</span>
+                  <span style={{ color: UI_COLORS.success }}>● jazda</span>
+                  <span style={{ color: UI_COLORS.info }}>● postój</span>
+                  <span style={{ color: UI_COLORS.danger }}>● stary sygnał</span>
                   {teamFilter ? (
                     <button type="button" style={{ ...btn.secondary, fontSize: 11, padding: '2px 8px' }} onClick={() => setTeamFilter('')}>
                       Wyczyść filtr ekipy
@@ -972,7 +979,7 @@ export default function Ogledziny() {
                             borderRadius: 6,
                             border: '1px solid rgba(248,113,113,0.35)',
                             background: 'rgba(248,113,113,0.12)',
-                            color: '#F87171',
+                            color: 'var(--danger)',
                             padding: '2px 6px',
                             cursor: 'pointer',
                           }}
@@ -994,7 +1001,7 @@ export default function Ogledziny() {
                         {` · ${gpsState(live).label} · ryzyko ${risk.score}`}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 11, color: '#FBBF24', marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>
                         ⚠ Brak GPS: {getAssignmentLabel(o, live)}
                       </div>
                     )}
