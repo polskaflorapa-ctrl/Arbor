@@ -8,7 +8,7 @@ import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 
-const STATUS_KOLOR = { oczekuje: '#F59E0B', rezerwacja_wstepna: '#22C55E', do_specjalisty: '#60A5FA', zatwierdzono: '#34D399', odrzucono: '#EF4444' };
+const STATUS_KOLOR = { oczekuje: '#b45309', rezerwacja_wstepna: '#166534', do_specjalisty: '#1d4ed8', zatwierdzono: 'var(--accent-dk)', odrzucono: 'var(--danger)' };
 const STATUS_LABEL = { oczekuje: '⏳ Oczekuje', rezerwacja_wstepna: '📌 Rezerwacja wstępna', do_specjalisty: '🧠 Do specjalisty', zatwierdzono: '✅ Zatwierdzono', odrzucono: '❌ Odrzucono' };
 
 function fmt(v) {
@@ -252,9 +252,9 @@ export default function ZatwierdzWyceny() {
                     <div style={S.ekipyGrid}>
                       {ekipy.map(e => (
                         <div key={e.id}
-                          style={{ ...S.ekipaPill, ...(editForm.ekipa_id === e.id.toString() ? { borderColor: e.kolor || 'var(--accent)', backgroundColor: (e.kolor || '#34D399') + '22', color: e.kolor || 'var(--accent)' } : {}) }}
+                          style={{ ...S.ekipaPill, ...(editForm.ekipa_id === e.id.toString() ? { borderColor: e.kolor || 'var(--accent)', backgroundColor: e.kolor ? `${e.kolor}22` : 'var(--accent-surface)', color: e.kolor || 'var(--accent)' } : {}) }}
                           onClick={() => setEditForm(f => ({ ...f, ekipa_id: e.id.toString() }))}>
-                          <div style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: e.kolor || '#6B7280' }} />
+                          <div style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: e.kolor || 'var(--text-muted)' }} />
                           {e.nazwa}
                         </div>
                       ))}
@@ -373,8 +373,8 @@ export default function ZatwierdzWyceny() {
 
 const S = {
   root: { minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)', color: 'var(--text)', position: 'relative', overflow: 'hidden' },
-  bgOrbTop: { position: 'fixed', top: -130, right: -120, width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.24) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
-  bgOrbBottom: { position: 'fixed', bottom: -140, left: -120, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(112,182,255,0.17) 0%, transparent 72%)', pointerEvents: 'none', zIndex: 0 },
+  bgOrbTop: { position: 'fixed', top: -130, right: -120, width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.22) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
+  bgOrbBottom: { position: 'fixed', bottom: -140, left: -120, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(20,83,45,0.18) 0%, transparent 72%)', pointerEvents: 'none', zIndex: 0 },
   pageWrap: { maxWidth: 1200, margin: '0 auto', padding: '20px 24px 28px', position: 'relative', zIndex: 1 },
   backBtn: {
     padding: '8px 14px',
@@ -383,7 +383,7 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'var(--border2)',
     backgroundColor: 'var(--bg-card2)',
-    color: '#fff',
+    color: 'var(--text)',
     fontWeight: 700,
     cursor: 'pointer',
   },
@@ -476,7 +476,7 @@ const S = {
     padding: '10px 12px',
     borderRadius: 10,
     border: '1px solid var(--border2)',
-    backgroundColor: 'rgba(52,211,153,0.08)',
+    backgroundColor: 'var(--accent-surface)',
     display: 'flex',
     flexDirection: 'column',
     gap: 4,
@@ -485,9 +485,9 @@ const S = {
   planPreviewWarn: {
     fontSize: 11,
     fontWeight: 700,
-    color: '#F59E0B',
-    backgroundColor: 'rgba(245,158,11,0.14)',
-    border: '1px solid rgba(245,158,11,0.3)',
+    color: 'var(--warning)',
+    backgroundColor: 'rgba(251,191,36,0.14)',
+    border: '1px solid rgba(251,191,36,0.3)',
     borderRadius: 8,
     padding: '6px 8px',
   },

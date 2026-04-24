@@ -7,11 +7,11 @@ import Sidebar from '../components/Sidebar';
 
 
 const STATUS_KOLOR = {
-  Nowe: '#3B82F6',
-  Zaplanowane: '#64748b',
-  W_Realizacji: '#F9A825',
-  Zakonczone: '#22C55E',
-  Anulowane: '#EF5350'
+  Nowe: '#1d4ed8',
+  Zaplanowane: 'var(--text-muted)',
+  W_Realizacji: '#b45309',
+  Zakonczone: '#166534',
+  Anulowane: 'var(--danger)'
 };
 
 const DNI_KROTKO = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'];
@@ -86,7 +86,7 @@ export default function Harmonogram() {
     ekipy.filter(e => e.kolor).map(e => [e.id, e.kolor])
   );
 
-  const getKolor = (z) => ekipaKolorMap[z.ekipa_id] || STATUS_KOLOR[z.status] || '#6B7280';
+  const getKolor = (z) => ekipaKolorMap[z.ekipa_id] || STATUS_KOLOR[z.status] || 'var(--text-muted)';
 
   const tydzien = getTydzien(currentDate);
   const dzisiaj = new Date().toISOString().split('T')[0];
@@ -151,14 +151,14 @@ export default function Harmonogram() {
           const ds = d.toISOString().split('T')[0];
           const isToday = ds === dzisiaj;
           return (
-            <div key={ds} style={{...styles.dayColHeader, backgroundColor: isToday ? 'rgba(52,211,153,0.1)' : '#1E293B'}}>
-              <div style={{...styles.dayColDow, color: isToday ? 'var(--accent)' : '#9CA3AF'}}>
+            <div key={ds} style={{...styles.dayColHeader, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
+              <div style={{...styles.dayColDow, color: isToday ? 'var(--accent)' : 'var(--text-muted)'}}>
                 {DNI_KROTKO[d.getDay() === 0 ? 6 : d.getDay() - 1]}
               </div>
               <div style={{
                 ...styles.dayColNum,
                 backgroundColor: isToday ? 'var(--accent)' : 'transparent',
-                color: isToday ? 'var(--accent)' : '#F1F5F9'
+                color: isToday ? 'var(--on-accent)' : 'var(--text)'
               }}>
                 {d.getDate()}
               </div>
@@ -183,7 +183,7 @@ export default function Harmonogram() {
             const zl = zleceniaNaDzien(d);
 
             return (
-              <div key={ds} style={{...styles.dayCol, backgroundColor: isToday ? 'rgba(52,211,153,0.05)' : '#1E293B'}}>
+              <div key={ds} style={{...styles.dayCol, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
                 {GODZINY.map(h => (
                   <div key={h} style={styles.hourCell}
                     onClick={() => canEdit && navigate(`/nowe-zlecenie?data=${ds}&godzina=${h}:00`)}>

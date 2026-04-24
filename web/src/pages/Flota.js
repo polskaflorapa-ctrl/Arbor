@@ -151,8 +151,8 @@ export default function Flota() {
   const isExpired = (d) => d && new Date(d) < new Date();
 
   const STATUS_KOLOR = {
-    'Dostępny': '#4CAF50', 'W użyciu': '#F9A825',
-    'W naprawie': '#EF5350', 'Niedostępny': '#9CA3AF'
+    'Dostępny': '#166534', 'W użyciu': '#b45309',
+    'W naprawie': 'var(--danger)', 'Niedostępny': 'var(--text-muted)'
   };
 
   const fleetStatusLabel = (status) => t(`fleetStatus.${status}`, { defaultValue: status });
@@ -167,9 +167,9 @@ export default function Flota() {
 
   const kpiItems = useMemo(() => ([
     { key: 'veh', label: t('pages.flota.kpiVehicles'), value: filtrPojazdy.length, color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-    { key: 'eq', label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length, color: 'var(--accent)', bg: '#0F172A' },
+    { key: 'eq', label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length, color: 'var(--accent)', bg: 'var(--bg-deep)' },
     { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => x.status === 'Dostępny').length, color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-    { key: 'rep', label: t('pages.flota.kpiInRepair'), value: naprawy.length, color: '#EF5350', bg: '#FFEBEE' },
+    { key: 'rep', label: t('pages.flota.kpiInRepair'), value: naprawy.length, color: 'var(--danger)', bg: 'rgba(248,113,113,0.12)' },
   ]), [t, filtrPojazdy, filtrSprzet, naprawy.length]);
 
   const tabDefs = useMemo(() => ([
@@ -246,7 +246,7 @@ export default function Flota() {
             <div key={k.key} style={{
               backgroundColor: 'var(--bg-card)', borderRadius: 14, padding: '16px 18px',
               borderTop: `4px solid ${k.color}`,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              boxShadow: 'var(--shadow-sm)',
               animation: `bounceIn 0.4s ease ${i * 0.1}s forwards`, opacity: 0,
             }}>
               <div style={{ fontSize: 26, fontWeight: 'bold', color: k.color }}>{k.value}</div>
@@ -264,7 +264,7 @@ export default function Flota() {
               style={{
                 padding: '10px 18px', border: 'none', backgroundColor: 'transparent',
                 cursor: 'pointer', fontSize: 14, fontWeight: '500',
-                color: activeTab === tab.key ? 'var(--accent)' : '#6B7280',
+                color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-muted)',
                 borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
                 marginBottom: -2, transition: 'all 0.2s',
               }}>
@@ -362,8 +362,8 @@ export default function Flota() {
               {filtrPojazdy.map((p, i) => (
                 <div key={p.id} style={{
                   backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                  borderTop: `4px solid ${STATUS_KOLOR[p.status] || '#9CA3AF'}`,
+                  boxShadow: 'var(--shadow-sm)',
+                  borderTop: `4px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`,
                   animation: `bounceIn 0.4s ease ${i * 0.06}s forwards`, opacity: 0,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -377,7 +377,7 @@ export default function Flota() {
                     <select
                       value={p.status || 'Dostępny'}
                       onChange={e => zmienStatus('pojazdy', p.id, e.target.value)}
-                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[p.status] || '#9CA3AF'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--bg-card)', color: STATUS_KOLOR[p.status] || '#9CA3AF', fontWeight: '600' }}>
+                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--bg-card)', color: STATUS_KOLOR[p.status] || 'var(--text-muted)', fontWeight: '600' }}>
                       {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
                   </div>
@@ -390,12 +390,12 @@ export default function Flota() {
                       <PlaceOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.oddzial_nazwa || '-'}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: isExpired(p.data_przegladu) ? '#EF5350' : '#6B7280' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: isExpired(p.data_przegladu) ? 'var(--danger)' : 'var(--text-muted)' }}>
                       <HandymanOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
                       {t('pages.flota.cardInspection')}: {fmt(p.data_przegladu)}
                       {isExpired(p.data_przegladu) && <WarningAmberOutlined sx={{ fontSize: 14, marginLeft: 2 }} />}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: isExpired(p.data_ubezpieczenia) ? '#EF5350' : '#6B7280' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: isExpired(p.data_ubezpieczenia) ? 'var(--danger)' : 'var(--text-muted)' }}>
                       <SecurityOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
                       {t('pages.flota.cardInsurance')}: {fmt(p.data_ubezpieczenia)}
                       {isExpired(p.data_ubezpieczenia) && <WarningAmberOutlined sx={{ fontSize: 14, marginLeft: 2 }} />}
@@ -422,8 +422,8 @@ export default function Flota() {
               {filtrSprzet.map((s, i) => (
                 <div key={s.id} style={{
                   backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                  borderTop: `4px solid ${STATUS_KOLOR[s.status] || '#9CA3AF'}`,
+                  boxShadow: 'var(--shadow-sm)',
+                  borderTop: `4px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`,
                   animation: `bounceIn 0.4s ease ${i * 0.06}s forwards`, opacity: 0,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -437,7 +437,7 @@ export default function Flota() {
                     <select
                       value={s.status || 'Dostępny'}
                       onChange={e => zmienStatus('sprzet', s.id, e.target.value)}
-                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[s.status] || '#9CA3AF'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--bg-card)', color: STATUS_KOLOR[s.status] || '#9CA3AF', fontWeight: '600' }}>
+                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--bg-card)', color: STATUS_KOLOR[s.status] || 'var(--text-muted)', fontWeight: '600' }}>
                       {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
                   </div>
@@ -447,7 +447,7 @@ export default function Flota() {
                       <PlaceOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.oddzial_nazwa || '-'}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: isExpired(s.data_przegladu) ? '#EF5350' : '#6B7280' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: isExpired(s.data_przegladu) ? 'var(--danger)' : 'var(--text-muted)' }}>
                       <HandymanOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
                       {t('pages.flota.cardInspection')}: {fmt(s.data_przegladu)}
                       {isExpired(s.data_przegladu) && <WarningAmberOutlined sx={{ fontSize: 14, marginLeft: 2 }} />}
@@ -481,7 +481,7 @@ export default function Flota() {
                   <div key={n.id} style={S.repairCard}>
                     <div style={S.repairTop}>
                       <span style={S.repairType}>{n.typ_zasobu}</span>
-                      <span style={{ ...S.repairStatus, backgroundColor: n.status === 'Zakończona' ? '#4CAF50' : '#F9A825' }}>
+                      <span style={{ ...S.repairStatus, backgroundColor: n.status === 'Zakończona' ? '#166534' : '#b45309' }}>
                         {t(`fleetRepairStatus.${n.status}`, { defaultValue: n.status })}
                       </span>
                     </div>
@@ -495,7 +495,7 @@ export default function Flota() {
                     </div>
                     <div style={S.repairRow}>
                       <span style={S.repairLabel}>Koszt</span>
-                      <span style={{ ...S.repairValue, color: '#ff9bb4', fontWeight: 700 }}>
+                      <span style={{ ...S.repairValue, color: 'var(--danger)', fontWeight: 700 }}>
                         {n.koszt ? `${parseFloat(n.koszt).toLocaleString('pl-PL')} PLN` : '-'}
                       </span>
                     </div>
