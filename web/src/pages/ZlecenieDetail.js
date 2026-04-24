@@ -43,9 +43,9 @@ const BASE = '';
 
 const STATUS_KOLOR = {
   Nowe: 'var(--accent)',
-  Zaplanowane: '#81C784',
+  Zaplanowane: '#15803D',
   W_Realizacji: '#F9A825',
-  Zakonczone: '#4CAF50',
+  Zakonczone: '#166534',
   Anulowane: '#EF5350'
 };
 
@@ -1096,7 +1096,7 @@ export default function ZlecenieDetail() {
                 {integrationLogs.map((log) => (
                   <div key={log.id} style={styles.issueCard}>
                     <div style={styles.issueHeader}>
-                      <span style={{ ...styles.badge, backgroundColor: '#38bdf8' }}>{String(log.channel || '').toUpperCase()}</span>
+                      <span style={{ ...styles.badge, backgroundColor: '#0284c7' }}>{String(log.channel || '').toUpperCase()}</span>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDateTime(log.created_at)}</span>
                     </div>
                     <div style={styles.issueOpis}>{log.title}</div>
@@ -1143,7 +1143,7 @@ export default function ZlecenieDetail() {
                             : '-'}
                         </td>
                         <td style={styles.td}>
-                          <span style={{ ...styles.badge, backgroundColor: w.status === 'Zakończony' ? '#4CAF50' : '#F9A825', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ ...styles.badge, backgroundColor: w.status === 'Zakończony' ? '#166534' : '#b45309', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             {w.status === 'Zakończony' ? <CheckCircleOutline sx={{ fontSize: 14 }} /> : <HourglassEmptyOutlined sx={{ fontSize: 14 }} />}
                             {w.status === 'Zakończony' ? 'Zakończony' : 'W trakcie'}
                           </span>
@@ -1171,7 +1171,7 @@ export default function ZlecenieDetail() {
               : issues.map(issue => (
                   <div key={issue.id} style={styles.issueCard}>
                     <div style={styles.issueHeader}>
-                      <span style={{ ...styles.badge, backgroundColor: '#F9A825', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ ...styles.badge, backgroundColor: '#b45309', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <WarningAmberOutlined sx={{ fontSize: 14 }} />
                         {issue.typ?.replace(/_/g, ' ')}
                       </span>
