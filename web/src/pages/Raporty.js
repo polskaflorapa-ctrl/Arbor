@@ -32,6 +32,14 @@ const SERVICE_TYPE_ROW = [
   { typ: 'Inne', Icon: Inventory2Outlined },
 ];
 
+const UI_COLORS = {
+  success: '#166534',
+  warning: '#b45309',
+  info: '#1d4ed8',
+  danger: '#dc2626',
+  muted: '#64748b',
+};
+
 export default function Raporty() {
   const { t, i18n } = useTranslation();
   const [zlecenia, setZlecenia] = useState([]);
@@ -149,9 +157,9 @@ export default function Raporty() {
   };
  
   const getSkutecznoscColor = (value) => {
-    if (value >= 70) return '#4CAF50';
-    if (value >= 40) return '#F9A825';
-    return '#EF5350';
+    if (value >= 70) return UI_COLORS.success;
+    if (value >= 40) return UI_COLORS.warning;
+    return UI_COLORS.danger;
   };
  
   const lata = [...new Set(zlecenia.map(z => z.data_planowana?.split('T')[0]?.slice(0, 4)).filter(Boolean))].sort((a,b)=>b-a);
@@ -216,18 +224,18 @@ export default function Raporty() {
             <div style={styles.kpiNum}>{filtrowane.length}</div>
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiAllTasks')}</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#4CAF50' }}>
-            <div style={styles.kpiIcon}><CheckCircleOutline sx={{ fontSize: 26, color: '#4CAF50' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: UI_COLORS.success }}>
+            <div style={styles.kpiIcon}><CheckCircleOutline sx={{ fontSize: 26, color: UI_COLORS.success }} /></div>
             <div style={styles.kpiNum}>{zakonczone.length}</div>
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiDone')}</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#F9A825' }}>
-            <div style={styles.kpiIcon}><BoltOutlined sx={{ fontSize: 26, color: '#F9A825' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: UI_COLORS.warning }}>
+            <div style={styles.kpiIcon}><BoltOutlined sx={{ fontSize: 26, color: UI_COLORS.warning }} /></div>
             <div style={styles.kpiNum}>{wRealizacji.length}</div>
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiInProgress')}</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#2196F3' }}>
-            <div style={styles.kpiIcon}><DescriptionOutlined sx={{ fontSize: 26, color: '#2196F3' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: UI_COLORS.info }}>
+            <div style={styles.kpiIcon}><DescriptionOutlined sx={{ fontSize: 26, color: UI_COLORS.info }} /></div>
             <div style={styles.kpiNum}>{nowe.length}</div>
             <div style={styles.kpiLabel}>{t('pages.raporty.kpiNew')}</div>
           </div>
@@ -271,10 +279,10 @@ export default function Raporty() {
               <div style={styles.cardTitle}>{t('pages.raporty.cardStatusTitle')}</div>
               {[
                 { key: 'Zakonczone', label: t('taskStatus.Zakonczone'), count: zakonczone.length, color: 'var(--accent)' },
-                { key: 'W_Realizacji', label: t('taskStatus.W_Realizacji'), count: wRealizacji.length, color: '#F9A825' },
-                { key: 'Nowe', label: t('taskStatus.Nowe'), count: nowe.length, color: '#2196F3' },
-                { key: 'Zaplanowane', label: t('taskStatus.Zaplanowane'), count: zaplanowane.length, color: '#64748b' },
-                { key: 'Anulowane', label: t('taskStatus.Anulowane'), count: anulowane.length, color: '#EF5350' },
+                { key: 'W_Realizacji', label: t('taskStatus.W_Realizacji'), count: wRealizacji.length, color: UI_COLORS.warning },
+                { key: 'Nowe', label: t('taskStatus.Nowe'), count: nowe.length, color: UI_COLORS.info },
+                { key: 'Zaplanowane', label: t('taskStatus.Zaplanowane'), count: zaplanowane.length, color: UI_COLORS.muted },
+                { key: 'Anulowane', label: t('taskStatus.Anulowane'), count: anulowane.length, color: UI_COLORS.danger },
               ].map(s => (
                 <div key={s.key} style={styles.statusRow}>
                   <div style={styles.statusInfo}>
@@ -534,25 +542,25 @@ function formatDate(d) {
  
 function getStatusColor(status) {
   switch (status) {
-    case 'Zakonczone': return '#4CAF50';
-    case 'W_Realizacji': return '#F9A825';
-    case 'Nowe': return '#2196F3';
-    case 'Zaplanowane': return '#64748b';
-    case 'Anulowane': return '#EF5350';
-    default: return '#6B7280';
+    case 'Zakonczone': return UI_COLORS.success;
+    case 'W_Realizacji': return UI_COLORS.warning;
+    case 'Nowe': return UI_COLORS.info;
+    case 'Zaplanowane': return UI_COLORS.muted;
+    case 'Anulowane': return UI_COLORS.danger;
+    default: return UI_COLORS.muted;
   }
 }
  
 const styles = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
   main: { flex: 1, padding: '24px', overflowX: 'hidden' },
-  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '12px 20px', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', flexWrap: 'wrap' },
+  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '12px 20px', borderRadius: 12, boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
   filtrInput: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
-  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
+  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 },
-  kpi: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
+  kpi: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--shadow-sm)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
   kpiIcon: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   kpiNum: { fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 'bold', color: 'var(--text)' },
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
@@ -560,7 +568,7 @@ const styles = {
   tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: 'var(--text-muted)', borderBottom: '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' },
   tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
-  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20 },
+  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   sumWartosc: { fontSize: 13, fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: 8 },
   statusRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' },
