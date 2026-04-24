@@ -44,16 +44,16 @@ const BASE = '';
 const STATUS_KOLOR = {
   Nowe: 'var(--accent)',
   Zaplanowane: '#15803D',
-  W_Realizacji: '#F9A825',
+  W_Realizacji: '#b45309',
   Zakonczone: '#166534',
-  Anulowane: '#EF5350'
+  Anulowane: 'var(--danger)'
 };
 
 const PRIORYTET_KOLOR = {
-  Niski: '#9CA3AF',
-  Normalny: '#2196F3',
-  Wysoki: '#F9A825',
-  Pilny: '#EF5350'
+  Niski: 'var(--text-muted)',
+  Normalny: '#1d4ed8',
+  Wysoki: '#b45309',
+  Pilny: 'var(--danger)'
 };
 
 const SMS_SZABLONY = [
@@ -637,7 +637,7 @@ export default function ZlecenieDetail() {
                       {zlecenie.klient_telefon}
                     </a>
                   )
-                  : <span style={{color:'#9CA3AF', fontSize:13}}>Brak telefonu</span>
+                  : <span style={{color:'var(--text-muted)', fontSize:13}}>Brak telefonu</span>
               }
               {!editMode && (
                 <a href={`https://maps.google.com/?q=${encodeURIComponent(zlecenie.adres + ' ' + zlecenie.miasto)}`}
@@ -650,20 +650,20 @@ export default function ZlecenieDetail() {
           </div>
           <div style={styles.heroBadges}>
             {canEdit ? (
-              <select style={{...styles.statusSelect, backgroundColor: STATUS_KOLOR[zlecenie.status] || '#6B7280'}}
+              <select style={{...styles.statusSelect, backgroundColor: STATUS_KOLOR[zlecenie.status] || 'var(--text-muted)'}}
                 value={zlecenie.status} onChange={e => zmienStatus(e.target.value)}>
                 {['Nowe', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane'].map((s) => (
                   <option key={s} value={s}>{t(`taskStatus.${s}`, { defaultValue: s })}</option>
                 ))}
               </select>
             ) : (
-              <span style={{ ...styles.statusSelect, backgroundColor: STATUS_KOLOR[zlecenie.status] || '#6B7280', padding: '6px 16px', borderRadius: 20, color: '#fff', fontSize: 13, fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...styles.statusSelect, backgroundColor: STATUS_KOLOR[zlecenie.status] || 'var(--text-muted)', padding: '6px 16px', borderRadius: 20, color: '#fff', fontSize: 13, fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <TaskStatusIcon status={zlecenie.status} size={16} color="#fff" />
                 {t(`taskStatus.${zlecenie.status}`, { defaultValue: zlecenie.status })}
               </span>
             )}
-            <span style={{ ...styles.prioBadge, color: PRIORYTET_KOLOR[zlecenie.priorytet] || '#9CA3AF', borderColor: PRIORYTET_KOLOR[zlecenie.priorytet] || '#9CA3AF', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <FiberManualRecord sx={{ fontSize: 14, color: PRIORYTET_KOLOR[zlecenie.priorytet] || '#9CA3AF' }} />
+            <span style={{ ...styles.prioBadge, color: PRIORYTET_KOLOR[zlecenie.priorytet] || 'var(--text-muted)', borderColor: PRIORYTET_KOLOR[zlecenie.priorytet] || 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <FiberManualRecord sx={{ fontSize: 14, color: PRIORYTET_KOLOR[zlecenie.priorytet] || 'var(--text-muted)' }} />
               {zlecenie.priorytet || 'Normalny'}
             </span>
           </div>
@@ -676,30 +676,30 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiNum}>{formatCurrency(wartosc)}</div>
             <div style={styles.kpiLabel}>Wartość</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#F9A825' }}>
-            <div style={styles.kpiIcon}><ScheduleOutlined sx={{ fontSize: 26, color: '#F9A825' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: 'var(--warning)' }}>
+            <div style={styles.kpiIcon}><ScheduleOutlined sx={{ fontSize: 26, color: 'var(--warning)' }} /></div>
             <div style={styles.kpiNum}>{formatMinutes(lacznie)}</div>
             <div style={styles.kpiLabel}>Czas pracy</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#EF5350' }}>
-            <div style={styles.kpiIcon}><PaymentsOutlined sx={{ fontSize: 26, color: '#EF5350' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: 'var(--danger)' }}>
+            <div style={styles.kpiIcon}><PaymentsOutlined sx={{ fontSize: 26, color: 'var(--danger)' }} /></div>
             <div style={styles.kpiNum}>{formatCurrency(kosztRobocizny)}</div>
             <div style={styles.kpiLabel}>Koszt robocizny</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: marza >= 0 ? '#4CAF50' : '#EF5350' }}>
-            <div style={styles.kpiIcon}>{marza >= 0 ? <TrendingUpOutlined sx={{ fontSize: 26, color: '#4CAF50' }} /> : <TrendingDownOutlined sx={{ fontSize: 26, color: '#EF5350' }} />}</div>
-            <div style={{ ...styles.kpiNum, color: marza >= 0 ? '#4CAF50' : '#EF5350' }}>
+          <div style={{ ...styles.kpi, borderTopColor: marza >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+            <div style={styles.kpiIcon}>{marza >= 0 ? <TrendingUpOutlined sx={{ fontSize: 26, color: 'var(--success)' }} /> : <TrendingDownOutlined sx={{ fontSize: 26, color: 'var(--danger)' }} />}</div>
+            <div style={{ ...styles.kpiNum, color: marza >= 0 ? 'var(--success)' : 'var(--danger)' }}>
               {formatCurrency(marza)} ({marzaProcent}%)
             </div>
             <div style={styles.kpiLabel}>Marża</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#F9A825' }}>
-            <div style={styles.kpiIcon}><WarningAmberOutlined sx={{ fontSize: 26, color: '#F9A825' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: 'var(--warning)' }}>
+            <div style={styles.kpiIcon}><WarningAmberOutlined sx={{ fontSize: 26, color: 'var(--warning)' }} /></div>
             <div style={styles.kpiNum}>{issues.length}</div>
             <div style={styles.kpiLabel}>Problemy</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: '#2196F3' }}>
-            <div style={styles.kpiIcon}><PhotoCameraOutlined sx={{ fontSize: 26, color: '#2196F3' }} /></div>
+          <div style={{ ...styles.kpi, borderTopColor: '#1d4ed8' }}>
+            <div style={styles.kpiIcon}><PhotoCameraOutlined sx={{ fontSize: 26, color: '#1d4ed8' }} /></div>
             <div style={styles.kpiNum}>{zdjecia.length}</div>
             <div style={styles.kpiLabel}>Zdjęcia</div>
           </div>
@@ -924,7 +924,7 @@ export default function ZlecenieDetail() {
                   />
                   <button type="button" style={styles.uploadBtn} onClick={addReminder}>Dodaj</button>
                 </div>
-                <div style={{ marginTop: 12, fontSize: 12, color: workflowSla.reminders_overdue > 0 ? '#EF5350' : 'var(--text-muted)' }}>
+                <div style={{ marginTop: 12, fontSize: 12, color: workflowSla.reminders_overdue > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
                   Przeterminowane: {workflowSla.reminders_overdue}
                 </div>
                 <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
@@ -1150,7 +1150,7 @@ export default function ZlecenieDetail() {
                         </td>
                       </tr>
                     ))}
-                    <tr style={{backgroundColor:'rgba(52,211,153,0.1)'}}>
+                    <tr style={{backgroundColor:'var(--accent-surface)'}}>
                       <td style={{...styles.td, fontWeight:'bold'}} colSpan={3}>ŁĄCZNIE</td>
                       <td style={{...styles.td, fontWeight:'bold', color:'var(--accent)', fontSize:16}}>{formatMinutes(lacznie)}</td>
                       <td colSpan={2}></td>
@@ -1175,11 +1175,11 @@ export default function ZlecenieDetail() {
                         <WarningAmberOutlined sx={{ fontSize: 14 }} />
                         {issue.typ?.replace(/_/g, ' ')}
                       </span>
-                      <span style={{ fontSize: 12, color: issue.status === 'Zgloszony' ? '#F9A825' : '#4CAF50', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 12, color: issue.status === 'Zgloszony' ? 'var(--warning)' : 'var(--success)', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         {issue.status === 'Zgloszony' ? <PendingOutlined sx={{ fontSize: 14 }} /> : <CheckCircleOutline sx={{ fontSize: 14 }} />}
                         {issue.status === 'Zgloszony' ? 'Zgłoszony' : 'Rozwiązany'}
                       </span>
-                      <span style={{fontSize:12, color:'#9CA3AF', marginLeft:'auto'}}>{formatDateTime(issue.created_at)}</span>
+                      <span style={{fontSize:12, color:'var(--text-muted)', marginLeft:'auto'}}>{formatDateTime(issue.created_at)}</span>
                     </div>
                     {issue.opis && <div style={styles.issueOpis}>{issue.opis}</div>}
                     <div style={styles.issueFooter}>Zgłosił: {issue.zglaszajacy || '-'}</div>
@@ -1447,7 +1447,7 @@ function VideoSection({ title, videos, base, formatDateTime, onSelect, onDelete 
         {videos.map(v => (
           <div key={v.id} style={styles.photoCard} onClick={() => onSelect(v)}>
             <div style={styles.videoThumb}>
-              <SmartDisplayOutlined sx={{ fontSize: 42, color: '#38bdf8' }} />
+              <SmartDisplayOutlined sx={{ fontSize: 42, color: '#1d4ed8' }} />
             </div>
             <div style={styles.photoInfo}>
               <div style={styles.photoAutor}>{v.nazwa || 'Film'}</div>
@@ -1491,10 +1491,10 @@ const styles = {
   sep: { color: 'var(--text-muted)' },
   topActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   pdfBtn: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: '#fff', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)', transform: 'translateY(-1px)' } },
-  editBtn: { padding: '8px 18px', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#1976D2' } },
-  saveBtn: { padding: '8px 18px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-card)' } },
+  editBtn: { padding: '8px 18px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#1e40af' } },
+  saveBtn: { padding: '8px 18px', backgroundColor: 'var(--success)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: '#166534' } },
   cancelBtn: { padding: '8px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text-sub)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  heroCard: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 },
+  heroCard: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 },
   heroLeft: { flex: 1 },
   heroTitle: { fontSize: 'clamp(20px, 5vw, 24px)', fontWeight: 'bold', color: 'var(--accent)', marginBottom: 8 },
   heroAddr: { fontSize: 14, color: 'var(--text-muted)', marginBottom: 8 },
@@ -1514,7 +1514,7 @@ const styles = {
     backgroundColor: 'transparent',
   },
   kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 },
-  kpi: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
+  kpi: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--shadow-sm)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
   kpiIcon: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   kpiNum: { fontSize: 'clamp(14px, 3vw, 18px)', fontWeight: 'bold', color: 'var(--text)' },
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
@@ -1522,10 +1522,10 @@ const styles = {
   tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: 'var(--text-muted)', borderBottom: '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' },
   tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
-  card: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20 },
+  card: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   notatki: { marginTop: 16, backgroundColor: 'var(--bg-deep)', borderRadius: 8, padding: 14 },
-  notatkiLabel: { fontSize: 12, color: '#F9A825', fontWeight: '600', marginBottom: 6 },
+  notatkiLabel: { fontSize: 12, color: 'var(--warning)', fontWeight: '600', marginBottom: 6 },
   notatkiText: { fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.6 },
   statusGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 },
   statusBtn: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
@@ -1544,7 +1544,7 @@ const styles = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   badge: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
   mapLink: { color: 'var(--accent)', textDecoration: 'none', fontSize: 12, fontWeight: '500' },
-  issueCard: { padding: 14, backgroundColor: 'var(--bg-deep)', borderRadius: 8, marginBottom: 12, borderLeft: '4px solid #F9A825' },
+  issueCard: { padding: 14, backgroundColor: 'var(--bg-deep)', borderRadius: 8, marginBottom: 12, borderLeft: '4px solid var(--warning)' },
   issueHeader: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' },
   issueOpis: { fontSize: 14, color: 'var(--text-sub)', margin: '8px 0 4px', lineHeight: 1.5 },
   issueFooter: { fontSize: 11, color: 'var(--text-muted)', marginTop: 6 },
@@ -1554,7 +1554,7 @@ const styles = {
   uploadBtn: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)' } },
   photoSectionTitle: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 12, display: 'inline-block', backgroundColor: 'var(--bg-deep)', padding: '4px 12px', borderRadius: 6 },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 },
-  photoCard: { borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', cursor: 'pointer', backgroundColor: 'var(--bg-card)', transition: 'all 0.2s', '&:hover': { transform: 'scale(1.02)' } },
+  photoCard: { borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', backgroundColor: 'var(--bg-card)', transition: 'all 0.2s', '&:hover': { transform: 'scale(1.02)' } },
   photoImg: { width: '100%', height: 140, objectFit: 'cover', display: 'block' },
   photoInfo: { padding: '8px 10px' },
   photoAutor: { fontSize: 12, fontWeight: '600', color: 'var(--text)' },
@@ -1567,7 +1567,7 @@ const styles = {
   overlayInfo: { marginTop: 10, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
   videoThumb: { width: '100%', height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-deep)' },
   mediaMetaBox: { display: 'grid', gap: 8, marginTop: 10 },
-  mediaDeleteBtn: { marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #EF5350', color: '#EF5350', background: 'transparent', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' },
+  mediaDeleteBtn: { marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid rgba(248,113,113,0.35)', color: 'var(--danger)', background: 'transparent', borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer' },
   inlineForm: { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' },
   workflowRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', backgroundColor: 'var(--bg-deep)', borderRadius: 8 },
   editInput: { width: '100%', padding: '8px 12px', borderRadius: 8, border: '2px solid var(--accent)', fontSize: 14, outline: 'none', boxSizing: 'border-box' },

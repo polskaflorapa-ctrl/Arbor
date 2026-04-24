@@ -115,14 +115,14 @@ export default function Klienci() {
   const fmtPln = (v) => v != null ? `${Number(v).toLocaleString('pl-PL')} zł` : '—';
 
   const statusColor = (s) => ({
-    'Zaplanowane': '#60A5FA', 'W_Trakcie': '#FBBF24',
-    'Zakonczone': 'var(--accent-dk)', 'Anulowane': '#F87171',
-  }[s] || '#94A3B8');
+    'Zaplanowane': '#1d4ed8', 'W_Trakcie': '#b45309',
+    'Zakonczone': 'var(--accent-dk)', 'Anulowane': 'var(--danger)',
+  }[s] || 'var(--text-muted)');
 
   const taskStatusColor = (s) => ({
-    'Nowe': '#60A5FA', 'W_Trakcie': '#FBBF24', 'Zakończone': 'var(--accent-dk)',
-    'Anulowane': '#F87171', 'Wstrzymane': '#94a3b8',
-  }[s] || '#94A3B8');
+    'Nowe': '#1d4ed8', 'W_Trakcie': '#b45309', 'Zakończone': 'var(--accent-dk)',
+    'Anulowane': 'var(--danger)', 'Wstrzymane': 'var(--text-muted)',
+  }[s] || 'var(--text-muted)');
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
@@ -173,7 +173,7 @@ export default function Klienci() {
                   padding: '12px 16px',
                   borderBottom: '1px solid var(--border)',
                   cursor: 'pointer',
-                  background: selected === k.id ? 'rgba(52,211,153,0.07)' : 'transparent',
+                  background: selected === k.id ? 'var(--accent-surface)' : 'transparent',
                   borderLeft: `3px solid ${selected === k.id ? 'var(--accent)' : 'transparent'}`,
                   transition: 'all 0.15s',
                 }}
@@ -441,7 +441,7 @@ function FormField({ label, children, style }) {
 const btn = {
   primary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-    background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 9,
+    background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 9,
     fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   secondary: {
@@ -455,7 +455,7 @@ const btn = {
   },
   danger: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: 'rgba(248,113,113,0.12)', color: '#F87171', border: '1px solid rgba(248,113,113,0.3)',
+    background: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.3)',
     borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
 };

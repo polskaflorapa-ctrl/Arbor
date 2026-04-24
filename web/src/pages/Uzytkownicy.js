@@ -6,6 +6,7 @@ import StatusMessage from '../components/StatusMessage';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getRolaColor } from '../theme';
  
  
 export default function Uzytkownicy() {
@@ -224,21 +225,6 @@ export default function Uzytkownicy() {
     return true;
   });
  
-  const getRolaColor = (rola) => {
-    const map = {
-      'Dyrektor':                   '#f59e0b',
-      'Administrator':              '#fbbf24',
-      'Kierownik':                  '#38bdf8',
-      'Brygadzista':                '#34d399',
-      'Specjalista':                '#22d3ee',
-      'Wyceniający':                '#94a3b8',
-      'Pomocnik':                   '#94a3b8',
-      'Pomocnik bez doświadczenia': '#64748b',
-      'Magazynier':                 '#fb923c',
-    };
-    return map[rola] || '#94a3b8';
-  };
- 
   const isWazna = (data) => {
     if (!data) return null;
     const diff = new Date(data) - new Date();
@@ -328,7 +314,7 @@ export default function Uzytkownicy() {
                             {mozeEdytowac && (
                               <>
                                 <button style={s.btnSm} onClick={() => otworzEdycje(u)}>✏️</button>
-                                <button style={{ ...s.btnSm, backgroundColor: u.aktywny ? '#2a1118' : 'rgba(52,211,153,0.1)' }}
+                                <button style={{ ...s.btnSm, backgroundColor: u.aktywny ? 'rgba(248,113,113,0.12)' : 'var(--accent-surface)' }}
                                   onClick={() => zmienAktywnosc(u.id, !u.aktywny)}>
                                   {u.aktywny ? '🔒' : '🔓'}
                                 </button>
@@ -345,9 +331,9 @@ export default function Uzytkownicy() {
                         <div style={s.userListBottom}>
                           <span style={{
                             ...s.statusBadge,
-                            backgroundColor: u.aktywny ? 'rgba(52,211,153,0.1)' : '#2a1118',
-                            color: u.aktywny ? 'var(--accent)' : '#ff9bb4',
-                            border: `1px solid ${u.aktywny ? 'rgba(52,211,153,0.35)' : 'rgba(255,127,169,0.38)'}`
+                            backgroundColor: u.aktywny ? 'var(--accent-surface)' : 'rgba(248,113,113,0.12)',
+                            color: u.aktywny ? 'var(--accent-dk)' : 'var(--danger)',
+                            border: `1px solid ${u.aktywny ? 'var(--logo-tint-border)' : 'rgba(248,113,113,0.35)'}`
                           }}>
                             {u.aktywny ? '✅ Aktywny' : '❌ Nieaktywny'}
                           </span>
@@ -372,7 +358,7 @@ export default function Uzytkownicy() {
               {mozeEdytowac && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button style={s.btnSecondary} onClick={() => otworzEdycje(wybranyUser)}>✏️ Edytuj</button>
-                  <button style={{ ...s.btnSecondary, backgroundColor: wybranyUser.aktywny ? '#FFEBEE' : 'rgba(52,211,153,0.1)', color: wybranyUser.aktywny ? '#C62828' : 'var(--accent)' }}
+                  <button style={{ ...s.btnSecondary, backgroundColor: wybranyUser.aktywny ? 'rgba(248,113,113,0.12)' : 'var(--accent-surface)', color: wybranyUser.aktywny ? 'var(--danger)' : 'var(--accent-dk)' }}
                     onClick={() => zmienAktywnosc(wybranyUser.id, !wybranyUser.aktywny)}>
                     {wybranyUser.aktywny ? '🔒 Dezaktywuj' : '🔓 Aktywuj'}
                   </button>
@@ -567,7 +553,7 @@ export default function Uzytkownicy() {
                             <td style={s.td}>{k.data_uzyskania ? k.data_uzyskania.split('T')[0] : '—'}</td>
                             <td style={s.td}>
                               {k.data_waznosci ? (
-                                <span style={{ ...s.waznosc, backgroundColor: waznosc === 'expired' ? '#FFEBEE' : waznosc === 'soon' ? '#FFF8E1' : 'rgba(52,211,153,0.1)', color: waznosc === 'expired' ? '#C62828' : waznosc === 'soon' ? '#F57F17' : 'var(--accent)' }}>
+                                <span style={{ ...s.waznosc, backgroundColor: waznosc === 'expired' ? 'rgba(248,113,113,0.12)' : waznosc === 'soon' ? 'rgba(251,191,36,0.12)' : 'var(--accent-surface)', color: waznosc === 'expired' ? 'var(--danger)' : waznosc === 'soon' ? 'var(--warning)' : 'var(--accent-dk)' }}>
                                   {waznosc === 'expired' ? '⚠️ ' : waznosc === 'soon' ? '⏰ ' : '✅ '}
                                   {k.data_waznosci.split('T')[0]}
                                 </span>
@@ -575,7 +561,7 @@ export default function Uzytkownicy() {
                             </td>
                             {mozeEdytowac && (
                               <td style={s.td}>
-                                <button style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.1)', color: '#C62828' }}
+                                <button style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)' }}
                                   onClick={() => usunKompetencje(k.id)}>🗑</button>
                               </td>
                             )}
@@ -740,13 +726,13 @@ const s = {
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
-  backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
-  filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '12px 16px', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', flexWrap: 'wrap' },
+  backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '12px 16px', borderRadius: 12, boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap' },
   searchInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1 },
   filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
-  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
+  clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
   countBadge: { fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' },
-  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 },
+  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 16 },
   listCardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   listCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 },
   userListCard: {
@@ -785,7 +771,7 @@ const s = {
   btnSm: { padding: '5px 9px', backgroundColor: 'var(--bg-deep)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   btnSmGreen: { padding: '5px 12px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
   btnPrimary: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '600' },
-  btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   btnGray: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
   detailRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },
   detailLabel: { fontSize: 13, color: 'var(--text-muted)', minWidth: 140 },
