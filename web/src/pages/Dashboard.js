@@ -104,7 +104,7 @@ export default function Dashboard() {
   const kpiData = [
     { label: 'Nowe zlecenia',   sub: 'Oczekują na przypisanie', value: stats.nowe || 0,         icon: 'nowe',       color: 'var(--accent)', path: '/zlecenia' },
     { label: 'W realizacji',    sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', color: '#FBBF24', path: '/zlecenia' },
-    { label: 'Zakończone',      sub: 'Zrealizowane zlecenia',   value: stats.zakonczone || 0,    icon: 'zakonczone', color: '#34d399', path: '/zlecenia' },
+    { label: 'Zakończone',      sub: 'Zrealizowane zlecenia',   value: stats.zakonczone || 0,    icon: 'zakonczone', color: 'var(--accent)', path: '/zlecenia' },
     ...(!isWorker && !isWyceniajacy ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', color: 'var(--accent)', suffix: ' PLN' }] : []),
   ];
 
@@ -357,7 +357,7 @@ const d = {
   },
   pipelineRow: { marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 6 },
   pipelineLabel: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
-  pipelineValue: { fontSize: 17, color: '#6ee7b7', fontWeight: 800 },
+  pipelineValue: { fontSize: 17, color: 'var(--accent-dk)', fontWeight: 800 },
 
   // Main grid
   mainGrid: { display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
