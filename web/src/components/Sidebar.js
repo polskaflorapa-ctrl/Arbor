@@ -136,6 +136,8 @@ export default function Sidebar() {
 
   const W = collapsed ? 68 : 252;
   const rolaColor = getRolaColor(currentUser?.rola);
+  const [logoutHover, setLogoutHover] = useState(false);
+
   const onActivateKeyDown = (handler) => (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -354,15 +356,17 @@ export default function Sidebar() {
           <div
             onClick={handleLogout}
             onKeyDown={onActivateKeyDown(handleLogout)}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.1)'; e.currentTarget.style.color = '#F87171'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748B'; }}
+            onMouseEnter={() => setLogoutHover(true)}
+            onMouseLeave={() => setLogoutHover(false)}
             role="button"
             tabIndex={0}
             aria-label={t('sidebar.logoutAria')}
             style={{
               ...sb.navItem, justifyContent: collapsed ? 'center' : 'flex-start',
               padding: collapsed ? '10px 0' : '10px 14px',
-              color: 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.15s',
+              color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
+              background: logoutHover ? 'rgba(248,113,113,0.1)' : 'transparent',
+              cursor: 'pointer', transition: 'all 0.15s',
               borderLeft: '3px solid transparent',
             }}>
             <span style={{ display: 'flex', flexShrink: 0 }}>{ICONS.logout}</span>
