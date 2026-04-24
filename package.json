@@ -9,6 +9,7 @@
   "scripts": {
     "mobile": "npm run start -w arbor-mobile",
     "web": "npm run start -w arbor-web",
+    "build": "npm run build -w arbor-web && node ./scripts/sync-web-build.cjs",
     "os": "npm run dev -w arbor-os",
     "os:stack": "npm run dev:stack -w arbor-os",
     "api": "npm run server -w arbor-web",
