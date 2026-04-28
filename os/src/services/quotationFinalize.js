@@ -94,8 +94,12 @@ async function generateQuotationPdfBuffer(quotationId) {
   return Buffer.concat(chunks);
 }
 
-async function sendQuotationEmailOptional(toEmail, subject, text, pdfAbsPath) {
-  if (!env.SMTP_USER || !env.SMTP_PASS) return;
+/** @returns {{ status: string, error: string | null, at: Date | null }} */
+async function sendQuotationEmailWithResult(toEmail, subject, text, pdfAbsPath) {
+  const em = String(toEmail || '').trim();
+  if (!em) return { status: 'skipped_no_email', error: null, at: null };
+  if (!env.SMTP_USER || !env.SMTP_PASS) return { status: 'skipped_no_smtp', error: null, at: null };
+  const at = new Date();
   try {
     const nodemailer = require('nodemailer');
     const transporter = nodemailer.createTransport({
@@ -106,15 +110,41 @@ async function sendQuotationEmailOptional(toEmail, subject, text, pdfAbsPath) {
     });
     const mail = {
       from: env.SMTP_USER,
-      to: toEmail,
+      to: em,
       subject,
       text,
       attachments: fs.existsSync(pdfAbsPath) ? [{ filename: 'oferta-arbor.pdf', path: pdfAbsPath }] : [],
     };
     await transporter.sendMail(mail);
+    return { status: 'sent', error: null, at };
   } catch (e) {
     logger.error('quotationFinalize.email', { message: e.message });
+    const err = (e.message || String(e)).slice(0, 500);
+    return { status: 'failed', error: err, at };
   }
+}
+
+async function persistOfferDelivery(pool, quotationId, sms, email) {
+  await pool.query(
+    `UPDATE quotations SET
+      offer_sms_status = $1,
+      offer_sms_error = $2,
+      offer_sms_at = $3,
+      offer_email_status = $4,
+      offer_email_error = $5,
+      offer_email_at = $6,
+      updated_at = NOW()
+     WHERE id = $7`,
+    [
+      sms.status,
+      sms.error,
+      sms.at,
+      email.status,
+      email.error,
+      email.at,
+      quotationId,
+    ]
+  );
 }
 
 /**
@@ -144,7 +174,14 @@ async function afterQuotationFullyApproved(pool, quotationId) {
 
   const client = getSmsClient();
   const tel = (q.klient_telefon || '').replace(/\s/g, '');
-  if (client && tel && env.TWILIO_PHONE) {
+  /** @type {{ status: string, error: string | null, at: Date | null }} */
+  let sms;
+  if (!tel) {
+    sms = { status: 'skipped_no_phone', error: null, at: null };
+  } else if (!client || !env.TWILIO_PHONE) {
+    sms = { status: 'skipped_no_twilio', error: null, at: null };
+  } else {
+    const smsAt = new Date();
     try {
       await client.messages.create({
         body: msg.slice(0, 1500),
@@ -155,19 +192,30 @@ async function afterQuotationFullyApproved(pool, quotationId) {
         `INSERT INTO sms_history (task_id, telefon, tresc, status) VALUES (NULL, $1, $2, 'Wyslany')`,
         [tel, msg]
       );
+      sms = { status: 'sent', error: null, at: smsAt };
     } catch (e) {
       logger.error('quotationFinalize.sms', { message: e.message });
+      sms = {
+        status: 'failed',
+        error: (e.message || String(e)).slice(0, 500),
+        at: smsAt,
+      };
     }
   }
 
-  if (q.klient_email) {
-    await sendQuotationEmailOptional(
-      q.klient_email,
-      `Oferta ARBOR #${quotationId}`,
-      `${msg}\n\nPDF w załączniku.`,
-      pdfAbs
-    );
-  }
+  const emailRes = await sendQuotationEmailWithResult(
+    q.klient_email,
+    `Oferta ARBOR #${quotationId}`,
+    `${msg}\n\nPDF w załączniku.`,
+    pdfAbs
+  );
+  const email = {
+    status: emailRes.status,
+    error: emailRes.error,
+    at: emailRes.at,
+  };
+
+  await persistOfferDelivery(pool, quotationId, sms, email);
 
   if (q.wyceniajacy_id) {
     await pool.query(

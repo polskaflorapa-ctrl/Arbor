@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 function getCalendarDays(year: number, month: number) {
@@ -123,6 +123,16 @@ export default function HarmonogramScreen() {
   useEffect(() => {
     if (user && selectedDay) void fetchDayTasks(viewYear, viewMonth, selectedDay);
   }, [fetchDayTasks, selectedDay, viewYear, viewMonth, user]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed <= 0) return;
+      setRefreshing(true);
+      void fetchMonthData(viewYear, viewMonth);
+      if (selectedDay) void fetchDayTasks(viewYear, viewMonth, selectedDay);
+    });
+    return unsubscribe;
+  }, [fetchMonthData, fetchDayTasks, viewYear, viewMonth, selectedDay]);
 
   const onRefresh = () => {
     setRefreshing(true);

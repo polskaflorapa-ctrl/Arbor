@@ -25,6 +25,7 @@ import {
   queueRequestWithOfflineFallback,
   queueTaskPhotoOffline,
 } from '../../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
 import { triggerHaptic } from '../../utils/haptics';
@@ -197,7 +198,19 @@ export default function ZlecenieDetailScreen() {
 
   useEffect(() => { void init(); }, [init]);
 
-  const onRefresh = () => { setRefreshing(true); loadAll(); };
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed <= 0) return;
+      setOfflineQueueCount(d.left);
+      void (async () => {
+        const { token: tkn } = await getStoredSession();
+        if (tkn) await loadAll(tkn);
+      })();
+    });
+    return unsubscribe;
+  }, [loadAll]);
+
+  const onRefresh = async () => { setRefreshing(true); await loadAll(); };
 
   const statusUi = (s: string) => {
     const keys = ['Nowe', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane'];
@@ -562,6 +575,44 @@ export default function ZlecenieDetailScreen() {
         });
         setOfflineQueueCount(queued);
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraAcceptQueued'));
+      } catch {
+        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      }
+    }
+  };
+
+  const rejectExtraWork = async (ewId: number) => {
+    if (!token) return;
+    const body = { reason: 'Brak akceptacji klienta' };
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}/extra-work/${ewId}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        await loadAll();
+        Alert.alert('OK', 'Oznaczono jako wycenione bez akceptacji.');
+      } else if (res.status >= 500) {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work/${ewId}/reject`,
+          method: 'POST',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), 'Brak sieci — decyzja zostanie wysłana po synchronizacji.');
+      } else {
+        Alert.alert(t('notif.alert.errorTitle'), await res.text());
+      }
+    } catch {
+      try {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work/${ewId}/reject`,
+          method: 'POST',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), 'Brak sieci — decyzja zostanie wysłana po synchronizacji.');
       } catch {
         Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
       }
@@ -941,9 +992,14 @@ export default function ZlecenieDetailScreen() {
                   <Text style={{ color: theme.text, marginTop: 4 }}>{ew.opis}</Text>
                   {ew.amount_pln != null ? <Text style={{ color: theme.accent, marginTop: 4 }}>{Number(ew.amount_pln).toFixed(2)} PLN</Text> : null}
                   {ew.status === 'Wycenione' ? (
-                    <TouchableOpacity style={{ marginTop: 8, alignSelf: 'flex-start' }} onPress={() => void acceptExtraWork(ew.id)}>
-                      <Text style={{ color: theme.success, fontWeight: '700' }}>Akceptuj u klienta</Text>
-                    </TouchableOpacity>
+                    <View style={{ marginTop: 8, flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity style={{ alignSelf: 'flex-start' }} onPress={() => void acceptExtraWork(ew.id)}>
+                        <Text style={{ color: theme.success, fontWeight: '700' }}>Akceptuj u klienta</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ alignSelf: 'flex-start' }} onPress={() => void rejectExtraWork(ew.id)}>
+                        <Text style={{ color: theme.danger, fontWeight: '700' }}>Odrzuć</Text>
+                      </TouchableOpacity>
+                    </View>
                   ) : null}
                   {user?.rola === 'Wyceniający' && Number(zlecenie.wyceniajacy_id) === Number(user?.id) && ew.status === 'OczekujeWyceny' ? (
                     <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>

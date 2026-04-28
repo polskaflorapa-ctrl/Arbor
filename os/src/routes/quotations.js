@@ -39,6 +39,15 @@ const QUOTATION_STATUSES = [
 const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
 const isKierownik = (u) => u.rola === 'Kierownik';
 const isWyceniajacy = (u) => u.rola === 'Wyceniający';
+
+/** F1.10 — wiersz „tablicy SLA”: przeterminowane zatwierdzenie widoczne dla roli zainteresowanych. */
+function canSeeSlaOverdueRow(u, r) {
+  if (!u || !r) return false;
+  if (isDyrektor(u)) return true;
+  if (isKierownik(u) && Number(u.oddzial_id) === Number(r.oddzial_id)) return true;
+  if (isWyceniajacy(u) && Number(r.wyceniajacy_id) === Number(u.id)) return true;
+  return canUserDecideApproval(u, { wymagany_typ: r.wymagany_typ, id: r.approval_id }, r);
+}
 function toInt(v) {
   if (v === '' || v == null) return null;
   const n = Number(v);
@@ -259,6 +268,28 @@ router.get('/panel/moje-zatwierdzenia', async (req, res) => {
   } catch (e) {
     logger.error('quotations.panel.approvals', { message: e.message });
     res.status(500).json({ error: 'Błąd kolejki' });
+  }
+});
+
+/** F1.10 — lista zatwierdzeń po terminie SLA (due_at przed NOW()), do panelu web. */
+router.get('/panel/sla-przeterminowane', async (req, res) => {
+  try {
+    const u = req.user;
+    const { rows } = await pool.query(
+      `SELECT a.id AS approval_id, a.quotation_id, a.wymagany_typ, a.due_at, a.sla_reminder_sent_at,
+              q.klient_nazwa, q.status AS quotation_status, q.oddzial_id, q.wyceniajacy_id, q.priorytet
+       FROM quotation_approvals a
+       JOIN quotations q ON q.id = a.quotation_id
+       WHERE a.decyzja = 'Pending' AND q.status = 'W_Zatwierdzeniu'
+         AND a.due_at IS NOT NULL AND a.due_at < NOW()
+       ORDER BY a.due_at ASC
+       LIMIT 200`
+    );
+    const filtered = rows.filter((r) => canSeeSlaOverdueRow(u, r));
+    res.json(filtered);
+  } catch (e) {
+    logger.error('quotations.panel.sla', { message: e.message });
+    res.status(500).json({ error: 'Błąd listy SLA' });
   }
 });
 

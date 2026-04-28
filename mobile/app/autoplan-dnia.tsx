@@ -39,6 +39,7 @@ import {
   type ReminderTime,
 } from '../utils/autoplan-reminder';
 import { queueRequestWithOfflineFallback } from '../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 type TaskLite = {
@@ -332,9 +333,19 @@ export default function AutoplanDniaScreen() {
     void load();
   }, [load]);
 
-  const onRefresh = () => {
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed > 0) {
+        setRefreshing(true);
+        void load();
+      }
+    });
+    return unsubscribe;
+  }, [load]);
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    void load();
+    await load();
   };
 
   const canApplyPlan =

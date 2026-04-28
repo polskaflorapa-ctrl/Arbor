@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl, ScrollView,
@@ -21,6 +21,7 @@ import {
   isFeatureEnabledForOddzial,
   sortPathsByOddzialPriority,
 } from '../utils/oddzial-features';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
@@ -74,7 +75,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  const loadDataRef = useRef<() => Promise<void>>(async () => {});
 
   const loadData = async () => {
     try {
@@ -98,6 +99,17 @@ export default function DashboardScreen() {
     } catch { /* ignoruj błędy sieciowe */ }
     finally { setLoading(false); setRefreshing(false); }
   };
+
+  loadDataRef.current = loadData;
+
+  useEffect(() => { void loadDataRef.current(); }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed > 0) void loadDataRef.current();
+    });
+    return unsubscribe;
+  }, []);
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
@@ -241,7 +253,7 @@ export default function DashboardScreen() {
       title: t(`dashboard.quickCat.${key}`),
       actions: byCat.get(key) ?? [],
     })).filter((s) => s.actions.length > 0);
-  }, [quickActionsFiltered, t, language]);
+  }, [quickActionsFiltered, t]);
 
   const dzisiaj = new Date().toLocaleDateString('pl-PL', {
     weekday: 'long', day: 'numeric', month: 'long',

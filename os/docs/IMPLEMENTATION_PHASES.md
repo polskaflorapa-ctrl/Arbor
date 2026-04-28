@@ -43,16 +43,22 @@
 | Priorytet | Funkcja | Uwagi |
 |-----------|---------|--------|
 | P1 | **F3.5–F3.7** | ~~Walidacja przy finish (ekipa): zdjęcie „Po” (`TASK_FINISH_REQUIRE_PO_PHOTO=1`), opcj. „Przed” (`TASK_FINISH_REQUIRE_PRZED_PHOTO=1`), zużycie `zuzyte_materialy` → `task_finish_material_usage` + wymóg listy (`TASK_FINISH_REQUIRE_MATERIAL_USAGE=1`). Mobile: multipart `/tasks/:id/zdjecia`, start z checklistą GPS, pole zużycia w modalu finish.~~ |
-| P1 | **F3.8** | Offline: kolejka AsyncStorage (multipart zdjęcia + JSON: status/start/finish/extra/problem); flush przy `AppState active`, co 30 s oraz **`expo-network` `addNetworkStateListener`** po powrocie sieci (`OfflineQueueSync`). 2B: **idempotencja** — `Idempotency-Key` + `api_idempotency_log`, OS: start/stop/finish/status, problem(y), extra-work create/accept; mobilka: `flushOfflineQueue`. Konflikty / pełna replika listy — TODO. |
+| P1 | **F3.8** | Offline: kolejka AsyncStorage (multipart zdjęcia + JSON: status/start/finish/extra/problem); flush przy `AppState active`, co 30 s oraz **`expo-network` `addNetworkStateListener`** po powrocie sieci (`OfflineQueueSync`). 2B: **idempotencja** — `Idempotency-Key` + `api_idempotency_log`, OS: start/stop/finish/status, problem(y), extra-work create/accept; mobilka: `flushOfflineQueue`. **Konflikty / lista:** OS zwraca `reason: TASK_ALREADY_FINISHED` przy duplikacie finish; mobilka usuwa wpis z kolejki. `409 IDEMPOTENCY_INCOMPLETE` — wpis zostaje (bez bezpiecznego replay). Po `flushed > 0`: `offline-queue-sync-events` → odświeżenie m.in. `zlecenia`, `dashboard`, `zlecenie/[id]`, `harmonogram`, `misja-dnia`, `autoplan-dnia`, `raport-dzienny`, `powiadomienia`, `oddzialy-mobile`, `rozliczenia`. |
 | P2 | **F3.3 / F3.6** | ~~Wymuszone Przed/Po przy finish: env `TASK_FINISH_REQUIRE_*` + walidacja w `tasks.js`; mobile: `finish_requirements` z `GET /tasks/:id`, blokada „Zakończ” + banner + zużycie materiału w modalu.~~ Edytor adnotacji / rozszerzenia UI — opcjonalnie dalej. |
 
 ---
 
 ## Faza 3 — M1 Wycena u klienta (dopiecie vs F1.5–F1.12)
 
-- F1.10 SLA eskalacje (job + tablica SLA).
-- F1.11 PDF + wysyłka (istniejące ścieżki `pdf` / SMS — spięcie statusów).
-- F1.12 Public accept → task (webhook Kommo).
+Rdzeń **jest już w OS**; poniżej: co jest zrobione vs sensowne dopinki (web / pola / cron).
+
+| Punkt | Stan w repo | Pliki / endpointy | Opcjonalne „dopiecie” |
+|-------|-------------|-------------------|------------------------|
+| **F1.10** SLA | **Cron + powiadomienia (+ opcj. e-mail) + panel web** | `GET /api/ops/quotation-sla-tick?secret=OPS_CRON_SECRET` — `os/src/routes/ops.js`; env: `QUOTATION_SLA_EMAIL`, `PUBLIC_BASE_URL`; kolumna `quotation_approvals.sla_reminder_sent_at` (`os/migrate.sql`). **API listy:** `GET /api/quotations/panel/sla-przeterminowane` (`os/src/routes/quotations.js`) — karta na **`web/src/pages/WycenaKalendarz.js`**. | Drugi poziom eskalacji (np. SMS po X dniach); osobna podstrona zamiast karty — według potrzeb. |
+| **F1.11** PDF + wysyłka | **Po pełnym zatwierdzeniu + status kanałów** | `os/src/services/quotationFinalize.js` → PDF, `pdf_url`, `Wyslana_Klientowi`, SMS / e-mail; kolumny `offer_sms_*`, `offer_email_*` (`os/migrate.sql`). **Mobile:** `mobile/app/wyceny-terenowe/[id].tsx` — blok „Wysyłka oferty”. PDF wyceny: też `os/src/routes/pdf.js`. | Web panel szczegółu wyceny (jeśli pojawi się strona); retry wysyłki — opcjonalnie. |
+| **F1.12** Public accept → task | **Gotowe** | `os/src/routes/quotation-public.js` — `GET/POST /api/public/quotations/:token` → przy akceptacji INSERT `tasks` (`source_quotation_id`), webhook `quotation.accepted` na CRM (`os/src/services/kommo.js`). Lead z Kommo: `POST /api/webhooks/kommo/quotation-lead` — `os/src/routes/kommoQuotationWebhook.js`. | Dokumentacja operacyjna (cron `quotation-expiry-tick`, `quotation-sla-tick`); ewent. podpis URL w panelu kierownika bez ujawniania sekretnego tokena. |
+
+**Cron (zewnętrzny scheduler):** poza `quotation-sla-tick` jest `GET /api/ops/quotation-expiry-tick` (oferty `Wyslana_Klientowi` po `waznosc_do` → `Wygasla`) — ten sam mechanizm `OPS_CRON_SECRET`.
 
 ---
 
@@ -89,6 +95,7 @@ W kolejności:
 2. **Faza 1 / F11.2** — ~~święta PL + nadgodziny (>8 h) + praca nocna (mnożnik z kartą stawek) w `payrollTeamDay.js`.~~
 3. **Faza 1 / F11.4** — ~~payload w `payroll_team_day_reports` + mobile zamknięcie dnia (`/mobile/me/team-day-close`).~~ Dalsze pola w mobile (np. podgląd kasy w UI) — według potrzeb.
 4. **Faza 2 / F3.5–F3.7** — ~~walidacja „Po” / zużycie przy finish, mobile multipart + zużycie w modalu, testy Jest.~~
-5. **Faza 2 / F3.8** — offline: kolejka (2A: zdjęcia, 2B: reszta) albo **F3.3 / F3.6** — wymuszone Przed/Po + adnotacje.
+5. **Faza 2 / F3.8** — ~~offline: kolejka (2A: zdjęcia, 2B: reszta, flush, idempotencja, odświeżenie list + szczegółu).~~ **F3.3 / F3.6** — opcjonalnie: edytor adnotacji / dalsze UI.
+6. **Faza 3 / M1** — rdzeń F1.10–F1.12 w OS (patrz tabela powyżej). Kolejna iteracja: **web** (tablica SLA, status wysyłki oferty) albo **twardsze statusy** w DB pod F1.11 — według priorytetu produktu.
 
 Ten plik można aktualizować przy każdej merge’owanej fazie (checkboxy w PR opisie: „Phase 1 P1 done”).

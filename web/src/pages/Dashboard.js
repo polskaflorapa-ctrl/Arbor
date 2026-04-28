@@ -173,6 +173,10 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ nowe: 0, w_realizacji: 0, zakonczone: 0 });
   const [ostatnie, setOstatnie] = useState([]);
+  const [payrollClose, setPayrollClose] = useState({
+    export_allowed: true,
+    pending_count: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [hovered, setHovered] = useState(null);
@@ -189,6 +193,19 @@ export default function Dashboard() {
       ]);
       setStats(sRes.data);
       setOstatnie(Array.isArray(zRes.data) ? zRes.data.slice(0, 8) : []);
+      try {
+        const month = new Date().toISOString().slice(0, 7);
+        const pRes = await api.get('/payroll/month-close-status', {
+          headers: h,
+          params: { month },
+        });
+        setPayrollClose({
+          export_allowed: pRes.data?.export_allowed !== false,
+          pending_count: Number(pRes.data?.pending_count) || 0,
+        });
+      } catch {
+        setPayrollClose({ export_allowed: true, pending_count: 0 });
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, 'Nie udało się załadować danych dashboardu.'));
     }
@@ -208,6 +225,7 @@ export default function Dashboard() {
   const isMagazynier  = user?.rola === 'Magazynier';
   const isPomocnik    = user?.rola === 'Pomocnik' || user?.rola === 'Pomocnik bez doświadczenia';
   const isWorker      = isBrygadzista || isSpecjalista || isPomocnik || isMagazynier;
+  const canSeePayroll = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
   const sumaWartosci = ostatnie.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
   const statusCounts = ostatnie.reduce((acc, z) => {
     const key = z.status || 'Nowe';
@@ -223,6 +241,17 @@ export default function Dashboard() {
     { label: 'Zakończone', sub: 'Zrealizowane zlecenia', value: stats.zakonczone || 0, icon: 'zakonczone', path: '/zlecenia' },
     ...(!isWorker && !isWyceniajacy
       ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', suffix: ' PLN', path: '/zlecenia' }]
+      : []),
+    ...(canSeePayroll
+      ? [{
+          label: payrollClose.export_allowed ? 'Payroll: eksport OK' : 'Payroll: eksport zablokowany',
+          sub: payrollClose.export_allowed
+            ? 'Miesiąc gotowy do eksportu'
+            : `Brakuje raportów dnia: ${payrollClose.pending_count}`,
+          value: payrollClose.pending_count,
+          icon: payrollClose.export_allowed ? 'zakonczone' : 'realizacja',
+          path: '/rozliczenia-ekip',
+        }]
       : []),
   ];
 

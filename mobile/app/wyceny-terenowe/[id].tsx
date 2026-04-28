@@ -36,6 +36,13 @@ type QuotationRow = Record<string, unknown> & {
   waznosc_do?: string | null;
   wartosc_zaproponowana?: number | string | null;
   locked_at?: string | null;
+  wyslano_klientowi_at?: string | null;
+  offer_sms_status?: string | null;
+  offer_sms_error?: string | null;
+  offer_sms_at?: string | null;
+  offer_email_status?: string | null;
+  offer_email_error?: string | null;
+  offer_email_at?: string | null;
 };
 
 type ItemRow = {
@@ -52,6 +59,29 @@ function isoDatePlusDays(days: number) {
   d.setDate(d.getDate() + days);
   d.setHours(23, 59, 0, 0);
   return d.toISOString();
+}
+
+const OFFER_STATUS_PL: Record<string, string> = {
+  sent: 'Wysłano',
+  failed: 'Błąd',
+  skipped_no_phone: 'Pominięto — brak telefonu',
+  skipped_no_twilio: 'Pominięto — brak Twilio',
+  skipped_no_email: 'Pominięto — brak e-mail',
+  skipped_no_smtp: 'Pominięto — brak SMTP',
+};
+
+function offerStatusLabel(code: unknown) {
+  const k = String(code || '').trim();
+  return OFFER_STATUS_PL[k] || k || '—';
+}
+
+function fmtPlDateTime(iso: unknown) {
+  if (!iso) return '—';
+  try {
+    return new Date(String(iso)).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return '—';
+  }
 }
 
 export default function WycenaTerenowaDetailScreen() {
@@ -300,6 +330,27 @@ export default function WycenaTerenowaDetailScreen() {
         <Text style={s.klient}>{q.klient_nazwa || '—'}</Text>
         <Text style={s.muted}>{[q.adres, q.miasto].filter(Boolean).join(', ')}</Text>
 
+        {(!!q.wyslano_klientowi_at ||
+          q.offer_sms_status != null ||
+          q.offer_email_status != null) && (
+          <View style={s.block}>
+            <Text style={s.h2}>Wysyłka oferty do klienta</Text>
+            {q.wyslano_klientowi_at ? (
+              <Text style={s.muted}>Zapis statusu: {fmtPlDateTime(q.wyslano_klientowi_at)}</Text>
+            ) : null}
+            <Text style={s.muted}>
+              SMS: {offerStatusLabel(q.offer_sms_status)}
+              {q.offer_sms_at ? ` · ${fmtPlDateTime(q.offer_sms_at)}` : ''}
+            </Text>
+            {q.offer_sms_error ? <Text style={s.errSmall}>{String(q.offer_sms_error).slice(0, 240)}</Text> : null}
+            <Text style={[s.muted, { marginTop: 8 }]}>
+              E-mail: {offerStatusLabel(q.offer_email_status)}
+              {q.offer_email_at ? ` · ${fmtPlDateTime(q.offer_email_at)}` : ''}
+            </Text>
+            {q.offer_email_error ? <Text style={s.errSmall}>{String(q.offer_email_error).slice(0, 240)}</Text> : null}
+          </View>
+        )}
+
         {canVisit ? (
           <View style={s.block}>
             <Text style={s.h2}>Wizyta</Text>
@@ -402,6 +453,7 @@ function makeStyles(theme: Theme) {
     backBtn: { padding: 8 },
     title: { fontSize: 18, fontWeight: '700', color: theme.text },
     err: { color: theme.danger, padding: 16 },
+    errSmall: { color: theme.danger, fontSize: 12, marginTop: 4 },
     body: { padding: 16, paddingBottom: 48 },
     status: { fontSize: 14, color: theme.accent, fontWeight: '600' },
     klient: { fontSize: 17, fontWeight: '700', color: theme.text, marginTop: 6 },

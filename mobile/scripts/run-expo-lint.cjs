@@ -1,5 +1,6 @@
-/** Uruchamia `expo lint` przez npx z oczyszczonym env (bez przestarzałego npm_config_devdir). */
+/** Uruchamia lokalny ESLint z katalogu mobile w monorepo. */
 const { spawnSync } = require('node:child_process');
+const { join } = require('node:path');
 
 function envWithoutLegacyNpmDevdir() {
   const env = { ...process.env };
@@ -8,10 +9,14 @@ function envWithoutLegacyNpmDevdir() {
   return env;
 }
 
-const result = spawnSync('npx', ['expo', 'lint'], {
+const eslintBin = process.platform === 'win32'
+  ? join(__dirname, '..', 'node_modules', '.bin', 'eslint.cmd')
+  : join(__dirname, '..', 'node_modules', '.bin', 'eslint');
+
+const result = spawnSync(eslintBin, ['app', '--ext', 'ts,tsx'], {
   stdio: 'inherit',
   env: envWithoutLegacyNpmDevdir(),
-  shell: true,
+  shell: process.platform === 'win32',
 });
 
 process.exit(result.status ?? 1);
