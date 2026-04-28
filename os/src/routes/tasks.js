@@ -631,6 +631,24 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
     } catch {
       row.extra_work = [];
     }
+    const tid = req.params.id;
+    const [poR, prR] = await Promise.all([
+      pool.query(
+        `SELECT 1 FROM photos WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('po', 'after') LIMIT 1`,
+        [tid]
+      ),
+      pool.query(
+        `SELECT 1 FROM photos WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('przed', 'before', 'checkin') LIMIT 1`,
+        [tid]
+      ),
+    ]);
+    row.finish_requirements = {
+      require_po_photo: finishRequirePoPhoto(),
+      require_przed_photo: finishRequirePrzedPhoto(),
+      require_material_usage: finishRequireMaterialUsage(),
+      has_po_photo: !!poR.rows[0],
+      has_przed_photo: !!prR.rows[0],
+    };
     res.json(row);
   } catch (err) {
     logger.error('Blad pobierania zlecenia', { message: err.message, requestId: req.requestId });

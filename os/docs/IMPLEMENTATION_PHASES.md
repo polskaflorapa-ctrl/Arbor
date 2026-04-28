@@ -44,7 +44,7 @@
 |-----------|---------|--------|
 | P1 | **F3.5–F3.7** | ~~Walidacja przy finish (ekipa): zdjęcie „Po” (`TASK_FINISH_REQUIRE_PO_PHOTO=1`), opcj. „Przed” (`TASK_FINISH_REQUIRE_PRZED_PHOTO=1`), zużycie `zuzyte_materialy` → `task_finish_material_usage` + wymóg listy (`TASK_FINISH_REQUIRE_MATERIAL_USAGE=1`). Mobile: multipart `/tasks/:id/zdjecia`, start z checklistą GPS, pole zużycia w modalu finish.~~ |
 | P1 | **F3.8** | Offline: kolejka AsyncStorage (multipart zdjęcia + JSON: status/start/finish/extra/problem); flush przy `AppState active`, co 30 s oraz **`expo-network` `addNetworkStateListener`** po powrocie sieci (`OfflineQueueSync`). 2B: idempotencja / konflikty / pełna replika listy — TODO. |
-| P2 | **F3.3 / F3.6** | Wymuszone Przed/Po + edytor adnotacji (reuse z M1 gdzie możliwe). |
+| P2 | **F3.3 / F3.6** | ~~Wymuszone Przed/Po przy finish: env `TASK_FINISH_REQUIRE_*` + walidacja w `tasks.js`; mobile: `finish_requirements` z `GET /tasks/:id`, blokada „Zakończ” + banner + zużycie materiału w modalu.~~ Edytor adnotacji / rozszerzenia UI — opcjonalnie dalej. |
 
 ---
 
