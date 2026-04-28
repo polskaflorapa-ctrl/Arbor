@@ -111,6 +111,14 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kierownik_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS czas_planowany_godziny DECIMAL(5,2);
 
+-- Idempotencja (F3.8): nagłówek Idempotency-Key na wybranych POST/PUT — zapobiega duplikatom po retry kolejki offline
+CREATE TABLE IF NOT EXISTS api_idempotency_log (
+  idempotency_key VARCHAR(200) PRIMARY KEY,
+  scope             VARCHAR(160) NOT NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_api_idempotency_created ON api_idempotency_log(created_at DESC);
+
 -- ─── 5. WYCENY ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS wyceny (
   id                        SERIAL PRIMARY KEY,

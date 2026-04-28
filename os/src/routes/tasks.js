@@ -21,6 +21,7 @@ const {
 } = require('../services/taskSettlement');
 const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamDay');
 const { sendSmsOptional } = require('../services/twilioSms');
+const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 
 const router = express.Router();
 
@@ -725,54 +726,82 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
 });
 
 router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStatusSchema), requireTaskAccess, async (req, res) => {
+  const taskId = Number(req.params.id);
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:status`);
+    if (replay) {
+      await client.query('ROLLBACK');
+      return res.json({ message: 'Status zmieniony', idempotent_replay: true });
+    }
     const { status } = req.body;
-    await pool.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, req.params.id]);
+    await client.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, req.params.id]);
+    await client.query('COMMIT');
     res.json({ message: 'Status zmieniony' });
   } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     logger.error('Blad aktualizacji statusu', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  } finally {
+    client.release();
   }
 });
 
 router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStartSchema), requireTaskAccess, async (req, res) => {
-  try {
-    const { lat, lng, dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone } = req.body;
-    const latN = toNum(lat);
-    const lngN = toNum(lng);
+  const { lat, lng, dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone } = req.body;
+  const latN = toNum(lat);
+  const lngN = toNum(lng);
 
-    if (isTeamScoped(req.user)) {
-      if (latN == null || lngN == null) {
+  if (isTeamScoped(req.user)) {
+    if (latN == null || lngN == null) {
+      return res.status(400).json({
+        error: req.t('errors.tasks.startLocationRequired'),
+        code: VALIDATION_FAILED,
+        requestId: req.requestId,
+      });
+    }
+    const need = [
+      ['dmuchawa_filtr_ok', dmuchawa_filtr_ok],
+      ['rebak_zatankowany', rebak_zatankowany],
+      ['kaski_zespol', kaski_zespol],
+    ];
+    for (const [, v] of need) {
+      if (typeof v !== 'boolean') {
         return res.status(400).json({
-          error: req.t('errors.tasks.startLocationRequired'),
-          code: VALIDATION_FAILED,
-          requestId: req.requestId,
-        });
-      }
-      const need = [
-        ['dmuchawa_filtr_ok', dmuchawa_filtr_ok],
-        ['rebak_zatankowany', rebak_zatankowany],
-        ['kaski_zespol', kaski_zespol],
-      ];
-      for (const [, v] of need) {
-        if (typeof v !== 'boolean') {
-          return res.status(400).json({
-            error: req.t('errors.tasks.startChecklistIncomplete'),
-            code: VALIDATION_FAILED,
-            requestId: req.requestId,
-          });
-        }
-      }
-      if (bhp_potwierdzone !== true) {
-        return res.status(400).json({
-          error: req.t('errors.tasks.bhpMustConfirm'),
+          error: req.t('errors.tasks.startChecklistIncomplete'),
           code: VALIDATION_FAILED,
           requestId: req.requestId,
         });
       }
     }
+    if (bhp_potwierdzone !== true) {
+      return res.status(400).json({
+        error: req.t('errors.tasks.bhpMustConfirm'),
+        code: VALIDATION_FAILED,
+        requestId: req.requestId,
+      });
+    }
+  }
 
-    const result = await pool.query(
+  const taskId = Number(req.params.id);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:start`);
+    if (replay) {
+      const wl = await client.query(
+        `SELECT id FROM work_logs WHERE task_id = $1 AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`,
+        [taskId]
+      );
+      await client.query('ROLLBACK');
+      return res.json({ work_log_id: wl.rows[0]?.id ?? null, idempotent_replay: true });
+    }
+    const result = await client.query(
       `INSERT INTO work_logs (
         task_id, user_id, start_time, start_lat, start_lng, status,
         dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone
@@ -788,32 +817,56 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
         isTeamScoped(req.user) ? bhp_potwierdzone : null,
       ]
     );
-    await pool.query(
+    await client.query(
       `UPDATE tasks SET status = 'W_Realizacji', data_rozpoczecia = COALESCE(data_rozpoczecia, NOW()) WHERE id = $1`,
       [req.params.id]
     );
+    await client.query('COMMIT');
     res.json({ work_log_id: result.rows[0].id });
   } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     logger.error('Blad rozpoczecia pracy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  } finally {
+    client.release();
   }
 });
 
 router.post('/:id/stop', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStopSchema), requireTaskAccess, async (req, res) => {
+  const taskId = Number(req.params.id);
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:stop`);
+    if (replay) {
+      await client.query('ROLLBACK');
+      return res.json({ message: 'Czas zapisany', idempotent_replay: true });
+    }
     const { lat, lng, work_log_id } = req.body;
-    await pool.query(
+    await client.query(
       `UPDATE work_logs SET end_time = NOW(), end_lat = $1, end_lng = $2,
        status = 'Zakończony',
        czas_pracy_minuty = EXTRACT(EPOCH FROM (NOW() - start_time))/60
        WHERE id = $3`,
       [toNum(lat), toNum(lng), work_log_id]
     );
-    await pool.query("UPDATE tasks SET status = 'Zakonczone' WHERE id = $1", [req.params.id]);
+    await client.query("UPDATE tasks SET status = 'Zakonczone' WHERE id = $1", [req.params.id]);
+    await client.query('COMMIT');
     res.json({ message: 'Czas zapisany' });
   } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     logger.error('Blad zakonczenia pracy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  } finally {
+    client.release();
   }
 });
 
@@ -830,6 +883,28 @@ router.post(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:finish`);
+      if (replay) {
+        await client.query('ROLLBACK');
+        const t2 = await pool.query(
+          `SELECT status, wartosc_netto_do_rozliczenia FROM tasks WHERE id = $1`,
+          [taskId]
+        );
+        const tr = t2.rows[0];
+        if (tr && tr.status === 'Zakonczone') {
+          return res.json({
+            message: 'Zlecenie zakończone',
+            wartosc_netto_do_rozliczenia: Number(tr.wartosc_netto_do_rozliczenia) || 0,
+            idempotent_replay: true,
+          });
+        }
+        return res.status(409).json({
+          error:
+            'Idempotency-Key już użyty, a zlecenie nie jest zakończone — nie można bezpiecznie powtórzyć.',
+          code: 'IDEMPOTENCY_INCOMPLETE',
+          requestId: req.requestId,
+        });
+      }
       const tRes = await client.query(`SELECT * FROM tasks WHERE id = $1 FOR UPDATE`, [taskId]);
       const task = tRes.rows[0];
       if (!task) {
@@ -1030,21 +1105,37 @@ router.post(
   validateBody(extraWorkCreateSchema),
   requireTaskAccess,
   async (req, res) => {
+    if (!isTeamScoped(req.user)) {
+      return res.status(403).json({ error: 'Tylko ekipa w terenie zgłasza prace dodatkowe' });
+    }
+    const taskId = Number(req.params.id);
+    const client = await pool.connect();
     try {
-      if (!isTeamScoped(req.user)) {
-        return res.status(403).json({ error: 'Tylko ekipa w terenie zgłasza prace dodatkowe' });
+      await client.query('BEGIN');
+      const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:extra-work`);
+      if (replay) {
+        await client.query('ROLLBACK');
+        return res.status(200).json({ idempotent_replay: true });
       }
-      const { rows } = await pool.query(
+      const { rows } = await client.query(
         `INSERT INTO task_extra_work (task_id, created_by, opis, status) VALUES ($1,$2,$3,'OczekujeWyceny') RETURNING *`,
         [req.params.id, req.user.id, req.body.opis.trim()]
       );
+      await client.query('COMMIT');
       res.status(201).json(rows[0]);
     } catch (e) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore */
+      }
       if (String(e.message || '').includes('task_extra_work')) {
         return res.status(503).json({ error: 'Uruchom migrację (task_extra_work).' });
       }
       logger.error('tasks.extra-work', { message: e.message });
       res.status(500).json({ error: req.t('errors.http.serverError') });
+    } finally {
+      client.release();
     }
   }
 );
@@ -1096,6 +1187,13 @@ router.post(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const taskId = Number(req.params.id);
+      const ewId = Number(req.params.ewId);
+      const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:extra-work-accept:${ewId}`);
+      if (replay) {
+        await client.query('ROLLBACK');
+        return res.json({ ok: true, idempotent_replay: true });
+      }
       const ewR = await client.query(`SELECT * FROM task_extra_work WHERE id = $1 AND task_id = $2 FOR UPDATE`, [
         req.params.ewId,
         req.params.id,
@@ -1153,20 +1251,53 @@ router.post(
   }
 );
 
-router.post('/:id/problem', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskProblemSchema), requireTaskAccess, async (req, res) => {
+const postTaskProblem = async (req, res) => {
+  const taskId = Number(req.params.id);
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+    const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:problem`);
+    if (replay) {
+      await client.query('ROLLBACK');
+      return res.json({ message: 'Problem zgloszony', idempotent_replay: true });
+    }
     const { typ } = req.body;
-    await pool.query(
+    await client.query(
       `INSERT INTO issues (task_id, user_id, typ, status, data_zgloszenia)
        VALUES ($1, $2, $3, 'Zgłoszony', NOW())`,
       [req.params.id, req.user.id, typ]
     );
+    await client.query('COMMIT');
     res.json({ message: 'Problem zgloszony' });
   } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     logger.error('Blad zglaszania problemu', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
+  } finally {
+    client.release();
   }
-});
+};
+
+router.post(
+  '/:id/problem',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskProblemSchema),
+  requireTaskAccess,
+  postTaskProblem
+);
+router.post(
+  '/:id/problemy',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskProblemSchema),
+  requireTaskAccess,
+  postTaskProblem
+);
 
 router.get('/:id/logi', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
   try {

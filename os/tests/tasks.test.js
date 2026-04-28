@@ -219,10 +219,17 @@ describe('Tasks routes', () => {
 
   it('POST /tasks/:id/start returns 200 for brygadzista with GPS and checklist', async () => {
     const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
-    pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-      .mockResolvedValueOnce({ rows: [{ id: 501 }] })
-      .mockResolvedValueOnce({ rows: [] });
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO work_logs')) return { rows: [{ id: 501 }] };
+      if (s.includes('UPDATE tasks SET status')) return { rows: [] };
+      if (s.includes('COMMIT')) return {};
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
     const res = await request(app)
       .post('/api/tasks/1/start')
       .set('Authorization', `Bearer ${token}`)
@@ -240,10 +247,17 @@ describe('Tasks routes', () => {
 
   it('POST /tasks/:id/start allows kierownik without checklist fields', async () => {
     const token = jwt.sign({ id: 3, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
-    pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-      .mockResolvedValueOnce({ rows: [{ id: 502 }] })
-      .mockResolvedValueOnce({ rows: [] });
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO work_logs')) return { rows: [{ id: 502 }] };
+      if (s.includes('UPDATE tasks SET status')) return { rows: [] };
+      if (s.includes('COMMIT')) return {};
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
     const res = await request(app).post('/api/tasks/1/start').set('Authorization', `Bearer ${token}`).send({});
     expect(res.status).toBe(200);
     expect(res.body.work_log_id).toBe(502);
@@ -296,6 +310,26 @@ describe('Tasks routes', () => {
       if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
       else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
     }
+  });
+
+  it('POST /tasks/:id/problemy accepts payload like /problem', async () => {
+    const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO issues')) return { rows: [] };
+      if (s.includes('COMMIT')) return {};
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+    const res = await request(app)
+      .post('/api/tasks/1/problemy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ typ: 'Inny' });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Problem zgloszony');
   });
 
   it('POST /tasks/:id/finish returns 400 when TASK_FINISH_REQUIRE_MATERIAL_USAGE=1 and empty zuzyte_materialy', async () => {
