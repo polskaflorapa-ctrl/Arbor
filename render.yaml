@@ -1,0 +1,51 @@
+# Render Blueprint — cały stack z monorepo (Postgres + arbor-os + arbo-web)
+# Panel: New → Blueprint → wybierz repo i branch (np. main/master).
+#
+# Po pierwszym deployu:
+# - Front dostaje REACT_APP_API_URL z URL usługi arbor-os (w buildzie).
+# - OS: PUBLIC_BASE_URL ustawiane automatycznie z RENDER_EXTERNAL_URL (patrz os/src/config/env.js).
+# - Postgres: plan poniżej jest płatny na Render — możesz podmienić na własną bazę (DATABASE_URL z panelu).
+# - Opcjonalnie: CORS_ORIGINS = https://<twoja-usługa-web>.onrender.com (bez wildcardu, jeśli chcesz credentials).
+
+databases:
+  - name: arbor-postgres
+    region: frankfurt
+    databaseName: arbor_db
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: arbor-os
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: os
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_NAME
+        value: arbor_db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arbor-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: web
+    name: arbo-web
+    runtime: static
+    region: frankfurt
+    plan: free
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          name: arbor-os
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL

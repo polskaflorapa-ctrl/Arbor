@@ -35,12 +35,18 @@ const smsRoutes = require('./routes/sms');
 const telefonRoutes = require('./routes/telefon');
 const telefonWebhooksRoutes = require('./routes/telefon-webhooks');
 const pdfRoutes = require('./routes/pdf');
+const { router: cmrRoutes } = require('./routes/cmr');
 const mobileRoutes = require('./routes/mobile');
 const raportyDzienneRoutes = require('./routes/raporty-dzienne');
 const auditRoutes = require('./routes/audit');
 const dashboardRoutes = require('./routes/dashboard');
 const automationsRoutes = require('./routes/automations');
 const opsRoutes = require('./routes/ops');
+const crmRoutes = require('./routes/crm');
+const quotationsRoutes = require('./routes/quotations');
+const payrollRoutes = require('./routes/payroll');
+const quotationPublicRoutes = require('./routes/quotation-public');
+const kommoQuotationWebhookRoutes = require('./routes/kommoQuotationWebhook');
 
 const createApp = () => {
   const app = express();
@@ -114,12 +120,18 @@ const createApp = () => {
   app.use('/api/telefon/webhooks', telefonWebhooksRoutes);
   app.use('/api/telefon', costlyApiLimiter, telefonRoutes);
   app.use('/api/pdf', costlyApiLimiter, pdfRoutes);
+  app.use('/api/cmr', cmrRoutes);
   app.use('/api/mobile', mobileRoutes);
   app.use('/api/raporty-dzienne', raportyDzienneRoutes);
   app.use('/api/audit', auditRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/automations', automationsRoutes);
   app.use('/api/ops', opsRoutes);
+  app.use('/api/crm', crmRoutes);
+  app.use('/api/public', quotationPublicRoutes);
+  app.use('/api/webhooks', kommoQuotationWebhookRoutes);
+  app.use('/api/quotations', quotationsRoutes);
+  app.use('/api/payroll', payrollRoutes);
 
   app.get('/', (req, res) => {
     res.json({

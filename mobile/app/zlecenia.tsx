@@ -124,13 +124,13 @@ export default function ZleceniaScreen() {
         }
       />
       <View style={S.platinumBar}>
-        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={S.platinumBarIcon} />
+        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={20} style={S.platinumBarIcon} />
         <Text style={S.platinumBarText}>Platinum Task Console</Text>
       </View>
 
       {/* Wyszukiwarka */}
       <View style={S.searchRow}>
-        <PlatinumIconBadge icon="search-outline" color={theme.textMuted} size={11} style={S.searchIconBadge} />
+        <PlatinumIconBadge icon="search-outline" color={theme.textMuted} size={20} style={S.searchIconBadge} />
         <TextInput
           style={S.searchInput}
           placeholder={t('zlecenia.searchPlaceholder')}
@@ -140,7 +140,7 @@ export default function ZleceniaScreen() {
         />
         {search ? (
             <TouchableOpacity onPress={() => { void triggerHaptic('light'); setSearch(''); }}>
-            <PlatinumIconBadge icon="close-circle" color={theme.textMuted} size={10} style={S.clearIconBadge} />
+            <PlatinumIconBadge icon="close-circle" color={theme.textMuted} size={20} style={S.clearIconBadge} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -300,8 +300,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: t.cardElevation,
   },
-  searchIconBadge: { width: 22, height: 22, borderRadius: 8, marginRight: 8 },
-  clearIconBadge: { width: 22, height: 22, borderRadius: 8 },
+  searchIconBadge: { width: 44, height: 44, borderRadius: 12, marginRight: 8 },
+  clearIconBadge: { width: 44, height: 44, borderRadius: 12 },
   searchInput: { flex: 1, fontSize: 15, color: t.inputText, height: 40 },
   filtryScroll: { backgroundColor: t.surface, borderBottomWidth: 1, borderBottomColor: t.border, marginTop: 8 },
   filtryContent: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: 'row' },

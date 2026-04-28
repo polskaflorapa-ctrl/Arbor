@@ -10,6 +10,7 @@ const {
   invoiceStatusBodySchema,
 } = require('../schemas/invoice');
 const { companySettingsWriteSchema } = require('../schemas/company-settings');
+const { buildTeamDayReport, loadTeamDayEnrichment } = require('../services/payrollTeamDay');
 
 const router = express.Router();
 
@@ -24,6 +25,28 @@ const mobileRozliczeniaQuerySchema = z.object({
   rok: z.coerce.number().int().min(1990).max(2100).optional(),
   miesiac: z.coerce.number().int().min(1).max(12).optional(),
 });
+
+const teamDayReportQuerySchema = z.object({
+  date: z.string().max(12),
+});
+
+const teamDayCloseBodySchema = z.object({
+  report_date: z.string().max(32),
+});
+
+const pushTokenBodySchema = z.object({
+  expo_token: z.string().min(32).max(512),
+  platform: z.enum(['ios', 'android', 'unknown']).optional(),
+});
+const pushTokenDeleteSchema = z.object({
+  expo_token: z.string().min(32).max(512),
+});
+
+function isLikelyExpoPushToken(token) {
+  const s = String(token || '').trim();
+  return s.startsWith('ExponentPushToken[') || s.startsWith('ExpoPushToken[');
+}
+
 const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
 const isKierownik = (user) => user.rola === 'Kierownik';
 
@@ -245,6 +268,162 @@ router.get('/rozliczenia', authMiddleware, requireNieBrygadzista, validateQuery(
     );
     res.json({ ...result.rows[0], miesiace: monthlyResult.rows });
   } catch (err) { logger.error('Blad pobierania rozliczen mobilnych', { message: err.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
+});
+
+/** F11.4 — podgląd raportu dnia ekipy użytkownika (team = ekipa_id). */
+router.get('/me/team-day-report', authMiddleware, validateQuery(teamDayReportQuerySchema), async (req, res) => {
+  try {
+    const date = String(req.query.date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Użyj date=YYYY-MM-DD' });
+    }
+    const u = await pool.query(`SELECT ekipa_id FROM users WHERE id = $1`, [req.user.id]);
+    const ekipaId = u.rows[0]?.ekipa_id;
+    if (!ekipaId) return res.json({ report: null, lines: [], day_preview: null });
+
+    let day_preview = null;
+    if (['Brygadzista', 'Pomocnik'].includes(req.user.rola)) {
+      try {
+        day_preview = await loadTeamDayEnrichment(pool, ekipaId, date);
+      } catch (e) {
+        logger.warn('mobile.team-day-report.enrichment', { message: e.message, requestId: req.requestId });
+        day_preview = { tasks_day: [], cash_by_forma: [], issues_count: 0 };
+      }
+    }
+
+    const r = await pool.query(
+      `SELECT * FROM payroll_team_day_reports WHERE team_id = $1 AND report_date = $2::date`,
+      [ekipaId, date]
+    );
+    const report = r.rows[0] || null;
+    if (!report) return res.json({ report: null, lines: [], day_preview });
+    const lr = await pool.query(
+      `SELECT user_id, hours_total, pay_pln, detail_json FROM payroll_team_day_report_lines WHERE report_id = $1 ORDER BY user_id`,
+      [report.id]
+    );
+    res.json({ report, lines: lr.rows, day_preview });
+  } catch (err) {
+    logger.error('mobile.team-day-report', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+/** F11.4 — ponowne złożenie / przeliczenie raportu dnia dla własnej ekipy (Brygadzista / Pomocnik). */
+router.post('/me/team-day-close', authMiddleware, validateBody(teamDayCloseBodySchema), async (req, res) => {
+  try {
+    if (!['Brygadzista', 'Pomocnik'].includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Tylko ekipa w terenie' });
+    }
+    const u = await pool.query(`SELECT ekipa_id FROM users WHERE id = $1`, [req.user.id]);
+    const ekipaId = u.rows[0]?.ekipa_id;
+    if (!ekipaId) return res.status(400).json({ error: 'Brak przypisanej ekipy' });
+    const out = await buildTeamDayReport(pool, ekipaId, req.body.report_date);
+    res.json(out);
+  } catch (err) {
+    if (err.code === 'PAYROLL_REPORT_APPROVED') {
+      return res.status(409).json({ error: 'Raport dnia jest zatwierdzony — nie można go przeliczyć.' });
+    }
+    if (err.code === 'PAYROLL_CORRECTION_WINDOW_CLOSED') {
+      return res.status(409).json({ error: 'Minął dozwolony okres korekty raportu — skontaktuj się z kierownikiem.' });
+    }
+    if (String(err.message || '').includes('payroll_team_day_reports')) {
+      return res.status(503).json({ error: 'Uruchom migrację M11.' });
+    }
+    logger.error('mobile.team-day-close', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: err.message || req.t('errors.http.serverError') });
+  }
+});
+
+/** F11.8 — rejestracja tokena Expo Push (UPSERT po expo_token — to samo urządzenie przy zmianie konta). */
+router.post('/me/push-token', authMiddleware, validateBody(pushTokenBodySchema), async (req, res) => {
+  try {
+    const expoToken = String(req.body.expo_token).trim();
+    if (!isLikelyExpoPushToken(expoToken)) {
+      return res.status(400).json({ error: 'Nieprawidłowy format tokena push (Expo).' });
+    }
+    const platform = req.body.platform ? String(req.body.platform).slice(0, 16) : null;
+    await pool.query(
+      `INSERT INTO user_expo_push_tokens (user_id, expo_token, platform)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (expo_token) DO UPDATE SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform, updated_at = NOW()`,
+      [req.user.id, expoToken, platform]
+    );
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    if (String(e.message || '').includes('user_expo_push_tokens')) {
+      return res.status(503).json({ error: 'Uruchom migrację (user_expo_push_tokens).' });
+    }
+    logger.error('mobile.push-token', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+/** F11.8 — wyrejestrowanie tokena (np. przy wylogowaniu). */
+router.delete('/me/push-token', authMiddleware, validateBody(pushTokenDeleteSchema), async (req, res) => {
+  try {
+    const expoToken = String(req.body.expo_token).trim();
+    const { rowCount } = await pool.query(
+      `DELETE FROM user_expo_push_tokens WHERE expo_token = $1 AND user_id = $2`,
+      [expoToken, req.user.id]
+    );
+    res.json({ ok: true, removed: rowCount > 0 });
+  } catch (e) {
+    if (String(e.message || '').includes('user_expo_push_tokens')) {
+      return res.status(503).json({ error: 'Uruchom migrację (user_expo_push_tokens).' });
+    }
+    logger.error('mobile.push-token.del', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+/** F11.8 — podsumowanie dniówki / naliczeń dla zalogowanego użytkownika. */
+router.get('/me/payroll-overview', authMiddleware, async (req, res) => {
+  try {
+    const uid = req.user.id;
+    const today = new Date().toISOString().slice(0, 10);
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const ms = monthStart.toISOString().slice(0, 10);
+    let hoursMonth = 0;
+    try {
+      const h = await pool.query(
+        `SELECT COALESCE(SUM(COALESCE(wl.duration_hours, wl.czas_pracy_minuty::numeric / 60)), 0)::numeric(12,2) AS h
+         FROM work_logs wl WHERE wl.user_id = $1 AND wl.end_time IS NOT NULL
+           AND wl.start_time >= $2::date AND wl.start_time < ($2::date + INTERVAL '1 month')`,
+        [uid, ms]
+      );
+      hoursMonth = Number(h.rows[0]?.h) || 0;
+    } catch {
+      hoursMonth = 0;
+    }
+    let rates = [];
+    try {
+      const r = await pool.query(
+        `SELECT * FROM user_payroll_rates WHERE user_id = $1 ORDER BY effective_from DESC LIMIT 5`,
+        [uid]
+      );
+      rates = r.rows;
+    } catch {
+      rates = [];
+    }
+    let estimator = null;
+    if (req.user.rola === 'Wyceniający') {
+      try {
+        const e = await pool.query(`SELECT * FROM estimator_month_accrual WHERE wyceniajacy_id = $1 AND accrual_month = $2::date`, [
+          uid,
+          ms,
+        ]);
+        estimator = e.rows[0] || null;
+      } catch {
+        estimator = null;
+      }
+    }
+    res.json({ user_id: uid, date: today, hours_month: hoursMonth, rates, estimator_month: estimator });
+  } catch (err) {
+    logger.error('mobile.payroll-overview', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
 });
 
 module.exports = router;

@@ -15,4 +15,10 @@ module.exports = [
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['public/app/app.js'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
 ];

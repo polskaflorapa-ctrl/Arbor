@@ -22,7 +22,9 @@ function getNotificationDeepLink(data: Record<string, unknown> | undefined): str
   const type = typeof data.type === 'string' ? data.type : '';
   const screen = typeof data.screen === 'string' ? data.screen : '';
   if (type === 'autoplan_daily_brief' || screen === '/autoplan-dnia') return '/autoplan-dnia';
+  if (type === 'quotation_approval' || screen === '/wyceny-terenowe') return '/wyceny-terenowe';
   if (type === 'reservation_day_end' || screen === '/rezerwacje-sprzetu') return '/rezerwacje-sprzetu';
+  if (type === 'raport_dnia_ekipy' || type === 'payroll_team_day_approved') return '/powiadomienia';
   if (screen.startsWith('/')) return screen;
   return null;
 }
@@ -106,6 +108,7 @@ export default function Layout() {
           <Stack.Screen name="harmonogram" />
           <Stack.Screen name="raporty-mobilne" />
           <Stack.Screen name="wycena" />
+          <Stack.Screen name="wyceny-terenowe" />
           <Stack.Screen name="wycena-rysuj" />
           <Stack.Screen name="nowe-zlecenie" />
           <Stack.Screen name="uzytkownicy-mobile" />

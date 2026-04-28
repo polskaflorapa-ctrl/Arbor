@@ -11,7 +11,7 @@ import { addTeamMember, removeTeamMember } from '../utils/teamMembersApi';
 import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-
+import { telHref } from '../utils/telLink';
 
 const STATUS_KOLOR = {
   Nowe: 'var(--accent)', Zaplanowane: '#81C784',
@@ -563,7 +563,18 @@ export default function OddzialDetail() {
                           </div>
                           <div>
                             <div style={{ fontSize: 15, fontWeight: '600', color: 'var(--text)' }}>{ekipaDetail.brygadzista_imie} {ekipaDetail.brygadzista_nazwisko}</div>
-                            {ekipaDetail.brygadzista_telefon && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>📞 {ekipaDetail.brygadzista_telefon}</div>}
+                            {ekipaDetail.brygadzista_telefon && (
+                              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                📞{' '}
+                                {telHref(ekipaDetail.brygadzista_telefon) ? (
+                                  <a href={telHref(ekipaDetail.brygadzista_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                    {ekipaDetail.brygadzista_telefon}
+                                  </a>
+                                ) : (
+                                  ekipaDetail.brygadzista_telefon
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div>
@@ -741,7 +752,23 @@ export default function OddzialDetail() {
                         <td style={S.td}>
                           <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: ROLA_KOLOR[p.rola] || '#6B7280' }}>{p.rola}</span>
                         </td>
-                        <td style={S.td}>{p.telefon || '-'}</td>
+                        <td style={S.td}>
+                          {p.telefon ? (
+                            telHref(p.telefon) ? (
+                              <a
+                                href={telHref(p.telefon)}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
+                              >
+                                {p.telefon}
+                              </a>
+                            ) : (
+                              p.telefon
+                            )
+                          ) : (
+                            '-'
+                          )}
+                        </td>
                         <td style={{ ...S.td, fontWeight: '600', color: 'var(--accent)' }}>
                           {p.rola === 'Brygadzista'
                             ? <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 'bold' }}>{p.procent_wynagrodzenia || 15}%</span>

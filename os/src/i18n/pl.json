@@ -56,7 +56,10 @@
       "missingFile": "Brak pliku",
       "startLocationRequired": "Dla ekipy w terenie wymagane sa wspolrzedne GPS (lat, lng) przy rozpoczeciu zlecenia",
       "startChecklistIncomplete": "Uzupelnij checkliste sprzetu: dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol (wartosci true/false)",
-      "bhpMustConfirm": "Potwierdz zapoznanie z zasadami BHP: bhp_potwierdzone musi byc true"
+      "bhpMustConfirm": "Potwierdz zapoznanie z zasadami BHP: bhp_potwierdzone musi byc true",
+      "finishPoPhotoRequired": "Przed zakonczeniem dodaj co najmniej jedno zdjecie typu „Po” (lub After). Wymusza serwer (TASK_FINISH_REQUIRE_PO_PHOTO=1).",
+      "finishPrzedPhotoRequired": "Przed zakonczeniem wymagane jest zdjecie „Przed” lub check-in (TASK_FINISH_REQUIRE_PRZED_PHOTO=1)",
+      "finishMaterialUsageRequired": "Podaj liste zuzytych materialow (zuzyte_materialy) — wymuszone przez TASK_FINISH_REQUIRE_MATERIAL_USAGE=1"
     },
     "generic": {
       "notFound": "Nie znaleziono"

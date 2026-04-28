@@ -16,7 +16,7 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-
+import { telHref } from '../utils/telLink';
 
 const STATUS_KOLOR = {
   Nowe: 'var(--accent)',
@@ -259,7 +259,13 @@ export default function Kierownik() {
                     {z.klient_telefon && (
                       <div style={{ ...styles.klientTel, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <LocalPhoneOutlined sx={{ fontSize: 14, flexShrink: 0 }} />
-                        {z.klient_telefon}
+                        {telHref(z.klient_telefon) ? (
+                          <a href={telHref(z.klient_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                            {z.klient_telefon}
+                          </a>
+                        ) : (
+                          z.klient_telefon
+                        )}
                       </div>
                     )}
                     <div style={styles.taskMeta}>{z.adres}{z.miasto ? `, ${z.miasto}` : ''}</div>

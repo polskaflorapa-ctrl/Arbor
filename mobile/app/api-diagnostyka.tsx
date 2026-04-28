@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_BASE_URL, API_URL } from '../constants/api';
+import { API_BASE_URL, API_URL, WEB_APP_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
@@ -496,6 +496,7 @@ export default function ApiDiagnostykaScreen() {
             </Text>
           ) : null}
           <Text style={S.infoLine}>{t('apiDiag.info.apiUrl', { url: API_URL })}</Text>
+          <Text style={S.infoLine}>{t('apiDiag.info.webAppUrl', { url: WEB_APP_URL })}</Text>
           <Text style={S.infoLine}>{t('apiDiag.info.token', { val: tokenPresent ? t('apiDiag.token.yes') : t('apiDiag.token.no') })}</Text>
           <Text style={S.infoLine}>{t('apiDiag.info.queue', { n: offlineQueueSize })}</Text>
           {lastQueueSyncInfo ? (

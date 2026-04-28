@@ -3,6 +3,8 @@ const path = require('path');
 const multer = require('multer');
 const { readOnly, withStore } = require('../lib/store');
 const { requireAuth } = require('../lib/auth');
+const { canViewCmr, enrichCmr } = require('../lib/cmrAccess');
+const { buildCmrPdfBuffer } = require('../lib/cmrPdf');
 
 const UP_ZDJ = path.join(__dirname, '..', 'uploads', 'zlecenia');
 const UP_DOK = path.join(__dirname, '..', 'uploads', 'zlecenia');
@@ -316,6 +318,8 @@ module.exports = function registerFullStack(router) {
         kwota_minimalna: b.kwota_minimalna || null,
         zrebki: b.zrebki || null,
         drzewno: b.drzewno || null,
+        dodatkowe_uslugi_liczba: Math.max(0, parseInt(String(b.dodatkowe_uslugi_liczba ?? 0), 10) || 0),
+        bony_liczba: Math.max(0, parseInt(String(b.bony_liczba ?? 0), 10) || 0),
         created_by: req.user.id,
         created_at: now,
       };
@@ -334,8 +338,12 @@ module.exports = function registerFullStack(router) {
       const mergeKeys = Object.keys(b).filter((k) => k !== 'id');
       for (const k of mergeKeys) {
         if (b[k] === undefined) continue;
-        if (['ekipa_id', 'oddzial_id', 'kierownik_id', 'czas_planowany_godziny', 'wartosc_planowana'].includes(k)) {
-          z[k] = toNum(b[k]) ?? b[k];
+        if (['ekipa_id', 'oddzial_id', 'kierownik_id', 'czas_planowany_godziny', 'wartosc_planowana', 'dodatkowe_uslugi_liczba', 'bony_liczba'].includes(k)) {
+          if (k === 'dodatkowe_uslugi_liczba' || k === 'bony_liczba') {
+            z[k] = Math.max(0, parseInt(String(b[k] ?? 0), 10) || 0);
+          } else {
+            z[k] = toNum(b[k]) ?? b[k];
+          }
         } else {
           z[k] = b[k];
         }
@@ -1017,11 +1025,36 @@ module.exports = function registerFullStack(router) {
         if (!s.taskZdjecia[k]) s.taskZdjecia[k] = [];
         const zid = s.nextTaskZdjecieId++;
         const typ = req.body?.typ || 'inne';
+        const opisRaw = req.body?.opis;
+        const opis =
+          opisRaw != null && String(opisRaw).trim() ? String(opisRaw).trim().slice(0, 4000) : undefined;
+        let tagi = [];
+        const tagiRaw = req.body?.tagi;
+        if (tagiRaw != null && String(tagiRaw).trim()) {
+          const s = String(tagiRaw).trim();
+          try {
+            const p = JSON.parse(s);
+            tagi = (Array.isArray(p) ? p : [s])
+              .map((x) => String(x ?? '').trim())
+              .filter(Boolean)
+              .map((x) => x.slice(0, 80))
+              .slice(0, 20);
+          } catch {
+            tagi = s
+              .split(/[,;]+/)
+              .map((x) => x.trim())
+              .filter(Boolean)
+              .map((x) => x.slice(0, 80))
+              .slice(0, 20);
+          }
+        }
         const meta = {
           id: zid,
           typ,
           sciezka: rel,
           created_at: new Date().toISOString(),
+          ...(opis ? { opis } : {}),
+          ...(tagi.length ? { tagi } : {}),
         };
         s.taskZdjecia[k].push(meta);
         return meta;
@@ -1353,6 +1386,24 @@ module.exports = function registerFullStack(router) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="faktura-${req.params.id}.pdf"`);
     res.send(MIN_PDF);
+  });
+
+  router.get('/pdf/cmr/:id', requireAuth, async (req, res) => {
+    const id = toNum(req.params.id);
+    const row = readOnly((state) => {
+      const c = (state.cmrLists || []).find((x) => x.id === id);
+      if (!c || !canViewCmr(state, req.user, c)) return null;
+      return enrichCmr(state, c);
+    });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+    try {
+      const pdf = await buildCmrPdfBuffer(row);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="cmr-${String(row.numer || id).replace(/[^\w.-]+/g, '_')}.pdf"`);
+      res.send(pdf);
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'PDF error' });
+    }
   });
 
   router.get('/klienci/:id', requireAuth, (req, res) => {

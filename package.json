@@ -22,6 +22,8 @@
     "dev:all": "npx --yes concurrently -n API,WEB,OS \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:os\"",
     "health": "node ./scripts/health-check.cjs",
     "status": "node ./scripts/status.cjs",
+    "status:web": "npm run status:web -w arbor-web",
+    "status:web:json": "npm run status:web:json -w arbor-web",
     "status:json": "node ./scripts/status.cjs --json",
     "status:json:strict": "node ./scripts/status.cjs --json --strict",
     "ci:check": "node ./scripts/ci-check.cjs",
@@ -33,5 +35,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "react-native-screens": "^4.24.0"
   }
 }

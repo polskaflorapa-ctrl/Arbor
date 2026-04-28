@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
@@ -7,8 +7,9 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getRolaColor } from '../theme';
- 
- 
+import { telHref } from '../utils/telLink';
+import PayrollRatesPanel from '../components/PayrollRatesPanel';
+
 export default function Uzytkownicy() {
   const [uzytkownicy, setUzytkownicy] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,8 @@ export default function Uzytkownicy() {
   const [szukaj, setSzukaj] = useState('');
  
   const navigate = useNavigate();
+  const location = useLocation();
+  const openedFromRouteRef = useRef(null);
  
   const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
   const isKierownik = currentUser?.rola === 'Kierownik';
@@ -96,6 +99,42 @@ export default function Uzytkownicy() {
       pokazKomunikat('Błąd ładowania szczegółów', 'error');
     }
   };
+
+  /** Otwórz kartę z `/uzytkownicy/:id` (stan z UzytkownikDetail). */
+  useEffect(() => {
+    const ouid = location.state?.openUserId;
+    if (!ouid) {
+      openedFromRouteRef.current = null;
+      return;
+    }
+    if (openedFromRouteRef.current === ouid) return;
+    if (uzytkownicy.length === 0) return;
+
+    const finish = (u) => {
+      openedFromRouteRef.current = ouid;
+      void otworzSzczegoly(u).finally(() => {
+        navigate('/uzytkownicy', { replace: true, state: {} });
+      });
+    };
+
+    const fromList = uzytkownicy.find((x) => Number(x.id) === Number(ouid));
+    if (fromList) {
+      finish(fromList);
+      return;
+    }
+
+    const token = getStoredToken();
+    void api
+      .get(`/uzytkownicy/${ouid}`, { headers: authHeaders(token) })
+      .then((r) => finish(r.data))
+      .catch(() => {
+        openedFromRouteRef.current = null;
+        pokazKomunikat('Nie znaleziono użytkownika lub brak dostępu.', 'error');
+        navigate('/uzytkownicy', { replace: true, state: {} });
+      });
+    // otworzSzczegoly / pokazKomunikat — stabilne względem renderu
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, uzytkownicy, navigate]);
  
   const otworzEdycje = (user) => {
     setForm({
@@ -327,7 +366,19 @@ export default function Uzytkownicy() {
                           <span style={s.userListBranch}>{u.oddzial_nazwa || '—'}</span>
                         </div>
                         <div style={s.userListContact}>{u.email || '—'}</div>
-                        <div style={s.userListContactMuted}>{u.telefon || '—'}</div>
+                        <div style={s.userListContactMuted}>
+                          {u.telefon ? (
+                            telHref(u.telefon) ? (
+                              <a href={telHref(u.telefon)} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                {u.telefon}
+                              </a>
+                            ) : (
+                              u.telefon
+                            )
+                          ) : (
+                            '—'
+                          )}
+                        </div>
                         <div style={s.userListBottom}>
                           <span style={{
                             ...s.statusBadge,
@@ -381,17 +432,28 @@ export default function Uzytkownicy() {
                   { label: 'Login', value: `@${wybranyUser.login}` },
                   { label: 'Imię i nazwisko', value: `${wybranyUser.imie} ${wybranyUser.nazwisko}` },
                   { label: 'Email', value: wybranyUser.email },
-                  { label: 'Telefon', value: wybranyUser.telefon },
+                  { label: 'Telefon', value: wybranyUser.telefon, kind: 'tel' },
                   { label: 'Oddział', value: wybranyUser.oddzial_nazwa },
                   { label: 'Stanowisko', value: wybranyUser.stanowisko },
                   { label: 'Data zatrudnienia', value: wybranyUser.data_zatrudnienia ? wybranyUser.data_zatrudnienia.split('T')[0] : null },
                   { label: 'Status', value: wybranyUser.aktywny ? '✅ Aktywny' : '❌ Nieaktywny' },
-                ].map(row => row.value ? (
-                  <div key={row.label} style={s.detailRow}>
-                    <span style={s.detailLabel}>{row.label}</span>
-                    <span style={s.detailValue}>{row.value}</span>
-                  </div>
-                ) : null)}
+                ].map((row) => {
+                  if (!row.value && row.value !== 0) return null;
+                  const display =
+                    row.kind === 'tel' && telHref(row.value) ? (
+                      <a href={telHref(row.value)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                        {row.value}
+                      </a>
+                    ) : (
+                      row.value
+                    );
+                  return (
+                    <div key={row.label} style={s.detailRow}>
+                      <span style={s.detailLabel}>{row.label}</span>
+                      <span style={s.detailValue}>{display}</span>
+                    </div>
+                  );
+                })}
               </div>
  
               <div>
@@ -412,6 +474,12 @@ export default function Uzytkownicy() {
                     )}
                   </div>
                 )}
+
+                <PayrollRatesPanel
+                  userId={wybranyUser.id}
+                  allowEdit={mozeEdytowac}
+                  onMessage={(tekst, typ) => pokazKomunikat(tekst, typ || 'success')}
+                />
  
                 <div style={{ ...s.card, marginBottom: 16 }}>
                   <div style={s.cardTitle}>🆘 Kontakt awaryjny</div>
@@ -426,7 +494,15 @@ export default function Uzytkownicy() {
                       {wybranyUser.kontakt_awaryjny_telefon && (
                         <div style={s.detailRow}>
                           <span style={s.detailLabel}>Telefon</span>
-                          <span style={s.detailValue}>{wybranyUser.kontakt_awaryjny_telefon}</span>
+                          <span style={s.detailValue}>
+                            {telHref(wybranyUser.kontakt_awaryjny_telefon) ? (
+                              <a href={telHref(wybranyUser.kontakt_awaryjny_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                {wybranyUser.kontakt_awaryjny_telefon}
+                              </a>
+                            ) : (
+                              wybranyUser.kontakt_awaryjny_telefon
+                            )}
+                          </span>
                         </div>
                       )}
                     </>

@@ -66,7 +66,7 @@ export interface Theme {
   chartCyan: string;
 }
 
-/** Kolory ról — zgodne z web/src/theme.js getRolaColor (Platinum Chrome). */
+/** Kolory ról — zgodne z web/src/theme.js getRolaColor. */
 export function getRolaColor(rola: string): string {
   const map: Record<string, string> = {
     Dyrektor: '#f59e0b',
@@ -82,20 +82,20 @@ export function getRolaColor(rola: string): string {
   return map[rola] || '#94a3b8';
 }
 
-/** Wspólne tokeny „Platinum Chrome” (web: ThemeContext dark/green). */
-const PLATINUM_CHROME_OMIT_NAME = {
-  bg: '#030303',
-  surface: '#0f0f0f',
-  surface2: '#141414',
-  surface3: '#1a1a1a',
-  border: 'rgba(255,255,255,0.1)',
-  text: '#f4f4f5',
-  textSub: '#c4c4cc',
-  textMuted: '#8b8b96',
-  accent: '#e8e8ed',
-  accentDark: '#a1a1aa',
-  accentLight: 'rgba(255,255,255,0.1)',
-  accentText: '#0a0a0a',
+/** Ciemny motyw Arbor — spójny z web/src/index.css (:root / theme-dark / theme-green). */
+const ARBOR_DARK_OMIT_NAME = {
+  bg: '#060908',
+  surface: '#0f1512',
+  surface2: '#141b17',
+  surface3: '#1a221e',
+  border: 'rgba(255,255,255,0.09)',
+  text: '#eef7f1',
+  textSub: '#c0cdc6',
+  textMuted: '#8a9b90',
+  accent: '#5eea9f',
+  accentDark: '#34d399',
+  accentLight: 'rgba(94,234,159,0.14)',
+  accentText: '#03140c',
   success: '#34d399',
   successBg: 'rgba(52,211,153,0.14)',
   warning: '#fbbf24',
@@ -104,19 +104,19 @@ const PLATINUM_CHROME_OMIT_NAME = {
   dangerBg: 'rgba(248,113,113,0.12)',
   info: '#38bdf8',
   infoBg: 'rgba(56,189,248,0.12)',
-  headerBg: '#050505',
-  headerText: '#f4f4f5',
-  headerSub: '#8b8b96',
-  navBg: '#050505',
-  navActive: '#e8e8ed',
-  navInactive: '#8b8b96',
-  navBorder: 'rgba(255,255,255,0.08)',
-  cardBg: '#0f0f0f',
-  cardBorder: 'rgba(255,255,255,0.1)',
-  inputBg: '#121212',
-  inputBorder: 'rgba(255,255,255,0.14)',
-  inputText: '#f4f4f5',
-  inputPlaceholder: '#8b8b96',
+  headerBg: '#070b09',
+  headerText: '#eef7f1',
+  headerSub: '#8a9b90',
+  navBg: '#070b09',
+  navActive: '#5eea9f',
+  navInactive: '#8a9b90',
+  navBorder: 'rgba(255,255,255,0.09)',
+  cardBg: '#0f1512',
+  cardBorder: 'rgba(94,234,159,0.15)',
+  inputBg: '#0d1210',
+  inputBorder: 'rgba(94,234,159,0.2)',
+  inputText: '#eef7f1',
+  inputPlaceholder: '#8a9b90',
   radiusXs: 6,
   radiusSm: 10,
   radiusMd: 14,
@@ -128,9 +128,9 @@ const PLATINUM_CHROME_OMIT_NAME = {
   fontCaption: 12,
   fontMicro: 11,
   shadowColor: '#000000',
-  shadowOpacity: 0.55,
-  shadowRadius: 20,
-  shadowOffsetY: 8,
+  shadowOpacity: 0.58,
+  shadowRadius: 22,
+  shadowOffsetY: 10,
   cardElevation: 6,
   chartSecondary: '#94a3b8',
   chartCyan: '#22d3ee',
@@ -139,7 +139,7 @@ const PLATINUM_CHROME_OMIT_NAME = {
 export const themes: Record<ThemeName, Theme> = {
   dark: {
     name: 'dark',
-    ...PLATINUM_CHROME_OMIT_NAME,
+    ...ARBOR_DARK_OMIT_NAME,
   },
 
   light: {
@@ -198,12 +198,12 @@ export const themes: Record<ThemeName, Theme> = {
 
   green: {
     name: 'green',
-    ...PLATINUM_CHROME_OMIT_NAME,
+    ...ARBOR_DARK_OMIT_NAME,
   },
 };
 
 export const THEME_LABELS: Record<ThemeName, string> = {
-  dark: 'Ciemny (Platinum)',
+  dark: 'Arbor (ciemny)',
   light: 'Jasny',
-  green: 'Platinum Chrome',
+  green: 'Arbor (akcent)',
 };

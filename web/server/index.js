@@ -29,7 +29,10 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err.message || 'Server error' });
 });
 
-app.listen(PORT, () => {
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
   console.log(`[arbor-api-local] http://localhost:${PORT}/api  (health: GET /api/health)`);
+  console.log(`[arbor-api-local] Sieć LAN: http://<IP-tego-PC>:${PORT}/api (telefon w tym samym Wi‑Fi)`);
   console.log('[arbor-api-local] Demo logowanie: POST /api/auth/login  { "login":"oleg","haslo":"oleg" }');
 });

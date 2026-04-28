@@ -14,8 +14,8 @@
     "axios": "^1.14.0",
     "i18next": "^23.16.8",
     "i18next-browser-languagedetector": "^7.2.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "react-i18next": "^14.1.3",
     "react-router-dom": "6.30.3",
     "react-scripts": "5.0.1",
@@ -32,7 +32,10 @@
     "eject": "react-scripts eject",
     "server": "npm --prefix server start",
     "server:dev": "npm --prefix server run dev",
-    "dev:full": "npx --yes concurrently -k \"npm run server\" \"npm start\""
+    "dev:full": "node ./scripts/dev-full-smart.cjs",
+    "status:web": "node ./scripts/status-web.cjs",
+    "status:web:json": "node ./scripts/status-web.cjs --json",
+    "smoke:kommo:crm": "node ./scripts/smoke-kommo-crm.cjs"
   },
   "eslintConfig": {
     "extends": [

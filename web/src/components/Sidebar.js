@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import { getRolaColor } from '../theme';
@@ -7,12 +7,12 @@ import { useTheme, THEMES } from '../ThemeContext';
 import LanguageSwitcher from './LanguageSwitcher';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
   problem: '#F87171', potrzebuje_czasu: '#FBBF24', skonczylem_wczesniej: 'var(--accent)',
   pytanie: '#60A5FA', info: '#94A3B8', nowe_zlecenie: 'var(--accent)',
-  potwierdzenie_godzin: 'var(--accent)', delegacja: '#FBBF24', przypomnienie: '#F87171',
+  potwierdzenie_godzin: 'var(--accent)', raport_dnia_ekipy: 'var(--accent)', kasa_oddzial_nieodebrana: '#F87171',
+  delegacja: '#FBBF24', przypomnienie: '#F87171',
 };
 // SVG ikony nawigacji
 const ICONS = {
@@ -28,6 +28,7 @@ const ICONS = {
   oddzialy:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   wyceny:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
   klienci:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  crm:          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>,
   ogledziny:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   telefonia:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.33 2 2 0 0 1 3.18 1h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.1 9a16 16 0 0 0 6.9 6.9l1.36-1.35a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
   integracje:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 18l6-6-6-6"/><path d="M3 12h12"/><path d="M21 5v14"/></svg>,
@@ -36,6 +37,14 @@ const ICONS = {
   collapse:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
   expand:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
 };
+
+function NavChevron() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden style={{ opacity: 0.32, flexShrink: 0, marginLeft: 'auto', color: 'var(--text-muted)' }}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
 
 export default function Sidebar() {
   const { t, i18n } = useTranslation();
@@ -70,15 +79,16 @@ export default function Sidebar() {
     const ALL     = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
     const all = [
       { path: '/dashboard',         labelKey: 'nav.dashboard',       icon: 'dashboard',   roles: ALL },
+      { path: '/crm',               labelKey: 'nav.crm',           icon: 'crm',         roles: [...MGMT, 'Wyceniający', 'Specjalista'] },
       { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, 'Magazynier'] },
       { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, 'Brygadzista', 'Specjalista', 'Magazynier'] },
       { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
-      { path: '/zatwierdz-wyceny',  labelKey: 'nav.approveQuotes',   icon: 'wyceny',      roles: MGMT },
+      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'] },
       { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
-      { path: '/ogledziny',         labelKey: 'nav.inspections',   icon: 'ogledziny',   roles: [...MGMT, 'Specjalista'] },
       { path: '/telefonia',         labelKey: 'nav.telephony',     icon: 'telefonia',   roles: MGMT },
       { path: '/integracje',        labelKey: 'nav.integrations',  icon: 'integracje',  roles: MGMT },
       { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający'] },
+      { path: '/rozliczenia-ekip',  labelKey: 'nav.payrollTeams',  icon: 'ksiegowosc',  roles: ['Dyrektor', 'Administrator', 'Kierownik'] },
       { path: '/kierownik',         labelKey: 'nav.planning',      icon: 'kierownik',   roles: MGMT },
       { path: '/ekipy',             labelKey: 'nav.teams',         icon: 'ekipy',       roles: MGMT },
       { path: '/flota',             labelKey: 'nav.fleet',         icon: 'flota',       roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
@@ -147,7 +157,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div style={{ ...sb.root, width: W }}>
+      <div className="ios-glass-panel" style={{ ...sb.root, width: W }}>
 
         {/* Przycisk zwijania */}
         <button onClick={() => setCollapsed(!collapsed)} style={sb.collapseBtn} title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
@@ -188,195 +198,357 @@ export default function Sidebar() {
           </div>
         )}
 
-        {/* Separator */}
-        {!collapsed && <div style={sb.sectionLabel}>{t('sidebar.menu')}</div>}
-        <div style={sb.separator} />
+        {!collapsed ? (
+          <div className="ios-section-title" style={{ margin: '6px 0 6px 10px' }}>{t('sidebar.menu')}</div>
+        ) : (
+          <div style={sb.separator} />
+        )}
 
         {/* Nawigacja */}
         <nav style={sb.nav}>
-          {links.map((link) => {
-            const active = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
-            const isHov = hovered === link.path;
-            return (
-              <div key={link.path}
-                onClick={() => navigate(link.path)}
-                onKeyDown={onActivateKeyDown(() => navigate(link.path))}
-                onMouseEnter={() => setHovered(link.path)}
-                onMouseLeave={() => setHovered(null)}
-                role="button"
-                tabIndex={0}
-                aria-current={active ? 'page' : undefined}
-                title={collapsed ? t(link.labelKey) : ''}
-                style={{
-                  ...sb.navItem,
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  padding: collapsed ? '10px 0' : '10px 14px',
-                  background: active ? 'var(--nav-active-bg)' : isHov ? 'var(--nav-hover-bg)' : 'transparent',
-                  color: active ? 'var(--accent)' : isHov ? 'var(--text)' : 'var(--text-sub)',
-                  borderLeft: `3px solid ${active ? 'var(--accent)' : 'transparent'}`,
-                  fontWeight: active ? 700 : 500,
-                }}>
-                <span style={{ flexShrink: 0, display: 'flex' }}>{ICONS[link.icon]}</span>
-                {!collapsed && <span style={{ marginLeft: 10 }}>{t(link.labelKey)}</span>}
-                {!collapsed && active && <span style={sb.activeDot} />}
-              </div>
-            );
-          })}
+          {!collapsed ? (
+            <div className="ios-inset" style={{ margin: '0 8px 8px' }}>
+              {links.map((link, i) => {
+                const active = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
+                const isHov = hovered === link.path;
+                return (
+                  <Fragment key={link.path}>
+                    {i > 0 ? <div style={{ height: 1, background: 'var(--border)' }} aria-hidden /> : null}
+                    <div
+                      onClick={() => navigate(link.path)}
+                      onKeyDown={onActivateKeyDown(() => navigate(link.path))}
+                      onMouseEnter={() => setHovered(link.path)}
+                      onMouseLeave={() => setHovered(null)}
+                      role="button"
+                      tabIndex={0}
+                      aria-current={active ? 'page' : undefined}
+                      className="ios-inset-row"
+                      style={{
+                        background: active ? 'var(--nav-active-bg)' : isHov ? 'var(--ios-row-hover)' : 'var(--ios-inset-bg)',
+                        color: active ? 'var(--text)' : 'var(--text-sub)',
+                        fontWeight: active ? 600 : 500,
+                      }}
+                    >
+                      <span
+                        className="ios-icon-tile"
+                        style={active ? { color: 'var(--accent)', borderColor: 'var(--border2)' } : undefined}
+                      >
+                        {ICONS[link.icon]}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 15 }}>{t(link.labelKey)}</span>
+                      <NavChevron />
+                    </div>
+                  </Fragment>
+                );
+              })}
+            </div>
+          ) : (
+            links.map((link) => {
+              const active = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
+              const isHov = hovered === link.path;
+              return (
+                <div
+                  key={link.path}
+                  onClick={() => navigate(link.path)}
+                  onKeyDown={onActivateKeyDown(() => navigate(link.path))}
+                  onMouseEnter={() => setHovered(link.path)}
+                  onMouseLeave={() => setHovered(null)}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={active ? 'page' : undefined}
+                  title={t(link.labelKey)}
+                  style={{
+                    ...sb.navItem,
+                    justifyContent: 'center',
+                    padding: '10px 0',
+                    background: active ? 'var(--nav-active-bg)' : isHov ? 'var(--nav-hover-bg)' : 'transparent',
+                    color: active ? 'var(--accent)' : isHov ? 'var(--text)' : 'var(--text-sub)',
+                    borderLeft: `3px solid ${active ? 'var(--accent)' : 'transparent'}`,
+                    fontWeight: active ? 700 : 500,
+                  }}
+                >
+                  <span style={{ flexShrink: 0, display: 'flex' }}>{ICONS[link.icon]}</span>
+                </div>
+              );
+            })
+          )}
         </nav>
 
         {/* Dolna sekcja */}
         <div style={sb.bottom}>
-          <div style={sb.separator} />
-
-          {/* Powiadomienia */}
-          <div ref={notifRef} style={{ position: 'relative' }}>
-            <div
-              onClick={() => setShowNotif(!showNotif)}
-              onKeyDown={onActivateKeyDown(() => setShowNotif(!showNotif))}
-              role="button"
-              tabIndex={0}
-              aria-label={t('sidebar.notificationsAria')}
-              aria-expanded={showNotif}
-              style={{
-                ...sb.navItem,
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                padding: collapsed ? '10px 0' : '10px 14px',
-                background: showNotif ? 'var(--nav-active-bg)' : 'transparent',
-                color: showNotif ? 'var(--accent)' : 'var(--text-sub)',
-                borderLeft: `3px solid ${showNotif ? 'var(--accent)' : 'transparent'}`,
-                cursor: 'pointer',
-              }}>
-              <span style={{ flexShrink: 0, display: 'flex', position: 'relative' }}>
-                {ICONS.bell}
-                {notifCount > 0 && (
-                  <span style={sb.badge}>{notifCount > 99 ? '99+' : notifCount}</span>
-                )}
-              </span>
-              {!collapsed && <span style={{ marginLeft: 10, fontWeight: 500, fontSize: 13 }}>{t('sidebar.notifications')}</span>}
-              {!collapsed && notifCount > 0 && (
-                <span style={{ ...sb.badge, position: 'static', marginLeft: 'auto', borderRadius: 10, padding: '1px 6px' }}>
-                  {notifCount}
-                </span>
-              )}
-            </div>
-
-            {/* Dropdown powiadomień */}
-            {showNotif && (
-              <div style={{ ...sb.notifPanel, left: collapsed ? 80 : 264 }}>
-                <div style={sb.notifHeader}>
-                  <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
-                  {notifCount > 0 && (
-                    <button onClick={markAll} style={sb.markAllBtn}>{t('sidebar.markAllRead')}</button>
-                  )}
+          {!collapsed ? (
+            <div className="ios-inset" style={{ margin: '6px 8px 16px' }}>
+              <div ref={notifRef} style={{ position: 'relative' }}>
+                <div
+                  onClick={() => setShowNotif(!showNotif)}
+                  onKeyDown={onActivateKeyDown(() => setShowNotif(!showNotif))}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t('sidebar.notificationsAria')}
+                  aria-expanded={showNotif}
+                  className="ios-inset-row"
+                  style={{
+                    cursor: 'pointer',
+                    background: showNotif ? 'var(--nav-active-bg)' : 'var(--ios-inset-bg)',
+                    color: showNotif ? 'var(--text)' : 'var(--text-sub)',
+                    fontWeight: 500,
+                  }}
+                >
+                  <span
+                    className="ios-icon-tile"
+                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent)', borderColor: 'var(--border2)' } : {}) }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {ICONS.bell}
+                      {notifCount > 0 && (
+                        <span style={sb.badge}>{notifCount > 99 ? '99+' : notifCount}</span>
+                      )}
+                    </span>
+                  </span>
+                  <span style={{ flex: 1, fontSize: 15 }}>{t('sidebar.notifications')}</span>
+                  {notifCount > 0 ? (
+                    <span style={{ ...sb.badge, position: 'static', borderRadius: 10, padding: '1px 8px', marginRight: 4 }}>
+                      {notifCount > 99 ? '99+' : notifCount}
+                    </span>
+                  ) : null}
+                  <NavChevron />
                 </div>
-                {notifList.length === 0 ? (
-                  <div style={sb.notifEmpty}>
-                    <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.4 }}>🔔</div>
-                    <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
-                  </div>
-                ) : notifList.slice(0, 15).map(n => {
-                  const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
-                  return (
-                    <div key={n.id}
-                      onClick={() => { if (n.task_id) navigate(`/zlecenia/${n.task_id}`); if (n.status === 'Nowe') markOne(n.id); setShowNotif(false); }}
-                      style={{ ...sb.notifItem, background: n.status === 'Nowe' ? 'var(--accent-surface)' : 'transparent' }}>
-                      <div style={{ ...sb.notifDot, background: kolor + '33', color: kolor }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                          <circle cx="12" cy="12" r="10"/>
-                        </svg>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={sb.notifTop}>
-                          <span style={{ ...sb.notifTyp, color: kolor }}>{t(`notifType.${n.typ}`, { defaultValue: n.typ })}</span>
-                          <span style={sb.notifTime}>{fmtTime(n.data_utworzenia)}</span>
-                        </div>
-                        <div style={sb.notifOd}>{t('sidebar.fromPrefix')} {n.od_kogo || t('sidebar.system')}</div>
-                        {n.tresc && <div style={sb.notifTresc}>{n.tresc}</div>}
-                      </div>
-                      {n.status === 'Nowe' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, marginTop: 4 }} />}
+
+                {showNotif && (
+                  <div style={{ ...sb.notifPanel, left: 264 }}>
+                    <div style={sb.notifHeader}>
+                      <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
+                      {notifCount > 0 && (
+                        <button type="button" onClick={markAll} style={sb.markAllBtn}>{t('sidebar.markAllRead')}</button>
+                      )}
                     </div>
-                  );
-                })}
-                {notifList.length > 15 && (
-                  <div style={{ textAlign: 'center', padding: '10px', borderTop: '1px solid var(--border)' }}>
-                    <button onClick={() => { navigate('/powiadomienia'); setShowNotif(false); }} style={sb.markAllBtn}>
-                      {t('sidebar.seeAll')}
-                    </button>
+                    {notifList.length === 0 ? (
+                      <div style={sb.notifEmpty}>
+                        <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.4 }}>🔔</div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
+                      </div>
+                    ) : notifList.slice(0, 15).map(n => {
+                      const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
+                      return (
+                        <div key={n.id}
+                          onClick={() => { if (n.task_id) navigate(`/zlecenia/${n.task_id}`); if (n.status === 'Nowe') markOne(n.id); setShowNotif(false); }}
+                          style={{ ...sb.notifItem, background: n.status === 'Nowe' ? 'var(--accent-surface)' : 'transparent' }}>
+                          <div style={{ ...sb.notifDot, background: kolor + '33', color: kolor }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={sb.notifTop}>
+                              <span style={{ ...sb.notifTyp, color: kolor }}>{t(`notifType.${n.typ}`, { defaultValue: n.typ })}</span>
+                              <span style={sb.notifTime}>{fmtTime(n.data_utworzenia)}</span>
+                            </div>
+                            <div style={sb.notifOd}>{t('sidebar.fromPrefix')} {n.od_kogo || t('sidebar.system')}</div>
+                            {n.tresc && <div style={sb.notifTresc}>{n.tresc}</div>}
+                          </div>
+                          {n.status === 'Nowe' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, marginTop: 4 }} />}
+                        </div>
+                      );
+                    })}
+                    {notifList.length > 15 && (
+                      <div style={{ textAlign: 'center', padding: '10px', borderTop: '1px solid var(--border)' }}>
+                        <button type="button" onClick={() => { navigate('/powiadomienia'); setShowNotif(false); }} style={sb.markAllBtn}>
+                          {t('sidebar.seeAll')}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Język */}
-          <div style={{ padding: collapsed ? '8px 4px' : '8px 14px', borderTop: '1px solid var(--border)' }}>
-            <LanguageSwitcher
-              compact={collapsed}
-              style={{
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                width: collapsed ? '100%' : 'auto',
+              <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
+              <div style={{ padding: '8px 14px', background: 'var(--ios-inset-bg)' }}>
+                <LanguageSwitcher
+                  compact={false}
+                  style={{ justifyContent: 'flex-start', width: '100%' }}
+                />
+              </div>
+              <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
+              <div style={{
+                padding: '10px 14px',
+                background: 'var(--ios-inset-bg)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 8,
               }}
-            />
-          </div>
-
-          {/* Wybór motywu */}
-          <div style={{
-            padding: collapsed ? '8px 4px' : '8px 14px',
-            display: 'flex',
-            flexDirection: collapsed ? 'column' : 'row',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 4,
-          }}>
-            {!collapsed && (
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: 1, marginRight: 'auto' }}>{t('sidebar.theme')}</span>
-            )}
-            {Object.values(THEMES).map((th) => (
-              <button
-                key={th.id}
-                title={th.label}
-                type="button"
-                onClick={() => setTheme(th.id)}
+              >
+                <span className="ios-section-title" style={{ margin: '0 0 4px 0', width: '100%' }}>{t('sidebar.theme')}</span>
+                {Object.values(THEMES).map((th) => (
+                  <button
+                    key={th.id}
+                    title={th.label}
+                    type="button"
+                    onClick={() => setTheme(th.id)}
+                    style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      background: th.previewDot,
+                      border: themeId === th.id ? '2px solid var(--accent)' : '2px solid transparent',
+                      cursor: 'pointer',
+                      boxShadow: themeId === th.id ? `0 0 6px ${th.previewDot}55` : 'none',
+                      outline: 'none',
+                      transition: 'border-color 0.2s, box-shadow 0.2s',
+                      flexShrink: 0,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
+              <div
+                onClick={handleLogout}
+                onKeyDown={onActivateKeyDown(handleLogout)}
+                onMouseEnter={() => setLogoutHover(true)}
+                onMouseLeave={() => setLogoutHover(false)}
+                role="button"
+                tabIndex={0}
+                aria-label={t('sidebar.logoutAria')}
+                className="ios-inset-row"
                 style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: th.previewDot,
-                  border: themeId === th.id ? `2px solid var(--accent)` : '2px solid transparent',
                   cursor: 'pointer',
-                  boxShadow: themeId === th.id ? `0 0 8px ${th.previewDot}88` : 'none',
-                  outline: 'none',
-                  transition: 'all 0.2s',
-                  flexShrink: 0,
-                  padding: 0,
+                  background: logoutHover ? 'rgba(248, 113, 113, 0.08)' : 'var(--ios-inset-bg)',
+                  color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
+                  fontWeight: 500,
                 }}
-              />
-            ))}
-          </div>
-
-          {/* Wyloguj */}
-          <div
-            onClick={handleLogout}
-            onKeyDown={onActivateKeyDown(handleLogout)}
-            onMouseEnter={() => setLogoutHover(true)}
-            onMouseLeave={() => setLogoutHover(false)}
-            role="button"
-            tabIndex={0}
-            aria-label={t('sidebar.logoutAria')}
-            style={{
-              ...sb.navItem, justifyContent: collapsed ? 'center' : 'flex-start',
-              padding: collapsed ? '10px 0' : '10px 14px',
-              color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
-              background: logoutHover ? 'rgba(248,113,113,0.1)' : 'transparent',
-              cursor: 'pointer', transition: 'all 0.15s',
-              borderLeft: '3px solid transparent',
-            }}>
-            <span style={{ display: 'flex', flexShrink: 0 }}>{ICONS.logout}</span>
-            {!collapsed && <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 500 }}>{t('sidebar.logout')}</span>}
-          </div>
+              >
+                <span className="ios-icon-tile" style={logoutHover ? { color: 'var(--danger)', borderColor: 'rgba(248,113,113,0.35)' } : undefined}>
+                  {ICONS.logout}
+                </span>
+                <span style={{ flex: 1, fontSize: 15 }}>{t('sidebar.logout')}</span>
+                <NavChevron />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={sb.separator} />
+              <div ref={notifRef} style={{ position: 'relative' }}>
+                <div
+                  onClick={() => setShowNotif(!showNotif)}
+                  onKeyDown={onActivateKeyDown(() => setShowNotif(!showNotif))}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t('sidebar.notificationsAria')}
+                  aria-expanded={showNotif}
+                  style={{
+                    ...sb.navItem,
+                    justifyContent: 'center',
+                    padding: '10px 0',
+                    background: showNotif ? 'var(--nav-active-bg)' : 'transparent',
+                    color: showNotif ? 'var(--accent)' : 'var(--text-sub)',
+                    borderLeft: `3px solid ${showNotif ? 'var(--accent)' : 'transparent'}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ flexShrink: 0, display: 'flex', position: 'relative' }}>
+                    {ICONS.bell}
+                    {notifCount > 0 && (
+                      <span style={sb.badge}>{notifCount > 99 ? '99+' : notifCount}</span>
+                    )}
+                  </span>
+                </div>
+                {showNotif && (
+                  <div style={{ ...sb.notifPanel, left: 80 }}>
+                    <div style={sb.notifHeader}>
+                      <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
+                      {notifCount > 0 && (
+                        <button type="button" onClick={markAll} style={sb.markAllBtn}>{t('sidebar.markAllRead')}</button>
+                      )}
+                    </div>
+                    {notifList.length === 0 ? (
+                      <div style={sb.notifEmpty}>
+                        <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.4 }}>🔔</div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('sidebar.noNotifications')}</p>
+                      </div>
+                    ) : notifList.slice(0, 15).map(n => {
+                      const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
+                      return (
+                        <div key={n.id}
+                          onClick={() => { if (n.task_id) navigate(`/zlecenia/${n.task_id}`); if (n.status === 'Nowe') markOne(n.id); setShowNotif(false); }}
+                          style={{ ...sb.notifItem, background: n.status === 'Nowe' ? 'var(--accent-surface)' : 'transparent' }}>
+                          <div style={{ ...sb.notifDot, background: kolor + '33', color: kolor }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={sb.notifTop}>
+                              <span style={{ ...sb.notifTyp, color: kolor }}>{t(`notifType.${n.typ}`, { defaultValue: n.typ })}</span>
+                              <span style={sb.notifTime}>{fmtTime(n.data_utworzenia)}</span>
+                            </div>
+                            <div style={sb.notifOd}>{t('sidebar.fromPrefix')} {n.od_kogo || t('sidebar.system')}</div>
+                            {n.tresc && <div style={sb.notifTresc}>{n.tresc}</div>}
+                          </div>
+                          {n.status === 'Nowe' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, marginTop: 4 }} />}
+                        </div>
+                      );
+                    })}
+                    {notifList.length > 15 && (
+                      <div style={{ textAlign: 'center', padding: '10px', borderTop: '1px solid var(--border)' }}>
+                        <button type="button" onClick={() => { navigate('/powiadomienia'); setShowNotif(false); }} style={sb.markAllBtn}>
+                          {t('sidebar.seeAll')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '8px 4px', borderTop: '1px solid var(--border)' }}>
+                <LanguageSwitcher compact style={{ justifyContent: 'center', width: '100%' }} />
+              </div>
+              <div style={{ padding: '8px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                {Object.values(THEMES).map((th) => (
+                  <button
+                    key={th.id}
+                    title={th.label}
+                    type="button"
+                    onClick={() => setTheme(th.id)}
+                    style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      background: th.previewDot,
+                      border: themeId === th.id ? '2px solid var(--accent)' : '2px solid transparent',
+                      cursor: 'pointer',
+                      boxShadow: themeId === th.id ? `0 0 8px ${th.previewDot}88` : 'none',
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      flexShrink: 0,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                onClick={handleLogout}
+                onKeyDown={onActivateKeyDown(handleLogout)}
+                onMouseEnter={() => setLogoutHover(true)}
+                onMouseLeave={() => setLogoutHover(false)}
+                role="button"
+                tabIndex={0}
+                aria-label={t('sidebar.logoutAria')}
+                style={{
+                  ...sb.navItem,
+                  justifyContent: 'center',
+                  padding: '10px 0',
+                  color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
+                  background: logoutHover ? 'rgba(248,113,113,0.1)' : 'transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  borderLeft: '3px solid transparent',
+                }}
+              >
+                <span style={{ display: 'flex', flexShrink: 0 }}>{ICONS.logout}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Spacer */}
-      <div style={{ width: W, flexShrink: 0, transition: 'width 0.25s ease' }} />
+      <div style={{ width: W, flexShrink: 0, minHeight: '100vh', transition: 'width 0.25s ease' }} aria-hidden />
     </>
   );
 }

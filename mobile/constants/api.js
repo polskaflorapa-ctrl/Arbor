@@ -13,6 +13,13 @@ const resolveApiUrl = () => {
 export const API_URL = resolveApiUrl();
 export const API_BASE_URL = API_URL.replace(/\/api$/, '');
 
+/** Bazowy URL panelu web (CMR itd.). Domyślnie ten sam host co API bez `/api`. Nadpisz: EXPO_PUBLIC_WEB_APP_URL */
+export const WEB_APP_URL = (() => {
+  const fromEnv = typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_WEB_APP_URL;
+  if (fromEnv && String(fromEnv).trim()) return trimTrailingSlash(String(fromEnv).trim());
+  return API_BASE_URL;
+})();
+
 /** Opcjonalnie: EXPO_PUBLIC_EXPECTED_API_VERSION=1.2.0 — ostrzeżenie w diagnostyce. */
 export const EXPECTED_API_VERSION =
   typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_EXPECTED_API_VERSION

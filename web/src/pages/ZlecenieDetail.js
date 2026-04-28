@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AttachMoney from '@mui/icons-material/AttachMoney';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
@@ -38,6 +38,7 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { telHref } from '../utils/telLink';
 
 const BASE = '';
 
@@ -106,6 +107,8 @@ export default function ZlecenieDetail() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [typZdjecia, setTypZdjecia] = useState('Przed');
+  const [uploadPhotoOpis, setUploadPhotoOpis] = useState('');
+  const [uploadPhotoTagi, setUploadPhotoTagi] = useState('');
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
   const [mediaSort, setMediaSort] = useState('newest');
   const [mediaSearch, setMediaSearch] = useState('');
@@ -130,6 +133,10 @@ export default function ZlecenieDetail() {
   const [savingDocumentMeta, setSavingDocumentMeta] = useState(false);
   const [integrationSettings, setIntegrationSettings] = useState({ sms: true, email: true, push: true, auto_on_status: true, auto_on_reminder: true });
   const [integrationLogs, setIntegrationLogs] = useState([]);
+  const [taskKommoPayload, setTaskKommoPayload] = useState(null);
+  const [loadingTaskKommoPayload, setLoadingTaskKommoPayload] = useState(false);
+  const [pushingTaskKommo, setPushingTaskKommo] = useState(false);
+  const [showTaskKommoPayload, setShowTaskKommoPayload] = useState(false);
 
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
   const isPomocnik = currentUser?.rola === 'Pomocnik';
@@ -140,6 +147,8 @@ export default function ZlecenieDetail() {
   if (!token) { navigate('/'); return; }
   const u = getLocalStorageJson('user');
   if (u) setCurrentUser(u);
+  setShowTaskKommoPayload(false);
+  setTaskKommoPayload(null);
   loadAll();
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [id]);
@@ -185,7 +194,15 @@ export default function ZlecenieDetail() {
     setSaving(true);
     try {
       const token = getStoredToken();
-      await api.put(`/tasks/${id}`, editForm, {
+      const {
+        ekipa_nazwa: _en,
+        oddzial_nazwa: _on,
+        kierownik_nazwa: _kn,
+        wyceniajacy_nazwa: _wn,
+        zatwierdzone_przez_nazwa: _zn,
+        ...payload
+      } = editForm;
+      await api.put(`/tasks/${id}`, payload, {
         headers: authHeaders(token)
       });
       showMsg(successMessage('Zapisano zmiany!'));
@@ -240,6 +257,47 @@ export default function ZlecenieDetail() {
     }
   };
 
+  const loadTaskKommoPayload = async () => {
+    setLoadingTaskKommoPayload(true);
+    try {
+      const token = getStoredToken();
+      const res = await api.get(`/tasks/${id}/kommo-payload`, { headers: authHeaders(token) });
+      setTaskKommoPayload(res.data);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, t('kommoCrm.payloadError'))));
+    } finally {
+      setLoadingTaskKommoPayload(false);
+    }
+  };
+
+  const pushTaskKommo = async () => {
+    setPushingTaskKommo(true);
+    try {
+      const token = getStoredToken();
+      const res = await api.post(`/tasks/${id}/kommo-push`, {}, { headers: authHeaders(token) });
+      if (res.data?.ok) {
+        showMsg(successMessage(t('kommoCrm.pushSuccess')));
+        await loadAll();
+        setTaskKommoPayload(null);
+      } else {
+        showMsg(errorMessage(res.data?.error || t('kommoCrm.pushError')));
+      }
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, t('kommoCrm.pushError'))));
+    } finally {
+      setPushingTaskKommo(false);
+    }
+  };
+
+  const toggleTaskKommoPayload = async () => {
+    if (showTaskKommoPayload) {
+      setShowTaskKommoPayload(false);
+      return;
+    }
+    setShowTaskKommoPayload(true);
+    await loadTaskKommoPayload();
+  };
+
   const uploadZdjecie = async (file) => {
     if (!file) return;
     setUploadingPhoto(true);
@@ -248,10 +306,16 @@ export default function ZlecenieDetail() {
       const formData = new FormData();
       formData.append('zdjecie', file);
       formData.append('typ', typZdjecia);
+      const note = uploadPhotoOpis.trim().slice(0, 4000);
+      if (note) formData.append('opis', note);
+      const tagsCsv = uploadPhotoTagi.trim();
+      if (tagsCsv) formData.append('tagi', tagsCsv.slice(0, 2000));
       await api.post(`/tasks/${id}/zdjecia`, formData, {
         headers: { ...authHeaders(token), 'Content-Type': 'multipart/form-data' }
       });
       showMsg(successMessage('Zdjęcie dodane!'));
+      setUploadPhotoOpis('');
+      setUploadPhotoTagi('');
       loadAll();
     } catch (err) {
       showMsg(errorMessage('Błąd uploadu zdjęcia'));
@@ -632,13 +696,29 @@ export default function ZlecenieDetail() {
                 ? <input style={styles.editInputSm} value={editForm.klient_telefon || ''} onChange={e => setEditForm({...editForm, klient_telefon: e.target.value})} placeholder="Telefon klienta" />
                 : zlecenie.klient_telefon
                   ? (
-                    <a href={`tel:${zlecenie.klient_telefon}`} style={{ ...styles.phoneLink, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <LocalPhoneOutlined sx={{ fontSize: 18 }} />
-                      {zlecenie.klient_telefon}
-                    </a>
+                    telHref(zlecenie.klient_telefon) ? (
+                      <a href={telHref(zlecenie.klient_telefon)} style={{ ...styles.phoneLink, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <LocalPhoneOutlined sx={{ fontSize: 18 }} />
+                        {zlecenie.klient_telefon}
+                      </a>
+                    ) : (
+                      <span style={{ ...styles.phoneLink, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <LocalPhoneOutlined sx={{ fontSize: 18 }} />
+                        {zlecenie.klient_telefon}
+                      </span>
+                    )
                   )
                   : <span style={{color:'var(--text-muted)', fontSize:13}}>Brak telefonu</span>
               }
+              {!editMode && zlecenie.klient_telefon && zlecenie.oddzial_id && (
+                <Link
+                  to={`/telefonia?tab=calls&oddzial_id=${zlecenie.oddzial_id}&phone=${encodeURIComponent(zlecenie.klient_telefon)}&task_id=${zlecenie.id}`}
+                  style={{ ...styles.mapBtn, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                >
+                  <LocalPhoneOutlined sx={{ fontSize: 16 }} />
+                  Log w Telefonii
+                </Link>
+              )}
               {!editMode && (
                 <a href={`https://maps.google.com/?q=${encodeURIComponent(zlecenie.adres + ' ' + zlecenie.miasto)}`}
                   target="_blank" rel="noreferrer" style={{ ...styles.mapBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -756,6 +836,40 @@ export default function ZlecenieDetail() {
                   ? <input style={styles.editInputSm} type="number" step="0.01" value={editForm.wartosc_planowana || ''} onChange={e => setEditForm({...editForm, wartosc_planowana: e.target.value})} />
                   : formatCurrency(wartosc)
               } />
+              <Row
+                label="Dop. usługi (szt.)"
+                value={
+                  editMode && canEdit ? (
+                    <input
+                      style={styles.editInputSm}
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={editForm.dodatkowe_uslugi_liczba ?? ''}
+                      onChange={(e) => setEditForm({ ...editForm, dodatkowe_uslugi_liczba: e.target.value })}
+                    />
+                  ) : (
+                    String(zlecenie.dodatkowe_uslugi_liczba ?? 0)
+                  )
+                }
+              />
+              <Row
+                label="Bony (szt.)"
+                value={
+                  editMode && canEdit ? (
+                    <input
+                      style={styles.editInputSm}
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={editForm.bony_liczba ?? ''}
+                      onChange={(e) => setEditForm({ ...editForm, bony_liczba: e.target.value })}
+                    />
+                  ) : (
+                    String(zlecenie.bony_liczba ?? 0)
+                  )
+                }
+              />
               <Row label="Priorytet" value={
                 editMode && canEdit
                   ? <select style={styles.editInputSm} value={editForm.priorytet || ''} onChange={e => setEditForm({...editForm, priorytet: e.target.value})}>
@@ -821,6 +935,57 @@ export default function ZlecenieDetail() {
                     Pobierz protokół PDF
                   </span>
                 </button>
+              </div>
+
+              {/* Kommo (CRM) — zlecenie */}
+              <div style={styles.card}>
+                <div style={styles.cardTitle}>{t('kommoCrm.taskSectionTitle')}</div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.45 }}>
+                  {t('kommoCrm.taskSectionHint')}
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <button type="button" style={styles.pdfBtn} disabled={pushingTaskKommo} onClick={pushTaskKommo}>
+                    {pushingTaskKommo ? '…' : t('kommoCrm.push')}
+                  </button>
+                  <button type="button" style={styles.pdfBtn} onClick={toggleTaskKommoPayload}>
+                    {showTaskKommoPayload ? t('kommoCrm.hidePayload') : t('kommoCrm.showPayload')}
+                  </button>
+                  {showTaskKommoPayload && (
+                    <button
+                      type="button"
+                      style={styles.pdfBtn}
+                      disabled={loadingTaskKommoPayload}
+                      onClick={loadTaskKommoPayload}
+                    >
+                      {loadingTaskKommoPayload ? '…' : t('kommoCrm.refreshPayload')}
+                    </button>
+                  )}
+                </div>
+                {zlecenie.kommo_last_sync_at ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+                    {t('kommoCrm.lastSync')}{' '}
+                    {new Date(zlecenie.kommo_last_sync_at).toLocaleString()}
+                    {zlecenie.kommo_last_sync_status === 'ok' ? ' · OK' : ''}
+                    {zlecenie.kommo_last_sync_http ? ` · HTTP ${zlecenie.kommo_last_sync_http}` : ''}
+                    {zlecenie.kommo_last_sync_error ? ` · ${zlecenie.kommo_last_sync_error}` : ''}
+                  </p>
+                ) : null}
+                {showTaskKommoPayload && (
+                  <pre
+                    style={{
+                      marginTop: 12,
+                      marginBottom: 0,
+                      fontSize: 11,
+                      overflow: 'auto',
+                      maxHeight: 240,
+                      padding: 10,
+                      background: 'var(--bg-deep)',
+                      borderRadius: 8,
+                    }}
+                  >
+                    {loadingTaskKommoPayload ? '…' : taskKommoPayload ? JSON.stringify(taskKommoPayload, null, 2) : '—'}
+                  </pre>
+                )}
               </div>
 
               {/* SMS */}
@@ -1215,6 +1380,24 @@ export default function ZlecenieDetail() {
                   <option value="Po">Po pracy</option>
                   <option value="inne">Inne</option>
                 </select>
+                <input
+                  type="text"
+                  style={{ ...styles.editInputSm, minWidth: 200, maxWidth: 320 }}
+                  placeholder="Notatka do zdjęcia (opcjonalnie)"
+                  value={uploadPhotoOpis}
+                  onChange={(e) => setUploadPhotoOpis(e.target.value)}
+                  maxLength={2000}
+                  disabled={uploadingPhoto}
+                />
+                <input
+                  type="text"
+                  style={{ ...styles.editInputSm, minWidth: 160, maxWidth: 280 }}
+                  placeholder="Tagi (np. licznik, szyba — po przecinku)"
+                  value={uploadPhotoTagi}
+                  onChange={(e) => setUploadPhotoTagi(e.target.value)}
+                  maxLength={2000}
+                  disabled={uploadingPhoto}
+                />
                 <button type="button" style={styles.uploadBtn} onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto}>
                   {uploadingPhoto ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -1420,6 +1603,17 @@ function PhotoSection({ title, photos, base, formatDateTime, onSelect, onDelete 
             <div style={styles.photoInfo}>
               <div style={styles.photoAutor}>{p.autor || '-'}</div>
               <div style={styles.photoTime}>{formatDateTime(p.data_dodania)}</div>
+              {p.opis ? (
+                <div style={styles.photoOpisSnippet} title={p.opis}>
+                  {p.opis.length > 120 ? `${p.opis.slice(0, 120)}…` : p.opis}
+                </div>
+              ) : null}
+              {Array.isArray(p.tagi) && p.tagi.length > 0 ? (
+                <div style={styles.photoTagSnippet} title={p.tagi.join(', ')}>
+                  {p.tagi.slice(0, 5).join(' · ')}
+                  {p.tagi.length > 5 ? '…' : ''}
+                </div>
+              ) : null}
               <button
                 type="button"
                 style={styles.mediaDeleteBtn}
@@ -1559,6 +1753,25 @@ const styles = {
   photoInfo: { padding: '8px 10px' },
   photoAutor: { fontSize: 12, fontWeight: '600', color: 'var(--text)' },
   photoTime: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2 },
+  photoOpisSnippet: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    lineHeight: 1.35,
+    marginTop: 4,
+    marginBottom: 2,
+    maxHeight: 48,
+    overflow: 'hidden',
+  },
+  photoTagSnippet: {
+    fontSize: 10,
+    color: 'var(--accent)',
+    fontWeight: 600,
+    marginTop: 2,
+    marginBottom: 2,
+    lineHeight: 1.3,
+    maxHeight: 32,
+    overflow: 'hidden',
+  },
   overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   overlayContent: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: 20, maxWidth: '80vw', position: 'relative' },
   overlayClose: { position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#fff', backgroundColor: 'rgba(0,0,0,0.5)', width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' },

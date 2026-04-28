@@ -15,8 +15,8 @@ import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
- 
- 
+import { telHref } from '../utils/telLink';
+
 const PUSTY_FORMULARZ = {
   klient_nazwa: '', klient_telefon: '', klient_email: '',
   adres: '', miasto: '',
@@ -33,6 +33,7 @@ const PUSTY_FORMULARZ = {
 };
 const VIEW_MODE_KEY = 'zlecenia_view_mode';
 const WORKFLOW_CONFIG_KEY = 'zlecenia_workflow_config';
+const ZLECENIA_TRYBY = new Set(['lista', 'kanban', 'nowy', 'edytuj', 'szczegoly']);
 const DEFAULT_WORKFLOW_CONFIG = {
   logEnabled: true,
   notificationsEnabled: true,
@@ -95,7 +96,10 @@ export default function Zlecenia() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ekipy, setEkipy] = useState([]);
   const [uzytkownicy, setUzytkownicy] = useState([]);
-  const [tryb, setTryb] = useState(() => localStorage.getItem(VIEW_MODE_KEY) || 'lista');
+  const [tryb, setTryb] = useState(() => {
+    const v = localStorage.getItem(VIEW_MODE_KEY) || 'lista';
+    return ZLECENIA_TRYBY.has(v) ? v : 'lista';
+  });
   const [wybraneZlecenie, setWybraneZlecenie] = useState(null);
   const [form, setForm] = useState(PUSTY_FORMULARZ);
   const [filtrStatus, setFiltrStatus] = useState('');
@@ -136,6 +140,15 @@ export default function Zlecenia() {
     setCurrentUser(parsedUser);
     loadData(parsedUser);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!ZLECENIA_TRYBY.has(tryb)) setTryb('lista');
+  }, [tryb]);
+
+  useEffect(() => {
+    if (tryb === 'szczegoly' && !wybraneZlecenie) setTryb('lista');
+    if (tryb === 'edytuj' && !wybraneZlecenie) setTryb('lista');
+  }, [tryb, wybraneZlecenie]);
  
   const loadData = async (user) => {
     try {
@@ -148,9 +161,9 @@ export default function Zlecenia() {
         api.get(`/ekipy`, { headers: h }),
         api.get(`/uzytkownicy`, { headers: h }),
       ]);
-      setZlecenia(zRes.data);
-      setEkipy(eRes.data);
-      setUzytkownicy(uRes.data);
+      setZlecenia(Array.isArray(zRes.data) ? zRes.data : []);
+      setEkipy(Array.isArray(eRes.data) ? eRes.data : []);
+      setUzytkownicy(Array.isArray(uRes.data) ? uRes.data : []);
     } catch (err) {
       pokazKomunikat(getApiErrorMessage(err, 'Błąd ładowania danych'), 'error');
     } finally {
@@ -472,8 +485,9 @@ export default function Zlecenia() {
   const formatCurrency = (v) => !v ? '—' : parseFloat(v).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' PLN';
  
   return (
-    <div style={s.container}>
+    <div className="app-shell">
       <Sidebar />
+      <main className="app-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div style={s.main}>
  
         <StatusMessage
@@ -640,6 +654,7 @@ export default function Zlecenia() {
           <>
             <PageHeader
               variant="plain"
+              back={{ onClick: () => setTryb('lista'), label: t('common.back') }}
               title={t('pages.zlecenia.kanbanTitle')}
               subtitle={t('pages.zlecenia.kanbanSubtitle')}
               icon={<ViewKanbanOutlined style={{ fontSize: 26 }} />}
@@ -872,11 +887,18 @@ export default function Zlecenia() {
             <div style={s.twoCol}>
               <div style={s.card}>
                 <div style={s.cardTitle}>Dane klienta</div>
-                {[['Klient', wybraneZlecenie.klient_nazwa], ['Telefon', wybraneZlecenie.klient_telefon],
+                {[['Klient', wybraneZlecenie.klient_nazwa], ['Telefon', wybraneZlecenie.klient_telefon, 'tel'],
                   ['Email', wybraneZlecenie.klient_email], ['Adres', wybraneZlecenie.adres],
-                  ['Miasto', wybraneZlecenie.miasto]].map(([l, v]) => v ? (
+                  ['Miasto', wybraneZlecenie.miasto]].map(([l, v, kind]) => v ? (
                   <div key={l} style={s.detailRow}>
-                    <span style={s.detailLabel}>{l}</span><span style={s.detailValue}>{v}</span>
+                    <span style={s.detailLabel}>{l}</span>
+                    <span style={s.detailValue}>
+                      {kind === 'tel' && telHref(v) ? (
+                        <a href={telHref(v)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>{v}</a>
+                      ) : (
+                        v
+                      )}
+                    </span>
                   </div>
                 ) : null)}
               </div>
@@ -1114,13 +1136,13 @@ export default function Zlecenia() {
           </>
         )}
       </div>
+      </main>
     </div>
   );
 }
  
 const s = {
-  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' },
-  main: { flex: 1, padding: '24px', overflowX: 'hidden', position: 'relative' },
+  main: { flex: 1, minWidth: 0, overflowX: 'hidden', position: 'relative' },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
