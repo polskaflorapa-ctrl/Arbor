@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { addNetworkStateListener } from 'expo-network';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, type AppStateStatus, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
@@ -60,6 +61,14 @@ export function OfflineQueueSync() {
       if (becameActive) void tryFlush();
     });
 
+    /** F3.8 — flush zaraz po odzyskaniu sieci (nie tylko co 30 s / przy active). */
+    const netSub = addNetworkStateListener((evt) => {
+      if (appStateRef.current !== 'active') return;
+      if (!evt.isConnected) return;
+      if (evt.isInternetReachable === false) return;
+      void tryFlush({ silent: true });
+    });
+
     const intervalId = setInterval(() => {
       if (appStateRef.current === 'active') {
         void tryFlush({ silent: true });
@@ -68,6 +77,7 @@ export function OfflineQueueSync() {
 
     return () => {
       appStateSub.remove();
+      netSub.remove();
       clearInterval(intervalId);
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     };
