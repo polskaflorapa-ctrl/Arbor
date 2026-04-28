@@ -73,7 +73,7 @@ export default function WycenyTerenoweScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={s.center}>
-        <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
         <ActivityIndicator color={theme.accent} />
       </KeyboardSafeScreen>
     );
@@ -81,7 +81,7 @@ export default function WycenyTerenoweScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
-      <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Wróć">
           <Ionicons name="chevron-back" size={26} color={theme.text} />
@@ -154,7 +154,7 @@ function useMemoStyles(theme: Theme) {
     err: { color: theme.danger, paddingHorizontal: 16, marginTop: 8 },
     list: { padding: 16, paddingBottom: 40 },
     card: {
-      backgroundColor: theme.card,
+      backgroundColor: theme.cardBg,
       borderRadius: 14,
       padding: 14,
       marginBottom: 12,
@@ -165,7 +165,7 @@ function useMemoStyles(theme: Theme) {
     cardSub: { marginTop: 4, color: theme.text },
     muted: { marginTop: 4, color: theme.textMuted, fontSize: 13 },
     price: { marginTop: 8, fontWeight: '600', color: theme.accent },
-    mapBtn: { marginTop: 10, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: theme.accentSoft },
+    mapBtn: { marginTop: 10, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: theme.accentLight },
     mapBtnTxt: { color: theme.accent, fontWeight: '600' },
   });
 }

@@ -37,5 +37,13 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  return (
+    <MaterialIcons
+      color={color}
+      size={size}
+      name={MAPPING[name]}
+      /* Monorepo: dwa wystąpienia typów RN — MaterialIcons oczekuje innego StyleProp niż import z głównego workspace. */
+      style={style as ComponentProps<typeof MaterialIcons>['style']}
+    />
+  );
 }
