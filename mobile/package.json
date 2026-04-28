@@ -3,9 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "node ./scripts/patch-expo-router-ctx.cjs && node ./scripts/patch-rn-virtualview.cjs",
-    "patch:ctx": "node ./scripts/patch-expo-router-ctx.cjs",
-    "patch:virtualview": "node ./scripts/patch-rn-virtualview.cjs",
+    "postinstall": "node ./scripts/postinstall-patches.cjs",
+    "patch:native": "node ./scripts/postinstall-patches.cjs",
     "start": "expo start",
     "start:clear": "expo start --clear",
     "reset-project": "node ./scripts/reset-project.js",
