@@ -122,16 +122,17 @@ export default function WycenaTerenowaDetailScreen() {
 
   const gatunki = useMemo(() => [...new Set(norms.map((n) => n.gatunek_key))], [norms]);
 
-  const authHeaders = useCallback(async () => {
+  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const { token } = await getStoredSession();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
   const postJson = async (path: string, body: object) => {
     const h = await authHeaders();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...h };
     return fetch(`${API_URL}${path}`, {
       method: 'POST',
-      headers: { ...h, 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
   };
@@ -179,9 +180,10 @@ export default function WycenaTerenowaDetailScreen() {
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
     const patchH = await authHeaders();
+    const patchHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...patchH };
     await fetch(`${API_URL}/quotations/${id}`, {
       method: 'PATCH',
-      headers: { ...patchH, 'Content-Type': 'application/json' },
+      headers: patchHeaders,
       body: JSON.stringify({
         waznosc_do: waznoscIso,
         korekta_uzasadnienie: korektaTxt || null,
@@ -257,7 +259,7 @@ export default function WycenaTerenowaDetailScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={s.center}>
-        <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
         <ActivityIndicator color={theme.accent} />
       </KeyboardSafeScreen>
     );
@@ -266,7 +268,7 @@ export default function WycenaTerenowaDetailScreen() {
   if (!q) {
     return (
       <KeyboardSafeScreen style={s.screen}>
-        <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
@@ -285,7 +287,7 @@ export default function WycenaTerenowaDetailScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
-      <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="chevron-back" size={26} color={theme.text} />
@@ -404,7 +406,7 @@ function makeStyles(theme: Theme) {
     status: { fontSize: 14, color: theme.accent, fontWeight: '600' },
     klient: { fontSize: 17, fontWeight: '700', color: theme.text, marginTop: 6 },
     muted: { color: theme.textMuted, marginTop: 6, fontSize: 13 },
-    block: { marginTop: 20, padding: 12, borderRadius: 12, backgroundColor: theme.card, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border },
+    block: { marginTop: 20, padding: 12, borderRadius: 12, backgroundColor: theme.cardBg, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border },
     h2: { fontSize: 16, fontWeight: '700', color: theme.text, marginBottom: 8 },
     input: {
       borderWidth: 1,
@@ -425,7 +427,7 @@ function makeStyles(theme: Theme) {
     btnSecondaryTxt: { color: theme.accent, fontWeight: '600' },
     itemCard: { marginTop: 12, padding: 10, borderRadius: 10, backgroundColor: theme.surface2 },
     itemTitle: { fontWeight: '600', color: theme.text },
-    smallBtn: { marginTop: 8, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 10, backgroundColor: theme.accentSoft, borderRadius: 8 },
+    smallBtn: { marginTop: 8, alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 10, backgroundColor: theme.accentLight, borderRadius: 8 },
     smallBtnTxt: { color: theme.accent, fontWeight: '600' },
     price: { marginTop: 16, fontSize: 16, fontWeight: '700', color: theme.text },
   });
