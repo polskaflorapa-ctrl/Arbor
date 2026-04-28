@@ -635,6 +635,7 @@ export default function ZlecenieDetailScreen() {
         });
         setOfflineQueueCount(queued);
         setProblemModal(false);
+        setProblemForm({ typ: 'usterka', opis: '' });
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
       } else {
         void triggerHaptic('warning');
@@ -650,6 +651,7 @@ export default function ZlecenieDetailScreen() {
       });
       setOfflineQueueCount(queued);
       setProblemModal(false);
+      setProblemForm({ typ: 'usterka', opis: '' });
       Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
     }
   };
