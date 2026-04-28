@@ -7,7 +7,15 @@ const { expoRouterBabelPlugin } = require('babel-preset-expo/build/expo-router-p
 module.exports = function (api) {
   api.cache(true);
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      [
+        'babel-preset-expo',
+        {
+          // RN 0.81+ VirtualView + react-compiler potrafią rzucać „Unable to determine event arguments…”
+          'react-compiler': false,
+        },
+      ],
+    ],
     plugins: [expoRouterBabelPlugin],
   };
 };
