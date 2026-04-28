@@ -70,7 +70,11 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
 
   for (const item of queue) {
     try {
-      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        // Stabilne ID wpisu kolejki — retry / flush bez podwójnego skutku po stronie API.
+        'Idempotency-Key': item.id,
+      };
       let body: BodyInit | undefined;
       if (item.multipart) {
         const form = new FormData();
