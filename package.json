@@ -7,7 +7,7 @@
     "os"
   ],
   "scripts": {
-    "mobile": "npm run start -w arbor-mobile",
+    "mobile": "cd mobile && npm run start",
     "web": "npm run start -w arbor-web",
     "build": "npm run build -w arbor-web && node ./scripts/sync-web-build.cjs",
     "os": "npm run dev -w arbor-os",
