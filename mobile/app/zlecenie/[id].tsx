@@ -33,6 +33,21 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TYP_ZDJECIA_KEYS = ['checkin', 'przed', 'po', 'inne'] as const;
 
+type FinishRequirements = {
+  require_po_photo: boolean;
+  require_przed_photo: boolean;
+  require_material_usage: boolean;
+  has_po_photo: boolean;
+  has_przed_photo: boolean;
+};
+
+function photoTypMatches(typ: unknown, allowed: string[]) {
+  const k = String(typ ?? '')
+    .toLowerCase()
+    .trim();
+  return allowed.includes(k);
+}
+
 function orderStatusColors(theme: Theme) {
   return {
     Nowe: theme.info,
@@ -89,6 +104,29 @@ export default function ZlecenieDetailScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [cmrLista, setCmrLista] = useState<any[]>([]);
+  const finishRequirements: FinishRequirements = useMemo(() => {
+    const raw = zlecenie?.finish_requirements as Partial<FinishRequirements> | undefined;
+    const hasPoLocal = zdjecia.some((z: { typ?: string }) => photoTypMatches(z?.typ, ['po', 'after']));
+    const hasPrzedLocal = zdjecia.some((z: { typ?: string }) =>
+      photoTypMatches(z?.typ, ['przed', 'before', 'checkin']),
+    );
+    if (raw && typeof raw.require_po_photo === 'boolean') {
+      return {
+        require_po_photo: !!raw.require_po_photo,
+        require_przed_photo: !!raw.require_przed_photo,
+        require_material_usage: !!raw.require_material_usage,
+        has_po_photo: !!raw.has_po_photo || hasPoLocal,
+        has_przed_photo: !!raw.has_przed_photo || hasPrzedLocal,
+      };
+    }
+    return {
+      require_po_photo: false,
+      require_przed_photo: false,
+      require_material_usage: false,
+      has_po_photo: hasPoLocal,
+      has_przed_photo: hasPrzedLocal,
+    };
+  }, [zlecenie, zdjecia]);
   const [finishModal, setFinishModal] = useState(false);
   const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
   const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
@@ -277,9 +315,36 @@ export default function ZlecenieDetailScreen() {
     finally { setChangingStatus(false); }
   };
 
-  /** M3 F3.9 — ekran płatności przed zakończeniem (ekipa). */
+  /** M3 F3.9 — ekran płatności przed zakończeniem (ekipa). F3.5–F3.7 — zgodność z regułami serwera. */
   const zakoncz = () => {
     void triggerHaptic('light');
+    const fr = finishRequirements;
+    if (fr.require_po_photo && !fr.has_po_photo) {
+      Alert.alert(t('order.finishBlockedPoTitle'), t('order.finishBlockedPoBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('order.takePhoto'),
+          onPress: () => {
+            setActiveTab('zdjecia');
+            setZdjecieModal(true);
+          },
+        },
+      ]);
+      return;
+    }
+    if (fr.require_przed_photo && !fr.has_przed_photo) {
+      Alert.alert(t('order.finishBlockedPrzedTitle'), t('order.finishBlockedPrzedBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('order.takePhoto'),
+          onPress: () => {
+            setActiveTab('zdjecia');
+            setZdjecieModal(true);
+          },
+        },
+      ]);
+      return;
+    }
     setFinishModal(true);
   };
 
@@ -298,6 +363,11 @@ export default function ZlecenieDetailScreen() {
         Alert.alert('Uwaga', 'Podaj NIP przy fakturze VAT.');
         return;
       }
+    }
+    if (finishRequirements.require_material_usage && !finishUsageNazwa.trim()) {
+      void triggerHaptic('warning');
+      Alert.alert(t('notif.alert.errorTitle'), t('order.finishMaterialRequired'));
+      return;
     }
     if (!token) { router.replace('/login'); return; }
     setChangingStatus(true);
@@ -658,6 +728,11 @@ export default function ZlecenieDetailScreen() {
 
   const isBrygadzista = user?.rola === 'Brygadzista';
   const isEkipa = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
+  const finishPhotoBlocked =
+    !!isEkipa &&
+    zlecenie?.status === 'W_Realizacji' &&
+    ((finishRequirements.require_po_photo && !finishRequirements.has_po_photo) ||
+      (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo));
   const mozeZmieniacStatus = ['Kierownik', 'Dyrektor', 'Administrator'].includes(user?.rola);
   const S = makeStyles(theme);
 
@@ -740,6 +815,24 @@ export default function ZlecenieDetailScreen() {
       ) : null}
 
       {/* ── AKCJE EKIPY (brygadzista / pomocnik) ── */}
+      {isEkipa && finishPhotoBlocked ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 8 }}>
+          <Text style={{ color: theme.warning, fontSize: 13, fontWeight: '600' }}>
+            {t('order.finishReqBanner', {
+              missing: [
+                finishRequirements.require_po_photo && !finishRequirements.has_po_photo
+                  ? t('order.finishReqMissingPo')
+                  : '',
+                finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo
+                  ? t('order.finishReqMissingPrzed')
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(', '),
+            })}
+          </Text>
+        </View>
+      ) : null}
       {isEkipa && (
         <View style={S.actionRow}>
           {/* Check-in */}
@@ -776,7 +869,13 @@ export default function ZlecenieDetailScreen() {
           )}
           {zlecenie.status === 'W_Realizacji' && (
             <TouchableOpacity
-              style={[S.actionBtn, { backgroundColor: theme.danger }]}
+              style={[
+                S.actionBtn,
+                {
+                  backgroundColor: theme.danger,
+                  opacity: finishPhotoBlocked ? 0.55 : 1,
+                },
+              ]}
               onPress={zakoncz}
               disabled={changingStatus}
             >
@@ -784,7 +883,7 @@ export default function ZlecenieDetailScreen() {
                 ? <ActivityIndicator size="small" color={theme.accentText} />
                 : <>
                   <PlatinumIconBadge icon="checkmark" color={theme.accentText} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
-                  <Text style={S.actionBtnTxt}>Zakończ</Text>
+                  <Text style={S.actionBtnTxt}>{t('order.btn.finish')}</Text>
                 </>
               }
             </TouchableOpacity>
@@ -829,7 +928,7 @@ export default function ZlecenieDetailScreen() {
             multiline
           />
           <TouchableOpacity
-            style={{ alignSelf: 'flex-start', backgroundColor: theme.accentSoft, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
+            style={{ alignSelf: 'flex-start', backgroundColor: `${theme.accent}22`, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
             onPress={() => void submitExtraWork()}
           >
             <Text style={{ color: theme.accent, fontWeight: '600' }}>Zgłoś do wyceny</Text>
@@ -1365,7 +1464,11 @@ export default function ZlecenieDetailScreen() {
                 onChangeText={(v) => setPayForm((p) => ({ ...p, nip: v }))}
                 autoCapitalize="characters"
               />
-              <Text style={[S.modalLbl, { color: theme.textSub, marginTop: 12 }]}>{t('order.finishUsageHint')}</Text>
+              <Text style={[S.modalLbl, { color: theme.textSub, marginTop: 12 }]}>
+                {finishRequirements.require_material_usage
+                  ? t('order.finishUsageRequiredHint')
+                  : t('order.finishUsageHint')}
+              </Text>
               <TextInput
                 style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
                 placeholder={t('order.finishUsageNazwa')}
