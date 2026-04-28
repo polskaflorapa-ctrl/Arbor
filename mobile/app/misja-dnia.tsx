@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -39,6 +40,12 @@ const isToday = (isoLike?: string) => {
 
 const formatHour = (hour?: string) => (hour ? hour.slice(0, 5) : '--:--');
 
+const formatPln = (v: string | number | undefined) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  return `${n.toFixed(2)} zł`;
+};
+
 const formatDuration = (
   minutes: number,
   tf: (key: string, vars?: Record<string, string | number>) => string,
@@ -59,6 +66,51 @@ export default function MisjaDniaScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [userRole, setUserRole] = useState('');
+  type DayPreview = {
+    cash_by_forma: { forma_platnosc?: string | null; sum_kwota?: string | number; cnt?: number }[];
+    issues_count?: number;
+  };
+  const [teamDayPack, setTeamDayPack] = useState<{
+    report: { id: number } | null;
+    lines: unknown[];
+    day_preview: DayPreview | null;
+  } | null>(null);
+  const [teamDayLoading, setTeamDayLoading] = useState(false);
+  const [teamDayBusy, setTeamDayBusy] = useState(false);
+
+  const fetchTeamDayReport = useCallback(async (explicitRole?: string) => {
+    const role = explicitRole ?? userRole;
+    if (role !== 'Brygadzista' && role !== 'Pomocnik') return;
+    const { token } = await getStoredSession();
+    if (!token) return;
+    const date = new Date().toISOString().split('T')[0];
+    setTeamDayLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/mobile/me/team-day-report?date=${date}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const preview = data.day_preview && typeof data.day_preview === 'object'
+          ? {
+              cash_by_forma: Array.isArray(data.day_preview.cash_by_forma) ? data.day_preview.cash_by_forma : [],
+              issues_count: Number(data.day_preview.issues_count) || 0,
+            }
+          : null;
+        setTeamDayPack({
+          report: data.report ?? null,
+          lines: Array.isArray(data.lines) ? data.lines : [],
+          day_preview: preview,
+        });
+      } else {
+        setTeamDayPack(null);
+      }
+    } catch {
+      setTeamDayPack(null);
+    } finally {
+      setTeamDayLoading(false);
+    }
+  }, [userRole]);
 
   const loadData = useCallback(async () => {
     try {
@@ -67,8 +119,9 @@ export default function MisjaDniaScreen() {
         router.replace('/login');
         return;
       }
-      setUserRole(user.rola ?? '');
-      const endpoint = user.rola === 'Brygadzista' || user.rola === 'Pomocnik'
+      const ur = user.rola ?? '';
+      setUserRole(ur);
+      const endpoint = ur === 'Brygadzista' || ur === 'Pomocnik'
         ? `${API_URL}/tasks/moje`
         : `${API_URL}/tasks/wszystkie`;
       const res = await fetch(endpoint, {
@@ -78,11 +131,16 @@ export default function MisjaDniaScreen() {
         const data = await res.json();
         setTasks(Array.isArray(data) ? data : []);
       }
+      if (ur === 'Brygadzista' || ur === 'Pomocnik') {
+        await fetchTeamDayReport(ur);
+      } else {
+        setTeamDayPack(null);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchTeamDayReport]);
 
   useEffect(() => {
     void loadData();
@@ -108,6 +166,34 @@ export default function MisjaDniaScreen() {
     const done = todayTasks.filter((task) => task.status === 'Zakonczone').length;
     return Math.round((done / todayTasks.length) * 100);
   }, [todayTasks]);
+
+  useEffect(() => {
+    if ((userRole === 'Brygadzista' || userRole === 'Pomocnik') && completion === 100 && todayTasks.length > 0) {
+      void fetchTeamDayReport();
+    }
+  }, [userRole, completion, todayTasks.length, fetchTeamDayReport]);
+
+  const closeTeamDay = useCallback(async () => {
+    const { token } = await getStoredSession();
+    if (!token) return;
+    const date = new Date().toISOString().split('T')[0];
+    setTeamDayBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/mobile/me/team-day-close`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_date: date }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'err');
+      Alert.alert('', t('misja.teamDay.ok'));
+      await fetchTeamDayReport();
+    } catch {
+      Alert.alert('', t('misja.teamDay.err'));
+    } finally {
+      setTeamDayBusy(false);
+    }
+  }, [fetchTeamDayReport, t]);
 
   const remainingToday = useMemo(
     () => todayTasks.filter((task) => task.status !== 'Zakonczone'),
@@ -236,6 +322,76 @@ export default function MisjaDniaScreen() {
             </Text>
           </View>
         </View>
+
+        {(userRole === 'Brygadzista' || userRole === 'Pomocnik') ? (
+          <View style={S.section}>
+            <Text style={S.sectionTitle}>{t('misja.teamDay.cashTitle')}</Text>
+            <Text style={[S.emptyText, { marginBottom: 8 }]}>{t('misja.teamDay.cashSub')}</Text>
+            {teamDayLoading && !teamDayPack?.day_preview ? (
+              <ActivityIndicator size="small" color={theme.accent} style={{ marginVertical: 6 }} />
+            ) : null}
+            {teamDayPack?.day_preview ? (
+              <>
+                {teamDayPack.day_preview.cash_by_forma.length === 0 ? (
+                  <Text style={S.emptyText}>{t('misja.teamDay.cashEmpty')}</Text>
+                ) : (
+                  teamDayPack.day_preview.cash_by_forma.map((row, idx) => (
+                    <View key={`${row.forma_platnosc ?? 'x'}-${idx}`} style={S.cashRow}>
+                      <Text style={S.cashForma}>{row.forma_platnosc?.trim() || t('misja.teamDay.cashOther')}</Text>
+                      <Text style={S.cashKwota}>{formatPln(row.sum_kwota)}</Text>
+                    </View>
+                  ))
+                )}
+                {teamDayPack.day_preview.cash_by_forma.length > 0 ? (
+                  <Text style={S.cashTotal}>
+                    {t('misja.teamDay.cashTotal')}{' '}
+                    {formatPln(
+                      teamDayPack.day_preview.cash_by_forma.reduce(
+                        (acc, r) => acc + (Number(r.sum_kwota) || 0),
+                        0,
+                      ),
+                    )}
+                  </Text>
+                ) : null}
+                {(teamDayPack.day_preview.issues_count ?? 0) > 0 ? (
+                  <Text style={S.cashIssues}>
+                    {t('misja.teamDay.cashIssues', { count: teamDayPack.day_preview.issues_count ?? 0 })}
+                  </Text>
+                ) : null}
+              </>
+            ) : !teamDayLoading ? (
+              <Text style={S.emptyText}>{t('misja.teamDay.cashUnavailable')}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {(userRole === 'Brygadzista' || userRole === 'Pomocnik') && todayTasks.length > 0 && completion === 100 ? (
+          <View style={S.section}>
+            <Text style={S.sectionTitle}>{t('misja.teamDay.title')}</Text>
+            <Text style={[S.emptyText, { marginBottom: 10 }]}>{t('misja.teamDay.sub')}</Text>
+            {teamDayLoading ? (
+              <ActivityIndicator size="small" color={theme.accent} style={{ marginVertical: 8 }} />
+            ) : null}
+            {!teamDayLoading && teamDayPack?.report ? (
+              <Text style={S.teamDayMeta}>{t('misja.teamDay.hasReport', { id: teamDayPack.report.id })}</Text>
+            ) : null}
+            {!teamDayLoading && !teamDayPack?.report ? (
+              <Text style={S.emptyText}>{t('misja.teamDay.noReport')}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[S.actionBtn, { marginTop: 10, opacity: teamDayBusy ? 0.6 : 1 }]}
+              onPress={() => void closeTeamDay()}
+              disabled={teamDayBusy}
+            >
+              {teamDayBusy ? (
+                <ActivityIndicator size="small" color={theme.accent} />
+              ) : (
+                <Ionicons name="calculator-outline" size={16} color={theme.accent} />
+              )}
+              <Text style={S.actionText}>{teamDayBusy ? t('misja.teamDay.busy') : t('misja.teamDay.btn')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <View style={S.section}>
           <Text style={S.sectionTitle}>{t('misja.section.now')}</Text>
@@ -431,4 +587,17 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.surface2,
   },
   actionText: { fontSize: 12, fontWeight: '700', color: t.text },
+  cashRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: t.border,
+  },
+  cashForma: { fontSize: 13, color: t.text, flex: 1, paddingRight: 8 },
+  cashKwota: { fontSize: 13, fontWeight: '700', color: t.success },
+  cashTotal: { fontSize: 14, fontWeight: '800', color: t.text, marginTop: 10 },
+  cashIssues: { fontSize: 12, color: t.warning, marginTop: 8 },
+  teamDayMeta: { fontSize: 13, color: t.textSub, marginBottom: 4 },
 });

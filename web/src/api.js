@@ -6,7 +6,18 @@
 import axios from 'axios';
 import { getStoredToken } from './utils/storedToken';
 
-const RAW_API_URL = (process.env.REACT_APP_API_URL || '').trim();
+/** Normalizacja: pełny host z Rendera bez `/api` → dopinamy `/api` (trasy OS są pod /api/…). */
+function normalizeReactApiBase(raw) {
+  let t = String(raw || '').trim();
+  if (!t) return '';
+  t = t.replace(/\/+$/, '');
+  if (t === '/api') return '/api';
+  if (/\/api$/i.test(t)) return t;
+  if (t.startsWith('http://') || t.startsWith('https://')) return `${t}/api`;
+  return t;
+}
+
+const RAW_API_URL = normalizeReactApiBase(process.env.REACT_APP_API_URL);
 /** CRA dev: REACT_APP_API_URL=/api + `src/setupProxy.js` (ARBOR_API_PROXY_TARGET) — omija CORS. */
 const API_URL = RAW_API_URL || '/api';
 let isRedirectingToLogin = false;

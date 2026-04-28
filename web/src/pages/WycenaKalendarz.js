@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
@@ -8,6 +8,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
+import Sidebar from '../components/Sidebar';
 
 const MIESIAC = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
   'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
@@ -67,6 +68,7 @@ function pickBestOperationalSlot(slots, etaThresholdMinutes) {
 
 export default function WycenaKalendarz() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -110,6 +112,13 @@ export default function WycenaKalendarz() {
     wartosc_planowana: '',
     wycena_uwagi: '',
   });
+
+  useEffect(() => {
+    const v = searchParams.get('view');
+    if (v === 'ogledziny' || v === 'wyceny' || v === 'combined') {
+      setCalView(v);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const raw = localStorage.getItem(`arbor_eta_threshold_${user?.id || 'global'}`);
@@ -386,7 +395,10 @@ export default function WycenaKalendarz() {
   const isWycenaFormValid = Boolean(form.ekipa_id && form.adres.trim());
 
   return (
-    <div style={S.root}>
+    <div className="app-shell">
+      <Sidebar />
+      <main className="app-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={S.root}>
       <div style={S.bgOrbTop} />
       <div style={S.bgOrbBottom} />
       {/* Header */}
@@ -527,7 +539,16 @@ export default function WycenaKalendarz() {
                     fontSize: 13,
                     cursor: 'pointer',
                   }}
-                  onClick={() => navigate('/ogledziny')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCalView('ogledziny');
+                    if (o.data_planowana) {
+                      const d = new Date(o.data_planowana);
+                      if (d.getFullYear() === year && d.getMonth() === month) {
+                        setSelectedDay(d.getDate());
+                      }
+                    }
+                  }}
                   role="presentation"
                 >
                   <div style={{ fontWeight: 600 }}>Klient #{o.klient_id}{o.adres ? ` · ${o.adres}` : ''}</div>
@@ -905,12 +926,24 @@ export default function WycenaKalendarz() {
           </div>
         </div>
       )}
+        </div>
+      </main>
     </div>
   );
 }
 
 const S = {
-  root: { minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)', color: 'var(--text)', position: 'relative', overflow: 'hidden' },
+  root: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    background: 'transparent',
+    color: 'var(--text)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
   bgOrbTop: { position: 'fixed', top: -140, right: -120, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.26) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
   bgOrbBottom: { position: 'fixed', bottom: -150, left: -130, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(112,182,255,0.18) 0%, transparent 72%)', pointerEvents: 'none', zIndex: 0 },
   viewToggle: {
@@ -935,7 +968,7 @@ const S = {
   viewBtnOn: { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--accent-surface)' },
 
   header: {
-    display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px',
+    display: 'flex', alignItems: 'center', gap: 16, padding: '20px 0',
     background: 'linear-gradient(135deg, var(--sidebar), var(--bg-deep))',
     borderBottom: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
   },
@@ -944,9 +977,9 @@ const S = {
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
   addBtn: { marginLeft: 'auto', padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 
-  msg: { margin: '12px 24px', position: 'relative', zIndex: 1 },
+  msg: { margin: '12px 0', position: 'relative', zIndex: 1 },
   kpiRow: {
-    margin: '0 24px 14px',
+    margin: '0 0 14px',
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
     gap: 10,
@@ -963,7 +996,7 @@ const S = {
   kpiLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' },
   kpiValue: { marginTop: 5, fontSize: 22, fontWeight: 800, color: 'var(--text)' },
 
-  body: { display: 'flex', gap: 20, padding: 20, flexWrap: 'wrap', position: 'relative', zIndex: 1 },
+  body: { display: 'flex', gap: 20, padding: '20px 0', flexWrap: 'wrap', position: 'relative', zIndex: 1 },
 
   calBox: { flex: '0 0 380px', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },

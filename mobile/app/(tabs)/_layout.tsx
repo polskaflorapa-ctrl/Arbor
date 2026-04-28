@@ -1,7 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import { Tabs } from 'expo-router';
 import React, { useMemo } from 'react';
+import { Platform, View } from 'react-native';
+import { HapticTab } from '../../components/haptic-tab';
 import { useTheme } from '../../constants/ThemeContext';
+
+type IonName = ComponentProps<typeof Ionicons>['name'];
+
+/** Większe niż domyślne RN — czytelne na telefonie bez okularów. */
+const TAB_ICON_PX = Platform.select({ ios: 32, default: 34 }) ?? 32;
+
+function TabGlyph({
+  outline,
+  solid,
+  color,
+  focused,
+}: {
+  outline: IonName;
+  solid: IonName;
+  color: string;
+  focused: boolean;
+}) {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', height: TAB_ICON_PX + 8 }}>
+      <Ionicons name={focused ? solid : outline} size={TAB_ICON_PX} color={color} />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const { theme } = useTheme();
@@ -10,13 +36,14 @@ export default function TabLayout() {
     () => ({
       tabBarActiveTintColor: theme.navActive,
       tabBarInactiveTintColor: theme.navInactive,
+      tabBarButton: HapticTab,
       tabBarStyle: {
         backgroundColor: theme.navBg,
         borderTopWidth: 1.25,
         borderTopColor: theme.navBorder,
-        paddingBottom: 12,
+        paddingBottom: 14,
         paddingTop: 10,
-        height: 72,
+        height: 86,
         shadowColor: theme.shadowColor,
         shadowOpacity: theme.shadowOpacity * 0.75,
         shadowRadius: theme.shadowRadius,
@@ -24,14 +51,15 @@ export default function TabLayout() {
         elevation: theme.cardElevation + 2,
       },
       tabBarLabelStyle: {
-        fontSize: theme.fontCaption,
+        fontSize: Math.max(13, theme.fontCaption + 1),
         fontWeight: '800' as const,
         letterSpacing: 0.35,
+        marginTop: 2,
       },
       headerShown: false,
       tabBarItemStyle: {
         borderRadius: 14,
-        marginHorizontal: 3,
+        marginHorizontal: 2,
       },
     }),
     [theme],
@@ -43,8 +71,8 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size || 24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabGlyph outline="home-outline" solid="home" color={color} focused={focused} />
           ),
         }}
       />
@@ -52,8 +80,8 @@ export default function TabLayout() {
         name="zlecenia"
         options={{
           title: 'Zlecenia',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text-outline" size={size || 24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabGlyph outline="clipboard-outline" solid="clipboard" color={color} focused={focused} />
           ),
         }}
       />
@@ -61,8 +89,8 @@ export default function TabLayout() {
         name="rozliczenia"
         options={{
           title: 'Rozliczenia',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calculator-outline" size={size || 24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabGlyph outline="wallet-outline" solid="wallet" color={color} focused={focused} />
           ),
         }}
       />
@@ -70,8 +98,8 @@ export default function TabLayout() {
         name="powiadomienia"
         options={{
           title: 'Powiadomienia',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications-outline" size={size || 24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabGlyph outline="notifications-outline" solid="notifications" color={color} focused={focused} />
           ),
         }}
       />
@@ -79,8 +107,8 @@ export default function TabLayout() {
         name="profil"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size || 24} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabGlyph outline="person-circle-outline" solid="person-circle" color={color} focused={focused} />
           ),
         }}
       />

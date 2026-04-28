@@ -14,9 +14,14 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE: z.string().optional(),
-  /** Publiczny URL aplikacji (HTTPS), bez końcowego slasha — Twilio pobiera TwiML z /api/telefon/twiml/dial */
-  PUBLIC_BASE_URL: z
-    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
+  /** Publiczny URL aplikacji (HTTPS), bez końcowego slasha — Twilio pobiera TwiML z /api/telefon/twiml/dial. Na Render: fallback z RENDER_EXTERNAL_URL. */
+  PUBLIC_BASE_URL: z.preprocess((v) => {
+    const manual = v != null && String(v).trim() !== '' ? String(v).trim().replace(/\/+$/, '') : '';
+    if (manual) return manual;
+    const render = process.env.RENDER_EXTERNAL_URL;
+    if (render != null && String(render).trim() !== '') return String(render).trim().replace(/\/+$/, '');
+    return undefined;
+  }, z.string().optional()),
   SMTP_HOST: z.string().default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
@@ -65,6 +70,21 @@ const envSchema = z.object({
   JUWENTUS_GPS_API_URL: z
     .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
   JUWENTUS_GPS_API_TOKEN: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
+  /** Sekret webhooka Kommo → lead „Do wyceny” (POST /api/webhooks/kommo/quotation-lead) */
+  KOMMO_QUOTATION_WEBHOOK_SECRET: z.string().optional(),
+  /** Cron: GET /api/ops/quotation-sla-tick?secret=… */
+  OPS_CRON_SECRET: z.string().optional(),
+  /** F11.8 — opcjonalnie Bearer do Expo Push API (wyższe limity); https://expo.dev/accounts/[account]/settings/access-tokens */
+  EXPO_ACCESS_TOKEN: z.string().optional(),
+  /** F11.8 — `0` / `false` wyłącza wysyłkę push przy zatwierdzeniu raportu dnia (in-app zostaje) */
+  PAYROLL_PUSH_ENABLED: z
+    .string()
+    .optional()
+    .default('1')
+    .transform((s) => !(s === '0' || s === 'false' || s === 'off')),
+  /** F11.7 — HMAC-SHA256 kanonicznego JSON manifestu w ZIP (`payroll_*_manifest.json`) */
+  PAYROLL_ZIP_MANIFEST_HMAC_SECRET: z
     .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
 });
 

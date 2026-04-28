@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl,
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity,
+  ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity,
   View, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,11 +14,17 @@ import { PlatinumCTA } from '../../components/ui/platinum-cta';
 import { PlatinumIconBadge } from '../../components/ui/platinum-icon-badge';
 import { useLanguage } from '../../constants/LanguageContext';
 import { useTheme } from '../../constants/ThemeContext';
-import { API_URL } from '../../constants/api';
+import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
+import { API_URL, WEB_APP_URL } from '../../constants/api';
 import type { Theme } from '../../constants/theme';
 import { useOddzialFeatureGuard } from '../../hooks/use-oddzial-feature-guard';
 import { isFeatureEnabledForOddzial } from '../../utils/oddzial-features';
-import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../../utils/offline-queue';
+import {
+  flushOfflineQueue,
+  getOfflineQueueSize,
+  queueRequestWithOfflineFallback,
+  queueTaskPhotoOffline,
+} from '../../utils/offline-queue';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
 import { triggerHaptic } from '../../utils/haptics';
@@ -75,11 +81,36 @@ export default function ZlecenieDetailScreen() {
   const [changingStatus, setChangingStatus] = useState(false);
   const [problemModal, setProblemModal] = useState(false);
   const [zdjecieModal, setZdjecieModal] = useState(false);
+  const [photoOpisDraft, setPhotoOpisDraft] = useState('');
+  const [photoTagiDraft, setPhotoTagiDraft] = useState('');
   const [problemForm, setProblemForm] = useState({ typ: 'usterka', opis: '' });
   const [lokalizacja, setLokalizacja] = useState<any>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [cmrLista, setCmrLista] = useState<any[]>([]);
+  const [finishModal, setFinishModal] = useState(false);
+  const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
+  const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
+  const [payForm, setPayForm] = useState({
+    forma_platnosc: 'Gotowka' as 'Gotowka' | 'Przelew' | 'Faktura_VAT' | 'Brak',
+    kwota_odebrana: '',
+    faktura_vat: false,
+    nip: '',
+  });
+  const [extraOpis, setExtraOpis] = useState('');
+  const [quoteAmount, setQuoteAmount] = useState<Record<number, string>>({});
+
+  const openCmrInBrowser = useCallback(async (path: string) => {
+    const base = WEB_APP_URL.replace(/\/+$/, '');
+    const p = path.startsWith('/') ? path : `/${path}`;
+    const url = `${base}${p}`;
+    try {
+      await openBrowserAsync(url, { presentationStyle: WebBrowserPresentationStyle.AUTOMATIC });
+    } catch {
+      Alert.alert(t('notif.alert.errorTitle'), url);
+    }
+  }, [t]);
 
   const loadAll = useCallback(async (tokenOverride?: string | null) => {
     try {
@@ -96,7 +127,17 @@ export default function ZlecenieDetailScreen() {
       if (lRes.ok) setLogi(await lRes.json());
       if (pRes.ok) setProblemy(await pRes.json());
       if (zdRes.ok) setZdjecia(await zdRes.json());
+      let cmrRows: any[] = [];
+      try {
+        const cmrRes = await fetch(`${API_URL}/cmr?task_id=${id}`, { headers: h });
+        if (cmrRes.ok) {
+          const data = await cmrRes.json();
+          cmrRows = Array.isArray(data) ? data : [];
+        }
+      } catch { /* brak CMR / sieć */ }
+      setCmrLista(cmrRows);
     } catch {
+      setCmrLista([]);
       Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
       setOfflineQueueCount(await getOfflineQueueSize());
     } finally {
@@ -139,7 +180,7 @@ export default function ZlecenieDetailScreen() {
               body: JSON.stringify({ status: nowyStatus }),
             });
             if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.statusChanged')); }
-            else {
+            else if (res.status >= 500) {
               void triggerHaptic('warning');
               const queued = await queueRequestWithOfflineFallback({
                 url: `${API_URL}/tasks/${id}/status`,
@@ -148,6 +189,10 @@ export default function ZlecenieDetailScreen() {
               });
               setOfflineQueueCount(queued);
               Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStatusQueued'));
+            } else {
+              void triggerHaptic('warning');
+              const msg = await res.text().catch(() => '');
+              Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
             }
           } catch {
             void triggerHaptic('warning');
@@ -169,27 +214,62 @@ export default function ZlecenieDetailScreen() {
     setChangingStatus(true);
     try {
       if (!token) { router.replace('/login'); return; }
+      const isTeam = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
+      let startBody: Record<string, unknown> = {};
+      if (isTeam) {
+        const coords = await pobierzLokalizacje();
+        if (!coords) {
+          void triggerHaptic('warning');
+          Alert.alert(t('notif.alert.errorTitle'), t('order.startGpsRequired'));
+          return;
+        }
+        startBody = {
+          lat: coords.lat,
+          lng: coords.lng,
+          dmuchawa_filtr_ok: true,
+          rebak_zatankowany: true,
+          kaski_zespol: true,
+          bhp_potwierdzone: true,
+        };
+      }
       const res = await fetch(`${API_URL}/tasks/${id}/start`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(startBody),
       });
       if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.startedTitle')); }
-      else {
+      else if (res.status >= 500) {
         void triggerHaptic('warning');
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/start`,
           method: 'POST',
-          body: {},
+          body: startBody,
         });
         setOfflineQueueCount(queued);
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
+      } else {
+        void triggerHaptic('warning');
+        const msg = await res.text().catch(() => '');
+        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
       }
     } catch {
       void triggerHaptic('warning');
+      const isTeam = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
+      const coords = isTeam ? await pobierzLokalizacje().catch(() => null) : null;
+      const startBody = isTeam && coords
+        ? {
+            lat: coords.lat,
+            lng: coords.lng,
+            dmuchawa_filtr_ok: true,
+            rebak_zatankowany: true,
+            kaski_zespol: true,
+            bhp_potwierdzone: true,
+          }
+        : {};
       const queued = await queueRequestWithOfflineFallback({
         url: `${API_URL}/tasks/${id}/start`,
         method: 'POST',
-        body: {},
+        body: startBody,
       });
       setOfflineQueueCount(queued);
       Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
@@ -197,44 +277,225 @@ export default function ZlecenieDetailScreen() {
     finally { setChangingStatus(false); }
   };
 
-  const zakoncz = async () => {
-    Alert.alert(t('order.finishTitle'), t('order.finishConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.finish'), style: 'destructive', onPress: async () => {
-          setChangingStatus(true);
-          try {
-            if (!token) { router.replace('/login'); return; }
-            const res = await fetch(`${API_URL}/tasks/${id}/finish`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ notatki: '' }),
-            });
-            if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.finishedTitle')); }
-            else {
-              void triggerHaptic('warning');
-              const queued = await queueRequestWithOfflineFallback({
-                url: `${API_URL}/tasks/${id}/finish`,
-                method: 'POST',
-                body: { notatki: '' },
-              });
-              setOfflineQueueCount(queued);
-              Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
-            }
-          } catch {
-            void triggerHaptic('warning');
-            const queued = await queueRequestWithOfflineFallback({
-              url: `${API_URL}/tasks/${id}/finish`,
-              method: 'POST',
-              body: { notatki: '' },
-            });
-            setOfflineQueueCount(queued);
-            Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
-          }
-          finally { setChangingStatus(false); }
-        }
+  /** M3 F3.9 — ekran płatności przed zakończeniem (ekipa). */
+  const zakoncz = () => {
+    void triggerHaptic('light');
+    setFinishModal(true);
+  };
+
+  const submitFinish = async () => {
+    const { forma_platnosc, kwota_odebrana, faktura_vat, nip } = payForm;
+    if (forma_platnosc === 'Gotowka') {
+      const k = parseFloat(String(kwota_odebrana).replace(',', '.'));
+      if (!Number.isFinite(k) || k < 0) {
+        Alert.alert('Uwaga', 'Podaj kwotę odebraną (gotówka).');
+        return;
       }
-    ]);
+    }
+    if (faktura_vat || forma_platnosc === 'Faktura_VAT') {
+      const n = String(nip || '').replace(/\s/g, '');
+      if (n.length < 10) {
+        Alert.alert('Uwaga', 'Podaj NIP przy fakturze VAT.');
+        return;
+      }
+    }
+    if (!token) { router.replace('/login'); return; }
+    setChangingStatus(true);
+    let finishBody: Record<string, unknown> | null = null;
+    try {
+      const coords = await pobierzLokalizacje();
+      const usageNazwa = finishUsageNazwa.trim();
+      const usageIloscRaw = finishUsageIlosc.trim().replace(',', '.');
+      const usageIlosc = usageNazwa && usageIloscRaw ? parseFloat(usageIloscRaw) : NaN;
+      const zuzyte_materialy =
+        usageNazwa.length > 0
+          ? [
+              {
+                nazwa: usageNazwa.slice(0, 200),
+                ...(Number.isFinite(usageIlosc) ? { ilosc: usageIlosc, jednostka: 'szt' } : {}),
+              },
+            ]
+          : undefined;
+      finishBody = {
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null,
+        notatki: '',
+        ...(zuzyte_materialy ? { zuzyte_materialy } : {}),
+        payment: {
+          forma_platnosc,
+          kwota_odebrana: forma_platnosc === 'Gotowka' ? parseFloat(String(kwota_odebrana).replace(',', '.')) : null,
+          faktura_vat: !!faktura_vat,
+          nip: nip || null,
+        },
+      };
+      const res = await fetch(`${API_URL}/tasks/${id}/finish`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(finishBody),
+      });
+      if (res.ok) {
+        void triggerHaptic('success');
+        setFinishModal(false);
+        await loadAll();
+        Alert.alert(t('common.ok'), t('order.finishedTitle'));
+      } else if (res.status >= 500) {
+        void triggerHaptic('warning');
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/finish`,
+          method: 'POST',
+          body: finishBody,
+        });
+        setOfflineQueueCount(queued);
+        setFinishModal(false);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
+      } else {
+        const j = await res.json().catch(() => ({}));
+        void triggerHaptic('warning');
+        Alert.alert(t('notif.alert.errorTitle'), (j as { error?: string }).error || `HTTP ${res.status}`);
+      }
+    } catch {
+      void triggerHaptic('warning');
+      if (finishBody) {
+        try {
+          const queued = await queueRequestWithOfflineFallback({
+            url: `${API_URL}/tasks/${id}/finish`,
+            method: 'POST',
+            body: finishBody,
+          });
+          setOfflineQueueCount(queued);
+          setFinishModal(false);
+          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
+        } catch {
+          Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+        }
+      } else {
+        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      }
+    } finally {
+      setChangingStatus(false);
+    }
+  };
+
+  const submitExtraWork = async () => {
+    if (!extraOpis.trim() || !token) return;
+    const body = { opis: extraOpis.trim() };
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}/extra-work`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setExtraOpis('');
+        await loadAll();
+        Alert.alert('OK', 'Praca dodatkowa zgłoszona do wyceny.');
+      } else if (res.status >= 500) {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work`,
+          method: 'POST',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraWorkQueued'));
+      } else {
+        const txt = await res.text();
+        Alert.alert(t('notif.alert.errorTitle'), txt.slice(0, 200));
+      }
+    } catch {
+      try {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work`,
+          method: 'POST',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraWorkQueued'));
+      } catch {
+        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      }
+    }
+  };
+
+  const quoteExtraWork = async (ewId: number) => {
+    if (!token) return;
+    const raw = quoteAmount[ewId];
+    const amt = parseFloat(String(raw || '').replace(',', '.'));
+    if (!Number.isFinite(amt) || amt <= 0) {
+      Alert.alert('Uwaga', 'Podaj kwotę w PLN.');
+      return;
+    }
+    const body = { amount_pln: amt };
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}/extra-work/${ewId}/quote`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        await loadAll();
+        Alert.alert('OK', 'Wycena przesłana do ekipy.');
+      } else if (res.status >= 500) {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work/${ewId}/quote`,
+          method: 'PATCH',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraQuoteQueued'));
+      } else {
+        Alert.alert(t('notif.alert.errorTitle'), await res.text());
+      }
+    } catch {
+      try {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work/${ewId}/quote`,
+          method: 'PATCH',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraQuoteQueued'));
+      } catch {
+        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      }
+    }
+  };
+
+  const acceptExtraWork = async (ewId: number) => {
+    if (!token) return;
+    const body = { channel: 'na_miejscu' };
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}/extra-work/${ewId}/accept`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        await loadAll();
+        Alert.alert('OK', 'Zaakceptowano — kwota dopisana do zlecenia.');
+      } else if (res.status >= 500) {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work/${ewId}/accept`,
+          method: 'POST',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraAcceptQueued'));
+      } else {
+        Alert.alert(t('notif.alert.errorTitle'), await res.text());
+      }
+    } catch {
+      try {
+        const queued = await queueRequestWithOfflineFallback({
+          url: `${API_URL}/tasks/${id}/extra-work/${ewId}/accept`,
+          method: 'POST',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineExtraAcceptQueued'));
+      } catch {
+        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      }
+    }
   };
 
   const pobierzLokalizacje = async () => {
@@ -250,7 +511,9 @@ export default function ZlecenieDetailScreen() {
     return null;
   };
 
-  const zrobZdjecie = async (typ: string) => {
+  const zrobZdjecie = async (typ: string, opisNote?: string, tagiNote?: string) => {
+    const opisTrimmed = (opisNote ?? '').trim().slice(0, 4000);
+    const tagiTrimmed = (tagiNote ?? '').trim().slice(0, 2000);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       void triggerHaptic('warning');
@@ -262,20 +525,28 @@ export default function ZlecenieDetailScreen() {
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
 
     if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
       setUploadingPhoto(true);
       try {
         if (!token) { router.replace('/login'); return; }
+        const form = new FormData();
+        form.append('typ', typ);
+        form.append('zdjecie', { uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+        if (coords) {
+          form.append('lat', String(coords.lat));
+          form.append('lon', String(coords.lng));
+        }
+        if (opisTrimmed) form.append('opis', opisTrimmed);
+        if (tagiTrimmed) form.append('tagi', tagiTrimmed);
         const res = await fetch(`${API_URL}/tasks/${id}/zdjecia`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: result.assets[0].uri,
-            typ,
-            lokalizacja: coords ? `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}` : null,
-          }),
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
         });
         if (res.ok) {
           await loadAll();
+          setPhotoOpisDraft('');
+          setPhotoTagiDraft('');
           setZdjecieModal(false);
           const typLabel = t(`order.photoType.${typ}`);
           const coordsStr = coords
@@ -283,33 +554,47 @@ export default function ZlecenieDetailScreen() {
             : '';
           void triggerHaptic('success');
           Alert.alert(t('order.photoSavedTitle'), t('order.photoSavedBody', { label: typLabel, coords: coordsStr }));
+        } else if (res.status >= 500) {
+          void triggerHaptic('warning');
+          const n = await queueTaskPhotoOffline({
+            url: `${API_URL}/tasks/${id}/zdjecia`,
+            fileUri: uri,
+            typ,
+            lat: coords?.lat,
+            lng: coords?.lng,
+            opis: opisTrimmed || undefined,
+            tagi: tagiTrimmed || undefined,
+          });
+          setOfflineQueueCount(n);
+          setPhotoOpisDraft('');
+          setPhotoTagiDraft('');
+          setZdjecieModal(false);
+          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
         } else {
           void triggerHaptic('warning');
-          const queued = await queueRequestWithOfflineFallback({
-            url: `${API_URL}/tasks/${id}/zdjecia`,
-            method: 'POST',
-            body: {
-              url: result.assets[0].uri,
-              typ,
-              lokalizacja: coords ? `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}` : null,
-            },
-          });
-          setOfflineQueueCount(queued);
-          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
+          const msg = await res.text().catch(() => '');
+          Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
         }
       } catch {
         void triggerHaptic('warning');
-        const queued = await queueRequestWithOfflineFallback({
-          url: `${API_URL}/tasks/${id}/zdjecia`,
-          method: 'POST',
-          body: {
-            url: result.assets[0].uri,
+        try {
+          const n = await queueTaskPhotoOffline({
+            url: `${API_URL}/tasks/${id}/zdjecia`,
+            fileUri: uri,
             typ,
-            lokalizacja: coords ? `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}` : null,
-          },
-        });
-        setOfflineQueueCount(queued);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
+            lat: coords?.lat,
+            lng: coords?.lng,
+            opis: opisTrimmed || undefined,
+            tagi: tagiTrimmed || undefined,
+          });
+          setOfflineQueueCount(n);
+          setPhotoOpisDraft('');
+          setPhotoTagiDraft('');
+          setZdjecieModal(false);
+          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlinePhotoQueued'));
+        } catch {
+          Alert.alert(t('notif.alert.errorTitle'), t('order.photoUploadFail'));
+        }
       }
       finally { setUploadingPhoto(false); }
     }
@@ -341,7 +626,7 @@ export default function ZlecenieDetailScreen() {
         await loadAll();
         void triggerHaptic('success');
         Alert.alert('OK', 'Problem zgłoszony');
-      } else {
+      } else if (res.status >= 500) {
         void triggerHaptic('warning');
         const queued = await queueRequestWithOfflineFallback({
           url: `${API_URL}/tasks/${id}/problemy`,
@@ -351,6 +636,10 @@ export default function ZlecenieDetailScreen() {
         setOfflineQueueCount(queued);
         setProblemModal(false);
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
+      } else {
+        void triggerHaptic('warning');
+        const msg = await res.text().catch(() => '');
+        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
       }
     } catch {
       void triggerHaptic('warning');
@@ -366,6 +655,7 @@ export default function ZlecenieDetailScreen() {
   };
 
   const isBrygadzista = user?.rola === 'Brygadzista';
+  const isEkipa = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
   const mozeZmieniacStatus = ['Kierownik', 'Dyrektor', 'Administrator'].includes(user?.rola);
   const S = makeStyles(theme);
 
@@ -447,8 +737,8 @@ export default function ZlecenieDetailScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {/* ── AKCJE BRYGADZISTY ── */}
-      {isBrygadzista && (
+      {/* ── AKCJE EKIPY (brygadzista / pomocnik) ── */}
+      {isEkipa && (
         <View style={S.actionRow}>
           {/* Check-in */}
           <TouchableOpacity
@@ -523,6 +813,64 @@ export default function ZlecenieDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* M3 F3.10 — praca dodatkowa (zgłoszenie + akceptacja na miejscu) */}
+      {isEkipa && zlecenie.status === 'W_Realizacji' ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
+          <Text style={{ color: theme.text, fontWeight: '700', marginBottom: 6 }}>Praca dodatkowa</Text>
+          <TextInput
+            style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText, marginBottom: 8 }]}
+            placeholder="Opis pracy do wyceny przez wyceniającego..."
+            placeholderTextColor={theme.inputPlaceholder}
+            value={extraOpis}
+            onChangeText={setExtraOpis}
+            multiline
+          />
+          <TouchableOpacity
+            style={{ alignSelf: 'flex-start', backgroundColor: theme.accentSoft, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
+            onPress={() => void submitExtraWork()}
+          >
+            <Text style={{ color: theme.accent, fontWeight: '600' }}>Zgłoś do wyceny</Text>
+          </TouchableOpacity>
+          {Array.isArray(zlecenie.extra_work) && zlecenie.extra_work.length > 0 ? (
+            <View style={{ marginTop: 10 }}>
+              {zlecenie.extra_work.map((ew: any) => (
+                <View key={ew.id} style={{ padding: 10, marginTop: 8, borderRadius: 10, backgroundColor: theme.surface2, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>#{ew.id} · {ew.status}</Text>
+                  <Text style={{ color: theme.text, marginTop: 4 }}>{ew.opis}</Text>
+                  {ew.amount_pln != null ? <Text style={{ color: theme.accent, marginTop: 4 }}>{Number(ew.amount_pln).toFixed(2)} PLN</Text> : null}
+                  {ew.status === 'Wycenione' ? (
+                    <TouchableOpacity style={{ marginTop: 8, alignSelf: 'flex-start' }} onPress={() => void acceptExtraWork(ew.id)}>
+                      <Text style={{ color: theme.success, fontWeight: '700' }}>Akceptuj u klienta</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {user?.rola === 'Wyceniający' && Number(zlecenie.wyceniajacy_id) === Number(user?.id) && ew.status === 'OczekujeWyceny' ? (
+                    <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TextInput
+                        style={[S.modalInput, { flex: 1, backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                        placeholder="Kwota PLN"
+                        placeholderTextColor={theme.inputPlaceholder}
+                        keyboardType="decimal-pad"
+                        value={quoteAmount[ew.id] || ''}
+                        onChangeText={(v) => setQuoteAmount((m) => ({ ...m, [ew.id]: v }))}
+                      />
+                      <TouchableOpacity onPress={() => void quoteExtraWork(ew.id)}>
+                        <Text style={{ color: theme.accent, fontWeight: '700' }}>Wyceniaj</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {user?.rola === 'Wyceniający' && Number(zlecenie?.wyceniajacy_id) === Number(user?.id) && zlecenie.status === 'W_Realizacji' && Array.isArray(zlecenie.extra_work) && zlecenie.extra_work.some((x: any) => x.status === 'OczekujeWyceny') ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 6 }}>
+          <Text style={{ color: theme.warning, fontSize: 13 }}>Masz prace dodatkowe do wyceny na tym zleceniu.</Text>
+        </View>
+      ) : null}
 
       {/* ── PASEK CZASU (jeśli są logi) ── */}
       {logi.length > 0 && (
@@ -654,6 +1002,51 @@ export default function ZlecenieDetailScreen() {
               )}
               {zlecenie.opis && (
                 <Text style={[S.opisTxt, { color: theme.textSub, borderTopColor: theme.border }]}>{zlecenie.opis}</Text>
+              )}
+            </View>
+
+            <View style={[S.card, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+              <View style={S.cardTitleRow}>
+                <PlatinumIconBadge icon="document-text-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
+                <Text style={[S.cardTitle, { color: theme.text }]}>{t('order.cmrTitle')}</Text>
+              </View>
+              <Text style={[S.metaTxt, { color: theme.textMuted, marginBottom: 10 }]}>{t('order.cmrHint')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                <TouchableOpacity
+                  style={[S.addBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 0, flex: 0 }]}
+                  onPress={() => { void triggerHaptic('light'); void openCmrInBrowser(`/cmr/nowy?zlecenie=${id}`); }}
+                >
+                  <PlatinumIconBadge icon="add-circle-outline" color={theme.accent} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
+                  <Text style={[S.addBtnTxt, { color: theme.accent }]}>{t('order.cmrNewWeb')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.addBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 0, flex: 0 }]}
+                  onPress={() => { void triggerHaptic('light'); void openCmrInBrowser(`/cmr?task_id=${id}`); }}
+                >
+                  <PlatinumIconBadge icon="list-outline" color={theme.info} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
+                  <Text style={[S.addBtnTxt, { color: theme.info }]}>{t('order.cmrListForTaskWeb')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.addBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 0, flex: 0 }]}
+                  onPress={() => { void triggerHaptic('light'); void openCmrInBrowser('/cmr'); }}
+                >
+                  <PlatinumIconBadge icon="albums-outline" color={theme.textSub} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
+                  <Text style={[S.addBtnTxt, { color: theme.textSub }]}>{t('order.cmrFullRegistryWeb')}</Text>
+                </TouchableOpacity>
+              </View>
+              {cmrLista.length === 0 ? (
+                <Text style={[S.metaTxt, { color: theme.textMuted }]}>{t('order.cmrEmpty')}</Text>
+              ) : (
+                cmrLista.map((c: any) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={{ paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }}
+                    onPress={() => { void triggerHaptic('light'); void openCmrInBrowser(`/cmr/${c.id}?task_id=${id}`); }}
+                  >
+                    <Text style={{ color: theme.accent, fontWeight: '600' }}>{c.numer || `CMR #${c.id}`}</Text>
+                    {c.status ? <Text style={[S.metaTxt, { color: theme.textMuted }]}>{c.status}</Text> : null}
+                  </TouchableOpacity>
+                ))
               )}
             </View>
 
@@ -823,8 +1216,13 @@ export default function ZlecenieDetailScreen() {
                       <View key={z.id} style={[S.zdjecieCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                         <Image source={{ uri: z.url }} style={S.zdjecieImg} />
                         {z.opis && <Text style={[S.zdjecieOpis, { color: theme.textSub }]}>{z.opis}</Text>}
+                        {Array.isArray(z.tagi) && z.tagi.length > 0 ? (
+                          <Text style={[S.zdjecieOpis, { color: theme.textMuted, fontSize: 11 }]} numberOfLines={2}>
+                            {z.tagi.join(' · ')}
+                          </Text>
+                        ) : null}
                         <Text style={[S.zdjecieMeta, { color: theme.textMuted }]}>
-                          {new Date(z.created_at).toLocaleDateString('pl-PL')}
+                          {new Date(z.data_dodania || z.created_at || Date.now()).toLocaleDateString('pl-PL')}
                         </Text>
                         {z.lokalizacja && (
                           <View style={S.metaRow}>
@@ -857,17 +1255,44 @@ export default function ZlecenieDetailScreen() {
           <View style={[S.modalBox, { backgroundColor: theme.surface }]}>
             <View style={S.modalHeader}>
               <Text style={[S.modalTitle, { color: theme.text }]}>{t('order.choosePhotoType')}</Text>
-              <TouchableOpacity onPress={() => setZdjecieModal(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setPhotoOpisDraft('');
+                  setPhotoTagiDraft('');
+                  setZdjecieModal(false);
+                }}
+              >
                 <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
               </TouchableOpacity>
             </View>
+            <Text style={[S.modalLbl, { color: theme.textSub }]}>{t('order.photoOpisLabel')}</Text>
+            <TextInput
+              style={[S.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.surface2, minHeight: 72, marginBottom: 12 }]}
+              placeholder={t('order.photoOpisPlaceholder')}
+              placeholderTextColor={theme.textMuted}
+              value={photoOpisDraft}
+              onChangeText={setPhotoOpisDraft}
+              maxLength={2000}
+              multiline
+              editable={!uploadingPhoto}
+            />
+            <Text style={[S.modalLbl, { color: theme.textSub }]}>{t('order.photoTagiLabel')}</Text>
+            <TextInput
+              style={[S.modalInput, { borderColor: theme.border, color: theme.text, backgroundColor: theme.surface2, minHeight: 44, marginBottom: 12 }]}
+              placeholder={t('order.photoTagiPlaceholder')}
+              placeholderTextColor={theme.textMuted}
+              value={photoTagiDraft}
+              onChangeText={setPhotoTagiDraft}
+              maxLength={2000}
+              editable={!uploadingPhoto}
+            />
             {TYP_ZDJECIA_KEYS.map((key) => {
               const typ = { key, ...photoTypeMeta[key], label: t(`order.photoType.${key}`) };
               return (
               <TouchableOpacity
                 key={typ.key}
                 style={[S.zdjecieTypBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
-                onPress={() => zrobZdjecie(typ.key)}
+                onPress={() => void zrobZdjecie(typ.key, photoOpisDraft, photoTagiDraft)}
                 disabled={uploadingPhoto}
               >
                 <View style={[S.zdjecieTypIcon, { backgroundColor: typ.color + '22' }]}>
@@ -885,6 +1310,88 @@ export default function ZlecenieDetailScreen() {
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* M3 F3.9 — forma płatności przed STOP */}
+      <Modal visible={finishModal} animationType="slide" transparent onRequestClose={() => setFinishModal(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={S.overlay}>
+            <View style={[S.modalBox, { backgroundColor: theme.surface }]}>
+              <View style={S.modalHeader}>
+                <Text style={[S.modalTitle, { color: theme.text }]}>Płatność klienta</Text>
+                <TouchableOpacity onPress={() => setFinishModal(false)}>
+                  <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[S.modalLbl, { color: theme.textSub }]}>Forma płatności</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
+                {(['Gotowka', 'Przelew', 'Faktura_VAT', 'Brak'] as const).map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[
+                      S.typBtn,
+                      { backgroundColor: theme.surface2, borderColor: theme.border },
+                      payForm.forma_platnosc === f && { backgroundColor: theme.accent, borderColor: theme.accent },
+                    ]}
+                    onPress={() => setPayForm((p) => ({ ...p, forma_platnosc: f }))}
+                  >
+                    <Text style={[S.typBtnTxt, { color: theme.textSub }, payForm.forma_platnosc === f && { color: theme.accentText }]}>
+                      {f.replace('_', ' ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {payForm.forma_platnosc === 'Gotowka' ? (
+                <>
+                  <Text style={[S.modalLbl, { color: theme.textSub }]}>Kwota odebrana (PLN)</Text>
+                  <TextInput
+                    style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                    keyboardType="decimal-pad"
+                    value={payForm.kwota_odebrana}
+                    onChangeText={(v) => setPayForm((p) => ({ ...p, kwota_odebrana: v }))}
+                  />
+                </>
+              ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 10, gap: 10 }}>
+                <Text style={{ color: theme.text }}>Faktura VAT</Text>
+                <Switch value={payForm.faktura_vat} onValueChange={(v) => setPayForm((p) => ({ ...p, faktura_vat: v }))} />
+              </View>
+              <Text style={[S.modalLbl, { color: theme.textSub }]}>NIP (jeśli faktura)</Text>
+              <TextInput
+                style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                value={payForm.nip}
+                onChangeText={(v) => setPayForm((p) => ({ ...p, nip: v }))}
+                autoCapitalize="characters"
+              />
+              <Text style={[S.modalLbl, { color: theme.textSub, marginTop: 12 }]}>{t('order.finishUsageHint')}</Text>
+              <TextInput
+                style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                placeholder={t('order.finishUsageNazwa')}
+                placeholderTextColor={theme.inputPlaceholder}
+                value={finishUsageNazwa}
+                onChangeText={setFinishUsageNazwa}
+              />
+              <Text style={[S.modalLbl, { color: theme.textSub }]}>{t('order.finishUsageIlosc')}</Text>
+              <TextInput
+                style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                placeholder="0"
+                placeholderTextColor={theme.inputPlaceholder}
+                keyboardType="decimal-pad"
+                value={finishUsageIlosc}
+                onChangeText={setFinishUsageIlosc}
+              />
+              <View style={S.modalBtns}>
+                <TouchableOpacity
+                  style={[S.cancelBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+                  onPress={() => setFinishModal(false)}
+                >
+                  <Text style={[S.cancelTxt, { color: theme.textSub }]}>Anuluj</Text>
+                </TouchableOpacity>
+                <PlatinumCTA style={S.submitBtn} label={changingStatus ? '…' : 'Zakończ zlecenie'} onPress={() => void submitFinish()} disabled={changingStatus} />
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── MODAL: ZGŁOŚ PROBLEM ── */}

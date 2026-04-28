@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
@@ -51,6 +51,122 @@ const QL_ICONS = {
   '/oddzialy':      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   '/uzytkownicy':   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
   '/ksiegowosc':    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+  '/wycena-kalendarz': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="7" y="14" width="4" height="4" rx="0.5"/></svg>,
+  '/wynagrodzenie-wyceniajacych': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+  '/zarzadzaj-rolami': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+};
+
+const QL_CHEVRON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+const CMD_ICONS = {
+  zlecenia: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <line x1="9" y1="12" x2="15" y2="12" />
+    </svg>
+  ),
+  harmonogram: QL_ICONS['/harmonogram'],
+  powiadomienia: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  ),
+};
+
+/** Wspólne style listy „inset” (KPI, centrum operacyjne). Kategorie skrótów web — ścieżki jak na mobilce. */
+const WEB_QUICK_CAT_ORDER = ['operations', 'quotes', 'fleetMagazyn', 'reports', 'finance', 'administration'];
+
+const WEB_QUICK_CAT_TITLE = {
+  operations: 'Operacje i plan',
+  quotes: 'Wyceny i teren',
+  fleetMagazyn: 'Flota i sprzęt',
+  reports: 'Raporty',
+  finance: 'Finanse',
+  administration: 'Administracja',
+};
+
+function webQuickCategory(path) {
+  if (['/zarzadzaj-rolami', '/uzytkownicy', '/oddzialy'].includes(path)) return 'administration';
+  if (path === '/ksiegowosc' || path === '/wynagrodzenie-wyceniajacych') return 'finance';
+  if (path === '/raporty') return 'reports';
+  if (path === '/wycena-kalendarz') return 'quotes';
+  if (['/flota'].includes(path)) return 'fleetMagazyn';
+  return 'operations';
+}
+
+const INSET_LIST = {
+  group: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    border: '1px solid var(--border2)',
+    background: 'var(--bg-deep)',
+  },
+  hairline: {
+    height: 1,
+    marginLeft: 56,
+    background: 'var(--border2)',
+  },
+  row: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    minHeight: 52,
+    padding: '12px 14px',
+    border: 'none',
+    cursor: 'pointer',
+    textAlign: 'left',
+    font: 'inherit',
+    color: 'inherit',
+    transition: 'background 0.12s ease',
+    boxSizing: 'border-box',
+  },
+  iconTile: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    color: 'var(--text-sub)',
+    background: 'var(--bg-card2)',
+    border: '1px solid var(--border2)',
+  },
+  rowTexts: {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    alignItems: 'flex-start',
+  },
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    letterSpacing: '-0.02em',
+    color: 'var(--text)',
+    lineHeight: 1.25,
+  },
+  rowSub: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: 'var(--text-muted)',
+    lineHeight: 1.3,
+  },
+  rowChevron: {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    color: 'var(--text-muted)',
+    opacity: 0.75,
+  },
 };
 
 export default function Dashboard() {
@@ -102,26 +218,43 @@ export default function Dashboard() {
   const rolaColor = getRolaColor(user?.rola);
 
   const kpiData = [
-    { label: 'Nowe zlecenia',   sub: 'Oczekują na przypisanie', value: stats.nowe || 0,         icon: 'nowe',       color: 'var(--accent)', path: '/zlecenia' },
-    { label: 'W realizacji',    sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', color: '#FBBF24', path: '/zlecenia' },
-    { label: 'Zakończone',      sub: 'Zrealizowane zlecenia',   value: stats.zakonczone || 0,    icon: 'zakonczone', color: 'var(--accent)', path: '/zlecenia' },
-    ...(!isWorker && !isWyceniajacy ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', color: 'var(--accent)', suffix: ' PLN' }] : []),
+    { label: 'Nowe zlecenia', sub: 'Oczekują na przypisanie', value: stats.nowe || 0, icon: 'nowe', path: '/zlecenia' },
+    { label: 'W realizacji', sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', path: '/zlecenia' },
+    { label: 'Zakończone', sub: 'Zrealizowane zlecenia', value: stats.zakonczone || 0, icon: 'zakonczone', path: '/zlecenia' },
+    ...(!isWorker && !isWyceniajacy
+      ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', suffix: ' PLN', path: '/zlecenia' }]
+      : []),
   ];
 
-  const quickLinks = [
+  const quickLinks = useMemo(() => [
     { label: 'Nowe zlecenie',  sub: 'Utwórz zlecenie',       path: '/nowe-zlecenie', color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Planowanie',     sub: 'Przypisz ekipy',         path: '/kierownik',     color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Ekipy',          sub: 'Zarządzaj ekipami',      path: '/ekipy',         color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Raporty',        sub: 'Analiza wydajności',     path: '/raporty',           color: 'var(--accent-dk)', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista'] },
     { label: 'Flota i sprzęt', sub: 'Pojazdy i narzędzia',   path: '/flota',             color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Harmonogram',    sub: 'Kalendarz zleceń',       path: '/harmonogram',       color: '#60A5FA', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Magazynier'] },
-    { label: 'Kal. wycen',     sub: 'Wyceny w terenie',       path: '/wycena-kalendarz',  color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
+    { label: 'Wyceny',         sub: 'Kalendarz, oględziny, zatwierdzanie', path: '/wycena-kalendarz',  color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Rozliczenie wyc.', sub: 'Stawka + % realizacji', path: '/wynagrodzenie-wyceniajacych', color: '#34D399', roles: ['Wyceniający','Kierownik','Dyrektor','Administrator'] },
     { label: 'Oddziały',       sub: 'Zarządzanie',            path: '/oddzialy',          color: '#60A5FA', roles: ['Dyrektor','Administrator'] },
     { label: 'Użytkownicy',    sub: 'Konta i uprawnienia',    path: '/uzytkownicy',       color: '#F87171', roles: ['Dyrektor','Administrator'] },
     { label: 'Role',           sub: 'Uprawnienia pracowników',path: '/zarzadzaj-rolami',  color: '#F59E0B', roles: ['Dyrektor','Administrator'] },
     { label: 'Księgowość',     sub: 'Faktury i rozliczenia',  path: '/ksiegowosc',        color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik'] },
-  ].filter(i => i.roles.includes(user?.rola));
+  ].filter(i => i.roles.includes(user?.rola)), [user?.rola]);
+
+  const quickLinkSections = useMemo(() => {
+    const by = Object.fromEntries(WEB_QUICK_CAT_ORDER.map((k) => [k, []]));
+    for (const item of quickLinks) {
+      const c = webQuickCategory(item.path);
+      (by[c] ?? by.operations).push(item);
+    }
+    return WEB_QUICK_CAT_ORDER
+      .filter((k) => by[k].length > 0)
+      .map((key) => ({
+        key,
+        title: WEB_QUICK_CAT_TITLE[key],
+        items: by[key],
+      }));
+  }, [quickLinks]);
 
   return (
     <div style={d.root}>
@@ -149,28 +282,39 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* ─── KPI ─────────────────────────────────────────────────────────── */}
+        {/* ─── KPI (grupa inset, jak iOS) ───────────────────────────────────── */}
         {!isWyceniajacy && (
-          <div style={d.kpiGrid}>
-            {kpiData.map((k, i) => (
-              <div key={k.label}
-                onClick={() => k.path && navigate(k.path)}
-                onMouseEnter={() => setHovered(`kpi${i}`)}
-                onMouseLeave={() => setHovered(null)}
-                style={{ ...d.kpiCard, borderTopColor: k.color, cursor: k.path ? 'pointer' : 'default',
-                  transform: hovered === `kpi${i}` ? 'translateY(-4px)' : 'none',
-                  boxShadow: hovered === `kpi${i}` ? `0 8px 24px rgba(0,0,0,0.4)` : '0 2px 8px rgba(0,0,0,0.3)',
-                }}>
-                <div style={{ ...d.kpiIcon, background: k.color + '18', color: k.color }}>
-                  {KPI_ICONS[k.icon]}
-                </div>
-                <div style={{ ...d.kpiNum, color: k.color }}>
-                  <AnimatedNumber value={k.value} />{k.suffix || ''}
-                </div>
-                <div style={d.kpiLabel}>{k.label}</div>
-                <div style={d.kpiSub}>{k.sub}</div>
-              </div>
-            ))}
+          <div style={d.kpiSection}>
+            <div style={d.insetGroup}>
+              {kpiData.map((k, i) => (
+                <Fragment key={k.label}>
+                  {i > 0 ? <div style={d.insetHairline} /> : null}
+                  <button
+                    type="button"
+                    disabled={!k.path}
+                    onClick={() => k.path && navigate(k.path)}
+                    onMouseEnter={() => k.path && setHovered(`kpi${i}`)}
+                    onMouseLeave={() => setHovered(null)}
+                    style={{
+                      ...d.insetRow,
+                      cursor: k.path ? 'pointer' : 'default',
+                      opacity: k.path ? 1 : 0.92,
+                      background: hovered === `kpi${i}` && k.path ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
+                    }}
+                  >
+                    <span style={d.insetIconTile}>{KPI_ICONS[k.icon]}</span>
+                    <span style={d.insetRowTexts}>
+                      <span style={d.insetRowTitle}>{k.label}</span>
+                      <span style={d.insetRowSub}>{k.sub}</span>
+                    </span>
+                    <span style={d.kpiValue}>
+                      <AnimatedNumber value={k.value} />
+                      {k.suffix || ''}
+                    </span>
+                  </button>
+                </Fragment>
+              ))}
+            </div>
           </div>
         )}
 
@@ -178,29 +322,53 @@ export default function Dashboard() {
           <div style={d.commandCard}>
             <div style={d.commandTitle}>Centrum operacyjne</div>
             <div style={d.commandText}>Priorytetowe akcje na teraz</div>
-            <div style={d.commandButtons}>
-              <button style={d.commandBtnAccent} onClick={() => navigate('/zlecenia')}>Zarządzaj zleceniami</button>
-              <button style={d.commandBtnGhost} onClick={() => navigate('/harmonogram')}>Sprawdź harmonogram</button>
-              <button style={d.commandBtnGhost} onClick={() => navigate('/powiadomienia')}>Powiadomienia</button>
+            <div style={d.insetGroupLift}>
+              {[
+                { label: 'Zarządzaj zleceniami', sub: 'Lista i statusy zleceń', path: '/zlecenia', icon: 'zlecenia' },
+                { label: 'Sprawdź harmonogram', sub: 'Plan dnia i ekip', path: '/harmonogram', icon: 'harmonogram' },
+                { label: 'Powiadomienia', sub: 'Alerty systemowe', path: '/powiadomienia', icon: 'powiadomienia' },
+              ].map((row, i) => (
+                <Fragment key={row.path}>
+                  {i > 0 ? <div style={d.insetHairline} /> : null}
+                  <button
+                    type="button"
+                    onClick={() => navigate(row.path)}
+                    onMouseEnter={() => setHovered(`cmd${i}`)}
+                    onMouseLeave={() => setHovered(null)}
+                    style={{
+                      ...d.insetRow,
+                      background: hovered === `cmd${i}` ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
+                    }}
+                  >
+                    <span style={d.insetIconTile}>{CMD_ICONS[row.icon]}</span>
+                    <span style={d.insetRowTexts}>
+                      <span style={d.insetRowTitle}>{row.label}</span>
+                      <span style={d.insetRowSub}>{row.sub}</span>
+                    </span>
+                    <span style={d.insetRowChevron}>{QL_CHEVRON}</span>
+                  </button>
+                </Fragment>
+              ))}
             </div>
           </div>
           <div style={d.commandCard}>
             <div style={d.commandTitle}>Pipeline live</div>
-            <div style={d.pipelineRow}>
-              <span style={d.pipelineLabel}>Nowe</span>
-              <span style={d.pipelineValue}>{statusCounts.Nowe || 0}</span>
-            </div>
-            <div style={d.pipelineRow}>
-              <span style={d.pipelineLabel}>Zaplanowane</span>
-              <span style={d.pipelineValue}>{statusCounts.Zaplanowane || 0}</span>
-            </div>
-            <div style={d.pipelineRow}>
-              <span style={d.pipelineLabel}>W realizacji</span>
-              <span style={d.pipelineValue}>{statusCounts.W_Realizacji || 0}</span>
-            </div>
-            <div style={d.pipelineRow}>
-              <span style={d.pipelineLabel}>Zakończone</span>
-              <span style={d.pipelineValue}>{statusCounts.Zakonczone || 0}</span>
+            <div style={d.commandText}>Zlecenia w ostatniej próbce (max 8)</div>
+            <div style={d.insetGroupLift}>
+              {[
+                { label: 'Nowe', value: statusCounts.Nowe || 0 },
+                { label: 'Zaplanowane', value: statusCounts.Zaplanowane || 0 },
+                { label: 'W realizacji', value: statusCounts.W_Realizacji || 0 },
+                { label: 'Zakończone', value: statusCounts.Zakonczone || 0 },
+              ].map((row, i) => (
+                <Fragment key={row.label}>
+                  {i > 0 ? <div style={d.pipeHairline} /> : null}
+                  <div style={d.pipeRow}>
+                    <span style={d.pipeLabel}>{row.label}</span>
+                    <span style={d.pipeValue}>{row.value}</span>
+                  </div>
+                </Fragment>
+              ))}
             </div>
           </div>
         </div>
@@ -256,30 +424,50 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Szybki dostęp */}
+          {/* Szybki dostęp — kategorie + listy inset (iOS) */}
           <div style={{ ...d.card, ...(isWyceniajacy ? { gridColumn: '1 / -1' } : {}) }}>
             <div style={d.cardHeader}>
               <span style={d.cardTitle}>Szybki dostęp</span>
             </div>
-            <div style={isWyceniajacy ? d.qlGridWide : d.qlGrid}>
-              {quickLinks.map((item, i) => (
-                <div key={item.path}
-                  onClick={() => navigate(item.path)}
-                  onMouseEnter={() => setHovered(`ql${i}`)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{ ...d.qlItem,
-                    background: hovered === `ql${i}` ? 'rgba(255,255,255,0.06)' : 'var(--bg-card2)',
-                    borderColor: hovered === `ql${i}` ? item.color + '55' : 'var(--border2)',
-                    transform: hovered === `ql${i}` ? 'translateY(-2px)' : 'none',
-                  }}>
-                  <div style={{ ...d.qlIcon, background: item.color + '18', color: item.color }}>
-                    {QL_ICONS[item.path] || <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/></svg>}
+            {quickLinks.length === 0 ? (
+              <div style={d.qlEmpty}>Brak skrótów dla tej roli.</div>
+            ) : (
+              quickLinkSections.map((sec, si) => (
+                <div key={sec.key} style={si === 0 ? d.quickSectionWrapFirst : d.quickSectionWrap}>
+                  <div style={d.quickSectionTitle}>{sec.title}</div>
+                  <div style={d.insetGroup}>
+                    {sec.items.map((item, i) => (
+                      <Fragment key={`${sec.key}-${item.path}-${i}`}>
+                        {i > 0 ? <div style={d.insetHairline} /> : null}
+                        <button
+                          type="button"
+                          onClick={() => navigate(item.path)}
+                          onMouseEnter={() => setHovered(`ql-${sec.key}-${i}`)}
+                          onMouseLeave={() => setHovered(null)}
+                          style={{
+                            ...d.insetRow,
+                            background: hovered === `ql-${sec.key}-${i}` ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
+                          }}
+                        >
+                          <span style={d.insetIconTile}>
+                            {QL_ICONS[item.path] || (
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                                <circle cx="12" cy="12" r="10" />
+                              </svg>
+                            )}
+                          </span>
+                          <span style={d.insetRowTexts}>
+                            <span style={d.insetRowTitle}>{item.label}</span>
+                            <span style={d.insetRowSub}>{item.sub}</span>
+                          </span>
+                          <span style={d.insetRowChevron}>{QL_CHEVRON}</span>
+                        </button>
+                      </Fragment>
+                    ))}
                   </div>
-                  <div style={d.qlLabel}>{item.label}</div>
-                  <div style={d.qlSub}>{item.sub}</div>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -325,17 +513,48 @@ const d = {
     position: 'relative', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
   },
 
-  // KPI
-  kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 },
-  kpiCard: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    borderRadius: 18, padding: 20, borderTop: '3px solid var(--border2)',
-    border: '1px solid var(--border2)', transition: 'all 0.2s',
+  kpiSection: { marginBottom: 24 },
+  kpiValue: {
+    flexShrink: 0,
+    minWidth: 56,
+    textAlign: 'right',
+    fontSize: 20,
+    fontWeight: 650,
+    letterSpacing: '-0.03em',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--text)',
   },
-  kpiIcon: { width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  kpiNum: { fontSize: 28, fontWeight: 800, marginBottom: 4 },
-  kpiLabel: { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 },
-  kpiSub: { fontSize: 11, color: 'var(--text-muted)' },
+  insetGroup: INSET_LIST.group,
+  insetGroupLift: { ...INSET_LIST.group, marginTop: 12 },
+  insetHairline: INSET_LIST.hairline,
+  insetRow: INSET_LIST.row,
+  insetIconTile: INSET_LIST.iconTile,
+  insetRowTexts: INSET_LIST.rowTexts,
+  insetRowTitle: INSET_LIST.rowTitle,
+  insetRowSub: INSET_LIST.rowSub,
+  insetRowChevron: INSET_LIST.rowChevron,
+  pipeHairline: {
+    height: 1,
+    marginLeft: 14,
+    marginRight: 14,
+    background: 'var(--border2)',
+  },
+  pipeRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    padding: '11px 14px',
+    background: 'var(--bg-deep)',
+  },
+  pipeLabel: { fontSize: 15, fontWeight: 500, color: 'var(--text-sub)' },
+  pipeValue: {
+    fontSize: 17,
+    fontWeight: 600,
+    letterSpacing: '-0.02em',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--text)',
+  },
   commandGrid: { display: 'grid', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
   commandCard: {
     background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
@@ -344,20 +563,8 @@ const d = {
     padding: 18,
     boxShadow: 'var(--shadow-sm)',
   },
-  commandTitle: { fontSize: 16, fontWeight: 800, color: 'var(--text)' },
-  commandText: { marginTop: 4, fontSize: 12, color: 'var(--text-muted)' },
-  commandButtons: { marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' },
-  commandBtnAccent: {
-    padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(5,150,105,0.45)',
-    background: 'linear-gradient(180deg, #34d399 0%, #059669 100%)', color: '#052E16', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-  },
-  commandBtnGhost: {
-    padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)', color: 'var(--text-sub)', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-  },
-  pipelineRow: { marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 6 },
-  pipelineLabel: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
-  pipelineValue: { fontSize: 17, color: 'var(--accent-dk)', fontWeight: 800 },
+  commandTitle: { fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' },
+  commandText: { marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' },
 
   // Main grid
   mainGrid: { display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
@@ -383,16 +590,21 @@ const d = {
   statusBadge: { fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '3px 10px', display: 'inline-block', marginBottom: 3 },
   zWartosc: { fontSize: 12, fontWeight: 700, color: 'var(--accent)' },
 
-  // Quick links
-  qlGrid: { display: 'flex', flexDirection: 'column', gap: 8 },
-  qlGridWide: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 },
-  qlItem: {
-    display: 'flex', flexDirection: 'column', gap: 6, padding: 14,
-    borderRadius: 12, cursor: 'pointer',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)',
-    transition: 'all 0.18s', boxShadow: 'var(--shadow-sm)',
+  qlEmpty: {
+    padding: '18px 14px',
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    textAlign: 'center',
   },
-  qlIcon: { width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  qlLabel: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
-  qlSub: { fontSize: 11, color: 'var(--text-muted)' },
+  quickSectionWrapFirst: { marginTop: 8 },
+  quickSectionWrap: { marginTop: 20 },
+  quickSectionTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: 'var(--text-muted)',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    marginLeft: 2,
+  },
 };

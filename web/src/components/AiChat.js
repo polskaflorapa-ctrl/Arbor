@@ -7,8 +7,9 @@ const PAGE_CONTEXT = {
   '/dashboard': 'Dashboard — przegląd statystyk i szybkich akcji',
   '/zlecenia': 'Lista zleceń',
   '/harmonogram': 'Harmonogram pracy ekip',
-  '/wycena-kalendarz': 'Kalendarz wycen',
-  '/zatwierdz-wyceny': 'Zatwierdzanie wycen przez kierownika',
+  '/wycena-kalendarz': 'Kalendarz wycen, oględziny w terenie i zatwierdzanie wycen',
+  '/crm': 'CRM — klienci, wyceny, oględziny, telefonia; Kommo: link zewnętrzny + webhook (task.sync / klient.sync)',
+  '/klienci': 'Baza klientów; w szczegółach — wysyłka rekordu do Kommo (payload klient.sync)',
   '/kierownik': 'Panel planowania kierownika',
   '/ekipy': 'Zarządzanie ekipami',
   '/flota': 'Flota i sprzęt',
@@ -65,7 +66,13 @@ export default function AiChat() {
 
     try {
       const token = getStoredToken();
-      const context = PAGE_CONTEXT[location.pathname] || `Strona: ${location.pathname}`;
+      const path = location.pathname;
+      const context =
+        PAGE_CONTEXT[path] ||
+        (path.startsWith('/zlecenia/') && path !== '/zlecenia'
+          ? 'Szczegóły zlecenia: status, media, workflow, Kommo (CRM) — task.sync, PDF zlecenia'
+          : null) ||
+        `Strona: ${path}`;
       const res = await api.post(
         '/ai/chat',
         { messages: newMessages, context },

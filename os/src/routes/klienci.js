@@ -4,6 +4,11 @@ const logger = require('../config/logger');
 const { authMiddleware } = require('../middleware/auth');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { z } = require('zod');
+const {
+  buildKommoKlientPayload,
+  postKommoWebhook,
+  kommoWebhookConfigured,
+} = require('../services/kommo');
 
 const router = express.Router();
 
@@ -83,6 +88,11 @@ const runMigration = async () => {
 
   await safe(`CREATE INDEX IF NOT EXISTS idx_klienci_telefon ON klienci(telefon)`);
   await safe(`CREATE INDEX IF NOT EXISTS idx_klienci_miasto  ON klienci(miasto)`);
+
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_at TIMESTAMPTZ`);
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32)`);
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_http INTEGER`);
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT`);
 };
 
 // ── GET /api/klienci ────────────────────────────────────────────────
@@ -144,6 +154,91 @@ router.get('/', authMiddleware, validateQuery(klienciListQuerySchema), async (re
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
+
+function kommoActor(req) {
+  const u = req.user;
+  if (!u) return null;
+  return { id: u.id ?? null, login: u.login ?? null, rola: u.rola ?? null };
+}
+
+// ── GET/POST /api/klienci/:id/kommo-* (przed GET /:id) ──────────────
+router.get(
+  '/:id/kommo-payload',
+  authMiddleware,
+  validateParams(klientIdParamsSchema),
+  async (req, res) => {
+    await runMigration();
+    try {
+      const { rows } = await pool.query('SELECT * FROM klienci WHERE id = $1', [req.params.id]);
+      if (!rows.length) return res.status(404).json({ error: req.t('errors.klienci.clientNotFound') });
+      res.json(buildKommoKlientPayload(rows[0], kommoActor(req)));
+    } catch (e) {
+      logger.error('Blad kommo-payload klient', { message: e.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
+router.post(
+  '/:id/kommo-push',
+  authMiddleware,
+  validateParams(klientIdParamsSchema),
+  async (req, res) => {
+    await runMigration();
+    try {
+      const { rows } = await pool.query('SELECT * FROM klienci WHERE id = $1', [req.params.id]);
+      if (!rows.length) return res.status(404).json({ error: req.t('errors.klienci.clientNotFound') });
+      const row = rows[0];
+      if (!kommoWebhookConfigured('crm')) {
+        return res.status(400).json({
+          error:
+            'Brak konfiguracji webhooka Kommo dla CRM. Ustaw KOMMO_CRM_WEBHOOK_URL lub KOMMO_WEBHOOK_URL.',
+        });
+      }
+      const payload = buildKommoKlientPayload(row, kommoActor(req));
+      const markSync = async (next) => {
+        await pool.query(
+          `UPDATE klienci SET
+            kommo_last_sync_at = NOW(),
+            kommo_last_sync_status = $1,
+            kommo_last_sync_http = $2,
+            kommo_last_sync_error = $3,
+            updated_at = NOW()
+          WHERE id = $4`,
+          [next.status || null, next.http ?? null, next.error || null, row.id]
+        );
+      };
+      try {
+        const { response, bodyText } = await postKommoWebhook(payload, 'crm');
+        if (!response.ok) {
+          await markSync({
+            status: 'error',
+            http: response.status,
+            error: `HTTP ${response.status}: ${bodyText.slice(0, 500)}`,
+          });
+          return res.status(502).json({
+            ok: false,
+            status: 'error',
+            http_status: response.status,
+            body: bodyText.slice(0, 500),
+          });
+        }
+        await markSync({ status: 'ok', http: response.status, error: null });
+        return res.json({ ok: true, status: 'ok', http_status: response.status });
+      } catch (err) {
+        await markSync({ status: 'error', http: null, error: err.message || 'network error' });
+        return res.status(502).json({
+          ok: false,
+          status: 'error',
+          error: err.message || 'Nie udało się wysłać danych do Kommo',
+        });
+      }
+    } catch (e) {
+      logger.error('Blad kommo-push klient', { message: e.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
 
 // ── GET /api/klienci/:id ────────────────────────────────────────────
 router.get('/:id', authMiddleware, validateParams(klientIdParamsSchema), async (req, res) => {

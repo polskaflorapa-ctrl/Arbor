@@ -1,4 +1,6 @@
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Spójny nagłówek widoku (tytuł + opcjonalnie podtytuł, ikona, akcje, wstecz).
@@ -9,13 +11,23 @@ import ChevronLeft from '@mui/icons-material/ChevronLeft';
  * @param {string} [props.subtitle]
  * @param {import('react').ReactNode} [props.icon] — np. ikona MUI w kolorze dziedziczonym
  * @param {import('react').ReactNode} [props.actions]
- * @param {{ onClick: () => void, label?: string, ariaLabel?: string }} [props.back]
+ * @param {{ onClick: () => void, label?: string, ariaLabel?: string } | false} [props.back] — `false` wyłącza przycisk
+ * @param {boolean} [props.showBack] — gdy `true` (domyślnie), pokazuj „Powrót” (history -1) poza ekranem logowania
  */
-export default function PageHeader({ variant = 'plain', title, subtitle, icon, actions, back }) {
+export default function PageHeader({ variant = 'plain', title, subtitle, icon, actions, back, showBack = true }) {
   const isHero = variant === 'hero';
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { t } = useTranslation();
+  const isLogin = pathname === '/';
+  const defaultBack = showBack && !isLogin
+    ? { onClick: () => navigate(-1), label: t('common.back', { defaultValue: 'Powrót' }) }
+    : null;
+  const resolvedBack = back === false ? null : back || defaultBack;
 
   return (
     <header
+      className={isHero ? 'ios-glass-panel' : undefined}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -25,17 +37,17 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
         marginBottom: 24,
         ...(isHero
           ? {
-              padding: '24px 28px',
-              borderRadius: 20,
-              background: 'linear-gradient(135deg, var(--sidebar) 0%, var(--bg-deep) 52%, var(--bg-card) 100%)',
+              padding: '22px 26px',
+              borderRadius: 16,
+              background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-deep) 48%, var(--bg-card2) 100%)',
               borderWidth: 1,
               borderStyle: 'solid',
-              borderColor: 'var(--border2)',
-              boxShadow: 'var(--shadow-md)',
+              borderColor: 'var(--border)',
+              boxShadow: 'var(--shadow-sm)',
             }
           : {
-              paddingBottom: 20,
-              borderBottom: '1px solid var(--border2)',
+              paddingBottom: 16,
+              borderBottom: '1px solid var(--border)',
             }),
       }}
     >
@@ -48,11 +60,11 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
           flex: '1 1 220px',
         }}
       >
-        {back ? (
+        {resolvedBack ? (
           <button
             type="button"
-            onClick={back.onClick}
-            aria-label={back.ariaLabel || back.label || 'Powrót'}
+            onClick={resolvedBack.onClick}
+            aria-label={resolvedBack.ariaLabel || resolvedBack.label || 'Powrót'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -60,36 +72,36 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               marginTop: 2,
               padding: '6px 10px',
               borderRadius: 10,
-              border: isHero ? '1px solid rgba(255,255,255,0.22)' : '1px solid var(--border2)',
+              border: isHero ? '1px solid rgba(255,255,255,0.18)' : '1px solid var(--border)',
               background: isHero ? 'rgba(255,255,255,0.08)' : 'var(--bg-card2)',
-              color: isHero ? 'rgba(255,255,255,0.92)' : 'var(--accent)',
+              color: isHero ? 'rgba(255,255,255,0.92)' : 'var(--text-sub)',
               cursor: 'pointer',
               fontSize: 13,
               fontWeight: 600,
-              boxShadow: 'var(--shadow-sm)',
-              transition: 'transform 0.18s ease, filter 0.18s ease',
+              boxShadow: isHero ? 'none' : 'var(--shadow-sm)',
+              transition: 'background 0.15s ease, color 0.15s ease',
             }}
           >
             <ChevronLeft style={{ fontSize: 22, margin: '-2px -4px -2px -6px' }} aria-hidden />
-            {back.label != null ? back.label : ''}
+            {resolvedBack.label != null ? resolvedBack.label : ''}
           </button>
         ) : null}
         {icon ? (
           <div
             style={{
-              width: 48,
-              height: 48,
-              borderRadius: 14,
-              background: isHero ? 'rgba(255,255,255,0.1)' : 'var(--logo-tint-bg)',
+              width: 44,
+              height: 44,
+              borderRadius: 11,
+              background: isHero ? 'rgba(255,255,255,0.1)' : 'var(--bg-card2)',
               borderWidth: 1,
               borderStyle: 'solid',
-              borderColor: isHero ? 'rgba(255,255,255,0.22)' : 'var(--border2)',
+              borderColor: isHero ? 'rgba(255,255,255,0.18)' : 'var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: isHero ? '#fff' : 'var(--accent)',
+              color: isHero ? '#fff' : 'var(--text-sub)',
               flexShrink: 0,
-              boxShadow: 'var(--shadow-sm)',
+              boxShadow: isHero ? 'none' : 'var(--shadow-sm)',
             }}
           >
             {icon}
@@ -100,9 +112,9 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             style={{
               margin: 0,
               fontSize: isHero ? 26 : 'clamp(22px, 4vw, 28px)',
-              fontWeight: 700,
+              fontWeight: isHero ? 700 : 600,
               letterSpacing: '-0.02em',
-              color: isHero ? '#fff' : 'var(--accent)',
+              color: isHero ? '#fff' : 'var(--text)',
               lineHeight: 1.2,
             }}
           >

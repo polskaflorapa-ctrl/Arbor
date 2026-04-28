@@ -11,6 +11,8 @@ web/server/node_modules/
 os/node_modules/
 
 # Build and cache
+build/
+.expo/
 web/build/
 web/.cache/
 web/node_modules/.cache/

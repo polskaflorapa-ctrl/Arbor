@@ -21,6 +21,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
+import { registerExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -104,6 +105,8 @@ export default function Powiadomienia() {
         ? await Notifications.getExpoPushTokenAsync({ projectId: String(projectId) })
         : await Notifications.getExpoPushTokenAsync();
       setPushToken(res.data);
+      const { token: jwt } = await getStoredSession();
+      if (jwt && res.data) void registerExpoPushTokenWithBackend(jwt, res.data);
     } catch (e: unknown) {
       void triggerHaptic('error');
       const msg = e instanceof Error ? e.message : String(e);

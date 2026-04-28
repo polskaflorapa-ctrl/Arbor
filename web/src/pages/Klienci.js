@@ -1,13 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from '../components/Sidebar';
 import CityInput from '../components/CityInput';
 import api from '../api';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { telHref } from '../utils/telLink';
+import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const ZRODLA = ['telefon', 'polecenie', 'internet', 'social media', 'wizytówka', 'inne'];
 
 export default function Klienci() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [klienci, setKlienci] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +27,10 @@ export default function Klienci() {
     imie: '', nazwisko: '', firma: '', telefon: '', email: '',
     adres: '', miasto: '', kod_pocztowy: '', notatki: '', zrodlo: 'telefon',
   });
+  const [klientKommoPayload, setKlientKommoPayload] = useState(null);
+  const [loadingKlientKommoPayload, setLoadingKlientKommoPayload] = useState(false);
+  const [pushingKlientKommo, setPushingKlientKommo] = useState(false);
+  const [showKlientKommoPayload, setShowKlientKommoPayload] = useState(false);
 
   const currentUser = getLocalStorageJson('user', {});
   const canDelete = ['Dyrektor', 'Administrator'].includes(currentUser.rola);
@@ -46,6 +55,8 @@ export default function Klienci() {
     setSelected(id);
     setDetailLoading(true);
     setDetail(null);
+    setShowKlientKommoPayload(false);
+    setKlientKommoPayload(null);
     try {
       const res = await api.get(`/klienci/${id}`);
       setDetail(res.data);
@@ -54,6 +65,49 @@ export default function Klienci() {
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const loadKlientKommoPayload = async () => {
+    if (!selected) return;
+    setLoadingKlientKommoPayload(true);
+    try {
+      const token = getStoredToken();
+      const res = await api.get(`/klienci/${selected}/kommo-payload`, { headers: authHeaders(token) });
+      setKlientKommoPayload(res.data);
+    } catch (e) {
+      alert(t('kommoCrm.payloadError') + ': ' + getApiErrorMessage(e, ''));
+    } finally {
+      setLoadingKlientKommoPayload(false);
+    }
+  };
+
+  const pushKlientKommo = async () => {
+    if (!selected) return;
+    setPushingKlientKommo(true);
+    try {
+      const token = getStoredToken();
+      const res = await api.post(`/klienci/${selected}/kommo-push`, {}, { headers: authHeaders(token) });
+      if (res.data?.ok) {
+        alert(t('kommoCrm.pushSuccess'));
+        await loadDetail(selected);
+        setKlientKommoPayload(null);
+      } else {
+        alert(res.data?.error || t('kommoCrm.pushError'));
+      }
+    } catch (e) {
+      alert(t('kommoCrm.pushError') + ': ' + getApiErrorMessage(e, ''));
+    } finally {
+      setPushingKlientKommo(false);
+    }
+  };
+
+  const toggleKlientKommoPayload = async () => {
+    if (showKlientKommoPayload) {
+      setShowKlientKommoPayload(false);
+      return;
+    }
+    setShowKlientKommoPayload(true);
+    await loadKlientKommoPayload();
   };
 
   const openAddForm = () => {
@@ -185,7 +239,15 @@ export default function Klienci() {
                       {k.firma && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>· {k.firma}</span>}
                     </div>
                     {k.telefon && (
-                      <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>{k.telefon}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-sub)' }}>
+                        {telHref(k.telefon) ? (
+                          <a href={telHref(k.telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                            {k.telefon}
+                          </a>
+                        ) : (
+                          k.telefon
+                        )}
+                      </div>
                     )}
                     {k.miasto && (
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{k.miasto}</div>
@@ -240,7 +302,7 @@ export default function Klienci() {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
-                    onClick={() => navigate(`/ogledziny/nowe?klient=${detail.id}`)}
+                    onClick={() => navigate(`/ogledziny?klient=${detail.id}`)}
                     style={btn.secondary}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -262,7 +324,20 @@ export default function Klienci() {
               {/* Karty z danymi */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
                 <Card title="Kontakt">
-                  <Row label="Telefon" value={detail.telefon} />
+                  <Row
+                    label="Telefon"
+                    value={
+                      detail.telefon
+                        ? telHref(detail.telefon)
+                          ? (
+                              <a href={telHref(detail.telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                {detail.telefon}
+                              </a>
+                            )
+                          : detail.telefon
+                        : null
+                    }
+                  />
                   <Row label="Email" value={detail.email} />
                   <Row label="Adres" value={detail.adres} />
                   <Row label="Miasto" value={detail.miasto} />
@@ -275,6 +350,57 @@ export default function Klienci() {
                   {detail.notatki && <Row label="Notatki" value={detail.notatki} />}
                 </Card>
               </div>
+
+              <section style={{ ...sec.wrap, marginBottom: 24 }}>
+                <div style={sec.header}>
+                  <span style={sec.title}>{t('kommoCrm.klientSectionTitle')}</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.45 }}>
+                  {t('kommoCrm.klientSectionHint')}
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <button type="button" onClick={pushKlientKommo} disabled={pushingKlientKommo} style={btn.secondary}>
+                    {pushingKlientKommo ? '…' : t('kommoCrm.push')}
+                  </button>
+                  <button type="button" onClick={toggleKlientKommoPayload} style={btn.secondary}>
+                    {showKlientKommoPayload ? t('kommoCrm.hidePayload') : t('kommoCrm.showPayload')}
+                  </button>
+                  {showKlientKommoPayload && (
+                    <button
+                      type="button"
+                      onClick={loadKlientKommoPayload}
+                      disabled={loadingKlientKommoPayload}
+                      style={btn.secondary}
+                    >
+                      {loadingKlientKommoPayload ? '…' : t('kommoCrm.refreshPayload')}
+                    </button>
+                  )}
+                </div>
+                {detail.kommo_last_sync_at ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+                    {t('kommoCrm.lastSync')}{' '}
+                    {new Date(detail.kommo_last_sync_at).toLocaleString()}
+                    {detail.kommo_last_sync_status === 'ok' ? ' · OK' : ''}
+                    {detail.kommo_last_sync_error ? ` · ${detail.kommo_last_sync_error}` : ''}
+                  </p>
+                ) : null}
+                {showKlientKommoPayload && (
+                  <pre
+                    style={{
+                      marginTop: 12,
+                      fontSize: 11,
+                      overflow: 'auto',
+                      maxHeight: 240,
+                      padding: 12,
+                      background: 'var(--bg-deep)',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    {loadingKlientKommoPayload ? '…' : klientKommoPayload ? JSON.stringify(klientKommoPayload, null, 2) : '—'}
+                  </pre>
+                )}
+              </section>
 
               {/* Historia oględzin */}
               {detail.ogledziny?.length > 0 && (

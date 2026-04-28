@@ -102,6 +102,15 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_wycena_id INTEGER REFERENCES w
 CREATE INDEX IF NOT EXISTS idx_tasks_wyceniajacy ON tasks(wyceniajacy_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source_wycena_unique ON tasks(source_wycena_id) WHERE source_wycena_id IS NOT NULL;
 
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_at TIMESTAMPTZ;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_http INTEGER;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT;
+
+-- Kolumny używane przez POST /tasks/nowe (API)
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kierownik_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS czas_planowany_godziny DECIMAL(5,2);
+
 -- ─── 5. WYCENY ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS wyceny (
   id                        SERIAL PRIMARY KEY,
@@ -171,6 +180,11 @@ CREATE TABLE IF NOT EXISTS klienci (
 
 CREATE INDEX IF NOT EXISTS idx_klienci_telefon ON klienci(telefon);
 CREATE INDEX IF NOT EXISTS idx_klienci_miasto  ON klienci(miasto);
+
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_at TIMESTAMPTZ;
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32);
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_http INTEGER;
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT;
 
 -- ─── 7. OGLEDZINY ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ogledziny (
@@ -535,6 +549,7 @@ ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS dmuchawa_filtr_ok BOOLEAN;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS rebak_zatankowany BOOLEAN;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS kaski_zespol BOOLEAN;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS bhp_potwierdzone BOOLEAN;
+ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS czas_pracy_minuty INTEGER DEFAULT 0;
 
 -- ─── photos (zdjęcia zleceń; lat/lon przy robieniu zdjęcia z telefonu) ─────────
 CREATE TABLE IF NOT EXISTS photos (
@@ -550,6 +565,21 @@ CREATE TABLE IF NOT EXISTS photos (
 );
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS lat DECIMAL(10,7);
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS lon DECIMAL(10,7);
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS opis TEXT;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS tagi TEXT[];
+
+-- F3.7 — zużycie materiałów zgłoszone przy zakończeniu zlecenia (POST /tasks/:id/finish, pole `zuzyte_materialy`)
+CREATE TABLE IF NOT EXISTS task_finish_material_usage (
+  id            SERIAL PRIMARY KEY,
+  task_id       INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  recorded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  recorded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  nazwa         VARCHAR(200) NOT NULL,
+  ilosc         NUMERIC(14, 4),
+  jednostka     VARCHAR(24),
+  notatka       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_task_finish_usage_task ON task_finish_material_usage (task_id);
 
 -- ─── GPS LIVE (Juwentus) ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gps_vehicle_positions (
@@ -583,6 +613,431 @@ CREATE TABLE IF NOT EXISTS gps_user_vehicle_assignments (
 );
 CREATE INDEX IF NOT EXISTS idx_gps_user_vehicle_assignments_user_active
   ON gps_user_vehicle_assignments(user_id, active);
+
+-- ─── CMR (listy przewozowe — konwencja CMR) ───────────────────────────────────
+CREATE SEQUENCE IF NOT EXISTS cmr_numer_seq;
+
+CREATE TABLE IF NOT EXISTS cmr_lists (
+  id                      SERIAL PRIMARY KEY,
+  numer                   VARCHAR(64) NOT NULL UNIQUE,
+  oddzial_id              INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  task_id                 INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  vehicle_id              INTEGER REFERENCES vehicles(id) ON DELETE SET NULL,
+  status                  VARCHAR(30) DEFAULT 'Roboczy',
+  nadawca_nazwa           VARCHAR(255),
+  nadawca_adres           TEXT,
+  nadawca_kraj            VARCHAR(3) DEFAULT 'PL',
+  odbiorca_nazwa          VARCHAR(255),
+  odbiorca_adres          TEXT,
+  odbiorca_kraj           VARCHAR(3) DEFAULT 'PL',
+  miejsce_zaladunku       VARCHAR(255),
+  miejsce_rozladunku      VARCHAR(255),
+  data_zaladunku          DATE,
+  data_rozladunku         DATE,
+  przewoznik_nazwa        VARCHAR(255),
+  przewoznik_adres        TEXT,
+  przewoznik_kraj         VARCHAR(3),
+  kolejni_przewoznicy     TEXT,
+  nr_rejestracyjny        VARCHAR(50),
+  nr_naczepy              VARCHAR(50),
+  kierowca                VARCHAR(220),
+  instrukcje_nadawcy      TEXT,
+  uwagi_do_celnych        TEXT,
+  umowy_szczegolne        TEXT,
+  zalaczniki              TEXT,
+  towary                  JSONB NOT NULL DEFAULT '[]'::jsonb,
+  platnosci               JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by              INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cmr_lists_task_id ON cmr_lists(task_id);
+CREATE INDEX IF NOT EXISTS idx_cmr_lists_oddzial_id ON cmr_lists(oddzial_id);
+CREATE INDEX IF NOT EXISTS idx_cmr_lists_created_at ON cmr_lists(created_at DESC);
+
+-- ─── CRM (pipeline leadów, panel /crm) ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS crm_leads (
+  id              SERIAL PRIMARY KEY,
+  title           TEXT NOT NULL,
+  oddzial_id      INTEGER NOT NULL REFERENCES branches(id),
+  client_id       INTEGER REFERENCES klienci(id) ON DELETE SET NULL,
+  owner_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  stage           VARCHAR(32) NOT NULL DEFAULT 'Lead',
+  source          VARCHAR(50) NOT NULL DEFAULT 'inne',
+  value           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  phone           VARCHAR(32),
+  email           VARCHAR(255),
+  notes           TEXT,
+  tags            JSONB NOT NULL DEFAULT '[]'::jsonb,
+  next_action_at  TIMESTAMPTZ,
+  created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_leads_oddzial ON crm_leads(oddzial_id);
+CREATE INDEX IF NOT EXISTS idx_crm_leads_stage ON crm_leads(stage);
+
+CREATE TABLE IF NOT EXISTS crm_lead_activities (
+  id                 SERIAL PRIMARY KEY,
+  lead_id            INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+  type               VARCHAR(32) NOT NULL,
+  text               TEXT NOT NULL,
+  due_at             TIMESTAMPTZ,
+  call_duration_sec  INTEGER,
+  completed_at       TIMESTAMPTZ,
+  created_by         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_lead_activities_lead ON crm_lead_activities(lead_id);
+
+-- ─── Wyceny terenowe (Wyceniający) — quotations / items / approvals / photos ─
+CREATE TABLE IF NOT EXISTS quotations (
+  id                      SERIAL PRIMARY KEY,
+  crm_lead_id             INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+  kommo_lead_external_id  VARCHAR(64),
+  wyceniajacy_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  oddzial_id              INTEGER NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
+  klient_nazwa            VARCHAR(200),
+  klient_telefon          VARCHAR(40),
+  klient_email            VARCHAR(255),
+  adres                   VARCHAR(500),
+  miasto                  VARCHAR(100),
+  lat                     DOUBLE PRECISION,
+  lng                     DOUBLE PRECISION,
+  kommo_sales_notes       TEXT,
+  status                  VARCHAR(40) NOT NULL DEFAULT 'Draft',
+  visit_started_at        TIMESTAMPTZ,
+  visit_ended_at          TIMESTAMPTZ,
+  visit_start_lat         DOUBLE PRECISION,
+  visit_start_lng         DOUBLE PRECISION,
+  visit_end_lat           DOUBLE PRECISION,
+  visit_end_lng           DOUBLE PRECISION,
+  locked_at               TIMESTAMPTZ,
+  czas_wizyty_minuty      INTEGER,
+  wartosc_sugerowana      NUMERIC(12,2),
+  wartosc_zaproponowana   NUMERIC(12,2),
+  marza_pct               NUMERIC(6,2),
+  korekta_uzasadnienie    TEXT,
+  data_zatwierdzenia      TIMESTAMPTZ,
+  waznosc_do              TIMESTAMPTZ,
+  created_by              INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_quotations_oddzial ON quotations(oddzial_id);
+CREATE INDEX IF NOT EXISTS idx_quotations_wyceniajacy ON quotations(wyceniajacy_id);
+CREATE INDEX IF NOT EXISTS idx_quotations_status ON quotations(status);
+CREATE INDEX IF NOT EXISTS idx_quotations_crm_lead ON quotations(crm_lead_id);
+
+CREATE TABLE IF NOT EXISTS quotation_items (
+  id                   SERIAL PRIMARY KEY,
+  quotation_id       INTEGER NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+  kolejnosc            INTEGER NOT NULL DEFAULT 0,
+  gatunek              VARCHAR(64),
+  wysokosc_pas         VARCHAR(32),
+  piersnica_pas        VARCHAR(32),
+  typ_pracy            VARCHAR(80),
+  warunki_dojazdu      VARCHAR(80),
+  przeszkody           JSONB NOT NULL DEFAULT '[]'::jsonb,
+  wymagane_uprawnienia JSONB NOT NULL DEFAULT '[]'::jsonb,
+  czas_planowany_min   INTEGER,
+  wymagany_sprzet      VARCHAR(500),
+  koszt_wlasny         NUMERIC(12,2),
+  cena_pozycji         NUMERIC(12,2),
+  metadata             JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_items_q ON quotation_items(quotation_id);
+
+CREATE TABLE IF NOT EXISTS quotation_approvals (
+  id                       SERIAL PRIMARY KEY,
+  quotation_id             INTEGER NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+  wymagany_typ             VARCHAR(40) NOT NULL,
+  zatwierdzajacy_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  decyzja                  VARCHAR(20) NOT NULL DEFAULT 'Pending',
+  komentarz                TEXT,
+  data_decyzji             TIMESTAMPTZ,
+  due_at                   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_approvals_q ON quotation_approvals(quotation_id);
+CREATE INDEX IF NOT EXISTS idx_quotation_approvals_pending ON quotation_approvals(quotation_id) WHERE decyzja = 'Pending';
+
+CREATE TABLE IF NOT EXISTS annotated_photos (
+  id                     SERIAL PRIMARY KEY,
+  parent_object_type     VARCHAR(32) NOT NULL,
+  parent_object_id       INTEGER NOT NULL,
+  original_url           TEXT NOT NULL,
+  annotated_preview_url  TEXT,
+  annotations_json       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  lat                    DOUBLE PRECISION,
+  lng                    DOUBLE PRECISION,
+  photo_timestamp        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  autor_user_id          INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  autor_typ              VARCHAR(24),
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_annotated_photos_parent ON annotated_photos(parent_object_type, parent_object_id);
+
+-- ─── M1 Wycena u klienta — rozszerzenia (idempotentne ALTER) ─────────────────
+ALTER TABLE quotations ALTER COLUMN wyceniajacy_id DROP NOT NULL;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS priorytet VARCHAR(30) NOT NULL DEFAULT 'Normalny';
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS geocode_status VARCHAR(32);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS wartosc_szacunkowa_lead NUMERIC(12,2);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS data_wizyty_planowana TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS flag_pomnikowe BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS flag_reklamacja_vip BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_czeka_na_miejscu BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS visit_gps_override_note TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS visit_gps_override_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS korekta_dropdown VARCHAR(80);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS koszt_wlasny_calkowity NUMERIC(12,2);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS client_acceptance_token VARCHAR(64);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS pdf_url TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS wyslano_klientowi_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_akceptacja_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_akceptacja_ip VARCHAR(64);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS reopened_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS reopened_note TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS reopened_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_quotations_accept_token ON quotations(client_acceptance_token) WHERE client_acceptance_token IS NOT NULL;
+
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS marza_domyslna_pct NUMERIC(5,2) NOT NULL DEFAULT 35;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS marza_prog_korekty_pct NUMERIC(5,2) NOT NULL DEFAULT 30;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS marza_prog_rentowosci_pct NUMERIC(5,2) NOT NULL DEFAULT 15;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS stawka_roboczogodzina_pln NUMERIC(10,2) NOT NULL DEFAULT 85;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS stawka_motogodzina_pln NUMERIC(10,2) NOT NULL DEFAULT 120;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS stawka_dojazd_km_pln NUMERIC(10,2) NOT NULL DEFAULT 3.5;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS utylizacja_m3_pln NUMERIC(10,2) NOT NULL DEFAULT 80;
+
+ALTER TABLE annotated_photos ADD COLUMN IF NOT EXISTS photo_kind VARCHAR(24) NOT NULL DEFAULT 'general';
+ALTER TABLE annotated_photos ADD COLUMN IF NOT EXISTS rendered_png_url TEXT;
+
+ALTER TABLE quotation_approvals ADD COLUMN IF NOT EXISTS sla_reminder_sent_at TIMESTAMPTZ;
+ALTER TABLE quotation_approvals ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMPTZ;
+
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS quotation_id INTEGER REFERENCES quotations(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_quotation ON notifications(quotation_id);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_quotation_id INTEGER REFERENCES quotations(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source_quotation_unique ON tasks(source_quotation_id) WHERE source_quotation_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS quotation_service_norms (
+  id               SERIAL PRIMARY KEY,
+  gatunek_key      VARCHAR(32) NOT NULL,
+  wysokosc_pas     VARCHAR(32) NOT NULL,
+  typ_pracy_key    VARCHAR(64) NOT NULL,
+  czas_min_bazowy  INTEGER NOT NULL DEFAULT 60,
+  sprzet_hint      VARCHAR(200),
+  motogodziny      NUMERIC(6,2) NOT NULL DEFAULT 0.25,
+  valid_from       DATE NOT NULL DEFAULT CURRENT_DATE,
+  valid_to         DATE
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_norms_lookup ON quotation_service_norms(gatunek_key, wysokosc_pas, typ_pracy_key);
+
+INSERT INTO quotation_service_norms (gatunek_key, wysokosc_pas, typ_pracy_key, czas_min_bazowy, sprzet_hint, motogodziny)
+SELECT v.gatunek_key, v.wysokosc_pas, v.typ_pracy_key, v.czas_min_bazowy, v.sprzet_hint, v.motogodziny
+FROM (
+  VALUES
+    ('topola'::varchar(32), '15-20'::varchar(32), 'wycinka pełna'::varchar(64), 180, 'Podnośnik 20 m + rębak'::varchar(200), 0.5::numeric),
+    ('topola', '10-15', 'wycinka pełna', 120, 'Podnośnik 20 m', 0.35),
+    ('dąb', '15-20', 'wycinka pełna', 240, 'Podnośnik + rębak', 0.5),
+    ('dąb', '5-10', 'redukcja korony', 90, 'Alpin + rębak', 0.2),
+    ('brzoza', '5-10', 'wycinka pełna', 75, 'Rębak', 0.2),
+    ('świerk', '10-15', 'wycinka pełna', 150, 'Podnośnik', 0.4),
+    ('inne', '5-10', 'podkrzesanie', 45, 'Rębak', 0.1),
+    ('inne', '20+', 'wycinka pełna', 300, 'Podnośnik 20 m + alpin', 0.6)
+) AS v(gatunek_key, wysokosc_pas, typ_pracy_key, czas_min_bazowy, sprzet_hint, motogodziny)
+WHERE NOT EXISTS (
+  SELECT 1 FROM quotation_service_norms n
+  WHERE n.gatunek_key = v.gatunek_key AND n.wysokosc_pas = v.wysokosc_pas AND n.typ_pracy_key = v.typ_pracy_key
+);
+
+-- ─── M3 F3.9 / F3.10 + M11 Rozliczenia i wynagrodzenia (szkielet) ─────────────
+CREATE TABLE IF NOT EXISTS task_client_payments (
+  task_id            INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+  forma_platnosc     VARCHAR(32) NOT NULL,
+  kwota_odebrana     NUMERIC(12,2),
+  faktura_vat        BOOLEAN NOT NULL DEFAULT false,
+  nip                VARCHAR(20),
+  notatki            TEXT,
+  recorded_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  recorded_by        INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wartosc_netto_do_rozliczenia NUMERIC(12,2);
+
+CREATE TABLE IF NOT EXISTS task_extra_work (
+  id                   SERIAL PRIMARY KEY,
+  task_id              INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  created_by           INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  opis                 TEXT NOT NULL,
+  status               VARCHAR(32) NOT NULL DEFAULT 'OczekujeWyceny',
+  amount_pln           NUMERIC(12,2),
+  quoted_by            INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  quoted_at            TIMESTAMPTZ,
+  accepted_at          TIMESTAMPTZ,
+  acceptance_channel   VARCHAR(24),
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_task_extra_work_task ON task_extra_work(task_id);
+
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS extra_work_id INTEGER REFERENCES task_extra_work(id) ON DELETE SET NULL;
+
+-- ═══ F0.1 — M11: nazewnictwo spec / dokumentacja ↔ tabele w tym repo (ARBOR-OS) ═══
+-- Stawki godzinowe pracownika (historia wersji, mnożniki weekend/noc/święto):
+--   repo: user_payroll_rates   |  często w spec: „employee_rates”, „stawki_pracownika”, „payroll_rates”
+-- Raport dnia ekipy (jeden wiersz na team_id + data), linie rozliczenia użytkowników:
+--   repo: payroll_team_day_reports, payroll_team_day_report_lines
+--   |  spec: „team_day_report”, „dniówka_ekipy”, „daily_crew_report”
+-- Kasa zadeklarowana przez ekipę / odbiór w oddziale:
+--   repo: branch_cash_pickups  |  spec: „cash_pickup”, „kasa_oddzialu”
+-- Naliczenia miesięczne wyceniającego (prowizja + extra work):
+--   repo: estimator_month_accrual  |  spec: „estimator_accrual”, „naliczenie_wyceniajacego”
+-- Audyt ręcznych korekt linii raportu dnia:
+--   repo: payroll_line_correction_log
+-- Log matrycy płatności przy finish zlecenia (F11.3):
+--   repo: task_calc_log
+-- Tokeny push Expo (F11.8):
+--   repo: user_expo_push_tokens
+-- Snapshot linii przy eksporcie miesiąca (CSV/ZIP — F11.2):
+--   repo: daily_payroll  |  spec: „snapshot eksportu”, „kopia dzienna wypłat z raportów”
+-- Zużycie przy finish zlecenia (F3.7):
+--   repo: task_finish_material_usage
+-- API (web/mobile): prefix /api/payroll/* ; cron kasa: GET /api/ops/payroll-cash-reminder-tick
+
+CREATE TABLE IF NOT EXISTS user_payroll_rates (
+  id                    SERIAL PRIMARY KEY,
+  user_id               INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  effective_from        DATE NOT NULL DEFAULT CURRENT_DATE,
+  rate_pln_per_hour     NUMERIC(10,2) NOT NULL,
+  role_scope            VARCHAR(24) NOT NULL DEFAULT 'pomocnik',
+  weekend_multiplier    NUMERIC(6,3) NOT NULL DEFAULT 1.25,
+  night_multiplier      NUMERIC(6,3) NOT NULL DEFAULT 1.15,
+  holiday_multiplier    NUMERIC(6,3) NOT NULL DEFAULT 1.5,
+  alpine_addon_pln      NUMERIC(10,2) NOT NULL DEFAULT 0,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by            INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_user_payroll_rates_user_from ON user_payroll_rates(user_id, effective_from DESC);
+
+CREATE TABLE IF NOT EXISTS payroll_team_day_reports (
+  id              SERIAL PRIMARY KEY,
+  team_id         INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  oddzial_id      INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  report_date     DATE NOT NULL,
+  payload_json    JSONB NOT NULL DEFAULT '{}'::jsonb,
+  first_closed_at TIMESTAMPTZ,
+  approved_at     TIMESTAMPTZ,
+  approved_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(team_id, report_date)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_team_day_reports_date ON payroll_team_day_reports(report_date);
+
+CREATE TABLE IF NOT EXISTS payroll_team_day_report_lines (
+  id           SERIAL PRIMARY KEY,
+  report_id    INTEGER NOT NULL REFERENCES payroll_team_day_reports(id) ON DELETE CASCADE,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hours_total  NUMERIC(8,2) NOT NULL DEFAULT 0,
+  pay_pln      NUMERIC(12,2) NOT NULL DEFAULT 0,
+  detail_json  JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_report_lines_report ON payroll_team_day_report_lines(report_id);
+
+CREATE TABLE IF NOT EXISTS branch_cash_pickups (
+  id              SERIAL PRIMARY KEY,
+  oddzial_id      INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  team_id         INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  pickup_date     DATE NOT NULL,
+  declared_cash   NUMERIC(12,2) NOT NULL DEFAULT 0,
+  received_at     TIMESTAMPTZ,
+  received_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  cash_reminder_48h_sent_at TIMESTAMPTZ,
+  cash_reminder_7d_sent_at TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(team_id, pickup_date)
+);
+
+CREATE TABLE IF NOT EXISTS estimator_month_accrual (
+  id                 SERIAL PRIMARY KEY,
+  wyceniajacy_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  accrual_month      DATE NOT NULL,
+  commission_base    NUMERIC(14,2) NOT NULL DEFAULT 0,
+  extra_work_pln     NUMERIC(14,2) NOT NULL DEFAULT 0,
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(wyceniajacy_id, accrual_month)
+);
+
+-- F11.3 — log wyliczenia netto do rozliczeń (audyt matrycy)
+CREATE TABLE IF NOT EXISTS task_calc_log (
+  id               SERIAL PRIMARY KEY,
+  task_id          INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  gross            NUMERIC(14,2) NOT NULL DEFAULT 0,
+  forma_platnosc   VARCHAR(32),
+  net_result       NUMERIC(14,2) NOT NULL DEFAULT 0,
+  detail_json      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  recorded_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  recorded_by      INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_task_calc_log_task ON task_calc_log(task_id, recorded_at DESC);
+
+-- F11.4 — pierwsze zamknięcie dnia (opcjonalne okno korekt: PAYROLL_TEAM_DAY_CORRECTION_HOURS)
+ALTER TABLE payroll_team_day_reports ADD COLUMN IF NOT EXISTS first_closed_at TIMESTAMPTZ;
+UPDATE payroll_team_day_reports SET first_closed_at = created_at WHERE first_closed_at IS NULL;
+
+-- F11.5 — przypomnienia o nieodebranej kasie (tick GET /api/ops/payroll-cash-reminder-tick)
+ALTER TABLE branch_cash_pickups ADD COLUMN IF NOT EXISTS cash_reminder_48h_sent_at TIMESTAMPTZ;
+ALTER TABLE branch_cash_pickups ADD COLUMN IF NOT EXISTS cash_reminder_7d_sent_at TIMESTAMPTZ;
+
+-- F11.4 — audyt ręcznych korekt linii raportu dnia (PATCH /payroll/team-day-report/.../lines/...)
+CREATE TABLE IF NOT EXISTS payroll_line_correction_log (
+  id                SERIAL PRIMARY KEY,
+  line_id           INTEGER REFERENCES payroll_team_day_report_lines(id) ON DELETE SET NULL,
+  report_id         INTEGER NOT NULL REFERENCES payroll_team_day_reports(id) ON DELETE CASCADE,
+  target_user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  edited_by         INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  prev_pay_pln      NUMERIC(12,2),
+  prev_hours_total  NUMERIC(8,2),
+  new_pay_pln       NUMERIC(12,2) NOT NULL,
+  new_hours_total   NUMERIC(8,2) NOT NULL,
+  correction_note   TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_line_corr_report ON payroll_line_correction_log(report_id);
+CREATE INDEX IF NOT EXISTS idx_payroll_line_corr_line ON payroll_line_correction_log(line_id);
+
+-- F11.2 — snapshot linii eksportu miesiąca (audyt: kto, kiedy, jakie kwoty poszły do pliku CSV/ZIP)
+CREATE TABLE IF NOT EXISTS daily_payroll (
+  id               BIGSERIAL PRIMARY KEY,
+  payroll_month    DATE NOT NULL,
+  snapshot_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  export_batch_id  UUID NOT NULL,
+  export_kind      VARCHAR(8) NOT NULL CHECK (export_kind IN ('csv', 'zip')),
+  exported_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  report_date      DATE NOT NULL,
+  team_id          INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hours_total      NUMERIC(12, 4) NOT NULL DEFAULT 0,
+  pay_pln          NUMERIC(14, 2) NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_daily_payroll_month ON daily_payroll (payroll_month DESC, snapshot_at DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_payroll_user_month ON daily_payroll (user_id, payroll_month);
+CREATE INDEX IF NOT EXISTS idx_daily_payroll_batch ON daily_payroll (export_batch_id);
+
+-- F11.8 — tokeny Expo Push (rejestracja z mobile; jeden token = jedno urządzenie, przy logowaniu innego użytkownika nadpisuje user_id)
+CREATE TABLE IF NOT EXISTS user_expo_push_tokens (
+  id           SERIAL PRIMARY KEY,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expo_token   TEXT NOT NULL,
+  platform     VARCHAR(16),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(expo_token)
+);
+CREATE INDEX IF NOT EXISTS idx_expo_push_user ON user_expo_push_tokens(user_id);
 
 -- ─── 21. PIERWSZE KONTO ADMINISTRATORA ───────────────────────────────────────
 -- Hasło: Admin123! (bcrypt hash)

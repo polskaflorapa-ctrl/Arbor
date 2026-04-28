@@ -1,8 +1,7 @@
-# Render Blueprint — statyczny build CRA (arbor-web)
-# Dokumentacja: https://render.com/docs/blueprint-spec
+# UWAGA: preferowany blueprint jest w KORZENIU repozytorium — `/render.yaml` (API + front + baza w jednym).
+# Ten plik: deploy samego statycznego frontu z katalogu `web/`. REACT_APP_API_URL musisz wtedy ustawić ręcznie w panelu.
 #
-# Po podpięciu repozytorium w Render: New → Blueprint → wybierz branch z tym plikiem.
-# Adres usługi: https://<name>.onrender.com/ — tutaj name: arbo-web → https://arbo-web.onrender.com/
+# Dokumentacja: https://render.com/docs/blueprint-spec
 
 services:
   - type: web

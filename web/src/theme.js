@@ -1,48 +1,48 @@
-// ARBOR-OS — paleta Platinum Chrome (głęboka czerń, akcent metalowy — bez fioletu)
+// ARBOR-OS — ciemny motyw: głębokie zielenie + akcent szmaragd (spójne z index.css)
 export const COLORS = {
-  bg:          '#030303',
-  bgCard:      '#0f0f0f',
-  bgCard2:     '#141414',
-  bgAlt:       '#080808',
-  sidebar:     '#050505',
+  bg:          '#060908',
+  bgCard:      '#0f1512',
+  bgCard2:     '#141b17',
+  bgAlt:       '#080b09',
+  sidebar:     '#070b09',
 
-  accent:      '#e8e8ed',
-  accentDark:  '#a1a1aa',
-  accentLight: '#fafafa',
-  accentBg:    'rgba(255,255,255,0.08)',
+  accent:      '#5eea9f',
+  accentDark:  '#34d399',
+  accentLight: '#86efac',
+  accentBg:    'rgba(94,234,159,0.1)',
 
-  text:        '#f4f4f5',
-  textSub:     '#c4c4cc',
-  textMuted:   '#8b8b96',
+  text:        '#eef7f1',
+  textSub:     '#c0cdc6',
+  textMuted:   '#8a9b90',
   white:       '#FFFFFF',
 
   success:     '#34d399',
-  successBg:   'rgba(52,211,153,0.12)',
+  successBg:   'rgba(52,211,153,0.14)',
   warning:     '#fbbf24',
   warningBg:   'rgba(251,191,36,0.12)',
   danger:      '#f87171',
   dangerBg:    'rgba(248,113,113,0.12)',
   info:        '#38bdf8',
   infoBg:      'rgba(56,189,248,0.12)',
-  purple:      '#a1a1aa',
-  purpleBg:    'rgba(161,161,170,0.12)',
+  purple:      '#94a3b8',
+  purpleBg:    'rgba(148,163,184,0.12)',
 
-  border:      'rgba(255,255,255,0.08)',
-  borderLight: 'rgba(255,255,255,0.14)',
-  shadow:      'rgba(0,0,0,0.65)',
+  border:      'rgba(255,255,255,0.09)',
+  borderLight: 'rgba(94,234,159,0.22)',
+  shadow:      'rgba(0,0,0,0.72)',
 
-  primary:        '#e8e8ed',
-  primaryDark:    '#a1a1aa',
-  primaryLight:   '#fafafa',
-  primaryVeryLight:'rgba(255,255,255,0.08)',
-  primaryBorder:  'rgba(255,255,255,0.16)',
-  secondary:      '#050505',
+  primary:        '#5eea9f',
+  primaryDark:    '#34d399',
+  primaryLight:   '#86efac',
+  primaryVeryLight:'rgba(94,234,159,0.1)',
+  primaryBorder:  'rgba(94,234,159,0.22)',
+  secondary:      '#070b09',
 };
 
 export const SHADOWS = {
-  sm: '0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 20px rgba(0,0,0,0.45)',
-  md: '0 8px 32px rgba(0,0,0,0.55)',
-  lg: '0 24px 64px rgba(0,0,0,0.72)',
+  sm: '0 1px 0 rgba(255,255,255,0.05) inset, 0 4px 24px rgba(0,0,0,0.5)',
+  md: '0 10px 36px rgba(0,0,0,0.58)',
+  lg: '0 24px 64px rgba(0,0,0,0.75)',
 };
 
 export const getRolaColor = (rola) => {

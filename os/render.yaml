@@ -1,7 +1,8 @@
-# Render Blueprint — https://render.com/docs/blueprint-spec
-# Dashboard: New → Blueprint → wskaż to repo. Uzupełnij PUBLIC_BASE_URL (URL usługi) po pierwszym deployu (Twilio/webhook).
-# Nie dodawaj ręcznie DATABASE_URL z lokalnego .env (z inną nazwą bazy) — nadpisze fromDatabase. Użyj Internal Database URL
-# z instancji Postgres (końcówka .../arbor_db) albo usuń ręczny DATABASE_URL, żeby działało powiązanie z blueprintem.
+# UWAGA: preferowany blueprint jest w KORZENIU repozytorium — plik `/render.yaml` (Postgres + arbor-os + arbo-web naraz).
+# Ten plik zostawiamy dla deployu tylko backendu z podkatalogu `os/` (np. stary workflow). Nowy stack: repo root → Blueprint.
+#
+# Render: https://render.com/docs/blueprint-spec
+# Nie dodawaj ręcznie DATABASE_URL z lokalnego .env (z inną nazwą bazy) — nadpisze fromDatabase.
 
 databases:
   - name: arbor-postgres

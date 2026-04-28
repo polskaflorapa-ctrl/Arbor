@@ -49,7 +49,13 @@ export default function WycenaRysujScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const guard = useOddzialFeatureGuard('/wycena');
-  const { uri, wycenaId } = useLocalSearchParams<{ uri: string; wycenaId: string }>();
+  const { uri, wycenaId, quotationId, itemId, photoKind } = useLocalSearchParams<{
+    uri: string;
+    wycenaId?: string;
+    quotationId?: string;
+    itemId?: string;
+    photoKind?: string;
+  }>();
   const decodedUri = uri ? decodeURIComponent(uri) : '';
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -115,8 +121,31 @@ export default function WycenaRysujScreen() {
         return;
       }
 
-      if (wycenaId) {
-        // Wyślij na serwer jako nowe zdjęcie wyceny
+      const qTeren = quotationId && itemId;
+      if (qTeren) {
+        const { token } = await getStoredSession();
+        if (!token) { router.replace('/login'); return; }
+        const formData = new FormData();
+        formData.append('zdjecie', { uri: capturedUri, name: `rysunek_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
+        formData.append('photo_kind', photoKind === 'general' ? 'general' : 'annotated');
+
+        const res = await fetch(`${API_URL}/quotations/${quotationId}/items/${itemId}/zdjecia`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        if (res.ok) {
+          void triggerHaptic('success');
+          Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
+            { text: t('common.ok'), onPress: () => router.back() },
+          ]);
+        } else {
+          void triggerHaptic('error');
+          Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+        }
+      } else if (wycenaId) {
+        // Wyślij na serwer jako nowe zdjęcie wyceny (stary moduł /wyceny)
         const { token } = await getStoredSession();
         if (!token) { router.replace('/login'); return; }
         const formData = new FormData();

@@ -5,8 +5,24 @@ const { authMiddleware } = require('../middleware/auth');
 const { validateParams } = require('../middleware/validate');
 const { z } = require('zod');
 const PDFDocument = require('pdfkit');
+const { loadCmrRow, canAccessCmr } = require('./cmr');
+const { generateQuotationPdfBuffer } = require('../services/quotationFinalize');
 
 const router = express.Router();
+
+function quotationCanViewForPdf(user, row) {
+  if (!row) return false;
+  const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+  const isKierownik = (u) => u.rola === 'Kierownik';
+  const isWyceniajacy = (u) => u.rola === 'Wyceniający';
+  if (isDyrektor(user)) return true;
+  if (isKierownik(user) && Number(user.oddzial_id) === Number(row.oddzial_id)) return true;
+  if (isWyceniajacy(user) && Number(row.wyceniajacy_id) === Number(user.id)) return true;
+  if (['Specjalista', 'Brygadzista'].includes(user.rola) && Number(user.oddzial_id) === Number(row.oddzial_id)) {
+    return true;
+  }
+  return false;
+}
 
 const pdfIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
@@ -269,6 +285,181 @@ router.get('/faktura/:id', authMiddleware, validateParams(pdfIdParamsSchema), as
   }
 });
 
+const parseJsonArray = (v) => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') {
+    try {
+      const p = JSON.parse(v);
+      return Array.isArray(p) ? p : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const parseJsonObj = (v) => {
+  if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+  if (typeof v === 'string') {
+    try {
+      const p = JSON.parse(v);
+      return p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
+
+// GET /api/pdf/cmr/:id — lista przewozowa (CMR), pełne pola + towary
+router.get('/cmr/:id', authMiddleware, validateParams(pdfIdParamsSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const loaded = await loadCmrRow(id);
+    if (!loaded) return res.status(404).json({ error: 'Nie znaleziono CMR' });
+    const ok = await canAccessCmr(req.user, loaded.row, loaded.taskRow);
+    if (!ok) return res.status(403).json({ error: req.t('errors.pdf.taskAccessDenied') });
+
+    const c = loaded.row;
+    const towary = parseJsonArray(c.towary);
+    const platnosci = parseJsonObj(c.platnosci);
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=cmr_${c.numer.replace(/[^\w.-]+/g, '_')}.pdf`);
+    doc.pipe(res);
+
+    const label = (x, y, w, h, t, bold) => {
+      doc.fontSize(8).font(bold ? 'Helvetica-Bold' : 'Helvetica').fillColor('#111827');
+      doc.text(t, x, y, { width: w, height: h });
+    };
+    const box = (x, y, w, h) => {
+      doc.rect(x, y, w, h).strokeColor('#D1D5DB').lineWidth(0.5).stroke();
+    };
+
+    doc.fontSize(14).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Lista przewozowa (CMR)', { align: 'center' });
+    doc.fontSize(10).font('Helvetica').fillColor('#4B5563').text(`Numer: ${c.numer}   Status: ${c.status || '-'}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(8).fillColor('#6B7280').text(`Wygenerowano: ${formatDateTime(new Date())}`, { align: 'center' });
+    doc.moveDown(1);
+
+    let y = doc.y;
+    const colW = 255;
+    box(40, y, colW, 72);
+    label(45, y + 4, colW - 10, 12, '1. Nadawca (wysyłający towar)', true);
+    doc.font('Helvetica').fillColor('#374151');
+    doc.text(c.nadawca_nazwa || '—', 45, y + 16, { width: colW - 10 });
+    doc.text(c.nadawca_adres || '—', 45, y + 30, { width: colW - 10 });
+    doc.text(`Kraj: ${c.nadawca_kraj || 'PL'}`, 45, y + 56, { width: colW - 10 });
+
+    box(305, y, colW, 72);
+    label(310, y + 4, colW - 10, 12, '2. Odbiorca', true);
+    doc.text(c.odbiorca_nazwa || '—', 310, y + 16, { width: colW - 10 });
+    doc.text(c.odbiorca_adres || '—', 310, y + 30, { width: colW - 10 });
+    doc.text(`Kraj: ${c.odbiorca_kraj || 'PL'}`, 310, y + 56, { width: colW - 10 });
+    y += 80;
+
+    box(40, y, 520, 52);
+    label(45, y + 4, 500, 10, '3. Miejsce przejęcia towaru / miejsce przeznaczenia', true);
+    doc.font('Helvetica').fillColor('#374151');
+    doc.text(`Załadunek: ${c.miejsce_zaladunku || '—'}`, 45, y + 18, { width: 500 });
+    doc.text(`Rozładunek: ${c.miejsce_rozladunku || '—'}`, 45, y + 32, { width: 500 });
+    y += 58;
+
+    box(40, y, 520, 58);
+    label(45, y + 4, 500, 10, '4. Miejsce i data wystawienia listy przewozowej', true);
+    doc.font('Helvetica');
+    doc.text(`Data załadunku: ${formatDate(c.data_zaladunku)}   Data rozładunku: ${formatDate(c.data_rozladunku)}`, 45, y + 18, { width: 500 });
+    doc.text(`Zlecenie ARBOR: #${c.task_id || '—'}  Klient: ${c.task_klient_nazwa || '—'}`, 45, y + 34, { width: 500 });
+    y += 64;
+
+    box(40, y, 255, 62);
+    label(45, y + 4, 240, 10, '16. Przewoźnik', true);
+    doc.font('Helvetica');
+    doc.text(c.przewoznik_nazwa || '—', 45, y + 16, { width: 240 });
+    doc.text(c.przewoznik_adres || '—', 45, y + 30, { width: 240 });
+    doc.text(`Kraj: ${c.przewoznik_kraj || '—'}`, 45, y + 46, { width: 240 });
+
+    box(305, y, 255, 62);
+    label(310, y + 4, 240, 10, 'Pojazd / kierowca', true);
+    doc.text(`Nr rej. pojazdu: ${c.nr_rejestracyjny || c.pojazd_nr_rejestracyjny || '—'}`, 310, y + 16, { width: 240 });
+    doc.text(`Naczepa: ${c.nr_naczepy || '—'}`, 310, y + 30, { width: 240 });
+    doc.text(`Kierowca: ${c.kierowca || '—'}`, 310, y + 44, { width: 240 });
+    y += 68;
+
+    if (c.kolejni_przewoznicy) {
+      box(40, y, 520, 36);
+      label(45, y + 4, 500, 10, '17. Kolejni przewoźnicy', true);
+      doc.font('Helvetica').text(c.kolejni_przewoznicy, 45, y + 16, { width: 500 });
+      y += 42;
+    }
+
+    doc.y = y;
+    doc.fontSize(9).font('Helvetica-Bold').fillColor(PDF_BRAND).text('13. Towary — opis, masa, objętość', 40, doc.y);
+    doc.moveDown(0.3);
+    y = doc.y;
+    const th = 14;
+    const tRows = towary.length ? towary : [{}];
+    box(40, y, 520, th + tRows.length * 14 + 8);
+    label(45, y + 3, 30, 10, 'Lp.', true);
+    label(78, y + 3, 40, 10, 'Ilość', true);
+    label(118, y + 3, 60, 10, 'Opak.', true);
+    label(182, y + 3, 200, 10, 'Opis', true);
+    label(390, y + 3, 70, 10, 'Masa kg', true);
+    label(465, y + 3, 80, 10, 'm³', true);
+    doc.moveTo(40, y + th).lineTo(560, y + th).strokeColor('#D1D5DB').stroke();
+    let ry = y + th + 2;
+    tRows.forEach((row, i) => {
+      doc.font('Helvetica').fontSize(8).fillColor('#374151');
+      doc.text(String(i + 1), 45, ry, { width: 28 });
+      doc.text(String(row.ilosc ?? '—'), 78, ry, { width: 36 });
+      doc.text(String(row.opakowanie ?? '—'), 118, ry, { width: 58 });
+      doc.text(String(row.nazwa ?? row.znak ?? '—'), 182, ry, { width: 200 });
+      doc.text(String(row.masa_kg ?? '—'), 390, ry, { width: 68 });
+      doc.text(String(row.objetosc_m3 ?? '—'), 465, ry, { width: 80 });
+      ry += 14;
+    });
+    y = ry + 10;
+
+    const yInstr = y;
+    box(40, yInstr, 520, 44);
+    label(45, yInstr + 4, 500, 10, '4/5. Instrukcje nadawcy / umowy szczególne', true);
+    doc.font('Helvetica').fontSize(8).fillColor('#374151');
+    doc.text(c.instrukcje_nadawcy || '—', 45, yInstr + 16, { width: 248 });
+    doc.text(c.umowy_szczegolne || '—', 305, yInstr + 16, { width: 248 });
+    y = yInstr + 50;
+
+    const yUw = y;
+    box(40, yUw, 520, 36);
+    label(45, yUw + 4, 500, 10, 'Uwagi (np. celne) / załączniki', true);
+    doc.font('Helvetica');
+    doc.text(c.uwagi_do_celnych || '—', 45, yUw + 16, { width: 248 });
+    doc.text(c.zalaczniki || '—', 305, yUw + 16, { width: 248 });
+    y = yUw + 42;
+
+    const platTxt = Object.entries(platnosci)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('   ');
+    if (platTxt) {
+      const yPl = y;
+      box(40, yPl, 520, 28);
+      label(45, yPl + 4, 500, 10, 'Płatności / fracht (z formularza)', true);
+      doc.font('Helvetica').fontSize(8).text(platTxt, 45, yPl + 16, { width: 500 });
+      y = yPl + 32;
+    }
+
+    doc.fontSize(7).fillColor('#9CA3AF').text('Dokument informacyjny wygenerowany z ARBOR-OS — w razie transportu międzynarodowego uzupełnij oryginał CMR wg konwencji.', 40, y + 6, {
+      width: 520,
+      align: 'center',
+    });
+    doc.end();
+  } catch (err) {
+    logger.error('Blad generowania PDF CMR', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: 'Błąd generowania PDF: ' + err.message });
+  }
+});
+
 // GET /api/pdf/raport/dzienny/:data
 router.get('/raport/dzienny/:data', authMiddleware, validateParams(pdfDailyDateParamsSchema), async (req, res) => {
   try {
@@ -305,6 +496,25 @@ router.get('/raport/dzienny/:data', authMiddleware, validateParams(pdfDailyDateP
     doc.end();
   } catch (err) {
     logger.error('Blad generowania PDF raportu dziennego', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.pdf.generationFailed') });
+  }
+});
+
+// GET /api/pdf/wycena/:id — PDF wyceny terenowej (ta sama treść co plik wysyłany do klienta po zatwierdzeniu)
+router.get('/wycena/:id', authMiddleware, validateParams(pdfIdParamsSchema), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { rows } = await pool.query(`SELECT * FROM quotations WHERE id = $1`, [id]);
+    if (!rows[0]) return res.status(404).json({ error: req.t('errors.pdf.taskNotFound') });
+    if (!quotationCanViewForPdf(req.user, rows[0])) {
+      return res.status(403).json({ error: req.t('errors.pdf.taskAccessDenied') });
+    }
+    const buf = await generateQuotationPdfBuffer(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=wycena_terenowa_${id}.pdf`);
+    res.send(buf);
+  } catch (err) {
+    logger.error('Blad generowania PDF wyceny', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.pdf.generationFailed') });
   }
 });

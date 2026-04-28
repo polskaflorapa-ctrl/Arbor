@@ -4,11 +4,21 @@ const OFFLINE_QUEUE_KEY = 'offline_queue_v1';
 
 type HttpMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
+/** Zdjęcie zlecenia (multipart) — replay przy `flushOfflineQueue`. */
+export interface OfflineQueueMultipart {
+  fileUri: string;
+  fieldName: string;
+  fileName?: string;
+  mimeType?: string;
+  fields: Record<string, string>;
+}
+
 export interface OfflineQueueItem {
   id: string;
   url: string;
   method: HttpMethod;
   body?: Record<string, unknown> | null;
+  multipart?: OfflineQueueMultipart | null;
   createdAt: string;
 }
 
@@ -60,13 +70,28 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
 
   for (const item of queue) {
     try {
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      let body: BodyInit | undefined;
+      if (item.multipart) {
+        const form = new FormData();
+        for (const [k, v] of Object.entries(item.multipart.fields)) {
+          if (v != null && v !== '') form.append(k, v);
+        }
+        form.append(item.multipart.fieldName, {
+          uri: item.multipart.fileUri,
+          name: item.multipart.fileName || 'photo.jpg',
+          type: item.multipart.mimeType || 'image/jpeg',
+        } as any);
+        body = form;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = item.body ? JSON.stringify(item.body) : undefined;
+      }
+
       const res = await fetch(item.url, {
         method: item.method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: item.body ? JSON.stringify(item.body) : undefined,
+        headers,
+        body,
       });
 
       if (res.ok) {
@@ -82,3 +107,33 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
   await writeQueue(remaining);
   return { flushed, left: remaining.length };
 };
+
+/** Kolejka wysłania zdjęcia (POST multipart `/tasks/:id/zdjecia`) po powrocie online. */
+export async function queueTaskPhotoOffline(args: {
+  url: string;
+  fileUri: string;
+  typ: string;
+  lat?: number;
+  lng?: number;
+  opis?: string;
+  /** Lista po przecinku / średniku — jak w POST multipart `tagi`. */
+  tagi?: string;
+}): Promise<number> {
+  const fields: Record<string, string> = { typ: args.typ };
+  if (args.lat != null && Number.isFinite(args.lat)) fields.lat = String(args.lat);
+  if (args.lng != null && Number.isFinite(args.lng)) fields.lon = String(args.lng);
+  const o = args.opis?.trim();
+  if (o) fields.opis = o.slice(0, 4000);
+  const tg = args.tagi?.trim();
+  if (tg) fields.tagi = tg.slice(0, 2000);
+  await enqueueOfflineRequest({
+    url: args.url,
+    method: 'POST',
+    multipart: {
+      fileUri: args.fileUri,
+      fieldName: 'zdjecie',
+      fields,
+    },
+  });
+  return getOfflineQueueSize();
+}

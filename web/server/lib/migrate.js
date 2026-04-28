@@ -17,6 +17,18 @@ function migrateState(state, saveState) {
     }
   };
   ensure('oddzialy', () => [...seed.oddzialy]);
+  ensure('oddzialCeleMiesieczne', () => [...(seed.oddzialCeleMiesieczne || [])]);
+  ensure('nextOddzialCeleMiesieczneId', seed.nextOddzialCeleMiesieczneId || 1);
+  ensure('oddzialSprzedazMiesieczna', () => [...(seed.oddzialSprzedazMiesieczna || [])]);
+  ensure('nextOddzialSprzedazMiesiecznaId', seed.nextOddzialSprzedazMiesiecznaId || 1);
+  ensure('callLogs', () => [...(seed.callLogs || [])]);
+  ensure('nextCallLogId', seed.nextCallLogId || 1);
+  ensure('callbackTasks', () => [...(seed.callbackTasks || [])]);
+  ensure('nextCallbackTaskId', seed.nextCallbackTaskId || 1);
+  ensure('crmLeads', () => [...(seed.crmLeads || [])]);
+  ensure('nextCrmLeadId', seed.nextCrmLeadId || 1);
+  ensure('crmLeadActivities', () => [...(seed.crmLeadActivities || [])]);
+  ensure('nextCrmLeadActivityId', seed.nextCrmLeadActivityId || 1);
   ensure('klienci', () => [...seed.klienci]);
   ensure('nextKlientId', seed.nextKlientId || 10);
   ensure('ogledziny', () => []);
@@ -42,6 +54,8 @@ function migrateState(state, saveState) {
   ensure('nextFlotaPojazdId', seed.nextFlotaPojazdId || 1);
   ensure('nextFlotaSprzetId', seed.nextFlotaSprzetId || 1);
   ensure('nextFlotaNaprawaId', seed.nextFlotaNaprawaId || 1);
+  ensure('cmrLists', () => []);
+  ensure('nextCmrId', 1);
   ensure('faktury', () => []);
   ensure('nextFakturaId', 1);
   ensure('nextFakturaNumer', seed.nextFakturaNumer || 1);
@@ -56,6 +70,62 @@ function migrateState(state, saveState) {
   if (state.nextZlecenieId == null) {
     state.nextZlecenieId = seed.nextZlecenieId;
     changed = true;
+  }
+  if (Array.isArray(state.zlecenia)) {
+    for (const z of state.zlecenia) {
+      if (z.dodatkowe_uslugi_liczba === undefined || z.dodatkowe_uslugi_liczba === null) {
+        z.dodatkowe_uslugi_liczba = 0;
+        changed = true;
+      }
+      if (z.bony_liczba === undefined || z.bony_liczba === null) {
+        z.bony_liczba = 0;
+        changed = true;
+      }
+    }
+  }
+  if (Array.isArray(state.zlecenia)) {
+    for (const z of state.zlecenia) {
+      for (const k of ['kommo_last_sync_at', 'kommo_last_sync_status', 'kommo_last_sync_http', 'kommo_last_sync_error']) {
+        if (z[k] === undefined) {
+          z[k] = null;
+          changed = true;
+        }
+      }
+    }
+  }
+  if (Array.isArray(state.klienci)) {
+    for (const kl of state.klienci) {
+      for (const k of ['kommo_last_sync_at', 'kommo_last_sync_status', 'kommo_last_sync_http', 'kommo_last_sync_error']) {
+        if (kl[k] === undefined) {
+          kl[k] = null;
+          changed = true;
+        }
+      }
+    }
+  }
+  if (Array.isArray(state.cmrLists)) {
+    for (const c of state.cmrLists) {
+      if (c.kommo_last_sync_at === undefined) {
+        c.kommo_last_sync_at = null;
+        changed = true;
+      }
+      if (c.kommo_last_sync_status === undefined) {
+        c.kommo_last_sync_status = null;
+        changed = true;
+      }
+      if (c.kommo_last_sync_http === undefined) {
+        c.kommo_last_sync_http = null;
+        changed = true;
+      }
+      if (c.kommo_last_sync_error === undefined) {
+        c.kommo_last_sync_error = null;
+        changed = true;
+      }
+      if (c.oddzial_id != null) {
+        c.oddzial_id = null;
+        changed = true;
+      }
+    }
   }
   if (changed) saveState(state);
   return state;

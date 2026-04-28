@@ -24,6 +24,25 @@ function isPortOpen(port, host = "127.0.0.1", timeoutMs = 600) {
 async function main() {
   const apiRunning = await isPortOpen(3001);
 
+  let apiHealthy = false;
+  if (apiRunning) {
+    try {
+      const res = await fetch("http://127.0.0.1:3001/api/health");
+      if (res.ok) {
+        const body = await res.json();
+        apiHealthy = body?.service === "arbor-api-local" && body?.crm?.overview === true;
+        if (!apiHealthy) {
+          console.warn(
+            "[dev:smart] Port :3001 odpowiada, ale /api/health nie wygląda na aktualny arbor-api-local (brak crm.overview). " +
+              "Zrestartuj `npm run server` w workspace `web`, inaczej CRM dashboard zwróci 404 dla /api/crm/overview."
+          );
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   const names = apiRunning ? "WEB,OS" : "API,WEB,OS";
   const commands = apiRunning
     ? ["npm run dev:web", "npm run dev:os"]

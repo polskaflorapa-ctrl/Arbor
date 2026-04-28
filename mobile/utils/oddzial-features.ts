@@ -16,6 +16,7 @@ export type OddzialFeatureKey =
   | '/ogledziny'
   | '/wycena'
   | '/wycena-kalendarz'
+  | '/wyceny-terenowe'
   | '/zatwierdz-wyceny'
   | '/raporty-mobilne'
   | '/rozliczenia'

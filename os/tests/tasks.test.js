@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 
 jest.mock('../src/config/database', () => ({
   query: jest.fn(),
+  connect: jest.fn(),
 }));
 
 const pool = require('../src/config/database');
@@ -246,5 +247,101 @@ describe('Tasks routes', () => {
     const res = await request(app).post('/api/tasks/1/start').set('Authorization', `Bearer ${token}`).send({});
     expect(res.status).toBe(200);
     expect(res.body.work_log_id).toBe(502);
+  });
+
+  it('POST /tasks/:id/finish returns 400 when TASK_FINISH_REQUIRE_PO_PHOTO=1 and no Po photo', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    process.env.TASK_FINISH_REQUIRE_PO_PHOTO = '1';
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 99,
+                status: 'W_Realizacji',
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('FROM photos')) return { rows: [] };
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/99/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 10, faktura_vat: false },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TASK_FINISH_PO_PHOTO_REQUIRED');
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
+  it('POST /tasks/:id/finish returns 400 when TASK_FINISH_REQUIRE_MATERIAL_USAGE=1 and empty zuzyte_materialy', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = '1';
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 88 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 88,
+                status: 'W_Realizacji',
+                wartosc_planowana: 50,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/88/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 5, faktura_vat: false },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TASK_FINISH_MATERIAL_USAGE_REQUIRED');
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
   });
 });

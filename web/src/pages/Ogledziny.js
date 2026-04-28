@@ -5,6 +5,7 @@ import CityInput from '../components/CityInput';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { telHref } from '../utils/telLink';
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'];
 const UI_COLORS = {
@@ -1075,7 +1076,18 @@ export default function Ogledziny() {
                   </div>
                   <p style={{ margin: 0, fontSize: 13, color: 'var(--text-sub)' }}>
                     {detail.klient_nazwa?.trim()}
-                    {detail.klient_telefon && <span style={{ marginLeft: 8 }}>· {detail.klient_telefon}</span>}
+                    {detail.klient_telefon && (
+                      <span style={{ marginLeft: 8 }}>
+                        ·{' '}
+                        {telHref(detail.klient_telefon) ? (
+                          <a href={telHref(detail.klient_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                            {detail.klient_telefon}
+                          </a>
+                        ) : (
+                          detail.klient_telefon
+                        )}
+                      </span>
+                    )}
                   </p>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
                     Dodał: {detail.created_by_nazwa} · {fmt(detail.created_at)}
@@ -1109,7 +1121,20 @@ export default function Ogledziny() {
                 <Card title="Przypisanie">
                   <Row label="Brygadzista" value={detail.brygadzista_nazwa} />
                   <Row label="Klient firma" value={detail.klient_firma} />
-                  <Row label="Tel. klienta" value={detail.klient_telefon} />
+                  <Row
+                    label="Tel. klienta"
+                    value={
+                      detail.klient_telefon
+                        ? telHref(detail.klient_telefon)
+                          ? (
+                              <a href={telHref(detail.klient_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                {detail.klient_telefon}
+                              </a>
+                            )
+                          : detail.klient_telefon
+                        : null
+                    }
+                  />
                   <Row label="Email klienta" value={detail.klient_email} />
                 </Card>
               </div>

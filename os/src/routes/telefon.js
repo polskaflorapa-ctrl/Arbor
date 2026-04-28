@@ -76,7 +76,7 @@ const forbidTelefonForTeamRoles = (req, res, next) => {
 /** Uproszczone E.164 dla PL (+48…) — na produkcji rozważ libphonenumber. */
 const normalizeToE164 = (raw) => {
   if (raw == null) return null;
-  let s = String(raw).trim().replace(/[\s\-]/g, '');
+  let s = String(raw).trim().replace(/[\s-]/g, '');
   if (!s) return null;
   if (s.startsWith('+')) return s.replace(/[^\d+]/g, '').length >= 10 ? s : null;
   if (s.startsWith('00')) s = `+${s.slice(2)}`;

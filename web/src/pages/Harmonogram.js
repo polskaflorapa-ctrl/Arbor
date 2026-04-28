@@ -17,6 +17,11 @@ const STATUS_KOLOR = {
 const DNI_KROTKO = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'];
 const MIESIACE = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
 const GODZINY = Array.from({ length: 13 }, (_, i) => i + 6); // 6:00 - 18:00
+const TIME_COL_WIDTH = 68;
+const HOUR_SLOT_HEIGHT = 64;
+const DAY_HEADER_HEIGHT = 64;
+const DAY_START_HOUR = 6;
+const DAY_END_HOUR = 19;
 
 export default function Harmonogram() {
   const [zlecenia, setZlecenia] = useState([]);
@@ -113,6 +118,22 @@ export default function Harmonogram() {
     return parseFloat(z.czas_planowany_godziny) || 1;
   };
 
+  const layoutDayBlocks = (items) => {
+    const sorted = [...items].sort((a, b) => getGodzinaStart(a) - getGodzinaStart(b));
+    const lanesEnd = [];
+    const placed = [];
+    for (const z of sorted) {
+      const start = getGodzinaStart(z);
+      const end = start + getCzasTrwania(z);
+      let lane = 0;
+      while (lane < lanesEnd.length && lanesEnd[lane] > start) lane += 1;
+      lanesEnd[lane] = end;
+      placed.push({ z, start, end, lane });
+    }
+    const laneCount = Math.max(1, lanesEnd.length);
+    return placed.map((item) => ({ ...item, laneCount }));
+  };
+
   const prevPeriod = () => {
     const d = new Date(currentDate);
     if (widok === 'dzien') d.setDate(d.getDate() - 1);
@@ -145,7 +166,7 @@ export default function Harmonogram() {
 
   const renderDzien = (dni) => (
     <div style={styles.calBody}>
-      <div style={{...styles.timeGrid, gridTemplateColumns: `60px repeat(${dni.length}, 1fr)`}}>
+      <div style={{...styles.timeGrid, gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(${dni.length}, 1fr)`}}>
         <div style={styles.timeCorner} />
         {dni.map(d => {
           const ds = d.toISOString().split('T')[0];
@@ -168,7 +189,7 @@ export default function Harmonogram() {
       </div>
 
       <div style={styles.scrollArea}>
-        <div style={{...styles.timeGrid, gridTemplateColumns: `60px repeat(${dni.length}, 1fr)`}}>
+        <div style={{...styles.timeGrid, gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(${dni.length}, 1fr)`}}>
           <div style={styles.timeCol}>
             {GODZINY.map(h => (
               <div key={h} style={styles.timeSlot}>
@@ -182,6 +203,13 @@ export default function Harmonogram() {
             const isToday = ds === dzisiaj;
             const zl = zleceniaNaDzien(d);
 
+            const dayBlocks = layoutDayBlocks(zl);
+            const isTodayColumn = isToday && widok !== 'miesiac';
+            const now = new Date();
+            const nowDecimal = now.getHours() + now.getMinutes() / 60;
+            const showNowLine = isTodayColumn && nowDecimal >= DAY_START_HOUR && nowDecimal <= DAY_END_HOUR;
+            const nowTop = (nowDecimal - DAY_START_HOUR) * HOUR_SLOT_HEIGHT;
+
             return (
               <div key={ds} style={{...styles.dayCol, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
                 {GODZINY.map(h => (
@@ -190,18 +218,28 @@ export default function Harmonogram() {
                   </div>
                 ))}
 
-                {zl.map(z => {
-                  const startH = getGodzinaStart(z);
-                  const czas = getCzasTrwania(z);
-                  const top = (startH - 6) * 60;
-                  const height = Math.max(czas * 60, 30);
+                {showNowLine && (
+                  <div style={{ ...styles.nowLine, top: nowTop }}>
+                    <span style={styles.nowDot} />
+                  </div>
+                )}
+
+                {dayBlocks.map(({ z, start, lane, laneCount }) => {
+                  const top = (start - DAY_START_HOUR) * HOUR_SLOT_HEIGHT;
+                  const height = Math.max(getCzasTrwania(z) * HOUR_SLOT_HEIGHT, 34);
                   const kolor = getKolor(z);
+                  const gap = 4;
+                  const colWidth = `calc((100% - ${(laneCount - 1) * gap}px) / ${laneCount})`;
+                  const left = `calc(${lane} * (${colWidth} + ${gap}px))`;
 
                   return (
                     <div key={z.id} style={{
                       ...styles.zlecenieBlock,
                       top: top,
                       height: height,
+                      width: colWidth,
+                      left: left,
+                      right: 'auto',
                       backgroundColor: kolor + '22',
                       borderLeft: `3px solid ${kolor}`,
                     }} onClick={(e) => { e.stopPropagation(); navigate(`/zlecenia/${z.id}`); }}>
@@ -247,7 +285,7 @@ export default function Harmonogram() {
           return (
             <div key={ds} style={{
               ...styles.miesiacCell,
-              backgroundColor: isToday ? 'rgba(52,211,153,0.1)' : '#1E293B',
+              backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)',
               border: isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
             }} onClick={() => { setCurrentDate(data); setWidok('dzien'); }}>
               <div style={{...styles.miesiacNum, color: isToday ? 'var(--accent)' : 'var(--text)', fontWeight: isToday ? 'bold' : 'normal'}}>
@@ -325,7 +363,7 @@ export default function Harmonogram() {
                 .filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial)
                 .map(e => (
                   <div key={e.id} style={styles.legendaItem}>
-                    <div style={{...styles.legendaDot, backgroundColor: e.kolor || '#6B7280', boxShadow: `0 0 6px ${e.kolor || '#6B7280'}88`}} />
+                    <div style={{...styles.legendaDot, backgroundColor: e.kolor || 'var(--text-muted)', boxShadow: `0 0 6px ${e.kolor || '#94a3b8'}88`}} />
                     <span style={styles.legendaLabel}>{e.nazwa}</span>
                   </div>
                 ))}
@@ -362,20 +400,22 @@ const styles = {
   widokBtnActive: { backgroundColor: 'var(--bg-deep)', color: '#fff' },
   addBtn: { padding: '8px 18px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
-  calendarWrap: { backgroundColor: 'var(--bg-card)', borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden', flex: 1 },
-  calBody: { display: 'flex', flexDirection: 'column', height: 'calc(100vh - 240px)' },
+  calendarWrap: { backgroundColor: 'var(--bg-card)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', overflow: 'hidden', flex: 1, minHeight: 520 },
+  calBody: { display: 'flex', flexDirection: 'column', minHeight: 520, height: '100%' },
   timeGrid: { display: 'grid' },
-  timeCorner: { height: 56, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' },
-  dayColHeader: { height: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' },
+  timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', background: 'var(--bg-card2)' },
+  dayColHeader: { position: 'sticky', top: 0, zIndex: 20, height: DAY_HEADER_HEIGHT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' },
   dayColDow: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  dayColNum: { width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 'bold', marginTop: 2 },
+  dayColNum: { width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 'bold', marginTop: 4 },
   scrollArea: { overflowY: 'auto', flex: 1 },
   timeCol: { borderRight: '1px solid var(--border)' },
-  timeSlot: { height: 60, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', paddingRight: 8, paddingTop: 4, borderBottom: '1px solid var(--border)' },
-  timeLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: '500' },
+  timeSlot: { height: HOUR_SLOT_HEIGHT, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', paddingRight: 10, paddingTop: 6, borderBottom: '1px solid var(--border)' },
+  timeLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: '600' },
   dayCol: { position: 'relative', borderRight: '1px solid var(--border)' },
-  hourCell: { height: 60, borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.15s', '&:hover': { backgroundColor: 'var(--bg)' } },
-  zlecenieBlock: { position: 'absolute', left: 2, right: 2, borderRadius: 8, padding: '4px 6px', cursor: 'pointer', overflow: 'hidden', zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', transition: 'transform 0.15s', '&:hover': { transform: 'translateX(2px)' } },
+  hourCell: { height: HOUR_SLOT_HEIGHT, borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.15s', '&:hover': { backgroundColor: 'var(--bg)' } },
+  zlecenieBlock: { position: 'absolute', left: 6, right: 6, borderRadius: 10, padding: '6px 8px', cursor: 'pointer', overflow: 'hidden', zIndex: 10, boxShadow: 'var(--shadow-sm)', transition: 'transform 0.15s', '&:hover': { transform: 'translateX(2px)' } },
+  nowLine: { position: 'absolute', left: 0, right: 0, borderTop: '2px dashed var(--danger)', zIndex: 9, pointerEvents: 'none' },
+  nowDot: { position: 'absolute', left: -4, top: -5, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--danger)' },
   blockTitle: { fontSize: 11, fontWeight: '700', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   blockSub: { fontSize: 9, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   miesiacGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: 16, minHeight: 500 },

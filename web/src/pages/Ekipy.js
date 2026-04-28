@@ -16,7 +16,7 @@ import { addTeamMember, removeTeamMember } from '../utils/teamMembersApi';
 import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-
+import { telHref } from '../utils/telLink';
 
 export default function Ekipy() {
   const { t } = useTranslation();
@@ -511,7 +511,14 @@ export default function Ekipy() {
                         </div>
                         {ekipaDetail.brygadzista_telefon && (
                           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                            📞 {ekipaDetail.brygadzista_telefon}
+                            📞{' '}
+                            {telHref(ekipaDetail.brygadzista_telefon) ? (
+                              <a href={telHref(ekipaDetail.brygadzista_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                                {ekipaDetail.brygadzista_telefon}
+                              </a>
+                            ) : (
+                              ekipaDetail.brygadzista_telefon
+                            )}
                           </div>
                         )}
                       </div>

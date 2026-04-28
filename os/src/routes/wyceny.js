@@ -378,10 +378,10 @@ router.patch('/:id/status', authMiddleware, validateParams(wycenaIdParamsSchema)
 router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaZatwierdzSchema), async (req, res) => {
   if (!canManage(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
-    const planEkipa = ekipa_id || null;
-    const planData = data_wykonania || null;
-    const planGodzina = godzina_rozpoczecia || null;
-    const { wartosc_planowana } = req.body;
+    const { ekipa_id, data_wykonania, godzina_rozpoczecia, wartosc_planowana } = req.body;
+    const planEkipa = ekipa_id ?? null;
+    const planData = data_wykonania ?? null;
+    const planGodzina = godzina_rozpoczecia ?? null;
     if (!planEkipa || !planData || !planGodzina) {
       return res.status(400).json({
         error: 'Do zatwierdzenia wymagane są: ekipa, data realizacji i godzina rozpoczęcia.',

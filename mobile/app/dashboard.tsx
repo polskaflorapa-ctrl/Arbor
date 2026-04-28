@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
+  Pressable,
   RefreshControl, ScrollView,
   StyleSheet, Text, TouchableOpacity, View, StatusBar,
 } from 'react-native';
@@ -32,6 +33,36 @@ interface QuickAction {
   icon: IoniconName;
   path: string;
   color: string;
+}
+
+type QuickCategoryId =
+  | 'operations'
+  | 'quotes'
+  | 'fleetMagazyn'
+  | 'reports'
+  | 'finance'
+  | 'administration'
+  | 'account';
+
+const QUICK_CATEGORY_ORDER: QuickCategoryId[] = [
+  'operations',
+  'quotes',
+  'fleetMagazyn',
+  'reports',
+  'finance',
+  'administration',
+  'account',
+];
+
+function quickCategoryForAction(path: string, label: string): QuickCategoryId {
+  if (path === '/profil' || path === '/powiadomienia' || path === '/api-diagnostyka') return 'account';
+  if (['/uzytkownicy-mobile', '/oddzialy-mobile', '/oddzial-funkcje-admin'].includes(path)) return 'administration';
+  if (path === '/wyceniajacy-finanse' || (path === '/rozliczenia' && label.includes('godzin'))) return 'finance';
+  if (path === '/rozliczenia') return 'finance';
+  if (['/raporty-mobilne', '/kpi-tydzien', '/raport-dzienny'].includes(path)) return 'reports';
+  if (['/flota-mobile', '/rezerwacje-sprzetu', '/magazyn-mobile'].includes(path)) return 'fleetMagazyn';
+  if (['/wycena-kalendarz', '/wyceny-terenowe', '/zatwierdz-wyceny', '/ogledziny', '/wyceniajacy-hub'].includes(path)) return 'quotes';
+  return 'operations';
 }
 
 export default function DashboardScreen() {
@@ -132,6 +163,7 @@ export default function DashboardScreen() {
       { label: 'Magazyn',           icon: 'cube-outline' as IoniconName,           path: '/magazyn-mobile',   color: theme.chartCyan },
       { label: 'Oględziny',         icon: 'search-outline' as IoniconName,           path: '/ogledziny',        color: theme.info },
       { label: 'Kal. wycen',        icon: 'calculator-outline' as IoniconName,       path: '/wycena-kalendarz', color: theme.accent },
+      { label: 'Wycena u klienta',  icon: 'document-text-outline' as IoniconName,    path: '/wyceny-terenowe', color: theme.success },
       { label: 'Zatwierdź wyceny',  icon: 'checkmark-circle-outline' as IoniconName, path: '/zatwierdz-wyceny', color: theme.warning },
       { label: 'Raporty',           icon: 'bar-chart-outline' as IoniconName,      path: '/raporty-mobilne',  color: theme.info },
       { label: 'Rozliczenia',       icon: 'wallet-outline' as IoniconName,         path: '/rozliczenia',      color: theme.success },
@@ -157,6 +189,7 @@ export default function DashboardScreen() {
     // ── Wyceniający ──
     ...(isWyceniajacy ? [
       { label: 'Centrum wycen', icon: 'speedometer-outline' as IoniconName, path: '/wyceniajacy-hub', color: theme.accent },
+      { label: 'Wycena u klienta', icon: 'document-text-outline' as IoniconName, path: '/wyceny-terenowe', color: theme.success },
       { label: 'Wynagrodzenie', icon: 'cash-outline' as IoniconName, path: '/wyceniajacy-finanse', color: theme.success },
       { label: 'Oględziny',    icon: 'search-outline' as IoniconName,      path: '/ogledziny',       color: theme.info },
       { label: 'Kal. wycen',  icon: 'calendar-outline' as IoniconName,    path: '/wycena-kalendarz', color: theme.accent },
@@ -195,6 +228,21 @@ export default function DashboardScreen() {
     return filtered.sort((a, b) => (rank.get(a.path) ?? 999) - (rank.get(b.path) ?? 999));
   })();
 
+  const quickSections = useMemo(() => {
+    const byCat = new Map<QuickCategoryId, QuickAction[]>();
+    QUICK_CATEGORY_ORDER.forEach((c) => byCat.set(c, []));
+    for (const a of quickActionsFiltered) {
+      const cat = quickCategoryForAction(a.path, a.label);
+      const bucket = byCat.get(cat) ?? byCat.get('operations')!;
+      bucket.push(a);
+    }
+    return QUICK_CATEGORY_ORDER.map((key) => ({
+      key,
+      title: t(`dashboard.quickCat.${key}`),
+      actions: byCat.get(key) ?? [],
+    })).filter((s) => s.actions.length > 0);
+  }, [quickActionsFiltered, t, language]);
+
   const dzisiaj = new Date().toLocaleDateString('pl-PL', {
     weekday: 'long', day: 'numeric', month: 'long',
   });
@@ -203,38 +251,8 @@ export default function DashboardScreen() {
     weekday: 'long', day: 'numeric', month: 'long',
   });
 
-  const localizeQuickActionLabel = (label: string): string => {
-    const compactLabelMap: Record<string, string> = {
-      'Tryb Dzisiaj': 'Tryb dnia',
-      'Autoplan dnia': 'Autoplan',
-      'Nowe zlecenie': 'Nowe',
-      'Harmonogram': 'Harmonogram',
-      'Użytkownicy': 'Użytkownicy',
-      'Oddziały': 'Oddziały',
-      'Flota': 'Flota',
-      'Rezerwacje sprzętu': 'Rezerwacje',
-      'Blokady kalendarza': 'Blokady',
-      'Potwierdzenia ekip': 'Potwierdzenia',
-      'KPI autoplan (tydzień)': 'KPI tydzień',
-      'Magazyn': 'Magazyn',
-      'Oględziny': 'Oględziny',
-      'Kal. wycen': 'Kal. wycen',
-      'Zatwierdź wyceny': 'Zatwierdź',
-      'Raporty': 'Raporty',
-      'Rozliczenia': 'Rozliczenia',
-      'Funkcje oddziałów': 'Funkcje',
-      'Zlecenia': 'Zlecenia',
-      'Raport dzienny': 'Raport',
-      'Centrum wycen': 'Centrum',
-      'Wynagrodzenie': 'Wynagrodzenie',
-      'Nowa wycena': 'Nowa wycena',
-      'Diagnostyka API': 'Diagnostyka',
-      'Powiadomienia': 'Alerty',
-      'Profil': 'Profil',
-      'Moje godziny': 'Godziny',
-      'Moje zlecenia': 'Moje zlecenia',
-    };
-
+  /** Etykiety szybkiego dostępu — pełny tekst (lista jak iOS Settings). */
+  const quickActionListLabel = (label: string): string => {
     const keyMap: Record<string, string> = {
       'Tryb Dzisiaj': 'dashboard.todayMode',
       'Autoplan dnia': 'dashboard.autoplan',
@@ -266,8 +284,7 @@ export default function DashboardScreen() {
       'Moje zlecenia': 'dashboard.orders',
     };
     const key = keyMap[label];
-    const localized = key ? t(key) : label;
-    return compactLabelMap[localized] || compactLabelMap[label] || localized;
+    return key ? t(key) : label;
   };
 
   const S = makeStyles(theme);
@@ -333,7 +350,7 @@ export default function DashboardScreen() {
           ].map((s, i) => (
             <PlatinumAppear key={i} delayMs={40 * i} style={S.statWrap}>
               <View style={[S.statCard, { borderTopColor: s.color }]}>
-                <PlatinumIconBadge icon={s.icon} color={s.color} />
+                <PlatinumIconBadge icon={s.icon} color={s.color} size={26} />
                 <Text style={[S.statNum, { color: s.color }]}>{s.value}</Text>
                 <Text style={S.statLabel}>{s.label}</Text>
               </View>
@@ -354,25 +371,36 @@ export default function DashboardScreen() {
           <Text style={S.oddzialFocus}>{t('dashboard.priority', { focus: oddzialConfig.focus })}</Text>
         </PlatinumCard>
 
-        {/* ─── SZYBKI DOSTĘP ─────────────────────────────────────────────────── */}
-        <PlatinumCard style={[S.section, elevationCard(theme)]} glow>
+        {/* ─── SZYBKI DOSTĘP (iOS-style grouped list) ─────────────────────────── */}
+        <PlatinumCard style={[S.section, elevationCard(theme)]}>
           <Text style={S.sectionTitle}>{t('dashboard.quickAccess')}</Text>
-          <View style={S.quickGrid}>
-            {quickActionsFiltered.map((a, i) => (
-              <PlatinumAppear key={i} delayMs={25 * i}>
-                <PlatinumPressable
-                  style={S.quickCard}
-                  onPress={() => {
-                    void triggerHaptic('light');
-                    router.push(a.path as any);
-                  }}
-                >
-                  <PlatinumIconBadge icon={a.icon} color={a.color} size={20} style={S.quickIconBadge} />
-                  <Text style={S.quickLabel} numberOfLines={1} ellipsizeMode="tail">{localizeQuickActionLabel(a.label)}</Text>
-                </PlatinumPressable>
-              </PlatinumAppear>
-            ))}
-          </View>
+          {quickSections.map((section, si) => (
+            <View key={section.key} style={si > 0 ? S.quickSectionSpacer : S.quickSectionFirst}>
+              <Text style={S.quickSectionLabel}>{section.title}</Text>
+              <View style={S.quickListGroup}>
+                {section.actions.map((a, i) => (
+                  <Fragment key={`${section.key}-${a.path}-${a.label}-${i}`}>
+                    {i > 0 ? <View style={S.quickListHairline} /> : null}
+                    <Pressable
+                      onPress={() => {
+                        void triggerHaptic('light');
+                        router.push(a.path as any);
+                      }}
+                      style={({ pressed }) => [S.quickListRow, pressed && S.quickListRowPressed]}
+                    >
+                      <View style={S.quickListIconTile}>
+                        <Ionicons name={a.icon} size={21} color={theme.textSub} />
+                      </View>
+                      <Text style={S.quickListTitle} numberOfLines={2}>
+                        {quickActionListLabel(a.label)}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                    </Pressable>
+                  </Fragment>
+                ))}
+              </View>
+            </View>
+          ))}
         </PlatinumCard>
 
         {/* ─── OSTATNIE ZLECENIA ──────────────────────────────────────────────── */}
@@ -383,13 +411,13 @@ export default function DashboardScreen() {
             </Text>
             <TouchableOpacity onPress={() => { void triggerHaptic('light'); router.push('/zlecenia'); }} style={S.seeAllBtn}>
               <Text style={S.seeAll}>{t('dashboard.seeAll')}</Text>
-              <PlatinumIconBadge icon="chevron-forward" color={theme.accent} size={9} style={S.seeAllIcon} />
+              <PlatinumIconBadge icon="chevron-forward" color={theme.accent} size={16} style={S.seeAllIcon} />
             </TouchableOpacity>
           </View>
 
           {zlecenia.length === 0 ? (
             <View style={S.empty}>
-              <PlatinumIconBadge icon="clipboard-outline" color={theme.textMuted} size={19} style={S.emptyIconBadge} />
+              <PlatinumIconBadge icon="clipboard-outline" color={theme.textMuted} size={28} style={S.emptyIconBadge} />
               <Text style={S.emptyTitle}>{t('dashboard.emptyOrders')}</Text>
               <Text style={S.emptySub}>
                 {isPomocnik || isBrygadzista
@@ -417,7 +445,7 @@ export default function DashboardScreen() {
                   <Text style={S.cardKlient}>{z.klient_nazwa}</Text>
                   <View style={[S.cardMetaRow, { justifyContent: 'space-between' }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                      <PlatinumIconBadge icon="location-outline" color={theme.textSub} size={9} style={S.metaIconBadge} />
+                      <PlatinumIconBadge icon="location-outline" color={theme.textSub} size={16} style={S.metaIconBadge} />
                       <Text style={S.cardAddr}> {z.adres}, {z.miasto}</Text>
                     </View>
                     {(z.adres || z.miasto) ? (
@@ -425,7 +453,7 @@ export default function DashboardScreen() {
                         onPress={() => { void openAddressInMaps(z.adres || '', z.miasto || ''); }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <PlatinumIconBadge icon="map-outline" color={theme.accent} size={10} style={S.metaMapBadge} />
+                        <PlatinumIconBadge icon="map-outline" color={theme.accent} size={18} style={S.metaMapBadge} />
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -443,19 +471,19 @@ export default function DashboardScreen() {
                   </View>
                   {z.ekipa_nazwa ? (
                     <View style={S.cardMetaRow}>
-                      <PlatinumIconBadge icon="people-outline" color={theme.textSub} size={9} style={S.metaIconBadge} />
+                      <PlatinumIconBadge icon="people-outline" color={theme.textSub} size={16} style={S.metaIconBadge} />
                       <Text style={S.cardEkipa}> {z.ekipa_nazwa}</Text>
                     </View>
                   ) : null}
                 </View>
-                <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={9} style={S.chevronBadge} />
+                <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={18} style={S.chevronBadge} />
                 </PlatinumPressable>
               </PlatinumAppear>
             ))
           )}
         </PlatinumCard>}
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 128 }} />
       </ScrollView>
 
       {/* ─── DOLNA NAWIGACJA ────────────────────────────────────────────────── */}
@@ -478,7 +506,7 @@ export default function DashboardScreen() {
             <TouchableOpacity key={i} style={S.navBtn} onPress={() => { void triggerHaptic('light'); router.push(n.path as any); }}>
               <Ionicons
                 name={n.icon}
-                size={22}
+                size={32}
                 color={active ? theme.navActive : theme.navInactive}
               />
               <Text style={[S.navLabel, active && { color: theme.navActive }]}>
@@ -601,42 +629,67 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   oddzialFocus: { fontSize: 12, color: t.textSub },
   seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAll: { fontSize: 13, color: t.accent, fontWeight: '600' },
-  seeAllIcon: { width: 20, height: 20, borderRadius: 7 },
+  seeAllIcon: { width: 36, height: 36, borderRadius: 10 },
 
-  // Quick grid
-  quickGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+  // Szybki dostęp — kategorie + lista iOS (grupa inset)
+  quickSectionFirst: { marginTop: 10 },
+  quickSectionSpacer: { marginTop: 20 },
+  quickSectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: t.textMuted,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    marginLeft: 2,
   },
-  quickCard: {
-    width: '48%',
+  quickListGroup: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: t.surface2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: t.border,
+  },
+  quickListHairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: t.border,
+    marginLeft: 60,
+  },
+  quickListRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 7,
-    backgroundColor: t.surface3,
-    borderRadius: t.radiusLg,
+    minHeight: 52,
     paddingVertical: 11,
-    paddingHorizontal: 6,
-    minHeight: 104,
-    borderWidth: 1,
-    borderColor: t.cardBorder,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.26,
-    shadowRadius: t.shadowRadius * 0.6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: t.cardElevation,
+    paddingHorizontal: 14,
+    gap: 12,
+    backgroundColor: t.surface2,
   },
-  quickIconBadge: { marginTop: 2 },
-  quickLabel: {
-    fontSize: 11.5, fontWeight: '800',
-    color: t.textSub, textAlign: 'center',
-    lineHeight: 12,
-    minHeight: 14,
-    width: '100%',
+  quickListRowPressed: {
+    backgroundColor: t.surface3,
+  },
+  quickListIconTile: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.surface3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: t.border,
+  },
+  quickListTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '600',
+    color: t.text,
+    letterSpacing: -0.25,
+    lineHeight: 22,
+    paddingRight: 6,
   },
 
   // Puste
   empty: { alignItems: 'center', paddingVertical: 28, gap: 8 },
-  emptyIconBadge: { width: 44, height: 44, borderRadius: 14 },
+  emptyIconBadge: { width: 52, height: 52, borderRadius: 16 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: t.text },
   emptySub: { fontSize: 13, color: t.textMuted, textAlign: 'center' },
 
@@ -666,8 +719,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     marginBottom: 4,
   },
-  metaIconBadge: { width: 18, height: 18, borderRadius: 6 },
-  metaMapBadge: { width: 24, height: 24, borderRadius: 8 },
+  metaIconBadge: { width: 36, height: 36, borderRadius: 10 },
+  metaMapBadge: { width: 40, height: 40, borderRadius: 12 },
   cardAddr: { fontSize: 12, color: t.textSub, flex: 1 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   typChip: {
@@ -677,14 +730,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   typChipText: { fontSize: 11, color: t.textSub, fontWeight: '600' },
   cardWartosc: { fontSize: 12, color: t.accent, fontWeight: '700' },
   cardEkipa: { fontSize: 11, color: t.textMuted },
-  chevronBadge: { width: 22, height: 22, borderRadius: 8, alignSelf: 'center', marginRight: 4 },
+  chevronBadge: { width: 40, height: 40, borderRadius: 12, alignSelf: 'center', marginRight: 4 },
 
   // Dolna nawigacja
   nav: {
     flexDirection: 'row',
     backgroundColor: t.navBg,
     borderTopWidth: 1, borderTopColor: t.navBorder,
-    paddingBottom: 28, paddingTop: 10,
+    paddingBottom: 30, paddingTop: 12,
     position: 'absolute', bottom: 0, left: 0, right: 0,
     shadowColor: t.shadowColor,
     shadowOpacity: t.shadowOpacity * 0.55,
@@ -692,6 +745,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     elevation: t.cardElevation + 1,
   },
-  navBtn: { flex: 1, alignItems: 'center', gap: 3 },
-  navLabel: { fontSize: 10, color: t.navInactive, fontWeight: '800', letterSpacing: 0.35 },
+  navBtn: { flex: 1, alignItems: 'center', gap: 5 },
+  navLabel: { fontSize: 12.5, color: t.navInactive, fontWeight: '800', letterSpacing: 0.35 },
 });

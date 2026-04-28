@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: ARBOR-OS API
-  version: "2.1.1"
+  version: "2.1.2"
   description: |
     REST API systemu ARBOR-OS. Odpowiedzi błędów zawierają `error` (po polsku), opcjonalnie `code` (stabilny identyfikator), `requestId`.
 servers:
@@ -450,6 +450,67 @@ paths:
       responses:
         "200":
           description: Sumy + tablica `miesiace`
+  /mobile/me/team-day-report:
+    get:
+      summary: Raport dnia ekipy zalogowanego użytkownika (ekipa = users.ekipa_id)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, description: "YYYY-MM-DD" }
+      responses:
+        "200":
+          description: |
+            `{ report, lines, day_preview }`. `day_preview` (Brygadzista / Pomocnik): `tasks_day`, `cash_by_forma` (forma, sum_kwota, cnt), `issues_count` — orientacyjny podgląd kasy za dany dzień; `null` gdy brak `ekipa_id`.
+        "400":
+          description: Brak/nieprawidłowy parametr date
+  /mobile/me/team-day-close:
+    post:
+      summary: Przeliczenie raportu dnia dla własnej ekipy (Brygadzista / Pomocnik)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollTeamDayCloseMobile'
+      responses:
+        "200":
+          description: `{ report, lines }`
+        "403":
+          description: Tylko ekipa w terenie
+  /mobile/me/push-token:
+    post:
+      summary: Rejestracja tokena Expo Push (F11.8); UPSERT po `expo_token`
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpoPushTokenBody'
+      responses:
+        "201":
+          description: Zapisano
+        "400":
+          description: Nieprawidłowy format tokena
+        "503":
+          description: Brak tabeli `user_expo_push_tokens`
+    delete:
+      summary: Usunięcie tokena dla zalogowanego użytkownika (wylogowanie)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpoPushTokenDeleteBody'
+      responses:
+        "200":
+          description: `{ ok, removed }`
+        "503":
+          description: Brak tabeli `user_expo_push_tokens`
   /role:
     get:
       summary: Role systemowe
@@ -1205,6 +1266,322 @@ paths:
           description: Walidacja — `code: VALIDATION_FAILED`
         "403":
           description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/finish:
+    post:
+      summary: Zakończenie zlecenia (M3) — STOP + płatność klienta / netto; F3.5–F3.7 (ekipa) zdjęcie „Po”, opcj. „Przed”, opcj. zużycie materiałów; auto-raport dnia ekipy
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskFinishBody'
+      responses:
+        "200":
+          description: `{ message, wartosc_netto_do_rozliczenia }`
+        "400":
+          description: |
+            Walidacja / brak aktywnego work_log — `VALIDATION_FAILED`, `PAYMENT_REQUIRED`,
+            `TASK_FINISH_PO_PHOTO_REQUIRED`, `TASK_FINISH_PRZED_PHOTO_REQUIRED`, `TASK_FINISH_MATERIAL_USAGE_REQUIRED` (konfiguracja env na serwerze)
+        "403":
+          description: Brak dostępu
+        "503":
+          description: Brak tabeli `task_client_payments` — migracja
+  /tasks/{id}/extra-work:
+    post:
+      summary: Zgłoszenie pracy dodatkowej (ekipa)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskExtraWorkCreate'
+      responses:
+        "201":
+          description: Wiersz `task_extra_work`
+        "403":
+          description: Tylko ekipa w terenie
+  /tasks/{id}/extra-work/{ewId}/quote:
+    patch:
+      summary: Wycena pracy dodatkowej (kwota PLN)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: ewId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskExtraWorkQuote'
+      responses:
+        "200":
+          description: Zaktualizowany wiersz
+        "400":
+          description: Brak oczekującej pozycji
+  /tasks/{id}/extra-work/{ewId}/accept:
+    post:
+      summary: Akceptacja wycenionej pracy dodatkowej (ekipa); przy `channel=sms` możliwy SMS do klienta
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: ewId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskExtraWorkAccept'
+      responses:
+        "200":
+          description: `{ ok, amount_pln }`
+  /payroll/export.csv:
+    get:
+      summary: Eksport miesięczny raportów dnia ekip (CSV / Symfonia / Optima / Comarch)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          description: "YYYY-MM (domyślnie bieżący miesiąc)"
+          schema: { type: string }
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, symfonia, optima, comarch]
+            default: csv
+      responses:
+        "200":
+          description: |
+            Plik tekstowy / CSV. Przy sukcesie (F11.2) zapisywane są wiersze do tabeli `daily_payroll` (ten sam zestaw linii co w pliku), chyba że `PAYROLL_EXPORT_SNAPSHOT=0` w OS.
+        "403":
+          description: Brak roli (Dyrektor / Administrator / Kierownik)
+        "409":
+          description: Niezatwierdzone raporty dnia — `code: PAYROLL_EXPORT_PENDING_APPROVALS` (F11.7); obejście dev `PAYROLL_EXPORT_SKIP_APPROVAL_CHECK=1`
+  /payroll/export.zip:
+    get:
+      summary: Eksport ZIP — wszystkie formaty (csv, symfonia, optima, comarch) w jednym archiwum (F11.7)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          description: "YYYY-MM (domyślnie bieżący miesiąc)"
+          schema: { type: string }
+      responses:
+        "200":
+          description: |
+            `application/zip` — pliki `payroll_{YM}_{csv|symfonia|optima|comarch}` oraz `payroll_{YM}_manifest.json`
+            (SHA-256 każdego pliku; jeśli ustawiono `PAYROLL_ZIP_MANIFEST_HMAC_SECRET` w OS — pole `hmac_sha256` kanonicznego JSON).
+            Osobny snapshot linii w `daily_payroll` jak przy export.csv (chyba że `PAYROLL_EXPORT_SNAPSHOT=0`).
+            Jeśli w OS ustawiono `PAYROLL_ZIP_PASSWORD` — wpisy ZIP są szyfrowane (`aes256` domyślnie lub `zip20` przez `PAYROLL_ZIP_ENCRYPTION_METHOD`); nagłówek odpowiedzi `X-Payroll-Zip-Encryption` wskazuje metodę (bez ujawniania hasła).
+        "403":
+          description: Brak roli (Dyrektor / Administrator / Kierownik)
+        "409":
+          description: Jak przy export.csv — `PAYROLL_EXPORT_PENDING_APPROVALS`
+  /payroll/month-close-status:
+    get:
+      summary: Czy eksport miesiąca dozwolony (brak raportów dnia bez zatwierdzenia)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: `{ export_allowed, pending_count, pending_reports, skip_check_active }`
+        "403":
+          description: Brak roli
+  /payroll/estimator-accrual:
+    get:
+      summary: Naliczenia miesięczne wyceniających (podgląd)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tablica rekordów
+        "403":
+          description: Brak dostępu
+  /payroll/team-day-close:
+    post:
+      summary: Zamknięcie dnia ekipy (work_logs × stawka; weekend/święta/nadgodziny; payload F11.4 z zleceniami i kasą)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollTeamDayClose'
+      responses:
+        "200":
+          description: `{ report, lines }`
+        "409":
+          description: Raport zatwierdzony (`PAYROLL_REPORT_APPROVED`) lub po oknie korekt (`PAYROLL_CORRECTION_WINDOW_CLOSED` gdy ustawiono `PAYROLL_TEAM_DAY_CORRECTION_HOURS`)
+  /payroll/team-day-report/{id}/approve:
+    post:
+      summary: Zatwierdzenie raportu dnia (Kierownik — tylko własny oddział; Brygadzista — tylko własna ekipa); in-app `notifications` dla linii raportu (F11.8)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Raport z `approved_at`
+        "400":
+          description: Raport już zatwierdzony
+        "403":
+          description: Inny oddział / ekipa / brak roli
+        "404":
+          description: Brak raportu
+        "409":
+          description: Konkurencyjna zmiana — odśwież i ponów
+  /payroll/team-day-reports:
+    get:
+      summary: Raporty dnia ekip w miesiącu z liniami (F11.4); tylko Dyrektor / Administrator / Kierownik
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          description: "YYYY-MM"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tablica `{ id, team_id, report_date, approved_at, team_nazwa, lines[] }`
+        "403":
+          description: Brak roli
+  /payroll/line-correction-log:
+    get:
+      summary: Historia ręcznych korekt linii raportów dnia (F11.4 audyt); Dyrektor / Administrator / Kierownik
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          description: "YYYY-MM (pierwszy dzień miesiąca jako zakres dat raportów)"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tablica wpisów (max. 500, malejąco po created_at)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PayrollLineCorrectionLogEntry'
+        "403":
+          description: Brak roli
+        "503":
+          description: Brak tabeli migracji `payroll_line_correction_log`
+  /payroll/line-correction-log.csv:
+    get:
+      summary: Eksport CSV historii korekt linii (F11.4); ten sam zakres co JSON, do 10 000 wierszy; UTF-8 BOM
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          description: "YYYY-MM"
+          schema: { type: string }
+      responses:
+        "200":
+          description: Plik tekstowy CSV (`text/csv`)
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        "403":
+          description: Brak roli
+        "503":
+          description: Brak tabeli migracji `payroll_line_correction_log`
+  /payroll/team-day-report/{reportId}/lines/{lineId}:
+    patch:
+      summary: Ręczna korekta godzin / kwoty linii raportu (F11.4); raport nie może być zatwierdzony
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: lineId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayrollLinePatch'
+      responses:
+        "200":
+          description: Zaktualizowana linia
+        "400":
+          description: Walidacja (wymagane pay_pln lub hours_total)
+        "403":
+          description: Brak dostępu
+        "404":
+          description: Brak raportu lub linii
+        "409":
+          description: Raport zatwierdzony lub po oknie korekt
+  /payroll/cash-pickup:
+    post:
+      summary: Wpis kasowy oddziału (F11.5); Kierownik tylko własny oddział
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchCashPickup'
+      responses:
+        "201":
+          description: Utworzony lub zaktualizowany wpis (UPSERT po team_id + pickup_date)
+        "403":
+          description: Inny oddział / brak roli
+  /payroll/cash-pickup/{id}/receive:
+    patch:
+      summary: Oznaczenie odbioru gotówki (F11.5); idempotentnie gdy już odebrane
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Wpis z `received_at`
+        "400":
+          description: Kasa już oznaczona jako odebrana
+        "403":
+          description: Inny oddział (Kierownik) / brak roli
+        "404":
+          description: Brak wpisu
+        "409":
+          description: Konkurencyjna zmiana — odśwież i ponów
   /tasks/{id}/problem:
     post:
       summary: Zgłoszenie problemu na zleceniu
@@ -1297,6 +1674,12 @@ paths:
                 lon:
                   type: string
                   description: Długość geograficzna z GPS (opcjonalnie)
+                opis:
+                  type: string
+                  description: Opcjonalna notatka do zdjęcia (max ~4000 znaków)
+                tagi:
+                  type: string
+                  description: Opcjonalne tagi — lista po przecinku lub JSON-tablica stringów (max 20)
       responses:
         "200":
           description: `{ message, sciezka }`
@@ -1304,6 +1687,59 @@ paths:
           description: Brak pliku / nie obraz
         "403":
           description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/zdjecia/{photoId}:
+    patch:
+      summary: Aktualizacja metadanych zdjęcia (np. opis, typ)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                opis: { type: string, nullable: true }
+                typ: { type: string }
+                tagi:
+                  oneOf:
+                    - type: array
+                      items: { type: string }
+                    - type: string
+                      description: Lista rozdzielona przecinkami lub średnikami
+      responses:
+        "200":
+          description: Zaktualizowany rekord zdjęcia
+        "404":
+          description: Nie znaleziono
+        "403":
+          description: Brak dostępu
+    delete:
+      summary: Usunięcie zdjęcia z zlecenia (plik na dysku — best effort)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: photoId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: `{ ok: true }`
+        "404":
+          description: Nie znaleziono
+        "403":
+          description: Brak dostępu
   /klienci/{id}:
     get:
       summary: Klient z historią zleceń i oględzin
@@ -2288,6 +2724,110 @@ components:
       required: [status]
       properties:
         status: { type: string }
+    TaskFinishBody:
+      type: object
+      properties:
+        lat: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        lng: { oneOf: [{ type: number }, { type: string }], nullable: true }
+        notatki: { type: string, nullable: true }
+        zuzyte_materialy:
+          type: array
+          maxItems: 50
+          description: F3.7 — zużycie przy finish (głównie ekipa); zapisywane do `task_finish_material_usage`
+          items:
+            type: object
+            required: [nazwa]
+            properties:
+              nazwa: { type: string, maxLength: 200 }
+              ilosc: { type: number, nullable: true }
+              jednostka: { type: string, maxLength: 24, nullable: true }
+              notatka: { type: string, maxLength: 500, nullable: true }
+        payment:
+          type: object
+          properties:
+            forma_platnosc:
+              type: string
+              enum: [Gotowka, Przelew, Faktura_VAT, Brak]
+            kwota_odebrana: { oneOf: [{ type: number }, { type: string }], nullable: true }
+            faktura_vat: { type: boolean, nullable: true }
+            nip: { type: string, nullable: true }
+            notatki: { type: string, nullable: true }
+    TaskExtraWorkCreate:
+      type: object
+      required: [opis]
+      properties:
+        opis: { type: string }
+    TaskExtraWorkQuote:
+      type: object
+      required: [amount_pln]
+      properties:
+        amount_pln: { oneOf: [{ type: number }, { type: string }] }
+    TaskExtraWorkAccept:
+      type: object
+      required: [channel]
+      properties:
+        channel:
+          type: string
+          enum: [na_miejscu, sms]
+    PayrollTeamDayClose:
+      type: object
+      required: [team_id, report_date]
+      properties:
+        team_id: { type: integer }
+        report_date: { type: string, description: "YYYY-MM-DD" }
+    ExpoPushTokenBody:
+      type: object
+      required: [expo_token]
+      properties:
+        expo_token: { type: string, minLength: 32, maxLength: 512, description: "ExponentPushToken[…] z Expo" }
+        platform: { type: string, enum: [ios, android, unknown] }
+    ExpoPushTokenDeleteBody:
+      type: object
+      required: [expo_token]
+      properties:
+        expo_token: { type: string, minLength: 32, maxLength: 512 }
+    PayrollTeamDayCloseMobile:
+      type: object
+      required: [report_date]
+      properties:
+        report_date: { type: string, description: "YYYY-MM-DD" }
+    BranchCashPickup:
+      type: object
+      required: [oddzial_id, team_id, pickup_date, declared_cash]
+      properties:
+        oddzial_id: { type: integer }
+        team_id: { type: integer }
+        pickup_date: { type: string, description: "YYYY-MM-DD" }
+        declared_cash: { type: number, minimum: 0 }
+    PayrollLineCorrectionLogEntry:
+      type: object
+      description: Wiersz z `payroll_line_correction_log` + join raportu i użytkowników
+      properties:
+        id: { type: integer }
+        created_at: { type: string, format: date-time }
+        line_id: { type: integer }
+        report_id: { type: integer }
+        target_user_id: { type: integer, nullable: true }
+        edited_by: { type: integer, nullable: true }
+        prev_pay_pln: { type: number }
+        prev_hours_total: { type: number }
+        new_pay_pln: { type: number }
+        new_hours_total: { type: number }
+        correction_note: { type: string, nullable: true }
+        report_date: { type: string, description: "YYYY-MM-DD" }
+        team_id: { type: integer }
+        oddzial_id: { type: integer }
+        editor_imie: { type: string, nullable: true }
+        editor_nazwisko: { type: string, nullable: true }
+        target_imie: { type: string, nullable: true }
+        target_nazwisko: { type: string, nullable: true }
+    PayrollLinePatch:
+      type: object
+      description: Przynajmniej jedno z pól kwoty / godzin
+      properties:
+        pay_pln: { type: number, minimum: 0 }
+        hours_total: { type: number, minimum: 0 }
+        correction_note: { type: string, maxLength: 500 }
   securitySchemes:
     bearerAuth:
       type: http

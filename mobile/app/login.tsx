@@ -15,6 +15,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { triggerHaptic } from '../utils/haptics';
 import { saveStoredSession } from '../utils/session';
+import { tryRegisterPushTokenAfterAuth } from '../utils/expo-push-backend';
 
 const LAST_LOGIN_KEY = 'last_login_value';
 const REMEMBER_LOGIN_KEY = 'remember_login_enabled';
@@ -134,6 +135,7 @@ export default function Login() {
         void triggerHaptic('success');
         const { fetchAndApplyMobileRemoteConfig } = await import('../utils/mobile-remote-config');
         void fetchAndApplyMobileRemoteConfig(data.token);
+        void tryRegisterPushTokenAfterAuth(data.token);
         router.replace('/dashboard');
       } else {
         const backendMessage =

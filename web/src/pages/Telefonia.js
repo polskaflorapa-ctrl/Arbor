@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
@@ -7,9 +7,11 @@ import StatusMessage from '../components/StatusMessage';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { telHref, normalizePhone } from '../utils/telLink';
 
 export default function Telefonia() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [sms, setSms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,6 +29,35 @@ export default function Telefonia() {
     recipient_name: '',
     recipient_phone: '',
     text: '',
+  });
+
+  const [tab, setTab] = useState('sms');
+  const [oddzialy, setOddzialy] = useState([]);
+  const [callRows, setCallRows] = useState([]);
+  const [callbacks, setCallbacks] = useState([]);
+  const [telLoading, setTelLoading] = useState(false);
+  const [telError, setTelError] = useState('');
+  const [savingCall, setSavingCall] = useState(false);
+  const [savingCb, setSavingCb] = useState(false);
+  const [updatingCbId, setUpdatingCbId] = useState(null);
+  const [callForm, setCallForm] = useState({
+    oddzial_id: '',
+    phone: '',
+    call_type: 'outbound',
+    status: 'answered',
+    duration_sec: '',
+    task_id: '',
+    lead_name: '',
+    notes: '',
+  });
+  const [cbForm, setCbForm] = useState({
+    oddzial_id: '',
+    phone: '',
+    task_id: '',
+    lead_name: '',
+    priority: 'normal',
+    due_at: '',
+    notes: '',
   });
 
   const SMS_LIMIT = 480;
@@ -54,7 +85,6 @@ export default function Telefonia() {
     },
   ];
 
-  const normalizePhone = (value) => String(value || '').replace(/[^\d+]/g, '');
   const isValidPhone = (value) => {
     const v = normalizePhone(value);
     if (!v) return false;
@@ -87,6 +117,170 @@ export default function Telefonia() {
       setLoading(false);
     }
   };
+
+  const loadTelephonyExtras = async () => {
+    setTelLoading(true);
+    setTelError('');
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const [o, c, b] = await Promise.all([
+        api.get('/oddzialy', { headers: h }),
+        api.get('/telephony/calls', { headers: h }),
+        api.get('/telephony/callbacks', { headers: h }),
+      ]);
+      setOddzialy(Array.isArray(o.data) ? o.data : []);
+      setCallRows(Array.isArray(c.data) ? c.data : []);
+      setCallbacks(Array.isArray(b.data) ? b.data : []);
+    } catch (e) {
+      setTelError(getApiErrorMessage(e, 'Nie udało się pobrać danych telefonii.'));
+    } finally {
+      setTelLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'calls') loadTelephonyExtras();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'calls') setTab('calls');
+    const oid = searchParams.get('oddzial_id');
+    const ph = searchParams.get('phone');
+    const tid = searchParams.get('task_id');
+    if (!oid && !ph && !tid) return;
+    setCallForm((f) => ({
+      ...f,
+      ...(oid ? { oddzial_id: String(oid) } : {}),
+      ...(ph ? { phone: decodeURIComponent(ph) } : {}),
+      ...(tid ? { task_id: String(tid) } : {}),
+    }));
+    setCbForm((f) => ({
+      ...f,
+      ...(oid ? { oddzial_id: String(oid) } : {}),
+      ...(ph ? { phone: decodeURIComponent(ph) } : {}),
+      ...(tid ? { task_id: String(tid) } : {}),
+    }));
+  }, [searchParams]);
+
+  const oddzialLabel = (id) => {
+    const o = oddzialy.find((x) => Number(x.id) === Number(id));
+    return o ? o.nazwa || `#${id}` : `#${id || '-'}`;
+  };
+
+  const saveCallLog = async (e) => {
+    e.preventDefault();
+    const oid = toIntLocal(callForm.oddzial_id);
+    const phone = normalizePhone(callForm.phone);
+    if (!oid) {
+      setTelError('Wybierz oddział.');
+      return;
+    }
+    if (!phone) {
+      setTelError('Podaj numer telefonu.');
+      return;
+    }
+    setSavingCall(true);
+    setTelError('');
+    try {
+      const token = getStoredToken();
+      const taskId = toIntLocal(callForm.task_id);
+      await api.post(
+        '/telephony/calls',
+        {
+          oddzial_id: oid,
+          phone,
+          call_type: callForm.call_type,
+          status: callForm.status,
+          duration_sec: callForm.duration_sec === '' ? 0 : Number(callForm.duration_sec) || 0,
+          task_id: taskId || undefined,
+          lead_name: callForm.lead_name.trim() || null,
+          notes: callForm.notes.trim() || null,
+        },
+        { headers: authHeaders(token) }
+      );
+      setCallForm((f) => ({
+        ...f,
+        phone: '',
+        duration_sec: '',
+        lead_name: '',
+        notes: '',
+        task_id: '',
+      }));
+      await loadTelephonyExtras();
+    } catch (e2) {
+      setTelError(getApiErrorMessage(e2, 'Nie udało się zapisać połączenia.'));
+    } finally {
+      setSavingCall(false);
+    }
+  };
+
+  const saveCallback = async (e) => {
+    e.preventDefault();
+    const oid = toIntLocal(cbForm.oddzial_id);
+    const phone = normalizePhone(cbForm.phone);
+    if (!oid) {
+      setTelError('Wybierz oddział (oddzwonienie).');
+      return;
+    }
+    if (!phone) {
+      setTelError('Podaj numer do oddzwonienia.');
+      return;
+    }
+    setSavingCb(true);
+    setTelError('');
+    try {
+      const token = getStoredToken();
+      const cbTaskId = toIntLocal(cbForm.task_id);
+      await api.post(
+        '/telephony/callbacks',
+        {
+          oddzial_id: oid,
+          phone,
+          task_id: cbTaskId || undefined,
+          lead_name: cbForm.lead_name.trim() || null,
+          priority: cbForm.priority,
+          due_at: cbForm.due_at ? new Date(`${cbForm.due_at}T12:00:00`).toISOString() : null,
+          notes: cbForm.notes.trim() || null,
+        },
+        { headers: authHeaders(token) }
+      );
+      setCbForm((f) => ({
+        ...f,
+        phone: '',
+        lead_name: '',
+        due_at: '',
+        notes: '',
+        task_id: '',
+      }));
+      await loadTelephonyExtras();
+    } catch (e2) {
+      setTelError(getApiErrorMessage(e2, 'Nie udało się dodać zadania oddzwonienia.'));
+    } finally {
+      setSavingCb(false);
+    }
+  };
+
+  const patchCallback = async (id, status) => {
+    setUpdatingCbId(id);
+    setTelError('');
+    try {
+      const token = getStoredToken();
+      await api.patch(`/telephony/callbacks/${id}/status`, { status }, { headers: authHeaders(token) });
+      await loadTelephonyExtras();
+    } catch (e2) {
+      setTelError(getApiErrorMessage(e2, 'Nie udało się zaktualizować statusu.'));
+    } finally {
+      setUpdatingCbId(null);
+    }
+  };
+
+  function toIntLocal(v) {
+    const n = parseInt(String(v), 10);
+    return Number.isFinite(n) ? n : 0;
+  }
 
   const statusOptions = useMemo(() => {
     const unique = [...new Set(sms.map((x) => x.status).filter(Boolean))];
@@ -285,26 +479,338 @@ export default function Telefonia() {
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.33 2 2 0 0 1 3.18 1h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.1 9a16 16 0 0 0 6.9 6.9l1.36-1.35a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
             </svg>
           }
-          title="Telefonia (SMS)"
-          subtitle={`Historia wysylek SMS: ${filtered.length}`}
+          title="Telefonia"
+          subtitle={
+            tab === 'sms'
+              ? `Historia SMS: ${filtered.length}`
+              : `Log połączeń: ${callRows.length} · kolejka oddzwonień: ${callbacks.filter((x) => x.status === 'open').length}`
+          }
           actions={
             <>
-              <button type="button" style={s.refreshBtn} onClick={exportCsv}>
-                Eksport CSV
-              </button>
-              <button type="button" style={s.refreshBtn} onClick={load}>
+              {tab === 'sms' && (
+                <button type="button" style={s.refreshBtn} onClick={exportCsv}>
+                  Eksport CSV
+                </button>
+              )}
+              <button type="button" style={s.refreshBtn} onClick={() => (tab === 'sms' ? load() : loadTelephonyExtras())}>
                 Odswiez
               </button>
             </>
           }
         />
 
-        {!!error && (
+        <div style={s.tabRow}>
+          <button type="button" style={tab === 'sms' ? s.tabActive : s.tab} onClick={() => setTab('sms')}>
+            SMS
+          </button>
+          <button type="button" style={tab === 'calls' ? s.tabActive : s.tab} onClick={() => setTab('calls')}>
+            Połączenia i oddzwonienia
+          </button>
+        </div>
+
+        {!!error && tab === 'sms' && (
           <div style={{ marginBottom: 12 }}>
             <StatusMessage message={error} type="error" />
           </div>
         )}
+        {!!telError && tab === 'calls' && (
+          <div style={{ marginBottom: 12 }}>
+            <StatusMessage message={telError} type="error" />
+          </div>
+        )}
 
+        {tab === 'calls' && (
+          <div style={s.panel}>
+            <div style={s.callsIntro}>
+              Kliknięcie „Zadzwoń” otwiera aplikację telefonu (<code>tel:</code>) — działa na komputerze z softphone lub na telefonie. Zapis połączenia i kolejka oddzwonień są w bazie aplikacji (integracja VoIP możliwa później).
+            </div>
+            {telLoading && <div style={s.empty}>Ładowanie…</div>}
+            <div style={s.callsGrid}>
+              <form style={s.callForm} onSubmit={saveCallLog}>
+                <div style={s.manualTitle}>Zarejestruj połączenie</div>
+                <select
+                  value={callForm.oddzial_id}
+                  onChange={(e) => setCallForm((f) => ({ ...f, oddzial_id: e.target.value }))}
+                  style={s.input}
+                  required
+                >
+                  <option value="">Oddział…</option>
+                  {oddzialy.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nazwa || `Oddział #${o.id}`}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={callForm.phone}
+                  onChange={(e) => setCallForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="Numer (+48 …)"
+                  style={s.input}
+                />
+                <div style={s.inline2}>
+                  <select
+                    value={callForm.call_type}
+                    onChange={(e) => setCallForm((f) => ({ ...f, call_type: e.target.value }))}
+                    style={s.input}
+                  >
+                    <option value="outbound">Wychodzące</option>
+                    <option value="inbound">Przychodzące</option>
+                  </select>
+                  <select
+                    value={callForm.status}
+                    onChange={(e) => setCallForm((f) => ({ ...f, status: e.target.value }))}
+                    style={s.input}
+                  >
+                    <option value="answered">Odebrane</option>
+                    <option value="missed">Nieodebrane</option>
+                    <option value="busy">Zajęte</option>
+                    <option value="voicemail">Poczta głosowa</option>
+                  </select>
+                </div>
+                <input
+                  value={callForm.duration_sec}
+                  onChange={(e) => setCallForm((f) => ({ ...f, duration_sec: e.target.value }))}
+                  placeholder="Czas trwania (sekundy, opcjonalnie)"
+                  style={s.input}
+                  inputMode="numeric"
+                />
+                <input
+                  value={callForm.task_id}
+                  onChange={(e) => setCallForm((f) => ({ ...f, task_id: e.target.value.replace(/\D/g, '') }))}
+                  placeholder="Nr zlecenia (opcjonalnie)"
+                  style={s.input}
+                  inputMode="numeric"
+                />
+                <input
+                  value={callForm.lead_name}
+                  onChange={(e) => setCallForm((f) => ({ ...f, lead_name: e.target.value }))}
+                  placeholder="Nazwa kontaktu (opcjonalnie)"
+                  style={s.input}
+                />
+                <textarea
+                  value={callForm.notes}
+                  onChange={(e) => setCallForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Notatka z rozmowy…"
+                  rows={2}
+                  style={s.textarea}
+                />
+                <div style={s.inlineActions}>
+                  <button type="submit" style={s.sendBtn} disabled={savingCall}>
+                    {savingCall ? 'Zapis…' : 'Zapisz w logu'}
+                  </button>
+                  {telHref(callForm.phone) ? (
+                    <a href={telHref(callForm.phone)} style={s.telLink}>
+                      Zadzwoń
+                    </a>
+                  ) : null}
+                </div>
+              </form>
+
+              <form style={s.callForm} onSubmit={saveCallback}>
+                <div style={s.manualTitle}>Dodaj oddzwonienie</div>
+                <select
+                  value={cbForm.oddzial_id}
+                  onChange={(e) => setCbForm((f) => ({ ...f, oddzial_id: e.target.value }))}
+                  style={s.input}
+                  required
+                >
+                  <option value="">Oddział…</option>
+                  {oddzialy.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nazwa || `Oddział #${o.id}`}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={cbForm.phone}
+                  onChange={(e) => setCbForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="Numer do oddzwonienia"
+                  style={s.input}
+                />
+                <input
+                  value={cbForm.lead_name}
+                  onChange={(e) => setCbForm((f) => ({ ...f, lead_name: e.target.value }))}
+                  placeholder="Kontakt / firma"
+                  style={s.input}
+                />
+                <input
+                  value={cbForm.task_id}
+                  onChange={(e) => setCbForm((f) => ({ ...f, task_id: e.target.value.replace(/\D/g, '') }))}
+                  placeholder="Nr zlecenia (opcjonalnie)"
+                  style={s.input}
+                  inputMode="numeric"
+                />
+                <div style={s.inline2}>
+                  <select
+                    value={cbForm.priority}
+                    onChange={(e) => setCbForm((f) => ({ ...f, priority: e.target.value }))}
+                    style={s.input}
+                  >
+                    <option value="low">Priorytet: niski</option>
+                    <option value="normal">Priorytet: normalny</option>
+                    <option value="high">Priorytet: wysoki</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={cbForm.due_at}
+                    onChange={(e) => setCbForm((f) => ({ ...f, due_at: e.target.value }))}
+                    style={s.input}
+                  />
+                </div>
+                <textarea
+                  value={cbForm.notes}
+                  onChange={(e) => setCbForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Dlaczego oddzwonić…"
+                  rows={2}
+                  style={s.textarea}
+                />
+                <div style={s.inlineActions}>
+                  <button type="submit" style={s.sendBtn} disabled={savingCb}>
+                    {savingCb ? 'Dodawanie…' : 'Dodaj do kolejki'}
+                  </button>
+                  {telHref(cbForm.phone) ? (
+                    <a href={telHref(cbForm.phone)} style={s.telLink}>
+                      Zadzwoń
+                    </a>
+                  ) : null}
+                </div>
+              </form>
+            </div>
+
+            <div style={s.sectionTitle}>Kolejka oddzwonień (otwarte)</div>
+            {callbacks.filter((x) => x.status === 'open').length === 0 ? (
+              <div style={s.emptyMuted}>Brak otwartych zadań.</div>
+            ) : (
+              <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Oddział</th>
+                      <th style={s.th}>Telefon</th>
+                      <th style={s.th}>Zlecenie</th>
+                      <th style={s.th}>Kontakt</th>
+                      <th style={s.th}>Termin</th>
+                      <th style={s.th}>Priorytet</th>
+                      <th style={s.th}>Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {callbacks
+                      .filter((x) => x.status === 'open')
+                      .map((x) => (
+                        <tr key={x.id}>
+                          <td style={s.td}>{oddzialLabel(x.oddzial_id)}</td>
+                          <td style={s.td}>
+                            {x.phone}
+                            {telHref(x.phone) ? (
+                              <>
+                                {' '}
+                                <a href={telHref(x.phone)} style={s.telLinkSmall}>
+                                  Zadzwoń
+                                </a>
+                              </>
+                            ) : null}
+                          </td>
+                          <td style={s.td}>
+                            {x.task_id ? (
+                              <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
+                                #{x.task_id}
+                              </button>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td style={s.td}>{x.lead_name || '—'}</td>
+                          <td style={s.td}>
+                            {x.due_at ? new Date(x.due_at).toLocaleDateString('pl-PL') : '—'}
+                          </td>
+                          <td style={s.td}>{x.priority || 'normal'}</td>
+                          <td style={s.td}>
+                            <div style={s.actions}>
+                              <button
+                                type="button"
+                                style={s.rowBtn}
+                                disabled={updatingCbId === x.id}
+                                onClick={() => patchCallback(x.id, 'done')}
+                              >
+                                Gotowe
+                              </button>
+                              <button
+                                type="button"
+                                style={s.rowBtn}
+                                disabled={updatingCbId === x.id}
+                                onClick={() => patchCallback(x.id, 'cancelled')}
+                              >
+                                Anuluj
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={s.sectionTitle}>Ostatnie połączenia (log)</div>
+            {callRows.length === 0 ? (
+              <div style={s.emptyMuted}>Brak wpisów — zarejestruj pierwsze połączenie powyżej.</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Data</th>
+                      <th style={s.th}>Oddział</th>
+                      <th style={s.th}>Numer</th>
+                      <th style={s.th}>Zlecenie</th>
+                      <th style={s.th}>Typ</th>
+                      <th style={s.th}>Status</th>
+                      <th style={s.th}>Czas (s)</th>
+                      <th style={s.th}>Kontakt</th>
+                      <th style={s.th}>Notatka</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {callRows.slice(0, 80).map((x) => (
+                      <tr key={x.id}>
+                        <td style={s.td}>{x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : '—'}</td>
+                        <td style={s.td}>{oddzialLabel(x.oddzial_id)}</td>
+                        <td style={s.td}>
+                          {x.phone}
+                          {telHref(x.phone) ? (
+                            <>
+                              {' '}
+                              <a href={telHref(x.phone)} style={s.telLinkSmall}>
+                                tel
+                              </a>
+                            </>
+                          ) : null}
+                        </td>
+                        <td style={s.td}>
+                          {x.task_id ? (
+                            <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
+                              #{x.task_id}
+                            </button>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td style={s.td}>{x.call_type || '—'}</td>
+                        <td style={s.td}>{x.status || '—'}</td>
+                        <td style={s.td}>{x.duration_sec != null ? x.duration_sec : '—'}</td>
+                        <td style={s.td}>{x.lead_name || '—'}</td>
+                        <td style={s.td}>{x.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'sms' && (
         <div style={s.panel}>
           <form style={s.manualBox} onSubmit={sendManualSms}>
             <div style={s.manualTitle}>Szybki SMS (reczny)</div>
@@ -436,7 +942,23 @@ export default function Telefonia() {
                       <td style={s.td}>{x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : '-'}</td>
                       <td style={s.td}>#{x.task_id || '-'}</td>
                       <td style={s.td}>{x.recipient_name || '-'}</td>
-                      <td style={s.td}>{x.recipient_phone || '-'}</td>
+                      <td style={s.td}>
+                        {x.recipient_phone ? (
+                          <>
+                            {x.recipient_phone}
+                            {telHref(x.recipient_phone) ? (
+                              <>
+                                {' '}
+                                <a href={telHref(x.recipient_phone)} style={s.telLinkSmall}>
+                                  Zadzwoń
+                                </a>
+                              </>
+                            ) : null}
+                          </>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
                       <td style={s.td}>{x.typ || '-'}</td>
                       <td style={s.td}>
                         <span
@@ -526,6 +1048,7 @@ export default function Telefonia() {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );
@@ -773,5 +1296,93 @@ const s = {
     fontSize: 11,
     color: 'var(--text-muted)',
     marginTop: 2,
+  },
+  tabRow: {
+    display: 'flex',
+    gap: 8,
+    marginBottom: 14,
+  },
+  tab: {
+    padding: '8px 14px',
+    borderRadius: 10,
+    border: '1px solid var(--border2)',
+    background: 'var(--bg-deep)',
+    color: 'var(--text-sub)',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  tabActive: {
+    padding: '8px 14px',
+    borderRadius: 10,
+    border: '1px solid var(--accent)',
+    background: 'rgba(34,197,94,0.12)',
+    color: 'var(--text)',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  callsIntro: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    marginBottom: 12,
+    lineHeight: 1.45,
+  },
+  callsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: 12,
+    marginBottom: 16,
+  },
+  callForm: {
+    background: 'var(--bg-deep)',
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  inline2: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 8,
+  },
+  inlineActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+  },
+  telLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '8px 12px',
+    borderRadius: 8,
+    border: '1px solid var(--border2)',
+    background: 'var(--bg-card)',
+    color: 'var(--accent)',
+    fontWeight: 700,
+    textDecoration: 'none',
+    fontSize: 13,
+  },
+  telLinkSmall: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--accent)',
+    textDecoration: 'none',
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--text)',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  emptyMuted: {
+    padding: '12px 4px',
+    color: 'var(--text-muted)',
+    fontSize: 13,
+    marginBottom: 12,
   },
 };

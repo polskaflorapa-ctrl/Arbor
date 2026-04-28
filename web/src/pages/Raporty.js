@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
@@ -17,6 +17,7 @@ import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 import LocalFloristOutlined from '@mui/icons-material/LocalFloristOutlined';
 import SearchOutlined from '@mui/icons-material/SearchOutlined';
 import TrackChangesOutlined from '@mui/icons-material/TrackChangesOutlined';
+import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
@@ -40,6 +41,20 @@ const UI_COLORS = {
   muted: '#64748b',
 };
 
+function isTaskCancelled(z) {
+  return z.status === 'Anulowane';
+}
+
+function isTaskDone(z) {
+  return z.status === 'Zakonczone' || z.status === 'Zakończone';
+}
+
+function taskDayKey(z) {
+  const raw = (z.data_wykonania || z.data_planowana || '').toString();
+  const d = raw.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '';
+}
+
 export default function Raporty() {
   const { t, i18n } = useTranslation();
   const [zlecenia, setZlecenia] = useState([]);
@@ -51,7 +66,21 @@ export default function Raporty() {
   const [filtrMiesiac, setFiltrMiesiac] = useState(new Date().toISOString().slice(0, 7));
   const [filtrRok, setFiltrRok] = useState(new Date().getFullYear());
   const [activeTab, setActiveTab] = useState('podsumowanie');
+  /** Okres agregacji w zakładce „Brygadziści”: miesiąc (jak filtry), cały rok, lub wszystkie wczytane dane */
+  const [analizaOkres, setAnalizaOkres] = useState('miesiac');
   const [currentUser, setCurrentUser] = useState(null);
+  const [oddzialCele, setOddzialCele] = useState([]);
+  const [oddzialCeleDraft, setOddzialCeleDraft] = useState({});
+  const [savingCeleKey, setSavingCeleKey] = useState('');
+  const [ogledziny, setOgledziny] = useState([]);
+  const [wyceny, setWyceny] = useState([]);
+  const [oddzialSprzedaz, setOddzialSprzedaz] = useState([]);
+  const [oddzialSprzedazDraft, setOddzialSprzedazDraft] = useState({});
+  const [savingSprzedazKey, setSavingSprzedazKey] = useState('');
+  const [callLogs, setCallLogs] = useState([]);
+  const [callbackTasks, setCallbackTasks] = useState([]);
+  const [newCallForm, setNewCallForm] = useState({ oddzial_id: '', phone: '', call_type: 'outbound', status: 'missed', duration_sec: '', lead_name: '', notes: '' });
+  const [newCallbackForm, setNewCallbackForm] = useState({ oddzial_id: '', phone: '', lead_name: '', priority: 'normal', due_at: '', notes: '' });
   const navigate = useNavigate();
  
   // POPRAWKA: obliczane na poziomie komponentu, dostępne w JSX
@@ -76,20 +105,79 @@ export default function Raporty() {
         ? `/tasks/wszystkie`
         : `/tasks`;
  
-      const [zRes, oRes, eRes] = await Promise.all([
+      const [zRes, oRes, eRes, oglRes, wycRes, callsRes, callbacksRes] = await Promise.all([
         api.get(endpoint, { headers: h }),
         api.get(`/oddzialy`, { headers: h }),
         api.get(`/ekipy`, { headers: h }),
+        api.get(`/ogledziny`, { headers: h }),
+        api.get(`/wyceny`, { headers: h }),
+        api.get(`/telephony/calls`, { headers: h }),
+        api.get(`/telephony/callbacks`, { headers: h }),
       ]);
       setZlecenia(zRes.data);
       setOddzialy(oRes.data);
       setEkipy(eRes.data);
+      setOgledziny(Array.isArray(oglRes.data) ? oglRes.data : []);
+      setWyceny(Array.isArray(wycRes.data) ? wycRes.data : []);
+      setCallLogs(Array.isArray(callsRes.data) ? callsRes.data : []);
+      setCallbackTasks(Array.isArray(callbacksRes.data) ? callbacksRes.data : []);
     } catch (err) {
       console.log('Błąd ładowania:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  const loadCele = async (rok, miesiacIso) => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const month = Number((miesiacIso || '').split('-')[1]) || 1;
+      const { data } = await api.get(`/oddzialy/cele?rok=${rok}&miesiac=${month}`, { headers: h });
+      const rows = Array.isArray(data) ? data : [];
+      setOddzialCele(rows);
+      const draft = {};
+      rows.forEach((row) => {
+        draft[row.oddzial_id] = {
+          plan_zlecen: row.plan_zlecen ?? 0,
+          plan_obrotu: row.plan_obrotu ?? 0,
+          plan_marzy: row.plan_marzy ?? 0,
+        };
+      });
+      setOddzialCeleDraft((prev) => ({ ...prev, ...draft }));
+    } catch (err) {
+      console.log('Błąd ładowania celów oddziałów:', err);
+    }
+  };
+
+  const loadSprzedaz = async (rok, miesiacIso) => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const month = Number((miesiacIso || '').split('-')[1]) || 1;
+      const { data } = await api.get(`/oddzialy/sprzedaz?rok=${rok}&miesiac=${month}`, { headers: h });
+      const rows = Array.isArray(data) ? data : [];
+      setOddzialSprzedaz(rows);
+      const draft = {};
+      rows.forEach((row) => {
+        draft[row.oddzial_id] = {
+          calls_total: row.calls_total ?? 0,
+          calls_answered: row.calls_answered ?? 0,
+          calls_missed: row.calls_missed ?? 0,
+          leads_new: row.leads_new ?? 0,
+          meetings_booked: row.meetings_booked ?? 0,
+        };
+      });
+      setOddzialSprzedazDraft((prev) => ({ ...prev, ...draft }));
+    } catch (err) {
+      console.log('Błąd ładowania sprzedaży oddziałów:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadCele(filtrRok, filtrMiesiac);
+    loadSprzedaz(filtrRok, filtrMiesiac);
+  }, [filtrRok, filtrMiesiac]); // eslint-disable-line react-hooks/exhaustive-deps
  
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
@@ -106,10 +194,10 @@ export default function Raporty() {
   });
  
   const localeNum = i18n.language === 'uk' ? 'uk-UA' : i18n.language === 'ru' ? 'ru-RU' : 'pl-PL';
-  const formatCurrency = (value) => {
+  const formatCurrency = useCallback((value) => {
     if (!value) return `0 PLN`;
     return parseFloat(value).toLocaleString(localeNum, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' PLN';
-  };
+  }, [localeNum]);
  
   const sumaWartosc = filtrowane.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
   const zakonczone = filtrowane.filter(z => z.status === 'Zakonczone');
@@ -167,6 +255,415 @@ export default function Raporty() {
   const ekipyFiltered = filtrOddzial
     ? ekipy.filter(e => e.oddzial_id === parseInt(filtrOddzial))
     : ekipy;
+
+  const zleceniaDoAnalizyBryg = useMemo(() => {
+    const matchesDate = (z) => {
+      if (analizaOkres === 'caly') return true;
+      const dp = (z.data_planowana || '').toString();
+      if (!dp) return false;
+      const y = dp.slice(0, 4);
+      if (analizaOkres === 'rok') return y === String(filtrRok);
+      const m = dp.slice(0, 7);
+      return y === String(filtrRok) && m === filtrMiesiac;
+    };
+    return zlecenia.filter((z) => {
+      if (z.typ === 'wycena') return false;
+      if (!matchesDate(z)) return false;
+      if (filtrOddzial && String(z.oddzial_id) !== String(filtrOddzial)) return false;
+      if (filtrEkipa && String(z.ekipa_id || '') !== String(filtrEkipa)) return false;
+      return true;
+    });
+  }, [zlecenia, analizaOkres, filtrRok, filtrMiesiac, filtrOddzial, filtrEkipa]);
+
+  const rankingBrygadzistow = useMemo(() => {
+    const teamById = new Map(ekipy.map((e) => [e.id, e]));
+    const rowsMap = new Map();
+
+    const bump = (key, label, kind) => {
+      if (!rowsMap.has(key)) {
+        rowsMap.set(key, {
+          key,
+          label,
+          kind,
+          oddzialy: new Set(),
+          ekipyNazwy: new Set(),
+          obrot: 0,
+          zlecenia: 0,
+          zakonczone: 0,
+          dop: 0,
+          bony: 0,
+          dni: new Set(),
+        });
+      }
+      return rowsMap.get(key);
+    };
+
+    for (const z of zleceniaDoAnalizyBryg) {
+      if (isTaskCancelled(z)) continue;
+      const tid = z.ekipa_id;
+      if (!tid) {
+        const r = bump('_nie_ekipa', 'Zlecenia bez ekipy', 'ghost');
+        r.zlecenia += 1;
+        r.dop += Number(z.dodatkowe_uslugi_liczba) || 0;
+        r.bony += Number(z.bony_liczba) || 0;
+        if (isTaskDone(z)) {
+          r.obrot += parseFloat(z.wartosc_planowana) || 0;
+          r.zakonczone += 1;
+        }
+        const dk = taskDayKey(z);
+        if (dk) r.dni.add(dk);
+        if (z.oddzial_id != null) {
+          const on = oddzialy.find((o) => o.id === z.oddzial_id)?.nazwa;
+          if (on) r.oddzialy.add(on);
+        }
+        continue;
+      }
+      const team = teamById.get(tid);
+      if (team?.brygadzista_id) {
+        const key = `u:${team.brygadzista_id}`;
+        const label = [team.brygadzista_imie, team.brygadzista_nazwisko].filter(Boolean).join(' ').trim() || `Brygadzista #${team.brygadzista_id}`;
+        const r = bump(key, label, 'leader');
+        r.zlecenia += 1;
+        r.dop += Number(z.dodatkowe_uslugi_liczba) || 0;
+        r.bony += Number(z.bony_liczba) || 0;
+        if (isTaskDone(z)) {
+          r.obrot += parseFloat(z.wartosc_planowana) || 0;
+          r.zakonczone += 1;
+        }
+        const dk = taskDayKey(z);
+        if (dk) r.dni.add(dk);
+        if (team.oddzial_id != null) {
+          const on = oddzialy.find((o) => o.id === team.oddzial_id)?.nazwa;
+          if (on) r.oddzialy.add(on);
+        }
+        if (team.nazwa) r.ekipyNazwy.add(team.nazwa);
+      } else {
+        const r = bump(`e:${tid}`, `${team?.nazwa || 'Ekipa'} — brak brygadzisty`, 'noLeader');
+        r.zlecenia += 1;
+        r.dop += Number(z.dodatkowe_uslugi_liczba) || 0;
+        r.bony += Number(z.bony_liczba) || 0;
+        if (isTaskDone(z)) {
+          r.obrot += parseFloat(z.wartosc_planowana) || 0;
+          r.zakonczone += 1;
+        }
+        const dk = taskDayKey(z);
+        if (dk) r.dni.add(dk);
+        if (team?.oddzial_id != null) {
+          const on = oddzialy.find((o) => o.id === team.oddzial_id)?.nazwa;
+          if (on) r.oddzialy.add(on);
+        }
+        if (team?.nazwa) r.ekipyNazwy.add(team.nazwa);
+      }
+    }
+
+    const rows = Array.from(rowsMap.values()).map((r) => {
+      const dniLiczba = r.dni.size;
+      return {
+        ...r,
+        oddzialyArr: [...r.oddzialy].sort(),
+        ekipyArr: [...r.ekipyNazwy].sort(),
+        dniLiczba,
+        sredniObrotNaDzien: dniLiczba > 0 ? r.obrot / dniLiczba : 0,
+      };
+    });
+    rows.sort((a, b) => {
+      const pri = (x) => (x.kind === 'leader' ? 0 : x.kind === 'noLeader' ? 1 : 2);
+      const p = pri(a) - pri(b);
+      if (p !== 0) return p;
+      return b.obrot - a.obrot;
+    });
+    return rows;
+  }, [zleceniaDoAnalizyBryg, ekipy, oddzialy]);
+
+  const brygadzisciInsights = useMemo(() => {
+    const leaders = rankingBrygadzistow.filter((r) => r.kind === 'leader');
+    const ghost = rankingBrygadzistow.filter((r) => r.kind !== 'leader');
+    const top = [...leaders].sort((a, b) => b.obrot - a.obrot).slice(0, 3);
+    const alerts = [];
+    for (const r of leaders) {
+      if (r.zlecenia >= 25 && r.dop <= 3 && r.bony <= 5) {
+        alerts.push(t('pages.raporty.brygadzisci.alertLowUpsell', { name: r.label, zlec: r.zlecenia, dop: r.dop, bony: r.bony }));
+      }
+      if (r.zlecenia >= 15 && r.bony === 0) {
+        alerts.push(t('pages.raporty.brygadzisci.alertNoBony', { name: r.label, zlec: r.zlecenia }));
+      }
+    }
+    const sumObrot = leaders.reduce((s, r) => s + r.obrot, 0);
+    const ghostObrot = ghost.reduce((s, r) => s + r.obrot, 0);
+    const systemic = [];
+    if (ghostObrot > 0 && sumObrot > 0 && ghostObrot / (sumObrot + ghostObrot) >= 0.08) {
+      systemic.push(t('pages.raporty.brygadzisci.systemicGhostTurnover', { value: formatCurrency(ghostObrot) }));
+    }
+    if (ghost.some((g) => g.zlecenia > 0)) {
+      systemic.push(t('pages.raporty.brygadzisci.systemicUnassigned', { count: ghost.reduce((s, g) => s + g.zlecenia, 0) }));
+    }
+    const topWithDays = top.filter((r) => r.dniLiczba > 0);
+    const avgTop =
+      topWithDays.length > 0 ? topWithDays.reduce((s, r) => s + r.obrot / r.dniLiczba, 0) / topWithDays.length : 0;
+    if (avgTop > 0 && leaders.length > 3) {
+      const rest = leaders.filter((x) => !top.some((tp) => tp.key === x.key));
+      const restWithDays = rest.filter((r) => r.dniLiczba > 0);
+      const avgRest =
+        restWithDays.length > 0 ? restWithDays.reduce((s, r) => s + r.obrot / r.dniLiczba, 0) / restWithDays.length : 0;
+      if (avgRest > 0 && avgTop / avgRest >= 1.35) {
+        systemic.push(t('pages.raporty.brygadzisci.systemicSpread', { top: formatCurrency(avgTop), rest: formatCurrency(avgRest) }));
+      }
+    }
+    return { top, alerts, systemic };
+  }, [rankingBrygadzistow, t, formatCurrency]);
+
+  const celeMap = useMemo(() => {
+    const map = {};
+    oddzialCele.forEach((c) => { map[c.oddzial_id] = c; });
+    return map;
+  }, [oddzialCele]);
+
+  const sprzedazMap = useMemo(() => {
+    const map = {};
+    oddzialSprzedaz.forEach((s) => { map[s.oddzial_id] = s; });
+    return map;
+  }, [oddzialSprzedaz]);
+
+  const oddzialAnalytics = useMemo(() => {
+    const [yy, mm] = (filtrMiesiac || '').split('-');
+    const monthYear = Number(yy) || Number(filtrRok);
+    const monthIndex = (Number(mm) || 1) - 1;
+    const daysInMonth = new Date(monthYear, monthIndex + 1, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === monthYear && today.getMonth() === monthIndex;
+    const elapsedDays = isCurrentMonth ? Math.max(1, today.getDate()) : daysInMonth;
+    const dayLabels = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = String(i + 1).padStart(2, '0');
+      const mon = String(monthIndex + 1).padStart(2, '0');
+      return `${day}.${mon}`;
+    });
+
+    const rows = oddzialy.map((o) => {
+      const monthTasks = zlecenia.filter((z) => {
+        if (z.oddzial_id !== o.id || !z.data_planowana) return false;
+        const dt = new Date(z.data_planowana);
+        return dt.getFullYear() === monthYear && dt.getMonth() === monthIndex;
+      });
+      const doneTasks = monthTasks.filter((z) => z.status === 'Zakonczone');
+      const cel = celeMap[o.id];
+      const revenuePlan = cel?.plan_obrotu ?? monthTasks.reduce((sum, z) => sum + (parseFloat(z.wartosc_planowana) || 0), 0);
+      const revenueDone = doneTasks.reduce((sum, z) => sum + (parseFloat(z.wartosc_planowana) || 0), 0);
+
+      const dailyDoneMap = Array.from({ length: daysInMonth }, (_, idx) => {
+        const dayNum = idx + 1;
+        return doneTasks.filter((z) => new Date(z.data_planowana).getDate() === dayNum).length;
+      });
+
+      const planMonth = cel?.plan_zlecen ?? monthTasks.length;
+      const factMonth = doneTasks.length;
+      const monthlyPct = planMonth > 0 ? (factMonth / planMonth) * 100 : 0;
+      const dailyAvg = factMonth / elapsedDays;
+      const revenuePct = revenuePlan > 0 ? (revenueDone / revenuePlan) * 100 : 0;
+
+      return {
+        oddzialId: o.id,
+        oddzialNazwa: o.nazwa,
+        planMonth,
+        factMonth,
+        monthlyPct,
+        dailyAvg,
+        revenuePlan,
+        revenueDone,
+        revenuePct,
+        dailyDoneMap,
+      };
+    });
+
+    return { dayLabels, rows };
+  }, [oddzialy, zlecenia, filtrMiesiac, filtrRok, celeMap]);
+
+  const setCelDraftField = (oddzialId, field, value) => {
+    setOddzialCeleDraft((prev) => ({
+      ...prev,
+      [oddzialId]: {
+        ...(prev[oddzialId] || { plan_zlecen: 0, plan_obrotu: 0, plan_marzy: 0 }),
+        [field]: value,
+      },
+    }));
+  };
+
+  const zapiszCelOddzialu = async (oddzialId) => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const month = Number((filtrMiesiac || '').split('-')[1]) || 1;
+      const draft = oddzialCeleDraft[oddzialId] || {};
+      setSavingCeleKey(`${oddzialId}`);
+      await api.post('/oddzialy/cele', {
+        oddzial_id: oddzialId,
+        rok: filtrRok,
+        miesiac: month,
+        plan_zlecen: Number(draft.plan_zlecen || 0),
+        plan_obrotu: Number(draft.plan_obrotu || 0),
+        plan_marzy: Number(draft.plan_marzy || 0),
+      }, { headers: h });
+      await loadCele(filtrRok, filtrMiesiac);
+    } catch (err) {
+      console.log('Błąd zapisu celu oddziału:', err);
+    } finally {
+      setSavingCeleKey('');
+    }
+  };
+
+  const setSprzedazDraftField = (oddzialId, field, value) => {
+    setOddzialSprzedazDraft((prev) => ({
+      ...prev,
+      [oddzialId]: {
+        ...(prev[oddzialId] || {
+          calls_total: 0,
+          calls_answered: 0,
+          calls_missed: 0,
+          leads_new: 0,
+          meetings_booked: 0,
+        }),
+        [field]: value,
+      },
+    }));
+  };
+
+  const zapiszSprzedazOddzialu = async (oddzialId) => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const month = Number((filtrMiesiac || '').split('-')[1]) || 1;
+      const draft = oddzialSprzedazDraft[oddzialId] || {};
+      setSavingSprzedazKey(`${oddzialId}`);
+      await api.post('/oddzialy/sprzedaz', {
+        oddzial_id: oddzialId,
+        rok: filtrRok,
+        miesiac: month,
+        calls_total: Number(draft.calls_total || 0),
+        calls_answered: Number(draft.calls_answered || 0),
+        calls_missed: Number(draft.calls_missed || 0),
+        leads_new: Number(draft.leads_new || 0),
+        meetings_booked: Number(draft.meetings_booked || 0),
+      }, { headers: h });
+      await loadSprzedaz(filtrRok, filtrMiesiac);
+    } catch (err) {
+      console.log('Błąd zapisu danych sprzedaży oddziału:', err);
+    } finally {
+      setSavingSprzedazKey('');
+    }
+  };
+
+  const odswiezTelephony = async () => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const [callsRes, callbacksRes] = await Promise.all([
+        api.get('/telephony/calls', { headers: h }),
+        api.get('/telephony/callbacks', { headers: h }),
+      ]);
+      setCallLogs(Array.isArray(callsRes.data) ? callsRes.data : []);
+      setCallbackTasks(Array.isArray(callbacksRes.data) ? callbacksRes.data : []);
+    } catch (err) {
+      console.log('Błąd odświeżenia telephony:', err);
+    }
+  };
+
+  const dodajCallLog = async () => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      await api.post('/telephony/calls', {
+        ...newCallForm,
+        oddzial_id: Number(newCallForm.oddzial_id || 0),
+        duration_sec: Number(newCallForm.duration_sec || 0),
+      }, { headers: h });
+      setNewCallForm({ oddzial_id: '', phone: '', call_type: 'outbound', status: 'missed', duration_sec: '', lead_name: '', notes: '' });
+      await odswiezTelephony();
+    } catch (err) {
+      console.log('Błąd dodania call log:', err);
+    }
+  };
+
+  const dodajCallback = async () => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      await api.post('/telephony/callbacks', {
+        ...newCallbackForm,
+        oddzial_id: Number(newCallbackForm.oddzial_id || 0),
+      }, { headers: h });
+      setNewCallbackForm({ oddzial_id: '', phone: '', lead_name: '', priority: 'normal', due_at: '', notes: '' });
+      await odswiezTelephony();
+    } catch (err) {
+      console.log('Błąd dodania callback:', err);
+    }
+  };
+
+  const zmienCallbackStatus = async (id, status) => {
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      await api.patch(`/telephony/callbacks/${id}/status`, { status }, { headers: h });
+      await odswiezTelephony();
+    } catch (err) {
+      console.log('Błąd zmiany statusu callback:', err);
+    }
+  };
+
+  const salesFunnelByOddzial = useMemo(() => {
+    const [yy, mm] = (filtrMiesiac || '').split('-');
+    const monthYear = Number(yy) || Number(filtrRok);
+    const monthIndex = (Number(mm) || 1) - 1;
+    const inMonth = (dateStr) => {
+      if (!dateStr) return false;
+      const dt = new Date(dateStr);
+      return dt.getFullYear() === monthYear && dt.getMonth() === monthIndex;
+    };
+    return oddzialy.map((o) => {
+      const sales = sprzedazMap[o.id] || {};
+      const callsFromLogs = callLogs.filter((c) => Number(c.oddzial_id) === o.id && inMonth(c.created_at)).length;
+      const calls = callsFromLogs || Number(sales.calls_total || 0);
+      const leads = Number(sales.leads_new || 0);
+      const ogl = ogledziny.filter((g) => Number(g.oddzial_id) === o.id && inMonth(g.data_planowana || g.created_at)).length;
+      const wyc = wyceny.filter((w) => Number(w.oddzial_id) === o.id && inMonth(w.created_at)).length;
+      const approved = wyceny.filter((w) => Number(w.oddzial_id) === o.id && w.status_akceptacji === 'zatwierdzono' && inMonth(w.zatwierdzone_at || w.created_at)).length;
+      const tasksMonth = zlecenia.filter((z) => Number(z.oddzial_id) === o.id && z.typ !== 'wycena' && inMonth(z.data_planowana || z.created_at));
+      const closed = tasksMonth.filter((z) => z.status === 'Zakonczone').length;
+      const callbacksOpen = callbackTasks.filter((cb) => Number(cb.oddzial_id) === o.id && cb.status === 'open').length;
+      return {
+        oddzialId: o.id,
+        oddzialNazwa: o.nazwa,
+        calls,
+        leads,
+        ogl,
+        wyc,
+        approved,
+        closed,
+        callbacksOpen,
+      };
+    });
+  }, [oddzialy, sprzedazMap, ogledziny, wyceny, zlecenia, callLogs, callbackTasks, filtrMiesiac, filtrRok]);
+
+  const toPct = (from, to) => (Number(from) > 0 ? (Number(to) / Number(from)) * 100 : 0);
+  const conversionColor = (pct) => {
+    if (pct >= 70) return UI_COLORS.success;
+    if (pct >= 40) return UI_COLORS.warning;
+    return UI_COLORS.danger;
+  };
+  const findLeakStage = (row) => {
+    const stages = [
+      { key: 'Telefon->Lead', from: row.calls, to: row.leads },
+      { key: 'Lead->Oględziny', from: row.leads, to: row.ogl },
+      { key: 'Oględziny->Wycena', from: row.ogl, to: row.wyc },
+      { key: 'Wycena->Zatwierdzenie', from: row.wyc, to: row.approved },
+      { key: 'Zatwierdzenie->Zamknięcie', from: row.approved, to: row.closed },
+    ];
+    let min = { key: 'Brak danych', pct: 100 };
+    stages.forEach((s) => {
+      if (Number(s.from) <= 0) return;
+      const pct = toPct(s.from, s.to);
+      if (pct < min.pct) min = { key: s.key, pct };
+    });
+    return min;
+  };
  
   return (
     <div style={styles.container}>
@@ -264,8 +761,17 @@ export default function Raporty() {
           <button type="button" style={{...styles.tab, ...(activeTab === 'ekipy' ? styles.tabActive : {})}} onClick={() => setActiveTab('ekipy')}>
             {t('pages.raporty.tabByTeam')}
           </button>
+          <button type="button" style={{...styles.tab, ...(activeTab === 'brygadzisci' ? styles.tabActive : {})}} onClick={() => setActiveTab('brygadzisci')}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <LeaderboardOutlined sx={{ fontSize: 18 }} />
+              {t('pages.raporty.tabBrygadzisci')}
+            </span>
+          </button>
           <button type="button" style={{...styles.tab, ...(activeTab === 'miesiace' ? styles.tabActive : {})}} onClick={() => setActiveTab('miesiace')}>
             {t('pages.raporty.tabMonthly')}
+          </button>
+          <button type="button" style={{...styles.tab, ...(activeTab === 'sprzedaz' ? styles.tabActive : {})}} onClick={() => setActiveTab('sprzedaz')}>
+            Lejek sprzedaży
           </button>
           <button type="button" style={{...styles.tab, ...(activeTab === 'zlecenia' ? styles.tabActive : {})}} onClick={() => setActiveTab('zlecenia')}>
             {t('pages.raporty.tabList')}
@@ -365,30 +871,113 @@ export default function Raporty() {
                   </div>
                 );
               })}
-              <div style={{ ...styles.reportMetricCard, borderColor: 'var(--accent)' }}>
-                <div style={{ ...styles.reportTaskClient, marginBottom: 4 }}>{t('pages.raporty.footerTotal')}</div>
-                <div style={styles.reportTaskMeta}>
-                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thTasks')}</span>
-                  <span style={styles.reportMetaValue}>{zlecenia.length}</span>
-                </div>
-                <div style={styles.reportTaskMeta}>
-                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thDone')}</span>
-                  <span style={styles.reportMetaValue}>{zlecenia.filter(z => z.status === 'Zakonczone').length}</span>
-                </div>
-                <div style={styles.reportTaskMeta}>
-                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thEffectiveness')}</span>
-                  <span style={{ ...styles.badge, backgroundColor: 'var(--bg-deep)' }}>
-                    {zlecenia.length > 0 ? Math.round((zlecenia.filter(z => z.status === 'Zakonczone').length / zlecenia.length) * 100) : 0}%
-                  </span>
-                </div>
-                <div style={styles.reportTaskFooter}>
-                  <span style={styles.reportMetaLabel}>{t('pages.raporty.thValue')}</span>
-                  <span style={styles.reportValue}>
-                    {formatCurrency(zlecenia.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0))}
-                  </span>
-                </div>
-              </div>
             </div>
+
+            <div style={styles.analyticsTitleRow}>
+              <span style={styles.analyticsTitle}>Analityka oddziałów (miesięczna)</span>
+              <span style={styles.analyticsSubTitle}>Plan/Fakt + dzienny rozkład wykonanych zleceń</span>
+            </div>
+            <div style={styles.analyticsScroll}>
+              <table style={styles.analyticsTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.analyticsThSticky}>Oddział</th>
+                    <th style={styles.analyticsTh}>Plan / miesiąc</th>
+                    <th style={styles.analyticsTh}>Fakt / miesiąc</th>
+                    <th style={styles.analyticsTh}>Miesięcznie</th>
+                    <th style={styles.analyticsTh}>Śr. dziennie</th>
+                    <th style={styles.analyticsTh}>Obrót plan</th>
+                    <th style={styles.analyticsTh}>Obrót fakt</th>
+                    <th style={styles.analyticsTh}>Realizacja obrotu</th>
+                    {oddzialAnalytics.dayLabels.map((day) => (
+                      <th key={day} style={styles.analyticsThDay}>{day}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {oddzialAnalytics.rows.map((row) => (
+                    <tr key={row.oddzialId}>
+                      <td style={styles.analyticsTdSticky}>{row.oddzialNazwa}</td>
+                      <td style={styles.analyticsTd}>{row.planMonth}</td>
+                      <td style={styles.analyticsTd}>{row.factMonth}</td>
+                      <td style={styles.analyticsTd}>
+                        <span style={{ ...styles.badge, backgroundColor: getSkutecznoscColor(Math.round(row.monthlyPct)) }}>
+                          {row.monthlyPct.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td style={styles.analyticsTd}>{row.dailyAvg.toFixed(2)}</td>
+                      <td style={styles.analyticsTd}>{formatCurrency(row.revenuePlan)}</td>
+                      <td style={styles.analyticsTd}>{formatCurrency(row.revenueDone)}</td>
+                      <td style={styles.analyticsTd}>
+                        <span style={{ ...styles.badge, backgroundColor: getSkutecznoscColor(Math.round(row.revenuePct)) }}>
+                          {row.revenuePct.toFixed(1)}%
+                        </span>
+                      </td>
+                      {row.dailyDoneMap.map((val, idx) => (
+                        <td key={`${row.oddzialId}-${idx}`} style={styles.analyticsTdDay}>
+                          {val}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {(isDyrektor || isKierownik) && (
+              <>
+                <div style={styles.analyticsTitleRow}>
+                  <span style={styles.analyticsTitle}>Cele miesięczne oddziałów</span>
+                  <span style={styles.analyticsSubTitle}>Wpisz plan raz, raport liczy wykonanie automatycznie</span>
+                </div>
+                <div style={styles.analyticsGoalsGrid}>
+                  {oddzialy.map((o) => {
+                    const draft = oddzialCeleDraft[o.id] || { plan_zlecen: 0, plan_obrotu: 0, plan_marzy: 0 };
+                    const busy = savingCeleKey === `${o.id}`;
+                    return (
+                      <div key={`goal-${o.id}`} style={styles.goalCard}>
+                        <div style={styles.goalTitle}>{o.nazwa}</div>
+                        <div style={styles.goalFields}>
+                          <input
+                            style={styles.goalInput}
+                            type="number"
+                            min="0"
+                            value={draft.plan_zlecen}
+                            onChange={(e) => setCelDraftField(o.id, 'plan_zlecen', e.target.value)}
+                            placeholder="Plan zleceń"
+                          />
+                          <input
+                            style={styles.goalInput}
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={draft.plan_obrotu}
+                            onChange={(e) => setCelDraftField(o.id, 'plan_obrotu', e.target.value)}
+                            placeholder="Plan obrotu (PLN)"
+                          />
+                          <input
+                            style={styles.goalInput}
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={draft.plan_marzy}
+                            onChange={(e) => setCelDraftField(o.id, 'plan_marzy', e.target.value)}
+                            placeholder="Plan marży (PLN)"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          style={styles.goalSaveBtn}
+                          onClick={() => zapiszCelOddzialu(o.id)}
+                          disabled={busy}
+                        >
+                          {busy ? 'Zapisywanie...' : 'Zapisz cele'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
  
@@ -431,6 +1020,120 @@ export default function Raporty() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'brygadzisci' && (
+          <div style={styles.card}>
+            <div style={styles.cardTitle}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                <LeaderboardOutlined sx={{ fontSize: 22, color: 'var(--accent)' }} />
+                {t('pages.raporty.brygadzisci.title')}
+              </span>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16, lineHeight: 1.5 }}>
+              {t('pages.raporty.brygadzisci.hint')}
+            </p>
+            <div style={{ ...styles.filtryRow, marginBottom: 16 }}>
+              <div style={styles.filtrGroup}>
+                <label style={styles.filtrLabel}>{t('pages.raporty.brygadzisci.period')}</label>
+                <select style={styles.filtrInput} value={analizaOkres} onChange={(e) => setAnalizaOkres(e.target.value)}>
+                  <option value="miesiac">{t('pages.raporty.brygadzisci.periodMonth')}</option>
+                  <option value="rok">{t('pages.raporty.brygadzisci.periodYear')}</option>
+                  <option value="caly">{t('pages.raporty.brygadzisci.periodAll')}</option>
+                </select>
+              </div>
+            </div>
+            {rankingBrygadzistow.length === 0 ? (
+              <div style={styles.empty}>
+                <p>{t('pages.raporty.brygadzisci.emptyRanking')}</p>
+              </div>
+            ) : (
+              <div style={styles.tableScroll}>
+                <table style={{ ...styles.table, minWidth: 920 }}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>{t('pages.raporty.brygadzisci.thRank')}</th>
+                      <th style={styles.th}>{t('pages.raporty.brygadzisci.thLeader')}</th>
+                      <th style={styles.th}>{t('pages.raporty.brygadzisci.thBranches')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thTurnover')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thOrders')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thDone')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thUpsell')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thBony')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thDays')}</th>
+                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thAvgDay')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankingBrygadzistow.map((r, idx) => (
+                      <tr key={r.key}>
+                        <td style={styles.td}>{idx + 1}</td>
+                        <td style={{ ...styles.td, fontWeight: 700, color: 'var(--text)' }}>{r.label}</td>
+                        <td style={styles.td}>{r.oddzialyArr.length ? r.oddzialyArr.join(', ') : '—'}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: 'var(--accent)' }}>{formatCurrency(r.obrot)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.zlecenia.toLocaleString(localeNum)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.zakonczone.toLocaleString(localeNum)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.dop.toLocaleString(localeNum)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.bony.toLocaleString(localeNum)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.dniLiczba.toLocaleString(localeNum)}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', color: 'var(--text-sub)' }}>
+                          {r.dniLiczba > 0 ? formatCurrency(r.sredniObrotNaDzien) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ ...styles.twoCol, marginTop: 24 }}>
+              <div style={{ ...styles.card, marginBottom: 0, padding: 16 }}>
+                <div style={{ ...styles.cardTitle, marginBottom: 12, fontSize: 14 }}>{t('pages.raporty.brygadzisci.leadersTitle')}</div>
+                {brygadzisciInsights.top.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>—</p>
+                ) : (
+                  <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.55 }}>
+                    {brygadzisciInsights.top.map((r, idx) => (
+                      <li key={r.key}>
+                        {t('pages.raporty.brygadzisci.leaderLine', {
+                          rank: idx + 1,
+                          name: r.label,
+                          obrot: formatCurrency(r.obrot),
+                          zlec: r.zlecenia,
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div style={{ ...styles.card, marginBottom: 0, padding: 16 }}>
+                <div style={{ ...styles.cardTitle, marginBottom: 12, fontSize: 14 }}>{t('pages.raporty.brygadzisci.insightsTitle')}</div>
+                {brygadzisciInsights.alerts.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: UI_COLORS.warning, marginBottom: 6 }}>{t('pages.raporty.brygadzisci.alertsTitle')}</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.55 }}>
+                      {brygadzisciInsights.alerts.map((line, i) => (
+                        <li key={`a-${i}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {brygadzisciInsights.systemic.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{t('pages.raporty.brygadzisci.systemicTitle')}</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.55 }}>
+                      {brygadzisciInsights.systemic.map((line, i) => (
+                        <li key={`s-${i}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {brygadzisciInsights.alerts.length === 0 && brygadzisciInsights.systemic.length === 0 && (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('pages.raporty.brygadzisci.noAutoInsights')}</p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -477,6 +1180,172 @@ export default function Raporty() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'sprzedaz' && (
+          <div style={styles.card}>
+            <div style={styles.cardTitle}>Lejek sprzedaży (oddziały)</div>
+            <div style={styles.reportCardsGrid}>
+              {salesFunnelByOddzial.map((row) => (
+                <div key={`funnel-${row.oddzialId}`} style={styles.reportMetricCard}>
+                  <div style={styles.reportTaskTop}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, color: 'var(--text)' }}>
+                      <BusinessOutlined sx={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+                      {row.oddzialNazwa}
+                    </span>
+                  </div>
+                  {[
+                    ['Telefonów', row.calls],
+                    ['Nowe leady', row.leads],
+                    ['Oględziny', row.ogl],
+                    ['Wyceny', row.wyc],
+                    ['Zatwierdzone wyceny', row.approved],
+                    ['Zamknięte zlecenia', row.closed],
+                    ['Open callbacks', row.callbacksOpen],
+                  ].map(([label, value]) => (
+                    <div key={`${row.oddzialId}-${label}`} style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{label}</span>
+                      <span style={styles.reportMetaValue}>{value}</span>
+                    </div>
+                  ))}
+                  <div style={styles.funnelDivider} />
+                  {[
+                    ['Telefon→Lead', toPct(row.calls, row.leads)],
+                    ['Lead→Oględziny', toPct(row.leads, row.ogl)],
+                    ['Oględziny→Wycena', toPct(row.ogl, row.wyc)],
+                    ['Wycena→Zatwierdzona', toPct(row.wyc, row.approved)],
+                    ['Zatwierdzona→Zamknięta', toPct(row.approved, row.closed)],
+                  ].map(([label, pct]) => (
+                    <div key={`${row.oddzialId}-conv-${label}`} style={styles.reportTaskMeta}>
+                      <span style={styles.reportMetaLabel}>{label}</span>
+                      <span style={{ ...styles.badge, backgroundColor: conversionColor(pct), fontSize: 10 }}>
+                        {pct.toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                  <div style={styles.funnelLeakRow}>
+                    <span style={styles.reportMetaLabel}>Największy przeciek</span>
+                    <span style={{ ...styles.badge, backgroundColor: conversionColor(findLeakStage(row).pct), fontSize: 10 }}>
+                      {findLeakStage(row).key} ({findLeakStage(row).pct.toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {(isDyrektor || isKierownik) && (
+              <>
+                <div style={styles.analyticsTitleRow}>
+                  <span style={styles.analyticsTitle}>Dane wejściowe działu sprzedaży</span>
+                  <span style={styles.analyticsSubTitle}>Telefony i leady wpisujesz raz na miesiąc dla oddziału</span>
+                </div>
+                <div style={styles.analyticsGoalsGrid}>
+                  {oddzialy.map((o) => {
+                    const draft = oddzialSprzedazDraft[o.id] || {
+                      calls_total: 0,
+                      calls_answered: 0,
+                      calls_missed: 0,
+                      leads_new: 0,
+                      meetings_booked: 0,
+                    };
+                    const busy = savingSprzedazKey === `${o.id}`;
+                    return (
+                      <div key={`sales-${o.id}`} style={styles.goalCard}>
+                        <div style={styles.goalTitle}>{o.nazwa}</div>
+                        <div style={styles.goalFields}>
+                          <input style={styles.goalInput} type="number" min="0" value={draft.calls_total} onChange={(e) => setSprzedazDraftField(o.id, 'calls_total', e.target.value)} placeholder="Liczba telefonów" />
+                          <input style={styles.goalInput} type="number" min="0" value={draft.calls_answered} onChange={(e) => setSprzedazDraftField(o.id, 'calls_answered', e.target.value)} placeholder="Telefony odebrane" />
+                          <input style={styles.goalInput} type="number" min="0" value={draft.calls_missed} onChange={(e) => setSprzedazDraftField(o.id, 'calls_missed', e.target.value)} placeholder="Telefony nieodebrane" />
+                          <input style={styles.goalInput} type="number" min="0" value={draft.leads_new} onChange={(e) => setSprzedazDraftField(o.id, 'leads_new', e.target.value)} placeholder="Nowe leady" />
+                          <input style={styles.goalInput} type="number" min="0" value={draft.meetings_booked} onChange={(e) => setSprzedazDraftField(o.id, 'meetings_booked', e.target.value)} placeholder="Umówione spotkania" />
+                        </div>
+                        <button type="button" style={styles.goalSaveBtn} onClick={() => zapiszSprzedazOddzialu(o.id)} disabled={busy}>
+                          {busy ? 'Zapisywanie...' : 'Zapisz dane sprzedaży'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={styles.analyticsTitleRow}>
+                  <span style={styles.analyticsTitle}>Call Center — szybkie logowanie i oddzwanianie</span>
+                  <span style={styles.analyticsSubTitle}>Dodaj połączenie i kolejkę callback bez wychodzenia z raportu</span>
+                </div>
+                <div style={styles.telephonyGrid}>
+                  <div style={styles.goalCard}>
+                    <div style={styles.goalTitle}>Nowy log połączenia</div>
+                    <div style={styles.goalFields}>
+                      <select style={styles.goalInput} value={newCallForm.oddzial_id} onChange={(e) => setNewCallForm((p) => ({ ...p, oddzial_id: e.target.value }))}>
+                        <option value="">Wybierz oddział</option>
+                        {oddzialy.map((o) => <option key={`call-o-${o.id}`} value={o.id}>{o.nazwa}</option>)}
+                      </select>
+                      <input style={styles.goalInput} value={newCallForm.phone} onChange={(e) => setNewCallForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Telefon (+48...)" />
+                      <select style={styles.goalInput} value={newCallForm.call_type} onChange={(e) => setNewCallForm((p) => ({ ...p, call_type: e.target.value }))}>
+                        <option value="outbound">Outbound</option>
+                        <option value="inbound">Inbound</option>
+                      </select>
+                      <select style={styles.goalInput} value={newCallForm.status} onChange={(e) => setNewCallForm((p) => ({ ...p, status: e.target.value }))}>
+                        <option value="answered">Odebrane</option>
+                        <option value="missed">Nieodebrane</option>
+                        <option value="no_answer">Brak odpowiedzi</option>
+                        <option value="busy">Zajęty</option>
+                      </select>
+                      <input style={styles.goalInput} type="number" min="0" value={newCallForm.duration_sec} onChange={(e) => setNewCallForm((p) => ({ ...p, duration_sec: e.target.value }))} placeholder="Czas rozmowy (sek)" />
+                      <input style={styles.goalInput} value={newCallForm.lead_name} onChange={(e) => setNewCallForm((p) => ({ ...p, lead_name: e.target.value }))} placeholder="Lead / klient" />
+                    </div>
+                    <button type="button" style={styles.goalSaveBtn} onClick={dodajCallLog}>Zapisz połączenie</button>
+                  </div>
+
+                  <div style={styles.goalCard}>
+                    <div style={styles.goalTitle}>Nowy callback (oddzwanianie)</div>
+                    <div style={styles.goalFields}>
+                      <select style={styles.goalInput} value={newCallbackForm.oddzial_id} onChange={(e) => setNewCallbackForm((p) => ({ ...p, oddzial_id: e.target.value }))}>
+                        <option value="">Wybierz oddział</option>
+                        {oddzialy.map((o) => <option key={`cb-o-${o.id}`} value={o.id}>{o.nazwa}</option>)}
+                      </select>
+                      <input style={styles.goalInput} value={newCallbackForm.phone} onChange={(e) => setNewCallbackForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Telefon (+48...)" />
+                      <input style={styles.goalInput} value={newCallbackForm.lead_name} onChange={(e) => setNewCallbackForm((p) => ({ ...p, lead_name: e.target.value }))} placeholder="Lead / klient" />
+                      <select style={styles.goalInput} value={newCallbackForm.priority} onChange={(e) => setNewCallbackForm((p) => ({ ...p, priority: e.target.value }))}>
+                        <option value="low">Niski</option>
+                        <option value="normal">Normalny</option>
+                        <option value="high">Wysoki</option>
+                      </select>
+                      <input style={styles.goalInput} type="datetime-local" value={newCallbackForm.due_at} onChange={(e) => setNewCallbackForm((p) => ({ ...p, due_at: e.target.value }))} />
+                    </div>
+                    <button type="button" style={styles.goalSaveBtn} onClick={dodajCallback}>Dodaj do callback queue</button>
+                  </div>
+                </div>
+
+                <div style={styles.analyticsTitleRow}>
+                  <span style={styles.analyticsTitle}>Otwarte oddzwaniania</span>
+                  <span style={styles.analyticsSubTitle}>Pracuj po liście i zamykaj pozycje po kontakcie</span>
+                </div>
+                <div style={styles.reportCardsGrid}>
+                  {callbackTasks.filter((cb) => cb.status === 'open').length === 0 ? (
+                    <div style={styles.reportMetricCard}>
+                      <div style={styles.reportMetaValue}>Brak otwartych callbacków 🎉</div>
+                    </div>
+                  ) : callbackTasks.filter((cb) => cb.status === 'open').map((cb) => (
+                    <div key={`cb-${cb.id}`} style={styles.reportMetricCard}>
+                      <div style={styles.reportTaskTop}>
+                        <span style={styles.reportTaskClient}>{cb.lead_name || 'Lead'}</span>
+                        <span style={{ ...styles.badge, backgroundColor: cb.priority === 'high' ? UI_COLORS.danger : cb.priority === 'normal' ? UI_COLORS.warning : UI_COLORS.info }}>
+                          {cb.priority}
+                        </span>
+                      </div>
+                      <div style={styles.reportTaskMeta}><span style={styles.reportMetaLabel}>Telefon</span><span style={styles.reportMetaValue}>{cb.phone}</span></div>
+                      <div style={styles.reportTaskMeta}><span style={styles.reportMetaLabel}>Oddział</span><span style={styles.reportMetaValue}>{oddzialy.find((o) => o.id === cb.oddzial_id)?.nazwa || '-'}</span></div>
+                      <div style={styles.reportTaskMeta}><span style={styles.reportMetaLabel}>Termin</span><span style={styles.reportMetaValue}>{cb.due_at ? new Date(cb.due_at).toLocaleString(localeNum) : 'ASAP'}</span></div>
+                      <div style={styles.btnRowInline}>
+                        <button type="button" style={styles.smallActionBtn} onClick={() => zmienCallbackStatus(cb.id, 'done')}>Oznacz jako DONE</button>
+                        <button type="button" style={{ ...styles.smallActionBtn, borderColor: 'rgba(248,113,113,0.35)', color: 'var(--danger)' }} onClick={() => zmienCallbackStatus(cb.id, 'cancelled')}>Anuluj</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
  
@@ -626,9 +1495,31 @@ const styles = {
   reportMetaLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700 },
   reportMetaValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
   reportTaskFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  funnelDivider: { borderTop: '1px solid var(--border)', marginTop: 2, paddingTop: 2 },
+  funnelLeakRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 },
   reportDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
   reportValue: { fontSize: 13, color: 'var(--accent)', fontWeight: 800 },
   monthBarTrack: { width: '100%', height: 8, backgroundColor: 'var(--bg-deep)', borderRadius: 999, overflow: 'hidden' },
   monthBarFill: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--accent-dk), var(--accent))' },
+  analyticsTitleRow: { marginTop: 20, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
+  analyticsTitle: { fontSize: 14, fontWeight: 800, color: 'var(--text)' },
+  analyticsSubTitle: { fontSize: 12, color: 'var(--text-muted)' },
+  analyticsScroll: { marginTop: 10, overflowX: 'auto', border: '1px solid var(--border2)', borderRadius: 12 },
+  analyticsTable: { width: '100%', borderCollapse: 'collapse', minWidth: 1450, backgroundColor: 'var(--bg-card)' },
+  analyticsTh: { padding: '10px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' },
+  analyticsThSticky: { position: 'sticky', left: 0, zIndex: 3, padding: '10px 12px', backgroundColor: 'var(--bg-card2)', color: 'var(--text)', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' },
+  analyticsThDay: { padding: '10px 8px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', textAlign: 'center' },
+  analyticsTd: { padding: '8px 10px', color: 'var(--text-sub)', fontSize: 12, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' },
+  analyticsTdSticky: { position: 'sticky', left: 0, zIndex: 2, padding: '8px 12px', color: 'var(--text)', backgroundColor: 'var(--bg-card)', fontSize: 12, fontWeight: 700, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' },
+  analyticsTdDay: { padding: '8px 6px', color: 'var(--text-sub)', fontSize: 12, borderBottom: '1px solid var(--border)', textAlign: 'center' },
+  analyticsGoalsGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 },
+  goalCard: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 12, padding: 10, boxShadow: 'var(--shadow-sm)' },
+  goalTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
+  goalFields: { display: 'grid', gap: 8 },
+  goalInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, backgroundColor: 'var(--bg-card)', color: 'var(--text)' },
+  goalSaveBtn: { marginTop: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border2)', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  telephonyGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10 },
+  btnRowInline: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
+  smallActionBtn: { padding: '6px 8px', borderRadius: 8, border: '1px solid var(--logo-tint-border)', backgroundColor: 'var(--bg-card)', color: 'var(--accent-dk)', fontSize: 11, fontWeight: 700, cursor: 'pointer' },
 };
  

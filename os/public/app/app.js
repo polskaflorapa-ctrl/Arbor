@@ -1,4 +1,4 @@
-/* global fetch, localStorage, FormData, URL, Blob, alert, document, window */
+/** Legacy browser panel bundle (globals: browser w eslint.config.js). */
 (function () {
   const LS_TOKEN = 'arbor_token';
   const LS_USER = 'arbor_user';
@@ -83,7 +83,7 @@
     }
     const res = await fetch(`/api${path}`, { ...rest, headers });
     const ct = res.headers.get('content-type') || '';
-    let data = null;
+    let data;
     if (ct.includes('application/json')) data = await res.json().catch(() => ({}));
     else if (opts.parse === 'blob') data = await res.blob();
     else data = await res.text();

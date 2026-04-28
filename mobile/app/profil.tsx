@@ -11,6 +11,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { clearStoredSession, getStoredSession } from '../utils/session';
+import { unregisterExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -55,6 +56,8 @@ export default function ProfilScreen() {
       {
         text: t('profile.logout.action'), style: 'destructive',
         onPress: async () => {
+          const { token } = await getStoredSession();
+          if (token) await unregisterExpoPushTokenWithBackend(token);
           await clearStoredSession();
           router.replace('/login');
         },
