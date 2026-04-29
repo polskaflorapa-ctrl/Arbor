@@ -14,6 +14,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 function getCalendarDays(year: number, month: number) {
@@ -123,6 +124,17 @@ export default function HarmonogramScreen() {
   useEffect(() => {
     if (user && selectedDay) void fetchDayTasks(viewYear, viewMonth, selectedDay);
   }, [fetchDayTasks, selectedDay, viewYear, viewMonth, user]);
+
+  useEffect(
+    () =>
+      subscribeOfflineFlushDone((d) => {
+        if (d.flushed <= 0) return;
+        setRefreshing(true);
+        void fetchMonthData(viewYear, viewMonth);
+        if (selectedDay) void fetchDayTasks(viewYear, viewMonth, selectedDay);
+      }),
+    [fetchMonthData, fetchDayTasks, viewYear, viewMonth, selectedDay],
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

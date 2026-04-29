@@ -13,6 +13,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 function hourStatusLabel(status: string, tr: (key: string) => string) {
@@ -107,6 +108,14 @@ export default function RozliczeniaScreen() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(
+    () =>
+      subscribeOfflineFlushDone((d) => {
+        if (d.flushed > 0) void loadAll();
+      }),
+    [loadAll],
+  );
 
   const showMsg = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
 

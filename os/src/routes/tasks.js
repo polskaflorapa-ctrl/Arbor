@@ -913,7 +913,11 @@ router.post(
       }
       if (task.status === 'Zakonczone') {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Zlecenie już zakończone', code: VALIDATION_FAILED });
+        return res.status(400).json({
+          error: 'Zlecenie już zakończone',
+          code: VALIDATION_FAILED,
+          reason: 'TASK_ALREADY_FINISHED',
+        });
       }
       const payment = req.body.payment;
       if (isTeamScoped(req.user)) {

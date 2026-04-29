@@ -57,6 +57,15 @@ function etaReasonLabel(reason) {
   return '';
 }
 
+function fmtSlaDue(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+  } catch {
+    return String(iso);
+  }
+}
+
 function pickBestOperationalSlot(slots, etaThresholdMinutes) {
   const withEta = (slots || []).filter((s) => s.eta_minutes != null);
   const safeEta = withEta.filter((s) => Number(s.eta_minutes) <= etaThresholdMinutes);
@@ -98,6 +107,8 @@ export default function WycenaKalendarz() {
   const [slotLoading, setSlotLoading] = useState(false);
   const [liveByTeam, setLiveByTeam] = useState({});
   const [etaThreshold, setEtaThreshold] = useState(25);
+  /** F1.10 — zatwierdzenia wycen po terminie SLA (GET /quotations/panel/sla-przeterminowane). */
+  const [slaOverdue, setSlaOverdue] = useState([]);
 
   const [form, setForm] = useState({
     klient_nazwa: '',
@@ -157,12 +168,13 @@ export default function WycenaKalendarz() {
       const u = getLocalStorageJson('user', {});
       setUser(u);
       const h = authHeaders(token);
-      const [wRes, eRes, oRes, ogRes, liveRes] = await Promise.all([
+      const [wRes, eRes, oRes, ogRes, liveRes, slaRes] = await Promise.all([
         api.get('/wyceny', { headers: h }),
         api.get('/ekipy', { headers: h }),
         api.get('/oddzialy', { headers: h }),
         api.get('/ogledziny', { headers: h }).catch(() => ({ data: [] })),
         api.get('/ekipy/live-locations', { headers: h }).catch(() => ({ data: { items: [] } })),
+        api.get('/quotations/panel/sla-przeterminowane', { headers: h }).catch(() => ({ data: [] })),
       ]);
       setWyceny(Array.isArray(wRes.data) ? wRes.data : (wRes.data.wyceny || []));
       setEkipy(eRes.data.ekipy || eRes.data || []);
@@ -176,6 +188,8 @@ export default function WycenaKalendarz() {
       }
       setLiveByTeam(map);
       if (u?.oddzial_id) setForm(f => ({ ...f, oddzial_id: u.oddzial_id.toString() }));
+      const slaRaw = slaRes?.data;
+      setSlaOverdue(Array.isArray(slaRaw) ? slaRaw : []);
     } catch (e) { console.error(e); }
   }, [navigate]);
 
@@ -416,6 +430,57 @@ export default function WycenaKalendarz() {
       </div>
 
       <StatusMessage message={msg} style={S.msg} />
+
+      {slaOverdue.length > 0 && (
+        <div
+          style={{
+            margin: '0 16px 12px',
+            padding: 14,
+            borderRadius: 12,
+            border: '1px solid rgba(239,68,68,0.45)',
+            background: 'rgba(239,68,68,0.08)',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: '#F87171', marginBottom: 8 }}>
+            SLA — zatwierdzenia po terminie ({slaOverdue.length})
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+            Wycena w statusie „W zatwierdzeniu”, termin SLA minął. Otwórz wycenę terenową, aby rozstrzygnąć kolejkę zatwierdzeń.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {slaOverdue.map((row) => (
+              <button
+                key={`${row.quotation_id}-${row.approval_id}`}
+                type="button"
+                onClick={() => navigate(`/wyceny-terenowe?id=${row.quotation_id}`)}
+                style={{
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--card)',
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>
+                  #{row.quotation_id} — {row.klient_nazwa || '—'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                  Typ: <strong>{row.wymagany_typ}</strong>
+                  {' · '}
+                  Termin SLA: {fmtSlaDue(row.due_at)}
+                  {row.sla_reminder_sent_at ? (
+                    <span style={{ color: '#94A3B8' }}> · Cron: przypomnienie wysłane</span>
+                  ) : (
+                    <span style={{ color: '#F59E0B' }}> · Cron: jeszcze bez przypomnienia</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={S.kpiRow}>
         <div style={S.kpiCard}>

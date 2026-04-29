@@ -17,6 +17,7 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -75,6 +76,14 @@ export default function ZleceniaScreen() {
   }, [t]);
 
   useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(
+    () =>
+      subscribeOfflineFlushDone((d) => {
+        if (d.flushed > 0) void loadData();
+      }),
+    [loadData],
+  );
 
   useEffect(() => {
     let wynik = zlecenia;

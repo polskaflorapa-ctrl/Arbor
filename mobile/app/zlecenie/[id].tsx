@@ -25,6 +25,7 @@ import {
   queueRequestWithOfflineFallback,
   queueTaskPhotoOffline,
 } from '../../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
 import { triggerHaptic } from '../../utils/haptics';
@@ -196,6 +197,19 @@ export default function ZlecenieDetailScreen() {
   }, [loadAll]);
 
   useEffect(() => { void init(); }, [init]);
+
+  useEffect(
+    () =>
+      subscribeOfflineFlushDone((d) => {
+        if (d.flushed <= 0) return;
+        setOfflineQueueCount(d.left);
+        void (async () => {
+          const { token: tkn } = await getStoredSession();
+          if (tkn) await loadAll(tkn);
+        })();
+      }),
+    [loadAll],
+  );
 
   const onRefresh = () => { setRefreshing(true); loadAll(); };
 

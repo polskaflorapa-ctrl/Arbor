@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, RefreshControl, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View
@@ -10,6 +10,7 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 export default function OddzialyScreen() {
@@ -37,9 +38,7 @@ export default function OddzialyScreen() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [token, setToken] = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const { token: storedToken } = await getStoredSession();
       if (!storedToken) { router.replace('/login'); return; }
@@ -54,14 +53,17 @@ export default function OddzialyScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const loadDetail = async (oddzial: any) => {
+  const loadDetail = useCallback(async (oddzial: any, opts?: { soft?: boolean }) => {
     setSelected(oddzial);
-    setLoadingDetail(true);
+    const showSpinner = !opts?.soft;
+    if (showSpinner) setLoadingDetail(true);
     try {
-      if (!token) { router.replace('/login'); return; }
-      const h = { Authorization: `Bearer ${token}` };
+      const { token: storedToken } = await getStoredSession();
+      if (!storedToken) { router.replace('/login'); return; }
+      setToken(storedToken);
+      const h = { Authorization: `Bearer ${storedToken}` };
       const [uRes, zRes] = await Promise.all([
         fetch(`${API_URL}/uzytkownicy`, { headers: h }),
         fetch(`${API_URL}/tasks/wszystkie`, { headers: h }),
@@ -83,11 +85,23 @@ export default function OddzialyScreen() {
     } catch {
       setDetailData(null);
     } finally {
-      setLoadingDetail(false);
+      if (showSpinner) setLoadingDetail(false);
     }
-  };
+  }, []);
 
-  const onRefresh = () => { setRefreshing(true); loadData(); };
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(
+    () =>
+      subscribeOfflineFlushDone((d) => {
+        if (d.flushed <= 0) return;
+        void loadData();
+        if (selected) void loadDetail(selected, { soft: true });
+      }),
+    [loadData, loadDetail, selected],
+  );
+
+  const onRefresh = () => { setRefreshing(true); void loadData(); };
 
   const S = makeStyles(theme);
 

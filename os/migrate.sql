@@ -803,6 +803,13 @@ ALTER TABLE quotations ADD COLUMN IF NOT EXISTS koszt_wlasny_calkowity NUMERIC(1
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS client_acceptance_token VARCHAR(64);
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS pdf_url TEXT;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS wyslano_klientowi_at TIMESTAMPTZ;
+-- F1.11 — status wysyłki oferty do klienta (SMS / e-mail po finalize)
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_sms_status VARCHAR(32);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_sms_error TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_sms_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_email_status VARCHAR(32);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_email_error TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_email_at TIMESTAMPTZ;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_akceptacja_at TIMESTAMPTZ;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_akceptacja_ip VARCHAR(64);
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS reopened_at TIMESTAMPTZ;

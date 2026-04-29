@@ -25,6 +25,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 type ZadanieFormItem = {
@@ -145,6 +146,14 @@ export default function RaportDzienny() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(
+    () =>
+      subscribeOfflineFlushDone((d) => {
+        if (d.flushed > 0) void loadData();
+      }),
+    [loadData],
+  );
 
   const dodajMaterial = () => {
     setForm(f => ({
