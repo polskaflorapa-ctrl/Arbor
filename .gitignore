@@ -30,3 +30,6 @@ os/.env
 os/.env.local
 mobile/.env
 mobile/.env.local
+
+# Local scratch scripts (not part of the product)
+tmp_*.py
