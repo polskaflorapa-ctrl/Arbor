@@ -18,10 +18,15 @@ const {
   grossForTask,
   netSettlementValue,
   settlementCalcDetail,
+  countTaskFinishPhotos,
+  FINISH_PHOTO_MIN,
+  CASH_COLLECTION_NOTE_PCT,
+  isCashCollectionNoteMissing,
 } = require('../services/taskSettlement');
 const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamDay');
 const { sendSmsOptional } = require('../services/twilioSms');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
+const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
 
 const router = express.Router();
 
@@ -68,27 +73,14 @@ function finishRequireMaterialUsage() {
 /** @param {import('pg').PoolClient} client */
 async function assertTeamFinishPhotoRules(client, taskId) {
   if (!finishRequirePoPhoto()) return;
-  const po = await client.query(
-    `SELECT COUNT(*)::int AS c
-     FROM photos
-     WHERE task_id = $1
-       AND LOWER(TRIM(COALESCE(typ, ''))) IN ('po', 'after')`,
-    [taskId]
-  );
-  if ((po.rows[0]?.c || 0) < 2) {
+  const counts = await countTaskFinishPhotos(client, taskId);
+  if (counts.po < FINISH_PHOTO_MIN.po) {
     const e = new Error('po');
     e.code = 'TASK_FINISH_PO_PHOTO_REQUIRED';
     throw e;
   }
   if (!finishRequirePrzedPhoto()) return;
-  const pr = await client.query(
-    `SELECT COUNT(*)::int AS c
-     FROM photos
-     WHERE task_id = $1
-       AND LOWER(TRIM(COALESCE(typ, ''))) IN ('przed', 'before', 'checkin')`,
-    [taskId]
-  );
-  if ((pr.rows[0]?.c || 0) < 2) {
+  if (counts.przed < FINISH_PHOTO_MIN.przed) {
     const e = new Error('przed');
     e.code = 'TASK_FINISH_PRZED_PHOTO_REQUIRED';
     throw e;
@@ -251,6 +243,11 @@ const taskUpdateSchema = z.object({
   /** Zakres / dodatkowa praca (opis dla ekipy i biura). */
   opis: z.string().optional().nullable(),
   notatki_klienta: z.string().optional().nullable(),
+});
+
+/** PATCH /tasks/:id/plan — tylko termin (`data_planowana`). */
+const taskPlanPatchSchema = z.object({
+  data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
 });
 
 const taskAssignSchema = z.object({
@@ -613,6 +610,56 @@ router.post(
   }
 );
 
+/** F4.1 — zmiana terminu zlecenia z harmonogramu (DnD); Kierownik / Dyrektor. */
+router.patch(
+  '/:id/plan',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskPlanPatchSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    if (!isDyrektor(req.user) && !isKierownik(req.user)) {
+      return res.status(403).json({ error: 'Tylko kierownik lub dyrektor może zmieniać harmonogram.' });
+    }
+    try {
+      const taskId = Number(req.params.id);
+      const r = await pool.query(
+        `SELECT id, status, ekipa_id, czas_planowany_godziny FROM tasks WHERE id = $1`,
+        [taskId]
+      );
+      if (!r.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+      const row = r.rows[0];
+      const st = row.status;
+      if (st === 'Zakonczone' || st === 'Anulowane') {
+        return res.status(400).json({ error: 'Nie można przesunąć zakończonego lub anulowanego zlecenia.' });
+      }
+      const teamId = row.ekipa_id != null ? Number(row.ekipa_id) : null;
+      if (teamId) {
+        const planDay = String(req.body.data_planowana).slice(0, 10);
+        const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
+        const d = new Date(req.body.data_planowana);
+        const startMin = d.getHours() * 60 + d.getMinutes();
+        const durMin = Math.max(15, Math.round(Number(row.czas_planowany_godziny || 2) * 60));
+        if (planRangeConflicts(busyRanges, startMin, durMin)) {
+          return res.status(409).json({
+            error:
+              'Konflikt terminu: ekipa ma już zaplanowane zlecenie lub aktywną rezerwację w tym przedziale.',
+            code: 'TASK_PLAN_CONFLICT',
+          });
+        }
+      }
+      await pool.query(`UPDATE tasks SET data_planowana = $1::timestamptz, updated_at = NOW() WHERE id = $2`, [
+        req.body.data_planowana,
+        taskId,
+      ]);
+      res.json({ message: 'Plan zaktualizowany' });
+    } catch (err) {
+      logger.error('tasks.planPatch', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
 router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
   try {
     const result = await pool.query(
@@ -642,26 +689,13 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
       row.extra_work = [];
     }
     const tid = req.params.id;
-    const [poR, prR] = await Promise.all([
-      pool.query(
-        `SELECT COUNT(*)::int AS c FROM photos
-         WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('po', 'after')`,
-        [tid]
-      ),
-      pool.query(
-        `SELECT COUNT(*)::int AS c FROM photos
-         WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('przed', 'before', 'checkin')`,
-        [tid]
-      ),
-    ]);
-    const poCount = Number(poR.rows[0]?.c) || 0;
-    const prCount = Number(prR.rows[0]?.c) || 0;
+    const { po: poCount, przed: prCount } = await countTaskFinishPhotos(pool, tid);
     row.finish_requirements = {
       require_po_photo: finishRequirePoPhoto(),
       require_przed_photo: finishRequirePrzedPhoto(),
       require_material_usage: finishRequireMaterialUsage(),
-      has_po_photo: poCount >= 2,
-      has_przed_photo: prCount >= 2,
+      has_po_photo: poCount >= FINISH_PHOTO_MIN.po,
+      has_przed_photo: prCount >= FINISH_PHOTO_MIN.przed,
     };
     res.json(row);
   } catch (err) {
@@ -927,9 +961,10 @@ router.post(
       if (task.status === 'Zakonczone') {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: 'Zlecenie już zakończone',
+          error: req.t('errors.tasks.taskAlreadyFinished'),
           code: VALIDATION_FAILED,
           reason: 'TASK_ALREADY_FINISHED',
+          requestId: req.requestId,
         });
       }
       const payment = req.body.payment;
@@ -937,7 +972,11 @@ router.post(
         const payErr = validateClientPayment(payment, { requireAll: true });
         if (payErr.length) {
           await client.query('ROLLBACK');
-          return res.status(400).json({ error: payErr.join('; '), code: 'PAYMENT_REQUIRED' });
+          return res.status(400).json({
+            error: payErr.join('; '),
+            code: 'PAYMENT_REQUIRED',
+            requestId: req.requestId,
+          });
         }
       }
       if (isTeamScoped(req.user)) {
@@ -981,8 +1020,9 @@ router.post(
       if (!wl.rows[0]) {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: 'Brak aktywnego wpisu czasu pracy — użyj START przed zakończeniem.',
+          error: req.t('errors.tasks.finishNoActiveWorkLog'),
           code: VALIDATION_FAILED,
+          requestId: req.requestId,
         });
       }
       const work_log_id = wl.rows[0].id;
@@ -998,22 +1038,13 @@ router.post(
         net = Number.isFinite(grossVal) && grossVal > 0 ? grossVal : 0;
       }
       if (isTeamScoped(req.user) && payment) {
-        if (payment.forma_platnosc === 'Gotowka') {
-          const collected = Number(payment.kwota_odebrana);
-          if (Number.isFinite(collected) && collected > 0 && Number.isFinite(grossVal) && grossVal > 0) {
-            const diffPct = (Math.abs(collected - grossVal) / grossVal) * 100;
-            if (diffPct > 5) {
-              const note = String(payment.notatki || notatki || '').trim();
-              if (!note) {
-                await client.query('ROLLBACK');
-                return res.status(400).json({
-                  error:
-                    'Różnica między kwotą odebraną a wartością zlecenia > 5% wymaga uzasadnienia w notatce.',
-                  code: 'PAYMENT_NOTE_REQUIRED_OVER_5_PCT',
-                });
-              }
-            }
-          }
+        if (isCashCollectionNoteMissing(payment, grossVal, notatki)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: req.tv('errors.tasks.paymentNoteRequiredOverPct', { pct: CASH_COLLECTION_NOTE_PCT }),
+            code: 'PAYMENT_NOTE_REQUIRED_OVER_5_PCT',
+            requestId: req.requestId,
+          });
         }
         await client.query(
           `INSERT INTO task_client_payments (

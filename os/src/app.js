@@ -31,6 +31,7 @@ const roleRoutes = require('./routes/role');
 const ksiegowoscRoutes = require('./routes/ksiegowosc');
 const aiRoutes = require('./routes/ai');
 const rozliczeniaRoutes = require('./routes/rozliczenia');
+const smsWebhooksRoutes = require('./routes/sms-webhooks');
 const smsRoutes = require('./routes/sms');
 const telefonRoutes = require('./routes/telefon');
 const telefonWebhooksRoutes = require('./routes/telefon-webhooks');
@@ -116,6 +117,7 @@ const createApp = () => {
   app.use('/api/ai', costlyApiLimiter, aiRoutes);
   app.use('/api/ekipy/rozliczenie', authMiddleware, blockPayrollSettlements);
   app.use('/api/rozliczenia', rozliczeniaRoutes);
+  app.use('/api/sms/webhooks', smsWebhooksRoutes);
   app.use('/api/sms', costlyApiLimiter, smsRoutes);
   app.use('/api/telefon/webhooks', telefonWebhooksRoutes);
   app.use('/api/telefon', costlyApiLimiter, telefonRoutes);

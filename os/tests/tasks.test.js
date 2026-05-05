@@ -10,6 +10,8 @@ const pool = require('../src/config/database');
 const tasksRoutes = require('../src/routes/tasks');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
+const { translateVars } = require('../src/i18n');
+const { CASH_COLLECTION_NOTE_PCT } = require('../src/services/taskSettlement');
 
 describe('Tasks routes', () => {
   const app = createTestApp('/api/tasks', tasksRoutes);
@@ -377,5 +379,133 @@ describe('Tasks routes', () => {
       if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
       else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
     }
+  });
+
+  it('POST /tasks/:id/finish returns 400 PAYMENT_NOTE_REQUIRED_OVER_5_PCT when cash differs >5% from gross without note (ekipa)', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 77 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 77,
+                status: 'W_Realizacji',
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('work_logs') && s.includes('end_time IS NULL')) {
+          return { rows: [{ id: 901 }] };
+        }
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/77/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 106, faktura_vat: false },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('PAYMENT_NOTE_REQUIRED_OVER_5_PCT');
+      expect(typeof res.body.requestId).toBe('string');
+      expect(res.body.error).toBe(
+        translateVars('pl', 'errors.tasks.paymentNoteRequiredOverPct', { pct: CASH_COLLECTION_NOTE_PCT })
+      );
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
+  it('rejects PATCH /tasks/:id/plan for brygadzista', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T08:00:00.000Z' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/kierownik|dyrektor/i);
+  });
+
+  it('updates planned datetime via PATCH /tasks/:id/plan for kierownik', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: null, czas_planowany_godziny: 2 }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T09:00:00.000Z' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Plan zaktualizowany');
+  });
+
+  it('blocks PATCH /tasks/:id/plan when task is finished', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 1, status: 'Zakonczone' }] });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T09:00:00.000Z' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/zakończonego|anulowanego/i);
+  });
+
+  it('returns 409 when PATCH /tasks/:id/plan conflicts with another task on the same team', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: 5, czas_planowany_godziny: 2 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ data_planowana: '2026-05-10T09:00:00.000Z', czas_h: 2 }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T09:00:00.000Z' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TASK_PLAN_CONFLICT');
+    expect(res.body.error).toMatch(/Konflikt terminu/i);
+    expect(pool.query).toHaveBeenCalledTimes(4);
   });
 });

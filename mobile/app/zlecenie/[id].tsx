@@ -105,12 +105,18 @@ export default function ZlecenieDetailScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [cmrLista, setCmrLista] = useState<any[]>([]);
+  /** Minimalna liczba zdjęć na typ przy wymogu finish — zgodnie z `FINISH_PHOTO_MIN` w os/taskSettlement.js */
+  const MIN_FINISH_TYP_PHOTOS = 2;
   const finishRequirements: FinishRequirements = useMemo(() => {
     const raw = zlecenie?.finish_requirements as Partial<FinishRequirements> | undefined;
-    const hasPoLocal = zdjecia.some((z: { typ?: string }) => photoTypMatches(z?.typ, ['po', 'after']));
-    const hasPrzedLocal = zdjecia.some((z: { typ?: string }) =>
+    const countPoLocal = zdjecia.filter((z: { typ?: string }) =>
+      photoTypMatches(z?.typ, ['po', 'after']),
+    ).length;
+    const countPrzedLocal = zdjecia.filter((z: { typ?: string }) =>
       photoTypMatches(z?.typ, ['przed', 'before', 'checkin']),
-    );
+    ).length;
+    const hasPoLocal = countPoLocal >= MIN_FINISH_TYP_PHOTOS;
+    const hasPrzedLocal = countPrzedLocal >= MIN_FINISH_TYP_PHOTOS;
     if (raw && typeof raw.require_po_photo === 'boolean') {
       return {
         require_po_photo: !!raw.require_po_photo,
@@ -131,6 +137,7 @@ export default function ZlecenieDetailScreen() {
   const [finishModal, setFinishModal] = useState(false);
   const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
   const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
+  const [finishNotatki, setFinishNotatki] = useState('');
   const [payForm, setPayForm] = useState({
     forma_platnosc: 'Gotowka' as 'Gotowka' | 'Przelew' | 'Faktura_VAT' | 'Brak',
     kwota_odebrana: '',
@@ -399,16 +406,18 @@ export default function ZlecenieDetailScreen() {
               },
             ]
           : undefined;
+      const noteTrim = finishNotatki.trim();
       finishBody = {
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
-        notatki: '',
+        notatki: noteTrim,
         ...(zuzyte_materialy ? { zuzyte_materialy } : {}),
         payment: {
           forma_platnosc,
           kwota_odebrana: forma_platnosc === 'Gotowka' ? parseFloat(String(kwota_odebrana).replace(',', '.')) : null,
           faktura_vat: !!faktura_vat,
           nip: nip || null,
+          ...(noteTrim ? { notatki: noteTrim } : {}),
         },
       };
       const res = await fetch(`${API_URL}/tasks/${id}/finish`, {
@@ -419,6 +428,7 @@ export default function ZlecenieDetailScreen() {
       if (res.ok) {
         void triggerHaptic('success');
         setFinishModal(false);
+        setFinishNotatki('');
         await loadAll();
         Alert.alert(t('common.ok'), t('order.finishedTitle'));
       } else if (res.status >= 500) {
@@ -1506,6 +1516,24 @@ export default function ZlecenieDetailScreen() {
                     keyboardType="decimal-pad"
                     value={payForm.kwota_odebrana}
                     onChangeText={(v) => setPayForm((p) => ({ ...p, kwota_odebrana: v }))}
+                  />
+                  <Text style={[S.modalLbl, { color: theme.textSub, marginTop: 10 }]}>{t('order.finishPaymentNoteLabel')}</Text>
+                  <TextInput
+                    style={[
+                      S.modalInput,
+                      {
+                        backgroundColor: theme.inputBg,
+                        borderColor: theme.inputBorder,
+                        color: theme.inputText,
+                        minHeight: 72,
+                        textAlignVertical: 'top',
+                      },
+                    ]}
+                    multiline
+                    placeholder={t('order.finishPaymentNotePlaceholder')}
+                    placeholderTextColor={theme.inputPlaceholder}
+                    value={finishNotatki}
+                    onChangeText={setFinishNotatki}
                   />
                 </>
               ) : null}

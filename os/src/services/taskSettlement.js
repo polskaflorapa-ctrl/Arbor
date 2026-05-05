@@ -3,6 +3,54 @@
  */
 const FORMY = ['Gotowka', 'Przelew', 'Faktura_VAT', 'Brak'];
 
+/** F3.5/F3.6 — przy włączonym wymogu env minimum zdjęć na typ (finish). */
+const FINISH_PHOTO_MIN = Object.freeze({ po: 2, przed: 2 });
+
+/** F3.9 — jeśli gotówka różni się od wartości zlecenia o więcej niż ten %, wymagana notatka. */
+const CASH_COLLECTION_NOTE_PCT = 5;
+
+/**
+ * @param {{ query: Function }} db Pool lub PoolClient
+ * @param {number} taskId
+ * @returns {Promise<{ po: number, przed: number }>}
+ */
+async function countTaskFinishPhotos(db, taskId) {
+  const [poR, prR] = await Promise.all([
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM photos
+       WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('po', 'after')`,
+      [taskId]
+    ),
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM photos
+       WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('przed', 'before', 'checkin')`,
+      [taskId]
+    ),
+  ]);
+  return {
+    po: Number(poR.rows[0]?.c) || 0,
+    przed: Number(prR.rows[0]?.c) || 0,
+  };
+}
+
+/**
+ * F3.9 — brak notatki przy dużej różnicy kwoty gotówki vs wartość rozliczenia zlecenia.
+ * @param {object|null} payment
+ * @param {number} grossVal wartość z `grossForTask`
+ * @param {string|null|undefined} notatkiZBody pole `notatki` z body finish (alternatywa dla payment.notatki)
+ * @returns {boolean} true gdy finish ma zostać odrzucony (brak notatki przy różnicy > CASH_COLLECTION_NOTE_PCT)
+ */
+function isCashCollectionNoteMissing(payment, grossVal, notatkiZBody) {
+  if (!payment || payment.forma_platnosc !== 'Gotowka') return false;
+  const collected = Number(payment.kwota_odebrana);
+  const gross = Number(grossVal);
+  if (!Number.isFinite(collected) || collected <= 0 || !Number.isFinite(gross) || gross <= 0) return false;
+  const diffPct = (Math.abs(collected - gross) / gross) * 100;
+  if (diffPct <= CASH_COLLECTION_NOTE_PCT) return false;
+  const note = String(payment.notatki || notatkiZBody || '').trim();
+  return !note;
+}
+
 function grossForTask(task, payment) {
   const wr = Number(task.wartosc_rzeczywista);
   const wp = Number(task.wartosc_planowana);
@@ -94,8 +142,12 @@ function validateClientPayment(payment, { requireAll }) {
 
 module.exports = {
   FORMY,
+  FINISH_PHOTO_MIN,
+  CASH_COLLECTION_NOTE_PCT,
   grossForTask,
   netSettlementValue,
   validateClientPayment,
   settlementCalcDetail,
+  countTaskFinishPhotos,
+  isCashCollectionNoteMissing,
 };

@@ -318,7 +318,7 @@ router.post('/', authMiddleware, validateBody(cmrCreateSchema), async (req, res)
   } catch (err) {
     try {
       await client.query('ROLLBACK');
-    } catch (_e) {
+    } catch {
       /* ignore */
     }
     client.release();

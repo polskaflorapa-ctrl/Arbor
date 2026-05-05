@@ -9,7 +9,7 @@ function toNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function dueAtForQuotation(q, branch) {
+function dueAtForQuotation(q, _branch) {
   const now = Date.now();
   const pilne = String(q.priorytet || '') === 'Wysoki' || q.klient_czeka_na_miejscu === true;
   const ms = pilne ? 30 * 60 * 1000 : 4 * 60 * 60 * 1000;
@@ -46,7 +46,7 @@ async function rebuildApprovals(client, quotationId) {
     [quotationId]
   );
   const sumValue = toNum(sumRes.rows[0]?.s || q.wartosc_zaproponowana);
-  const koszt = toNum(q.koszt_wlasny_calkowity);
+  const _koszt = toNum(q.koszt_wlasny_calkowity);
   const marza = Number.isFinite(Number(q.marza_pct)) ? toNum(q.marza_pct) : 35;
 
   const bRes = await client.query(`SELECT * FROM branches WHERE id = $1`, [q.oddzial_id]);

@@ -16,7 +16,7 @@ const {
   notifyApproversForQuotation,
   canUserDecideApproval,
 } = require('../services/quotationApprovals');
-const { afterQuotationFullyApproved } = require('../services/quotationFinalize');
+const { afterQuotationFullyApproved, resendQuotationClientOffer } = require('../services/quotationFinalize');
 const { validateQuotationCompleteForVisitEnd, gpsCheckForVisitStart } = require('../services/quotationValidation');
 const { applyAutoFlags } = require('../services/quotationItemFlags');
 
@@ -75,6 +75,11 @@ function canEditDraft(user, row) {
   if (!['Draft', 'Zwrocona', 'Umowiana'].includes(row.status)) return false;
   if (!isWyceniajacy(user) || Number(row.wyceniajacy_id) !== Number(user.id)) return false;
   return true;
+}
+
+/** F1.11 — ponowna wysyłka oferty do klienta (SMS/e-mail). */
+function canResendClientOffer(user) {
+  return isDyrektor(user) || isKierownik(user);
 }
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -415,6 +420,26 @@ router.get('/:id', validateParams(idParam), async (req, res) => {
   if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
   if (!canView(req.user, row)) return res.status(403).json({ error: 'Brak dostępu' });
   res.json(row);
+});
+
+/** F1.11 — ponów SMS i e-mail z tym samym linkiem akceptacji (PDF regenerowany jeśli brak pliku). */
+router.post('/:id/resend-client-offer', validateParams(idParam), async (req, res) => {
+  if (!canResendClientOffer(req.user)) {
+    return res.status(403).json({ error: 'Brak uprawnień do ponownej wysyłki oferty.' });
+  }
+  const row = await fetchQuotation(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+  if (!canView(req.user, row)) return res.status(403).json({ error: 'Brak dostępu' });
+  try {
+    const out = await resendQuotationClientOffer(pool, req.params.id);
+    res.json(out);
+  } catch (e) {
+    logger.error('quotations.resendClientOffer', { message: e.message, quotationId: req.params.id });
+    const msg = e.message || 'Nie udało się ponowić wysyłki';
+    const code = e.code;
+    if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+    return res.status(400).json({ error: msg });
+  }
 });
 
 router.patch('/:id', validateParams(idParam), validateBody(patchSchema), async (req, res) => {

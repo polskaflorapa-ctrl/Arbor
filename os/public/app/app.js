@@ -233,7 +233,7 @@
     });
   }
 
-  async function onGodzinyActionClick(ev) {
+  async function _onGodzinyActionClick(ev) {
     const btn = ev.target.closest('[data-godz-act]');
     if (!btn) return;
     const id = btn.dataset.id;

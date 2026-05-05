@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
@@ -165,6 +165,15 @@ export default function WycenyTerenowe() {
                   <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
                     {[q.adres, q.miasto].filter(Boolean).join(', ')}
                   </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Link
+                      to={`/wyceny-terenowe/${q.id}`}
+                      style={{ color: 'var(--accent)', fontSize: 14 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Szczegóły · wysyłka oferty →
+                    </Link>
+                  </div>
                   <div style={{ ...S.row, marginTop: 12 }}>
                     <select
                       style={S.select}
@@ -201,6 +210,11 @@ export default function WycenyTerenowe() {
                     Wycena #{q.id} · rola: {q.wymagany_typ}
                   </div>
                   <div style={{ fontSize: 14, marginTop: 4 }}>{q.klient_nazwa}</div>
+                  <div style={{ marginTop: 8 }}>
+                    <Link to={`/wyceny-terenowe/${q.id}`} style={{ color: 'var(--accent)', fontSize: 14 }}>
+                      Szczegóły · wysyłka oferty →
+                    </Link>
+                  </div>
                   <div style={{ ...S.row, marginTop: 12, gap: 10 }}>
                     <button type="button" style={{ ...S.btn, background: '#166534' }} disabled={busy} onClick={() => doDecision(q.id, q.approval_id, 'Approved')}>
                       Zatwierdź

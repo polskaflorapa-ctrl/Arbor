@@ -1005,6 +1005,29 @@ paths:
           description: Przyjęto (obróbka w tle)
         "403":
           description: Niepoprawny podpis Twilio
+  /sms/webhooks/status:
+    post:
+      summary: Webhook Twilio — status dostarczenia SMS (application/x-www-form-urlencoded)
+      description: |
+        Wywoływany przez Twilio przy `MessageStatus` końcowym (`delivered`, `failed`, `undelivered`), jeśli przy wysyłce ustawiono `statusCallback` (`PUBLIC_BASE_URL` + ta ścieżka).
+        Aktualizuje `sms_history` dla dopasowania po `sid`. W produkcji weryfikowany jest nagłówek `X-Twilio-Signature`.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                MessageSid: { type: string }
+                MessageStatus: { type: string }
+                ErrorMessage: { type: string }
+      responses:
+        "204":
+          description: Przyjęto
+        "400":
+          description: Brak MessageSid
+        "403":
+          description: Niepoprawny podpis Twilio
   /sms/historia:
     get:
       summary: Historia SMS
@@ -1016,6 +1039,22 @@ paths:
         - name: offset
           in: query
           schema: { type: integer, minimum: 0 }
+        - name: q
+          in: query
+          description: Wyszukiwanie po telefonie, treści, statusie, SID, ID zlecenia, kliencie, typie usługi, oddziale (ILIKE, max 200 znaków)
+          schema: { type: string, maxLength: 200 }
+        - name: status
+          in: query
+          description: Dokładny status wpisu; wartość `all` pomija filtr
+          schema: { type: string, maxLength: 80 }
+        - name: date_from
+          in: query
+          description: Data od (YYYY-MM-DD), pole `created_at` wpisu historii
+          schema: { type: string, maxLength: 10, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        - name: date_to
+          in: query
+          description: Data do (YYYY-MM-DD), pole `created_at` wpisu historii
+          schema: { type: string, maxLength: 10, pattern: '^\d{4}-\d{2}-\d{2}$' }
       responses:
         "200":
           description: Tablica lub `{ items, total, limit, offset }`
@@ -1198,6 +1237,57 @@ paths:
           description: Walidacja — `code: VALIDATION_FAILED`
         "403":
           description: Brak dostępu — `code: TASK_ACCESS_DENIED`
+  /tasks/{id}/plan:
+    patch:
+      summary: Zmiana terminu planowanego (harmonogram / DnD)
+      description: Tylko Kierownik lub Dyrektor/Administrator. Zablokowane dla statusów Zakonczone i Anulowane.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data_planowana]
+              properties:
+                data_planowana:
+                  type: string
+                  description: Nowa data i godzina rozpoczęcia (ISO 8601, timestamptz)
+      responses:
+        "200":
+          description: `{ message }`
+        "400":
+          description: Zlecenie zakończone lub anulowane
+        "403":
+          description: Brak roli lub brak dostępu do zlecenia
+        "409":
+          description: Kolizja z innym zleceniem lub rezerwacją wyceny dla tej samej ekipy (`code: TASK_PLAN_CONFLICT`)
+  /quotations/{id}/resend-client-offer:
+    post:
+      summary: Ponowna wysyłka oferty do klienta (SMS i e-mail)
+      description: |
+        F1.11 — ponawia wysyłkę z tym samym `client_acceptance_token`. Wymaga statusu `Wyslana_Klientowi`.
+        Uprawnienia — Kierownik lub Dyrektor/Administrator oraz dostęp do wyceny (oddział).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Zaktualizowany rekord wyceny terenowej (`quotations`)
+        "400":
+          description: Zły status wyceny lub brak tokenu akceptacji
+        "403":
+          description: Brak roli lub dostępu do wyceny
+        "404":
+          description: Nie znaleziono
   /tasks/{id}/status:
     put:
       summary: Zmiana statusu zlecenia

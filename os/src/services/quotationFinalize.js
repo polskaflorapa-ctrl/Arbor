@@ -5,12 +5,12 @@ const PDFDocument = require('pdfkit');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
+const { getTwilioSmsStatusCallbackUrl } = require('./twilioStatusCallback');
 
 function getSmsClient() {
   const accountSid = env.TWILIO_ACCOUNT_SID;
   const authToken = env.TWILIO_AUTH_TOKEN;
   if (!accountSid || !authToken) return null;
-  // eslint-disable-next-line global-require
   return require('twilio')(accountSid, authToken);
 }
 
@@ -148,25 +148,12 @@ async function persistOfferDelivery(pool, quotationId, sms, email) {
 }
 
 /**
- * Po pełnym zatwierdzeniu: PDF, token akceptacji, SMS/e-mail, status Wyslana_Klientowi.
+ * Wysyła SMS + e-mail z linkiem akceptacji i aktualizuje pola offer_* (bez zmiany tokenu).
+ * @param q — wiersz quotations z ustawionym client_acceptance_token
  */
-async function afterQuotationFullyApproved(pool, quotationId) {
-  const q = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
-  if (!q) return;
-  const token = crypto.randomBytes(24).toString('hex');
-  const pdfUrl = await generateQuotationPdfToDisk(quotationId);
-  const pdfAbs = path.join(process.cwd(), pdfUrl.replace(/^\//, ''));
-
-  await pool.query(
-    `UPDATE quotations SET
-      client_acceptance_token = $1,
-      pdf_url = $2,
-      status = 'Wyslana_Klientowi',
-      wyslano_klientowi_at = NOW(),
-      updated_at = NOW()
-     WHERE id = $3`,
-    [token, pdfUrl, quotationId]
-  );
+async function deliverOfferSmsEmail(pool, quotationId, q, pdfAbs) {
+  const token = q.client_acceptance_token;
+  if (!token) throw new Error('Brak tokenu akceptacji');
 
   const base = publicBase();
   const acceptUrl = base ? `${base}/api/public/quotations/${token}` : `/api/public/quotations/${token}`;
@@ -183,14 +170,16 @@ async function afterQuotationFullyApproved(pool, quotationId) {
   } else {
     const smsAt = new Date();
     try {
-      await client.messages.create({
+      const statusCb = getTwilioSmsStatusCallbackUrl();
+      const twMsg = await client.messages.create({
         body: msg.slice(0, 1500),
         from: env.TWILIO_PHONE,
         to: tel.startsWith('+') ? tel : `+48${tel.replace(/^\+?48/, '')}`,
+        ...(statusCb ? { statusCallback: statusCb } : {}),
       });
       await pool.query(
-        `INSERT INTO sms_history (task_id, telefon, tresc, status) VALUES (NULL, $1, $2, 'Wyslany')`,
-        [tel, msg]
+        `INSERT INTO sms_history (task_id, telefon, tresc, status, sid) VALUES (NULL, $1, $2, 'Wyslany', $3)`,
+        [tel, msg, twMsg.sid]
       );
       sms = { status: 'sent', error: null, at: smsAt };
     } catch (e) {
@@ -216,6 +205,31 @@ async function afterQuotationFullyApproved(pool, quotationId) {
   };
 
   await persistOfferDelivery(pool, quotationId, sms, email);
+}
+
+/**
+ * Po pełnym zatwierdzeniu: PDF, token akceptacji, SMS/e-mail, status Wyslana_Klientowi.
+ */
+async function afterQuotationFullyApproved(pool, quotationId) {
+  const q = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+  if (!q) return;
+  const token = crypto.randomBytes(24).toString('hex');
+  const pdfUrl = await generateQuotationPdfToDisk(quotationId);
+  const pdfAbs = path.join(process.cwd(), pdfUrl.replace(/^\//, ''));
+
+  await pool.query(
+    `UPDATE quotations SET
+      client_acceptance_token = $1,
+      pdf_url = $2,
+      status = 'Wyslana_Klientowi',
+      wyslano_klientowi_at = NOW(),
+      updated_at = NOW()
+     WHERE id = $3`,
+    [token, pdfUrl, quotationId]
+  );
+
+  const q2 = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+  await deliverOfferSmsEmail(pool, quotationId, q2, pdfAbs);
 
   if (q.wyceniajacy_id) {
     await pool.query(
@@ -226,8 +240,46 @@ async function afterQuotationFullyApproved(pool, quotationId) {
   }
 }
 
+/**
+ * Ponowna wysyłka SMS/e-mail z tym samym linkiem akceptacji (F1.11 retry).
+ * Regeneruje PDF na dysku, jeśli brakuje pliku.
+ */
+async function resendQuotationClientOffer(pool, quotationId) {
+  const q = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+  if (!q) {
+    const err = new Error('Nie znaleziono wyceny.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  if (q.status !== 'Wyslana_Klientowi') {
+    const err = new Error(
+      'Ponowna wysyłka jest dostępna tylko dla ofert już wysłanych do klienta (status Wyslana_Klientowi).'
+    );
+    err.code = 'BAD_STATUS';
+    throw err;
+  }
+  if (!q.client_acceptance_token) {
+    const err = new Error('Brak tokenu akceptacji — nie można zbudować linku dla klienta.');
+    err.code = 'NO_TOKEN';
+    throw err;
+  }
+
+  let pdfUrl = q.pdf_url;
+  const absPath = (rel) => path.join(process.cwd(), String(rel || '').replace(/^\//, ''));
+  if (!pdfUrl || !fs.existsSync(absPath(pdfUrl))) {
+    pdfUrl = await generateQuotationPdfToDisk(quotationId);
+    await pool.query(`UPDATE quotations SET pdf_url = $1, updated_at = NOW() WHERE id = $2`, [pdfUrl, quotationId]);
+  }
+
+  const pdfAbs = absPath(pdfUrl);
+  const qFresh = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+  await deliverOfferSmsEmail(pool, quotationId, qFresh, pdfAbs);
+  return (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+}
+
 module.exports = {
   afterQuotationFullyApproved,
+  resendQuotationClientOffer,
   generateQuotationPdfToDisk,
   generateQuotationPdfBuffer,
   publicBase,

@@ -5,6 +5,16 @@
  */
 import axios from 'axios';
 import { getStoredToken } from './utils/storedToken';
+import {
+  getMockData,
+  isTestModeEnabled,
+  getTestUser,
+  TEST_TOKEN,
+  getMockTaskDetail,
+  getMockTaskLogi,
+  mockMarkTaskFinishedInTestMode,
+  getMockQuotationDetail,
+} from './utils/testMode';
 
 /** Normalizacja: pełny host z Rendera bez `/api` → dopinamy `/api` (trasy OS są pod /api/…). */
 function normalizeReactApiBase(raw) {
@@ -31,6 +41,136 @@ const api = axios.create({
   baseURL: API_URL,
   timeout: 15000,
 });
+
+// Get the original adapter before we override it
+const originalAdapter = api.defaults.adapter || axios.defaults.adapter;
+
+function getRequestPath(url) {
+  if (!url) return '';
+  return String(url).split('?')[0].replace(/\/+$|\/\?+$/g, '');
+}
+
+function parseJsonData(data) {
+  if (!data) return {};
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+  return data;
+}
+
+function getTestUserForLogin(login) {
+  const normalized = String(login || '').trim().toLowerCase();
+  if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
+  if (normalized.includes('kierownik')) return getTestUser('kierownik');
+  if (normalized.includes('brygadzista')) return getTestUser('brygadzista');
+  if (normalized.includes('wyceniajacy') || normalized.includes('wyceniający')) return getTestUser('wyceniajacy');
+  return getTestUser('dyrektor');
+}
+
+function getTestModeMockResponse(config) {
+  const method = String(config?.method || 'get').toLowerCase();
+  const path = getRequestPath(String(config.url || ''));
+
+  if (path === '/auth/login' && method === 'post') {
+    const body = parseJsonData(config.data);
+    const user = getTestUserForLogin(body.login);
+    return {
+      data: { token: TEST_TOKEN, user },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksId = path.match(/^\/tasks\/(\d+)$/);
+  if (mTasksId && method === 'get') {
+    return {
+      data: getMockTaskDetail(mTasksId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksLogi = path.match(/^\/tasks\/(\d+)\/logi$/);
+  if (mTasksLogi && method === 'get') {
+    return {
+      data: getMockTaskLogi(mTasksLogi[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mQuotationsId = path.match(/^\/quotations\/(\d+)$/);
+  if (mQuotationsId && method === 'get') {
+    return {
+      data: getMockQuotationDetail(mQuotationsId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mQuotationsResend = path.match(/^\/quotations\/(\d+)\/resend-client-offer$/);
+  if (mQuotationsResend && method === 'post') {
+    return {
+      data: getMockQuotationDetail(mQuotationsResend[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksFinish = path.match(/^\/tasks\/(\d+)\/finish$/);
+  if (mTasksFinish && method === 'post') {
+    mockMarkTaskFinishedInTestMode(mTasksFinish[1]);
+    return {
+      data: { message: 'Zlecenie zakończone', wartosc_netto_do_rozliczenia: 1425 },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mockData = getMockData(path);
+  if (mockData !== null) {
+    return {
+      data: mockData,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  return null;
+}
+
+api.defaults.adapter = async (config) => {
+  if (isTestModeEnabled()) {
+    const mockResponse = getTestModeMockResponse(config);
+    if (mockResponse) return mockResponse;
+  }
+  return originalAdapter(config);
+};
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 const RETRYABLE_ERROR_CODES = new Set(['ECONNABORTED', 'ERR_NETWORK']);

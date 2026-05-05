@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
 const baseUrl = process.argv[2] || process.env.BASE_URL;
 const token = process.argv[3] || process.env.SMOKE_TOKEN;
 

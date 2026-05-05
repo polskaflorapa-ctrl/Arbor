@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AttachMoney from '@mui/icons-material/AttachMoney';
@@ -41,6 +41,16 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 
 const BASE = '';
+
+/** Zgodnie z os/taskSettlement — FINISH_PHOTO_MIN */
+const MIN_FINISH_TYP_PHOTOS = 2;
+
+function photoTypMatches(typ, allowed) {
+  const t = String(typ ?? '')
+    .trim()
+    .toLowerCase();
+  return allowed.some((a) => a.toLowerCase() === t);
+}
 
 const STATUS_KOLOR = {
   Nowe: 'var(--accent)',
@@ -137,9 +147,21 @@ export default function ZlecenieDetail() {
   const [loadingTaskKommoPayload, setLoadingTaskKommoPayload] = useState(false);
   const [pushingTaskKommo, setPushingTaskKommo] = useState(false);
   const [showTaskKommoPayload, setShowTaskKommoPayload] = useState(false);
+  const [finishModalOpen, setFinishModalOpen] = useState(false);
+  const [finishPayForm, setFinishPayForm] = useState({
+    forma_platnosc: 'Gotowka',
+    kwota_odebrana: '',
+    faktura_vat: false,
+    nip: '',
+  });
+  const [finishNotatki, setFinishNotatki] = useState('');
+  const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
+  const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
+  const [finishSubmitting, setFinishSubmitting] = useState(false);
 
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
   const isPomocnik = currentUser?.rola === 'Pomocnik';
+  const isEkipa = isBrygadzista || isPomocnik;
   const canEdit = !isBrygadzista && !isPomocnik;
 
  useEffect(() => {
@@ -623,6 +645,151 @@ export default function ZlecenieDetail() {
     .slice()
     .sort((a, b) => (new Date(a.created_at || a.data_dodania).getTime() - new Date(b.created_at || b.data_dodania).getTime()) * mediaSortFactor);
 
+  const finishRequirements = useMemo(() => {
+    const raw = zlecenie?.finish_requirements;
+    const countPo = zdjecia.filter((z) => photoTypMatches(z?.typ, ['po', 'after'])).length;
+    const countPrzed = zdjecia.filter((z) =>
+      photoTypMatches(z?.typ, ['przed', 'before', 'checkin'])
+    ).length;
+    const hasPoLocal = countPo >= MIN_FINISH_TYP_PHOTOS;
+    const hasPrzedLocal = countPrzed >= MIN_FINISH_TYP_PHOTOS;
+    if (raw && typeof raw.require_po_photo === 'boolean') {
+      return {
+        require_po_photo: !!raw.require_po_photo,
+        require_przed_photo: !!raw.require_przed_photo,
+        require_material_usage: !!raw.require_material_usage,
+        has_po_photo: !!raw.has_po_photo || hasPoLocal,
+        has_przed_photo: !!raw.has_przed_photo || hasPrzedLocal,
+      };
+    }
+    return {
+      require_po_photo: false,
+      require_przed_photo: false,
+      require_material_usage: false,
+      has_po_photo: hasPoLocal,
+      has_przed_photo: hasPrzedLocal,
+    };
+  }, [zlecenie, zdjecia]);
+
+  const activeWorkLog = workLogs.find((w) => w.end_time == null || w.end_time === '');
+  const finishPhotoBlocked =
+    (finishRequirements.require_po_photo && !finishRequirements.has_po_photo) ||
+    (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo);
+
+  const openFinishModal = () => {
+    if (finishPhotoBlocked) {
+      const missing = [];
+      if (finishRequirements.require_po_photo && !finishRequirements.has_po_photo) {
+        missing.push('co najmniej 2 zdjęcia typu Po');
+      }
+      if (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo) {
+        missing.push('co najmniej 2 zdjęcia Przed / check-in');
+      }
+      showMsg(errorMessage(`Przed zakończeniem uzupełnij: ${missing.join(', ')}.`));
+      return;
+    }
+    const defKwota = zlecenie?.wartosc_rzeczywista ?? zlecenie?.wartosc_planowana ?? '';
+    setFinishPayForm({
+      forma_platnosc: 'Gotowka',
+      kwota_odebrana: defKwota !== '' && defKwota != null ? String(defKwota) : '',
+      faktura_vat: false,
+      nip: '',
+    });
+    setFinishNotatki('');
+    setFinishUsageNazwa('');
+    setFinishUsageIlosc('');
+    setFinishModalOpen(true);
+  };
+
+  const submitFinish = async () => {
+    const { forma_platnosc, kwota_odebrana, faktura_vat, nip } = finishPayForm;
+    if (forma_platnosc === 'Gotowka') {
+      const k = parseFloat(String(kwota_odebrana).replace(',', '.'));
+      if (!Number.isFinite(k) || k < 0) {
+        showMsg(errorMessage('Podaj kwotę odebraną (gotówka).'));
+        return;
+      }
+    }
+    if (faktura_vat || forma_platnosc === 'Faktura_VAT') {
+      const n = String(nip || '').replace(/\s/g, '');
+      if (n.length < 10) {
+        showMsg(errorMessage('Podaj NIP przy fakturze VAT.'));
+        return;
+      }
+    }
+    if (finishRequirements.require_material_usage && !finishUsageNazwa.trim()) {
+      showMsg(errorMessage('Podaj nazwę zużytego materiału (wymóg serwera).'));
+      return;
+    }
+    setFinishSubmitting(true);
+    try {
+      const token = getStoredToken();
+      let lat = null;
+      let lng = null;
+      if (navigator.geolocation) {
+        await new Promise((resolve) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          const tid = setTimeout(done, 11000);
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              clearTimeout(tid);
+              lat = pos.coords.latitude;
+              lng = pos.coords.longitude;
+              done();
+            },
+            () => {
+              clearTimeout(tid);
+              done();
+            },
+            { timeout: 10000, maximumAge: 120000 }
+          );
+        });
+      }
+      const noteTrim = finishNotatki.trim();
+      const usageNazwa = finishUsageNazwa.trim();
+      const usageIloscRaw = finishUsageIlosc.trim().replace(',', '.');
+      const usageIlosc = usageNazwa && usageIloscRaw ? parseFloat(usageIloscRaw) : NaN;
+      const zuzyte_materialy =
+        usageNazwa.length > 0
+          ? [
+              {
+                nazwa: usageNazwa.slice(0, 200),
+                ...(Number.isFinite(usageIlosc) ? { ilosc: usageIlosc, jednostka: 'szt' } : {}),
+              },
+            ]
+          : undefined;
+      await api.post(
+        `/tasks/${id}/finish`,
+        {
+          lat,
+          lng,
+          notatki: noteTrim || undefined,
+          ...(zuzyte_materialy ? { zuzyte_materialy } : {}),
+          payment: {
+            forma_platnosc,
+            kwota_odebrana: forma_platnosc === 'Gotowka' ? parseFloat(String(kwota_odebrana).replace(',', '.')) : null,
+            faktura_vat: !!faktura_vat,
+            nip: nip || null,
+            ...(noteTrim ? { notatki: noteTrim } : {}),
+          },
+        },
+        { headers: authHeaders(token) }
+      );
+      setFinishModalOpen(false);
+      showMsg(successMessage('Zlecenie zakończone.'));
+      await loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udało się zakończyć zlecenia')));
+    } finally {
+      setFinishSubmitting(false);
+    }
+  };
+
   if (loading) return <div style={styles.center}><div style={styles.spinner} />Ładowanie...</div>;
   if (!zlecenie) return <div style={styles.center}>Nie znaleziono zlecenia</div>;
 
@@ -789,6 +956,51 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiLabel}>Filmy</div>
           </div>
         </div>
+
+        {isEkipa && zlecenie?.status === 'W_Realizacji' && (
+          <div style={{ ...styles.card, borderLeft: '4px solid var(--accent)' }}>
+            <div style={styles.cardTitle}>Zakończenie zlecenia (ekipa)</div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.45 }}>
+              Zakończenie przekazuje płatność do systemu (F3.9) i zamyka czas pracy — tak samo jak w aplikacji mobilnej.
+              {!activeWorkLog && (
+                <span>
+                  {' '}
+                  <strong>Brak aktywnego wpisu czasu pracy</strong> — uruchom najpierw START w aplikacji mobilnej (pole pracy).
+                </span>
+              )}
+            </p>
+            {finishPhotoBlocked && (
+              <div
+                style={{
+                  padding: '10px 12px',
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  fontSize: 13,
+                  color: 'var(--text-sub)',
+                }}
+              >
+                Dodaj w zakładce Media wymagane zdjęcia (min. 2 × Po i/lub min. 2 × Przed), zgodnie z ustawieniami serwera.
+              </div>
+            )}
+            <button
+              type="button"
+              style={{
+                ...styles.saveBtn,
+                opacity: finishPhotoBlocked || !activeWorkLog ? 0.55 : 1,
+                cursor: finishPhotoBlocked || !activeWorkLog ? 'not-allowed' : 'pointer',
+              }}
+              disabled={Boolean(finishPhotoBlocked || !activeWorkLog)}
+              onClick={() => openFinishModal()}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <CheckCircleOutline sx={{ fontSize: 18 }} />
+                Zakończ zlecenie (płatność)
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={styles.tabs}>
@@ -1501,6 +1713,112 @@ export default function ZlecenieDetail() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {finishModalOpen && (
+          <div
+            style={styles.overlay}
+            onClick={() => !finishSubmitting && setFinishModalOpen(false)}
+            role="presentation"
+          >
+            <div
+              style={{ ...styles.overlayContent, maxWidth: 480, width: '100%' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                style={styles.overlayClose}
+                onClick={() => !finishSubmitting && setFinishModalOpen(false)}
+                aria-label="Zamknij"
+              >
+                <CloseOutlined sx={{ fontSize: 20, color: '#fff' }} />
+              </button>
+              <div style={{ color: 'var(--text)', fontWeight: 700, marginBottom: 14, fontSize: 17 }}>Płatność klienta</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Forma płatności</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {['Gotowka', 'Przelew', 'Faktura_VAT', 'Brak'].map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: `1px solid ${finishPayForm.forma_platnosc === f ? 'var(--accent)' : 'var(--border)'}`,
+                      backgroundColor: finishPayForm.forma_platnosc === f ? 'var(--accent)' : 'var(--bg-deep)',
+                      color: finishPayForm.forma_platnosc === f ? '#fff' : 'var(--text)',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setFinishPayForm((p) => ({ ...p, forma_platnosc: f }))}
+                  >
+                    {f.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+              {finishPayForm.forma_platnosc === 'Gotowka' && (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Kwota odebrana (PLN)</div>
+                  <input
+                    style={{ ...styles.editInput, marginBottom: 10 }}
+                    type="text"
+                    inputMode="decimal"
+                    value={finishPayForm.kwota_odebrana}
+                    onChange={(e) => setFinishPayForm((p) => ({ ...p, kwota_odebrana: e.target.value }))}
+                  />
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    Uwagi przy dużej różnicy kwoty gotówki od wartości zlecenia (wymagane przy różnicy {'>'} 5%)
+                  </div>
+                  <textarea
+                    style={{ ...styles.editInput, minHeight: 72, marginBottom: 10 }}
+                    placeholder="Wpisz uzasadnienie, jeśli kwota różni się znacząco od wartości zlecenia"
+                    value={finishNotatki}
+                    onChange={(e) => setFinishNotatki(e.target.value)}
+                  />
+                </>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 14, color: 'var(--text)' }}>Faktura VAT</span>
+                <input
+                  type="checkbox"
+                  checked={finishPayForm.faktura_vat}
+                  onChange={(e) => setFinishPayForm((p) => ({ ...p, faktura_vat: e.target.checked }))}
+                />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>NIP (jeśli faktura)</div>
+              <input
+                style={{ ...styles.editInput, marginBottom: 12 }}
+                value={finishPayForm.nip}
+                onChange={(e) => setFinishPayForm((p) => ({ ...p, nip: e.target.value }))}
+              />
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                {finishRequirements.require_material_usage
+                  ? 'Zużyte materiały — wymagana nazwa'
+                  : 'Zużyte materiały (opcjonalnie)'}
+              </div>
+              <input
+                style={{ ...styles.editInput, marginBottom: 8 }}
+                placeholder="Nazwa materiału"
+                value={finishUsageNazwa}
+                onChange={(e) => setFinishUsageNazwa(e.target.value)}
+              />
+              <input
+                style={{ ...styles.editInput, marginBottom: 14 }}
+                placeholder="Ilość (opcjonalnie)"
+                inputMode="decimal"
+                value={finishUsageIlosc}
+                onChange={(e) => setFinishUsageIlosc(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button type="button" style={styles.cancelBtn} disabled={finishSubmitting} onClick={() => setFinishModalOpen(false)}>
+                  Anuluj
+                </button>
+                <button type="button" style={styles.saveBtn} disabled={finishSubmitting} onClick={() => void submitFinish()}>
+                  {finishSubmitting ? '…' : 'Zakończ zlecenie'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

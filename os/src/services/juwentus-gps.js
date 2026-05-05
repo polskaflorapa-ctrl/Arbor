@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const logger = require('../config/logger');
+const _logger = require('../config/logger');
 const { env } = require('../config/env');
 
 const normalizePlate = (value) => String(value || '').toUpperCase().replace(/\s+/g, '').replace(/-/g, '');

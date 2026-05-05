@@ -452,7 +452,7 @@ export default function WycenaKalendarz() {
               <button
                 key={`${row.quotation_id}-${row.approval_id}`}
                 type="button"
-                onClick={() => navigate(`/wyceny-terenowe?id=${row.quotation_id}`)}
+                onClick={() => navigate(`/wyceny-terenowe/${row.quotation_id}`)}
                 style={{
                   textAlign: 'left',
                   padding: '10px 12px',

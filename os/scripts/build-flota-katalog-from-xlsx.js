@@ -2,7 +2,6 @@
  * Buduje data/flota-pojazdy-katalog.json z pliku Excel (arkusze = oddziały / lokalizacje).
  * Użycie: node scripts/build-flota-katalog-from-xlsx.js "C:/ścieżka/Данные по машинам.xlsx"
  */
-/* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');

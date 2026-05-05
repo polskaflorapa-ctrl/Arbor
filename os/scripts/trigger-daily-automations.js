@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
 /**
  * POST /api/automations/run-daily — do crona (GitHub Actions, Render Cron, lokalnie).
  *

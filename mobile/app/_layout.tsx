@@ -12,6 +12,10 @@ import { hydrateAppRemoteFlags } from '../utils/app-remote-flags';
 import { hydrateOddzialFeatureOverrides } from '../utils/oddzial-feature-overrides';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { getStoredSession } from '../utils/session';
+import {
+  installMobileTestModeFetchInterceptor,
+  installMobileTestModeAxiosAdapter,
+} from '../utils/testMode';
 
 /** Maks. wiek powiadomienia przy zimnym starcie — unikamy nawigacji „w tyle”. */
 const NOTIFICATION_COLD_START_MAX_AGE_MS = 45 * 60 * 1000;
@@ -36,6 +40,8 @@ function navigateFromNotification(path: string) {
 export default function Layout() {
   useEffect(() => {
     void (async () => {
+      await installMobileTestModeFetchInterceptor();
+      await installMobileTestModeAxiosAdapter();
       await hydrateOddzialFeatureOverrides();
       await hydrateAppRemoteFlags();
       const { token } = await getStoredSession();
@@ -108,6 +114,7 @@ export default function Layout() {
           <Stack.Screen name="harmonogram" />
           <Stack.Screen name="raporty-mobilne" />
           <Stack.Screen name="wycena" />
+          <Stack.Screen name="test-mode" />
           <Stack.Screen name="wyceny-terenowe" />
           <Stack.Screen name="wycena-rysuj" />
           <Stack.Screen name="nowe-zlecenie" />
