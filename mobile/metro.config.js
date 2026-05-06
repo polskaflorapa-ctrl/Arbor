@@ -13,7 +13,7 @@ function escapeRegExp(s) {
 // Monorepo: Metro widzi pakiety z katalogu nadrzędnego. Wymuś **jedną** kopię RN z `mobile/`
 // (postinstall patchuje VirtualView tutaj) + zablokuj drugą kopię w `arbor/node_modules`, bo
 // hoisting nadal potrafi wczytać pliki z roota i babel/codegen się rozjeżdża.
-config.watchFolders = [monorepoRoot];
+config.watchFolders = [...new Set([...(config.watchFolders || []), monorepoRoot])];
 
 const mobileRn = path.join(projectRoot, 'node_modules', 'react-native');
 if (require('fs').existsSync(mobileRn)) {
@@ -40,3 +40,4 @@ if (require('fs').existsSync(rootRnAbs)) {
 }
 
 module.exports = config;
+

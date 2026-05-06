@@ -3,9 +3,10 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { themes } from '@/constants/theme';
 import type { Theme } from '@/constants/theme';
+import { useTheme } from '@/constants/ThemeContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /** Klucze motywu, które są kolorami (string), nie liczbami (radius, cień). */
 export type ThemeColorName =
@@ -18,13 +19,14 @@ export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: ThemeColorName,
 ): string {
-  const theme = useColorScheme() ?? 'light';
-  const colorFromProps = props[theme];
+  const appearance: 'light' | 'dark' = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const colorFromProps = props[appearance];
   const key = (colorName === 'background' ? 'bg' : colorName) as keyof Theme;
+  const { themeName } = useTheme();
 
   if (colorFromProps) {
     return colorFromProps;
   }
-  const resolved = themes[theme][key];
+  const resolved = themes[themeName][key];
   return typeof resolved === 'string' ? resolved : '#000000';
 }
