@@ -14,6 +14,8 @@ import NowyPracownik from './pages/NowyPracownik';
 import Oddzialy from './pages/Oddzialy';
 import OddzialDetail from './pages/OddzialDetail';
 import Flota from './pages/Flota';
+import MagazynWeb from './pages/MagazynWeb';
+import RezerwacjeSprzetu from './pages/RezerwacjeSprzetu';
 import Crm from './pages/Crm';
 import CrmDashboard from './pages/CrmDashboard';
 import CrmPipeline from './pages/CrmPipeline';
@@ -54,6 +56,8 @@ function App() {
           <Route path="/oddzialy" element={<Oddzialy />} />
           <Route path="/oddzialy/:id" element={<OddzialDetail />} />
           <Route path="/flota" element={<Flota />} />
+          <Route path="/magazyn" element={<MagazynWeb />} />
+          <Route path="/rezerwacje-sprzetu" element={<RezerwacjeSprzetu />} />
           <Route path="/powiadomienia" element={<Powiadomienia />} />
           <Route path="/telefonia" element={<Telefonia />} />
           <Route path="/harmonogram" element={<Harmonogram />} />

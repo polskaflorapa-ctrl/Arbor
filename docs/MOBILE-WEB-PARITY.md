@@ -35,8 +35,8 @@
 | `oddzialy-mobile.tsx` | `#/oddzialy`, `#/oddzialy/:id` | **Parity** | |
 | `uzytkownicy-mobile.tsx` | `#/uzytkownicy`, `#/uzytkownicy/:id`, `#/nowy-pracownik` | **Parity** | |
 | `flota-mobile.tsx` | `#/flota` | **Parity** | |
-| `magazyn-mobile.tsx` | — | **Missing** | **Magazyn / inwentaryzacja** — priorytet pod „wszystko na web”; typowo wspólne API z mobile. |
-| `rezerwacje-sprzetu.tsx` | — | **Missing** | Rezerwacje sprzętu — brak dedykowanego route na web. |
+| `magazyn-mobile.tsx` | `#/magazyn` (`MagazynWeb.js`) | **Parity (lokalnie)** | Ten sam klucz `magazyn_local_items_v1` co mobile (przeglądarka). Wspólny magazyn zespołowy = osobna praca (API). |
+| `rezerwacje-sprzetu.tsx` | `#/rezerwacje-sprzetu` (`RezerwacjeSprzetu.js`) | **Parity (API)** | `GET/POST/PUT` `/api/flota/rezerwacje` + tabela `equipment_reservations` (migracja `os/migrate.sql`). |
 | `wycena.tsx` | `#/wycena-kalendarz` / flow wycen | **Partial** | Zależnie od tego, co robi `wycena.tsx` vs kalendarz. |
 | `wycena-kalendarz.tsx` | `#/wycena-kalendarz` | **Parity** | |
 | `wycena-rysuj.tsx` | — | **Missing** | Rysowanie / szkic wyceny w terenie — na web osobny widok (tablet?) lub integracja z istniejącym flow. |

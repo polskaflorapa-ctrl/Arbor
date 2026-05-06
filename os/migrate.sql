@@ -1146,6 +1146,28 @@ VALUES (
 )
 ON CONFLICT (login) DO UPDATE SET haslo_hash = EXCLUDED.haslo_hash;
 
+-- ─── Rezerwacje sprzętu (FLOTA) — mobile + web ───────────────────────────────
+CREATE TABLE IF NOT EXISTS equipment_reservations (
+  id            SERIAL PRIMARY KEY,
+  oddzial_id    INTEGER NOT NULL REFERENCES branches(id),
+  sprzet_id     INTEGER NOT NULL REFERENCES equipment_items(id) ON DELETE CASCADE,
+  ekipa_id      INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,
+  data_od       DATE NOT NULL,
+  data_do       DATE NOT NULL,
+  caly_dzien    BOOLEAN NOT NULL DEFAULT true,
+  status        VARCHAR(30) NOT NULL DEFAULT 'Zarezerwowane',
+  user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMP DEFAULT NOW(),
+  updated_at    TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT equipment_reservations_status_chk CHECK (
+    status IN ('Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane')
+  )
+);
+CREATE INDEX IF NOT EXISTS idx_equipment_reservations_sprzet_dates
+  ON equipment_reservations (sprzet_id, data_od, data_do);
+CREATE INDEX IF NOT EXISTS idx_equipment_reservations_ekipa_dates
+  ON equipment_reservations (ekipa_id, data_od, data_do);
+
 -- ============================================================
 -- KONIEC MIGRACJI
 -- ==========================
