@@ -1,4 +1,4 @@
-# Typecheck + lint (mobile) oraz production build (web) — bez działającego API.
+# Mobile: typecheck + lint. Web: production build. OS: eslint. Bez działającego API.
 name: Verify static
 
 on:
