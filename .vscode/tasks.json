@@ -19,9 +19,9 @@
       "problemMatcher": []
     },
     {
-      "label": "repo: verify static",
+      "label": "repo: check (verify static)",
       "type": "shell",
-      "command": "npm run verify:static",
+      "command": "npm run check",
       "options": {
         "cwd": "${workspaceFolder}"
       },
