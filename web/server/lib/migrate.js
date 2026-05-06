@@ -54,6 +54,8 @@ function migrateState(state, saveState) {
   ensure('nextFlotaPojazdId', seed.nextFlotaPojazdId || 1);
   ensure('nextFlotaSprzetId', seed.nextFlotaSprzetId || 1);
   ensure('nextFlotaNaprawaId', seed.nextFlotaNaprawaId || 1);
+  ensure('equipmentReservations', () => [...(seed.equipmentReservations || [])]);
+  ensure('nextEquipmentReservationId', seed.nextEquipmentReservationId || 1);
   ensure('cmrLists', () => []);
   ensure('nextCmrId', 1);
   ensure('faktury', () => []);

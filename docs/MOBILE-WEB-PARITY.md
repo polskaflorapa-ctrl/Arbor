@@ -71,8 +71,8 @@ Przy „wszystko na web” chodzi o **dodanie brakujących mobile-first funkcji*
 
 ## Proponowana kolejność realizacji („wszystko”, ale etapami)
 
-1. **Faza A — magazyn i zasoby**  
-   `magazyn-mobile`, `rezerwacje-sprzetu` → nowe route’y web + wspólne API + menu.
+1. **Faza A — magazyn i zasoby** *(wdrożone: web + OS + testy OpenAPI)*  
+   `magazyn-mobile`, `rezerwacje-sprzetu` → route’y web, menu, API OS (`equipment_reservations`), **`web/server` tryb full-stack**: `GET/POST /flota/rezerwacje`, `PUT /flota/rezerwacje/:id/status` + stan `equipmentReservations` w `state.json`; skróty na `#/dashboard`.
 
 2. **Faza B — pole i raporty**  
    `raport-dzienny`, `raporty-mobilne`, `kpi-tydzien`, `misja-dnia`, `autoplan-dnia` → rozszerzenie `#/raporty` / dashboard lub dedykowane podstrony.

@@ -1922,6 +1922,115 @@ module.exports = function registerFullStack(router) {
     res.status(201).json(row);
   });
 
+  const REZ_STATUSES = ['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane'];
+  const dateYmd = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  /** Musi być przed `/flota/:typ/:id/status`, żeby nie połapać `typ=rezerwacje`. */
+  router.get('/flota/rezerwacje', requireAuth, (req, res) => {
+    const { from, to } = req.query || {};
+    if (!dateYmd(from) || !dateYmd(to)) {
+      return res.status(400).json({ error: 'Nieprawidłowy zakres dat', code: 'VALIDATION_FAILED' });
+    }
+    const rows = readOnly((s) => {
+      const sprzetById = Object.fromEntries((s.flotaSprzet || []).map((x) => [x.id, x]));
+      const teamById = Object.fromEntries((s.teams || []).map((x) => [x.id, x]));
+      let list = (s.equipmentReservations || []).filter((r) => r.data_do >= from && r.data_od <= to);
+      if (!canSeeAll(req.user)) {
+        list = list.filter((r) => {
+          const eq = sprzetById[r.sprzet_id];
+          return eq && String(eq.oddzial_id) === String(req.user.oddzial_id);
+        });
+      }
+      return list.map((r) => ({
+        id: r.id,
+        sprzet_id: r.sprzet_id,
+        ekipa_id: r.ekipa_id,
+        data_od: r.data_od,
+        data_do: r.data_do,
+        caly_dzien: !!r.caly_dzien,
+        status: r.status,
+        sprzet_nazwa: sprzetById[r.sprzet_id]?.nazwa ?? null,
+        ekipa_nazwa: teamById[r.ekipa_id]?.nazwa ?? null,
+      }));
+    });
+    res.json(rows);
+  });
+
+  router.post('/flota/rezerwacje', requireAuth, (req, res) => {
+    const b = req.body || {};
+    const sprzet_id = toNum(b.sprzet_id);
+    const ekipa_id = toNum(b.ekipa_id);
+    const { data_od, data_do } = b;
+    if (!sprzet_id || !ekipa_id || !dateYmd(data_od) || !dateYmd(data_do)) {
+      return res.status(400).json({ error: 'Nieprawidłowe dane', code: 'VALIDATION_FAILED' });
+    }
+    if (data_do < data_od) return res.status(400).json({ error: 'data_do_przed_data_od' });
+    const caly_dzien = b.caly_dzien !== false;
+    const status = REZ_STATUSES.includes(b.status) ? b.status : 'Zarezerwowane';
+
+    const row = withStore((s) => {
+      const spr = (s.flotaSprzet || []).find((x) => x.id === sprzet_id);
+      if (!spr) return { err: 'sprzet_nieznaleziony', code: 404 };
+      const team = (s.teams || []).find((x) => x.id === ekipa_id);
+      if (!team) return { err: 'ekipa_nieznaleziona', code: 404 };
+      const sprOdd = spr.oddzial_id;
+      const teamOdd = team.oddzial_id;
+      if (sprOdd != null && teamOdd != null && sprOdd !== teamOdd) {
+        return { err: 'sprzet_ekipa_oddzial', code: 400 };
+      }
+      if (!canSeeAll(req.user)) {
+        if (String(req.user.oddzial_id) !== String(sprOdd) || String(req.user.oddzial_id) !== String(teamOdd)) {
+          return { err: 'brak_dostepu_oddzial', code: 403 };
+        }
+      }
+      const oddzialId = sprOdd ?? teamOdd ?? req.user.oddzial_id;
+      const active = (s.equipmentReservations || []).some(
+        (r) =>
+          r.sprzet_id === sprzet_id &&
+          !['Anulowane', 'Zwrócone'].includes(r.status) &&
+          !(r.data_do < data_od || r.data_od > data_do)
+      );
+      if (active) return { err: 'rezerwacja_kolizja_sprzet', code: 409 };
+      const id = s.nextEquipmentReservationId++;
+      const rec = {
+        id,
+        oddzial_id: oddzialId,
+        sprzet_id,
+        ekipa_id,
+        data_od,
+        data_do,
+        caly_dzien,
+        status,
+        user_id: req.user.id,
+      };
+      s.equipmentReservations.push(rec);
+      return { id };
+    });
+    if (row.err) return res.status(row.code || 400).json({ error: row.err });
+    res.json({ id: row.id });
+  });
+
+  router.put('/flota/rezerwacje/:id/status', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const status = (req.body || {}).status;
+    if (!id || !REZ_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Nieprawidłowe dane', code: 'VALIDATION_FAILED' });
+    }
+    const ok = withStore((s) => {
+      const sprzetById = Object.fromEntries((s.flotaSprzet || []).map((x) => [x.id, x]));
+      const r = (s.equipmentReservations || []).find((x) => x.id === id);
+      if (!r) return false;
+      if (!canSeeAll(req.user)) {
+        const eq = sprzetById[r.sprzet_id];
+        if (!eq || String(eq.oddzial_id) !== String(req.user.oddzial_id)) return false;
+      }
+      r.status = status;
+      return true;
+    });
+    if (!ok) return res.status(404).json({ error: 'nie_znaleziono' });
+    res.json({ message: 'ok' });
+  });
+
   router.put('/flota/:typ/:id/status', requireAuth, (req, res) => {
     const typ = req.params.typ;
     const id = toNum(req.params.id);

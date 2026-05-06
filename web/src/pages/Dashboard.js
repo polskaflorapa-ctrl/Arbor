@@ -96,7 +96,7 @@ function webQuickCategory(path) {
   if (path === '/ksiegowosc' || path === '/wynagrodzenie-wyceniajacych') return 'finance';
   if (path === '/raporty') return 'reports';
   if (path === '/wycena-kalendarz') return 'quotes';
-  if (['/flota'].includes(path)) return 'fleetMagazyn';
+  if (['/flota', '/magazyn', '/rezerwacje-sprzetu'].includes(path)) return 'fleetMagazyn';
   return 'operations';
 }
 
@@ -261,6 +261,8 @@ export default function Dashboard() {
     { label: 'Ekipy',          sub: 'Zarządzaj ekipami',      path: '/ekipy',         color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Raporty',        sub: 'Analiza wydajności',     path: '/raporty',           color: 'var(--accent-dk)', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista'] },
     { label: 'Flota i sprzęt', sub: 'Pojazdy i narzędzia',   path: '/flota',             color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
+    { label: 'Magazyn',        sub: 'Stan lokalny (jak w aplikacji mobilnej)', path: '/magazyn', color: '#A3E635', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
+    { label: 'Rezerwacje sprzętu', sub: 'Kalendarz rezerwacji', path: '/rezerwacje-sprzetu', color: '#22D3EE', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Harmonogram',    sub: 'Kalendarz zleceń',       path: '/harmonogram',       color: '#60A5FA', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Magazynier'] },
     { label: 'Wyceny',         sub: 'Kalendarz, oględziny, zatwierdzanie', path: '/wycena-kalendarz',  color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Rozliczenie wyc.', sub: 'Stawka + % realizacji', path: '/wynagrodzenie-wyceniajacych', color: '#34D399', roles: ['Wyceniający','Kierownik','Dyrektor','Administrator'] },
