@@ -1,6 +1,9 @@
 {
   "name": "arbor",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "mobile",
     "web",
