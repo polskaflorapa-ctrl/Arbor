@@ -52,3 +52,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify:os
+
+  # Jedna „bramka” pod Branch protection → Required status: „Verify static / all-green”
+  all-green:
+    name: all-green
+    runs-on: ubuntu-latest
+    needs: [mobile, web, os]
+    steps:
+      - run: echo "verify-static OK"
