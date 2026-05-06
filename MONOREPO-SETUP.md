@@ -37,6 +37,17 @@ Move-Item -LiteralPath "C:\Users\paha1\arbor-mobile" -Destination "$root\mobile"
 
 Dla małego zespołu zwykle wygrywa **jeden repo** w `arbor`.
 
+### `git push` — HTTP 500 / `RPC failed`
+
+Przy dużym pushu albo chwilowym błędzie GitHuba (`RPC failed`, `HTTP 500`, remote disconnect):
+
+```powershell
+git config http.postBuffer 524288000
+git push origin master
+```
+
+Możesz też przełączyć remote na SSH albo ponowić push po kilku minutach (warto sprawdzić [status GitHuba](https://www.githubstatus.com/)).
+
 ## Po przeniesieniu
 
 W katalogu `arbor` uruchom `npm install` (jeśli używasz workspaces z `package.json` w root — dopiero wtedy ma sens).
