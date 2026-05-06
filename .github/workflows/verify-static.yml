@@ -7,6 +7,13 @@ on:
   pull_request:
     branches: [master, main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-static-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -22,5 +29,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Mobile typecheck + lint, web build
+      - name: Mobile, web, OS (verify:static)
         run: npm run verify:static
