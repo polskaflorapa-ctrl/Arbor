@@ -33,6 +33,7 @@
     "verify:web": "npm run build -w arbor-web",
     "verify:os": "npm run lint -w arbor-os",
     "verify:static": "npm run verify:mobile && npm run verify:web:test && npm run verify:web && npm run verify:os",
+    "verify:static:parallel": "concurrently -n mobile,web,os -c auto \"npm run verify:mobile\" \"npm run verify:web:test && npm run verify:web\" \"npm run verify:os\"",
     "doctor": "node ./scripts/doctor.cjs",
     "up": "node ./scripts/up.cjs",
     "up:force": "node ./scripts/up.cjs --force",
