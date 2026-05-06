@@ -76,7 +76,7 @@ export default function Harmonogram() {
       const rawE = eRes.data;
       setEkipy(Array.isArray(rawE) ? rawE : rawE?.ekipy || []);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
     } finally {
       setLoading(false);
     }

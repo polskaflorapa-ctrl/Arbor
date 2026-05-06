@@ -60,7 +60,7 @@ export default function Kierownik() {
       setEkipy(eRes.data);
       setOddzialy(oRes.data);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
       showMsg(errorMessage('Błąd ładowania danych'));
     } finally {
       setLoading(false);

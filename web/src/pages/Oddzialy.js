@@ -63,7 +63,7 @@ export default function Oddzialy() {
       setEkipy(eRes.data);
       setDelegacje(dRes.data);
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   }, []);
 
@@ -177,7 +177,7 @@ export default function Oddzialy() {
       const token = getStoredToken();
       await api.put(`/oddzialy/delegacje/${id}/status`, { status }, { headers: authHeaders(token) });
       loadAll();
-    } catch (err) { console.log(err); }
+    } catch (err) { console.error(err); }
   };
 
   const STATUS_DELEGACJI_KOLOR = {

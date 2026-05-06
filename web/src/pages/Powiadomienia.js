@@ -54,7 +54,7 @@ export default function Powiadomienia() {
       setPowiadomienia(notifications);
       setUnreadCount(nRes.data.unread_count || notifications.filter(n => n.status === 'Nowe').length);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
       showMsg(errorMessage(t('common.loadDataError')));
     } finally {
       setLoading(false);
@@ -99,7 +99,7 @@ export default function Powiadomienia() {
       });
       loadData();
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   };
 

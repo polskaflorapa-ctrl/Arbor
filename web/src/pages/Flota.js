@@ -68,7 +68,7 @@ export default function Flota() {
       setOddzialy(oRes.data);
       setEkipy(eRes.data);
     } catch (err) {
-      console.log(err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -144,7 +144,7 @@ export default function Flota() {
         headers: authHeaders(token)
       });
       loadAll();
-    } catch (err) { console.log(err); }
+    } catch (err) { console.error(err); }
   };
 
   const fmt = (d) => d ? d.split('T')[0] : '-';

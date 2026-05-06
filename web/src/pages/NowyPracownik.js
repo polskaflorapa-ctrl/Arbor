@@ -40,7 +40,7 @@ export default function NowyPracownik() {
       setOddzialy(oRes.data);
       setEkipy(eRes.data);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
     }
   }, []);
 

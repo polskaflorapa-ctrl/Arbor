@@ -75,7 +75,7 @@ export default function Ksiegowosc() {
       setZlecenia(zRes.data);
       if (uRes.data) setUstawienia(prev => ({ ...prev, ...uRes.data }));
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
       showMsg(errorMessage('Błąd ładowania danych'));
     }
   }, [showMsg]);

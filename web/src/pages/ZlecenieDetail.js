@@ -205,7 +205,7 @@ export default function ZlecenieDetail() {
       setIntegrationSettings(intRes.data?.settings || { sms: true, email: true, push: true, auto_on_status: true, auto_on_reminder: true });
       setIntegrationLogs(Array.isArray(intRes.data?.logs) ? intRes.data.logs : []);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
       showMsg(errorMessage('Błąd ładowania danych'));
     } finally {
       setLoading(false);
