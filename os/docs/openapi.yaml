@@ -763,6 +763,68 @@ paths:
           description: `{ id }`
         "400":
           description: Walidacja — `code: VALIDATION_FAILED`
+  /flota/rezerwacje:
+    get:
+      summary: Rezerwacje sprzętu w przedziale dat
+      description: |
+        Zwraca listę rezerwacji nakładających się na `[from, to]` (ISO `YYYY-MM-DD`).
+        Użytkownicy spoza roli Dyrektor/Administrator widzą tylko sprzęt ze swojego oddziału.
+        Gdy tabela `equipment_reservations` nie istnieje (brak migracji), odpowiedź `404` z `error: rezerwacje_not_migrated`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
+      responses:
+        "200":
+          description: Tablica rekordów z polami m.in. `id`, `sprzet_id`, `ekipa_id`, `data_od`, `data_do`, `caly_dzien`, `status`, `sprzet_nazwa`, `ekipa_nazwa`
+        "404":
+          description: Brak migracji — `{ error: rezerwacje_not_migrated }`
+    post:
+      summary: Nowa rezerwacja sprzętu
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaRezerwacjaCreate'
+      responses:
+        "200":
+          description: `{ id }` — identyfikator nowej rezerwacji
+        "400":
+          description: Walidacja lub `data_do_przed_data_od`, `sprzet_ekipa_oddzial`
+        "403":
+          description: `{ error: brak_dostepu_oddzial }`
+        "404":
+          description: Nieznaleziony sprzęt/ekipa lub brak migracji
+        "409":
+          description: Kolizja terminu dla tego samego `sprzet_id` — `{ error: rezerwacja_kolizja_sprzet }`
+  /flota/rezerwacje/{id}/status:
+    put:
+      summary: Zmiana statusu rezerwacji sprzętu
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlotaRezerwacjaStatusBody'
+      responses:
+        "200":
+          description: `{ message: ok }`
+        "404":
+          description: Nie znaleziono (`nie_znaleziono`) lub brak migracji
   /godziny/moje:
     get:
       summary: Godziny pomocnika
@@ -2774,6 +2836,26 @@ components:
       required: [status]
       properties:
         status: { type: string }
+    FlotaRezerwacjaCreate:
+      type: object
+      required: [sprzet_id, ekipa_id, data_od, data_do]
+      properties:
+        sprzet_id: { type: integer }
+        ekipa_id: { type: integer }
+        data_od: { type: string, description: "YYYY-MM-DD" }
+        data_do: { type: string, description: "YYYY-MM-DD" }
+        caly_dzien: { type: boolean, default: true }
+        status:
+          type: string
+          enum: [Zarezerwowane, Wydane, Zwrócone, Anulowane]
+          default: Zarezerwowane
+    FlotaRezerwacjaStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [Zarezerwowane, Wydane, Zwrócone, Anulowane]
     SmsWyslij:
       type: object
       required: [telefon, tresc]
