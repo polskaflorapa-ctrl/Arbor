@@ -41,7 +41,9 @@ export async function apiCallWithTestMode(endpoint: '/zlecenia' | '/dashboard/su
     // Zwróć mockowe dane
     const mockData = getMockDataMobile(endpoint);
     if (mockData) {
-      console.log('[TEST MODE]', 'Returning mock data for:', endpoint);
+      if (__DEV__) {
+        console.debug('[TEST MODE]', 'Returning mock data for:', endpoint);
+      }
       return mockData;
     }
   }
