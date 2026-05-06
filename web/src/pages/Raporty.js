@@ -122,7 +122,7 @@ export default function Raporty() {
       setCallLogs(Array.isArray(callsRes.data) ? callsRes.data : []);
       setCallbackTasks(Array.isArray(callbacksRes.data) ? callbacksRes.data : []);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
     } finally {
       setLoading(false);
     }
@@ -146,7 +146,7 @@ export default function Raporty() {
       });
       setOddzialCeleDraft((prev) => ({ ...prev, ...draft }));
     } catch (err) {
-      console.log('Błąd ładowania celów oddziałów:', err);
+      console.error('Błąd ładowania celów oddziałów:', err);
     }
   };
 
@@ -170,7 +170,7 @@ export default function Raporty() {
       });
       setOddzialSprzedazDraft((prev) => ({ ...prev, ...draft }));
     } catch (err) {
-      console.log('Błąd ładowania sprzedaży oddziałów:', err);
+      console.error('Błąd ładowania sprzedaży oddziałów:', err);
     }
   };
 
@@ -504,7 +504,7 @@ export default function Raporty() {
       }, { headers: h });
       await loadCele(filtrRok, filtrMiesiac);
     } catch (err) {
-      console.log('Błąd zapisu celu oddziału:', err);
+      console.error('Błąd zapisu celu oddziału:', err);
     } finally {
       setSavingCeleKey('');
     }
@@ -545,7 +545,7 @@ export default function Raporty() {
       }, { headers: h });
       await loadSprzedaz(filtrRok, filtrMiesiac);
     } catch (err) {
-      console.log('Błąd zapisu danych sprzedaży oddziału:', err);
+      console.error('Błąd zapisu danych sprzedaży oddziału:', err);
     } finally {
       setSavingSprzedazKey('');
     }
@@ -562,7 +562,7 @@ export default function Raporty() {
       setCallLogs(Array.isArray(callsRes.data) ? callsRes.data : []);
       setCallbackTasks(Array.isArray(callbacksRes.data) ? callbacksRes.data : []);
     } catch (err) {
-      console.log('Błąd odświeżenia telephony:', err);
+      console.error('Błąd odświeżenia telephony:', err);
     }
   };
 
@@ -578,7 +578,7 @@ export default function Raporty() {
       setNewCallForm({ oddzial_id: '', phone: '', call_type: 'outbound', status: 'missed', duration_sec: '', lead_name: '', notes: '' });
       await odswiezTelephony();
     } catch (err) {
-      console.log('Błąd dodania call log:', err);
+      console.error('Błąd dodania call log:', err);
     }
   };
 
@@ -593,7 +593,7 @@ export default function Raporty() {
       setNewCallbackForm({ oddzial_id: '', phone: '', lead_name: '', priority: 'normal', due_at: '', notes: '' });
       await odswiezTelephony();
     } catch (err) {
-      console.log('Błąd dodania callback:', err);
+      console.error('Błąd dodania callback:', err);
     }
   };
 
@@ -604,7 +604,7 @@ export default function Raporty() {
       await api.patch(`/telephony/callbacks/${id}/status`, { status }, { headers: h });
       await odswiezTelephony();
     } catch (err) {
-      console.log('Błąd zmiany statusu callback:', err);
+      console.error('Błąd zmiany statusu callback:', err);
     }
   };
 
