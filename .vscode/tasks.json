@@ -31,6 +31,20 @@
         "panel": "shared"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "repo: check parallel",
+      "type": "shell",
+      "command": "npm run check:parallel",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
     }
   ]
 }
