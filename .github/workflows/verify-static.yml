@@ -27,6 +27,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify:mobile
+      - name: Expo Doctor
+        working-directory: mobile
+        env:
+          EXPO_NO_TELEMETRY: "1"
+        run: npx expo-doctor
 
   web:
     runs-on: ubuntu-latest
