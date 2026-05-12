@@ -22,7 +22,7 @@ const { sendRecordingToHttpResponse } = require('../services/phone-recording-sto
 
 const router = express.Router();
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 
 /** Zakres listy / licznika rozmów: dyrektor / administrator / kierownik — wszystkie; inni — tylko własne. */

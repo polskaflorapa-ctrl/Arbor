@@ -16,6 +16,11 @@ module.exports = function (api) {
         },
       ],
     ],
-    plugins: [expoRouterBabelPlugin],
+    plugins: [
+      expoRouterBabelPlugin,
+      // WAŻNE: react-native-worklets/plugin MUSI być ostatnim pluginem.
+      // Bez niego Reanimated 4 + nowa architektura wywalą animacje w runtime.
+      'react-native-worklets/plugin',
+    ],
   };
 };

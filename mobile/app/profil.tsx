@@ -31,6 +31,7 @@ export default function ProfilScreen() {
   const [bioSupported, setBioSupported] = useState(false);
   const [bioOn, setBioOn] = useState(false);
   const [syncingRemote, setSyncingRemote] = useState(false);
+  const [devTapCount, setDevTapCount] = useState(0);
   const router = useRouter();
 
   useEffect(() => { loadUser(); }, []);
@@ -48,6 +49,15 @@ export default function ProfilScreen() {
     const { user: storedUser } = await getStoredSession();
     if (storedUser) setUser(storedUser);
     setLoading(false);
+  };
+
+  const handleDevTap = () => {
+    const newCount = devTapCount + 1;
+    setDevTapCount(newCount);
+    if (newCount === 7) {
+      setDevTapCount(0);
+      router.push('/test-mode');
+    }
   };
 
   const handleLogout = () => {
@@ -87,9 +97,9 @@ export default function ProfilScreen() {
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={24} color={theme.headerText} />
         </TouchableOpacity>
-        <View style={S.avatar}>
+        <TouchableOpacity onPress={handleDevTap} style={S.avatar}>
           <Text style={S.avatarText}>{user?.imie?.[0]}{user?.nazwisko?.[0]}</Text>
-        </View>
+        </TouchableOpacity>
         <Text style={S.name}>{user?.imie} {user?.nazwisko}</Text>
         <View style={[S.rolaBadge, { backgroundColor: rolaKolor + '33' }]}>
           <Text style={[S.rolaText, { color: rolaKolor }]}>{user?.rola}</Text>

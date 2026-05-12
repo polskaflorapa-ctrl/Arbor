@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert, Platform, ScrollView, StyleSheet,
     StatusBar, Text, TextInput, TouchableOpacity, View
@@ -13,6 +13,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 function hourStatusLabel(status: string, tr: (key: string) => string) {
@@ -45,6 +46,8 @@ export default function RozliczeniaScreen() {
   const [wynik, setWynik] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [mySettlementOverview, setMySettlementOverview] = useState<any>(null);
+  const msgTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadAll = useCallback(async () => {
     try {
@@ -96,6 +99,12 @@ export default function RozliczeniaScreen() {
         const dRes = await fetch(`${API_URL}/rozliczenia/dzien/${u.id}?data=${dzisiaj}`, { headers: h });
         if (dRes.ok) setPodsumowanieDnia(await dRes.json());
       }
+      try {
+        const ov = await fetch(`${API_URL}/mobile/me/settlements-overview`, { headers: h });
+        if (ov.ok) setMySettlementOverview(await ov.json());
+      } catch {
+        setMySettlementOverview(null);
+      }
     } catch {
       showMsg(t('settlements.msg.loadError'));
       setOfflineQueueCount(await getOfflineQueueSize());
@@ -108,7 +117,24 @@ export default function RozliczeniaScreen() {
     void loadAll();
   }, [loadAll]);
 
-  const showMsg = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed > 0) void loadAll();
+    });
+    return unsubscribe;
+  }, [loadAll]);
+
+  useEffect(() => {
+    return () => {
+      if (msgTimeoutRef.current) clearTimeout(msgTimeoutRef.current);
+    };
+  }, []);
+
+  const showMsg = (m: string) => {
+    setMsg(m);
+    if (msgTimeoutRef.current) clearTimeout(msgTimeoutRef.current);
+    msgTimeoutRef.current = setTimeout(() => setMsg(''), 3000);
+  };
 
   const zapiszGodziny = async () => {
     if (!task_id) return;
@@ -499,6 +525,69 @@ export default function RozliczeniaScreen() {
         {/* ===== PODSUMOWANIE DNIA ===== */}
         {activeTab === 'dzien' && podsumowanieDnia && (
           <>
+            {mySettlementOverview ? (
+              <View style={S.section}>
+                <Text style={S.sectionTitle}>Moje rozliczenia (self-service)</Text>
+                <View style={S.kpiRow}>
+                  <View style={[S.kpi, { borderTopColor: theme.accent }]}>
+                    <Text style={[S.kpiNum, { color: theme.accent }]}>
+                      {fmt(mySettlementOverview.pay_today)} PLN
+                    </Text>
+                    <Text style={S.kpiLabel}>Dziś</Text>
+                  </View>
+                  <View style={[S.kpi, { borderTopColor: theme.info }]}>
+                    <Text style={[S.kpiNum, { color: theme.info }]}>
+                      {fmt(mySettlementOverview.pay_week)} PLN
+                    </Text>
+                    <Text style={S.kpiLabel}>Tydzień</Text>
+                  </View>
+                </View>
+                <View style={S.kpiRow}>
+                  <View style={[S.kpi, { borderTopColor: theme.success }]}>
+                    <Text style={[S.kpiNum, { color: theme.success }]}>
+                      {fmt(mySettlementOverview.pay_month)} PLN
+                    </Text>
+                    <Text style={S.kpiLabel}>Miesiąc</Text>
+                  </View>
+                  <View style={[S.kpi, { borderTopColor: theme.warning }]}>
+                    <Text style={[S.kpiNum, { color: theme.warning }]}>
+                      {Number(mySettlementOverview.hours_month || 0).toFixed(1)} h
+                    </Text>
+                    <Text style={S.kpiLabel}>Godziny / miesiąc</Text>
+                  </View>
+                </View>
+                {Array.isArray(mySettlementOverview.daily) && mySettlementOverview.daily.length > 0 ? (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={[S.sectionTitle, { fontSize: 13, marginBottom: 6 }]}>Ostatnie dni</Text>
+                    {mySettlementOverview.daily.slice(0, 7).map((d: any) => (
+                      <View key={d.date} style={S.savedRow}>
+                        <Text style={S.savedNazwa}>{d.date}</Text>
+                        <Text style={S.savedGodziny}>{Number(d.hours_total || 0).toFixed(1)} h</Text>
+                        <Text style={S.savedKoszt}>{fmt(d.pay_pln)} PLN</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {mySettlementOverview.estimator_month || mySettlementOverview.estimator_stats ? (
+                  <View style={{ marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: theme.surface2 }}>
+                    <Text style={[S.sectionTitle, { fontSize: 13, marginBottom: 6 }]}>Mój miesiąc (wyceniający)</Text>
+                    <Text style={{ color: theme.textSub, fontSize: 12 }}>
+                      Podstawa: {fmt(mySettlementOverview.estimator_month?.commission_base || 0)} PLN
+                      {' · '}
+                      Prace dodatkowe: {fmt(mySettlementOverview.estimator_month?.extra_work_pln || 0)} PLN
+                    </Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>
+                      Wystawione: {mySettlementOverview.estimator_stats?.issued || 0}
+                      {' · '}
+                      Zatwierdzone: {mySettlementOverview.estimator_stats?.approved || 0}
+                      {' · '}
+                      Zrealizowane: {mySettlementOverview.estimator_stats?.completed || 0}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
             <View style={S.section}>
               <Text style={S.sectionTitle}>{t('settlements.daySummaryTitle', { date: podsumowanieDnia.data })}</Text>
 

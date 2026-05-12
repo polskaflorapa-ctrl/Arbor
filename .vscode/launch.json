@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "API lokalne (web/server)",
+      "cwd": "${workspaceFolder}/web/server",
+      "program": "${workspaceFolder}/web/server/index.js",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "OS server (arbor-os)",
+      "cwd": "${workspaceFolder}/os",
+      "program": "${workspaceFolder}/os/src/server.js",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

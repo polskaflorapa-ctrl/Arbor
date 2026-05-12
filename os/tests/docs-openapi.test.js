@@ -26,5 +26,7 @@ describe('OpenAPI docs', () => {
     expect(res.text).toContain('/sms/wyslij:');
     expect(res.text).toContain('/telefon/polacz-do-klienta:');
     expect(res.text).toContain('/telefon/rozmowy:');
+    expect(res.text).toContain('/flota/rezerwacje:');
+    expect(res.text).toContain('FlotaRezerwacjaCreate:');
   });
 });

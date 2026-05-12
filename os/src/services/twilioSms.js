@@ -1,12 +1,12 @@
 const logger = require('../config/logger');
 const { env } = require('../config/env');
 const pool = require('../config/database');
+const { getTwilioSmsStatusCallbackUrl } = require('./twilioStatusCallback');
 
 function getClient() {
   const accountSid = env.TWILIO_ACCOUNT_SID;
   const authToken = env.TWILIO_AUTH_TOKEN;
   if (!accountSid || !authToken) return null;
-  // eslint-disable-next-line global-require
   return require('twilio')(accountSid, authToken);
 }
 
@@ -31,10 +31,12 @@ async function sendSmsOptional({ to, body, taskId }) {
     return { ok: false, error: 'SMS nieskonfigurowany lub brak numeru' };
   }
   try {
+    const statusCb = getTwilioSmsStatusCallbackUrl();
     const message = await client.messages.create({
       body: String(body).slice(0, 1500),
       from: fromNumber,
       to: tel,
+      ...(statusCb ? { statusCallback: statusCb } : {}),
     });
     try {
       await pool.query(

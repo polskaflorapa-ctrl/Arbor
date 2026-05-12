@@ -679,13 +679,22 @@ CREATE TABLE IF NOT EXISTS crm_leads (
   notes           TEXT,
   tags            JSONB NOT NULL DEFAULT '[]'::jsonb,
   next_action_at  TIMESTAMPTZ,
+  close_reason    VARCHAR(80),
+  close_bucket    VARCHAR(20),
+  closed_at       TIMESTAMPTZ,
+  closed_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS close_reason VARCHAR(80);
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS close_bucket VARCHAR(20);
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS closed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_crm_leads_oddzial ON crm_leads(oddzial_id);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_stage ON crm_leads(stage);
+CREATE INDEX IF NOT EXISTS idx_crm_leads_close_bucket ON crm_leads(close_bucket);
 
 CREATE TABLE IF NOT EXISTS crm_lead_activities (
   id                 SERIAL PRIMARY KEY,
@@ -803,6 +812,13 @@ ALTER TABLE quotations ADD COLUMN IF NOT EXISTS koszt_wlasny_calkowity NUMERIC(1
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS client_acceptance_token VARCHAR(64);
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS pdf_url TEXT;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS wyslano_klientowi_at TIMESTAMPTZ;
+-- F1.11 — status wysyłki oferty do klienta (SMS / e-mail po finalize)
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_sms_status VARCHAR(32);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_sms_error TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_sms_at TIMESTAMPTZ;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_email_status VARCHAR(32);
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_email_error TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS offer_email_at TIMESTAMPTZ;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_akceptacja_at TIMESTAMPTZ;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS klient_akceptacja_ip VARCHAR(64);
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS reopened_at TIMESTAMPTZ;
@@ -888,9 +904,15 @@ CREATE TABLE IF NOT EXISTS task_extra_work (
   quoted_at            TIMESTAMPTZ,
   accepted_at          TIMESTAMPTZ,
   acceptance_channel   VARCHAR(24),
+  rejected_at          TIMESTAMPTZ,
+  rejected_by          INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  rejection_reason     TEXT,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_task_extra_work_task ON task_extra_work(task_id);
+ALTER TABLE task_extra_work ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+ALTER TABLE task_extra_work ADD COLUMN IF NOT EXISTS rejected_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE task_extra_work ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS extra_work_id INTEGER REFERENCES task_extra_work(id) ON DELETE SET NULL;
 
@@ -1047,6 +1069,78 @@ CREATE TABLE IF NOT EXISTS user_expo_push_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_expo_push_user ON user_expo_push_tokens(user_id);
 
+-- F0.2 — kompatybilność nazewnictwa spec (M11): widoki aliasujące tabele repo.
+-- Uwaga: to warstwa read-only do raportowania/testów acceptance; zapis pozostaje na tabelach źródłowych.
+CREATE OR REPLACE VIEW employee_rates AS
+SELECT
+  id,
+  user_id,
+  effective_from AS data_od,
+  NULL::date AS data_do,
+  rate_pln_per_hour AS stawka_godzinowa,
+  role_scope,
+  weekend_multiplier,
+  night_multiplier,
+  holiday_multiplier,
+  alpine_addon_pln,
+  created_at,
+  created_by
+FROM user_payroll_rates;
+
+CREATE OR REPLACE VIEW payments AS
+SELECT
+  task_id,
+  forma_platnosc AS payment_method,
+  kwota_odebrana AS amount_collected,
+  faktura_vat AS invoice_required,
+  nip,
+  notatki AS notes,
+  recorded_at,
+  recorded_by
+FROM task_client_payments;
+
+CREATE OR REPLACE VIEW additional_work AS
+SELECT
+  id,
+  task_id,
+  created_by,
+  opis,
+  status,
+  amount_pln,
+  quoted_by,
+  quoted_at,
+  accepted_at,
+  acceptance_channel,
+  created_at
+FROM task_extra_work;
+
+CREATE OR REPLACE VIEW cash_handovers AS
+SELECT
+  id,
+  oddzial_id,
+  team_id,
+  pickup_date,
+  declared_cash,
+  received_at,
+  received_by,
+  cash_reminder_48h_sent_at,
+  cash_reminder_7d_sent_at,
+  created_at
+FROM branch_cash_pickups;
+
+CREATE OR REPLACE VIEW daily_team_report AS
+SELECT
+  id,
+  team_id,
+  oddzial_id,
+  report_date,
+  payload_json,
+  first_closed_at,
+  approved_at,
+  approved_by,
+  created_at
+FROM payroll_team_day_reports;
+
 -- ─── 21. PIERWSZE KONTO ADMINISTRATORA ───────────────────────────────────────
 -- Hasło: Admin123! (bcrypt hash)
 -- ZMIEŃ HASŁO po pierwszym logowaniu!
@@ -1060,6 +1154,28 @@ VALUES (
   true
 )
 ON CONFLICT (login) DO UPDATE SET haslo_hash = EXCLUDED.haslo_hash;
+
+-- ─── Rezerwacje sprzętu (FLOTA) — mobile + web ───────────────────────────────
+CREATE TABLE IF NOT EXISTS equipment_reservations (
+  id            SERIAL PRIMARY KEY,
+  oddzial_id    INTEGER NOT NULL REFERENCES branches(id),
+  sprzet_id     INTEGER NOT NULL REFERENCES equipment_items(id) ON DELETE CASCADE,
+  ekipa_id      INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,
+  data_od       DATE NOT NULL,
+  data_do       DATE NOT NULL,
+  caly_dzien    BOOLEAN NOT NULL DEFAULT true,
+  status        VARCHAR(30) NOT NULL DEFAULT 'Zarezerwowane',
+  user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMP DEFAULT NOW(),
+  updated_at    TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT equipment_reservations_status_chk CHECK (
+    status IN ('Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane')
+  )
+);
+CREATE INDEX IF NOT EXISTS idx_equipment_reservations_sprzet_dates
+  ON equipment_reservations (sprzet_id, data_od, data_do);
+CREATE INDEX IF NOT EXISTS idx_equipment_reservations_ekipa_dates
+  ON equipment_reservations (ekipa_id, data_od, data_do);
 
 -- ============================================================
 -- KONIEC MIGRACJI

@@ -19,6 +19,8 @@ web/node_modules/.cache/
 mobile/.expo/
 mobile/dist/
 os/coverage/
+blobs/
+manifests/
 
 # Environment files
 .env
@@ -30,3 +32,6 @@ os/.env
 os/.env.local
 mobile/.env
 mobile/.env.local
+
+# Local scratch scripts (not part of the product)
+tmp_*.py

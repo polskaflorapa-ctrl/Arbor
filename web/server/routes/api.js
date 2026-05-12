@@ -84,25 +84,220 @@ function enrichWycena(state, z) {
 }
 
 function canSeeAllZlecenia(user) {
-  return user?.rola === 'Administrator' || user?.rola === 'Dyrektor';
+  return ['Prezes', 'Dyrektor'].includes(user?.rola);
+}
+
+function isSalesDirector(user) {
+  return [
+    'Dyrektor Sprzedazy',
+    'Dyrektor Sprzedaży',
+    'Dyrektor dzialu sprzedaz',
+    'Dyrektor działu sprzedaż',
+  ].includes(user?.rola);
+}
+
+function canSeeAllBranches(user) {
+  return canSeeAllZlecenia(user) || isSalesDirector(user);
+}
+
+function canSeeAllTaskRows(user) {
+  return canSeeAllZlecenia(user) || isSalesDirector(user);
+}
+
+function canManageTaskRows(user) {
+  return canSeeAllZlecenia(user) || user?.rola === 'Kierownik';
+}
+
+function canViewTeamRanking(user) {
+  return canManageTaskRows(user) || isSalesDirector(user);
+}
+
+function canAccessOddzial(user, oddzialId) {
+  return canSeeAllBranches(user) || String(user?.oddzial_id) === String(oddzialId);
+}
+
+function canTransferSpecialist(user, target) {
+  if (canSeeAllZlecenia(user)) return true;
+  return isSalesDirector(user) && target?.rola === 'Specjalista';
 }
 
 function visibleZlecenia(state, user) {
   const rows = state.zlecenia || [];
-  if (canSeeAllZlecenia(user)) return rows;
+  if (canSeeAllTaskRows(user)) return rows;
   if (user.rola === 'Kierownik') return rows.filter((z) => String(z.oddzial_id) === String(user.oddzial_id));
   if (['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia'].includes(user.rola) && user.ekipa_id) {
     return rows.filter((z) => String(z.ekipa_id) === String(user.ekipa_id));
   }
   if (user.oddzial_id != null) return rows.filter((z) => String(z.oddzial_id) === String(user.oddzial_id));
-  return rows;
+  return [];
 }
 
 function canUserViewZlecenie(state, user, taskId) {
   const z = state.zlecenia.find((x) => x.id === taskId);
   if (!z) return false;
-  if (canSeeAllZlecenia(user)) return true;
+  if (canSeeAllTaskRows(user)) return true;
   return visibleZlecenia(state, user).some((x) => x.id === taskId);
+}
+
+function visibleUsers(state, user) {
+  const rows = state.users || [];
+  if (canSeeAllZlecenia(user)) return rows;
+  if (isSalesDirector(user)) {
+    return rows.filter((u) => u.rola === 'Specjalista' || Number(u.id) === Number(user.id));
+  }
+  if (user.oddzial_id != null) {
+    return rows.filter((u) => String(u.oddzial_id) === String(user.oddzial_id));
+  }
+  return rows.filter((u) => Number(u.id) === Number(user.id));
+}
+
+const COMPLETED_STATUS = new Set(['zakonczone', 'zakonczony']);
+
+function normalizeStatus(status) {
+  return String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function ymd(year, month, day) {
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function toDateKey(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const raw = String(value);
+  const direct = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (direct) return direct[1];
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function taskRankingDate(task) {
+  return toDateKey(task.data_zakonczenia || task.data_wykonania || task.data_planowana || task.created_at);
+}
+
+function periodLabel(start, end) {
+  return `${start.slice(8, 10)}-${end.slice(8, 10)}.${start.slice(5, 7)}`;
+}
+
+function buildRankingForPeriod(state, tasks, start, end) {
+  const teamById = new Map((state.teams || []).map((team) => [Number(team.id), team]));
+  const branchById = new Map((state.oddzialy || []).map((branch) => [Number(branch.id), branch]));
+  const rows = new Map();
+
+  for (const task of tasks) {
+    const dateKey = taskRankingDate(task);
+    const teamId = Number(task.ekipa_id);
+    if (!dateKey || !teamId || dateKey < start || dateKey > end) continue;
+
+    const team = teamById.get(teamId);
+    const oddzialId = Number(team?.oddzial_id ?? task.oddzial_id ?? 0) || null;
+    const key = teamId;
+    if (!rows.has(key)) {
+      rows.set(key, {
+        ekipa_id: teamId,
+        ekipa_nazwa: team?.nazwa || `Ekipa #${teamId}`,
+        oddzial_id: oddzialId,
+        oddzial_nazwa: branchById.get(Number(oddzialId))?.nazwa || task.oddzial_nazwa || null,
+        zadania: 0,
+        zakonczone: 0,
+        w_realizacji: 0,
+        zaplanowane: 0,
+        wartosc: 0,
+        godziny_planowane: 0,
+        score_raw: 0,
+      });
+    }
+
+    const row = rows.get(key);
+    const status = normalizeStatus(task.status);
+    const value = Number(task.wartosc_rzeczywista ?? task.wartosc_planowana ?? 0) || 0;
+    const hours = Number(task.czas_planowany_godziny ?? 0) || 0;
+
+    row.zadania += 1;
+    row.wartosc += value;
+    row.godziny_planowane += hours;
+    if (COMPLETED_STATUS.has(status) || status.includes('zakoncz')) {
+      row.zakonczone += 1;
+      row.score_raw += 100;
+    } else if (status.includes('realizacji')) {
+      row.w_realizacji += 1;
+      row.score_raw += 35;
+    } else {
+      row.zaplanowane += 1;
+      row.score_raw += 15;
+    }
+    row.score_raw += value / 1000;
+    row.score_raw += hours * 2;
+  }
+
+  return Array.from(rows.values())
+    .map((row) => ({
+      ...row,
+      wartosc: Math.round(row.wartosc * 100) / 100,
+      godziny_planowane: Math.round(row.godziny_planowane * 10) / 10,
+      skutecznosc: row.zadania ? Math.round((row.zakonczone / row.zadania) * 100) : 0,
+      score: Math.round(row.score_raw * 10) / 10,
+    }))
+    .sort((a, b) =>
+      b.score - a.score ||
+      b.zakonczone - a.zakonczone ||
+      b.wartosc - a.wartosc ||
+      String(a.ekipa_nazwa).localeCompare(String(b.ekipa_nazwa), 'pl')
+    )
+    .map((row, index) => ({ ...row, miejsce: index + 1 }));
+}
+
+function buildTeamRanking(state, tasks, year, month) {
+  const monthStart = ymd(year, month, 1);
+  const monthEnd = ymd(year, month, daysInMonth(year, month));
+  const halfStartMonth = month <= 6 ? 1 : 7;
+  const halfEndMonth = month <= 6 ? 6 : 12;
+  const halfStart = ymd(year, halfStartMonth, 1);
+  const halfEnd = ymd(year, halfEndMonth, daysInMonth(year, halfEndMonth));
+  const yearStart = ymd(year, 1, 1);
+  const yearEnd = ymd(year, 12, 31);
+  const weeks = [];
+
+  for (let day = 1, idx = 1; day <= daysInMonth(year, month); day += 7, idx += 1) {
+    const start = ymd(year, month, day);
+    const end = ymd(year, month, Math.min(day + 6, daysInMonth(year, month)));
+    const ranking = buildRankingForPeriod(state, tasks, start, end);
+    weeks.push({
+      key: `week-${idx}`,
+      label: `Tydzien ${idx} (${periodLabel(start, end)})`,
+      start,
+      end,
+      winner: ranking[0] || null,
+      ranking,
+    });
+  }
+
+  const monthRanking = buildRankingForPeriod(state, tasks, monthStart, monthEnd);
+  const halfYearRanking = buildRankingForPeriod(state, tasks, halfStart, halfEnd);
+  const yearRanking = buildRankingForPeriod(state, tasks, yearStart, yearEnd);
+
+  return {
+    rok: year,
+    miesiac: month,
+    generated_at: new Date().toISOString(),
+    weeks,
+    month: { label: `Miesiac ${pad2(month)}.${year}`, start: monthStart, end: monthEnd, winner: monthRanking[0] || null, ranking: monthRanking },
+    halfYear: { label: `${month <= 6 ? 'I' : 'II'} polrocze ${year}`, start: halfStart, end: halfEnd, winner: halfYearRanking[0] || null, ranking: halfYearRanking },
+    year: { label: `Rok ${year}`, start: yearStart, end: yearEnd, winner: yearRanking[0] || null, ranking: yearRanking },
+  };
 }
 
 const TASK_PUT_NUM = new Set([
@@ -140,6 +335,178 @@ router.post('/auth/login', (req, res) => {
   res.json({ token, user: publicUser(u) });
 });
 
+// Local compatibility for `/api/quotations/*`.
+// The production OS has a dedicated quotations module; this file-db server keeps
+// field quotes in `zlecenia`, so we expose the same panel contract here.
+function localQuotationStatus(z) {
+  if (z.status_akceptacji === 'zatwierdzono') return 'Zatwierdzona';
+  if (z.status_akceptacji === 'odrzucono') return 'Odrzucona';
+  if (z.status_akceptacji === 'do_specjalisty') return 'Umowiana';
+  if (z.status_akceptacji === 'rezerwacja_wstepna') return 'W_zatwierdzeniu';
+  return 'OczekujePrzypisania';
+}
+
+function localQuotationFromWycena(state, z, extra = {}) {
+  const row = enrichWycena(state, z);
+  return {
+    ...row,
+    status: localQuotationStatus(z),
+    quotation_status: localQuotationStatus(z),
+    priorytet: z.priorytet || 'Normalny',
+    lat: z.lat ?? z.pin_lat ?? null,
+    lon: z.lon ?? z.pin_lng ?? null,
+    lng: z.lng ?? z.pin_lng ?? null,
+    client_acceptance_token: z.client_acceptance_token || `demo-${z.id}`,
+    pdf_url: z.pdf_url || null,
+    offer_sms_status: z.offer_sms_status || null,
+    offer_email_status: z.offer_email_status || null,
+    ...extra,
+  };
+}
+
+function isEstimatorRole(role) {
+  return String(role || '').toLowerCase().includes('wycen');
+}
+
+router.get('/quotations/panel/do-przypisania', requireAuth, (req, res) => {
+  try {
+    const rows = readOnly((state) =>
+      (state.zlecenia || [])
+        .filter((z) => z.typ === 'wycena')
+        .filter((z) => !z.wyceniajacy_id || z.status_akceptacji === 'oczekuje')
+        .filter((z) => canAccessOddzial(req.user, z.oddzial_id))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .map((z) => localQuotationFromWycena(state, z))
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/quotations/panel/moje-zatwierdzenia', requireAuth, (req, res) => {
+  try {
+    const rows = readOnly((state) =>
+      (state.zlecenia || [])
+        .filter((z) => z.typ === 'wycena')
+        .filter((z) => z.status_akceptacji === 'do_specjalisty' || z.status_akceptacji === 'rezerwacja_wstepna')
+        .filter((z) => canSeeAllBranches(req.user) || Number(z.wyceniajacy_id) === Number(req.user.id) || canAccessOddzial(req.user, z.oddzial_id))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .map((z) =>
+          localQuotationFromWycena(state, z, {
+            approval_id: `local-${z.id}`,
+            wymagany_typ: req.user?.rola || 'Kierownik',
+          })
+        )
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/quotations/panel/sla-przeterminowane', requireAuth, (_req, res) => {
+  res.json([]);
+});
+
+router.get('/quotations/:id', requireAuth, (req, res) => {
+  try {
+    const id = toNum(req.params.id);
+    const row = readOnly((state) => {
+      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
+      if (!z) return null;
+      if (!canAccessOddzial(req.user, z.oddzial_id)) return { _forbidden: true };
+      return localQuotationFromWycena(state, z);
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono wyceny' });
+    res.json(row);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/quotations/:id/assign', requireAuth, (req, res) => {
+  try {
+    const id = toNum(req.params.id);
+    const wyceniajacyId = toNum(req.body?.wyceniajacy_id);
+    if (!wyceniajacyId) return res.status(400).json({ error: 'Podaj wyceniajacy_id' });
+    const row = withStore((state) => {
+      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
+      if (!z) return null;
+      if (!canAccessOddzial(req.user, z.oddzial_id)) return { _forbidden: true };
+      const assigned = (state.users || []).find((u) => Number(u.id) === Number(wyceniajacyId));
+      if (!assigned || !isEstimatorRole(assigned.rola)) return { _badEstimator: true };
+      if (!canAccessOddzial(req.user, assigned.oddzial_id) || String(assigned.oddzial_id) !== String(z.oddzial_id)) {
+        return { _branchMismatch: true };
+      }
+      z.wyceniajacy_id = wyceniajacyId;
+      z.status_akceptacji = 'do_specjalisty';
+      z.updated_at = new Date().toISOString();
+      return localQuotationFromWycena(state, z);
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (row?._badEstimator) return res.status(400).json({ error: 'Wybrany uzytkownik nie jest wyceniajacym' });
+    if (row?._branchMismatch) return res.status(403).json({ error: 'Wyceniajacy musi byc z tego samego oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono wyceny' });
+    res.json(row);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/quotations/:id/approvals/:approvalId/decision', requireAuth, (req, res) => {
+  try {
+    const id = toNum(req.params.id);
+    const decyzja = String(req.body?.decyzja || '');
+    const komentarz = String(req.body?.komentarz || '').trim();
+    const row = withStore((state) => {
+      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
+      if (!z) return null;
+      if (!canAccessOddzial(req.user, z.oddzial_id)) return { _forbidden: true };
+      if (decyzja === 'Rejected' && !komentarz) return { _commentRequired: true };
+      if (decyzja === 'Approved') z.status_akceptacji = 'zatwierdzono';
+      else if (decyzja === 'Returned') z.status_akceptacji = 'rezerwacja_wstepna';
+      else if (decyzja === 'Rejected') z.status_akceptacji = 'odrzucono';
+      else return { _badDecision: true };
+      z.zatwierdzone_przez = req.user.id;
+      z.zatwierdzone_at = new Date().toISOString();
+      if (komentarz) {
+        z.wycena_uwagi = `${z.wycena_uwagi ? `${z.wycena_uwagi}\n` : ''}[${decyzja}] ${komentarz}`;
+      }
+      return localQuotationFromWycena(state, z);
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (row?._commentRequired) return res.status(400).json({ error: 'Odrzucenie wymaga komentarza' });
+    if (row?._badDecision) return res.status(400).json({ error: 'Nieznana decyzja' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono wyceny' });
+    res.json(row);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/quotations/:id/resend-client-offer', requireAuth, (req, res) => {
+  try {
+    const id = toNum(req.params.id);
+    const row = withStore((state) => {
+      const z = (state.zlecenia || []).find((x) => Number(x.id) === Number(id) && x.typ === 'wycena');
+      if (!z) return null;
+      if (!canAccessOddzial(req.user, z.oddzial_id)) return { _forbidden: true };
+      z.wyslano_klientowi_at = new Date().toISOString();
+      z.offer_sms_status = z.klient_telefon ? 'sent' : 'skipped_no_phone';
+      z.offer_email_status = z.klient_email ? 'sent' : 'skipped_no_email';
+      z.client_acceptance_token = z.client_acceptance_token || `demo-${z.id}`;
+      return localQuotationFromWycena(state, z, { status: 'Wyslana_Klientowi' });
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono wyceny' });
+    res.json(row);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Wyceny ──────────────────────────────────────────────────
 router.get('/wyceny', requireAuth, (req, res) => {
   try {
@@ -147,7 +514,8 @@ router.get('/wyceny', requireAuth, (req, res) => {
     const rows = readOnly((st) => {
       let list = st.zlecenia.filter((z) => z.typ === 'wycena');
       if (status_akceptacji) list = list.filter((z) => z.status_akceptacji === status_akceptacji);
-      if (oddzial_id) list = list.filter((z) => String(z.oddzial_id) === String(oddzial_id));
+      const scopedOddzialId = canSeeAllBranches(req.user) ? toNum(oddzial_id) : req.user.oddzial_id;
+      if (scopedOddzialId) list = list.filter((z) => String(z.oddzial_id) === String(scopedOddzialId));
       return list
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 300)
@@ -166,6 +534,7 @@ router.post('/wyceny', requireAuth, (req, res) => {
     const row = withStore((state) => {
       const id = state.nextZlecenieId++;
       const now = new Date().toISOString();
+      const oddzialId = canSeeAllBranches(req.user) ? toNum(b.oddzial_id) : req.user.oddzial_id;
       const z = {
         id,
         typ: 'wycena',
@@ -174,7 +543,7 @@ router.post('/wyceny', requireAuth, (req, res) => {
         klient_nazwa: b.klient_nazwa || null,
         adres: b.adres,
         miasto: b.miasto || null,
-        oddzial_id: toNum(b.oddzial_id),
+        oddzial_id: oddzialId,
         ekipa_id: toNum(b.ekipa_id),
         typ_uslugi: b.typ_uslugi || null,
         data_wykonania: b.data_wykonania || null,
@@ -206,6 +575,11 @@ router.post('/wyceny/:id/zatwierdz', requireAuth, (req, res) => {
     const row = withStore((state) => {
       const z = state.zlecenia.find((x) => x.id === id && x.typ === 'wycena' && x.status_akceptacji === 'oczekuje');
       if (!z) return null;
+      if (!canAccessOddzial(req.user, z.oddzial_id)) return { _forbidden: true };
+      if (toNum(b.ekipa_id)) {
+        const team = (state.teams || []).find((t) => Number(t.id) === Number(toNum(b.ekipa_id)));
+        if (team && !canAccessOddzial(req.user, team.oddzial_id)) return { _forbidden: true };
+      }
       z.status_akceptacji = 'zatwierdzono';
       z.zatwierdzone_przez = req.user.id;
       z.zatwierdzone_at = new Date().toISOString();
@@ -219,6 +593,7 @@ router.post('/wyceny/:id/zatwierdz', requireAuth, (req, res) => {
       if (b.uwagi) z.wycena_uwagi = b.uwagi;
       return enrichWycena(state, z);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
     if (!row) return res.status(404).json({ error: 'Wycena nie znaleziona lub już rozpatrzona' });
     res.json(row);
   } catch (e) {
@@ -233,6 +608,7 @@ router.post('/wyceny/:id/odrzuc', requireAuth, (req, res) => {
     const row = withStore((state) => {
       const z = state.zlecenia.find((x) => x.id === id && x.typ === 'wycena');
       if (!z) return null;
+      if (!canAccessOddzial(req.user, z.oddzial_id)) return { _forbidden: true };
       z.status_akceptacji = 'odrzucono';
       z.zatwierdzone_przez = req.user.id;
       z.zatwierdzone_at = new Date().toISOString();
@@ -240,6 +616,7 @@ router.post('/wyceny/:id/odrzuc', requireAuth, (req, res) => {
       z.wycena_uwagi = (z.wycena_uwagi ? `${z.wycena_uwagi}\n` : '') + add;
       return enrichWycena(state, z);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
   } catch (e) {
@@ -304,7 +681,7 @@ function toInt(v) {
 
 function canEditUserRules(req, targetUserId) {
   const r = req.user?.rola;
-  if (['Dyrektor', 'Administrator', 'Kierownik'].includes(r)) return true;
+  if (['Prezes', 'Dyrektor', 'Kierownik'].includes(r)) return true;
   if (r === 'Wyceniający' && req.user.id === targetUserId) return true;
   return false;
 }
@@ -416,15 +793,36 @@ function stripUser(u) {
 router.get('/uzytkownicy', requireAuth, (req, res) => {
   const rolaQ = req.query.rola;
   const list = readOnly((state) => {
-    let rows = state.users.map(stripUser);
+    let rows = visibleUsers(state, req.user).map(stripUser);
     if (rolaQ) rows = rows.filter((x) => x.rola === rolaQ);
     return rows;
   });
   res.json(list);
 });
 
+function przeniesSpecjaliste(req, res) {
+  const userId = toNum(req.params.id);
+  const oddzialId = toNum(req.body?.oddzial_id);
+  if (!userId || !oddzialId) return res.status(400).json({ error: 'Nieprawidlowe dane' });
+  const row = withStore((state) => {
+    const target = (state.users || []).find((u) => Number(u.id) === Number(userId));
+    const oddzial = (state.oddzialy || []).find((o) => Number(o.id) === Number(oddzialId));
+    if (!target || !oddzial) return null;
+    if (!canTransferSpecialist(req.user, target)) return { _forbidden: true };
+    target.oddzial_id = oddzialId;
+    target.oddzial_nazwa = oddzial.nazwa;
+    return stripUser(target);
+  });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+  return res.json(row);
+}
+
+router.patch('/uzytkownicy/:id/oddzial', requireAuth, przeniesSpecjaliste);
+router.put('/uzytkownicy/:id/oddzial', requireAuth, przeniesSpecjaliste);
+
 router.get('/tasks/wszystkie', requireAuth, (req, res) => {
-  const list = readOnly((state) => state.zlecenia.map((z) => enrichWycena(state, z)));
+  const list = readOnly((state) => visibleZlecenia(state, req.user).map((z) => enrichWycena(state, z)));
   res.json(list);
 });
 
@@ -448,11 +846,19 @@ router.get('/tasks/:id(\\d+)', requireAuth, (req, res) => {
 router.put('/tasks/:id(\\d+)', requireAuth, (req, res) => {
   const id = toNum(req.params.id);
   const b = req.body || {};
+  if (!canManageTaskRows(req.user)) return res.status(403).json({ error: 'Brak uprawnien do edycji zlecen' });
   if (!id) return res.status(400).json({ error: 'Nieprawidłowe id' });
   const row = withStore((state) => {
     if (!canUserViewZlecenie(state, req.user, id)) return null;
     const z = state.zlecenia.find((x) => x.id === id);
     if (!z) return null;
+    if (b.oddzial_id !== undefined && !canAccessOddzial(req.user, toNum(b.oddzial_id))) {
+      return { _forbidden: true };
+    }
+    if (b.ekipa_id !== undefined && !canSeeAllBranches(req.user)) {
+      const team = (state.teams || []).find((t) => Number(t.id) === Number(toNum(b.ekipa_id)));
+      if (!team || String(team.oddzial_id) !== String(req.user.oddzial_id)) return { _forbidden: true };
+    }
     const mergeKeys = Object.keys(b).filter((k) => k !== 'id' && !String(k).endsWith('_nazwa'));
     for (const k of mergeKeys) {
       if (b[k] === undefined) continue;
@@ -474,19 +880,52 @@ router.put('/tasks/:id(\\d+)', requireAuth, (req, res) => {
     }
     return enrichWycena(state, z);
   });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostępu' });
   res.json(row);
 });
 
-router.get('/tasks/stats', requireAuth, (_req, res) => {
+router.get('/tasks/stats', requireAuth, (req, res) => {
   const stats = readOnly((state) => {
-    const z = state.zlecenia.filter((x) => x.typ !== 'wycena');
+    const z = visibleZlecenia(state, req.user).filter((x) => x.typ !== 'wycena');
     const nowe = z.filter((x) => x.status === 'Nowe').length;
     const w_realizacji = z.filter((x) => x.status === 'W_Realizacji' || x.status === 'W realizacji').length;
     const zakonczone = z.filter((x) => x.status === 'Zakonczone' || x.status === 'Zakończone').length;
     return { nowe, w_realizacji, zakonczone };
   });
   res.json(stats);
+});
+
+router.get('/ekipy/ranking', requireAuth, (req, res) => {
+  if (!canViewTeamRanking(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
+  const now = new Date();
+  const year = toInt(req.query.rok) || now.getFullYear();
+  const month = Math.min(12, Math.max(1, toInt(req.query.miesiac) || now.getMonth() + 1));
+  const requestedOddzialId = toNum(req.query.oddzial_id);
+
+  if (requestedOddzialId && !canSeeAllBranches(req.user) && Number(requestedOddzialId) !== Number(req.user.oddzial_id)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  }
+
+  const payload = readOnly((state) => {
+    const scopedOddzialId = canSeeAllBranches(req.user) ? requestedOddzialId : req.user.oddzial_id;
+    let tasks = (state.zlecenia || []).filter((task) => task.typ !== 'wycena' && task.ekipa_id);
+    if (scopedOddzialId) {
+      tasks = tasks.filter((task) => String(task.oddzial_id) === String(scopedOddzialId));
+    }
+    const ranking = buildTeamRanking(state, tasks, year, month);
+    return {
+      ...ranking,
+      scope: {
+        oddzial_id: scopedOddzialId || null,
+        oddzial_nazwa: scopedOddzialId
+          ? (state.oddzialy || []).find((branch) => Number(branch.id) === Number(scopedOddzialId))?.nazwa || null
+          : null,
+      },
+    };
+  });
+
+  res.json(payload);
 });
 
 function buildKommoTaskPayload(row, actor = null) {
@@ -701,7 +1140,7 @@ function resolveDoKogo(state, doKogo) {
   const matchRole = (u) => {
     if (u.aktywny === false) return false;
     if (u.rola === role) return true;
-    if (role === 'Dyrektor' && u.rola === 'Administrator') return true;
+    if (role === 'Dyrektor' && u.rola === 'Prezes') return true;
     return false;
   };
   return state.users.filter(matchRole).map((u) => u.id);
@@ -778,13 +1217,21 @@ router.delete('/notifications/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-router.get('/ekipy', requireAuth, (_req, res) => {
-  const ekipy = readOnly((state) => state.teams || []);
+router.get('/ekipy', requireAuth, (req, res) => {
+  const ekipy = readOnly((state) => {
+    const rows = state.teams || [];
+    if (canSeeAllBranches(req.user)) return rows;
+    return rows.filter((t) => String(t.oddzial_id) === String(req.user.oddzial_id));
+  });
   res.json(ekipy);
 });
 
-router.get('/oddzialy', requireAuth, (_req, res) => {
-  const oddzialy = readOnly((state) => state.oddzialy || []);
+router.get('/oddzialy', requireAuth, (req, res) => {
+  const oddzialy = readOnly((state) => {
+    const rows = state.oddzialy || [];
+    if (canSeeAllBranches(req.user)) return rows;
+    return rows.filter((o) => String(o.id) === String(req.user.oddzial_id));
+  });
   res.json(oddzialy);
 });
 
@@ -795,6 +1242,9 @@ router.get('/oddzialy/cele', requireAuth, (req, res) => {
     let rows = state.oddzialCeleMiesieczne || [];
     if (rok) rows = rows.filter((x) => Number(x.rok) === rok);
     if (miesiac) rows = rows.filter((x) => Number(x.miesiac) === miesiac);
+    if (!canSeeAllBranches(req.user)) {
+      rows = rows.filter((x) => String(x.oddzial_id) === String(req.user.oddzial_id));
+    }
     return rows;
   });
   res.json(cele);
@@ -807,6 +1257,9 @@ router.post('/oddzialy/cele', requireAuth, (req, res) => {
   const miesiac = toInt(b.miesiac);
   if (!oddzialId || !rok || !miesiac || miesiac < 1 || miesiac > 12) {
     return res.status(400).json({ error: 'Nieprawidłowe dane celu oddziału' });
+  }
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   }
 
   const row = withStore((state) => {
@@ -857,6 +1310,9 @@ router.get('/oddzialy/sprzedaz', requireAuth, (req, res) => {
     let list = state.oddzialSprzedazMiesieczna || [];
     if (rok) list = list.filter((x) => Number(x.rok) === rok);
     if (miesiac) list = list.filter((x) => Number(x.miesiac) === miesiac);
+    if (!canSeeAllBranches(req.user)) {
+      list = list.filter((x) => String(x.oddzial_id) === String(req.user.oddzial_id));
+    }
     return list;
   });
   res.json(rows);
@@ -869,6 +1325,9 @@ router.post('/oddzialy/sprzedaz', requireAuth, (req, res) => {
   const miesiac = toInt(b.miesiac);
   if (!oddzialId || !rok || !miesiac || miesiac < 1 || miesiac > 12) {
     return res.status(400).json({ error: 'Nieprawidłowe dane sprzedaży oddziału' });
+  }
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   }
 
   const row = withStore((state) => {
@@ -928,11 +1387,58 @@ function taskStageLabel(status) {
   return 'Inne';
 }
 
-const CRM_LEAD_STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane'];
+const CRM_LEAD_STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane', 'Techniczny'];
+const CRM_PIPELINE_ORDER = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane', 'Techniczny', 'Inne'];
+const CRM_CLOSE_REASONS = [
+  'Rezygnacja klienta',
+  'Drogo',
+  'Znaleźli szybszy termin oględzin',
+  'Znaleźli szybszą realizację',
+  'Znaleźli taniej',
+  'Pomyłka',
+  'Praca innego miasta',
+  'Nie odbiera',
+  'Dubl',
+  'Nie pracujemy w tym rejonie',
+  'Nie wykonujemy podobnych prac',
+  'Informacja dla znajomych',
+  'Kontakt w sprawie oferty pracy',
+];
+const CRM_TECHNICAL_CLOSE_REASONS = new Set([
+  'Pomyłka',
+  'Praca innego miasta',
+  'Dubl',
+  'Nie pracujemy w tym rejonie',
+  'Nie wykonujemy podobnych prac',
+  'Informacja dla znajomych',
+  'Kontakt w sprawie oferty pracy',
+]);
 
 function normalizeCrmStage(stage) {
   const value = String(stage || '').trim();
   return CRM_LEAD_STAGES.includes(value) ? value : 'Lead';
+}
+
+function normalizeForCompare(value) {
+  return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizeCrmCloseReason(reason) {
+  const value = normalizeForCompare(reason);
+  if (!value) return '';
+  return CRM_CLOSE_REASONS.find((item) => normalizeForCompare(item) === value) || '';
+}
+
+function isCrmClosedStage(stage) {
+  return ['Przegrane', 'Techniczny'].includes(normalizeCrmStage(stage));
+}
+
+function isTechnicalCloseReason(reason) {
+  return CRM_TECHNICAL_CLOSE_REASONS.has(normalizeCrmCloseReason(reason));
+}
+
+function crmCloseStageForReason(reason) {
+  return isTechnicalCloseReason(reason) ? 'Techniczny' : 'Przegrane';
 }
 
 function mapCrmLead(row, state) {
@@ -941,6 +1447,10 @@ function mapCrmLead(row, state) {
   return {
     ...row,
     stage: normalizeCrmStage(row.stage),
+    close_reason: row.close_reason || null,
+    close_bucket: row.close_bucket || (normalizeCrmStage(row.stage) === 'Techniczny' ? 'technical' : null),
+    closed_at: row.closed_at || null,
+    closed_by: row.closed_by || null,
     owner_name: owner ? `${owner.imie || ''} ${owner.nazwisko || ''}`.trim() || owner.login || `#${owner.id}` : null,
     client_name: client?.nazwa || null,
   };
@@ -948,7 +1458,7 @@ function mapCrmLead(row, state) {
 
 /** Statyczna ścieżka przed `/crm/leads/:id*`, żeby nic nie „zjadło” segmentu `overview`. */
 router.get('/crm/overview', requireAuth, (req, res) => {
-  const oddzialId = toInt(req.query.oddzial_id);
+  const oddzialId = canSeeAllBranches(req.user) ? toInt(req.query.oddzial_id) : toInt(req.user.oddzial_id);
   const now = new Date();
   const d30 = new Date(now);
   d30.setDate(d30.getDate() - 30);
@@ -986,7 +1496,7 @@ router.get('/crm/overview', requireAuth, (req, res) => {
         pipelineMap.set(stageName, prev);
       }
     }
-    const pipeline = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane', 'Inne']
+    const pipeline = CRM_PIPELINE_ORDER
       .map((stage) => pipelineMap.get(stage) || { stage, count: 0, value: 0 })
       .filter((x) => x.count > 0 || x.stage !== 'Inne');
 
@@ -1011,6 +1521,8 @@ router.get('/crm/overview', requireAuth, (req, res) => {
         clients_new_30d: clientsNew30,
         tasks_total: tasksAll.length,
         tasks_won_30d: won30,
+        technical_leads: leadsAll.filter((lead) => normalizeCrmStage(lead.stage) === 'Techniczny' || lead.close_bucket === 'technical').length,
+        qualified_leads_total: leadsAll.filter((lead) => normalizeCrmStage(lead.stage) !== 'Techniczny' && lead.close_bucket !== 'technical').length,
         calls_30d: calls30,
         callbacks_open: callbacksOpen.length,
         callbacks_overdue: callbacksOverdue,
@@ -1025,7 +1537,7 @@ router.get('/crm/overview', requireAuth, (req, res) => {
 });
 
 router.get('/crm/leads', requireAuth, (req, res) => {
-  const oddzialId = toInt(req.query.oddzial_id);
+  const oddzialId = canSeeAllBranches(req.user) ? toInt(req.query.oddzial_id) : toInt(req.user.oddzial_id);
   const ownerId = toInt(req.query.owner_user_id);
   const q = String(req.query.q || '').trim().toLowerCase();
   const stage = String(req.query.stage || '').trim();
@@ -1057,6 +1569,14 @@ router.post('/crm/leads', requireAuth, (req, res) => {
   if (!title || !oddzialId) {
     return res.status(400).json({ error: 'title i oddzial_id są wymagane' });
   }
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  }
+  const requestedStage = normalizeCrmStage(b.stage);
+  const closeReason = normalizeCrmCloseReason(b.close_reason || b.closure_reason || b.closeReason);
+  if (isCrmClosedStage(requestedStage) && !closeReason) {
+    return res.status(400).json({ error: 'Powod zamkniecia leada jest wymagany' });
+  }
 
   const row = withStore((state) => {
     if (!Array.isArray(state.crmLeads)) state.crmLeads = [];
@@ -1069,7 +1589,7 @@ router.post('/crm/leads', requireAuth, (req, res) => {
       oddzial_id: oddzialId,
       client_id: toInt(b.client_id) || null,
       owner_user_id: toInt(b.owner_user_id) || null,
-      stage: normalizeCrmStage(b.stage),
+      stage: isCrmClosedStage(requestedStage) ? crmCloseStageForReason(closeReason) : requestedStage,
       source: String(b.source || '').trim() || 'inne',
       value: toNum(b.value) ?? 0,
       phone: String(b.phone || '').trim() || null,
@@ -1077,6 +1597,10 @@ router.post('/crm/leads', requireAuth, (req, res) => {
       notes: String(b.notes || '').trim() || null,
       tags: Array.isArray(b.tags) ? b.tags.slice(0, 16).map((x) => String(x || '').trim()).filter(Boolean) : [],
       next_action_at: b.next_action_at || null,
+      close_reason: closeReason || null,
+      close_bucket: closeReason ? (isTechnicalCloseReason(closeReason) ? 'technical' : 'lost') : null,
+      closed_at: closeReason ? now : null,
+      closed_by: closeReason ? req.user.id : null,
       created_by: req.user.id,
       created_at: now,
       updated_by: req.user.id,
@@ -1097,13 +1621,43 @@ router.patch('/crm/leads/:id', requireAuth, (req, res) => {
   const row = withStore((state) => {
     const lead = (state.crmLeads || []).find((x) => Number(x.id) === id);
     if (!lead) return null;
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return { _forbidden: true };
+    if (b.oddzial_id !== undefined && !canAccessOddzial(req.user, toInt(b.oddzial_id) || lead.oddzial_id)) {
+      return { _forbidden: true };
+    }
 
     if (b.title !== undefined) {
       const title = String(b.title || '').trim();
       if (!title) return '__bad_title__';
       lead.title = title;
     }
-    if (b.stage !== undefined) lead.stage = normalizeCrmStage(b.stage);
+    const hasStagePatch = b.stage !== undefined;
+    const hasCloseReasonPatch = b.close_reason !== undefined || b.closure_reason !== undefined || b.closeReason !== undefined;
+    const nextStage = hasStagePatch ? normalizeCrmStage(b.stage) : normalizeCrmStage(lead.stage);
+    const nextCloseReason = hasCloseReasonPatch
+      ? normalizeCrmCloseReason(b.close_reason || b.closure_reason || b.closeReason)
+      : normalizeCrmCloseReason(lead.close_reason);
+    if (hasStagePatch && isCrmClosedStage(nextStage)) {
+      if (!nextCloseReason) return '__missing_close_reason__';
+      lead.stage = crmCloseStageForReason(nextCloseReason);
+      lead.close_reason = nextCloseReason;
+      lead.close_bucket = isTechnicalCloseReason(nextCloseReason) ? 'technical' : 'lost';
+      lead.closed_at = lead.closed_at || new Date().toISOString();
+      lead.closed_by = req.user.id;
+    } else if (hasStagePatch) {
+      lead.stage = nextStage;
+      lead.close_reason = null;
+      lead.close_bucket = null;
+      lead.closed_at = null;
+      lead.closed_by = null;
+    } else if (hasCloseReasonPatch && isCrmClosedStage(lead.stage)) {
+      if (!nextCloseReason) return '__missing_close_reason__';
+      lead.stage = crmCloseStageForReason(nextCloseReason);
+      lead.close_reason = nextCloseReason;
+      lead.close_bucket = isTechnicalCloseReason(nextCloseReason) ? 'technical' : 'lost';
+      lead.closed_at = lead.closed_at || new Date().toISOString();
+      lead.closed_by = req.user.id;
+    }
     if (b.oddzial_id !== undefined) lead.oddzial_id = toInt(b.oddzial_id) || lead.oddzial_id;
     if (b.client_id !== undefined) lead.client_id = toInt(b.client_id) || null;
     if (b.owner_user_id !== undefined) lead.owner_user_id = toInt(b.owner_user_id) || null;
@@ -1121,6 +1675,9 @@ router.patch('/crm/leads/:id', requireAuth, (req, res) => {
     return mapCrmLead(lead, state);
   });
 
+  if (row === '__missing_close_reason__') return res.status(400).json({ error: 'Powod zamkniecia leada jest wymagany' });
+
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (row === '__bad_title__') return res.status(400).json({ error: 'title nie może być pusty' });
   if (!row) return res.status(404).json({ error: 'Lead nie znaleziony' });
   res.json(row);
@@ -1134,6 +1691,7 @@ router.delete('/crm/leads/:id', requireAuth, (req, res) => {
     if (!Array.isArray(state.crmLeads)) return false;
     const idx = state.crmLeads.findIndex((x) => Number(x.id) === id);
     if (idx < 0) return false;
+    if (!canAccessOddzial(req.user, state.crmLeads[idx].oddzial_id)) return 'forbidden';
     state.crmLeads.splice(idx, 1);
     if (Array.isArray(state.crmLeadActivities)) {
       state.crmLeadActivities = state.crmLeadActivities.filter((a) => Number(a.lead_id) !== id);
@@ -1141,6 +1699,7 @@ router.delete('/crm/leads/:id', requireAuth, (req, res) => {
     return true;
   });
 
+  if (deleted === 'forbidden') return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (!deleted) return res.status(404).json({ error: 'Lead nie znaleziony' });
   res.json({ ok: true });
 });
@@ -1167,11 +1726,13 @@ router.get('/crm/leads/:id/activities', requireAuth, (req, res) => {
   const rows = readOnly((state) => {
     const lead = (state.crmLeads || []).find((x) => Number(x.id) === leadId);
     if (!lead) return null;
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return 'forbidden';
     const list = (state.crmLeadActivities || [])
       .filter((a) => Number(a.lead_id) === leadId)
       .map((a) => mapCrmLeadActivity(a, state));
     return list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   });
+  if (rows === 'forbidden') return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (rows === null) return res.status(404).json({ error: 'Lead nie znaleziony' });
   res.json(rows);
 });
@@ -1193,6 +1754,7 @@ router.post('/crm/leads/:id/activities', requireAuth, (req, res) => {
   const row = withStore((state) => {
     const lead = (state.crmLeads || []).find((x) => Number(x.id) === leadId);
     if (!lead) return null;
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return { _forbidden: true };
     if (!Array.isArray(state.crmLeadActivities)) state.crmLeadActivities = [];
     if (!state.nextCrmLeadActivityId) state.nextCrmLeadActivityId = 1;
     const now = new Date().toISOString();
@@ -1213,6 +1775,7 @@ router.post('/crm/leads/:id/activities', requireAuth, (req, res) => {
     return mapCrmLeadActivity(act, state);
   });
 
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (!row) return res.status(404).json({ error: 'Lead nie znaleziony' });
   res.status(201).json(row);
 });
@@ -1226,6 +1789,7 @@ router.patch('/crm/leads/:leadId/activities/:activityId', requireAuth, (req, res
   const row = withStore((state) => {
     const lead = (state.crmLeads || []).find((x) => Number(x.id) === leadId);
     if (!lead) return null;
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return { _forbidden: true };
     const act = (state.crmLeadActivities || []).find(
       (a) => Number(a.id) === activityId && Number(a.lead_id) === leadId
     );
@@ -1238,6 +1802,7 @@ router.patch('/crm/leads/:leadId/activities/:activityId', requireAuth, (req, res
     return mapCrmLeadActivity(act, state);
   });
 
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (row === '__nf__') return res.status(404).json({ error: 'Aktywność nie znaleziona' });
   if (!row) return res.status(404).json({ error: 'Lead nie znaleziony' });
   res.json(row);
@@ -1246,7 +1811,7 @@ router.patch('/crm/leads/:leadId/activities/:activityId', requireAuth, (req, res
 router.get('/telephony/calls', requireAuth, (req, res) => {
   const rok = toInt(req.query.rok);
   const miesiac = toInt(req.query.miesiac);
-  const oddzialId = toInt(req.query.oddzial_id);
+  const oddzialId = canSeeAllBranches(req.user) ? toInt(req.query.oddzial_id) : toInt(req.user.oddzial_id);
   const rows = readOnly((state) => {
     let list = state.callLogs || [];
     if (oddzialId) list = list.filter((x) => Number(x.oddzial_id) === oddzialId);
@@ -1272,6 +1837,9 @@ router.post('/telephony/calls', requireAuth, (req, res) => {
   if (!oddzialId || !phone) {
     return res.status(400).json({ error: 'oddzial_id i phone są wymagane' });
   }
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  }
   const row = withStore((state) => {
     if (!state.callLogs) state.callLogs = [];
     if (!state.nextCallLogId) state.nextCallLogId = 1;
@@ -1296,7 +1864,7 @@ router.post('/telephony/calls', requireAuth, (req, res) => {
 });
 
 router.get('/telephony/callbacks', requireAuth, (req, res) => {
-  const oddzialId = toInt(req.query.oddzial_id);
+  const oddzialId = canSeeAllBranches(req.user) ? toInt(req.query.oddzial_id) : toInt(req.user.oddzial_id);
   const status = String(req.query.status || '').trim();
   const rows = readOnly((state) => {
     let list = state.callbackTasks || [];
@@ -1313,6 +1881,9 @@ router.post('/telephony/callbacks', requireAuth, (req, res) => {
   const phone = String(b.phone || '').trim();
   if (!oddzialId || !phone) {
     return res.status(400).json({ error: 'oddzial_id i phone są wymagane' });
+  }
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   }
   const row = withStore((state) => {
     if (!state.callbackTasks) state.callbackTasks = [];
@@ -1346,12 +1917,14 @@ router.patch('/telephony/callbacks/:id/status', requireAuth, (req, res) => {
   const row = withStore((state) => {
     const task = (state.callbackTasks || []).find((x) => Number(x.id) === id);
     if (!task) return null;
+    if (!canAccessOddzial(req.user, task.oddzial_id)) return { _forbidden: true };
     task.status = status;
     task.updated_by = req.user.id;
     task.updated_at = new Date().toISOString();
     if (status === 'done' || status === 'cancelled') task.closed_at = new Date().toISOString();
     return task;
   });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (!row) return res.status(404).json({ error: 'Callback nie znaleziony' });
   res.json(row);
 });

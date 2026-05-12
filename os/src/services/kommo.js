@@ -26,7 +26,7 @@ function parseCsvStrings(v) {
 const KOMMO_PIPELINE_ID = toNum(process.env.KOMMO_PIPELINE_ID);
 const KOMMO_STATUS_ID = toNum(process.env.KOMMO_STATUS_ID);
 const KOMMO_RESPONSIBLE_USER_ID = toNum(process.env.KOMMO_RESPONSIBLE_USER_ID);
-const KOMMO_TAGS = parseCsvStrings(process.env.KOMMO_TAGS || 'CMR,Arbor');
+const _KOMMO_TAGS = parseCsvStrings(process.env.KOMMO_TAGS || 'CMR,Arbor');
 const KOMMO_CRM_TAGS = parseCsvStrings(process.env.KOMMO_CRM_TAGS || 'Arbor,CRM');
 const KOMMO_CF_ORDER_ID = toNum(process.env.KOMMO_CF_ORDER_ID);
 const KOMMO_CF_BRANCH_ID = toNum(process.env.KOMMO_CF_BRANCH_ID);

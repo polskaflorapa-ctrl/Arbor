@@ -5,6 +5,18 @@
  */
 import axios from 'axios';
 import { getStoredToken } from './utils/storedToken';
+import {
+  getMockData,
+  isTestModeEnabled,
+  getTestUser,
+  TEST_TOKEN,
+  getMockTaskDetail,
+  getMockTaskLogi,
+  mockMarkTaskFinishedInTestMode,
+  getMockQuotationDetail,
+  getMockTeamRanking,
+  MOCK_DATA,
+} from './utils/testMode';
 
 /** Normalizacja: pełny host z Rendera bez `/api` → dopinamy `/api` (trasy OS są pod /api/…). */
 function normalizeReactApiBase(raw) {
@@ -31,6 +43,220 @@ const api = axios.create({
   baseURL: API_URL,
   timeout: 15000,
 });
+
+// Get the original adapter before we override it. Axios 1 can expose adapter names
+// instead of a callable function, so normalize through getAdapter when available.
+const rawAdapter = api.defaults.adapter || axios.defaults.adapter;
+const originalAdapter = typeof rawAdapter === 'function'
+  ? rawAdapter
+  : axios.getAdapter(rawAdapter);
+
+function getRequestPath(url) {
+  if (!url) return '';
+  return String(url).split('?')[0].replace(/\/+$|\/\?+$/g, '');
+}
+
+function parseJsonData(data) {
+  if (!data) return {};
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+  return data;
+}
+
+function getTestUserForLogin(login) {
+  const normalized = String(login || '').trim().toLowerCase();
+  if (normalized.includes('prezes')) return getTestUser('prezes');
+  if (normalized.includes('sprzedaz') || normalized.includes('sprzedaż')) return getTestUser('Dyrektor Sprzedaży');
+  if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
+  if (normalized.includes('kierownik')) return getTestUser('kierownik');
+  if (normalized.includes('spec') || normalized.includes('wroclaw') || normalized.includes('wroc')) return getTestUser('Specjalista');
+  if (normalized.includes('brygadzista')) return getTestUser('brygadzista');
+  if (normalized.includes('wyceniajacy') || normalized.includes('wyceniający')) return getTestUser('wyceniajacy');
+  return getTestUser('dyrektor');
+}
+
+function getTestModeMockResponse(config) {
+  const method = String(config?.method || 'get').toLowerCase();
+  const path = getRequestPath(String(config.url || ''));
+
+  if (path === '/auth/login' && method === 'post') {
+    const body = parseJsonData(config.data);
+    const user = getTestUserForLogin(body.login);
+    return {
+      data: { token: TEST_TOKEN, user },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ekipy/ranking' && method === 'get') {
+    return {
+      data: getMockTeamRanking(config.params || {}),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksId = path.match(/^\/tasks\/(\d+)$/);
+  if (mTasksId && method === 'put') {
+    const id = Number(mTasksId[1]);
+    const body = parseJsonData(config.data);
+    const idx = MOCK_DATA.zlecenia.findIndex((task) => Number(task.id) === id);
+    if (idx >= 0) {
+      MOCK_DATA.zlecenia[idx] = { ...MOCK_DATA.zlecenia[idx], ...body };
+      return {
+        data: MOCK_DATA.zlecenia[idx],
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+        request: {},
+      };
+    }
+  }
+
+  if (mTasksId && method === 'get') {
+    return {
+      data: getMockTaskDetail(mTasksId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mUserOddzial = path.match(/^\/uzytkownicy\/(\d+)\/oddzial$/);
+  if (mUserOddzial && (method === 'patch' || method === 'put')) {
+    const id = Number(mUserOddzial[1]);
+    const body = parseJsonData(config.data);
+    const oddzialId = Number(body.oddzial_id);
+    const idx = MOCK_DATA.uzytkownicy.findIndex((u) => Number(u.id) === id);
+    const oddzial = MOCK_DATA.oddzialy.find((o) => Number(o.id) === oddzialId);
+    if (idx >= 0 && oddzial) {
+      MOCK_DATA.uzytkownicy[idx] = {
+        ...MOCK_DATA.uzytkownicy[idx],
+        oddzial_id: oddzialId,
+        oddzial_nazwa: oddzial.nazwa,
+      };
+      return {
+        data: MOCK_DATA.uzytkownicy[idx],
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+        request: {},
+      };
+    }
+  }
+
+  const mUserId = path.match(/^\/uzytkownicy\/(\d+)$/);
+  if (mUserId && method === 'get') {
+    const user = MOCK_DATA.uzytkownicy.find((u) => Number(u.id) === Number(mUserId[1]));
+    return {
+      data: user || null,
+      status: user ? 200 : 404,
+      statusText: user ? 'OK' : 'Not Found',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mUserCompetences = path.match(/^\/uzytkownicy\/(\d+)\/kompetencje$/);
+  if (mUserCompetences && method === 'get') {
+    return {
+      data: [],
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksLogi = path.match(/^\/tasks\/(\d+)\/logi$/);
+  if (mTasksLogi && method === 'get') {
+    return {
+      data: getMockTaskLogi(mTasksLogi[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mQuotationsId = path.match(/^\/quotations\/(\d+)$/);
+  if (mQuotationsId && method === 'get') {
+    return {
+      data: getMockQuotationDetail(mQuotationsId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mQuotationsResend = path.match(/^\/quotations\/(\d+)\/resend-client-offer$/);
+  if (mQuotationsResend && method === 'post') {
+    return {
+      data: getMockQuotationDetail(mQuotationsResend[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksFinish = path.match(/^\/tasks\/(\d+)\/finish$/);
+  if (mTasksFinish && method === 'post') {
+    mockMarkTaskFinishedInTestMode(mTasksFinish[1]);
+    return {
+      data: { message: 'Zlecenie zakończone', wartosc_netto_do_rozliczenia: 1425 },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mockData = getMockData(path);
+  if (mockData !== null) {
+    return {
+      data: mockData,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  return null;
+}
+
+api.defaults.adapter = async (config) => {
+  if (isTestModeEnabled()) {
+    const mockResponse = getTestModeMockResponse(config);
+    if (mockResponse) return mockResponse;
+  }
+  return originalAdapter(config);
+};
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 const RETRYABLE_ERROR_CODES = new Set(['ECONNABORTED', 'ERR_NETWORK']);

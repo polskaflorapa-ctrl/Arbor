@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import Sidebar from '../components/Sidebar';
@@ -23,6 +24,21 @@ const DAY_HEADER_HEIGHT = 64;
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 19;
 
+function formatBlockTime(z) {
+  if (z.godzina_rozpoczecia) return String(z.godzina_rozpoczecia).slice(0, 5);
+  if (z.data_planowana) {
+    try {
+      const dt = new Date(z.data_planowana);
+      if (!Number.isNaN(dt.getTime())) {
+        return dt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return '08:00';
+}
+
 export default function Harmonogram() {
   const [zlecenia, setZlecenia] = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
@@ -33,6 +49,8 @@ export default function Harmonogram() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [widok, setWidok] = useState('tydzien');
   const [currentUser, setCurrentUser] = useState(null);
+  const [planErr, setPlanErr] = useState('');
+  const [planMsg, setPlanMsg] = useState('');
   const navigate = useNavigate();
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
 
@@ -51,15 +69,36 @@ export default function Harmonogram() {
         api.get(`/oddzialy`, { headers: h }),
         api.get(`/ekipy`, { headers: h }),
       ]);
-      setZlecenia(zRes.data);
-      setOddzialy(oRes.data);
-      setEkipy(eRes.data);
+      const rawZ = zRes.data;
+      setZlecenia(Array.isArray(rawZ) ? rawZ : rawZ?.items || []);
+      const rawO = oRes.data;
+      setOddzialy(Array.isArray(rawO) ? rawO : rawO?.oddzialy || []);
+      const rawE = eRes.data;
+      setEkipy(Array.isArray(rawE) ? rawE : rawE?.ekipy || []);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
     } finally {
       setLoading(false);
     }
   }, [isBrygadzista]);
+
+  const patchTaskPlan = useCallback(
+    async (taskId, dayDate, hour) => {
+      setPlanErr('');
+      setPlanMsg('');
+      try {
+        const token = getStoredToken();
+        const h = authHeaders(token);
+        const iso = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), hour, 0, 0, 0).toISOString();
+        await api.patch(`/tasks/${taskId}/plan`, { data_planowana: iso }, { headers: h });
+        setPlanMsg('Termin zaktualizowany.');
+        await loadData();
+      } catch (err) {
+        setPlanErr(getApiErrorMessage(err));
+      }
+    },
+    [loadData]
+  );
 
   useEffect(() => {
     const token = getStoredToken();
@@ -69,8 +108,13 @@ export default function Harmonogram() {
     loadData();
   }, [navigate, loadData]);
 
+  useEffect(() => {
+    setPlanMsg('');
+    setPlanErr('');
+  }, [currentDate, widok]);
+
   const isKierownik = currentUser?.rola === 'Kierownik';
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const canEdit = isDyrektor || isKierownik;
 
   const getTydzien = (date) => {
@@ -108,8 +152,18 @@ export default function Harmonogram() {
 
   const getGodzinaStart = (z) => {
     if (z.godzina_rozpoczecia) {
-      const [h, m] = z.godzina_rozpoczecia.split(':').map(Number);
-      return h + m / 60;
+      const [h, m] = String(z.godzina_rozpoczecia).split(':').map(Number);
+      if (Number.isFinite(h)) return h + (Number.isFinite(m) ? m / 60 : 0);
+    }
+    if (z.data_planowana) {
+      try {
+        const dt = new Date(z.data_planowana);
+        if (!Number.isNaN(dt.getTime())) {
+          return dt.getHours() + dt.getMinutes() / 60;
+        }
+      } catch {
+        /* ignore */
+      }
     }
     return 8;
   };
@@ -212,10 +266,31 @@ export default function Harmonogram() {
 
             return (
               <div key={ds} style={{...styles.dayCol, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
-                {GODZINY.map(h => (
-                  <div key={h} style={styles.hourCell}
-                    onClick={() => canEdit && navigate(`/nowe-zlecenie?data=${ds}&godzina=${h}:00`)}>
-                  </div>
+                {GODZINY.map((h) => (
+                  <div
+                    key={h}
+                    style={styles.hourCell}
+                    onClick={() => canEdit && navigate(`/nowe-zlecenie?data=${ds}&godzina=${h}:00`)}
+                    onDragOver={(e) => {
+                      if (!canEdit) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(e) => {
+                      if (!canEdit) return;
+                      e.preventDefault();
+                      const raw = e.dataTransfer.getData('application/json');
+                      if (!raw) return;
+                      let taskId;
+                      try {
+                        taskId = JSON.parse(raw).taskId;
+                      } catch {
+                        return;
+                      }
+                      if (!taskId) return;
+                      void patchTaskPlan(taskId, d, h);
+                    }}
+                  />
                 ))}
 
                 {showNowLine && (
@@ -233,7 +308,15 @@ export default function Harmonogram() {
                   const left = `calc(${lane} * (${colWidth} + ${gap}px))`;
 
                   return (
-                    <div key={z.id} style={{
+                    <div
+                      key={z.id}
+                      draggable={canEdit}
+                      onDragStart={(e) => {
+                        if (!canEdit) return;
+                        e.dataTransfer.setData('application/json', JSON.stringify({ taskId: z.id }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      style={{
                       ...styles.zlecenieBlock,
                       top: top,
                       height: height,
@@ -242,9 +325,10 @@ export default function Harmonogram() {
                       right: 'auto',
                       backgroundColor: kolor + '22',
                       borderLeft: `3px solid ${kolor}`,
+                      cursor: canEdit ? 'grab' : 'pointer',
                     }} onClick={(e) => { e.stopPropagation(); navigate(`/zlecenia/${z.id}`); }}>
                       <div style={{...styles.blockTitle, color: kolor}}>
-                        {z.godzina_rozpoczecia ? z.godzina_rozpoczecia.substring(0,5) : '08:00'} {z.klient_nazwa}
+                        {formatBlockTime(z)} {z.klient_nazwa}
                       </div>
                       {height > 45 && (
                         <div style={styles.blockSub}>{z.ekipa_nazwa || 'Brak ekipy'}</div>
@@ -293,7 +377,7 @@ export default function Harmonogram() {
               </div>
               {zl.slice(0, 3).map(z => (
                 <div key={z.id} style={{...styles.miesiacChip, backgroundColor: getKolor(z)}}>
-                  {z.godzina_rozpoczecia ? z.godzina_rozpoczecia.substring(0,5) + ' ' : ''}{z.klient_nazwa?.substring(0, 12)}
+                  {formatBlockTime(z)} {z.klient_nazwa?.substring(0, 12)}
                 </div>
               ))}
               {zl.length > 3 && <div style={styles.miesiacMore}>+{zl.length - 3} więcej</div>}
@@ -344,6 +428,18 @@ export default function Harmonogram() {
           </div>
         </div>
 
+        {(planErr || planMsg) && (
+          <div style={{ marginBottom: 8, fontSize: 13 }}>
+            {planErr ? <span style={{ color: 'var(--danger)' }}>{planErr}</span> : null}
+            {planMsg ? <span style={{ color: 'var(--accent)' }}>{planMsg}</span> : null}
+          </div>
+        )}
+        {canEdit && !loading ? (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+            Przeciągnij blok zlecenia na inny dzień lub godzinę, aby zmienić termin (widok dzień / tydzień).
+          </div>
+        ) : null}
+
         {loading ? (
           <div style={styles.loading}>⏳ Ładowanie harmonogramu...</div>
         ) : (
@@ -386,21 +482,33 @@ export default function Harmonogram() {
 }
 
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
-  main: { flex: 1, padding: '20px', display: 'flex', flexDirection: 'column' },
-  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 },
+  container: { display: 'flex', minHeight: '100vh', background: 'var(--forest-pattern), linear-gradient(180deg, rgba(20,53,31,0.26), var(--bg-deep))' },
+  main: { flex: 1, padding: '24px clamp(14px, 2.5vw, 28px)', display: 'flex', flexDirection: 'column', minWidth: 0 },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+    flexWrap: 'wrap',
+    gap: 12,
+    padding: '16px 18px',
+    borderRadius: 8,
+    border: '1px solid rgba(191,225,146,0.16)',
+    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))',
+    boxShadow: 'var(--shadow-sm)',
+  },
   navRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  calTitle: { fontSize: 'clamp(14px, 4vw, 18px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
-  todayBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', color: 'var(--accent)' },
-  navBtn: { padding: '6px 12px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 18, fontWeight: 'bold', lineHeight: 1 },
+  calTitle: { fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 850, color: 'var(--text)', margin: 0, lineHeight: 1.1 },
+  todayBtn: { padding: '9px 16px', backgroundColor: 'var(--accent)', border: '1px solid rgba(155,217,87,0.45)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 850, color: 'var(--on-accent)' },
+  navBtn: { minWidth: 42, minHeight: 42, padding: '6px 12px', backgroundColor: 'rgba(5,12,8,0.72)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 18, fontWeight: 'bold', lineHeight: 1, color: 'var(--accent)' },
   headerRight: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
-  filtrSelect: { padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
-  widokBtns: { display: 'flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' },
-  widokBtn: { padding: '7px 14px', border: 'none', backgroundColor: 'var(--bg-card)', cursor: 'pointer', fontSize: 13, fontWeight: '500', color: 'var(--text-muted)' },
-  widokBtnActive: { backgroundColor: 'var(--bg-deep)', color: '#fff' },
-  addBtn: { padding: '8px 18px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  filtrSelect: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 13, backgroundColor: 'rgba(5,12,8,0.72)', minHeight: 42 },
+  widokBtns: { display: 'flex', border: '1px solid var(--border2)', borderRadius: 8, overflow: 'hidden', background: 'rgba(5,12,8,0.72)', minHeight: 42 },
+  widokBtn: { padding: '7px 14px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 750, color: 'var(--text-muted)' },
+  widokBtnActive: { backgroundColor: 'var(--accent)', color: 'var(--on-accent)' },
+  addBtn: { padding: '9px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 850 },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
-  calendarWrap: { backgroundColor: 'var(--bg-card)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', overflow: 'hidden', flex: 1, minHeight: 520 },
+  calendarWrap: { background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))', borderRadius: 8, border: '1px solid rgba(191,225,146,0.18)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden', flex: 1, minHeight: 520 },
   calBody: { display: 'flex', flexDirection: 'column', minHeight: 520, height: '100%' },
   timeGrid: { display: 'grid' },
   timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', background: 'var(--bg-card2)' },

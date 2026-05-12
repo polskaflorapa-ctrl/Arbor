@@ -92,16 +92,18 @@ export default function PayrollM11() {
   const [exportStatus, setExportStatus] = useState({
     export_allowed: true,
     pending_count: 0,
+    pending_reports: [],
     skip_check_active: false,
   });
   const [dayReports, setDayReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
+  const [onlyPendingReports, setOnlyPendingReports] = useState(true);
   const [savingLineId, setSavingLineId] = useState(null);
   const [correctionLog, setCorrectionLog] = useState([]);
   const [loadingCorrectionLog, setLoadingCorrectionLog] = useState(false);
 
   const canSee = useMemo(
-    () => user && ['Dyrektor', 'Administrator', 'Kierownik'].includes(user.rola),
+    () => user && ['Prezes', 'Dyrektor', 'Kierownik'].includes(user.rola),
     [user]
   );
 
@@ -117,6 +119,10 @@ export default function PayrollM11() {
   const roleReady = user && user.rola;
 
   const monthParam = `${month}-01`;
+  const visibleDayReports = useMemo(
+    () => (onlyPendingReports ? dayReports.filter((r) => !r.approved_at) : dayReports),
+    [dayReports, onlyPendingReports]
+  );
 
   const loadAccrual = useCallback(async () => {
     const token = getStoredToken();
@@ -152,10 +158,11 @@ export default function PayrollM11() {
       setExportStatus({
         export_allowed: data.export_allowed !== false,
         pending_count: Number(data.pending_count) || 0,
+        pending_reports: Array.isArray(data.pending_reports) ? data.pending_reports : [],
         skip_check_active: !!data.skip_check_active,
       });
     } catch {
-      setExportStatus({ export_allowed: true, pending_count: 0, skip_check_active: false });
+      setExportStatus({ export_allowed: true, pending_count: 0, pending_reports: [], skip_check_active: false });
     }
   }, [canSee, monthParam]);
 
@@ -256,6 +263,20 @@ export default function PayrollM11() {
       setMsg(getApiErrorMessage(e, t('payrollM11.lineCorrectionError')));
     } finally {
       setSavingLineId(null);
+    }
+  };
+
+  const approveTeamDayReport = async (reportId) => {
+    const token = getStoredToken();
+    if (!token) return;
+    setMsg('');
+    try {
+      await api.post(`/payroll/team-day-report/${reportId}/approve`, {}, { headers: authHeaders(token) });
+      setMsg('Raport dnia został zatwierdzony.');
+      await loadDayReports();
+      await loadExportStatus();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, 'Nie udało się zatwierdzić raportu dnia.'));
     }
   };
 
@@ -365,6 +386,18 @@ export default function PayrollM11() {
             <p style={{ margin: 0, fontSize: 14, color: 'var(--text)' }}>
               {t('payrollM11.exportPendingBanner', { count: exportStatus.pending_count })}
             </p>
+            {Array.isArray(exportStatus.pending_reports) && exportStatus.pending_reports.length > 0 ? (
+              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+                {exportStatus.pending_reports.slice(0, 8).map((r) => (
+                  <div key={r.id}>
+                    {r.report_date} · team #{r.team_id}
+                  </div>
+                ))}
+                {exportStatus.pending_reports.length > 8 ? (
+                  <div>… +{exportStatus.pending_reports.length - 8} kolejnych</div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {exportStatus.skip_check_active ? (
@@ -416,19 +449,29 @@ export default function PayrollM11() {
         <div style={{ ...card, marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('payrollM11.dayReportsSection')}</h3>
-            <button type="button" style={btnSec} onClick={() => void loadDayReports()} disabled={loadingReports}>
-              {t('payrollM11.dayReportsRefresh')}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                <input
+                  type="checkbox"
+                  checked={onlyPendingReports}
+                  onChange={(e) => setOnlyPendingReports(e.target.checked)}
+                />
+                tylko brakujące
+              </label>
+              <button type="button" style={btnSec} onClick={() => void loadDayReports()} disabled={loadingReports}>
+                {t('payrollM11.dayReportsRefresh')}
+              </button>
+            </div>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8, marginBottom: 12 }}>
             {t('payrollM11.dayReportsHint')}
           </p>
           {loadingReports ? (
             <p style={{ color: 'var(--text-muted)', marginBottom: 0 }}>{t('payrollM11.dayReportsLoading')}</p>
-          ) : dayReports.length === 0 ? (
+          ) : visibleDayReports.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', marginBottom: 0 }}>{t('payrollM11.dayReportsEmpty')}</p>
           ) : (
-            dayReports.map((rep) => (
+            visibleDayReports.map((rep) => (
               <div
                 key={rep.id}
                 style={{
@@ -451,6 +494,13 @@ export default function PayrollM11() {
                     </span>
                   )}
                 </div>
+                {!rep.approved_at ? (
+                  <div style={{ marginBottom: 8 }}>
+                    <button type="button" style={btnSec} onClick={() => void approveTeamDayReport(rep.id)}>
+                      Zatwierdź raport dnia
+                    </button>
+                  </div>
+                ) : null}
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>

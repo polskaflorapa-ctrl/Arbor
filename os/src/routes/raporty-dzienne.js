@@ -61,7 +61,7 @@ const dailyReportUpsertSchema = z.object({
     .optional(),
 });
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 
 // ============================================
@@ -213,7 +213,7 @@ router.get('/', authMiddleware, validateQuery(raportyListQuerySchema), async (re
   }
 });
 
-// GET /api/raporty-dzienne/user/:userId — raporty użytkownika (Dyrektor / Administrator)
+// GET /api/raporty-dzienne/user/:userId — raporty użytkownika (Prezes / Dyrektor)
 router.get('/user/:userId', authMiddleware, validateParams(dailyReportUserIdParamsSchema), validateQuery(raportyUserListQuerySchema), async (req, res) => {
   try {
     if (!isDyrektor(req.user)) {
@@ -450,8 +450,8 @@ router.post('/:id/wyslij', authMiddleware, validateParams(dailyReportIdParamsSch
 
     const odbiorcy = await pool.query(
       `SELECT email, imie, nazwisko, rola FROM users
-       WHERE (oddzial_id = $1 OR rola IN ('Dyrektor', 'Administrator'))
-       AND rola IN ('Kierownik', 'Dyrektor', 'Administrator')
+       WHERE (oddzial_id = $1 OR rola IN ('Prezes', 'Dyrektor'))
+       AND rola IN ('Kierownik', 'Prezes', 'Dyrektor')
        AND aktywny = true AND email IS NOT NULL AND email != ''`,
       [raport.oddzial_id]
     );

@@ -8,7 +8,7 @@ const { sendSystemEmailOptional } = require('../services/systemEmail');
 
 const router = express.Router();
 
-router.get('/smoke', authMiddleware, requireRole('Dyrektor', 'Administrator'), async (req, res) => {
+router.get('/smoke', authMiddleware, requireRole('Prezes', 'Dyrektor'), async (req, res) => {
   const startedAt = Date.now();
   try {
     const [dbRes, usersRes, tasksRes] = await Promise.all([
@@ -67,7 +67,7 @@ router.get('/quotation-sla-tick', async (req, res) => {
         `SELECT DISTINCT u.id, NULLIF(TRIM(u.email), '') AS email FROM users u
          WHERE u.aktywny IS NOT FALSE AND (
            (u.rola = 'Kierownik' AND u.oddzial_id = (SELECT oddzial_id FROM quotations WHERE id = $1))
-           OR u.rola IN ('Dyrektor','Administrator')
+           OR u.rola IN ('Prezes','Dyrektor')
          )`,
         [r.quotation_id]
       );
@@ -142,7 +142,7 @@ router.get('/payroll-cash-reminder-tick', async (req, res) => {
         : `${oddN}: PILNE — kasa (${teamN}, ${row.pickup_date}) ${cash} PLN nieodebrana od 7 dni.`;
     const { rows: recipients } = await pool.query(
       `SELECT id, telefon, email FROM users WHERE aktywny IS NOT FALSE AND (
-         rola IN ('Dyrektor','Administrator')
+         rola IN ('Prezes','Dyrektor')
          OR (rola = 'Kierownik' AND oddzial_id = $1)
        )`,
       [row.oddzial_id]

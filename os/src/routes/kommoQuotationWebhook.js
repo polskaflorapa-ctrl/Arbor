@@ -2,6 +2,7 @@
  * F1.1 — webhook z Kommo (status „Do wyceny”): utworzenie rekordu quotations do przypisania.
  * Zabezpieczenie: nagłówek X-Arbor-Webhook-Secret lub body.secret === KOMMO_QUOTATION_WEBHOOK_SECRET
  */
+const crypto = require('crypto');
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
@@ -10,12 +11,25 @@ const { distanceMeters } = require('../utils/geo');
 
 const router = express.Router();
 
+// Porównanie w stałym czasie — odporne na timing attacks.
+// Wymaga równej długości buforów; przy różnej długości zwracamy false po wcześniejszym sprawdzeniu.
+function timingSafeEq(a, b) {
+  const ab = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
+
 function checkSecret(req) {
   const expected = (process.env.KOMMO_QUOTATION_WEBHOOK_SECRET || '').trim();
-  if (!expected) return true;
+  // FAIL-CLOSED: brak skonfigurowanego sekretu = odrzucamy. Inaczej publiczny INSERT.
+  if (!expected) {
+    logger.warn('kommoQuotationWebhook: KOMMO_QUOTATION_WEBHOOK_SECRET is not set — rejecting request');
+    return false;
+  }
   const h = (req.get('x-arbor-webhook-secret') || '').trim();
-  const b = (req.body && req.body.secret) || '';
-  return h === expected || b === expected;
+  const b = String((req.body && req.body.secret) || '').trim();
+  return timingSafeEq(h, expected) || timingSafeEq(b, expected);
 }
 
 async function pickOddzialId(pool, lat, lng, requestedId) {

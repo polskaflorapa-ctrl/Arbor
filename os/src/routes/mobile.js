@@ -47,7 +47,7 @@ function isLikelyExpoPushToken(token) {
   return s.startsWith('ExponentPushToken[') || s.startsWith('ExpoPushToken[');
 }
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 
 // GET /api/mobile/ustawienia
@@ -377,15 +377,24 @@ router.delete('/me/push-token', authMiddleware, validateBody(pushTokenDeleteSche
 });
 
 /** F11.8 — podsumowanie dniówki / naliczeń dla zalogowanego użytkownika. */
-router.get('/me/payroll-overview', authMiddleware, async (req, res) => {
+async function getPayrollOverview(req, res) {
   try {
     const uid = req.user.id;
     const today = new Date().toISOString().slice(0, 10);
+    const day = new Date();
+    const dow = day.getUTCDay();
+    const mondayShift = dow === 0 ? -6 : 1 - dow;
+    const weekStart = new Date(day);
+    weekStart.setUTCDate(day.getUTCDate() + mondayShift);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    const ws = weekStart.toISOString().slice(0, 10);
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
     const ms = monthStart.toISOString().slice(0, 10);
     let hoursMonth = 0;
+    let hoursWeek = 0;
+    let hoursToday = 0;
     try {
       const h = await pool.query(
         `SELECT COALESCE(SUM(COALESCE(wl.duration_hours, wl.czas_pracy_minuty::numeric / 60)), 0)::numeric(12,2) AS h
@@ -394,8 +403,77 @@ router.get('/me/payroll-overview', authMiddleware, async (req, res) => {
         [uid, ms]
       );
       hoursMonth = Number(h.rows[0]?.h) || 0;
+      const hw = await pool.query(
+        `SELECT COALESCE(SUM(COALESCE(wl.duration_hours, wl.czas_pracy_minuty::numeric / 60)), 0)::numeric(12,2) AS h
+         FROM work_logs wl WHERE wl.user_id = $1 AND wl.end_time IS NOT NULL
+           AND wl.start_time >= $2::date AND wl.start_time < ($2::date + INTERVAL '7 day')`,
+        [uid, ws]
+      );
+      hoursWeek = Number(hw.rows[0]?.h) || 0;
+      const hd = await pool.query(
+        `SELECT COALESCE(SUM(COALESCE(wl.duration_hours, wl.czas_pracy_minuty::numeric / 60)), 0)::numeric(12,2) AS h
+         FROM work_logs wl WHERE wl.user_id = $1 AND wl.end_time IS NOT NULL
+           AND (wl.start_time AT TIME ZONE 'Europe/Warsaw')::date = $2::date`,
+        [uid, today]
+      );
+      hoursToday = Number(hd.rows[0]?.h) || 0;
     } catch {
       hoursMonth = 0;
+      hoursWeek = 0;
+      hoursToday = 0;
+    }
+
+    let payMonth = 0;
+    let payWeek = 0;
+    let payToday = 0;
+    let daily = [];
+    try {
+      const pm = await pool.query(
+        `SELECT COALESCE(SUM(l.pay_pln),0)::numeric(14,2) AS v
+         FROM payroll_team_day_report_lines l
+         JOIN payroll_team_day_reports r ON r.id = l.report_id
+         WHERE l.user_id = $1
+           AND r.report_date >= $2::date
+           AND r.report_date < ($2::date + INTERVAL '1 month')`,
+        [uid, ms]
+      );
+      payMonth = Number(pm.rows[0]?.v) || 0;
+      const pw = await pool.query(
+        `SELECT COALESCE(SUM(l.pay_pln),0)::numeric(14,2) AS v
+         FROM payroll_team_day_report_lines l
+         JOIN payroll_team_day_reports r ON r.id = l.report_id
+         WHERE l.user_id = $1
+           AND r.report_date >= $2::date
+           AND r.report_date < ($2::date + INTERVAL '7 day')`,
+        [uid, ws]
+      );
+      payWeek = Number(pw.rows[0]?.v) || 0;
+      const pd = await pool.query(
+        `SELECT COALESCE(SUM(l.pay_pln),0)::numeric(14,2) AS v
+         FROM payroll_team_day_report_lines l
+         JOIN payroll_team_day_reports r ON r.id = l.report_id
+         WHERE l.user_id = $1
+           AND r.report_date = $2::date`,
+        [uid, today]
+      );
+      payToday = Number(pd.rows[0]?.v) || 0;
+      const dailyRows = await pool.query(
+        `SELECT r.report_date::text AS date, l.hours_total::numeric(12,2) AS hours_total, l.pay_pln::numeric(14,2) AS pay_pln
+         FROM payroll_team_day_report_lines l
+         JOIN payroll_team_day_reports r ON r.id = l.report_id
+         WHERE l.user_id = $1
+           AND r.report_date >= ($2::date - INTERVAL '31 day')
+           AND r.report_date <= $2::date
+         ORDER BY r.report_date DESC
+         LIMIT 31`,
+        [uid, today]
+      );
+      daily = dailyRows.rows;
+    } catch {
+      payMonth = 0;
+      payWeek = 0;
+      payToday = 0;
+      daily = [];
     }
     let rates = [];
     try {
@@ -408,6 +486,7 @@ router.get('/me/payroll-overview', authMiddleware, async (req, res) => {
       rates = [];
     }
     let estimator = null;
+    let estimatorStats = null;
     if (req.user.rola === 'Wyceniający') {
       try {
         const e = await pool.query(`SELECT * FROM estimator_month_accrual WHERE wyceniajacy_id = $1 AND accrual_month = $2::date`, [
@@ -415,15 +494,49 @@ router.get('/me/payroll-overview', authMiddleware, async (req, res) => {
           ms,
         ]);
         estimator = e.rows[0] || null;
+        const st = await pool.query(
+          `SELECT
+             COUNT(*) FILTER (WHERE q.created_by = $1)::int AS issued,
+             COUNT(*) FILTER (WHERE q.status = 'Zatwierdzona')::int AS approved,
+             COUNT(*) FILTER (WHERE q.status = 'Wyslana_Klientowi')::int AS sent_to_client,
+             COUNT(*) FILTER (WHERE t.id IS NOT NULL AND t.status = 'Zakonczone')::int AS completed
+           FROM quotations q
+           LEFT JOIN tasks t ON t.source_quotation_id = q.id
+           WHERE q.created_by = $1
+             AND q.created_at >= $2::date
+             AND q.created_at < ($2::date + INTERVAL '1 month')`,
+          [uid, ms]
+        );
+        estimatorStats = st.rows[0] || null;
       } catch {
         estimator = null;
+        estimatorStats = null;
       }
     }
-    res.json({ user_id: uid, date: today, hours_month: hoursMonth, rates, estimator_month: estimator });
+    res.json({
+      user_id: uid,
+      date: today,
+      week_start: ws,
+      month_start: ms,
+      hours_today: hoursToday,
+      hours_week: hoursWeek,
+      hours_month: hoursMonth,
+      pay_today: payToday,
+      pay_week: payWeek,
+      pay_month: payMonth,
+      daily,
+      rates,
+      estimator_month: estimator,
+      estimator_stats: estimatorStats,
+    });
   } catch (err) {
     logger.error('mobile.payroll-overview', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
-});
+}
+
+router.get('/me/payroll-overview', authMiddleware, getPayrollOverview);
+/** Alias pod acceptance/spec M11 F11.8: "settlements overview". */
+router.get('/me/settlements-overview', authMiddleware, getPayrollOverview);
 
 module.exports = router;

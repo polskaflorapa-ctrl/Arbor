@@ -1,12 +1,18 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware, requireNieBrygadzista } = require('../middleware/auth');
+const {
+  authMiddleware,
+  requireNieBrygadzista,
+  isDyrektor,
+  isSalesDirector,
+  canTransferSpecialist,
+} = require('../middleware/auth');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { z } = require('zod');
 
 const router = express.Router();
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const canSeeAllOddzialy = (user) => isDyrektor(user) || isSalesDirector(user);
 
 const oddzialListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -64,6 +70,9 @@ const delegacjeListQuerySchema = z.object({
 router.get('/', authMiddleware, validateQuery(oddzialListQuerySchema), async (req, res) => {
   try {
     const { limit, offset } = req.query;
+    const scoped = !canSeeAllOddzialy(req.user);
+    const whereSql = scoped ? 'WHERE b.id = $1' : '';
+    const params = scoped ? [req.user.oddzial_id] : [];
     const base = `
       FROM branches b
       LEFT JOIN teams t ON t.oddzial_id = b.id AND t.aktywny = true
@@ -78,17 +87,21 @@ router.get('/', authMiddleware, validateQuery(oddzialListQuerySchema), async (re
         km.nazwisko as kierownik_nazwisko,
         km.telefon as kierownik_telefon
       ${base}
+      ${whereSql}
       ${groupBy}
       ORDER BY b.nazwa`;
     if (limit != null) {
       const lim = Number(limit);
       const off = Number(offset ?? 0);
-      const countR = await pool.query(`SELECT COUNT(*)::int AS c FROM (SELECT b.id ${base} ${groupBy}) sub`);
+      const countR = await pool.query(`SELECT COUNT(*)::int AS c FROM (SELECT b.id ${base} ${whereSql} ${groupBy}) sub`, params);
       const total = countR.rows[0]?.c ?? 0;
-      const { rows } = await pool.query(`${selectBody} LIMIT $1 OFFSET $2`, [lim, off]);
+      const { rows } = await pool.query(
+        `${selectBody} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, lim, off]
+      );
       return res.json({ items: rows, total, limit: lim, offset: off });
     }
-    const result = await pool.query(selectBody);
+    const result = await pool.query(selectBody, params);
     res.json(result.rows);
   } catch (err) {
     logger.error('Blad pobierania oddzialow', { message: err.message, requestId: req.requestId });
@@ -99,6 +112,9 @@ router.get('/', authMiddleware, validateQuery(oddzialListQuerySchema), async (re
 router.get('/delegacje/wszystkie', authMiddleware, validateQuery(delegacjeListQuerySchema), async (req, res) => {
   try {
     const { limit, offset } = req.query;
+    const scoped = !canSeeAllOddzialy(req.user);
+    const whereSql = scoped ? 'WHERE d.oddzial_z = $1 OR d.oddzial_do = $1' : '';
+    const params = scoped ? [req.user.oddzial_id] : [];
     const selectList = `
       SELECT d.*,
         t.nazwa as ekipa_nazwa,
@@ -110,16 +126,20 @@ router.get('/delegacje/wszystkie', authMiddleware, validateQuery(delegacjeListQu
       LEFT JOIN branches bo ON d.oddzial_z = bo.id
       LEFT JOIN branches bd ON d.oddzial_do = bd.id
       LEFT JOIN users u ON d.dodal_id = u.id
+      ${whereSql}
       ORDER BY d.data_od DESC`;
     if (limit != null) {
       const lim = Number(limit);
       const off = Number(offset ?? 0);
-      const countR = await pool.query('SELECT COUNT(*)::int AS c FROM delegacje');
+      const countR = await pool.query(`SELECT COUNT(*)::int AS c FROM delegacje d ${whereSql}`, params);
       const total = countR.rows[0]?.c ?? 0;
-      const result = await pool.query(`${selectList} LIMIT $1 OFFSET $2`, [lim, off]);
+      const result = await pool.query(
+        `${selectList} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, lim, off]
+      );
       return res.json({ items: result.rows, total, limit: lim, offset: off });
     }
-    const result = await pool.query(selectList);
+    const result = await pool.query(selectList, params);
     res.json(result.rows);
   } catch (err) {
     logger.error('Blad pobierania wszystkich delegacji', { message: err.message, requestId: req.requestId });
@@ -155,8 +175,14 @@ router.put('/delegacje/:id/status', authMiddleware, requireNieBrygadzista, valid
 
 router.put('/pracownik/:userId/przenies', authMiddleware, validateParams(pracownikUserIdParamsSchema), validateBody(przeniesPracownikSchema), async (req, res) => {
   try {
-    if (!isDyrektor(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     const { oddzial_id } = req.body;
+    const target = await pool.query('SELECT id, rola, oddzial_id FROM users WHERE id = $1', [req.params.userId]);
+    if (!target.rows.length) return res.status(404).json({ error: req.t('errors.user.notFound') });
+    if (!canTransferSpecialist(req.user, target.rows[0])) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    const branch = await pool.query('SELECT id FROM branches WHERE id = $1', [oddzial_id]);
+    if (!branch.rows.length) return res.status(400).json({ error: 'Nieprawidlowy oddzial' });
     await pool.query('UPDATE users SET oddzial_id = $1 WHERE id = $2', [oddzial_id, req.params.userId]);
     res.json({ message: 'Pracownik przeniesiony' });
   } catch (err) {
@@ -191,6 +217,9 @@ router.get('/:id/delegacje', authMiddleware, validateParams(oddzialIdParamsSchem
 
 router.get('/:id', authMiddleware, validateParams(oddzialIdParamsSchema), async (req, res) => {
   try {
+    if (!canSeeAllOddzialy(req.user) && Number(req.params.id) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
     const result = await pool.query(`
       SELECT b.*,
         km.imie as kierownik_imie,

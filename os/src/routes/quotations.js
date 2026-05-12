@@ -16,7 +16,7 @@ const {
   notifyApproversForQuotation,
   canUserDecideApproval,
 } = require('../services/quotationApprovals');
-const { afterQuotationFullyApproved } = require('../services/quotationFinalize');
+const { afterQuotationFullyApproved, resendQuotationClientOffer } = require('../services/quotationFinalize');
 const { validateQuotationCompleteForVisitEnd, gpsCheckForVisitStart } = require('../services/quotationValidation');
 const { applyAutoFlags } = require('../services/quotationItemFlags');
 
@@ -36,9 +36,18 @@ const QUOTATION_STATUSES = [
   'Wygasla',
 ];
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isKierownik = (u) => u.rola === 'Kierownik';
 const isWyceniajacy = (u) => u.rola === 'Wyceniający';
+
+/** F1.10 — wiersz „tablicy SLA”: przeterminowane zatwierdzenie widoczne dla roli zainteresowanych. */
+function canSeeSlaOverdueRow(u, r) {
+  if (!u || !r) return false;
+  if (isDyrektor(u)) return true;
+  if (isKierownik(u) && Number(u.oddzial_id) === Number(r.oddzial_id)) return true;
+  if (isWyceniajacy(u) && Number(r.wyceniajacy_id) === Number(u.id)) return true;
+  return canUserDecideApproval(u, { wymagany_typ: r.wymagany_typ, id: r.approval_id }, r);
+}
 function toInt(v) {
   if (v === '' || v == null) return null;
   const n = Number(v);
@@ -66,6 +75,11 @@ function canEditDraft(user, row) {
   if (!['Draft', 'Zwrocona', 'Umowiana'].includes(row.status)) return false;
   if (!isWyceniajacy(user) || Number(row.wyceniajacy_id) !== Number(user.id)) return false;
   return true;
+}
+
+/** F1.11 — ponowna wysyłka oferty do klienta (SMS/e-mail). */
+function canResendClientOffer(user) {
+  return isDyrektor(user) || isKierownik(user);
 }
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -262,6 +276,28 @@ router.get('/panel/moje-zatwierdzenia', async (req, res) => {
   }
 });
 
+/** F1.10 — lista zatwierdzeń po terminie SLA (due_at przed NOW()), do panelu web. */
+router.get('/panel/sla-przeterminowane', async (req, res) => {
+  try {
+    const u = req.user;
+    const { rows } = await pool.query(
+      `SELECT a.id AS approval_id, a.quotation_id, a.wymagany_typ, a.due_at, a.sla_reminder_sent_at,
+              q.klient_nazwa, q.status AS quotation_status, q.oddzial_id, q.wyceniajacy_id, q.priorytet
+       FROM quotation_approvals a
+       JOIN quotations q ON q.id = a.quotation_id
+       WHERE a.decyzja = 'Pending' AND q.status = 'W_Zatwierdzeniu'
+         AND a.due_at IS NOT NULL AND a.due_at < NOW()
+       ORDER BY a.due_at ASC
+       LIMIT 200`
+    );
+    const filtered = rows.filter((r) => canSeeSlaOverdueRow(u, r));
+    res.json(filtered);
+  } catch (e) {
+    logger.error('quotations.panel.sla', { message: e.message });
+    res.status(500).json({ error: 'Błąd listy SLA' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const u = req.user;
@@ -384,6 +420,26 @@ router.get('/:id', validateParams(idParam), async (req, res) => {
   if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
   if (!canView(req.user, row)) return res.status(403).json({ error: 'Brak dostępu' });
   res.json(row);
+});
+
+/** F1.11 — ponów SMS i e-mail z tym samym linkiem akceptacji (PDF regenerowany jeśli brak pliku). */
+router.post('/:id/resend-client-offer', validateParams(idParam), async (req, res) => {
+  if (!canResendClientOffer(req.user)) {
+    return res.status(403).json({ error: 'Brak uprawnień do ponownej wysyłki oferty.' });
+  }
+  const row = await fetchQuotation(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+  if (!canView(req.user, row)) return res.status(403).json({ error: 'Brak dostępu' });
+  try {
+    const out = await resendQuotationClientOffer(pool, req.params.id);
+    res.json(out);
+  } catch (e) {
+    logger.error('quotations.resendClientOffer', { message: e.message, quotationId: req.params.id });
+    const msg = e.message || 'Nie udało się ponowić wysyłki';
+    const code = e.code;
+    if (code === 'NOT_FOUND') return res.status(404).json({ error: msg });
+    return res.status(400).json({ error: msg });
+  }
 });
 
 router.patch('/:id', validateParams(idParam), validateBody(patchSchema), async (req, res) => {

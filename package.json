@@ -1,6 +1,9 @@
 {
   "name": "arbor",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "mobile",
     "web",
@@ -28,6 +31,17 @@
     "status:json": "node ./scripts/status.cjs --json",
     "status:json:strict": "node ./scripts/status.cjs --json --strict",
     "ci:check": "node ./scripts/ci-check.cjs",
+    "verify:mobile": "npm run typecheck -w arbor-mobile && npm run lint -w arbor-mobile",
+    "verify:web:test": "npm test -w arbor-web -- --watchAll=false",
+    "verify:web": "npm run build -w arbor-web",
+    "verify:os": "npm run lint -w arbor-os",
+    "verify:static": "npm run verify:mobile && npm run verify:web:test && npm run verify:web && npm run verify:os",
+    "verify:static:parallel": "concurrently -n mobile,web,os -c auto \"npm run verify:mobile\" \"npm run verify:web:test && npm run verify:web\" \"npm run verify:os\"",
+    "check": "npm run verify:static",
+    "check:parallel": "npm run verify:static:parallel",
+    "check:mobile": "npm run verify:mobile",
+    "check:web": "npm run verify:web:test && npm run verify:web",
+    "check:os": "npm run verify:os",
     "doctor": "node ./scripts/doctor.cjs",
     "up": "node ./scripts/up.cjs",
     "up:force": "node ./scripts/up.cjs --force",
@@ -37,7 +51,12 @@
   "devDependencies": {
     "concurrently": "^9.2.1"
   },
-  "dependencies": {
-    "react-native-screens": "^4.24.0"
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "@expo/vector-icons": {
+      "react-native": "0.81.5"
+    }
   }
 }

@@ -168,7 +168,7 @@ export default function WynagrodzenieWyceniajacych() {
     }
   };
 
-  const canSee = user && ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający'].includes(user.rola);
+  const canSee = user && ['Prezes', 'Dyrektor', 'Kierownik', 'Wyceniający'].includes(user.rola);
   const widziTylkoSiebie = user?.rola === 'Wyceniający';
 
   if (!canSee) {

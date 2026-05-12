@@ -48,9 +48,17 @@ export default function Uzytkownicy() {
   const location = useLocation();
   const openedFromRouteRef = useRef(null);
  
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
+  const isSalesDirector = [
+    'Dyrektor Sprzedazy',
+    'Dyrektor Sprzedaży',
+    'Dyrektor dzialu sprzedaz',
+    'Dyrektor działu sprzedaż',
+  ].includes(currentUser?.rola);
   const mozeEdytowac = isDyrektor || isKierownik;
+  const mozePrzenosicSpecjalistow = isDyrektor || isSalesDirector;
+  const mozePrzeniescUsera = (u) => mozePrzenosicSpecjalistow && u?.rola === 'Specjalista';
  
   useEffect(() => {
     const parsedUser = getLocalStorageJson('user');
@@ -223,6 +231,23 @@ export default function Uzytkownicy() {
       pokazKomunikat('Błąd zmiany statusu', 'error');
     }
   };
+
+  const przeniesSpecjaliste = async (userId, oddzialId) => {
+    if (!oddzialId) return;
+    try {
+      const token = getStoredToken();
+      const { data } = await api.patch(
+        `/uzytkownicy/${userId}/oddzial`,
+        { oddzial_id: Number(oddzialId) },
+        { headers: authHeaders(token) }
+      );
+      pokazKomunikat('Specjalista przeniesiony do wybranego oddzialu');
+      setUzytkownicy(prev => prev.map(u => u.id === userId ? { ...u, ...data } : u));
+      if (wybranyUser?.id === userId) setWybranyUser(prev => ({ ...prev, ...data }));
+    } catch (err) {
+      pokazKomunikat(getApiErrorMessage(err, 'Nie udalo sie przeniesc specjalisty'), 'error');
+    }
+  };
  
   const dodajKompetencje = async () => {
     if (!formKomp.nazwa) { pokazKomunikat('Podaj nazwę kompetencji', 'error'); return; }
@@ -281,7 +306,7 @@ export default function Uzytkownicy() {
         {/* Komunikat */}
         <StatusMessage
           message={komunikat.tekst ? `${komunikat.typ === 'error' ? '❌' : '✅'} ${komunikat.tekst}` : ''}
-          style={{ ...s.komunikat, border: '1px solid' }}
+          style={s.komunikat}
         />
  
         {/* ===== LISTA ===== */}
@@ -302,7 +327,9 @@ export default function Uzytkownicy() {
                 value={szukaj} onChange={e => setSzukaj(e.target.value)} />
               <select style={s.filtrInput} value={filtrRola} onChange={e => setFiltrRola(e.target.value)}>
                 <option value="">Wszystkie role</option>
+                <option value="Prezes">Prezes</option>
                 <option value="Dyrektor">Dyrektor</option>
+                <option value="Dyrektor Sprzedaży">Dyrektor sprzedaży</option>
                 <option value="Administrator">Administrator</option>
                 <option value="Kierownik">Kierownik</option>
                 <option value="Brygadzista">Brygadzista</option>
@@ -312,7 +339,7 @@ export default function Uzytkownicy() {
                 <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                 <option value="Magazynier">Magazynier</option>
               </select>
-              {isDyrektor && (
+              {(isDyrektor || isSalesDirector) && (
                 <select style={s.filtrInput} value={filtrOddzial} onChange={e => setFiltrOddzial(e.target.value)}>
                   <option value="">Wszystkie oddziały</option>
                   {oddzialy.map(o => <option key={o.id} value={o.id}>🏢 {o.nazwa}</option>)}
@@ -365,6 +392,20 @@ export default function Uzytkownicy() {
                           <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>{u.rola}</span>
                           <span style={s.userListBranch}>{u.oddzial_nazwa || '—'}</span>
                         </div>
+                        {mozePrzeniescUsera(u) && (
+                          <select
+                            style={s.transferSelect}
+                            value={u.oddzial_id || ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              przeniesSpecjaliste(u.id, e.target.value);
+                            }}
+                          >
+                            <option value="">Przenies do oddzialu...</option>
+                            {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
+                          </select>
+                        )}
                         <div style={s.userListContact}>{u.email || '—'}</div>
                         <div style={s.userListContactMuted}>
                           {u.telefon ? (
@@ -454,6 +495,19 @@ export default function Uzytkownicy() {
                     </div>
                   );
                 })}
+                {mozePrzeniescUsera(wybranyUser) && (
+                  <div style={{ ...s.inlineForm, marginTop: 14 }}>
+                    <label style={s.label}>Przenies do oddzialu</label>
+                    <select
+                      style={s.input}
+                      value={wybranyUser.oddzial_id || ''}
+                      onChange={(e) => przeniesSpecjaliste(wybranyUser.id, e.target.value)}
+                    >
+                      <option value="">Wybierz oddzial</option>
+                      {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
  
               <div>
@@ -702,7 +756,9 @@ export default function Uzytkownicy() {
                 <div style={s.formGroup}>
                   <label style={s.label}>Rola</label>
                   <select style={s.input} value={form.rola} onChange={e => setForm({ ...form, rola: e.target.value })}>
+                    {isDyrektor && <option value="Prezes">Prezes</option>}
                     {isDyrektor && <option value="Dyrektor">Dyrektor</option>}
+                    {isDyrektor && <option value="Dyrektor Sprzedaży">Dyrektor sprzedaży</option>}
                     {isDyrektor && <option value="Administrator">Administrator</option>}
                     {isDyrektor && <option value="Kierownik">Kierownik</option>}
                     <option value="Brygadzista">Brygadzista</option>
@@ -825,6 +881,7 @@ const s = {
   userListTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
   userListMetaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   userListBranch: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
+  transferSelect: { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, backgroundColor: 'var(--bg-card)', color: 'var(--text)', width: '100%' },
   userListContact: { fontSize: 12, color: 'var(--text)', fontWeight: 500 },
   userListContactMuted: { fontSize: 12, color: 'var(--text-muted)' },
   userListBottom: { display: 'flex', justifyContent: 'flex-end' },
@@ -860,8 +917,7 @@ const s = {
   eyeBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 },
   kompForm: { backgroundColor: 'var(--bg-card)', borderRadius: 10, padding: 16, marginBottom: 16, border: '1px solid var(--border)' },
   formButtons: { display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' },
-  komunikat: { padding: '12px 16px', borderRadius: 10, border: '1px solid', marginBottom: 16, fontSize: 14, fontWeight: '500' },
+  komunikat: { padding: '12px 16px', borderRadius: 10, borderWidth: 1, borderStyle: 'solid', marginBottom: 16, fontSize: 14, fontWeight: '500' },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', fontSize: 16 },
   gray: { color: 'var(--text-muted)', fontStyle: 'italic', fontSize: 13 },
 };
- 

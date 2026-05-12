@@ -6,6 +6,9 @@ const { env } = require('../config/env');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { z } = require('zod');
 
+const { formatSmsPlanParts } = require('../services/smsTemplates');
+const { getTwilioSmsStatusCallbackUrl } = require('../services/twilioStatusCallback');
+
 const router = express.Router();
 
 const smsWyslijSchema = z.object({
@@ -35,7 +38,20 @@ const smsBulkSchema = z.object({
 const smsHistoriaQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+  q: z.string().max(200).optional(),
+  status: z.string().max(80).optional(),
+  date_from: z.string().max(10).optional(),
+  date_to: z.string().max(10).optional(),
 });
+
+const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseHistoriaDate(s) {
+  if (s == null || String(s).trim() === '') return null;
+  const t = String(s).trim().slice(0, 10);
+  if (!isoDateOnly.test(t)) return null;
+  return t;
+}
 
 const getSmsClient = () => {
   const accountSid = env.TWILIO_ACCOUNT_SID;
@@ -73,17 +89,27 @@ const ensureTableExists = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS sid VARCHAR(100)`);
 };
 
 const SZABLONY = {
-  zaplanowane: (z, data) => `Dzień dobry ${z.klient_nazwa || ''}! Twoje zlecenie (${z.typ_uslugi}) zostało zaplanowane na ${data} w godz. 8:00-16:00. Firma ARBOR. Pytania: ${z.oddzial_telefon || 'brak'}`,
+  zaplanowane: (z, data) => {
+    const { dateStr, windowStr } = formatSmsPlanParts(z, data);
+    return `Dzień dobry ${z.klient_nazwa || ''}! Twoje zlecenie (${z.typ_uslugi}) zostało zaplanowane na ${dateStr} w godz. ${windowStr}. Firma ARBOR. Pytania: ${z.oddzial_telefon || 'brak'}`;
+  },
   w_drodze: (z) => `Ekipa ARBOR jest w drodze do Państwa. Szacowany czas przyjazdu: ok. 30 min. Zlecenie: ${z.typ_uslugi}, ${z.adres}. Śledzenie: arbor-os.pl/track/${z.link_statusowy_token || z.id}`,
   na_miejscu: (z) => `Ekipa ARBOR rozpoczęła prace przy ${z.adres}, ${z.miasto}. W razie pytań: kontakt z brygadzistą. Zespół ARBOR`,
-  zakonczone: (z) => `Prace zakończone! Dziękujemy za skorzystanie z usług ARBOR. Podsumowanie i zdjęcia zostaną wysłane na email. Zespół ARBOR`,
+  zakonczone: (_z) => `Prace zakończone! Dziękujemy za skorzystanie z usług ARBOR. Podsumowanie i zdjęcia zostaną wysłane na email. Zespół ARBOR`,
   problem: (z, powod) => `Informujemy, że realizacja zlecenia przy ${z.adres} jest opóźniona z powodu: ${powod}. Nowy szacowany czas zakończenia: +2h. Przepraszamy za niedogodności. Zespół ARBOR`,
   anulowane: (z) => `Informujemy o konieczności przełożenia wizyty przy ${z.adres}, ${z.miasto}. Skontaktujemy się w ciągu 24h, aby ustalić nowy termin. Przepraszamy. Zespół ARBOR`,
-  przypomnienie: (z, data) => `Przypomnienie: jutro (${data}) realizujemy zlecenie ${z.typ_uslugi} pod adresem ${z.adres}, ${z.miasto}. Zespół ARBOR`,
-  potwierdzenie: (z, data) => `Dzień dobry! Potwierdzamy przyjęcie zlecenia: ${z.typ_uslugi} pod adresem ${z.adres}, ${z.miasto}. Data realizacji: ${data}. Zespół ARBOR`,
+  przypomnienie: (z, data) => {
+    const { dateStr, windowStr } = formatSmsPlanParts(z, data);
+    return `Przypomnienie: ${dateStr}, ok. ${windowStr} — realizujemy zlecenie ${z.typ_uslugi} pod adresem ${z.adres}, ${z.miasto}. Zespół ARBOR`;
+  },
+  potwierdzenie: (z, data) => {
+    const { dateStr, windowStr } = formatSmsPlanParts(z, data);
+    return `Dzień dobry! Potwierdzamy przyjęcie zlecenia: ${z.typ_uslugi} pod adresem ${z.adres}, ${z.miasto}. Planowany termin: ${dateStr}, ok. ${windowStr}. Zespół ARBOR`;
+  },
 };
 
 // POST /api/sms/wyslij
@@ -95,7 +121,13 @@ router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req
     if (!client) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
     const fromNumber = env.TWILIO_PHONE;
     if (!fromNumber) return res.status(500).json({ error: req.t('errors.sms.twilioFromMissing') });
-    const message = await client.messages.create({ body: tresc, from: fromNumber, to: telefon });
+    const statusCb = getTwilioSmsStatusCallbackUrl();
+    const message = await client.messages.create({
+      body: tresc,
+      from: fromNumber,
+      to: telefon,
+      ...(statusCb ? { statusCallback: statusCb } : {}),
+    });
     await logSmsHistory(task_id || null, telefon, tresc, 'Wyslany', message.sid);
     res.json({ success: true, message: 'SMS wysłany', sid: message.sid });
   } catch (err) {
@@ -129,7 +161,13 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
     if (!client) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
     const fromNumber = env.TWILIO_PHONE;
     if (!fromNumber) return res.status(500).json({ error: req.t('errors.sms.twilioFromMissing') });
-    const message = await client.messages.create({ body: tresc, from: fromNumber, to: z.klient_telefon });
+    const statusCb = getTwilioSmsStatusCallbackUrl();
+    const message = await client.messages.create({
+      body: tresc,
+      from: fromNumber,
+      to: z.klient_telefon,
+      ...(statusCb ? { statusCallback: statusCb } : {}),
+    });
     await logSmsHistory(id, z.klient_telefon, tresc, 'Wyslany', message.sid);
     const statusMap = { w_drodze: 'W_drodze', na_miejscu: 'W_Realizacji', zakonczone: 'Zakonczone', anulowane: 'Anulowane' };
     if (statusMap[typ]) await pool.query('UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2', [statusMap[typ], id]);
@@ -160,11 +198,51 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
   try {
     await ensureTableExists();
     const { limit, offset } = req.query;
+    const qRaw = req.query.q != null ? String(req.query.q).trim().slice(0, 200) : '';
+    const statusF = req.query.status != null ? String(req.query.status).trim().slice(0, 80) : '';
+    const dateFrom = parseHistoriaDate(req.query.date_from);
+    const dateTo = parseHistoriaDate(req.query.date_to);
+
     const userRole = req.user.rola;
-    let base = `FROM sms_history h LEFT JOIN tasks t ON h.task_id = t.id LEFT JOIN branches b ON t.oddzial_id = b.id`;
-    let params = [];
-    if (userRole === 'Kierownik') { base += ` WHERE t.oddzial_id = $1`; params.push(req.user.oddzial_id); }
-    else if (userRole !== 'Dyrektor' && userRole !== 'Administrator') { base += ` WHERE t.brygadzista_id = $1`; params.push(req.user.id); }
+    const whereParts = [];
+    const params = [];
+    if (userRole === 'Kierownik') {
+      whereParts.push(`t.oddzial_id = $${params.length + 1}`);
+      params.push(req.user.oddzial_id);
+    } else if (!['Prezes', 'Dyrektor'].includes(userRole)) {
+      whereParts.push(`t.brygadzista_id = $${params.length + 1}`);
+      params.push(req.user.id);
+    }
+    if (statusF && statusF.toLowerCase() !== 'all') {
+      whereParts.push(`h.status = $${params.length + 1}`);
+      params.push(statusF);
+    }
+    if (dateFrom) {
+      whereParts.push(`h.created_at::date >= $${params.length + 1}::date`);
+      params.push(dateFrom);
+    }
+    if (dateTo) {
+      whereParts.push(`h.created_at::date <= $${params.length + 1}::date`);
+      params.push(dateTo);
+    }
+    if (qRaw) {
+      const escaped = qRaw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const pattern = `%${escaped}%`;
+      const idx = params.length + 1;
+      whereParts.push(`(
+        COALESCE(h.telefon, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(h.tresc, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(h.status::text, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(h.sid::text, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(h.task_id::text, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(t.klient_nazwa, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(t.typ_uslugi, '') ILIKE $${idx} ESCAPE E'\\\\'
+        OR COALESCE(b.nazwa, '') ILIKE $${idx} ESCAPE E'\\\\'
+      )`);
+      params.push(pattern);
+    }
+    const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+    const base = `FROM sms_history h LEFT JOIN tasks t ON h.task_id = t.id LEFT JOIN branches b ON t.oddzial_id = b.id ${whereSql}`;
     const orderBy = 'ORDER BY h.created_at DESC';
     const selectList = `SELECT h.*, t.klient_nazwa, t.adres, t.typ_uslugi, b.nazwa as oddzial_nazwa ${base} ${orderBy}`;
     if (limit != null) {
@@ -189,7 +267,7 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
 router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema), async (req, res) => {
   try {
     await ensureTableExists();
-    if (!['Dyrektor', 'Administrator', 'Kierownik'].includes(req.user.rola)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    if (!['Prezes', 'Dyrektor', 'Kierownik'].includes(req.user.rola)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     const { typ, data } = req.body;
     const targetDate = data || new Date().toISOString().split('T')[0];
     let query = `SELECT t.*, b.telefon as oddzial_telefon FROM tasks t LEFT JOIN branches b ON t.oddzial_id = b.id
@@ -210,7 +288,13 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
         let tresc = ['przypomnienie', 'potwierdzenie', 'zaplanowane'].includes(typ)
           ? SZABLONY[typ](z, dataFormat)
           : (SZABLONY[typ] ? SZABLONY[typ](z) : `Informacja od ARBOR: zlecenie ${z.typ_uslugi} pod adresem ${z.adres}.`);
-        const message = await client.messages.create({ body: tresc, from: fromNumber, to: z.klient_telefon });
+        const statusCb = getTwilioSmsStatusCallbackUrl();
+        const message = await client.messages.create({
+          body: tresc,
+          from: fromNumber,
+          to: z.klient_telefon,
+          ...(statusCb ? { statusCallback: statusCb } : {}),
+        });
         await logSmsHistory(z.id, z.klient_telefon, tresc, 'Wyslany', message.sid);
         wyslane++;
         await new Promise(resolve => setTimeout(resolve, 500));

@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   shimmerWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   shimmerBar: {

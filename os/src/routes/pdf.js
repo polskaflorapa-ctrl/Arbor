@@ -12,7 +12,7 @@ const router = express.Router();
 
 function quotationCanViewForPdf(user, row) {
   if (!row) return false;
-  const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+  const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
   const isKierownik = (u) => u.rola === 'Kierownik';
   const isWyceniajacy = (u) => u.rola === 'Wyceniający';
   if (isDyrektor(user)) return true;
@@ -68,7 +68,7 @@ router.get('/zlecenie/:id', authMiddleware, validateParams(pdfIdParamsSchema), a
     if (accessCheck.rows.length === 0) return res.status(404).json({ error: req.t('errors.pdf.taskNotFound') });
     const task = accessCheck.rows[0];
     const userRole = req.user.rola;
-    if (userRole !== 'Dyrektor' && userRole !== 'Administrator' && userRole !== 'Kierownik') {
+    if (!['Prezes', 'Dyrektor', 'Kierownik'].includes(userRole)) {
       if (task.oddzial_id !== req.user.oddzial_id && userRole !== 'Brygadzista') {
         return res.status(403).json({ error: req.t('errors.pdf.taskAccessDenied') });
       }

@@ -17,11 +17,15 @@ const NOTIF_KOLOR = {
 // SVG ikony nawigacji
 const ICONS = {
   dashboard:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  mission:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><path d="M6 19h4"/></svg>,
+  autoplan:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 15c4-8 12-8 16 0"/><path d="M8 15c2-4 6-4 8 0"/><circle cx="12" cy="16" r="2"/><path d="M12 4v3"/><path d="M4.9 6.9l2.1 2.1"/><path d="M19.1 6.9 17 9"/></svg>,
   zlecenia:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
   harmonogram:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   kierownik:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
   ekipy:        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   flota:        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+  warehouse:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  equipmentRes: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="15" r="1" fill="currentColor" stroke="none"/></svg>,
   ksiegowosc:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
   raporty:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   uzytkownicy:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
@@ -36,14 +40,11 @@ const ICONS = {
   logout:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   collapse:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
   expand:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  plus:         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
 };
 
 function NavChevron() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden style={{ opacity: 0.32, flexShrink: 0, marginLeft: 'auto', color: 'var(--text-muted)' }}>
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
+  return null;
 }
 
 export default function Sidebar() {
@@ -54,7 +55,8 @@ export default function Sidebar() {
   const [showNotif, setShowNotif] = useState(false);
   const [notifList, setNotifList] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [oddzialy, setOddzialy] = useState([]);
+  const [collapsed, setCollapsed] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 760 : false));
   const [hovered, setHovered] = useState(null);
   const notifRef = useRef(null);
   const notificationsInFlightRef = useRef(false);
@@ -64,6 +66,7 @@ export default function Sidebar() {
     const u = readStoredUser();
     if (u) setCurrentUser(u);
     loadNotifications();
+    loadBranches();
     const iv = setInterval(loadNotifications, 30000);
     const onOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false); };
     const onKey = (e) => { if (e.key === 'Escape') setShowNotif(false); };
@@ -72,29 +75,45 @@ export default function Sidebar() {
     return () => { clearInterval(iv); document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onKey); };
   }, []);
 
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth < 760) setCollapsed(true);
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const links = useMemo(() => {
-    const ADMIN   = ['Dyrektor', 'Administrator'];
-    const MGMT    = ['Dyrektor', 'Administrator', 'Kierownik'];
-    const WORKERS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
-    const ALL     = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
+    const ADMIN   = ['Prezes', 'Dyrektor'];
+    const SALES_DIRECTOR = ['Dyrektor Sprzedazy', 'Dyrektor Sprzedaży', 'Dyrektor dzialu sprzedaz', 'Dyrektor działu sprzedaż'];
+    const MGMT    = ['Prezes', 'Dyrektor', 'Kierownik'];
+    const WORKERS = ['Prezes', 'Dyrektor', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
+    const ALL     = ['Prezes', 'Dyrektor', ...SALES_DIRECTOR, 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
     const all = [
       { path: '/dashboard',         labelKey: 'nav.dashboard',       icon: 'dashboard',   roles: ALL },
-      { path: '/crm',               labelKey: 'nav.crm',           icon: 'crm',         roles: [...MGMT, 'Wyceniający', 'Specjalista'] },
-      { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, 'Magazynier'] },
-      { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, 'Brygadzista', 'Specjalista', 'Magazynier'] },
-      { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
-      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'] },
-      { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
+      { path: '/misja-dnia',        labelKey: 'nav.missionDay',      icon: 'mission',     roles: ALL },
+      { path: '/autoplan-dnia',     labelKey: 'nav.autoplanDay',     icon: 'autoplan',    roles: [...MGMT, 'Brygadzista', 'Specjalista'] },
+      { path: '/crm',               labelKey: 'nav.crm',           icon: 'crm',         roles: [...MGMT, ...SALES_DIRECTOR, 'Wyceniający', 'Specjalista'] },
       { path: '/telefonia',         labelKey: 'nav.telephony',     icon: 'telefonia',   roles: MGMT },
+      { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, ...SALES_DIRECTOR, 'Magazynier'] },
+      { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, ...SALES_DIRECTOR, 'Brygadzista', 'Specjalista', 'Magazynier'] },
+      { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
+      { path: '/blokady-kalendarza', labelKey: 'nav.calendarBlocks', icon: 'harmonogram', roles: ['Wyceniający', 'Specjalista', ...MGMT] },
+      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Prezes', 'Dyrektor', 'Specjalista'] },
+      { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
       { path: '/integracje',        labelKey: 'nav.integrations',  icon: 'integracje',  roles: MGMT },
-      { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający'] },
-      { path: '/rozliczenia-ekip',  labelKey: 'nav.payrollTeams',  icon: 'ksiegowosc',  roles: ['Dyrektor', 'Administrator', 'Kierownik'] },
+      { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Prezes', 'Dyrektor', 'Kierownik', 'Wyceniający'] },
+      { path: '/rozliczenia-ekip',  labelKey: 'nav.payrollTeams',  icon: 'ksiegowosc',  roles: ['Prezes', 'Dyrektor', 'Kierownik'] },
       { path: '/kierownik',         labelKey: 'nav.planning',      icon: 'kierownik',   roles: MGMT },
       { path: '/ekipy',             labelKey: 'nav.teams',         icon: 'ekipy',       roles: MGMT },
+      { path: '/ranking-brygad',    labelKey: 'nav.teamRanking',   icon: 'raporty',     roles: [...MGMT, ...SALES_DIRECTOR] },
       { path: '/flota',             labelKey: 'nav.fleet',         icon: 'flota',       roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
+      { path: '/magazyn',           labelKey: 'nav.warehouse',   icon: 'warehouse',   roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
+      { path: '/rezerwacje-sprzetu', labelKey: 'nav.equipmentReservations', icon: 'equipmentRes', roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/ksiegowosc',        labelKey: 'nav.accounting',    icon: 'ksiegowosc',  roles: MGMT },
       { path: '/raporty',           labelKey: 'nav.reports',       icon: 'raporty',     roles: [...MGMT, 'Brygadzista', 'Specjalista'] },
-      { path: '/uzytkownicy',       labelKey: 'nav.users',         icon: 'uzytkownicy', roles: ADMIN },
+      { path: '/uzytkownicy',       labelKey: 'nav.users',         icon: 'uzytkownicy', roles: [...ADMIN, ...SALES_DIRECTOR] },
       { path: '/oddzialy',          labelKey: 'nav.branches',      icon: 'oddzialy',    roles: ADMIN },
       { path: '/zarzadzaj-rolami',  labelKey: 'nav.roles',         icon: 'uzytkownicy', roles: ADMIN },
     ];
@@ -117,6 +136,17 @@ export default function Sidebar() {
     }
   };
 
+  const loadBranches = async () => {
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/oddzialy', { headers: authHeaders(token) });
+      const raw = res.data;
+      setOddzialy(Array.isArray(raw) ? raw : raw?.oddzialy || []);
+    } catch {
+      setOddzialy([]);
+    }
+  };
+
   const markAll = async () => {
     try {
       const token = getStoredToken();
@@ -132,6 +162,37 @@ export default function Sidebar() {
     } catch { /* ignoruj */ }
   };
   const handleLogout = () => { localStorage.clear(); navigate('/'); };
+  const role = currentUser?.rola;
+  const canCreateQuickActions = [
+    'Prezes',
+    'Dyrektor',
+    'Kierownik',
+    'Dyrektor Sprzedazy',
+    'Dyrektor Sprzedaży',
+    'Dyrektor SprzedaĹĽy',
+    'Dyrektor dzialu sprzedaz',
+    'Dyrektor dziaĹ‚u sprzedaĹĽ',
+  ].includes(role);
+  const branchName = useMemo(() => {
+    if (!currentUser) return '';
+    const match = oddzialy.find((o) => String(o.id) === String(currentUser.oddzial_id));
+    return match?.nazwa || currentUser.oddzial_nazwa || 'Wszystkie';
+  }, [currentUser, oddzialy]);
+  const quickActions = useMemo(() => {
+    if (!currentUser) return [];
+    if (canCreateQuickActions) {
+      return [
+        { label: 'Nowe zlecenie', path: '/nowe-zlecenie', icon: 'plus' },
+        { label: 'Nowa praca', path: '/nowe-zlecenie?typ=praca', icon: 'zlecenia' },
+        { label: 'Dodaj klienta', path: '/klienci', icon: 'klienci' },
+      ];
+    }
+    return [
+      { label: 'Moje zlecenia', path: '/zlecenia', icon: 'zlecenia' },
+      { label: 'Harmonogram', path: '/harmonogram', icon: 'harmonogram' },
+      { label: 'Raport', path: '/raporty', icon: 'raporty' },
+    ].filter((item) => links.some((link) => link.path === item.path));
+  }, [canCreateQuickActions, currentUser, links]);
 
   const fmtTime = (d) => {
     if (!d) return '';
@@ -144,7 +205,7 @@ export default function Sidebar() {
     return new Date(d).toLocaleDateString(localeTag);
   };
 
-  const W = collapsed ? 68 : 252;
+  const W = collapsed ? 60 : 224;
   const rolaColor = getRolaColor(currentUser?.rola);
   const [logoutHover, setLogoutHover] = useState(false);
 
@@ -157,7 +218,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="ios-glass-panel" style={{ ...sb.root, width: W }}>
+      <div className="ios-glass-panel arbor-sidebar" style={{ ...sb.root, width: W }}>
 
         {/* Przycisk zwijania */}
         <button onClick={() => setCollapsed(!collapsed)} style={sb.collapseBtn} title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
@@ -172,9 +233,9 @@ export default function Sidebar() {
             </svg>
           </div>
           {!collapsed && (
-            <div>
+              <div>
               <div style={sb.logoName}>ARBOR-OS</div>
-              <div style={sb.logoSub}>{t('sidebar.logoSub')}</div>
+              <div style={sb.logoSub}>Tree Care Operations</div>
             </div>
           )}
         </div>
@@ -192,6 +253,10 @@ export default function Sidebar() {
                 <div style={sb.userName}>{currentUser.imie} {currentUser.nazwisko}</div>
                 <div style={{ ...sb.rolaBadge, background: rolaColor + '22', color: rolaColor }}>
                   {currentUser.rola}
+                </div>
+                <div style={sb.branchPill}>
+                  <span style={sb.branchDot} />
+                  Oddział: {branchName}
                 </div>
               </div>
             )}
@@ -272,12 +337,31 @@ export default function Sidebar() {
               );
             })
           )}
+
+          {!collapsed && quickActions.length > 0 && (
+            <div style={sb.quickBox}>
+              <div style={sb.quickTitle}>Szybkie akcje</div>
+              <div style={sb.quickList}>
+                {quickActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => navigate(action.path)}
+                    style={sb.quickBtn}
+                  >
+                    <span style={sb.quickIcon}>{ICONS[action.icon] || ICONS.plus}</span>
+                    <span>{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* Dolna sekcja */}
         <div style={sb.bottom}>
           {!collapsed ? (
-            <div className="ios-inset" style={{ margin: '6px 8px 16px' }}>
+            <div className="ios-inset" style={sb.utilityInset}>
               <div ref={notifRef} style={{ position: 'relative' }}>
                 <div
                   onClick={() => setShowNotif(!showNotif)}
@@ -315,7 +399,7 @@ export default function Sidebar() {
                 </div>
 
                 {showNotif && (
-                  <div style={{ ...sb.notifPanel, left: 264 }}>
+                  <div style={{ ...sb.notifPanel, left: 236 }}>
                     <div style={sb.notifHeader}>
                       <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
                       {notifCount > 0 && (
@@ -364,13 +448,13 @@ export default function Sidebar() {
               <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
               <div style={{ padding: '8px 14px', background: 'var(--ios-inset-bg)' }}>
                 <LanguageSwitcher
-                  compact={false}
+                  compact
                   style={{ justifyContent: 'flex-start', width: '100%' }}
                 />
               </div>
               <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
               <div style={{
-                padding: '10px 14px',
+                padding: '7px 10px',
                 background: 'var(--ios-inset-bg)',
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -378,7 +462,7 @@ export default function Sidebar() {
                 gap: 8,
               }}
               >
-                <span className="ios-section-title" style={{ margin: '0 0 4px 0', width: '100%' }}>{t('sidebar.theme')}</span>
+                <span className="ios-section-title" style={{ margin: '0 0 2px 0', width: '100%' }}>{t('sidebar.theme')}</span>
                 {Object.values(THEMES).map((th) => (
                   <button
                     key={th.id}
@@ -452,7 +536,7 @@ export default function Sidebar() {
                   </span>
                 </div>
                 {showNotif && (
-                  <div style={{ ...sb.notifPanel, left: 80 }}>
+                  <div style={{ ...sb.notifPanel, left: 72 }}>
                     <div style={sb.notifHeader}>
                       <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
                       {notifCount > 0 && (
@@ -557,13 +641,13 @@ export default function Sidebar() {
 const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
-    background: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-deep) 100%)', display: 'flex', flexDirection: 'column',
-    borderRight: '1px solid var(--border)', transition: 'width 0.25s ease',
-    overflow: 'hidden', boxShadow: 'var(--shadow-md)',
+    background: 'var(--forest-pattern), linear-gradient(180deg, rgba(13,35,23,0.98) 0%, rgba(5,13,8,0.98) 100%)', display: 'flex', flexDirection: 'column',
+    borderRight: '1px solid rgba(191,225,146,0.18)', transition: 'width 0.25s ease',
+    overflow: 'hidden', boxShadow: '14px 0 34px rgba(0,0,0,0.34)',
   },
   collapseBtn: {
-    position: 'absolute', right: -12, top: 28, width: 24, height: 24,
-    borderRadius: '50%', background: 'var(--bg-card2)',
+    position: 'absolute', right: -11, top: 30, width: 22, height: 22,
+    borderRadius: '50%', background: 'rgba(18,38,25,0.98)',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border2)',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: 'var(--text-sub)', zIndex: 201, boxShadow: 'var(--shadow-sm)',
@@ -571,47 +655,97 @@ const sb = {
   },
   logo: {
     display: 'flex', alignItems: 'center', gap: 12,
-    padding: '20px 16px 16px', borderBottom: '1px solid var(--border)',
+    padding: '16px 14px 14px', borderBottom: '1px solid rgba(191,225,146,0.12)',
   },
   logoIcon: {
-    width: 38, height: 38, borderRadius: 12, background: 'var(--logo-tint-bg)',
+    width: 38, height: 38, borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(155,217,87,0.2), rgba(95,143,62,0.1))',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--logo-tint-border)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
+    flexShrink: 0, boxShadow: '0 10px 24px rgba(155,217,87,0.12)',
   },
-  logoName: { fontSize: 16, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.3px' },
-  logoSub: { fontSize: 9, color: 'var(--accent)', letterSpacing: 1.5, marginTop: 2, fontWeight: 600 },
+  logoName: { fontSize: 17, fontWeight: 850, color: 'var(--text)', letterSpacing: '0' },
+  logoSub: { fontSize: 10, color: 'var(--text-sub)', marginTop: 1, fontWeight: 650 },
   userCard: {
-    display: 'flex', alignItems: 'center', gap: 10, margin: '12px 12px 4px',
-    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14,
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)',
+    display: 'flex', alignItems: 'center', gap: 10, margin: '10px 10px 8px',
+    background: 'linear-gradient(145deg, rgba(23,48,31,0.82) 0%, rgba(9,20,13,0.92) 100%)', borderRadius: 8,
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'rgba(191,225,146,0.16)',
     boxShadow: 'var(--shadow-sm)',
   },
   avatar: {
-    width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center',
+    width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center',
     justifyContent: 'center', flexShrink: 0,
   },
   avatarText: { fontSize: 13, fontWeight: 800 },
   userName: { fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   rolaBadge: { fontSize: 10, fontWeight: 700, borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 3 },
+  branchPill: {
+    marginTop: 8,
+    minHeight: 26,
+    borderRadius: 6,
+    border: '1px solid rgba(191,225,146,0.16)',
+    background: 'rgba(5, 14, 8, 0.56)',
+    color: 'var(--text-sub)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '3px 8px',
+    fontSize: 11,
+    fontWeight: 650,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  branchDot: { width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 0 3px rgba(155,217,87,0.12)', flexShrink: 0 },
   sectionLabel: { fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: 1.5, padding: '12px 16px 4px' },
   separator: { height: 1, background: 'var(--border)', margin: '4px 12px' },
-  nav: { flex: 1, minHeight: 0, padding: '4px 8px', overflowY: 'auto' },
+  nav: { flex: 1, minHeight: 0, padding: '2px 6px 10px', overflowY: 'auto' },
   navItem: {
-    display: 'flex', alignItems: 'center', borderRadius: 10, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', borderRadius: 8, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
-    marginBottom: 4, userSelect: 'none',
+    marginBottom: 3, userSelect: 'none',
   },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' },
-  bottom: { padding: '4px 8px 16px', flexShrink: 0 },
+  quickBox: {
+    margin: '8px 2px 0',
+    padding: '8px 0 0',
+    borderTop: '1px solid rgba(191,225,146,0.1)',
+  },
+  quickTitle: {
+    margin: '0 0 6px 2px',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+  },
+  quickList: { display: 'grid', gap: 5 },
+  quickBtn: {
+    minHeight: 32,
+    borderRadius: 6,
+    border: '1px solid rgba(191,225,146,0.12)',
+    background: 'rgba(155,217,87,0.11)',
+    color: 'var(--text)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '0 9px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 750,
+    textAlign: 'left',
+  },
+  quickIcon: { width: 18, height: 18, display: 'grid', placeItems: 'center', color: 'var(--accent)', flexShrink: 0 },
+  bottom: { padding: '4px 8px 12px', flexShrink: 0 },
+  utilityInset: { margin: '4px 2px 10px', borderRadius: 8 },
   badge: {
     position: 'absolute', top: -4, right: -4, background: '#EF4444', color: '#fff',
     borderRadius: '50%', minWidth: 16, height: 16, fontSize: 10, fontWeight: 700,
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px',
   },
   notifPanel: {
-    position: 'fixed', bottom: 80, width: 340, background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 16,
+    position: 'fixed', bottom: 80, width: 340, background: 'var(--forest-pattern), linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border2)', borderRadius: 16,
     boxShadow: 'var(--shadow-lg)',
     zIndex: 1000, maxHeight: 460, overflowY: 'auto',
   },

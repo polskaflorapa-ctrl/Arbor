@@ -34,6 +34,12 @@ const PUSTY_FORMULARZ = {
 const VIEW_MODE_KEY = 'zlecenia_view_mode';
 const WORKFLOW_CONFIG_KEY = 'zlecenia_workflow_config';
 const ZLECENIA_TRYBY = new Set(['lista', 'kanban', 'nowy', 'edytuj', 'szczegoly']);
+const SALES_DIRECTOR_ROLES = [
+  'Dyrektor Sprzedazy',
+  'Dyrektor Sprzedaży',
+  'Dyrektor dzialu sprzedaz',
+  'Dyrektor działu sprzedaż',
+];
 const DEFAULT_WORKFLOW_CONFIG = {
   logEnabled: true,
   notificationsEnabled: true,
@@ -119,7 +125,7 @@ export default function Zlecenia() {
   });
   const navigate = useNavigate();
  
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
   const mozeTworzyc = isDyrektor || isKierownik;
   const mozeEdytowac = isDyrektor;
@@ -155,7 +161,9 @@ export default function Zlecenia() {
       const token = getStoredToken();
       const h = authHeaders(token);
       const rola = user?.rola;
-      const endpoint = (rola === 'Dyrektor' || rola === 'Administrator') ? `/tasks/wszystkie` : `/tasks`;
+      const endpoint = ['Prezes', 'Dyrektor'].includes(rola) || SALES_DIRECTOR_ROLES.includes(rola)
+        ? `/tasks/wszystkie`
+        : `/tasks`;
       const [zRes, eRes, uRes] = await Promise.all([
         api.get(endpoint, { headers: h }),
         api.get(`/ekipy`, { headers: h }),

@@ -4,10 +4,13 @@ Aplikacja mobilna Expo/React Native dla zespołu Arbor OS.
 
 ## Szybki start
 
-1. Zainstaluj zależności:
+1. Zainstaluj zależności z **korzenia repozytorium** (workspaces `arbor` — jeden `node_modules` i spójne wersje):
    ```bash
+   cd ..
    npm install
+   cd mobile
    ```
+   Samo `npm install` tylko w `mobile/` może dać inne drzewo paczek niż CI / reszta monorepo.
 2. (Opcjonalnie) ustaw adres backendu:
    ```bash
    EXPO_PUBLIC_API_URL=https://twoj-backend.onrender.com
@@ -25,6 +28,22 @@ Aplikacja mobilna Expo/React Native dla zespołu Arbor OS.
 - `npm run ios` - uruchamia Expo na iOS
 - `npm run web` - uruchamia Expo w przeglądarce
 - `npm run lint` - uruchamia linting
+- `npm run typecheck` - TypeScript bez emisji plików
+
+## Monorepo: React a React Native
+
+**React Native 0.81** (Expo SDK 54) ma wbudowany renderer dopasowany do **React 19.1.0**. Paczka `react` (i `react-dom` tam, gdzie dotyczy) musi być **tej samej minorowej linii** — inaczej pojawia się błąd typu *Incompatible React versions* albo *Invalid hook call*.
+
+W korzeniu repo (`package.json` projektu `arbor`) są **`overrides`**, które wymuszają `react` / `react-dom` **19.1.0** dla całego drzewa npm — **nie podnoś** `react` do 19.2.x tylko pod Expo, dopóki RN w tym SDK nie idzie w parze z tą wersją.
+
+Po zmianach w zależnościach:
+
+```bash
+cd ..   # korzeń monorepo
+npm install
+cd mobile
+npx expo start --clear
+```
 
 ## Konfiguracja API
 

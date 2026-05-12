@@ -63,7 +63,7 @@ export default function Oddzialy() {
       setEkipy(eRes.data);
       setDelegacje(dRes.data);
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   }, []);
 
@@ -75,7 +75,7 @@ export default function Oddzialy() {
     loadAll();
   }, [navigate, loadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -177,7 +177,7 @@ export default function Oddzialy() {
       const token = getStoredToken();
       await api.put(`/oddzialy/delegacje/${id}/status`, { status }, { headers: authHeaders(token) });
       loadAll();
-    } catch (err) { console.log(err); }
+    } catch (err) { console.error(err); }
   };
 
   const STATUS_DELEGACJI_KOLOR = {

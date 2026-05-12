@@ -246,7 +246,7 @@ export default function Ogledziny() {
   const [statusSaving, setStatusSaving] = useState(false);
 
   const currentUser = getLocalStorageJson('user', {});
-  const canManage = ['Dyrektor', 'Administrator', 'Kierownik'].includes(currentUser.rola);
+  const canManage = ['Prezes', 'Dyrektor', 'Kierownik'].includes(currentUser.rola);
   const canPlan = canManage || currentUser.rola === 'Specjalista';
 
   const loadLista = useCallback(async () => {
@@ -308,7 +308,7 @@ export default function Ogledziny() {
         api.get('/uzytkownicy?rola=Brygadzista').catch(() => api.get('/uzytkownicy')),
       ]);
       setKlienciList(kRes.data);
-      const workers = bRes.data.filter(u => u.rola === 'Brygadzista' || u.rola === 'Kierownik' || u.rola === 'Administrator');
+      const workers = bRes.data.filter(u => u.rola === 'Brygadzista' || u.rola === 'Kierownik');
       setBrygadList(workers);
     } catch (e) {
       console.error(e);

@@ -7,7 +7,7 @@ const { z } = require('zod');
 
 const router = express.Router();
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isTeamScoped = (u) =>
   ['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia'].includes(u.rola);
 
@@ -318,7 +318,7 @@ router.post('/', authMiddleware, validateBody(cmrCreateSchema), async (req, res)
   } catch (err) {
     try {
       await client.query('ROLLBACK');
-    } catch (_e) {
+    } catch {
       /* ignore */
     }
     client.release();

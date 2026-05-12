@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
@@ -8,6 +8,10 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { telHref, normalizePhone } from '../utils/telLink';
+import { normalizeSmsHistoryRow } from '../utils/smsHistoryNormalize';
+
+/** Rozmiar strony dla GET /api/sms/historia?limit=&offset= (ARBOR-OS). */
+const SMS_HIST_PAGE_SIZE = 15;
 
 export default function Telefonia() {
   const navigate = useNavigate();
@@ -25,6 +29,14 @@ export default function Telefonia() {
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [manualSending, setManualSending] = useState(false);
   const [page, setPage] = useState(1);
+  /** Odpowiedź OS z `{ items, total }` — stronicowanie po stronie API. */
+  const [serverPaging, setServerPaging] = useState(false);
+  const [smsTotalAll, setSmsTotalAll] = useState(0);
+  const smsInitialLoadDone = useRef(false);
+  const lastSmsServerFilterSig = useRef('');
+  const lastSmsClientFilterSig = useRef('');
+  /** Po `setPage(1)` ten efekt odpala się ponownie — pomijamy drugi `loadSms(1)`. */
+  const skipSmsPageEffectOnce = useRef(false);
   const [manualForm, setManualForm] = useState({
     recipient_name: '',
     recipient_phone: '',
@@ -61,7 +73,6 @@ export default function Telefonia() {
   });
 
   const SMS_LIMIT = 480;
-  const PAGE_SIZE = 15;
   const SMS_TEMPLATES = [
     {
       id: 'potwierdzenie',
@@ -98,25 +109,80 @@ export default function Telefonia() {
     const user = getLocalStorageJson('user');
     if (!user || !getStoredToken()) {
       navigate('/');
+    }
+  }, [navigate]);
+
+  const loadSms = useCallback(
+    async (pageArg) => {
+      const pageNum = Math.max(1, Number(pageArg) || 1);
+      setLoading(true);
+      setError('');
+      try {
+        const token = getStoredToken();
+        const qs = new URLSearchParams();
+        qs.set('limit', String(SMS_HIST_PAGE_SIZE));
+        qs.set('offset', String((pageNum - 1) * SMS_HIST_PAGE_SIZE));
+        const qt = query.trim().slice(0, 200);
+        if (qt) qs.set('q', qt);
+        if (statusFilter && statusFilter !== 'all') qs.set('status', statusFilter);
+        if (dateFrom) qs.set('date_from', dateFrom);
+        if (dateTo) qs.set('date_to', dateTo);
+        const res = await api.get(`/sms/historia?${qs.toString()}`, { headers: authHeaders(token) });
+        const data = res.data;
+        if (data && typeof data.total === 'number' && Array.isArray(data.items)) {
+          setServerPaging(true);
+          setSmsTotalAll(data.total);
+          setSms(data.items.map(normalizeSmsHistoryRow));
+        } else {
+          setServerPaging(false);
+          const raw = Array.isArray(data) ? data : [];
+          setSmsTotalAll(raw.length);
+          setSms(raw.map(normalizeSmsHistoryRow));
+        }
+      } catch (e) {
+        setError(getApiErrorMessage(e, 'Nie udało się pobrać historii SMS.'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [query, statusFilter, dateFrom, dateTo]
+  );
+
+  useEffect(() => {
+    const user = getLocalStorageJson('user');
+    if (!user || !getStoredToken()) return;
+    const serverSig = `${query}\t${statusFilter}\t${dateFrom}\t${dateTo}`;
+    const clientSig = `${updatedByFilter}\t${onlyUpdatedToday}`;
+    if (!smsInitialLoadDone.current) {
+      smsInitialLoadDone.current = true;
+      lastSmsServerFilterSig.current = serverSig;
+      lastSmsClientFilterSig.current = clientSig;
+      loadSms(page);
       return;
     }
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const token = getStoredToken();
-      const res = await api.get('/sms/historia', { headers: authHeaders(token) });
-      setSms(Array.isArray(res.data) ? res.data : []);
-    } catch (e) {
-      setError(getApiErrorMessage(e, 'Nie udało się pobrać historii SMS.'));
-    } finally {
-      setLoading(false);
+    if (lastSmsServerFilterSig.current !== serverSig) {
+      lastSmsServerFilterSig.current = serverSig;
+      lastSmsClientFilterSig.current = clientSig;
+      skipSmsPageEffectOnce.current = true;
+      setPage(1);
+      loadSms(1);
+      return;
     }
-  };
+    if (lastSmsClientFilterSig.current !== clientSig) {
+      lastSmsClientFilterSig.current = clientSig;
+      if (page !== 1) {
+        skipSmsPageEffectOnce.current = true;
+        setPage(1);
+        loadSms(1);
+      }
+      return;
+    }
+    if (skipSmsPageEffectOnce.current) {
+      skipSmsPageEffectOnce.current = false;
+      return;
+    }
+    loadSms(page);
+  }, [page, query, statusFilter, dateFrom, dateTo, updatedByFilter, onlyUpdatedToday, loadSms]);
 
   const loadTelephonyExtras = async () => {
     setTelLoading(true);
@@ -292,6 +358,15 @@ export default function Telefonia() {
   }, [sms]);
 
   const filtered = useMemo(() => {
+    if (serverPaging) {
+      return sms.filter((x) => {
+        const updatedByOk = updatedByFilter === 'all' || x.updated_by_name === updatedByFilter;
+        const todayOk =
+          !onlyUpdatedToday ||
+          (x.updated_at && new Date(x.updated_at).toDateString() === new Date().toDateString());
+        return updatedByOk && todayOk;
+      });
+    }
     const q = query.trim().toLowerCase();
     return sms.filter((x) => {
       const date = x.created_at ? new Date(x.created_at) : null;
@@ -301,7 +376,7 @@ export default function Telefonia() {
       const dateOkTo =
         !dateTo ||
         (date && date <= new Date(`${dateTo}T23:59:59`));
-      const statusOk = statusFilter === 'all' || x.status === statusFilter;
+      const statusOk = statusFilter === 'all' || String(x.status || '') === statusFilter;
       const updatedByOk = updatedByFilter === 'all' || x.updated_by_name === updatedByFilter;
       const todayOk = !onlyUpdatedToday || (
         x.updated_at &&
@@ -309,26 +384,46 @@ export default function Telefonia() {
       );
       const qOk =
         !q ||
-        [x.recipient_name, x.recipient_phone, x.typ, x.status, x.created_by_name, String(x.task_id || '')]
+        [
+          x.recipient_name,
+          x.recipient_phone,
+          x.typ,
+          x.status,
+          x.created_by_name,
+          String(x.task_id || ''),
+          x.tresc,
+          x.error,
+          x.sid,
+          x.oddzial_nazwa,
+        ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(q));
       return dateOkFrom && dateOkTo && statusOk && updatedByOk && todayOk && qOk;
     });
-  }, [query, sms, statusFilter, updatedByFilter, dateFrom, dateTo, onlyUpdatedToday]);
+  }, [
+    serverPaging,
+    sms,
+    query,
+    statusFilter,
+    updatedByFilter,
+    dateFrom,
+    dateTo,
+    onlyUpdatedToday,
+  ]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [query, statusFilter, updatedByFilter, dateFrom, dateTo, onlyUpdatedToday]);
+  const totalPages = serverPaging
+    ? Math.max(1, Math.ceil(smsTotalAll / SMS_HIST_PAGE_SIZE))
+    : Math.max(1, Math.ceil(filtered.length / SMS_HIST_PAGE_SIZE));
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, page]);
+    if (serverPaging) return filtered;
+    const start = (page - 1) * SMS_HIST_PAGE_SIZE;
+    return filtered.slice(start, start + SMS_HIST_PAGE_SIZE);
+  }, [filtered, page, serverPaging]);
 
   const exportCsv = () => {
     const rows = [
-      ['data', 'zlecenie_id', 'klient', 'telefon', 'typ', 'status', 'wyslal'],
+      ['data', 'zlecenie_id', 'klient', 'telefon', 'typ', 'status', 'blad', 'sid', 'wyslal'],
       ...filtered.map((x) => [
         x.created_at ? new Date(x.created_at).toISOString() : '',
         x.task_id || '',
@@ -336,6 +431,8 @@ export default function Telefonia() {
         x.recipient_phone || '',
         x.typ || '',
         x.status || '',
+        x.error || '',
+        x.sid || '',
         x.created_by_name || '',
       ]),
     ];
@@ -362,7 +459,7 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       await api.post(`/sms/zlecenie/${row.task_id}`, { typ: row.typ || 'manual' }, { headers: authHeaders(token) });
-      await load();
+      await loadSms(page);
     } catch (e) {
       setError(getApiErrorMessage(e, 'Nie udało się ponowić wysyłki SMS.'));
     } finally {
@@ -403,7 +500,9 @@ export default function Telefonia() {
         { headers: authHeaders(token) }
       );
       setManualForm({ recipient_name: '', recipient_phone: '', text: '' });
-      await load();
+      const wasOnPage1 = page === 1;
+      setPage(1);
+      if (wasOnPage1) await loadSms(1);
     } catch (e2) {
       setError(getApiErrorMessage(e2, 'Nie udalo sie wyslac SMS.'));
     } finally {
@@ -415,8 +514,9 @@ export default function Telefonia() {
     let sent = 0;
     let missing = 0;
     for (const x of filtered) {
-      if (x.status === 'wyslano_demo') sent += 1;
-      else if (x.status === 'brak_numeru') missing += 1;
+      const st = String(x.status || '');
+      if (['wyslano_demo', 'Wyslany', 'Dostarczony', 'dostarczono'].includes(st)) sent += 1;
+      else if (st === 'brak_numeru') missing += 1;
     }
     return {
       total: filtered.length,
@@ -445,11 +545,14 @@ export default function Telefonia() {
   const smsEstimatedCost = (smsSegments * SMS_PRICE_PLN).toFixed(2);
 
   const statusBadgeStyle = (status) => {
-    if (status === 'wyslano_demo') return { bg: 'rgba(16,185,129,0.18)', fg: '#10b981' };
-    if (status === 'brak_numeru') return { bg: 'rgba(248,113,113,0.18)', fg: '#f87171' };
-    if (status === 'dostarczono') return { bg: 'rgba(34,197,94,0.18)', fg: '#22c55e' };
-    if (status === 'blad') return { bg: 'rgba(239,68,68,0.2)', fg: '#ef4444' };
-    if (status === 'w_kolejce') return { bg: 'rgba(250,204,21,0.18)', fg: '#f59e0b' };
+    const st = String(status || '');
+    if (st === 'wyslano_demo') return { bg: 'rgba(16,185,129,0.18)', fg: '#10b981' };
+    if (st === 'brak_numeru') return { bg: 'rgba(248,113,113,0.18)', fg: '#f87171' };
+    if (st === 'dostarczono' || st === 'Dostarczony') return { bg: 'rgba(34,197,94,0.18)', fg: '#22c55e' };
+    if (st === 'blad' || st === 'Błąd') return { bg: 'rgba(239,68,68,0.2)', fg: '#ef4444' };
+    if (st === 'Niedostarczony') return { bg: 'rgba(249,115,22,0.2)', fg: '#ea580c' };
+    if (st === 'Wyslany') return { bg: 'rgba(59,130,246,0.18)', fg: '#3b82f6' };
+    if (st === 'w_kolejce') return { bg: 'rgba(250,204,21,0.18)', fg: '#f59e0b' };
     return { bg: 'rgba(148,163,184,0.18)', fg: 'var(--text-sub)' };
   };
 
@@ -461,9 +564,14 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       await api.patch(`/sms/historia/${id}/status`, { status }, { headers: authHeaders(token) });
-      await load();
+      await loadSms(page);
     } catch (e) {
-      setError(getApiErrorMessage(e, 'Nie udalo sie zaktualizowac statusu SMS.'));
+      const msg = getApiErrorMessage(e, 'Nie udalo sie zaktualizowac statusu SMS.');
+      setError(
+        e?.response?.status === 404
+          ? `${msg} (w ARBOR-OS status dostawy ustawia automatycznie Twilio — edycja ręczna jest wyłączona.)`
+          : msg
+      );
     } finally {
       setUpdatingStatusId(null);
     }
@@ -482,7 +590,9 @@ export default function Telefonia() {
           title="Telefonia"
           subtitle={
             tab === 'sms'
-              ? `Historia SMS: ${filtered.length}`
+              ? `Historia SMS: ${filtered.length}${
+                  serverPaging && smsTotalAll > 0 ? ` · ${smsTotalAll} w bazie` : ''
+                }`
               : `Log połączeń: ${callRows.length} · kolejka oddzwonień: ${callbacks.filter((x) => x.status === 'open').length}`
           }
           actions={
@@ -492,7 +602,7 @@ export default function Telefonia() {
                   Eksport CSV
                 </button>
               )}
-              <button type="button" style={s.refreshBtn} onClick={() => (tab === 'sms' ? load() : loadTelephonyExtras())}>
+              <button type="button" style={s.refreshBtn} onClick={() => (tab === 'sms' ? loadSms(page) : loadTelephonyExtras())}>
                 Odswiez
               </button>
             </>
@@ -869,6 +979,9 @@ export default function Telefonia() {
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Wpisy</div>
               <div style={s.kpiValue}>{stats.total}</div>
+              {serverPaging && smsTotalAll > 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>z {smsTotalAll} w bazie</div>
+              ) : null}
             </div>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Wyslane</div>
@@ -914,6 +1027,13 @@ export default function Telefonia() {
               Tylko zmienione dzis
             </label>
           </div>
+
+          {serverPaging && smsTotalAll > 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+              Stronicowanie po stronie serwera ({smsTotalAll} wpisów). Szukanie, status i zakres dat są wysyłane do API;
+              filtry „ostatnia zmiana” / „dzisiaj” stosują się tylko do załadowanej strony.
+            </p>
+          ) : null}
 
           {loading ? (
             <div style={s.empty}>Ladowanie historii SMS...</div>
@@ -970,20 +1090,39 @@ export default function Telefonia() {
                         >
                           {x.status || '-'}
                         </span>
+                        {x.error ? (
+                          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)', maxWidth: 280 }}>
+                            {String(x.error)}
+                          </div>
+                        ) : null}
+                        {x.sid ? (
+                          <div
+                            style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}
+                            title={String(x.sid)}
+                          >
+                            SID: {String(x.sid).length > 16 ? `${String(x.sid).slice(0, 16)}…` : String(x.sid)}
+                          </div>
+                        ) : null}
                       </td>
                       <td style={s.td}>
-                        <select
-                          value={x.status || ''}
-                          onChange={(e) => updateSmsStatus(x.id, e.target.value)}
-                          style={s.rowSelect}
-                          disabled={updatingStatusId === x.id}
-                        >
-                          {STATUS_CHOICES.map((st) => (
-                            <option key={st} value={st}>
-                              {st}
-                            </option>
-                          ))}
-                        </select>
+                        {x._fromOsApi ? (
+                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }} title="ARBOR-OS: status dostawy ustawia Twilio (webhook)">
+                            Twilio
+                          </span>
+                        ) : (
+                          <select
+                            value={x.status || ''}
+                            onChange={(e) => updateSmsStatus(x.id, e.target.value)}
+                            style={s.rowSelect}
+                            disabled={updatingStatusId === x.id}
+                          >
+                            {STATUS_CHOICES.map((st) => (
+                              <option key={st} value={st}>
+                                {st}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td style={s.td}>{x.created_by_name || '-'}</td>
                       <td style={s.td}>

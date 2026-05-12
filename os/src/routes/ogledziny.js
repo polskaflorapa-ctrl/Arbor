@@ -58,9 +58,9 @@ const ogledzinyWycenaBodySchema = z.object({
   wycena_id: z.coerce.number().int().positive(),
 });
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const canManage = (u) => isDyrektor(u) || u.rola === 'Kierownik';
-const isBrygadzista = (u) => u.rola === 'Brygadzista';
+const _isBrygadzista = (u) => u.rola === 'Brygadzista';
 
 // ── Migracja tabel ────────────────────────────────────────────────────────────
 let _migDone = false;

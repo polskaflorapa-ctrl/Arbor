@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { emitOfflineFlushDone } from './offline-queue-sync-events';
+
 const OFFLINE_QUEUE_KEY = 'offline_queue_v1';
 
 type HttpMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -100,7 +102,19 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
 
       if (res.ok) {
         flushed += 1;
+      } else if (res.status === 400) {
+        const text = await res.text().catch(() => '');
+        let dropAsDone = false;
+        try {
+          const j = JSON.parse(text) as { reason?: string };
+          if (j?.reason === 'TASK_ALREADY_FINISHED') dropAsDone = true;
+        } catch {
+          /* ignore */
+        }
+        if (dropAsDone) flushed += 1;
+        else remaining.push(item);
       } else {
+        await res.text().catch(() => '');
         remaining.push(item);
       }
     } catch {
@@ -109,7 +123,9 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
   }
 
   await writeQueue(remaining);
-  return { flushed, left: remaining.length };
+  const left = remaining.length;
+  if (flushed > 0) emitOfflineFlushDone({ flushed, left });
+  return { flushed, left };
 };
 
 /** Kolejka wysłania zdjęcia (POST multipart `/tasks/:id/zdjecia`) po powrocie online. */

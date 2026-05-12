@@ -92,7 +92,7 @@ export default function OddzialDetail() {
     reloadAll();
   }, [navigate, reloadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const canEdit = isDyrektor || currentUser?.rola === 'Kierownik';
 
   const loadEkipaDetail = useCallback(async (ekipaId) => {

@@ -32,6 +32,53 @@ describe('Task access scope policy', () => {
     );
   });
 
+  it('allows sales director to read all task branches', async () => {
+    const token = jwt.sign({ id: 12, rola: 'Dyrektor Sprzedazy', oddzial_id: 1 }, env.JWT_SECRET);
+    pool.query.mockResolvedValue({ rows: [{ id: 1, oddzial_id: 2 }] });
+
+    const res = await request(app)
+      .get('/api/tasks/wszystkie')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.not.stringContaining('WHERE t.oddzial_id = $1'),
+      []
+    );
+  });
+
+  it('keeps specialist task list branch-scoped even when another branch is requested', async () => {
+    const token = jwt.sign({ id: 91, rola: 'Specjalista', oddzial_id: 3 }, env.JWT_SECRET);
+    pool.query.mockResolvedValue({ rows: [] });
+
+    const res = await request(app)
+      .get('/api/tasks/wszystkie?oddzial_id=2')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE t.oddzial_id = $1'),
+      [3]
+    );
+  });
+
+  it('blocks sales director from creating tasks', async () => {
+    const token = jwt.sign({ id: 12, rola: 'Dyrektor Sprzedazy', oddzial_id: 1 }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/tasks/nowe')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        klient_nazwa: 'Klient',
+        adres: 'Testowa 1',
+        miasto: 'Warszawa',
+        data_planowana: '2026-05-12T08:00:00.000Z',
+      });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
   it('uses assigned-team scope for pomocnik stats', async () => {
     const token = jwt.sign({ id: 77, rola: 'Pomocnik', oddzial_id: 2 }, env.JWT_SECRET);
     pool.query.mockResolvedValue({ rows: [{ nowe: '0', w_realizacji: '1', zakonczone: '2' }] });

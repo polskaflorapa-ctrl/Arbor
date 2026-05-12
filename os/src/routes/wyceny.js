@@ -18,7 +18,12 @@ const { z } = require('zod');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const HOLD_TTL_HOURS = 8;
+const {
+  HOLD_TTL_HOURS,
+  rangesOverlap,
+  checkTeamConflict,
+  getTeamBusyRanges,
+} = require('../services/taskScheduling');
 
 const uploadDir = path.join(__dirname, '../../uploads/wyceny');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -30,12 +35,39 @@ const storage = multer.diskStorage({
     cb(null, `wycena_${Date.now()}${ext}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const _upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isKierownik = (u) => u.rola === 'Kierownik';
 const isSpecjalista = (u) => u.rola === 'Specjalista';
 const canManage = (u) => isDyrektor(u) || isKierownik(u) || isSpecjalista(u);
+
+function addWycenaScope(user, whereParts, params) {
+  if (isDyrektor(user)) return;
+  if (canManage(user)) {
+    params.push(user.oddzial_id);
+    whereParts.push(`(u.oddzial_id = $${params.length} OR t.oddzial_id = $${params.length})`);
+    return;
+  }
+  params.push(user.id);
+  whereParts.push(`w.autor_id = $${params.length}`);
+}
+
+async function hasWycenaAccess(user, wycenaId) {
+  const params = [wycenaId];
+  const whereParts = ['w.id = $1'];
+  addWycenaScope(user, whereParts, params);
+  const { rows } = await pool.query(
+    `SELECT w.id
+     FROM wyceny w
+     LEFT JOIN users u ON u.id = w.autor_id
+     LEFT JOIN tasks t ON t.source_wycena_id = w.id
+     WHERE ${whereParts.join(' AND ')}
+     LIMIT 1`,
+    params
+  );
+  return rows.length > 0;
+}
 
 const wycenyListQuerySchema = z.object({
   status_akceptacji: z.string().max(30).optional(),
@@ -87,18 +119,6 @@ function buildTaskPlannedDateTime(dataWykonania, godzinaRozpoczecia) {
   if (!dataWykonania) return null;
   const hhmm = (godzinaRozpoczecia || '08:00').slice(0, 5);
   return `${dataWykonania} ${hhmm}:00`;
-}
-
-function parseClockToMinutes(value) {
-  const [h, m] = String(value || '00:00').split(':');
-  const hh = Number(h);
-  const mm = Number(m);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
-  return hh * 60 + mm;
-}
-
-function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-  return aStart < bEnd && bStart < aEnd;
 }
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -204,52 +224,6 @@ async function backfillWycenaGeoFromTaskPin(wycenaId) {
   return true;
 }
 
-async function getTeamBusyRanges(client, teamId, day, excludeWycenaId = null) {
-  const taskRows = await client.query(
-    `SELECT data_planowana, COALESCE(czas_planowany_godziny, 2) AS czas_h
-     FROM tasks
-     WHERE ekipa_id = $1
-       AND data_planowana::date = $2::date`,
-    [teamId, day]
-  );
-  const wycenaRows = await client.query(
-    `SELECT COALESCE(proponowana_data, data_wykonania) AS day,
-            COALESCE(proponowana_godzina, godzina_rozpoczecia) AS hour,
-            COALESCE(czas_planowany_godziny, 2) AS czas_h
-     FROM wyceny
-     WHERE COALESCE(proponowana_ekipa_id, ekipa_id) = $1
-       AND COALESCE(proponowana_data, data_wykonania) = $2::date
-       AND (
-         status_akceptacji IN ('do_specjalisty', 'zatwierdzono')
-         OR (status_akceptacji = 'rezerwacja_wstepna' AND COALESCE(rezerwacja_wygasa_at, proponowana_at + INTERVAL '${HOLD_TTL_HOURS} hours') >= NOW())
-       )
-       AND ($3::int IS NULL OR id <> $3::int)`,
-    [teamId, day, excludeWycenaId]
-  );
-  const ranges = [];
-  for (const row of taskRows.rows) {
-    const date = new Date(row.data_planowana);
-    const start = date.getHours() * 60 + date.getMinutes();
-    const end = start + Math.max(15, Math.round(Number(row.czas_h || 2) * 60));
-    ranges.push({ start, end });
-  }
-  for (const row of wycenaRows.rows) {
-    const start = parseClockToMinutes(row.hour ? String(row.hour).slice(0, 5) : '08:00');
-    if (start == null) continue;
-    const end = start + Math.max(15, Math.round(Number(row.czas_h || 2) * 60));
-    ranges.push({ start, end });
-  }
-  return ranges;
-}
-
-function checkTeamConflict({ busyRanges, hour, durationMinutes }) {
-  const start = parseClockToMinutes(hour);
-  if (start == null) return { invalidTime: true, conflict: false };
-  const end = start + durationMinutes;
-  const conflict = busyRanges.some((r) => rangesOverlap(start, end, r.start, r.end));
-  return { invalidTime: false, conflict };
-}
-
 const wycenyCreateSchema = z.object({
   klient_nazwa: z.string().trim().min(1, 'klient_nazwa jest wymagane'),
   klient_telefon: z.string().optional().nullable(),
@@ -273,20 +247,14 @@ router.get('/', authMiddleware, validateQuery(wycenyListQuerySchema), async (req
     const dopuszczalne = ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty', 'zatwierdzono', 'odrzucono'];
     const filterStatus = dopuszczalne.includes(status_akceptacji) ? status_akceptacji : null;
 
-    let whereClause = '';
-    let params = [];
-    if (canManage(req.user)) {
-      if (filterStatus) {
-        whereClause = 'WHERE w.status_akceptacji = $1';
-        params = [filterStatus];
-      }
-    } else if (filterStatus) {
-      whereClause = 'WHERE w.autor_id = $1 AND w.status_akceptacji = $2';
-      params = [req.user.id, filterStatus];
-    } else {
-      whereClause = 'WHERE w.autor_id = $1';
-      params = [req.user.id];
+    const whereParts = [];
+    const params = [];
+    if (filterStatus) {
+      params.push(filterStatus);
+      whereParts.push(`w.status_akceptacji = $${params.length}`);
     }
+    addWycenaScope(req.user, whereParts, params);
+    const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 
     const joins = `FROM wyceny w
       LEFT JOIN users u ON u.id = w.autor_id
@@ -341,6 +309,9 @@ router.post('/', authMiddleware, validateBody(wycenyCreateSchema), async (req, r
 
 router.get('/:id', authMiddleware, validateParams(wycenaIdParamsSchema), async (req, res) => {
   try {
+    if (!(await hasWycenaAccess(req.user, req.params.id))) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { rows } = await pool.query(
       `SELECT w.*, u.imie || ' ' || u.nazwisko AS autor_nazwa, pe.nazwa AS proponowana_ekipa_nazwa, t.id AS task_id,
        CASE
@@ -365,6 +336,9 @@ router.get('/:id', authMiddleware, validateParams(wycenaIdParamsSchema), async (
 
 router.patch('/:id/status', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaPatchStatusSchema), async (req, res) => {
   try {
+    if (!(await hasWycenaAccess(req.user, req.params.id))) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { status } = req.body;
     const { rows } = await pool.query(`UPDATE wyceny SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`, [status, req.params.id]);
     if (!rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -378,6 +352,9 @@ router.patch('/:id/status', authMiddleware, validateParams(wycenaIdParamsSchema)
 router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaZatwierdzSchema), async (req, res) => {
   if (!canManage(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
+    if (!(await hasWycenaAccess(req.user, req.params.id))) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { ekipa_id, data_wykonania, godzina_rozpoczecia, wartosc_planowana } = req.body;
     const planEkipa = ekipa_id ?? null;
     const planData = data_wykonania ?? null;
@@ -387,7 +364,13 @@ router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchem
         error: 'Do zatwierdzenia wymagane są: ekipa, data realizacji i godzina rozpoczęcia.',
       });
     }
-    const busyRanges = await getTeamBusyRanges(pool, parseInt(planEkipa, 10), planData, Number(req.params.id));
+    if (!isDyrektor(req.user)) {
+      const teamBranch = await pool.query('SELECT oddzial_id FROM teams WHERE id = $1', [parseInt(planEkipa, 10)]);
+      if (!teamBranch.rows.length || Number(teamBranch.rows[0].oddzial_id) !== Number(req.user.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+    }
+    const busyRanges = await getTeamBusyRanges(pool, parseInt(planEkipa, 10), planData, Number(req.params.id), null);
     const conflictCheck = checkTeamConflict({
       busyRanges,
       hour: planGodzina,
@@ -478,6 +461,9 @@ router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchem
 
 router.post('/:id/klient-akceptuje', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaKlientAcceptSchema), async (req, res) => {
   try {
+    if (!(await hasWycenaAccess(req.user, req.params.id))) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { uwagi } = req.body;
     const { rows } = await pool.query(
       `UPDATE wyceny
@@ -530,7 +516,7 @@ router.get('/availability/slots', authMiddleware, validateQuery(wycenaSlotsQuery
     } else if (!teamLocation) {
       etaUnavailableReason = 'no_team_gps';
     }
-    const busyRanges = await getTeamBusyRanges(pool, teamId, day, excludeWycenaId);
+    const busyRanges = await getTeamBusyRanges(pool, teamId, day, excludeWycenaId, null);
     const startWindow = 7 * 60;
     const endWindow = 19 * 60;
     const slots = [];
@@ -569,13 +555,22 @@ router.get('/availability/slots', authMiddleware, validateQuery(wycenaSlotsQuery
 
 router.post('/:id/rezerwuj-termin', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaReserveSchema), async (req, res) => {
   try {
+    if (!(await hasWycenaAccess(req.user, req.params.id))) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const wycenaId = Number(req.params.id);
     await backfillWycenaGeoFromTaskPin(wycenaId);
     const teamId = Number(req.body.ekipa_id);
+    if (!isDyrektor(req.user)) {
+      const teamBranch = await pool.query('SELECT oddzial_id FROM teams WHERE id = $1', [teamId]);
+      if (!teamBranch.rows.length || Number(teamBranch.rows[0].oddzial_id) !== Number(req.user.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+    }
     const day = String(req.body.data_wykonania).slice(0, 10);
     const hour = String(req.body.godzina_rozpoczecia).slice(0, 5);
     const durationMinutes = Math.max(15, Math.round(Number(req.body.czas_planowany_godziny || 2) * 60));
-    const busyRanges = await getTeamBusyRanges(pool, teamId, day, wycenaId);
+    const busyRanges = await getTeamBusyRanges(pool, teamId, day, wycenaId, null);
     const conflictCheck = checkTeamConflict({ busyRanges, hour, durationMinutes });
     if (conflictCheck.invalidTime) return res.status(400).json({ error: 'Nieprawidlowa godzina rezerwacji.' });
     if (conflictCheck.conflict) {
@@ -612,6 +607,9 @@ router.post('/:id/rezerwuj-termin', authMiddleware, validateParams(wycenaIdParam
 router.post('/:id/odrzuc', authMiddleware, validateParams(wycenaIdParamsSchema), validateBody(wycenaOdrzucSchema), async (req, res) => {
   if (!canManage(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
+    if (!(await hasWycenaAccess(req.user, req.params.id))) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { powod } = req.body;
     const { rows } = await pool.query(
       `UPDATE wyceny SET status_akceptacji='odrzucono', uwagi_kierownika=$1, zatwierdzone_przez=$2, zatwierdzone_at=NOW(), status='Odrzucona', updated_at=NOW() WHERE id=$3 RETURNING *`,

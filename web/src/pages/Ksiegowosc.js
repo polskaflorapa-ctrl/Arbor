@@ -75,7 +75,7 @@ export default function Ksiegowosc() {
       setZlecenia(zRes.data);
       if (uRes.data) setUstawienia(prev => ({ ...prev, ...uRes.data }));
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
       showMsg(errorMessage('Błąd ładowania danych'));
     }
   }, [showMsg]);
@@ -88,7 +88,7 @@ export default function Ksiegowosc() {
     loadAll();
   }, [navigate, loadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
 
   const filtrowane = faktury.filter(f => {

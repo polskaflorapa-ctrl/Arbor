@@ -1,14 +1,14 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware, requireNieBrygadzista } = require('../middleware/auth');
+const { authMiddleware, requireNieBrygadzista, isSalesDirector } = require('../middleware/auth');
 const { blockPayrollSettlements } = require('../middleware/payroll-policy');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { syncJuwentusGps, getLiveTeamLocations } = require('../services/juwentus-gps');
 const { z } = require('zod');
 
 const router = express.Router();
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 
 const optionalIntId = z
   .any()
@@ -24,6 +24,12 @@ const ekipaListQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+});
+
+const ekipaRankingQuerySchema = z.object({
+  rok: z.coerce.number().int().min(2020).max(2100).optional(),
+  miesiac: z.coerce.number().int().min(1).max(12).optional(),
+  oddzial_id: z.coerce.number().int().positive().optional(),
 });
 
 const ekipaIdParamsSchema = z.object({
@@ -69,14 +75,156 @@ const ekipaCzlonkowieParamsSchema = z.object({
   userId: z.coerce.number().int().positive(),
 });
 
+const canSeeAllTeamRanking = (user) => isDyrektor(user) || isSalesDirector(user);
+const canViewTeamRanking = (user) => canSeeAllTeamRanking(user) || user?.rola === 'Kierownik';
+const COMPLETED_STATUS = new Set(['zakonczone', 'zakonczony']);
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function ymd(year, month, day) {
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function toDateKey(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const raw = String(value);
+  const direct = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (direct) return direct[1];
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function normalizeStatus(status) {
+  return String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
+}
+
+function periodLabel(start, end) {
+  return `${start.slice(8, 10)}-${end.slice(8, 10)}.${start.slice(5, 7)}`;
+}
+
+function buildRankingForPeriod(rows, start, end) {
+  const buckets = new Map();
+  for (const task of rows) {
+    const dateKey = toDateKey(task.data_zakonczenia || task.data_planowana || task.created_at);
+    const teamId = Number(task.ekipa_id);
+    if (!dateKey || !teamId || dateKey < start || dateKey > end) continue;
+    if (!buckets.has(teamId)) {
+      buckets.set(teamId, {
+        ekipa_id: teamId,
+        ekipa_nazwa: task.ekipa_nazwa || `Ekipa #${teamId}`,
+        oddzial_id: task.oddzial_id || null,
+        oddzial_nazwa: task.oddzial_nazwa || null,
+        zadania: 0,
+        zakonczone: 0,
+        w_realizacji: 0,
+        zaplanowane: 0,
+        wartosc: 0,
+        godziny_planowane: 0,
+        score_raw: 0,
+      });
+    }
+    const row = buckets.get(teamId);
+    const status = normalizeStatus(task.status);
+    const value = Number(task.wartosc_rzeczywista ?? task.wartosc_planowana ?? 0) || 0;
+    const hours = Number(task.czas_planowany_godziny ?? 0) || 0;
+    row.zadania += 1;
+    row.wartosc += value;
+    row.godziny_planowane += hours;
+    if (COMPLETED_STATUS.has(status) || status.includes('zakoncz')) {
+      row.zakonczone += 1;
+      row.score_raw += 100;
+    } else if (status.includes('realizacji')) {
+      row.w_realizacji += 1;
+      row.score_raw += 35;
+    } else {
+      row.zaplanowane += 1;
+      row.score_raw += 15;
+    }
+    row.score_raw += value / 1000;
+    row.score_raw += hours * 2;
+  }
+  return Array.from(buckets.values())
+    .map((row) => ({
+      ...row,
+      wartosc: Math.round(row.wartosc * 100) / 100,
+      godziny_planowane: Math.round(row.godziny_planowane * 10) / 10,
+      skutecznosc: row.zadania ? Math.round((row.zakonczone / row.zadania) * 100) : 0,
+      score: Math.round(row.score_raw * 10) / 10,
+    }))
+    .sort((a, b) =>
+      b.score - a.score ||
+      b.zakonczone - a.zakonczone ||
+      b.wartosc - a.wartosc ||
+      String(a.ekipa_nazwa).localeCompare(String(b.ekipa_nazwa), 'pl')
+    )
+    .map((row, index) => ({ ...row, miejsce: index + 1 }));
+}
+
+function buildTeamRanking(rows, year, month) {
+  const monthStart = ymd(year, month, 1);
+  const monthEnd = ymd(year, month, daysInMonth(year, month));
+  const halfStartMonth = month <= 6 ? 1 : 7;
+  const halfEndMonth = month <= 6 ? 6 : 12;
+  const halfStart = ymd(year, halfStartMonth, 1);
+  const halfEnd = ymd(year, halfEndMonth, daysInMonth(year, halfEndMonth));
+  const yearStart = ymd(year, 1, 1);
+  const yearEnd = ymd(year, 12, 31);
+  const weeks = [];
+
+  for (let day = 1, idx = 1; day <= daysInMonth(year, month); day += 7, idx += 1) {
+    const start = ymd(year, month, day);
+    const end = ymd(year, month, Math.min(day + 6, daysInMonth(year, month)));
+    const ranking = buildRankingForPeriod(rows, start, end);
+    weeks.push({
+      key: `week-${idx}`,
+      label: `Tydzien ${idx} (${periodLabel(start, end)})`,
+      start,
+      end,
+      winner: ranking[0] || null,
+      ranking,
+    });
+  }
+
+  const monthRanking = buildRankingForPeriod(rows, monthStart, monthEnd);
+  const halfYearRanking = buildRankingForPeriod(rows, halfStart, halfEnd);
+  const yearRanking = buildRankingForPeriod(rows, yearStart, yearEnd);
+  return {
+    rok: year,
+    miesiac: month,
+    generated_at: new Date().toISOString(),
+    weeks,
+    month: { label: `Miesiac ${pad2(month)}.${year}`, start: monthStart, end: monthEnd, winner: monthRanking[0] || null, ranking: monthRanking },
+    halfYear: { label: `${month <= 6 ? 'I' : 'II'} polrocze ${year}`, start: halfStart, end: halfEnd, winner: halfYearRanking[0] || null, ranking: halfYearRanking },
+    year: { label: `Rok ${year}`, start: yearStart, end: yearEnd, winner: yearRanking[0] || null, ranking: yearRanking },
+  };
+}
+
 router.get('/', authMiddleware, validateQuery(ekipaListQuerySchema), async (req, res) => {
   try {
     const { oddzial_id, limit, offset } = req.query;
     let where = '';
     let params = [];
-    if (oddzial_id != null) {
+    if (oddzial_id != null && isDyrektor(req.user)) {
       where = 'WHERE t.oddzial_id = $1';
       params = [oddzial_id];
+    } else if (oddzial_id != null) {
+      if (Number(oddzial_id) !== Number(req.user.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      where = 'WHERE t.oddzial_id = $1';
+      params = [req.user.oddzial_id];
     } else if (!isDyrektor(req.user)) {
       where = 'WHERE t.oddzial_id = $1';
       params = [req.user.oddzial_id];
@@ -115,6 +263,71 @@ router.get('/', authMiddleware, validateQuery(ekipaListQuerySchema), async (req,
     res.json(result.rows);
   } catch (err) {
     logger.error('Blad pobierania ekip', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/ranking', authMiddleware, validateQuery(ekipaRankingQuerySchema), async (req, res) => {
+  try {
+    if (!canViewTeamRanking(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+
+    const now = new Date();
+    const year = req.query.rok || now.getFullYear();
+    const month = req.query.miesiac || now.getMonth() + 1;
+    const requestedOddzialId = req.query.oddzial_id || null;
+    if (requestedOddzialId && !canSeeAllTeamRanking(req.user) && Number(requestedOddzialId) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+
+    const params = [ymd(year, 1, 1), ymd(year + 1, 1, 1)];
+    let where = `
+      WHERE t.ekipa_id IS NOT NULL
+        AND COALESCE(t.data_zakonczenia, t.data_planowana, t.created_at) >= $1::date
+        AND COALESCE(t.data_zakonczenia, t.data_planowana, t.created_at) < $2::date`;
+    const scopedOddzialId = canSeeAllTeamRanking(req.user) ? requestedOddzialId : req.user.oddzial_id;
+    if (scopedOddzialId) {
+      params.push(scopedOddzialId);
+      where += ` AND t.oddzial_id = $${params.length}`;
+    }
+
+    const { rows } = await pool.query(
+      `SELECT
+         t.id,
+         t.ekipa_id,
+         t.oddzial_id,
+         t.status,
+         t.wartosc_planowana,
+         t.wartosc_rzeczywista,
+         t.czas_planowany_godziny,
+         t.data_planowana,
+         t.data_zakonczenia,
+         t.created_at,
+         te.nazwa AS ekipa_nazwa,
+         b.nazwa AS oddzial_nazwa
+       FROM tasks t
+       LEFT JOIN teams te ON te.id = t.ekipa_id
+       LEFT JOIN branches b ON b.id = t.oddzial_id
+       ${where}`,
+      params
+    );
+
+    let branchName = null;
+    if (scopedOddzialId) {
+      const branch = await pool.query('SELECT nazwa FROM branches WHERE id = $1', [scopedOddzialId]);
+      branchName = branch.rows[0]?.nazwa || null;
+    }
+
+    res.json({
+      ...buildTeamRanking(rows, year, month),
+      scope: {
+        oddzial_id: scopedOddzialId || null,
+        oddzial_nazwa: branchName,
+      },
+    });
+  } catch (err) {
+    logger.error('Blad pobierania rankingu ekip', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

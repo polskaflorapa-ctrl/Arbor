@@ -38,7 +38,7 @@ const sendOverdueReminders = async () => {
 router.post(
   '/run-daily',
   authMiddleware,
-  requireRole('Dyrektor', 'Administrator'),
+  requireRole('Prezes', 'Dyrektor'),
   async (req, res) => {
     try {
       const reminders = await sendOverdueReminders();

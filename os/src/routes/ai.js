@@ -143,7 +143,7 @@ Odpowiedz po polsku, konkretnie i zwięźle. Format JSON:
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-    } catch (_) { /* zostaw parsed = null */ }
+  } catch { /* zostaw parsed = null */ }
 
     res.json({ raw: text, parsed });
   } catch (e) {

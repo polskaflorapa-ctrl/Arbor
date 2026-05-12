@@ -19,6 +19,7 @@ import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 import { registerExpoPushTokenWithBackend } from '../utils/expo-push-backend';
@@ -146,6 +147,13 @@ export default function Powiadomienia() {
   }, [t]);
 
   useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed > 0) void loadData();
+    });
+    return unsubscribe;
+  }, [loadData]);
 
   const wyslij = async () => {
     if (!selectedKierownik) {

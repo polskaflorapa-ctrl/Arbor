@@ -1,7 +1,7 @@
 const logger = require('../config/logger');
 const { itemNeedsHeightSpecialist, itemNearEnergyLine } = require('./quotationItemFlags');
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isKierownik = (u) => u.rola === 'Kierownik';
 
 function toNum(v) {
@@ -9,7 +9,7 @@ function toNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function dueAtForQuotation(q, branch) {
+function dueAtForQuotation(q, _branch) {
   const now = Date.now();
   const pilne = String(q.priorytet || '') === 'Wysoki' || q.klient_czeka_na_miejscu === true;
   const ms = pilne ? 30 * 60 * 1000 : 4 * 60 * 60 * 1000;
@@ -46,7 +46,7 @@ async function rebuildApprovals(client, quotationId) {
     [quotationId]
   );
   const sumValue = toNum(sumRes.rows[0]?.s || q.wartosc_zaproponowana);
-  const koszt = toNum(q.koszt_wlasny_calkowity);
+  const _koszt = toNum(q.koszt_wlasny_calkowity);
   const marza = Number.isFinite(Number(q.marza_pct)) ? toNum(q.marza_pct) : 35;
 
   const bRes = await client.query(`SELECT * FROM branches WHERE id = $1`, [q.oddzial_id]);
@@ -113,7 +113,7 @@ async function notifyApproversForQuotation(pool, quotationId) {
         [q.oddzial_id]
       );
     } else if (typ === 'Dyrektor') {
-      users = await pool.query(`SELECT id FROM users WHERE rola IN ('Dyrektor','Administrator') AND aktywny IS NOT FALSE`);
+      users = await pool.query(`SELECT id FROM users WHERE rola IN ('Prezes','Dyrektor') AND aktywny IS NOT FALSE`);
     } else if (typ === 'Arborysta' || typ === 'BHP' || typ === 'Prawne') {
       users = await pool.query(
         `SELECT id FROM users WHERE rola = 'Specjalista' AND oddzial_id = $1 AND aktywny IS NOT FALSE`,

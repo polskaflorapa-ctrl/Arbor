@@ -17,6 +17,7 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
 type TaskItem = {
@@ -144,6 +145,13 @@ export default function MisjaDniaScreen() {
 
   useEffect(() => {
     void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineFlushDone((d) => {
+      if (d.flushed > 0) void loadData();
+    });
+    return unsubscribe;
   }, [loadData]);
 
   const todayTasks = useMemo(

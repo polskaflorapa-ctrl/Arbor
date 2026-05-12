@@ -128,7 +128,7 @@ export default function ZatwierdzWyceny() {
     } finally { setSaving(null); }
   };
 
-  const canApprove = user && ['Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'].includes(user.rola);
+  const canApprove = user && ['Kierownik', 'Prezes', 'Dyrektor', 'Specjalista'].includes(user.rola);
   const statusCounts = countByStatus(wyceny);
   const headerActions = (
     <>

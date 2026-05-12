@@ -33,7 +33,7 @@ export default function Klienci() {
   const [showKlientKommoPayload, setShowKlientKommoPayload] = useState(false);
 
   const currentUser = getLocalStorageJson('user', {});
-  const canDelete = ['Dyrektor', 'Administrator'].includes(currentUser.rola);
+  const canDelete = ['Prezes', 'Dyrektor'].includes(currentUser.rola);
 
   const loadKlienci = useCallback(async () => {
     setLoading(true);

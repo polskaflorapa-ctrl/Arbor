@@ -49,12 +49,12 @@ export default function Powiadomienia() {
         api.get(`/notifications`, { headers: h }),
       ]);
       setZlecenia(zRes.data);
-      setKierownicy(uRes.data.filter(u => u.rola === 'Kierownik' || u.rola === 'Dyrektor' || u.rola === 'Administrator'));
+      setKierownicy(uRes.data.filter(u => u.rola === 'Kierownik' || u.rola === 'Prezes' || u.rola === 'Dyrektor'));
       const notifications = nRes.data.notifications || nRes.data || [];
       setPowiadomienia(notifications);
       setUnreadCount(nRes.data.unread_count || notifications.filter(n => n.status === 'Nowe').length);
     } catch (err) {
-      console.log('Błąd ładowania:', err);
+      console.error('Błąd ładowania:', err);
       showMsg(errorMessage(t('common.loadDataError')));
     } finally {
       setLoading(false);
@@ -99,7 +99,7 @@ export default function Powiadomienia() {
       });
       loadData();
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   };
 

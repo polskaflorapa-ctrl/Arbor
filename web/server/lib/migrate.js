@@ -54,6 +54,8 @@ function migrateState(state, saveState) {
   ensure('nextFlotaPojazdId', seed.nextFlotaPojazdId || 1);
   ensure('nextFlotaSprzetId', seed.nextFlotaSprzetId || 1);
   ensure('nextFlotaNaprawaId', seed.nextFlotaNaprawaId || 1);
+  ensure('equipmentReservations', () => [...(seed.equipmentReservations || [])]);
+  ensure('nextEquipmentReservationId', seed.nextEquipmentReservationId || 1);
   ensure('cmrLists', () => []);
   ensure('nextCmrId', 1);
   ensure('faktury', () => []);
@@ -100,6 +102,20 @@ function migrateState(state, saveState) {
           kl[k] = null;
           changed = true;
         }
+      }
+    }
+  }
+  if (Array.isArray(state.crmLeads)) {
+    for (const lead of state.crmLeads) {
+      for (const k of ['close_reason', 'close_bucket', 'closed_at', 'closed_by']) {
+        if (lead[k] === undefined) {
+          lead[k] = null;
+          changed = true;
+        }
+      }
+      if (lead.stage === 'Techniczny' && !lead.close_bucket) {
+        lead.close_bucket = 'technical';
+        changed = true;
       }
     }
   }

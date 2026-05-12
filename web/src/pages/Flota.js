@@ -68,7 +68,7 @@ export default function Flota() {
       setOddzialy(oRes.data);
       setEkipy(eRes.data);
     } catch (err) {
-      console.log(err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -80,14 +80,14 @@ export default function Flota() {
     const parsed = getLocalStorageJson('user');
     if (parsed) {
       setCurrentUser(parsed);
-      if (parsed.rola !== 'Dyrektor' && parsed.rola !== 'Administrator') {
+      if (!['Prezes', 'Dyrektor'].includes(parsed.rola)) {
         setFiltrOddzial(parsed.oddzial_id?.toString() || '');
       }
     }
     loadAll();
   }, [navigate, loadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const canEdit = isDyrektor || currentUser?.rola === 'Kierownik';
 
   const handleAddPojazd = async (e) => {
@@ -144,7 +144,7 @@ export default function Flota() {
         headers: authHeaders(token)
       });
       loadAll();
-    } catch (err) { console.log(err); }
+    } catch (err) { console.error(err); }
   };
 
   const fmt = (d) => d ? d.split('T')[0] : '-';

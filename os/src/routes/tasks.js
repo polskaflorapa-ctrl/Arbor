@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isSalesDirector } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const multer = require('multer');
 const path = require('path');
@@ -18,10 +18,15 @@ const {
   grossForTask,
   netSettlementValue,
   settlementCalcDetail,
+  countTaskFinishPhotos,
+  FINISH_PHOTO_MIN,
+  CASH_COLLECTION_NOTE_PCT,
+  isCashCollectionNoteMissing,
 } = require('../services/taskSettlement');
 const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamDay');
 const { sendSmsOptional } = require('../services/twilioSms');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
+const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
 
 const router = express.Router();
 
@@ -46,9 +51,11 @@ function kommoActor(req) {
   return { id: u.id ?? null, login: u.login ?? null, rola: u.rola ?? null };
 }
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 const isTeamScoped = (user) => user.rola === 'Brygadzista' || user.rola === 'Pomocnik';
+const canSeeAllTasks = (user) => isDyrektor(user) || isSalesDirector(user);
+const canManageTaskBackoffice = (user) => isDyrektor(user) || isKierownik(user);
 
 /** F3.5 — wymuszenie zdjęcia „Po” przy finish (ekipa): ustaw `TASK_FINISH_REQUIRE_PO_PHOTO=1` na serwerze. */
 function finishRequirePoPhoto() {
@@ -68,21 +75,14 @@ function finishRequireMaterialUsage() {
 /** @param {import('pg').PoolClient} client */
 async function assertTeamFinishPhotoRules(client, taskId) {
   if (!finishRequirePoPhoto()) return;
-  const po = await client.query(
-    `SELECT 1 FROM photos WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('po', 'after') LIMIT 1`,
-    [taskId]
-  );
-  if (!po.rows[0]) {
+  const counts = await countTaskFinishPhotos(client, taskId);
+  if (counts.po < FINISH_PHOTO_MIN.po) {
     const e = new Error('po');
     e.code = 'TASK_FINISH_PO_PHOTO_REQUIRED';
     throw e;
   }
   if (!finishRequirePrzedPhoto()) return;
-  const pr = await client.query(
-    `SELECT 1 FROM photos WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('przed', 'before', 'checkin') LIMIT 1`,
-    [taskId]
-  );
-  if (!pr.rows[0]) {
+  if (counts.przed < FINISH_PHOTO_MIN.przed) {
     const e = new Error('przed');
     e.code = 'TASK_FINISH_PRZED_PHOTO_REQUIRED';
     throw e;
@@ -120,7 +120,7 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
 }
 
 const getTaskScope = (user, alias = 't', startParam = 1) => {
-  if (isDyrektor(user)) {
+  if (canSeeAllTasks(user)) {
     return { clause: '', params: [], nextParam: startParam };
   }
 
@@ -247,6 +247,11 @@ const taskUpdateSchema = z.object({
   notatki_klienta: z.string().optional().nullable(),
 });
 
+/** PATCH /tasks/:id/plan — tylko termin (`data_planowana`). */
+const taskPlanPatchSchema = z.object({
+  data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
+});
+
 const taskAssignSchema = z.object({
   ekipa_id: z.union([z.number().int().positive(), z.string().trim().min(1)]),
 });
@@ -307,6 +312,9 @@ const extraWorkQuoteSchema = z.object({
 
 const extraWorkAcceptSchema = z.object({
   channel: z.enum(['na_miejscu', 'sms']),
+});
+const extraWorkRejectSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
 });
 
 const ewIdParamSchema = z.object({
@@ -391,10 +399,16 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
       const scope = getTaskScope(req.user, 't', 1);
       whereClause = `WHERE ${scope.clause}`;
       params = scope.params;
-    } else if (oddzial_id && (isDyrektor(req.user) || isKierownik(req.user))) {
+    } else if (oddzial_id && canSeeAllTasks(req.user)) {
       whereClause = 'WHERE t.oddzial_id = $1';
       params = [oddzial_id];
-    } else if (!isDyrektor(req.user)) {
+    } else if (oddzial_id && isKierownik(req.user)) {
+      if (Number(oddzial_id) !== Number(req.user.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      whereClause = 'WHERE t.oddzial_id = $1';
+      params = [req.user.oddzial_id];
+    } else if (!canSeeAllTasks(req.user)) {
       const scope = getTaskScope(req.user, 't', 1);
       whereClause = `WHERE ${scope.clause}`;
       params = scope.params;
@@ -446,6 +460,9 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
 
 router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req, res) => {
   try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const {
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
@@ -457,6 +474,16 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
     const finalOddzialId = isDyrektor(req.user)
       ? (oddzial_id || req.user.oddzial_id)
       : req.user.oddzial_id;
+
+    if (ekipa_id) {
+      const teamBranch = await pool.query('SELECT oddzial_id FROM teams WHERE id = $1', [toNum(ekipa_id)]);
+      if (
+        !teamBranch.rows.length ||
+        (!isDyrektor(req.user) && Number(teamBranch.rows[0].oddzial_id) !== Number(finalOddzialId))
+      ) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO tasks (
@@ -604,6 +631,56 @@ router.post(
   }
 );
 
+/** F4.1 — zmiana terminu zlecenia z harmonogramu (DnD); Kierownik / Dyrektor. */
+router.patch(
+  '/:id/plan',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskPlanPatchSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    if (!isDyrektor(req.user) && !isKierownik(req.user)) {
+      return res.status(403).json({ error: 'Tylko kierownik lub dyrektor może zmieniać harmonogram.' });
+    }
+    try {
+      const taskId = Number(req.params.id);
+      const r = await pool.query(
+        `SELECT id, status, ekipa_id, czas_planowany_godziny FROM tasks WHERE id = $1`,
+        [taskId]
+      );
+      if (!r.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+      const row = r.rows[0];
+      const st = row.status;
+      if (st === 'Zakonczone' || st === 'Anulowane') {
+        return res.status(400).json({ error: 'Nie można przesunąć zakończonego lub anulowanego zlecenia.' });
+      }
+      const teamId = row.ekipa_id != null ? Number(row.ekipa_id) : null;
+      if (teamId) {
+        const planDay = String(req.body.data_planowana).slice(0, 10);
+        const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
+        const d = new Date(req.body.data_planowana);
+        const startMin = d.getHours() * 60 + d.getMinutes();
+        const durMin = Math.max(15, Math.round(Number(row.czas_planowany_godziny || 2) * 60));
+        if (planRangeConflicts(busyRanges, startMin, durMin)) {
+          return res.status(409).json({
+            error:
+              'Konflikt terminu: ekipa ma już zaplanowane zlecenie lub aktywną rezerwację w tym przedziale.',
+            code: 'TASK_PLAN_CONFLICT',
+          });
+        }
+      }
+      await pool.query(`UPDATE tasks SET data_planowana = $1::timestamptz, updated_at = NOW() WHERE id = $2`, [
+        req.body.data_planowana,
+        taskId,
+      ]);
+      res.json({ message: 'Plan zaktualizowany' });
+    } catch (err) {
+      logger.error('tasks.planPatch', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
 router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
   try {
     const result = await pool.query(
@@ -633,22 +710,13 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
       row.extra_work = [];
     }
     const tid = req.params.id;
-    const [poR, prR] = await Promise.all([
-      pool.query(
-        `SELECT 1 FROM photos WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('po', 'after') LIMIT 1`,
-        [tid]
-      ),
-      pool.query(
-        `SELECT 1 FROM photos WHERE task_id = $1 AND LOWER(TRIM(COALESCE(typ, ''))) IN ('przed', 'before', 'checkin') LIMIT 1`,
-        [tid]
-      ),
-    ]);
+    const { po: poCount, przed: prCount } = await countTaskFinishPhotos(pool, tid);
     row.finish_requirements = {
       require_po_photo: finishRequirePoPhoto(),
       require_przed_photo: finishRequirePrzedPhoto(),
       require_material_usage: finishRequireMaterialUsage(),
-      has_po_photo: !!poR.rows[0],
-      has_przed_photo: !!prR.rows[0],
+      has_po_photo: poCount >= FINISH_PHOTO_MIN.po,
+      has_przed_photo: prCount >= FINISH_PHOTO_MIN.przed,
     };
     res.json(row);
   } catch (err) {
@@ -659,6 +727,9 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
 
 router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskUpdateSchema), requireTaskAccess, async (req, res) => {
   try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const {
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
@@ -713,7 +784,27 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
 
 router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskAssignSchema), requireTaskAccess, async (req, res) => {
   try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { ekipa_id } = req.body;
+    if (!isDyrektor(req.user)) {
+      const access = await pool.query(
+        `SELECT t.oddzial_id AS task_oddzial_id, te.oddzial_id AS team_oddzial_id
+         FROM tasks t
+         LEFT JOIN teams te ON te.id = $1
+         WHERE t.id = $2`,
+        [toNum(ekipa_id), req.params.id]
+      );
+      const row = access.rows[0];
+      if (
+        !row ||
+        Number(row.task_oddzial_id) !== Number(req.user.oddzial_id) ||
+        Number(row.team_oddzial_id) !== Number(req.user.oddzial_id)
+      ) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+    }
     await pool.query(
       "UPDATE tasks SET ekipa_id = $1, status = 'Zaplanowane' WHERE id = $2",
       [toNum(ekipa_id), req.params.id]
@@ -726,6 +817,9 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
 });
 
 router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStatusSchema), requireTaskAccess, async (req, res) => {
+  if (!canManageTaskBackoffice(req.user)) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
   const taskId = Number(req.params.id);
   const client = await pool.connect();
   try {
@@ -913,14 +1007,23 @@ router.post(
       }
       if (task.status === 'Zakonczone') {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Zlecenie już zakończone', code: VALIDATION_FAILED });
+        return res.status(400).json({
+          error: req.t('errors.tasks.taskAlreadyFinished'),
+          code: VALIDATION_FAILED,
+          reason: 'TASK_ALREADY_FINISHED',
+          requestId: req.requestId,
+        });
       }
       const payment = req.body.payment;
       if (isTeamScoped(req.user)) {
         const payErr = validateClientPayment(payment, { requireAll: true });
         if (payErr.length) {
           await client.query('ROLLBACK');
-          return res.status(400).json({ error: payErr.join('; '), code: 'PAYMENT_REQUIRED' });
+          return res.status(400).json({
+            error: payErr.join('; '),
+            code: 'PAYMENT_REQUIRED',
+            requestId: req.requestId,
+          });
         }
       }
       if (isTeamScoped(req.user)) {
@@ -964,8 +1067,9 @@ router.post(
       if (!wl.rows[0]) {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: 'Brak aktywnego wpisu czasu pracy — użyj START przed zakończeniem.',
+          error: req.t('errors.tasks.finishNoActiveWorkLog'),
           code: VALIDATION_FAILED,
+          requestId: req.requestId,
         });
       }
       const work_log_id = wl.rows[0].id;
@@ -981,6 +1085,14 @@ router.post(
         net = Number.isFinite(grossVal) && grossVal > 0 ? grossVal : 0;
       }
       if (isTeamScoped(req.user) && payment) {
+        if (isCashCollectionNoteMissing(payment, grossVal, notatki)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: req.tv('errors.tasks.paymentNoteRequiredOverPct', { pct: CASH_COLLECTION_NOTE_PCT }),
+            code: 'PAYMENT_NOTE_REQUIRED_OVER_5_PCT',
+            requestId: req.requestId,
+          });
+        }
         await client.query(
           `INSERT INTO task_client_payments (
             task_id, forma_platnosc, kwota_odebrana, faktura_vat, nip, notatki, recorded_by
@@ -1067,6 +1179,16 @@ router.post(
           [task.wyceniajacy_id, monthKey, net]
         );
       }
+      // F3.10/F11.6: wycenione, ale bez akceptacji klienta przed finish -> nie wchodzi do rozliczeń.
+      await client.query(
+        `UPDATE task_extra_work
+         SET status = 'Wyceniona_Bez_Akceptacji',
+             rejected_at = NOW(),
+             rejected_by = COALESCE(rejected_by, $2),
+             rejection_reason = COALESCE(rejection_reason, 'AUTO: finish zlecenia bez akceptacji klienta')
+         WHERE task_id = $1 AND status = 'Wycenione'`,
+        [taskId, req.user.id]
+      );
       await client.query('COMMIT');
       try {
         await tryAutoTeamDayCloseAfterTaskFinish(pool, taskId);
@@ -1247,6 +1369,37 @@ router.post(
       res.status(500).json({ error: req.t('errors.http.serverError') });
     } finally {
       client.release();
+    }
+  }
+);
+
+router.post(
+  '/:id/extra-work/:ewId/reject',
+  authMiddleware,
+  validateParams(ewIdParamSchema),
+  validateBody(extraWorkRejectSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    if (!isTeamScoped(req.user)) {
+      return res.status(403).json({ error: 'Odrzucenie z terenu — brygadzista / pomocnik' });
+    }
+    try {
+      const reason = req.body.reason ? String(req.body.reason).slice(0, 500) : null;
+      const { rows } = await pool.query(
+        `UPDATE task_extra_work
+         SET status = 'Wyceniona_Bez_Akceptacji',
+             rejected_at = NOW(),
+             rejected_by = $1,
+             rejection_reason = $2
+         WHERE id = $3 AND task_id = $4 AND status = 'Wycenione'
+         RETURNING *`,
+        [req.user.id, reason, req.params.ewId, req.params.id]
+      );
+      if (!rows[0]) return res.status(400).json({ error: 'Praca musi być w statusie Wycenione' });
+      res.json(rows[0]);
+    } catch (e) {
+      logger.error('tasks.extra-work.reject', { message: e.message });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   }
 );

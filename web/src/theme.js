@@ -1,19 +1,19 @@
 // ARBOR-OS — ciemny motyw: głębokie zielenie + akcent szmaragd (spójne z index.css)
 export const COLORS = {
-  bg:          '#060908',
-  bgCard:      '#0f1512',
-  bgCard2:     '#141b17',
-  bgAlt:       '#080b09',
-  sidebar:     '#070b09',
+  bg:          '#07100c',
+  bgCard:      '#101b13',
+  bgCard2:     '#142219',
+  bgAlt:       '#050906',
+  sidebar:     '#06110b',
 
-  accent:      '#5eea9f',
-  accentDark:  '#34d399',
-  accentLight: '#86efac',
-  accentBg:    'rgba(94,234,159,0.1)',
+  accent:      '#9bd957',
+  accentDark:  '#5fa832',
+  accentLight: '#c7f08d',
+  accentBg:    'rgba(155,217,87,0.12)',
 
-  text:        '#eef7f1',
-  textSub:     '#c0cdc6',
-  textMuted:   '#8a9b90',
+  text:        '#f1f8ee',
+  textSub:     '#cbd8c4',
+  textMuted:   '#91a38d',
   white:       '#FFFFFF',
 
   success:     '#34d399',
@@ -28,15 +28,15 @@ export const COLORS = {
   purpleBg:    'rgba(148,163,184,0.12)',
 
   border:      'rgba(255,255,255,0.09)',
-  borderLight: 'rgba(94,234,159,0.22)',
+  borderLight: 'rgba(155,217,87,0.28)',
   shadow:      'rgba(0,0,0,0.72)',
 
-  primary:        '#5eea9f',
-  primaryDark:    '#34d399',
-  primaryLight:   '#86efac',
-  primaryVeryLight:'rgba(94,234,159,0.1)',
-  primaryBorder:  'rgba(94,234,159,0.22)',
-  secondary:      '#070b09',
+  primary:        '#9bd957',
+  primaryDark:    '#5fa832',
+  primaryLight:   '#c7f08d',
+  primaryVeryLight:'rgba(155,217,87,0.12)',
+  primaryBorder:  'rgba(155,217,87,0.28)',
+  secondary:      '#06110b',
 };
 
 export const SHADOWS = {
@@ -47,7 +47,10 @@ export const SHADOWS = {
 
 export const getRolaColor = (rola) => {
   const map = {
+    'Prezes':                      '#eab308',
     'Dyrektor':                    '#f59e0b',
+    'Dyrektor Sprzedazy':           '#fb7185',
+    'Dyrektor Sprzedaży':           '#fb7185',
     'Administrator':               '#fbbf24',
     'Kierownik':                   '#38bdf8',
     'Brygadzista':                 '#34d399',
@@ -62,7 +65,9 @@ export const getRolaColor = (rola) => {
 
 // Wszystkie dostępne role (do dropdownów)
 export const WSZYSTKIE_ROLE = [
+  { value: 'Prezes',                     label: 'Prezes',                     poziom: 11 },
   { value: 'Dyrektor',                   label: 'Dyrektor',                   poziom: 10 },
+  { value: 'Dyrektor Sprzedaży',          label: 'Dyrektor sprzedaży',          poziom: 8  },
   { value: 'Administrator',              label: 'Administrator',              poziom: 9  },
   { value: 'Kierownik',                  label: 'Kierownik',                  poziom: 5  },
   { value: 'Brygadzista',               label: 'Brygadzista',               poziom: 3  },

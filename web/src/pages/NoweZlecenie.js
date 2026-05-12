@@ -93,7 +93,7 @@ export default function NoweZlecenie() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const isDyrektor = user?.rola === 'Dyrektor' || user?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(user?.rola);
   const ekipyFiltered = form.oddzial_id
     ? ekipy.filter(e => e.oddzial_id === parseInt(form.oddzial_id))
     : ekipy;

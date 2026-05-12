@@ -71,15 +71,15 @@ export default function Ekipy() {
     const parsed = getLocalStorageJson('user');
     if (parsed) {
       setCurrentUser(parsed);
-      if (parsed.rola !== 'Dyrektor' && parsed.rola !== 'Administrator') {
+      if (!['Prezes', 'Dyrektor'].includes(parsed.rola)) {
         setFiltrOddzial(parsed.oddzial_id?.toString() || '');
       }
     }
     reloadAll();
   }, [navigate, reloadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
-  const canEdit = !currentUser || (currentUser.rola !== 'Brygadzista' && currentUser.rola !== 'Pomocnik');
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
+  const canEdit = isDyrektor || currentUser?.rola === 'Kierownik';
 
   const loadEkipaDetail = useCallback(async (id) => {
     try {
@@ -239,7 +239,7 @@ export default function Ekipy() {
     return uzytkownicy.filter(
       (u) =>
         u.aktywny &&
-        !['Brygadzista', 'Kierownik', 'Dyrektor', 'Administrator'].includes(u.rola) &&
+        !['Brygadzista', 'Kierownik', 'Prezes', 'Dyrektor', 'Administrator'].includes(u.rola) &&
         !assignedIds.has(u.id)
     );
   }, [uzytkownicy, ekipaDetail]);
