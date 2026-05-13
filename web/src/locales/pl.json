@@ -48,11 +48,12 @@
     "logoutAria": "Wyloguj"
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Pulpit",
     "orders": "Zlecenia",
     "schedule": "Harmonogram",
     "quotes": "Wyceny",
-    "approveQuotes": "Zatwierdź wyceny (w kalendarzu wycen)",
+    "approveQuotes": "Zatwierdzanie wycen",
+    "calendarBlocks": "Blokady kalendarza",
     "clients": "Klienci",
     "crm": "CRM (klienci i sprzedaż)",
     "inspections": "Oględziny",
@@ -71,7 +72,16 @@
     "fieldQuotes": "Wycena u klienta (M1)",
     "payrollTeams": "Rozliczenia ekip",
     "warehouse": "Magazyn",
-    "equipmentReservations": "Rezerwacje sprzętu"
+    "equipmentReservations": "Rezerwacje sprzętu",
+    "dailyReport": "Raport dzienny",
+    "mobileReportsKpi": "Raporty mobilne (KPI)",
+    "missionToday": "Misja dnia",
+    "kpiWeek": "Liga brygad",
+    "autoplanDay": "Autoplan dnia",
+    "estimatorHub": "Hub wyceniającego",
+    "profile": "Profil",
+    "todos": "Zadania",
+    "hrDocuments": "Kadry / Dokumenty"
   },
   "payrollM11": {
     "title": "Rozliczenia ekip (M11)",
@@ -345,8 +355,167 @@
     "exportCsv": "Eksport CSV",
     "exportXlsx": "Eksport Excel"
   },
+  "calendarBlocks": {
+    "title": "Blokady kalendarza",
+    "hint": "Zdefiniuj zakresy dat, w których nie planujesz nowych wycen (zapis lokalnie w tej przeglądarce — ten sam mechanizm co w aplikacji mobilnej).",
+    "empty": "Brak zdefiniowanych blokad",
+    "addTitle": "Nowy zakres blokady",
+    "from": "Od (RRRR-MM-DD)",
+    "to": "Do (RRRR-MM-DD)",
+    "label": "Opis",
+    "labelPh": "np. święto, urlop",
+    "save": "Zapisz",
+    "unnamed": "Blokada",
+    "badRange": "Nieprawidłowy format dat (RRRR-MM-DD).",
+    "rangeOrder": "Data „od” nie może być późniejsza niż „do”.",
+    "blockedWarning": "Wybrany dzień jest zablokowany — zmień datę realizacji lub usuń blokadę.",
+    "blockedSubmit": "Ta data realizacji jest zablokowana w „Blokady kalendarza”. Wybierz inną datę lub usuń blokadę.",
+    "legend": "Blokada"
+  },
+  "approve": {
+    "pageTitle": "Zatwierdzanie wycen",
+    "accessDeniedTitle": "Brak dostępu",
+    "accessDeniedBody": "Ta strona jest dostępna dla kierownictwa i specjalisty.",
+    "pickTeam": "Wybierz ekipę przed zatwierdzeniem",
+    "approveFail": "Nie udało się zatwierdzić",
+    "approvedTitle": "Zatwierdzono",
+    "approvedBody": "Wycena została zatwierdzona.",
+    "serverError": "Błąd połączenia z serwerem",
+    "rejectFail": "Nie udało się odrzucić",
+    "rejectedTitle": "Odrzucono",
+    "rejectedBody": "Wycena została odrzucona.",
+    "modalApproveTitle": "Zatwierdź wycenę",
+    "label": {
+      "team": "Ekipa",
+      "orderValue": "Wartość zlecenia (PLN)",
+      "doneDate": "Data realizacji",
+      "hour": "Godzina",
+      "managerNotes": "Uwagi kierownika"
+    },
+    "teamRequired": "(obowiązkowe)",
+    "btn": {
+      "reject": "Odrzuć",
+      "approveShort": "Zatwierdź",
+      "approveCreate": "Zatwierdź → utwórz zlecenie"
+    },
+    "rejectModalTitle": "Odrzuć wycenę",
+    "rejectReasonLabel": "Powód odrzucenia (opcjonalny)",
+    "rejectPlaceholder": "Wpisz powód…",
+    "rejectConfirm": "Odrzuć wycenę",
+    "card": {
+      "unknownAddress": "Klient / adres"
+    },
+    "info": {
+      "estValue": "Wartość"
+    },
+    "tab": {
+      "pending": "Oczekuje",
+      "reservation": "Rezerwacja",
+      "specialist": "Do specjalisty",
+      "approved": "Zatwierdzono",
+      "rejected": "Odrzucono"
+    },
+    "empty": {
+      "pending": "Brak wycen w tym statusie",
+      "reservation": "Brak rezerwacji do zatwierdzenia",
+      "specialist": "Brak pozycji do specjalisty",
+      "approved": "Brak zatwierdzonych w tym widoku",
+      "rejected": "Brak odrzuconych"
+    },
+    "placeholder": {
+      "notes": "Opcjonalne uwagi…"
+    }
+  },
+  "draw": {
+    "pageTitle": "Rysunek na zdjęciu",
+    "pickImage": "Wybierz zdjęcie z dysku",
+    "noTargetHint": "Otwórz ten widok z modułu wyceny (link z parametrami wycenaId lub quotationId+itemId), aby zapisać rysunek na serwerze.",
+    "loadError": "Nie udało się wczytać obrazu (CORS lub nieprawidłowy adres). Wybierz plik z dysku.",
+    "eraser": "Gumka",
+    "btn": {
+      "clear": "Wyczyść rysunek",
+      "save": "Zapisz na serwerze"
+    },
+    "alert": {
+      "reloadFail": "Nie udało się przywrócić zdjęcia.",
+      "addedBody": "Zdjęcie z rysunkiem zapisane.",
+      "serverFail": "Zapis na serwerze nie powiódł się.",
+      "localBody": "Brak powiązania z wyceną — dodaj parametr wycenaId lub quotationId+itemId w adresie."
+    }
+  },
+  "fieldQuotesSketch": {
+    "sectionTitle": "Obiekty — szkic na zdjęciu",
+    "hint": "Dla każdej pozycji otwórz rysunek, wybierz zdjęcie z dysku, dodaj adnotacje i zapisz (jak w aplikacji mobilnej: „Adnotacje”).",
+    "openDraw": "Adnotacje (rysuj)",
+    "noItems": "Brak pozycji (obiektów) przy tej wycenie. Pozycje dodaje wyceniający w terenie w aplikacji mobilnej.",
+    "listLink": "Szkic (obiekty)",
+    "loadItemsError": "Nie udało się wczytać pozycji wyceny."
+  },
+  "inspectionDoc": {
+    "back": "Wróć do oględzin",
+    "noQuoteTitle": "Brak wyceny",
+    "noQuoteBody": "Najpierw utwórz/podepnij wycenę, aby dodać zdjęcie z edytorem.",
+    "noQuoteInline": "Oględziny nie mają jeszcze podpiętej wyceny. Zdjęcia z edytorem wymagają przypisanej wyceny.",
+    "screenTitle": "Dokumentacja oględzin",
+    "subtitle": "Oględziny #{{id}}",
+    "photoCardTitle": "Zdjęcia z edytorem graficznym",
+    "photoCardBody": "Wybierz zdjęcie i przejdź do rysowania zakresu cięcia (drzewa, krzewy).",
+    "photoBtn": "Dodaj zdjęcie i rysuj",
+    "videoCardTitle": "Nagranie wideo",
+    "videoCardBody": "Dodaj krótkie wideo z terenu (jak w aplikacji mobilnej).",
+    "videoBtn": "Dodaj wideo",
+    "videoOfflineHint": "W przeglądarce wideo wysyła się od razu — przy problemach z siecią sprawdź połączenie.",
+    "historyTitle": "Ostatnie akcje",
+    "historyEmpty": "Brak akcji w tej sesji.",
+    "videoSent": "Wideo zapisane przy oględzinach",
+    "videoQueued": "Wideo oczekuje w kolejce (tylko mobile)"
+  },
+  "hub": {
+    "title": "Hub wyceniającego",
+    "subtitle": "KPI zaplanowanych oględzin na dziś i szybkie przejścia — odpowiednik widoku mobilnego.",
+    "platinumBar": "Platinum Estimator Command Hub",
+    "loading": "Ładowanie…",
+    "loadError": "Nie udało się wczytać listy oględzin.",
+    "quickActions": "Szybkie akcje",
+    "action": {
+      "inspectionList": "Lista oględzin",
+      "quoteCalendar": "Kalendarz wycen",
+      "newQuote": "Nowa wycena",
+      "fieldQuotes": "Wyceny terenowe (M1)",
+      "estimatorPay": "Rozliczenie wyceniających",
+      "approveQuotes": "Zatwierdzanie wycen"
+    },
+    "kpi": {
+      "today": "Oględziny dziś",
+      "left": "Pozostało",
+      "done": "Zakończone"
+    },
+    "workflowTitle": "Workflow oględzin",
+    "flow1": "1. Kontakt od klienta — wpis oględzin (bez wyceny w polu).",
+    "flow2": "2. Termin wizyty i przypisanie brygadzisty przy planowaniu.",
+    "flow3": "3. Na miejscu dokumentacja foto/wideo i rysunek w edytorze.",
+    "flow4": "4. Wynik trafia do wyceny i harmonogramu realizacji.",
+    "targetBelow": "Poniżej typowego celu liczby wizyt (ok. 6+)",
+    "targetAbove": "Powyżej górnego zakresu (ok. 15) — warto ustalić priorytety.",
+    "targetOk": "Liczba wizyt mieści się w sensownym przedziale (ok. 6–15)."
+  },
+  "profile": {
+    "contactTitle": "Dane kontaktowe",
+    "salaryTitle": "Warunki wynagrodzenia",
+    "salaryCrew": "{{pct}}% od zlecenia",
+    "salaryHourly": "{{rate}} PLN/h",
+    "missingEmail": "Brak adresu e-mail",
+    "missingPhone": "Brak numeru telefonu",
+    "loginLabel": "Login: {{login}}",
+    "themeTitle": "Motyw aplikacji",
+    "languageTitle": "Język interfejsu",
+    "logout": "Wyloguj się",
+    "logoutConfirm": "Czy na pewno chcesz się wylogować?"
+  },
   "taskStatus": {
     "Nowe": "Nowe",
+    "Wycena_Terenowa": "Oględziny / wycena",
+    "Do_Zatwierdzenia": "Do zatwierdzenia",
     "Zaplanowane": "Zaplanowane",
     "W_Realizacji": "W realizacji",
     "Zakonczone": "Zakończone",
@@ -392,15 +561,10 @@
   "pages": {
     "warehouse": {
       "title": "Magazyn",
-      "subtitle": "Stan zapisywany lokalnie w przeglądarce (jak w aplikacji mobilnej — ten sam klucz danych).",
-      "hint": "Licznik sztuk i próg minimalny. Wspólna lista zespołowa wymaga późniejszej synchronizacji z serwerem.",
-      "qty": "Ilość",
-      "minShort": "min",
-      "newPlaceholder": "Nazwa nowej pozycji",
-      "add": "Dodaj",
-      "removeBody": "Pozycja zostanie usunięta z magazynu w tej przeglądarce.",
-      "lowStock": "Poniżej minimum",
-      "confirmRemove": "Usuń"
+      "subtitle": "Sprzęt ewidencjonowany w systemie OS (dane z serwera).",
+      "loading": "Ładowanie…",
+      "empty": "Brak sprzętu",
+      "errorLoad": "Nie udało się wczytać sprzętu"
     },
     "equipmentReservations": {
       "title": "Rezerwacje sprzętu",
@@ -435,6 +599,192 @@
       "notMigrated": "Uruchom migrację bazy (tabela equipment_reservations), potem odśwież stronę.",
       "selectEquipment": "— wybierz sprzęt —",
       "selectTeam": "— wybierz ekipę —"
+    },
+    "mobileReports": {
+      "title": "Raporty mobilne (KPI)",
+      "subtitle": "Skrót statystyk jak w aplikacji mobilnej — ostatnie 365 dni, zakres wg oddziału.",
+      "loading": "Ładowanie…",
+      "refresh": "Odśwież",
+      "errorLoad": "Nie udało się wczytać danych",
+      "kpiTasks": "Zlecenia",
+      "kpiDone": "Zakończone",
+      "kpiHours": "Godziny (logi)",
+      "kpiMargin": "Marża %",
+      "summary": "Podsumowanie finansowe",
+      "revenue": "Przychód (wartości zleceń)",
+      "costs": "Koszty (rozliczenie zleceń)",
+      "profit": "Wynik"
+    },
+    "kpiWeek": {
+      "title": "Liga brygad",
+      "subtitle": "Ranking najlepszych ekip tygodnia, miesiąca, półrocza i roku.",
+      "hint": "Dane w przeglądarce: ten sam plik co aplikacja mobilna tylko przy wspólnej przeglądarce / imporcie.",
+      "range": "Początek tygodnia (pon., UTC)",
+      "entries": "Wpisy",
+      "list": "Ostatnie wpisy (tydzień)",
+      "empty": "Brak historii w tym tygodniu."
+    },
+    "missionToday": {
+      "title": "Misja dnia",
+      "subtitle": "Dzisiejsze zadania, postęp i skróty — jak w mobile.",
+      "errorLoad": "Nie udało się wczytać danych.",
+      "kpi": {
+        "tasksToday": "Dziś (plan)",
+        "inProgress": "W realizacji",
+        "urgent": "Pilne",
+        "dayProgress": "Postęp dnia"
+      },
+      "section": {
+        "dayProgress": "Postęp dnia",
+        "now": "Teraz w terenie",
+        "todayPlan": "Plan dnia",
+        "quickActions": "Szybkie akcje"
+      },
+      "progress": {
+        "completed": "Ukończono {{done}} / {{total}}"
+      },
+      "eta": {
+        "title": "Szacowany czas do domknięcia",
+        "zero": "0 min",
+        "dayClosed": "Brawo — baza zadań na dziś domknięta.",
+        "inReach": "Jesteś w zasięgu dnia — zadania domkną się płynnie.",
+        "midDay": "Środek dnia: pilnuj priorytetów i domykania statusów.",
+        "heavyLoad": "Wysoki ładunek: licz dziś tylko na to, co realnie dziś.",
+        "remainingTasks": "Pozostało zadań: {{count}}"
+      },
+      "timeMin": "{{m}} min",
+      "timeH": "{{h}} h",
+      "timeHm": "{{h}} h {{m}} min",
+      "teamDayErr": "Nie udało się przeliczyć dnia ekipy.",
+      "teamDayOk": "Przeliczono dzień ekipy.",
+      "teamDay": {
+        "cashTitle": "Kasa dnia (podgląd)",
+        "cashSub": "Formy płatności i sumy z raportu dnia (Brygadzista / Pomocnik).",
+        "cashEmpty": "Brak zapisów kasy w podglądzie.",
+        "cashOther": "Inna",
+        "cashTotal": "Razem:",
+        "cashIssues": "Uwagi / problemy: {{count}}",
+        "cashUnavailable": "Podgląd kasy niedostępny.",
+        "title": "Przeliczenie dnia ekipy",
+        "sub": "Po zamknięciu wszystkich dzisiejszych zadań możesz przeliczyć dzień.",
+        "hasReport": "Jest raport dnia #{{id}}.",
+        "noReport": "Brak raportu dnia — możesz uruchomić przeliczenie.",
+        "btn": "Przelicz dzień ekipy",
+        "busy": "Przetwarzanie…"
+      },
+      "emptyActive": "Brak aktywnych zadań w statusie „W realizacji”.",
+      "emptyToday": "Brak zadań zaplanowanych na dziś.",
+      "taskFallback": "Zlecenie #{{id}}",
+      "noAddress": "Brak adresu",
+      "action": {
+        "orders": "Zlecenia",
+        "dailyReport": "Raport dzienny",
+        "schedule": "Harmonogram",
+        "newOrder": "Nowe zlecenie"
+      }
+    },
+    "autoplanDay": {
+      "title": "Autoplan dnia",
+      "subtitle": "Propozycje przypisań ekip (heurystyka jak w mobile).",
+      "hint": "Tryby: oszczędny / zbalansowany / szybki. Zapis przez PUT `/tasks/:id` — bez kolejki offline (bledy sieci liczone jako „queued” w historii).",
+      "reminderWebHint": "Powiadomienia dzienne jak w aplikacji mobilnej nie są dostępne w przeglądarce — użyj przypomnienia systemowego lub kalendarza.",
+      "linkKpiWeek": "KPI tygodnia (historia)",
+      "errorLoad": "Nie udało się wczytać zleceń lub ekip.",
+      "rulesTitle": "Reguły lokalne",
+      "rulesMax": "Max zadań na ekipę",
+      "rulesDeny": "Lista miast zablokowanych (po przecinku)",
+      "rulesSave": "Zapisz reguły",
+      "rulesSaved": "Zapisano reguły i odświeżono plan.",
+      "mode": {
+        "cost": "Oszczędny",
+        "balanced": "Zbalansowany",
+        "fast": "Szybki"
+      },
+      "bestMode": "Rekomendowany tryb wg wyniku: {{mode}}",
+      "applyCta": "Zastosuj aktywny plan",
+      "rollbackCta": "Cofnij ostatnie zastosowanie",
+      "previewChanges": "Zmian do zapisania: {{count}}",
+      "applyNothing": "Brak pozycji do zapisania.",
+      "applyConfirm": "Zastosować przypisania dla {{count}} zleceń?",
+      "applyResultBody": "Zapisano online: {{ok}}, błędy / offline: {{queued}}.",
+      "roleGate": "Brak uprawnień do zapisu planu (wymagany Kierownik lub wyżej; Specjalista/Brygadzista tylko przy fladze zdalnej).",
+      "rollbackNothing": "Brak zmian do cofnięcia.",
+      "rollbackConfirm": "Cofnąć {{count}} ostatnich zmian?",
+      "rollbackResultBody": "Przywrócono: {{ok}}, błędy: {{queued}}.",
+      "historyTitle": "Historia (ostatnie)",
+      "historyEmpty": "Brak wpisów historii.",
+      "exportCta": "Pobierz CSV",
+      "exportDone": "Pobrano plik i skopiowano CSV do schowka (jeśli przeglądarka zezwala).",
+      "compareTitle": "Porównanie trybów",
+      "empty": "Brak zadań do zaplanowania.",
+      "tableTitle": "Propozycje przypisań",
+      "col": {
+        "client": "Klient",
+        "city": "Miasto",
+        "suggested": "Ekipa",
+        "reason": "Uzasadnienie"
+      },
+      "kpi": {
+        "tasks": "Zadania",
+        "score": "Wynik"
+      },
+      "riskTitle": "Ryzyko dnia (z dzisiejszej historii)",
+      "risk": {
+        "high": "WYSOKIE",
+        "medium": "ŚREDNIE",
+        "low": "NISKIE"
+      },
+      "risk.reasonOffline": "Główna przyczyna: wysoki udział błędów / kolejki ({{value}}).",
+      "risk.reasonRollback": "Główna przyczyna: rollbacki ({{value}}).",
+      "dailySummaryApply": "Apply",
+      "dailySummaryRollback": "Rollback",
+      "dailySummaryOk": "Online OK",
+      "dailySummaryQueued": "Błędy / kolejka",
+      "labels": {
+        "unknownClient": "Klient nieznany",
+        "unknownCity": "Miasto nieznane",
+        "noTeamAvailable": "Brak dostępnej ekipy",
+        "reasonNoTeam": "Brak dostępnych ekip",
+        "reasonCityBlocked": "Miasto na liście zablokowanych",
+        "reasonPriority": "Priorytet",
+        "reasonLoad": "Równoważenie obciążenia",
+        "reasonOverload": "Przekroczony limit zadań na ekipę — wymuszone przypisanie",
+        "reasonCityMatch": "Dopasowanie miasta",
+        "reasonCostMode": "Tryb oszczędny",
+        "reasonFastMode": "Tryb szybki"
+      }
+    },
+    "dailyReport": {
+      "title": "Raport dzienny",
+      "subtitle": "Zlecenia na wybrany dzień, czasy, materiały — zapis przez API jak w mobile.",
+      "loading": "Ładowanie…",
+      "reportDate": "Data raportu",
+      "status": "Status",
+      "tasksSection": "Zlecenia (plan na ten dzień)",
+      "thTask": "Zlecenie",
+      "thMinutes": "Czas (min)",
+      "thNotes": "Uwagi",
+      "noTasksDay": "Brak zleceń zaplanowanych na ten dzień.",
+      "materials": "Materiały",
+      "matName": "Nazwa",
+      "matQty": "Ilość",
+      "matUnit": "Jedn.",
+      "matCost": "Koszt / j.",
+      "addMaterial": "Dodaj materiał",
+      "workDescription": "Opis pracy",
+      "signatureUrl": "URL podpisu (obraz)",
+      "signatureHint": "Wklej adres obrazu podpisu (np. z uploadu). Wymagany przed wysłaniem e-mailem.",
+      "save": "Zapisz raport",
+      "saving": "Zapisywanie…",
+      "send": "Wyślij do kierownictwa",
+      "sending": "Wysyłanie…",
+      "saved": "Zapisano.",
+      "sent": "Wysłano.",
+      "saveFirst": "Najpierw zapisz raport (roboczy).",
+      "needSignature": "Uzupełnij URL podpisu i zapisz raport.",
+      "errorLoad": "Nie udało się wczytać danych",
+      "errorSave": "Nie udało się zapisać",
+      "errorSend": "Nie udało się wysłać"
     },
     "flota": {
       "title": "Flota i sprzęt",
