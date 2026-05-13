@@ -15,7 +15,9 @@ import {
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
+import { isTaskClosed, isTaskDone, isTaskInProgress } from '../constants/task-workflow';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
@@ -30,8 +32,6 @@ type TaskItem = {
   data_planowana?: string;
   godzina_rozpoczecia?: string;
 };
-
-const STATUS_ACTIVE = new Set(['W_Realizacji']);
 
 const isToday = (isoLike?: string) => {
   if (!isoLike) return false;
@@ -160,7 +160,7 @@ export default function MisjaDniaScreen() {
   );
 
   const activeNow = useMemo(
-    () => todayTasks.filter((task) => STATUS_ACTIVE.has(task.status ?? '')),
+    () => todayTasks.filter((task) => isTaskInProgress(task.status)),
     [todayTasks],
   );
 
@@ -171,7 +171,7 @@ export default function MisjaDniaScreen() {
 
   const completion = useMemo(() => {
     if (!todayTasks.length) return 0;
-    const done = todayTasks.filter((task) => task.status === 'Zakonczone').length;
+    const done = todayTasks.filter((task) => isTaskDone(task.status)).length;
     return Math.round((done / todayTasks.length) * 100);
   }, [todayTasks]);
 
@@ -204,14 +204,14 @@ export default function MisjaDniaScreen() {
   }, [fetchTeamDayReport, t]);
 
   const remainingToday = useMemo(
-    () => todayTasks.filter((task) => task.status !== 'Zakonczone'),
+    () => todayTasks.filter((task) => !isTaskClosed(task.status)),
     [todayTasks],
   );
 
   const etaMinutes = useMemo(() => {
     // Lekki heurystyczny model ETA: 75 min na aktywne, 95 min na pozostałe.
     return remainingToday.reduce((acc, task) => (
-      acc + (STATUS_ACTIVE.has(task.status ?? '') ? 75 : 95)
+      acc + (isTaskInProgress(task.status) ? 75 : 95)
     ), 0);
   }, [remainingToday]);
 
@@ -497,8 +497,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: t.border,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  refreshBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  refreshBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '800', color: t.headerText },
   subtitle: { fontSize: 12, color: t.headerSub },
   kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12 },
@@ -551,10 +551,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderRadius: 12,
     backgroundColor: t.surface,
     padding: 12,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.65,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.2,
+      radius: t.shadowRadius * 0.48,
+      offsetY: Math.max(2, t.shadowOffsetY - 1),
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginBottom: 10 },
   emptyText: { fontSize: 13, color: t.textMuted },

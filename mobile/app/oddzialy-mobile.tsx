@@ -8,10 +8,12 @@ import {
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
+import { isTaskInProgress, makeTaskStatusColorMap } from '../constants/task-workflow';
 
 export default function OddzialyScreen() {
   const { theme } = useTheme();
@@ -21,13 +23,7 @@ export default function OddzialyScreen() {
     Kierownik: theme.info,
     Brygadzista: theme.success,
   }), [theme]);
-  const statusKolorMap = useMemo(() => ({
-    Nowe: theme.info,
-    Zaplanowane: theme.info,
-    W_Realizacji: theme.warning,
-    Zakonczone: theme.success,
-    Anulowane: theme.danger,
-  }), [theme]);
+  const statusKolorMap = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
   const { t } = useLanguage();
   const guard = useOddzialFeatureGuard('/oddzialy-mobile');
   const [oddzialy, setOddzialy] = useState<any[]>([]);
@@ -76,7 +72,7 @@ export default function OddzialyScreen() {
         zlecenia: zlecenieOddzialu,
         brygadzisci: pracownicy.filter((u: any) => u.rola === 'Brygadzista').length,
         kierownicy: pracownicy.filter((u: any) => u.rola === 'Kierownik').length,
-        aktywneZlecenia: zlecenieOddzialu.filter((z: any) => z.status === 'W_Realizacji').length,
+        aktywneZlecenia: zlecenieOddzialu.filter((z: any) => isTaskInProgress(z.status)).length,
         przychodTotal: zlecenieOddzialu.reduce((s: number, z: any) => s + (parseFloat(z.wartosc_planowana) || 0), 0),
       });
     } catch {
@@ -129,10 +125,20 @@ export default function OddzialyScreen() {
         />
         <View style={S.header}>
           <TouchableOpacity onPress={() => { setSelected(null); setDetailData(null); }} style={S.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+            <Ionicons name="arrow-back" size={21} color={theme.accent} />
           </TouchableOpacity>
-          <Text style={S.headerTitle}>{selected.nazwa}</Text>
-          <View style={{ width: 36 }} />
+          <View style={S.headerIcon}>
+            <Ionicons name="business-outline" size={22} color={theme.accent} />
+          </View>
+          <View style={S.headerTextBox}>
+            <Text style={S.headerEyebrow}>Oddzial operacyjny</Text>
+            <Text style={S.headerTitle} numberOfLines={1}>{selected.nazwa}</Text>
+            <Text style={S.headerSub} numberOfLines={1}>{selected.miasto || 'Miasto nieustawione'}</Text>
+          </View>
+          <View style={S.headerCount}>
+            <Text style={S.headerCountValue}>{detailData?.pracownicy?.length ?? '-'}</Text>
+            <Text style={S.headerCountLabel}>ludzi</Text>
+          </View>
         </View>
 
         {loadingDetail ? (
@@ -245,10 +251,20 @@ export default function OddzialyScreen() {
       />
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>{t('branches.title')}</Text>
-        <Text style={S.headerCount}>{oddzialy.length}</Text>
+        <View style={S.headerIcon}>
+          <Ionicons name="business-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Mapa firmy</Text>
+          <Text style={S.headerTitle}>{t('branches.title')}</Text>
+          <Text style={S.headerSub}>Oddzialy, kierownicy i lokalne zespoly bez mieszania regionow.</Text>
+        </View>
+        <View style={S.headerCount}>
+          <Text style={S.headerCountValue}>{oddzialy.length}</Text>
+          <Text style={S.headerCountLabel}>oddz.</Text>
+        </View>
       </View>
 
       <ScrollView style={S.scroll}
@@ -261,28 +277,28 @@ export default function OddzialyScreen() {
         ) : oddzialy.map(o => (
           <TouchableOpacity key={o.id} style={S.card} onPress={() => loadDetail(o)}>
             <View style={S.cardLeft}>
-              <View style={[S.cardIconBox, { backgroundColor: theme.accent + '22' }]}>
+              <View style={S.cardIconBox}>
                 <Ionicons name="business" size={24} color={theme.accent} />
               </View>
             </View>
             <View style={S.cardBody}>
-              <Text style={S.cardNazwa}>{o.nazwa}</Text>
+              <Text style={S.cardNazwa} numberOfLines={1}>{o.nazwa}</Text>
               {o.miasto && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                <View style={S.cardMetaRow}>
                   <Ionicons name="location-outline" size={12} color={theme.textMuted} />
-                  <Text style={S.cardMiasto}>{o.miasto}</Text>
+                  <Text style={S.cardMiasto} numberOfLines={1}>{o.miasto}</Text>
                 </View>
               )}
               {o.kierownik_imie && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                <View style={S.cardMetaRow}>
                   <Ionicons name="person-outline" size={12} color={theme.textMuted} />
-                  <Text style={S.cardKierownik}>{o.kierownik_imie} {o.kierownik_nazwisko}</Text>
+                  <Text style={S.cardKierownik} numberOfLines={1}>{o.kierownik_imie} {o.kierownik_nazwisko}</Text>
                 </View>
               )}
               {o.telefon && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={S.cardMetaRow}>
                   <Ionicons name="call-outline" size={12} color={theme.accent} />
-                  <Text style={S.cardTel}>{o.telefon}</Text>
+                  <Text style={S.cardTel} numberOfLines={1}>{o.telefon}</Text>
                 </View>
               )}
             </View>
@@ -307,59 +323,147 @@ function Row({ label, value, theme }: { label: string; value: string; theme: The
 
 const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   scroll: { flex: 1 },
   header: {
-    backgroundColor: t.headerBg, paddingHorizontal: 16,
-    paddingTop: 56, paddingBottom: 14,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 18,
+    paddingBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.14,
+      radius: t.shadowRadius * 0.45,
+      offsetY: 3,
+      elevation: t.cardElevation + 1,
+    }),
   },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: t.headerText, fontSize: 18, fontWeight: '700', flex: 1, marginLeft: 8 },
-  headerCount: { color: t.textMuted, fontSize: 14 },
-  emptyTitle: { fontSize: 16, fontWeight: 'bold', color: t.text, marginTop: 12 },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTextBox: { flex: 1, minWidth: 0 },
+  headerEyebrow: {
+    color: t.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  headerTitle: { color: t.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
+  headerSub: { color: t.textSub, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  headerCount: {
+    minWidth: 58,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  headerCountValue: { color: t.accent, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  headerCountLabel: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
+  emptyTitle: { fontSize: 16, fontWeight: '900', color: t.text, marginTop: 12 },
   card: {
-    backgroundColor: t.cardBg, margin: 12, marginBottom: 0,
-    borderRadius: 14, padding: 16, elevation: 1,
+    backgroundColor: t.cardBg, marginHorizontal: 14, marginTop: 10,
+    borderRadius: 18, padding: 14,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.09,
+      radius: t.shadowRadius * 0.3,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   cardLeft: {},
-  cardIconBox: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cardBody: { flex: 1 },
-  cardNazwa: { fontSize: 16, fontWeight: 'bold', color: t.text, marginBottom: 4 },
-  cardMiasto: { fontSize: 13, color: t.textMuted },
-  cardKierownik: { fontSize: 13, color: t.textSub },
-  cardTel: { fontSize: 13, color: t.accent },
-  section: {
-    backgroundColor: t.cardBg, margin: 12, borderRadius: 14, padding: 16,
-    elevation: 1, borderWidth: 1, borderColor: t.cardBorder,
+  cardIconBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: t.border },
-  sectionTitle: { fontSize: 15, fontWeight: 'bold', color: t.text },
-  kpiRow: { flexDirection: 'row', paddingHorizontal: 12, gap: 8 },
+  cardBody: { flex: 1 },
+  cardNazwa: { fontSize: 16, fontWeight: '900', color: t.text, marginBottom: 6 },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+  },
+  cardMiasto: { fontSize: 12, color: t.textMuted, fontWeight: '800' },
+  cardKierownik: { fontSize: 12, color: t.textSub, fontWeight: '700' },
+  cardTel: { fontSize: 12, color: t.accent, fontWeight: '900' },
+  section: {
+    backgroundColor: t.cardBg, marginHorizontal: 14, marginTop: 10, borderRadius: 18, padding: 14,
+    borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.08,
+      radius: t.shadowRadius * 0.28,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
+  },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 9, borderBottomWidth: 1, borderBottomColor: t.border },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: t.text },
+  kpiRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 14, gap: 8 },
   kpi: {
-    flex: 1, backgroundColor: t.cardBg, borderRadius: 12, padding: 12,
-    alignItems: 'center', borderTopWidth: 3, elevation: 1,
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 74,
+    backgroundColor: t.cardBg,
+    borderRadius: 15,
+    padding: 10,
+    alignItems: 'center',
+    borderTopWidth: 3,
     borderWidth: 1, borderColor: t.cardBorder,
   },
-  kpiNum: { fontSize: 22, fontWeight: 'bold', marginBottom: 2 },
-  kpiLabel: { fontSize: 10, color: t.textMuted, textAlign: 'center' },
-  bigNum: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', paddingVertical: 8 },
+  kpiNum: { fontSize: 20, fontWeight: '900', marginBottom: 2, fontVariant: ['tabular-nums'] },
+  kpiLabel: { fontSize: 10, color: t.textMuted, textAlign: 'center', fontWeight: '800' },
+  bigNum: { fontSize: 28, fontWeight: '900', textAlign: 'center', paddingVertical: 8, fontVariant: ['tabular-nums'] },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border },
-  rowLabel: { fontSize: 14, color: t.textMuted },
-  rowValue: { fontSize: 14, fontWeight: '600', color: t.text, flex: 1, textAlign: 'right' },
-  personRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 14, fontWeight: 'bold' },
-  personNazwa: { fontSize: 14, fontWeight: '600', color: t.text },
-  personRola: { fontSize: 12, color: t.textMuted },
-  personTel: { fontSize: 12, color: t.accent },
-  zlecenieRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border },
+  rowLabel: { fontSize: 14, color: t.textMuted, fontWeight: '700' },
+  rowValue: { fontSize: 14, fontWeight: '800', color: t.text, flex: 1, textAlign: 'right' },
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: t.border },
+  avatar: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 14, fontWeight: '900' },
+  personNazwa: { fontSize: 14, fontWeight: '900', color: t.text },
+  personRola: { fontSize: 12, color: t.textMuted, fontWeight: '700' },
+  personTel: { fontSize: 12, color: t.accent, fontWeight: '800' },
+  zlecenieRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: t.border },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
-  zlecenieKlient: { fontSize: 14, fontWeight: '600', color: t.text },
-  zlecenieAdres: { fontSize: 12, color: t.textMuted },
-  zlecenieWartosc: { fontSize: 12, fontWeight: '600' },
+  zlecenieKlient: { fontSize: 14, fontWeight: '900', color: t.text },
+  zlecenieAdres: { fontSize: 12, color: t.textMuted, fontWeight: '700' },
+  zlecenieWartosc: { fontSize: 12, fontWeight: '900' },
   emptyText: { color: t.textMuted, textAlign: 'center', padding: 16 },
 });

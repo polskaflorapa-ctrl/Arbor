@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 import { isPrivacyLockEnabled, setPrivacyLockEnabled } from '../components/app-privacy-lock';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
+import { shadowStyle } from '../constants/elevation';
 import { THEME_LABELS, ThemeName, themes, getRolaColor } from '../constants/theme';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
@@ -87,6 +88,37 @@ export default function ProfilScreen() {
   if (loading) return <View style={S.center}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
   const rolaKolor = rolaKolorMap[user?.rola as keyof typeof rolaKolorMap] || theme.accent;
+  const initials = `${user?.imie?.[0] || ''}${user?.nazwisko?.[0] || ''}` || 'AR';
+  const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(String(user?.rola || ''));
+  const isFieldWorker = ['Brygadzista', 'Pomocnik'].includes(String(user?.rola || ''));
+  const profileStats = [
+    { key: 'role', label: 'Rola', value: user?.rola || '-' },
+    { key: 'branch', label: 'Oddział', value: user?.oddzial_nazwa || 'Nieustawiony' },
+    { key: 'mode', label: 'Tryb', value: guard.allowed ? 'Aktywny' : 'Ograniczony' },
+  ];
+  const workActions = [
+    { key: 'tasks', icon: 'checkbox-outline' as IoniconName, label: 'Zadania', sub: 'Priorytety i polecenia', route: '/task-command-center' },
+    { key: 'orders', icon: 'briefcase-outline' as IoniconName, label: 'Zlecenia', sub: 'Plan pracy i dowody', route: '/zlecenia' },
+    { key: 'alerts', icon: 'notifications-outline' as IoniconName, label: 'Alerty', sub: 'Ryzyka i pilne sprawy', route: '/powiadomienia' },
+    { key: 'docs', icon: 'document-text-outline' as IoniconName, label: 'Dokumenty', sub: 'Zdjęcia i protokoły', route: '/ogledziny-dokumentacja' },
+  ];
+  const managerActions = [
+    { key: 'users', icon: 'people-outline' as IoniconName, label: 'Pracownicy', route: '/uzytkownicy-mobile' },
+    { key: 'branches', icon: 'business-outline' as IoniconName, label: 'Oddziały', route: '/oddzialy-mobile' },
+    { key: 'docs', icon: 'folder-open-outline' as IoniconName, label: 'Dokumenty', route: '/ogledziny-dokumentacja' },
+    { key: 'api', icon: 'pulse-outline' as IoniconName, label: 'Diagnostyka', route: '/api-diagnostyka' },
+  ];
+  const rolePackageRows = isFieldWorker
+    ? [
+      { icon: 'shield-checkmark-outline' as IoniconName, label: 'BHP arborysty', value: 'PPE, strefa pracy, ryzyka' },
+      { icon: 'construct-outline' as IoniconName, label: 'Sprzęt i uprawnienia', value: 'Piła, rębak, wysokość' },
+      { icon: 'cash-outline' as IoniconName, label: 'Warunki rozliczenia', value: user?.rola === 'Brygadzista' ? `${user?.procent_wynagrodzenia || 15}% od zlecenia` : `${user?.stawka_godzinowa || 0} PLN/h` },
+    ]
+    : [
+      { icon: 'document-text-outline' as IoniconName, label: 'Karta stanowiska', value: 'Obowiązki i odpowiedzialność' },
+      { icon: 'desktop-outline' as IoniconName, label: 'Zakres biurowy', value: 'Klienci, zlecenia, kalendarz' },
+      { icon: 'cash-outline' as IoniconName, label: 'Warunki rozliczenia', value: `${user?.stawka_godzinowa || 0} PLN/h` },
+    ];
 
   return (
     <View style={S.root}>
@@ -95,11 +127,15 @@ export default function ProfilScreen() {
       {/* Header z awatarem */}
       <View style={S.heroHeader}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.headerText} />
+          <Ionicons name="arrow-back" size={22} color={theme.accent} />
         </TouchableOpacity>
+        <View style={S.heroLeaf}>
+          <Ionicons name="leaf-outline" size={20} color={theme.accent} />
+        </View>
         <TouchableOpacity onPress={handleDevTap} style={S.avatar}>
-          <Text style={S.avatarText}>{user?.imie?.[0]}{user?.nazwisko?.[0]}</Text>
+          <Text style={S.avatarText}>{initials}</Text>
         </TouchableOpacity>
+        <Text style={S.heroEyebrow}>Profil pracownika</Text>
         <Text style={S.name}>{user?.imie} {user?.nazwisko}</Text>
         <View style={[S.rolaBadge, { backgroundColor: rolaKolor + '33' }]}>
           <Text style={[S.rolaText, { color: rolaKolor }]}>{user?.rola}</Text>
@@ -110,9 +146,38 @@ export default function ProfilScreen() {
             <Text style={S.oddzialText}> {user.oddzial_nazwa}</Text>
           </View>
         ) : null}
+        <View style={S.profileStats}>
+          {profileStats.map((stat) => (
+            <View key={stat.key} style={S.profileStat}>
+              <Text style={S.profileStatLabel}>{stat.label}</Text>
+              <Text style={S.profileStatValue} numberOfLines={1}>{stat.value}</Text>
+            </View>
+          ))}
+        </View>
       </View>
 
       <ScrollView style={S.scroll} showsVerticalScrollIndicator={false}>
+
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Centrum pracy</Text>
+          <Text style={S.sectionSub}>Szybkie wejścia do codziennych modułów bez szukania po menu.</Text>
+          <View style={S.workGrid}>
+            {workActions.map((action) => (
+              <TouchableOpacity
+                key={action.key}
+                style={S.workAction}
+                onPress={() => router.push(action.route as never)}
+                activeOpacity={0.86}
+              >
+                <View style={S.workActionIcon}>
+                  <Ionicons name={action.icon} size={18} color={theme.accent} />
+                </View>
+                <Text style={S.workActionTitle}>{action.label}</Text>
+                <Text style={S.workActionSub} numberOfLines={2}>{action.sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
         {/* Dane kontaktowe */}
         <View style={S.section}>
@@ -147,6 +212,54 @@ export default function ProfilScreen() {
         </View>
 
         {/* ─── MOTYW APLIKACJI ─────────────────────────────────────────────── */}
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>{isFieldWorker ? 'BHP i warunki pracy' : 'Karta stanowiska'}</Text>
+          <Text style={S.sectionSub}>
+            {isFieldWorker
+              ? 'Pakiet terenowy: bezpieczeństwo, sprzęt i zasady rozliczenia.'
+              : 'Pakiet biurowy: obowiązki, dostępy i zasady rozliczenia.'}
+          </Text>
+          <View style={S.rolePackage}>
+            {rolePackageRows.map((row) => (
+              <View key={row.label} style={S.rolePackageRow}>
+                <View style={S.rolePackageIcon}>
+                  <Ionicons name={row.icon} size={17} color={theme.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.rolePackageTitle}>{row.label}</Text>
+                  <Text style={S.rolePackageValue}>{row.value}</Text>
+                </View>
+                <View style={S.rolePackageStatus}>
+                  <Text style={S.rolePackageStatusText}>aktywny</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {isManager ? (
+          <View style={S.section}>
+            <Text style={S.sectionTitle}>Panel kierowniczy</Text>
+            <Text style={S.sectionSub}>Szybkie przejścia do profili, oddziałów i diagnostyki aplikacji.</Text>
+            <View style={S.managerGrid}>
+              {managerActions.map((action) => (
+                <TouchableOpacity
+                  key={action.key}
+                  style={S.managerAction}
+                  onPress={() => router.push(action.route as never)}
+                  activeOpacity={0.86}
+                >
+                  <View style={S.managerActionIcon}>
+                    <Ionicons name={action.icon} size={18} color={theme.accent} />
+                  </View>
+                  <Text style={S.managerActionText}>{action.label}</Text>
+                  <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         <View style={S.section}>
           <Text style={S.sectionTitle}>{t('profile.title.theme')}</Text>
           <View style={S.themeRow}>
@@ -272,44 +385,206 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   scroll: { flex: 1 },
 
   heroHeader: {
-    backgroundColor: t.headerBg,
+    backgroundColor: t.cardBg,
     alignItems: 'center',
-    paddingTop: 56, paddingBottom: 28,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    paddingTop: 58,
+    paddingBottom: 18,
+    paddingHorizontal: 18,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.16,
+      radius: t.shadowRadius * 0.48,
+      offsetY: 3,
+      elevation: t.cardElevation + 1,
+    }),
   },
-  backBtn: { position: 'absolute', top: 56, left: 16, width: 40, height: 40, justifyContent: 'center' },
+  backBtn: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroLeaf: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatar: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: t.accent + '33',
+    width: 86, height: 86, borderRadius: 28,
+    backgroundColor: t.accentLight,
     justifyContent: 'center', alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 3, borderColor: t.accent,
+    marginBottom: 10,
+    borderWidth: 2, borderColor: t.accent,
   },
-  avatarText: { fontSize: 34, fontWeight: '800', color: t.accent },
-  name: { fontSize: 22, fontWeight: '800', color: t.headerText, marginBottom: 8 },
-  rolaBadge: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 8 },
-  rolaText: { fontSize: 13, fontWeight: '700' },
+  avatarText: { fontSize: 30, fontWeight: '900', color: t.accent },
+  heroEyebrow: {
+    color: t.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    marginBottom: 4,
+  },
+  name: { fontSize: 23, fontWeight: '900', color: t.text, marginBottom: 8, textAlign: 'center' },
+  rolaBadge: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8, borderWidth: 1, borderColor: t.border },
+  rolaText: { fontSize: 12, fontWeight: '900' },
   oddzialRow: { flexDirection: 'row', alignItems: 'center' },
-  oddzialText: { fontSize: 12, color: t.headerSub },
+  oddzialText: { fontSize: 12, color: t.textSub, fontWeight: '700' },
+  profileStats: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+    width: '100%',
+  },
+  profileStat: {
+    flex: 1,
+    minHeight: 58,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    justifyContent: 'center',
+  },
+  profileStatLabel: {
+    color: t.textMuted,
+    fontSize: 9,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  profileStatValue: {
+    color: t.text,
+    fontSize: 12,
+    fontWeight: '900',
+  },
 
   section: {
-    backgroundColor: t.surface, marginHorizontal: 16, marginTop: 16,
-    borderRadius: 18, padding: 18, borderWidth: 1, borderColor: t.border,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.65,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: 3,
+    backgroundColor: t.cardBg, marginHorizontal: 16, marginTop: 14,
+    borderRadius: 18, padding: 14, borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.1,
+      radius: t.shadowRadius * 0.34,
+      offsetY: 2,
+      elevation: t.cardElevation,
+    }),
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginBottom: 14 },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: t.text, marginBottom: 12 },
+  sectionSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, fontWeight: '700', marginBottom: 12 },
+  workGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  workAction: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minHeight: 112,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  workActionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  workActionTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
+  workActionSub: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 2 },
+  rolePackage: { gap: 9 },
+  rolePackageRow: {
+    minHeight: 58,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  rolePackageIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rolePackageTitle: { color: t.text, fontSize: 13, fontWeight: '900' },
+  rolePackageValue: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 1 },
+  rolePackageStatus: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: t.success + '55',
+    backgroundColor: t.successBg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  rolePackageStatusText: { color: t.success, fontSize: 10, fontWeight: '900' },
   infoRow: {
     flexDirection: 'row', alignItems: 'center',
     gap: 12, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
   infoIconBg: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  infoText: { fontSize: 14, color: t.text, flex: 1 },
+  infoText: { fontSize: 14, color: t.text, flex: 1, fontWeight: '700' },
+  managerGrid: { gap: 9 },
+  managerAction: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  managerActionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  managerActionText: { flex: 1, color: t.text, fontSize: 13, fontWeight: '900' },
 
   // Motyw
   themeRow: { flexDirection: 'row', gap: 10 },

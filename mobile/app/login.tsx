@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { triggerHaptic } from '../utils/haptics';
 import { saveStoredSession } from '../utils/session';
@@ -182,130 +183,132 @@ export default function Login() {
         backgroundColor={theme.bg}
       />
 
-      <View style={S.brandArea}>
-        <View style={S.logoCircle}>
-          <Ionicons name="leaf" size={40} color={theme.accentText} />
-        </View>
-        <Text style={S.appName}>ARBOR-OS</Text>
-        <Text style={S.tagline}>{t('login.subtitle')}</Text>
-      </View>
-
-      <View style={S.card}>
-        <Text style={S.cardTitle}>{t('login.title')}</Text>
-        <View style={S.serverRow}>
-          <Ionicons
-            name={serverStatus === 'online' ? 'cloud-done-outline' : serverStatus === 'offline' ? 'cloud-offline-outline' : 'sync-outline'}
-            size={14}
-            color={serverStatus === 'online' ? theme.success : serverStatus === 'offline' ? theme.danger : theme.textMuted}
-          />
-          <Text style={[S.serverText, { color: serverStatus === 'online' ? theme.success : serverStatus === 'offline' ? theme.danger : theme.textMuted }]}>
-            {serverStatus === 'online' ? t('login.backendOnline') : serverStatus === 'offline' ? t('login.backendOffline') : t('login.backendChecking')}
-          </Text>
-        </View>
-        {serverStatus === 'offline' ? (
-          <TouchableOpacity style={S.retryBtn} onPress={() => void checkServer()} disabled={checkingServer}>
-            {checkingServer ? <ActivityIndicator size="small" color={theme.accentText} /> : <Ionicons name="refresh-outline" size={14} color={theme.accentText} />}
-            <Text style={S.retryBtnText}>{t('login.retryConnection')}</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <View style={S.inputWrap}>
-          <Ionicons name="person-outline" size={18} color={theme.textMuted} style={S.inputIcon} />
-          <TextInput
-            style={S.input}
-            placeholder={t('login.loginPlaceholder')}
-            placeholderTextColor={theme.inputPlaceholder}
-            value={login}
-            onChangeText={(value) => {
-              setLogin(value);
-              if (errorMessage) setErrorMessage(null);
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
+      <View style={S.shell}>
+        <View style={S.brandArea}>
+          <View style={S.logoCircle}>
+            <Ionicons name="leaf" size={38} color={theme.accentText} />
+          </View>
+          <Text style={S.appName}>ARBOR-OS</Text>
+          <Text style={S.tagline}>{t('login.subtitle')}</Text>
         </View>
 
-        <View style={S.inputWrap}>
-          <Ionicons name="lock-closed-outline" size={18} color={theme.textMuted} style={S.inputIcon} />
-          <TextInput
-            style={S.inputFlex}
-            placeholder={t('login.passwordPlaceholder')}
-            placeholderTextColor={theme.inputPlaceholder}
-            value={haslo}
-            onChangeText={(value) => {
-              setHaslo(value);
-              if (errorMessage) setErrorMessage(null);
-            }}
-            secureTextEntry={!showHaslo}
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-            onKeyPress={(event) => {
-              if (Platform.OS !== 'web') return;
-              const native = event?.nativeEvent as unknown as { getModifierState?: (key: string) => boolean };
-              if (typeof native?.getModifierState === 'function') {
-                setCapsLockOn(native.getModifierState('CapsLock'));
-              }
-            }}
-            onBlur={() => setCapsLockOn(false)}
-          />
-          <TouchableOpacity onPress={() => setShowHaslo(v => !v)} style={S.eyeBtn}>
+        <View style={S.card}>
+          <Text style={S.cardTitle}>{t('login.title')}</Text>
+          <View style={S.serverRow}>
             <Ionicons
-              name={showHaslo ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
-              color={theme.textMuted}
+              name={serverStatus === 'online' ? 'cloud-done-outline' : serverStatus === 'offline' ? 'cloud-offline-outline' : 'sync-outline'}
+              size={14}
+              color={serverStatus === 'online' ? theme.success : serverStatus === 'offline' ? theme.danger : theme.textMuted}
             />
+            <Text style={[S.serverText, { color: serverStatus === 'online' ? theme.success : serverStatus === 'offline' ? theme.danger : theme.textMuted }]}>
+              {serverStatus === 'online' ? t('login.backendOnline') : serverStatus === 'offline' ? t('login.backendOffline') : t('login.backendChecking')}
+            </Text>
+          </View>
+          {serverStatus === 'offline' ? (
+            <TouchableOpacity style={S.retryBtn} onPress={() => void checkServer()} disabled={checkingServer}>
+              {checkingServer ? <ActivityIndicator size="small" color={theme.accentText} /> : <Ionicons name="refresh-outline" size={14} color={theme.accentText} />}
+              <Text style={S.retryBtnText}>{t('login.retryConnection')}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={S.inputWrap}>
+            <Ionicons name="person-outline" size={18} color={theme.textMuted} style={S.inputIcon} />
+            <TextInput
+              style={S.input}
+              placeholder={t('login.loginPlaceholder')}
+              placeholderTextColor={theme.inputPlaceholder}
+              value={login}
+              onChangeText={(value) => {
+                setLogin(value);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+          </View>
+
+          <View style={S.inputWrap}>
+            <Ionicons name="lock-closed-outline" size={18} color={theme.textMuted} style={S.inputIcon} />
+            <TextInput
+              style={S.inputFlex}
+              placeholder={t('login.passwordPlaceholder')}
+              placeholderTextColor={theme.inputPlaceholder}
+              value={haslo}
+              onChangeText={(value) => {
+                setHaslo(value);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              secureTextEntry={!showHaslo}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+              onKeyPress={(event) => {
+                if (Platform.OS !== 'web') return;
+                const native = event?.nativeEvent as unknown as { getModifierState?: (key: string) => boolean };
+                if (typeof native?.getModifierState === 'function') {
+                  setCapsLockOn(native.getModifierState('CapsLock'));
+                }
+              }}
+              onBlur={() => setCapsLockOn(false)}
+            />
+            <TouchableOpacity onPress={() => setShowHaslo(v => !v)} style={S.eyeBtn}>
+              <Ionicons
+                name={showHaslo ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={theme.textMuted}
+              />
+            </TouchableOpacity>
+          </View>
+          {capsLockOn ? (
+            <View style={S.capsLockRow}>
+              <Ionicons name="warning-outline" size={14} color={theme.warning} />
+              <Text style={S.capsLockText}>{t('login.capsLock')}</Text>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={S.rememberRow}
+            onPress={() => {
+              setRememberLogin((prev) => {
+                const next = !prev;
+                AsyncStorage.setItem(REMEMBER_LOGIN_KEY, next ? 'true' : 'false');
+                if (!next) {
+                  AsyncStorage.removeItem(LAST_LOGIN_KEY);
+                }
+                return next;
+              });
+            }}
+          >
+            <Ionicons
+              name={rememberLogin ? 'checkbox-outline' : 'square-outline'}
+              size={18}
+              color={rememberLogin ? theme.accent : theme.textMuted}
+            />
+            <Text style={S.rememberText}>{t('login.rememberMe')}</Text>
           </TouchableOpacity>
-        </View>
-        {capsLockOn ? (
-          <View style={S.capsLockRow}>
-            <Ionicons name="warning-outline" size={14} color={theme.warning} />
-            <Text style={S.capsLockText}>{t('login.capsLock')}</Text>
-          </View>
-        ) : null}
-        <TouchableOpacity
-          style={S.rememberRow}
-          onPress={() => {
-            setRememberLogin((prev) => {
-              const next = !prev;
-              AsyncStorage.setItem(REMEMBER_LOGIN_KEY, next ? 'true' : 'false');
-              if (!next) {
-                AsyncStorage.removeItem(LAST_LOGIN_KEY);
-              }
-              return next;
-            });
-          }}
-        >
-          <Ionicons
-            name={rememberLogin ? 'checkbox-outline' : 'square-outline'}
-            size={18}
-            color={rememberLogin ? theme.accent : theme.textMuted}
+          {errorMessage ? (
+            <View style={S.errorBox}>
+              <Ionicons name="alert-circle-outline" size={16} color={theme.danger} />
+              <Text style={S.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+          {isLocked ? (
+            <View style={S.lockInfoRow}>
+              <Ionicons name="time-outline" size={14} color={theme.warning} />
+              <Text style={S.lockInfoText}>{t('login.lockedIn', { seconds: lockSecondsLeft })}</Text>
+            </View>
+          ) : null}
+
+          <PlatinumCTA
+            style={[S.btn, !canSubmit && S.btnDisabled]}
+            label={t('login.submit')}
+            onPress={handleLogin}
+            disabled={!canSubmit}
+            loading={loading}
           />
-          <Text style={S.rememberText}>{t('login.rememberMe')}</Text>
-        </TouchableOpacity>
-        {errorMessage ? (
-          <View style={S.errorBox}>
-            <Ionicons name="alert-circle-outline" size={16} color={theme.danger} />
-            <Text style={S.errorText}>{errorMessage}</Text>
-          </View>
-        ) : null}
-        {isLocked ? (
-          <View style={S.lockInfoRow}>
-            <Ionicons name="time-outline" size={14} color={theme.warning} />
-            <Text style={S.lockInfoText}>{t('login.lockedIn', { seconds: lockSecondsLeft })}</Text>
-          </View>
-        ) : null}
+        </View>
 
-        <PlatinumCTA
-          style={[S.btn, !canSubmit && S.btnDisabled]}
-          label={t('login.submit')}
-          onPress={handleLogin}
-          disabled={!canSubmit}
-          loading={loading}
-        />
+        <Text style={S.footer}>Arbor Services 2026</Text>
       </View>
-
-      <Text style={S.footer}>Arbor Services © 2025</Text>
     </KeyboardAvoidingView>
   );
 }
@@ -318,43 +321,48 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  brandArea: { alignItems: 'center', marginBottom: 36 },
+  shell: {
+    width: '100%',
+    maxWidth: 460,
+    alignSelf: 'center',
+  },
+  brandArea: { alignItems: 'center', marginBottom: 28 },
   logoCircle: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 82, height: 82, borderRadius: 24,
     backgroundColor: t.accent,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.6,
-    shadowRadius: t.shadowRadius + 2,
-    shadowOffset: { width: 0, height: t.shadowOffsetY + 1 },
-    elevation: 8,
+    marginBottom: 14,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.28,
+      radius: t.shadowRadius * 0.5,
+      offsetY: Math.max(2, t.shadowOffsetY - 1),
+      elevation: 4,
+    }),
   },
   appName: {
-    fontSize: 30, fontWeight: '800',
-    color: t.text, letterSpacing: 2, marginBottom: 4,
+    fontSize: 31, fontWeight: '900',
+    color: t.text, letterSpacing: 0, marginBottom: 5,
   },
-  tagline: { fontSize: 14, color: t.textSub },
+  tagline: { fontSize: 13, color: t.textSub, letterSpacing: 0, fontWeight: '700' },
   card: {
     width: '100%',
     backgroundColor: t.surface,
-    borderRadius: 24, padding: 24,
-    borderWidth: 1, borderColor: t.border,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.85,
-    shadowRadius: t.shadowRadius + 3,
-    shadowOffset: { width: 0, height: t.shadowOffsetY + 2 },
-    elevation: 6,
+    borderRadius: t.radiusXl, padding: 22,
+    borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      offsetY: Math.max(2, t.shadowOffsetY),
+      elevation: 3,
+    }),
   },
   cardTitle: {
-    fontSize: 20, fontWeight: '700',
-    color: t.text, marginBottom: 20,
+    fontSize: 21, fontWeight: '900',
+    color: t.text, marginBottom: 18, letterSpacing: 0,
   },
   serverRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: -8,
+    marginTop: -6,
     marginBottom: 12,
   },
   serverText: { fontSize: 12, fontWeight: '600' },
@@ -374,7 +382,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: t.inputBg,
-    borderWidth: 1.5, borderColor: t.inputBorder,
+    borderWidth: 1.25, borderColor: t.inputBorder,
     borderRadius: 14, paddingHorizontal: 14,
     marginBottom: 14, height: 52,
   },
@@ -405,7 +413,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: t.dangerBg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: t.danger + '66',
     paddingHorizontal: 12,
@@ -427,12 +435,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.accent, borderRadius: 14,
     height: 52, alignItems: 'center', justifyContent: 'center',
     marginTop: 6,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.5,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: 5,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.2,
+      radius: t.shadowRadius * 0.45,
+      offsetY: t.shadowOffsetY,
+      elevation: 2,
+    }),
   },
   btnDisabled: { opacity: 0.6 },
-  footer: { marginTop: 32, fontSize: 12, color: t.textMuted },
+  footer: { marginTop: 18, fontSize: 12, color: t.textMuted, textAlign: 'center' },
 });

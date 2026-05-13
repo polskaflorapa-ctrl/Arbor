@@ -20,6 +20,38 @@ import {
 /** Maks. wiek powiadomienia przy zimnym starcie — unikamy nawigacji „w tyle”. */
 const NOTIFICATION_COLD_START_MAX_AGE_MS = 45 * 60 * 1000;
 
+function isWebRuntime() {
+  const runtime = globalThis as typeof globalThis & {
+    document?: { createElement?: unknown };
+    HTMLElement?: unknown;
+    location?: unknown;
+    navigator?: { product?: string };
+    window?: unknown;
+  };
+  return (
+    Platform.OS === 'web' ||
+    process.env.EXPO_OS === 'web' ||
+    typeof runtime.document !== 'undefined' ||
+    (typeof runtime.HTMLElement !== 'undefined' && typeof runtime.location !== 'undefined') ||
+    (typeof runtime.window !== 'undefined' && runtime.navigator?.product !== 'ReactNative') ||
+    (runtime.navigator?.product !== 'ReactNative' && typeof runtime.location !== 'undefined')
+  );
+}
+
+function isNativeNotificationRuntime() {
+  return (Platform.OS === 'ios' || Platform.OS === 'android') && !isWebRuntime();
+}
+
+async function canUseNotifications() {
+  if (!isNativeNotificationRuntime()) return false;
+  try {
+    const notificationsApi = Notifications as typeof Notifications & { isAvailableAsync?: () => Promise<boolean> };
+    return typeof notificationsApi.isAvailableAsync === 'function' ? await notificationsApi.isAvailableAsync() : true;
+  } catch {
+    return false;
+  }
+}
+
 /** Ścieżka Expo Router z `data` powiadomienia (tap / cold start). */
 function getNotificationDeepLink(data: Record<string, unknown> | undefined): string | null {
   if (!data) return null;
@@ -50,7 +82,7 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (!isNativeNotificationRuntime() || Platform.OS !== 'android') return;
     void Notifications.setNotificationChannelAsync('default', {
       name: 'Arbor',
       importance: Notifications.AndroidImportance.DEFAULT,
@@ -63,28 +95,40 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-      const path = getNotificationDeepLink(data);
-      if (path) navigateFromNotification(path);
-    });
+    if (!isNativeNotificationRuntime()) return;
+    let sub: Notifications.Subscription;
+    try {
+      sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        const path = getNotificationDeepLink(data);
+        if (path) navigateFromNotification(path);
+      });
+    } catch {
+      return;
+    }
     return () => sub.remove();
   }, []);
 
   useEffect(() => {
+    if (!isNativeNotificationRuntime()) return;
     void (async () => {
-      const response = await Notifications.getLastNotificationResponseAsync();
-      if (!response) return;
-      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-      const path = getNotificationDeepLink(data);
-      if (!path) return;
-      const sent = response.notification.date;
-      if (typeof sent === 'number' && Number.isFinite(sent) && Date.now() - sent > NOTIFICATION_COLD_START_MAX_AGE_MS) {
+      try {
+        if (!(await canUseNotifications())) return;
+        const response = await Notifications.getLastNotificationResponseAsync();
+        if (!response) return;
+        const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+        const path = getNotificationDeepLink(data);
+        if (!path) return;
+        const sent = response.notification.date;
+        if (typeof sent === 'number' && Number.isFinite(sent) && Date.now() - sent > NOTIFICATION_COLD_START_MAX_AGE_MS) {
+          return;
+        }
+        InteractionManager.runAfterInteractions(() => {
+          navigateFromNotification(path);
+        });
+      } catch {
         return;
       }
-      InteractionManager.runAfterInteractions(() => {
-        navigateFromNotification(path);
-      });
     })();
   }, []);
 
@@ -99,11 +143,18 @@ export default function Layout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="dashboard" />
+          <Stack.Screen name="task-command-center" />
           <Stack.Screen name="autoplan-dnia" />
           <Stack.Screen name="misja-dnia" />
           <Stack.Screen name="wyceniajacy-hub" />
+          <Stack.Screen name="plan-ogledzin" />
           <Stack.Screen name="wyceniajacy-finanse" />
+          <Stack.Screen name="wyceny-do-biura" />
           <Stack.Screen name="oddzial-funkcje-admin" />
+          <Stack.Screen name="crm-mobile" />
+          <Stack.Screen name="crm-pipeline-mobile" />
+          <Stack.Screen name="klienci-mobile" />
+          <Stack.Screen name="telefonia-mobile" />
           <Stack.Screen name="zlecenia" />
           <Stack.Screen name="zlecenie/[id]" />
           <Stack.Screen name="rozliczenia" />

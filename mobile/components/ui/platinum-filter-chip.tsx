@@ -7,6 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useTheme } from '../../constants/ThemeContext';
+import { shadowStyle } from '../../constants/elevation';
 import { PLATINUM_MOTION } from '../../constants/motion';
 
 type PlatinumFilterChipProps = {
@@ -42,10 +43,6 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
     inputRange: [0, 1],
     outputRange: [theme.textSub, tint],
   });
-  const glow = anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, theme.shadowOpacity * 0.55],
-  });
 
   return (
     <Pressable onPress={onPress}>
@@ -55,11 +52,12 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
           {
             backgroundColor: bg,
             borderColor: border,
-            shadowColor: theme.shadowColor,
-            shadowOpacity: glow,
-            shadowRadius: theme.shadowRadius * 0.62,
-            shadowOffset: { width: 0, height: Math.max(2, theme.shadowOffsetY - 3) },
-            elevation: active ? 3 : 0,
+            ...shadowStyle(theme, {
+              opacity: active ? theme.shadowOpacity * 0.16 : 0,
+              radius: theme.shadowRadius * 0.35,
+              offsetY: 1,
+              elevation: active ? 1 : 0,
+            }),
           },
           style,
         ]}
@@ -72,15 +70,15 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
 
 const styles = StyleSheet.create({
   chip: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 13,
     paddingVertical: 8,
-    borderRadius: 22,
-    borderWidth: 1.5,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   label: {
     fontSize: 12.5,
     fontWeight: '800',
-    letterSpacing: 0.25,
+    letterSpacing: 0,
   },
 });
 

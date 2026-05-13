@@ -305,7 +305,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: t.border,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontWeight: '800', color: t.headerText },
   scroll: { flex: 1 },
   card: { borderWidth: 1, borderColor: t.border, borderRadius: 12, backgroundColor: t.surface, padding: 12 },

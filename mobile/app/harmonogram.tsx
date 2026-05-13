@@ -10,11 +10,110 @@ import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
+import { openAddressInMaps, openRouteInMaps } from '../utils/maps-link';
+import { buildNewOrderRoute } from '../utils/new-order-route';
+import { TASK_STATUS, isTaskClosed, makeTaskStatusColorMap } from '../constants/task-workflow';
+
+const FIELD_PHOTO_REQUIREMENTS = [
+  { key: 'photo_wycena', label: 'Wycena', icon: 'camera-outline' },
+  { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
+  { key: 'photo_dojazd', label: 'Dojazd', icon: 'navigate-outline' },
+] as const;
+
+function taskNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseTaskDate(value: unknown) {
+  if (!value) return null;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function taskTimeLabel(task: any) {
+  if (task?.godzina_rozpoczecia) return String(task.godzina_rozpoczecia).slice(0, 5);
+  const raw = String(task?.data_planowana || '');
+  if (!raw.includes('T')) return '--:--';
+  const d = parseTaskDate(raw);
+  if (!d) return '--:--';
+  return new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit' }).format(d);
+}
+
+function taskSortValue(task: any) {
+  const d = parseTaskDate(task?.data_planowana);
+  return d ? d.getTime() : Number.MAX_SAFE_INTEGER;
+}
+
+function sortRouteTasks(a: any, b: any) {
+  const priority = (task: any) => {
+    if (task?.status === TASK_STATUS.W_REALIZACJI) return 0;
+    if (task?.status === TASK_STATUS.ZAPLANOWANE) return 1;
+    if (isTaskClosed(task?.status)) return 4;
+    return 2;
+  };
+  const byStatus = priority(a) - priority(b);
+  if (byStatus !== 0) return byStatus;
+  const byDate = taskSortValue(a) - taskSortValue(b);
+  if (byDate !== 0) return byDate;
+  return Number(a?.id || 0) - Number(b?.id || 0);
+}
+
+function taskPhotoReadyCount(task: any) {
+  return FIELD_PHOTO_REQUIREMENTS.filter((item) => taskNumber(task?.[item.key]) > 0).length;
+}
+
+function taskFieldNotes(task: any) {
+  return String(task?.notatki_wewnetrzne || task?.opis || '');
+}
+
+function isFieldHandoffTask(task: any) {
+  const notes = taskFieldNotes(task);
+  return Boolean(
+    task?.ankieta_uproszczona ||
+    notes.includes('TRYB TERENOWY') ||
+    notes.includes('FORMULARZ WYCENY TERENOWEJ') ||
+    notes.includes('PRZEKAZANIE DO BIURA'),
+  );
+}
+
+function protocolLine(task: any, label: string) {
+  const prefix = `${label}:`;
+  const line = taskFieldNotes(task)
+    .split(/\r?\n/)
+    .find((item) => item.trim().toLowerCase().startsWith(prefix.toLowerCase()));
+  return line ? line.slice(line.indexOf(':') + 1).trim() : '';
+}
+
+function compactProtocolValue(value: string, fallback: string) {
+  const clean = String(value || '').trim();
+  return clean && clean !== '-' ? clean : fallback;
+}
+
+function taskHandoffSummary(task: any) {
+  return {
+    work: compactProtocolValue(protocolLine(task, 'Zakres prac'), task?.typ_uslugi || 'zakres z karty'),
+    risks: compactProtocolValue(protocolLine(task, 'Ryzyka'), 'brak ryzyk'),
+    access: compactProtocolValue(protocolLine(task, 'Dostęp / parking / uwagi posesji'), 'brak uwag dojazdu'),
+    result: compactProtocolValue(protocolLine(task, 'Wynik rozmowy'), 'wynik w karcie'),
+  };
+}
+
+function taskFieldReadyChecks(task: any) {
+  const photoReady = taskPhotoReadyCount(task) >= FIELD_PHOTO_REQUIREMENTS.length;
+  return [
+    { key: 'team', label: 'Ekipa', ok: !!task?.ekipa_id || !!task?.ekipa_nazwa },
+    { key: 'time', label: 'Czas', ok: taskNumber(task?.czas_planowany_godziny) > 0 },
+    { key: 'photos', label: 'Foto', ok: photoReady },
+    { key: 'price', label: 'Cena', ok: taskNumber(task?.wartosc_planowana) > 0 },
+  ];
+}
 
 function getCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -84,8 +183,15 @@ export default function HarmonogramScreen() {
 
       const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
       if (isManager) {
-        const eRes = await fetch(`${API_URL}/ekipy`, { headers: h });
-        if (eRes.ok) setEkipy(await eRes.json());
+        const branchId = user?.oddzial_id != null ? String(user.oddzial_id) : '';
+        const eUrl = branchId
+          ? `${API_URL}/oddzialy/${branchId}/zasoby?date=${from}`
+          : `${API_URL}/ekipy`;
+        const eRes = await fetch(eUrl, { headers: h });
+        if (eRes.ok) {
+          const data = await eRes.json();
+          setEkipy(Array.isArray(data?.ekipy) ? data.ekipy : Array.isArray(data) ? data : []);
+        }
       }
     } catch {
       // po odświeżeniu użytkownik dostanie kolejny fetch
@@ -93,7 +199,7 @@ export default function HarmonogramScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, user?.rola]);
+  }, [token, user?.rola, user?.oddzial_id]);
 
   const fetchDayTasks = useCallback(async (year: number, month: number, day: number) => {
     setLoadingDay(true);
@@ -191,13 +297,7 @@ export default function HarmonogramScreen() {
     });
   }, [viewYear, viewMonth, selectedDay, monthLocale]);
 
-  const statusKolorMap = useMemo(() => ({
-    Nowe: theme.info,
-    Zaplanowane: theme.info,
-    W_Realizacji: theme.warning,
-    Zakonczone: theme.success,
-    Anulowane: theme.danger,
-  }), [theme]);
+  const statusKolorMap = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
 
   const taskStatusLabel = useCallback(
     (code: string) => t(`zlecenia.status.${code}`),
@@ -209,6 +309,41 @@ export default function HarmonogramScreen() {
   );
   const getKolor = (task: any): string =>
     ekipaKolorMap[task.ekipa_id] || statusKolorMap[task.status as keyof typeof statusKolorMap] || theme.textMuted;
+  const selectedDateKey = selectedDay > 0
+    ? `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
+    : '';
+  const sortedDayTasks = useMemo(() => [...dayTasks].sort(sortRouteTasks), [dayTasks]);
+  const routePlan = useMemo(() => {
+    const active = sortedDayTasks.filter((task) => !isTaskClosed(task.status));
+    const next = active.find((task) => task.status === TASK_STATUS.W_REALIZACJI) ||
+      active.find((task) => task.status === TASK_STATUS.ZAPLANOWANE) ||
+      active[0] ||
+      sortedDayTasks[0] ||
+      null;
+    const totalHours = sortedDayTasks.reduce((sum, task) => sum + taskNumber(task.czas_planowany_godziny), 0);
+    const photosMissing = sortedDayTasks.filter((task) => taskPhotoReadyCount(task) < FIELD_PHOTO_REQUIREMENTS.length).length;
+    const fieldSlotCount = sortedDayTasks.filter(isFieldHandoffTask).length;
+    const routeStops = active
+      .map((task) => [task.adres, task.miasto].filter(Boolean).join(', '))
+      .filter(Boolean);
+    const totalCount = sortedDayTasks.length;
+    const doneCount = sortedDayTasks.filter((task) => isTaskClosed(task.status)).length;
+    return {
+      next,
+      activeCount: active.length,
+      totalHours,
+      photosMissing,
+      fieldSlotCount,
+      doneCount,
+      routeStops,
+      progressPct: totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0,
+    };
+  }, [sortedDayTasks]);
+
+  const openSelectedDayRoute = useCallback(async () => {
+    void triggerHaptic('light');
+    await openRouteInMaps(routePlan.routeStops);
+  }, [routePlan.routeStops]);
 
   const S = makeStyles(theme);
 
@@ -328,7 +463,7 @@ export default function HarmonogramScreen() {
             <Text style={S.daySectionTitle}>{selectedDateTitle}</Text>
             {loadingDay ? (
               <ActivityIndicator color={theme.accent} style={{ marginTop: 12 }} />
-            ) : dayTasks.length === 0 ? (
+            ) : sortedDayTasks.length === 0 ? (
               <View style={S.emptyDay}>
                 <Text style={S.emptyDayText}>{t('harmonogram.emptyDay')}</Text>
                 {isManager && (
@@ -337,20 +472,107 @@ export default function HarmonogramScreen() {
                     style={S.addBtn}
                     onPress={() => {
                       void triggerHaptic('light');
-                      router.push('/nowe-zlecenie');
+                      router.push(buildNewOrderRoute({ source: 'harmonogram', data: selectedDateKey }) as never);
                     }}
                   />
                 )}
               </View>
             ) : (
               <>
-                {dayTasks.map(task => (
+                <View style={S.routeCommandCard}>
+                  <View style={S.routeCommandHead}>
+                    <PlatinumIconBadge icon="navigate-outline" color={theme.accent} size={16} style={S.routeCommandIcon} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.routeCommandTitle}>Plan trasy ekipy</Text>
+                      <Text style={S.routeCommandSub}>
+                        Kolejność dnia, zdjęcia i szybkie wejście w realizację.
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={S.routeStatsGrid}>
+                    {[
+                      { key: 'count', label: 'Zlecenia', value: sortedDayTasks.length, color: theme.accent },
+                      { key: 'active', label: 'Aktywne', value: routePlan.activeCount, color: theme.warning },
+                      { key: 'hours', label: 'Godziny', value: routePlan.totalHours ? routePlan.totalHours.toFixed(1) : '0', color: theme.info },
+                      { key: 'photos', label: 'Braki foto', value: routePlan.photosMissing, color: routePlan.photosMissing ? theme.danger : theme.success },
+                      { key: 'field', label: 'Z terenu', value: routePlan.fieldSlotCount, color: theme.success },
+                    ].map((item) => (
+                      <View key={item.key} style={[S.routeStatTile, { borderColor: item.color + '55', backgroundColor: item.color + '14' }]}>
+                        <Text style={[S.routeStatValue, { color: item.color }]}>{item.value}</Text>
+                        <Text style={S.routeStatLabel}>{item.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={S.routeProgressRow}>
+                    <View style={{ flex: 1 }}>
+                      <View style={S.routeProgressTop}>
+                        <Text style={S.routeProgressLabel}>Postęp dnia</Text>
+                        <Text style={S.routeProgressValue}>{routePlan.doneCount}/{sortedDayTasks.length}</Text>
+                      </View>
+                      <View style={S.routeProgressTrack}>
+                        <View style={[S.routeProgressFill, { width: `${routePlan.progressPct}%`, backgroundColor: theme.success }]} />
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        S.routeMapButton,
+                        {
+                          borderColor: routePlan.routeStops.length ? theme.accent : theme.border,
+                          backgroundColor: routePlan.routeStops.length ? theme.accentLight : theme.cardBg,
+                          opacity: routePlan.routeStops.length ? 1 : 0.55,
+                        },
+                      ]}
+                      onPress={() => { void openSelectedDayRoute(); }}
+                      disabled={!routePlan.routeStops.length}
+                    >
+                      <PlatinumIconBadge icon="map-outline" color={routePlan.routeStops.length ? theme.accent : theme.textMuted} size={9} style={S.routeMapIcon} />
+                      <Text style={[S.routeMapText, { color: routePlan.routeStops.length ? theme.accent : theme.textMuted }]}>
+                        Trasa dnia
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {routePlan.next ? (
+                    <View style={S.nextRouteCard}>
+                      <View style={[S.nextRouteTime, { borderColor: getKolor(routePlan.next), backgroundColor: getKolor(routePlan.next) + '16' }]}>
+                        <Text style={[S.nextRouteTimeText, { color: getKolor(routePlan.next) }]}>{taskTimeLabel(routePlan.next)}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={S.nextRouteLabel}>Następny punkt</Text>
+                        <Text style={S.nextRouteClient} numberOfLines={1}>{routePlan.next.klient_nazwa || t('harmonogram.noClient')}</Text>
+                        <Text style={S.nextRouteAddress} numberOfLines={1}>{[routePlan.next.adres, routePlan.next.miasto].filter(Boolean).join(', ') || 'Brak adresu'}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={S.nextRouteOpen}
+                        onPress={() => {
+                          void triggerHaptic('light');
+                          router.push(`/zlecenie/${routePlan.next.id}`);
+                        }}
+                      >
+                        <Text style={S.nextRouteOpenText}>Start</Text>
+                        <PlatinumIconBadge icon="chevron-forward" color={theme.accent} size={8} style={S.nextRouteOpenIcon} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </View>
+
+                {sortedDayTasks.map((task, index) => {
+                  const photoReadyCount = taskPhotoReadyCount(task);
+                  const photosDone = photoReadyCount >= FIELD_PHOTO_REQUIREMENTS.length;
+                  const isFieldSlot = isFieldHandoffTask(task);
+                  const handoff = taskHandoffSummary(task);
+                  const handoffChecks = taskFieldReadyChecks(task);
+                  const handoffReadyCount = handoffChecks.filter((item) => item.ok).length;
+                  return (
                   <TouchableOpacity
                     key={task.id}
                     style={S.taskCard}
                     onPress={() => { setSelectedTask(task); setModalVisible(true); }}
                   >
-                    <View style={[S.taskStatusBar, { backgroundColor: getKolor(task) }]} />
+                    <View style={S.routeRail}>
+                      <Text style={S.routeIndex}>{index + 1}</Text>
+                      <View style={[S.routeDot, { backgroundColor: getKolor(task) }]} />
+                      <Text style={S.routeTime}>{taskTimeLabel(task)}</Text>
+                    </View>
                     <View style={S.taskContent}>
                       <View style={S.taskRow}>
                         <Text style={S.taskClient}>{task.klient_nazwa || t('harmonogram.noClient')}</Text>
@@ -382,16 +604,113 @@ export default function HarmonogramScreen() {
                           <Text style={S.taskMeta}>{task.typ_uslugi}</Text>
                         </View>
                       ) : null}
+                      {isFieldSlot ? (
+                        <View style={S.fieldSlotPanel}>
+                          <View style={S.fieldSlotHead}>
+                            <PlatinumIconBadge icon="flag-outline" color={theme.success} size={11} style={S.fieldSlotIcon} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={S.fieldSlotTitle}>Slot z terenu</Text>
+                              <Text style={S.fieldSlotSub}>Zakres, ryzyka i dowody dla brygady</Text>
+                            </View>
+                            <View style={S.fieldSlotScore}>
+                              <Text style={S.fieldSlotScoreText}>{handoffReadyCount}/{handoffChecks.length}</Text>
+                            </View>
+                          </View>
+                          <View style={S.fieldSlotChecks}>
+                            {handoffChecks.map((item) => (
+                              <View
+                                key={item.key}
+                                style={[
+                                  S.fieldCheckChip,
+                                  {
+                                    borderColor: item.ok ? theme.success + '70' : theme.warning + '70',
+                                    backgroundColor: item.ok ? theme.successBg : theme.warningBg,
+                                  },
+                                ]}
+                              >
+                                <Text style={[S.fieldCheckText, { color: item.ok ? theme.success : theme.warning }]}>
+                                  {item.label}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                          <View style={S.fieldSummaryGrid}>
+                            <View style={S.fieldSummaryItem}>
+                              <Text style={S.fieldSummaryLabel}>Zakres</Text>
+                              <Text style={S.fieldSummaryText} numberOfLines={2}>{handoff.work}</Text>
+                            </View>
+                            <View style={S.fieldSummaryItem}>
+                              <Text style={S.fieldSummaryLabel}>Ryzyka</Text>
+                              <Text style={S.fieldSummaryText} numberOfLines={2}>{handoff.risks}</Text>
+                            </View>
+                            <View style={S.fieldSummaryItem}>
+                              <Text style={S.fieldSummaryLabel}>Dojazd</Text>
+                              <Text style={S.fieldSummaryText} numberOfLines={2}>{handoff.access}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      ) : null}
+                      <View style={S.routeCardActions}>
+                        <View style={[S.photoPill, { borderColor: photosDone ? theme.success : theme.warning, backgroundColor: photosDone ? theme.successBg : theme.warningBg }]}>
+                          <PlatinumIconBadge
+                            icon={photosDone ? 'checkmark-circle' : 'camera-outline'}
+                            color={photosDone ? theme.success : theme.warning}
+                            size={8}
+                            style={S.photoPillIcon}
+                          />
+                          <Text style={[S.photoPillText, { color: photosDone ? theme.success : theme.warning }]}>
+                            Foto {photoReadyCount}/{FIELD_PHOTO_REQUIREMENTS.length}
+                          </Text>
+                        </View>
+                        {(task.adres || task.miasto) ? (
+                          <TouchableOpacity
+                            style={S.routeSmallBtn}
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              void triggerHaptic('light');
+                              void openAddressInMaps(task.adres || '', task.miasto || '');
+                            }}
+                          >
+                            <PlatinumIconBadge icon="map-outline" color={theme.info} size={8} style={S.routeSmallIcon} />
+                            <Text style={[S.routeSmallText, { color: theme.info }]}>Mapa</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        {isFieldSlot ? (
+                          <TouchableOpacity
+                            style={S.routeSmallBtn}
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              void triggerHaptic('light');
+                              router.push(`/zlecenie/${task.id}?tab=zdjecia` as never);
+                            }}
+                          >
+                            <PlatinumIconBadge icon="images-outline" color={theme.success} size={8} style={S.routeSmallIcon} />
+                            <Text style={[S.routeSmallText, { color: theme.success }]}>Dowody</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        <TouchableOpacity
+                          style={S.routeSmallBtn}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            void triggerHaptic('light');
+                            router.push(`/zlecenie/${task.id}`);
+                          }}
+                        >
+                          <PlatinumIconBadge icon="open-outline" color={theme.accent} size={8} style={S.routeSmallIcon} />
+                          <Text style={[S.routeSmallText, { color: theme.accent }]}>Zlecenie</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </TouchableOpacity>
-                ))}
+                  );
+                })}
                 {isManager && (
                   <PlatinumCTA
                     label={t('harmonogram.addOrder')}
                     style={S.addBtn}
                     onPress={() => {
                       void triggerHaptic('light');
-                      router.push('/nowe-zlecenie');
+                      router.push(buildNewOrderRoute({ source: 'harmonogram', data: selectedDateKey }) as never);
                     }}
                   />
                 )}
@@ -415,7 +734,7 @@ export default function HarmonogramScreen() {
                 <View key={ekipa.id} style={[S.ekipaRow, zajety && { backgroundColor: ekipaKolor + '15' }]}>
                   <View style={[S.ekipaStatusDot, { backgroundColor: ekipaKolor, opacity: zajety ? 1 : 0.4 }]} />
                   <View style={{ flex: 1 }}>
-                    <Text style={S.ekipaNazwa}>{ekipa.nazwa}</Text>
+                    <Text style={S.ekipaNazwa}>{ekipa.nazwa}{ekipa.delegowany ? ' · delegacja' : ''}</Text>
                     {zajety && (
                       <Text style={S.ekipaInfo}>{t('harmonogram.tasksThisDay', { count: zadania.length })}</Text>
                     )}
@@ -457,13 +776,52 @@ export default function HarmonogramScreen() {
                   { icon: 'flash-outline' as const, val: selectedTask.priorytet ? `Priorytet: ${selectedTask.priorytet}` : null },
                   { icon: 'hourglass-outline' as const, val: selectedTask.czas_planowany_godziny ? `Czas: ${selectedTask.czas_planowany_godziny}h` : null },
                   { icon: 'cash-outline' as const, val: selectedTask.wartosc_planowana ? `Wartość: ${selectedTask.wartosc_planowana} zł` : null },
-                  { icon: 'document-text-outline' as const, val: selectedTask.notatki_wewnetrzne || null },
+                  { icon: 'document-text-outline' as const, val: isFieldHandoffTask(selectedTask) ? null : selectedTask.notatki_wewnetrzne || null },
                 ].filter(r => r.val).map((r, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <PlatinumIconBadge icon={r.icon} color={theme.textMuted} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
                     <Text style={S.modalRow}>{r.val}</Text>
                   </View>
                 ))}
+                {isFieldHandoffTask(selectedTask) ? (
+                  <View style={S.modalHandoffBox}>
+                    <View style={S.fieldSlotHead}>
+                      <PlatinumIconBadge icon="flag-outline" color={theme.success} size={11} style={S.fieldSlotIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={S.modalHandoffTitle}>Odprawa z terenu</Text>
+                        <Text style={S.fieldSlotSub}>{taskHandoffSummary(selectedTask).result}</Text>
+                      </View>
+                    </View>
+                    <View style={S.fieldSlotChecks}>
+                      {taskFieldReadyChecks(selectedTask).map((item) => (
+                        <View
+                          key={item.key}
+                          style={[
+                            S.fieldCheckChip,
+                            {
+                              borderColor: item.ok ? theme.success + '70' : theme.warning + '70',
+                              backgroundColor: item.ok ? theme.successBg : theme.warningBg,
+                            },
+                          ]}
+                        >
+                          <Text style={[S.fieldCheckText, { color: item.ok ? theme.success : theme.warning }]}>
+                            {item.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                    {[
+                      { label: 'Zakres', value: taskHandoffSummary(selectedTask).work },
+                      { label: 'Ryzyka', value: taskHandoffSummary(selectedTask).risks },
+                      { label: 'Dojazd', value: taskHandoffSummary(selectedTask).access },
+                    ].map((item) => (
+                      <View key={item.label} style={S.modalHandoffRow}>
+                        <Text style={S.fieldSummaryLabel}>{item.label}</Text>
+                        <Text style={S.fieldSummaryText}>{item.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
                 <PlatinumCTA
                   label={t('harmonogram.openTask')}
                   style={S.openBtn}
@@ -492,17 +850,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.cardBg, paddingHorizontal: 20, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  navBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' },
+  navBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 'bold', color: t.accent },
 
   calendarBox: {
     backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 12,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.5,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: 2,
     borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.18,
+      radius: t.shadowRadius * 0.45,
+      offsetY: Math.max(2, t.shadowOffsetY - 1),
+      elevation: 1,
+    }),
   },
   weekRow: { flexDirection: 'row' },
   dayHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 6 },
@@ -520,11 +879,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   daySection: {
     backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: t.cardBorder,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.5,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: 2,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.18,
+      radius: t.shadowRadius * 0.45,
+      offsetY: Math.max(2, t.shadowOffsetY - 1),
+      elevation: 1,
+    }),
   },
   daySectionTitle: { fontSize: 16, fontWeight: 'bold', color: t.accent, marginBottom: 12 },
   emptyDay: { alignItems: 'center', paddingVertical: 20 },
@@ -532,12 +892,136 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   addBtn: {
     marginTop: 8,
   },
+  routeCommandCard: {
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    backgroundColor: t.surface2,
+    padding: 12,
+    gap: 10,
+    marginBottom: 12,
+  },
+  routeCommandHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  routeCommandIcon: { width: 36, height: 36, borderRadius: 12 },
+  routeCommandTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
+  routeCommandSub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
+  routeStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  routeStatTile: {
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 68,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  routeStatValue: { fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  routeStatLabel: { color: t.textMuted, fontSize: 9.5, fontWeight: '800', textTransform: 'uppercase' },
+  routeProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    padding: 10,
+  },
+  routeProgressTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  routeProgressLabel: { color: t.textMuted, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  routeProgressValue: { color: t.text, fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  routeProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: t.surface2,
+  },
+  routeProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  routeMapButton: {
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  routeMapIcon: { width: 17, height: 17, borderRadius: 6 },
+  routeMapText: { fontSize: 11, fontWeight: '900' },
+  nextRouteCard: {
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  nextRouteTime: {
+    width: 58,
+    minHeight: 46,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  nextRouteTimeText: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  nextRouteLabel: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  nextRouteClient: { color: t.text, fontSize: 14, fontWeight: '900', marginTop: 1 },
+  nextRouteAddress: { color: t.textSub, fontSize: 11, marginTop: 2 },
+  nextRouteOpen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  nextRouteOpenText: { color: t.accent, fontSize: 11, fontWeight: '900' },
+  nextRouteOpenIcon: { width: 16, height: 16, borderRadius: 6 },
 
   taskCard: {
     flexDirection: 'row', borderRadius: 12, backgroundColor: t.surface2,
     marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.cardBorder,
   },
   taskStatusBar: { width: 5 },
+  routeRail: {
+    width: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRightWidth: 1,
+    borderRightColor: t.border,
+    backgroundColor: t.cardBg,
+    paddingVertical: 10,
+  },
+  routeIndex: { color: t.textMuted, fontSize: 10, fontWeight: '900' },
+  routeDot: { width: 12, height: 12, borderRadius: 6 },
+  routeTime: { color: t.text, fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
   taskContent: { flex: 1, padding: 12 },
   taskRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   taskClient: { fontSize: 15, fontWeight: '600', color: t.text, flex: 1, marginRight: 8 },
@@ -545,15 +1029,98 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskMeta: { fontSize: 12, color: t.textMuted, marginTop: 2 },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: '600' },
+  routeCardActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 10,
+  },
+  photoPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  photoPillIcon: { width: 15, height: 15, borderRadius: 5 },
+  photoPillText: { fontSize: 10.5, fontWeight: '900' },
+  routeSmallBtn: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  routeSmallIcon: { width: 15, height: 15, borderRadius: 5 },
+  routeSmallText: { fontSize: 10.5, fontWeight: '900' },
+  fieldSlotPanel: {
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.success + '45',
+    backgroundColor: t.successBg,
+    padding: 10,
+    gap: 8,
+  },
+  fieldSlotHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fieldSlotIcon: { width: 24, height: 24, borderRadius: 8 },
+  fieldSlotTitle: { color: t.text, fontSize: 12, fontWeight: '900' },
+  fieldSlotSub: { color: t.textMuted, fontSize: 10.5, lineHeight: 14, marginTop: 1 },
+  fieldSlotScore: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: t.success + '55',
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  fieldSlotScoreText: { color: t.success, fontSize: 10.5, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  fieldSlotChecks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  fieldCheckChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  fieldCheckText: { fontSize: 10, fontWeight: '900' },
+  fieldSummaryGrid: {
+    gap: 6,
+  },
+  fieldSummaryItem: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  fieldSummaryLabel: { color: t.textMuted, fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  fieldSummaryText: { color: t.textSub, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
 
   ekipySection: {
     backgroundColor: t.cardBg, margin: 12, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: t.cardBorder,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.5,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: 2,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.18,
+      radius: t.shadowRadius * 0.45,
+      offsetY: Math.max(2, t.shadowOffsetY - 1),
+      elevation: 1,
+    }),
   },
   ekipySectionTitle: { fontSize: 15, fontWeight: 'bold', color: t.text },
   ekipaRow: {
@@ -574,5 +1141,23 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: t.text, flex: 1, marginRight: 8 },
   modalRow: { fontSize: 14, color: t.textSub, flex: 1 },
+  modalHandoffBox: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.success + '45',
+    backgroundColor: t.successBg,
+    padding: 12,
+    gap: 8,
+    marginTop: 4,
+  },
+  modalHandoffTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
+  modalHandoffRow: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   openBtn: { marginTop: 16 },
 });

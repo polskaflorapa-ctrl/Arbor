@@ -1,5 +1,6 @@
 /** Uruchamia lokalny ESLint z katalogu mobile w monorepo. */
 const { spawnSync } = require('node:child_process');
+const { existsSync } = require('node:fs');
 const { join } = require('node:path');
 
 function envWithoutLegacyNpmDevdir() {
@@ -9,9 +10,12 @@ function envWithoutLegacyNpmDevdir() {
   return env;
 }
 
-const eslintBin = process.platform === 'win32'
-  ? join(__dirname, '..', 'node_modules', '.bin', 'eslint.cmd')
-  : join(__dirname, '..', 'node_modules', '.bin', 'eslint');
+const eslintName = process.platform === 'win32' ? 'eslint.cmd' : 'eslint';
+const eslintCandidates = [
+  join(__dirname, '..', 'node_modules', '.bin', eslintName),
+  join(__dirname, '..', '..', 'node_modules', '.bin', eslintName),
+];
+const eslintBin = eslintCandidates.find((candidate) => existsSync(candidate)) || eslintCandidates[0];
 
 const result = spawnSync(eslintBin, ['app', '--ext', 'ts,tsx'], {
   stdio: 'inherit',

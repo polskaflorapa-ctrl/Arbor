@@ -21,6 +21,7 @@ import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
@@ -265,6 +266,15 @@ export default function RaportDzienny() {
   };
 
   const S = makeStyles(theme);
+  const totalMinutes = form.zadania.reduce((sum, row) => sum + (parseInt(row.czas_minuty) || 0), 0);
+  const filledTasks = form.zadania.filter((row) => (parseInt(row.czas_minuty) || 0) > 0 || row.uwagi.trim()).length;
+  const materialCount = form.materialy.filter((row) => row.nazwa.trim()).length;
+  const reportStats = [
+    { key: 'tasks', label: 'Zlecenia', value: `${filledTasks}/${form.zadania.length}`, icon: 'clipboard-outline' as const, color: theme.accent },
+    { key: 'time', label: 'Czas', value: `${Math.round(totalMinutes / 60 * 10) / 10}h`, icon: 'time-outline' as const, color: theme.info },
+    { key: 'materials', label: 'Materialy', value: String(materialCount), icon: 'construct-outline' as const, color: theme.warning },
+    { key: 'sign', label: 'Podpis', value: podpisData ? 'OK' : '-', icon: 'create-outline' as const, color: podpisData ? theme.success : theme.textMuted },
+  ];
 
   if (guard.ready && !guard.allowed) {
     return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
@@ -298,15 +308,27 @@ export default function RaportDzienny() {
       automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
     >
       {/* Nagłówek */}
-      <View style={[S.header, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
+      <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
-        <Text style={[S.headerTitle, { color: theme.headerText }]}>{t('dailyReport.title')}</Text>
-        <Text style={S.headerDate}>{dzisiaj}</Text>
+        <View style={S.headerIcon}>
+          <Ionicons name="document-text-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Raport brygady</Text>
+          <Text style={S.headerTitle}>{t('dailyReport.title')}</Text>
+          <Text style={S.headerDate}>{dzisiaj}</Text>
+        </View>
         {existingReport && (
-          <View style={[S.statusBadge, { backgroundColor: existingReport.status === 'Wyslany' ? theme.successBg : theme.surface2 }]}>
-            <Text style={[S.statusText, { color: existingReport.status === 'Wyslany' ? theme.success : theme.textSub }]}>
+        <View style={[
+          S.statusBadge,
+          {
+            backgroundColor: existingReport?.status === 'Wyslany' ? theme.successBg : theme.surface2,
+            borderColor: existingReport?.status === 'Wyslany' ? theme.success : theme.border,
+          },
+        ]}>
+          <Text style={[S.statusText, { color: existingReport?.status === 'Wyslany' ? theme.success : theme.textSub }]}>
               {existingReport.status === 'Wyslany' ? 'Wysłany' : 'Roboczy'}
             </Text>
           </View>
@@ -318,6 +340,18 @@ export default function RaportDzienny() {
         warningBackgroundColor={theme.warningBg}
         borderColor={theme.border}
       />
+
+      <View style={S.reportStats}>
+        {reportStats.map((stat) => (
+          <View key={stat.key} style={[S.reportStat, { borderColor: `${stat.color}44` }]}>
+            <View style={[S.reportStatIcon, { backgroundColor: `${stat.color}1F` }]}>
+              <Ionicons name={stat.icon} size={16} color={stat.color} />
+            </View>
+            <Text style={S.reportStatValue}>{stat.value}</Text>
+            <Text style={S.reportStatLabel}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
 
       {/* Zlecenia dnia */}
       <View style={[S.section, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
@@ -571,29 +605,102 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12 },
-  header: { padding: 16, paddingTop: 56, paddingBottom: 14, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '700', flex: 1 },
-  headerDate: { fontSize: 13, marginTop: 2 },
-  statusBadge: { marginTop: 6, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  section: { margin: 12, borderRadius: 14, padding: 16, borderWidth: 1, elevation: 2 },
+  header: {
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 18,
+    paddingBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.5,
+      radius: t.shadowRadius,
+      offsetY: t.shadowOffsetY,
+      elevation: 2,
+    }),
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTextBox: { flex: 1, minWidth: 0 },
+  headerEyebrow: { color: t.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  headerTitle: { color: t.text, fontSize: 20, lineHeight: 24, fontWeight: '900' },
+  headerDate: { color: t.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  statusBadge: {
+    minHeight: 34,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusText: { fontSize: 11, fontWeight: '900' },
+  reportStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 14, marginBottom: 2 },
+  reportStat: {
+    flex: 1,
+    minWidth: '22%',
+    backgroundColor: t.cardBg,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 10,
+    alignItems: 'center',
+    gap: 4,
+  },
+  reportStatIcon: { width: 30, height: 30, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  reportStatValue: { color: t.text, fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  reportStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800' },
+  section: {
+    marginHorizontal: 14,
+    marginTop: 10,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.42,
+      radius: t.shadowRadius,
+      offsetY: t.shadowOffsetY,
+      elevation: 2,
+    }),
+  },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 12 },
-  emptyText: { textAlign: 'center', padding: 16, fontSize: 14 },
-  zadanieCard: { borderRadius: 10, padding: 12, marginBottom: 10, borderLeftWidth: 3 },
-  zadanieKlient: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  zadanieAdres: { fontSize: 12, marginBottom: 8 },
+  sectionTitle: { fontSize: 15, fontWeight: '900', marginBottom: 12 },
+  emptyText: { textAlign: 'center', padding: 16, fontSize: 14, fontWeight: '800' },
+  zadanieCard: { borderRadius: 14, padding: 12, marginBottom: 10, borderLeftWidth: 4, borderWidth: 1, borderColor: t.border },
+  zadanieKlient: { fontSize: 14, fontWeight: '900', marginBottom: 2 },
+  zadanieAdres: { fontSize: 12, marginBottom: 8, fontWeight: '700' },
   zadanieRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  materialCard: { borderRadius: 10, padding: 12, marginBottom: 10 },
+  materialCard: { borderRadius: 14, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: t.border },
   materialHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  materialIdx: { fontSize: 13, fontWeight: '600' },
+  materialIdx: { fontSize: 13, fontWeight: '900' },
   materialRow: { flexDirection: 'row', marginTop: 8 },
-  fieldLabel: { fontSize: 12, marginBottom: 4 },
-  input: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14, marginTop: 4 },
-  inputSm: { borderWidth: 1, borderRadius: 6, padding: 8, fontSize: 13 },
-  addBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
-  addBtnText: { fontSize: 13, fontWeight: '600' },
+  fieldLabel: { fontSize: 12, marginBottom: 4, fontWeight: '800' },
+  input: { borderWidth: 1, borderRadius: 12, padding: 11, fontSize: 14, marginTop: 4, fontWeight: '700' },
+  inputSm: { borderWidth: 1, borderRadius: 12, padding: 9, fontSize: 13, fontWeight: '700' },
+  addBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  addBtnText: { fontSize: 13, fontWeight: '900' },
   podpisPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10 },
   podpisOk: { fontWeight: '600', fontSize: 14 },
   podpisZmien: { fontSize: 13, fontWeight: '600' },

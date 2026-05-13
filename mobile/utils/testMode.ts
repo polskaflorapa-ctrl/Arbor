@@ -92,23 +92,98 @@ export const MOCK_DATA_MOBILE = {
       id: 1,
       klient_nazwa: 'Test Klient 1',
       adres: 'ul. Testowa 1',
+      miasto: 'Krakow',
       typ_uslugi: 'Inspekcja',
       status: 'Nowe',
       data_planowana: new Date().toISOString(),
       brygadzista_id: 9003,
       ekipa_id: 5,
+      ekipa_nazwa: 'Ekipa A',
+      ankieta_uproszczona: true,
+      czas_planowany_godziny: 3,
+      wartosc_planowana: 2450,
+      notatki_wewnetrzne: [
+        'TRYB TERENOWY: szybka wycena u klienta',
+        'PRZEKAZANIE DO BIURA',
+        'Gotowosc: 5/5',
+        'FORMULARZ WYCENY TERENOWEJ',
+        'Zakres prac: przycinka koron, wywoz galezi',
+        'Sprzet: rebak, pilarka, lina',
+        'Ryzyka: ogrodzenie, linia nad wjazdem',
+        'Dostep / parking: brama od ulicy, miejsce dla busa przy posesji',
+      ].join('\n'),
+      photo_total: 3,
+      photo_wycena: 1,
+      photo_szkic: 1,
+      photo_dojazd: 1,
     },
     {
       id: 2,
       klient_nazwa: 'Test Klient 2',
       adres: 'ul. Testowa 2',
+      miasto: 'Krakow',
       typ_uslugi: 'Konsultacja',
-      status: 'W realizacji',
+      status: 'W_Realizacji',
       data_planowana: new Date(Date.now() - 86400000).toISOString(),
       brygadzista_id: 9003,
       ekipa_id: 5,
+      ekipa_nazwa: 'Ekipa A',
+      ankieta_uproszczona: true,
+      czas_planowany_godziny: 2,
+      notatki_wewnetrzne: [
+        'TRYB TERENOWY: szybka wycena u klienta',
+        'PRZEKAZANIE DO BIURA',
+        'Gotowosc: 3/5',
+        'FORMULARZ WYCENY TERENOWEJ',
+        'Zakres prac: usuniecie suchej galezi nad podjazdem',
+        'Ryzyka: auto klienta, waski dojazd',
+      ].join('\n'),
+      photo_total: 1,
+      photo_wycena: 1,
+      photo_szkic: 0,
+      photo_dojazd: 0,
     },
   ],
+  taskPhotos: {
+    '1': [
+      {
+        id: 101,
+        task_id: 1,
+        typ: 'wycena',
+        opis: 'Widok ogolny drzewa i zakresu.',
+        url: '/uploads/tasks/mock-wycena.jpg',
+        created_at: new Date().toISOString(),
+        lokalizacja: '50.06143, 19.93658',
+      },
+      {
+        id: 102,
+        task_id: 1,
+        typ: 'szkic',
+        opis: 'Szkic ciecia koron przy ogrodzeniu.',
+        url: '/uploads/tasks/mock-szkic.jpg',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 103,
+        task_id: 1,
+        typ: 'dojazd',
+        opis: 'Dojazd i brama wjazdowa dla ekipy.',
+        url: '/uploads/tasks/mock-dojazd.jpg',
+        created_at: new Date().toISOString(),
+        lokalizacja: '50.06143, 19.93658',
+      },
+    ],
+    '2': [
+      {
+        id: 201,
+        task_id: 2,
+        typ: 'wycena',
+        opis: 'Zdjecie ogolne miejsca pracy. Brakuje szkicu i dojazdu.',
+        url: '/uploads/tasks/mock-brak-szkicu.jpg',
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+      },
+    ],
+  },
   tasksStats: {
     nowe: 2,
     w_realizacji: 1,
@@ -122,6 +197,14 @@ export const MOCK_DATA_MOBILE = {
       brygadzista_id: 9003,
       oddzial_id: 2,
       pracownicy: [9003, 9006, 9007],
+      liczba_czlonkow: 3,
+      zlecenia_dzien: 1,
+      rezerwacje_wstepne_dzien: 0,
+      zajete_minuty_dzien: 180,
+      wolne_minuty_dzien: 300,
+      planowane_godziny_dzien: 3,
+      obciazenie_proc_dzien: 38,
+      dostepnosc_dzien: 'czesciowa',
     },
   ],
   oddzialy: [
@@ -396,6 +479,38 @@ export async function getMockDataForMobileFetch(url: string | undefined, method 
     return MOCK_DATA_MOBILE.raportyMobilne;
   }
 
+  if (path === '/api/raporty/ranking-brygad') {
+    const today = new Date().toISOString().slice(0, 10);
+    const winner = {
+      rank: 1,
+      team_id: 5,
+      ekipa_id: 5,
+      ekipa_nazwa: 'Ekipa A',
+      oddzial_nazwa: 'Kraków',
+      brygadzista_nazwa: 'Test Brygadzista',
+      score: 186,
+      total_tasks: 6,
+      completed_tasks: 5,
+      completion_rate: 83,
+      revenue: 18400,
+      logged_hours: 28,
+      planned_hours: 30,
+      photos_count: 18,
+      issues_count: 1,
+    };
+    return {
+      generated_at: new Date().toISOString(),
+      as_of: today,
+      oddzial_id: 2,
+      periods: {
+        week: { key: 'week', label: 'Najlepsza ekipa tygodnia', from: today, to: today, winner, items: [winner] },
+        month: { key: 'month', label: 'Najlepsza ekipa miesiaca', from: `${today.slice(0, 8)}01`, to: today, winner, items: [winner] },
+        half_year: { key: 'half_year', label: 'Najlepsza ekipa polrocza', from: `${today.slice(0, 5)}01-01`, to: today, winner, items: [winner] },
+        year: { key: 'year', label: 'Najlepsza ekipa roku', from: `${today.slice(0, 5)}01-01`, to: today, winner, items: [winner] },
+      },
+    };
+  }
+
   if (path === '/api/flota/pojazdy') {
     return MOCK_DATA_MOBILE.flota.pojazdy;
   }
@@ -437,7 +552,9 @@ export async function getMockDataForMobileFetch(url: string | undefined, method 
   }
 
   if (/^\/api\/tasks\/\d+\/zdjecia$/.test(path)) {
-    return [];
+    const taskId = getIdFromPath(path, /^\/api\/tasks\/(\d+)\/zdjecia$/);
+    const photosByTask = MOCK_DATA_MOBILE.taskPhotos as Record<string, any[]>;
+    return photosByTask[taskId || ''] ?? [];
   }
 
   if (path === '/api/cmr') {
@@ -478,6 +595,18 @@ export async function getMockDataForMobileFetch(url: string | undefined, method 
   if (/^\/api\/ekipy\/\d+$/.test(path)) {
     const ekipaId = getIdFromPath(path, /^\/api\/ekipy\/(\d+)$/);
     return MOCK_DATA_MOBILE.ekipy.find((item) => String(item.id) === String(ekipaId)) ?? MOCK_DATA_MOBILE.ekipy[0] ?? {};
+  }
+
+  if (/^\/api\/oddzialy\/\d+\/zasoby$/.test(path)) {
+    const oddzialId = getIdFromPath(path, /^\/api\/oddzialy\/(\d+)\/zasoby$/);
+    return {
+      oddzial_id: oddzialId,
+      date: new Date().toISOString().slice(0, 10),
+      ekipy: MOCK_DATA_MOBILE.ekipy.filter((item) => String(item.oddzial_id) === String(oddzialId)),
+      wyceniajacy: MOCK_DATA_MOBILE.uzytkownicy.filter(
+        (item: any) => String(item.oddzial_id) === String(oddzialId) && String(item.rola || '').toLowerCase().includes('wyceniaj'),
+      ),
+    };
   }
 
   if (/^\/api\/oddzialy\/\d+$/.test(path)) {
@@ -543,9 +672,16 @@ export async function installMobileTestModeAxiosAdapter() {
   const isEnabled = await isTestModeEnabledMobile();
   if (!isEnabled) return;
 
-  const originalAdapter = axios.defaults.adapter as any;
-  if (!originalAdapter) return;
-  if ((axios.defaults.adapter as any).__testModePatched) return;
+  const currentAdapter = axios.defaults.adapter as any;
+  if ((currentAdapter as any)?.__testModePatched) return;
+
+  const originalAdapter =
+    typeof currentAdapter === 'function'
+      ? currentAdapter
+      : typeof (axios as any).getAdapter === 'function'
+        ? (axios as any).getAdapter(currentAdapter)
+        : null;
+  if (typeof originalAdapter !== 'function') return;
 
   axios.defaults.adapter = async (config: any) => {
     const mockData = await getMockDataForMobileFetch(

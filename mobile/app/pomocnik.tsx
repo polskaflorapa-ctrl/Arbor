@@ -111,7 +111,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  backBtn: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 18, fontWeight: 'bold', color: t.headerText },
   card: {
     backgroundColor: t.cardBg, padding: 16, borderRadius: 14, marginBottom: 10,

@@ -3,6 +3,7 @@ import { addNetworkStateListener } from 'expo-network';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, type AppStateStatus, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
+import { shadowStyle } from '../constants/elevation';
 import { flushOfflineQueue, getOfflineQueueSize } from '../utils/offline-queue';
 import { getStoredSession } from '../utils/session';
 
@@ -98,11 +99,12 @@ export function OfflineQueueSync() {
           {
             backgroundColor,
             borderColor: theme.border,
-            shadowColor: theme.shadowColor,
-            shadowOpacity: theme.shadowOpacity * 0.45,
-            shadowRadius: theme.shadowRadius,
-            shadowOffset: { width: 0, height: theme.shadowOffsetY },
-            elevation: theme.cardElevation,
+            ...shadowStyle(theme, {
+              opacity: theme.shadowOpacity * 0.45,
+              radius: theme.shadowRadius,
+              offsetY: theme.shadowOffsetY,
+              elevation: theme.cardElevation,
+            }),
           },
         ]}
       >

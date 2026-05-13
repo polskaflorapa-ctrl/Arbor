@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../constants/ThemeContext';
+import { colorWithAlpha, shadowStyle } from '../../constants/elevation';
 
 type LoadingStateProps = {
   message?: string;
@@ -51,8 +52,21 @@ export function EmptyState({
   const { theme } = useTheme();
   const ic = iconColor ?? theme.textMuted;
   return (
-    <View style={styles.center}>
-      <Ionicons name={icon} size={44} color={ic} />
+    <View
+      style={[
+        styles.emptyCard,
+        { backgroundColor: theme.cardBg, borderColor: theme.cardBorder },
+        shadowStyle(theme, {
+          opacity: theme.shadowOpacity * 0.18,
+          radius: theme.shadowRadius * 0.45,
+          offsetY: 2,
+          elevation: 2,
+        }),
+      ]}
+    >
+      <View style={[styles.iconRing, { backgroundColor: colorWithAlpha(ic, 0.1), borderColor: colorWithAlpha(ic, 0.22) }]}>
+        <Ionicons name={icon} size={30} color={ic} />
+      </View>
       <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       {subtitle ? <Text style={[styles.subtitle, { color: theme.textMuted }]}>{subtitle}</Text> : null}
     </View>
@@ -62,7 +76,7 @@ export function EmptyState({
 export function ErrorBanner({ message }: ErrorBannerProps) {
   const { theme } = useTheme();
   return (
-    <View style={[styles.errorBox, { backgroundColor: theme.dangerBg }]}>
+    <View style={[styles.errorBox, { backgroundColor: theme.dangerBg, borderColor: colorWithAlpha(theme.danger, 0.38) }]}>
       <Ionicons name="warning-outline" size={16} color={theme.danger} />
       <Text style={[styles.errorText, { color: theme.danger }]}>{message}</Text>
     </View>
@@ -92,18 +106,38 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 24,
   },
-  loadingText: { fontSize: 13 },
-  title: { fontWeight: '700', fontSize: 15, textAlign: 'center' },
-  subtitle: { fontSize: 13, textAlign: 'center' },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 22,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  iconRing: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: { fontSize: 13, fontWeight: '700' },
+  title: { fontWeight: '800', fontSize: 15, textAlign: 'center' },
+  subtitle: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   errorBox: {
-    borderRadius: 10,
+    borderRadius: 14,
+    borderWidth: 1,
     padding: 12,
     margin: 12,
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
   },
-  errorText: { fontSize: 13, flex: 1 },
+  errorText: { fontSize: 13, flex: 1, fontWeight: '800', lineHeight: 18 },
   offlineInfo: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,30 +1,9 @@
-
-import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+// Plik-relikt po `create-expo-app` — przekierowanie na ekran startowy.
+// Cały moduł (wraz z components/themed-{text,view}, hooks/use-color-scheme,
+// hooks/use-theme-color) można bezpiecznie usunąć — nie jest importowany
+// przez żadną żywą część aplikacji.
+import { Redirect } from 'expo-router';
 
 export default function ModalScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
-  );
+  return <Redirect href="/" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-});

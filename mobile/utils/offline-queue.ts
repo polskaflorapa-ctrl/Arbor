@@ -17,12 +17,29 @@ export interface OfflineQueueMultipart {
 
 export interface OfflineQueueItem {
   id: string;
+  /**
+   * Opcjonalny klucz deduplikacji.
+   * Gdy podany, nowy wpis usuwa starsze wpisy z tym samym kluczem.
+   */
+  dedupeKey?: string;
   url: string;
   method: HttpMethod;
   body?: Record<string, unknown> | null;
   multipart?: OfflineQueueMultipart | null;
   createdAt: string;
 }
+
+type OfflineQueueInput = Omit<OfflineQueueItem, 'id' | 'createdAt'> & {
+  id?: string;
+};
+
+export const createOfflineRequestId = (prefix = 'offline'): string => {
+  const safePrefix = String(prefix || 'offline')
+    .trim()
+    .replace(/[^a-zA-Z0-9:_-]+/g, '-')
+    .slice(0, 80);
+  return `${safePrefix || 'offline'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+};
 
 const readQueue = async (): Promise<OfflineQueueItem[]> => {
   const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
@@ -40,15 +57,21 @@ const writeQueue = async (items: OfflineQueueItem[]): Promise<void> => {
 };
 
 export const enqueueOfflineRequest = async (
-  item: Omit<OfflineQueueItem, 'id' | 'createdAt'>,
+  item: OfflineQueueInput,
 ): Promise<void> => {
   const queue = await readQueue();
-  queue.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    createdAt: new Date().toISOString(),
+  const dedupeKey = item.dedupeKey?.trim();
+  const dedupedQueue =
+    dedupeKey && dedupeKey.length > 0
+      ? queue.filter((row) => row.dedupeKey !== dedupeKey)
+      : queue;
+  dedupedQueue.push({
     ...item,
+    ...(dedupeKey ? { dedupeKey } : {}),
+    id: item.id || createOfflineRequestId(),
+    createdAt: new Date().toISOString(),
   });
-  await writeQueue(queue);
+  await writeQueue(dedupedQueue);
 };
 
 export const getOfflineQueueSize = async (): Promise<number> => {
@@ -57,7 +80,7 @@ export const getOfflineQueueSize = async (): Promise<number> => {
 };
 
 export const queueRequestWithOfflineFallback = async (
-  item: Omit<OfflineQueueItem, 'id' | 'createdAt'>,
+  item: OfflineQueueInput,
 ): Promise<number> => {
   await enqueueOfflineRequest(item);
   return getOfflineQueueSize();
@@ -130,6 +153,7 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
 
 /** Kolejka wysłania zdjęcia (POST multipart `/tasks/:id/zdjecia`) po powrocie online. */
 export async function queueTaskPhotoOffline(args: {
+  id?: string;
   url: string;
   fileUri: string;
   typ: string;
@@ -147,6 +171,7 @@ export async function queueTaskPhotoOffline(args: {
   const tg = args.tagi?.trim();
   if (tg) fields.tagi = tg.slice(0, 2000);
   await enqueueOfflineRequest({
+    id: args.id,
     url: args.url,
     method: 'POST',
     multipart: {

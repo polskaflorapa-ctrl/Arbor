@@ -8,6 +8,7 @@ import {
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
@@ -75,13 +76,16 @@ export default function ZatwierdzWycenyScreen() {
       const headers = { Authorization: `Bearer ${authToken}` };
       const [wRes, eRes] = await Promise.all([
         fetch(`${API_URL}/wyceny`, { headers }),
-        fetch(`${API_URL}/ekipy`, { headers }),
+        fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers }),
       ]);
       if (wRes.ok) {
         const wData = await wRes.json();
         setWyceny(Array.isArray(wData) ? wData : (wData.wyceny || []));
       }
-      if (eRes.ok) setEkipy(await eRes.json());
+      if (eRes.ok) {
+        const eData = await eRes.json();
+        setEkipy(Array.isArray(eData?.items) ? eData.items : Array.isArray(eData) ? eData : []);
+      }
     } catch {
       setWyceny([]);
       setRuntimeError('Błąd serwera przy pobieraniu wycen do zatwierdzenia.');
@@ -222,8 +226,6 @@ export default function ZatwierdzWycenyScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <View pointerEvents="none" style={S.bgOrbTop} />
-      <View pointerEvents="none" style={S.bgOrbBottom} />
       <StatusBar
         barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={theme.headerBg}
@@ -235,11 +237,7 @@ export default function ZatwierdzWycenyScreen() {
           <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>{t('approve.screenTitle')}</Text>
-        <View style={{ width: 36 }} />
-      </View>
-      <View style={S.platinumBar}>
-        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={S.platinumBarIcon} />
-        <Text style={S.platinumBarText}>Platinum Approval Deck</Text>
+        <View style={{ width: 48 }} />
       </View>
       {runtimeError ? (
         <View style={S.errorBar}>
@@ -255,9 +253,9 @@ export default function ZatwierdzWycenyScreen() {
       >
         {tabsWidth > 0 ? (
           <Animated.View
-            pointerEvents="none"
             style={[
               S.tabIndicator,
+              { pointerEvents: 'none' },
               {
                 width: tabsWidth / TABS.length,
                 transform: [
@@ -373,7 +371,7 @@ export default function ZatwierdzWycenyScreen() {
                     >
                       <View style={[S.ekipaDot, { backgroundColor: color }]} />
                       <Text style={[S.ekipaText, active && { color: color, fontWeight: '700' }]}>
-                        {e.nazwa}
+                        {e.nazwa}{e.delegowany ? ' · delegacja' : ''}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -552,66 +550,44 @@ function InfoRow({ label, value, theme }: { label: string; value: string; theme:
 }
 
 const makeStyles = (t: Theme) => StyleSheet.create({
-  // Platinum style accents
+  // Enterprise style accents
   root: { flex: 1, backgroundColor: t.bg },
-  bgOrbTop: {
-    position: 'absolute',
-    top: -120,
-    right: -90,
-    width: 250,
-    height: 250,
-    borderRadius: 140,
-    backgroundColor: t.accent + '20',
-  },
-  bgOrbBottom: {
-    position: 'absolute',
-    bottom: 120,
-    left: -80,
-    width: 220,
-    height: 220,
-    borderRadius: 120,
-    backgroundColor: t.chartCyan + '14',
-  },
   centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 12, paddingBottom: 40 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-    backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.accent + '55',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.58,
-    shadowRadius: t.shadowRadius * 1.05,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: t.cardElevation + 1,
+    backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.cardBorder,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, letterSpacing: 0.35 },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, letterSpacing: 0 },
+  backBtn: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   platinumBar: {
     marginHorizontal: 12,
     marginTop: 10,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: t.accent + '88',
-    backgroundColor: t.accent + '1F',
+    borderColor: t.cardBorder,
+    backgroundColor: t.surface2,
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.35,
-    shadowRadius: t.shadowRadius * 0.6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: t.cardElevation,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.16,
+      radius: t.shadowRadius * 0.35,
+      offsetY: 2,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   platinumBarIcon: { width: 22, height: 22, borderRadius: 8 },
   platinumBarText: {
-    color: t.accent,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
+    color: t.textSub,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   errorBar: {
@@ -632,13 +608,15 @@ const makeStyles = (t: Theme) => StyleSheet.create({
 
   tabsRow: {
     flexDirection: 'row', backgroundColor: t.cardBg,
-    borderBottomWidth: 1, borderBottomColor: t.accent + '2E',
+    borderBottomWidth: 1, borderBottomColor: t.cardBorder,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.2,
-    shadowRadius: t.shadowRadius * 0.4,
-    shadowOffset: { width: 0, height: 2 },
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.08,
+      radius: t.shadowRadius * 0.24,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   tabIndicator: {
     position: 'absolute',
@@ -653,7 +631,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flex: 1, paddingVertical: 12, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'center', gap: 6,
   },
-  tabText: { fontSize: 12, fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 },
+  tabText: { fontSize: 12, fontWeight: '800', color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0 },
   tabBadge: { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 11, fontWeight: '700', color: t.accentText },
 
@@ -661,28 +639,29 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   emptyText: { color: t.textMuted, fontSize: 15 },
 
   card: {
-    backgroundColor: t.cardBg, borderRadius: 18, marginBottom: 10,
-    overflow: 'hidden', borderWidth: 1, borderColor: t.accent + '2E',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.45,
-    shadowRadius: t.shadowRadius,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: t.cardElevation,
+    backgroundColor: t.cardBg, borderRadius: 12, marginBottom: 10,
+    overflow: 'hidden', borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.12,
+      radius: t.shadowRadius * 0.42,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   cardBorder: { borderLeftWidth: 4, padding: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, marginRight: 8, letterSpacing: 0.2 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, marginRight: 8, letterSpacing: 0 },
   cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
   cardFooter: {},
   cardOpisText: { fontSize: 13, color: t.textSub },
   expandedSection: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.border },
 
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
-  badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.25 },
+  badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0 },
 
   metaTag: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: t.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: t.accent + '22',
+    backgroundColor: t.surface2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: t.border,
   },
   metaTagText: { fontSize: 12, color: t.textSub },
   ekipaDotSmall: { width: 7, height: 7, borderRadius: 4 },
@@ -694,10 +673,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   infoBox: {
     backgroundColor: t.bg, borderRadius: 10, padding: 12,
     borderWidth: 1, borderColor: t.border, marginBottom: 8,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.18,
-    shadowRadius: t.shadowRadius * 0.4,
-    shadowOffset: { width: 0, height: 2 },
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.18,
+      radius: t.shadowRadius * 0.4,
+      offsetY: 2,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
 
   actionRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: t.border, padding: 10, gap: 8 },
@@ -713,11 +694,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.9)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    maxHeight: '90%', paddingBottom: 24, borderTopWidth: 1, borderTopColor: t.accent + '4A',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.42,
-    shadowRadius: t.shadowRadius * 0.85,
-    shadowOffset: { width: 0, height: -4 },
+    maxHeight: '90%', paddingBottom: 24, borderTopWidth: 1, borderTopColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.18,
+      radius: t.shadowRadius * 0.5,
+      offsetY: -2,
+      elevation: t.cardElevation,
+    }),
   },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -729,10 +712,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalScroll: { paddingHorizontal: 20, paddingTop: 8 },
   modalActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 8 },
 
-  label: { fontSize: 12, fontWeight: '800', color: t.textMuted, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.7 },
+  label: { fontSize: 12, fontWeight: '800', color: t.textMuted, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0 },
   input: {
     backgroundColor: t.inputBg, borderRadius: 10, borderWidth: 1,
-    borderColor: t.accent + '33', color: t.inputText, paddingHorizontal: 14,
+    borderColor: t.inputBorder, color: t.inputText, paddingHorizontal: 14,
     paddingVertical: 10, fontSize: 14,
   },
   inputMulti: { minHeight: 80, textAlignVertical: 'top' },
@@ -740,8 +723,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   pillsScroll: { marginBottom: 4 },
   ekipaPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: t.bg, borderRadius: 20, paddingHorizontal: 12,
-    paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.accent + '33',
+    backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 12,
+    paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
   },
   ekipaDot: { width: 8, height: 8, borderRadius: 4 },
   ekipaText: { fontSize: 13, color: t.text, fontWeight: '500' },
@@ -749,12 +732,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   approveBtn: {
     flex: 1, backgroundColor: t.accent, borderRadius: 10,
     paddingVertical: 13, alignItems: 'center',
-    flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: t.accent + '66',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.42,
-    shadowRadius: t.shadowRadius * 0.55,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: t.cardElevation,
+    flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: t.accentDark,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.16,
+      radius: t.shadowRadius * 0.36,
+      offsetY: 1,
+      elevation: t.cardElevation,
+    }),
   },
 
   cancelBtn: {

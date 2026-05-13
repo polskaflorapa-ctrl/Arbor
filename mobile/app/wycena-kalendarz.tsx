@@ -18,22 +18,11 @@ import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { elevationCard } from '../constants/elevation';
+import { elevationCard, shadowStyle } from '../constants/elevation';
 import { triggerHaptic } from '../utils/haptics';
+import { buildNewOrderRoute } from '../utils/new-order-route';
 
 const WYCENA_ROLES = ['Wyceniający', 'Kierownik', 'Administrator', 'Dyrektor'];
-
-const USLUGI_OPTIONS: { apiValue: string; labelKey: string }[] = [
-  { apiValue: 'Wycinka drzew', labelKey: 'wycenyCal.service.cut' },
-  { apiValue: 'Pielęgnacja drzew', labelKey: 'wycenyCal.service.care' },
-  { apiValue: 'Karczowanie pni', labelKey: 'wycenyCal.service.stump' },
-  { apiValue: 'Zrębkowanie', labelKey: 'wycenyCal.service.chip' },
-  { apiValue: 'Pielęgnacja żywopłotu', labelKey: 'wycenyCal.service.hedge' },
-  { apiValue: 'Nasadzenia', labelKey: 'wycenyCal.service.plant' },
-  { apiValue: 'Trawnik', labelKey: 'wycenyCal.service.lawn' },
-  { apiValue: 'Inne', labelKey: 'wycenyCal.service.other' },
-];
 
 function approvalStatusColors(theme: Theme) {
   return {
@@ -46,46 +35,22 @@ function approvalStatusColors(theme: Theme) {
 }
 
 function makeCalendarStyles(t: Theme) {
-  const platinumBorder = t.accent + '88';
-  const platinumSoft = t.accent + '22';
+  const uiBorder = t.cardBorder;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
-    bgOrbTop: {
-      position: 'absolute',
-      top: -120,
-      right: -90,
-      width: 250,
-      height: 250,
-      borderRadius: 140,
-      backgroundColor: t.accent + '20',
-    },
-    bgOrbBottom: {
-      position: 'absolute',
-      bottom: 120,
-      left: -80,
-      width: 220,
-      height: 220,
-      borderRadius: 120,
-      backgroundColor: t.chartCyan + '14',
-    },
     centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
     scroll: { paddingBottom: 40 },
 
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-      backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: platinumBorder,
-      shadowColor: t.shadowColor,
-      shadowOpacity: t.shadowOpacity * 0.58,
-      shadowRadius: t.shadowRadius * 1.05,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: t.cardElevation + 1,
+      backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: uiBorder,
     },
-    headerTitle: { fontSize: t.fontSection + 2, fontWeight: '800', color: t.headerText, letterSpacing: 0.4 },
+    headerTitle: { fontSize: t.fontSection + 2, fontWeight: '800', color: t.headerText, letterSpacing: 0 },
     backBtn: { padding: 4 },
     addBtn: {
-      width: 34, height: 34, alignItems: 'center', justifyContent: 'center',
-      borderRadius: t.radiusSm, borderWidth: 1, borderColor: platinumBorder, backgroundColor: t.surface2,
+      width: 48, height: 48, alignItems: 'center', justifyContent: 'center',
+      borderRadius: t.radiusSm, borderWidth: 1, borderColor: uiBorder, backgroundColor: t.surface2,
     },
     addBtnIcon: { width: 24, height: 24, borderRadius: 8 },
     platinumBar: {
@@ -93,26 +58,27 @@ function makeCalendarStyles(t: Theme) {
       marginTop: 10,
       marginBottom: 4,
       borderWidth: 1,
-      borderColor: platinumBorder,
-      backgroundColor: platinumSoft,
+      borderColor: uiBorder,
+      backgroundColor: t.surface2,
       borderRadius: 12,
       paddingVertical: 8,
       paddingHorizontal: 12,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      shadowColor: t.shadowColor,
-      shadowOpacity: t.shadowOpacity * 0.35,
-      shadowRadius: t.shadowRadius * 0.6,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: t.cardElevation,
+      ...shadowStyle(t, {
+        opacity: t.shadowOpacity * 0.16,
+        radius: t.shadowRadius * 0.35,
+        offsetY: 2,
+        elevation: Math.max(1, t.cardElevation - 1),
+      }),
     },
     platinumBarIcon: { width: 22, height: 22, borderRadius: 8 },
     platinumBarText: {
-      color: t.accent,
-      fontSize: 11,
-      fontWeight: '800',
-      letterSpacing: 1.1,
+      color: t.textSub,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0,
       textTransform: 'uppercase',
     },
     errorBar: {
@@ -144,7 +110,7 @@ function makeCalendarStyles(t: Theme) {
     calCard: {
       marginHorizontal: 12, backgroundColor: t.cardBg,
       borderRadius: t.radiusLg, padding: 12,
-      borderWidth: 1, borderColor: platinumBorder,
+      borderWidth: 1, borderColor: uiBorder,
       ...elevationCard(t),
     },
     dayNamesRow: { flexDirection: 'row', marginBottom: 6 },
@@ -183,12 +149,12 @@ function makeCalendarStyles(t: Theme) {
     emptyDayText: { color: t.textMuted, fontSize: 14 },
 
     section: { marginHorizontal: 12, marginTop: 16 },
-    sectionTitle: { fontSize: 15, fontWeight: '800', color: t.text, marginBottom: 8, letterSpacing: 0.3 },
+    sectionTitle: { fontSize: 15, fontWeight: '800', color: t.text, marginBottom: 8, letterSpacing: 0 },
 
     wCard: {
       backgroundColor: t.cardBg, borderRadius: t.radiusLg, padding: 14,
       marginBottom: 8, flexDirection: 'row', alignItems: 'center',
-      borderWidth: 1, borderColor: platinumBorder,
+      borderWidth: 1, borderColor: uiBorder,
       ...elevationCard(t),
     },
     wCardLeft: { flex: 1, borderLeftWidth: 3, paddingLeft: 10 },
@@ -198,9 +164,9 @@ function makeCalendarStyles(t: Theme) {
     wCardMetaText: { fontSize: t.fontMicro, color: t.textSub },
     badge: {
       paddingHorizontal: 7, paddingVertical: 2, borderRadius: t.radiusXs,
-      borderWidth: 1, borderColor: platinumBorder,
+      borderWidth: 1, borderColor: uiBorder,
     },
-    badgeText: { fontSize: t.fontMicro, fontWeight: '700', letterSpacing: 0.2 },
+    badgeText: { fontSize: t.fontMicro, fontWeight: '700', letterSpacing: 0 },
 
     modalOverlay: {
       flex: 1, backgroundColor: 'rgba(5,8,15,0.9)',
@@ -209,21 +175,23 @@ function makeCalendarStyles(t: Theme) {
     modalSheet: {
       backgroundColor: t.surface2, borderTopLeftRadius: 28, borderTopRightRadius: 28,
       maxHeight: '90%', paddingBottom: 24,
-      borderTopWidth: 1, borderTopColor: platinumBorder,
-      shadowColor: t.shadowColor,
-      shadowOpacity: t.shadowOpacity * 0.42,
-      shadowRadius: t.shadowRadius * 0.85,
-      shadowOffset: { width: 0, height: -4 },
+      borderTopWidth: 1, borderTopColor: uiBorder,
+      ...shadowStyle(t, {
+        opacity: t.shadowOpacity * 0.18,
+        radius: t.shadowRadius * 0.5,
+        offsetY: -2,
+        elevation: t.cardElevation,
+      }),
     },
     modalHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       padding: 20, borderBottomWidth: 1, borderBottomColor: t.border,
       backgroundColor: t.surface3,
     },
-    modalTitle: { fontSize: t.fontSection + 3, fontWeight: '800', color: t.text, letterSpacing: 0.4 },
+    modalTitle: { fontSize: t.fontSection + 3, fontWeight: '800', color: t.text, letterSpacing: 0 },
     modalScroll: { paddingHorizontal: 20, paddingTop: 12 },
 
-    label: { fontSize: 12, fontWeight: '800', color: t.textSub, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0.7 },
+    label: { fontSize: 12, fontWeight: '800', color: t.textSub, marginBottom: 6, marginTop: 14, textTransform: 'uppercase', letterSpacing: 0 },
     required: { color: t.warning },
     input: {
       backgroundColor: t.inputBg, borderRadius: t.radiusMd, borderWidth: 1,
@@ -235,7 +203,7 @@ function makeCalendarStyles(t: Theme) {
     pillsScroll: { marginBottom: 6 },
     pill: {
       backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 14,
-      paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: platinumBorder,
+      paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
     },
     pillActive: { backgroundColor: t.success, borderColor: t.success },
     pillText: { fontSize: 13, color: t.textSub, fontWeight: '600' },
@@ -244,7 +212,7 @@ function makeCalendarStyles(t: Theme) {
     ekipaPill: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: t.inputBg, borderRadius: 20, paddingHorizontal: 12,
-      paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: t.accent + '33',
+      paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: t.inputBorder,
     },
     ekipaDot: { width: 8, height: 8, borderRadius: 4 },
     ekipaText: { fontSize: 13, color: t.text, fontWeight: '500' },
@@ -253,12 +221,13 @@ function makeCalendarStyles(t: Theme) {
 
     submitBtn: {
       backgroundColor: t.success, borderRadius: t.radiusMd, paddingVertical: 14,
-      marginHorizontal: 20, marginTop: 8, alignItems: 'center', borderWidth: 1, borderColor: platinumBorder,
-      shadowColor: t.shadowColor,
-      shadowOpacity: t.shadowOpacity * 0.44,
-      shadowRadius: t.shadowRadius * 0.6,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: t.cardElevation,
+      marginHorizontal: 20, marginTop: 8, alignItems: 'center', borderWidth: 1, borderColor: t.success + '55',
+      ...shadowStyle(t, {
+        opacity: t.shadowOpacity * 0.16,
+        radius: t.shadowRadius * 0.4,
+        offsetY: 1,
+        elevation: t.cardElevation,
+      }),
     },
     submitBtnDisabled: { opacity: 0.6 },
   });
@@ -294,7 +263,6 @@ function pickBestOperationalSlot(slots: { time: string; eta_minutes?: number | n
 
 export default function WycenaKalendarzScreen() {
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
   const { t, language } = useLanguage();
   const guard = useOddzialFeatureGuard('/wycena-kalendarz');
   const approvalColors = useMemo(() => approvalStatusColors(theme), [theme]);
@@ -302,7 +270,6 @@ export default function WycenaKalendarzScreen() {
   const [user, setUser] = useState<any>(null);
   const [wyceny, setWyceny] = useState<any[]>([]);
   const [ekipy, setEkipy] = useState<any[]>([]);
-  const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -347,7 +314,6 @@ export default function WycenaKalendarzScreen() {
   }, [monthPulse, viewMonth, viewYear]);
 
   // Modal state
-  const [showModal, setShowModal] = useState(false);
   const [reserveModal, setReserveModal] = useState<any | null>(null);
   const [reserveDraft, setReserveDraft] = useState<{ ekipa_id: string; data: string; godzina: string; slots: { time: string; score?: number; eta_minutes?: number | null; eta_source?: string | null; eta_unavailable_reason?: string | null }[] }>({
     ekipa_id: '',
@@ -360,19 +326,6 @@ export default function WycenaKalendarzScreen() {
   const [slotLoading, setSlotLoading] = useState(false);
   const [etaThreshold, setEtaThreshold] = useState(25);
   const [liveByTeam, setLiveByTeam] = useState<Record<string, any>>({});
-  const [form, setForm] = useState({
-    klient_nazwa: '',
-    adres: '',
-    miasto: '',
-    rodzaj_uslugi: '',
-    data_wyceny: formatDate(new Date()),
-    godzina: '09:00',
-    ekipa_id: '' as string | number,
-    oddzial_id: '' as string | number,
-    wartosc: '',
-    opis: '',
-  });
-
   function formatDate(d: Date) {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -410,10 +363,9 @@ export default function WycenaKalendarzScreen() {
         }
         const u = sessionUser ?? user;
         const headers = { Authorization: `Bearer ${authToken}` };
-        const [wRes, eRes, oRes] = await Promise.all([
+        const [wRes, eRes] = await Promise.all([
           fetch(`${API_URL}/wyceny`, { headers }),
-          fetch(`${API_URL}/ekipy`, { headers }),
-          fetch(`${API_URL}/oddzialy`, { headers }),
+          fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers }),
         ]);
         const liveRes = await fetch(`${API_URL}/ekipy/live-locations`, { headers }).catch(() => null);
         if (wRes.ok) {
@@ -422,8 +374,10 @@ export default function WycenaKalendarzScreen() {
           list = filterQuotesForEstimatorRole(list, u?.id, u?.rola);
           setWyceny(list);
         }
-        if (eRes.ok) setEkipy(await eRes.json());
-        if (oRes.ok) setOddzialy(await oRes.json());
+        if (eRes.ok) {
+          const eData = await eRes.json();
+          setEkipy(Array.isArray(eData?.items) ? eData.items : Array.isArray(eData) ? eData : []);
+        }
         if (liveRes && liveRes.ok) {
           const liveData = await liveRes.json().catch(() => ({ items: [] }));
           const map: Record<string, any> = {};
@@ -490,53 +444,6 @@ export default function WycenaKalendarzScreen() {
     setSelectedDay(null);
   };
 
-  // ─── Form submit ────────────────────────────────────────────────────────────
-
-  const handleSubmit = async () => {
-    if (!form.adres.trim()) { Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.address')); return; }
-    if (!form.rodzaj_uslugi) { Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.service')); return; }
-    if (!form.ekipa_id) { Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.team')); return; }
-    if (!form.data_wyceny) { Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.date')); return; }
-
-    setSaving(true);
-    try {
-      if (!token) { router.replace('/login'); return; }
-      const body = {
-        klient_nazwa: form.klient_nazwa || 'Wycena',
-        adres: form.adres,
-        miasto: form.miasto,
-        wycena_uwagi: `${form.rodzaj_uslugi}${form.opis ? '\n' + form.opis : ''}`,
-        typ_uslugi: form.rodzaj_uslugi,
-        data_wykonania: form.data_wyceny,
-        godzina_rozpoczecia: form.godzina,
-        ekipa_id: form.ekipa_id || null,
-        wartosc_planowana: form.wartosc ? parseFloat(form.wartosc) : null,
-      };
-      const res = await fetch(`${API_URL}/wyceny`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        void triggerHaptic('error');
-        Alert.alert(t('wyceny.alert.saveFail'), err.message || t('wycenyCal.alert.saveFail'));
-        return;
-      }
-      void triggerHaptic('success');
-      setShowModal(false);
-      resetForm();
-      loadAll();
-      Alert.alert(t('wycenyCal.alert.sentTitle'), t('wycenyCal.alert.sentBody'));
-    } catch {
-      void triggerHaptic('error');
-      Alert.alert(t('wyceny.alert.saveFail'), t('wycenyCal.alert.network'));
-      setRuntimeError('Błąd serwera przy zapisie wyceny.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const openReserveModal = async (w: any) => {
     const ekipa_id = String(w.proponowana_ekipa_id || w.ekipa_id || '');
     const data = (w.proponowana_data || w.data_wykonania || '').slice(0, 10) || formatDate(new Date());
@@ -580,6 +487,7 @@ export default function WycenaKalendarzScreen() {
       Alert.alert('Brak danych', 'Wybierz ekipę, datę i godzinę.');
       return;
     }
+    setSaving(true);
     try {
       const res = await fetch(`${API_URL}/wyceny/${reserveModal.id}/rezerwuj-termin`, {
         method: 'POST',
@@ -606,30 +514,19 @@ export default function WycenaKalendarzScreen() {
       void triggerHaptic('error');
       Alert.alert('Błąd', 'Błąd sieci podczas zapisu rezerwacji.');
       setRuntimeError('Błąd serwera przy zapisie rezerwacji.');
+    } finally {
+      setSaving(false);
     }
-  };
-
-  const resetForm = () => {
-    setForm({
-      klient_nazwa: '',
-      adres: '',
-      miasto: '',
-      rodzaj_uslugi: '',
-      data_wyceny: formatDate(new Date()),
-      godzina: '09:00',
-      ekipa_id: '',
-      oddzial_id: '',
-      wartosc: '',
-      opis: '',
-    });
   };
 
   const openModal = () => {
-    if (selectedDay) {
-      const d = new Date(viewYear, viewMonth, selectedDay);
-      setForm(f => ({ ...f, data_wyceny: formatDate(d) }));
-    }
-    setShowModal(true);
+    const data = selectedDay ? formatDate(new Date(viewYear, viewMonth, selectedDay)) : formatDate(new Date());
+    void triggerHaptic('light');
+    router.push(buildNewOrderRoute({
+      source: 'wycena-kalendarz',
+      data,
+      godzina: '09:00',
+    }) as never);
   };
 
   // ─── Access control ─────────────────────────────────────────────────────────
@@ -669,8 +566,6 @@ export default function WycenaKalendarzScreen() {
 
   return (
     <KeyboardSafeScreen style={s.root}>
-      <View pointerEvents="none" style={s.bgOrbTop} />
-      <View pointerEvents="none" style={s.bgOrbBottom} />
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
 
       {/* Header */}
@@ -683,11 +578,7 @@ export default function WycenaKalendarzScreen() {
           <TouchableOpacity onPress={openModal} style={s.addBtn}>
             <PlatinumIconBadge icon="add" color={theme.accent} size={12} style={s.addBtnIcon} />
           </TouchableOpacity>
-        ) : <View style={{ width: 36 }} />}
-      </View>
-      <View style={s.platinumBar}>
-        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={s.platinumBarIcon} />
-        <Text style={s.platinumBarText}>Platinum Dispatch Console</Text>
+        ) : <View style={{ width: 48 }} />}
       </View>
       {runtimeError ? (
         <View style={s.errorBar}>
@@ -821,173 +712,6 @@ export default function WycenaKalendarzScreen() {
         </View>
       </ScrollView>
 
-      {/* New Wycena Modal */}
-      <Modal visible={showModal} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          style={s.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-        >
-          <PlatinumModalSheet visible={showModal} style={s.modalSheet}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{t('wycenyCal.modalTitle')}</Text>
-              <TouchableOpacity onPress={() => { setShowModal(false); resetForm(); }}>
-                <PlatinumIconBadge icon="close" color={theme.textSub} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={s.modalScroll}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-            >
-              {/* Client name */}
-              <Text style={s.label}>{t('wycenyCal.label.client')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={t('wycenyCal.ph.client')}
-                placeholderTextColor={theme.inputPlaceholder}
-                value={form.klient_nazwa}
-                onChangeText={(txt) => setForm(f => ({ ...f, klient_nazwa: txt }))}
-              />
-
-              {/* Address */}
-              <Text style={s.label}>{t('wycenyCal.label.address')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={t('wycenyCal.ph.address')}
-                placeholderTextColor={theme.inputPlaceholder}
-                value={form.adres}
-                onChangeText={(txt) => setForm(f => ({ ...f, adres: txt }))}
-              />
-
-              {/* City */}
-              <Text style={s.label}>{t('wycenyCal.label.city')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={t('wycenyCal.ph.city')}
-                placeholderTextColor={theme.inputPlaceholder}
-                value={form.miasto}
-                onChangeText={(txt) => setForm(f => ({ ...f, miasto: txt }))}
-              />
-
-              {/* Service type */}
-              <Text style={s.label}>{t('wycenyCal.label.service')}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
-                {USLUGI_OPTIONS.map(({ apiValue, labelKey }) => (
-                  <TouchableOpacity
-                    key={apiValue}
-                    style={[s.pill, form.rodzaj_uslugi === apiValue && s.pillActive]}
-                    onPress={() => setForm(f => ({ ...f, rodzaj_uslugi: apiValue }))}
-                  >
-                    <Text style={[s.pillText, form.rodzaj_uslugi === apiValue && s.pillTextActive]}>{t(labelKey)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Date */}
-              <Text style={s.label}>{t('wycenyCal.label.date')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder={t('wycenyCal.ph.date')}
-                placeholderTextColor={theme.inputPlaceholder}
-                value={form.data_wyceny}
-                onChangeText={(txt) => setForm(f => ({ ...f, data_wyceny: txt }))}
-              />
-
-              {/* Time */}
-              <Text style={s.label}>{t('wycenyCal.label.time')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder="09:00"
-                placeholderTextColor={theme.inputPlaceholder}
-                value={form.godzina}
-                onChangeText={(txt) => setForm(f => ({ ...f, godzina: txt }))}
-              />
-
-              {/* Ekipa — mandatory */}
-              <Text style={s.label}>{t('wycenyCal.label.team')} <Text style={s.required}>{t('wycenyCal.teamRequired')}</Text></Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
-                {ekipy.map(e => {
-                  const active = String(form.ekipa_id) === String(e.id);
-                  const color = e.kolor || theme.success;
-                  return (
-                    <TouchableOpacity
-                      key={e.id}
-                      style={[s.ekipaPill, active && { backgroundColor: color, borderColor: color }]}
-                      onPress={() => setForm(f => ({ ...f, ekipa_id: e.id }))}
-                    >
-                      <View style={[s.ekipaDot, { backgroundColor: color }]} />
-                      <Text style={[s.ekipaText, active && { color: theme.accentText, fontWeight: '700' }]}>
-                        {e.nazwa}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-
-              {/* Oddział */}
-              {oddzialy.length > 0 && (
-                <>
-                  <Text style={s.label}>{t('wycenyCal.label.branch')}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pillsScroll}>
-                    {oddzialy.map(o => (
-                      <TouchableOpacity
-                        key={o.id}
-                        style={[s.pill, String(form.oddzial_id) === String(o.id) && s.pillActive]}
-                        onPress={() => setForm(f => ({
-                          ...f,
-                          oddzial_id: String(form.oddzial_id) === String(o.id) ? '' : o.id,
-                        }))}
-                      >
-                        <Text style={[s.pillText, String(form.oddzial_id) === String(o.id) && s.pillTextActive]}>
-                          {o.nazwa}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </>
-              )}
-
-              {/* Estimated value */}
-              <Text style={s.label}>{t('wycenyCal.label.value')}</Text>
-              <TextInput
-                style={s.input}
-                placeholder="0.00"
-                placeholderTextColor={theme.inputPlaceholder}
-                keyboardType="decimal-pad"
-                value={form.wartosc}
-                onChangeText={(txt) => setForm(f => ({ ...f, wartosc: txt }))}
-              />
-
-              {/* Notes */}
-              <Text style={s.label}>{t('wycenyCal.label.notes')}</Text>
-              <TextInput
-                style={[s.input, s.inputMulti]}
-                placeholder={t('wycenyCal.ph.notes')}
-                placeholderTextColor={theme.inputPlaceholder}
-                multiline
-                numberOfLines={3}
-                value={form.opis}
-                onChangeText={(txt) => setForm(f => ({ ...f, opis: txt }))}
-              />
-
-              <Text style={s.helpText}>
-                {t('wycenyCal.helpManager')}
-              </Text>
-            </ScrollView>
-
-            <PlatinumCTA
-              style={[s.submitBtn, saving && s.submitBtnDisabled]}
-              label={t('wycenyCal.submit')}
-              onPress={handleSubmit}
-              disabled={saving}
-              loading={saving}
-            />
-          </PlatinumModalSheet>
-        </KeyboardAvoidingView>
-      </Modal>
       <Modal visible={!!reserveModal} animationType="slide" transparent>
         <KeyboardAvoidingView style={s.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <PlatinumModalSheet visible={!!reserveModal} style={s.modalSheet}>
@@ -1008,7 +732,7 @@ export default function WycenaKalendarzScreen() {
                       setReserveDraft(next);
                       if (reserveModal) fetchSlots(next, reserveModal.id);
                     }}>
-                      <Text style={[s.ekipaText, active && s.pillTextActive]}>{e.nazwa}</Text>
+                      <Text style={[s.ekipaText, active && s.pillTextActive]}>{e.nazwa}{e.delegowany ? ' · delegacja' : ''}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -1143,7 +867,7 @@ function WycenaCard({ wycena: w, ekipy, liveByTeam, theme, s, onReserve }: { wyc
           {ekipa && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <PlatinumIconBadge icon="people-outline" color={theme.textSub} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
-              <Text style={s.wCardMetaText}>{ekipa.nazwa}</Text>
+              <Text style={s.wCardMetaText}>{ekipa.nazwa}{ekipa.delegowany ? ' · delegacja' : ''}</Text>
             </View>
           )}
         </View>

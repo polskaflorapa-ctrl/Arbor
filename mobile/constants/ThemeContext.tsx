@@ -16,6 +16,8 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { Theme, ThemeName, themes } from './theme';
 
 const STORAGE_KEY = 'arbor_theme';
+const DESIGN_VERSION_KEY = 'arbor_theme_design_version';
+const CURRENT_DESIGN_VERSION = 'white_green_arbor_2026_02';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -33,7 +35,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeName, setThemeName] = useState<ThemeName>('green');
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(saved => {
+    AsyncStorage.multiGet([STORAGE_KEY, DESIGN_VERSION_KEY]).then((pairs) => {
+      const saved = pairs[0]?.[1];
+      const designVersion = pairs[1]?.[1];
+      if (designVersion !== CURRENT_DESIGN_VERSION) {
+        setThemeName('green');
+        void AsyncStorage.multiSet([
+          [STORAGE_KEY, 'green'],
+          [DESIGN_VERSION_KEY, CURRENT_DESIGN_VERSION],
+        ]);
+        return;
+      }
       if (saved === 'dark' || saved === 'light' || saved === 'green') {
         setThemeName(saved);
       }
@@ -42,7 +54,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = useCallback((name: ThemeName) => {
     setThemeName(name);
-    AsyncStorage.setItem(STORAGE_KEY, name);
+    void AsyncStorage.multiSet([
+      [STORAGE_KEY, name],
+      [DESIGN_VERSION_KEY, CURRENT_DESIGN_VERSION],
+    ]);
   }, []);
 
   return (

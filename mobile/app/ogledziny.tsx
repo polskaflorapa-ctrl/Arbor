@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl,
+  ActivityIndicator, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, RefreshControl,
   ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -16,12 +16,14 @@ import { PlatinumPressable } from '../components/ui/platinum-pressable';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
 import { enqueueOfflineRequest, flushOfflineQueue } from '../utils/offline-queue';
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
+import { buildNewOrderRoute, currentNewOrderDateTime } from '../utils/new-order-route';
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'] as const;
 type Status = typeof STATUSY[number];
@@ -41,12 +43,12 @@ const ZONE_RULES: Record<string, string[]> = {
   'Krakow-ZACHOD': ['zwierzyniec', 'wola justowska', 'ruczaj', 'tyniec', 'salwator'],
 };
 const ZONE_COLOR = {
-  'Krakow-POLNOC': '#60A5FA',
-  'Krakow-WSCHOD': '#fb923c',
-  'Krakow-POŁUDNIE': '#34D399',
-  'Krakow-ZACHOD': '#F59E0B',
-  'Krakow-NIEJEDNOZNACZNA': '#F87171',
-  'POZA-KRAKOWEM': '#94A3B8',
+  'Krakow-POLNOC': '#0F766E',
+  'Krakow-WSCHOD': '#6B8E23',
+  'Krakow-POŁUDNIE': '#15803D',
+  'Krakow-ZACHOD': '#B45309',
+  'Krakow-NIEJEDNOZNACZNA': '#B91C1C',
+  'POZA-KRAKOWEM': '#647567',
 } as const;
 const ZONE_OVERRIDE_KEY = 'ogledziny_zone_overrides_mobile_v1';
 const ZONE_CLIENT_DEFAULT_KEY = 'ogledziny_zone_client_defaults_mobile_v1';
@@ -129,12 +131,6 @@ interface Ogledziny {
   wyceniajacy_id?: number | string;
 }
 
-type SessionUser = {
-  id?: number | string;
-  rola?: string;
-  oddzial_id?: number | string;
-};
-
 type LiveTeamLocation = {
   ekipa_id?: number;
   ekipa_nazwa?: string;
@@ -167,21 +163,8 @@ export default function OgledzinyScreen() {
   const [notatki, setNotatki] = useState('');
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<SessionUser | null>(null);
   const [runtimeError, setRuntimeError] = useState('');
-  const [ekipy, setEkipy] = useState<any[]>([]);
   const [liveLocationsByTeam, setLiveLocationsByTeam] = useState<Record<string, LiveTeamLocation>>({});
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createSaving, setCreateSaving] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    klient_nazwa: '',
-    klient_telefon: '',
-    adres: '',
-    miasto: '',
-    data_planowana: new Date().toISOString().slice(0, 16),
-    ekipa_id: '',
-    notatki: '',
-  });
 
   const S = makeStyles(theme);
 
@@ -213,13 +196,11 @@ export default function OgledzinyScreen() {
       const { token: storedToken, user: storedUser } = await getStoredSession();
       if (!storedToken) { router.replace('/login'); return; }
       setToken(storedToken);
-      setUser(storedUser);
       await flushOfflineQueue(storedToken);
+      const userId = storedUser?.id != null ? String(storedUser.id) : '';
+      const userOddzialId = storedUser?.oddzial_id != null ? String(storedUser.oddzial_id) : '';
       const params = filterStatus ? `?status=${filterStatus}` : '';
       const res = await fetch(`${API_URL}/ogledziny${params}`, {
-        headers: { Authorization: `Bearer ${storedToken}` },
-      });
-      const ekipyRes = await fetch(`${API_URL}/ekipy`, {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const liveRes = await fetch(`${API_URL}/ekipy/live-locations`, {
@@ -227,22 +208,12 @@ export default function OgledzinyScreen() {
       });
       const data = await res.json();
       const source = Array.isArray(data) ? data : [];
-      const userId = storedUser?.id != null ? String(storedUser.id) : '';
-      const userOddzialId = storedUser?.oddzial_id != null ? String(storedUser.oddzial_id) : '';
       const scoped = source.filter((item: Ogledziny) => {
         const sameOddzial = !userOddzialId || !item.oddzial_id || String(item.oddzial_id) === userOddzialId;
         const assignedToEstimator = !item.wyceniajacy_id || !userId || String(item.wyceniajacy_id) === userId;
         return sameOddzial && assignedToEstimator;
       });
       setLista(scoped);
-      if (ekipyRes.ok) {
-        const eData = await ekipyRes.json();
-        const rawEkipy = Array.isArray(eData) ? eData : [];
-        const filteredEkipy = userOddzialId
-          ? rawEkipy.filter((e: any) => String(e.oddzial_id) === userOddzialId)
-          : rawEkipy;
-        setEkipy(filteredEkipy);
-      }
       if (liveRes.ok) {
         const liveData = await liveRes.json();
         const items = Array.isArray(liveData?.items) ? liveData.items : [];
@@ -272,76 +243,6 @@ export default function OgledzinyScreen() {
 
   const onRefresh = () => { setRefreshing(true); fetchLista(); };
 
-  const resetCreateForm = () => {
-    setCreateForm({
-      klient_nazwa: '',
-      klient_telefon: '',
-      adres: '',
-      miasto: '',
-      data_planowana: new Date().toISOString().slice(0, 16),
-      ekipa_id: '',
-      notatki: '',
-    });
-  };
-
-  const handleCreate = async () => {
-    if (!createForm.klient_nazwa.trim() || !createForm.data_planowana.trim()) return;
-    setCreateSaving(true);
-    try {
-      if (!token) { router.replace('/login'); return; }
-      const body = {
-        klient_nazwa: createForm.klient_nazwa.trim(),
-        klient_telefon: createForm.klient_telefon.trim() || null,
-        adres: createForm.adres.trim() || null,
-        miasto: createForm.miasto.trim() || null,
-        data_planowana: createForm.data_planowana,
-        status: 'Zaplanowane',
-        notatki: createForm.notatki.trim() || null,
-        bezplatne: true,
-        ekipa_id: createForm.ekipa_id ? Number(createForm.ekipa_id) : null,
-        oddzial_id: user?.oddzial_id ?? null,
-        wyceniajacy_id: user?.id ?? null,
-      };
-      const res = await fetch(`${API_URL}/ogledziny`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        await enqueueOfflineRequest({
-          url: `${API_URL}/ogledziny`,
-          method: 'POST',
-          body: body as Record<string, unknown>,
-        });
-        void triggerHaptic('warning');
-      }
-      setShowCreateModal(false);
-      resetCreateForm();
-      await fetchLista();
-      void triggerHaptic('success');
-    } catch {
-      await enqueueOfflineRequest({
-        url: `${API_URL}/ogledziny`,
-        method: 'POST',
-        body: {
-          ...createForm,
-          bezplatne: true,
-          status: 'Zaplanowane',
-          ekipa_id: createForm.ekipa_id ? Number(createForm.ekipa_id) : null,
-          oddzial_id: user?.oddzial_id ?? null,
-          wyceniajacy_id: user?.id ?? null,
-        },
-      });
-      setShowCreateModal(false);
-      resetCreateForm();
-      await fetchLista();
-      setRuntimeError('Błąd serwera przy tworzeniu oględzin. Zapisano do kolejki offline.');
-      void triggerHaptic('error');
-    } finally {
-      setCreateSaving(false);
-    }
-  };
-
   const openDetail = (item: Ogledziny) => {
     setSelected(item);
     setShowDetail(true);
@@ -353,6 +254,32 @@ export default function OgledzinyScreen() {
     setNotatki(selected.notatki_wyniki || '');
     setShowDetail(false);
     setShowStatusModal(true);
+  };
+
+  const openUnifiedNewOrder = () => {
+    void triggerHaptic('light');
+    router.push(buildNewOrderRoute({
+      source: 'ogledziny-new',
+      ...currentNewOrderDateTime(),
+    }) as never);
+  };
+
+  const openDraftFromInspection = (item: Ogledziny) => {
+    void triggerHaptic('light');
+    setShowDetail(false);
+    router.push(buildNewOrderRoute({
+      source: 'ogledziny',
+      inspectionId: String(item.id),
+      klient: item.klient_nazwa || '',
+      telefon: item.klient_telefon || '',
+      adres: item.adres || '',
+      miasto: item.miasto || '',
+      data: item.data_planowana ? item.data_planowana.split('T')[0] : new Date().toISOString().split('T')[0],
+      godzina: item.data_planowana
+        ? new Date(item.data_planowana).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+        : '',
+      notatki: item.notatki || '',
+    }) as never);
   };
 
   const handleChangeStatus = async () => {
@@ -413,9 +340,9 @@ export default function OgledzinyScreen() {
   const gpsState = (live?: LiveTeamLocation) => {
     const ageMin = live?.recorded_at ? (Date.now() - new Date(live.recorded_at).getTime()) / 60000 : Number.POSITIVE_INFINITY;
     const speed = Number(live?.speed_kmh || 0);
-    if (ageMin > 15) return { label: 'stary sygnał', color: '#F87171' };
-    if (speed > 5) return { label: 'jazda', color: '#34D399' };
-    return { label: 'postój', color: '#60A5FA' };
+    if (ageMin > 15) return { label: 'stary sygnał', color: '#B91C1C' };
+    if (speed > 5) return { label: 'jazda', color: '#15803D' };
+    return { label: 'postój', color: '#0F766E' };
   };
   const liveTeamList = Object.values(liveLocationsByTeam)
     .filter((x) => x?.ekipa_id != null)
@@ -450,6 +377,33 @@ export default function OgledzinyScreen() {
         return compareByRoute(a, b);
       })
     : filteredByZone;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const todayCount = displayLista.filter((item) => item.data_planowana?.split('T')[0] === todayIso).length;
+  const activeCount = displayLista.filter((item) => item.status === 'W_Trakcie').length;
+  const readyCount = displayLista.filter((item) => item.status === 'Zakonczone' || item.wycena_id || item.notatki_wyniki).length;
+  const missingRouteCount = displayLista.filter((item) => !(item.adres || item.miasto)).length;
+  const nextInspection = [...displayLista]
+    .filter((item) => item.status !== 'Zakonczone' && item.status !== 'Anulowane')
+    .sort(compareByRoute)[0] || null;
+  const dispatcherStats = [
+    { key: 'today', label: 'Dzisiaj', value: String(todayCount), icon: 'calendar-outline' as const, color: theme.accent },
+    { key: 'active', label: 'W toku', value: String(activeCount), icon: 'radio-outline' as const, color: theme.warning },
+    { key: 'ready', label: 'Do biura', value: String(readyCount), icon: 'briefcase-outline' as const, color: theme.success },
+    { key: 'route', label: 'Bez adresu', value: String(missingRouteCount), icon: 'map-outline' as const, color: missingRouteCount ? theme.danger : theme.info },
+  ];
+
+  const openDocumentationFromInspection = (item: Ogledziny) => {
+    void triggerHaptic('light');
+    setShowDetail(false);
+    router.push({
+      pathname: '/ogledziny-dokumentacja' as never,
+      params: {
+        ogledzinyId: String(item.id),
+        wycenaId: item.wycena_id ? String(item.wycena_id) : '',
+        klient: item.klient_nazwa || '',
+      },
+    });
+  };
 
   const renderItem = ({ item, index }: { item: Ogledziny; index: number }) => {
     const sc = statusColor(item.status, theme);
@@ -506,6 +460,28 @@ export default function OgledzinyScreen() {
               </Text>
             </View>
           ) : null}
+          <View style={S.cardActions}>
+            {item.klient_telefon ? (
+              <TouchableOpacity style={S.cardActionBtn} onPress={() => void Linking.openURL(`tel:${item.klient_telefon}`)}>
+                <Ionicons name="call-outline" size={14} color={theme.success} />
+                <Text style={[S.cardActionText, { color: theme.success }]}>Tel</Text>
+              </TouchableOpacity>
+            ) : null}
+            {(item.adres || item.miasto) ? (
+              <TouchableOpacity style={S.cardActionBtn} onPress={() => void openAddressInMaps(item.adres || '', item.miasto || '')}>
+                <Ionicons name="map-outline" size={14} color={theme.info} />
+                <Text style={[S.cardActionText, { color: theme.info }]}>Mapa</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity style={S.cardActionBtn} onPress={() => openDocumentationFromInspection(item)}>
+              <Ionicons name="images-outline" size={14} color={theme.warning} />
+              <Text style={[S.cardActionText, { color: theme.warning }]}>Foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={S.cardActionBtn} onPress={() => openDraftFromInspection(item)}>
+              <Ionicons name="flash-outline" size={14} color={theme.accent} />
+              <Text style={[S.cardActionText, { color: theme.accent }]}>Draft</Text>
+            </TouchableOpacity>
+          </View>
           </View>
         </PlatinumPressable>
       </PlatinumAppear>
@@ -518,33 +494,29 @@ export default function OgledzinyScreen() {
 
   return (
     <View style={S.container}>
-      <View pointerEvents="none" style={S.bgOrbTop} />
-      <View pointerEvents="none" style={S.bgOrbBottom} />
       <StatusBar
         barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={theme.headerBg}
       />
 
-      {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
+          <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <PlatinumIconBadge icon="search-outline" color={theme.accent} size={11} style={S.headerIconBadge} />
+        <View style={S.headerIcon}>
+          <Ionicons name="search-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Centrum oględzin</Text>
           <Text style={S.headerTitle}>{t('inspections.title')}</Text>
+          <Text style={S.headerSub}>{displayLista.length} wizyt w aktualnym widoku</Text>
         </View>
         <TouchableOpacity
-          onPress={() => setShowCreateModal(true)}
+          onPress={openUnifiedNewOrder}
           style={S.addBtn}
         >
-          <PlatinumIconBadge icon="add-circle-outline" color={theme.accent} size={12} style={S.addIconBadge} />
+          <Ionicons name="add" size={22} color={theme.accent} />
         </TouchableOpacity>
-        <Text style={S.headerCount}>{displayLista.length}</Text>
-      </View>
-      <View style={S.platinumBar}>
-        <PlatinumIconBadge icon="diamond-outline" color={theme.accent} size={10} style={S.platinumBarIcon} />
-        <Text style={S.platinumBarText}>Platinum Field Intelligence</Text>
       </View>
       {runtimeError ? (
         <View style={S.errorBar}>
@@ -552,6 +524,51 @@ export default function OgledzinyScreen() {
           <Text style={S.errorBarText}>{runtimeError}</Text>
         </View>
       ) : null}
+
+      <View style={S.commandPanel}>
+        <View style={S.commandHead}>
+          <View style={S.commandIcon}>
+            <Ionicons name="leaf-outline" size={20} color={theme.accent} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={S.commandTitle}>Dyspozytornia oględzin</Text>
+            <Text style={S.commandSub}>Trasa, strefy, telefon, mapa i pakiet zdjęć w jednym miejscu.</Text>
+          </View>
+          <View style={S.commandBadge}>
+            <Text style={S.commandBadgeValue}>{displayLista.length}</Text>
+            <Text style={S.commandBadgeLabel}>razem</Text>
+          </View>
+        </View>
+        <View style={S.commandStats}>
+          {dispatcherStats.map((stat) => (
+            <View key={stat.key} style={[S.commandStat, { borderColor: `${stat.color}44` }]}>
+              <Ionicons name={stat.icon} size={15} color={stat.color} />
+              <Text style={[S.commandStatValue, { color: stat.color }]}>{stat.value}</Text>
+              <Text style={S.commandStatLabel}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
+        {nextInspection ? (
+          <TouchableOpacity style={S.nextStrip} onPress={() => openDetail(nextInspection)}>
+            <View style={S.nextStripIcon}>
+              <Ionicons name="navigate-outline" size={17} color={theme.accent} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={S.nextStripLabel}>Następna wizyta</Text>
+              <Text style={S.nextStripTitle} numberOfLines={1}>
+                {nextInspection.klient_nazwa || `Oględziny #${nextInspection.id}`}
+              </Text>
+              <Text style={S.nextStripMeta} numberOfLines={1}>
+                {fmtDate(nextInspection.data_planowana)}
+                {[nextInspection.adres, nextInspection.miasto].filter(Boolean).length
+                  ? ` - ${[nextInspection.adres, nextInspection.miasto].filter(Boolean).join(', ')}`
+                  : ''}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       {/* Filtry */}
       <View style={S.filterRow}>
@@ -787,18 +804,20 @@ export default function OgledzinyScreen() {
                     }}
                   />
                   <TouchableOpacity
+                    style={[S.footerBtn, { backgroundColor: theme.accent, borderWidth: 1, borderColor: theme.accentDark }]}
+                    onPress={() => {
+                      if (!selected) return;
+                      openDraftFromInspection(selected);
+                    }}
+                  >
+                    <Ionicons name="flash-outline" size={17} color={theme.accentText} />
+                    <Text style={[S.footerBtnText, { color: theme.accentText }]}>Draft</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border }]}
                     onPress={() => {
                       if (!selected) return;
-                      void triggerHaptic('light');
-                      router.push({
-                        pathname: '/ogledziny-dokumentacja' as never,
-                        params: {
-                          ogledzinyId: String(selected.id),
-                          wycenaId: selected.wycena_id ? String(selected.wycena_id) : '',
-                          klient: selected.klient_nazwa || '',
-                        },
-                      });
+                      openDocumentationFromInspection(selected);
                     }}
                   >
                     <Ionicons name="camera-outline" size={17} color={theme.text} />
@@ -891,127 +910,6 @@ export default function OgledzinyScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── MODAL: nowe oględziny ── */}
-      <Modal visible={showCreateModal} animationType="slide" transparent onRequestClose={() => setShowCreateModal(false)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={S.modalOverlay}>
-          <PlatinumModalSheet visible={showCreateModal} style={[S.modalBox, { maxHeight: '80%' }]}>
-            <View style={S.modalHeader}>
-              <Text style={S.modalTitle}>{t('inspections.createTitle')}</Text>
-              <TouchableOpacity onPress={() => setShowCreateModal(false)} style={S.modalClose}>
-                <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 26, height: 26, borderRadius: 9 }} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={{ flex: 1 }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-              contentContainerStyle={{ paddingBottom: 16 }}
-            >
-              <View style={{ padding: 16 }}>
-                <Text style={[S.fieldLabel, { color: theme.textMuted }]}>{t('inspections.labelClientStar')}</Text>
-                <TextInput
-                  style={[S.textarea, { minHeight: 48, backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  value={createForm.klient_nazwa}
-                  onChangeText={(v) => setCreateForm((p) => ({ ...p, klient_nazwa: v }))}
-                  placeholder={t('inspections.phClient')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                />
-                <Text style={[S.fieldLabel, { color: theme.textMuted }]}>{t('inspections.labelPhone')}</Text>
-                <TextInput
-                  style={[S.textarea, { minHeight: 48, backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  value={createForm.klient_telefon}
-                  onChangeText={(v) => setCreateForm((p) => ({ ...p, klient_telefon: v }))}
-                  placeholder={t('inspections.phPhone')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                  keyboardType="phone-pad"
-                />
-                <Text style={[S.fieldLabel, { color: theme.textMuted }]}>{t('inspections.labelDateTime')}</Text>
-                <TextInput
-                  style={[S.textarea, { minHeight: 48, backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  value={createForm.data_planowana}
-                  onChangeText={(v) => setCreateForm((p) => ({ ...p, data_planowana: v }))}
-                  placeholder={t('inspections.phDateTime')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                />
-                <Text style={[S.fieldLabel, { color: theme.textMuted }]}>{t('inspections.labelAddressBlock')}</Text>
-                <TextInput
-                  style={[S.textarea, { minHeight: 48, backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  value={createForm.adres}
-                  onChangeText={(v) => setCreateForm((p) => ({ ...p, adres: v }))}
-                  placeholder={t('inspections.phAddress')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                />
-                <TextInput
-                  style={[S.textarea, { minHeight: 48, backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  value={createForm.miasto}
-                  onChangeText={(v) => setCreateForm((p) => ({ ...p, miasto: v }))}
-                  placeholder={t('inspections.phCity')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                />
-                <Text style={[S.fieldLabel, { color: theme.textMuted }]}>{t('inspections.labelTeam')}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                  <TouchableOpacity
-                    onPress={() => setCreateForm((p) => ({ ...p, ekipa_id: '' }))}
-                    style={[
-                      S.statusChip,
-                      { borderColor: createForm.ekipa_id === '' ? theme.accent : theme.border, backgroundColor: theme.surface2 },
-                    ]}
-                  >
-                    <Text style={[S.statusChipText, { color: createForm.ekipa_id === '' ? theme.accent : theme.textSub }]}>{t('inspections.teamNone')}</Text>
-                  </TouchableOpacity>
-                  {ekipy.map((ekipa) => {
-                    const id = String(ekipa.id);
-                    const active = createForm.ekipa_id === id;
-                    return (
-                      <TouchableOpacity
-                        key={id}
-                        onPress={() => setCreateForm((p) => ({ ...p, ekipa_id: id }))}
-                        style={[
-                          S.statusChip,
-                          { borderColor: active ? theme.accent : theme.border, backgroundColor: active ? theme.accent + '18' : theme.surface2 },
-                        ]}
-                      >
-                        <Text style={[S.statusChipText, { color: active ? theme.accent : theme.textSub }]}>{ekipa.nazwa || `Ekipa #${id}`}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                <Text style={[S.fieldLabel, { color: theme.textMuted }]}>{t('inspections.labelNotes')}</Text>
-                <TextInput
-                  style={[S.textarea, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
-                  value={createForm.notatki}
-                  onChangeText={(v) => setCreateForm((p) => ({ ...p, notatki: v }))}
-                  placeholder={t('inspections.phScopeNotes')}
-                  placeholderTextColor={theme.inputPlaceholder}
-                  multiline
-                />
-              </View>
-            </ScrollView>
-            <View style={S.modalFooter}>
-              <TouchableOpacity
-                style={[S.footerBtn, { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border }]}
-                onPress={() => {
-                  void triggerHaptic('light');
-                  setShowCreateModal(false);
-                }}
-              >
-                <Text style={[S.footerBtnText, { color: theme.textSub }]}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <PlatinumCTA
-                label={t('inspections.btnSave')}
-                style={[S.footerBtn, { flex: 1 }]}
-                onPress={handleCreate}
-                disabled={createSaving}
-                loading={createSaving}
-              />
-            </View>
-          </PlatinumModalSheet>
-        </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }
@@ -1035,7 +933,7 @@ function SectionHeader({ icon, label, theme }: { icon: string; label: string; th
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, marginBottom: 8 }}>
       <PlatinumIconBadge icon={icon as any} color={theme.accent} size={11} style={{ width: 21, height: 21, borderRadius: 7 }} />
-      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 0 }}>
         {label}
       </Text>
     </View>
@@ -1062,67 +960,89 @@ function InfoRow({ icon, label, value, theme }: {
 // ─── Style ────────────────────────────────────────────────────────────────────
 const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
-  bgOrbTop: {
-    position: 'absolute',
-    top: -120,
-    right: -90,
-    width: 250,
-    height: 250,
-    borderRadius: 140,
-    backgroundColor: t.accent + '22',
-  },
-  bgOrbBottom: {
-    position: 'absolute',
-    bottom: 120,
-    left: -80,
-    width: 210,
-    height: 210,
-    borderRadius: 110,
-    backgroundColor: t.chartCyan + '15',
-  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    backgroundColor: t.headerBg, paddingHorizontal: 16,
-    paddingTop: 56, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderBottomWidth: 1, borderBottomColor: t.accent + '55',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.66,
-    shadowRadius: t.shadowRadius * 1.12,
-    shadowOffset: { width: 0, height: t.shadowOffsetY },
-    elevation: t.cardElevation,
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 18,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.5,
+      radius: t.shadowRadius,
+      offsetY: t.shadowOffsetY,
+      elevation: 2,
+    }),
   },
   headerIconBadge: { width: 22, height: 22, borderRadius: 8 },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, flex: 1, letterSpacing: 0.35 },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: t.accentLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextBox: { flex: 1, minWidth: 0 },
+  headerEyebrow: { color: t.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  headerTitle: { fontSize: 20, lineHeight: 24, fontWeight: '900', color: t.text, letterSpacing: 0 },
+  headerSub: { color: t.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 },
   headerCount: { fontSize: 13, color: t.textMuted, fontWeight: '600' },
-  addBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  addBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addIconBadge: { width: 24, height: 24, borderRadius: 8 },
   platinumBar: {
     marginHorizontal: 12,
     marginTop: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: t.accent + '88',
-    backgroundColor: t.accent + '1F',
+    borderColor: t.cardBorder,
+    backgroundColor: t.surface2,
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.42,
-    shadowRadius: t.shadowRadius * 0.72,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: t.cardElevation,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.16,
+      radius: t.shadowRadius * 0.35,
+      offsetY: 2,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   platinumBarIcon: { width: 22, height: 22, borderRadius: 8 },
   platinumBarText: {
-    color: t.accent,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
+    color: t.textSub,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0,
     textTransform: 'uppercase',
   },
   errorBar: {
@@ -1140,14 +1060,96 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 8,
   },
   errorBarText: { color: t.warning, fontSize: 12, fontWeight: '700', flex: 1 },
-  filterRow: {
-    paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: t.accent + '2E',
+  commandPanel: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.28,
-    shadowRadius: t.shadowRadius * 0.55,
-    shadowOffset: { width: 0, height: 2 },
+    borderRadius: 20,
+    padding: 14,
+    gap: 12,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.42,
+      radius: t.shadowRadius,
+      offsetY: t.shadowOffsetY,
+      elevation: 2,
+    }),
+  },
+  commandHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  commandIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commandTitle: { color: t.text, fontSize: 16, fontWeight: '900' },
+  commandSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2, fontWeight: '700' },
+  commandBadge: {
+    minWidth: 58,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    borderRadius: 13,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  commandBadgeValue: { color: t.accent, fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  commandBadgeLabel: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
+  commandStats: { flexDirection: 'row', gap: 8 },
+  commandStat: {
+    flex: 1,
+    minHeight: 72,
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 7,
+    paddingVertical: 9,
+    alignItems: 'center',
+    gap: 4,
+  },
+  commandStatValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  commandStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
+  nextStrip: {
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    backgroundColor: t.accentLight,
+    borderRadius: 14,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  nextStripIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: t.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: t.accent + '33',
+  },
+  nextStripLabel: { color: t.accent, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  nextStripTitle: { color: t.text, fontSize: 13, fontWeight: '900', marginTop: 1 },
+  nextStripMeta: { color: t.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  filterRow: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    borderRadius: 18,
+    backgroundColor: t.cardBg,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.3,
+      radius: t.shadowRadius * 0.7,
+      offsetY: t.shadowOffsetY,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   liveCard: {
     backgroundColor: t.surface2,
@@ -1157,28 +1159,44 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 10,
     minWidth: 180,
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.2,
-    shadowRadius: t.shadowRadius * 0.42,
-    shadowOffset: { width: 0, height: 2 },
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.2,
+      radius: t.shadowRadius * 0.42,
+      offsetY: 2,
+      elevation: Math.max(1, t.cardElevation - 2),
+    }),
   },
 
   card: {
-    backgroundColor: t.cardBg, padding: 14, borderRadius: 18,
-    marginBottom: 10, borderWidth: 1, borderColor: t.accent + '2E',
-    shadowColor: t.shadowColor,
-    shadowOpacity: t.shadowOpacity * 0.68,
-    shadowRadius: t.shadowRadius * 1.04,
-    shadowOffset: { width: 0, height: t.shadowOffsetY + 1 },
-    elevation: t.cardElevation + 1,
+    backgroundColor: t.cardBg, padding: 14, borderRadius: 16,
+    marginBottom: 10, borderWidth: 1, borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.12,
+      radius: t.shadowRadius * 0.42,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, letterSpacing: 0.2 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: t.text, flex: 1, letterSpacing: 0 },
   cardSub: { fontSize: 12, color: t.textSub },
   cardMuted: { fontSize: 12, color: t.textMuted, flex: 1 },
   metaIconBadge: { width: 20, height: 20, borderRadius: 7 },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
+  cardActionBtn: {
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 10,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  cardActionText: { fontSize: 11, fontWeight: '900' },
 
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: t.accent + '44' },
-  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: t.cardBorder },
+  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0 },
 
   emptyBox: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyText: { color: t.textMuted, fontSize: 15, textAlign: 'center' },
@@ -1191,13 +1209,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   modalBox: {
     backgroundColor: t.cardBg, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     maxHeight: '90%', minHeight: '50%',
-    borderTopWidth: 1, borderColor: t.accent + '4A',
+    borderTopWidth: 1, borderColor: t.cardBorder,
   },
   modalHeader: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     padding: 16, borderBottomWidth: 1, borderBottomColor: t.border,
   },
-  modalTitle: { fontSize: 17, fontWeight: '800', color: t.text, letterSpacing: 0.25 },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: t.text, letterSpacing: 0 },
   modalSub: { fontSize: 13, marginTop: 2 },
   modalClose: { padding: 4 },
   modalFooter: {
@@ -1217,13 +1235,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   statusRowText: { fontSize: 14, fontWeight: '700' },
 
   notatkiBox: {
-    borderRadius: 12, padding: 12, marginBottom: 4, borderWidth: 1, borderColor: t.accent + '22',
+    borderRadius: 12, padding: 12, marginBottom: 4, borderWidth: 1, borderColor: t.border,
   },
   notatkiText: { fontSize: 13, lineHeight: 20 },
 
   wycenaRow: {
     flexDirection: 'row', alignItems: 'center',
-    padding: 12, borderRadius: 12, borderWidth: 1, borderColor: t.accent + '33',
+    padding: 12, borderRadius: 12, borderWidth: 1, borderColor: t.border,
   },
   wycenaTitle: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   wycenaVal: { fontSize: 15, fontWeight: '700' },
@@ -1231,9 +1249,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   statusChip: {
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 2,
   },
-  statusChipText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+  statusChipText: { fontSize: 13, fontWeight: '800', letterSpacing: 0 },
 
-  fieldLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 },
+  fieldLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0, marginBottom: 6 },
   textarea: {
     borderWidth: 1, borderRadius: 12, padding: 12,
     fontSize: 14, minHeight: 100,

@@ -3,6 +3,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
+import { shadowStyle } from '../constants/elevation';
 
 export const PRIVACY_LOCK_KEY = 'privacy_lock_biometric_v1';
 
@@ -71,11 +72,12 @@ export function AppPrivacyLock() {
             {
               backgroundColor: theme.surface,
               borderColor: theme.accent,
-              shadowColor: theme.shadowColor,
-              shadowOpacity: theme.shadowOpacity,
-              shadowRadius: theme.shadowRadius,
-              shadowOffset: { width: 0, height: theme.shadowOffsetY },
-              elevation: theme.cardElevation + 1,
+              ...shadowStyle(theme, {
+                opacity: theme.shadowOpacity,
+                radius: theme.shadowRadius,
+                offsetY: theme.shadowOffsetY,
+                elevation: theme.cardElevation + 1,
+              }),
             },
           ]}
         >

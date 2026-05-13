@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -7,12 +9,13 @@ import {
   Switch,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import {
@@ -43,13 +46,14 @@ export default function PotwierdzeniaEkipScreen() {
   }, []);
 
   const loadEkipy = useCallback(async (auth: string) => {
-    const res = await fetch(`${API_URL}/ekipy`, { headers: { Authorization: `Bearer ${auth}` } });
+    const res = await fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: { Authorization: `Bearer ${auth}` } });
     if (!res.ok) {
       setEkipy([]);
       return;
     }
     const d = await res.json();
-    setEkipy(Array.isArray(d) ? d.map((x: { id: number; nazwa: string }) => ({ id: x.id, nazwa: x.nazwa })) : []);
+    const items = Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : [];
+    setEkipy(items.map((x: { id: number; nazwa: string }) => ({ id: x.id, nazwa: x.nazwa })));
   }, []);
 
   useEffect(() => {
@@ -66,6 +70,8 @@ export default function PotwierdzeniaEkipScreen() {
 
   const dayEntries = attendanceForDate(entries, dateYmd);
   const byTeam = new Map(dayEntries.map((e) => [e.teamId, e]));
+  const confirmedCount = ekipy.filter((team) => byTeam.get(String(team.id))?.present ?? true).length;
+  const absentCount = Math.max(0, ekipy.length - confirmedCount);
 
   const toggle = async (team: EkipaRow, present: boolean) => {
     const prev = byTeam.get(String(team.id));
@@ -109,7 +115,36 @@ export default function PotwierdzeniaEkipScreen() {
   return (
     <View style={S.root}>
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
-      <ScreenHeader title={t('crewAtt.title')} />
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+          <Ionicons name="arrow-back" size={21} color={theme.accent} />
+        </TouchableOpacity>
+        <View style={S.headerIcon}>
+          <Ionicons name="people-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Obecnosc brygad</Text>
+          <Text style={S.headerTitle}>{t('crewAtt.title')}</Text>
+          <Text style={S.headerSub}>Dzienna gotowosc ekip przed planowaniem prac.</Text>
+        </View>
+      </View>
+      <View style={S.statsRow}>
+        <View style={S.statCard}>
+          <Ionicons name="calendar-outline" size={17} color={theme.accent} />
+          <Text style={S.statValue}>{dateYmd.slice(5)}</Text>
+          <Text style={S.statLabel}>Data</Text>
+        </View>
+        <View style={S.statCard}>
+          <Ionicons name="checkmark-circle-outline" size={17} color={theme.success} />
+          <Text style={S.statValue}>{confirmedCount}</Text>
+          <Text style={S.statLabel}>Gotowe</Text>
+        </View>
+        <View style={[S.statCard, absentCount > 0 && { borderColor: theme.warning + '66' }]}>
+          <Ionicons name="alert-circle-outline" size={17} color={absentCount > 0 ? theme.warning : theme.success} />
+          <Text style={S.statValue}>{absentCount}</Text>
+          <Text style={S.statLabel}>Braki</Text>
+        </View>
+      </View>
       <ScrollView style={S.scroll} contentContainerStyle={S.pad}>
         <Text style={S.hint}>{t('crewAtt.hint')}</Text>
         <Text style={S.lbl}>{t('crewAtt.date')}</Text>
@@ -119,12 +154,22 @@ export default function PotwierdzeniaEkipScreen() {
           const row = byTeam.get(String(e.id));
           const present = row?.present ?? true;
           return (
-            <View key={e.id} style={S.card}>
+            <View key={e.id} style={[S.card, !present && { borderColor: theme.warning }]}>
               <View style={S.row}>
-                <Text style={S.team}>{e.nazwa}</Text>
+                <View style={S.teamBox}>
+                  <View style={[S.teamIcon, { backgroundColor: present ? theme.successBg : theme.warningBg, borderColor: present ? theme.success : theme.warning }]}>
+                    <Ionicons name={present ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={18} color={present ? theme.success : theme.warning} />
+                  </View>
+                  <Text style={S.team}>{e.nazwa}</Text>
+                </View>
                 <View style={S.swRow}>
                   <Text style={S.swLbl}>{t('crewAtt.present')}</Text>
-                  <Switch value={present} onValueChange={(v) => void toggle(e, v)} />
+                  <Switch
+                    value={present}
+                    onValueChange={(v) => void toggle(e, v)}
+                    trackColor={{ true: theme.successBg, false: theme.warningBg }}
+                    thumbColor={present ? theme.success : theme.warning}
+                  />
                 </View>
               </View>
               <Text style={S.lbl}>{t('crewAtt.note')}</Text>
@@ -148,32 +193,118 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg },
+    header: {
+      backgroundColor: theme.cardBg,
+      marginHorizontal: 14,
+      marginTop: 12,
+      marginBottom: 10,
+      paddingHorizontal: 12,
+      paddingTop: 18,
+      paddingBottom: 16,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      ...shadowStyle(theme, {
+        opacity: theme.shadowOpacity * 0.14,
+        radius: theme.shadowRadius * 0.45,
+        offsetY: 3,
+        elevation: theme.cardElevation + 1,
+      }),
+    },
+    backBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: theme.accent,
+      backgroundColor: theme.accentLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTextBox: { flex: 1, minWidth: 0 },
+    headerEyebrow: {
+      color: theme.textMuted,
+      fontSize: 10,
+      fontWeight: '900',
+      textTransform: 'uppercase',
+      letterSpacing: 0,
+    },
+    headerTitle: { color: theme.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
+    headerSub: { color: theme.textSub, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+    statsRow: {
+      flexDirection: 'row',
+      marginHorizontal: 14,
+      marginBottom: 8,
+      gap: 8,
+    },
+    statCard: {
+      flex: 1,
+      minHeight: 74,
+      backgroundColor: theme.cardBg,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+    },
+    statValue: { color: theme.text, fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+    statLabel: { color: theme.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     scroll: { flex: 1 },
-    pad: { padding: 16, paddingBottom: 40 },
-    hint: { fontSize: 13, color: theme.textMuted, marginBottom: 12 },
-    lbl: { fontSize: 12, color: theme.textMuted, marginBottom: 4 },
+    pad: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 40 },
+    hint: { fontSize: 13, color: theme.textMuted, marginBottom: 12, fontWeight: '700', lineHeight: 18 },
+    lbl: { fontSize: 12, color: theme.textMuted, marginBottom: 5, fontWeight: '800' },
     inp: {
       borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
-      padding: 10,
+      borderColor: theme.inputBorder,
+      borderRadius: 14,
+      padding: 12,
       marginBottom: 12,
       color: theme.text,
-      backgroundColor: theme.surface2,
+      backgroundColor: theme.inputBg,
+      fontWeight: '700',
     },
-    warn: { color: theme.warning, marginBottom: 12, fontSize: 13 },
+    warn: { color: theme.warning, marginBottom: 12, fontSize: 13, fontWeight: '800' },
     card: {
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-      borderRadius: 10,
-      padding: 12,
+      borderColor: theme.cardBorder,
+      backgroundColor: theme.cardBg,
+      borderRadius: 18,
+      padding: 14,
       marginBottom: 10,
+      ...shadowStyle(theme, {
+        opacity: theme.shadowOpacity * 0.08,
+        radius: theme.shadowRadius * 0.28,
+        offsetY: 1,
+        elevation: Math.max(1, theme.cardElevation - 1),
+      }),
     },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    team: { fontSize: 15, fontWeight: '700', color: theme.text, flex: 1 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 },
+    teamBox: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
+    teamIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    team: { fontSize: 15, fontWeight: '900', color: theme.text, flex: 1 },
     swRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    swLbl: { fontSize: 12, color: theme.textMuted },
-    empty: { color: theme.textMuted, fontSize: 14 },
+    swLbl: { fontSize: 12, color: theme.textMuted, fontWeight: '800' },
+    empty: { color: theme.textMuted, fontSize: 14, fontWeight: '800' },
   });
 }

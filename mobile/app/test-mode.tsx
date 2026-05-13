@@ -101,7 +101,7 @@ export default function TestModeScreen() {
             value={testModeEnabled}
             onValueChange={handleTestModeToggle}
             trackColor={{ false: theme.textMuted, true: theme.accent }}
-            thumbColor={testModeEnabled ? '#4CAF50' : '#f4f3f4'}
+            thumbColor={testModeEnabled ? theme.accent : theme.surface}
           />
         </View>
         <Text style={[styles.sectionInfo, { color: theme.textMuted }]}>
@@ -136,7 +136,7 @@ export default function TestModeScreen() {
                 style={[
                   styles.roleButtonText,
                   {
-                    color: selectedRole === key ? '#fff' : theme.text,
+                    color: selectedRole === key ? theme.accentText : theme.text,
                     fontWeight: selectedRole === key ? '700' : '500',
                   },
                 ]}
@@ -147,7 +147,7 @@ export default function TestModeScreen() {
                 style={[
                   styles.roleButtonSubtext,
                   {
-                    color: selectedRole === key ? '#eee' : theme.textMuted,
+                    color: selectedRole === key ? theme.accentLight : theme.textMuted,
                   },
                 ]}
               >
@@ -247,6 +247,6 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: '#FFFFFF',
   },
 });

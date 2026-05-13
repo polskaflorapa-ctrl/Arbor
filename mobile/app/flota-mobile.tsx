@@ -10,6 +10,7 @@ import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
@@ -230,6 +231,15 @@ export default function FlotaMobileScreen() {
     { key: 'sprzet', icon: 'construct-outline', label: t('fleet.tab.equipment', { count: sprzet.length }), count: sprzet.length },
     { key: 'naprawy', icon: 'hammer-outline', label: t('fleet.tab.repairs', { count: naprawy.length }), count: naprawy.length },
   ];
+  const wszystkieZasoby = [...pojazdy, ...sprzet];
+  const dostepneCount = wszystkieZasoby.filter((item: any) => item.status === FLEET_STATUS_ORDER[0]).length;
+  const naprawaCount = wszystkieZasoby.filter((item: any) => item.status === FLEET_STATUS_ORDER[2]).length + naprawy.filter((n: any) => n.status !== 'Zakończona').length;
+  const fleetHeroStats = [
+    { key: 'assets', label: 'Zasoby', value: wszystkieZasoby.length, icon: 'cube-outline' as const, color: theme.accent },
+    { key: 'available', label: 'Dostępne', value: dostepneCount, icon: 'checkmark-circle-outline' as const, color: theme.success },
+    { key: 'repair', label: 'Serwis', value: naprawaCount, icon: 'warning-outline' as const, color: theme.warning },
+    { key: 'repairs', label: 'Naprawy', value: naprawy.length, icon: 'hammer-outline' as const, color: theme.info },
+  ];
 
   return (
     <KeyboardSafeScreen style={S.container}>
@@ -241,24 +251,40 @@ export default function FlotaMobileScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
+          <PlatinumIconBadge icon="arrow-back" color={theme.accent} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-          <PlatinumIconBadge icon="car-sport-outline" color={theme.headerText} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
+        <View style={S.headerIcon}>
+          <Ionicons name="car-sport-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Sprzęt i pojazdy</Text>
           <Text style={S.headerTitle}>{t('fleet.screenTitle')}</Text>
+          <Text style={S.headerSub}>Dostępność, serwis i rezerwacje zasobów terenowych.</Text>
         </View>
         {showReservationsBtn && (
-          <TouchableOpacity onPress={() => router.push('/rezerwacje-sprzetu' as never)} style={{ padding: 6, marginRight: 4 }}>
-            <PlatinumIconBadge icon="calendar-number-outline" color={theme.headerText} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
+          <TouchableOpacity onPress={() => router.push('/rezerwacje-sprzetu' as never)} style={S.headerActionBtn}>
+            <Ionicons name="calendar-number-outline" size={19} color={theme.accent} />
           </TouchableOpacity>
         )}
         {mozeEdytowac && (
           <TouchableOpacity
             onPress={() => aktywnaSekcja === 'pojazdy' ? setModalPojazd(true) : aktywnaSekcja === 'sprzet' ? setModalSprzet(true) : setModalNaprawa(true)}
             style={S.addHeaderBtn}>
-            <PlatinumIconBadge icon="add" color={theme.headerText} size={12} style={{ width: 24, height: 24, borderRadius: 8 }} />
+            <Ionicons name="add" size={22} color={theme.accentText} />
           </TouchableOpacity>
         )}
+      </View>
+
+      <View style={S.fleetHeroStats}>
+        {fleetHeroStats.map((stat) => (
+          <View key={stat.key} style={[S.fleetHeroStat, { borderColor: stat.color + '44' }]}>
+            <View style={[S.fleetHeroStatIcon, { backgroundColor: stat.color + '1F' }]}>
+              <Ionicons name={stat.icon} size={16} color={stat.color} />
+            </View>
+            <Text style={S.fleetHeroStatValue}>{stat.value}</Text>
+            <Text style={S.fleetHeroStatLabel}>{stat.label}</Text>
+          </View>
+        ))}
       </View>
 
       {/* Section tabs */}
@@ -595,49 +621,146 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   header: {
-    backgroundColor: t.headerBg, paddingHorizontal: 16,
-    paddingTop: 56, paddingBottom: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 18,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.14,
+      radius: t.shadowRadius * 0.45,
+      offsetY: 3,
+      elevation: t.cardElevation + 1,
+    }),
   },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: t.headerText, fontSize: 18, fontWeight: 'bold' },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTextBox: { flex: 1, minWidth: 0 },
+  headerEyebrow: {
+    color: t.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  headerTitle: { color: t.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
+  headerSub: { color: t.textSub, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  headerActionBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addHeaderBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: t.accent + '33', alignItems: 'center', justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: t.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: t.accentDark,
   },
+  fleetHeroStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: 14,
+    marginBottom: 8,
+    gap: 8,
+  },
+  fleetHeroStat: {
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 74,
+    backgroundColor: t.cardBg,
+    borderRadius: 15,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    gap: 3,
+  },
+  fleetHeroStatIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  fleetHeroStatValue: { color: t.text, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  fleetHeroStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
   sekcjeRow: {
-    flexDirection: 'row', backgroundColor: t.cardBg,
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    flexDirection: 'row',
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginBottom: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    padding: 4,
   },
   sekcjaBtn: {
-    flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center',
+    flex: 1, minHeight: 42, paddingVertical: 9, alignItems: 'center', justifyContent: 'center',
     flexDirection: 'row', gap: 4,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
+    borderRadius: 12,
   },
-  sekcjaBtnActive: { borderBottomColor: t.accent },
-  sekcjaTxt: { fontSize: 11, color: t.textMuted, fontWeight: '500' },
-  list: { flex: 1, padding: 12 },
+  sekcjaBtnActive: { backgroundColor: t.accentLight },
+  sekcjaTxt: { fontSize: 11, color: t.textMuted, fontWeight: '800' },
+  list: { flex: 1, paddingHorizontal: 14, paddingTop: 2 },
   card: {
-    backgroundColor: t.cardBg, borderRadius: 14, padding: 14, marginBottom: 10,
-    elevation: 1, borderLeftWidth: 4, borderWidth: 1, borderColor: t.cardBorder,
+    backgroundColor: t.cardBg,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.09,
+      radius: t.shadowRadius * 0.3,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  cardMain: { fontSize: 16, fontWeight: 'bold', color: t.text, flex: 1 },
-  cardSub: { fontSize: 12, color: t.textMuted },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  badgeTxt: { color: t.accentText, fontSize: 11, fontWeight: '600' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  cardMain: { fontSize: 16, fontWeight: '900', color: t.text, flex: 1 },
+  cardSub: { fontSize: 12, color: t.textMuted, fontWeight: '700', flexShrink: 1 },
+  badge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  badgeTxt: { color: t.accentText, fontSize: 11, fontWeight: '900' },
   statusMiniBtn: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
-    backgroundColor: t.bg, borderWidth: 1, borderColor: t.border,
+    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border,
   },
-  statusMiniBtnTxt: { fontSize: 11, color: t.textSub },
+  statusMiniBtnTxt: { fontSize: 11, color: t.textSub, fontWeight: '800' },
   empty: { alignItems: 'center', paddingTop: 60 },
-  emptyTxt: { color: t.textMuted, fontSize: 14 },
+  emptyTxt: { color: t.textMuted, fontSize: 14, fontWeight: '700' },
   overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.88)', justifyContent: 'flex-end' },
   modalBox: {
-    backgroundColor: t.cardBg, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 20, paddingBottom: 40, maxHeight: '85%',
+    backgroundColor: t.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, paddingBottom: 40, maxHeight: '88%',
   },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: t.text },

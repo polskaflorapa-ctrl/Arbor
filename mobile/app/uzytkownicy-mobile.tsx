@@ -9,9 +9,12 @@ import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export default function UzytkownicyScreen() {
   const { theme } = useTheme();
@@ -69,6 +72,16 @@ export default function UzytkownicyScreen() {
 
   const role = ['', 'Brygadzista', 'Kierownik', 'Dyrektor', 'Administrator'];
   const getOddzial = (id: number) => oddzialy.find(o => o.id === id)?.nazwa || '-';
+  const aktywniCount = uzytkownicy.filter(u => u.aktywny).length;
+  const brygadzisciCount = uzytkownicy.filter(u => u.rola === 'Brygadzista').length;
+  const kierownicyCount = uzytkownicy.filter(u => u.rola === 'Kierownik').length;
+  const oddzialyCount = new Set(uzytkownicy.map(u => u.oddzial_id).filter(Boolean)).size || oddzialy.length;
+  const kpiCards = [
+    { label: 'Aktywni', count: aktywniCount, icon: 'checkmark-circle-outline' as IoniconName, color: theme.accent },
+    { label: 'Brygady', count: brygadzisciCount, icon: 'leaf-outline' as IoniconName, color: theme.success },
+    { label: 'Kierownicy', count: kierownicyCount, icon: 'shield-checkmark-outline' as IoniconName, color: theme.info },
+    { label: 'Oddzialy', count: oddzialyCount, icon: 'business-outline' as IoniconName, color: theme.warning },
+  ];
 
   const S = makeStyles(theme);
 
@@ -101,16 +114,26 @@ export default function UzytkownicyScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
+          <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>{t('users.title')}</Text>
-        <Text style={S.headerCount}>{filtered.length}</Text>
+        <View style={S.headerIcon}>
+          <Ionicons name="people-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Kadry i dostepy</Text>
+          <Text style={S.headerTitle}>{t('users.title')}</Text>
+          <Text style={S.headerSub}>Role, oddzialy i aktywnosc zespolu w jednym miejscu.</Text>
+        </View>
+        <View style={S.headerCount}>
+          <Text style={S.headerCountValue}>{filtered.length}</Text>
+          <Text style={S.headerCountLabel}>widoczni</Text>
+        </View>
       </View>
 
       {/* Search */}
       <View style={S.searchBox}>
         <View style={S.searchInner}>
-          <Ionicons name="search-outline" size={16} color={theme.textMuted} style={{ marginRight: 8 }} />
+          <Ionicons name="search-outline" size={17} color={theme.accent} />
           <TextInput
             style={S.searchInput}
             placeholder="Szukaj pracownika..."
@@ -126,8 +149,11 @@ export default function UzytkownicyScreen() {
         style={S.filtryScroll} contentContainerStyle={S.filtryContent}>
         {role.map(r => (
           <TouchableOpacity key={r}
-            style={[S.filtrBtn, filtrRola === r && S.filtrBtnActive,
-              r && filtrRola === r && { backgroundColor: rolaKolorMap[r as keyof typeof rolaKolorMap] }]}
+            style={[
+              S.filtrBtn,
+              filtrRola === r && S.filtrBtnActive,
+              filtrRola === r && { backgroundColor: r ? rolaKolorMap[r as keyof typeof rolaKolorMap] : theme.accent },
+            ]}
             onPress={() => setFiltrRola(r)}>
             <Text style={[S.filtrText, filtrRola === r && S.filtrTextActive]}>
               {r || 'Wszyscy'}
@@ -138,13 +164,12 @@ export default function UzytkownicyScreen() {
 
       {/* KPI row */}
       <View style={S.kpiRow}>
-        {[
-          { label: 'Brygadziści', count: uzytkownicy.filter(u => u.rola === 'Brygadzista').length, color: theme.success },
-          { label: 'Kierownicy', count: uzytkownicy.filter(u => u.rola === 'Kierownik').length, color: theme.info },
-          { label: 'Aktywni', count: uzytkownicy.filter(u => u.aktywny).length, color: theme.accent },
-        ].map(k => (
-          <View key={k.label} style={[S.kpi, { borderTopColor: k.color }]}>
-            <Text style={[S.kpiNum, { color: k.color }]}>{k.count}</Text>
+        {kpiCards.map(k => (
+          <View key={k.label} style={[S.kpi, { borderColor: k.color + '44' }]}>
+            <View style={[S.kpiIcon, { backgroundColor: k.color + '1F' }]}>
+              <Ionicons name={k.icon} size={16} color={k.color} />
+            </View>
+            <Text style={[S.kpiNum, { color: theme.text }]}>{k.count}</Text>
             <Text style={S.kpiLabel}>{k.label}</Text>
           </View>
         ))}
@@ -161,45 +186,55 @@ export default function UzytkownicyScreen() {
             <Ionicons name="people-outline" size={48} color={theme.textMuted} />
             <Text style={S.emptyTitle}>Brak pracowników</Text>
           </View>
-        ) : filtered.map(u => (
-          <View key={u.id} style={[S.card, !u.aktywny && S.cardInactive]}>
+        ) : filtered.map(u => {
+          const rolaColor = rolaKolorMap[u.rola as keyof typeof rolaKolorMap] || theme.textMuted;
+          const initials = `${u.imie?.[0] || ''}${u.nazwisko?.[0] || ''}` || 'AR';
+          return (
+          <View key={u.id} style={[S.card, !u.aktywny && S.cardInactive, { borderLeftColor: rolaColor }]}>
             <View style={S.cardLeft}>
-              <View style={[S.avatar, { backgroundColor: (rolaKolorMap[u.rola as keyof typeof rolaKolorMap] || theme.textMuted) + '22' }]}>
-                <Text style={[S.avatarText, { color: rolaKolorMap[u.rola as keyof typeof rolaKolorMap] || theme.textMuted }]}>
-                  {u.imie?.[0]}{u.nazwisko?.[0]}
-                </Text>
+              <View style={[S.avatar, { backgroundColor: rolaColor + '1F', borderColor: rolaColor }]}>
+                <Text style={[S.avatarText, { color: rolaColor }]}>{initials}</Text>
               </View>
             </View>
             <View style={S.cardBody}>
               <View style={S.cardTop}>
-                <Text style={S.cardNazwa}>{u.imie} {u.nazwisko}</Text>
-                {!u.aktywny && <Text style={S.nieaktywny}>Nieaktywny</Text>}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={S.cardNazwa} numberOfLines={1}>{u.imie} {u.nazwisko}</Text>
+                  <Text style={S.cardLogin} numberOfLines={1}>@{u.login}</Text>
+                </View>
+                <View style={[S.statusPill, { backgroundColor: u.aktywny ? theme.successBg : theme.dangerBg, borderColor: u.aktywny ? theme.success : theme.danger }]}>
+                  <Text style={[S.statusPillText, { color: u.aktywny ? theme.success : theme.danger }]}>
+                    {u.aktywny ? 'Aktywny' : 'Nieaktywny'}
+                  </Text>
+                </View>
               </View>
-              <Text style={S.cardLogin}>@{u.login}</Text>
               <View style={S.cardRow}>
-                <View style={[S.rolaBadge, { backgroundColor: rolaKolorMap[u.rola as keyof typeof rolaKolorMap] || theme.textMuted }]}>
+                <View style={[S.rolaBadge, { backgroundColor: rolaColor }]}>
                   <Text style={S.rolaText}>{u.rola}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={S.metaPill}>
                   <Ionicons name="business-outline" size={12} color={theme.textMuted} />
-                  <Text style={S.cardOddzial}>{getOddzial(u.oddzial_id)}</Text>
+                  <Text style={S.cardOddzial} numberOfLines={1}>{getOddzial(u.oddzial_id)}</Text>
                 </View>
               </View>
-              {u.telefon && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                  <Ionicons name="call-outline" size={12} color={theme.textMuted} />
-                  <Text style={S.cardTelefon}>{u.telefon}</Text>
-                </View>
-              )}
-              {u.stawka_godzinowa && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                  <Ionicons name="cash-outline" size={12} color={theme.accent} />
-                  <Text style={S.cardStawka}>{u.stawka_godzinowa} PLN/h</Text>
-                </View>
-              )}
+              <View style={S.cardMetaGrid}>
+                {u.telefon ? (
+                  <View style={S.cardMetaItem}>
+                    <Ionicons name="call-outline" size={12} color={theme.textMuted} />
+                    <Text style={S.cardTelefon} numberOfLines={1}>{u.telefon}</Text>
+                  </View>
+                ) : null}
+                {u.stawka_godzinowa ? (
+                  <View style={S.cardMetaItem}>
+                    <Ionicons name="cash-outline" size={12} color={theme.accent} />
+                    <Text style={S.cardStawka}>{u.stawka_godzinowa} PLN/h</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
-        ))}
+          );
+        })}
         <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardSafeScreen>
@@ -210,61 +245,170 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   header: {
-    backgroundColor: t.headerBg, paddingHorizontal: 16,
-    paddingTop: 56, paddingBottom: 14,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: t.border,
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingTop: 18,
+    paddingBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.14,
+      radius: t.shadowRadius * 0.45,
+      offsetY: 3,
+      elevation: t.cardElevation + 1,
+    }),
   },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: t.headerText, fontSize: 18, fontWeight: '700', flex: 1, marginLeft: 8 },
-  headerCount: { color: t.textMuted, fontSize: 14 },
-  searchBox: { backgroundColor: t.cardBg, padding: 12, borderBottomWidth: 1, borderBottomColor: t.border },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTextBox: { flex: 1, minWidth: 0 },
+  headerEyebrow: {
+    color: t.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  headerTitle: { color: t.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
+  headerSub: { color: t.textSub, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  headerCount: {
+    minWidth: 58,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  headerCountValue: { color: t.accent, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  headerCountLabel: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
+  searchBox: {
+    backgroundColor: t.cardBg,
+    marginHorizontal: 14,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+  },
   searchInner: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: t.inputBg, borderRadius: 10, paddingHorizontal: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: t.inputBg, borderRadius: 13, paddingHorizontal: 12,
     borderWidth: 1, borderColor: t.inputBorder,
   },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: t.inputText },
-  filtryScroll: { backgroundColor: t.cardBg, maxHeight: 48 },
-  filtryContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: 'row' },
+  searchInput: { flex: 1, paddingVertical: 11, fontSize: 14, color: t.inputText, fontWeight: '700' },
+  filtryScroll: { maxHeight: 52 },
+  filtryContent: { paddingHorizontal: 14, paddingVertical: 7, gap: 8, flexDirection: 'row' },
   filtrBtn: {
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: t.bg, borderWidth: 1, borderColor: t.border,
+    minHeight: 34,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: t.cardBg, borderWidth: 1, borderColor: t.border,
   },
   filtrBtnActive: { borderColor: 'transparent' },
-  filtrText: { fontSize: 12, color: t.textMuted, fontWeight: '500' },
-  filtrTextActive: { color: t.accentText, fontWeight: 'bold' },
+  filtrText: { fontSize: 12, color: t.textMuted, fontWeight: '900' },
+  filtrTextActive: { color: t.accentText, fontWeight: '900' },
   kpiRow: {
-    flexDirection: 'row', padding: 12, gap: 8,
-    backgroundColor: t.cardBg, borderBottomWidth: 1, borderBottomColor: t.border,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: 14,
+    marginTop: 6,
+    marginBottom: 8,
+    gap: 8,
   },
   kpi: {
-    flex: 1, backgroundColor: t.surface2, borderRadius: 10,
-    padding: 10, alignItems: 'center', borderTopWidth: 3,
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 74,
+    backgroundColor: t.cardBg,
+    borderRadius: 15,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    gap: 3,
   },
-  kpiNum: { fontSize: 20, fontWeight: 'bold', marginBottom: 2 },
-  kpiLabel: { fontSize: 10, color: t.textMuted, textAlign: 'center' },
+  kpiIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  kpiNum: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  kpiLabel: { fontSize: 10, color: t.textMuted, textAlign: 'center', fontWeight: '800' },
   list: { flex: 1, padding: 12 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyTitle: { fontSize: 16, fontWeight: 'bold', color: t.text },
   card: {
-    backgroundColor: t.cardBg, borderRadius: 14, padding: 14, marginBottom: 10,
-    elevation: 1, flexDirection: 'row', gap: 12,
-    borderWidth: 1, borderColor: t.cardBorder,
+    backgroundColor: t.cardBg,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    gap: 12,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderColor: t.cardBorder,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.09,
+      radius: t.shadowRadius * 0.3,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
   },
   cardInactive: { opacity: 0.6 },
   cardLeft: { alignItems: 'center' },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 16, fontWeight: 'bold' },
+  avatar: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 16, fontWeight: '900' },
   cardBody: { flex: 1 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
-  cardNazwa: { fontSize: 15, fontWeight: 'bold', color: t.text },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  cardNazwa: { fontSize: 15, fontWeight: '900', color: t.text },
   nieaktywny: { fontSize: 11, color: t.danger, fontWeight: '600' },
-  cardLogin: { fontSize: 12, color: t.textMuted, marginBottom: 6 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  rolaBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  rolaText: { color: t.accentText, fontSize: 11, fontWeight: 'bold' },
-  cardOddzial: { fontSize: 12, color: t.textMuted },
-  cardTelefon: { fontSize: 12, color: t.textSub },
-  cardStawka: { fontSize: 12, color: t.accent, fontWeight: '600' },
+  cardLogin: { fontSize: 12, color: t.textMuted, marginTop: 2, fontWeight: '700' },
+  statusPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusPillText: { fontSize: 10, fontWeight: '900' },
+  cardRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  rolaBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  rolaText: { color: t.accentText, fontSize: 11, fontWeight: '900' },
+  metaPill: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  cardOddzial: { fontSize: 11, color: t.textMuted, fontWeight: '800', maxWidth: 128 },
+  cardMetaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  cardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 22 },
+  cardTelefon: { fontSize: 12, color: t.textSub, fontWeight: '700' },
+  cardStawka: { fontSize: 12, color: t.accent, fontWeight: '900' },
 });

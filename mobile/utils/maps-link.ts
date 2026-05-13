@@ -33,3 +33,29 @@ export async function openAddressInMaps(address: string, city?: string): Promise
     Alert.alert('', 'Nie udało się otworzyć map.');
   }
 }
+
+function cleanStop(stop: unknown): string {
+  return String(stop || '').trim();
+}
+
+/** Otwiera trasę dnia w Google Maps. Dla jednego punktu działa jak zwykła nawigacja do adresu. */
+export async function openRouteInMaps(stops: unknown[]): Promise<void> {
+  const clean = stops.map(cleanStop).filter(Boolean);
+  if (clean.length === 0) {
+    Alert.alert('', 'Brak adresów do trasy.');
+    return;
+  }
+  if (clean.length === 1) {
+    await openAddressInMaps(clean[0]);
+    return;
+  }
+
+  const destination = clean[clean.length - 1];
+  const waypoints = clean.slice(0, -1).join('|');
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`;
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('', 'Nie udało się otworzyć trasy w mapach.');
+  }
+}

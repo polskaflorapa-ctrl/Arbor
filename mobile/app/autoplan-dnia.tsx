@@ -41,6 +41,7 @@ import {
 import { queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
+import { isTaskClosed } from '../constants/task-workflow';
 
 type TaskLite = {
   id: string | number;
@@ -291,14 +292,19 @@ export default function AutoplanDniaScreen() {
 
       const [tasksRes, teamsRes] = await Promise.all([
         fetch(`${API_URL}/tasks/wszystkie`, { headers }),
-        fetch(`${API_URL}/ekipy`, { headers }),
+        fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers }),
       ]);
       const tasksData = tasksRes.ok ? await tasksRes.json() : [];
-      const teamsData = teamsRes.ok ? await teamsRes.json() : [];
+      const teamsPayload = teamsRes.ok ? await teamsRes.json() : [];
+      const teamsData = Array.isArray(teamsPayload?.items)
+        ? teamsPayload.items
+        : Array.isArray(teamsPayload)
+          ? teamsPayload
+          : [];
 
       const tasks: TaskLite[] = Array.isArray(tasksData)
         ? tasksData
-            .filter((x: any) => x && x.id != null && x.status !== 'Zakonczone' && x.status !== 'Anulowane')
+            .filter((x: any) => x && x.id != null && !isTaskClosed(x.status))
             .map((x: any) => ({
               id: x.id,
               klient_nazwa: x.klient_nazwa,

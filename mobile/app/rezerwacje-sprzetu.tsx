@@ -21,11 +21,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenHeader } from '../components/ui/screen-header';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { type CalendarBlock, isYmdBlocked, loadCalendarBlocks } from '../utils/calendar-blocks';
@@ -130,7 +130,7 @@ export default function RezerwacjeSprzetuScreen() {
     const h = { Authorization: `Bearer ${auth}` };
     const [sRes, eRes] = await Promise.all([
       fetch(`${API_URL}/flota/sprzet`, { headers: h }),
-      fetch(`${API_URL}/ekipy`, { headers: h }),
+      fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: h }),
     ]);
     if (sRes.ok) {
       const d = await sRes.json();
@@ -138,7 +138,8 @@ export default function RezerwacjeSprzetuScreen() {
     }
     if (eRes.ok) {
       const d = await eRes.json();
-      setEkipyList(Array.isArray(d) ? d.map((x: any) => ({ id: x.id, nazwa: x.nazwa })) : []);
+      const items = Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : [];
+      setEkipyList(items.map((x: any) => ({ id: x.id, nazwa: x.nazwa })));
     }
   }, []);
 
@@ -278,6 +279,12 @@ export default function RezerwacjeSprzetuScreen() {
       !dateBlocked,
     [formSprzetId, formEkipaId, formDate, hasFormConflict, dateBlocked],
   );
+  const dashboardStats = [
+    { key: 'month', label: 'Miesiac', value: rows.length, icon: 'calendar-outline' as const, color: theme.accent },
+    { key: 'active', label: 'Aktywne', value: activeRows.length, icon: 'checkmark-circle-outline' as const, color: theme.success },
+    { key: 'conflict', label: 'Konflikty', value: conflictCount, icon: 'warning-outline' as const, color: conflictCount > 0 ? theme.danger : theme.success },
+    { key: 'assets', label: 'Sprzet', value: sprzetList.length, icon: 'construct-outline' as const, color: theme.info },
+  ];
   const submitBlockReason = useMemo(() => {
     if (canSubmitForm) return null;
     if (!formSprzetId || !formEkipaId) return t('fleetReserve.submitHint.pickRequired');
@@ -493,14 +500,34 @@ export default function RezerwacjeSprzetuScreen() {
   return (
     <View style={S.root}>
       <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
-      <ScreenHeader
-        title={t('fleetReserve.title')}
-        right={
-          <TouchableOpacity onPress={openNewReservationModal} accessibilityRole="button">
-            <Ionicons name="add-circle-outline" size={26} color={theme.headerText} />
-          </TouchableOpacity>
-        }
-      />
+      <View style={S.header}>
+        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+          <Ionicons name="arrow-back" size={21} color={theme.accent} />
+        </TouchableOpacity>
+        <View style={S.headerIcon}>
+          <Ionicons name="calendar-number-outline" size={22} color={theme.accent} />
+        </View>
+        <View style={S.headerTextBox}>
+          <Text style={S.headerEyebrow}>Rezerwacje operacyjne</Text>
+          <Text style={S.headerTitle}>{t('fleetReserve.title')}</Text>
+          <Text style={S.headerSub}>Sprzet, ekipy, konflikty i wydania w jednym miesiacu.</Text>
+        </View>
+        <TouchableOpacity onPress={openNewReservationModal} style={S.addBtn} accessibilityRole="button">
+          <Ionicons name="add" size={22} color={theme.accentText} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={S.dashboardStats}>
+        {dashboardStats.map((stat) => (
+          <View key={stat.key} style={[S.dashboardStat, { borderColor: stat.color + '44' }]}>
+            <View style={[S.dashboardStatIcon, { backgroundColor: stat.color + '1F' }]}>
+              <Ionicons name={stat.icon} size={16} color={stat.color} />
+            </View>
+            <Text style={S.dashboardStatValue}>{stat.value}</Text>
+            <Text style={S.dashboardStatLabel}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
 
       {apiListingDown && (
         <View style={S.banner}>
@@ -781,43 +808,132 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg },
+    header: {
+      backgroundColor: theme.cardBg,
+      marginHorizontal: 14,
+      marginTop: 12,
+      marginBottom: 10,
+      paddingHorizontal: 12,
+      paddingTop: 18,
+      paddingBottom: 16,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      ...shadowStyle(theme, {
+        opacity: theme.shadowOpacity * 0.14,
+        radius: theme.shadowRadius * 0.45,
+        offsetY: 3,
+        elevation: theme.cardElevation + 1,
+      }),
+    },
+    backBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: theme.accent,
+      backgroundColor: theme.accentLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTextBox: { flex: 1, minWidth: 0 },
+    headerEyebrow: {
+      color: theme.textMuted,
+      fontSize: 10,
+      fontWeight: '900',
+      textTransform: 'uppercase',
+      letterSpacing: 0,
+    },
+    headerTitle: { color: theme.text, fontSize: 20, lineHeight: 24, fontWeight: '900', marginTop: 2 },
+    headerSub: { color: theme.textSub, fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+    addBtn: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.accentDark,
+      backgroundColor: theme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dashboardStats: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: 14,
+      marginBottom: 8,
+      gap: 8,
+    },
+    dashboardStat: {
+      flexGrow: 1,
+      flexBasis: '22%',
+      minWidth: 74,
+      backgroundColor: theme.cardBg,
+      borderRadius: 15,
+      padding: 10,
+      alignItems: 'center',
+      borderWidth: 1,
+      gap: 3,
+    },
+    dashboardStatIcon: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    dashboardStatValue: { color: theme.text, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+    dashboardStatLabel: { color: theme.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     banner: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      backgroundColor: theme.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
+      marginHorizontal: 14,
+      marginBottom: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: theme.warningBg,
+      borderWidth: 1,
+      borderColor: theme.warning,
     },
-    bannerTxt: { flex: 1, fontSize: 13, color: theme.textSub },
+    bannerTxt: { flex: 1, fontSize: 13, color: theme.textSub, fontWeight: '700' },
     monthRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      marginHorizontal: 14,
+      marginBottom: 8,
       paddingHorizontal: 8,
-      paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
+      paddingVertical: 8,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      backgroundColor: theme.cardBg,
     },
-    monthBtn: { padding: 8 },
-    monthTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: theme.text, textTransform: 'capitalize', textAlign: 'center' },
+    monthBtn: { padding: 8, borderRadius: 12, backgroundColor: theme.surface2 },
+    monthTitle: { flex: 1, fontSize: 16, fontWeight: '900', color: theme.text, textTransform: 'capitalize', textAlign: 'center' },
     exportMonthBtn: { padding: 8 },
     scroll: { flex: 1 },
-    hint: { fontSize: 13, color: theme.textMuted, padding: 16, paddingBottom: 8 },
+    hint: { fontSize: 13, color: theme.textMuted, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, fontWeight: '700', lineHeight: 18 },
     flowBox: {
       marginHorizontal: 16,
       marginBottom: 12,
       padding: 10,
-      borderRadius: 10,
-      backgroundColor: theme.surface2,
+      borderRadius: 16,
+      backgroundColor: theme.cardBg,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: theme.cardBorder,
     },
-    flowTitle: { color: theme.text, fontWeight: '700', fontSize: 13, marginBottom: 4 },
+    flowTitle: { color: theme.text, fontWeight: '900', fontSize: 13, marginBottom: 4 },
     flowRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-    flowLine: { color: theme.textMuted, fontSize: 12, marginBottom: 2 },
+    flowLine: { color: theme.textMuted, fontSize: 12, marginBottom: 2, fontWeight: '700' },
     filterRow: {
       paddingHorizontal: 16,
       marginBottom: 8,
@@ -835,11 +951,11 @@ function makeStyles(theme: Theme) {
       borderRadius: 999,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.cardBg,
     },
     filterBtnTxt: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: '800',
       color: theme.textMuted,
     },
     filterCountBadge: {
@@ -865,11 +981,11 @@ function makeStyles(theme: Theme) {
       borderRadius: 999,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.cardBg,
     },
     jumpBtnTxt: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: '800',
       color: theme.textMuted,
     },
     modalInfoBox: {
@@ -906,37 +1022,43 @@ function makeStyles(theme: Theme) {
       fontWeight: '600',
     },
     empty: { padding: 24, alignItems: 'center' },
-    emptyTxt: { color: theme.textMuted, fontSize: 15 },
+    emptyTxt: { color: theme.textMuted, fontSize: 15, fontWeight: '800' },
     card: {
       marginHorizontal: 16,
       marginBottom: 12,
       padding: 14,
-      borderRadius: 12,
-      backgroundColor: theme.surface,
+      borderRadius: 18,
+      backgroundColor: theme.cardBg,
       borderLeftWidth: 4,
       borderLeftColor: theme.accent,
-      ...Platform.select({
-        ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
-        android: { elevation: 2 },
+      borderWidth: 1,
+      borderColor: theme.cardBorder,
+      ...shadowStyle(theme, {
+        opacity: theme.shadowOpacity * 0.09,
+        radius: theme.shadowRadius * 0.3,
+        offsetY: 1,
+        elevation: Math.max(1, theme.cardElevation - 1),
       }),
     },
-    cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    cardMain: { fontSize: 17, fontWeight: '700', color: theme.text, flex: 1 },
+    cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+    cardMain: { fontSize: 17, fontWeight: '900', color: theme.text, flex: 1 },
     pillWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-    pillTxt: { fontSize: 11, fontWeight: '700', color: theme.accentText },
+    pill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    pillTxt: { fontSize: 11, fontWeight: '900', color: theme.accentText },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-    metaTxt: { fontSize: 14, color: theme.textSub },
-    statusHint: { fontSize: 12, color: theme.textMuted, marginTop: 8, marginBottom: 6 },
+    metaTxt: { fontSize: 14, color: theme.textSub, fontWeight: '700' },
+    statusHint: { fontSize: 12, color: theme.textMuted, marginTop: 8, marginBottom: 6, fontWeight: '700' },
     statusRow: { flexDirection: 'row', gap: 6, paddingBottom: 4 },
     statusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
     statusChip: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 8,
-      backgroundColor: theme.border,
+      borderRadius: 999,
+      backgroundColor: theme.surface2,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
-    statusChipTxt: { fontSize: 12, fontWeight: '600', color: theme.text },
+    statusChipTxt: { fontSize: 12, fontWeight: '800', color: theme.text },
     overlay: { flex: 1, backgroundColor: 'rgba(5,8,15,0.88)', justifyContent: 'flex-end' },
     modalBox: {
       backgroundColor: theme.surface,
