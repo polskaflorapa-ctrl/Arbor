@@ -115,6 +115,79 @@ describe('Tasks routes', () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
 
+  it('creates task with explicit start hour and checks team load ranges', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.includes('INSERT INTO tasks')) return { rows: [{ id: 42 }] };
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 5, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('FROM wyceny')) return { rows: [] };
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/tasks/nowe')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        klient_nazwa: 'Jan Kowalski',
+        adres: 'Testowa 1',
+        miasto: 'Krakow',
+        data_planowana: '2026-05-10',
+        godzina_rozpoczecia: '09:30',
+        czas_planowany_godziny: 2,
+        oddzial_id: 5,
+        ekipa_id: 5,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(42);
+    const insertCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO tasks'));
+    expect(insertCall?.[1]?.[8]).toBe('2026-05-10 09:30:00');
+  });
+
+  it('returns 409 when creating task conflicts with another task on the same team', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.includes('INSERT INTO tasks')) return { rows: [{ id: 42 }] };
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 5, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) {
+        return { rows: [{ data_planowana: '2026-05-10T09:00:00.000Z', czas_h: 2 }] };
+      }
+      if (s.includes('FROM wyceny')) return { rows: [] };
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/tasks/nowe')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        klient_nazwa: 'Jan Kowalski',
+        adres: 'Testowa 1',
+        miasto: 'Krakow',
+        data_planowana: '2026-05-10',
+        godzina_rozpoczecia: '09:30',
+        czas_planowany_godziny: 2,
+        oddzial_id: 5,
+        ekipa_id: 5,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TASK_PLAN_CONFLICT');
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO tasks'))).toBe(false);
+  });
+
   it('rejects invalid status update', async () => {
     const token = jwt.sign(
       { id: 1, rola: 'Administrator', oddzial_id: 5 },
@@ -125,6 +198,23 @@ describe('Tasks routes', () => {
       .put('/api/tasks/12/status')
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'INVALID' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Nieprawidlowe dane wejsciowe');
+    expect(res.body.code).toBe('VALIDATION_FAILED');
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid client contact status', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+
+    const res = await request(app)
+      .patch('/api/tasks/12/client-contact')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'sent-but-unknown' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Nieprawidlowe dane wejsciowe');
@@ -208,6 +298,46 @@ describe('Tasks routes', () => {
     });
   });
 
+  it('GET /tasks/moje returns field evidence photo counters for crew', async () => {
+    const token = jwt.sign(
+      { id: 2, rola: 'Brygadzista', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 1,
+        klient_nazwa: 'A',
+        photo_total: 3,
+        photo_wycena: 1,
+        photo_szkic: 1,
+        photo_dojazd: 1,
+      }],
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/moje?data=2026-05-13')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{
+      id: 1,
+      klient_nazwa: 'A',
+      photo_total: 3,
+      photo_wycena: 1,
+      photo_szkic: 1,
+      photo_dojazd: 1,
+    }]);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('COALESCE(ps.photo_total, 0)::int AS photo_total'),
+      ['2026-05-13', 2]
+    );
+    const sql = String(pool.query.mock.calls[0][0]);
+    expect(sql).toContain('photo_wycena');
+    expect(sql).toContain('photo_szkic');
+    expect(sql).toContain('photo_dojazd');
+    expect(sql).toContain('FROM photos p');
+  });
+
   it('POST /tasks/:id/start returns 400 for brygadzista without checklist', async () => {
     const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
@@ -242,6 +372,11 @@ describe('Tasks routes', () => {
         rebak_zatankowany: true,
         kaski_zespol: true,
         bhp_potwierdzone: true,
+        bhp_checklista: [
+          { key: 'ppe', label: 'Kaski i ochrona osobista', done: true },
+          { key: 'zone', label: 'Strefa pracy zabezpieczona', done: true },
+          { key: 'tools', label: 'Sprzet sprawdzony przed startem', done: true },
+        ],
       });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ work_log_id: 501 });
@@ -320,18 +455,66 @@ describe('Tasks routes', () => {
     const clientQuery = jest.fn(async (sql) => {
       const s = String(sql);
       if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO api_idempotency_log')) return { rows: [{ idempotency_key: 'problem-1' }] };
       if (s.includes('INSERT INTO issues')) return { rows: [] };
       if (s.includes('COMMIT')) return {};
       if (s.includes('ROLLBACK')) return {};
       return { rows: [] };
     });
-    pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release: jest.fn() });
     const res = await request(app)
       .post('/api/tasks/1/problemy')
       .set('Authorization', `Bearer ${token}`)
-      .send({ typ: 'Inny' });
+      .set('Idempotency-Key', 'problem-1')
+      .send({ typ: 'usterka', opis: 'Brama zastawiona' });
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('Problem zgloszony');
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO issues (task_id, user_id, typ, opis, data_zgloszenia)'),
+      [1, 1, 'Awaria_Sprzetu', 'Brama zastawiona']
+    );
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('RETURNING idempotency_key'),
+      expect.any(Array)
+    );
+  });
+
+  it('POST /tasks/:id/zdjecia skips duplicate offline photo replay', async () => {
+    const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO api_idempotency_log')) return { rows: [] };
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/1/zdjecia')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', 'offline-photo-retry-1')
+      .field('typ', 'Przed')
+      .attach('zdjecie', Buffer.from('fake-image'), {
+        filename: 'retry.jpg',
+        contentType: 'image/jpeg',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      message: 'Zdjecie dodane',
+      sciezka: null,
+      idempotent_replay: true,
+    });
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO photos'))).toBe(false);
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('RETURNING idempotency_key'),
+      ['offline-photo-retry-1', 'task:1:photo']
+    );
+    expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+    expect(release).toHaveBeenCalled();
   });
 
   it('POST /tasks/:id/finish returns 400 when TASK_FINISH_REQUIRE_MATERIAL_USAGE=1 and empty zuzyte_materialy', async () => {
@@ -507,5 +690,86 @@ describe('Tasks routes', () => {
     expect(res.body.code).toBe('TASK_PLAN_CONFLICT');
     expect(res.body.error).toMatch(/Konflikt terminu/i);
     expect(pool.query).toHaveBeenCalledTimes(4);
+  });
+
+  it('GET /tasks/:id/client-signature returns saved signature data', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.includes('SELECT id FROM tasks')) return { rows: [{ id: 1 }] };
+      if (s.includes('FROM task_client_signatures')) {
+        return {
+          rows: [
+            {
+              task_id: 1,
+              signer_name: 'Jan Kowalski',
+              signature_data_url: 'data:image/svg+xml;base64,AAA',
+              signed_at: '2026-05-10T09:15:00.000Z',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/1/client-signature')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.task_id).toBe(1);
+    expect(res.body.signer_name).toBe('Jan Kowalski');
+  });
+
+  it('PUT /tasks/:id/client-signature upserts signature', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO task_client_signatures')) {
+        return {
+          rows: [
+            {
+              task_id: 1,
+              signer_name: 'Anna Nowak',
+              signed_at: '2026-05-10T09:25:00.000Z',
+            },
+          ],
+        };
+      }
+      if (s.includes('COMMIT')) return {};
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .put('/api/tasks/1/client-signature')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        signer_name: 'Anna Nowak',
+        signature_data_url: 'data:image/svg+xml;base64,AAA',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.signer_name).toBe('Anna Nowak');
+    expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO task_client_signatures'), expect.any(Array));
+    expect(release).toHaveBeenCalled();
+  });
+
+  it('GET /tasks/:id/protokol-link returns temporary PDF access path', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
+    const res = await request(app)
+      .get('/api/tasks/1/protokol-link')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.path).toBe('string');
+    expect(res.body.path).toContain('/api/pdf/zlecenie/1?access_token=');
+    expect(res.body.expires_in_sec).toBe(600);
   });
 });

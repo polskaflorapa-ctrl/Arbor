@@ -5,47 +5,15 @@ const { z } = require('zod');
 const pool = require('../config/database');
 const { authMiddleware, buildAppPermissions } = require('../middleware/auth');
 const { validateBody } = require('../middleware/validate');
+const { loginLimiter, resetLoginLimiterForTests } = require('../middleware/rate-limit');
 const { env } = require('../config/env');
 const {
-  LOGIN_TOO_MANY_ATTEMPTS,
   LOGIN_INVALID_CREDENTIALS,
   USER_NOT_FOUND,
   PASSWORD_OLD_WRONG,
 } = require('../constants/error-codes');
 
 const router = express.Router();
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_MAX_ATTEMPTS = 10;
-const loginAttempts = new Map();
-
-const loginLimiter = (req, res, next) => {
-  const key = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const now = Date.now();
-  const current = loginAttempts.get(key);
-
-  if (!current || now > current.resetAt) {
-    loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
-    return next();
-  }
-
-  if (current.count >= LOGIN_MAX_ATTEMPTS) {
-    const retryAfter = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
-    res.setHeader('retry-after', String(retryAfter));
-    return res.status(429).json({
-      error: req.t('errors.login.tooManyAttempts'),
-      code: LOGIN_TOO_MANY_ATTEMPTS,
-      requestId: req.requestId,
-    });
-  }
-
-  current.count += 1;
-  loginAttempts.set(key, current);
-  return next();
-};
-
-const resetLoginLimiterForTests = () => {
-  loginAttempts.clear();
-};
 
 const loginSchema = z.object({
   login: z.string().trim().min(1, 'Login jest wymagany'),

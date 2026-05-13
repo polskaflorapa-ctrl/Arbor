@@ -61,6 +61,40 @@ CREATE TABLE IF NOT EXISTS teams (
 -- Klucz obcy ekipa_id w users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ekipa_id_fk INTEGER REFERENCES teams(id);
 
+-- Delegacje zasobow miedzy oddzialami: ekipy i wyceniajacy
+CREATE TABLE IF NOT EXISTS delegacje (
+  id              SERIAL PRIMARY KEY,
+  zasob_typ       VARCHAR(30) DEFAULT 'ekipa',
+  ekipa_id        INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+  user_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  wyceniajacy_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  oddzial_z       INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  oddzial_do      INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  data_od         DATE NOT NULL DEFAULT CURRENT_DATE,
+  data_do         DATE,
+  cel             VARCHAR(500),
+  uwagi           TEXT,
+  dodal_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  status          VARCHAR(50) DEFAULT 'Planowana',
+  created_at      TIMESTAMP DEFAULT NOW(),
+  updated_at      TIMESTAMP DEFAULT NOW()
+);
+ALTER TABLE delegacje ALTER COLUMN ekipa_id DROP NOT NULL;
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS zasob_typ VARCHAR(30) DEFAULT 'ekipa';
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS wyceniajacy_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS data_do DATE;
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS cel VARCHAR(500);
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS uwagi TEXT;
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS dodal_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Planowana';
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE delegacje ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS idx_delegacje_ekipa ON delegacje(ekipa_id, oddzial_do);
+CREATE INDEX IF NOT EXISTS idx_delegacje_user ON delegacje(user_id, oddzial_do);
+CREATE INDEX IF NOT EXISTS idx_delegacje_wyceniajacy ON delegacje(wyceniajacy_id, oddzial_do);
+CREATE INDEX IF NOT EXISTS idx_delegacje_oddzialy ON delegacje(oddzial_z, oddzial_do);
+
 -- ─── 4. TASKS (Zlecenia) ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tasks (
   id                     SERIAL PRIMARY KEY,
@@ -118,6 +152,44 @@ CREATE TABLE IF NOT EXISTS api_idempotency_log (
   created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_api_idempotency_created ON api_idempotency_log(created_at DESC);
+
+-- Kontakt z klientem przy zleceniu: aktualny status + historia zmian
+CREATE TABLE IF NOT EXISTS task_client_contacts (
+  task_id     INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+  status      VARCHAR(32),
+  note        TEXT,
+  due_at      TIMESTAMPTZ,
+  updated_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE task_client_contacts ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_task_client_contacts_status ON task_client_contacts(status);
+CREATE INDEX IF NOT EXISTS idx_task_client_contacts_due ON task_client_contacts(due_at);
+CREATE INDEX IF NOT EXISTS idx_task_client_contacts_updated ON task_client_contacts(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS task_client_contact_events (
+  id          SERIAL PRIMARY KEY,
+  task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  status      VARCHAR(32),
+  note        TEXT,
+  due_at      TIMESTAMPTZ,
+  created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE task_client_contact_events ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_task_client_contact_events_task ON task_client_contact_events(task_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS task_client_signatures (
+  task_id             INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+  signer_name         VARCHAR(120) NOT NULL,
+  signature_data_url  TEXT,
+  signed_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  note                TEXT,
+  updated_by          INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_task_client_signatures_signed_at ON task_client_signatures(signed_at DESC);
 
 -- ─── 5. WYCENY ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS wyceny (
@@ -216,6 +288,16 @@ CREATE INDEX IF NOT EXISTS idx_ogledziny_brygadzista ON ogledziny(brygadzista_id
 CREATE INDEX IF NOT EXISTS idx_ogledziny_status      ON ogledziny(status);
 CREATE INDEX IF NOT EXISTS idx_ogledziny_data        ON ogledziny(data_planowana);
 
+CREATE TABLE IF NOT EXISTS ogledziny_media (
+  id             SERIAL PRIMARY KEY,
+  ogledziny_id   INTEGER NOT NULL REFERENCES ogledziny(id) ON DELETE CASCADE,
+  url            VARCHAR(512) NOT NULL,
+  mime           VARCHAR(120),
+  kind           VARCHAR(20) DEFAULT 'video',
+  created_at     TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ogledziny_media_ogl ON ogledziny_media(ogledziny_id);
+
 -- ─── 8. TASK_POMOCNICY ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS task_pomocnicy (
   id               SERIAL PRIMARY KEY,
@@ -237,6 +319,7 @@ CREATE TABLE IF NOT EXISTS work_logs (
   duration_hours DECIMAL(5,2),
   opis           TEXT,
   status         VARCHAR(20) DEFAULT 'completed',
+  bhp_checklista JSONB,
   created_at     TIMESTAMP DEFAULT NOW()
 );
 
@@ -248,10 +331,18 @@ CREATE TABLE IF NOT EXISTS issues (
   resolved_by INTEGER REFERENCES users(id),
   typ         VARCHAR(50) DEFAULT 'inne',
   opis        TEXT,
-  status      VARCHAR(30) DEFAULT 'Nowy',
+  status      VARCHAR(30) DEFAULT 'Zgłoszony',
   created_at  TIMESTAMP DEFAULT NOW(),
+  data_zgloszenia TIMESTAMP DEFAULT NOW(),
   resolved_at TIMESTAMP
 );
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS opis TEXT;
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS data_zgloszenia TIMESTAMP DEFAULT NOW();
+ALTER TABLE issues ALTER COLUMN status SET DEFAULT 'Zgłoszony';
+UPDATE issues
+SET data_zgloszenia = COALESCE(data_zgloszenia, created_at, NOW())
+WHERE data_zgloszenia IS NULL;
 
 -- ─── 11. TASK_PHOTOS ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS task_photos (
@@ -557,6 +648,7 @@ ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS dmuchawa_filtr_ok BOOLEAN;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS rebak_zatankowany BOOLEAN;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS kaski_zespol BOOLEAN;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS bhp_potwierdzone BOOLEAN;
+ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS bhp_checklista JSONB;
 ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS czas_pracy_minuty INTEGER DEFAULT 0;
 
 -- ─── photos (zdjęcia zleceń; lat/lon przy robieniu zdjęcia z telefonu) ─────────

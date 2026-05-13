@@ -4,6 +4,8 @@ const logger = require('../config/logger');
 const { authMiddleware } = require('../middleware/auth');
 const { validateQuery } = require('../middleware/validate');
 const { z } = require('zod');
+const { getRaportyMobileAggregates } = require('../services/raportyMobileStats');
+const { getTeamRankings } = require('../services/teamRankings');
 
 const router = express.Router();
 
@@ -13,6 +15,11 @@ const raportCzasPracyQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+});
+
+const rankingBrygadQuerySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive().optional(),
+  as_of: z.string().max(40).optional(),
 });
 
 router.get('/czas-pracy', authMiddleware, validateQuery(raportCzasPracyQuerySchema), async (req, res) => {
@@ -58,6 +65,28 @@ router.get('/czas-pracy', authMiddleware, validateQuery(raportCzasPracyQuerySche
     res.json(result.rows);
   } catch (err) {
     logger.error('Blad pobierania raportu czasu pracy', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+/** Agregaty KPI jak ekran „Raporty mobilne” w aplikacji (`GET …/raporty/mobile`). */
+router.get('/mobile', authMiddleware, async (req, res) => {
+  try {
+    const stats = await getRaportyMobileAggregates(pool, req.user);
+    res.json(stats);
+  } catch (err) {
+    logger.error('Blad raporty mobile', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+// Liga brygad: tydzien, miesiac, polrocze i rok.
+router.get('/ranking-brygad', authMiddleware, validateQuery(rankingBrygadQuerySchema), async (req, res) => {
+  try {
+    const data = await getTeamRankings(pool, req.user, req.query);
+    res.json(data);
+  } catch (err) {
+    logger.error('Blad rankingu brygad', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

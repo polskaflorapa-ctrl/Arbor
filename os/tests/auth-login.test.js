@@ -16,6 +16,7 @@ describe('Auth routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    pool.query.mockReset();
     if (typeof authRoutes.__resetLoginLimiterForTests === 'function') {
       authRoutes.__resetLoginLimiterForTests();
     }

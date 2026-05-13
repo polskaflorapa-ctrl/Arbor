@@ -511,6 +511,15 @@ paths:
           description: `{ ok, removed }`
         "503":
           description: Brak tabeli `user_expo_push_tokens`
+  /mobile/reports:
+    get:
+      summary: KPI raportów mobilnych (alias GET `/raporty/mobile`)
+      description: |
+        Ten sam payload co `GET /raporty/mobile` — używany przez zakładkę Explore w aplikacji mobilnej.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Obiekt liczb KPI
   /role:
     get:
       summary: Role systemowe
@@ -1195,6 +1204,17 @@ paths:
       responses:
         "200":
           description: Tablica lub `{ items, total, limit, offset }`
+  /raporty/mobile:
+    get:
+      summary: KPI raportów mobilnych (agregacja zleceń ~365 dni)
+      description: |
+        Zwraca `{ total_tasks, completed_tasks, total_hours, total_revenue, total_cost, avg_margin_percent }`.
+        Dyrektor/Administrator — cała baza; pozostałe role — filtr `oddzial_id` użytkownika.
+        `total_cost` — suma `koszt_pomocnikow + wynagrodzenie_brygadzisty` z `task_rozliczenie` dla zleceń w zakresie; marża `(przychód − koszt) / przychód`.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Obiekt liczb KPI
   /ai/chat:
     post:
       summary: Chat AI (walidacja Zod)
@@ -1279,7 +1299,7 @@ paths:
           description: Brak dostępu — `code: TASK_ACCESS_DENIED`
   /tasks/{id}/przypisz:
     put:
-      summary: Przypisanie ekipy (status → Zaplanowane)
+      summary: Przypisanie ekipy (Do_Zatwierdzenia → Zaplanowane)
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1376,7 +1396,7 @@ paths:
     post:
       summary: Rozpoczęcie pracy (work_log + status zlecenia + checklista BHP/sprzętu dla ekipy)
       description: |
-        Dla **Brygadzista** i **Pomocnik** wymagane są `lat`, `lng` (GPS w terenie), pola boolean `dmuchawa_filtr_ok`, `rebak_zatankowany`, `kaski_zespol` oraz `bhp_potwierdzone: true`.
+        Dla **Brygadzista** i **Pomocnik** wymagane są `lat`, `lng` (GPS w terenie), pola boolean `dmuchawa_filtr_ok`, `rebak_zatankowany`, `kaski_zespol`, `bhp_potwierdzone: true` oraz kompletna `bhp_checklista`.
         Dla kierownictwa pola checklisty są opcjonalne (NULL w work_log).
       security: [{ bearerAuth: [] }]
       parameters:
@@ -2645,7 +2665,7 @@ components:
       properties:
         status:
           type: string
-          enum: [Nowe, Zaplanowane, W_Realizacji, Zakonczone]
+          enum: [Nowe, Wycena_Terenowa, Do_Zatwierdzenia, Zaplanowane, W_Realizacji, Zakonczone, Anulowane]
     TaskGeoOptional:
       type: object
       properties:
@@ -2660,6 +2680,18 @@ components:
         rebak_zatankowany: { type: boolean, description: Rębak zatankowany (wymagane dla ekipy) }
         kaski_zespol: { type: boolean, description: Kaski u pomocników i brygadzisty (wymagane dla ekipy) }
         bhp_potwierdzone: { type: boolean, description: Zapoznanie z krótkim BHP — musi być true dla ekipy }
+        bhp_checklista:
+          type: array
+          description: Pelna checklista BHP potwierdzona w aplikacji mobilnej; dla ekipy kazdy punkt musi miec `done: true`.
+          maxItems: 50
+          items:
+            type: object
+            required: [key, label, done]
+            properties:
+              key: { type: string, maxLength: 80 }
+              label: { type: string, maxLength: 160 }
+              hint: { type: string, nullable: true, maxLength: 500 }
+              done: { type: boolean }
     TaskStop:
       type: object
       required: [work_log_id]

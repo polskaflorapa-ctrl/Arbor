@@ -6,6 +6,11 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
 const { postKommoWebhook, kommoWebhookConfigured } = require('../services/kommo');
+const { validateBody, validateParams } = require('../middleware/validate');
+const {
+  quotationChoiceBodySchema,
+  quotationTokenParamsSchema,
+} = require('../schemas/quotation-public');
 
 const router = express.Router();
 
@@ -17,7 +22,7 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-router.get('/quotations/:token', async (req, res) => {
+router.get('/quotations/:token', validateParams(quotationTokenParamsSchema), async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, status, klient_nazwa, wartosc_zaproponowana, waznosc_do, pdf_url FROM quotations WHERE client_acceptance_token = $1`,
@@ -50,9 +55,14 @@ ${pdf}
   }
 });
 
-router.post('/quotations/:token/choice', express.urlencoded({ extended: true }), async (req, res) => {
-  const action = String(req.body?.action || '').toLowerCase();
-  const token = req.params.token;
+router.post(
+  '/quotations/:token/choice',
+  express.urlencoded({ extended: true }),
+  validateParams(quotationTokenParamsSchema),
+  validateBody(quotationChoiceBodySchema),
+  async (req, res) => {
+    const action = req.body.action; // już zwalidowany do 'accept' | 'reject'
+    const token = req.params.token;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

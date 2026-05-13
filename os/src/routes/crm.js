@@ -6,7 +6,7 @@ const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
-const CRM_STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane'];
+const CRM_STAGES = ['Lead', 'Oględziny', 'Do zatwierdzenia', 'Plan ekipy', 'W realizacji', 'Wygrane', 'Przegrane'];
 
 function toInt(v) {
   if (v === '' || v === undefined || v === null) return null;
@@ -28,7 +28,9 @@ function normStage(s) {
 function taskStageFromStatus(status) {
   const s = String(status || '').trim();
   if (s === 'Nowe') return 'Lead';
-  if (s === 'Zaplanowane') return 'Oferta';
+  if (s === 'Wycena_Terenowa') return 'Oględziny';
+  if (s === 'Do_Zatwierdzenia') return 'Do zatwierdzenia';
+  if (s === 'Zaplanowane') return 'Plan ekipy';
   if (s === 'W_Realizacji' || s === 'W realizacji') return 'W realizacji';
   if (s === 'Zakonczone' || s === 'Zakończone') return 'Wygrane';
   if (s === 'Anulowane') return 'Przegrane';
@@ -119,6 +121,38 @@ router.get('/overview', async (req, res) => {
       `SELECT COALESCE(NULLIF(TRIM(zrodlo), ''), 'inne') AS source, COUNT(*)::int AS count FROM klienci GROUP BY 1 ORDER BY 2 DESC`
     );
 
+    let callbacksOpen = 0;
+    let callbacksOverdue = 0;
+    let callbacks = [];
+    try {
+      const tableCheck = await pool.query(`SELECT to_regclass('public.telephony_callbacks') IS NOT NULL AS exists`);
+      if (tableCheck.rows[0]?.exists) {
+        const callbackParams = [];
+        let callbackWhere = 'WHERE status IN ($1,$2)';
+        callbackParams.push('open', 'in_progress');
+        if (oddzialId) {
+          callbackParams.push(oddzialId);
+          callbackWhere += ` AND oddzial_id = $${callbackParams.length}`;
+        }
+        const callbackRows = await pool.query(
+          `
+          SELECT id, oddzial_id, phone, task_id, lead_name, priority, due_at, status, notes, assigned_user_id, created_at
+          FROM telephony_callbacks
+          ${callbackWhere}
+          ORDER BY COALESCE(due_at, created_at) ASC
+          LIMIT 12
+          `,
+          callbackParams
+        );
+        const now = new Date();
+        callbacks = callbackRows.rows || [];
+        callbacksOpen = callbacks.length;
+        callbacksOverdue = callbacks.filter((row) => row.due_at && new Date(row.due_at) < now).length;
+      }
+    } catch (e) {
+      logger.warn('crm.overview.callbacks', { message: e.message });
+    }
+
     res.json({
       kpis: {
         clients_total: clientsRes.rows[0]?.c ?? 0,
@@ -126,12 +160,12 @@ router.get('/overview', async (req, res) => {
         tasks_total: tasksRes.rows[0]?.c ?? 0,
         tasks_won_30d: wonRes.rows[0]?.c ?? 0,
         calls_30d: callsRes.rows[0]?.c ?? 0,
-        callbacks_open: 0,
-        callbacks_overdue: 0,
+        callbacks_open: callbacksOpen,
+        callbacks_overdue: callbacksOverdue,
       },
       pipeline,
       sources: srcRes.rows.map((r) => ({ source: r.source, count: r.count })),
-      callbacks: [],
+      callbacks,
     });
   } catch (err) {
     logger.error('crm.overview', { message: err.message });

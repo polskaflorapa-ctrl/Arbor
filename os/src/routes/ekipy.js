@@ -5,6 +5,7 @@ const { authMiddleware, requireNieBrygadzista } = require('../middleware/auth');
 const { blockPayrollSettlements } = require('../middleware/payroll-policy');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { syncJuwentusGps, getLiveTeamLocations } = require('../services/juwentus-gps');
+const { getBranchResources } = require('../services/branchResources');
 const { z } = require('zod');
 
 const router = express.Router();
@@ -22,6 +23,11 @@ const optionalIntId = z
 
 const ekipaListQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
+  include_delegacje: z
+    .preprocess((v) => (v === undefined ? false : ['1', 'true', true].includes(v)), z.boolean())
+    .optional()
+    .default(false),
+  date: z.string().max(40).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -71,7 +77,21 @@ const ekipaCzlonkowieParamsSchema = z.object({
 
 router.get('/', authMiddleware, validateQuery(ekipaListQuerySchema), async (req, res) => {
   try {
-    const { oddzial_id, limit, offset } = req.query;
+    const { oddzial_id, include_delegacje, date, limit, offset } = req.query;
+    if (!isDyrektor(req.user) && oddzial_id != null && Number(oddzial_id) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    const targetBranchId = oddzial_id != null ? oddzial_id : (!isDyrektor(req.user) ? req.user.oddzial_id : null);
+    if (include_delegacje && targetBranchId) {
+      const resources = await getBranchResources(pool, targetBranchId, date);
+      const rows = resources.ekipy;
+      if (limit != null) {
+        const lim = Number(limit);
+        const off = Number(offset ?? 0);
+        return res.json({ items: rows.slice(off, off + lim), total: rows.length, limit: lim, offset: off });
+      }
+      return res.json(rows);
+    }
     let where = '';
     let params = [];
     if (oddzial_id != null) {

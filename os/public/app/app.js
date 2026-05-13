@@ -318,7 +318,7 @@
     }
   }
 
-  const TASK_STATUS_API = ['Nowe', 'Zaplanowane', 'W_Realizacji', 'Zakonczone'];
+  const TASK_STATUS_API = ['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane'];
 
   function toDatetimeLocalValue(v) {
     if (v == null || v === '') return '';

@@ -11,6 +11,7 @@ const {
 } = require('../schemas/invoice');
 const { companySettingsWriteSchema } = require('../schemas/company-settings');
 const { buildTeamDayReport, loadTeamDayEnrichment } = require('../services/payrollTeamDay');
+const { getRaportyMobileAggregates } = require('../services/raportyMobileStats');
 
 const router = express.Router();
 
@@ -538,5 +539,16 @@ async function getPayrollOverview(req, res) {
 router.get('/me/payroll-overview', authMiddleware, getPayrollOverview);
 /** Alias pod acceptance/spec M11 F11.8: "settlements overview". */
 router.get('/me/settlements-overview', authMiddleware, getPayrollOverview);
+
+/** Ten sam kształt co `GET /api/raporty/mobile` — zakładka „Eksploruj” w aplikacji mobilnej. */
+router.get('/reports', authMiddleware, async (req, res) => {
+  try {
+    const stats = await getRaportyMobileAggregates(pool, req.user);
+    res.json(stats);
+  } catch (err) {
+    logger.error('mobile.reports', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
 
 module.exports = router;

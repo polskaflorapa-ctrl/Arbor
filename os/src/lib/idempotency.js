@@ -18,7 +18,7 @@ async function tryConsumeIdempotencyKey(client, req, scope) {
   if (!key) return false;
   const r = await client.query(
     `INSERT INTO api_idempotency_log (idempotency_key, scope) VALUES ($1, $2)
-     ON CONFLICT (idempotency_key) DO NOTHING RETURNING id`,
+     ON CONFLICT (idempotency_key) DO NOTHING RETURNING idempotency_key`,
     [key, String(scope || 'unknown').slice(0, 160)]
   );
   return r.rows.length === 0;

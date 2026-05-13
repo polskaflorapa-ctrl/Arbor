@@ -1,7 +1,9 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware } = require('../middleware/auth');
+const { env } = require('../config/env');
 const { validateParams } = require('../middleware/validate');
 const { z } = require('zod');
 const PDFDocument = require('pdfkit');
@@ -50,6 +52,28 @@ const formatCurrency = (amount) => {
 /** Nagłówki PDF — neutralna czerń (spójnie z Platinum Chrome, bez niebieskiego brandu). */
 const PDF_BRAND = '#111111';
 
+const parseBhpChecklist = (value) => {
+  const raw = typeof value === 'string'
+    ? (() => {
+      try { return JSON.parse(value); } catch { return []; }
+    })()
+    : value;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row, index) => {
+      const item = row && typeof row === 'object' ? row : {};
+      const label = String(item.label || item.key || '').trim();
+      if (!label) return null;
+      return {
+        key: String(item.key || `bhp-${index}`).trim(),
+        label,
+        hint: item.hint == null ? '' : String(item.hint).trim(),
+        done: item.done === true,
+      };
+    })
+    .filter(Boolean);
+};
+
 const getStatusColor = (status) => {
   const colors = { Nowe: '#3B82F6', W_Realizacji: '#F59E0B', Zakonczone: '#10B981', Anulowane: '#EF4444' };
   return colors[status] || '#6B7280';
@@ -60,8 +84,36 @@ const getStatusText = (status) => {
   return texts[status] || status;
 };
 
+const pdfAuthOrAccessToken = (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  if (authHeader.startsWith('Bearer ')) {
+    return authMiddleware(req, res, next);
+  }
+  const accessToken = String(req.query.access_token || '').trim();
+  if (!accessToken) {
+    return res.status(401).json({ error: req.t('errors.auth.missingToken') });
+  }
+  try {
+    const decoded = jwt.verify(accessToken, env.JWT_SECRET);
+    if (decoded?.typ !== 'task_pdf_link') {
+      return res.status(401).json({ error: req.t('errors.auth.invalidToken') });
+    }
+    if (Number(decoded.task_id) !== Number(req.params.id)) {
+      return res.status(403).json({ error: req.t('errors.pdf.taskAccessDenied') });
+    }
+    req.user = {
+      id: decoded.user_id,
+      rola: decoded.rola,
+      oddzial_id: decoded.oddzial_id ?? null,
+    };
+    return next();
+  } catch {
+    return res.status(401).json({ error: req.t('errors.auth.invalidToken') });
+  }
+};
+
 // GET /api/pdf/zlecenie/:id
-router.get('/zlecenie/:id', authMiddleware, validateParams(pdfIdParamsSchema), async (req, res) => {
+router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const accessCheck = await pool.query('SELECT t.id, t.oddzial_id, t.status FROM tasks t WHERE t.id = $1', [id]);
@@ -95,11 +147,33 @@ router.get('/zlecenie/:id', authMiddleware, validateParams(pdfIdParamsSchema), a
       `SELECT u.id, u.imie, u.nazwisko, tp.godziny, tp.stawka_godzinowa FROM task_pomocnicy tp
        JOIN users u ON tp.pomocnik_id = u.id WHERE tp.task_id = $1`, [id]
     );
+    const phRes = await pool.query(
+      `SELECT ph.id, ph.typ, ph.url, ph.sciezka, ph.opis, ph.tagi, ph.data_dodania, ph.created_at,
+              u.imie || ' ' || u.nazwisko as autor
+       FROM photos ph
+       LEFT JOIN users u ON ph.user_id = u.id
+       WHERE ph.task_id = $1
+       ORDER BY COALESCE(ph.data_dodania, ph.created_at), ph.id`,
+      [id]
+    );
     const rRes = await pool.query('SELECT * FROM rozliczenia WHERE task_id = $1', [id]);
+    let signature = null;
+    try {
+      const sRes = await pool.query(
+        `SELECT signer_name, signature_data_url, signed_at, note
+         FROM task_client_signatures
+         WHERE task_id = $1`,
+        [id]
+      );
+      signature = sRes.rows[0] || null;
+    } catch {
+      signature = null;
+    }
 
     const logs = wRes.rows;
     const issues = iRes.rows;
     const helpers = pRes.rows;
+    const photos = phRes.rows;
     const rozliczenie = rRes.rows[0];
 
     const lacznieMinut = logs.reduce((s, w) => s + (parseFloat(w.duration_hours) * 60 || parseFloat(w.czas_pracy_minuty) || 0), 0);
@@ -143,6 +217,38 @@ router.get('/zlecenie/:id', authMiddleware, validateParams(pdfIdParamsSchema), a
       doc.moveDown();
     }
 
+    if (signature) {
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveDown();
+      doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Podpis klienta (mobilny)');
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('#374151').font('Helvetica');
+      doc.text(`Podpisujący: ${signature.signer_name || '-'}`);
+      doc.text(`Data podpisu: ${formatDateTime(signature.signed_at)}`);
+      if (signature.note) {
+        doc.text(`Uwagi: ${signature.note}`, { width: 450 });
+      }
+      const raw = String(signature.signature_data_url || '');
+      const pngMatch = raw.match(/^data:image\/png;base64,(.+)$/);
+      const jpegMatch = raw.match(/^data:image\/jpeg;base64,(.+)$/);
+      const jpgMatch = raw.match(/^data:image\/jpg;base64,(.+)$/);
+      const b64 = pngMatch?.[1] || jpegMatch?.[1] || jpgMatch?.[1] || null;
+      if (b64) {
+        try {
+          const signatureBuffer = Buffer.from(b64, 'base64');
+          doc.moveDown(0.5);
+          doc.image(signatureBuffer, { fit: [220, 90], align: 'left' });
+        } catch {
+          doc.moveDown(0.5);
+          doc.fontSize(9).fillColor('#6B7280').text('Podpis zapisano jako dane elektroniczne (podgląd niedostępny w PDF).');
+        }
+      } else {
+        doc.moveDown(0.5);
+        doc.fontSize(9).fillColor('#6B7280').text('Podpis zapisano jako dane elektroniczne (podgląd niedostępny w PDF).');
+      }
+      doc.moveDown();
+    }
+
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
     doc.moveDown();
     doc.fontSize(14).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Podsumowanie finansowe');
@@ -182,7 +288,50 @@ router.get('/zlecenie/:id', authMiddleware, validateParams(pdfIdParamsSchema), a
       logs.forEach((log, i) => {
         const czas = log.duration_hours ? `${parseFloat(log.duration_hours).toFixed(1)}h` : (log.czas_pracy_minuty ? `${Math.floor(log.czas_pracy_minuty/60)}h ${Math.round(log.czas_pracy_minuty%60)}min` : '-');
         doc.fontSize(9).fillColor('#374151').text(`${i+1}. ${log.pracownik || '-'} | ${formatDateTime(log.start_time)} → ${formatDateTime(log.end_time)} | ${czas}`);
+        const bhpRows = parseBhpChecklist(log.bhp_checklista);
+        const legacyBhp = log.bhp_potwierdzone === true || log.bhp_potwierdzone === 'true';
+        if (bhpRows.length > 0) {
+          const doneCount = bhpRows.filter((row) => row.done).length;
+          doc.fontSize(8).fillColor('#047857').text(`   Protokol BHP startu: ${doneCount}/${bhpRows.length} potwierdzone`, { width: 450 });
+          bhpRows.forEach((row) => {
+            const marker = row.done ? '[x]' : '[ ]';
+            const hint = row.hint ? ` - ${row.hint}` : '';
+            doc.fontSize(8).fillColor(row.done ? '#047857' : '#92400E').text(`     ${marker} ${row.label}${hint}`, { width: 450 });
+          });
+        } else if (legacyBhp) {
+          doc.fontSize(8).fillColor('#047857').text('   Protokol BHP startu: potwierdzony (stary zapis)', { width: 450 });
+        }
       });
+      doc.moveDown();
+    }
+
+    if (photos.length > 0) {
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#E5E7EB').stroke();
+      doc.moveDown();
+      doc.fontSize(13).fillColor(PDF_BRAND).font('Helvetica-Bold').text('Dokumentacja zdjeciowa');
+      doc.moveDown(0.5);
+      const photoCounts = photos.reduce((acc, photo) => {
+        const key = String(photo.typ || 'inne').trim() || 'inne';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      const summary = Object.entries(photoCounts)
+        .map(([typ, count]) => `${typ}: ${count}`)
+        .join(' | ');
+      doc.fontSize(9).fillColor('#047857').text(`Lacznie zdjec: ${photos.length}${summary ? ` (${summary})` : ''}`, { width: 450 });
+      photos.slice(0, 12).forEach((photo, i) => {
+        const path = photo.sciezka || photo.url || '-';
+        const opis = photo.opis ? ` | ${photo.opis}` : '';
+        const autor = photo.autor ? ` | ${photo.autor}` : '';
+        doc.fontSize(8).fillColor('#374151').text(
+          `${i+1}. ${photo.typ || 'inne'} | ${formatDateTime(photo.data_dodania || photo.created_at)}${autor}${opis}`,
+          { width: 450 }
+        );
+        doc.fontSize(7).fillColor('#6B7280').text(`   Plik: ${path}`, { width: 450 });
+      });
+      if (photos.length > 12) {
+        doc.fontSize(8).fillColor('#6B7280').text(`   + ${photos.length - 12} kolejnych zdjec w teczce zlecenia.`, { width: 450 });
+      }
       doc.moveDown();
     }
 

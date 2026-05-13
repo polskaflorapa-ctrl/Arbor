@@ -24,6 +24,7 @@ const {
   checkTeamConflict,
   getTeamBusyRanges,
 } = require('../services/taskScheduling');
+const { assertTeamAvailableForBranch } = require('../services/branchResources');
 
 const uploadDir = path.join(__dirname, '../../uploads/wyceny');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -82,6 +83,7 @@ const wycenaReserveSchema = z.object({
 const wycenaSlotsQuerySchema = z.object({
   ekipa_id: z.coerce.number().int().positive(),
   data: z.string().min(10),
+  oddzial_id: z.coerce.number().int().positive().optional(),
   slot_minutes: z.coerce.number().int().min(15).max(120).optional(),
   duration_minutes: z.coerce.number().int().min(15).max(600).optional(),
   exclude_wycena_id: z.coerce.number().int().positive().optional(),
@@ -275,6 +277,10 @@ router.get('/', authMiddleware, validateQuery(wycenyListQuerySchema), async (req
 router.post('/', authMiddleware, validateBody(wycenyCreateSchema), async (req, res) => {
   try {
     const { klient_nazwa, klient_telefon, adres, miasto, typ_uslugi, wartosc_szacowana, opis, notatki_wewnetrzne, lat, lon, ekipa_id, data_wykonania, godzina_rozpoczecia, czas_planowany_godziny } = req.body;
+    if (ekipa_id && req.user.oddzial_id) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, req.user.oddzial_id, data_wykonania);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
     const { rows } = await pool.query(
       `INSERT INTO wyceny (klient_nazwa,klient_telefon,adres,miasto,typ_uslugi,wartosc_szacowana,wartosc_planowana,opis,notatki_wewnetrzne,lat,lon,autor_id,status,ekipa_id,data_wykonania,godzina_rozpoczecia,czas_planowany_godziny,status_akceptacji) VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,'Nowa',$12,$13,$14,$15,'oczekuje') RETURNING *`,
       [klient_nazwa, klient_telefon||null, adres||null, miasto||null, typ_uslugi||null, wartosc_szacowana?parseFloat(wartosc_szacowana):null, opis||null, notatki_wewnetrzne||null, lat?parseFloat(lat):null, lon?parseFloat(lon):null, req.user.id, ekipa_id?parseInt(ekipa_id):null, data_wykonania||null, godzina_rozpoczecia||null, czas_planowany_godziny?parseFloat(czas_planowany_godziny):null]
@@ -333,6 +339,10 @@ router.post('/:id/zatwierdz', authMiddleware, validateParams(wycenaIdParamsSchem
       return res.status(400).json({
         error: 'Do zatwierdzenia wymagane są: ekipa, data realizacji i godzina rozpoczęcia.',
       });
+    }
+    if (req.user.oddzial_id) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, planEkipa, req.user.oddzial_id, planData);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
     const busyRanges = await getTeamBusyRanges(pool, parseInt(planEkipa, 10), planData, Number(req.params.id), null);
     const conflictCheck = checkTeamConflict({
@@ -448,6 +458,11 @@ router.get('/availability/slots', authMiddleware, validateQuery(wycenaSlotsQuery
   try {
     const teamId = Number(req.query.ekipa_id);
     const day = String(req.query.data).slice(0, 10);
+    const targetBranchId = req.query.oddzial_id || req.user.oddzial_id;
+    if (targetBranchId) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, teamId, targetBranchId, day);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
     const slotMinutes = Number(req.query.slot_minutes || 60);
     const durationMinutes = Number(req.query.duration_minutes || 120);
     const excludeWycenaId = req.query.exclude_wycena_id ? Number(req.query.exclude_wycena_id) : null;
@@ -522,6 +537,10 @@ router.post('/:id/rezerwuj-termin', authMiddleware, validateParams(wycenaIdParam
     const day = String(req.body.data_wykonania).slice(0, 10);
     const hour = String(req.body.godzina_rozpoczecia).slice(0, 5);
     const durationMinutes = Math.max(15, Math.round(Number(req.body.czas_planowany_godziny || 2) * 60));
+    if (req.user.oddzial_id) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, teamId, req.user.oddzial_id, day);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
     const busyRanges = await getTeamBusyRanges(pool, teamId, day, wycenaId, null);
     const conflictCheck = checkTeamConflict({ busyRanges, hour, durationMinutes });
     if (conflictCheck.invalidTime) return res.status(400).json({ error: 'Nieprawidlowa godzina rezerwacji.' });

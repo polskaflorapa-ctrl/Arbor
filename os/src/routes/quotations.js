@@ -19,6 +19,7 @@ const {
 const { afterQuotationFullyApproved, resendQuotationClientOffer } = require('../services/quotationFinalize');
 const { validateQuotationCompleteForVisitEnd, gpsCheckForVisitStart } = require('../services/quotationValidation');
 const { applyAutoFlags } = require('../services/quotationItemFlags');
+const { assertEstimatorAvailableForBranch } = require('../services/branchResources');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -342,6 +343,10 @@ router.post('/', validateBody(createSchema), async (req, res) => {
   }
 
   try {
+    const estimatorCheck = await assertEstimatorAvailableForBranch(pool, wycId, oddzialId, b.data_wizyty_planowana);
+    if (!estimatorCheck.ok) {
+      return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
+    }
     const now = new Date().toISOString();
     const { rows } = await pool.query(
       `INSERT INTO quotations (
@@ -391,10 +396,14 @@ router.post('/:id/assign', validateParams(idParam), validateBody(assignSchema), 
     return res.status(400).json({ error: 'Brak zgeokodowanego adresu — popraw adres w Kommo i ponów import' });
   }
   const { wyceniajacy_id, data_wizyty_planowana } = req.body;
-  const wu = await pool.query(`SELECT id, oddzial_id FROM users WHERE id = $1 AND rola = 'Wyceniający'`, [wyceniajacy_id]);
-  if (!wu.rows[0]) return res.status(400).json({ error: 'Nieprawidłowy wyceniający' });
-  if (Number(wu.rows[0].oddzial_id) !== Number(row.oddzial_id)) {
-    return res.status(400).json({ error: 'Wyceniający musi być z tego samego oddziału' });
+  const estimatorCheck = await assertEstimatorAvailableForBranch(
+    pool,
+    wyceniajacy_id,
+    row.oddzial_id,
+    data_wizyty_planowana || row.data_wizyty_planowana
+  );
+  if (!estimatorCheck.ok) {
+    return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
   }
   const now = new Date().toISOString();
   const { rows } = await pool.query(

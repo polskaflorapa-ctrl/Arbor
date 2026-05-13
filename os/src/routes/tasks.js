@@ -1,7 +1,9 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware } = require('../middleware/auth');
+const { env } = require('../config/env');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const multer = require('multer');
 const path = require('path');
@@ -27,6 +29,7 @@ const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamD
 const { sendSmsOptional } = require('../services/twilioSms');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
+const { assertTeamAvailableForBranch, assertEstimatorAvailableForBranch } = require('../services/branchResources');
 
 const router = express.Router();
 
@@ -43,6 +46,83 @@ async function ensureKommoTaskColumns() {
   for (const sql of stmts) {
     await pool.query(sql);
   }
+}
+
+let _issuesCompatCols = false;
+async function ensureIssuesCompatColumns() {
+  if (_issuesCompatCols) return;
+  const stmts = [
+    'ALTER TABLE issues ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()',
+    'ALTER TABLE issues ADD COLUMN IF NOT EXISTS opis TEXT',
+    'ALTER TABLE issues ADD COLUMN IF NOT EXISTS data_zgloszenia TIMESTAMP DEFAULT NOW()',
+  ];
+  for (const sql of stmts) {
+    await pool.query(sql);
+  }
+  _issuesCompatCols = true;
+}
+
+let _taskClientContactTables = false;
+async function ensureTaskClientContactTables() {
+  if (_taskClientContactTables) return;
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS task_client_contacts (
+      task_id INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+      status VARCHAR(32),
+      note TEXT,
+      due_at TIMESTAMPTZ,
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    'ALTER TABLE task_client_contacts ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ',
+    'CREATE INDEX IF NOT EXISTS idx_task_client_contacts_status ON task_client_contacts(status)',
+    'CREATE INDEX IF NOT EXISTS idx_task_client_contacts_due ON task_client_contacts(due_at)',
+    'CREATE INDEX IF NOT EXISTS idx_task_client_contacts_updated ON task_client_contacts(updated_at DESC)',
+    `CREATE TABLE IF NOT EXISTS task_client_contact_events (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      status VARCHAR(32),
+      note TEXT,
+      due_at TIMESTAMPTZ,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    'ALTER TABLE task_client_contact_events ADD COLUMN IF NOT EXISTS due_at TIMESTAMPTZ',
+    'CREATE INDEX IF NOT EXISTS idx_task_client_contact_events_task ON task_client_contact_events(task_id, created_at DESC)',
+  ];
+  for (const sql of stmts) {
+    await pool.query(sql);
+  }
+  _taskClientContactTables = true;
+}
+
+let _taskClientSignatureTable = false;
+async function ensureTaskClientSignatureTable() {
+  if (_taskClientSignatureTable) return;
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS task_client_signatures (
+      task_id INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+      signer_name VARCHAR(120) NOT NULL,
+      signature_data_url TEXT,
+      signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      note TEXT,
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_task_client_signatures_signed_at ON task_client_signatures(signed_at DESC)',
+  ];
+  for (const sql of stmts) {
+    await pool.query(sql);
+  }
+  _taskClientSignatureTable = true;
+}
+
+let _workLogSafetyCols = false;
+async function ensureWorkLogSafetyColumns() {
+  if (_workLogSafetyCols) return;
+  await pool.query('ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS bhp_checklista JSONB');
+  _workLogSafetyCols = true;
 }
 
 function kommoActor(req) {
@@ -179,6 +259,15 @@ const upload = multer({
   }
 });
 
+function cleanupUploadedFile(file) {
+  if (!file?.path) return;
+  try {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+  } catch (e) {
+    logger.warn('upload.cleanup', { message: e.message, path: file.path });
+  }
+}
+
 const toNum = (val) => {
   if (val === '' || val === null || val === undefined) return null;
   const n = parseFloat(val);
@@ -196,6 +285,23 @@ const toStr = (val) => {
   return val;
 };
 
+function buildTaskPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
+  const rawDate = String(dataPlanowana || '').trim();
+  if (!rawDate) return rawDate;
+  const rawHour = String(godzinaRozpoczecia || '').trim().slice(0, 5);
+  if (!rawHour) return rawDate;
+  const datePart = rawDate.includes('T') ? rawDate.slice(0, 10) : rawDate.split(' ')[0];
+  const hourMatch = rawHour.match(/^(\d{1,2}):(\d{2})$/);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || !hourMatch) return rawDate;
+  const hh = String(Math.min(23, Number(hourMatch[1]))).padStart(2, '0');
+  const mm = String(Math.min(59, Number(hourMatch[2]))).padStart(2, '0');
+  return `${datePart} ${hh}:${mm}:00`;
+}
+
+function hasExplicitPlannedHour(dataPlanowana, godzinaRozpoczecia) {
+  return Boolean(String(godzinaRozpoczecia || '').trim()) || /[T\s]\d{1,2}:\d{2}/.test(String(dataPlanowana || ''));
+}
+
 /** Tagi zdjęcia (PATCH / web) — max 20 etykiet, każda do 80 znaków. */
 function normalizePhotoTagi(val) {
   if (val == null) return [];
@@ -208,6 +314,31 @@ function normalizePhotoTagi(val) {
   return list.map((s) => s.slice(0, 80)).slice(0, 20);
 }
 
+function normalizeIssueTyp(value) {
+  const raw = String(value || '').trim();
+  const key = raw
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s-]+/g, '_');
+  const aliases = {
+    usterka: 'Awaria_Sprzetu',
+    awaria: 'Awaria_Sprzetu',
+    awaria_sprzetu: 'Awaria_Sprzetu',
+    sprzet: 'Awaria_Sprzetu',
+    zastawiony_dojazd: 'Zastawiony_Dojazd',
+    dojazd: 'Zastawiony_Dojazd',
+    zla_pogoda: 'Zla_Pogoda',
+    pogoda: 'Zla_Pogoda',
+    brak_dostepu: 'Brak_Dostepu',
+    dostep: 'Brak_Dostepu',
+    inny: 'Inne',
+    inne: 'Inne',
+    other: 'Inne',
+  };
+  return aliases[key] || raw;
+}
+
 const taskCreateSchema = z.object({
   klient_nazwa: z.string().trim().min(1, 'klient_nazwa jest wymagane'),
   klient_telefon: z.string().trim().optional().nullable(),
@@ -218,13 +349,16 @@ const taskCreateSchema = z.object({
   wartosc_planowana: z.union([z.number(), z.string()]).optional().nullable(),
   czas_planowany_godziny: z.union([z.number(), z.string()]).optional().nullable(),
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
+  godzina_rozpoczecia: z.string().trim().optional().nullable(),
   notatki_wewnetrzne: z.string().optional().nullable(),
   oddzial_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  source_ogledziny_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   pin_lat: z.union([z.number(), z.string()]).optional().nullable(),
   pin_lng: z.union([z.number(), z.string()]).optional().nullable(),
   ankieta_uproszczona: z.boolean().optional(),
+  status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']).optional(),
 });
 
 const taskUpdateSchema = z.object({
@@ -255,7 +389,20 @@ const taskAssignSchema = z.object({
 });
 
 const taskStatusSchema = z.object({
-  status: z.enum(['Nowe', 'Zaplanowane', 'W_Realizacji', 'Zakonczone']),
+  status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']),
+});
+
+const taskClientContactSchema = z.object({
+  status: z.enum(['todo', 'informed', 'waiting', 'risk']).optional(),
+  note: z.string().max(2000).optional().nullable(),
+  due_at: z.string().trim().max(80).optional().nullable(),
+});
+
+const taskClientSignatureSchema = z.object({
+  signer_name: z.string().trim().min(2).max(120),
+  signature_data_url: z.string().trim().max(400000).optional().nullable(),
+  signed_at: z.string().trim().max(80).optional().nullable(),
+  note: z.string().trim().max(1000).optional().nullable(),
 });
 
 const taskStartSchema = z.object({
@@ -269,6 +416,12 @@ const taskStartSchema = z.object({
   kaski_zespol: z.boolean().optional(),
   /** Krótkie BHP — potwierdzenie zapoznania (musi być true dla ekipy). */
   bhp_potwierdzone: z.boolean().optional(),
+  bhp_checklista: z.array(z.object({
+    key: z.string().trim().min(1).max(80),
+    label: z.string().trim().min(1).max(160),
+    hint: z.string().trim().max(500).optional().nullable(),
+    done: z.boolean(),
+  })).max(50).optional(),
 });
 
 const taskStopSchema = z.object({
@@ -322,6 +475,7 @@ const ewIdParamSchema = z.object({
 
 const taskProblemSchema = z.object({
   typ: z.string().trim().min(1, 'typ jest wymagany'),
+  opis: z.string().trim().max(4000).optional().nullable(),
 });
 
 const taskIdParamsSchema = z.object({
@@ -355,10 +509,25 @@ router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (r
   try {
     const dzisiaj = req.query.data || new Date().toISOString().split('T')[0];
     const result = await pool.query(
-      `SELECT t.*, te.nazwa as ekipa_nazwa
+      `SELECT t.*,
+        te.nazwa as ekipa_nazwa,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
+        COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
        FROM tasks t
        LEFT JOIN teams te ON t.ekipa_id = te.id
        LEFT JOIN team_members tm ON tm.team_id = te.id AND tm.user_id = $2
+       LEFT JOIN (
+         SELECT
+           p.task_id,
+           COUNT(*)::int AS photo_total,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('wycena', 'przed', 'checkin'))::int AS photo_wycena,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('szkic', 'sketch'))::int AS photo_szkic,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('dojazd', 'posesja', 'dojazd_posesja'))::int AS photo_dojazd
+         FROM photos p
+         GROUP BY p.task_id
+       ) ps ON ps.task_id = t.id
        WHERE t.data_planowana = $1
        AND (t.brygadzista_id = $2 OR te.brygadzista_id = $2 OR tm.user_id = $2)
        ORDER BY t.id ASC`,
@@ -376,6 +545,9 @@ router.get('/stats', authMiddleware, async (req, res) => {
     const scope = getTaskScope(req.user, 't', 1);
     const query = `SELECT
       COUNT(*) FILTER (WHERE status = 'Nowe') as nowe,
+      COUNT(*) FILTER (WHERE status = 'Wycena_Terenowa') as wycena_terenowa,
+      COUNT(*) FILTER (WHERE status = 'Do_Zatwierdzenia') as do_zatwierdzenia,
+      COUNT(*) FILTER (WHERE status = 'Zaplanowane') as zaplanowane,
       COUNT(*) FILTER (WHERE status = 'W_Realizacji') as w_realizacji,
       COUNT(*) FILTER (WHERE status = 'Zakonczone') as zakonczone
       FROM tasks t ${scope.clause ? `WHERE ${scope.clause}` : ''}`;
@@ -411,6 +583,16 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
        LEFT JOIN teams te ON t.ekipa_id = te.id
        LEFT JOIN users u ON t.brygadzista_id = u.id
        LEFT JOIN branches b ON t.oddzial_id = b.id
+       LEFT JOIN (
+         SELECT
+           p.task_id,
+           COUNT(*)::int AS photo_total,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('wycena', 'przed', 'checkin'))::int AS photo_wycena,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('szkic', 'sketch'))::int AS photo_szkic,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('dojazd', 'posesja', 'dojazd_posesja'))::int AS photo_dojazd
+         FROM photos p
+         GROUP BY p.task_id
+       ) ps ON ps.task_id = t.id
        ${whereClause}`;
 
     if (limit != null) {
@@ -425,7 +607,11 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
         `SELECT t.*,
         te.nazwa as ekipa_nazwa,
         u.imie || ' ' || u.nazwisko as kierownik_nazwa,
-        b.nazwa as oddzial_nazwa
+        b.nazwa as oddzial_nazwa,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
+        COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
         ${baseFrom}
        ORDER BY t.data_planowana DESC, t.id DESC
        LIMIT $${limIdx} OFFSET $${offIdx}`,
@@ -438,7 +624,11 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
       `SELECT t.*,
         te.nazwa as ekipa_nazwa,
         u.imie || ' ' || u.nazwisko as kierownik_nazwa,
-        b.nazwa as oddzial_nazwa
+        b.nazwa as oddzial_nazwa,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
+        COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
        ${baseFrom}
        ORDER BY t.data_planowana DESC, t.id DESC`,
       params
@@ -450,19 +640,137 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
   }
 });
 
+router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), async (req, res) => {
+  try {
+    const { oddzial_id, limit, offset } = req.query;
+    let whereParts = [
+      `COALESCE(t.ankieta_uproszczona, false) = true`,
+      `t.status IN ('Wycena_Terenowa', 'Do_Zatwierdzenia')`,
+    ];
+    let params = [];
+
+    if (isTeamScoped(req.user)) {
+      const scope = getTaskScope(req.user, 't', 1);
+      whereParts.push(scope.clause);
+      params = scope.params;
+    } else if (oddzial_id && (isDyrektor(req.user) || isKierownik(req.user))) {
+      whereParts.push(`t.oddzial_id = $1`);
+      params = [oddzial_id];
+    } else if (!isDyrektor(req.user)) {
+      const scope = getTaskScope(req.user, 't', 1);
+      whereParts.push(scope.clause);
+      params = scope.params;
+    }
+
+    const whereClause = `WHERE ${whereParts.filter(Boolean).join(' AND ')}`;
+    const baseFrom = `
+      FROM tasks t
+      LEFT JOIN teams te ON t.ekipa_id = te.id
+      LEFT JOIN users k ON t.kierownik_id = k.id
+      LEFT JOIN users w ON t.wyceniajacy_id = w.id
+      LEFT JOIN branches b ON t.oddzial_id = b.id
+      LEFT JOIN (
+        SELECT
+          p.task_id,
+          COUNT(*)::int AS photo_total,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('wycena', 'przed', 'checkin'))::int AS photo_wycena,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('szkic', 'sketch'))::int AS photo_szkic,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('dojazd', 'posesja', 'dojazd_posesja'))::int AS photo_dojazd
+        FROM photos p
+        GROUP BY p.task_id
+      ) ps ON ps.task_id = t.id
+      ${whereClause}`;
+
+    const selectSql = `SELECT
+        t.*,
+        te.nazwa AS ekipa_nazwa,
+        k.imie || ' ' || k.nazwisko AS kierownik_nazwa,
+        w.imie || ' ' || w.nazwisko AS wyceniajacy_nazwa,
+        b.nazwa AS oddzial_nazwa,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
+        COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
+        ARRAY_REMOVE(ARRAY[
+          CASE WHEN COALESCE(ps.photo_wycena, 0) = 0 THEN 'zdjęcie ogólne / wycena' END,
+          CASE WHEN COALESCE(ps.photo_szkic, 0) = 0 THEN 'szkic zakresu' END,
+          CASE WHEN COALESCE(ps.photo_dojazd, 0) = 0 THEN 'dojazd / posesja' END,
+          CASE WHEN t.wartosc_planowana IS NULL THEN 'cena / budżet' END,
+          CASE WHEN t.czas_planowany_godziny IS NULL THEN 'czas pracy' END,
+          CASE WHEN t.ekipa_id IS NULL THEN 'ekipa' END
+        ], NULL) AS missing_items`;
+
+    if (limit != null) {
+      const lim = limit;
+      const off = offset ?? 0;
+      const countResult = await pool.query(`SELECT COUNT(*)::int AS c ${baseFrom}`, params);
+      const total = countResult.rows[0]?.c ?? 0;
+      const limIdx = params.length + 1;
+      const offIdx = params.length + 2;
+      const result = await pool.query(
+        `${selectSql}
+         ${baseFrom}
+         ORDER BY t.created_at DESC, t.id DESC
+         LIMIT $${limIdx} OFFSET $${offIdx}`,
+        [...params, lim, off]
+      );
+      return res.json({ items: result.rows, total, limit: Number(lim), offset: Number(off) });
+    }
+
+    const result = await pool.query(
+      `${selectSql}
+       ${baseFrom}
+       ORDER BY t.created_at DESC, t.id DESC`,
+      params
+    );
+    res.json(result.rows);
+  } catch (err) {
+    logger.error('Blad pobierania draftow terenowych', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
 router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req, res) => {
   try {
     const {
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
-      czas_planowany_godziny, data_planowana,
+      czas_planowany_godziny, data_planowana, godzina_rozpoczecia,
       notatki_wewnetrzne, oddzial_id, ekipa_id,
-      wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona
+      wyceniajacy_id, source_ogledziny_id, pin_lat, pin_lng, ankieta_uproszczona,
+      status
     } = req.body;
 
     const finalOddzialId = isDyrektor(req.user)
       ? (oddzial_id || req.user.oddzial_id)
       : req.user.oddzial_id;
+    const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
+
+    if (ekipa_id && finalOddzialId) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, finalOddzialId, plannedDateTime);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
+    if (ekipa_id && hasExplicitPlannedHour(data_planowana, godzina_rozpoczecia)) {
+      const teamId = Number(ekipa_id);
+      const planDay = String(plannedDateTime).slice(0, 10);
+      const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, null);
+      const d = new Date(plannedDateTime);
+      if (!Number.isNaN(d.getTime())) {
+        const startMin = d.getHours() * 60 + d.getMinutes();
+        const durMin = Math.max(15, Math.round(Number(czas_planowany_godziny || 2) * 60));
+        if (planRangeConflicts(busyRanges, startMin, durMin)) {
+          return res.status(409).json({
+            error: 'Konflikt terminu: ekipa ma juz zaplanowane zlecenie lub aktywna rezerwacje w tym przedziale.',
+            code: 'TASK_PLAN_CONFLICT',
+          });
+        }
+      }
+    }
+    if (wyceniajacy_id && finalOddzialId) {
+      const estimatorCheck = await assertEstimatorAvailableForBranch(pool, wyceniajacy_id, finalOddzialId, plannedDateTime);
+      if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
+    }
+    const initialStatus = status || (toInt(wyceniajacy_id) ? 'Wycena_Terenowa' : 'Nowe');
 
     const result = await pool.query(
       `INSERT INTO tasks (
@@ -471,7 +779,7 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         czas_planowany_godziny, data_planowana,
         notatki_wewnetrzne, status, kierownik_id,
         oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Nowe',$11,$12,$13,$14,$15,$16,$17)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       RETURNING id`,
       [
         klient_nazwa,
@@ -482,8 +790,9 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         priorytet || 'Normalny',
         toNum(wartosc_planowana),
         toNum(czas_planowany_godziny),
-        data_planowana,
+        plannedDateTime,
         toStr(notatki_wewnetrzne),
+        initialStatus,
         req.user.id,
         toNum(finalOddzialId),
         toNum(ekipa_id),
@@ -521,6 +830,33 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         ]
       );
       wycenaId = wycenaR.rows[0]?.id || null;
+    }
+
+    const sourceOgledzinyId = toInt(source_ogledziny_id);
+    if (sourceOgledzinyId) {
+      try {
+        const sourceNote = [
+          `Draft terenowy zapisany automatycznie jako zlecenie #${taskId}.`,
+          wycenaId ? `Powiazana wycena: #${wycenaId}.` : 'Brak powiazanej wyceny w odpowiedzi tworzenia zlecenia.',
+          'Dla biura: sprawdzic opis, termin ekipy, rezerwacje czasu i szczegoly z klientem.',
+        ].join('\n');
+        await pool.query(
+          `UPDATE ogledziny
+           SET wycena_id = COALESCE($2, wycena_id),
+               status = 'Zakonczone',
+               notatki_wyniki = CONCAT_WS(E'\n', NULLIF(notatki_wyniki, ''), $3),
+               updated_at = NOW()
+           WHERE id = $1`,
+          [sourceOgledzinyId, wycenaId, sourceNote],
+        );
+        await pool.query(
+          `INSERT INTO ogledziny_field_events (ogledziny_id, user_id, event_type, note)
+           VALUES ($1,$2,'done',$3)`,
+          [sourceOgledzinyId, req.user.id, sourceNote],
+        ).catch(() => null);
+      } catch (linkErr) {
+        logger.warn('tasks.create.linkInspection', { message: linkErr.message, requestId: req.requestId, sourceOgledzinyId, taskId, wycenaId });
+      }
     }
 
     res.json({ id: taskId, wycena_id: wycenaId });
@@ -624,7 +960,7 @@ router.patch(
     try {
       const taskId = Number(req.params.id);
       const r = await pool.query(
-        `SELECT id, status, ekipa_id, czas_planowany_godziny FROM tasks WHERE id = $1`,
+        `SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny FROM tasks WHERE id = $1`,
         [taskId]
       );
       if (!r.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -636,6 +972,10 @@ router.patch(
       const teamId = row.ekipa_id != null ? Number(row.ekipa_id) : null;
       if (teamId) {
         const planDay = String(req.body.data_planowana).slice(0, 10);
+        if (row.oddzial_id) {
+          const teamCheck = await assertTeamAvailableForBranch(pool, teamId, row.oddzial_id, planDay);
+          if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+        }
         const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
         const d = new Date(req.body.data_planowana);
         const startMin = d.getHours() * 60 + d.getMinutes();
@@ -656,6 +996,234 @@ router.patch(
     } catch (err) {
       logger.error('tasks.planPatch', { message: err.message, requestId: req.requestId });
       res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
+function mapClientContact(row, history = []) {
+  return {
+    task_id: Number(row?.task_id),
+    status: row?.status || '',
+    note: row?.note || '',
+    due_at: row?.due_at || null,
+    updated_at: row?.updated_at || null,
+    updated_by: row?.updated_by || null,
+    actor: row?.actor || null,
+    history,
+  };
+}
+
+router.get('/client-contacts', authMiddleware, async (req, res) => {
+  try {
+    await ensureTaskClientContactTables();
+    const scope = getTaskScope(req.user, 't', 1);
+    const where = scope.clause ? `WHERE ${scope.clause}` : '';
+    const result = await pool.query(
+      `SELECT c.task_id, c.status, c.note, c.due_at, c.updated_at, c.updated_by,
+              u.imie || ' ' || u.nazwisko AS actor
+       FROM task_client_contacts c
+       JOIN tasks t ON t.id = c.task_id
+       LEFT JOIN users u ON u.id = c.updated_by
+       ${where}
+       ORDER BY c.updated_at DESC`,
+      scope.params
+    );
+    const contacts = {};
+    for (const row of result.rows) {
+      contacts[String(row.task_id)] = mapClientContact(row);
+    }
+    res.json({ contacts });
+  } catch (err) {
+    logger.error('tasks.clientContacts.list', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/:id/client-contact', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    await ensureTaskClientContactTables();
+    const current = await pool.query(
+      `SELECT c.task_id, c.status, c.note, c.due_at, c.updated_at, c.updated_by,
+              u.imie || ' ' || u.nazwisko AS actor
+       FROM task_client_contacts c
+       LEFT JOIN users u ON u.id = c.updated_by
+       WHERE c.task_id = $1`,
+      [req.params.id]
+    );
+    const history = await pool.query(
+      `SELECT e.id, e.task_id, e.status, e.note, e.due_at, e.created_at, e.created_by,
+              u.imie || ' ' || u.nazwisko AS actor
+       FROM task_client_contact_events e
+       LEFT JOIN users u ON u.id = e.created_by
+       WHERE e.task_id = $1
+       ORDER BY e.created_at DESC
+       LIMIT 20`,
+      [req.params.id]
+    );
+    res.json(mapClientContact(current.rows[0] || { task_id: req.params.id }, history.rows));
+  } catch (err) {
+    logger.error('tasks.clientContact.get', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.patch(
+  '/:id/client-contact',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskClientContactSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    let client;
+    try {
+      await ensureTaskClientContactTables();
+      client = await pool.connect();
+      await client.query('BEGIN');
+
+      const existing = await client.query(
+        'SELECT status, note, due_at FROM task_client_contacts WHERE task_id = $1 FOR UPDATE',
+        [req.params.id]
+      );
+      const prev = existing.rows[0] || {};
+      const hasStatus = Object.prototype.hasOwnProperty.call(req.body, 'status');
+      const hasNote = Object.prototype.hasOwnProperty.call(req.body, 'note');
+      const hasDueAt = Object.prototype.hasOwnProperty.call(req.body, 'due_at');
+      const status = hasStatus ? req.body.status : (prev.status || '');
+      const note = hasNote ? String(req.body.note || '') : (prev.note || '');
+      const dueAt = hasDueAt ? toStr(req.body.due_at) : (prev.due_at || null);
+
+      await client.query(
+        `INSERT INTO task_client_contacts (task_id, status, note, due_at, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (task_id)
+         DO UPDATE SET status = EXCLUDED.status,
+                       note = EXCLUDED.note,
+                       due_at = EXCLUDED.due_at,
+                       updated_by = EXCLUDED.updated_by,
+                       updated_at = NOW()`,
+        [req.params.id, status, note, dueAt, req.user.id]
+      );
+      await client.query(
+        `INSERT INTO task_client_contact_events (task_id, status, note, due_at, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [req.params.id, status, note, dueAt, req.user.id]
+      );
+      const current = await client.query(
+        `SELECT c.task_id, c.status, c.note, c.due_at, c.updated_at, c.updated_by,
+                u.imie || ' ' || u.nazwisko AS actor
+         FROM task_client_contacts c
+         LEFT JOIN users u ON u.id = c.updated_by
+         WHERE c.task_id = $1`,
+        [req.params.id]
+      );
+      const history = await client.query(
+        `SELECT e.id, e.task_id, e.status, e.note, e.due_at, e.created_at, e.created_by,
+                u.imie || ' ' || u.nazwisko AS actor
+         FROM task_client_contact_events e
+         LEFT JOIN users u ON u.id = e.created_by
+         WHERE e.task_id = $1
+         ORDER BY e.created_at DESC
+         LIMIT 20`,
+        [req.params.id]
+      );
+      await client.query('COMMIT');
+      res.json(mapClientContact(current.rows[0], history.rows));
+    } catch (err) {
+      if (client) await client.query('ROLLBACK').catch(() => {});
+      logger.error('tasks.clientContact.patch', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    } finally {
+      if (client) client.release();
+    }
+  }
+);
+
+router.get('/:id/client-signature', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    await ensureTaskClientSignatureTable();
+    const row = await pool.query(
+      `SELECT s.task_id, s.signer_name, s.signature_data_url, s.signed_at, s.note, s.updated_at, s.updated_by,
+              u.imie || ' ' || u.nazwisko AS actor
+       FROM task_client_signatures s
+       LEFT JOIN users u ON u.id = s.updated_by
+       WHERE s.task_id = $1`,
+      [req.params.id]
+    );
+    res.json(row.rows[0] || null);
+  } catch (err) {
+    logger.error('tasks.clientSignature.get', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/:id/protokol-link', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    const taskId = Number(req.params.id);
+    const accessToken = jwt.sign(
+      {
+        typ: 'task_pdf_link',
+        task_id: taskId,
+        user_id: req.user.id,
+        rola: req.user.rola,
+        oddzial_id: req.user.oddzial_id ?? null,
+      },
+      env.JWT_SECRET,
+      { expiresIn: '10m' }
+    );
+    res.json({
+      path: `/api/pdf/zlecenie/${taskId}?access_token=${encodeURIComponent(accessToken)}`,
+      expires_in_sec: 600,
+    });
+  } catch (err) {
+    logger.error('tasks.protokolLink.get', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put(
+  '/:id/client-signature',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskClientSignatureSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    let client;
+    try {
+      await ensureTaskClientSignatureTable();
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const signedAt = req.body.signed_at ? new Date(req.body.signed_at) : new Date();
+      const parsedSignedAt = Number.isNaN(signedAt.getTime()) ? new Date() : signedAt;
+      const upsert = await client.query(
+        `INSERT INTO task_client_signatures (
+          task_id, signer_name, signature_data_url, signed_at, note, updated_by, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (task_id)
+        DO UPDATE SET
+          signer_name = EXCLUDED.signer_name,
+          signature_data_url = EXCLUDED.signature_data_url,
+          signed_at = EXCLUDED.signed_at,
+          note = EXCLUDED.note,
+          updated_by = EXCLUDED.updated_by,
+          updated_at = NOW()
+        RETURNING *`,
+        [
+          req.params.id,
+          req.body.signer_name.trim().slice(0, 120),
+          req.body.signature_data_url || null,
+          parsedSignedAt.toISOString(),
+          req.body.note || null,
+          req.user.id,
+        ]
+      );
+      await client.query('COMMIT');
+      res.json(upsert.rows[0] || null);
+    } catch (err) {
+      if (client) await client.query('ROLLBACK').catch(() => {});
+      logger.error('tasks.clientSignature.put', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    } finally {
+      if (client) client.release();
     }
   }
 );
@@ -687,6 +1255,17 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
       row.extra_work = ex.rows;
     } catch {
       row.extra_work = [];
+    }
+    try {
+      await ensureTaskClientSignatureTable();
+      const sig = await pool.query(
+        `SELECT task_id, signer_name, signature_data_url, signed_at, note, updated_at, updated_by
+         FROM task_client_signatures WHERE task_id = $1`,
+        [req.params.id]
+      );
+      row.client_signature = sig.rows[0] || null;
+    } catch {
+      row.client_signature = null;
     }
     const tid = req.params.id;
     const { po: poCount, przed: prCount } = await countTaskFinishPhotos(pool, tid);
@@ -761,8 +1340,38 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
 router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskAssignSchema), requireTaskAccess, async (req, res) => {
   try {
     const { ekipa_id } = req.body;
+    const taskR = await pool.query(
+      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status FROM tasks WHERE id = $1',
+      [req.params.id]
+    );
+    if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    const task = taskR.rows[0];
+    if (task.status === 'Zakonczone' || task.status === 'Anulowane') {
+      return res.status(400).json({ error: 'Nie można przypisać ekipy do zakończonego lub anulowanego zlecenia.' });
+    }
+    if (task.oddzial_id) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, task.oddzial_id, task.data_planowana);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
+    if (task.data_planowana) {
+      const planDay = String(task.data_planowana).slice(0, 10);
+      const busyRanges = await getTeamBusyRanges(pool, Number(ekipa_id), planDay, null, Number(req.params.id));
+      const d = new Date(task.data_planowana);
+      const startMin = d.getHours() * 60 + d.getMinutes();
+      const durMin = Math.max(15, Math.round(Number(task.czas_planowany_godziny || 2) * 60));
+      if (planRangeConflicts(busyRanges, startMin, durMin)) {
+        return res.status(409).json({
+          error: 'Konflikt terminu: ekipa ma już zaplanowane zlecenie lub aktywną rezerwację w tym przedziale.',
+          code: 'TASK_PLAN_CONFLICT',
+        });
+      }
+    }
     await pool.query(
-      "UPDATE tasks SET ekipa_id = $1, status = 'Zaplanowane' WHERE id = $2",
+      `UPDATE tasks
+       SET ekipa_id = $1,
+           status = CASE WHEN status IN ('Do_Zatwierdzenia', 'Wycena_Terenowa') THEN 'Zaplanowane' ELSE status END,
+           updated_at = NOW()
+       WHERE id = $2`,
       [toNum(ekipa_id), req.params.id]
     );
     res.json({ message: 'Ekipa przypisana' });
@@ -800,7 +1409,7 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
 });
 
 router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStartSchema), requireTaskAccess, async (req, res) => {
-  const { lat, lng, dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone } = req.body;
+  const { lat, lng, dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone, bhp_checklista } = req.body;
   const latN = toNum(lat);
   const lngN = toNum(lng);
 
@@ -833,9 +1442,20 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
         requestId: req.requestId,
       });
     }
+    const checklistOk = Array.isArray(bhp_checklista) &&
+      bhp_checklista.length > 0 &&
+      bhp_checklista.every((row) => row && row.done === true);
+    if (!checklistOk) {
+      return res.status(400).json({
+        error: req.t('errors.tasks.bhpMustConfirm'),
+        code: VALIDATION_FAILED,
+        requestId: req.requestId,
+      });
+    }
   }
 
   const taskId = Number(req.params.id);
+  await ensureWorkLogSafetyColumns();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -851,8 +1471,8 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
     const result = await client.query(
       `INSERT INTO work_logs (
         task_id, user_id, start_time, start_lat, start_lng, status,
-        dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone
-      ) VALUES ($1, $2, NOW(), $3, $4, 'W_Trakcie', $5, $6, $7, $8) RETURNING id`,
+        dmuchawa_filtr_ok, rebak_zatankowany, kaski_zespol, bhp_potwierdzone, bhp_checklista
+      ) VALUES ($1, $2, NOW(), $3, $4, 'W_Trakcie', $5, $6, $7, $8, $9::jsonb) RETURNING id`,
       [
         req.params.id,
         req.user.id,
@@ -862,6 +1482,7 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
         isTeamScoped(req.user) ? rebak_zatankowany : null,
         isTeamScoped(req.user) ? kaski_zespol : null,
         isTeamScoped(req.user) ? bhp_potwierdzone : null,
+        isTeamScoped(req.user) ? JSON.stringify(bhp_checklista || []) : null,
       ]
     );
     await client.query(
@@ -1359,32 +1980,39 @@ router.post(
 
 const postTaskProblem = async (req, res) => {
   const taskId = Number(req.params.id);
-  const client = await pool.connect();
+  let client;
   try {
+    await ensureIssuesCompatColumns();
+    client = await pool.connect();
     await client.query('BEGIN');
     const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:problem`);
     if (replay) {
       await client.query('ROLLBACK');
       return res.json({ message: 'Problem zgloszony', idempotent_replay: true });
     }
-    const { typ } = req.body;
+    const typ = normalizeIssueTyp(req.body.typ);
+    const opis = req.body.opis != null && String(req.body.opis).trim()
+      ? String(req.body.opis).trim()
+      : null;
     await client.query(
-      `INSERT INTO issues (task_id, user_id, typ, status, data_zgloszenia)
-       VALUES ($1, $2, $3, 'Zgłoszony', NOW())`,
-      [req.params.id, req.user.id, typ]
+      `INSERT INTO issues (task_id, user_id, typ, opis, data_zgloszenia)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [taskId, req.user.id, typ, opis]
     );
     await client.query('COMMIT');
     res.json({ message: 'Problem zgloszony' });
   } catch (err) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      /* ignore */
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore */
+      }
     }
     logger.error('Blad zglaszania problemu', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
@@ -1424,12 +2052,14 @@ router.get('/:id/logi', authMiddleware, validateParams(taskIdParamsSchema), requ
 
 router.get('/:id/problemy', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
   try {
+    await ensureIssuesCompatColumns();
     const result = await pool.query(
-      `SELECT i.*, u.imie || ' ' || u.nazwisko as zglaszajacy
+      `SELECT i.*, COALESCE(i.data_zgloszenia, i.created_at) AS data_zgloszenia,
+              u.imie || ' ' || u.nazwisko as zglaszajacy
        FROM issues i
        LEFT JOIN users u ON i.user_id = u.id
        WHERE i.task_id = $1
-       ORDER BY i.data_zgloszenia DESC`,
+       ORDER BY COALESCE(i.data_zgloszenia, i.created_at) DESC`,
       [req.params.id]
     );
     res.json(result.rows);
@@ -1462,10 +2092,12 @@ router.get('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), r
 });
 
 router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, upload.single('zdjecie'), async (req, res) => {
+  let client;
   try {
     if (!req.file) {
       return res.status(400).json({ error: req.t('errors.tasks.missingFile') });
     }
+    const taskId = Number(req.params.id);
     const typ = req.body.typ || 'Przed';
     const sciezka = '/uploads/tasks/' + req.file.filename;
     const photoLat = toNum(req.body.lat);
@@ -1484,15 +2116,34 @@ router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), 
         photoTagi = normalizePhotoTagi(s);
       }
     }
-    await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:photo`);
+    if (replay) {
+      await client.query('ROLLBACK');
+      cleanupUploadedFile(req.file);
+      return res.json({ message: 'Zdjecie dodane', sciezka: null, idempotent_replay: true });
+    }
+    await client.query(
       `INSERT INTO photos (task_id, user_id, typ, url, sciezka, data_dodania, lat, lon, opis, tagi)
        VALUES ($1, $2, $3, $4, $4, NOW(), $5, $6, $7, $8)`,
-      [req.params.id, req.user.id, typ, sciezka, photoLat, photoLon, photoOpis, photoTagi]
+      [taskId, req.user.id, typ, sciezka, photoLat, photoLon, photoOpis, photoTagi]
     );
+    await client.query('COMMIT');
     res.json({ message: 'Zdjecie dodane', sciezka });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore */
+      }
+    }
+    cleanupUploadedFile(req.file);
     logger.error('Blad dodawania zdjecia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
