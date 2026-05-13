@@ -142,7 +142,18 @@ export default function WycenaRysujScreen() {
           ]);
         } else {
           void triggerHaptic('error');
-          Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+          if (res.status === 404) {
+            Alert.alert(
+              'Moduł wycen terenowych',
+              'Backend produkcyjny nie ma jeszcze wdrożonego nowego modułu wycen. Szkic nie został wysłany do quotation, otwórz klasyczne wyceny.',
+              [
+                { text: 'Zostań tutaj', style: 'cancel' },
+                { text: 'Klasyczne wyceny', onPress: () => router.replace('/wycena' as never) },
+              ]
+            );
+          } else {
+            Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+          }
         }
       } else if (wycenaId) {
         // Wyślij na serwer jako nowe zdjęcie wyceny (stary moduł /wyceny)
