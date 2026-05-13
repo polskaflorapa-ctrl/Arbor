@@ -49,7 +49,8 @@
     "restart:force": "node ./scripts/restart-force.cjs"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "react-native": "0.81.5"
   },
   "overrides": {
     "react": "19.1.0",
