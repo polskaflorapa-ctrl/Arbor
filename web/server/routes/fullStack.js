@@ -5,6 +5,7 @@ const { readOnly, withStore } = require('../lib/store');
 const { requireAuth } = require('../lib/auth');
 const { canViewCmr, enrichCmr } = require('../lib/cmrAccess');
 const { buildCmrPdfBuffer } = require('../lib/cmrPdf');
+const { TASK_STATUS, isTaskDone, isValidTaskStatus, normalizeTaskStatus } = require('../lib/taskWorkflow');
 
 const UP_ZDJ = path.join(__dirname, '..', 'uploads', 'zlecenia');
 const UP_DOK = path.join(__dirname, '..', 'uploads', 'zlecenia');
@@ -101,6 +102,72 @@ function canViewTask(state, user, taskId) {
 function oddzialNazwa(state, id) {
   const o = state.oddzialy.find((x) => x.id === id);
   return o ? o.nazwa : null;
+}
+
+function delegationYmd(value) {
+  return String(value || '').slice(0, 10);
+}
+
+function delegationDay(value) {
+  return delegationYmd(value) || new Date().toISOString().slice(0, 10);
+}
+
+const CLOSED_DELEGATION_STATUSES = new Set(['Anulowana', 'Zakonczona', 'Zakończona']);
+
+function isActiveDelegation(d, day = delegationDay()) {
+  if (!d || CLOSED_DELEGATION_STATUSES.has(String(d.status || ''))) return false;
+  const from = delegationYmd(d.data_od);
+  const to = delegationYmd(d.data_do);
+  return (!from || from <= day) && (!to || to >= day);
+}
+
+function delegationUserId(d) {
+  return toNum(d?.user_id ?? d?.wyceniajacy_id);
+}
+
+function isEstimatorRole(role) {
+  const raw = String(role || '').toLowerCase();
+  return raw.includes('wyceniaj') || raw.includes('wyceniajä');
+}
+
+function teamDelegationForBranch(state, teamId, branchId, day = delegationDay()) {
+  if (!teamId || !branchId) return null;
+  return (state.delegacje || []).find((d) =>
+    toNum(d.ekipa_id) === Number(teamId) &&
+    toNum(d.oddzial_do) === Number(branchId) &&
+    isActiveDelegation(d, day)
+  ) || null;
+}
+
+function teamBranchError(state, teamId, branchId, day = delegationDay()) {
+  if (!teamId || !branchId) return null;
+  const team = (state.teams || []).find((t) => Number(t.id) === Number(teamId));
+  if (!team) return `Ekipa #${teamId} nie istnieje.`;
+  if (Number(team.oddzial_id) === Number(branchId) || teamDelegationForBranch(state, teamId, branchId, day)) {
+    return null;
+  }
+  const from = oddzialNazwa(state, team.oddzial_id) || 'inny oddzial';
+  const to = oddzialNazwa(state, branchId) || `oddzial #${branchId}`;
+  return `${team.nazwa || `Ekipa #${teamId}`} nalezy do ${from}. Do ${to} mozna ja przypisac tylko przez aktywna delegacje.`;
+}
+
+function enrichDelegacja(state, d) {
+  const team = (state.teams || []).find((t) => Number(t.id) === Number(d.ekipa_id));
+  const userId = delegationUserId(d);
+  const user = (state.users || []).find((u) => Number(u.id) === Number(userId));
+  const typ = userId ? 'wyceniajacy' : 'ekipa';
+  const userNameValue = user ? `${user.imie || ''} ${user.nazwisko || ''}`.trim() : null;
+  return {
+    ...d,
+    zasob_typ: d.zasob_typ || typ,
+    user_id: userId,
+    wyceniajacy_id: userId,
+    ekipa_nazwa: team?.nazwa || null,
+    user_nazwa: userNameValue,
+    zasob_nazwa: typ === 'wyceniajacy' ? userNameValue : (team?.nazwa || null),
+    oddzial_z_nazwy: oddzialNazwa(state, d.oddzial_z),
+    oddzial_do_nazwy: oddzialNazwa(state, d.oddzial_do),
+  };
 }
 
 function stripHaslo(u) {
@@ -278,17 +345,21 @@ module.exports = function registerFullStack(router) {
       const id = s.nextZlecenieId++;
       const now = new Date().toISOString();
       const oid = toNum(b.oddzial_id) ?? req.user.oddzial_id;
+      const teamId = toNum(b.ekipa_id);
+      const branchError = teamBranchError(s, teamId, oid, delegationDay(b.data_wykonania || b.data_planowana));
+      if (branchError) return { error: branchError, status: 409 };
+      const initialStatus = isValidTaskStatus(b.status) ? normalizeTaskStatus(b.status) : TASK_STATUS.NOWE;
       const z = {
         id,
         typ: 'zlecenie',
-        status: b.status || 'Nowe',
+        status: initialStatus,
         klient_nazwa: b.klient_nazwa || null,
         klient_telefon: b.klient_telefon || null,
         klient_email: b.klient_email || null,
         adres: b.adres || '',
         miasto: b.miasto || '',
         oddzial_id: oid,
-        ekipa_id: toNum(b.ekipa_id),
+        ekipa_id: teamId,
         typ_uslugi: b.typ_uslugi || 'Wycinka',
         priorytet: b.priorytet || 'Normalny',
         data_planowana: b.data_planowana || b.data_wykonania || null,
@@ -324,9 +395,10 @@ module.exports = function registerFullStack(router) {
         created_at: now,
       };
       s.zlecenia.push(z);
-      return enrichRow(s, z);
+      return { data: enrichRow(s, z) };
     });
-    res.status(201).json(row);
+    if (row?.error) return res.status(row.status || 400).json({ error: row.error });
+    res.status(201).json(row.data);
   });
 
   router.put('/tasks/:id', requireAuth, (req, res) => {
@@ -335,6 +407,15 @@ module.exports = function registerFullStack(router) {
     const row = withStore((s) => {
       const z = s.zlecenia.find((x) => x.id === id);
       if (!z || !canViewTask(s, req.user, id)) return null;
+      const targetBranchId = b.oddzial_id !== undefined ? toNum(b.oddzial_id) : z.oddzial_id;
+      const targetTeamId = b.ekipa_id !== undefined ? toNum(b.ekipa_id) : z.ekipa_id;
+      const branchError = teamBranchError(
+        s,
+        targetTeamId,
+        targetBranchId,
+        delegationDay(b.data_wykonania || b.data_planowana || z.data_wykonania || z.data_planowana)
+      );
+      if (branchError) return { error: branchError, status: 409 };
       const mergeKeys = Object.keys(b).filter((k) => k !== 'id');
       for (const k of mergeKeys) {
         if (b[k] === undefined) continue;
@@ -352,10 +433,11 @@ module.exports = function registerFullStack(router) {
         z.data_planowana = b.data_planowana || z.data_planowana;
         z.data_wykonania = b.data_wykonania || z.data_wykonania;
       }
-      return enrichRow(s, z);
+      return { data: enrichRow(s, z) };
     });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
-    res.json(row);
+    if (row?.error) return res.status(row.status || 400).json({ error: row.error });
+    res.json(row.data);
   });
 
   router.delete('/tasks/:id', requireAuth, (req, res) => {
@@ -372,11 +454,13 @@ module.exports = function registerFullStack(router) {
   router.put('/tasks/:id/status', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
     const { status } = req.body || {};
+    if (!isValidTaskStatus(status)) return res.status(400).json({ error: 'Nieprawidlowy status zlecenia' });
+    const nextStatus = normalizeTaskStatus(status);
     const row = withStore((s) => {
       const z = s.zlecenia.find((x) => x.id === id);
       if (!z || !canViewTask(s, req.user, id)) return null;
       const prevStatus = z.status;
-      if (status) z.status = status;
+      z.status = nextStatus;
       ensureWorkflowCollections(s);
       const key = String(id);
       if (!s.taskWorkflowEvents[key]) s.taskWorkflowEvents[key] = [];
@@ -420,11 +504,15 @@ module.exports = function registerFullStack(router) {
     const row = withStore((s) => {
       const z = s.zlecenia.find((x) => x.id === id);
       if (!z || !canViewTask(s, req.user, id)) return null;
+      const branchError = teamBranchError(s, ekipaId, z.oddzial_id, delegationDay(z.data_wykonania || z.data_planowana));
+      if (branchError) return { error: branchError, status: 409 };
       z.ekipa_id = ekipaId;
-      return enrichRow(s, z);
+      if (normalizeTaskStatus(z.status) === TASK_STATUS.DO_ZATWIERDZENIA) z.status = TASK_STATUS.ZAPLANOWANE;
+      return { data: enrichRow(s, z) };
     });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
-    res.json(row);
+    if (row?.error) return res.status(row.status || 400).json({ error: row.error });
+    res.json(row.data);
   });
 
   router.get('/tasks/:id/logi', requireAuth, (req, res) => {
@@ -1499,7 +1587,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.get('/oddzialy/delegacje/wszystkie', requireAuth, (req, res) => {
-    const list = readOnly((s) => s.delegacje || []);
+    const list = readOnly((s) => (s.delegacje || []).map((d) => enrichDelegacja(s, d)));
     res.json(list);
   });
 
@@ -1507,12 +1595,38 @@ module.exports = function registerFullStack(router) {
     const b = req.body || {};
     const row = withStore((s) => {
       if (!s.delegacje) s.delegacje = [];
+      const userId = toNum(b.user_id ?? b.wyceniajacy_id);
+      const teamId = toNum(b.ekipa_id);
+      const zasobTyp = userId ? 'wyceniajacy' : 'ekipa';
+      if (!teamId && !userId) return { error: 'Wybierz ekipe albo wyceniajacego do delegacji.', status: 400 };
+      const sourceBranch = toNum(b.oddzial_z);
+      const targetBranch = toNum(b.oddzial_do);
+      if (!sourceBranch || !targetBranch || sourceBranch === targetBranch) {
+        return { error: 'Wybierz dwa rozne oddzialy delegacji.', status: 400 };
+      }
+      if (teamId) {
+        const team = (s.teams || []).find((x) => Number(x.id) === Number(teamId));
+        if (!team) return { error: 'Nie znaleziono ekipy do delegacji.', status: 400 };
+        if (Number(team.oddzial_id) !== Number(sourceBranch)) {
+          return { error: 'Oddzial zrodlowy musi byc oddzialem macierzystym ekipy.', status: 400 };
+        }
+      }
+      if (userId) {
+        const user = (s.users || []).find((x) => Number(x.id) === Number(userId));
+        if (!user || !isEstimatorRole(user.rola)) return { error: 'Delegowac mozna tylko wyceniajacego.', status: 400 };
+        if (Number(user.oddzial_id) !== Number(sourceBranch)) {
+          return { error: 'Oddzial zrodlowy musi byc oddzialem macierzystym wyceniajacego.', status: 400 };
+        }
+      }
       const id = s.nextDelegacjaId++;
       const d = {
         id,
-        ekipa_id: toNum(b.ekipa_id),
-        oddzial_z: toNum(b.oddzial_z),
-        oddzial_do: toNum(b.oddzial_do),
+        zasob_typ: zasobTyp,
+        ekipa_id: teamId,
+        user_id: userId,
+        wyceniajacy_id: userId,
+        oddzial_z: sourceBranch,
+        oddzial_do: targetBranch,
         data_od: b.data_od,
         data_do: b.data_do || null,
         cel: b.cel || '',
@@ -1521,8 +1635,9 @@ module.exports = function registerFullStack(router) {
         created_at: new Date().toISOString(),
       };
       s.delegacje.push(d);
-      return d;
+      return enrichDelegacja(s, d);
     });
+    if (row?.error) return res.status(row.status || 400).json({ error: row.error });
     res.status(201).json(row);
   });
 
@@ -1533,7 +1648,7 @@ module.exports = function registerFullStack(router) {
       const d = (s.delegacje || []).find((x) => x.id === id);
       if (!d) return null;
       if (status) d.status = status;
-      return d;
+      return enrichDelegacja(s, d);
     });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
@@ -2048,6 +2163,260 @@ module.exports = function registerFullStack(router) {
     });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
+  });
+
+  const fmtDailyMin = (m) => {
+    const n = Number(m) || 0;
+    const h = Math.floor(n / 60);
+    const mm = n % 60;
+    return `${h}h ${mm}min`;
+  };
+
+  const isIsoDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+  const taskDay = (z) => String(z.data_planowana || z.data_wykonania || '').slice(0, 10);
+
+  function ensureTeamDayCollections(state) {
+    if (!state.teamDayReports) state.teamDayReports = [];
+    if (!state.teamDayReportLines) state.teamDayReportLines = [];
+    if (!state.nextTeamDayReportId) state.nextTeamDayReportId = 1;
+    if (!state.nextTeamDayReportLineId) state.nextTeamDayReportLineId = 1;
+  }
+
+  function buildTeamDayPreview(state, ekipaId, date) {
+    const tasks = zleceniaRows(state).filter((z) => String(z.ekipa_id) === String(ekipaId) && taskDay(z) === date);
+    const cashByForma = new Map();
+    let issuesCount = 0;
+    for (const task of tasks) {
+      const taskProblems = (state.taskProblemy && state.taskProblemy[String(task.id)]) || [];
+      issuesCount += Array.isArray(taskProblems) ? taskProblems.length : 0;
+      const cashValue = Number(task.kwota_odebrana ?? task.kwota_gotowka ?? task.gotowka ?? 0) || 0;
+      if (cashValue > 0) {
+        const forma = String(task.forma_platnosc || task.forma_platnosci || 'gotowka');
+        cashByForma.set(forma, (cashByForma.get(forma) || 0) + cashValue);
+      }
+    }
+    return {
+      tasks_day: tasks.map((t) => ({ id: t.id, status: t.status, klient_nazwa: t.klient_nazwa || null })),
+      cash_by_forma: Array.from(cashByForma, ([forma_platnosc, sum_kwota]) => ({ forma_platnosc, sum_kwota })),
+      issues_count: issuesCount,
+    };
+  }
+
+  function buildTeamDayLines(state, reportId, ekipaId, date) {
+    const memberRows = (state.ekipaCzlonkowie || []).filter((m) => String(m.ekipa_id) === String(ekipaId));
+    const userIds = memberRows.length ? memberRows.map((m) => m.user_id) : [];
+    return userIds.map((userId) => {
+      const user = state.users.find((u) => u.id === userId) || {};
+      const report = (state.dailyReports || []).find((r) => r.user_id === userId && r.data_raportu === date);
+      const minutes = Number(report?.czas_pracy_minuty) || 0;
+      const hours = Math.round((minutes / 60) * 100) / 100;
+      const rate = Number(user.stawka_godzinowa) || 0;
+      return {
+        id: state.nextTeamDayReportLineId++,
+        report_id: reportId,
+        user_id: userId,
+        hours_total: hours,
+        pay_pln: Math.round(hours * rate * 100) / 100,
+        detail_json: {
+          source: 'web-local',
+          user_name: `${user.imie || ''} ${user.nazwisko || ''}`.trim(),
+          daily_report_id: report?.id || null,
+        },
+      };
+    });
+  }
+
+  router.get('/raporty/mobile', requireAuth, (req, res) => {
+    const stats = readOnly((s) => {
+      const all = (s.zlecenia || []).filter((z) => z.typ === 'zlecenie' || z.typ == null);
+      const scoped = canSeeAll(req.user) ? all : all.filter((z) => String(z.oddzial_id) === String(req.user.oddzial_id));
+      const total_tasks = scoped.length;
+      const completed_tasks = scoped.filter((z) => isTaskDone(z.status)).length;
+      let total_revenue = 0;
+      for (const z of scoped) {
+        total_revenue += Number(z.wartosc_rzeczywista ?? z.wartosc_planowana ?? 0) || 0;
+      }
+      const revenue = Math.round(total_revenue * 100) / 100;
+      const cost = 0;
+      const avg_margin_percent = revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
+      return {
+        total_tasks,
+        completed_tasks,
+        total_hours: 0,
+        total_revenue: revenue,
+        total_cost: cost,
+        avg_margin_percent,
+      };
+    });
+    res.json(stats);
+  });
+
+  router.get('/mobile/me/team-day-report', requireAuth, (req, res) => {
+    const date = String(req.query.date || '').slice(0, 10);
+    if (!isIsoDay(date)) return res.status(400).json({ error: 'Uzyj date=YYYY-MM-DD', code: 'VALIDATION_FAILED' });
+    const payload = readOnly((s) => {
+      ensureTeamDayCollections(s);
+      const ekipaId = req.user.ekipa_id;
+      if (!ekipaId) return { report: null, lines: [], day_preview: null };
+      const report = s.teamDayReports.find((r) => String(r.team_id) === String(ekipaId) && r.report_date === date) || null;
+      const lines = report ? s.teamDayReportLines.filter((l) => l.report_id === report.id) : [];
+      return {
+        report,
+        lines,
+        day_preview: ['Brygadzista', 'Pomocnik'].includes(req.user.rola) ? buildTeamDayPreview(s, ekipaId, date) : null,
+      };
+    });
+    res.json(payload);
+  });
+
+  router.post('/mobile/me/team-day-close', requireAuth, (req, res) => {
+    if (!['Brygadzista', 'Pomocnik'].includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Tylko ekipa w terenie' });
+    }
+    const date = String(req.body?.report_date || '').slice(0, 10);
+    if (!isIsoDay(date)) return res.status(400).json({ error: 'Uzyj report_date=YYYY-MM-DD', code: 'VALIDATION_FAILED' });
+    if (!req.user.ekipa_id) return res.status(400).json({ error: 'Brak przypisanej ekipy' });
+
+    const payload = withStore((s) => {
+      ensureTeamDayCollections(s);
+      let report = s.teamDayReports.find(
+        (r) => String(r.team_id) === String(req.user.ekipa_id) && r.report_date === date
+      );
+      if (report?.status === 'Approved') return { err: 'Raport dnia jest zatwierdzony', code: 409 };
+      const now = new Date().toISOString();
+      if (!report) {
+        report = {
+          id: s.nextTeamDayReportId++,
+          team_id: req.user.ekipa_id,
+          report_date: date,
+          status: 'Draft',
+          created_by: req.user.id,
+          created_at: now,
+          updated_at: now,
+        };
+        s.teamDayReports.push(report);
+      } else {
+        report.updated_at = now;
+      }
+      const lines = buildTeamDayLines(s, report.id, req.user.ekipa_id, date);
+      s.teamDayReportLines = s.teamDayReportLines.filter((l) => l.report_id !== report.id).concat(lines);
+      return { report, lines, day_preview: buildTeamDayPreview(s, req.user.ekipa_id, date) };
+    });
+    if (payload.err) return res.status(payload.code || 400).json({ error: payload.err });
+    res.json(payload);
+  });
+
+  router.get('/payroll/month-close-status', requireAuth, (req, res) => {
+    const month = String(req.query.month || new Date().toISOString().slice(0, 7)).slice(0, 7);
+    const pending_count = readOnly((s) =>
+      (s.dailyReports || []).filter((r) => String(r.data_raportu || '').slice(0, 7) === month && r.status !== 'Wyslany').length
+    );
+    res.json({
+      month,
+      export_allowed: pending_count === 0,
+      pending_count,
+      source: 'web-local',
+    });
+  });
+
+  router.get('/raporty-dzienne', requireAuth, (req, res) => {
+    const data = req.query.data;
+    if (!data) return res.status(400).json({ error: 'Brak daty', code: 'VALIDATION_FAILED' });
+    const rows = readOnly((s) => {
+      let list = (s.dailyReports || []).filter((r) => r.data_raportu === data);
+      if (!canSeeAll(req.user)) {
+        if (req.user.rola === 'Kierownik') list = list.filter((r) => String(r.oddzial_id) === String(req.user.oddzial_id));
+        else list = list.filter((r) => r.user_id === req.user.id);
+      }
+      return list.map((r) => ({ id: r.id, status: r.status, data_raportu: r.data_raportu, user_id: r.user_id }));
+    });
+    res.json(rows);
+  });
+
+  router.get('/raporty-dzienne/:id(\\d+)', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const row = readOnly((s) => {
+      const r = (s.dailyReports || []).find((x) => x.id === id);
+      if (!r) return null;
+      if (!canSeeAll(req.user)) {
+        if (req.user.rola === 'Kierownik') {
+          if (String(r.oddzial_id) !== String(req.user.oddzial_id)) return null;
+        } else if (r.user_id !== req.user.id) return null;
+      }
+      const zadania = (r.zadania || []).map((z) => ({
+        task_id: z.task_id,
+        czas_minuty: z.czas_minuty,
+        uwagi: z.uwagi,
+        klient_nazwa: (s.zlecenia || []).find((t) => t.id === z.task_id)?.klient_nazwa,
+        adres: (s.zlecenia || []).find((t) => t.id === z.task_id)?.adres,
+      }));
+      return {
+        ...r,
+        czas_pracy_human: fmtDailyMin(r.czas_pracy_minuty),
+        zadania,
+        materialy: r.materialy || [],
+      };
+    });
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
+    res.json(row);
+  });
+
+  router.post('/raporty-dzienne', requireAuth, (req, res) => {
+    const b = req.body || {};
+    const data_raportu = b.data_raportu;
+    if (!data_raportu) return res.status(400).json({ error: 'Data wymagana', code: 'VALIDATION_FAILED' });
+    const out = withStore((s) => {
+      s.dailyReports = s.dailyReports || [];
+      let ex = s.dailyReports.find((r) => r.user_id === req.user.id && r.data_raportu === data_raportu);
+      if (ex && ex.status === 'Wyslany') return { err: 'cannot_edit_sent', code: 400 };
+      if (!ex) {
+        const nid = s.nextDailyReportId++;
+        ex = {
+          id: nid,
+          user_id: req.user.id,
+          oddzial_id: req.user.oddzial_id,
+          data_raportu,
+          status: 'Roboczy',
+          czas_pracy_minuty: 0,
+          zadania: [],
+          materialy: [],
+          podpis_url: null,
+          opis_pracy: null,
+        };
+        s.dailyReports.push(ex);
+      }
+      ex.opis_pracy = b.opis_pracy ?? null;
+      ex.podpis_url = b.podpis_url ?? null;
+      ex.status = 'Roboczy';
+      ex.zadania = (b.zadania || []).map((z) => ({
+        task_id: z.task_id,
+        czas_minuty: Number(z.czas_minuty) || 0,
+        uwagi: z.uwagi || null,
+      }));
+      ex.materialy = (b.materialy || []).map((m) => ({
+        nazwa: m.nazwa,
+        ilosc: Number(m.ilosc) || 1,
+        jednostka: m.jednostka || 'szt',
+        koszt_jednostkowy: Number(m.koszt_jednostkowy) || 0,
+      }));
+      ex.czas_pracy_minuty = ex.zadania.reduce((sum, z) => sum + (Number(z.czas_minuty) || 0), 0);
+      return { id: ex.id };
+    });
+    if (out.err) return res.status(out.code || 400).json({ error: out.err });
+    res.json({ success: true, id: out.id, message: 'Raport zapisany' });
+  });
+
+  router.post('/raporty-dzienne/:id(\\d+)/wyslij', requireAuth, (req, res) => {
+    const id = toNum(req.params.id);
+    const ok = withStore((s) => {
+      const r = (s.dailyReports || []).find((x) => x.id === id);
+      if (!r) return false;
+      if (r.user_id !== req.user.id && !canSeeAll(req.user)) return false;
+      r.status = 'Wyslany';
+      return true;
+    });
+    if (!ok) return res.status(404).json({ error: 'Nie znaleziono' });
+    res.json({ success: true, message: 'Wyslano (demo — bez e-maila)' });
   });
 
   router.get('/ksiegowosc/faktury', requireAuth, (req, res) => {

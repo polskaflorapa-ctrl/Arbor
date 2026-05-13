@@ -117,6 +117,8 @@ const ukOverrides = {
   },
   taskStatus: {
     Nowe: 'Нові',
+    Wycena_Terenowa: 'Огляд / оцінка',
+    Do_Zatwierdzenia: 'На затвердження',
     Zaplanowane: 'Заплановані',
     W_Realizacji: 'У виконанні',
     Zakonczone: 'Завершені',
@@ -484,6 +486,8 @@ const ruOverrides = {
   },
   taskStatus: {
     Nowe: 'Новые',
+    Wycena_Terenowa: 'Осмотр / оценка',
+    Do_Zatwierdzenia: 'На утверждение',
     Zaplanowane: 'Запланированные',
     W_Realizacji: 'В работе',
     Zakonczone: 'Завершённые',

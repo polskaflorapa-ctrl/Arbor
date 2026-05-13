@@ -24,6 +24,7 @@ import Sidebar from '../components/Sidebar';
 import TaskStatusIcon from '../components/TaskStatusIcon';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { TASK_STATUS, getTaskStatusColor, isTaskDone as isWorkflowTaskDone } from '../utils/taskWorkflow';
 
 const SERVICE_TYPE_ROW = [
   { typ: 'Wycinka', Icon: ForestOutlined },
@@ -42,11 +43,11 @@ const UI_COLORS = {
 };
 
 function isTaskCancelled(z) {
-  return z.status === 'Anulowane';
+  return z.status === TASK_STATUS.ANULOWANE;
 }
 
 function isTaskDone(z) {
-  return z.status === 'Zakonczone' || z.status === 'Zakończone';
+  return isWorkflowTaskDone(z.status);
 }
 
 function taskDayKey(z) {
@@ -200,23 +201,25 @@ export default function Raporty() {
   }, [localeNum]);
  
   const sumaWartosc = filtrowane.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
-  const zakonczone = filtrowane.filter(z => z.status === 'Zakonczone');
-  const wRealizacji = filtrowane.filter(z => z.status === 'W_Realizacji');
-  const nowe = filtrowane.filter(z => z.status === 'Nowe');
-  const zaplanowane = filtrowane.filter(z => z.status === 'Zaplanowane');
-  const anulowane = filtrowane.filter(z => z.status === 'Anulowane');
+  const zakonczone = filtrowane.filter(isTaskDone);
+  const wRealizacji = filtrowane.filter(z => z.status === TASK_STATUS.W_REALIZACJI);
+  const nowe = filtrowane.filter(z => z.status === TASK_STATUS.NOWE);
+  const wycenaTerenowa = filtrowane.filter(z => z.status === TASK_STATUS.WYCENA_TERENOWA);
+  const doZatwierdzenia = filtrowane.filter(z => z.status === TASK_STATUS.DO_ZATWIERDZENIA);
+  const zaplanowane = filtrowane.filter(z => z.status === TASK_STATUS.ZAPLANOWANE);
+  const anulowane = filtrowane.filter(isTaskCancelled);
   const skutecznosc = filtrowane.length > 0 ? ((zakonczone.length / filtrowane.length) * 100).toFixed(0) : 0;
  
   const statsByOddzial = oddzialy.map(o => {
     const zl = zlecenia.filter(z => z.oddzial_id === o.id);
-    const zak = zl.filter(z => z.status === 'Zakonczone');
+    const zak = zl.filter(isTaskDone);
     const wartosc = zl.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
     return { ...o, total: zl.length, zakonczone: zak.length, wartosc };
   });
  
   const statsByEkipa = ekipy.map(e => {
     const zl = zlecenia.filter(z => z.ekipa_id === e.id);
-    const zak = zl.filter(z => z.status === 'Zakonczone');
+    const zak = zl.filter(isTaskDone);
     const wartosc = zl.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
     return { ...e, total: zl.length, zakonczone: zak.length, wartosc };
   });
@@ -444,7 +447,7 @@ export default function Raporty() {
         const dt = new Date(z.data_planowana);
         return dt.getFullYear() === monthYear && dt.getMonth() === monthIndex;
       });
-      const doneTasks = monthTasks.filter((z) => z.status === 'Zakonczone');
+      const doneTasks = monthTasks.filter(isTaskDone);
       const cel = celeMap[o.id];
       const revenuePlan = cel?.plan_obrotu ?? monthTasks.reduce((sum, z) => sum + (parseFloat(z.wartosc_planowana) || 0), 0);
       const revenueDone = doneTasks.reduce((sum, z) => sum + (parseFloat(z.wartosc_planowana) || 0), 0);
@@ -626,7 +629,7 @@ export default function Raporty() {
       const wyc = wyceny.filter((w) => Number(w.oddzial_id) === o.id && inMonth(w.created_at)).length;
       const approved = wyceny.filter((w) => Number(w.oddzial_id) === o.id && w.status_akceptacji === 'zatwierdzono' && inMonth(w.zatwierdzone_at || w.created_at)).length;
       const tasksMonth = zlecenia.filter((z) => Number(z.oddzial_id) === o.id && z.typ !== 'wycena' && inMonth(z.data_planowana || z.created_at));
-      const closed = tasksMonth.filter((z) => z.status === 'Zakonczone').length;
+      const closed = tasksMonth.filter(isTaskDone).length;
       const callbacksOpen = callbackTasks.filter((cb) => Number(cb.oddzial_id) === o.id && cb.status === 'open').length;
       return {
         oddzialId: o.id,
@@ -666,9 +669,9 @@ export default function Raporty() {
   };
  
   return (
-    <div style={styles.container}>
+    <div className="app-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
+      <main className="app-main" style={styles.main}>
         <PageHeader
           variant="plain"
           title={t('pages.raporty.title')}
@@ -787,6 +790,8 @@ export default function Raporty() {
                 { key: 'Zakonczone', label: t('taskStatus.Zakonczone'), count: zakonczone.length, color: 'var(--accent)' },
                 { key: 'W_Realizacji', label: t('taskStatus.W_Realizacji'), count: wRealizacji.length, color: UI_COLORS.warning },
                 { key: 'Nowe', label: t('taskStatus.Nowe'), count: nowe.length, color: UI_COLORS.info },
+                { key: 'Wycena_Terenowa', label: t('taskStatus.Wycena_Terenowa'), count: wycenaTerenowa.length, color: '#0EA5E9' },
+                { key: 'Do_Zatwierdzenia', label: t('taskStatus.Do_Zatwierdzenia'), count: doZatwierdzenia.length, color: '#8B5CF6' },
                 { key: 'Zaplanowane', label: t('taskStatus.Zaplanowane'), count: zaplanowane.length, color: UI_COLORS.muted },
                 { key: 'Anulowane', label: t('taskStatus.Anulowane'), count: anulowane.length, color: UI_COLORS.danger },
               ].map(s => (
@@ -1399,7 +1404,7 @@ export default function Raporty() {
             )}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
@@ -1410,14 +1415,7 @@ function formatDate(d) {
 }
  
 function getStatusColor(status) {
-  switch (status) {
-    case 'Zakonczone': return UI_COLORS.success;
-    case 'W_Realizacji': return UI_COLORS.warning;
-    case 'Nowe': return UI_COLORS.info;
-    case 'Zaplanowane': return UI_COLORS.muted;
-    case 'Anulowane': return UI_COLORS.danger;
-    default: return UI_COLORS.muted;
-  }
+  return getTaskStatusColor(status, UI_COLORS.muted);
 }
  
 const styles = {

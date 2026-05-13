@@ -15,7 +15,6 @@ export default function Uzytkownicy() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [oddzialy, setOddzialy] = useState([]);
- 
   // Tryby widoku: 'lista' | 'szczegoly' | 'nowy' | 'edytuj'
   const [tryb, setTryb] = useState('lista');
   const [wybranyUser, setWybranyUser] = useState(null);
@@ -350,6 +349,7 @@ export default function Uzytkownicy() {
                           </div>
                           <div style={s.akcjeRow} onClick={(e) => e.stopPropagation()}>
                             <button style={s.btnSm} onClick={() => otworzSzczegoly(u)}>👁</button>
+                            <button style={s.btnSm} onClick={() => navigate(`/profil/${u.id}`)}>Profil</button>
                             {mozeEdytowac && (
                               <>
                                 <button style={s.btnSm} onClick={() => otworzEdycje(u)}>✏️</button>
@@ -408,6 +408,7 @@ export default function Uzytkownicy() {
               </div>
               {mozeEdytowac && (
                 <div style={{ display: 'flex', gap: 8 }}>
+                  <button style={s.btnSecondary} onClick={() => navigate(`/profil/${wybranyUser.id}`)}>Profil pracownika</button>
                   <button style={s.btnSecondary} onClick={() => otworzEdycje(wybranyUser)}>✏️ Edytuj</button>
                   <button style={{ ...s.btnSecondary, backgroundColor: wybranyUser.aktywny ? 'rgba(248,113,113,0.12)' : 'var(--accent-surface)', color: wybranyUser.aktywny ? 'var(--danger)' : 'var(--accent-dk)' }}
                     onClick={() => zmienAktywnosc(wybranyUser.id, !wybranyUser.aktywny)}>
@@ -864,4 +865,3 @@ const s = {
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', fontSize: 16 },
   gray: { color: 'var(--text-muted)', fontStyle: 'italic', fontSize: 13 },
 };
- 

@@ -49,6 +49,69 @@ export const TEST_TOKEN = 'test_token_' + Math.random().toString(36).substr(2, 9
 export const MOCK_DATA = {
   zlecenia: [
     {
+      id: 101,
+      klient_nazwa: 'Anna Kowalska',
+      klient_telefon: '+48500111222',
+      adres: 'ul. Lesna 12',
+      miasto: 'Krakow',
+      typ_uslugi: 'Wycinka',
+      status: 'Nowe',
+      priorytet: 'Normalny',
+      data_planowana: '',
+      wartosc_planowana: '',
+      czas_planowany_godziny: '',
+      ekipa_id: '',
+      wyceniajacy_id: '',
+      opis_pracy: 'Klient dzwoni do biura, trzeba umowic ogledziny.',
+      photo_total: 0,
+      photo_wycena: 0,
+      photo_szkic: 0,
+      photo_dojazd: 0,
+    },
+    {
+      id: 102,
+      klient_nazwa: 'Wspolnota Zielona 8',
+      klient_telefon: '+48500666777',
+      adres: 'ul. Testowa 2',
+      miasto: 'Krakow',
+      typ_uslugi: 'Pielegnacja',
+      status: 'Wycena_Terenowa',
+      priorytet: 'Pilny',
+      data_planowana: new Date().toISOString().slice(0, 10),
+      wyceniajacy_id: 9004,
+      wyceniajacy_nazwa: 'Test Wyceniajacy',
+      ekipa_id: '',
+      wartosc_planowana: 0,
+      czas_planowany_godziny: '',
+      opis_pracy: 'Wyceniajacy ma zebrac zdjecia, zakres i cene u klienta.',
+      photo_total: 2,
+      photo_wycena: 1,
+      photo_szkic: 0,
+      photo_dojazd: 1,
+    },
+    {
+      id: 103,
+      klient_nazwa: 'Osiedle Lesne Tarasy',
+      klient_telefon: '+48500999888',
+      adres: 'ul. Zielona 21',
+      miasto: 'Wieliczka',
+      typ_uslugi: 'Wycinka',
+      status: 'Do_Zatwierdzenia',
+      priorytet: 'Normalny',
+      data_planowana: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+      wyceniajacy_id: 9004,
+      wyceniajacy_nazwa: 'Test Wyceniajacy',
+      ekipa_id: 5,
+      ekipa_nazwa: 'Ekipa A',
+      wartosc_planowana: 2800,
+      czas_planowany_godziny: 3,
+      opis_pracy: 'Klient zaakceptowal zakres, biuro zatwierdza termin i ekipe.',
+      photo_total: 5,
+      photo_wycena: 2,
+      photo_szkic: 2,
+      photo_dojazd: 1,
+    },
+    {
       id: 1,
       klient_nazwa: 'Test Klient 1',
       adres: 'ul. Testowa 1, 00-001 Warszawa',
@@ -263,11 +326,36 @@ export function getMockTaskLogi(taskId) {
  * Przygotowuje mockowe dane dla API (dokładne dopasowanie ścieżki).
  */
 export function getMockData(endpoint) {
+  const rankingBrygad = {
+    generated_at: new Date().toISOString(),
+    as_of: new Date().toISOString().slice(0, 10),
+    oddzial_id: null,
+    periods: {
+      week: {
+        key: 'week',
+        label: 'Najlepsza ekipa tygodnia',
+        from: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10),
+        to: new Date().toISOString().slice(0, 10),
+        winner: {
+          rank: 1, team_id: 5, ekipa_nazwa: 'Ekipa A', oddzial_nazwa: 'Krakow', brygadzista_nazwa: 'Test Brygadzista',
+          score: 186, total_tasks: 6, completed_tasks: 5, completion_rate: 83, revenue: 18400, logged_hours: 28, planned_hours: 30, photos_count: 18, issues_count: 1,
+        },
+        items: [
+          { rank: 1, team_id: 5, ekipa_nazwa: 'Ekipa A', oddzial_nazwa: 'Krakow', score: 186, total_tasks: 6, completed_tasks: 5, revenue: 18400, logged_hours: 28, planned_hours: 30, photos_count: 18, issues_count: 1 },
+        ],
+      },
+      month: { key: 'month', label: 'Najlepsza ekipa miesiaca', from: new Date().toISOString().slice(0, 8) + '01', to: new Date().toISOString().slice(0, 10), winner: null, items: [] },
+      half_year: { key: 'half_year', label: 'Najlepsza ekipa polrocza', from: new Date().toISOString().slice(0, 5) + '01-01', to: new Date().toISOString().slice(0, 10), winner: null, items: [] },
+      year: { key: 'year', label: 'Najlepsza ekipa roku', from: new Date().toISOString().slice(0, 5) + '01-01', to: new Date().toISOString().slice(0, 10), winner: null, items: [] },
+    },
+  };
   const mapping = {
     '/zlecenia': MOCK_DATA.zlecenia,
+    '/tasks/wszystkie': MOCK_DATA.zlecenia,
     '/oddzialy': MOCK_DATA.oddzialy,
     '/ekipy': MOCK_DATA.ekipy,
     '/wyceny': MOCK_DATA.wyceny,
+    '/raporty/ranking-brygad': rankingBrygad,
   };
   return mapping[endpoint] ?? null;
 }

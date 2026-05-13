@@ -27,7 +27,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
 
   return (
     <header
-      className={isHero ? 'ios-glass-panel' : undefined}
+      className={`module-page-header ${isHero ? 'module-page-header-hero ios-glass-panel' : 'module-page-header-plain'}`}
       style={{
         display: 'flex',
         flexWrap: 'wrap',
@@ -37,17 +37,15 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
         marginBottom: 24,
         ...(isHero
           ? {
-              padding: '22px 26px',
-              borderRadius: 16,
-              background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-deep) 48%, var(--bg-card2) 100%)',
-              borderWidth: 1,
-              borderStyle: 'solid',
-              borderColor: 'var(--border)',
+              padding: '18px 20px',
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
+              border: '1px solid var(--glass-border)',
               boxShadow: 'var(--shadow-sm)',
             }
           : {
               paddingBottom: 16,
-              borderBottom: '1px solid var(--border)',
+              borderBottom: '1px solid var(--border2)',
             }),
       }}
     >
@@ -71,10 +69,10 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               gap: 2,
               marginTop: 2,
               padding: '6px 10px',
-              borderRadius: 10,
-              border: isHero ? '1px solid rgba(255,255,255,0.18)' : '1px solid var(--border)',
-              background: isHero ? 'rgba(255,255,255,0.08)' : 'var(--bg-card2)',
-              color: isHero ? 'rgba(255,255,255,0.92)' : 'var(--text-sub)',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: isHero ? 'var(--bg-card)' : 'linear-gradient(135deg, var(--bg-card2), var(--bg-card))',
+              color: 'var(--text-sub)',
               cursor: 'pointer',
               fontSize: 13,
               fontWeight: 600,
@@ -91,15 +89,13 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             style={{
               width: 44,
               height: 44,
-              borderRadius: 11,
-              background: isHero ? 'rgba(255,255,255,0.1)' : 'var(--bg-card2)',
-              borderWidth: 1,
-              borderStyle: 'solid',
-              borderColor: isHero ? 'rgba(255,255,255,0.18)' : 'var(--border)',
+              borderRadius: 8,
+              background: 'linear-gradient(135deg, var(--logo-tint-bg), var(--bg-card2))',
+              border: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: isHero ? '#fff' : 'var(--text-sub)',
+              color: 'var(--accent)',
               flexShrink: 0,
               boxShadow: isHero ? 'none' : 'var(--shadow-sm)',
             }}
@@ -111,10 +107,10 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
           <h1
             style={{
               margin: 0,
-              fontSize: isHero ? 26 : 'clamp(22px, 4vw, 28px)',
-              fontWeight: isHero ? 700 : 600,
-              letterSpacing: '-0.02em',
-              color: isHero ? '#fff' : 'var(--text)',
+              fontSize: isHero ? 25 : 'clamp(22px, 4vw, 28px)',
+              fontWeight: isHero ? 900 : 800,
+              letterSpacing: 0,
+              color: 'var(--text)',
               lineHeight: 1.2,
             }}
           >
@@ -126,7 +122,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
                 margin: '8px 0 0',
                 fontSize: 14,
                 lineHeight: 1.45,
-                color: isHero ? 'rgba(232,237,244,0.78)' : 'var(--text-muted)',
+                color: 'var(--text-muted)',
                 maxWidth: 720,
               }}
             >

@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import CityInput from '../components/CityInput';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { telHref } from '../utils/telLink';
+import { buildNewOrderPath } from '../utils/newOrderRoute';
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'];
 const UI_COLORS = {
@@ -180,6 +180,63 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+/** URL wideo/zdjęć z OS (`/uploads/…`) lub mock (`/api/uploads/…`). */
+function ogledzinyAssetAbs(url) {
+  if (!url) return '';
+  const s = String(url);
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  let origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const raw = String(process.env.REACT_APP_API_URL || '').trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    try {
+      origin = new URL(raw.replace(/\/api\/?$/i, '')).origin;
+    } catch {
+      /* ignore */
+    }
+  }
+  const path = s.startsWith('/') ? s : `/${s}`;
+  return `${origin.replace(/\/+$/, '')}${path}`;
+}
+
+function isOgledzinyVideoAsset(item) {
+  const marker = `${item?.kind || ''} ${item?.mime || ''} ${item?.url || ''}`.toLowerCase();
+  return marker.includes('video') || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(marker);
+}
+
+const FIELD_PROTOCOL_MARKERS = ['FORMULARZ OGLĘDZIN TERENOWYCH', 'FORMULARZ WYCENY TERENOWEJ'];
+const FIELD_PROTOCOL_LABELS = {
+  'Zakres prac': 'Zakres',
+  'Sprzęt / zasoby': 'Sprzęt',
+  Ryzyka: 'Ryzyka',
+  'Liczba osób': 'Ludzie',
+  'Szacowany czas': 'Czas',
+  'Budżet klienta / wycena': 'Budżet',
+  'Rabat / warunki': 'Rabat',
+  'Wynik rozmowy': 'Wynik',
+  'Dostęp / parking / uwagi posesji': 'Dostęp',
+  'Dodatkowe notatki wyceniającego': 'Notatki',
+};
+
+function parseFieldProtocol(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return null;
+  const marker = FIELD_PROTOCOL_MARKERS.find((m) => raw.includes(m));
+  if (!marker) return null;
+  const markerIndex = raw.indexOf(marker);
+  const before = raw.slice(0, markerIndex).trim();
+  const protocolRaw = raw.slice(markerIndex).trim();
+  const rows = [];
+  for (const line of protocolRaw.split(/\r?\n/).slice(1)) {
+    const [label, ...rest] = line.split(':');
+    if (!label || rest.length === 0) continue;
+    rows.push({
+      label: FIELD_PROTOCOL_LABELS[label.trim()] || label.trim(),
+      value: rest.join(':').trim(),
+    });
+  }
+  return { marker, before, rows, raw: protocolRaw };
+}
+
 function computeEtaMinutes(live, inspection) {
   const lat = Number(inspection?.lat);
   const lon = Number(inspection?.lon);
@@ -225,20 +282,6 @@ export default function Ogledziny() {
   const [liveLocationsByEstimator, setLiveLocationsByEstimator] = useState({});
   const [teamFilter, setTeamFilter] = useState('');
   const [dispatchMode, setDispatchMode] = useState(false);
-
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [klienciList, setKlienciList] = useState([]);
-  const [brygadList, setBrygadList] = useState([]);
-
-  const [form, setForm] = useState({
-    klient_id: searchParams.get('klient') || '',
-    brygadzista_id: '',
-    data_planowana: '',
-    adres: '',
-    miasto: '',
-    notatki: '',
-  });
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
@@ -294,49 +337,23 @@ export default function Ogledziny() {
 
   // Otwórz od razu formularz jeśli ?klient= w URL
   useEffect(() => {
-    if (searchParams.get('klient')) {
-      loadSelectData();
-      setShowForm(true);
+    const klientId = searchParams.get('klient');
+    if (klientId) {
+      navigate(buildNewOrderPath({
+        source: 'ogledziny',
+        klientId,
+      }), { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadSelectData = async () => {
-    try {
-      const [kRes, bRes] = await Promise.all([
-        api.get('/klienci'),
-        api.get('/uzytkownicy?rola=Brygadzista').catch(() => api.get('/uzytkownicy')),
-      ]);
-      setKlienciList(kRes.data);
-      const workers = bRes.data.filter(u => u.rola === 'Brygadzista' || u.rola === 'Kierownik' || u.rola === 'Administrator');
-      setBrygadList(workers);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const openForm = async () => {
-    await loadSelectData();
-    setForm({ klient_id: '', brygadzista_id: '', data_planowana: '', adres: '', miasto: '', notatki: '' });
-    setShowForm(true);
-  };
-
-  const handleSave = async () => {
-    if (!form.klient_id) { alert('Wybierz klienta'); return; }
-    setSaving(true);
-    try {
-      await api.post('/ogledziny', {
-        ...form,
-        klient_id: Number(form.klient_id),
-        brygadzista_id: form.brygadzista_id ? Number(form.brygadzista_id) : null,
-      });
-      setShowForm(false);
-      loadLista();
-    } catch (e) {
-      alert('Błąd: ' + getApiErrorMessage(e, e.message));
-    } finally {
-      setSaving(false);
-    }
+    const now = new Date();
+    navigate(buildNewOrderPath({
+      source: 'ogledziny',
+      data: now.toISOString().slice(0, 10),
+      godzina: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+    }));
   };
 
   const loadDetail = async (id) => {
@@ -405,6 +422,29 @@ export default function Ogledziny() {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return `${h}h ${m}m`;
+  };
+  const fieldEventLabel = (o) => {
+    if (o?.live_event_type === 'delay') {
+      const eta = Number(o.live_eta_min);
+      return Number.isFinite(eta) && eta > 0 ? `Opoznienie +${eta} min` : 'Opoznienie';
+    }
+    if (o?.live_event_type === 'start') return 'Start wizyty';
+    if (o?.live_event_type === 'done') return 'Zakonczone w terenie';
+    if (o?.live_event_type === 'heartbeat') return 'Sygnal GPS';
+    if (o?.live_event_type === 'note') return 'Notatka z trasy';
+    return '';
+  };
+  const fieldEventColor = (o) => {
+    if (o?.live_event_type === 'delay') return UI_COLORS.warning;
+    if (o?.live_event_type === 'done') return UI_COLORS.success;
+    if (o?.live_event_type === 'start') return UI_COLORS.info;
+    return 'var(--accent)';
+  };
+  const fieldEventMapUrl = (o) => {
+    const lat = Number(o?.live_lat);
+    const lng = Number(o?.live_lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   };
   const livePoints = Object.values(liveLocationsByTeam).filter(
     (p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))
@@ -497,6 +537,11 @@ export default function Ogledziny() {
     count: trasaList.filter((o) => o.status === s).length,
     color: sc(s),
   }));
+  const fieldLiveRows = trasaList
+    .filter((o) => o.live_event_type)
+    .sort((a, b) => new Date(b.live_recorded_at || 0).getTime() - new Date(a.live_recorded_at || 0).getTime());
+  const fieldDelayRows = fieldLiveRows.filter((o) => o.live_event_type === 'delay');
+  const detailProtocol = parseFieldProtocol(detail?.notatki_wyniki);
 
   useEffect(() => {
     localStorage.setItem('ogledziny_zone_overrides', JSON.stringify(zoneOverrides));
@@ -592,6 +637,55 @@ export default function Ogledziny() {
             </div>
 
             {/* Filtry statusów */}
+            {fieldLiveRows.length > 0 ? (
+              <div style={{ marginBottom: 10, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <strong style={{ fontSize: 12, color: 'var(--text)' }}>Live teren</strong>
+                  <span style={{ fontSize: 11, color: fieldDelayRows.length ? UI_COLORS.warning : 'var(--text-muted)', fontWeight: 700 }}>
+                    {fieldDelayRows.length ? `${fieldDelayRows.length} opoz.` : `${fieldLiveRows.length} sygn.`}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, maxHeight: 156, overflowY: 'auto' }}>
+                  {fieldLiveRows.slice(0, 5).map((o) => {
+                    const color = fieldEventColor(o);
+                    const mapUrl = fieldEventMapUrl(o);
+                    return (
+                      <button
+                        type="button"
+                        key={`field-live-${o.id}-${o.live_recorded_at || ''}`}
+                        onClick={() => loadDetail(o.id)}
+                        style={{
+                          textAlign: 'left',
+                          border: `1px solid ${color}44`,
+                          borderRadius: 8,
+                          background: `${color}12`,
+                          padding: '7px 8px',
+                          color: 'var(--text)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {o.klient_nazwa || `Ogledziny #${o.id}`}
+                          </span>
+                          <span style={{ fontSize: 10, color, fontWeight: 800, whiteSpace: 'nowrap' }}>{fieldEventLabel(o)}</span>
+                        </div>
+                        <div style={{ marginTop: 3, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 10, color: 'var(--text-muted)' }}>
+                          <span>{fmtGpsAge(o.live_recorded_at)}</span>
+                          {o.live_note ? <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 190 }}>{o.live_note}</span> : null}
+                          {mapUrl ? (
+                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color, textDecoration: 'none', fontWeight: 800 }}>
+                              Mapa
+                            </a>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <Chip active={filterStatus === ''} onClick={() => setFilterStatus('')} color="var(--accent)">Wszystkie</Chip>
               {STATUSY.map(s => (
@@ -1006,6 +1100,23 @@ export default function Ogledziny() {
                         ⚠ Brak GPS: {getAssignmentLabel(o, live)}
                       </div>
                     )}
+                    {fieldEventLabel(o) ? (
+                      <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          padding: '3px 8px',
+                          borderRadius: 8,
+                          border: `1px solid ${fieldEventColor(o)}44`,
+                          background: `${fieldEventColor(o)}12`,
+                          color: fieldEventColor(o),
+                        }}>
+                          {fieldEventLabel(o)}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{fmtGpsAge(o.live_recorded_at)}</span>
+                        {o.live_note ? <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{o.live_note}</span> : null}
+                      </div>
+                    ) : null}
                     {navigationUrl ? (
                       <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <a
@@ -1139,6 +1250,31 @@ export default function Ogledziny() {
                 </Card>
               </div>
 
+              {fieldEventLabel(detail) ? (
+                <section style={{ ...sec.wrap, borderColor: `${fieldEventColor(detail)}66` }}>
+                  <div style={sec.header}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={fieldEventColor(detail)} strokeWidth="2" strokeLinecap="round"><path d="M12 2v20"/><path d="m5 9 7-7 7 7"/><path d="M19 15H5"/></svg>
+                    <span style={{ ...sec.title, color: fieldEventColor(detail) }}>Live teren</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+                    <Row label="Status" value={fieldEventLabel(detail)} />
+                    <Row label="Ostatni sygnal" value={fmtGpsAge(detail.live_recorded_at)} />
+                    {detail.live_eta_min != null ? <Row label="ETA/opoznienie" value={`${detail.live_eta_min} min`} /> : null}
+                    {fieldEventMapUrl(detail) ? (
+                      <Row
+                        label="GPS"
+                        value={
+                          <a href={fieldEventMapUrl(detail)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'none' }}>
+                            Otworz mape
+                          </a>
+                        }
+                      />
+                    ) : null}
+                  </div>
+                  {detail.live_note ? <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.5 }}>{detail.live_note}</p> : null}
+                </section>
+              ) : null}
+
               {detail.notatki && (
                 <section style={sec.wrap}>
                   <div style={sec.header}>
@@ -1153,9 +1289,40 @@ export default function Ogledziny() {
                 <section style={{ ...sec.wrap, borderColor: 'rgba(52,211,153,0.3)' }}>
                   <div style={sec.header}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span style={sec.title}>Wyniki oględzin</span>
+                    <span style={sec.title}>{detailProtocol ? 'Protokół dla biura' : 'Wyniki oględzin'}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{detail.notatki_wyniki}</p>
+                  {detailProtocol ? (
+                    <>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: 10,
+                      }}>
+                        {detailProtocol.rows.map((row) => (
+                          <div key={row.label} style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: 10,
+                            background: 'var(--bg-deep)',
+                            padding: '9px 10px',
+                          }}>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                              {row.label}
+                            </div>
+                            <div style={{ marginTop: 4, fontSize: 13, color: 'var(--text)', fontWeight: 700, lineHeight: 1.45 }}>
+                              {row.value || '—'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {detailProtocol.before ? (
+                        <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.55 }}>
+                          {detailProtocol.before}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{detail.notatki_wyniki}</p>
+                  )}
                 </section>
               )}
 
@@ -1197,9 +1364,9 @@ export default function Ogledziny() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
                     {detail.zdjecia.map(z => (
-                      <a key={z.id} href={z.url} target="_blank" rel="noopener noreferrer">
+                      <a key={z.id} href={ogledzinyAssetAbs(z.url)} target="_blank" rel="noopener noreferrer">
                         <img
-                          src={z.url}
+                          src={ogledzinyAssetAbs(z.url)}
                           alt=""
                           style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)' }}
                         />
@@ -1209,85 +1376,45 @@ export default function Ogledziny() {
                 </section>
               )}
 
+              {detail.media?.length > 0 && (
+                <section style={sec.wrap}>
+                  <div style={sec.header}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                    <span style={sec.title}>Materiały z terenu ({detail.media.length})</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+                    {detail.media.map((m) => {
+                      const url = ogledzinyAssetAbs(m.url);
+                      const isVideo = isOgledzinyVideoAsset(m);
+                      return (
+                        <a key={m.id} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                          {isVideo ? (
+                            <video
+                              controls
+                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-deep)' }}
+                              src={url}
+                            />
+                          ) : (
+                            <img
+                              src={url}
+                              alt=""
+                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-deep)' }}
+                            />
+                          )}
+                          <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
+                            {isVideo ? 'Wideo' : 'Zdjęcie / szkic'}
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
             </div>
           )}
         </div>
       </div>
-
-      {/* ── MODAL: nowe oględziny ── */}
-      {showForm && (
-        <div style={modal.overlay} onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div style={modal.box}>
-            <div style={modal.header}>
-              <h3 style={modal.title}>Zaplanuj oględziny</h3>
-              <button onClick={() => setShowForm(false)} style={modal.closeBtn}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div style={{ overflowY: 'auto', maxHeight: 'calc(85vh - 120px)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '16px 24px 20px' }}>
-                <FormField label="Klient *" style={{ gridColumn: 'span 2' }}>
-                  <select style={inp.base} value={form.klient_id} onChange={e => {
-                    const k = klienciList.find(k => k.id === Number(e.target.value));
-                    setForm(f => ({
-                      ...f,
-                      klient_id: e.target.value,
-                      adres: k?.adres || f.adres,
-                      miasto: k?.miasto || f.miasto,
-                    }));
-                  }}>
-                    <option value="">— wybierz klienta —</option>
-                    {klienciList.map(k => (
-                      <option key={k.id} value={k.id}>
-                        {k.imie} {k.nazwisko}{k.firma ? ` (${k.firma})` : ''} {k.telefon ? `· ${k.telefon}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label="Brygadzista" style={{ gridColumn: 'span 2' }}>
-                  <select style={inp.base} value={form.brygadzista_id} onChange={e => setForm(f => ({ ...f, brygadzista_id: e.target.value }))}>
-                    <option value="">— nieprzypisany —</option>
-                    {brygadList.map(u => (
-                      <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({u.rola})</option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label="Data i godzina" style={{ gridColumn: 'span 2' }}>
-                  <input type="datetime-local" style={inp.base} value={form.data_planowana}
-                    onChange={e => setForm(f => ({ ...f, data_planowana: e.target.value }))} />
-                  <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                    Tylko termin wizyty u klienta — bez ceny i bez terminu realizacji zlecenia. Wycena i harmonogram brygad powstają później u wyceniającego.
-                  </p>
-                </FormField>
-                <FormField label="Adres">
-                  <input style={inp.base} value={form.adres}
-                    onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} placeholder="ul. Leśna 1" />
-                </FormField>
-                <FormField label="Miasto">
-                  <CityInput
-                    style={inp.base}
-                    value={form.miasto}
-                    onChange={e => setForm(f => ({ ...f, miasto: e.target.value }))}
-                    placeholder="Warszawa"
-                    extraCities={klienciList.map((k) => k.miasto)}
-                  />
-                </FormField>
-                <FormField label="Notatki" style={{ gridColumn: 'span 2' }}>
-                  <textarea style={{ ...inp.base, resize: 'vertical', minHeight: 70 }} value={form.notatki}
-                    onChange={e => setForm(f => ({ ...f, notatki: e.target.value }))}
-                    placeholder="Dodatkowe informacje dla brygadzisty..." />
-                </FormField>
-              </div>
-            </div>
-            <div style={modal.footer}>
-              <button onClick={() => setShowForm(false)} style={btn.secondaryGhost}>Anuluj</button>
-              <button onClick={handleSave} disabled={saving} style={btn.primary}>
-                {saving ? 'Zapisuję...' : 'Zaplanuj'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── MODAL: zmiana statusu ── */}
       {showStatusModal && (

@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 const s = {
   card: {
     backgroundColor: 'var(--bg-card)',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: '16px 18px',
     marginBottom: 16,
     boxShadow: '0 1px 4px rgba(0,0,0,0.06)',

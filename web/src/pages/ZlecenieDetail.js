@@ -32,6 +32,7 @@ import api from '../api';
 import CityInput from '../components/CityInput';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import TaskCommandCenter from '../components/TaskCommandCenter';
 import TaskStatusIcon from '../components/TaskStatusIcon';
 import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage } from '../utils/statusMessage';
@@ -39,6 +40,7 @@ import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
+import { TASK_STATUSES, getTaskStatusColor, isTaskDone } from '../utils/taskWorkflow';
 
 const BASE = '';
 
@@ -51,14 +53,6 @@ function photoTypMatches(typ, allowed) {
     .toLowerCase();
   return allowed.some((a) => a.toLowerCase() === t);
 }
-
-const STATUS_KOLOR = {
-  Nowe: 'var(--accent)',
-  Zaplanowane: '#15803D',
-  W_Realizacji: '#b45309',
-  Zakonczone: '#166534',
-  Anulowane: 'var(--danger)'
-};
 
 const PRIORYTET_KOLOR = {
   Niski: 'var(--text-muted)',
@@ -897,14 +891,14 @@ export default function ZlecenieDetail() {
           </div>
           <div style={styles.heroBadges}>
             {canEdit ? (
-              <select style={{...styles.statusSelect, backgroundColor: STATUS_KOLOR[zlecenie.status] || 'var(--text-muted)'}}
+              <select style={{...styles.statusSelect, backgroundColor: getTaskStatusColor(zlecenie.status, 'var(--text-muted)')}}
                 value={zlecenie.status} onChange={e => zmienStatus(e.target.value)}>
-                {['Nowe', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane'].map((s) => (
+                {TASK_STATUSES.map((s) => (
                   <option key={s} value={s}>{t(`taskStatus.${s}`, { defaultValue: s })}</option>
                 ))}
               </select>
             ) : (
-              <span style={{ ...styles.statusSelect, backgroundColor: STATUS_KOLOR[zlecenie.status] || 'var(--text-muted)', padding: '6px 16px', borderRadius: 20, color: '#fff', fontSize: 13, fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...styles.statusSelect, backgroundColor: getTaskStatusColor(zlecenie.status, 'var(--text-muted)'), padding: '6px 16px', borderRadius: 20, color: '#fff', fontSize: 13, fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <TaskStatusIcon status={zlecenie.status} size={16} color="#fff" />
                 {t(`taskStatus.${zlecenie.status}`, { defaultValue: zlecenie.status })}
               </span>
@@ -956,6 +950,23 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiLabel}>Filmy</div>
           </div>
         </div>
+
+        <TaskCommandCenter
+          task={zlecenie}
+          issues={issues}
+          photos={zdjecia}
+          videos={wideo}
+          documents={dokumenty}
+          workflowSla={workflowSla}
+          finishRequirements={finishRequirements}
+          activeWorkLog={activeWorkLog}
+          canEdit={canEdit}
+          isCrew={isEkipa}
+          onOpenTab={setActiveTab}
+          onStatusChange={zmienStatus}
+          onFinish={openFinishModal}
+          formatCurrency={formatCurrency}
+        />
 
         {isEkipa && zlecenie?.status === 'W_Realizacji' && (
           <div style={{ ...styles.card, borderLeft: '4px solid var(--accent)' }}>
@@ -1110,10 +1121,10 @@ export default function ZlecenieDetail() {
                 <div style={styles.card}>
                   <div style={styles.cardTitle}>Zmień status</div>
                   <div style={styles.statusGrid}>
-                    {['Nowe', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane'].map((s) => (
+                    {TASK_STATUSES.map((s) => (
                       <button key={s} type="button" style={{
                         ...styles.statusBtn,
-                        backgroundColor: zlecenie.status === s ? STATUS_KOLOR[s] : 'var(--border)',
+                        backgroundColor: zlecenie.status === s ? getTaskStatusColor(s) : 'var(--border)',
                         color: zlecenie.status === s ? '#fff' : 'var(--text)',
                         display: 'flex',
                         alignItems: 'center',
@@ -1661,7 +1672,7 @@ export default function ZlecenieDetail() {
             <div style={styles.cardTitle}>Naliczone dniówki</div>
             {dniowki.length === 0 ? (
               <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0', fontSize: 15, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                {zlecenie?.status === 'Zakonczone' ? (
+                {isTaskDone(zlecenie?.status) ? (
                   <>
                     <WarningAmberOutlined sx={{ fontSize: 32, opacity: 0.7 }} />
                     <span>Brak dniówek — sprawdź, czy backend ma podpiętą trasę /dniowki/zlecenie/:id</span>

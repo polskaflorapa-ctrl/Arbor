@@ -8,6 +8,7 @@ import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { telHref } from '../utils/telLink';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
+import { getTaskStatusColor } from '../utils/taskWorkflow';
 
 const ZRODLA = ['telefon', 'polecenie', 'internet', 'social media', 'wizytówka', 'inne'];
 
@@ -174,14 +175,14 @@ export default function Klienci() {
   }[s] || 'var(--text-muted)');
 
   const taskStatusColor = (s) => ({
-    'Nowe': '#1d4ed8', 'W_Trakcie': '#b45309', 'Zakończone': 'var(--accent-dk)',
+    'W_Trakcie': '#b45309', 'Zakończone': 'var(--accent-dk)',
     'Anulowane': 'var(--danger)', 'Wstrzymane': 'var(--text-muted)',
-  }[s] || 'var(--text-muted)');
+  }[s] || getTaskStatusColor(s, 'var(--text-muted)'));
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="app-shell clients-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
+      <main className="clients-main" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
         <div style={{ width: 340, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)' }}>
@@ -467,7 +468,7 @@ export default function Klienci() {
             </div>
           )}
         </div>
-      </div>
+      </main>
 
       {/* ── MODAL: formularz ── */}
       {showForm && (

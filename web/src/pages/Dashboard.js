@@ -3,19 +3,99 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import OpsRadar from '../components/OpsRadar';
 import { getRolaColor } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import {
+  CREW_REQUIRED_TASK_STATUSES,
+  getTaskStatusBadgeBg,
+  getTaskStatusColor,
+  isTaskClosed,
+  isTaskDone,
+  isTaskInProgress,
+} from '../utils/taskWorkflow';
 
-const STATUS_KOLOR = {
-  Nowe: 'var(--accent)', Zaplanowane: 'var(--info)',
-  W_Realizacji: 'var(--warning)', Zakonczone: '#047857', Anulowane: 'var(--danger)',
-};
-const STATUS_BG = {
-  Nowe: 'var(--accent-surface)', Zaplanowane: 'rgba(112,182,255,0.16)',
-  W_Realizacji: 'rgba(248,201,107,0.16)', Zakonczone: 'rgba(52,211,153,0.16)', Anulowane: 'rgba(255,127,169,0.16)',
-};
+function taskDateKey(task) {
+  return String(task?.data_planowana || task?.data_wykonania || '').slice(0, 10);
+}
+
+function moneyShort(value) {
+  return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN`;
+}
+
+function moneyCompact(value) {
+  return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł`;
+}
+
+function percent(value, total) {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, Math.round((Number(value) / Number(total)) * 100)));
+}
+
+function formatOrderId(task) {
+  return task?.numer || task?.kod || `ZLE-${String(task?.id || '').padStart(4, '0')}`;
+}
+
+function formatTaskDate(task) {
+  const raw = task?.data_planowana || task?.data_wykonania;
+  if (!raw) return 'Brak terminu';
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return String(raw).slice(0, 10);
+  return dt.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatTaskTime(task) {
+  if (task?.godzina_rozpoczecia) return String(task.godzina_rozpoczecia).slice(0, 5);
+  const raw = task?.data_planowana || '';
+  if (String(raw).includes('T')) return String(raw).slice(11, 16);
+  return '--:--';
+}
+
+function getTaskLocation(task) {
+  return task?.miasto || task?.oddzial_nazwa || task?.adres || 'Brak lokalizacji';
+}
+
+function statusLabel(status) {
+  return String(status || 'Nowe').replace('_', ' ');
+}
+
+function teamDisplayName(task) {
+  if (task?.ekipa_nazwa) return task.ekipa_nazwa;
+  if (task?.ekipa_id) return `Ekipa #${task.ekipa_id}`;
+  return 'Nieprzypisana';
+}
+
+function buildTeamRanking(tasks) {
+  const rows = new Map();
+  for (const task of tasks) {
+    if (!task?.ekipa_id && !task?.ekipa_nazwa) continue;
+    const key = task.ekipa_id || task.ekipa_nazwa;
+    const current = rows.get(key) || {
+      key,
+      name: teamDisplayName(task),
+      branch: task.oddzial_nazwa || task.miasto || '',
+      works: 0,
+      revenue: 0,
+      done: 0,
+      active: 0,
+    };
+    current.works += 1;
+    current.revenue += Number(task.wartosc_planowana) || 0;
+    if (isTaskDone(task.status)) current.done += 1;
+    if (isTaskInProgress(task.status)) current.active += 1;
+    rows.set(key, current);
+  }
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      score: row.done * 3 + row.active * 2 + row.works,
+      effectiveness: percent(row.done, row.works),
+    }))
+    .sort((a, b) => b.score - a.score || b.revenue - a.revenue)
+    .slice(0, 5);
+}
 
 function AnimatedNumber({ value, duration = 900 }) {
   const [display, setDisplay] = useState(0);
@@ -46,12 +126,19 @@ const QL_ICONS = {
   '/kierownik':     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
   '/ekipy':         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   '/raporty':       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  '/raport-dzienny': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  '/raporty-mobilne': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  '/misja-dnia': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
+  '/autoplan-dnia': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 3v18M3 12h18"/><path d="m7 12 2 2 4-4 4 4"/></svg>,
+  '/kpi-tydzien': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 3v18h18"/><path d="m7 13 3 3 7-7"/></svg>,
   '/flota':         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
   '/harmonogram':   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   '/oddzialy':      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   '/uzytkownicy':   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>,
   '/ksiegowosc':    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
   '/wycena-kalendarz': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="7" y="14" width="4" height="4" rx="0.5"/></svg>,
+  '/blokady-kalendarza': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 17l2-2 2 2 4-4"/></svg>,
+  '/zatwierdz-wyceny': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
   '/wynagrodzenie-wyceniajacych': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
   '/zarzadzaj-rolami': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
 };
@@ -94,15 +181,21 @@ const WEB_QUICK_CAT_TITLE = {
 function webQuickCategory(path) {
   if (['/zarzadzaj-rolami', '/uzytkownicy', '/oddzialy'].includes(path)) return 'administration';
   if (path === '/ksiegowosc' || path === '/wynagrodzenie-wyceniajacych') return 'finance';
-  if (path === '/raporty') return 'reports';
-  if (path === '/wycena-kalendarz') return 'quotes';
+  if (
+    path === '/raporty' ||
+    path.startsWith('/raporty/') ||
+    ['/raport-dzienny', '/raporty-mobilne', '/misja-dnia', '/autoplan-dnia', '/kpi-tydzien'].includes(path)
+  )
+    return 'reports';
+  if (['/wycena-kalendarz', '/blokady-kalendarza', '/zatwierdz-wyceny', '/wyceniajacy-hub'].includes(path))
+    return 'quotes';
   if (['/flota', '/magazyn', '/rezerwacje-sprzetu'].includes(path)) return 'fleetMagazyn';
   return 'operations';
 }
 
 const INSET_LIST = {
   group: {
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: 'hidden',
     border: '1px solid var(--border2)',
     background: 'var(--bg-deep)',
@@ -150,7 +243,7 @@ const INSET_LIST = {
   rowTitle: {
     fontSize: 16,
     fontWeight: 600,
-    letterSpacing: '-0.02em',
+    letterSpacing: 0,
     color: 'var(--text)',
     lineHeight: 1.25,
   },
@@ -172,6 +265,7 @@ const INSET_LIST = {
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ nowe: 0, w_realizacji: 0, zakonczone: 0 });
+  const [allTasks, setAllTasks] = useState([]);
   const [ostatnie, setOstatnie] = useState([]);
   const [payrollClose, setPayrollClose] = useState({
     export_allowed: true,
@@ -180,6 +274,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [hovered, setHovered] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   const loadAll = useCallback(async () => {
@@ -191,8 +286,10 @@ export default function Dashboard() {
         api.get('/tasks/stats', { headers: h }),
         api.get('/tasks/wszystkie', { headers: h }),
       ]);
+      const taskRows = Array.isArray(zRes.data) ? zRes.data : [];
       setStats(sRes.data);
-      setOstatnie(Array.isArray(zRes.data) ? zRes.data.slice(0, 8) : []);
+      setAllTasks(taskRows);
+      setOstatnie(taskRows.slice(0, 8));
       try {
         const month = new Date().toISOString().slice(0, 7);
         const pRes = await api.get('/payroll/month-close-status', {
@@ -219,6 +316,18 @@ export default function Dashboard() {
     loadAll();
   }, [navigate, loadAll]);
 
+  const openSmartTaskFilter = useCallback((filterKey) => {
+    if (filterKey) localStorage.setItem('zlecenia_smart_filter', filterKey);
+    navigate('/zlecenia');
+  }, [navigate]);
+
+  const runDashboardSearch = useCallback((event) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+    navigate(`/zlecenia?search=${encodeURIComponent(query)}`);
+  }, [navigate, searchQuery]);
+
   const isBrygadzista = user?.rola === 'Brygadzista';
   const isSpecjalista = user?.rola === 'Specjalista';
   const isWyceniajacy = user?.rola === 'Wyceniający';
@@ -226,14 +335,117 @@ export default function Dashboard() {
   const isPomocnik    = user?.rola === 'Pomocnik' || user?.rola === 'Pomocnik bez doświadczenia';
   const isWorker      = isBrygadzista || isSpecjalista || isPomocnik || isMagazynier;
   const canSeePayroll = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
-  const sumaWartosci = ostatnie.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
-  const statusCounts = ostatnie.reduce((acc, z) => {
+  const sumaWartosci = allTasks.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const openTasks = allTasks.filter((z) => !isTaskClosed(z.status));
+  const activeTasks = openTasks.filter((z) => isTaskInProgress(z.status));
+  const overdueTasks = openTasks.filter((z) => {
+    const day = taskDateKey(z);
+    return day && day < todayIso;
+  });
+  const todayTasks = openTasks.filter((z) => taskDateKey(z) === todayIso);
+  const unassignedTasks = openTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
+  const statusCounts = allTasks.reduce((acc, z) => {
     const key = z.status || 'Nowe';
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   const dzisiaj = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
   const rolaColor = getRolaColor(user?.rola);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const monthTasks = allTasks.filter((z) => String(z.data_planowana || z.data_wykonania || z.created_at || '').startsWith(currentMonth));
+  const monthRevenue = monthTasks.reduce((s, z) => s + (Number(z.wartosc_planowana) || 0), 0);
+  const completedMonth = monthTasks.filter((z) => isTaskDone(z.status)).length;
+  const allCrewNames = new Set(allTasks.filter((z) => z.ekipa_id || z.ekipa_nazwa).map(teamDisplayName));
+  const activeCrewNames = new Set(activeTasks.filter((z) => z.ekipa_id || z.ekipa_nazwa).map(teamDisplayName));
+  const crewAvailability = allCrewNames.size ? percent(activeCrewNames.size, allCrewNames.size) : 0;
+  const branchLabel = user?.oddzial_nazwa || 'Wszystkie oddziały';
+  const monthLabel = new Date().toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  const topKpiData = [
+    {
+      label: 'Zlecenia otwarte',
+      value: openTasks.length,
+      sub: `${overdueTasks.length} po terminie`,
+      icon: 'nowe',
+      tone: overdueTasks.length ? 'danger' : 'green',
+      path: '/zlecenia',
+      filterKey: overdueTasks.length ? 'overdue' : '',
+    },
+    {
+      label: 'Prace w trakcie',
+      value: activeTasks.length,
+      sub: `${activeCrewNames.size} ekip aktywnych`,
+      icon: 'realizacja',
+      tone: 'blue',
+      path: '/zlecenia',
+    },
+    {
+      label: 'Przychód miesiąca',
+      value: moneyCompact(monthRevenue || sumaWartosci),
+      sub: `${completedMonth} zamkniętych prac`,
+      icon: 'wartosc',
+      tone: 'green',
+      path: '/raporty',
+      isText: true,
+    },
+    {
+      label: 'Skuteczność miesiąca',
+      value: `${percent(completedMonth, monthTasks.length)}%`,
+      sub: `${completedMonth} / ${monthTasks.length || 0} zleceń`,
+      icon: 'zakonczone',
+      tone: 'lime',
+      path: '/kpi-tydzien',
+      isText: true,
+    },
+    {
+      label: 'Załogi w terenie',
+      value: `${activeCrewNames.size}/${allCrewNames.size || 0}`,
+      sub: `${crewAvailability}% aktywnych`,
+      icon: 'realizacja',
+      tone: 'blue',
+      path: '/ekipy',
+      isText: true,
+    },
+    {
+      label: 'Dzisiaj w planie',
+      value: todayTasks.length,
+      sub: `${unassignedTasks.length} bez ekipy`,
+      icon: 'nowe',
+      tone: unassignedTasks.length ? 'amber' : 'green',
+      path: '/harmonogram',
+    },
+  ];
+
+  const executiveSignals = [
+    {
+      label: 'Pieniadze w systemie',
+      value: moneyShort(sumaWartosci),
+      sub: `Otwarte: ${openTasks.length} | w realizacji: ${activeTasks.length}`,
+      path: '/raporty/analityka',
+      tone: 'green',
+    },
+    {
+      label: 'Ryzyko operacyjne',
+      value: overdueTasks.length + unassignedTasks.length,
+      sub: `Po terminie: ${overdueTasks.length} | bez ekipy: ${unassignedTasks.length}`,
+      filterKey: overdueTasks.length > 0 ? 'overdue' : 'unassigned',
+      tone: overdueTasks.length > 0 ? 'danger' : 'amber',
+    },
+    {
+      label: 'Plan na dzis',
+      value: todayTasks.length,
+      sub: activeTasks.length > 0 ? `${activeTasks.length} zlecen w realizacji` : 'Sprawdz harmonogram ekip',
+      path: '/harmonogram',
+      tone: 'blue',
+    },
+    {
+      label: 'Zamkniecie miesiaca',
+      value: payrollClose.export_allowed ? 'OK' : payrollClose.pending_count,
+      sub: payrollClose.export_allowed ? 'Raporty gotowe do eksportu' : `Brakuje raportow dnia: ${payrollClose.pending_count}`,
+      path: '/rozliczenia-ekip',
+      tone: payrollClose.export_allowed ? 'green' : 'danger',
+    },
+  ];
 
   const kpiData = [
     { label: 'Nowe zlecenia', sub: 'Oczekują na przypisanie', value: stats.nowe || 0, icon: 'nowe', path: '/zlecenia' },
@@ -259,12 +471,20 @@ export default function Dashboard() {
     { label: 'Nowe zlecenie',  sub: 'Utwórz zlecenie',       path: '/nowe-zlecenie', color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Planowanie',     sub: 'Przypisz ekipy',         path: '/kierownik',     color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Ekipy',          sub: 'Zarządzaj ekipami',      path: '/ekipy',         color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
-    { label: 'Raporty',        sub: 'Analiza wydajności',     path: '/raporty',           color: 'var(--accent-dk)', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista'] },
+    { label: 'Raporty',        sub: 'Analiza wydajności',     path: '/raporty',           color: 'var(--accent-dk)', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Pomocnik','Pomocnik bez doświadczenia'] },
+    { label: 'Misja dnia', sub: 'Tryb dziś — KPI i plan', path: '/misja-dnia', color: '#38BDF8', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Pomocnik','Pomocnik bez doświadczenia'] },
+    { label: 'Autoplan dnia', sub: 'Przypisanie ekip (heurystyka)', path: '/autoplan-dnia', color: '#22D3EE', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Pomocnik','Pomocnik bez doświadczenia'] },
+    { label: 'KPI autoplan (tydzień)', sub: 'Historia apply / rollback', path: '/kpi-tydzien', color: '#67E8F9', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Pomocnik','Pomocnik bez doświadczenia'] },
+    { label: 'Raport dzienny', sub: 'Pole — zlecenia, czasy, materiały', path: '/raport-dzienny', color: '#34D399', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Pomocnik','Pomocnik bez doświadczenia'] },
+    { label: 'Raporty mobilne', sub: 'KPI z ostatnich miesięcy', path: '/raporty-mobilne', color: '#2DD4BF', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Pomocnik','Pomocnik bez doświadczenia'] },
     { label: 'Flota i sprzęt', sub: 'Pojazdy i narzędzia',   path: '/flota',             color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Magazyn',        sub: 'Stan lokalny (jak w aplikacji mobilnej)', path: '/magazyn', color: '#A3E635', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Rezerwacje sprzętu', sub: 'Kalendarz rezerwacji', path: '/rezerwacje-sprzetu', color: '#22D3EE', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Harmonogram',    sub: 'Kalendarz zleceń',       path: '/harmonogram',       color: '#60A5FA', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Magazynier'] },
+    { label: 'Hub wyceniającego', sub: 'KPI oględzin i skróty (jak w mobile)', path: '/wyceniajacy-hub', color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Wyceny',         sub: 'Kalendarz, oględziny, zatwierdzanie', path: '/wycena-kalendarz',  color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
+    { label: 'Blokady kalendarza', sub: 'Daty bez nowych wycen (też mobilka)', path: '/blokady-kalendarza', color: '#F87171', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
+    { label: 'Zatwierdzanie wycen', sub: 'Akceptacja i odrzucenie', path: '/zatwierdz-wyceny', color: '#34D399', roles: ['Kierownik','Administrator','Dyrektor','Specjalista'] },
     { label: 'Rozliczenie wyc.', sub: 'Stawka + % realizacji', path: '/wynagrodzenie-wyceniajacych', color: '#34D399', roles: ['Wyceniający','Kierownik','Dyrektor','Administrator'] },
     { label: 'Oddziały',       sub: 'Zarządzanie',            path: '/oddzialy',          color: '#60A5FA', roles: ['Dyrektor','Administrator'] },
     { label: 'Użytkownicy',    sub: 'Konta i uprawnienia',    path: '/uzytkownicy',       color: '#F87171', roles: ['Dyrektor','Administrator'] },
@@ -272,9 +492,26 @@ export default function Dashboard() {
     { label: 'Księgowość',     sub: 'Faktury i rozliczenia',  path: '/ksiegowosc',        color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik'] },
   ].filter(i => i.roles.includes(user?.rola)), [user?.rola]);
 
+  const visibleQuickLinks = useMemo(() => {
+    const reportEntry = quickLinks.find((item) => webQuickCategory(item.path) === 'reports');
+    const nonReports = quickLinks.filter((item) => webQuickCategory(item.path) !== 'reports');
+    return reportEntry
+      ? [
+          ...nonReports,
+          {
+            ...reportEntry,
+            label: 'Centrum raportow',
+            sub: 'Raport dnia, KPI, misja i autoplan',
+            path: '/raporty',
+            color: 'var(--accent-dk)',
+          },
+        ]
+      : nonReports;
+  }, [quickLinks]);
+
   const quickLinkSections = useMemo(() => {
     const by = Object.fromEntries(WEB_QUICK_CAT_ORDER.map((k) => [k, []]));
-    for (const item of quickLinks) {
+    for (const item of visibleQuickLinks) {
       const c = webQuickCategory(item.path);
       (by[c] ?? by.operations).push(item);
     }
@@ -285,13 +522,92 @@ export default function Dashboard() {
         title: WEB_QUICK_CAT_TITLE[key],
         items: by[key],
       }));
-  }, [quickLinks]);
+  }, [visibleQuickLinks]);
+
+  const teamRanking = buildTeamRanking(monthTasks.length ? monthTasks : allTasks);
+  const scheduleItems = [...todayTasks]
+    .sort((a, b) => String(a.godzina_rozpoczecia || a.data_planowana || '').localeCompare(String(b.godzina_rozpoczecia || b.data_planowana || '')))
+    .slice(0, 6);
+  const alertItems = [
+    overdueTasks.length
+      ? { tone: 'danger', label: 'Zlecenia po terminie', detail: `${overdueTasks.length} wymaga decyzji`, action: () => openSmartTaskFilter('overdue') }
+      : null,
+    unassignedTasks.length
+      ? { tone: 'warning', label: 'Brak przypisanej ekipy', detail: `${unassignedTasks.length} zleceń do dyspozycji`, action: () => openSmartTaskFilter('unassigned') }
+      : null,
+    !payrollClose.export_allowed
+      ? { tone: 'danger', label: 'Rozliczenia zablokowane', detail: `Brakuje raportów: ${payrollClose.pending_count}`, action: () => navigate('/rozliczenia-ekip') }
+      : null,
+    todayTasks.length
+      ? { tone: 'info', label: 'Plan dnia gotowy', detail: `${todayTasks.length} prac w harmonogramie`, action: () => navigate('/harmonogram') }
+      : { tone: 'info', label: 'Brak prac na dziś', detail: 'Sprawdź harmonogram tygodnia', action: () => navigate('/harmonogram') },
+    { tone: 'success', label: 'System działa', detail: `Ostatnia aktualizacja: ${new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`, action: () => navigate('/powiadomienia') },
+  ].filter(Boolean);
+  const operationalMetrics = [
+    { label: 'Wykonanie planu prac', value: percent(completedMonth, monthTasks.length || openTasks.length), meta: `${completedMonth} / ${monthTasks.length || openTasks.length || 0}` },
+    { label: 'Załogi aktywne', value: crewAvailability, meta: `${activeCrewNames.size} / ${allCrewNames.size || 0}` },
+    { label: 'Terminowość', value: percent(openTasks.length - overdueTasks.length, openTasks.length), meta: `${overdueTasks.length} po terminie` },
+    { label: 'Obsada zleceń', value: percent(openTasks.length - unassignedTasks.length, openTasks.length), meta: `${unassignedTasks.length} bez ekipy` },
+  ];
+  const reportShortcuts = [
+    { label: 'P&L', path: '/raporty/analityka' },
+    { label: 'Prace', path: '/raporty' },
+    { label: 'Załogi', path: '/kpi-tydzien' },
+    { label: 'Finanse', path: '/ksiegowosc' },
+  ].filter((item) => visibleQuickLinks.some((link) => link.path === item.path) || item.path === '/raporty/analityka');
 
   return (
-    <div style={d.root}>
+    <div className="app-shell dashboard-shell" style={d.root}>
       <Sidebar />
-      <div style={d.content}>
+      <main className="app-main dashboard-main" style={d.content}>
         <StatusMessage message={error || ''} tone={error ? 'error' : undefined} style={d.errorBanner} />
+
+        <header className="dashboard-topbar" style={d.topbar}>
+          <div style={d.topbarTitleWrap}>
+            <button type="button" style={d.menuBtn} aria-label="Menu">
+              <span style={d.menuLine} />
+              <span style={d.menuLine} />
+              <span style={d.menuLine} />
+            </button>
+            <div>
+              <h1 style={d.pageTitle}>Pulpit</h1>
+              <div style={d.pageSub}>Oddział: {branchLabel} | {monthLabel}</div>
+            </div>
+          </div>
+          <form style={d.searchBox} onSubmit={runDashboardSearch}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') runDashboardSearch(event);
+              }}
+              style={d.searchInput}
+              placeholder="Szukaj zleceń, klientów, prac..."
+            />
+            <button type="submit" style={d.searchShortcut}>Enter</button>
+          </form>
+          <div style={d.topbarMeta}>
+            <button type="button" onClick={() => navigate('/powiadomienia')} style={d.iconStatusBtn} aria-label="Powiadomienia">
+              <span style={d.statusDot}>{alertItems.length}</span>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </button>
+            <div style={d.weatherBox}>
+              <strong>14°C</strong>
+              <span>{branchLabel}</span>
+            </div>
+            <div style={d.dateBox}>
+              <strong>{new Date().toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' })}</strong>
+              <span>{dzisiaj}</span>
+            </div>
+          </div>
+        </header>
 
         {/* ─── HERO HEADER ─────────────────────────────────────────────────── */}
         <div style={d.hero}>
@@ -314,6 +630,205 @@ export default function Dashboard() {
         </div>
 
         {/* ─── KPI (grupa inset, jak iOS) ───────────────────────────────────── */}
+        <section className="dashboard-kpi-grid" style={d.kpiGrid}>
+          {topKpiData.map((kpi, index) => (
+            <button
+              key={kpi.label}
+              type="button"
+              onClick={() => kpi.filterKey ? openSmartTaskFilter(kpi.filterKey) : navigate(kpi.path)}
+              onMouseEnter={() => setHovered(`top-kpi-${index}`)}
+              onMouseLeave={() => setHovered(null)}
+              style={{
+                ...d.kpiCard,
+                ...(d[`kpiCard_${kpi.tone}`] || {}),
+                transform: hovered === `top-kpi-${index}` ? 'translateY(-2px)' : 'none',
+              }}
+            >
+              <span style={d.kpiIcon}>{KPI_ICONS[kpi.icon]}</span>
+              <span style={d.kpiCardText}>
+                <span style={d.kpiCardLabel}>{kpi.label}</span>
+                <strong style={d.kpiCardValue}>
+                  {kpi.isText ? kpi.value : <AnimatedNumber value={kpi.value} />}
+                </strong>
+                <span style={d.kpiCardSub}>{kpi.sub}</span>
+              </span>
+            </button>
+          ))}
+        </section>
+
+        <section className="dashboard-content-grid" style={d.referenceGrid}>
+          <div style={d.panelWide}>
+            <div style={d.panelHeader}>
+              <div>
+                <h2 style={d.panelTitle}>{isBrygadzista ? 'Moje zlecenia' : 'Ostatnie zlecenia'}</h2>
+                <p style={d.panelSub}>Operacyjny podgląd prac, statusów i wartości.</p>
+              </div>
+              <button type="button" onClick={() => navigate('/zlecenia')} style={d.linkBtn}>Zobacz wszystkie</button>
+            </div>
+            <div className="dashboard-orders-table" style={d.tableShell}>
+              <div style={d.tableHead}>
+                <span>ID</span>
+                <span>Klient</span>
+                <span>Lokalizacja</span>
+                <span>Status</span>
+                <span>Termin</span>
+                <span>Wartość</span>
+              </div>
+              {loading ? (
+                <div style={d.tableEmpty}>Ładowanie danych...</div>
+              ) : ostatnie.length === 0 ? (
+                <div style={d.tableEmpty}>Brak zleceń do pokazania.</div>
+              ) : (
+                ostatnie.slice(0, 5).map((task) => (
+                  <button key={task.id} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.tableRow}>
+                    <span style={d.tableId}>{formatOrderId(task)}</span>
+                    <span style={d.tableStrong}>{task.klient_nazwa || 'Brak klienta'}</span>
+                    <span>{getTaskLocation(task)}</span>
+                    <span>
+                      <span style={{ ...d.statusBadge, background: getTaskStatusBadgeBg(task.status), color: getTaskStatusColor(task.status, 'var(--text-sub)') }}>
+                        {statusLabel(task.status)}
+                      </span>
+                    </span>
+                    <span>{formatTaskDate(task)}</span>
+                    <span style={d.tableValue}>{task.wartosc_planowana ? moneyCompact(task.wartosc_planowana) : '-'}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div style={d.panel}>
+            <div style={d.panelHeader}>
+              <div>
+                <h2 style={d.panelTitle}>Ranking załóg</h2>
+                <p style={d.panelSub}>Miesiąc: {monthLabel}</p>
+              </div>
+              <button type="button" onClick={() => navigate('/kpi-tydzien')} style={d.linkBtn}>Raport</button>
+            </div>
+            <div style={d.rankingList}>
+              {teamRanking.length === 0 ? (
+                <div style={d.tableEmpty}>Brak danych załóg.</div>
+              ) : teamRanking.map((team, index) => (
+                <button key={team.key} type="button" onClick={() => navigate('/kpi-tydzien')} style={d.rankingRow}>
+                  <span style={{ ...d.placeBadge, ...(index < 3 ? d[`placeBadge_${index}`] : {}) }}>{index + 1}</span>
+                  <span style={d.teamLeaf} aria-hidden>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <path d="M12 22V8" />
+                      <path d="M5 12c0-5 4-8 7-10 3 2 7 5 7 10 0 4-3 7-7 7s-7-3-7-7Z" />
+                      <path d="M12 16c2-2 4-4 6-4" />
+                      <path d="M12 14c-2-2-4-3-6-3" />
+                    </svg>
+                  </span>
+                  <span style={d.rankingName}>
+                    <strong>{team.name}</strong>
+                    <small>{team.branch || branchLabel}</small>
+                  </span>
+                  <span style={d.rankingMetric}>{team.works}</span>
+                  <span style={d.rankingMetric}>{moneyCompact(team.revenue)}</span>
+                  <span style={d.rankingMetric}>{team.effectiveness}%</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-lower-grid" style={d.lowerGrid}>
+          <div style={d.panel}>
+            <div style={d.panelHeader}>
+              <div>
+                <h2 style={d.panelTitle}>Harmonogram prac</h2>
+                <p style={d.panelSub}>Dziś | {dzisiaj}</p>
+              </div>
+              <button type="button" onClick={() => navigate('/harmonogram')} style={d.linkBtn}>Pełny kalendarz</button>
+            </div>
+            <div style={d.scheduleList}>
+              {scheduleItems.length === 0 ? (
+                <div style={d.tableEmpty}>Brak zaplanowanych prac na dziś.</div>
+              ) : scheduleItems.map((task) => (
+                <button key={task.id} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.scheduleRow}>
+                  <span style={d.scheduleTime}>{formatTaskTime(task)}</span>
+                  <span style={d.scheduleMain}>
+                    <strong>{task.typ_uslugi || task.klient_nazwa || 'Zlecenie'}</strong>
+                    <small>{getTaskLocation(task)} | {teamDisplayName(task)}</small>
+                  </span>
+                  <span style={d.scheduleArrow}>{QL_CHEVRON}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={d.panel}>
+            <div style={d.panelHeader}>
+              <div>
+                <h2 style={d.panelTitle}>Alerty i powiadomienia</h2>
+                <p style={d.panelSub}>Najważniejsze sygnały operacyjne.</p>
+              </div>
+            </div>
+            <div style={d.alertList}>
+              {alertItems.slice(0, 5).map((alert, index) => (
+                <button key={`${alert.label}-${index}`} type="button" onClick={alert.action} style={d.alertRow}>
+                  <span style={{ ...d.alertIcon, ...(d[`alertIcon_${alert.tone}`] || {}) }} />
+                  <span style={d.alertText}>
+                    <strong>{alert.label}</strong>
+                    <small>{alert.detail}</small>
+                  </span>
+                  <span style={d.scheduleArrow}>{QL_CHEVRON}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={d.panel}>
+            <div style={d.panelHeader}>
+              <div>
+                <h2 style={d.panelTitle}>Wskaźniki operacyjne</h2>
+                <p style={d.panelSub}>Aktualny puls firmy.</p>
+              </div>
+            </div>
+            <div style={d.metricList}>
+              {operationalMetrics.map((metric) => (
+                <div key={metric.label} style={d.metricRow}>
+                  <div style={d.metricTop}>
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}%</strong>
+                  </div>
+                  <div style={d.progressTrack}>
+                    <span style={{ ...d.progressFill, width: `${metric.value}%` }} />
+                  </div>
+                  <small style={d.metricMeta}>{metric.meta}</small>
+                </div>
+              ))}
+            </div>
+            <div style={d.reportShortcuts}>
+              {reportShortcuts.map((item) => (
+                <button key={item.path} type="button" onClick={() => navigate(item.path)} style={d.reportBtn}>{item.label}</button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section style={d.shortcutPanel}>
+          <div style={d.panelHeader}>
+            <div>
+              <h2 style={d.panelTitle}>Skróty modułów</h2>
+              <p style={d.panelSub}>Najczęściej używane ścieżki dla Twojej roli.</p>
+            </div>
+          </div>
+          <div className="dashboard-shortcuts-grid" style={d.shortcutGrid}>
+            {quickLinkSections.slice(0, 4).map((sec) => (
+              <div key={sec.key} style={d.shortcutGroup}>
+                <div style={d.shortcutGroupTitle}>{sec.title}</div>
+                {sec.items.slice(0, 3).map((item) => (
+                  <button key={item.path} type="button" onClick={() => navigate(item.path)} style={d.shortcutRow}>
+                    <span style={{ ...d.shortcutDot, background: item.color || 'var(--accent)' }} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {!isWyceniajacy && (
           <div style={d.kpiSection}>
             <div style={d.insetGroup}>
@@ -347,6 +862,53 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+        )}
+
+        {canSeePayroll && (
+          <section style={d.executivePanel}>
+            <div style={d.executiveHead}>
+              <div>
+                <div style={d.executiveEyebrow}>Panel prezesa</div>
+                <h2 style={d.executiveTitle}>Najwazniejsze decyzje bez szukania po menu</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/raporty')}
+                style={d.executiveAction}
+              >
+                Centrum raportow
+                {QL_CHEVRON}
+              </button>
+            </div>
+            <div style={d.executiveGrid}>
+              {executiveSignals.map((signal, i) => (
+                <button
+                  key={signal.label}
+                  type="button"
+                  onClick={() => signal.filterKey ? openSmartTaskFilter(signal.filterKey) : navigate(signal.path)}
+                  onMouseEnter={() => setHovered(`exec-${i}`)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{
+                    ...d.executiveTile,
+                    ...(d[`executiveTile_${signal.tone}`] || d.executiveTile_green),
+                    background: hovered === `exec-${i}` ? 'var(--bg-card2)' : 'var(--bg-deep)',
+                  }}
+                >
+                  <span style={d.executiveTileLabel}>{signal.label}</span>
+                  <strong style={d.executiveTileValue}>{signal.value}</strong>
+                  <span style={d.executiveTileSub}>{signal.sub}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!isWyceniajacy && (
+          <OpsRadar
+            tasks={allTasks}
+            payrollClose={payrollClose}
+            onOpenFilter={openSmartTaskFilter}
+          />
         )}
 
         <div style={d.commandGrid}>
@@ -388,6 +950,8 @@ export default function Dashboard() {
             <div style={d.insetGroupLift}>
               {[
                 { label: 'Nowe', value: statusCounts.Nowe || 0 },
+                { label: 'Oględziny / wycena', value: statusCounts.Wycena_Terenowa || 0 },
+                { label: 'Do zatwierdzenia', value: statusCounts.Do_Zatwierdzenia || 0 },
                 { label: 'Zaplanowane', value: statusCounts.Zaplanowane || 0 },
                 { label: 'W realizacji', value: statusCounts.W_Realizacji || 0 },
                 { label: 'Zakończone', value: statusCounts.Zakonczone || 0 },
@@ -433,7 +997,7 @@ export default function Dashboard() {
                   onClick={() => navigate(`/zlecenia/${z.id}`)}
                   onMouseEnter={() => setHovered(`z${z.id}`)}
                   onMouseLeave={() => setHovered(null)}
-                  style={{ ...d.zRow, borderLeftColor: STATUS_KOLOR[z.status] || '#334155',
+                  style={{ ...d.zRow, borderLeftColor: getTaskStatusColor(z.status, '#334155'),
                     background: hovered === `z${z.id}` ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={d.zKlient}>{z.klient_nazwa}</div>
@@ -443,7 +1007,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ ...d.statusBadge, background: STATUS_BG[z.status], color: STATUS_KOLOR[z.status] || '#94A3B8' }}>
+                    <span style={{ ...d.statusBadge, background: getTaskStatusBadgeBg(z.status), color: getTaskStatusColor(z.status, '#94A3B8') }}>
                       {z.status?.replace('_', ' ')}
                     </span>
                     {!isBrygadzista && z.wartosc_planowana && (
@@ -501,17 +1065,21 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
 
 const d = {
-  root: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' },
-  content: { flex: 1, padding: '28px 32px', overflowX: 'hidden', minWidth: 0, position: 'relative' },
+  root: {
+    display: 'flex',
+    minHeight: '100vh',
+    background: 'linear-gradient(145deg, var(--bg-deep) 0%, var(--bg) 48%, var(--bg-edge) 100%)',
+  },
+  content: { flex: 1, padding: '18px clamp(16px, 2.4vw, 28px) 28px', overflowX: 'hidden', minWidth: 0, position: 'relative' },
   errorBanner: {
     padding: '10px 14px',
-    borderRadius: 10,
+    borderRadius: 8,
     border: '1px solid #EF9A9A',
     background: '#FFEBEE',
     color: '#C62828',
@@ -519,39 +1087,378 @@ const d = {
     fontSize: 14,
     fontWeight: 600,
   },
+  topbar: {
+    minHeight: 66,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(220px, 1fr) minmax(280px, 520px) auto',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 14,
+    padding: '12px 14px',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 10,
+    background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  topbarTitleWrap: { display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 },
+  menuBtn: {
+    width: 36,
+    height: 36,
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    display: 'inline-flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  menuLine: { width: 15, height: 2, borderRadius: 4, background: 'currentColor', opacity: 0.86 },
+  pageTitle: { margin: 0, fontSize: 22, lineHeight: 1.1, fontWeight: 900, color: 'var(--text)' },
+  pageSub: { marginTop: 4, fontSize: 12, color: 'var(--text-muted)', fontWeight: 750, textTransform: 'capitalize' },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 40,
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text-muted)',
+    padding: '0 10px',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text)',
+    outline: 'none',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  searchShortcut: {
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    padding: '2px 6px',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 850,
+  },
+  topbarMeta: { display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' },
+  iconStatusBtn: {
+    position: 'relative',
+    width: 38,
+    height: 38,
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  statusDot: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    padding: '0 5px',
+    borderRadius: 99,
+    background: '#f2b84b',
+    color: '#1b1203',
+    fontSize: 10,
+    fontWeight: 900,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weatherBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
+  dateBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
+  kpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(6, minmax(145px, 1fr))',
+    gap: 12,
+    marginBottom: 14,
+  },
+  kpiCard: {
+    minHeight: 104,
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(150deg, var(--bg-card), var(--bg-card2))',
+    color: 'var(--text)',
+    padding: 14,
+    display: 'grid',
+    gridTemplateColumns: '42px 1fr',
+    alignItems: 'center',
+    gap: 12,
+    textAlign: 'left',
+    cursor: 'pointer',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  kpiCard_green: { border: '1px solid rgba(120,242,173,0.24)' },
+  kpiCard_lime: { border: '1px solid rgba(163,230,53,0.24)' },
+  kpiCard_blue: { border: '1px solid rgba(91,192,235,0.24)' },
+  kpiCard_amber: { border: '1px solid rgba(242,184,75,0.28)' },
+  kpiCard_danger: { border: '1px solid rgba(248,113,113,0.3)' },
+  kpiIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--accent)',
+    background: 'var(--logo-tint-bg)',
+    border: '1px solid var(--logo-tint-border)',
+  },
+  kpiCardText: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 },
+  kpiCardLabel: { fontSize: 11, color: 'var(--text-sub)', fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.2 },
+  kpiCardValue: { fontSize: 24, color: 'var(--text)', fontWeight: 950, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
+  kpiCardSub: { fontSize: 12, color: 'var(--accent)', fontWeight: 800, lineHeight: 1.25 },
+  referenceGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.05fr) minmax(360px, .95fr)',
+    gap: 14,
+    marginBottom: 14,
+  },
+  lowerGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(320px, 1.25fr) minmax(300px, .9fr) minmax(300px, .9fr)',
+    gap: 14,
+    marginBottom: 14,
+  },
+  panel: {
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
+    boxShadow: 'var(--shadow-sm)',
+    overflow: 'hidden',
+  },
+  panelWide: {
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
+    boxShadow: 'var(--shadow-sm)',
+    overflow: 'hidden',
+  },
+  panelHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: '14px 16px',
+    borderBottom: '1px solid var(--border)',
+  },
+  panelTitle: { margin: 0, fontSize: 15, color: 'var(--text)', fontWeight: 950, textTransform: 'uppercase', lineHeight: 1.25 },
+  panelSub: { margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, lineHeight: 1.35 },
+  linkBtn: {
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--accent)',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  tableShell: { padding: '0 14px 14px', overflowX: 'auto' },
+  tableHead: {
+    display: 'grid',
+    gridTemplateColumns: '110px minmax(190px, 1.3fr) minmax(110px, .8fr) 110px 100px 100px',
+    gap: 12,
+    minWidth: 760,
+    padding: '12px 0 9px',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    borderBottom: '1px solid var(--border)',
+  },
+  tableRow: {
+    display: 'grid',
+    gridTemplateColumns: '110px minmax(190px, 1.3fr) minmax(110px, .8fr) 110px 100px 100px',
+    gap: 12,
+    alignItems: 'center',
+    minWidth: 760,
+    width: '100%',
+    minHeight: 46,
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 750,
+  },
+  tableId: { color: 'var(--text)', fontWeight: 900 },
+  tableStrong: { color: 'var(--text)', fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  tableValue: { color: 'var(--text)', fontWeight: 900, textAlign: 'right' },
+  tableEmpty: { padding: 18, color: 'var(--text-muted)', fontSize: 13, fontWeight: 750 },
+  rankingList: { padding: '8px 12px 12px' },
+  rankingRow: {
+    display: 'grid',
+    gridTemplateColumns: '34px 34px minmax(120px, 1fr) 44px 86px 52px',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    minHeight: 50,
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  placeBadge: {
+    width: 25,
+    height: 25,
+    borderRadius: '50%',
+    border: '1px solid var(--border2)',
+    color: 'var(--text-muted)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 11,
+    fontWeight: 950,
+  },
+  placeBadge_0: { color: '#f2b84b', border: '1px solid #f2b84b' },
+  placeBadge_1: { color: '#cbd5e1', border: '1px solid #cbd5e1' },
+  placeBadge_2: { color: '#c47f3b', border: '1px solid #c47f3b' },
+  teamLeaf: {
+    width: 28,
+    height: 28,
+    borderRadius: '50%',
+    background: 'var(--logo-tint-bg)',
+    color: 'var(--accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankingName: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+  rankingMetric: { color: 'var(--text)', fontSize: 12, fontWeight: 850, textAlign: 'right' },
+  scheduleList: { padding: '8px 12px 12px' },
+  scheduleRow: {
+    display: 'grid',
+    gridTemplateColumns: '58px 1fr 24px',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    minHeight: 47,
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  scheduleTime: { color: 'var(--accent)', fontWeight: 950, fontSize: 12, fontVariantNumeric: 'tabular-nums' },
+  scheduleMain: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+  scheduleArrow: { color: 'var(--text-muted)', display: 'inline-flex', justifyContent: 'flex-end' },
+  alertList: { padding: '8px 12px 12px' },
+  alertRow: {
+    display: 'grid',
+    gridTemplateColumns: '28px 1fr 22px',
+    gap: 9,
+    alignItems: 'center',
+    width: '100%',
+    minHeight: 48,
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  alertIcon: { width: 18, height: 18, borderRadius: 6, border: '1px solid var(--border2)', background: 'var(--accent-surface)' },
+  alertIcon_danger: { border: '1px solid rgba(248,113,113,0.45)', background: 'var(--danger-surface)' },
+  alertIcon_warning: { border: '1px solid rgba(242,184,75,0.45)', background: 'var(--warning-surface)' },
+  alertIcon_info: { border: '1px solid rgba(91,192,235,0.45)', background: 'rgba(91,192,235,0.13)' },
+  alertIcon_success: { border: '1px solid rgba(52,211,153,0.45)', background: 'var(--success-surface)' },
+  alertText: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+  metricList: { padding: '12px 14px 10px', display: 'flex', flexDirection: 'column', gap: 12 },
+  metricRow: { display: 'flex', flexDirection: 'column', gap: 6 },
+  metricTop: { display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--text-sub)', fontSize: 12, fontWeight: 850 },
+  progressTrack: { height: 6, borderRadius: 8, overflow: 'hidden', background: 'rgba(148,163,184,0.18)' },
+  progressFill: { display: 'block', height: '100%', borderRadius: 8, background: 'var(--accent-gradient)' },
+  metricMeta: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 750 },
+  reportShortcuts: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, padding: '0 14px 14px' },
+  reportBtn: {
+    minHeight: 32,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--surface-field)',
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 850,
+    cursor: 'pointer',
+  },
+  shortcutPanel: {
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
+    boxShadow: 'var(--shadow-sm)',
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  shortcutGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 10, padding: 14 },
+  shortcutGroup: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 10, minWidth: 0 },
+  shortcutGroupTitle: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 950, textTransform: 'uppercase', marginBottom: 8 },
+  shortcutRow: {
+    width: '100%',
+    minHeight: 30,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    fontWeight: 800,
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  shortcutDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
 
   // Hero
   hero: {
-    position: 'relative', borderRadius: 20, padding: '28px 32px', marginBottom: 24,
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+    display: 'none',
+    position: 'relative', borderRadius: 8, padding: '24px 28px', marginBottom: 22,
+    justifyContent: 'space-between', alignItems: 'center',
+    background: 'var(--bg-card)',
     border: '1px solid var(--border2)', overflow: 'hidden',
     boxShadow: 'var(--shadow-md)',
   },
   heroBg: {
-    position: 'absolute', top: -60, right: -60, width: 200, height: 200,
-    borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.14) 0%, transparent 70%)',
+    display: 'none', position: 'absolute', top: -60, right: -60, width: 200, height: 200,
+    borderRadius: '50%', background: 'transparent',
     pointerEvents: 'none',
   },
   heroLeft: { position: 'relative' },
   heroGreeting: { fontSize: 26, fontWeight: 800, color: 'var(--text)', marginBottom: 4 },
   heroDate: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'capitalize' },
-  rolaBadge: { display: 'inline-block', borderRadius: 20, padding: '4px 14px', fontSize: 12, fontWeight: 700 },
+  rolaBadge: { display: 'inline-block', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700 },
   heroBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
-    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 12,
+    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 6,
     fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s',
     position: 'relative', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
   },
 
-  kpiSection: { marginBottom: 24 },
+  kpiSection: { display: 'none', marginBottom: 24 },
   kpiValue: {
     flexShrink: 0,
     minWidth: 56,
     textAlign: 'right',
     fontSize: 20,
     fontWeight: 650,
-    letterSpacing: '-0.03em',
+    letterSpacing: 0,
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--text)',
   },
@@ -582,26 +1489,115 @@ const d = {
   pipeValue: {
     fontSize: 17,
     fontWeight: 600,
-    letterSpacing: '-0.02em',
+    letterSpacing: 0,
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--text)',
   },
-  commandGrid: { display: 'grid', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
-  commandCard: {
-    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
+  executivePanel: {
+    display: 'none',
+    background: 'var(--bg-card)',
     border: '1px solid var(--border2)',
-    borderRadius: 16,
+    borderRadius: 8,
+    padding: 18,
+    marginBottom: 20,
+    boxShadow: 'var(--shadow-sm)',
+  },
+  executiveHead: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 14,
+  },
+  executiveEyebrow: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  executiveTitle: {
+    margin: '4px 0 0',
+    fontSize: 19,
+    lineHeight: 1.25,
+    fontWeight: 800,
+    color: 'var(--text)',
+    letterSpacing: 0,
+  },
+  executiveAction: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    color: 'var(--text)',
+    padding: '9px 12px',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  executiveGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gap: 10,
+  },
+  executiveTile: {
+    minHeight: 118,
+    border: '1px solid var(--border)',
+    borderTop: '3px solid var(--accent)',
+    borderRadius: 8,
+    color: 'var(--text)',
+    padding: '12px 13px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    display: 'grid',
+    alignContent: 'space-between',
+    gap: 8,
+    transition: 'background 0.12s ease, transform 0.12s ease',
+    fontFamily: 'inherit',
+  },
+  executiveTile_green: { borderTop: '3px solid #34D399' },
+  executiveTile_blue: { borderTop: '3px solid #60A5FA' },
+  executiveTile_amber: { borderTop: '3px solid #FBBF24' },
+  executiveTile_danger: { borderTop: '3px solid #F87171' },
+  executiveTileLabel: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  executiveTileValue: {
+    fontSize: 24,
+    lineHeight: 1,
+    fontWeight: 850,
+    color: 'var(--text)',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  executiveTileSub: {
+    fontSize: 12,
+    lineHeight: 1.4,
+    fontWeight: 550,
+    color: 'var(--text-sub)',
+  },
+  commandGrid: { display: 'none', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
+  commandCard: {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
     padding: 18,
     boxShadow: 'var(--shadow-sm)',
   },
-  commandTitle: { fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' },
+  commandTitle: { fontSize: 16, fontWeight: 700, letterSpacing: 0, color: 'var(--text)' },
   commandText: { marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' },
 
   // Main grid
-  mainGrid: { display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
+  mainGrid: { display: 'none', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
   card: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    borderRadius: 18, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)'
+    background: 'var(--bg-card)',
+    borderRadius: 8, padding: 18, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)'
   },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   cardTitle: { fontSize: 15, fontWeight: 700, color: 'var(--text)' },

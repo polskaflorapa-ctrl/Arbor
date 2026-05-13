@@ -8,6 +8,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { computeEstimatorPayout } from '../utils/computeEstimatorPayout';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { isTaskDone } from '../utils/taskWorkflow';
 
 const LS_RULES = 'arbor_wynagrodzenie_wyceniajacy_reguly_v1';
 
@@ -119,8 +120,7 @@ export default function WynagrodzenieWyceniajacych() {
     let sum = 0;
     for (const t of tasks) {
       if (t.typ === 'wycena') continue;
-      const zakonczone = t.status === 'Zakonczone' || t.status === 'Zakończone';
-      if (!zakonczone) continue;
+      if (!isTaskDone(t.status)) continue;
       const wykRaw = t.data_wykonania || t.updated_at || t.created_at;
       const wyk = typeof wykRaw === 'string' ? wykRaw.slice(0, 10) : '';
       if (!wyk || wyk < zakresOd || wyk > zakresDo) continue;

@@ -17,14 +17,7 @@ import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-
-const STATUS_KOLOR = {
-  Nowe: 'var(--accent)',
-  Zaplanowane: '#81C784',
-  W_Realizacji: '#F9A825',
-  Zakonczone: '#4CAF50',
-  Anulowane: '#EF5350'
-};
+import { TASK_STATUS, TASK_STATUSES, getTaskStatusColor, isTaskDone, isTaskInProgress } from '../utils/taskWorkflow';
 
 export default function Kierownik() {
   const { t } = useTranslation();
@@ -125,9 +118,9 @@ export default function Kierownik() {
 
   const statsByOddzial = oddzialy.map(o => ({
     ...o,
-    nowe: zlecenia.filter(z => z.oddzial_id === o.id && z.status === 'Nowe').length,
-    w_realizacji: zlecenia.filter(z => z.oddzial_id === o.id && z.status === 'W_Realizacji').length,
-    zakonczone: zlecenia.filter(z => z.oddzial_id === o.id && z.status === 'Zakonczone').length,
+    nowe: zlecenia.filter(z => z.oddzial_id === o.id && z.status === TASK_STATUS.NOWE).length,
+    w_realizacji: zlecenia.filter(z => z.oddzial_id === o.id && isTaskInProgress(z.status)).length,
+    zakonczone: zlecenia.filter(z => z.oddzial_id === o.id && isTaskDone(z.status)).length,
     lacznie: zlecenia.filter(z => z.oddzial_id === o.id).length,
   }));
 
@@ -139,9 +132,9 @@ export default function Kierownik() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="app-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
+      <main className="app-main" style={styles.main}>
         <PageHeader
           variant="plain"
           title={t('pages.kierownik.title')}
@@ -199,11 +192,9 @@ export default function Kierownik() {
             <label style={styles.filtrLabel}>{t('pages.kierownik.filterStatus')}</label>
             <select style={styles.filtrSelect} value={filtrStatus} onChange={e => setFiltrStatus(e.target.value)}>
               <option value="">{t('pages.kierownik.all')}</option>
-              <option value="Nowe">{t('taskStatus.Nowe')}</option>
-              <option value="Zaplanowane">{t('taskStatus.Zaplanowane')}</option>
-              <option value="W_Realizacji">{t('taskStatus.W_Realizacji')}</option>
-              <option value="Zakonczone">{t('taskStatus.Zakonczone')}</option>
-              <option value="Anulowane">{t('taskStatus.Anulowane')}</option>
+              {TASK_STATUSES.map((status) => (
+                <option key={status} value={status}>{t(`taskStatus.${status}`, { defaultValue: status })}</option>
+              ))}
             </select>
           </div>
           <div style={styles.filtrGroup}>
@@ -250,7 +241,7 @@ export default function Kierownik() {
                   <div key={z.id} style={styles.taskCard}>
                     <div style={styles.taskCardTop}>
                       <span style={styles.idBadge}>#{z.id}</span>
-                      <span style={{ ...styles.badge, backgroundColor: STATUS_KOLOR[z.status] || '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ ...styles.badge, backgroundColor: getTaskStatusColor(z.status), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <TaskStatusIcon status={z.status} size={14} color="#fff" />
                         {t(`taskStatus.${z.status}`, { defaultValue: z.status })}
                       </span>
@@ -280,11 +271,9 @@ export default function Kierownik() {
                         {ekipyDlaOddzialu(z.oddzial_id).map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
                       </select>
                       <select style={styles.select} value={z.status} onChange={e => zmienStatus(z.id, e.target.value)}>
-                        <option value="Nowe">{t('taskStatus.Nowe')}</option>
-                        <option value="Zaplanowane">{t('taskStatus.Zaplanowane')}</option>
-                        <option value="W_Realizacji">{t('taskStatus.W_Realizacji')}</option>
-                        <option value="Zakonczone">{t('taskStatus.Zakonczone')}</option>
-                        <option value="Anulowane">{t('taskStatus.Anulowane')}</option>
+                        {TASK_STATUSES.map((status) => (
+                          <option key={status} value={status}>{t(`taskStatus.${status}`, { defaultValue: status })}</option>
+                        ))}
                       </select>
                       <button style={styles.detailBtn} onClick={() => navigate(`/zlecenia/${z.id}`)}>
                         {t('pages.kierownik.detailsBtn')}
@@ -296,7 +285,7 @@ export default function Kierownik() {
             )}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

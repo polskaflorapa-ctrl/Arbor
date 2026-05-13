@@ -73,7 +73,7 @@ async function main() {
   const jsonMode = process.argv.includes('--json');
   if (jsonMode) {
     process.stdout.write(`${JSON.stringify(status, null, 2)}\n`);
-    process.exit(api.running && web.running ? 0 : 1);
+    process.exitCode = api.running && web.running ? 0 : 1;
     return;
   }
 
@@ -92,7 +92,7 @@ async function main() {
     console.log(`- Proxy target hint: ${api.url}`);
   }
 
-  process.exit(api.running && web.running ? 0 : 1);
+  process.exitCode = api.running && web.running ? 0 : 1;
 }
 
 main().catch((err) => {

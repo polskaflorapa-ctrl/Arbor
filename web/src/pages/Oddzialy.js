@@ -43,7 +43,7 @@ export default function Oddzialy() {
     telefon: '', email: '', kierownik_id: ''
   });
   const [formDelegacja, setFormDelegacja] = useState({
-    ekipa_id: '', oddzial_z: '', oddzial_do: '',
+    zasob_typ: 'ekipa', ekipa_id: '', user_id: '', oddzial_z: '', oddzial_do: '',
     data_od: '', data_do: '', cel: '', uwagi: ''
   });
   const [formPrzenies, setFormPrzenies] = useState({ user_id: '', oddzial_id: '' });
@@ -146,7 +146,7 @@ export default function Oddzialy() {
       }, { headers: authHeaders(token) });
       showMsg(successMessage('Delegacja dodana!'));
       setShowDelegacja(false);
-      setFormDelegacja({ ekipa_id: '', oddzial_z: '', oddzial_do: '', data_od: '', data_do: '', cel: '', uwagi: '' });
+      setFormDelegacja({ zasob_typ: 'ekipa', ekipa_id: '', user_id: '', oddzial_z: '', oddzial_do: '', data_od: '', data_do: '', cel: '', uwagi: '' });
       loadAll();
     } catch (err) {
       showMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, 'nieznany')}`));
@@ -185,12 +185,38 @@ export default function Oddzialy() {
     Zakonczona: '#4CAF50', Anulowana: '#EF5350'
   };
 
+  const isEstimatorRole = (rola) => String(rola || '').toLowerCase().includes('wyceniaj');
+  const wyceniajacy = uzytkownicy.filter((u) => isEstimatorRole(u.rola));
+  const oddzialName = (id) => oddzialy.find((o) => String(o.id) === String(id))?.nazwa || 'brak';
+  const handleDelegacjaType = (type) => {
+    setFormDelegacja((prev) => ({
+      ...prev,
+      zasob_typ: type,
+      ekipa_id: '',
+      user_id: '',
+      oddzial_z: '',
+    }));
+  };
+  const handleDelegacjaResource = (id) => {
+    const source =
+      formDelegacja.zasob_typ === 'wyceniajacy'
+        ? wyceniajacy.find((u) => String(u.id) === String(id))
+        : ekipy.find((e) => String(e.id) === String(id));
+    setFormDelegacja((prev) => ({
+      ...prev,
+      ekipa_id: prev.zasob_typ === 'ekipa' ? id : '',
+      user_id: prev.zasob_typ === 'wyceniajacy' ? id : '',
+      oddzial_z: source?.oddzial_id ? String(source.oddzial_id) : '',
+    }));
+  };
+
   const kierownicy = uzytkownicy.filter(u => u.rola === 'Kierownik' || u.rola === 'Dyrektor');
   const isOddzialFormValid = Boolean(form.nazwa.trim() && form.miasto.trim());
   const isDelegacjaFormValid = Boolean(
-    formDelegacja.ekipa_id &&
+    (formDelegacja.zasob_typ === 'wyceniajacy' ? formDelegacja.user_id : formDelegacja.ekipa_id) &&
     formDelegacja.oddzial_z &&
     formDelegacja.oddzial_do &&
+    formDelegacja.oddzial_z !== formDelegacja.oddzial_do &&
     formDelegacja.data_od &&
     formDelegacja.cel.trim()
   );
@@ -305,12 +331,28 @@ export default function Oddzialy() {
             <h3 style={S.formTitle}>{t('pages.oddzialy.newDelegationTitle')}</h3>
             <form onSubmit={handleDelegacja}>
               <div style={S.grid}>
-                <Field label="Ekipa *">
-                  <select style={S.input} value={formDelegacja.ekipa_id} onChange={e => setFormDelegacja({ ...formDelegacja, ekipa_id: e.target.value })} required>
-                    <option value="">-- wybierz ekipę --</option>
-                    {ekipy.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
+                <Field label="Typ zasobu *">
+                  <select style={S.input} value={formDelegacja.zasob_typ} onChange={e => handleDelegacjaType(e.target.value)} required>
+                    <option value="ekipa">Ekipa</option>
+                    <option value="wyceniajacy">Wyceniajacy</option>
                   </select>
                 </Field>
+                {formDelegacja.zasob_typ === 'ekipa' && (
+                <Field label="Ekipa *">
+                  <select style={S.input} value={formDelegacja.ekipa_id} onChange={e => handleDelegacjaResource(e.target.value)} required>
+                    <option value="">-- wybierz ekipę --</option>
+                    {ekipy.map(e => <option key={e.id} value={e.id}>{e.nazwa} ({oddzialName(e.oddzial_id)})</option>)}
+                  </select>
+                </Field>
+                )}
+                {formDelegacja.zasob_typ === 'wyceniajacy' && (
+                  <Field label="Wyceniajacy *">
+                    <select style={S.input} value={formDelegacja.user_id} onChange={e => handleDelegacjaResource(e.target.value)} required>
+                      <option value="">-- wybierz --</option>
+                      {wyceniajacy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({oddzialName(u.oddzial_id)})</option>)}
+                    </select>
+                  </Field>
+                )}
                 <Field label="Cel *"><input style={S.input} value={formDelegacja.cel} onChange={e => setFormDelegacja({ ...formDelegacja, cel: e.target.value })} required placeholder="np. Wycinka w Rzeszowie" /></Field>
                 <Field label="Z oddziału *">
                   <select style={S.input} value={formDelegacja.oddzial_z} onChange={e => setFormDelegacja({ ...formDelegacja, oddzial_z: e.target.value })} required>
@@ -448,7 +490,12 @@ export default function Oddzialy() {
                 {delegacje.map((d) => (
                   <div key={d.id} style={S.delegacjaCard}>
                     <div style={S.delegacjaTop}>
-                      <strong style={{ fontSize: 14, color: 'var(--text)' }}>{d.ekipa_nazwa || '-'}</strong>
+                      <strong style={{ fontSize: 14, color: 'var(--text)' }}>
+                        {d.zasob_nazwa || d.ekipa_nazwa || d.user_nazwa || '-'}
+                        <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                          {d.zasob_typ === 'wyceniajacy' ? 'Wyceniajacy' : 'Ekipa'}
+                        </span>
+                      </strong>
                       <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6B7280' }}>
                         {d.status}
                       </span>

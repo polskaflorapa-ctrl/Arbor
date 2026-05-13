@@ -9,10 +9,15 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
-
-const TYPY = ['Wycinka', 'Pielęgnacja', 'Ogrodnictwo', 'Frezowanie pniaków', 'Inne'];
-const PRIORYTETY = ['Niski', 'Normalny', 'Wysoki', 'Pilny'];
-const PRIORYTET_KOLOR = { Niski: 'var(--text-muted)', Normalny: '#1d4ed8', Wysoki: '#b45309', Pilny: 'var(--danger)' };
+import {
+  TASK_PRIORITIES,
+  TASK_PRIORITY_COLORS,
+  TASK_SERVICE_TYPES,
+  buildTaskCreatePayload,
+  createTaskFormDefaults,
+  isTaskCreateFormValid,
+} from '../utils/taskForm';
+import { TASK_STATUS } from '../utils/taskWorkflow';
 
 const IKONY = {
   klient:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -37,6 +42,14 @@ export default function NoweZlecenie() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
+  const sourceParam = params.get('source') || '';
+  const klientIdParam = params.get('klientId') || '';
+  const klientNameParam = params.get('klient') || '';
+  const sourceLabel = sourceParam === 'wycena-kalendarz'
+    ? 'Zrodlo: kalendarz wycen'
+    : sourceParam === 'ogledziny'
+      ? 'Zrodlo: modul ogledzin'
+      : '';
   const [oddzialy, setOddzialy] = useState([]);
   const [ekipy, setEkipy] = useState([]);
   const [estimators, setEstimators] = useState([]);
@@ -44,25 +57,16 @@ export default function NoweZlecenie() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [form, setForm] = useState({
-    klient_nazwa: '',
-    klient_telefon: '',
-    adres: '',
-    miasto: '',
-    typ_uslugi: 'Wycinka',
-    priorytet: 'Normalny',
-    wartosc_planowana: '',
-    czas_planowany_godziny: '',
+  const [form, setForm] = useState(createTaskFormDefaults({
+    klient_nazwa: /^\d+$/.test(klientNameParam) ? '' : klientNameParam,
+    klient_telefon: params.get('telefon') || '',
+    adres: params.get('adres') || '',
+    miasto: params.get('miasto') || '',
     data_planowana: params.get('data') || '',
     godzina_rozpoczecia: params.get('godzina') || '',
-    notatki_wewnetrzne: '',
-    oddzial_id: '',
-    ekipa_id: '',
-    wyceniajacy_id: '',
-    pin_lat: '',
-    pin_lng: '',
-    ankieta_uproszczona: true,
-  });
+    notatki_wewnetrzne: sourceLabel,
+    status: TASK_STATUS.WYCENA_TERENOWA,
+  }));
 
   const loadData = useCallback(async () => {
     try {
@@ -83,13 +87,27 @@ export default function NoweZlecenie() {
         localStorage.setItem('user', JSON.stringify(freshUser));
       }
       setForm(f => ({ ...f, oddzial_id: freshUser.oddzial_id || '' }));
+      if (klientIdParam) {
+        const klientRes = await api.get(`/klienci/${klientIdParam}`, { headers: h }).catch(() => null);
+        const klient = klientRes?.data;
+        if (klient) {
+          const klientNazwa = klient.firma || [klient.imie, klient.nazwisko].filter(Boolean).join(' ').trim();
+          setForm(f => ({
+            ...f,
+            klient_nazwa: klientNazwa || f.klient_nazwa,
+            klient_telefon: klient.telefon || f.klient_telefon,
+            adres: klient.adres || f.adres,
+            miasto: klient.miasto || f.miasto,
+          }));
+        }
+      }
     } catch {
       const parsedUser = getLocalStorageJson('user');
       if (!parsedUser) { navigate('/'); return; }
       setUser(parsedUser);
       setForm(f => ({ ...f, oddzial_id: parsedUser.oddzial_id || '' }));
     }
-  }, [navigate]);
+  }, [klientIdParam, navigate]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -98,12 +116,7 @@ export default function NoweZlecenie() {
     ? ekipy.filter(e => e.oddzial_id === parseInt(form.oddzial_id))
     : ekipy;
   const isFormValid = Boolean(
-    form.klient_nazwa.trim() &&
-    form.adres.trim() &&
-    form.miasto.trim() &&
-    form.data_planowana &&
-    form.wyceniajacy_id &&
-    (!isDyrektor || form.oddzial_id)
+    isTaskCreateFormValid(form, { requireEstimator: true, requireBranch: isDyrektor })
   );
 
   const handleSubmit = async (e) => {
@@ -119,25 +132,7 @@ export default function NoweZlecenie() {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
-      const payload = {
-        klient_nazwa: form.klient_nazwa.trim(),
-        klient_telefon: form.klient_telefon.trim() || null,
-        adres: form.adres.trim(),
-        miasto: form.miasto.trim(),
-        typ_uslugi: form.typ_uslugi,
-        priorytet: form.priorytet,
-        wartosc_planowana: form.wartosc_planowana || null,
-        czas_planowany_godziny: form.czas_planowany_godziny || null,
-        data_planowana: form.data_planowana,
-        godzina_rozpoczecia: form.godzina_rozpoczecia || null,
-        notatki_wewnetrzne: form.notatki_wewnetrzne.trim() || null,
-        oddzial_id: form.oddzial_id || user?.oddzial_id,
-        ekipa_id: form.ekipa_id ? parseInt(form.ekipa_id) : null,
-        wyceniajacy_id: form.wyceniajacy_id ? parseInt(form.wyceniajacy_id) : null,
-        pin_lat: form.pin_lat || null,
-        pin_lng: form.pin_lng || null,
-        ankieta_uproszczona: form.ankieta_uproszczona === true,
-      };
+      const payload = buildTaskCreatePayload(form, user, { initialStatus: TASK_STATUS.WYCENA_TERENOWA });
       const res = await api.post(`/tasks/nowe`, payload, { headers: h });
       const taskId = res.data.id;
       setSuccess(successMessage(`Zlecenie #${taskId} zostało utworzone!`));
@@ -151,19 +146,19 @@ export default function NoweZlecenie() {
 
   const setField = (field) => (e) => setForm({ ...form, [field]: e.target.value });
   const todayDate = new Date().toISOString().split('T')[0];
-  const priorKolor = PRIORYTET_KOLOR[form.priorytet] || '#1d4ed8';
+  const priorKolor = TASK_PRIORITY_COLORS[form.priorytet] || '#1d4ed8';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: '24px 28px', maxWidth: 980, margin: '0 auto', width: '100%' }}>
+      <main className="app-main" style={{ flex: 1, padding: '24px 28px', maxWidth: 980, margin: '0 auto', width: '100%' }}>
 
         {/* ── Nagłówek ─────────────────────────────────────────── */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--sidebar) 0%, #14532d 100%)',
-          borderRadius: 20, padding: '22px 28px', marginBottom: 24,
+          background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
+          borderRadius: 10, padding: '20px 22px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
+          boxShadow: 'var(--shadow-sm)',
           animation: 'fadeInUp 0.4s ease',
           border: '1px solid var(--border)',
         }}>
@@ -177,8 +172,8 @@ export default function NoweZlecenie() {
               {IKONY.plus}
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#fff' }}>{t('pages.noweZlecenie.title')}</h1>
-              <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--accent)', opacity: 0.8 }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--text)' }}>{t('pages.noweZlecenie.title')}</h1>
+              <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-muted)', opacity: 1 }}>
                 {t('pages.noweZlecenie.subtitle')}
               </p>
             </div>
@@ -188,11 +183,11 @@ export default function NoweZlecenie() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
-              backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-sub)',
+              backgroundColor: 'var(--bg-card)', color: 'var(--text-sub)',
               cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--accent-surface)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
           >
             {IKONY.back} {t('common.back')}
           </button>
@@ -209,11 +204,9 @@ export default function NoweZlecenie() {
                 <Field label="Klient *" icon={IKONY.klient}>
                   <input style={S.input} value={form.klient_nazwa} onChange={setField('klient_nazwa')} required placeholder="Imię i nazwisko lub firma" />
                 </Field>
-                {!form.ankieta_uproszczona ? (
                 <Field label="Telefon klienta" icon={IKONY.phone}>
                   <input style={S.input} value={form.klient_telefon} onChange={setField('klient_telefon')} placeholder="np. 500-100-200" type="tel" />
                 </Field>
-                ) : null}
                 <Field label="Adres *" icon={IKONY.map}>
                   <input style={S.input} value={form.adres} onChange={setField('adres')} required placeholder="ul. Przykładowa 1" />
                 </Field>
@@ -276,7 +269,9 @@ export default function NoweZlecenie() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <Field label="Typ usługi" icon={IKONY.tree}>
                     <select style={S.input} value={form.typ_uslugi} onChange={setField('typ_uslugi')}>
-                      {TYPY.map(t => <option key={t}>{t}</option>)}
+                      {TASK_SERVICE_TYPES.map((type) => (
+                        <option key={type} value={type}>{t(`serviceType.${type}`, { defaultValue: type })}</option>
+                      ))}
                     </select>
                   </Field>
                   <Field label="Priorytet" icon={IKONY.alert}>
@@ -285,19 +280,17 @@ export default function NoweZlecenie() {
                       value={form.priorytet}
                       onChange={setField('priorytet')}
                     >
-                      {PRIORYTETY.map(p => <option key={p} style={{ color: PRIORYTET_KOLOR[p] }}>{p}</option>)}
+                      {TASK_PRIORITIES.map((priority) => (
+                        <option key={priority} value={priority} style={{ color: TASK_PRIORITY_COLORS[priority] }}>{priority}</option>
+                      ))}
                     </select>
                   </Field>
-                  {!form.ankieta_uproszczona ? (
                   <Field label="Wartość (PLN)" icon={IKONY.money}>
                     <input style={S.input} type="number" step="0.01" min="0" value={form.wartosc_planowana} onChange={setField('wartosc_planowana')} placeholder="np. 3500" />
                   </Field>
-                  ) : null}
-                  {!form.ankieta_uproszczona ? (
                   <Field label="Czas planowany (h)" icon={IKONY.clock}>
                     <input style={S.input} type="number" step="0.5" min="0" value={form.czas_planowany_godziny} onChange={setField('czas_planowany_godziny')} placeholder="np. 2.5" />
                   </Field>
-                  ) : null}
                   <Field label="Data realizacji *" icon={IKONY.cal}>
                     <input style={S.input} type="date" value={form.data_planowana} onChange={setField('data_planowana')} min={todayDate} required />
                   </Field>
@@ -424,7 +417,7 @@ export default function NoweZlecenie() {
             </button>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   );
 }

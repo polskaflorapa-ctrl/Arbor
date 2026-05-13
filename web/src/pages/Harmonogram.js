@@ -5,15 +5,15 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import Sidebar from '../components/Sidebar';
+import AddOutlined from '@mui/icons-material/AddOutlined';
+import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
+import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined';
+import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined';
+import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
+import TodayOutlined from '@mui/icons-material/TodayOutlined';
+import { TASK_STATUS_COLORS } from '../utils/taskWorkflow';
 
-
-const STATUS_KOLOR = {
-  Nowe: '#1d4ed8',
-  Zaplanowane: 'var(--text-muted)',
-  W_Realizacji: '#b45309',
-  Zakonczone: '#166534',
-  Anulowane: 'var(--danger)'
-};
+const STATUS_KOLOR = TASK_STATUS_COLORS;
 
 const DNI_KROTKO = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Nd'];
 const MIESIACE = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
@@ -391,26 +391,33 @@ export default function Harmonogram() {
   const filtrowaneEkipy = ekipy.filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial);
 
   return (
-    <div style={styles.container}>
+    <div className="app-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
+      <main className="app-main" style={styles.main}>
         <div style={styles.headerRow}>
           <div style={styles.navRow}>
-            <button style={styles.todayBtn} onClick={goToday}>📅 Dziś</button>
-            <button style={styles.navBtn} onClick={prevPeriod}>‹</button>
-            <button style={styles.navBtn} onClick={nextPeriod}>›</button>
+            <button style={styles.todayBtn} onClick={goToday}>
+              <TodayOutlined style={{ fontSize: 17 }} aria-hidden />
+              Dziś
+            </button>
+            <button style={styles.navBtn} onClick={prevPeriod} aria-label="Poprzedni okres">
+              <ChevronLeftOutlined style={{ fontSize: 20 }} aria-hidden />
+            </button>
+            <button style={styles.navBtn} onClick={nextPeriod} aria-label="Następny okres">
+              <ChevronRightOutlined style={{ fontSize: 20 }} aria-hidden />
+            </button>
             <h2 style={styles.calTitle}>{getTytul()}</h2>
           </div>
           <div style={styles.headerRight}>
             {!isBrygadzista && (
               <>
                 <select style={styles.filtrSelect} value={filtrOddzial} onChange={e => setFiltrOddzial(e.target.value)}>
-                  <option value="">🌍 Wszystkie oddziały</option>
-                  {oddzialy.map(o => <option key={o.id} value={o.id}>🏢 {o.nazwa}</option>)}
+                  <option value="">Wszystkie oddziały</option>
+                  {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                 </select>
                 <select style={styles.filtrSelect} value={filtrEkipa} onChange={e => setFiltrEkipa(e.target.value)}>
-                  <option value="">👥 Wszystkie ekipy</option>
-                  {filtrowaneEkipy.map(e => <option key={e.id} value={e.id}>👷 {e.nazwa}</option>)}
+                  <option value="">Wszystkie ekipy</option>
+                  {filtrowaneEkipy.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
                 </select>
               </>
             )}
@@ -418,12 +425,15 @@ export default function Harmonogram() {
               {['dzien', 'tydzien', 'miesiac'].map(w => (
                 <button key={w} style={{...styles.widokBtn, ...(widok === w ? styles.widokBtnActive : {})}}
                   onClick={() => setWidok(w)}>
-                  {w === 'dzien' ? '📅 Dzień' : w === 'tydzien' ? '📆 Tydzień' : '📆 Miesiąc'}
+                  {w === 'dzien' ? 'Dzień' : w === 'tydzien' ? 'Tydzień' : 'Miesiąc'}
                 </button>
               ))}
             </div>
             {canEdit && (
-              <button style={styles.addBtn} onClick={() => navigate('/nowe-zlecenie')}>+ Nowe zlecenie</button>
+              <button style={styles.addBtn} onClick={() => navigate('/nowe-zlecenie')}>
+                <AddOutlined style={{ fontSize: 17 }} aria-hidden />
+                Nowe zlecenie
+              </button>
             )}
           </div>
         </div>
@@ -441,7 +451,7 @@ export default function Harmonogram() {
         ) : null}
 
         {loading ? (
-          <div style={styles.loading}>⏳ Ładowanie harmonogramu...</div>
+          <div style={styles.loading}>Ładowanie harmonogramu...</div>
         ) : (
           <div style={styles.calendarWrap}>
             {widok === 'dzien' && renderDzien([currentDate])}
@@ -454,7 +464,10 @@ export default function Harmonogram() {
         <div style={styles.legenda}>
           {ekipy.filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial).length > 0 ? (
             <>
-              <span style={styles.legendaTitle}>👷 Ekipy:</span>
+              <span style={styles.legendaTitle}>
+                <GroupsOutlined style={{ fontSize: 16 }} aria-hidden />
+                Ekipy:
+              </span>
               {ekipy
                 .filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial)
                 .map(e => (
@@ -466,7 +479,10 @@ export default function Harmonogram() {
             </>
           ) : (
             <>
-              <span style={styles.legendaTitle}>📋 Statusy:</span>
+              <span style={styles.legendaTitle}>
+                <CalendarMonthOutlined style={{ fontSize: 16 }} aria-hidden />
+                Statusy:
+              </span>
               {Object.entries(STATUS_KOLOR).map(([status, kolor]) => (
                 <div key={status} style={styles.legendaItem}>
                   <div style={{...styles.legendaDot, backgroundColor: kolor}} />
@@ -476,54 +492,105 @@ export default function Harmonogram() {
             </>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
 
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
-  main: { flex: 1, padding: '20px', display: 'flex', flexDirection: 'column' },
-  headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 },
+  container: { display: 'flex', minHeight: '100vh', background: 'transparent' },
+  main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 12,
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'var(--surface-glass)',
+    padding: '14px 16px',
+    boxShadow: 'var(--shadow-sm)',
+  },
   navRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  calTitle: { fontSize: 'clamp(14px, 4vw, 18px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
-  todayBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', color: 'var(--accent)' },
-  navBtn: { padding: '6px 12px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 18, fontWeight: 'bold', lineHeight: 1 },
+  calTitle: { fontSize: 'clamp(18px, 3vw, 24px)', fontWeight: 900, color: 'var(--text)', margin: 0, lineHeight: 1.15 },
+  todayBtn: {
+    minHeight: 36,
+    padding: '7px 13px',
+    background: 'var(--accent-gradient)',
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 900,
+    color: 'var(--on-accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+  },
+  navBtn: {
+    width: 36,
+    height: 36,
+    padding: 0,
+    backgroundColor: 'var(--surface-field)',
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    cursor: 'pointer',
+    color: 'var(--accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerRight: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
-  filtrSelect: { padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
-  widokBtns: { display: 'flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' },
-  widokBtn: { padding: '7px 14px', border: 'none', backgroundColor: 'var(--bg-card)', cursor: 'pointer', fontSize: 13, fontWeight: '500', color: 'var(--text-muted)' },
-  widokBtnActive: { backgroundColor: 'var(--bg-deep)', color: '#fff' },
-  addBtn: { padding: '8px 18px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
-  loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
-  calendarWrap: { backgroundColor: 'var(--bg-card)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', overflow: 'hidden', flex: 1, minHeight: 520 },
+  filtrSelect: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--input-bg)', color: 'var(--text)', minHeight: 36 },
+  widokBtns: { display: 'flex', border: '1px solid var(--border2)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-field)' },
+  widokBtn: { padding: '8px 13px', border: 'none', borderRight: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 800, color: 'var(--text-muted)', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' },
+  widokBtnActive: { background: 'var(--accent-gradient)', color: 'var(--on-accent)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16)' },
+  addBtn: {
+    minHeight: 36,
+    padding: '8px 15px',
+    background: 'var(--accent-gradient)',
+    color: 'var(--on-accent)',
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 900,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    boxShadow: '0 8px 20px rgba(34,197,94,0.22)',
+  },
+  loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 8, background: 'var(--surface-glass)' },
+  calendarWrap: { background: 'var(--surface-raised)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)', overflow: 'hidden', flex: 1, minHeight: 520 },
   calBody: { display: 'flex', flexDirection: 'column', minHeight: 520, height: '100%' },
   timeGrid: { display: 'grid' },
-  timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', background: 'var(--bg-card2)' },
-  dayColHeader: { position: 'sticky', top: 0, zIndex: 20, height: DAY_HEADER_HEIGHT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' },
-  dayColDow: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  dayColNum: { width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 'bold', marginTop: 4 },
+  timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border2)', borderRight: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--bg-card2), var(--bg-card))' },
+  dayColHeader: { position: 'sticky', top: 0, zIndex: 20, height: DAY_HEADER_HEIGHT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border2)', borderRight: '1px solid var(--border)' },
+  dayColDow: { fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  dayColNum: { width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, marginTop: 4 },
   scrollArea: { overflowY: 'auto', flex: 1 },
   timeCol: { borderRight: '1px solid var(--border)' },
   timeSlot: { height: HOUR_SLOT_HEIGHT, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', paddingRight: 10, paddingTop: 6, borderBottom: '1px solid var(--border)' },
-  timeLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: '600' },
+  timeLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 800 },
   dayCol: { position: 'relative', borderRight: '1px solid var(--border)' },
-  hourCell: { height: HOUR_SLOT_HEIGHT, borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.15s', '&:hover': { backgroundColor: 'var(--bg)' } },
-  zlecenieBlock: { position: 'absolute', left: 6, right: 6, borderRadius: 10, padding: '6px 8px', cursor: 'pointer', overflow: 'hidden', zIndex: 10, boxShadow: 'var(--shadow-sm)', transition: 'transform 0.15s', '&:hover': { transform: 'translateX(2px)' } },
+  hourCell: { height: HOUR_SLOT_HEIGHT, borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.15s', background: 'rgba(255,255,255,0.012)' },
+  zlecenieBlock: { position: 'absolute', left: 6, right: 6, borderRadius: 8, padding: '7px 8px', cursor: 'pointer', overflow: 'hidden', zIndex: 10, boxShadow: 'var(--shadow-sm)', transition: 'transform 0.15s', border: '1px solid var(--border)' },
   nowLine: { position: 'absolute', left: 0, right: 0, borderTop: '2px dashed var(--danger)', zIndex: 9, pointerEvents: 'none' },
   nowDot: { position: 'absolute', left: -4, top: -5, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--danger)' },
-  blockTitle: { fontSize: 11, fontWeight: '700', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  blockSub: { fontSize: 9, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  miesiacGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: 16, minHeight: 500 },
-  miesiacHeader: { textAlign: 'center', fontSize: 12, fontWeight: '600', color: 'var(--text-muted)', padding: '6px 0' },
+  blockTitle: { fontSize: 11, fontWeight: 900, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  blockSub: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 },
+  miesiacGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, padding: 16, minHeight: 500 },
+  miesiacHeader: { textAlign: 'center', fontSize: 12, fontWeight: 900, color: 'var(--text-muted)', padding: '6px 0', textTransform: 'uppercase' },
   miesiacEmpty: { minHeight: 100 },
-  miesiacCell: { minHeight: 100, borderRadius: 8, padding: 6, cursor: 'pointer', boxSizing: 'border-box', transition: 'all 0.15s', '&:hover': { transform: 'scale(1.01)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' } },
-  miesiacNum: { fontSize: 13, marginBottom: 4, fontWeight: '500' },
-  miesiacChip: { fontSize: 10, color: '#fff', padding: '2px 5px', borderRadius: 4, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  miesiacMore: { fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' },
-  legenda: { display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' },
-  legendaTitle: { fontSize: 12, fontWeight: '600', color: 'var(--text-sub)' },
-  legendaItem: { display: 'flex', alignItems: 'center', gap: 6 },
+  miesiacCell: { minHeight: 108, borderRadius: 8, padding: 8, cursor: 'pointer', boxSizing: 'border-box', transition: 'all 0.15s', background: 'var(--surface-field)' },
+  miesiacNum: { fontSize: 13, marginBottom: 5, fontWeight: 900 },
+  miesiacChip: { fontSize: 10, color: 'var(--on-accent)', padding: '3px 6px', borderRadius: 6, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 800 },
+  miesiacMore: { fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 800 },
+  legenda: { display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap', alignItems: 'center', border: '1px solid var(--glass-border)', borderRadius: 8, background: 'var(--surface-glass)', padding: '10px 12px' },
+  legendaTitle: { fontSize: 12, fontWeight: 900, color: 'var(--text-sub)', display: 'inline-flex', alignItems: 'center', gap: 6 },
+  legendaItem: { display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--border)', borderRadius: 8, padding: '4px 7px', background: 'var(--surface-field)' },
   legendaDot: { width: 10, height: 10, borderRadius: '50%' },
-  legendaLabel: { fontSize: 11, color: 'var(--text-muted)' }
+  legendaLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 800 }
 };

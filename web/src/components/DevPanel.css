@@ -21,7 +21,7 @@
 .dev-panel-content {
   background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
   border: 2px solid #ff6b6b;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 20px;
   min-width: 320px;
   max-width: 400px;

@@ -1,24 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../api';
 import StatusMessage from '../components/StatusMessage';
-import CityInput from '../components/CityInput';
-import PhotoAnnotator from '../components/PhotoAnnotator';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 import Sidebar from '../components/Sidebar';
+import { loadCalendarBlocks, isYmdBlocked } from '../utils/calendarBlocks';
+import { buildNewOrderPath } from '../utils/newOrderRoute';
 
 const MIESIAC = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
   'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 const DNI = ['Pn','Wt','Śr','Cz','Pt','Sb','Nd'];
-
-const USLUGI = [
-  'Wycinka drzew','Pielęgnacja drzew','Karczowanie','Frezowanie pniaków',
-  'Pielęgnacja krzewów','Koszenie','Usługi alpinistyczne','Wywóz drewna',
-  'Mulczowanie','Nasadzenia','Inne'
-];
 
 const STATUS_KOLOR = {
   oczekuje: '#F59E0B',
@@ -34,6 +29,8 @@ const STATUS_LABEL = {
   zatwierdzono: '✅ Zatwierdzone',
   odrzucono: '❌ Odrzucone',
 };
+
+const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
 
 function getCalDays(year, month) {
   const first = new Date(year, month, 1).getDay();
@@ -76,6 +73,7 @@ function pickBestOperationalSlot(slots, etaThresholdMinutes) {
 }
 
 export default function WycenaKalendarz() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const today = new Date();
@@ -84,23 +82,13 @@ export default function WycenaKalendarz() {
   const [selectedDay, setSelectedDay] = useState(today.getDate());
   const [wyceny, setWyceny] = useState([]);
   const [ekipy, setEkipy] = useState([]);
-  const [oddzialy, setOddzialy] = useState([]);
   const [user, setUser] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [calendarBlocks, setCalendarBlocks] = useState(() => loadCalendarBlocks());
   const [msg, setMsg] = useState('');
   const [wybranaWycena, setWybranaWycena] = useState(null);
-  const [aiAnalyzing, setAiAnalyzing] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
-  const photoInputRef = useRef(null);
-  const videoInputRef = useRef(null);
-  const annotateInputRef = useRef(null);
 
   const [ogledziny, setOgledziny] = useState([]);
   const [calView, setCalView] = useState('combined');
-  const [annotateFile, setAnnotateFile] = useState(null);
-  const [annotatedPayloads, setAnnotatedPayloads] = useState([]);
-  const [videoFiles, setVideoFiles] = useState([]);
   const [reserveDraft, setReserveDraft] = useState(null);
   const [reserveDiag, setReserveDiag] = useState(null);
   const [reserveRuleWarning, setReserveRuleWarning] = useState('');
@@ -109,20 +97,6 @@ export default function WycenaKalendarz() {
   const [etaThreshold, setEtaThreshold] = useState(25);
   /** F1.10 — zatwierdzenia wycen po terminie SLA (GET /quotations/panel/sla-przeterminowane). */
   const [slaOverdue, setSlaOverdue] = useState([]);
-
-  const [form, setForm] = useState({
-    klient_nazwa: '',
-    adres: '',
-    miasto: '',
-    oddzial_id: '',
-    ekipa_id: '',
-    typ_uslugi: '',
-    data_wykonania: '',
-    godzina_rozpoczecia: '08:00',
-    czas_planowany_godziny: '',
-    wartosc_planowana: '',
-    wycena_uwagi: '',
-  });
 
   useEffect(() => {
     const v = searchParams.get('view');
@@ -168,17 +142,15 @@ export default function WycenaKalendarz() {
       const u = getLocalStorageJson('user', {});
       setUser(u);
       const h = authHeaders(token);
-      const [wRes, eRes, oRes, ogRes, liveRes, slaRes] = await Promise.all([
+      const [wRes, eRes, ogRes, liveRes, slaRes] = await Promise.all([
         api.get('/wyceny', { headers: h }),
         api.get('/ekipy', { headers: h }),
-        api.get('/oddzialy', { headers: h }),
         api.get('/ogledziny', { headers: h }).catch(() => ({ data: [] })),
         api.get('/ekipy/live-locations', { headers: h }).catch(() => ({ data: { items: [] } })),
         api.get('/quotations/panel/sla-przeterminowane', { headers: h }).catch(() => ({ data: [] })),
       ]);
       setWyceny(Array.isArray(wRes.data) ? wRes.data : (wRes.data.wyceny || []));
       setEkipy(eRes.data.ekipy || eRes.data || []);
-      setOddzialy(oRes.data.oddzialy || oRes.data || []);
       const og = Array.isArray(ogRes.data) ? ogRes.data : (ogRes.data?.ogledziny || []);
       setOgledziny(og);
       const liveItems = Array.isArray(liveRes.data?.items) ? liveRes.data.items : [];
@@ -187,13 +159,26 @@ export default function WycenaKalendarz() {
         if (item?.ekipa_id != null) map[String(item.ekipa_id)] = item;
       }
       setLiveByTeam(map);
-      if (u?.oddzial_id) setForm(f => ({ ...f, oddzial_id: u.oddzial_id.toString() }));
       const slaRaw = slaRes?.data;
       setSlaOverdue(Array.isArray(slaRaw) ? slaRaw : []);
     } catch (e) { console.error(e); }
   }, [navigate]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const sync = () => setCalendarBlocks(loadCalendarBlocks());
+    sync();
+    window.addEventListener('focus', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  const ymdForCalDay = (d) =>
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
   const wycenyNaDzien = (d) => {
     const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -218,67 +203,20 @@ export default function WycenaKalendarz() {
   const monthPending = monthWyceny.filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji)).length;
   const monthApproved = monthWyceny.filter((w) => w.status_akceptacji === 'zatwierdzono').length;
 
-  const setF = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const selectedYmd = ymdForCalDay(selectedDay);
+  const selectedBlocked = isYmdBlocked(selectedYmd, calendarBlocks);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.ekipa_id) { setMsg(warningMessage('Wybierz ekipę — pole obowiązkowe!')); return; }
-    if (!form.adres) { setMsg(warningMessage('Wpisz adres!')); return; }
-    setSaving(true);
-    try {
-      const token = getStoredToken();
-      const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
-      const videoNote =
-        videoFiles.length > 0
-          ? `\n[Wideo — do zapisu na serwerze: ${videoFiles.map((f) => f.name).join(', ')}]`
-          : '';
-      const payload = {
-        ...form,
-        data_wykonania: form.data_wykonania || ds,
-        wycena_uwagi: (form.wycena_uwagi || '') + videoNote,
-      };
-      if (annotatedPayloads.length > 0) {
-        const compact = annotatedPayloads.slice(0, 2).map((p) => ({ mime: p.mime, dataBase64: p.dataBase64 }));
-        const json = JSON.stringify(compact);
-        if (json.length > 400_000) {
-          setMsg(warningMessage('Adnotowane zdjęcia są za duże — usuń jedno lub zmniejsz rysunek.'));
-          setSaving(false);
-          return;
-        }
-        payload.zdjecia_adnotowane_json = json;
-      }
-      const res = await api.post('/wyceny', payload, { headers: authHeaders(token) });
-      const newId = res.data?.id ?? res.data?.zlecenie?.id;
-      let videoUploadProblem = '';
-      if (newId && videoFiles.length > 0) {
-        for (const file of videoFiles) {
-          const fd = new FormData();
-          fd.append('wideo', file, file.name);
-          try {
-            await api.post(`/wyceny/${newId}/wideo`, fd, {
-              headers: authHeaders(token),
-            });
-          } catch (upErr) {
-            console.error(upErr);
-            videoUploadProblem += (videoUploadProblem ? ' ' : '') + `„${file.name}”`;
-          }
-        }
-      }
-      if (videoUploadProblem) {
-        setMsg(warningMessage(`Wycena zapisana, ale upload wideo nie powiódł się: ${videoUploadProblem}. Sprawdź backend (POST /wyceny/:id/wideo, multer).`));
-      } else {
-        setMsg(successMessage('Wycena dodana — czeka na zatwierdzenie przez menedżera'));
-      }
-      setShowForm(false);
-      setVideoFiles([]);
-      setAnnotatedPayloads([]);
-      setForm(f => ({ ...f, klient_nazwa: '', adres: '', miasto: '', ekipa_id: '', typ_uslugi: '', wartosc_planowana: '', wycena_uwagi: '', czas_planowany_godziny: '' }));
-      load();
-    } catch (err) {
-      setMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, err.message)}`));
-    } finally {
-      setSaving(false);
+  const openUnifiedNewOrder = () => {
+    if (selectedBlocked) {
+      setMsg(warningMessage(t('calendarBlocks.blockedSubmit')));
+      return;
     }
+    setMsg('');
+    navigate(buildNewOrderPath({
+      source: 'wycena-kalendarz',
+      data: selectedYmd,
+      godzina: '08:00',
+    }));
   };
 
   const oznaczKlientAkceptuje = async (wycenaId) => {
@@ -359,54 +297,12 @@ export default function WycenaKalendarz() {
     }
   };
 
-  const handleAiPhoto = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAiAnalyzing(true);
-    setAiResult(null);
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result.split(',')[1];
-        const mediaType = file.type || 'image/jpeg';
-        const token = getStoredToken();
-        const res = await api.post('/ai/analyze-photo', {
-          imageBase64: base64,
-          mediaType,
-          adres: form.adres,
-          miasto: form.miasto,
-        }, { headers: authHeaders(token) });
-
-        const p = res.data.parsed;
-        if (p) {
-          setAiResult(p);
-          // Autouzupełnij formularz
-          setForm(f => ({
-            ...f,
-            typ_uslugi: p.typ_uslugi || f.typ_uslugi,
-            wartosc_planowana: p.cena_min ? String(Math.round((p.cena_min + p.cena_max) / 2)) : f.wartosc_planowana,
-            czas_planowany_godziny: p.czas_godziny ? String(p.czas_godziny) : f.czas_planowany_godziny,
-            wycena_uwagi: p.opis_zakresu || f.wycena_uwagi,
-          }));
-        } else {
-          setAiResult({ raw: res.data.raw });
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      setMsg(errorMessage(`Błąd analizy AI: ${getApiErrorMessage(err, err.message)}`));
-    } finally {
-      setAiAnalyzing(false);
-    }
-  };
-
   const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
 
   const canAdd = user && ['Wyceniający', 'Kierownik', 'Administrator', 'Dyrektor'].includes(user.rola);
-  const filtEkipy = ekipy.filter(e => !form.oddzial_id || e.oddzial_id?.toString() === form.oddzial_id);
+  const canApprove = user && APPROVE_ROLES.includes(user.rola);
   const cells = getCalDays(year, month);
-  const isWycenaFormValid = Boolean(form.ekipa_id && form.adres.trim());
 
   return (
     <div className="app-shell">
@@ -418,15 +314,25 @@ export default function WycenaKalendarz() {
       {/* Header */}
       <div style={S.header}>
         <button style={S.backBtn} onClick={() => navigate(-1)}>←</button>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={S.headerTitle}>📋 Kalendarz Wycen</div>
           <div style={S.headerSub}>Planowanie i zarządzanie wizytami wyceniającego</div>
         </div>
-        {canAdd && (
-          <button style={S.addBtn} onClick={() => { setShowForm(true); setMsg(''); }}>
-            + Nowa wycena
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <button type="button" style={S.linkBtn} onClick={() => navigate('/blokady-kalendarza')}>
+            {t('nav.calendarBlocks')}
           </button>
-        )}
+          {canApprove && (
+            <button type="button" style={S.linkBtn} onClick={() => navigate('/zatwierdz-wyceny')}>
+              {t('nav.approveQuotes')}
+            </button>
+          )}
+          {canAdd && (
+            <button style={S.addBtn} onClick={openUnifiedNewOrder}>
+              + Nowa wycena
+            </button>
+          )}
+        </div>
       </div>
 
       <StatusMessage message={msg} style={S.msg} />
@@ -536,13 +442,21 @@ export default function WycenaKalendarz() {
               if (!d) return <div key={i} style={S.emptyCell} />;
               const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
               const isSel = d === selectedDay;
+              const ymd = ymdForCalDay(d);
+              const blocked = isYmdBlocked(ymd, calendarBlocks);
               const listW = wycenyNaDzien(d);
               const listO = ogledzinyNaDzien(d);
               const showDots = calView !== 'ogledziny' && listW.length > 0;
               const showOg = calView !== 'wyceny' && listO.length > 0;
               return (
                 <div key={i}
-                  style={{ ...S.dayCell, ...(isToday ? S.todayCell : {}), ...(isSel ? S.selCell : {}) }}
+                  title={blocked ? t('calendarBlocks.legend') : undefined}
+                  style={{
+                    ...S.dayCell,
+                    ...(blocked && !isSel ? S.blockedCell : {}),
+                    ...(isToday ? S.todayCell : {}),
+                    ...(isSel ? S.selCell : {}),
+                  }}
                   onClick={() => setSelectedDay(d)}
                 >
                   <span style={{ ...S.dayNum, ...(isToday ? { color: 'var(--accent)', fontWeight: 'bold' } : {}), ...(isSel ? { color: '#fff', fontWeight: 'bold' } : {}) }}>{d}</span>
@@ -567,6 +481,10 @@ export default function WycenaKalendarz() {
 
           {/* Legenda */}
           <div style={S.legenda}>
+            <div style={S.legendaItem}>
+              <div style={{ width: 12, height: 10, borderRadius: 3, ...S.blockedCell }} />
+              <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{t('calendarBlocks.legend')}</span>
+            </div>
             {Object.entries(STATUS_LABEL).map(([k, v]) => (
               <div key={k} style={S.legendaItem}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: STATUS_KOLOR[k] }} />
@@ -588,6 +506,22 @@ export default function WycenaKalendarz() {
               {calView !== 'wyceny' && `${ogledzinyWybrane.length} ogł.`}
             </span>
           </div>
+
+          {selectedBlocked && (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(239,68,68,0.45)',
+                background: 'rgba(239,68,68,0.08)',
+                fontSize: 13,
+                color: '#FCA5A5',
+              }}
+            >
+              {t('calendarBlocks.blockedWarning')}
+            </div>
+          )}
 
           {calView !== 'wyceny' && ogledzinyWybrane.length > 0 && (
             <div style={{ marginBottom: 16 }}>
@@ -630,7 +564,7 @@ export default function WycenaKalendarz() {
               <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
               <div style={{ color: 'var(--text-sub)', fontSize: 15 }}>Brak wycen na ten dzień</div>
               {canAdd && (
-                <button style={S.addBtnSm} onClick={() => { setShowForm(true); setMsg(''); }}>
+                <button style={S.addBtnSm} onClick={openUnifiedNewOrder}>
                   + Dodaj wycenę
                 </button>
               )}
@@ -698,205 +632,6 @@ export default function WycenaKalendarz() {
         </div>
       </div>
 
-      {/* Modal — formularz nowej wyceny */}
-      {showForm && (
-        <div style={S.overlay} onClick={() => setShowForm(false)}>
-          <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <div style={S.modalHeader}>
-              <div style={S.modalTitle}>📋 Nowa wycena</div>
-              <button style={S.closeBtn} onClick={() => setShowForm(false)}>✕</button>
-            </div>
-
-            <form onSubmit={handleSubmit} style={S.form}>
-              {/* Klient i adres */}
-              <div style={S.formSection}>
-                <div style={S.sectionLabel}>📍 Lokalizacja</div>
-                <div style={S.row2}>
-                  <div style={S.fieldWrap}>
-                    <label style={S.label}>Nazwa klienta</label>
-                    <input style={S.input} value={form.klient_nazwa} onChange={setF('klient_nazwa')} placeholder="Jan Kowalski / Firma XYZ" />
-                  </div>
-                  <div style={S.fieldWrap}>
-                    <label style={S.label}>Miasto</label>
-                    <CityInput
-                      style={S.input}
-                      value={form.miasto}
-                      onChange={setF('miasto')}
-                      placeholder="Warszawa"
-                      extraCities={oddzialy.map((o) => o.miasto)}
-                    />
-                  </div>
-                </div>
-                <div style={S.fieldWrap}>
-                  <label style={S.label}>Adres *</label>
-                  <input style={S.input} value={form.adres} onChange={setF('adres')} placeholder="ul. Leśna 5" required />
-                </div>
-              </div>
-
-              {/* Usługa */}
-              <div style={S.formSection}>
-                <div style={S.sectionLabel}>🌳 Usługa</div>
-                <div style={S.row2}>
-                  <div style={S.fieldWrap}>
-                    <label style={S.label}>Typ usługi</label>
-                    <select style={S.input} value={form.typ_uslugi} onChange={setF('typ_uslugi')}>
-                      <option value="">— wybierz —</option>
-                      {USLUGI.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                  <div style={S.fieldWrap}>
-                    <label style={S.label}>Szacunkowa wartość (PLN)</label>
-                    <input style={S.input} type="number" step="0.01" min="0" value={form.wartosc_planowana} onChange={setF('wartosc_planowana')} placeholder="np. 2500" />
-                  </div>
-                </div>
-                <div style={S.row2}>
-                  <div style={S.fieldWrap}>
-                    <label style={S.label}>Szac. czas (godz.)</label>
-                    <input style={S.input} type="number" step="0.5" min="0" value={form.czas_planowany_godziny} onChange={setF('czas_planowany_godziny')} placeholder="8" />
-                  </div>
-                  <div style={S.fieldWrap}>
-                    <label style={S.label}>Godzina na miejscu</label>
-                    <input style={S.input} type="time" value={form.godzina_rozpoczecia} onChange={setF('godzina_rozpoczecia')} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Data i ekipa */}
-              <div style={S.formSection}>
-                <div style={S.sectionLabel}>📅 Termin i ekipa</div>
-                <div style={S.fieldWrap}>
-                  <label style={S.label}>Data realizacji</label>
-                  <input style={S.input} type="date" value={form.data_wykonania} onChange={setF('data_wykonania')} />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                    Domyślnie: {String(selectedDay).padStart(2,'0')}.{String(month+1).padStart(2,'0')}.{year} (wybrany dzień)
-                  </span>
-                </div>
-
-                <div style={S.fieldWrap}>
-                  <label style={S.label}>Oddział</label>
-                  <select style={S.input} value={form.oddzial_id} onChange={e => setForm(f => ({ ...f, oddzial_id: e.target.value, ekipa_id: '' }))}>
-                    <option value="">— wszystkie —</option>
-                    {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
-                  </select>
-                </div>
-
-                <div style={S.fieldWrap}>
-                  <label style={{ ...S.label, color: 'var(--accent)' }}>👷 Ekipa * (obowiązkowe)</label>
-                  <div style={S.ekipyGrid}>
-                    {filtEkipy.length === 0 ? (
-                      <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Brak ekip w tym oddziale</div>
-                    ) : filtEkipy.map(e => (
-                      <div key={e.id}
-                        style={{ ...S.ekipaPill, ...(form.ekipa_id === e.id.toString() ? { borderColor: e.kolor || 'var(--accent)', backgroundColor: (e.kolor || 'var(--accent)') + '22', color: e.kolor || 'var(--accent)' } : {}) }}
-                        onClick={() => setForm(f => ({ ...f, ekipa_id: e.id.toString() }))}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: e.kolor || '#6B7280', flexShrink: 0 }} />
-                        {e.nazwa}
-                      </div>
-                    ))}
-                  </div>
-                  {!form.ekipa_id && <div style={{ color: '#F59E0B', fontSize: 12, marginTop: 4 }}>⚠️ Wybór ekipy jest obowiązkowy</div>}
-                </div>
-              </div>
-
-              {/* AI Analiza zdjęcia */}
-              <div style={{ backgroundColor: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: 12, padding: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#34D399', marginBottom: 10 }}>🤖 Analiza AI ze zdjęcia</div>
-                <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAiPhoto} />
-                <button
-                  type="button"
-                  style={{ ...S.submitBtn, backgroundColor: aiAnalyzing ? '#1E293B' : 'rgba(52,211,153,0.15)', color: '#34D399', border: '1px solid rgba(52,211,153,0.3)', width: '100%', fontSize: 13 }}
-                  onClick={() => photoInputRef.current?.click()}
-                  disabled={aiAnalyzing}
-                >
-                  {aiAnalyzing ? '⏳ Analizuję zdjęcie...' : '📷 Wgraj zdjęcie terenu → AI wyceni'}
-                </button>
-                {aiResult && (
-                  <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-sub)' }}>
-                    {aiResult.raw ? (
-                      <div style={{ whiteSpace: 'pre-wrap', color: '#94A3B8' }}>{aiResult.raw}</div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div>✅ <strong>Uzupełniono automatycznie:</strong></div>
-                        {aiResult.typ_uslugi && <div>• Usługa: <strong>{aiResult.typ_uslugi}</strong></div>}
-                        {aiResult.cena_min && <div>• Cena: <strong>{aiResult.cena_min}–{aiResult.cena_max} PLN</strong></div>}
-                        {aiResult.czas_godziny && <div>• Czas: <strong>{aiResult.czas_godziny}h</strong></div>}
-                        {aiResult.trudnosc && <div>• Trudność: <strong>{aiResult.trudnosc}</strong></div>}
-                        {aiResult.zalecenia && <div>• Uwagi: {aiResult.zalecenia}</div>}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ ...S.formSection, border: '1px solid rgba(96,165,250,0.25)' }}>
-                <div style={S.sectionLabel}>Zdjęcie z adnotacjami / wideo</div>
-                <input ref={annotateInputRef} type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (f) setAnnotateFile(f);
-                  }} />
-                <input ref={videoInputRef} type="file" accept="video/*" multiple style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    e.target.value = '';
-                    setVideoFiles((prev) => [...prev, ...files].slice(0, 5));
-                  }} />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                  <button type="button" style={S.cancelBtn} onClick={() => annotateInputRef.current?.click()}>
-                    Oznacz kolorem na zdjęciu
-                  </button>
-                  <button type="button" style={S.cancelBtn} onClick={() => videoInputRef.current?.click()}>
-                    Dodaj plik wideo
-                  </button>
-                </div>
-                {annotatedPayloads.length > 0 && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                    Zapisano {annotatedPayloads.length} adnotowane zdjęcie (do wysłania z wyceną).
-                    <button type="button" style={{ marginLeft: 8, background: 'none', border: 'none', color: '#F87171', cursor: 'pointer' }} onClick={() => setAnnotatedPayloads([])}>Usuń</button>
-                  </div>
-                )}
-                {videoFiles.length > 0 && (
-                  <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text-sub)' }}>
-                    {videoFiles.map((f, i) => (
-                      <li key={`${f.name}-${i}`}>{f.name} ({Math.round(f.size / 1024)} KB)</li>
-                    ))}
-                  </ul>
-                )}
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '8px 0 0' }}>
-                  Nagrania wideo wymagają endpointu zapisu plików na backendzie — nazwy plików trafiają tymczasowo do uwag.
-                </p>
-              </div>
-
-              {/* Uwagi */}
-              <div style={S.fieldWrap}>
-                <label style={S.label}>Uwagi do wyceny</label>
-                <textarea style={{ ...S.input, minHeight: 80, resize: 'vertical' }} value={form.wycena_uwagi} onChange={setF('wycena_uwagi')} placeholder="Szczegóły, dostęp, trudności, materiały..." />
-              </div>
-
-              <StatusMessage message={msg} />
-
-              <div style={S.formBtns}>
-                <button type="button" style={S.cancelBtn} onClick={() => setShowForm(false)}>Anuluj</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isWycenaFormValid}>
-                  {saving ? '⏳ Wysyłanie...' : '📋 Wyślij do zatwierdzenia'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {annotateFile && (
-        <PhotoAnnotator
-          file={annotateFile}
-          onClose={() => setAnnotateFile(null)}
-          onSave={(payload) => {
-            setAnnotatedPayloads((p) => [...p, payload].slice(0, 2));
-            setAnnotateFile(null);
-          }}
-        />
-      )}
       {reserveDraft && (
         <div style={S.overlay} onClick={() => setReserveDraft(null)}>
           <div style={S.modal} onClick={(e) => e.stopPropagation()}>
@@ -1040,7 +775,18 @@ const S = {
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { marginLeft: 'auto', padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  addBtn: { padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  linkBtn: {
+    padding: '8px 12px',
+    background: 'var(--bg-deep)',
+    color: 'var(--text-sub)',
+    border: '1px solid var(--border2)',
+    borderRadius: 10,
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
 
   msg: { margin: '12px 0', position: 'relative', zIndex: 1 },
   kpiRow: {
@@ -1070,6 +816,10 @@ const S = {
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 },
   dayHead: { textAlign: 'center', fontSize: 11, fontWeight: '600', color: 'var(--text-muted)', padding: '6px 0' },
   dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 10, cursor: 'pointer', padding: 2, transition: 'background 0.15s, transform 0.15s', border: '1px solid transparent' },
+  blockedCell: {
+    background: 'repeating-linear-gradient(-45deg, rgba(239,68,68,0.10), rgba(239,68,68,0.10) 4px, transparent 4px, transparent 7px)',
+    border: '1px dashed rgba(239,68,68,0.45)',
+  },
   todayCell: { border: '2px solid var(--accent)' },
   selCell: { backgroundColor: 'var(--accent)', color: 'var(--on-accent)' },
   emptyCell: { aspectRatio: '1' },

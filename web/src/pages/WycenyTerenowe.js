@@ -165,13 +165,20 @@ export default function WycenyTerenowe() {
                   <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
                     {[q.adres, q.miasto].filter(Boolean).join(', ')}
                   </div>
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
                     <Link
                       to={`/wyceny-terenowe/${q.id}`}
                       style={{ color: 'var(--accent)', fontSize: 14 }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       Szczegóły · wysyłka oferty →
+                    </Link>
+                    <Link
+                      to={`/wyceny-terenowe/${q.id}?focus=sketch`}
+                      style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 600 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {t('fieldQuotesSketch.listLink')} →
                     </Link>
                   </div>
                   <div style={{ ...S.row, marginTop: 12 }}>
@@ -210,9 +217,15 @@ export default function WycenyTerenowe() {
                     Wycena #{q.id} · rola: {q.wymagany_typ}
                   </div>
                   <div style={{ fontSize: 14, marginTop: 4 }}>{q.klient_nazwa}</div>
-                  <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
                     <Link to={`/wyceny-terenowe/${q.id}`} style={{ color: 'var(--accent)', fontSize: 14 }}>
                       Szczegóły · wysyłka oferty →
+                    </Link>
+                    <Link
+                      to={`/wyceny-terenowe/${q.id}?focus=sketch`}
+                      style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: 600 }}
+                    >
+                      {t('fieldQuotesSketch.listLink')} →
                     </Link>
                   </div>
                   <div style={{ ...S.row, marginTop: 12, gap: 10 }}>

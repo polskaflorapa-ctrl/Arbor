@@ -42,8 +42,11 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Get the original adapter before we override it
-const originalAdapter = api.defaults.adapter || axios.defaults.adapter;
+// Axios 1.x may expose adapter names (e.g. ['xhr', 'http', 'fetch']) instead of a function.
+// Resolve it before overriding the adapter for test-mode mocks.
+const originalAdapter = axios.getAdapter
+  ? axios.getAdapter(api.defaults.adapter || axios.defaults.adapter)
+  : api.defaults.adapter || axios.defaults.adapter;
 
 function getRequestPath(url) {
   if (!url) return '';
@@ -325,7 +328,10 @@ api.interceptors.response.use(
     }
 
     if (process.env.NODE_ENV !== 'production' && error.response?.status >= 400) {
-      console.warn('[api] request failed', requestDebug);
+      console.warn(
+        `[api] request failed ${requestDebug.status || ''} ${requestDebug.method} ${requestDebug.fullUrl || requestDebug.urlPath}`,
+        requestDebug,
+      );
     }
 
     return Promise.reject(error);

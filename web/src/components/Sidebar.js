@@ -29,12 +29,16 @@ const ICONS = {
   uzytkownicy:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   oddzialy:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   wyceny:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+  calendarBlocks: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 16h.01M12 16h.01M16 16h.01" strokeWidth="2.5"/></svg>,
+  approveNav: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
   klienci:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
   crm:          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>,
   ogledziny:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   telefonia:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.33 2 2 0 0 1 3.18 1h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.1 9a16 16 0 0 0 6.9 6.9l1.36-1.35a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
   integracje:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 18l6-6-6-6"/><path d="M3 12h12"/><path d="M21 5v14"/></svg>,
   bell:         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+  profil:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20v-1a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v1"/></svg>,
+  plus:         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   logout:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   collapse:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
   expand:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
@@ -46,6 +50,57 @@ function NavChevron() {
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );
+}
+
+const NAV_GROUPS = [
+  { key: 'start', label: 'Start' },
+  { key: 'operations', label: 'Operacje' },
+  { key: 'sales', label: 'Sprzedaz' },
+  { key: 'hr', label: 'Kadry' },
+  { key: 'finance', label: 'Finanse' },
+  { key: 'assets', label: 'Zasoby' },
+  { key: 'settings', label: 'Ustawienia' },
+];
+
+const NAV_GROUP_BY_PATH = {
+  '/dashboard': 'start',
+  '/profil': 'settings',
+  '/zadania': 'settings',
+  '/raporty': 'settings',
+  '/zlecenia': 'operations',
+  '/harmonogram': 'operations',
+  '/kierownik': 'operations',
+  '/ekipy': 'operations',
+  '/wyceniajacy-hub': 'sales',
+  '/crm': 'sales',
+  '/wycena-kalendarz': 'sales',
+  '/blokady-kalendarza': 'sales',
+  '/zatwierdz-wyceny': 'sales',
+  '/wyceny-terenowe': 'sales',
+  '/klienci': 'sales',
+  '/telefonia': 'sales',
+  '/integracje': 'sales',
+  '/kadry-dokumenty': 'hr',
+  '/rozliczenia-ekip': 'finance',
+  '/wynagrodzenie-wyceniajacych': 'finance',
+  '/ksiegowosc': 'finance',
+  '/flota': 'assets',
+  '/magazyn': 'assets',
+  '/rezerwacje-sprzetu': 'assets',
+  '/uzytkownicy': 'settings',
+  '/oddzialy': 'settings',
+  '/zarzadzaj-rolami': 'settings',
+};
+
+function groupLinks(links) {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: links.filter((link) => (NAV_GROUP_BY_PATH[link.path] || 'start') === group.key),
+  })).filter((group) => group.items.length > 0);
+}
+
+function isActivePath(currentPath, linkPath) {
+  return currentPath === linkPath || currentPath.startsWith(`${linkPath}/`);
 }
 
 export default function Sidebar() {
@@ -78,13 +133,20 @@ export default function Sidebar() {
     const ADMIN   = ['Dyrektor', 'Administrator'];
     const MGMT    = ['Dyrektor', 'Administrator', 'Kierownik'];
     const WORKERS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
+    const FIELD_OPS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
     const ALL     = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
     const all = [
       { path: '/dashboard',         labelKey: 'nav.dashboard',       icon: 'dashboard',   roles: ALL },
+      { path: '/profil',           labelKey: 'nav.profile',          icon: 'profil',      roles: ALL },
+      { path: '/zadania',          labelKey: 'nav.todos',            icon: 'zlecenia',    roles: ALL },
+      { path: '/kadry-dokumenty',  labelKey: 'nav.hrDocuments',      icon: 'uzytkownicy', roles: MGMT },
+      { path: '/wyceniajacy-hub', labelKey: 'nav.estimatorHub',     icon: 'wyceny',       roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający', 'Specjalista'] },
       { path: '/crm',               labelKey: 'nav.crm',           icon: 'crm',         roles: [...MGMT, 'Wyceniający', 'Specjalista'] },
       { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, 'Magazynier'] },
       { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, 'Brygadzista', 'Specjalista', 'Magazynier'] },
       { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
+      { path: '/blokady-kalendarza', labelKey: 'nav.calendarBlocks', icon: 'calendarBlocks', roles: ['Wyceniający', 'Specjalista', ...MGMT] },
+      { path: '/zatwierdz-wyceny',  labelKey: 'nav.approveQuotes',   icon: 'approveNav',   roles: ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'] },
       { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'] },
       { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
       { path: '/telefonia',         labelKey: 'nav.telephony',     icon: 'telefonia',   roles: MGMT },
@@ -97,13 +159,25 @@ export default function Sidebar() {
       { path: '/magazyn',           labelKey: 'nav.warehouse',   icon: 'warehouse',   roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/rezerwacje-sprzetu', labelKey: 'nav.equipmentReservations', icon: 'equipmentRes', roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/ksiegowosc',        labelKey: 'nav.accounting',    icon: 'ksiegowosc',  roles: MGMT },
-      { path: '/raporty',           labelKey: 'nav.reports',       icon: 'raporty',     roles: [...MGMT, 'Brygadzista', 'Specjalista'] },
+      { path: '/raporty',           labelKey: 'nav.reports',       icon: 'raporty',     roles: FIELD_OPS },
       { path: '/uzytkownicy',       labelKey: 'nav.users',         icon: 'uzytkownicy', roles: ADMIN },
       { path: '/oddzialy',          labelKey: 'nav.branches',      icon: 'oddzialy',    roles: ADMIN },
       { path: '/zarzadzaj-rolami',  labelKey: 'nav.roles',         icon: 'uzytkownicy', roles: ADMIN },
     ];
     return currentUser ? all.filter(l => l.roles.includes(currentUser.rola)) : all;
   }, [currentUser]);
+
+  const groupedLinks = useMemo(() => groupLinks(links), [links]);
+  const quickActions = useMemo(() => {
+    const role = currentUser?.rola;
+    const isOffice = ['Dyrektor', 'Administrator', 'Kierownik', 'Specjalista'].includes(role);
+    const isEstimator = ['Dyrektor', 'Administrator', 'Kierownik', 'Specjalista', 'Wyceniający'].includes(role);
+    return [
+      isOffice ? { label: 'Nowe zlecenie', path: '/nowe-zlecenie', icon: 'plus' } : null,
+      isEstimator ? { label: 'Wycena terenowa', path: '/wyceniajacy-hub', icon: 'wyceny' } : null,
+      isOffice ? { label: 'Dodaj klienta', path: '/klienci', icon: 'klienci' } : null,
+    ].filter(Boolean);
+  }, [currentUser?.rola]);
 
   const loadNotifications = async () => {
     if (notificationsInFlightRef.current) return;
@@ -197,6 +271,9 @@ export default function Sidebar() {
                 <div style={{ ...sb.rolaBadge, background: rolaColor + '22', color: rolaColor }}>
                   {currentUser.rola}
                 </div>
+                <div style={sb.branchPill}>
+                  Oddział: {currentUser.oddzial_nazwa || currentUser.oddzial || 'Centrala'}
+                </div>
               </div>
             )}
           </div>
@@ -211,44 +288,74 @@ export default function Sidebar() {
         {/* Nawigacja */}
         <nav style={sb.nav}>
           {!collapsed ? (
-            <div className="ios-inset" style={{ margin: '0 8px 8px' }}>
-              {links.map((link, i) => {
-                const active = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
-                const isHov = hovered === link.path;
-                return (
-                  <Fragment key={link.path}>
-                    {i > 0 ? <div style={{ height: 1, background: 'var(--border)' }} aria-hidden /> : null}
-                    <div
-                      onClick={() => navigate(link.path)}
-                      onKeyDown={onActivateKeyDown(() => navigate(link.path))}
-                      onMouseEnter={() => setHovered(link.path)}
-                      onMouseLeave={() => setHovered(null)}
-                      role="button"
-                      tabIndex={0}
-                      aria-current={active ? 'page' : undefined}
-                      className="ios-inset-row"
-                      style={{
-                        background: active ? 'var(--nav-active-bg)' : isHov ? 'var(--ios-row-hover)' : 'var(--ios-inset-bg)',
-                        color: active ? 'var(--text)' : 'var(--text-sub)',
-                        fontWeight: active ? 600 : 500,
-                      }}
-                    >
-                      <span
-                        className="ios-icon-tile"
-                        style={active ? { color: 'var(--accent)', borderColor: 'var(--border2)' } : undefined}
+            <>
+              {groupedLinks.map((group, gi) => (
+                <div key={group.key} style={gi === 0 ? sb.navGroupFirst : sb.navGroup}>
+                  <div style={sb.navGroupTitle}>
+                    {t(`sidebar.groups.${group.key}`, { defaultValue: group.label })}
+                  </div>
+                  <div className="ios-inset" style={sb.navGroupInset}>
+                    {group.items.map((link, i) => {
+                      const active = isActivePath(location.pathname, link.path);
+                      const isHov = hovered === link.path;
+                      return (
+                        <Fragment key={link.path}>
+                          {i > 0 ? <div style={{ height: 1, background: 'var(--border)' }} aria-hidden /> : null}
+                          <div
+                            onClick={() => navigate(link.path)}
+                            onKeyDown={onActivateKeyDown(() => navigate(link.path))}
+                            onMouseEnter={() => setHovered(link.path)}
+                            onMouseLeave={() => setHovered(null)}
+                            role="button"
+                            tabIndex={0}
+                            aria-current={active ? 'page' : undefined}
+                          className="ios-inset-row"
+                          style={{
+                            minHeight: 42,
+                            padding: '8px 10px',
+                            background: active ? 'linear-gradient(90deg, var(--nav-active-bg), rgba(255,255,255,0.01))' : isHov ? 'var(--ios-row-hover)' : 'var(--ios-inset-bg)',
+                            color: active ? 'var(--text)' : 'var(--text-sub)',
+                            fontWeight: active ? 600 : 500,
+                              boxShadow: active ? 'inset 3px 0 0 var(--accent)' : 'none',
+                            }}
+                          >
+                            <span
+                              className="ios-icon-tile"
+                              style={active ? { color: 'var(--accent)', border: '1px solid var(--border2)' } : undefined}
+                            >
+                              {ICONS[link.icon]}
+                            </span>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 15 }}>{t(link.labelKey)}</span>
+                            <NavChevron />
+                          </div>
+                        </Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              {quickActions.length > 0 && (
+                <div style={sb.quickPanel}>
+                  <div style={sb.quickTitle}>Szybkie akcje</div>
+                  <div style={sb.quickStack}>
+                    {quickActions.map((action) => (
+                      <button
+                        key={action.path}
+                        type="button"
+                        onClick={() => navigate(action.path)}
+                        style={sb.quickButton}
                       >
-                        {ICONS[link.icon]}
-                      </span>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 15 }}>{t(link.labelKey)}</span>
-                      <NavChevron />
-                    </div>
-                  </Fragment>
-                );
-              })}
-            </div>
+                        <span style={sb.quickIcon}>{ICONS[action.icon]}</span>
+                        <span>{action.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             links.map((link) => {
-              const active = location.pathname === link.path || location.pathname.startsWith(link.path + '/');
+              const active = isActivePath(location.pathname, link.path);
               const isHov = hovered === link.path;
               return (
                 <div
@@ -281,7 +388,7 @@ export default function Sidebar() {
         {/* Dolna sekcja */}
         <div style={sb.bottom}>
           {!collapsed ? (
-            <div className="ios-inset" style={{ margin: '6px 8px 16px' }}>
+            <div className="ios-inset" style={{ margin: '4px 8px 10px' }}>
               <div ref={notifRef} style={{ position: 'relative' }}>
                 <div
                   onClick={() => setShowNotif(!showNotif)}
@@ -293,14 +400,15 @@ export default function Sidebar() {
                   className="ios-inset-row"
                   style={{
                     cursor: 'pointer',
-                    background: showNotif ? 'var(--nav-active-bg)' : 'var(--ios-inset-bg)',
+                    background: showNotif ? 'linear-gradient(90deg, var(--nav-active-bg), rgba(255,255,255,0.01))' : 'var(--ios-inset-bg)',
                     color: showNotif ? 'var(--text)' : 'var(--text-sub)',
                     fontWeight: 500,
+                    boxShadow: showNotif ? 'inset 3px 0 0 var(--accent)' : 'none',
                   }}
                 >
                   <span
                     className="ios-icon-tile"
-                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent)', borderColor: 'var(--border2)' } : {}) }}
+                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent)', border: '1px solid var(--border2)' } : {}) }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {ICONS.bell}
@@ -311,7 +419,7 @@ export default function Sidebar() {
                   </span>
                   <span style={{ flex: 1, fontSize: 15 }}>{t('sidebar.notifications')}</span>
                   {notifCount > 0 ? (
-                    <span style={{ ...sb.badge, position: 'static', borderRadius: 10, padding: '1px 8px', marginRight: 4 }}>
+                    <span style={{ ...sb.badge, position: 'static', borderRadius: 8, padding: '1px 8px', marginRight: 4 }}>
                       {notifCount > 99 ? '99+' : notifCount}
                     </span>
                   ) : null}
@@ -366,15 +474,15 @@ export default function Sidebar() {
               </div>
 
               <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
-              <div style={{ padding: '8px 14px', background: 'var(--ios-inset-bg)' }}>
+              <div style={{ padding: '6px 12px', background: 'var(--ios-inset-bg)' }}>
                 <LanguageSwitcher
-                  compact={false}
+                  compact
                   style={{ justifyContent: 'flex-start', width: '100%' }}
                 />
               </div>
               <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
               <div style={{
-                padding: '10px 14px',
+                padding: '7px 12px',
                 background: 'var(--ios-inset-bg)',
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -418,9 +526,11 @@ export default function Sidebar() {
                   background: logoutHover ? 'rgba(248, 113, 113, 0.08)' : 'var(--ios-inset-bg)',
                   color: logoutHover ? 'var(--danger)' : 'var(--text-muted)',
                   fontWeight: 500,
+                  minHeight: 42,
+                  padding: '7px 12px',
                 }}
               >
-                <span className="ios-icon-tile" style={logoutHover ? { color: 'var(--danger)', borderColor: 'rgba(248,113,113,0.35)' } : undefined}>
+                <span className="ios-icon-tile" style={logoutHover ? { color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)' } : undefined}>
                   {ICONS.logout}
                 </span>
                 <span style={{ flex: 1, fontSize: 15 }}>{t('sidebar.logout')}</span>
@@ -561,61 +671,132 @@ export default function Sidebar() {
 const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
-    background: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-deep) 100%)', display: 'flex', flexDirection: 'column',
-    borderRight: '1px solid var(--border)', transition: 'width 0.25s ease',
+    background: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-card2) 56%, var(--bg-deep) 100%)', display: 'flex', flexDirection: 'column',
+    backgroundImage: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-card2) 56%, var(--bg-deep) 100%), repeating-linear-gradient(135deg, var(--leaf-line) 0 1px, transparent 1px 22px)',
+    borderRight: '1px solid var(--border2)', transition: 'width 0.25s ease',
     overflow: 'hidden', boxShadow: 'var(--shadow-md)',
   },
   collapseBtn: {
     position: 'absolute', right: -12, top: 28, width: 24, height: 24,
-    borderRadius: '50%', background: 'var(--bg-card2)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border2)',
+    borderRadius: '50%', background: 'linear-gradient(135deg, var(--bg-card2), var(--bg-card))',
+    border: '1px solid var(--border2)',
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'var(--text-sub)', zIndex: 201, boxShadow: 'var(--shadow-sm)',
+    color: 'var(--accent)', zIndex: 201, boxShadow: 'var(--shadow-sm)',
     transition: 'all 0.15s',
   },
   logo: {
     display: 'flex', alignItems: 'center', gap: 12,
-    padding: '20px 16px 16px', borderBottom: '1px solid var(--border)',
+    padding: '20px 16px 18px', borderBottom: '1px solid var(--border)',
   },
   logoIcon: {
-    width: 38, height: 38, borderRadius: 12, background: 'var(--logo-tint-bg)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--logo-tint-border)',
+    width: 50, height: 50, borderRadius: '50%', background: 'linear-gradient(135deg, var(--logo-tint-bg), rgba(20,131,79,0.04))',
+    border: '1px solid var(--logo-tint-border)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
+    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.38), 0 10px 22px rgba(20,91,54,0.1)',
   },
-  logoName: { fontSize: 16, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.3px' },
-  logoSub: { fontSize: 9, color: 'var(--accent)', letterSpacing: 1.5, marginTop: 2, fontWeight: 600 },
+  logoName: { fontSize: 18, fontWeight: 900, color: 'var(--text)', letterSpacing: 0 },
+  logoSub: { fontSize: 10, color: 'var(--text-sub)', letterSpacing: 0, marginTop: 2, fontWeight: 700 },
   userCard: {
-    display: 'flex', alignItems: 'center', gap: 10, margin: '12px 12px 4px',
-    background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14,
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)',
+    display: 'flex', alignItems: 'center', gap: 10, margin: '12px 12px 6px',
+    background: 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))', borderRadius: 8,
+    border: '1px solid var(--glass-border)',
     boxShadow: 'var(--shadow-sm)',
   },
   avatar: {
-    width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center',
+    width: 38, height: 38, borderRadius: '50%', display: 'flex', alignItems: 'center',
     justifyContent: 'center', flexShrink: 0,
+    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)',
   },
   avatarText: { fontSize: 13, fontWeight: 800 },
   userName: { fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   rolaBadge: { fontSize: 10, fontWeight: 700, borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 3 },
+  branchPill: {
+    marginTop: 7,
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 26,
+    padding: '4px 9px',
+    borderRadius: 7,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 800,
+  },
+  quickPanel: {
+    margin: '14px 4px 8px',
+    padding: '10px',
+    borderRadius: 8,
+    border: '1px solid var(--glass-border)',
+    background: 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  quickTitle: {
+    margin: '0 0 8px',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+  },
+  quickStack: { display: 'grid', gap: 7 },
+  quickButton: {
+    minHeight: 34,
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+    border: '1px solid var(--border)',
+    borderRadius: 7,
+    background: 'var(--accent-surface)',
+    color: 'var(--text)',
+    padding: '7px 9px',
+    fontSize: 13,
+    fontWeight: 850,
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  quickIcon: {
+    width: 23,
+    height: 23,
+    borderRadius: 6,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--accent)',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border2)',
+    flexShrink: 0,
+  },
   sectionLabel: { fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: 1.5, padding: '12px 16px 4px' },
   separator: { height: 1, background: 'var(--border)', margin: '4px 12px' },
-  nav: { flex: 1, minHeight: 0, padding: '4px 8px', overflowY: 'auto' },
+  nav: { flex: 1, minHeight: 0, padding: '2px 8px 4px', overflowY: 'auto' },
+  navGroupFirst: { margin: '0 0 8px' },
+  navGroup: { margin: '10px 0 8px' },
+  navGroupTitle: {
+    margin: '0 10px 5px',
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+  },
+  navGroupInset: { margin: 0, border: '1px solid var(--glass-border)', background: 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))' },
   navItem: {
-    display: 'flex', alignItems: 'center', borderRadius: 10, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', borderRadius: 6, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
     marginBottom: 4, userSelect: 'none',
   },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' },
-  bottom: { padding: '4px 8px 16px', flexShrink: 0 },
+  bottom: { padding: '4px 8px 10px', flexShrink: 0 },
   badge: {
     position: 'absolute', top: -4, right: -4, background: '#EF4444', color: '#fff',
     borderRadius: '50%', minWidth: 16, height: 16, fontSize: 10, fontWeight: 700,
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px',
   },
   notifPanel: {
-    position: 'fixed', bottom: 80, width: 340, background: 'linear-gradient(145deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 16,
+    position: 'fixed', bottom: 80, width: 340, background: 'linear-gradient(180deg, var(--bg-card), var(--bg-card2))',
+    border: '1px solid var(--border2)', borderRadius: 8,
     boxShadow: 'var(--shadow-lg)',
     zIndex: 1000, maxHeight: 460, overflowY: 'auto',
   },

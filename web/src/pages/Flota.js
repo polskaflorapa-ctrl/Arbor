@@ -185,9 +185,9 @@ export default function Flota() {
   const isSprzetFormValid = Boolean(formSprzet.nazwa.trim());
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
+      <main className="app-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
 
         <PageHeader
           variant="hero"
@@ -223,9 +223,9 @@ export default function Flota() {
                   }}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: 'var(--bg-card)',
-                    color: 'var(--accent)',
-                    border: 'none',
+                    background: 'var(--accent-gradient)',
+                    color: 'var(--on-accent)',
+                    border: '1px solid var(--accent)',
                     borderRadius: 10,
                     cursor: 'pointer',
                     fontSize: 14,
@@ -513,7 +513,7 @@ export default function Flota() {
             </div>
           )
         )}
-      </div>
+      </main>
     </div>
   );
 }

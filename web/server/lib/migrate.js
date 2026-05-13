@@ -32,6 +32,10 @@ function migrateState(state, saveState) {
   ensure('klienci', () => [...seed.klienci]);
   ensure('nextKlientId', seed.nextKlientId || 10);
   ensure('ogledziny', () => []);
+  ensure('ogledzinyMedia', () => []);
+  ensure('ogledzinyFieldEvents', () => []);
+  ensure('nextOgledzinyMediaId', 1);
+  ensure('nextOgledzinyFieldEventId', 1);
   ensure('zalaczniki', () => []);
   ensure('nextOgledzinyId', 1);
   ensure('teams', () => [...(seed.teams || [])]);
@@ -39,8 +43,30 @@ function migrateState(state, saveState) {
   ensure('zlecenia', () => [...(seed.zlecenia || [])]);
   ensure('notifications', () => []);
   ensure('nextNotificationId', 1);
+  ensure('operatorTasks', () => []);
+  ensure('nextOperatorTaskId', 1);
+  ensure('positionCards', () => ({}));
+  ensure('positionCardAcknowledgements', () => ({}));
+  ensure('employeeDocuments', () => []);
+  ensure('nextEmployeeDocumentId', 1);
   ensure('delegacje', () => []);
   ensure('nextDelegacjaId', 1);
+  if (Array.isArray(state.delegacje)) {
+    for (const d of state.delegacje) {
+      if (d.zasob_typ === undefined) {
+        d.zasob_typ = d.user_id || d.wyceniajacy_id ? 'wyceniajacy' : 'ekipa';
+        changed = true;
+      }
+      if (d.user_id === undefined && d.wyceniajacy_id !== undefined) {
+        d.user_id = d.wyceniajacy_id;
+        changed = true;
+      }
+      if (d.wyceniajacy_id === undefined && d.user_id !== undefined) {
+        d.wyceniajacy_id = d.user_id;
+        changed = true;
+      }
+    }
+  }
   ensure('roles', () => [...(seed.roles || [])]);
   ensure('nextRoleId', seed.nextRoleId || 100);
   ensure('nextUserId', seed.nextUserId || 100);
@@ -56,6 +82,8 @@ function migrateState(state, saveState) {
   ensure('nextFlotaNaprawaId', seed.nextFlotaNaprawaId || 1);
   ensure('equipmentReservations', () => [...(seed.equipmentReservations || [])]);
   ensure('nextEquipmentReservationId', seed.nextEquipmentReservationId || 1);
+  ensure('dailyReports', () => [...(seed.dailyReports || [])]);
+  ensure('nextDailyReportId', seed.nextDailyReportId || 1);
   ensure('cmrLists', () => []);
   ensure('nextCmrId', 1);
   ensure('faktury', () => []);
@@ -63,6 +91,9 @@ function migrateState(state, saveState) {
   ensure('nextFakturaNumer', seed.nextFakturaNumer || 1);
   ensure('ksiegowoscUstawienia', () => ({ ...(seed.ksiegowoscUstawienia || {}) }));
   ensure('taskLogs', () => ({}));
+  ensure('taskClientContacts', () => ({}));
+  ensure('taskClientContactEvents', () => []);
+  ensure('nextTaskClientContactEventId', 1);
   ensure('taskProblemy', () => ({}));
   ensure('taskZdjecia', () => ({}));
   ensure('nextTaskLogId', 1);

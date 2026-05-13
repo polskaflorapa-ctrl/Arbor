@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
@@ -42,6 +43,11 @@ function osOrigin() {
     }
   }
   return typeof window !== 'undefined' ? window.location.origin : '';
+}
+
+function quotationItemLabel(it) {
+  const parts = [it?.gatunek, it?.wysokosc_pas, it?.typ_pracy].filter(Boolean);
+  return parts.length ? `#${it.id} — ${parts.join(' · ')}` : `#${it?.id}`;
 }
 
 function absoluteFileUrl(pathMaybe) {
@@ -98,13 +104,19 @@ function canResendClientOfferUi(user) {
 }
 
 export default function WycenaTerenowaDetail() {
+  const { t } = useTranslation();
   const { id: idParam } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sketchSectionRef = useRef(null);
+  const sketchScrollKeyDone = useRef('');
   const user = useMemo(() => readStoredUser(), []);
   const id = Number(idParam);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [q, setQ] = useState(null);
+  const [items, setItems] = useState([]);
+  const [itemsErr, setItemsErr] = useState('');
   const [resendBusy, setResendBusy] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
 
@@ -122,19 +134,47 @@ export default function WycenaTerenowaDetail() {
         navigate('/');
         return;
       }
-      const { data } = await api.get(`/quotations/${id}`, { headers: authHeaders(token) });
-      setQ(data);
+      const h = authHeaders(token);
+      const [qRes, itemsRes] = await Promise.all([
+        api.get(`/quotations/${id}`, { headers: h }),
+        api.get(`/quotations/${id}/items`, { headers: h }).catch(() => ({ data: null })),
+      ]);
+      setQ(qRes.data);
+      setItemsErr('');
+      if (itemsRes.data == null) {
+        setItems([]);
+        setItemsErr(t('fieldQuotesSketch.loadItemsError'));
+      } else {
+        const arr = itemsRes.data;
+        setItems(Array.isArray(arr) ? arr : []);
+      }
     } catch (e) {
       setErr(getApiErrorMessage(e));
       setQ(null);
+      setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, t]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (searchParams.get('focus') !== 'sketch') {
+      sketchScrollKeyDone.current = '';
+      return;
+    }
+    if (loading) return;
+    const k = `${id}:sketch`;
+    if (sketchScrollKeyDone.current === k) return;
+    sketchScrollKeyDone.current = k;
+    const idMap = window.requestAnimationFrame(() => {
+      sketchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(idMap);
+  }, [loading, searchParams, id]);
 
   const doResendClientOffer = async () => {
     setResendMsg('');
@@ -209,6 +249,34 @@ export default function WycenaTerenowaDetail() {
                   ← Lista przypisań i zatwierdzeń
                 </Link>
               </div>
+            </div>
+
+            <div ref={sketchSectionRef} style={S.card}>
+              <div style={S.h2}>{t('fieldQuotesSketch.sectionTitle')}</div>
+              <div style={{ ...S.muted, marginBottom: 10 }}>{t('fieldQuotesSketch.hint')}</div>
+              {itemsErr ? <div style={S.err}>{itemsErr}</div> : null}
+              {!itemsErr && items.length === 0 ? (
+                <div style={S.muted}>{t('fieldQuotesSketch.noItems')}</div>
+              ) : (
+                items.map((it, idx) => (
+                  <div
+                    key={it.id}
+                    style={
+                      idx > 0
+                        ? { marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }
+                        : { marginTop: 4 }
+                    }
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{quotationItemLabel(it)}</div>
+                    <Link
+                      to={`/wycena-rysuj?quotationId=${id}&itemId=${it.id}&photoKind=annotated`}
+                      style={{ ...S.link, display: 'inline-block', marginTop: 8, fontWeight: 600 }}
+                    >
+                      {t('fieldQuotesSketch.openDraw')} →
+                    </Link>
+                  </div>
+                ))
+              )}
             </div>
 
             {showOfferBlock ? (

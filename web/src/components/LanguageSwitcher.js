@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 const baseBtn = {
-  borderWidth: 1,
-  borderStyle: 'solid',
-  borderColor: 'var(--border)',
+  border: '1px solid var(--border)',
   background: 'var(--bg-deep)',
   color: 'var(--text-muted)',
   borderRadius: 8,
@@ -15,7 +13,7 @@ const baseBtn = {
 };
 
 const activeBtn = {
-  borderColor: 'var(--accent)',
+  border: '1px solid var(--accent)',
   color: 'var(--accent)',
   background: 'rgba(52,211,153,0.12)',
 };

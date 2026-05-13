@@ -247,9 +247,9 @@ export default function Ekipy() {
   const isAddCzlonekValid = Boolean(formCzlonek.user_id);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' }}>
+    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: 28, position: 'relative' }}>
+      <main className="app-main" style={{ flex: 1, padding: 28, position: 'relative' }}>
 
         <PageHeader
           variant="hero"
@@ -660,7 +660,7 @@ export default function Ekipy() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

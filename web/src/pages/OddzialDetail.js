@@ -12,11 +12,7 @@ import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-
-const STATUS_KOLOR = {
-  Nowe: 'var(--accent)', Zaplanowane: '#81C784',
-  W_Realizacji: '#F9A825', Zakonczone: '#4CAF50', Anulowane: '#EF5350'
-};
+import { TASK_STATUS, getTaskStatusColor, normalizeTaskStatus } from '../utils/taskWorkflow';
 
 const ROLA_KOLOR = {
   'Dyrektor':                   '#f59e0b',
@@ -267,7 +263,8 @@ export default function OddzialDetail() {
   const statsMap = useMemo(() => {
     const map = {};
     for (const z of zlecenia) {
-      map[z.status] = (map[z.status] || 0) + 1;
+      const status = normalizeTaskStatus(z.status);
+      map[status] = (map[status] || 0) + 1;
     }
     return map;
   }, [zlecenia]);
@@ -358,10 +355,10 @@ export default function OddzialDetail() {
         {/* KPI */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
-            { label: '📋 Nowe', value: statsByStatus('Nowe'), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-            { label: '📅 Zaplanowane', value: statsByStatus('Zaplanowane'), color: '#81C784', bg: '#0F172A' },
-            { label: '⚡ W realizacji', value: statsByStatus('W_Realizacji'), color: '#F9A825', bg: '#FFF8E1' },
-            { label: '✅ Zakończone', value: statsByStatus('Zakonczone'), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
+            { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
+            { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: '#81C784', bg: '#0F172A' },
+            { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#F9A825', bg: '#FFF8E1' },
+            { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
           ].map(k => (
             <div key={k.label} style={{
               background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, padding: '14px 16px',
@@ -377,7 +374,7 @@ export default function OddzialDetail() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.3fr .7fr', gap: 12, marginBottom: 16 }}>
           <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum oddziału</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Nowe: <strong style={{ color: 'var(--text)' }}>{statsByStatus('Nowe')}</strong> · W realizacji: <strong style={{ color: 'var(--text)' }}>{statsByStatus('W_Realizacji')}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{pracownicy.length}</strong></div>
+            <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Nowe: <strong style={{ color: 'var(--text)' }}>{statsByStatus(TASK_STATUS.NOWE)}</strong> · W realizacji: <strong style={{ color: 'var(--text)' }}>{statsByStatus(TASK_STATUS.W_REALIZACJI)}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{pracownicy.length}</strong></div>
           </div>
           <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Szybkie akcje</div>
@@ -458,7 +455,7 @@ export default function OddzialDetail() {
                       <td style={S.td}>{z.ekipa_nazwa || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Brak</span>}</td>
                       <td style={S.td}>{z.data_planowana?.split('T')[0] || '-'}</td>
                       <td style={S.td}>
-                        <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: STATUS_KOLOR[z.status] || '#6B7280' }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: getTaskStatusColor(z.status) }}>
                           {z.status}
                         </span>
                       </td>

@@ -183,7 +183,7 @@ export default function AiChat() {
                 <div style={{
                   ...S.bubble,
                   ...(m.role === 'user' ? S.bubbleUser : S.bubbleAi),
-                  ...(m.isError ? { borderColor: '#EF4444', color: '#FCA5A5' } : {}),
+                  ...(m.isError ? { border: '1px solid #EF4444', color: '#FCA5A5' } : {}),
                 }}>
                   {formatMessage(m.content)}
                 </div>
@@ -288,18 +288,18 @@ const S = {
     width: 380, height: 520,
     backgroundColor: 'var(--bg-card)',
     border: '1px solid var(--border)',
-    borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+    borderRadius: 8, boxShadow: 'var(--shadow-lg)',
     display: 'flex', flexDirection: 'column', overflow: 'hidden',
     animation: 'slideUp 0.2s ease',
   },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '14px 16px', borderBottom: '1px solid var(--border)',
-    background: 'linear-gradient(135deg, rgba(52,211,153,0.08), transparent)',
+    background: 'var(--bg-card2)',
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   avatarAi: {
-    width: 34, height: 34, borderRadius: 10,
+    width: 34, height: 34, borderRadius: 8,
     background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
@@ -320,21 +320,19 @@ const S = {
     display: 'flex', flexDirection: 'column',
   },
   bubble: {
-    maxWidth: '82%', padding: '9px 13px', borderRadius: 14,
+    maxWidth: '82%', padding: '9px 13px', borderRadius: 8,
     fontSize: 13, lineHeight: 1.55,
-    borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent',
+    border: '1px solid transparent',
   },
   bubbleUser: {
     backgroundColor: '#34D399', color: '#052E16',
-    borderRadius: '14px 14px 4px 14px', fontWeight: 500,
+    borderRadius: '8px 8px 4px 8px', fontWeight: 500,
   },
   bubbleAi: {
     backgroundColor: 'var(--bg-deep, #0F172A)',
     color: 'var(--text, #E2E8F0)',
-    borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: 'var(--border, #1E3A5F)',
-    borderRadius: '14px 14px 14px 4px',
+    border: '1px solid var(--border, #1E3A5F)',
+    borderRadius: '8px 8px 8px 4px',
   },
   aiBubbleIcon: {
     width: 24, height: 24, borderRadius: 8, flexShrink: 0, alignSelf: 'flex-end',
@@ -346,7 +344,7 @@ const S = {
   },
   suggBtn: {
     background: 'var(--bg-deep, #0F172A)', border: '1px solid var(--border, #1E3A5F)',
-    borderRadius: 20, color: 'var(--text-sub, #94A3B8)', fontSize: 11,
+    borderRadius: 8, color: 'var(--text-sub, #94A3B8)', fontSize: 11,
     padding: '5px 10px', cursor: 'pointer', transition: 'all 0.15s',
   },
   inputRow: {
@@ -356,12 +354,12 @@ const S = {
   },
   input: {
     flex: 1, backgroundColor: 'var(--bg-deep, #0F172A)',
-    border: '1px solid var(--border, #1E3A5F)', borderRadius: 12,
+    border: '1px solid var(--border, #1E3A5F)', borderRadius: 8,
     color: 'var(--text, #E2E8F0)', fontSize: 13, padding: '9px 12px',
     resize: 'none', outline: 'none', fontFamily: 'inherit', lineHeight: 1.4,
   },
   sendBtn: {
-    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+    width: 38, height: 38, borderRadius: 8, flexShrink: 0,
     background: '#34D399', border: 'none', cursor: 'pointer',
     color: '#052E16', display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'opacity 0.15s',
