@@ -19,6 +19,7 @@ import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { supportsQuotationsModule } from '../utils/api-capabilities';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { triggerHaptic } from '../utils/haptics';
@@ -79,20 +80,6 @@ function normalizeNotificationsPayload(payload: unknown): any[] {
     if (Array.isArray(maybeItems)) return maybeItems;
   }
   return [];
-}
-
-async function supportsQuotationsModule(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_URL}/health`);
-    if (!res.ok) return true;
-    const data = await res.json().catch(() => ({}));
-    if (data?.features && typeof data.features === 'object') {
-      return data.features.quotations === true;
-    }
-    return String(data?.wersja || '').includes('quotations');
-  } catch {
-    return true;
-  }
 }
 
 export default function Powiadomienia() {

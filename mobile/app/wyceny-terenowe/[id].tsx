@@ -21,6 +21,7 @@ import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { useTheme } from '../../constants/ThemeContext';
 import { API_URL } from '../../constants/api';
 import type { Theme } from '../../constants/theme';
+import { supportsQuotationsModule } from '../../utils/api-capabilities';
 import { getStoredSession } from '../../utils/session';
 
 type QuotationRow = Record<string, unknown> & {
@@ -92,6 +93,7 @@ export default function WycenaTerenowaDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [legacyFallback, setLegacyFallback] = useState(false);
   const [q, setQ] = useState<QuotationRow | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [norms, setNorms] = useState<NormRow[]>([]);
@@ -117,12 +119,30 @@ export default function WycenaTerenowaDetailScreen() {
         router.replace('/login');
         return;
       }
+      const quotationsReady = await supportsQuotationsModule();
+      if (!quotationsReady) {
+        setLegacyFallback(true);
+        setErr('Ten backend działa jeszcze w trybie klasycznych wycen.');
+        setQ(null);
+        setItems([]);
+        setNorms([]);
+        return;
+      }
+      setLegacyFallback(false);
       const [rq, ri, rn] = await Promise.all([
         fetch(`${API_URL}/quotations/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/quotations/${id}/items`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/quotations/norms/service-times`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (!rq.ok) {
+        if (rq.status === 404) {
+          setLegacyFallback(true);
+          setErr('Ten backend działa jeszcze w trybie klasycznych wycen.');
+          setQ(null);
+          setItems([]);
+          setNorms([]);
+          return;
+        }
         setErr(`Wycena: HTTP ${rq.status}`);
         setQ(null);
         return;
@@ -306,7 +326,21 @@ export default function WycenaTerenowaDetailScreen() {
           <Text style={s.title}>Wycena</Text>
           <View style={{ width: 40 }} />
         </View>
-        <Text style={s.err}>{err || 'Brak danych'}</Text>
+        <ScrollView contentContainerStyle={s.body}>
+          {legacyFallback ? (
+            <View style={s.block}>
+              <Text style={s.h2}>Tryb klasycznych wycen</Text>
+              <Text style={s.muted}>
+                Nowy moduł wycen terenowych jest już w aplikacji, ale produkcyjny backend czeka jeszcze na wdrożenie.
+              </Text>
+              <TouchableOpacity style={s.btn} onPress={() => router.replace('/wycena' as never)}>
+                <Text style={s.btnTxt}>Otwórz klasyczne wyceny</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={s.err}>{err || 'Brak danych'}</Text>
+          )}
+        </ScrollView>
       </KeyboardSafeScreen>
     );
   }
