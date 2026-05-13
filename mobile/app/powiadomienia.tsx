@@ -352,6 +352,12 @@ export default function Powiadomienia() {
           setApprovalQueue((prev) => prev.filter((it) => Number(it.approval_id) !== approvalId));
           void triggerHaptic('success');
           Alert.alert('', decyzja === 'Approved' ? 'Wycena zatwierdzona.' : 'Wycena została zwrócona.');
+        } else if (res.status === 404) {
+          void triggerHaptic('warning');
+          Alert.alert(
+            'Moduł zatwierdzania wycen',
+            'Backend produkcyjny czeka jeszcze na wdrożenie nowego modułu wycen terenowych. Decyzja nie została wysłana.'
+          );
         } else if (res.status >= 500) {
           const queued = await queueRequestWithOfflineFallback({
             dedupeKey: `approval-decision:${approvalId}`,

@@ -3,11 +3,12 @@
  * Nawigacja: router.push(`/wycena-rysuj?uri=${encodeURIComponent(photoUri)}&wycenaId=${id}`)
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Dimensions, Image, PanResponder,
-  ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar,
+  ActivityIndicator, Alert, Image, PanResponder,
+  ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar, useWindowDimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
@@ -17,12 +18,9 @@ import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { API_URL } from '../constants/api';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { createOfflineRequestId, enqueueOfflineRequest, queueTaskPhotoOffline } from '../utils/offline-queue';
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
-
-const { width: SW } = Dimensions.get('window');
-const CANVAS_W = SW;
-const CANVAS_H = SW * 1.2;
 
 /** Stała paleta kreślarska (nie motyw UI — musi być czytelna na zdjęciu). */
 const KOLORY = [
@@ -38,6 +36,12 @@ const KOLORY = [
 const BIALY_SWATCH = '#ffffff';
 
 const GRUBOSCI = [3, 6, 12];
+const TOOL_PRESETS = [
+  { key: 'cut', label: 'Cięcie', icon: 'git-branch-outline', color: '#EF4444', width: 6 },
+  { key: 'risk', label: 'Ryzyko', icon: 'warning-outline', color: '#EAB308', width: 10 },
+  { key: 'access', label: 'Dojazd', icon: 'navigate-outline', color: '#3B82F6', width: 6 },
+  { key: 'keep', label: 'Zostawić', icon: 'leaf-outline', color: '#22C55E', width: 6 },
+] as const;
 
 interface Stroke {
   path: string;
@@ -48,14 +52,17 @@ interface Stroke {
 export default function WycenaRysujScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const guard = useOddzialFeatureGuard('/wycena');
-  const { uri, wycenaId, quotationId, itemId, photoKind } = useLocalSearchParams<{
+  const { width, height } = useWindowDimensions();
+  const { uri, wycenaId, taskId, inspectionId, quotationId, itemId, photoKind } = useLocalSearchParams<{
     uri: string;
     wycenaId?: string;
+    taskId?: string;
+    inspectionId?: string;
     quotationId?: string;
     itemId?: string;
     photoKind?: string;
   }>();
+  const guard = useOddzialFeatureGuard(inspectionId ? '/ogledziny' : '/wycena');
   const decodedUri = uri ? decodeURIComponent(uri) : '';
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -63,12 +70,14 @@ export default function WycenaRysujScreen() {
   const [selectedKolor, setSelectedKolor] = useState('#EF4444');
   const [selectedGrubosc, setSelectedGrubosc] = useState(6);
   const [saving, setSaving] = useState(false);
-  const [eraser, setEraser] = useState(false);
 
   const viewShotRef = useRef<ViewShot>(null);
   const isDrawing = useRef(false);
+  const currentPathRef = useRef('');
 
-  const s = useMemo(() => makeDrawStyles(theme), [theme]);
+  const canvasW = Math.max(280, Math.min(width, 720));
+  const canvasH = Math.max(320, Math.min(Math.round(canvasW * 1.18), Math.round(height * 0.58)));
+  const s = useMemo(() => makeDrawStyles(theme, canvasW, canvasH), [theme, canvasW, canvasH]);
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -77,23 +86,35 @@ export default function WycenaRysujScreen() {
     onPanResponderGrant: (evt) => {
       isDrawing.current = true;
       const { locationX, locationY } = evt.nativeEvent;
-      setCurrentPath(`M ${locationX.toFixed(1)} ${locationY.toFixed(1)}`);
+      const next = `M ${locationX.toFixed(1)} ${locationY.toFixed(1)}`;
+      currentPathRef.current = next;
+      setCurrentPath(next);
     },
 
     onPanResponderMove: (evt) => {
       if (!isDrawing.current) return;
       const { locationX, locationY } = evt.nativeEvent;
-      setCurrentPath(prev => `${prev} L ${locationX.toFixed(1)} ${locationY.toFixed(1)}`);
+      const next = `${currentPathRef.current} L ${locationX.toFixed(1)} ${locationY.toFixed(1)}`;
+      currentPathRef.current = next;
+      setCurrentPath(next);
     },
 
     onPanResponderRelease: () => {
-      if (!isDrawing.current || !currentPath) return;
+      const finalPath = currentPathRef.current;
+      if (!isDrawing.current || !finalPath) return;
       isDrawing.current = false;
       setStrokes(prev => [...prev, {
-        path: currentPath,
-        color: eraser ? '#00000000' : selectedKolor,
-        width: eraser ? selectedGrubosc * 3 : selectedGrubosc,
+        path: finalPath,
+        color: selectedKolor,
+        width: selectedGrubosc,
       }]);
+      currentPathRef.current = '';
+      setCurrentPath('');
+    },
+
+    onPanResponderTerminate: () => {
+      isDrawing.current = false;
+      currentPathRef.current = '';
       setCurrentPath('');
     },
   });
@@ -106,16 +127,44 @@ export default function WycenaRysujScreen() {
   const clear = () => {
     Alert.alert(t('draw.alert.clearTitle'), t('draw.alert.clearBody'), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('draw.btn.clearConfirm'), style: 'destructive', onPress: () => { setStrokes([]); setCurrentPath(''); } },
+      { text: t('draw.btn.clearConfirm'), style: 'destructive', onPress: () => { setStrokes([]); currentPathRef.current = ''; setCurrentPath(''); } },
     ]);
+  };
+
+  const applyPreset = (preset: (typeof TOOL_PRESETS)[number]) => {
+    setSelectedKolor(preset.color);
+    setSelectedGrubosc(preset.width);
+    void triggerHaptic('light');
+  };
+
+  const queueInspectionSketchOffline = async (capturedUri: string) => {
+    if (!inspectionId) return;
+    const idempotencyKey = createOfflineRequestId(`ogledziny-${inspectionId}-sketch`);
+    await enqueueOfflineRequest({
+      id: idempotencyKey,
+      url: `${API_URL}/ogledziny/${inspectionId}/media`,
+      method: 'POST',
+      multipart: {
+        fileUri: capturedUri,
+        fieldName: 'media',
+        fileName: `ogledziny_szkic_${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        fields: {
+          kind: 'photo',
+          typ: 'photo',
+          opis: 'Szkic zakresu prac z oględzin terenowych.',
+        },
+      },
+    });
   };
 
   const save = async () => {
     if (!viewShotRef.current) return;
     setSaving(true);
+    let capturedUri = '';
     try {
       // Zrób screenshot widoku z rysunkiem
-      const capturedUri = await viewShotRef.current.capture?.();
+      capturedUri = await viewShotRef.current.capture?.() || '';
       if (!capturedUri) {
         Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.captureFail'));
         return;
@@ -140,6 +189,89 @@ export default function WycenaRysujScreen() {
           Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
             { text: t('common.ok'), onPress: () => router.back() },
           ]);
+        } else {
+          void triggerHaptic('error');
+          if (res.status === 404) {
+            Alert.alert(
+              'Moduł wycen terenowych',
+              'Backend produkcyjny nie ma jeszcze wdrożonego nowego modułu wycen. Szkic nie został wysłany do quotation, otwórz klasyczne wyceny.',
+              [
+                { text: 'Zostań tutaj', style: 'cancel' },
+                { text: 'Klasyczne wyceny', onPress: () => router.replace('/wycena' as never) },
+              ]
+            );
+          } else {
+            Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+          }
+        }
+      } else if (taskId) {
+        const { token } = await getStoredSession();
+        if (!token) { router.replace('/login'); return; }
+        const idempotencyKey = createOfflineRequestId(`task-${taskId}-sketch`);
+        const formData = new FormData();
+        formData.append('zdjecie', { uri: capturedUri, name: `szkic_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
+        formData.append('typ', photoKind || 'szkic');
+        formData.append('opis', 'Szkic zakresu prac z wyceny terenowej.');
+        formData.append('tagi', 'wycena,szkic,teren');
+
+        const res = await fetch(`${API_URL}/tasks/${taskId}/zdjecia`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey },
+          body: formData,
+        });
+
+        if (res.ok) {
+          void triggerHaptic('success');
+          Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
+            { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never) },
+          ]);
+        } else {
+          if (res.status >= 500) {
+            await queueTaskPhotoOffline({
+              id: idempotencyKey,
+              url: `${API_URL}/tasks/${taskId}/zdjecia`,
+              fileUri: capturedUri,
+              typ: photoKind || 'szkic',
+              opis: 'Szkic zakresu prac z wyceny terenowej.',
+              tagi: 'wycena,szkic,teren',
+            });
+            void triggerHaptic('warning');
+            Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
+              { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never) },
+            ]);
+            return;
+          }
+          void triggerHaptic('error');
+          Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
+        }
+      } else if (inspectionId) {
+        const { token } = await getStoredSession();
+        if (!token) { router.replace('/login'); return; }
+        const idempotencyKey = createOfflineRequestId(`ogledziny-${inspectionId}-sketch`);
+        const formData = new FormData();
+        formData.append('kind', 'photo');
+        formData.append('typ', 'photo');
+        formData.append('opis', 'Szkic zakresu prac z oględzin terenowych.');
+        formData.append('media', { uri: capturedUri, name: `ogledziny_szkic_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
+
+        const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/media`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey },
+          body: formData,
+        });
+
+        if (res.ok) {
+          void triggerHaptic('success');
+          Alert.alert('Szkic zapisany', 'Rysunek zapisany do oględzin i będzie widoczny dla biura.', [
+            { text: t('common.ok'), onPress: () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never) },
+          ]);
+        } else if (res.status >= 500) {
+          await queueInspectionSketchOffline(capturedUri);
+          void triggerHaptic('warning');
+          Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
+            { text: t('common.ok'), onPress: () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never) },
+          ]);
+          return;
         } else {
           void triggerHaptic('error');
           Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.serverFail'));
@@ -174,6 +306,38 @@ export default function WycenaRysujScreen() {
         ]);
       }
     } catch {
+      if (taskId && capturedUri) {
+        try {
+          const idempotencyKey = createOfflineRequestId(`task-${taskId}-sketch`);
+          await queueTaskPhotoOffline({
+            id: idempotencyKey,
+            url: `${API_URL}/tasks/${taskId}/zdjecia`,
+            fileUri: capturedUri,
+            typ: photoKind || 'szkic',
+            opis: 'Szkic zakresu prac z wyceny terenowej.',
+            tagi: 'wycena,szkic,teren',
+          });
+          void triggerHaptic('warning');
+          Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
+            { text: t('common.ok'), onPress: () => router.replace(`/zlecenie/${taskId}?tab=zdjecia` as never) },
+          ]);
+          return;
+        } catch {
+          // fallback to generic error below
+        }
+      }
+      if (inspectionId && capturedUri) {
+        try {
+          await queueInspectionSketchOffline(capturedUri);
+          void triggerHaptic('warning');
+          Alert.alert('Zapisane offline', 'Szkic trafił do kolejki i wyśle się po powrocie internetu.', [
+            { text: t('common.ok'), onPress: () => router.replace(`/ogledziny-dokumentacja?ogledzinyId=${inspectionId}` as never) },
+          ]);
+          return;
+        } catch {
+          // fallback to generic error below
+        }
+      }
       void triggerHaptic('error');
       Alert.alert(t('wyceny.alert.saveFail'), t('draw.alert.saveFail'));
     } finally {
@@ -207,9 +371,12 @@ export default function WycenaRysujScreen() {
         >
           <Text style={s.toolBtnText}>✕</Text>
         </TouchableOpacity>
-        <Text style={s.toolbarTitle}>{t('draw.title')}</Text>
+        <View style={s.toolbarCenter}>
+          <Text style={s.toolbarTitle}>{t('draw.title')}</Text>
+          <Text style={s.toolbarSub}>{strokes.length} linii • {selectedGrubosc}px</Text>
+        </View>
         <PlatinumCTA
-          label={saving ? t('draw.saving') : t('draw.save')}
+          label={saving ? t('draw.saving') : 'Zapisz'}
           onPress={save}
           disabled={saving}
           loading={saving}
@@ -232,7 +399,7 @@ export default function WycenaRysujScreen() {
           )}
 
           {/* SVG warstwa rysowania */}
-          <Svg style={StyleSheet.absoluteFill} width={CANVAS_W} height={CANVAS_H}>
+          <Svg style={StyleSheet.absoluteFill} width={canvasW} height={canvasH}>
             {strokes.map((s, i) => (
               <Path
                 key={i}
@@ -247,28 +414,50 @@ export default function WycenaRysujScreen() {
             {currentPath ? (
               <Path
                 d={currentPath}
-                stroke={eraser ? 'rgba(0,0,0,0.3)' : selectedKolor}
-                strokeWidth={eraser ? selectedGrubosc * 3 : selectedGrubosc}
+                stroke={selectedKolor}
+                strokeWidth={selectedGrubosc}
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeDasharray={eraser ? '5,3' : undefined}
               />
             ) : null}
           </Svg>
+          <View style={s.canvasBadge}>
+            <Ionicons name="create-outline" size={13} color="#ffffff" />
+            <Text style={s.canvasBadgeText}>Szkic zakresu</Text>
+          </View>
         </View>
       </ViewShot>
 
       {/* Narzędzia dolne */}
       <View style={s.bottomTools}>
         {/* Kolory */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.presetRow}>
+          {TOOL_PRESETS.map((preset) => {
+            const active = selectedKolor === preset.color && selectedGrubosc === preset.width;
+            return (
+              <TouchableOpacity
+                key={preset.key}
+                style={[s.presetBtn, active && { borderColor: preset.color, backgroundColor: preset.color + '22' }]}
+                onPress={() => applyPreset(preset)}
+              >
+                <Ionicons name={preset.icon} size={15} color={active ? preset.color : theme.textMuted} />
+                <Text style={[s.presetText, active && { color: preset.color }]}>{preset.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.colorRow}>
           {/* Gumka */}
           <TouchableOpacity
-            style={[s.eraserBtn, eraser && s.eraserBtnActive]}
-            onPress={() => setEraser(!eraser)}
+            style={s.eraserBtn}
+            onPress={() => {
+              void triggerHaptic('light');
+              undo();
+            }}
           >
-            <Text style={s.eraserIcon}>⬜</Text>
+            <Ionicons name="arrow-undo-outline" size={18} color={theme.textSub} />
           </TouchableOpacity>
           {KOLORY.map(kolor => (
             <TouchableOpacity
@@ -276,9 +465,9 @@ export default function WycenaRysujScreen() {
               style={[
                 s.colorDot,
                 { backgroundColor: kolor, borderColor: kolor === BIALY_SWATCH ? theme.border : kolor },
-                selectedKolor === kolor && !eraser && s.colorDotActive,
+                selectedKolor === kolor && s.colorDotActive,
               ]}
-              onPress={() => { setSelectedKolor(kolor); setEraser(false); }}
+              onPress={() => { setSelectedKolor(kolor); }}
             />
           ))}
         </ScrollView>
@@ -327,7 +516,7 @@ export default function WycenaRysujScreen() {
   );
 }
 
-function makeDrawStyles(t: Theme) {
+function makeDrawStyles(t: Theme, canvasW: number, canvasH: number) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
     centered: { justifyContent: 'center', alignItems: 'center' },
@@ -337,14 +526,43 @@ function makeDrawStyles(t: Theme) {
       backgroundColor: t.headerBg, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16,
       borderBottomWidth: 1, borderBottomColor: t.border,
     },
-    toolBtn: { padding: 8 },
+    toolBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.surface2,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
     toolBtnText: { color: t.textMuted, fontSize: 18 },
+    toolbarCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
     toolbarTitle: { color: t.headerText, fontSize: t.fontSection + 1, fontWeight: '700' },
-    saveBtn: { minWidth: 110 },
+    toolbarSub: { color: t.headerSub, fontSize: 11, marginTop: 2, fontVariant: ['tabular-nums'] },
+    saveBtn: { minWidth: 96 },
 
-    canvasWrap: { flex: 1 },
-    canvas: { width: CANVAS_W, height: CANVAS_H, position: 'relative' },
-    bgImage: { width: CANVAS_W, height: CANVAS_H, position: 'absolute' },
+    canvasWrap: {
+      width: canvasW,
+      height: canvasH,
+      alignSelf: 'center',
+      backgroundColor: '#07130f',
+    },
+    canvas: { width: canvasW, height: canvasH, position: 'relative', overflow: 'hidden' },
+    bgImage: { width: canvasW, height: canvasH, position: 'absolute' },
+    canvasBadge: {
+      position: 'absolute',
+      left: 10,
+      bottom: 10,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    canvasBadgeText: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
 
     bottomTools: {
       backgroundColor: t.surface,
@@ -354,14 +572,28 @@ function makeDrawStyles(t: Theme) {
       borderTopColor: t.border,
     },
 
+    presetRow: { gap: 8, paddingHorizontal: 12, paddingBottom: 10 },
+    presetBtn: {
+      minHeight: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface2,
+      paddingHorizontal: 11,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    presetText: { color: t.textMuted, fontSize: 12, fontWeight: '900' },
     colorRow: { paddingHorizontal: 12, marginBottom: 10 },
     colorDot: {
-      width: 32, height: 32, borderRadius: 16,
+      width: 48, height: 48, borderRadius: 24,
       marginRight: 8, borderWidth: 2,
     },
     colorDotActive: { borderColor: t.text, borderWidth: 3, transform: [{ scale: 1.2 }] },
     eraserBtn: {
-      width: 32, height: 32, borderRadius: t.radiusSm, marginRight: 8,
+      width: 48, height: 48, borderRadius: 12, marginRight: 8,
       backgroundColor: t.surface2, justifyContent: 'center', alignItems: 'center',
       borderWidth: 2, borderColor: t.border,
     },
@@ -372,7 +604,7 @@ function makeDrawStyles(t: Theme) {
 
     gruboscRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     gruboscBtn: {
-      width: 40, height: 40, borderRadius: t.radiusSm,
+      width: 48, height: 48, borderRadius: 12,
       backgroundColor: t.surface2, justifyContent: 'center', alignItems: 'center',
       borderWidth: 1.5, borderColor: t.border,
     },
