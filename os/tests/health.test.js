@@ -16,7 +16,12 @@ describe('GET /api/health', () => {
     expect(res.body).toEqual(
       expect.objectContaining({
         status: 'ok',
-        wersja: '2.1.0',
+        wersja: '2.2.0-quotations',
+        features: expect.objectContaining({
+          quotations: true,
+          quotationPanels: true,
+          quotationApprovals: true,
+        }),
       })
     );
     expect(typeof res.body.czas).toBe('string');

@@ -1,6 +1,7 @@
 const pool = require('./config/database');
 const { createApp } = require('./app');
 const { env } = require('./config/env');
+const { API_VERSION } = require('./config/version');
 const logger = require('./config/logger');
 
 const initDatabase = async () => {
@@ -39,7 +40,7 @@ const startServer = async () => {
       logger.warn('Migracja tasks (niekrytyczna)', { message: migErr.message });
     }
     serverInstance = app.listen(PORT, '0.0.0.0', () => {
-      logger.info('ARBOR-OS uruchomiony', { port: PORT, version: '2.1.0' });
+      logger.info('ARBOR-OS uruchomiony', { port: PORT, version: API_VERSION });
     });
     return serverInstance;
   } catch (err) {
