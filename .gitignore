@@ -33,3 +33,20 @@ mobile/.env.local
 
 # Local scratch scripts (not part of the product)
 tmp_*.py
+
+# Codex / Claude agent runtime artifacts
+.codex/
+.codex-*.log
+.codex-*.pid
+.claude/
+.codex-up.log
+.codex-up.err.log
+
+# IDE
+.idea/
+
+# Container image blobs (OCI layer cache)
+blobs/
+
+# Manifests cache
+manifests/
