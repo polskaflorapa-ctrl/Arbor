@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_BASE_URL, API_URL, WEB_APP_URL } from '../constants/api';
+import { API_URL, EXPECTED_API_VERSION, WEB_APP_URL } from '../constants/api';
+import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
@@ -136,6 +137,8 @@ export default function ApiDiagnostykaScreen() {
     makeInitialProbe('apiDiag.probe.backend'),
     makeInitialProbe('apiDiag.probe.auth'),
     makeInitialProbe('apiDiag.probe.tasks'),
+    makeInitialProbe('apiDiag.probe.quotationPanel'),
+    makeInitialProbe('apiDiag.probe.quotationApprovals'),
     makeInitialProbe('apiDiag.probe.mobileConfig'),
     makeInitialProbe('apiDiag.probe.fleetReservations'),
   ]);
@@ -198,15 +201,23 @@ export default function ApiDiagnostykaScreen() {
       setOfflineQueueSize(await getOfflineQueueSize());
 
       const nextResults: DiagnosticResult[] = [];
-      nextResults.push(await runSingle('apiDiag.probe.backend', () => fetch(API_BASE_URL), {
-        okStatusCodes: [301, 302, 307, 308],
-      }));
+      nextResults.push(await runSingle('apiDiag.probe.backend', () => fetch(`${API_URL}/health`)));
       nextResults.push(await runSingle('apiDiag.probe.auth', () => fetch(`${API_URL}/auth/me`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }), {
         authRequiredStatusCodes: [401, 403],
       }));
       nextResults.push(await runSingle('apiDiag.probe.tasks', () => fetch(`${API_URL}/tasks/wszystkie`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }), {
+        authRequiredStatusCodes: [401, 403],
+      }));
+      nextResults.push(await runSingle('apiDiag.probe.quotationPanel', () => fetch(`${API_URL}/quotations/panel/do-przypisania`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }), {
+        authRequiredStatusCodes: [401, 403],
+      }));
+      nextResults.push(await runSingle('apiDiag.probe.quotationApprovals', () => fetch(`${API_URL}/quotations/panel/moje-zatwierdzenia`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }), {
         authRequiredStatusCodes: [401, 403],
@@ -433,13 +444,70 @@ export default function ApiDiagnostykaScreen() {
           ? theme.dangerBg
           : theme.surface2;
 
-  const expectedApi =
-    typeof process !== 'undefined' && process.env.EXPO_PUBLIC_EXPECTED_API_VERSION
-      ? String(process.env.EXPO_PUBLIC_EXPECTED_API_VERSION).trim()
-      : '';
+  const expectedApi = EXPECTED_API_VERSION;
   const apiVersionMismatch = Boolean(
     expectedApi && serverApiVer && serverApiVer !== expectedApi,
   );
+  const failingResults = results.filter((item) => item.status === 'error');
+  const primaryIssue = failingResults[0] ?? null;
+  const actionState = (() => {
+    if (!primaryIssue) {
+      return {
+        icon: 'shield-checkmark' as const,
+        color: theme.success,
+        bg: theme.successBg,
+        title: t('apiDiag.action.readyTitle'),
+        sub: t('apiDiag.action.readySub'),
+      };
+    }
+    if (primaryIssue.httpCode === 404) {
+      return {
+        icon: 'git-branch-outline' as const,
+        color: theme.warning,
+        bg: theme.warningBg,
+        title: t('apiDiag.action.missingEndpointTitle'),
+        sub: t('apiDiag.action.missingEndpointSub', { name: diagText(primaryIssue.name, t) }),
+      };
+    }
+    if (primaryIssue.httpCode === null) {
+      return {
+        icon: 'cloud-offline-outline' as const,
+        color: theme.danger,
+        bg: theme.dangerBg,
+        title: t('apiDiag.action.networkTitle'),
+        sub: t('apiDiag.action.networkSub'),
+      };
+    }
+    if (primaryIssue.httpCode >= 500) {
+      return {
+        icon: 'server-outline' as const,
+        color: theme.danger,
+        bg: theme.dangerBg,
+        title: t('apiDiag.action.serverTitle'),
+        sub: t('apiDiag.action.serverSub', { status: primaryIssue.httpCode }),
+      };
+    }
+    return {
+      icon: 'key-outline' as const,
+      color: theme.warning,
+      bg: theme.warningBg,
+      title: t('apiDiag.action.authTitle'),
+      sub: t('apiDiag.action.authSub', { status: primaryIssue.httpCode }),
+    };
+  })();
+  const configRows = [
+    { label: 'Czas', value: checkedAt },
+    { label: 'Aplikacja', value: `${appVersion} / native ${nativeApp} / build ${nativeBuild}` },
+    { label: 'API', value: API_URL },
+    { label: 'Panel web', value: WEB_APP_URL },
+    { label: 'Token', value: tokenPresent ? t('apiDiag.token.yes') : t('apiDiag.token.no') },
+    { label: 'Kolejka offline', value: String(offlineQueueSize) },
+  ];
+  const heroStats = [
+    { label: 'OK', value: String(okCount), icon: 'checkmark-circle' as const, color: theme.success, bg: theme.successBg },
+    { label: 'Błędy', value: String(errorCount), icon: 'alert-circle' as const, color: theme.danger, bg: theme.dangerBg },
+    { label: 'Opóźnienie', value: averageLatency === null ? '-' : `${averageLatency} ms`, icon: 'speedometer-outline' as const, color: globalLatencyColor, bg: globalLatencyBg },
+  ];
 
   return (
     <View style={S.root}>
@@ -481,11 +549,77 @@ export default function ApiDiagnostykaScreen() {
           />
         }
       >
+        <View style={S.heroCard}>
+          <View style={S.heroTop}>
+            <View style={[S.heroIcon, { backgroundColor: healthBg, borderColor: healthColor + '44' }]}>
+              <Ionicons name={healthIcon} size={22} color={healthColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.heroEyebrow}>ARBOR-OS API</Text>
+              <Text style={S.heroTitle}>{health.label}</Text>
+              <Text style={S.heroSub} numberOfLines={2}>
+                {t('apiDiag.info.summary', { ok: okCount, err: errorCount })} · {t('apiDiag.info.avgLatency', { ms: averageLatency ?? '-' })}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                void triggerHaptic('light');
+                void runDiagnostics();
+              }}
+              style={S.heroRefresh}
+              disabled={running}
+            >
+              {running ? <ActivityIndicator size="small" color={theme.accentText} /> : <Ionicons name="refresh" size={18} color={theme.accentText} />}
+            </TouchableOpacity>
+          </View>
+          <View style={S.heroStats}>
+            {heroStats.map((stat) => (
+              <View key={stat.label} style={[S.heroStat, { backgroundColor: stat.bg, borderColor: stat.color + '44' }]}>
+                <Ionicons name={stat.icon} size={15} color={stat.color} />
+                <Text style={[S.heroStatValue, { color: stat.color }]} numberOfLines={1}>{stat.value}</Text>
+                <Text style={S.heroStatLabel}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={[S.actionCard, { backgroundColor: actionState.bg, borderColor: actionState.color + '44' }]}>
+          <View style={[S.actionIcon, { backgroundColor: actionState.color + '18', borderColor: actionState.color + '55' }]}>
+            <Ionicons name={actionState.icon} size={20} color={actionState.color} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={S.actionEyebrow}>{t('apiDiag.action.eyebrow')}</Text>
+            <Text style={[S.actionTitle, { color: actionState.color }]}>{actionState.title}</Text>
+            <Text style={S.actionSub}>{actionState.sub}</Text>
+          </View>
+        </View>
+
         <View style={S.infoBox}>
-          <Text style={S.infoTitle}>{t('apiDiag.infoTitle')}</Text>
-          <Text style={S.infoLine}>{t('apiDiag.info.checkedAt', { at: checkedAt })}</Text>
-          <Text style={S.infoLine}>{t('apiDiag.info.appVersion', { v: appVersion })}</Text>
-          <Text style={S.infoLine}>{t('apiDiag.info.nativeBuild', { native: nativeApp, build: nativeBuild })}</Text>
+          <View style={S.infoHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={S.infoTitle}>{t('apiDiag.infoTitle')}</Text>
+              <Text style={S.infoSubtitle}>Konfiguracja i połączenie produkcyjne</Text>
+            </View>
+            <View style={[S.healthDot, { backgroundColor: healthColor }]} />
+          </View>
+          {configRows.map((row) => (
+            <View key={row.label} style={S.configRow}>
+              <Text style={S.configLabel}>{row.label}</Text>
+              <Text style={S.configValue} selectable numberOfLines={2}>{row.value}</Text>
+            </View>
+          ))}
+          <View style={S.configRow}>
+            <Text style={S.configLabel}>{t('apiDiag.serverVersion')}</Text>
+            <Text style={S.configValue} selectable>{serverApiVer ?? '-'}</Text>
+          </View>
+          {expectedApi ? (
+            <View style={S.configRow}>
+              <Text style={S.configLabel}>{t('apiDiag.expectedApi')}</Text>
+              <Text style={[S.configValue, apiVersionMismatch && { color: theme.danger, fontWeight: '900' }]}>
+                {expectedApi}{apiVersionMismatch ? ' !' : ' OK'}
+              </Text>
+            </View>
+          ) : null}
           <Text style={S.infoLine}>
             {t('apiDiag.serverVersion')}: {serverApiVer ?? '—'}
           </Text>
@@ -642,120 +776,245 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg },
   header: {
     backgroundColor: t.headerBg,
-    borderBottomColor: t.border,
+    borderBottomColor: t.navBorder,
     borderBottomWidth: 1,
     paddingTop: 56,
-    paddingBottom: 14,
-    paddingHorizontal: 14,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  refreshBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, color: t.headerText, fontSize: 19, fontWeight: '700' },
-  scroll: { flex: 1, padding: 14 },
-  infoBox: { backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
-  infoTitle: { color: t.text, fontSize: 14, fontWeight: '700', marginBottom: 6 },
-  infoLine: { color: t.textSub, fontSize: 12 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: t.surface2,
+    borderWidth: 1,
+    borderColor: t.navBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: t.accentLight,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { flex: 1, color: t.headerText, fontSize: 20, fontWeight: '900', letterSpacing: 0 },
+  scroll: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
+  heroCard: {
+    backgroundColor: t.cardBg,
+    borderColor: t.cardBorder,
+    borderWidth: 1,
+    borderRadius: t.radiusXl,
+    padding: 16,
+    marginBottom: 12,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity,
+      radius: t.shadowRadius,
+      offsetY: t.shadowOffsetY,
+      elevation: t.cardElevation,
+    }),
+    gap: 14,
+  },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroEyebrow: { color: t.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0 },
+  heroTitle: { color: t.text, fontSize: 22, fontWeight: '900', marginTop: 2, letterSpacing: 0 },
+  heroSub: { color: t.textSub, fontSize: 12, fontWeight: '700', marginTop: 3, lineHeight: 17 },
+  heroRefresh: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: t.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroStats: { flexDirection: 'row', gap: 8 },
+  heroStat: {
+    flex: 1,
+    minHeight: 70,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  heroStatValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  heroStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  actionCard: {
+    borderWidth: 1,
+    borderRadius: t.radiusXl,
+    padding: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionEyebrow: {
+    color: t.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  actionTitle: { fontSize: 15, fontWeight: '900', marginTop: 2 },
+  actionSub: { color: t.textSub, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 2 },
+  infoBox: {
+    backgroundColor: t.surface,
+    borderColor: t.cardBorder,
+    borderWidth: 1,
+    borderRadius: t.radiusXl,
+    padding: 15,
+    marginBottom: 12,
+    gap: 8,
+  },
+  infoHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  infoTitle: { color: t.text, fontSize: 16, fontWeight: '900' },
+  infoSubtitle: { color: t.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  healthDot: { width: 10, height: 10, borderRadius: 99 },
+  configRow: {
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    gap: 3,
+  },
+  configLabel: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  configValue: { color: t.text, fontSize: 12, fontWeight: '800', lineHeight: 17 },
+  infoLine: { display: 'none', color: t.textSub, fontSize: 12 },
   actionsRow: {
-    marginTop: 10,
+    marginTop: 4,
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
   },
   copyBtn: {
+    flexGrow: 1,
     backgroundColor: t.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 7,
   },
   queueSyncBtn: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
+    marginTop: 4,
+    alignSelf: 'stretch',
     backgroundColor: t.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 7,
   },
   queueStatusChip: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     backgroundColor: t.successBg,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  queueStatusText: { fontSize: 12, fontWeight: '700' },
-  shareBtn: {
-    backgroundColor: t.accentDark,
+    borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  copyBtnText: { color: t.accentText, fontSize: 12, fontWeight: '700' },
+  queueStatusText: { fontSize: 12, fontWeight: '800' },
+  shareBtn: {
+    flexGrow: 1,
+    backgroundColor: t.accentDark,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  copyBtnText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
   toggleBtn: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     backgroundColor: t.surface2,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
   },
-  toggleBtnText: { fontSize: 12, fontWeight: '700' },
+  toggleBtnText: { fontSize: 12, fontWeight: '900' },
   healthBadge: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    alignSelf: 'stretch',
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
   },
-  healthBadgeText: { fontSize: 12, fontWeight: '700' },
-  card: { backgroundColor: t.cardBg, borderColor: t.cardBorder, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTitle: { color: t.text, fontSize: 13, fontWeight: '700' },
-  badge: { fontSize: 13, fontWeight: '800' },
-  detail: { color: t.textSub, fontSize: 12, marginBottom: 2 },
-  latencyRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  latencyText: { fontSize: 12, fontWeight: '700' },
-  tipBox: { backgroundColor: t.infoBg, borderRadius: 12, padding: 12, marginTop: 4 },
-  tipTitle: { color: t.info, fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  tipText: { color: t.info, fontSize: 12 },
-  historyBox: { backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 10 },
-  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  historyTitle: { color: t.text, fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  healthBadgeText: { fontSize: 12, fontWeight: '900' },
+  card: {
+    backgroundColor: t.cardBg,
+    borderColor: t.cardBorder,
+    borderWidth: 1,
+    borderRadius: t.radiusXl,
+    padding: 15,
+    marginBottom: 10,
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
+  cardTitle: { color: t.text, fontSize: 14, fontWeight: '900', flexShrink: 1 },
+  badge: { fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  detail: { color: t.textSub, fontSize: 13, marginBottom: 3, lineHeight: 18 },
+  latencyRow: { marginTop: 5, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  latencyText: { fontSize: 12, fontWeight: '900' },
+  tipBox: { backgroundColor: t.infoBg, borderRadius: t.radiusXl, padding: 14, marginTop: 4 },
+  tipTitle: { color: t.info, fontSize: 14, fontWeight: '900', marginBottom: 6 },
+  tipText: { color: t.info, fontSize: 12, fontWeight: '700', lineHeight: 18 },
+  historyBox: { backgroundColor: t.surface, borderColor: t.cardBorder, borderWidth: 1, borderRadius: t.radiusXl, padding: 14, marginTop: 10 },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  historyTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
   sparklineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  sparklineText: { fontSize: 12, fontWeight: '700' },
-  historyLine: { color: t.textSub, fontSize: 12, marginBottom: 2 },
-  historyRow: { marginBottom: 6 },
-  historyDelta: { fontSize: 11, fontWeight: '700' },
+  sparklineText: { fontSize: 12, fontWeight: '800' },
+  historyLine: { color: t.textSub, fontSize: 12, marginBottom: 2, lineHeight: 17 },
+  historyRow: { marginBottom: 8 },
+  historyDelta: { fontSize: 11, fontWeight: '900' },
   clearBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 10,
     backgroundColor: t.dangerBg,
   },
-  clearBtnText: { fontSize: 11, fontWeight: '700' },
+  clearBtnText: { fontSize: 11, fontWeight: '900' },
 });

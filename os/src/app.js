@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('./config/database');
 const { env } = require('./config/env');
+const { API_VERSION, API_FEATURES } = require('./config/version');
 
 const { requestContext } = require('./middleware/request-context');
 const { localeMiddleware } = require('./middleware/locale');
@@ -34,6 +35,7 @@ const rozliczeniaRoutes = require('./routes/rozliczenia');
 const smsWebhooksRoutes = require('./routes/sms-webhooks');
 const smsRoutes = require('./routes/sms');
 const telefonRoutes = require('./routes/telefon');
+const telephonyRoutes = require('./routes/telephony');
 const telefonWebhooksRoutes = require('./routes/telefon-webhooks');
 const pdfRoutes = require('./routes/pdf');
 const { router: cmrRoutes } = require('./routes/cmr');
@@ -56,6 +58,24 @@ const createApp = () => {
     ? env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
     : ['*'];
   const isWildcardCors = allowedOrigins.includes('*');
+
+  // Konfiguracja zaufania do reverse-proxy (Render / nginx / Cloudflare).
+  // Bez tego express-rate-limit i ręczne `req.ip` wskazują na proxy zamiast klienta —
+  // wszystkie żądania trafiają do jednego bucketa. Liczba 1 = ufaj jednemu hopowi.
+  // Steruj przez ENV `TRUST_PROXY` (numer / "true" / "false") — dev domyślnie wyłączony.
+  const trustProxyEnv = (process.env.TRUST_PROXY || '').trim();
+  if (trustProxyEnv) {
+    const asNumber = Number(trustProxyEnv);
+    if (!Number.isNaN(asNumber)) {
+      app.set('trust proxy', asNumber);
+    } else if (trustProxyEnv === 'true' || trustProxyEnv === 'false') {
+      app.set('trust proxy', trustProxyEnv === 'true');
+    } else {
+      app.set('trust proxy', trustProxyEnv);
+    }
+  } else if (env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
 
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -121,6 +141,7 @@ const createApp = () => {
   app.use('/api/sms', costlyApiLimiter, smsRoutes);
   app.use('/api/telefon/webhooks', telefonWebhooksRoutes);
   app.use('/api/telefon', costlyApiLimiter, telefonRoutes);
+  app.use('/api/telephony', telephonyRoutes);
   app.use('/api/pdf', costlyApiLimiter, pdfRoutes);
   app.use('/api/cmr', cmrRoutes);
   app.use('/api/mobile', mobileRoutes);
@@ -149,12 +170,18 @@ const createApp = () => {
     res.json({
       status: 'ok',
       czas: new Date().toISOString(),
-      wersja: '2.1.0',
+      wersja: API_VERSION,
+      features: API_FEATURES,
       requestId: req.requestId,
     });
   });
 
-  app.get('/api/db-test', async (req, res, next) => {
+  // /api/db-test — diagnostyczny, w produkcji tylko z prawidłowym JWT.
+  // W dev/test domyślnie otwarty dla wygody (można wymusić auth `DB_TEST_REQUIRE_AUTH=true`).
+  const dbTestRequireAuth =
+    env.NODE_ENV === 'production' || String(process.env.DB_TEST_REQUIRE_AUTH || '').toLowerCase() === 'true';
+  const dbTestHandlers = dbTestRequireAuth ? [authMiddleware] : [];
+  app.get('/api/db-test', ...dbTestHandlers, async (req, res, next) => {
     try {
       const result = await pool.query('SELECT NOW() as time');
       res.json({ success: true, time: result.rows[0].time, requestId: req.requestId });
@@ -176,7 +203,21 @@ const createApp = () => {
   });
 
   if (metricsEnabled()) {
+    // /api/metrics — domyślnie chronione tokenem `METRICS_TOKEN`
+    // (nagłówek `Authorization: Bearer <token>` lub `?token=`).
+    // Brak tokena w env = w produkcji odmowa, w dev open (z ostrzeżeniem).
+    const metricsToken = (process.env.METRICS_TOKEN || '').trim();
     app.get('/api/metrics', async (req, res) => {
+      if (metricsToken) {
+        const headerAuth = String(req.headers.authorization || '');
+        const headerToken = headerAuth.startsWith('Bearer ') ? headerAuth.slice(7).trim() : '';
+        const queryToken = String(req.query?.token || '').trim();
+        if (headerToken !== metricsToken && queryToken !== metricsToken) {
+          return res.status(401).type('text/plain').send('Unauthorized');
+        }
+      } else if (env.NODE_ENV === 'production') {
+        return res.status(401).type('text/plain').send('Unauthorized: METRICS_TOKEN not configured');
+      }
       res.setHeader('Content-Type', register.contentType);
       res.end(await register.metrics());
     });
