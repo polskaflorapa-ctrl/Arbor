@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
@@ -13,6 +14,35 @@ import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 import { TASK_STATUS, getTaskStatusColor, normalizeTaskStatus } from '../utils/taskWorkflow';
+
+const FEATURES = [
+  '/dashboard', '/misja-dnia', '/nowe-zlecenie', '/harmonogram',
+  '/flota-mobile', '/rezerwacje-sprzetu', '/blokady-kalendarza',
+  '/potwierdzenia-ekip', '/kpi-tydzien', '/autoplan-dnia',
+  '/ogledziny', '/wycena-kalendarz', '/wyceny-terenowe',
+  '/zatwierdz-wyceny', '/raporty-mobilne', '/rozliczenia',
+  '/zlecenia', '/raport-dzienny', '/wyceniajacy-hub',
+  '/magazyn-mobile', '/profil', '/powiadomienia',
+];
+
+const OVERRIDES_KEY = 'oddzial_feature_overrides_v1';
+
+function readOverrides() {
+  try {
+    const raw = localStorage.getItem(OVERRIDES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeOverrides(data) {
+  try {
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(data));
+  } catch { /* ignore */ }
+}
 
 const ROLA_KOLOR = {
   'Dyrektor':                   '#f59e0b',
@@ -29,6 +59,7 @@ const ROLA_KOLOR = {
 export default function OddzialDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [oddzial, setOddzial] = useState(null);
   const [zlecenia, setZlecenia] = useState([]);
   const [ekipy, setEkipy] = useState([]);
@@ -48,6 +79,7 @@ export default function OddzialDetail() {
   const [brygadzistaProcent, setBrygadzistaProcent] = useState('15');
   const [formEkipa, setFormEkipa] = useState({ nazwa: '', brygadzista_id: '' });
   const [formCzlonek, setFormCzlonek] = useState({ user_id: '', rola: 'Pomocnik' });
+  const [featureOverrides, setFeatureOverrides] = useState({});
   const [showPracownikForm, setShowPracownikForm] = useState(false);
   const [formPracownik, setFormPracownik] = useState({
     imie: '', nazwisko: '', login: '', haslo: '',
@@ -85,6 +117,7 @@ export default function OddzialDetail() {
     if (!token) { navigate('/'); return; }
     const u = getLocalStorageJson('user');
     if (u) setCurrentUser(u);
+    setFeatureOverrides(readOverrides());
     reloadAll();
   }, [navigate, reloadAll]);
 
@@ -395,6 +428,9 @@ export default function OddzialDetail() {
             { key: 'zlecenia', label: `📋 Zlecenia (${zlecenia.length})` },
             { key: 'ekipy', label: `👷 Ekipy (${ekipy.length})` },
             { key: 'pracownicy', label: `👥 Pracownicy (${pracownicy.length})` },
+            ...(currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator'
+              ? [{ key: 'funkcje', label: t('pages.branchAdmin.tabFunkcje', { defaultValue: '⚙️ Funkcje' }) }]
+              : []),
           ].map(t => (
             <button key={t.key}
               style={{
@@ -665,6 +701,19 @@ export default function OddzialDetail() {
           </>
         )}
 
+        {/* ===== FUNKCJE ===== */}
+        {activeTab === 'funkcje' && (
+          <FunkcjeTab
+            oddzialId={id}
+            overrides={featureOverrides}
+            onOverridesChange={(updated) => {
+              writeOverrides(updated);
+              setFeatureOverrides(updated);
+            }}
+            t={t}
+          />
+        )}
+
         {/* ===== PRACOWNICY ===== */}
         {activeTab === 'pracownicy' && (
           <>
@@ -795,6 +844,107 @@ export default function OddzialDetail() {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
+  const idStr = String(oddzialId);
+  // overrides[idStr] is an object { '/feature': true/false }
+  const oddzialOverrides = overrides[idStr] || {};
+
+  function isEnabled(feature) {
+    return Object.prototype.hasOwnProperty.call(oddzialOverrides, feature)
+      ? oddzialOverrides[feature]
+      : true; // default: enabled
+  }
+
+  function toggleFeature(feature) {
+    const current = isEnabled(feature);
+    const updated = {
+      ...overrides,
+      [idStr]: {
+        ...oddzialOverrides,
+        [feature]: !current,
+      },
+    };
+    onOverridesChange(updated);
+  }
+
+  function exportJson() {
+    try {
+      const text = JSON.stringify(oddzialOverrides, null, 2);
+      navigator.clipboard.writeText(text);
+    } catch {
+      /* ignore clipboard errors */
+    }
+  }
+
+  const overrideCount = Object.keys(oddzialOverrides).length;
+
+  return (
+    <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, fontSize: 13, color: 'var(--text-muted)' }}>
+          {t('pages.branchAdmin.hint', { defaultValue: 'Włącz lub wyłącz funkcje mobilne dla tego oddziału (zapisywane lokalnie).' })}
+        </div>
+        {overrideCount > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border2)' }}>
+            {overrideCount} override{overrideCount !== 1 ? 's' : ''}
+          </span>
+        )}
+        <button
+          onClick={exportJson}
+          style={{ padding: '7px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '600' }}
+        >
+          {t('pages.branchAdmin.export', { defaultValue: 'Eksportuj JSON' })}
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 6 }}>
+        {FEATURES.map((feature) => {
+          const enabled = isEnabled(feature);
+          return (
+            <div
+              key={feature}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                backgroundColor: enabled ? 'var(--bg-card)' : 'rgba(248,113,113,0.06)',
+              }}
+            >
+              <span style={{ fontSize: 13, color: 'var(--text-sub)', fontFamily: 'monospace' }}>
+                {feature}
+              </span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: enabled ? 'var(--accent)' : '#EF5350', fontWeight: 700 }}>
+                  {enabled
+                    ? t('pages.branchAdmin.featureEnabled', { defaultValue: 'Włączona' })
+                    : t('pages.branchAdmin.featureDisabled', { defaultValue: 'Wyłączona' })}
+                </span>
+                <div
+                  onClick={() => toggleFeature(feature)}
+                  role="switch"
+                  aria-checked={enabled}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFeature(feature); } }}
+                  style={{
+                    width: 36, height: 20, borderRadius: 10, cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                    backgroundColor: enabled ? 'var(--accent)' : '#9CA3AF',
+                    border: '1px solid var(--border2)',
+                    outline: 'none',
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute', top: 2, transition: 'left 0.2s',
+                    left: enabled ? 18 : 2, width: 14, height: 14, borderRadius: '50%',
+                    backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  }} />
+                </div>
+              </label>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

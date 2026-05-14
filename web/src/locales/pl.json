@@ -82,7 +82,32 @@
     "estimatorHub": "Hub wyceniającego",
     "profile": "Profil",
     "todos": "Zadania",
-    "hrDocuments": "Kadry / Dokumenty"
+    "hrDocuments": "Kadry / Dokumenty",
+    "crewAttendance": "Potwierdzenia ekip"
+  },
+  "pages": {
+    "crewAtt": {
+      "title": "Potwierdzenia ekip",
+      "subtitle": "Dzienna gotowość brygad przed planowaniem prac.",
+      "date": "Data",
+      "hint": "Zaznacz ekipy gotowe do pracy w danym dniu. Stan zapisywany lokalnie.",
+      "present": "Gotowa",
+      "note": "Uwaga",
+      "notePh": "opcjonalnie",
+      "confirmed": "Gotowych",
+      "absent": "Brak",
+      "total": "Ekip łącznie",
+      "noTeams": "Brak ekip",
+      "loading": "Ładowanie…",
+      "errorLoad": "Nie udało się wczytać ekip"
+    },
+    "branchAdmin": {
+      "tabFunkcje": "⚙️ Funkcje",
+      "hint": "Włącz lub wyłącz funkcje mobilne dla tego oddziału (zapisywane lokalnie).",
+      "export": "Eksportuj JSON",
+      "featureEnabled": "Włączona",
+      "featureDisabled": "Wyłączona"
+    }
   },
   "payrollM11": {
     "title": "Rozliczenia ekip (M11)",
