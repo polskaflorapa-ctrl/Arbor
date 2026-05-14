@@ -1425,7 +1425,7 @@ export default function Zlecenia() {
   const navigate = useNavigate();
   const location = useLocation();
  
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
   const isSpecjalista = currentUser?.rola === 'Specjalista';
   const isWyceniajacy = currentUser?.rola === 'Wyceniający' || currentUser?.rola === 'Wyceniajacy';

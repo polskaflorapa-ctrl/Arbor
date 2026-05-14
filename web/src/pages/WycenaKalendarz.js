@@ -744,8 +744,8 @@ const S = {
     position: 'relative',
     overflow: 'hidden',
   },
-  bgOrbTop: { position: 'fixed', top: -140, right: -120, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, rgba(165,107,255,0.26) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
-  bgOrbBottom: { position: 'fixed', bottom: -150, left: -130, width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(circle, rgba(112,182,255,0.18) 0%, transparent 72%)', pointerEvents: 'none', zIndex: 0 },
+  bgOrbTop: { display: 'none' },
+  bgOrbBottom: { display: 'none' },
   viewToggle: {
     width: '100%',
     flexBasis: '100%',
@@ -768,12 +768,12 @@ const S = {
   viewBtnOn: { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--accent-surface)' },
 
   header: {
-    display: 'flex', alignItems: 'center', gap: 16, padding: '20px 0',
-    background: 'linear-gradient(135deg, var(--sidebar), var(--bg-deep))',
-    borderBottom: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
+    display: 'flex', alignItems: 'center', gap: 16, padding: '16px 18px', marginBottom: 14,
+    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))',
+    border: '1px solid rgba(191,225,146,0.16)', borderRadius: 8, boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
   },
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+  headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
   addBtn: { padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
   linkBtn: {
@@ -809,7 +809,7 @@ const S = {
 
   body: { display: 'flex', gap: 20, padding: '20px 0', flexWrap: 'wrap', position: 'relative', zIndex: 1 },
 
-  calBox: { flex: '0 0 380px', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
+  calBox: { flex: '0 0 380px', background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))', borderRadius: 8, padding: 20, border: '1px solid rgba(191,225,146,0.18)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border2)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)' },
@@ -830,7 +830,7 @@ const S = {
   legenda: { display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 6 },
 
-  dayPanel: { flex: 1, minWidth: 300, background: 'linear-gradient(150deg, rgba(255,255,255,0.02) 0%, transparent 100%)', border: '1px solid var(--border2)', borderRadius: 18, padding: 16, boxShadow: 'var(--shadow-sm)' },
+  dayPanel: { flex: 1, minWidth: 300, background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.86), rgba(8,16,11,0.92))', border: '1px solid rgba(191,225,146,0.18)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
   dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card2)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border2)' },
@@ -852,7 +852,7 @@ const S = {
 
   // Modal
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 20, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-lg)' },
+  modal: { background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.98), rgba(8,16,11,0.98))', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid rgba(191,225,146,0.2)', boxShadow: 'var(--shadow-lg)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: 'var(--text)' },
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },

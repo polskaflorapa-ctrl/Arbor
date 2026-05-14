@@ -38,7 +38,7 @@ function payrollZipEncryptionMethodFromEnv() {
   return m === 'zip20' || m === 'legacy' ? 'zip20' : 'aes256';
 }
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isKierownik = (u) => u.rola === 'Kierownik';
 
 function canFieldTeamCloseDay(u, teamId) {

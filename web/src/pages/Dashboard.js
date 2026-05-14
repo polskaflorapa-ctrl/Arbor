@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
@@ -123,6 +123,8 @@ const KPI_ICONS = {
 };
 const QL_ICONS = {
   '/nowe-zlecenie': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
+  '/misja-dnia':    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><path d="M6 19h4"/></svg>,
+  '/autoplan-dnia': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 15c4-8 12-8 16 0"/><path d="M8 15c2-4 6-4 8 0"/><circle cx="12" cy="16" r="2"/><path d="M12 4v3"/><path d="M4.9 6.9l2.1 2.1"/><path d="M19.1 6.9 17 9"/></svg>,
   '/kierownik':     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
   '/ekipy':         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   '/raporty':       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
@@ -142,12 +144,6 @@ const QL_ICONS = {
   '/wynagrodzenie-wyceniajacych': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
   '/zarzadzaj-rolami': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
 };
-
-const QL_CHEVRON = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-);
 
 const CMD_ICONS = {
   zlecenia: (
@@ -276,6 +272,13 @@ export default function Dashboard() {
   const [hovered, setHovered] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const loadAll = useCallback(async () => {
     try {
@@ -556,6 +559,66 @@ export default function Dashboard() {
     { label: 'Finanse', path: '/ksiegowosc' },
   ].filter((item) => visibleQuickLinks.some((link) => link.path === item.path) || item.path === '/raporty/analityka');
 
+  const formatMoney = (value) => `${(Number(value) || 0).toLocaleString('pl-PL')} PLN`;
+  const statusLabel = (value) => String(value || 'Nowe').replace('_', ' ');
+  const shortDate = (value) => {
+    if (!value) return 'Brak terminu';
+    try {
+      return new Date(value).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+    } catch {
+      return 'Brak terminu';
+    }
+  };
+
+  const dashboardKpis = kpiData.slice(0, 6).map((item, index) => ({
+    ...item,
+    tone: ['var(--warning)', 'var(--info)', 'var(--success)', 'var(--accent)', '#eab308', '#fb7185'][index] || 'var(--accent)',
+    trend: index === 0 ? 'otwarte tematy' : index === 1 ? 'teren dzisiaj' : index === 2 ? 'zamknięte' : index === 3 ? 'wartość' : 'status',
+  }));
+
+  const teamRanking = useMemo(() => {
+    const map = new Map();
+    for (const z of ostatnie) {
+      const name = z.ekipa_nazwa || z.ekipa || 'Bez przypisanej ekipy';
+      const prev = map.get(name) || { name, count: 0, value: 0, branch: z.miasto || z.oddzial_nazwa || '' };
+      prev.count += 1;
+      prev.value += Number(z.wartosc_rzeczywista || z.wartosc_planowana || 0);
+      if (!prev.branch) prev.branch = z.miasto || z.oddzial_nazwa || '';
+      map.set(name, prev);
+    }
+    return Array.from(map.values())
+      .sort((a, b) => b.value - a.value || b.count - a.count)
+      .slice(0, 5);
+  }, [ostatnie]);
+
+  const scheduleItems = useMemo(() => [...ostatnie]
+    .sort((a, b) => new Date(a.data_planowana || a.data_zaplanowana || 0) - new Date(b.data_planowana || b.data_zaplanowana || 0))
+    .slice(0, 6), [ostatnie]);
+
+  const alertItems = [
+    {
+      title: payrollClose.export_allowed ? 'Payroll gotowy do eksportu' : 'Payroll wymaga raportów',
+      sub: payrollClose.export_allowed ? 'Miesiąc można zamykać bez blokad.' : `Brakuje raportów dnia: ${payrollClose.pending_count}`,
+      tone: payrollClose.export_allowed ? 'ok' : 'warn',
+    },
+    {
+      title: `${statusCounts.Nowe || 0} nowych zleceń`,
+      sub: 'Tematy czekające na przypisanie lub pierwszą decyzję.',
+      tone: (statusCounts.Nowe || 0) > 0 ? 'info' : 'ok',
+    },
+    {
+      title: `${statusCounts.W_Realizacji || 0} prac w terenie`,
+      sub: 'Aktywne zlecenia do pilnowania operacyjnego.',
+      tone: 'field',
+    },
+  ];
+
+  const opsIndicators = [
+    { label: 'Wykonanie zleceń', value: stats.zakonczone || 0, total: Math.max((stats.nowe || 0) + (stats.w_realizacji || 0) + (stats.zakonczone || 0), 1) },
+    { label: 'Prace w toku', value: stats.w_realizacji || 0, total: Math.max((stats.nowe || 0) + (stats.w_realizacji || 0), 1) },
+    { label: 'Gotowość payroll', value: payrollClose.export_allowed ? 1 : 0, total: 1 },
+  ];
+
   return (
     <div className="app-shell dashboard-shell" style={d.root}>
       <Sidebar />
@@ -619,12 +682,10 @@ export default function Dashboard() {
               {user?.rola}{user?.oddzial_nazwa ? ` · ${user.oddzial_nazwa}` : ''}
             </div>
           </div>
-          {!isBrygadzista && !isWyceniajacy && (
-            <button onClick={() => navigate('/nowe-zlecenie')} style={d.heroBtn}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-dk)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)'; }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Nowe zlecenie
+          <div style={{ ...d.topActions, ...(isCompact ? d.topActionsCompact : {}) }}>
+            <button type="button" onClick={() => navigate('/misja-dnia')} style={d.secondaryAction}>
+              {QL_ICONS['/misja-dnia']}
+              Misja dnia
             </button>
           )}
         </div>
@@ -1435,13 +1496,25 @@ const d = {
     border: '1px solid var(--border2)', overflow: 'hidden',
     boxShadow: 'var(--shadow-md)',
   },
+  heroCompact: {
+    padding: '26px 16px 20px',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 18,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+  },
   heroBg: {
     display: 'none', position: 'absolute', top: -60, right: -60, width: 200, height: 200,
     borderRadius: '50%', background: 'transparent',
     pointerEvents: 'none',
   },
   heroLeft: { position: 'relative' },
+  heroLeftCompact: { minWidth: 0 },
   heroGreeting: { fontSize: 26, fontWeight: 800, color: 'var(--text)', marginBottom: 4 },
+  heroGreetingCompact: { fontSize: 24, lineHeight: 1.18 },
   heroDate: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'capitalize' },
   rolaBadge: { display: 'inline-block', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700 },
   heroBtn: {
@@ -1449,6 +1522,13 @@ const d = {
     background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 6,
     fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s',
     position: 'relative', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
+  },
+  heroBtnCompact: {
+    width: 'calc(100vw - 116px)',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    minHeight: 46,
+    maxWidth: '100%',
   },
 
   kpiSection: { display: 'none', marginBottom: 24 },
@@ -1462,10 +1542,21 @@ const d = {
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--text)',
   },
+  kpiValueCompact: {
+    width: 'calc(100% - 42px)',
+    minWidth: 'calc(100% - 42px)',
+    marginLeft: 42,
+    textAlign: 'left',
+    fontSize: 18,
+    maxWidth: '100%',
+    whiteSpace: 'normal',
+  },
   insetGroup: INSET_LIST.group,
   insetGroupLift: { ...INSET_LIST.group, marginTop: 12 },
   insetHairline: INSET_LIST.hairline,
   insetRow: INSET_LIST.row,
+  insetRowCompact: { gap: 10, padding: '11px 12px', minHeight: 50 },
+  kpiRowCompact: { flexWrap: 'wrap' },
   insetIconTile: INSET_LIST.iconTile,
   insetRowTexts: INSET_LIST.rowTexts,
   insetRowTitle: INSET_LIST.rowTitle,
@@ -1599,7 +1690,9 @@ const d = {
     background: 'var(--bg-card)',
     borderRadius: 8, padding: 18, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)'
   },
+  cardCompact: { padding: 16, borderRadius: 14, maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  cardHeaderCompact: { alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
   cardTitle: { fontSize: 15, fontWeight: 700, color: 'var(--text)' },
   seeAll: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 },
 
@@ -1612,6 +1705,7 @@ const d = {
     borderLeft: '3px solid #334155', borderRadius: '0 10px 10px 0',
     marginBottom: 6, cursor: 'pointer', transition: 'all 0.15s',
   },
+  zRowCompact: { alignItems: 'stretch', gap: 8, padding: '10px 10px 10px 12px' },
   zKlient: { fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   zMeta: { fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 },
   statusBadge: { fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '3px 10px', display: 'inline-block', marginBottom: 3 },
@@ -1623,8 +1717,217 @@ const d = {
     color: 'var(--text-muted)',
     textAlign: 'center',
   },
+  topBar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 18,
+    marginBottom: 18,
+  },
+  topBarCompact: { flexDirection: 'column', alignItems: 'stretch' },
+  topTitleGroup: { minWidth: 0 },
+  pageTitle: { fontSize: 20, fontWeight: 800, color: 'var(--text)', lineHeight: 1.15 },
+  topMeta: { marginTop: 5, fontSize: 13, fontWeight: 600, color: 'var(--text-sub)' },
+  topActions: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 },
+  topActionsCompact: { width: '100%', display: 'grid', gridTemplateColumns: '1fr', alignItems: 'stretch' },
+  primaryAction: {
+    minHeight: 42,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '0 16px',
+    borderRadius: 8,
+    border: '1px solid rgba(155,217,87,0.45)',
+    background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))',
+    color: 'var(--on-accent)',
+    fontSize: 14,
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 14px 32px rgba(155,217,87,0.16)',
+  },
+  secondaryAction: {
+    minHeight: 42,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '0 14px',
+    borderRadius: 8,
+    border: '1px solid var(--border2)',
+    background: 'rgba(10, 20, 12, 0.72)',
+    color: 'var(--text-sub)',
+    fontSize: 13,
+    fontWeight: 750,
+    cursor: 'pointer',
+  },
+  kpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+    gap: 12,
+    marginBottom: 14,
+  },
+  kpiGridNarrow: { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' },
+  kpiGridCompact: { gridTemplateColumns: 'minmax(0, 1fr)' },
+  kpiCard: {
+    minHeight: 104,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 8,
+    border: '1px solid rgba(191,225,146,0.16)',
+    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(20,34,24,0.94), rgba(10,18,12,0.94))',
+    color: 'var(--text)',
+    cursor: 'pointer',
+    textAlign: 'left',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  kpiCardHover: { transform: 'translateY(-1px)', borderColor: 'var(--border2)' },
+  kpiIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    borderWidth: 1,
+    borderStyle: 'solid',
+  },
+  kpiCardBody: { display: 'flex', flexDirection: 'column', minWidth: 0 },
+  kpiCardLabel: { fontSize: 11, fontWeight: 800, color: 'var(--text-sub)', textTransform: 'uppercase' },
+  kpiCardValue: { marginTop: 6, fontSize: 24, fontWeight: 850, color: 'var(--text)', lineHeight: 1.05 },
+  kpiCardTrend: { marginTop: 7, fontSize: 12, fontWeight: 600, color: 'var(--accent)' },
+  boardGrid: { display: 'grid', gridTemplateColumns: '1.14fr .86fr', gap: 12, marginBottom: 12 },
+  lowerGrid: { display: 'grid', gridTemplateColumns: '1.1fr .85fr .9fr', gap: 12, marginBottom: 12 },
+  panel: {
+    minWidth: 0,
+    borderRadius: 8,
+    border: '1px solid rgba(191,225,146,0.18)',
+    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(9,17,12,0.95))',
+    boxShadow: 'var(--shadow-sm)',
+    overflow: 'hidden',
+  },
+  panelHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '14px 14px 12px',
+    borderBottom: '1px solid rgba(191,225,146,0.12)',
+  },
+  panelTitle: { fontSize: 15, fontWeight: 850, color: 'var(--text)' },
+  panelSub: { marginTop: 4, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' },
+  panelLink: {
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    background: 'rgba(155,217,87,0.1)',
+    color: 'var(--accent)',
+    minHeight: 32,
+    padding: '0 10px',
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  table: { overflowX: 'hidden' },
+  tableRow: {
+    width: '100%',
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: '44px minmax(116px,1.35fr) 84px 96px 58px 86px',
+    gap: 8,
+    alignItems: 'center',
+    padding: '11px 12px',
+    border: 'none',
+    borderBottom: '1px solid rgba(191,225,146,0.1)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    textAlign: 'left',
+    font: 'inherit',
+    fontSize: 11,
+    cursor: 'pointer',
+  },
+  tableHead: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 850, textTransform: 'uppercase', cursor: 'default' },
+  tableCode: { color: 'var(--text-muted)', fontWeight: 750 },
+  tableStrong: { color: 'var(--text)', fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  tableMoney: { color: 'var(--text)', fontWeight: 800, textAlign: 'right', whiteSpace: 'nowrap' },
+  rankList: { padding: '4px 12px 12px' },
+  rankRow: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '34px 34px minmax(0,1fr) 44px 112px',
+    gap: 10,
+    alignItems: 'center',
+    padding: '10px 0',
+    border: 'none',
+    borderBottom: '1px solid rgba(191,225,146,0.1)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  rankPlace: { width: 26, height: 26, borderRadius: '50%', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', border: '1px solid var(--border)' },
+  rankPlaceLead: { color: '#eab308', borderColor: 'rgba(234,179,8,0.5)', background: 'rgba(234,179,8,0.12)' },
+  rankLeaf: { color: 'var(--accent)', display: 'grid', placeItems: 'center' },
+  rankName: { display: 'flex', flexDirection: 'column', minWidth: 0 },
+  rankMetric: { fontSize: 12, fontWeight: 800, color: 'var(--text)' },
+  timeline: { padding: '6px 14px 14px' },
+  timelineRow: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '58px minmax(0,1fr) 92px',
+    gap: 10,
+    alignItems: 'center',
+    minHeight: 38,
+    border: 'none',
+    borderBottom: '1px solid rgba(191,225,146,0.1)',
+    background: 'transparent',
+    color: 'var(--text-sub)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    font: 'inherit',
+    fontSize: 12,
+  },
+  timelineDate: { color: 'var(--info)', fontWeight: 800 },
+  timelineName: { color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  timelineBranch: { textAlign: 'right', color: 'var(--text-muted)' },
+  emptyLine: { padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 },
+  alertList: { padding: '8px 14px 14px' },
+  alertRow: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid rgba(191,225,146,0.1)' },
+  alertDot: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
+  alertWarn: { background: 'var(--warning)' },
+  alertOk: { background: 'var(--success)' },
+  alertInfo: { background: 'var(--info)' },
+  opsList: { padding: '10px 14px 14px' },
+  opsRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 44px', gap: 10, alignItems: 'center', marginBottom: 12, color: 'var(--text-sub)', fontSize: 12 },
+  progress: { gridColumn: '1 / -1', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  progressFill: { display: 'block', height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--accent-dk), var(--accent))' },
+  quickPanel: {
+    borderRadius: 8,
+    border: '1px solid rgba(191,225,146,0.16)',
+    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.9), rgba(9,17,12,0.94))',
+    boxShadow: 'var(--shadow-sm)',
+    paddingBottom: 14,
+  },
+  quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8, padding: '0 14px' },
+  quickTile: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 58,
+    padding: '10px 12px',
+    borderRadius: 8,
+    border: '1px solid rgba(191,225,146,0.12)',
+    background: 'rgba(5,10,7,0.64)',
+    color: 'var(--text)',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  quickIcon: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', color: 'var(--accent)', border: '1px solid var(--border2)', flexShrink: 0 },
   quickSectionWrapFirst: { marginTop: 8 },
   quickSectionWrap: { marginTop: 20 },
+  quickSection: { marginTop: 16 },
   quickSectionTitle: {
     fontSize: 12,
     fontWeight: 700,

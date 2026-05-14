@@ -108,14 +108,14 @@ const createApp = () => {
       const abs = path.join(webAppDir, relativeName);
       return (req, res, next) => {
         if (!fs.existsSync(abs)) return next();
-        res.sendFile(abs);
+        res.sendFile(abs, { dotfiles: 'allow' });
       };
     };
     /** Jedna obsługa — bez przekierowania 301 (unika pętli / konfliktu z trailing slash). */
     app.get(['/app', '/app/', '/app/index.html'], sendPanelFile('index.html'));
     app.get('/app/styles.css', sendPanelFile('styles.css'));
     app.get('/app/app.js', sendPanelFile('app.js'));
-    app.use('/app', express.static(webAppDir, { index: false }));
+    app.use('/app', express.static(webAppDir, { index: false, dotfiles: 'allow' }));
   } else {
     console.warn('[ARBOR-OS] Panel /app/ wylaczony: nie znaleziono public/app/index.html (sprawdz cwd i strukture repo).');
   }

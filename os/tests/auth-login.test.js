@@ -87,10 +87,14 @@ describe('Auth routes', () => {
     expect(res.body.user.permissions).toEqual(
       expect.objectContaining({
         policyVersion: 1,
-        taskScope: 'all',
+        taskScope: 'branch',
+        canTransferSpecialists: false,
         canViewPayrollSettlements: false,
         canManagePayrollSettlements: false,
         canViewSettlementModule: false,
+        canCreateTasks: false,
+        canAssignTeams: false,
+        canManageTeams: false,
       })
     );
   });
@@ -145,10 +149,14 @@ describe('Auth routes', () => {
       expect(res.body.permissions).toEqual(
         expect.objectContaining({
           policyVersion: 1,
-          taskScope: 'all',
+          taskScope: 'branch',
+          canTransferSpecialists: false,
           canViewPayrollSettlements: false,
           canManagePayrollSettlements: false,
           canViewSettlementModule: false,
+          canCreateTasks: false,
+          canAssignTeams: false,
+          canManageTeams: false,
         })
       );
     });

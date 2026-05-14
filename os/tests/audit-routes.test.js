@@ -32,8 +32,8 @@ describe('Audit routes', () => {
     expect(res.body.code).toBe('AUTH_FORBIDDEN');
   });
 
-  it('returns paginated audit for Administrator', async () => {
-    const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 1, login: 'a' }, env.JWT_SECRET);
+  it('returns paginated audit for Dyrektor', async () => {
+    const token = jwt.sign({ id: 1, rola: 'Dyrektor', oddzial_id: 1, login: 'd' }, env.JWT_SECRET);
     pool.query
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -45,8 +45,8 @@ describe('Audit routes', () => {
             created_at: new Date().toISOString(),
             request_id: 'r1',
             user_id: 1,
-            user_login: 'a',
-            rola: 'Administrator',
+            user_login: 'd',
+            rola: 'Dyrektor',
             oddzial_id: 1,
             action: 'role_deleted',
             entity_type: 'role',

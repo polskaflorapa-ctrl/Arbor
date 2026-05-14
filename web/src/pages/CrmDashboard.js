@@ -68,6 +68,7 @@ export default function CrmDashboard() {
       { key: 'clients_new_30d', label: t('crm.dashboard.clientsNew30', { defaultValue: 'Nowi klienci (30 dni)' }), value: k.clients_new_30d || 0 },
       { key: 'tasks_total', label: t('crm.dashboard.tasksTotal', { defaultValue: 'Szanse / zlecenia' }), value: k.tasks_total || 0 },
       { key: 'tasks_won_30d', label: t('crm.dashboard.tasksWon30', { defaultValue: 'Wygrane (30 dni)' }), value: k.tasks_won_30d || 0 },
+      { key: 'technical_leads', label: t('crm.dashboard.technicalLeads', { defaultValue: 'Lejek techniczny' }), value: k.technical_leads || 0 },
       { key: 'calls_30d', label: t('crm.dashboard.calls30', { defaultValue: 'Połączenia (30 dni)' }), value: k.calls_30d || 0 },
       { key: 'callbacks_open', label: t('crm.dashboard.callbacksOpen', { defaultValue: 'Follow-up otwarte' }), value: k.callbacks_open || 0 },
     ];

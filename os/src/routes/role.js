@@ -91,7 +91,7 @@ router.get('/:id', authMiddleware, validateParams(roleIdParamsSchema), async (re
   } catch (e) { logger.error('Blad role GET /:id', { message: e.message, requestId: req.requestId }); res.status(500).json({ error: req.t('errors.http.serverError') }); }
 });
 
-router.post('/', authMiddleware, requireRole('Dyrektor', 'Administrator'), validateBody(roleCreateSchema), async (req, res) => {
+router.post('/', authMiddleware, requireRole('Prezes', 'Dyrektor'), validateBody(roleCreateSchema), async (req, res) => {
   const { nazwa, kolor, opis, poziom, uprawnienia } = req.body;
   try {
     const { rows } = await pool.query(
@@ -106,7 +106,7 @@ router.post('/', authMiddleware, requireRole('Dyrektor', 'Administrator'), valid
   }
 });
 
-router.put('/:id', authMiddleware, requireRole('Dyrektor', 'Administrator'), validateParams(roleIdParamsSchema), validateBody(roleUpdateSchema), async (req, res) => {
+router.put('/:id', authMiddleware, requireRole('Prezes', 'Dyrektor'), validateParams(roleIdParamsSchema), validateBody(roleUpdateSchema), async (req, res) => {
   const { nazwa, kolor, opis, poziom, uprawnienia, aktywna } = req.body;
   try {
     const check = await pool.query('SELECT stala FROM role WHERE id=$1', [req.params.id]);
@@ -129,7 +129,7 @@ router.put('/:id', authMiddleware, requireRole('Dyrektor', 'Administrator'), val
   }
 });
 
-router.delete('/:id', authMiddleware, requireRole('Dyrektor', 'Administrator'), validateParams(roleIdParamsSchema), async (req, res) => {
+router.delete('/:id', authMiddleware, requireRole('Prezes', 'Dyrektor'), validateParams(roleIdParamsSchema), async (req, res) => {
   try {
     const check = await pool.query('SELECT stala, nazwa FROM role WHERE id=$1', [req.params.id]);
     if (!check.rows.length) return res.status(404).json({ error: req.t('errors.role.roleNotFound') });

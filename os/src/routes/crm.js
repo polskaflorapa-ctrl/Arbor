@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isDyrektor, isSalesDirector } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -23,6 +23,28 @@ function toNum(v) {
 function normStage(s) {
   const x = String(s || '').trim();
   return CRM_STAGES.includes(x) ? x : 'Lead';
+}
+
+function normCompare(value) {
+  return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function normCloseReason(reason) {
+  const value = normCompare(reason);
+  if (!value) return '';
+  return CRM_CLOSE_REASONS.find((item) => normCompare(item) === value) || '';
+}
+
+function isClosedStage(stage) {
+  return ['Przegrane', 'Techniczny'].includes(normStage(stage));
+}
+
+function isTechnicalCloseReason(reason) {
+  return CRM_TECHNICAL_CLOSE_REASONS.has(normCloseReason(reason));
+}
+
+function closeStageForReason(reason) {
+  return isTechnicalCloseReason(reason) ? 'Techniczny' : 'Przegrane';
 }
 
 function taskStageFromStatus(status) {
@@ -63,7 +85,7 @@ async function mapLeadRow(client, row) {
 /** Dashboard CRM — agregaty (pipeline z leadów CRM lub ze zleceń). */
 router.get('/overview', async (req, res) => {
   try {
-    const oddzialId = toInt(req.query.oddzial_id);
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
     const d30 = new Date();
     d30.setDate(d30.getDate() - 30);
     const oParam = oddzialId ? [oddzialId] : [];
@@ -113,7 +135,7 @@ router.get('/overview', async (req, res) => {
       }
     }
 
-    const pipeline = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane', 'Inne']
+    const pipeline = CRM_PIPELINE_ORDER
       .map((stage) => pipelineMap.get(stage) || { stage, count: 0, value: 0 })
       .filter((x) => x.count > 0 || x.stage !== 'Inne');
 
@@ -159,6 +181,8 @@ router.get('/overview', async (req, res) => {
         clients_new_30d: clientsNew.rows[0]?.c ?? 0,
         tasks_total: tasksRes.rows[0]?.c ?? 0,
         tasks_won_30d: wonRes.rows[0]?.c ?? 0,
+        technical_leads: crmLeadsRows.filter((lead) => normStage(lead.stage) === 'Techniczny' || lead.close_bucket === 'technical').length,
+        qualified_leads_total: crmLeadsRows.filter((lead) => normStage(lead.stage) !== 'Techniczny' && lead.close_bucket !== 'technical').length,
         calls_30d: callsRes.rows[0]?.c ?? 0,
         callbacks_open: callbacksOpen,
         callbacks_overdue: callbacksOverdue,
@@ -175,7 +199,7 @@ router.get('/overview', async (req, res) => {
 
 router.get('/leads', async (req, res) => {
   try {
-    const oddzialId = toInt(req.query.oddzial_id);
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
     const ownerId = toInt(req.query.owner_user_id);
     const q = String(req.query.q || '').trim().toLowerCase();
     const stage = String(req.query.stage || '').trim();
@@ -248,21 +272,29 @@ router.post('/leads', async (req, res) => {
   if (!title || !oddzialId) {
     return res.status(400).json({ error: 'title i oddzial_id są wymagane' });
   }
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  }
+  const requestedStage = normStage(b.stage);
+  const closeReason = normCloseReason(b.close_reason || b.closure_reason || b.closeReason);
+  if (isClosedStage(requestedStage) && !closeReason) {
+    return res.status(400).json({ error: 'Powod zamkniecia leada jest wymagany' });
+  }
   try {
     const now = new Date().toISOString();
     const tagsJson = JSON.stringify(Array.isArray(b.tags) ? b.tags.slice(0, 16) : []);
     const { rows } = await pool.query(
       `INSERT INTO crm_leads (
         title, oddzial_id, client_id, owner_user_id, stage, source, value, phone, email, notes, tags, next_action_at,
-        created_by, created_at, updated_by, updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16)
+        close_reason, close_bucket, closed_at, closed_by, created_by, created_at, updated_by, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       RETURNING *`,
       [
         title,
         oddzialId,
         toInt(b.client_id) || null,
         toInt(b.owner_user_id) || null,
-        normStage(b.stage),
+        isClosedStage(requestedStage) ? closeStageForReason(closeReason) : requestedStage,
         String(b.source || '').trim() || 'inne',
         toNum(b.value) ?? 0,
         String(b.phone || '').trim() || null,
@@ -270,6 +302,10 @@ router.post('/leads', async (req, res) => {
         String(b.notes || '').trim() || null,
         tagsJson,
         b.next_action_at || null,
+        closeReason || null,
+        closeReason ? (isTechnicalCloseReason(closeReason) ? 'technical' : 'lost') : null,
+        closeReason ? now : null,
+        closeReason ? req.user.id : null,
         req.user.id,
         now,
         req.user.id,
@@ -296,6 +332,12 @@ router.patch('/leads/:id', async (req, res) => {
   try {
     const cur = (await pool.query('SELECT * FROM crm_leads WHERE id = $1', [id])).rows[0];
     if (!cur) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, cur.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+    if (b.oddzial_id !== undefined && !canAccessOddzial(req.user, toInt(b.oddzial_id) || cur.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
 
     if (b.title !== undefined) {
       const title = String(b.title || '').trim();
@@ -305,13 +347,52 @@ router.patch('/leads/:id', async (req, res) => {
     const sets = [];
     const p = [id];
     let i = 2;
+    const now = new Date().toISOString();
     if (b.title !== undefined) {
       sets.push(`title = $${i++}`);
       p.push(String(b.title || '').trim());
     }
-    if (b.stage !== undefined) {
+    const hasStagePatch = b.stage !== undefined;
+    const hasCloseReasonPatch = b.close_reason !== undefined || b.closure_reason !== undefined || b.closeReason !== undefined;
+    const nextStage = hasStagePatch ? normStage(b.stage) : normStage(cur.stage);
+    const nextCloseReason = hasCloseReasonPatch
+      ? normCloseReason(b.close_reason || b.closure_reason || b.closeReason)
+      : normCloseReason(cur.close_reason);
+    if (hasStagePatch && isClosedStage(nextStage)) {
+      if (!nextCloseReason) return res.status(400).json({ error: 'Powod zamkniecia leada jest wymagany' });
       sets.push(`stage = $${i++}`);
-      p.push(normStage(b.stage));
+      p.push(closeStageForReason(nextCloseReason));
+      sets.push(`close_reason = $${i++}`);
+      p.push(nextCloseReason);
+      sets.push(`close_bucket = $${i++}`);
+      p.push(isTechnicalCloseReason(nextCloseReason) ? 'technical' : 'lost');
+      sets.push(`closed_at = $${i++}`);
+      p.push(cur.closed_at || now);
+      sets.push(`closed_by = $${i++}`);
+      p.push(req.user.id);
+    } else if (hasStagePatch) {
+      sets.push(`stage = $${i++}`);
+      p.push(nextStage);
+      sets.push(`close_reason = $${i++}`);
+      p.push(null);
+      sets.push(`close_bucket = $${i++}`);
+      p.push(null);
+      sets.push(`closed_at = $${i++}`);
+      p.push(null);
+      sets.push(`closed_by = $${i++}`);
+      p.push(null);
+    } else if (hasCloseReasonPatch && isClosedStage(cur.stage)) {
+      if (!nextCloseReason) return res.status(400).json({ error: 'Powod zamkniecia leada jest wymagany' });
+      sets.push(`stage = $${i++}`);
+      p.push(closeStageForReason(nextCloseReason));
+      sets.push(`close_reason = $${i++}`);
+      p.push(nextCloseReason);
+      sets.push(`close_bucket = $${i++}`);
+      p.push(isTechnicalCloseReason(nextCloseReason) ? 'technical' : 'lost');
+      sets.push(`closed_at = $${i++}`);
+      p.push(cur.closed_at || now);
+      sets.push(`closed_by = $${i++}`);
+      p.push(req.user.id);
     }
     if (b.oddzial_id !== undefined) {
       sets.push(`oddzial_id = $${i++}`);
@@ -353,7 +434,6 @@ router.patch('/leads/:id', async (req, res) => {
       sets.push(`tags = $${i++}::jsonb`);
       p.push(JSON.stringify(Array.isArray(b.tags) ? b.tags.slice(0, 16) : []));
     }
-    const now = new Date().toISOString();
     sets.push(`updated_at = $${i++}`);
     p.push(now);
     sets.push(`updated_by = $${i++}`);
@@ -385,6 +465,11 @@ router.delete('/leads/:id', async (req, res) => {
   const id = toInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'Nieprawidłowe id leada' });
   try {
+    const cur = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [id])).rows[0];
+    if (!cur) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, cur.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
     const r = await pool.query('DELETE FROM crm_leads WHERE id = $1', [id]);
     if (r.rowCount === 0) return res.status(404).json({ error: 'Lead nie znaleziony' });
     res.json({ ok: true });
@@ -404,8 +489,11 @@ router.get('/leads/:id/activities', async (req, res) => {
   const leadId = toInt(req.params.id);
   if (!leadId) return res.status(400).json({ error: 'Nieprawidłowe id leada' });
   try {
-    const lead = (await pool.query('SELECT id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
     if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
     const { rows } = await pool.query(
       `SELECT a.*, u.imie, u.nazwisko, u.login
        FROM crm_lead_activities a
@@ -449,8 +537,11 @@ router.post('/leads/:id/activities', async (req, res) => {
   }
 
   try {
-    const lead = (await pool.query('SELECT id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
     if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
     const now = new Date().toISOString();
     const due = type === 'task' && b.due_at ? b.due_at : null;
     const dur = type === 'call' && b.call_duration_sec != null ? toNum(b.call_duration_sec) : null;
@@ -480,6 +571,11 @@ router.patch('/leads/:leadId/activities/:activityId', async (req, res) => {
   if (!completed) return res.json({ ok: true });
 
   try {
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
     const act = (
       await pool.query('SELECT * FROM crm_lead_activities WHERE id = $1 AND lead_id = $2', [activityId, leadId])
     ).rows[0];

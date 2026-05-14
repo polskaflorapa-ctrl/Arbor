@@ -75,7 +75,7 @@ export default function Oddzialy() {
     loadAll();
   }, [navigate, loadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);

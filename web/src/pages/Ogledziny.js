@@ -289,7 +289,7 @@ export default function Ogledziny() {
   const [statusSaving, setStatusSaving] = useState(false);
 
   const currentUser = getLocalStorageJson('user', {});
-  const canManage = ['Dyrektor', 'Administrator', 'Kierownik'].includes(currentUser.rola);
+  const canManage = ['Prezes', 'Dyrektor', 'Kierownik'].includes(currentUser.rola);
   const canPlan = canManage || currentUser.rola === 'Specjalista';
 
   const loadLista = useCallback(async () => {

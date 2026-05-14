@@ -49,6 +49,8 @@
   },
   "nav": {
     "dashboard": "Панель",
+    "missionDay": "Місія дня",
+    "autoplanDay": "Автоплан дня",
     "orders": "Замовлення",
     "schedule": "Розклад",
     "quotes": "Кошториси",

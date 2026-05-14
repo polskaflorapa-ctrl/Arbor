@@ -2,6 +2,8 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './ThemeContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import MisjaDnia from './pages/MisjaDnia';
+import AutoplanDnia from './pages/AutoplanDnia';
 import Zlecenia from './pages/Zlecenia';
 import ZlecenieDetail from './pages/ZlecenieDetail';
 import NoweZlecenie from './pages/NoweZlecenie';
@@ -59,6 +61,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/misja-dnia" element={<MisjaDnia />} />
+          <Route path="/autoplan-dnia" element={<AutoplanDnia />} />
           <Route path="/zlecenia" element={<Zlecenia />} />
           <Route path="/zlecenia/:id" element={<ZlecenieDetail />} />
           <Route path="/nowe-zlecenie" element={<NoweZlecenie />} />

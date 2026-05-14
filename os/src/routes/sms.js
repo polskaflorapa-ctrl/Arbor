@@ -267,7 +267,7 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
 router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema), async (req, res) => {
   try {
     await ensureTableExists();
-    if (!['Dyrektor', 'Administrator', 'Kierownik'].includes(req.user.rola)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    if (!['Prezes', 'Dyrektor', 'Kierownik'].includes(req.user.rola)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     const { typ, data } = req.body;
     const targetDate = data || new Date().toISOString().split('T')[0];
     let query = `SELECT t.*, b.telefon as oddzial_telefon FROM tasks t LEFT JOIN branches b ON t.oddzial_id = b.id

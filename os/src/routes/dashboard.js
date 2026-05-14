@@ -23,7 +23,7 @@ const withBranchFilter = (whereParts, params, oddzialId) => {
 router.get(
   '/summary',
   authMiddleware,
-  requireRole('Kierownik', 'Dyrektor', 'Administrator'),
+  requireRole('Kierownik', 'Prezes', 'Dyrektor'),
   validateQuery(summaryQuerySchema),
   async (req, res) => {
     try {

@@ -9,7 +9,7 @@ const { getTeamRankings } = require('../services/teamRankings');
 
 const router = express.Router();
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 
 const raportCzasPracyQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),

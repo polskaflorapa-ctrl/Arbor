@@ -72,7 +72,7 @@ describe('Tasks routes', () => {
 
   it('returns global stats for director roles', async () => {
     const token = jwt.sign(
-      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      { id: 1, rola: 'Dyrektor', oddzial_id: 5 },
       env.JWT_SECRET
     );
     pool.query.mockResolvedValue({

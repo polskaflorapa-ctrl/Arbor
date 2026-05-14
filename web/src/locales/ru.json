@@ -49,6 +49,8 @@
   },
   "nav": {
     "dashboard": "Панель",
+    "missionDay": "Миссия дня",
+    "autoplanDay": "Автоплан дня",
     "orders": "Заказы",
     "schedule": "Расписание",
     "quotes": "Сметы",

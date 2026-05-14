@@ -82,6 +82,64 @@ describe('Uzytkownicy list pagination and create validation', () => {
     expect(res.body.items).toHaveLength(1);
   });
 
+  it('limits sales director user list to specialists and self', async () => {
+    const token = jwt.sign({ id: 12, rola: 'Dyrektor Sprzedazy', oddzial_id: 1 }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ c: 3 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 12, rola: 'Dyrektor Sprzedazy' }] });
+
+    const res = await request(app)
+      .get('/api/uzytkownicy?limit=20&offset=0')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("(u.rola = 'Specjalista' OR u.id = $1)"),
+      [12]
+    );
+    expect(pool.query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("(u.rola = 'Specjalista' OR u.id = $1)"),
+      [12, 20, 0]
+    );
+  });
+
+  it('allows sales director to transfer a specialist to another branch', async () => {
+    const token = jwt.sign({ id: 12, rola: 'Dyrektor Sprzedazy', oddzial_id: 1 }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 91, rola: 'Specjalista', oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3 }] })
+      .mockResolvedValueOnce({ rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 91, rola: 'Specjalista', oddzial_id: 3 }] });
+
+    const res = await request(app)
+      .patch('/api/uzytkownicy/91/oddzial')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ oddzial_id: 3 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.oddzial_id).toBe(3);
+    expect(pool.query).toHaveBeenNthCalledWith(3, 'UPDATE users SET oddzial_id = $1 WHERE id = $2', [3, 91]);
+  });
+
+  it('blocks sales director from creating users', async () => {
+    const token = jwt.sign({ id: 12, rola: 'Dyrektor Sprzedazy', oddzial_id: 1 }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/uzytkownicy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        login: 'nowy',
+        haslo: 'sekret123',
+        rola: 'Specjalista',
+        oddzial_id: 2,
+      });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when creating user with short password', async () => {
     const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 1 }, env.JWT_SECRET);
     const res = await request(app)

@@ -136,6 +136,20 @@ function migrateState(state, saveState) {
       }
     }
   }
+  if (Array.isArray(state.crmLeads)) {
+    for (const lead of state.crmLeads) {
+      for (const k of ['close_reason', 'close_bucket', 'closed_at', 'closed_by']) {
+        if (lead[k] === undefined) {
+          lead[k] = null;
+          changed = true;
+        }
+      }
+      if (lead.stage === 'Techniczny' && !lead.close_bucket) {
+        lead.close_bucket = 'technical';
+        changed = true;
+      }
+    }
+  }
   if (Array.isArray(state.cmrLists)) {
     for (const c of state.cmrLists) {
       if (c.kommo_last_sync_at === undefined) {

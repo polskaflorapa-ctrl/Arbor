@@ -37,7 +37,7 @@ const QUOTATION_STATUSES = [
   'Wygasla',
 ];
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isKierownik = (u) => u.rola === 'Kierownik';
 const isWyceniajacy = (u) => u.rola === 'Wyceniający';
 

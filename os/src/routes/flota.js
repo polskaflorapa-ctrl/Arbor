@@ -8,7 +8,7 @@ const { validateQuery, validateBody, validateParams } = require('../middleware/v
 const { z } = require('zod');
 
 const router = express.Router();
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 
 const flotaOddzialQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),

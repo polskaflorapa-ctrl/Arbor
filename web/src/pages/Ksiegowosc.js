@@ -88,7 +88,7 @@ export default function Ksiegowosc() {
     loadAll();
   }, [navigate, loadAll]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
 
   const filtrowane = faktury.filter(f => {

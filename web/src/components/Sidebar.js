@@ -17,6 +17,8 @@ const NOTIF_KOLOR = {
 // SVG ikony nawigacji
 const ICONS = {
   dashboard:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  mission:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><path d="M6 19h4"/></svg>,
+  autoplan:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 15c4-8 12-8 16 0"/><path d="M8 15c2-4 6-4 8 0"/><circle cx="12" cy="16" r="2"/><path d="M12 4v3"/><path d="M4.9 6.9l2.1 2.1"/><path d="M19.1 6.9 17 9"/></svg>,
   zlecenia:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
   harmonogram:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   kierownik:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
@@ -42,14 +44,11 @@ const ICONS = {
   logout:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   collapse:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
   expand:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  plus:         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
 };
 
 function NavChevron() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden style={{ opacity: 0.32, flexShrink: 0, marginLeft: 'auto', color: 'var(--text-muted)' }}>
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
+  return null;
 }
 
 const NAV_GROUPS = [
@@ -111,7 +110,8 @@ export default function Sidebar() {
   const [showNotif, setShowNotif] = useState(false);
   const [notifList, setNotifList] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [oddzialy, setOddzialy] = useState([]);
+  const [collapsed, setCollapsed] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 760 : false));
   const [hovered, setHovered] = useState(null);
   const notifRef = useRef(null);
   const notificationsInFlightRef = useRef(false);
@@ -121,12 +121,22 @@ export default function Sidebar() {
     const u = readStoredUser();
     if (u) setCurrentUser(u);
     loadNotifications();
+    loadBranches();
     const iv = setInterval(loadNotifications, 30000);
     const onOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false); };
     const onKey = (e) => { if (e.key === 'Escape') setShowNotif(false); };
     document.addEventListener('mousedown', onOutside);
     document.addEventListener('keydown', onKey);
     return () => { clearInterval(iv); document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onKey); };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth < 760) setCollapsed(true);
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const links = useMemo(() => {
@@ -150,11 +160,18 @@ export default function Sidebar() {
       { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'] },
       { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
       { path: '/telefonia',         labelKey: 'nav.telephony',     icon: 'telefonia',   roles: MGMT },
+      { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, ...SALES_DIRECTOR, 'Magazynier'] },
+      { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, ...SALES_DIRECTOR, 'Brygadzista', 'Specjalista', 'Magazynier'] },
+      { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
+      { path: '/blokady-kalendarza', labelKey: 'nav.calendarBlocks', icon: 'harmonogram', roles: ['Wyceniający', 'Specjalista', ...MGMT] },
+      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Prezes', 'Dyrektor', 'Specjalista'] },
+      { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
       { path: '/integracje',        labelKey: 'nav.integrations',  icon: 'integracje',  roles: MGMT },
-      { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający'] },
-      { path: '/rozliczenia-ekip',  labelKey: 'nav.payrollTeams',  icon: 'ksiegowosc',  roles: ['Dyrektor', 'Administrator', 'Kierownik'] },
+      { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Prezes', 'Dyrektor', 'Kierownik', 'Wyceniający'] },
+      { path: '/rozliczenia-ekip',  labelKey: 'nav.payrollTeams',  icon: 'ksiegowosc',  roles: ['Prezes', 'Dyrektor', 'Kierownik'] },
       { path: '/kierownik',         labelKey: 'nav.planning',      icon: 'kierownik',   roles: MGMT },
       { path: '/ekipy',             labelKey: 'nav.teams',         icon: 'ekipy',       roles: MGMT },
+      { path: '/ranking-brygad',    labelKey: 'nav.teamRanking',   icon: 'raporty',     roles: [...MGMT, ...SALES_DIRECTOR] },
       { path: '/flota',             labelKey: 'nav.fleet',         icon: 'flota',       roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/magazyn',           labelKey: 'nav.warehouse',   icon: 'warehouse',   roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/rezerwacje-sprzetu', labelKey: 'nav.equipmentReservations', icon: 'equipmentRes', roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
@@ -195,6 +212,17 @@ export default function Sidebar() {
     }
   };
 
+  const loadBranches = async () => {
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/oddzialy', { headers: authHeaders(token) });
+      const raw = res.data;
+      setOddzialy(Array.isArray(raw) ? raw : raw?.oddzialy || []);
+    } catch {
+      setOddzialy([]);
+    }
+  };
+
   const markAll = async () => {
     try {
       const token = getStoredToken();
@@ -210,6 +238,37 @@ export default function Sidebar() {
     } catch { /* ignoruj */ }
   };
   const handleLogout = () => { localStorage.clear(); navigate('/'); };
+  const role = currentUser?.rola;
+  const canCreateQuickActions = [
+    'Prezes',
+    'Dyrektor',
+    'Kierownik',
+    'Dyrektor Sprzedazy',
+    'Dyrektor Sprzedaży',
+    'Dyrektor SprzedaĹĽy',
+    'Dyrektor dzialu sprzedaz',
+    'Dyrektor dziaĹ‚u sprzedaĹĽ',
+  ].includes(role);
+  const branchName = useMemo(() => {
+    if (!currentUser) return '';
+    const match = oddzialy.find((o) => String(o.id) === String(currentUser.oddzial_id));
+    return match?.nazwa || currentUser.oddzial_nazwa || 'Wszystkie';
+  }, [currentUser, oddzialy]);
+  const quickActions = useMemo(() => {
+    if (!currentUser) return [];
+    if (canCreateQuickActions) {
+      return [
+        { label: 'Nowe zlecenie', path: '/nowe-zlecenie', icon: 'plus' },
+        { label: 'Nowa praca', path: '/nowe-zlecenie?typ=praca', icon: 'zlecenia' },
+        { label: 'Dodaj klienta', path: '/klienci', icon: 'klienci' },
+      ];
+    }
+    return [
+      { label: 'Moje zlecenia', path: '/zlecenia', icon: 'zlecenia' },
+      { label: 'Harmonogram', path: '/harmonogram', icon: 'harmonogram' },
+      { label: 'Raport', path: '/raporty', icon: 'raporty' },
+    ].filter((item) => links.some((link) => link.path === item.path));
+  }, [canCreateQuickActions, currentUser, links]);
 
   const fmtTime = (d) => {
     if (!d) return '';
@@ -222,7 +281,7 @@ export default function Sidebar() {
     return new Date(d).toLocaleDateString(localeTag);
   };
 
-  const W = collapsed ? 68 : 252;
+  const W = collapsed ? 60 : 224;
   const rolaColor = getRolaColor(currentUser?.rola);
   const [logoutHover, setLogoutHover] = useState(false);
 
@@ -235,7 +294,7 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="ios-glass-panel" style={{ ...sb.root, width: W }}>
+      <div className="ios-glass-panel arbor-sidebar" style={{ ...sb.root, width: W }}>
 
         {/* Przycisk zwijania */}
         <button onClick={() => setCollapsed(!collapsed)} style={sb.collapseBtn} title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
@@ -250,9 +309,9 @@ export default function Sidebar() {
             </svg>
           </div>
           {!collapsed && (
-            <div>
+              <div>
               <div style={sb.logoName}>ARBOR-OS</div>
-              <div style={sb.logoSub}>{t('sidebar.logoSub')}</div>
+              <div style={sb.logoSub}>Tree Care Operations</div>
             </div>
           )}
         </div>
@@ -383,6 +442,25 @@ export default function Sidebar() {
               );
             })
           )}
+
+          {!collapsed && quickActions.length > 0 && (
+            <div style={sb.quickBox}>
+              <div style={sb.quickTitle}>Szybkie akcje</div>
+              <div style={sb.quickList}>
+                {quickActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => navigate(action.path)}
+                    style={sb.quickBtn}
+                  >
+                    <span style={sb.quickIcon}>{ICONS[action.icon] || ICONS.plus}</span>
+                    <span>{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* Dolna sekcja */}
@@ -427,7 +505,7 @@ export default function Sidebar() {
                 </div>
 
                 {showNotif && (
-                  <div style={{ ...sb.notifPanel, left: 264 }}>
+                  <div style={{ ...sb.notifPanel, left: 236 }}>
                     <div style={sb.notifHeader}>
                       <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
                       {notifCount > 0 && (
@@ -490,7 +568,7 @@ export default function Sidebar() {
                 gap: 8,
               }}
               >
-                <span className="ios-section-title" style={{ margin: '0 0 4px 0', width: '100%' }}>{t('sidebar.theme')}</span>
+                <span className="ios-section-title" style={{ margin: '0 0 2px 0', width: '100%' }}>{t('sidebar.theme')}</span>
                 {Object.values(THEMES).map((th) => (
                   <button
                     key={th.id}
@@ -566,7 +644,7 @@ export default function Sidebar() {
                   </span>
                 </div>
                 {showNotif && (
-                  <div style={{ ...sb.notifPanel, left: 80 }}>
+                  <div style={{ ...sb.notifPanel, left: 72 }}>
                     <div style={sb.notifHeader}>
                       <span style={sb.notifTitle}>{t('sidebar.notifications')}</span>
                       {notifCount > 0 && (
@@ -785,7 +863,7 @@ const sb = {
   navItem: {
     display: 'flex', alignItems: 'center', borderRadius: 6, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
-    marginBottom: 4, userSelect: 'none',
+    marginBottom: 3, userSelect: 'none',
   },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },

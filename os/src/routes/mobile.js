@@ -48,7 +48,7 @@ function isLikelyExpoPushToken(token) {
   return s.startsWith('ExponentPushToken[') || s.startsWith('ExpoPushToken[');
 }
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 
 // GET /api/mobile/ustawienia

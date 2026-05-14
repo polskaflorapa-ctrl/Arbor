@@ -54,16 +54,106 @@ function zleceniaRows(state) {
 }
 
 function canSeeAll(user) {
-  return user.rola === 'Administrator' || user.rola === 'Dyrektor';
+  return ['Prezes', 'Dyrektor'].includes(user.rola);
+}
+
+function isSalesDirector(user) {
+  return [
+    'Dyrektor Sprzedazy',
+    'Dyrektor Sprzedaży',
+    'Dyrektor dzialu sprzedaz',
+    'Dyrektor działu sprzedaż',
+  ].includes(user?.rola);
+}
+
+function canSeeAllBranches(user) {
+  return canSeeAll(user) || isSalesDirector(user);
+}
+
+function canSeeAllTasks(user) {
+  return canSeeAll(user) || isSalesDirector(user);
+}
+
+function canManageTasks(user) {
+  return canSeeAll(user) || user?.rola === 'Kierownik';
+}
+
+function canManageTeams(user) {
+  return canSeeAll(user) || user?.rola === 'Kierownik';
+}
+
+function canManageOddzial(user, oddzialId) {
+  if (canSeeAll(user)) return true;
+  return user?.rola === 'Kierownik' && String(user.oddzial_id) === String(oddzialId);
+}
+
+function rejectSalesDirectorTaskWrite(req, res, next) {
+  if (req.method !== 'GET' && isSalesDirector(req.user)) {
+    return res.status(403).json({ error: 'Dyrektor sprzedazy ma w zleceniach tryb tylko do odczytu' });
+  }
+  return next();
+}
+
+function canAccessOddzial(user, oddzialId) {
+  return canSeeAllBranches(user) || String(user?.oddzial_id) === String(oddzialId);
+}
+
+function canTransferSpecialist(user, target) {
+  if (canSeeAll(user)) return true;
+  return isSalesDirector(user) && target?.rola === 'Specjalista';
+}
+
+const SALES_DIRECTOR_ROLES = new Set([
+  'Dyrektor Sprzedazy',
+  'Dyrektor Sprzedaży',
+  'Dyrektor dzialu sprzedaz',
+  'Dyrektor działu sprzedaż',
+]);
+const HIGH_PRIVILEGE_ROLES = new Set([
+  'Prezes',
+  'Dyrektor',
+  'Administrator',
+  'Kierownik',
+  ...SALES_DIRECTOR_ROLES,
+]);
+
+function visibleUsers(state, user) {
+  const rows = state.users || [];
+  if (canSeeAll(user)) return rows;
+  if (isSalesDirector(user)) {
+    return rows.filter((u) => u.rola === 'Specjalista' || Number(u.id) === Number(user.id));
+  }
+  if (user.oddzial_id != null) {
+    return rows.filter((u) => String(u.oddzial_id) === String(user.oddzial_id));
+  }
+  return rows.filter((u) => Number(u.id) === Number(user.id));
+}
+
+function canViewUser(state, user, userId) {
+  return visibleUsers(state, user).some((u) => Number(u.id) === Number(userId));
+}
+
+function canCreateUserWithRole(actor, rola) {
+  if (canSeeAll(actor)) return true;
+  if (actor?.rola === 'Kierownik') return !HIGH_PRIVILEGE_ROLES.has(rola);
+  return false;
+}
+
+function canManageTargetUser(actor, target) {
+  if (canSeeAll(actor)) return true;
+  if (actor?.rola === 'Kierownik') {
+    return String(actor.oddzial_id) === String(target?.oddzial_id) && !HIGH_PRIVILEGE_ROLES.has(target?.rola);
+  }
+  return false;
 }
 
 function canManageIntegrations(user) {
-  return ['Administrator', 'Dyrektor', 'Kierownik'].includes(user?.rola);
+  return ['Prezes', 'Dyrektor', 'Kierownik'].includes(user?.rola);
 }
 
 function canRetryChannel(user, channel) {
   if (!user?.rola) return false;
-  if (['Administrator', 'Dyrektor'].includes(user.rola)) return true;
+  if (['Prezes', 'Dyrektor'].includes(user.rola)) return true;
   if (user.rola === 'Kierownik') return channel === 'email' || channel === 'push';
   return false;
 }
@@ -72,14 +162,14 @@ const DENYLIST_ROLLBACK_MAX_AGE_DAYS = 14;
 
 function visibleTasks(state, user) {
   const rows = zleceniaRows(state);
-  if (canSeeAll(user)) return rows;
+  if (canSeeAllTasks(user)) return rows;
   if (user.rola === 'Kierownik') return rows.filter((z) => String(z.oddzial_id) === String(user.oddzial_id));
   if (['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia'].includes(user.rola)) {
     if (!user.ekipa_id) return [];
     return rows.filter((z) => String(z.ekipa_id) === String(user.ekipa_id));
   }
   if (user.oddzial_id != null) return rows.filter((z) => String(z.oddzial_id) === String(user.oddzial_id));
-  return rows;
+  return [];
 }
 
 function mojeTasks(state, user) {
@@ -96,7 +186,7 @@ function canViewTask(state, user, taskId) {
     return canSeeAll(user) || String(z.oddzial_id) === String(user.oddzial_id);
   }
   const vis = visibleTasks(state, user).some((x) => x.id === taskId);
-  return vis || canSeeAll(user);
+  return vis || canSeeAllTasks(user);
 }
 
 function oddzialNazwa(state, id) {
@@ -248,7 +338,7 @@ function pushIntegrationEvent(state, taskId, actorUserId, channel, title, payloa
     created_by_name: userName(state, actorUserId),
   };
   state.integrationLogs.push(log);
-  const targets = state.users.filter((u) => u.aktywny !== false && ['Administrator', 'Dyrektor', 'Kierownik'].includes(u.rola));
+  const targets = state.users.filter((u) => u.aktywny !== false && ['Prezes', 'Dyrektor', 'Kierownik'].includes(u.rola));
   for (const u of targets) {
     state.notifications.push({
       id: state.nextNotificationId++,
@@ -328,6 +418,8 @@ module.exports = function registerFullStack(router) {
     res.json(list);
   });
 
+  router.use('/tasks/:id', requireAuth, rejectSalesDirectorTaskWrite);
+
   router.get('/tasks/:id', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
     const row = readOnly((s) => {
@@ -341,6 +433,7 @@ module.exports = function registerFullStack(router) {
 
   router.post('/tasks', requireAuth, (req, res) => {
     const b = req.body || {};
+    if (!canManageTasks(req.user)) return res.status(403).json({ error: 'Brak uprawnien do tworzenia zlecen' });
     const row = withStore((s) => {
       const id = s.nextZlecenieId++;
       const now = new Date().toISOString();
@@ -404,6 +497,7 @@ module.exports = function registerFullStack(router) {
   router.put('/tasks/:id', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
     const b = req.body || {};
+    if (!canManageTasks(req.user)) return res.status(403).json({ error: 'Brak uprawnien do edycji zlecen' });
     const row = withStore((s) => {
       const z = s.zlecenia.find((x) => x.id === id);
       if (!z || !canViewTask(s, req.user, id)) return null;
@@ -442,7 +536,7 @@ module.exports = function registerFullStack(router) {
 
   router.delete('/tasks/:id', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) {
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) {
       return res.status(403).json({ error: 'Brak uprawnień' });
     }
     withStore((s) => {
@@ -501,6 +595,7 @@ module.exports = function registerFullStack(router) {
   router.put('/tasks/:id/przypisz', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
     const ekipaId = toNum(req.body?.ekipa_id);
+    if (!canManageTasks(req.user)) return res.status(403).json({ error: 'Brak uprawnien do przypisania ekipy' });
     const row = withStore((s) => {
       const z = s.zlecenia.find((x) => x.id === id);
       if (!z || !canViewTask(s, req.user, id)) return null;
@@ -510,6 +605,7 @@ module.exports = function registerFullStack(router) {
       if (normalizeTaskStatus(z.status) === TASK_STATUS.DO_ZATWIERDZENIA) z.status = TASK_STATUS.ZAPLANOWANE;
       return { data: enrichRow(s, z) };
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     if (row?.error) return res.status(row.status || 400).json({ error: row.error });
     res.json(row.data);
@@ -648,7 +744,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.patch('/integrations/security/denylist', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user?.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user?.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const users = Array.isArray(req.body?.users) ? req.body.users.map((x) => toNum(x)).filter(Boolean) : null;
     const channels = Array.isArray(req.body?.channels)
       ? req.body.channels.map((x) => String(x)).filter((x) => ['sms', 'email', 'push'].includes(x))
@@ -676,7 +772,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.post('/integrations/security/denylist/preset', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user?.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user?.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const preset = String(req.body?.preset || '');
     const row = withStore((s) => {
       ensureIntegrationsCollections(s);
@@ -708,7 +804,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.post('/integrations/security/denylist/rollback/:historyId', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user?.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user?.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const historyId = toNum(req.params.historyId);
     const row = withStore((s) => {
       ensureIntegrationsCollections(s);
@@ -1361,7 +1457,7 @@ module.exports = function registerFullStack(router) {
   router.get('/sms/historia', requireAuth, (req, res) => {
     const list = readOnly((s) => {
       const logs = Array.isArray(s.smsLogs) ? s.smsLogs : [];
-      const isMgmt = ['Administrator', 'Dyrektor', 'Kierownik'].includes(req.user.rola);
+      const isMgmt = ['Prezes', 'Dyrektor', 'Kierownik'].includes(req.user.rola);
       const visible = isMgmt ? logs : logs.filter((x) => x.created_by === req.user.id);
       return visible
         .slice()
@@ -1543,7 +1639,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.post('/oddzialy', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const b = req.body || {};
     const row = withStore((s) => {
       const id = s.oddzialy.length ? Math.max(...s.oddzialy.map((o) => o.id)) + 1 : 1;
@@ -1564,7 +1660,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.put('/oddzialy/:id', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const id = toNum(req.params.id);
     const b = req.body || {};
     const row = withStore((s) => {
@@ -1578,7 +1674,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.delete('/oddzialy/:id', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const id = toNum(req.params.id);
     withStore((s) => {
       s.oddzialy = s.oddzialy.filter((o) => o.id !== id);
@@ -1655,17 +1751,18 @@ module.exports = function registerFullStack(router) {
   });
 
   router.put('/oddzialy/pracownik/:userId/przenies', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const uid = toNum(req.params.userId);
     const oddzialId = toNum(req.body?.oddzial_id);
     const row = withStore((s) => {
       const u = s.users.find((x) => x.id === uid);
       const o = s.oddzialy.find((x) => x.id === oddzialId);
       if (!u || !o) return null;
+      if (!canTransferSpecialist(req.user, u)) return { _forbidden: true };
       u.oddzial_id = oddzialId;
       u.oddzial_nazwa = o.nazwa;
       return stripHaslo(u);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     if (!row) return res.status(400).json({ error: 'Nieprawidłowe dane' });
     res.json(row);
   });
@@ -1712,6 +1809,7 @@ module.exports = function registerFullStack(router) {
     const id = toNum(req.params.id);
     const row = readOnly((s) => {
       const t = s.teams.find((x) => x.id === id);
+      if (t && !canAccessOddzial(req.user, t.oddzial_id)) return null;
       return t ? buildEkipaDetail(s, t) : null;
     });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
@@ -1720,12 +1818,14 @@ module.exports = function registerFullStack(router) {
 
   router.post('/ekipy', requireAuth, (req, res) => {
     const b = req.body || {};
+    if (!canManageTeams(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
     const row = withStore((s) => {
       const id = s.teams.length ? Math.max(...s.teams.map((t) => t.id)) + 1 : 1;
+      const oddzialId = canSeeAll(req.user) ? toNum(b.oddzial_id) : toNum(req.user.oddzial_id);
       const t = {
         id,
         nazwa: b.nazwa,
-        oddzial_id: toNum(b.oddzial_id),
+        oddzial_id: oddzialId,
         kolor: b.kolor || '#34D399',
         brygadzista_id: toNum(b.brygadzista_id),
         procent_wynagrodzenia: toNum(b.procent_wynagrodzenia) ?? 15,
@@ -1739,9 +1839,12 @@ module.exports = function registerFullStack(router) {
   router.put('/ekipy/:id', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
     const b = req.body || {};
+    if (!canManageTeams(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
     const row = withStore((s) => {
       const t = s.teams.find((x) => x.id === id);
       if (!t) return null;
+      if (!canManageOddzial(req.user, t.oddzial_id)) return { _forbidden: true };
+      if (b.oddzial_id != null && !canManageOddzial(req.user, toNum(b.oddzial_id))) return { _forbidden: true };
       if (b.nazwa != null) t.nazwa = b.nazwa;
       if (b.oddzial_id != null) t.oddzial_id = toNum(b.oddzial_id);
       if (b.kolor != null) t.kolor = b.kolor;
@@ -1749,16 +1852,22 @@ module.exports = function registerFullStack(router) {
       if (b.procent_wynagrodzenia != null) t.procent_wynagrodzenia = Number(b.procent_wynagrodzenia);
       return buildEkipaDetail(s, t);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
   });
 
   router.delete('/ekipy/:id', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
-    withStore((s) => {
+    if (!canManageTeams(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
+    const outcome = withStore((s) => {
+      const t = s.teams.find((x) => x.id === id);
+      if (t && !canManageOddzial(req.user, t.oddzial_id)) return 'forbidden';
       s.teams = s.teams.filter((t) => t.id !== id);
       s.ekipaCzlonkowie = (s.ekipaCzlonkowie || []).filter((c) => c.ekipa_id !== id);
+      return 'ok';
     });
+    if (outcome === 'forbidden') return res.status(403).json({ error: 'Brak uprawnien' });
     res.json({ ok: true });
   });
 
@@ -1773,6 +1882,7 @@ module.exports = function registerFullStack(router) {
   function postEkipaMember(req, res) {
     const ekipaId = toNum(req.params.id);
     const b = req.body || {};
+    if (!canManageTeams(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
     const nested = b.user || {};
     const uid = toNum(
       b.user_id ?? b.pracownik_id ?? b.uzytkownik_id ?? nested.id ?? b.userId ?? b.pracownikId
@@ -1781,9 +1891,11 @@ module.exports = function registerFullStack(router) {
     const r = withStore((s) => {
       const team = s.teams.find((t) => t.id === ekipaId);
       if (!team || !uid) return null;
+      if (!canManageOddzial(req.user, team.oddzial_id)) return { forbidden: true };
       const out = addMember(s, ekipaId, uid, rola);
       return out.duplicate ? { duplicate: true } : { ok: true };
     });
+    if (r?.forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     if (!r) return res.status(400).json({ error: 'Nieprawidłowe dane' });
     if (r.duplicate) return res.status(409).json({ error: 'Już w ekipie' });
     res.status(201).json({ ok: true });
@@ -1799,9 +1911,14 @@ module.exports = function registerFullStack(router) {
   function deleteEkipaMember(req, res) {
     const ekipaId = toNum(req.params.id);
     const workerId = toNum(req.params.workerId);
-    withStore((s) => {
+    if (!canManageTeams(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
+    const outcome = withStore((s) => {
+      const team = s.teams.find((t) => t.id === ekipaId);
+      if (team && !canManageOddzial(req.user, team.oddzial_id)) return 'forbidden';
       s.ekipaCzlonkowie = (s.ekipaCzlonkowie || []).filter((c) => !(c.ekipa_id === ekipaId && c.user_id === workerId));
+      return 'ok';
     });
+    if (outcome === 'forbidden') return res.status(403).json({ error: 'Brak uprawnien' });
     res.json({ ok: true });
   }
   router.delete('/ekipy/:id/czlonkowie/:workerId', requireAuth, deleteEkipaMember);
@@ -1810,19 +1927,23 @@ module.exports = function registerFullStack(router) {
 
   router.get('/uzytkownicy/:id', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
-    const row = readOnly((s) => stripHaslo(s.users.find((u) => u.id === id)));
+    const row = readOnly((s) => {
+      if (!canViewUser(s, req.user, id)) return null;
+      return stripHaslo(s.users.find((u) => u.id === id));
+    });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
   });
 
   router.post('/uzytkownicy', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor', 'Kierownik'].includes(req.user.rola)) {
+    const b = req.body || {};
+    if (!canCreateUserWithRole(req.user, b.rola || 'Pomocnik')) {
       return res.status(403).json({ error: 'Brak uprawnień' });
     }
-    const b = req.body || {};
     const row = withStore((s) => {
       const id = s.nextUserId++;
-      const oid = toNum(b.oddzial_id);
+      const oid = canSeeAllBranches(req.user) ? toNum(b.oddzial_id) : toNum(req.user.oddzial_id);
       const odd = s.oddzialy.find((o) => o.id === oid);
       const u = {
         id,
@@ -1862,10 +1983,12 @@ module.exports = function registerFullStack(router) {
     const row = withStore((s) => {
       const u = s.users.find((x) => x.id === id);
       if (!u) return null;
+      if (!canManageTargetUser(req.user, u)) return { _forbidden: true };
       const skip = ['id', 'haslo'];
       for (const k of Object.keys(b)) {
         if (skip.includes(k)) continue;
         if (k === 'oddzial_id') {
+          if (!canTransferSpecialist(req.user, u)) return { _forbidden: true };
           u.oddzial_id = toNum(b.oddzial_id);
           u.oddzial_nazwa = oddzialNazwa(s, u.oddzial_id);
         } else {
@@ -1874,6 +1997,7 @@ module.exports = function registerFullStack(router) {
       }
       return stripHaslo(u);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
   });
@@ -1882,10 +2006,15 @@ module.exports = function registerFullStack(router) {
     const id = toNum(req.params.id);
     const nh = req.body?.nowe_haslo;
     if (!nh || String(nh).length < 6) return res.status(400).json({ error: 'Hasło min. 6 znaków' });
-    withStore((s) => {
+    const ok = withStore((s) => {
       const u = s.users.find((x) => x.id === id);
-      if (u) u.haslo = nh;
+      if (!u) return null;
+      if (!canManageTargetUser(req.user, u)) return 'forbidden';
+      u.haslo = nh;
+      return true;
     });
+    if (ok === 'forbidden') return res.status(403).json({ error: 'Brak uprawnien' });
+    if (!ok) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json({ ok: true });
   });
 
@@ -1895,9 +2024,11 @@ module.exports = function registerFullStack(router) {
     const row = withStore((s) => {
       const u = s.users.find((x) => x.id === id);
       if (!u) return null;
+      if (!canManageTargetUser(req.user, u)) return { _forbidden: true };
       u.aktywny = aktywny;
       return stripHaslo(u);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
   });
@@ -1908,16 +2039,22 @@ module.exports = function registerFullStack(router) {
     const row = withStore((s) => {
       const u = s.users.find((x) => x.id === id);
       if (!u) return null;
+      if (!canManageTargetUser(req.user, u)) return { _forbidden: true };
       u.procent_wynagrodzenia = p ?? 15;
       return stripHaslo(u);
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(row);
   });
 
   router.get('/uzytkownicy/:id/kompetencje', requireAuth, (req, res) => {
     const id = toNum(req.params.id);
-    const list = readOnly((s) => (s.kompetencje || []).filter((k) => k.user_id === id));
+    const list = readOnly((s) => {
+      if (!canViewUser(s, req.user, id)) return null;
+      return (s.kompetencje || []).filter((k) => k.user_id === id);
+    });
+    if (list === null) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json(list);
   });
 
@@ -1925,6 +2062,9 @@ module.exports = function registerFullStack(router) {
     const id = toNum(req.params.id);
     const b = req.body || {};
     const row = withStore((s) => {
+      const u = s.users.find((x) => x.id === id);
+      if (!u) return null;
+      if (!canManageTargetUser(req.user, u)) return { _forbidden: true };
       const kid = s.nextKompetencjaId++;
       const k = {
         id: kid,
@@ -1939,15 +2079,22 @@ module.exports = function registerFullStack(router) {
       s.kompetencje.push(k);
       return k;
     });
+    if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien' });
     res.status(201).json(row);
   });
 
   router.delete('/uzytkownicy/:userId/kompetencje/:kid', requireAuth, (req, res) => {
     const uid = toNum(req.params.userId);
     const kid = toNum(req.params.kid);
-    withStore((s) => {
+    const ok = withStore((s) => {
+      const u = s.users.find((x) => x.id === uid);
+      if (!u) return null;
+      if (!canManageTargetUser(req.user, u)) return 'forbidden';
       s.kompetencje = (s.kompetencje || []).filter((k) => !(k.user_id === uid && k.id === kid));
+      return true;
     });
+    if (ok === 'forbidden') return res.status(403).json({ error: 'Brak uprawnien' });
+    if (!ok) return res.status(404).json({ error: 'Nie znaleziono' });
     res.json({ ok: true });
   });
 
@@ -1957,7 +2104,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.post('/role', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const b = req.body || {};
     const row = withStore((s) => {
       const id = s.nextRoleId++;
@@ -1977,7 +2124,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.put('/role/:id', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const id = toNum(req.params.id);
     const b = req.body || {};
     const row = withStore((s) => {
@@ -1991,7 +2138,7 @@ module.exports = function registerFullStack(router) {
   });
 
   router.delete('/role/:id', requireAuth, (req, res) => {
-    if (!['Administrator', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
+    if (!['Prezes', 'Dyrektor'].includes(req.user.rola)) return res.status(403).json({ error: 'Brak uprawnień' });
     const id = toNum(req.params.id);
     withStore((s) => {
       s.roles = (s.roles || []).filter((r) => r.id !== id);

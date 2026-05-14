@@ -771,13 +771,22 @@ CREATE TABLE IF NOT EXISTS crm_leads (
   notes           TEXT,
   tags            JSONB NOT NULL DEFAULT '[]'::jsonb,
   next_action_at  TIMESTAMPTZ,
+  close_reason    VARCHAR(80),
+  close_bucket    VARCHAR(20),
+  closed_at       TIMESTAMPTZ,
+  closed_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS close_reason VARCHAR(80);
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS close_bucket VARCHAR(20);
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS closed_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_crm_leads_oddzial ON crm_leads(oddzial_id);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_stage ON crm_leads(stage);
+CREATE INDEX IF NOT EXISTS idx_crm_leads_close_bucket ON crm_leads(close_bucket);
 
 CREATE TABLE IF NOT EXISTS crm_lead_activities (
   id                 SERIAL PRIMARY KEY,

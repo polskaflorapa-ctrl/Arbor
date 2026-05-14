@@ -1,4 +1,5 @@
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -19,11 +20,20 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { t } = useTranslation();
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
   const isLogin = pathname === '/';
+  const compact = viewportWidth < 720;
   const defaultBack = showBack && !isLogin
     ? { onClick: () => navigate(-1), label: t('common.back', { defaultValue: 'Powrót' }) }
     : null;
   const resolvedBack = back === false ? null : back || defaultBack;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   return (
     <header
@@ -33,8 +43,10 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
         flexWrap: 'wrap',
         alignItems: isHero ? 'center' : 'flex-start',
         justifyContent: 'space-between',
-        gap: 16,
+        gap: compact ? 12 : 16,
         marginBottom: 24,
+        boxSizing: 'border-box',
+        width: '100%',
         ...(isHero
           ? {
               padding: '18px 20px',
@@ -53,9 +65,10 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          gap: 16,
+          gap: compact ? 12 : 16,
           minWidth: 0,
-          flex: '1 1 220px',
+          flex: compact ? '1 1 100%' : '1 1 220px',
+          width: compact ? '100%' : undefined,
         }}
       >
         {resolvedBack ? (
@@ -103,7 +116,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             {icon}
           </div>
         ) : null}
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: '1 1 0', maxWidth: '100%' }}>
           <h1
             style={{
               margin: 0,
@@ -112,6 +125,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               letterSpacing: 0,
               color: 'var(--text)',
               lineHeight: 1.2,
+              overflowWrap: 'anywhere',
             }}
           >
             {title}
@@ -120,7 +134,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             <p
               style={{
                 margin: '8px 0 0',
-                fontSize: 14,
+                fontSize: compact ? 13 : 14,
                 lineHeight: 1.45,
                 color: 'var(--text-muted)',
                 maxWidth: 720,
@@ -138,7 +152,9 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             alignItems: 'center',
             gap: 10,
             flexWrap: 'wrap',
-            marginLeft: 'auto',
+            marginLeft: compact ? 0 : 'auto',
+            width: compact ? '100%' : undefined,
+            justifyContent: compact ? 'flex-start' : undefined,
           }}
         >
           {actions}

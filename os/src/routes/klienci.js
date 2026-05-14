@@ -12,7 +12,7 @@ const {
 
 const router = express.Router();
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 
 const klienciListQuerySchema = z.object({
   szukaj: z.string().max(200).optional(),

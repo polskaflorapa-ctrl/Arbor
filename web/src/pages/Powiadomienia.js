@@ -49,7 +49,7 @@ export default function Powiadomienia() {
         api.get(`/notifications`, { headers: h }),
       ]);
       setZlecenia(zRes.data);
-      setKierownicy(uRes.data.filter(u => u.rola === 'Kierownik' || u.rola === 'Dyrektor' || u.rola === 'Administrator'));
+      setKierownicy(uRes.data.filter(u => u.rola === 'Kierownik' || u.rola === 'Prezes' || u.rola === 'Dyrektor'));
       const notifications = nRes.data.notifications || nRes.data || [];
       setPowiadomienia(notifications);
       setUnreadCount(nRes.data.unread_count || notifications.filter(n => n.status === 'Nowe').length);

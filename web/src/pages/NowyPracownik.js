@@ -52,7 +52,7 @@ export default function NowyPracownik() {
     loadData();
   }, [navigate, loadData]);
 
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
   const canEdit = isDyrektor || isKierownik;
 
@@ -142,6 +142,7 @@ export default function NowyPracownik() {
               <div style={styles.field}><label>{t('pages.nowyPracownik.role')}</label>
                 <select style={styles.input} value={form.rola} onChange={setField('rola')}>
                   <optgroup label={t('pages.nowyPracownik.optgroupMgmt')}>
+                    <option value="Prezes">Prezes</option>
                     <option value="Dyrektor">Dyrektor</option>
                     <option value="Administrator">Administrator</option>
                     <option value="Kierownik">Kierownik</option>

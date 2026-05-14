@@ -13,6 +13,7 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 
 // ─── Kolory ról (fallback jeśli brak w DB) ───────────────────
 const DEFAULT_ROLE_COLORS = {
+  Prezes: '#eab308',
   Dyrektor: '#f59e0b',
   Administrator: '#fbbf24',
   Kierownik: '#38bdf8',

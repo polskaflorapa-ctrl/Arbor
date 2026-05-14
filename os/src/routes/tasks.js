@@ -131,9 +131,11 @@ function kommoActor(req) {
   return { id: u.id ?? null, login: u.login ?? null, rola: u.rola ?? null };
 }
 
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 const isTeamScoped = (user) => user.rola === 'Brygadzista' || user.rola === 'Pomocnik';
+const canSeeAllTasks = (user) => isDyrektor(user) || isSalesDirector(user);
+const canManageTaskBackoffice = (user) => isDyrektor(user) || isKierownik(user);
 
 /** F3.5 — wymuszenie zdjęcia „Po” przy finish (ekipa): ustaw `TASK_FINISH_REQUIRE_PO_PHOTO=1` na serwerze. */
 function finishRequirePoPhoto() {
@@ -198,7 +200,7 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
 }
 
 const getTaskScope = (user, alias = 't', startParam = 1) => {
-  if (isDyrektor(user)) {
+  if (canSeeAllTasks(user)) {
     return { clause: '', params: [], nextParam: startParam };
   }
 
@@ -569,10 +571,16 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
       const scope = getTaskScope(req.user, 't', 1);
       whereClause = `WHERE ${scope.clause}`;
       params = scope.params;
-    } else if (oddzial_id && (isDyrektor(req.user) || isKierownik(req.user))) {
+    } else if (oddzial_id && canSeeAllTasks(req.user)) {
       whereClause = 'WHERE t.oddzial_id = $1';
       params = [oddzial_id];
-    } else if (!isDyrektor(req.user)) {
+    } else if (oddzial_id && isKierownik(req.user)) {
+      if (Number(oddzial_id) !== Number(req.user.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      whereClause = 'WHERE t.oddzial_id = $1';
+      params = [req.user.oddzial_id];
+    } else if (!canSeeAllTasks(req.user)) {
       const scope = getTaskScope(req.user, 't', 1);
       whereClause = `WHERE ${scope.clause}`;
       params = scope.params;
@@ -732,6 +740,9 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
 
 router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req, res) => {
   try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const {
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
@@ -771,6 +782,16 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
     }
     const initialStatus = status || (toInt(wyceniajacy_id) ? 'Wycena_Terenowa' : 'Nowe');
+
+    if (ekipa_id) {
+      const teamBranch = await pool.query('SELECT oddzial_id FROM teams WHERE id = $1', [toNum(ekipa_id)]);
+      if (
+        !teamBranch.rows.length ||
+        (!isDyrektor(req.user) && Number(teamBranch.rows[0].oddzial_id) !== Number(finalOddzialId))
+      ) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO tasks (
@@ -1285,6 +1306,9 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
 
 router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskUpdateSchema), requireTaskAccess, async (req, res) => {
   try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const {
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
@@ -1339,6 +1363,9 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
 
 router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskAssignSchema), requireTaskAccess, async (req, res) => {
   try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     const { ekipa_id } = req.body;
     const taskR = await pool.query(
       'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status FROM tasks WHERE id = $1',
@@ -1382,6 +1409,9 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
 });
 
 router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStatusSchema), requireTaskAccess, async (req, res) => {
+  if (!canManageTaskBackoffice(req.user)) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
   const taskId = Number(req.params.id);
   const client = await pool.connect();
   try {

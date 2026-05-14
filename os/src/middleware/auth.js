@@ -14,6 +14,28 @@ const unauthorized = (res, req, key, code) =>
 const forbidden = (res, req, key, code) =>
   res.status(403).json({ error: req.t(key), code, requestId: req.requestId });
 
+const SALES_DIRECTOR_ROLES = new Set([
+  'Dyrektor Sprzedazy',
+  'Dyrektor Sprzedaży',
+  'Dyrektor dzialu sprzedaz',
+  'Dyrektor działu sprzedaż',
+]);
+
+const isDyrektor = (userOrRole) => {
+  const rola = typeof userOrRole === 'string' ? userOrRole : userOrRole?.rola;
+  return rola === 'Prezes' || rola === 'Dyrektor';
+};
+
+const isSalesDirector = (userOrRole) => {
+  const rola = typeof userOrRole === 'string' ? userOrRole : userOrRole?.rola;
+  return SALES_DIRECTOR_ROLES.has(rola);
+};
+
+const canTransferSpecialist = (actor, target) => {
+  if (isDyrektor(actor)) return true;
+  return isSalesDirector(actor) && target?.rola === 'Specjalista';
+};
+
 const authMiddleware = (req, res, next) => {
   const header = req.headers.authorization;
   if (!header) return unauthorized(res, req, 'errors.auth.missingToken', AUTH_MISSING_TOKEN);
@@ -63,15 +85,15 @@ const requireOddzial = (req, res, next) => {
   if (!req.user) {
     return forbidden(res, req, 'errors.auth.branchAccessDenied', AUTH_BRANCH_ACCESS_DENIED);
   }
-  const isDyrektor = req.user.rola === 'Dyrektor' || req.user.rola === 'Administrator';
-  if (!isDyrektor && req.query.oddzial_id && req.query.oddzial_id !== req.user.oddzial_id?.toString()) {
+  if (!isDyrektor(req.user) && req.query.oddzial_id && req.query.oddzial_id !== req.user.oddzial_id?.toString()) {
     return forbidden(res, req, 'errors.auth.branchAccessDenied', AUTH_BRANCH_ACCESS_DENIED);
   }
   next();
 };
 
 const buildAppPermissions = (rola) => {
-  const isDyrektor = rola === 'Dyrektor' || rola === 'Administrator';
+  const director = isDyrektor(rola);
+  const salesDirector = isSalesDirector(rola);
   const isKierownik = rola === 'Kierownik';
   const isBrygadzista = rola === 'Brygadzista';
   const isPomocnik = rola === 'Pomocnik';
@@ -79,14 +101,25 @@ const buildAppPermissions = (rola) => {
 
   return {
     policyVersion: 1,
-    taskScope: isDyrektor ? 'all' : isTeamScoped ? 'assigned_team_only' : 'branch',
+    taskScope: director || salesDirector ? 'all' : isTeamScoped ? 'assigned_team_only' : 'branch',
+    canTransferSpecialists: director || salesDirector,
     canViewPayrollSettlements: false,
     canManagePayrollSettlements: false,
     canViewSettlementModule: false,
-    canCreateTasks: isDyrektor || isKierownik,
-    canAssignTeams: isDyrektor || isKierownik,
-    canManageTeams: isDyrektor || isKierownik,
+    canCreateTasks: director || isKierownik,
+    canAssignTeams: director || isKierownik,
+    canManageTeams: director || isKierownik,
   };
 };
 
-module.exports = { authMiddleware, requireRole, requireNieBrygadzista, requireNiePomocnik, requireOddzial, buildAppPermissions };
+module.exports = {
+  authMiddleware,
+  requireRole,
+  requireNieBrygadzista,
+  requireNiePomocnik,
+  requireOddzial,
+  buildAppPermissions,
+  isDyrektor,
+  isSalesDirector,
+  canTransferSpecialist,
+};

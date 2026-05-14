@@ -1,12 +1,25 @@
 /** Wspólna widoczność CMR (file-db) — spójnie z widocznością zleceń. */
 
 function canSeeAll(user) {
-  return user?.rola === 'Administrator' || user?.rola === 'Dyrektor';
+  return ['Prezes', 'Dyrektor'].includes(user?.rola);
+}
+
+function isSalesDirector(user) {
+  return [
+    'Dyrektor Sprzedazy',
+    'Dyrektor Sprzedaży',
+    'Dyrektor dzialu sprzedaz',
+    'Dyrektor działu sprzedaż',
+  ].includes(user?.rola);
+}
+
+function canSeeAllTasks(user) {
+  return canSeeAll(user) || isSalesDirector(user);
 }
 
 function visibleZlecenia(state, user) {
   const rows = state.zlecenia || [];
-  if (canSeeAll(user)) return rows;
+  if (canSeeAllTasks(user)) return rows;
   if (user.rola === 'Kierownik') return rows.filter((z) => String(z.oddzial_id) === String(user.oddzial_id));
   if (['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia'].includes(user.rola) && user.ekipa_id) {
     return rows.filter((z) => String(z.ekipa_id) === String(user.ekipa_id));
@@ -18,7 +31,7 @@ function visibleZlecenia(state, user) {
 function canUserViewZlecenie(state, user, taskId) {
   const z = (state.zlecenia || []).find((x) => x.id === taskId);
   if (!z) return false;
-  if (canSeeAll(user)) return true;
+  if (canSeeAllTasks(user)) return true;
   return visibleZlecenia(state, user).some((x) => x.id === taskId);
 }
 

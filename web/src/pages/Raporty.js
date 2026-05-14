@@ -85,7 +85,7 @@ export default function Raporty() {
   const navigate = useNavigate();
  
   // POPRAWKA: obliczane na poziomie komponentu, dostępne w JSX
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
  
   // POPRAWKA: parsedUser przekazywany bezpośrednio do loadData
@@ -102,7 +102,7 @@ export default function Raporty() {
       const token = getStoredToken();
       const h = authHeaders(token);
       const rola = user?.rola;
-      const endpoint = (rola === 'Dyrektor' || rola === 'Administrator')
+      const endpoint = ['Prezes', 'Dyrektor'].includes(rola)
         ? `/tasks/wszystkie`
         : `/tasks`;
  

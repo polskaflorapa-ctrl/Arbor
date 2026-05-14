@@ -9,23 +9,26 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
 
 const S = {
-  wrap: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  main: { flex: 1, padding: '20px 24px 40px', maxWidth: 960 },
-  tabs: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  wrap: { display: 'flex', minHeight: '100vh', background: 'var(--forest-pattern), linear-gradient(180deg, rgba(20,53,31,0.26), var(--bg-deep))' },
+  main: { flex: 1, padding: '24px clamp(16px, 3vw, 32px) 40px', maxWidth: 'none', minWidth: 0 },
+  tabs: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', border: '1px solid var(--border2)', borderRadius: 8, padding: 4, width: 'fit-content', background: 'rgba(5,12,8,0.72)' },
   tab: (on) => ({
-    padding: '8px 14px',
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: on ? 'var(--accent-soft)' : 'var(--card)',
+    padding: '9px 14px',
+    borderRadius: 6,
+    border: '1px solid transparent',
+    background: on ? 'var(--accent)' : 'transparent',
     cursor: 'pointer',
-    color: 'var(--text)',
+    color: on ? 'var(--on-accent)' : 'var(--text-sub)',
+    fontWeight: 800,
+    fontSize: 13,
   }),
   card: {
-    background: 'var(--card)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
+    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))',
+    border: '1px solid rgba(191,225,146,0.16)',
+    borderRadius: 8,
     padding: 16,
     marginBottom: 12,
+    boxShadow: 'var(--shadow-sm)',
   },
   row: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   btn: {
@@ -33,11 +36,14 @@ const S = {
     borderRadius: 8,
     border: 'none',
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--on-accent)',
     cursor: 'pointer',
+    fontWeight: 800,
   },
-  select: { padding: 8, borderRadius: 8, border: '1px solid var(--border)', minWidth: 200, background: 'var(--card)' },
-  err: { color: 'var(--danger)', marginTop: 8 },
+  select: { padding: 8, borderRadius: 8, border: '1px solid var(--border)', minWidth: 220, background: 'var(--input-bg)' },
+  err: { color: 'var(--danger)', marginTop: 8, fontWeight: 700 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 },
+  empty: { padding: 18, borderRadius: 8, border: '1px dashed rgba(191,225,146,0.18)', background: 'rgba(155,217,87,0.06)', color: 'var(--text-muted)', fontWeight: 650 },
 };
 
 export default function WycenyTerenowe() {
@@ -58,9 +64,14 @@ export default function WycenyTerenowe() {
     const h = authHeaders(token);
     setErr('');
     try {
+      const emptyOn404 = (promise) =>
+        promise.catch((e) => {
+          if (e?.response?.status === 404) return { data: [] };
+          throw e;
+        });
       const [a, b, u] = await Promise.all([
-        api.get('/quotations/panel/do-przypisania', { headers: h }),
-        api.get('/quotations/panel/moje-zatwierdzenia', { headers: h }),
+        emptyOn404(api.get('/quotations/panel/do-przypisania', { headers: h })),
+        emptyOn404(api.get('/quotations/panel/moje-zatwierdzenia', { headers: h })),
         api.get('/uzytkownicy', { headers: h }).catch(() => ({ data: [] })),
       ]);
       setRows(Array.isArray(a.data) ? a.data : []);
@@ -126,12 +137,12 @@ export default function WycenyTerenowe() {
     }
   };
 
-  if (!user || !['Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'].includes(user.rola)) {
+  if (!user || !['Kierownik', 'Prezes', 'Dyrektor', 'Specjalista', 'Wyceniający', 'WyceniajÄ…cy'].includes(user.rola)) {
     return (
       <div style={S.wrap}>
         <Sidebar />
         <main style={S.main}>
-          <PageHeader title={t('nav.fieldQuotes')} subtitle="" />
+          <PageHeader variant="hero" title={t('nav.fieldQuotes')} subtitle="" />
           <p style={{ color: 'var(--text-muted)' }}>Brak uprawnień do tego modułu.</p>
         </main>
       </div>
@@ -142,7 +153,7 @@ export default function WycenyTerenowe() {
     <div style={S.wrap}>
       <Sidebar />
       <main style={S.main}>
-        <PageHeader title={t('nav.fieldQuotes')} subtitle="Lead z Kommo → przypisanie → zatwierdzenia (M1)" />
+        <PageHeader variant="hero" title={t('nav.fieldQuotes')} subtitle="Lead z Kommo -> przypisanie -> zatwierdzenia (M1)" />
         <div style={S.tabs}>
           <button type="button" style={S.tab(tab === 'assign')} onClick={() => setTab('assign')}>
             Wyceny do umówienia
@@ -153,9 +164,9 @@ export default function WycenyTerenowe() {
         </div>
         {err ? <div style={S.err}>{err}</div> : null}
         {tab === 'assign' && (
-          <div>
+          <div style={S.grid}>
             {rows.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)' }}>Brak leadów oczekujących na przypisanie.</p>
+              <div style={S.empty}>Brak leadów oczekujących na przypisanie.</div>
             ) : (
               rows.map((q) => (
                 <div key={q.id} style={{ ...S.card, borderColor: String(preId) === String(q.id) ? 'var(--accent)' : undefined }}>
@@ -207,9 +218,9 @@ export default function WycenyTerenowe() {
           </div>
         )}
         {tab === 'queue' && (
-          <div>
+          <div style={S.grid}>
             {queue.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)' }}>Brak pozycji w Twojej kolejce.</p>
+              <div style={S.empty}>Brak pozycji w Twojej kolejce.</div>
             ) : (
               queue.map((q) => (
                 <div key={`${q.id}-${q.approval_id}`} style={S.card}>

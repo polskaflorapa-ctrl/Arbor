@@ -6,8 +6,15 @@ import StatusMessage from '../components/StatusMessage';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
+import {
+  CRM_CLOSE_REASONS,
+  CRM_LEAD_STAGES,
+  isClosedLeadStage,
+  isTechnicalCloseReason,
+  stageForCloseReason,
+} from '../utils/crmLeadClosure';
 
-const STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane'];
+const STAGES = CRM_LEAD_STAGES;
 
 function formatAmount(value) {
   const num = Number(value || 0);
@@ -52,6 +59,7 @@ export default function CrmPipeline() {
   const [clients, setClients] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedLeadId, setSelectedLeadId] = useState(null);
+  const [closeDialog, setCloseDialog] = useState(null);
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activityForm, setActivityForm] = useState(EMPTY_ACTIVITY);
@@ -92,6 +100,10 @@ export default function CrmPipeline() {
   const selectedLead = useMemo(
     () => (selectedLeadId ? leads.find((l) => Number(l.id) === Number(selectedLeadId)) : null),
     [leads, selectedLeadId]
+  );
+  const closingLead = useMemo(
+    () => (closeDialog?.leadId ? leads.find((l) => Number(l.id) === Number(closeDialog.leadId)) : null),
+    [closeDialog?.leadId, leads]
   );
 
   const loadActivities = useCallback(
@@ -167,12 +179,32 @@ export default function CrmPipeline() {
 
   const patchLead = async (leadId, patch) => {
     try {
-      await api.patch(`/crm/leads/${leadId}`, patch, { headers: requestHeaders });
-      setLeads((prev) => prev.map((lead) => (lead.id === leadId ? { ...lead, ...patch } : lead)));
+      const res = await api.patch(`/crm/leads/${leadId}`, patch, { headers: requestHeaders });
+      setLeads((prev) => prev.map((lead) => (Number(lead.id) === Number(leadId) ? { ...lead, ...(res.data || patch) } : lead)));
     } catch (e) {
       setMsg(getApiErrorMessage(e, t('crm.pipeline.errors.update', { defaultValue: 'Nie udało się zaktualizować leada.' })));
       await loadData();
     }
+  };
+
+  const requestStageChange = async (leadId, stage) => {
+    if (!leadId || !stage) return;
+    if (isClosedLeadStage(stage)) {
+      setCloseDialog({ leadId, requestedStage: stage, reason: '' });
+      return;
+    }
+    await patchLead(leadId, { stage, close_reason: null });
+  };
+
+  const submitCloseLead = async () => {
+    if (!closeDialog?.leadId) return;
+    const reason = String(closeDialog.reason || '').trim();
+    if (!reason) {
+      setMsg(t('crm.pipeline.closeReasonRequired', { defaultValue: 'Wybierz powód zamknięcia leada.' }));
+      return;
+    }
+    await patchLead(closeDialog.leadId, { stage: stageForCloseReason(reason), close_reason: reason });
+    setCloseDialog(null);
   };
 
   const handleDelete = async (leadId) => {
@@ -338,7 +370,7 @@ export default function CrmPipeline() {
             </div>
           </section>
 
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(220px, 1fr))', gap: 10, overflowX: 'auto' }}>
+          <section style={{ display: 'grid', gridTemplateColumns: `repeat(${STAGES.length}, minmax(220px, 1fr))`, gap: 10, overflowX: 'auto' }}>
             {STAGES.map((stage) => (
               <div
                 key={stage}
@@ -347,8 +379,9 @@ export default function CrmPipeline() {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={async () => {
                   if (!dragLeadId) return;
+                  const leadId = dragLeadId;
                   setDragLeadId(null);
-                  await patchLead(dragLeadId, { stage });
+                  await requestStageChange(leadId, stage);
                 }}
               >
                 <div style={{ marginBottom: 8 }}>
@@ -375,7 +408,7 @@ export default function CrmPipeline() {
                             userSelect: 'none',
                             fontSize: 14,
                             color: 'var(--text-muted)',
-                            letterSpacing: -2,
+                            letterSpacing: 0,
                             lineHeight: 1,
                           }}
                         >
@@ -390,6 +423,13 @@ export default function CrmPipeline() {
                         {lead.client_name || lead.phone || lead.email || lead.source || '—'}
                       </div>
                       <div style={{ fontSize: 12 }}>{formatAmount(lead.value)}</div>
+                      {lead.close_reason ? (
+                        <div style={{ fontSize: 11, color: isTechnicalCloseReason(lead.close_reason) ? 'var(--warning)' : 'var(--text-muted)', fontWeight: 700 }}>
+                          {isTechnicalCloseReason(lead.close_reason)
+                            ? t('crm.pipeline.technicalReason', { defaultValue: 'Techniczny' })
+                            : t('crm.pipeline.closeReason', { defaultValue: 'Powód' })}: {lead.close_reason}
+                        </div>
+                      ) : null}
                       <select
                         className="ios-field"
                         value={lead.owner_user_id || ''}
@@ -402,9 +442,16 @@ export default function CrmPipeline() {
                           </option>
                         ))}
                       </select>
-                      <button type="button" className="ios-btn" onClick={() => handleDelete(lead.id)}>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {!isClosedLeadStage(lead.stage) ? (
+                          <button type="button" className="ios-btn" onClick={() => setCloseDialog({ leadId: lead.id, requestedStage: 'Przegrane', reason: '' })}>
+                            {t('crm.pipeline.closeLead', { defaultValue: 'Zamknij lead' })}
+                          </button>
+                        ) : null}
+                        <button type="button" className="ios-btn" onClick={() => handleDelete(lead.id)}>
                         {t('crm.pipeline.deleteLead', { defaultValue: 'Usuń' })}
-                      </button>
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {!loading && (leadsByStage[stage] || []).length === 0 ? (
@@ -418,6 +465,72 @@ export default function CrmPipeline() {
           </section>
         </div>
       </main>
+
+      {closeDialog ? (
+        <>
+          <div
+            role="presentation"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 280 }}
+            onClick={() => setCloseDialog(null)}
+          />
+          <section
+            className="ios-inset"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('crm.pipeline.closeDialogTitle', { defaultValue: 'Zamknięcie leada' })}
+            style={{
+              position: 'fixed',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 290,
+              width: 'min(460px, calc(100vw - 32px))',
+              padding: 16,
+              display: 'grid',
+              gap: 12,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-lg)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                {t('crm.pipeline.closeDialogTitle', { defaultValue: 'Zamknięcie leada' })}
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>{closingLead?.title || `#${closeDialog.leadId}`}</div>
+            </div>
+            <label style={{ display: 'grid', gap: 6, fontSize: 13, color: 'var(--text-sub)', fontWeight: 700 }}>
+              {t('crm.pipeline.closeReasonRequiredLabel', { defaultValue: 'Powód zamknięcia (wymagany)' })}
+              <select
+                className="ios-field"
+                required
+                value={closeDialog.reason}
+                onChange={(e) => setCloseDialog((prev) => ({ ...prev, reason: e.target.value }))}
+              >
+                <option value="">{t('crm.pipeline.closeReasonPlaceholder', { defaultValue: 'Wybierz powód' })}</option>
+                {CRM_CLOSE_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              {closeDialog.reason && isTechnicalCloseReason(closeDialog.reason)
+                ? t('crm.pipeline.closeTechnicalHint', { defaultValue: 'Ten powód trafi do lejka technicznego i nie będzie psuł konwersji specjalistów.' })
+                : t('crm.pipeline.closeLostHint', { defaultValue: 'Ten powód zamknie lead jako przegrany.' })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="ios-btn" onClick={() => setCloseDialog(null)}>
+                {t('common.cancel', { defaultValue: 'Anuluj' })}
+              </button>
+              <button type="button" className="ios-btn ios-btn-primary" disabled={!closeDialog.reason} onClick={submitCloseLead}>
+                {t('crm.pipeline.closeConfirm', { defaultValue: 'Zamknij lead' })}
+              </button>
+            </div>
+          </section>
+        </>
+      ) : null}
 
       {selectedLeadId && selectedLead ? (
         <>

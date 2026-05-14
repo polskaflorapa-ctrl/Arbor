@@ -4046,6 +4046,24 @@ export default function ZlecenieDetailScreen() {
                     value={payForm.kwota_odebrana}
                     onChangeText={(v) => setPayForm((p) => ({ ...p, kwota_odebrana: v }))}
                   />
+                  <Text style={[S.modalLbl, { color: theme.textSub, marginTop: 10 }]}>{t('order.finishPaymentNoteLabel')}</Text>
+                  <TextInput
+                    style={[
+                      S.modalInput,
+                      {
+                        backgroundColor: theme.inputBg,
+                        borderColor: theme.inputBorder,
+                        color: theme.inputText,
+                        minHeight: 72,
+                        textAlignVertical: 'top',
+                      },
+                    ]}
+                    multiline
+                    placeholder={t('order.finishPaymentNotePlaceholder')}
+                    placeholderTextColor={theme.inputPlaceholder}
+                    value={finishNotatki}
+                    onChangeText={setFinishNotatki}
+                  />
                 </>
               ) : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 10, gap: 10 }}>

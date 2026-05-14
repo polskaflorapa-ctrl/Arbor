@@ -714,6 +714,35 @@ body.theme-light .clients-main [style*='background: var(--bg-card)'] {
   -webkit-backdrop-filter: none;
 }
 
+.arbor-sidebar .ios-section-title {
+  margin: 6px 0 5px 10px !important;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.arbor-sidebar .ios-inset {
+  border-radius: 8px;
+  background:
+    linear-gradient(155deg, rgba(23, 48, 31, 0.68) 0%, rgba(4, 11, 7, 0.82) 100%);
+}
+
+.arbor-sidebar .ios-inset-row {
+  min-height: 34px;
+  padding: 5px 8px;
+  gap: 8px;
+}
+
+.arbor-sidebar .ios-icon-tile {
+  width: 25px;
+  height: 25px;
+  border-radius: 6px;
+}
+
+.arbor-sidebar button,
+.arbor-sidebar [role='button'] {
+  filter: none !important;
+}
+
 .ios-glass-panel {
   background: var(--surface-glass) !important;
   border-color: var(--border) !important;

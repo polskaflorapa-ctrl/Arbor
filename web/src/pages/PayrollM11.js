@@ -103,7 +103,7 @@ export default function PayrollM11() {
   const [loadingCorrectionLog, setLoadingCorrectionLog] = useState(false);
 
   const canSee = useMemo(
-    () => user && ['Dyrektor', 'Administrator', 'Kierownik'].includes(user.rola),
+    () => user && ['Prezes', 'Dyrektor', 'Kierownik'].includes(user.rola),
     [user]
   );
 

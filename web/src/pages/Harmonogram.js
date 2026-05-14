@@ -114,7 +114,7 @@ export default function Harmonogram() {
   }, [currentDate, widok]);
 
   const isKierownik = currentUser?.rola === 'Kierownik';
-  const isDyrektor = currentUser?.rola === 'Dyrektor' || currentUser?.rola === 'Administrator';
+  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const canEdit = isDyrektor || isKierownik;
 
   const getTydzien = (date) => {

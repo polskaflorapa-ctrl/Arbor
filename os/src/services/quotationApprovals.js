@@ -1,7 +1,7 @@
 const logger = require('../config/logger');
 const { itemNeedsHeightSpecialist, itemNearEnergyLine } = require('./quotationItemFlags');
 
-const isDyrektor = (u) => u.rola === 'Dyrektor' || u.rola === 'Administrator';
+const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const isKierownik = (u) => u.rola === 'Kierownik';
 
 function toNum(v) {
@@ -113,7 +113,7 @@ async function notifyApproversForQuotation(pool, quotationId) {
         [q.oddzial_id]
       );
     } else if (typ === 'Dyrektor') {
-      users = await pool.query(`SELECT id FROM users WHERE rola IN ('Dyrektor','Administrator') AND aktywny IS NOT FALSE`);
+      users = await pool.query(`SELECT id FROM users WHERE rola IN ('Prezes','Dyrektor') AND aktywny IS NOT FALSE`);
     } else if (typ === 'Arborysta' || typ === 'BHP' || typ === 'Prawne') {
       users = await pool.query(
         `SELECT id FROM users WHERE rola = 'Specjalista' AND oddzial_id = $1 AND aktywny IS NOT FALSE`,

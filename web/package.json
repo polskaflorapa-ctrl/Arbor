@@ -28,7 +28,7 @@
     "preview": "npm run build && npx --yes serve -s build -l 4173",
     "build": "react-scripts build",
     "verify": "npm run build && npm test -- --watchAll=false",
-    "test": "react-scripts test",
+    "test": "react-scripts test --testMatch \"**/src/**/__tests__/**/*.{js,jsx,ts,tsx}\" \"**/src/**/*.{spec,test}.{js,jsx,ts,tsx}\"",
     "eject": "react-scripts eject",
     "server": "npm --prefix server start",
     "server:dev": "npm --prefix server run dev",
