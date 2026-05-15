@@ -31,6 +31,24 @@ const STATUS_LABEL = {
 };
 
 const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
+const MANAGER_ROLES = ['Kierownik', 'Administrator', 'Dyrektor'];
+
+const WYCENA_STATUSES = ['Nowa', 'W_Opracowaniu', 'Wyslana', 'Zaakceptowana', 'Odrzucona'];
+const STATUS_WYCENY_LABEL = {
+  Nowa: 'Nowa', W_Opracowaniu: 'W opracowaniu', Wyslana: 'Wysłana',
+  Zaakceptowana: 'Zaakceptowana', Odrzucona: 'Odrzucona',
+};
+
+const SPRZET_POLA = [
+  { key: 'rebak', label: 'Rębak' },
+  { key: 'pila_wysiegniku', label: 'Piła wysięknika' },
+  { key: 'nozyce_dlugie', label: 'Nożyce długie' },
+  { key: 'kosiarka', label: 'Kosiarka' },
+  { key: 'podkaszarka', label: 'Podkaszarka' },
+  { key: 'lopata', label: 'Łopata' },
+  { key: 'mulczer', label: 'Mulczer' },
+  { key: 'arborysta', label: 'Arborysta' },
+];
 
 function getCalDays(year, month) {
   const first = new Date(year, month, 1).getDay();
@@ -230,6 +248,29 @@ export default function WycenaKalendarz() {
     }
   };
 
+  const zmienStatusWyceny = async (wycenaId, status) => {
+    try {
+      const token = getStoredToken();
+      await api.patch(`/wyceny/${wycenaId}/status`, { status }, { headers: authHeaders(token) });
+      setMsg(successMessage(`Status zmieniony na: ${STATUS_WYCENY_LABEL[status] || status}`));
+      load();
+    } catch (err) {
+      setMsg(errorMessage(getApiErrorMessage(err, 'Błąd zmiany statusu')));
+    }
+  };
+
+  const konwertujNaZlecenie = async (wycenaId) => {
+    try {
+      const token = getStoredToken();
+      const res = await api.post(`/wyceny/${wycenaId}/konwertuj`, {}, { headers: authHeaders(token) });
+      setMsg(successMessage('Wycena skonwertowana na zlecenie!'));
+      load();
+      if (res.data?.task_id) navigate(`/zlecenia/${res.data.task_id}`);
+    } catch (err) {
+      setMsg(errorMessage(getApiErrorMessage(err, 'Błąd konwersji na zlecenie')));
+    }
+  };
+
   const openReserve = async (w) => {
     const data = (w.data_wykonania || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
     const ekipa_id = String(w.proponowana_ekipa_id || w.ekipa_id || '');
@@ -302,6 +343,7 @@ export default function WycenaKalendarz() {
 
   const canAdd = user && ['Wyceniający', 'Kierownik', 'Administrator', 'Dyrektor'].includes(user.rola);
   const canApprove = user && APPROVE_ROLES.includes(user.rola);
+  const isManager = user && MANAGER_ROLES.includes(user.rola);
   const cells = getCalDays(year, month);
 
   return (
@@ -619,6 +661,43 @@ export default function WycenaKalendarz() {
                       <button style={S.openBtn} onClick={(e) => { e.stopPropagation(); navigate(`/zlecenia/${w.task_id}`); }}>
                         Otwórz zlecenie →
                       </button>
+                    )}
+
+                    {/* Sprzęt */}
+                    {SPRZET_POLA.filter(s => w[s.key]).length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>Sprzęt</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {SPRZET_POLA.filter(s => w[s.key]).map(s => (
+                            <span key={s.key} style={{ padding: '3px 8px', borderRadius: 6, background: 'var(--accent-soft, rgba(155,217,87,0.14))', color: 'var(--accent)', fontSize: 12, fontWeight: 600 }}>
+                              {s.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Zmiana statusu wyceny (manager) */}
+                    {isManager && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>Zmień status wyceny</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {WYCENA_STATUSES.filter(s => s !== w.status).map(s => (
+                            <button key={s} type="button"
+                              style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                              onClick={(e) => { e.stopPropagation(); zmienStatusWyceny(w.id, s); }}>
+                              {STATUS_WYCENY_LABEL[s]}
+                            </button>
+                          ))}
+                        </div>
+                        {isManager && w.status === 'Zaakceptowana' && (
+                          <button type="button"
+                            style={{ marginTop: 8, padding: '6px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 13, cursor: 'pointer', fontWeight: 700 }}
+                            onClick={(e) => { e.stopPropagation(); konwertujNaZlecenie(w.id); }}>
+                            ⚡ Konwertuj na zlecenie
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
