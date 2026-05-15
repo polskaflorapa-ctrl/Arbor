@@ -6,9 +6,20 @@ import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import { getApiErrorMessage } from '../utils/apiError';
 import { computeEstimatorPayout } from '../utils/computeEstimatorPayout';
+import { computeEstimatorMonth, filterQuotesForEstimatorRole, resolveEstimatorContract } from '../utils/estimatorCompensation';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { isTaskDone } from '../utils/taskWorkflow';
+
+function currentYm() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function shiftMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return d.toISOString().slice(0, 7);
+}
 
 const LS_RULES = 'arbor_wynagrodzenie_wyceniajacy_reguly_v1';
 
@@ -40,6 +51,9 @@ export default function WynagrodzenieWyceniajacych() {
   const [opisDodatkow, setOpisDodatkow] = useState('');
   const [sumaReczna, setSumaReczna] = useState('');
   const [sumaZApi, setSumaZApi] = useState(null);
+  const [contractMonthYm, setContractMonthYm] = useState(currentYm);
+  const [contractWorkingDays, setContractWorkingDays] = useState('22');
+  const [wyceny, setWyceny] = useState([]);
 
   const load = useCallback(async () => {
     const token = getStoredToken();
@@ -50,14 +64,17 @@ export default function WynagrodzenieWyceniajacych() {
     const u = getLocalStorageJson('user', {});
     setUser(u);
     try {
-      const [uRes, zRes] = await Promise.all([
+      const [uRes, zRes, wRes] = await Promise.all([
         api.get('/uzytkownicy', { headers: authHeaders(token) }),
         api.get('/tasks/wszystkie', { headers: authHeaders(token) }),
+        api.get('/wyceny', { headers: authHeaders(token) }).catch(() => ({ data: [] })),
       ]);
       const list = Array.isArray(uRes.data) ? uRes.data : (uRes.data.uzytkownicy || []);
       setUzytkownicy(list);
       const zl = Array.isArray(zRes.data) ? zRes.data : [];
       setTasks(zl);
+      const wl = Array.isArray(wRes.data) ? wRes.data : [];
+      setWyceny(wl);
     } catch (e) {
       setMsg(getApiErrorMessage(e, 'Błąd ładowania'));
     }
@@ -146,6 +163,25 @@ export default function WynagrodzenieWyceniajacych() {
     sumaZrealizowanychZlecenPln: sumaZrealizowanych,
     dodatkiStalePln: dodatki,
   });
+
+  // --- Sekcja kontraktowa (wyceniajacy-finanse parity) ---
+  const selectedUser = useMemo(
+    () => uzytkownicy.find((u) => String(u.id) === wybranyId) || null,
+    [uzytkownicy, wybranyId],
+  );
+  const contract = useMemo(
+    () => resolveEstimatorContract(selectedUser?.oddzial_id, selectedUser?.login),
+    [selectedUser],
+  );
+  const contractWd = Math.max(0, parseInt(contractWorkingDays.replace(/\D/g, ''), 10) || 0);
+  const contractFilteredQuotes = useMemo(
+    () => wybranyId ? filterQuotesForEstimatorRole(wyceny, wybranyId, selectedUser?.rola) : [],
+    [wyceny, wybranyId, selectedUser?.rola],
+  );
+  const contractResult = useMemo(
+    () => computeEstimatorMonth(contract, contractFilteredQuotes, wybranyId, contractMonthYm, contractWd),
+    [contract, contractFilteredQuotes, wybranyId, contractMonthYm, contractWd],
+  );
 
   const zapiszReguly = async () => {
     if (!wybranyId) return;
@@ -249,6 +285,97 @@ export default function WynagrodzenieWyceniajacych() {
           </div>
         </div>
 
+        {/* ===== Sekcja kontraktowa (wyceniajacy-finanse parity) ===== */}
+        {wybranyId && (
+          <div style={{ ...card, marginTop: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Prowizje — widok kontraktowy</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="button" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} onClick={() => setContractMonthYm((m) => shiftMonth(m, -1))}>‹</button>
+                <span style={{ fontWeight: 700, fontSize: 15, minWidth: 88, textAlign: 'center' }}>{contractMonthYm}</span>
+                <button type="button" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} onClick={() => setContractMonthYm((m) => shiftMonth(m, 1))}>›</button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+              <label style={lab}>Dni robocze (kontraktowe)</label>
+              <input
+                style={{ ...inp, maxWidth: 80 }}
+                type="number"
+                min={0}
+                max={31}
+                value={contractWorkingDays}
+                onChange={(e) => setContractWorkingDays(e.target.value)}
+              />
+            </div>
+
+            {!contract ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+                Brak umowy kontraktowej dla tego wyceniającego w tabeli <code>WYCENIAJACY_UMOWY</code> (oddział ID: {selectedUser?.oddzial_id ?? '—'}, login: {selectedUser?.login ?? '—'}).
+                Uzupełnij <code>web/src/constants/wyceniajacyUmowy.js</code>.
+              </p>
+            ) : (
+              <>
+                <div style={{ background: 'var(--bg-deep)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{contract.displayName}</div>
+                  <div style={{ color: 'var(--text-muted)' }}>
+                    Stawka dzienna: <strong>{fmtPln(contract.dailyBasePln)}</strong>
+                    {' · '}
+                    Prowizja: <strong>{(contract.percentRealized * 100).toFixed(2)}%</strong>
+                    {' · '}
+                    Kalendarz: <strong>{contract.calendarMode === 'own' ? 'własny' : 'wspólny brygady'}</strong>
+                  </div>
+                  {contract.addons.length > 0 && (
+                    <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>
+                      Addony: {contract.addons.map((a) => `${a.label} ${fmtPln(a.monthlyFixedPln ?? 0)}`).join(' · ')}
+                    </div>
+                  )}
+                </div>
+
+                {contractResult.lines.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+                    Brak wycen ze statusem {contract.quoteStatusesForCommission.join('/')} w miesiącu {contractMonthYm} dla tej osoby.
+                  </p>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                        <th style={th2}>#Wycena · klient</th>
+                        <th style={th2}>Status</th>
+                        <th style={{ ...th2, textAlign: 'right' }}>Podstawa</th>
+                        <th style={{ ...th2, textAlign: 'right' }}>Prowizja</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contractResult.lines.map((line) => (
+                        <tr key={String(line.wycenaId)} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={td2}>#{line.wycenaId} · {line.client}</td>
+                          <td style={td2}>{line.status}</td>
+                          <td style={{ ...td2, textAlign: 'right' }}>{fmtPln(line.basisPln)}</td>
+                          <td style={{ ...td2, textAlign: 'right', color: 'var(--accent)', fontWeight: 700 }}>+{fmtPln(line.commissionPln)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                  <tbody>
+                    <tr><td style={tdL}>Część dzienna ({contractResult.workingDays} × {fmtPln(contract.dailyBasePln)})</td><td style={tdR}>{fmtPln(contractResult.baseFromDaysPln)}</td></tr>
+                    <tr><td style={tdL}>{(contract.percentRealized * 100).toFixed(2)}% × {fmtPln(contractResult.totalRealizedBasisPln)}</td><td style={tdR}>{fmtPln(contractResult.variableFromPercentPln)}</td></tr>
+                    {contractResult.addonsPln > 0 && (
+                      <tr><td style={tdL}>Addony stałe</td><td style={tdR}>{fmtPln(contractResult.addonsPln)}</td></tr>
+                    )}
+                    <tr style={{ fontWeight: 800, borderTop: '1px solid var(--border)' }}>
+                      <td style={tdL}>Razem (kontraktowe)</td><td style={tdR}>{fmtPln(contractResult.totalPln)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        )}
+
         <div style={{ ...card, marginTop: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Podsumowanie</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
@@ -297,3 +424,5 @@ const btnPri = {
 };
 const tdL = { padding: '8px 0', color: 'var(--text-sub)' };
 const tdR = { padding: '8px 0', textAlign: 'right', fontWeight: 600 };
+const th2 = { padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600 };
+const td2 = { padding: '8px 8px' };
