@@ -37,7 +37,7 @@
     "expo-linking": "~8.0.12",
     "expo-local-authentication": "~17.0.8",
     "expo-location": "~19.0.8",
-    "expo-network": "~8.0.8",
+    "expo-network": "~55.0.14",
     "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",
