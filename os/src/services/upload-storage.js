@@ -152,6 +152,52 @@ function cleanupTemporaryUpload(stored) {
   if (stored?.temporaryLocal) cleanupLocalFile(stored.localPath);
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(url, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function verifyPublicUploadUrl(url, expectedBody) {
+  if (!url) throw new Error('Upload storage returned empty public URL.');
+
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (response.ok && buffer.equals(expectedBody)) {
+        return {
+          ok: true,
+          status: response.status,
+          bytes: buffer.length,
+          attempts: attempt,
+        };
+      }
+      lastError = new Error(
+        `Public upload URL check failed: status=${response.status}, bytes=${buffer.length}, expected_bytes=${expectedBody.length}`
+      );
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < 3) await wait(500);
+  }
+
+  throw lastError || new Error('Public upload URL check failed.');
+}
+
 async function runUploadStorageSelfTest() {
   const mode = uploadStorageMode();
   const fileName = `storage_smoke_${Date.now()}_${Math.random().toString(16).slice(2)}.txt`;
@@ -194,17 +240,26 @@ async function runUploadStorageSelfTest() {
       },
       { folder: 'health', fileName }
     );
-    await deleteStoredUpload(stored);
-    return {
+    const publicCheck = await verifyPublicUploadUrl(stored.url, body);
+    const result = {
       ok: true,
       mode,
       backend: stored.backend,
-      checked: 'put_delete',
+      checked: 'put_public_get_delete',
       key: stored.key || null,
       url: stored.url || null,
+      public_check: publicCheck,
       durable: true,
     };
+    await deleteStoredUpload(stored);
+    stored = null;
+    return result;
   } finally {
+    if (stored) {
+      await deleteStoredUpload(stored).catch((error) => {
+        logger.warn('upload.storage.selftest.cleanup', { message: error.message, key: stored.key || null });
+      });
+    }
     cleanupLocalFile(tmpPath);
     try {
       fs.rmdirSync(tmpDir);

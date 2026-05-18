@@ -122,8 +122,9 @@ npm run smoke:render -- https://<arbor-os-url>.onrender.com
 ```
 
 This also calls `/api/ops/storage-smoke`. In `UPLOAD_STORAGE=s3` mode it writes
-and deletes a tiny test object in R2/S3, so wrong bucket keys or public base URL
-show up before real field photos are collected.
+a tiny test object in R2/S3, opens its public URL, verifies the bytes, and then
+deletes it. Wrong bucket keys, private buckets, broken custom domains, or bad
+`S3_PUBLIC_BASE_URL` show up before real field photos are collected.
 
 If Render Free is sleeping, first request may be slow. If `/api/ready` fails,
 check `DATABASE_URL` and Render logs.
