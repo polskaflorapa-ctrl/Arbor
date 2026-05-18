@@ -40,7 +40,15 @@ Before clicking deploy, run locally:
 
 ```bash
 npm run deploy:free:check
+npm run deploy:env:print
 ```
+
+The printable templates live in `deploy/`:
+
+- `deploy/render-arbor-os.env.example`
+- `deploy/local-production-doctor.env.example`
+- `deploy/mobile-production.env.example`
+- `deploy/web-production.env.example`
 
 After setting Neon/R2 environment variables in your terminal, run:
 

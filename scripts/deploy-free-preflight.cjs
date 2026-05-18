@@ -63,15 +63,22 @@ async function main() {
   assert(webBlueprint.services?.[0]?.runtime === 'static', 'web/render.yaml should deploy as static.');
   assert(vercel.outputDirectory === 'web/build', 'vercel.json should publish web/build.');
   assert(fs.existsSync('web/src/utils/apiBase.js'), 'web API URL normalizer is missing.');
+  assert(fs.existsSync('deploy/render-arbor-os.env.example'), 'Render env template is missing.');
+  assert(fs.existsSync('deploy/local-production-doctor.env.example'), 'Local production doctor env template is missing.');
+  assert(fs.existsSync('deploy/mobile-production.env.example'), 'Mobile production env template is missing.');
+  assert(fs.existsSync('deploy/web-production.env.example'), 'Web production env template is missing.');
   assert(fs.existsSync('os/scripts/bootstrap-admin.js'), 'Production admin bootstrap script is missing.');
   assert(fs.existsSync('os/scripts/production-doctor.js'), 'Production doctor script is missing.');
+  assert(fs.existsSync('scripts/print-production-env-template.cjs'), 'Production env print script is missing.');
   assert(rootPackage.scripts?.['bootstrap:admin'], 'Root bootstrap:admin script is missing.');
+  assert(rootPackage.scripts?.['deploy:env:print'], 'Root deploy:env:print script is missing.');
   assert(rootPackage.scripts?.['deploy:prod:doctor'], 'Root deploy:prod:doctor script is missing.');
   assert(osPackage.scripts?.['bootstrap:admin'], 'arbor-os bootstrap:admin script is missing.');
   assert(osPackage.scripts?.['prod:doctor'], 'arbor-os prod:doctor script is missing.');
 
   console.log('[deploy-free] Local config OK.');
   console.log('[deploy-free] Required manual env in Render arbor-os: DATABASE_URL from Neon Free.');
+  console.log('[deploy-free] Print env templates with: npm run deploy:env:print');
   console.log('[deploy-free] After first DB migration, create the first admin with: npm run bootstrap:admin');
   console.log('[deploy-free] Before/after deploy run: npm run deploy:prod:doctor');
   console.log('[deploy-free] For real photos on Render Free, switch UPLOAD_STORAGE=s3 and set S3/R2 env vars.');
