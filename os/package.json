@@ -18,6 +18,7 @@
     "smoke:basic:auth": "powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -BaseUrl http://127.0.0.1:3000 -Login smoke_admin -Password Smoke123!",
     "smoke:prod": "node scripts/smoke-production-check.js",
     "bootstrap:admin": "node scripts/bootstrap-admin.js",
+    "prod:doctor": "node scripts/production-doctor.js",
     "smoke:field": "node scripts/smoke-field-flow.js",
     "smoke:signature": "node scripts/smoke-signature-protocol.js",
     "automations:daily": "node scripts/trigger-daily-automations.js",

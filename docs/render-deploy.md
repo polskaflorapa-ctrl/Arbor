@@ -42,6 +42,22 @@ Before clicking deploy, run locally:
 npm run deploy:free:check
 ```
 
+After setting Neon/R2 environment variables in your terminal, run:
+
+```powershell
+npm run deploy:prod:doctor
+```
+
+For a local dry run without secrets/network:
+
+```powershell
+npm run deploy:prod:doctor -- --skip-db --skip-storage
+```
+
+The doctor checks Node version, required env vars, Neon connection and migrated
+tables, active admin user, and upload storage. With `UPLOAD_STORAGE=s3` it runs
+the same public URL write/read/delete test used by `/api/ops/storage-smoke`.
+
 ## 2. Deploy API + web on Render
 
 1. Push branch `master` to GitHub.
@@ -77,6 +93,7 @@ $env:BOOTSTRAP_ADMIN_BRANCH_NAME="Centrala"
 
 npm run db:migrate -w arbor-os
 npm run bootstrap:admin -w arbor-os
+npm run deploy:prod:doctor
 ```
 
 The script creates or updates one active user and never prints the password.
