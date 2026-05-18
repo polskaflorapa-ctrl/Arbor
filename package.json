@@ -44,6 +44,7 @@
     "check:os": "npm run verify:os",
     "doctor": "node ./scripts/doctor.cjs",
     "deploy:free:check": "node ./scripts/deploy-free-preflight.cjs",
+    "bootstrap:admin": "npm run bootstrap:admin -w arbor-os",
     "smoke:render": "node ./os/scripts/smoke-production-check.js",
     "up": "node ./scripts/up.cjs",
     "up:force": "node ./scripts/up.cjs --force",

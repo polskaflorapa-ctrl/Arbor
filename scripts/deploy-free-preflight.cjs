@@ -42,6 +42,8 @@ async function main() {
   const osBlueprint = parseYaml('os/render.yaml');
   const webBlueprint = parseYaml('web/render.yaml');
   const vercel = JSON.parse(read('vercel.json'));
+  const rootPackage = JSON.parse(read('package.json'));
+  const osPackage = JSON.parse(read('os/package.json'));
 
   assert(!rootBlueprint.databases, 'render.yaml should not create paid Render databases in free-first mode.');
   assert(Array.isArray(rootBlueprint.services), 'render.yaml must contain services.');
@@ -60,9 +62,13 @@ async function main() {
   assert(webBlueprint.services?.[0]?.runtime === 'static', 'web/render.yaml should deploy as static.');
   assert(vercel.outputDirectory === 'web/build', 'vercel.json should publish web/build.');
   assert(fs.existsSync('web/src/utils/apiBase.js'), 'web API URL normalizer is missing.');
+  assert(fs.existsSync('os/scripts/bootstrap-admin.js'), 'Production admin bootstrap script is missing.');
+  assert(rootPackage.scripts?.['bootstrap:admin'], 'Root bootstrap:admin script is missing.');
+  assert(osPackage.scripts?.['bootstrap:admin'], 'arbor-os bootstrap:admin script is missing.');
 
   console.log('[deploy-free] Local config OK.');
   console.log('[deploy-free] Required manual env in Render arbor-os: DATABASE_URL from Neon Free.');
+  console.log('[deploy-free] After first DB migration, create the first admin with: npm run bootstrap:admin');
   console.log('[deploy-free] Recommended after web deploy: CORS_ORIGINS=https://<your-web-domain>.');
 
   if (apiUrlArg) {

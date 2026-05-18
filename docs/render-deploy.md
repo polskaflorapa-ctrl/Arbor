@@ -41,7 +41,29 @@ npm run deploy:free:check
 
 The web service gets `REACT_APP_API_URL` automatically from `arbor-os`.
 
-## 3. Alternative web on Vercel
+## 3. Create first production admin
+
+After the database migration runs, create the first login locally against Neon.
+Do not commit the password and do not paste it into this file.
+
+PowerShell:
+
+```powershell
+$env:DATABASE_URL="postgresql://<user>:<password>@<neon-pooler-host>/<db>?sslmode=require"
+$env:BOOTSTRAP_ADMIN_LOGIN="admin"
+$env:BOOTSTRAP_ADMIN_PASSWORD="<long-random-password>"
+$env:BOOTSTRAP_ADMIN_EMAIL="biuro@example.com"
+$env:BOOTSTRAP_ADMIN_ROLE="Administrator"
+$env:BOOTSTRAP_ADMIN_BRANCH_NAME="Centrala"
+
+npm run db:migrate -w arbor-os
+npm run bootstrap:admin -w arbor-os
+```
+
+The script creates or updates one active user and never prints the password.
+Use it again only when you intentionally want to reset that admin password.
+
+## 4. Alternative web on Vercel
 
 The root `vercel.json` is ready for Vercel Free.
 
@@ -53,7 +75,7 @@ REACT_APP_API_URL=https://<arbor-os-url>.onrender.com/api
 
 Then deploy the same GitHub repo in Vercel.
 
-## 4. Mobile app
+## 5. Mobile app
 
 Expo mobile is not hosted on Render. During mobile builds set:
 
@@ -64,7 +86,7 @@ EXPO_PUBLIC_WEB_APP_URL=https://<arbor-web-or-vercel-url>
 
 `mobile/constants/api.js` already normalizes URLs with or without `/api`.
 
-## 5. Smoke check
+## 6. Smoke check
 
 After deploy:
 
