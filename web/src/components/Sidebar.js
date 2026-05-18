@@ -103,11 +103,30 @@ const NAV_GROUP_BY_PATH = {
   '/zarzadzaj-rolami': 'settings',
 };
 
+const PRIMARY_NAV_PATHS = new Set([
+  '/dashboard',
+  '/zlecenia',
+  '/harmonogram',
+  '/crm',
+  '/zadania',
+  '/kadry-dokumenty',
+  '/rozliczenia-ekip',
+  '/flota',
+]);
+
 function groupLinks(links) {
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: links.filter((link) => (NAV_GROUP_BY_PATH[link.path] || 'start') === group.key),
-  })).filter((group) => group.items.length > 0);
+  })).map((group) => {
+    const primaryItems = group.items.filter((link) => link.primary !== false);
+    const secondaryItems = group.items.filter((link) => link.primary === false);
+    return {
+      ...group,
+      primaryItems,
+      secondaryItems,
+    };
+  }).filter((group) => group.items.length > 0);
 }
 
 function isActivePath(currentPath, linkPath) {
@@ -209,10 +228,18 @@ export default function Sidebar() {
       { path: '/zarzadzaj-rolami',  labelKey: 'nav.roles',         icon: 'uzytkownicy', roles: ADMIN },
     ];
     if (!currentUser?.rola) return [];
-    return all.filter(l => l.roles.includes(currentUser.rola));
+    return all
+      .filter(l => l.roles.includes(currentUser.rola))
+      .map((link) => ({
+        ...link,
+        primary: PRIMARY_NAV_PATHS.has(link.path),
+      }));
   }, [currentUser]);
 
   const groupedLinks = useMemo(() => groupLinks(links), [links]);
+  const collapsedLinks = useMemo(() => (
+    links.filter((link) => link.primary || isActivePath(location.pathname, link.path))
+  ), [links, location.pathname]);
 
   const loadNotifications = async () => {
     if (notificationsInFlightRef.current) return;
@@ -276,9 +303,7 @@ export default function Sidebar() {
     if (!currentUser) return [];
     if (canCreateQuickActions) {
       return [
-        { label: 'Nowe zlecenie', path: '/nowe-zlecenie', icon: 'plus' },
-        { label: 'Nowa praca', path: '/nowe-zlecenie?typ=praca', icon: 'zlecenia' },
-        { label: 'Dodaj klienta', path: '/klienci', icon: 'klienci' },
+        { label: 'Przyjmij telefon', hint: 'zgłoszenie -> oględziny', path: '/zlecenia', icon: 'plus' },
       ];
     }
     return [];
@@ -368,7 +393,7 @@ export default function Sidebar() {
                     {t(`sidebar.groups.${group.key}`, { defaultValue: group.label })}
                   </div>
                   <div className="ios-inset" style={sb.navGroupInset}>
-                    {group.items.map((link, i) => {
+                    {group.primaryItems.map((link, i) => {
                       const active = isActivePath(location.pathname, link.path);
                       const isHov = hovered === link.path;
                       return (
@@ -404,6 +429,52 @@ export default function Sidebar() {
                         </Fragment>
                       );
                     })}
+                    {group.secondaryItems.length > 0 ? (
+                      <>
+                        {group.primaryItems.length > 0 ? <div style={{ height: 1, background: 'var(--border)' }} aria-hidden /> : null}
+                        <details
+                          style={sb.subNavDetails}
+                          open={group.secondaryItems.some((link) => isActivePath(location.pathname, link.path))}
+                        >
+                          <summary className="arbor-subnav-summary" style={sb.subNavSummary}>
+                            <span style={sb.subNavSummaryDot} />
+                            <span style={{ flex: 1 }}>
+                              {t('sidebar.moreInGroup', { defaultValue: 'Podmoduły' })}
+                            </span>
+                            <span style={sb.subNavCount}>{group.secondaryItems.length}</span>
+                          </summary>
+                          <div style={sb.subNavList}>
+                            {group.secondaryItems.map((link) => {
+                              const active = isActivePath(location.pathname, link.path);
+                              const isHov = hovered === link.path;
+                              return (
+                                <div
+                                  key={link.path}
+                                  onClick={() => navigate(link.path)}
+                                  onKeyDown={onActivateKeyDown(() => navigate(link.path))}
+                                  onMouseEnter={() => setHovered(link.path)}
+                                  onMouseLeave={() => setHovered(null)}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-current={active ? 'page' : undefined}
+                                  style={{
+                                    ...sb.subNavItem,
+                                    background: active ? 'var(--nav-active-bg)' : isHov ? 'var(--ios-row-hover)' : 'transparent',
+                                    color: active ? 'var(--text)' : 'var(--text-muted)',
+                                    boxShadow: active ? 'inset 3px 0 0 var(--accent)' : 'none',
+                                  }}
+                                >
+                                  <span style={{ ...sb.subNavIcon, color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                    {ICONS[link.icon]}
+                                  </span>
+                                  <span style={sb.subNavLabel}>{t(link.labelKey)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -419,7 +490,10 @@ export default function Sidebar() {
                         style={sb.quickButton}
                       >
                         <span style={sb.quickIcon}>{ICONS[action.icon]}</span>
-                        <span>{action.label}</span>
+                        <span style={sb.quickText}>
+                          <span style={sb.quickLabel}>{action.label}</span>
+                          {action.hint ? <span style={sb.quickHint}>{action.hint}</span> : null}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -427,7 +501,7 @@ export default function Sidebar() {
               )}
             </>
           ) : (
-            links.map((link) => {
+            collapsedLinks.map((link) => {
               const active = isActivePath(location.pathname, link.path);
               const isHov = hovered === link.path;
               return (
@@ -814,7 +888,7 @@ const sb = {
   },
   quickStack: { display: 'grid', gap: 7 },
   quickButton: {
-    minHeight: 34,
+    minHeight: 42,
     width: '100%',
     display: 'flex',
     alignItems: 'center',
@@ -828,6 +902,24 @@ const sb = {
     fontWeight: 850,
     textAlign: 'left',
     cursor: 'pointer',
+  },
+  quickText: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 1,
+  },
+  quickLabel: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  quickHint: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 750,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   quickIcon: {
     width: 23,
@@ -859,6 +951,83 @@ const sb = {
     display: 'flex', alignItems: 'center', borderRadius: 6, cursor: 'pointer',
     fontSize: 13, fontWeight: 500, transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
     marginBottom: 3, userSelect: 'none',
+  },
+  subNavDetails: {
+    margin: 0,
+    padding: 0,
+  },
+  subNavSummary: {
+    minHeight: 38,
+    padding: '8px 10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    cursor: 'pointer',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 850,
+    listStyle: 'none',
+    userSelect: 'none',
+    background: 'var(--ios-inset-bg)',
+  },
+  subNavSummaryDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    background: 'var(--accent)',
+    opacity: 0.75,
+    flexShrink: 0,
+  },
+  subNavCount: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 7,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 900,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  subNavList: {
+    display: 'grid',
+    gap: 2,
+    padding: '6px 6px 8px',
+    background: 'rgba(0,0,0,0.08)',
+    borderTop: '1px solid var(--border)',
+  },
+  subNavItem: {
+    minHeight: 34,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 6,
+    padding: '6px 8px',
+    cursor: 'pointer',
+    transition: 'background 0.15s ease, color 0.15s ease',
+  },
+  subNavIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transform: 'scale(0.86)',
+  },
+  subNavLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontWeight: 760,
+    lineHeight: 1.2,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },
