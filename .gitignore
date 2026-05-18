@@ -20,6 +20,8 @@ mobile/.expo/
 mobile/dist/
 os/coverage/
 os/coverage_output.txt
+backups/
+os/backups/
 blobs/
 manifests/
 

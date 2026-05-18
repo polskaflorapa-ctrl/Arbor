@@ -4,6 +4,8 @@ const criticalNodeFiles = [
   'scripts/deploy-free-preflight.cjs',
   'os/scripts/bootstrap-admin.js',
   'os/scripts/production-doctor.js',
+  'os/scripts/db-backup.js',
+  'os/scripts/db-restore.js',
   'os/scripts/smoke-production-check.js',
   'os/src/config/env.js',
   'os/src/routes/ops.js',
@@ -34,6 +36,7 @@ function run(command, args, options = {}) {
 function main() {
   run('npm', ['run', 'deploy:free:check']);
   run('npm', ['run', 'deploy:prod:doctor', '--', '--skip-db', '--skip-storage']);
+  run('npm', ['run', 'backup:db:check']);
 
   for (const file of criticalNodeFiles) {
     run('node', ['-c', file]);

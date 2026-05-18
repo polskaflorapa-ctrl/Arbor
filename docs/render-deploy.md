@@ -102,10 +102,19 @@ $env:BOOTSTRAP_ADMIN_BRANCH_NAME="Centrala"
 npm run db:migrate -w arbor-os
 npm run bootstrap:admin -w arbor-os
 npm run deploy:prod:doctor
+npm run backup:db
 ```
 
 The script creates or updates one active user and never prints the password.
 Use it again only when you intentionally want to reset that admin password.
+
+After the first backup, test that the dump is readable:
+
+```powershell
+npm run restore:db:check
+```
+
+Full backup and restore procedure is in `docs/backup-restore.md`.
 
 ## 4. Alternative web on Vercel
 
