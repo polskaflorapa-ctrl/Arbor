@@ -48,6 +48,7 @@
     "deploy:free:check": "node ./scripts/deploy-free-preflight.cjs",
     "bootstrap:admin": "npm run bootstrap:admin -w arbor-os",
     "deploy:prod:doctor": "npm run prod:doctor -w arbor-os --",
+    "deploy:prod:bootstrap": "node ./scripts/run-production-bootstrap.cjs",
     "backup:db": "npm run backup:db -w arbor-os",
     "backup:db:check": "npm run backup:db:check -w arbor-os",
     "restore:db": "npm run restore:db -w arbor-os --",

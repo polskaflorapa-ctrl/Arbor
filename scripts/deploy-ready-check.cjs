@@ -2,6 +2,7 @@ const { spawnSync } = require('node:child_process');
 
 const criticalNodeFiles = [
   'scripts/deploy-free-preflight.cjs',
+  'scripts/run-production-bootstrap.cjs',
   'os/scripts/bootstrap-admin.js',
   'os/scripts/production-doctor.js',
   'os/scripts/db-backup.js',

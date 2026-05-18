@@ -71,11 +71,13 @@ async function main() {
   assert(fs.existsSync('os/scripts/production-doctor.js'), 'Production doctor script is missing.');
   assert(fs.existsSync('os/scripts/db-backup.js'), 'Database backup script is missing.');
   assert(fs.existsSync('os/scripts/db-restore.js'), 'Database restore script is missing.');
+  assert(fs.existsSync('scripts/run-production-bootstrap.cjs'), 'Production bootstrap runner is missing.');
   assert(fs.existsSync('docs/backup-restore.md'), 'Backup/restore runbook is missing.');
   assert(fs.existsSync('scripts/print-production-env-template.cjs'), 'Production env print script is missing.');
   assert(rootPackage.scripts?.['bootstrap:admin'], 'Root bootstrap:admin script is missing.');
   assert(rootPackage.scripts?.['deploy:env:print'], 'Root deploy:env:print script is missing.');
   assert(rootPackage.scripts?.['deploy:prod:doctor'], 'Root deploy:prod:doctor script is missing.');
+  assert(rootPackage.scripts?.['deploy:prod:bootstrap'], 'Root deploy:prod:bootstrap script is missing.');
   assert(rootPackage.scripts?.['backup:db'], 'Root backup:db script is missing.');
   assert(rootPackage.scripts?.['backup:db:check'], 'Root backup:db:check script is missing.');
   assert(rootPackage.scripts?.['restore:db'], 'Root restore:db script is missing.');

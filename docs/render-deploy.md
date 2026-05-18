@@ -105,6 +105,14 @@ npm run deploy:prod:doctor
 npm run backup:db
 ```
 
+Or put these values in an ignored local file:
+
+```powershell
+Copy-Item deploy/local-production-doctor.env.example deploy/local-production.env
+# edit deploy/local-production.env
+npm run deploy:prod:bootstrap
+```
+
 The script creates or updates one active user and never prints the password.
 Use it again only when you intentionally want to reset that admin password.
 
