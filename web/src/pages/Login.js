@@ -40,6 +40,11 @@ export default function Login() {
       } else {
         localStorage.removeItem('user');
       }
+      if (res.data.user?.permissions) {
+        localStorage.setItem('permissions', JSON.stringify(res.data.user.permissions));
+      } else {
+        localStorage.removeItem('permissions');
+      }
       if (rememberMe) localStorage.setItem('remembered_login', login);
       else localStorage.removeItem('remembered_login');
       navigate('/dashboard', { replace: true });

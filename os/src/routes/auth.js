@@ -48,8 +48,10 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res, 
         requestId: req.requestId,
       });
     }
+    // Include ekipa_id in JWT for Brygadzista/Pomocnik team-scoped API guards
+    const ekipa_id = user.ekipa_id ?? null;
     const token = jwt.sign(
-      { id: user.id, login: user.login, rola: user.rola, oddzial_id: user.oddzial_id },
+      { id: user.id, login: user.login, rola: user.rola, oddzial_id: user.oddzial_id, ekipa_id },
       env.JWT_SECRET,
       { expiresIn: '12h' }
     );
@@ -61,6 +63,7 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res, 
         nazwisko: user.nazwisko,
         rola: user.rola,
         oddzial_id: user.oddzial_id,
+        ekipa_id,
         permissions: buildAppPermissions(user.rola),
       },
     });

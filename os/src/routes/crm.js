@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware, isDyrektor, isSalesDirector } = require('../middleware/auth');
+const { authMiddleware, isDyrektor, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authMiddleware);

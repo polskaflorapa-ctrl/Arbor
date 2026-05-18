@@ -143,6 +143,9 @@ export default function Kierownik() {
           actions={
             <>
               <StatusMessage message={msg} />
+              <button type="button" style={{ ...styles.addBtn, background: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', marginRight: 8 }} onClick={() => navigate('/auto-dispatch')}>
+                🗺️ Auto-Dispatch
+              </button>
               <button type="button" style={styles.addBtn} onClick={() => navigate('/nowe-zlecenie')}>
                 + {t('common.newOrder')}
               </button>

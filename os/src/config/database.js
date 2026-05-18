@@ -30,9 +30,10 @@ const poolConfig = resolvedDatabaseUrl
 
 const pool = new Pool({
     ...poolConfig,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    max:                    Number(process.env.DB_POOL_MAX)              || 20,
+    idleTimeoutMillis:      Number(process.env.DB_IDLE_TIMEOUT_MS)       || 30_000,
+    connectionTimeoutMillis:Number(process.env.DB_CONNECT_TIMEOUT_MS)    || 5_000,
+    statement_timeout:      Number(process.env.DB_STATEMENT_TIMEOUT_MS)  || 30_000,
 });
 
 pool.on('connect', () => {

@@ -86,15 +86,15 @@ describe('Auth routes', () => {
     );
     expect(res.body.user.permissions).toEqual(
       expect.objectContaining({
-        policyVersion: 1,
-        taskScope: 'branch',
+        policyVersion: 2,
+        taskScope: 'all',
         canTransferSpecialists: false,
-        canViewPayrollSettlements: false,
-        canManagePayrollSettlements: false,
-        canViewSettlementModule: false,
-        canCreateTasks: false,
-        canAssignTeams: false,
-        canManageTeams: false,
+        canViewPayrollSettlements: true,
+        canManagePayrollSettlements: true,
+        canViewSettlementModule: true,
+        canCreateTasks: true,
+        canAssignTeams: true,
+        canManageTeams: true,
       })
     );
   });
@@ -148,15 +148,15 @@ describe('Auth routes', () => {
       expect(res.body).toEqual(expect.objectContaining({ id: 9, login: 'jan' }));
       expect(res.body.permissions).toEqual(
         expect.objectContaining({
-          policyVersion: 1,
-          taskScope: 'branch',
+          policyVersion: 2,
+          taskScope: 'all',
           canTransferSpecialists: false,
-          canViewPayrollSettlements: false,
-          canManagePayrollSettlements: false,
-          canViewSettlementModule: false,
-          canCreateTasks: false,
-          canAssignTeams: false,
-          canManageTeams: false,
+          canViewPayrollSettlements: true,
+          canManagePayrollSettlements: true,
+          canViewSettlementModule: true,
+          canCreateTasks: true,
+          canAssignTeams: true,
+          canManageTeams: true,
         })
       );
     });
@@ -173,7 +173,7 @@ describe('Auth routes', () => {
           userId: 9,
           rola: 'Brygadzista',
           permissions: expect.objectContaining({
-            policyVersion: 1,
+            policyVersion: 2,
             taskScope: 'assigned_team_only',
             canViewSettlementModule: false,
           }),
@@ -238,11 +238,11 @@ describe('Auth routes', () => {
       expect(permissionsFromMe).toEqual(permissionsFromEndpoint);
       expect(permissionsFromEndpoint).toEqual(
         expect.objectContaining({
-          policyVersion: 1,
+          policyVersion: 2,
           taskScope: 'branch',
-          canViewPayrollSettlements: false,
+          canViewPayrollSettlements: true,
           canManagePayrollSettlements: false,
-          canViewSettlementModule: false,
+          canViewSettlementModule: true,
         })
       );
     });

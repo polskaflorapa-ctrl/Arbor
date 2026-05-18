@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
@@ -113,6 +113,12 @@ function AnimatedNumber({ value, duration = 900 }) {
   }, [value, duration]);
   return <span>{display.toLocaleString('pl-PL')}</span>;
 }
+
+const QL_CHEVRON = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
 
 // SVG ikony KPI i quick links
 const KPI_ICONS = {
@@ -271,6 +277,8 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [hovered, setHovered] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const isCompact = viewportWidth < 900;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -527,25 +535,6 @@ export default function Dashboard() {
       }));
   }, [visibleQuickLinks]);
 
-  const teamRanking = buildTeamRanking(monthTasks.length ? monthTasks : allTasks);
-  const scheduleItems = [...todayTasks]
-    .sort((a, b) => String(a.godzina_rozpoczecia || a.data_planowana || '').localeCompare(String(b.godzina_rozpoczecia || b.data_planowana || '')))
-    .slice(0, 6);
-  const alertItems = [
-    overdueTasks.length
-      ? { tone: 'danger', label: 'Zlecenia po terminie', detail: `${overdueTasks.length} wymaga decyzji`, action: () => openSmartTaskFilter('overdue') }
-      : null,
-    unassignedTasks.length
-      ? { tone: 'warning', label: 'Brak przypisanej ekipy', detail: `${unassignedTasks.length} zleceń do dyspozycji`, action: () => openSmartTaskFilter('unassigned') }
-      : null,
-    !payrollClose.export_allowed
-      ? { tone: 'danger', label: 'Rozliczenia zablokowane', detail: `Brakuje raportów: ${payrollClose.pending_count}`, action: () => navigate('/rozliczenia-ekip') }
-      : null,
-    todayTasks.length
-      ? { tone: 'info', label: 'Plan dnia gotowy', detail: `${todayTasks.length} prac w harmonogramie`, action: () => navigate('/harmonogram') }
-      : { tone: 'info', label: 'Brak prac na dziś', detail: 'Sprawdź harmonogram tygodnia', action: () => navigate('/harmonogram') },
-    { tone: 'success', label: 'System działa', detail: `Ostatnia aktualizacja: ${new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`, action: () => navigate('/powiadomienia') },
-  ].filter(Boolean);
   const operationalMetrics = [
     { label: 'Wykonanie planu prac', value: percent(completedMonth, monthTasks.length || openTasks.length), meta: `${completedMonth} / ${monthTasks.length || openTasks.length || 0}` },
     { label: 'Załogi aktywne', value: crewAvailability, meta: `${activeCrewNames.size} / ${allCrewNames.size || 0}` },
@@ -687,7 +676,7 @@ export default function Dashboard() {
               {QL_ICONS['/misja-dnia']}
               Misja dnia
             </button>
-          )}
+          </div>
         </div>
 
         {/* ─── KPI (grupa inset, jak iOS) ───────────────────────────────────── */}

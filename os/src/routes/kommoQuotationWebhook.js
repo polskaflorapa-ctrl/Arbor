@@ -123,4 +123,44 @@ router.post('/kommo/quotation-lead', express.json({ limit: '2mb' }), async (req,
   }
 });
 
+// ─── POST /api/webhooks/kommo/task-update ─────────────────────────────────────
+// Inbound: Kommo → arbor-os  (bidirectional EPIC 8)
+// Payload: { secret?, task_id, status?, ekipa_id?, data_planowana?, notatki? }
+// This is called by a Kommo automation / Make.com scenario when a lead changes.
+
+router.post('/kommo/task-update', async (req, res) => {
+  if (!checkSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { task_id, status, ekipa_id, data_planowana, notatki } = req.body;
+  if (!task_id) return res.status(400).json({ error: 'Wymagane pole: task_id' });
+
+  const ALLOWED_STATUSES = ['Nowe','Zaplanowane','W_Realizacji','Zakonczone','Anulowane'];
+  if (status && !ALLOWED_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `Niedozwolony status: ${status}` });
+  }
+
+  const sets = ['kommo_last_sync_at = NOW()', 'kommo_last_sync_status = $1'];
+  const params = ['ok', task_id];
+  if (status)         { params.splice(-1, 0, status);        sets.push(`status = $${params.length - 1}`); }
+  if (ekipa_id)       { params.splice(-1, 0, ekipa_id);      sets.push(`ekipa_id = $${params.length - 1}`); }
+  if (data_planowana) { params.splice(-1, 0, data_planowana);sets.push(`data_planowana = $${params.length - 1}`); }
+  if (notatki)        { params.splice(-1, 0, notatki);       sets.push(`notatki_wewnetrzne = $${params.length - 1}`); }
+
+  try {
+    const r = await pool.query(
+      `UPDATE tasks SET ${sets.join(', ')}, updated_at = NOW()
+       WHERE id = $${params.length}
+       RETURNING id, status, ekipa_id`,
+      params
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Zlecenie nie istnieje' });
+
+    logger.info('kommo.task-update applied', { task_id, status, ekipa_id });
+    res.json({ ok: true, task: r.rows[0] });
+  } catch (e) {
+    logger.error('kommo.task-update error', { message: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

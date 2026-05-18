@@ -1,0 +1,466 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import api from '../api';
+import { getStoredToken, authHeaders } from '../utils/storedToken';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmt(n, suffix = '') {
+  if (n == null) return '—';
+  return `${Number(n).toLocaleString('pl-PL')}${suffix}`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('pl-PL');
+}
+function todayYM() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+const ABSENCE_TYPS = ['Urlop', 'Choroba', 'L4', 'Opieka', 'Nieobecność nieusprawiedliwiona', 'Inne'];
+
+// ─── Absence badge ────────────────────────────────────────────────────────────
+
+function AbsBadge({ status }) {
+  const cfg = {
+    Oczekuje:    { bg: '#fef9c3', color: '#ca8a04' },
+    Zatwierdzona:{ bg: '#dcfce7', color: '#16a34a' },
+    Odrzucona:   { bg: '#fee2e2', color: '#dc2626' },
+  };
+  const c = cfg[status] || { bg: 'var(--bg)', color: 'var(--text-sub)' };
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+                   background: c.bg, color: c.color }}>
+      {status}
+    </span>
+  );
+}
+
+// ─── Add absence modal ────────────────────────────────────────────────────────
+
+function AddAbsenceModal({ onClose, onSaved }) {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({ user_id: '', typ: 'Urlop', data_od: '', data_do: '', powod: '' });
+  const [employees, setEmployees] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    const token = getStoredToken();
+    api.get('/hr/position-cards', { headers: authHeaders(token) })
+      .then(r => setEmployees(r.data.cards || []))
+      .catch(() => {});
+  }, []);
+
+  const save = async () => {
+    if (!form.user_id || !form.data_od || !form.data_do) {
+      setErr('Wypełnij pracownika, daty od i do.'); return;
+    }
+    setSaving(true); setErr('');
+    try {
+      const token = getStoredToken();
+      await api.post('/hr/absences', form, { headers: authHeaders(token) });
+      onSaved();
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div style={m.overlay}>
+      <div style={m.modal}>
+        <div style={m.header}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('hrPanel.modal.title')}</h3>
+          <button type="button" onClick={onClose} style={m.closeBtn}>✕</button>
+        </div>
+        {err && <div style={m.err}>{err}</div>}
+        <div style={m.body}>
+          <label style={m.label}>{t('hrPanel.modal.employee')}</label>
+          <select value={form.user_id} onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))} style={m.input}>
+            <option value="">{t('hrPanel.modal.employeePh')}</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.employee_name} ({e.rola})</option>)}
+          </select>
+
+          <label style={m.label}>{t('hrPanel.modal.typ')}</label>
+          <select value={form.typ} onChange={e => setForm(f => ({ ...f, typ: e.target.value }))} style={m.input}>
+            {ABSENCE_TYPS.map(typ => <option key={typ} value={typ}>{typ}</option>)}
+          </select>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={m.label}>{t('hrPanel.modal.dateFrom')}</label>
+              <input type="date" value={form.data_od} onChange={e => setForm(f => ({ ...f, data_od: e.target.value }))} style={m.input} />
+            </div>
+            <div>
+              <label style={m.label}>{t('hrPanel.modal.dateTo')}</label>
+              <input type="date" value={form.data_do} onChange={e => setForm(f => ({ ...f, data_do: e.target.value }))} style={m.input} />
+            </div>
+          </div>
+
+          <label style={m.label}>{t('hrPanel.modal.reason')}</label>
+          <textarea value={form.powod} onChange={e => setForm(f => ({ ...f, powod: e.target.value }))}
+            style={{ ...m.input, height: 70, resize: 'vertical' }} placeholder={t('hrPanel.modal.reasonPh')} />
+        </div>
+        <div style={m.footer}>
+          <button type="button" onClick={onClose} style={m.cancelBtn}>{t('hrPanel.modal.cancel')}</button>
+          <button type="button" onClick={save} disabled={saving} style={m.saveBtn}>
+            {saving ? `⏳ ${t('hrPanel.modal.saving')}` : `✔ ${t('hrPanel.modal.save')}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+export default function HrPanel() {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const [tab, setTab]               = useState('timesheet');
+  const [month, setMonth]           = useState(todayYM());
+  const [timesheet, setTimesheet]   = useState([]);
+  const [absences, setAbsences]     = useState([]);
+  const [competency, setCompetency] = useState([]);
+  const [headcount, setHeadcount]   = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [showAddAbs, setShowAddAbs] = useState(false);
+
+  // Defined inside component so tab labels pick up the current language
+  const TABS = [
+    { key: 'timesheet',  label: `⏱ ${t('hrPanel.tabs.timesheet')}` },
+    { key: 'absences',   label: `📅 ${t('hrPanel.tabs.absences')}` },
+    { key: 'competency', label: `🏅 ${t('hrPanel.tabs.competency')}` },
+    { key: 'headcount',  label: `👥 ${t('hrPanel.tabs.headcount')}` },
+  ];
+
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    const token = getStoredToken();
+    const h = { headers: authHeaders(token) };
+    try {
+      if (tab === 'timesheet') {
+        const r = await api.get(`/hr/timesheet?month=${month}`, h);
+        setTimesheet(r.data.rows || []);
+      } else if (tab === 'absences') {
+        const r = await api.get(`/hr/absences?month=${month}`, h);
+        setAbsences(Array.isArray(r.data) ? r.data : []);
+      } else if (tab === 'competency') {
+        const r = await api.get('/hr/competency-expiry?days=90', h);
+        setCompetency(Array.isArray(r.data) ? r.data : []);
+      } else if (tab === 'headcount') {
+        const r = await api.get('/hr/headcount', h);
+        setHeadcount(Array.isArray(r.data) ? r.data : []);
+      }
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    } finally { setLoading(false); }
+  }, [tab, month]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const updateAbsenceStatus = async (id, status) => {
+    const token = getStoredToken();
+    try {
+      await api.put(`/hr/absences/${id}`, { status }, { headers: authHeaders(token) });
+      load();
+    } catch (e) {
+      setError(e.response?.data?.error || e.message);
+    }
+  };
+
+  // Headcount aggregated by branch
+  const hcByBranch = headcount.reduce((acc, row) => {
+    const key = row.oddzial_nazwa || 'Centrala';
+    if (!acc[key]) acc[key] = { total: 0, roles: {} };
+    acc[key].total += row.count;
+    acc[key].roles[row.rola] = (acc[key].roles[row.rola] || 0) + row.count;
+    return acc;
+  }, {});
+
+  return (
+    <div style={s.shell}>
+      <Sidebar />
+      <main style={s.main}>
+        {/* Header */}
+        <div style={s.topbar}>
+          <div>
+            <h1 style={s.title}>👥 {t('hrPanel.title')}</h1>
+            <p style={s.sub}>{t('hrPanel.subtitle')}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {(tab === 'timesheet' || tab === 'absences') && (
+              <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+                style={s.monthInput} />
+            )}
+            {tab === 'absences' && (
+              <button type="button" onClick={() => setShowAddAbs(true)} style={s.addBtn}>
+                + {t('hrPanel.addAbsence')}
+              </button>
+            )}
+            <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>
+              ← Powrót
+            </button>
+          </div>
+        </div>
+
+        {error && <div style={s.errorBox}>{error}</div>}
+
+        {/* Tabs */}
+        <div style={s.tabs}>
+          {TABS.map(tabItem => (
+            <button key={tabItem.key} type="button" onClick={() => setTab(tabItem.key)}
+              style={{ ...s.tab, ...(tab === tabItem.key ? s.tabActive : {}) }}>
+              {tabItem.label}
+            </button>
+          ))}
+        </div>
+
+        {loading && <div style={s.loading}>⏳ Ładowanie…</div>}
+
+        {/* ── TIMESHEET TAB ── */}
+        {tab === 'timesheet' && !loading && (
+          <div style={s.card}>
+            <div style={s.cardTitle}>{t('hrPanel.timesheet.title')} — {month}</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    {[
+                      t('hrPanel.col.employee'),
+                      t('hrPanel.col.role'),
+                      t('hrPanel.col.branch'),
+                      t('hrPanel.col.hoursConf'),
+                      t('hrPanel.col.hoursPend'),
+                      t('hrPanel.col.days'),
+                      t('hrPanel.col.tasks'),
+                    ].map(h => (
+                      <th key={h} style={s.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {timesheet.map(row => (
+                    <tr key={row.user_id} style={s.tr}>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{row.employee_name}</td>
+                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.rola}</td>
+                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.oddzial_nazwa}</td>
+                      <td style={{ ...s.tdNum, color: '#16a34a', fontWeight: 700 }}>
+                        {fmt(row.hours_confirmed, ' h')}
+                      </td>
+                      <td style={{ ...s.tdNum, color: row.hours_pending > 0 ? '#ca8a04' : 'var(--text-sub)' }}>
+                        {fmt(row.hours_pending, ' h')}
+                      </td>
+                      <td style={s.tdNum}>{fmt(row.days_worked)}</td>
+                      <td style={s.tdNum}>{fmt(row.tasks_covered)}</td>
+                    </tr>
+                  ))}
+                  {timesheet.length === 0 && (
+                    <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: 'var(--text-sub)', padding: 32 }}>
+                      {t('hrPanel.timesheet.noData')} {month}
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── ABSENCES TAB ── */}
+        {tab === 'absences' && !loading && (
+          <div style={s.card}>
+            <div style={s.cardTitle}>{t('hrPanel.absences.title')} — {month}</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    {[
+                      t('hrPanel.col.employee'),
+                      t('hrPanel.col.typ'),
+                      t('hrPanel.col.dateFrom'),
+                      t('hrPanel.col.dateTo'),
+                      t('hrPanel.col.reason'),
+                      t('hrPanel.col.status'),
+                      t('hrPanel.col.actions'),
+                    ].map(h => (
+                      <th key={h} style={s.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {absences.map(row => (
+                    <tr key={row.id} style={s.tr}>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{row.employee_name}</td>
+                      <td style={s.td}>{row.typ}</td>
+                      <td style={s.td}>{fmtDate(row.data_od)}</td>
+                      <td style={s.td}>{fmtDate(row.data_do)}</td>
+                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)', maxWidth: 160,
+                                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.powod || '—'}
+                      </td>
+                      <td style={s.td}><AbsBadge status={row.status} /></td>
+                      <td style={s.td}>
+                        {row.status === 'Oczekuje' && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button type="button" style={s.approveBtn}
+                              onClick={() => updateAbsenceStatus(row.id, 'Zatwierdzona')}>✔</button>
+                            <button type="button" style={s.rejectBtn}
+                              onClick={() => updateAbsenceStatus(row.id, 'Odrzucona')}>✕</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {absences.length === 0 && (
+                    <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: 'var(--text-sub)', padding: 32 }}>
+                      {t('hrPanel.absences.noData')} {month}
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── COMPETENCY TAB ── */}
+        {tab === 'competency' && !loading && (
+          <div style={s.card}>
+            <div style={s.cardTitle}>{t('hrPanel.competency.title')}</div>
+            {competency.length === 0 ? (
+              <div style={s.empty}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🏅</div>
+                <p>{t('hrPanel.competency.noData')}</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      {[
+                        t('hrPanel.col.employee'),
+                        t('hrPanel.col.role'),
+                        t('hrPanel.col.branch'),
+                        t('hrPanel.col.competency'),
+                        t('hrPanel.col.typ'),
+                        t('hrPanel.col.docNo'),
+                        t('hrPanel.col.expires'),
+                        t('hrPanel.col.daysLeft'),
+                      ].map(h => (
+                        <th key={h} style={s.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competency.map(row => (
+                      <tr key={row.id} style={{ ...s.tr, background: row.expired ? '#fff1f2' : row.days_left <= 14 ? '#fffbeb' : 'transparent' }}>
+                        <td style={{ ...s.td, fontWeight: 600 }}>{row.employee_name}</td>
+                        <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.rola}</td>
+                        <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.oddzial_nazwa}</td>
+                        <td style={s.td}>{row.competency_name}</td>
+                        <td style={{ ...s.td, fontSize: 12 }}>{row.typ}</td>
+                        <td style={{ ...s.td, fontSize: 12 }}>{row.nr_dokumentu || '—'}</td>
+                        <td style={s.td}>{fmtDate(row.data_waznosci)}</td>
+                        <td style={{ ...s.tdNum, color: row.expired ? '#dc2626' : row.days_left <= 14 ? '#ca8a04' : '#16a34a', fontWeight: 700 }}>
+                          {row.expired ? 'Wygasłe' : `${row.days_left}d`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── HEADCOUNT TAB ── */}
+        {tab === 'headcount' && !loading && (
+          <div style={s.card}>
+            <div style={s.cardTitle}>{t('hrPanel.headcount.title')}</div>
+            {Object.entries(hcByBranch).map(([branch, data]) => (
+              <div key={branch} style={s.hcBranch}>
+                <div style={s.hcBranchHeader}>
+                  <span style={{ fontWeight: 700 }}>{branch}</span>
+                  <span style={s.hcTotal}>{data.total} os.</span>
+                </div>
+                <div style={s.hcRoles}>
+                  {Object.entries(data.roles).sort((a, b) => b[1] - a[1]).map(([role, cnt]) => (
+                    <div key={role} style={s.hcRole}>
+                      <span style={s.hcRoleName}>{role}</span>
+                      <span style={s.hcRoleCnt}>{cnt}</span>
+                      <div style={s.hcBar}>
+                        <div style={{ ...s.hcBarFill, width: `${(cnt / data.total) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {Object.keys(hcByBranch).length === 0 && (
+              <div style={s.empty}><p>Brak danych o zatrudnieniu.</p></div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {showAddAbs && (
+        <AddAbsenceModal
+          onClose={() => setShowAddAbs(false)}
+          onSaved={() => { setShowAddAbs(false); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+const s = {
+  shell:      { display: 'flex', minHeight: '100vh', background: 'var(--bg-deep)' },
+  main:       { flex: 1, padding: '20px 24px 40px', overflowX: 'hidden', minWidth: 0 },
+  topbar:     { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 },
+  title:      { fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 },
+  sub:        { fontSize: 13, color: 'var(--text-sub)', marginTop: 4 },
+  monthInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14 },
+  addBtn:     { padding: '9px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+  backBtn:    { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
+  errorBox:   { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
+  tabs:       { display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' },
+  tab:        { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
+  tabActive:  { background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 700 },
+  card:       { background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px' },
+  cardTitle:  { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 },
+  loading:    { textAlign: 'center', padding: 40, color: 'var(--text-sub)' },
+  empty:      { textAlign: 'center', padding: '40px 20px', color: 'var(--text-sub)' },
+  table:      { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th:         { padding: '8px 10px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)' },
+  tr:         { borderBottom: '1px solid var(--border-light, var(--border))' },
+  td:         { padding: '10px 10px', color: 'var(--text)', verticalAlign: 'middle' },
+  tdNum:      { padding: '10px 10px', color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' },
+  approveBtn: { padding: '4px 10px', borderRadius: 6, border: 'none', background: '#dcfce7', color: '#16a34a', cursor: 'pointer', fontWeight: 700, fontSize: 13 },
+  rejectBtn:  { padding: '4px 10px', borderRadius: 6, border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', fontWeight: 700, fontSize: 13 },
+  hcBranch:   { marginBottom: 20 },
+  hcBranchHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' },
+  hcTotal:    { fontSize: 13, fontWeight: 700, color: 'var(--accent)' },
+  hcRoles:    { display: 'flex', flexDirection: 'column', gap: 6 },
+  hcRole:     { display: 'flex', alignItems: 'center', gap: 10 },
+  hcRoleName: { minWidth: 180, fontSize: 13, color: 'var(--text)' },
+  hcRoleCnt:  { minWidth: 28, textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'var(--text)' },
+  hcBar:      { flex: 1, height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' },
+  hcBarFill:  { height: '100%', background: 'var(--accent)', borderRadius: 4, transition: 'width 0.3s ease' },
+};
+
+const m = {
+  overlay:   { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  modal:     { background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' },
+  header:    { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' },
+  closeBtn:  { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--text-sub)' },
+  err:       { margin: '12px 20px 0', padding: '10px 14px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', fontSize: 13 },
+  body:      { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 },
+  label:     { fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 4, display: 'block' },
+  input:     { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
+  footer:    { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 20px', borderTop: '1px solid var(--border)' },
+  cancelBtn: { padding: '9px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
+  saveBtn:   { padding: '9px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+};

@@ -5,6 +5,8 @@ const logger = require('../config/logger');
 const {
   authMiddleware,
   isDyrektor,
+  isDyrektorOrAdmin,
+  isKierownik,
   isSalesDirector,
   canTransferSpecialist,
 } = require('../middleware/auth');
@@ -13,7 +15,6 @@ const { getBranchResources, isEstimatorRole } = require('../services/branchResou
 const { z } = require('zod');
 
 const router = express.Router();
-const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
 
 const userListQuerySchema = z.object({
   rola: z.string().max(80).optional(),
@@ -92,7 +93,7 @@ const userSelectSql = `
 const userOrderSql = 'ORDER BY u.rola, u.nazwisko';
 
 const buildUserScope = (user, startParam = 1) => {
-  if (isDyrektor(user)) return { clause: '', params: [] };
+  if (isDyrektorOrAdmin(user)) return { clause: '', params: [] };
   if (isSalesDirector(user)) {
     return { clause: `(u.rola = 'Specjalista' OR u.id = $${startParam})`, params: [user.id] };
   }
@@ -103,14 +104,14 @@ const buildUserScope = (user, startParam = 1) => {
 };
 
 const canCreateUserWithRole = (actor, rola) => {
-  if (isDyrektor(actor)) return true;
-  if (actor?.rola === 'Kierownik') return !HIGH_PRIVILEGE_ROLES.has(rola);
+  if (isDyrektorOrAdmin(actor)) return true;
+  if (isKierownik(actor)) return !HIGH_PRIVILEGE_ROLES.has(rola);
   return false;
 };
 
 const canManageTargetUser = (actor, target) => {
-  if (isDyrektor(actor)) return true;
-  if (actor?.rola === 'Kierownik') {
+  if (isDyrektorOrAdmin(actor)) return true;
+  if (isKierownik(actor)) {
     return (
       Number(actor.oddzial_id) === Number(target?.oddzial_id) &&
       !HIGH_PRIVILEGE_ROLES.has(target?.rola)
@@ -139,7 +140,12 @@ router.get('/', authMiddleware, validateQuery(userListQuerySchema), async (req, 
 
     const params = [];
     const where = [];
-    if (targetBranchId) {
+    if (isSalesDirector(req.user)) {
+      // Sales Director: cross-branch view restricted to Specialists and themselves
+      const scope = buildUserScope(req.user);
+      params.push(...scope.params);
+      where.push(scope.clause);
+    } else if (targetBranchId) {
       params.push(targetBranchId);
       where.push(`oddzial_id = $${params.length}`);
     }
@@ -194,7 +200,14 @@ router.post('/', authMiddleware, validateBody(userCreateSchema), async (req, res
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
       [login, haslo_hash, imie, nazwisko, email, telefon, rola, finalOddzialId, stawka_godzinowa || null]
     );
-    res.json({ id: result.rows[0].id, message: 'Uzytkownik utworzony' });
+    const newUserId = result.rows[0].id;
+    await req.auditLog({
+      action: 'user.create',
+      entityType: 'user',
+      entityId: newUserId,
+      metadata: { login, rola, oddzial_id: finalOddzialId },
+    });
+    res.json({ id: newUserId, message: 'Uzytkownik utworzony' });
   } catch (err) {
     logger.error('Blad tworzenia uzytkownika', { message: err.message, requestId: req.requestId });
     if (err.code === '23505') {
@@ -214,6 +227,12 @@ router.put('/:id/aktywny', authMiddleware, validateParams(userIdParamsSchema), v
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
     await pool.query('UPDATE users SET aktywny = $1 WHERE id = $2', [aktywny, req.params.id]);
+    await req.auditLog({
+      action: aktywny ? 'user.activate' : 'user.deactivate',
+      entityType: 'user',
+      entityId: Number(req.params.id),
+      metadata: { aktywny, rola: target.rows[0].rola },
+    });
     res.json({ message: 'Status zmieniony' });
   } catch (err) {
     logger.error('Blad aktualizacji statusu aktywnosci', { message: err.message, requestId: req.requestId });

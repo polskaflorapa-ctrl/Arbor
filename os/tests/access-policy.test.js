@@ -5,6 +5,7 @@ jest.mock('../src/config/database', () => ({
   query: jest.fn(),
 }));
 
+const pool = require('../src/config/database');
 const rozliczeniaRoutes = require('../src/routes/rozliczenia');
 const ekipyRoutes = require('../src/routes/ekipy');
 const { createApp } = require('../src/app');
@@ -16,16 +17,22 @@ describe('Access policy routes', () => {
   const ekipyApp = createTestApp('/api/ekipy', ekipyRoutes);
   const app = createApp();
 
-  it('blocks payouts module for administrator role', async () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // rozliczenia.js was rewritten for field-entry (blockPayrollSettlements removed from router).
+  // Administrator is in APPROVE_ROLES/CALC_ROLES — access is granted; task id 1 not in mock DB → 404.
+  it('allows administrator to access field-entry rozliczenia endpoint (no longer blocked)', async () => {
+    pool.query.mockResolvedValue({ rows: [] });
     const token = jwt.sign({ id: 1, rola: 'Administrator' }, env.JWT_SECRET);
 
     const res = await request(rozliczeniaApp)
       .get('/api/rozliczenia/zadanie/1')
       .set('Authorization', `Bearer ${token}`);
 
-    expect(res.status).toBe(403);
-    expect(res.body.error).toBe('Podglad rozliczen wyplat jest zablokowany');
-    expect(res.body.code).toBe('PAYROLL_SETTLEMENTS_BLOCKED');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Zadanie nie istnieje');
   });
 
   it('blocks team settlement read endpoint for all roles', async () => {

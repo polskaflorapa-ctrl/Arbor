@@ -11,9 +11,10 @@ const { requestContext } = require('./middleware/request-context');
 const { localeMiddleware } = require('./middleware/locale');
 const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
 const { authMiddleware } = require('./middleware/auth');
+const { auditMiddleware } = require('./middleware/audit');
 const { blockPayrollSettlements } = require('./middleware/payroll-policy');
 const { costlyApiLimiter } = require('./middleware/rate-limit');
-const { register, metricsMiddleware, metricsEnabled } = require('./metrics');
+const { register, metricsMiddleware, metricsEnabled, bindPoolMetrics } = require('./metrics');
 const { HTTP_NOT_FOUND } = require('./constants/error-codes');
 
 const authRoutes = require('./routes/auth');
@@ -50,6 +51,9 @@ const quotationsRoutes = require('./routes/quotations');
 const payrollRoutes = require('./routes/payroll');
 const quotationPublicRoutes = require('./routes/quotation-public');
 const kommoQuotationWebhookRoutes = require('./routes/kommoQuotationWebhook');
+const dispatchRoutes = require('./routes/dispatch');
+const biRoutes = require('./routes/bi');
+const hrRoutes = require('./routes/hr');
 
 const createApp = () => {
   const app = express();
@@ -83,8 +87,10 @@ const createApp = () => {
 
   app.use(requestContext);
   app.use(localeMiddleware);
+  app.use(auditMiddleware);
   if (metricsEnabled()) {
     app.use(metricsMiddleware);
+    bindPoolMetrics(pool);
   }
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(
@@ -151,6 +157,11 @@ const createApp = () => {
   app.use('/api/automations', automationsRoutes);
   app.use('/api/ops', opsRoutes);
   app.use('/api/crm', crmRoutes);
+  app.use('/api/dispatch', dispatchRoutes);
+  app.use('/api/bi', biRoutes);
+  app.use('/api/hr', hrRoutes);
+  // Alias: KadryDokumenty.js calls /api/position-cards — serve from hr router
+  app.use('/api/position-cards', hrRoutes);
   app.use('/api/public', quotationPublicRoutes);
   app.use('/api/webhooks', kommoQuotationWebhookRoutes);
   app.use('/api/quotations', quotationsRoutes);

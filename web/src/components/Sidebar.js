@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState, useRef, useMemo, Fragment } from 'react';
+import { useEffect, useState, useRef, useMemo, Fragment, useCallback } from 'react';
+import { useSSE } from '../hooks/useSSE';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import { getRolaColor } from '../theme';
@@ -17,11 +18,14 @@ const NOTIF_KOLOR = {
 // SVG ikony nawigacji
 const ICONS = {
   dashboard:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+  explore:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
   mission:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><path d="M6 19h4"/></svg>,
   autoplan:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 15c4-8 12-8 16 0"/><path d="M8 15c2-4 6-4 8 0"/><circle cx="12" cy="16" r="2"/><path d="M12 4v3"/><path d="M4.9 6.9l2.1 2.1"/><path d="M19.1 6.9 17 9"/></svg>,
   zlecenia:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
   harmonogram:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   kierownik:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
+  dispatch:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>,
+  bi:           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><path d="M2 20h20"/></svg>,
   ekipy:        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   flota:        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
   warehouse:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
@@ -45,7 +49,6 @@ const ICONS = {
   logout:       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   collapse:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
   expand:       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
-  plus:         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
 };
 
 function NavChevron() {
@@ -64,12 +67,16 @@ const NAV_GROUPS = [
 
 const NAV_GROUP_BY_PATH = {
   '/dashboard': 'start',
+  '/eksploruj': 'start',
   '/profil': 'settings',
   '/zadania': 'settings',
   '/raporty': 'settings',
   '/zlecenia': 'operations',
   '/harmonogram': 'operations',
   '/kierownik': 'operations',
+  '/auto-dispatch': 'operations',
+  '/bi': 'operations',
+  '/hr': 'hr',
   '/ekipy': 'operations',
   '/wyceniajacy-hub': 'sales',
   '/crm': 'sales',
@@ -82,6 +89,7 @@ const NAV_GROUP_BY_PATH = {
   '/integracje': 'sales',
   '/kadry-dokumenty': 'hr',
   '/rozliczenia-ekip': 'finance',
+  '/rozliczenia-polowe': 'finance',
   '/wynagrodzenie-wyceniajacych': 'finance',
   '/ksiegowosc': 'finance',
   '/flota': 'assets',
@@ -124,13 +132,27 @@ export default function Sidebar() {
     if (u) setCurrentUser(u);
     loadNotifications();
     loadBranches();
-    const iv = setInterval(loadNotifications, 30000);
+    // Fallback poll every 5 min — SSE handles real-time updates below
+    const iv = setInterval(loadNotifications, 5 * 60_000);
     const onOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false); };
     const onKey = (e) => { if (e.key === 'Escape') setShowNotif(false); };
     document.addEventListener('mousedown', onOutside);
     document.addEventListener('keydown', onKey);
     return () => { clearInterval(iv); document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onKey); };
   }, []);
+
+  // SSE: real-time push from server — immediately refresh on new notification
+  const handleSSE = useCallback((event) => {
+    if (event.event === 'notification') {
+      // Optimistically bump count + re-fetch list
+      setNotifCount(c => c + 1);
+      loadNotifications();
+    } else if (event.event === 'task_update') {
+      // Could trigger a task list refresh on pages that care — here just a count nudge
+      loadNotifications();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useSSE(handleSSE);
 
   useEffect(() => {
     const onResize = () => {
@@ -142,13 +164,14 @@ export default function Sidebar() {
   }, []);
 
   const links = useMemo(() => {
-    const ADMIN   = ['Dyrektor', 'Administrator'];
-    const MGMT    = ['Dyrektor', 'Administrator', 'Kierownik'];
+    const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
+    const MGMT    = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik'];
     const WORKERS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
     const FIELD_OPS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
     const ALL     = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
     const all = [
       { path: '/dashboard',         labelKey: 'nav.dashboard',       icon: 'dashboard',   roles: ALL },
+      { path: '/eksploruj',        labelKey: 'nav.explore',         icon: 'explore',     roles: ALL },
       { path: '/profil',           labelKey: 'nav.profile',          icon: 'profil',      roles: ALL },
       { path: '/zadania',          labelKey: 'nav.todos',            icon: 'zlecenia',    roles: ALL },
       { path: '/kadry-dokumenty',  labelKey: 'nav.hrDocuments',      icon: 'uzytkownicy', roles: MGMT },
@@ -162,19 +185,17 @@ export default function Sidebar() {
       { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'] },
       { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
       { path: '/telefonia',         labelKey: 'nav.telephony',     icon: 'telefonia',   roles: MGMT },
-      { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, ...SALES_DIRECTOR, 'Magazynier'] },
-      { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, ...SALES_DIRECTOR, 'Brygadzista', 'Specjalista', 'Magazynier'] },
-      { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
-      { path: '/blokady-kalendarza', labelKey: 'nav.calendarBlocks', icon: 'harmonogram', roles: ['Wyceniający', 'Specjalista', ...MGMT] },
-      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Prezes', 'Dyrektor', 'Specjalista'] },
-      { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
       { path: '/integracje',        labelKey: 'nav.integrations',  icon: 'integracje',  roles: MGMT },
       { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Prezes', 'Dyrektor', 'Kierownik', 'Wyceniający'] },
-      { path: '/rozliczenia-ekip',  labelKey: 'nav.payrollTeams',  icon: 'ksiegowosc',  roles: ['Prezes', 'Dyrektor', 'Kierownik'] },
+      { path: '/rozliczenia-ekip',    labelKey: 'nav.payrollTeams',   icon: 'ksiegowosc',  roles: ['Prezes', 'Dyrektor', 'Kierownik'] },
+      { path: '/rozliczenia-polowe', labelKey: 'nav.fieldSettlements', icon: 'raporty',   roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista'] },
       { path: '/kierownik',         labelKey: 'nav.planning',      icon: 'kierownik',   roles: MGMT },
+      { path: '/auto-dispatch',     labelKey: 'nav.autoDispatch',  icon: 'dispatch',    roles: MGMT },
+      { path: '/bi',                labelKey: 'nav.bi',            icon: 'bi',          roles: MGMT },
+      { path: '/hr',                labelKey: 'nav.hr',            icon: 'uzytkownicy', roles: MGMT },
       { path: '/ekipy',             labelKey: 'nav.teams',         icon: 'ekipy',       roles: MGMT },
       { path: '/potwierdzenia-ekip', labelKey: 'nav.crewAttendance', icon: 'crewAttendance', roles: ALL },
-      { path: '/ranking-brygad',    labelKey: 'nav.teamRanking',   icon: 'raporty',     roles: [...MGMT, ...SALES_DIRECTOR] },
+      { path: '/ranking-brygad',    labelKey: 'nav.teamRanking',   icon: 'raporty',     roles: MGMT },
       { path: '/flota',             labelKey: 'nav.fleet',         icon: 'flota',       roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/magazyn',           labelKey: 'nav.warehouse',   icon: 'warehouse',   roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
       { path: '/rezerwacje-sprzetu', labelKey: 'nav.equipmentReservations', icon: 'equipmentRes', roles: [...MGMT, 'Brygadzista', 'Magazynier'] },
@@ -184,20 +205,11 @@ export default function Sidebar() {
       { path: '/oddzialy',          labelKey: 'nav.branches',      icon: 'oddzialy',    roles: ADMIN },
       { path: '/zarzadzaj-rolami',  labelKey: 'nav.roles',         icon: 'uzytkownicy', roles: ADMIN },
     ];
-    return currentUser ? all.filter(l => l.roles.includes(currentUser.rola)) : all;
+    if (!currentUser?.rola) return [];
+    return all.filter(l => l.roles.includes(currentUser.rola));
   }, [currentUser]);
 
   const groupedLinks = useMemo(() => groupLinks(links), [links]);
-  const quickActions = useMemo(() => {
-    const role = currentUser?.rola;
-    const isOffice = ['Dyrektor', 'Administrator', 'Kierownik', 'Specjalista'].includes(role);
-    const isEstimator = ['Dyrektor', 'Administrator', 'Kierownik', 'Specjalista', 'Wyceniający'].includes(role);
-    return [
-      isOffice ? { label: 'Nowe zlecenie', path: '/nowe-zlecenie', icon: 'plus' } : null,
-      isEstimator ? { label: 'Wycena terenowa', path: '/wyceniajacy-hub', icon: 'wyceny' } : null,
-      isOffice ? { label: 'Dodaj klienta', path: '/klienci', icon: 'klienci' } : null,
-    ].filter(Boolean);
-  }, [currentUser?.rola]);
 
   const loadNotifications = async () => {
     if (notificationsInFlightRef.current) return;
@@ -245,12 +257,12 @@ export default function Sidebar() {
   const canCreateQuickActions = [
     'Prezes',
     'Dyrektor',
+    'Administrator',
     'Kierownik',
     'Dyrektor Sprzedazy',
     'Dyrektor Sprzedaży',
-    'Dyrektor SprzedaĹĽy',
     'Dyrektor dzialu sprzedaz',
-    'Dyrektor dziaĹ‚u sprzedaĹĽ',
+    'Dyrektor działu sprzedaż',
   ].includes(role);
   const branchName = useMemo(() => {
     if (!currentUser) return '';

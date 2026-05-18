@@ -1269,6 +1269,117 @@ CREATE INDEX IF NOT EXISTS idx_equipment_reservations_sprzet_dates
 CREATE INDEX IF NOT EXISTS idx_equipment_reservations_ekipa_dates
   ON equipment_reservations (ekipa_id, data_od, data_do);
 
+-- ─── RBAC: CHECK constraint on users.rola ────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.check_constraints
+    WHERE constraint_name = 'users_rola_chk'
+  ) THEN
+    ALTER TABLE users ADD CONSTRAINT users_rola_chk CHECK (
+      rola IN (
+        'Prezes', 'Dyrektor', 'Administrator',
+        'Kierownik',
+        'Dyrektor Sprzedazy', 'Dyrektor Sprzedaży',
+        'Dyrektor dzialu sprzedaz', 'Dyrektor działu sprzedaż',
+        'Wyceniający', 'Wyceniajacy',
+        'Specjalista',
+        'Brygadzista',
+        'Pomocnik'
+      )
+    );
+  END IF;
+END $$;
+
+-- ─── Audit log ───────────────────────────────────────────────────────────────
+-- Schema must stay in sync with os/src/services/audit.js ensureTable()
+CREATE TABLE IF NOT EXISTS audit_log (
+  id            BIGSERIAL PRIMARY KEY,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  request_id    TEXT,
+  user_id       INTEGER,
+  user_login    TEXT,
+  rola          TEXT,
+  oddzial_id    INTEGER,
+  action        TEXT NOT NULL,
+  entity_type   TEXT NOT NULL,
+  entity_id     TEXT,
+  metadata      JSONB
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at  ON audit_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity      ON audit_log (entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user        ON audit_log (user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action      ON audit_log (action);
+
+-- ─── EPIC 1.1 — VRP dispatch fields ─────────────────────────────────────────
+-- Tasks: time windows, service time, required resources
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS okno_od            TIME,
+  ADD COLUMN IF NOT EXISTS okno_do            TIME,
+  ADD COLUMN IF NOT EXISTS czas_obslugi_min   INTEGER DEFAULT 60,
+  ADD COLUMN IF NOT EXISTS wymagany_sprzet_typ VARCHAR(80),
+  ADD COLUMN IF NOT EXISTS wymagane_kompetencje TEXT[];
+
+-- Teams: depot (start location for routing)
+ALTER TABLE teams
+  ADD COLUMN IF NOT EXISTS depot_lat  DECIMAL(9,6),
+  ADD COLUMN IF NOT EXISTS depot_lng  DECIMAL(9,6),
+  ADD COLUMN IF NOT EXISTS max_godzin_dzien INTEGER DEFAULT 8;
+
+-- Dispatch plans (saved solver output)
+CREATE TABLE IF NOT EXISTS dispatch_plans (
+  id            SERIAL PRIMARY KEY,
+  data          DATE NOT NULL,
+  oddzial_id    INTEGER REFERENCES branches(id),
+  created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMP DEFAULT NOW(),
+  solver_ms     INTEGER,
+  status        VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft','applied','archived')),
+  plan_json     JSONB NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_dispatch_plans_data ON dispatch_plans (data DESC);
+CREATE INDEX IF NOT EXISTS idx_dispatch_plans_oddzial ON dispatch_plans (oddzial_id, data DESC);
+
+-- ─── EPIC 8 — Kommo bidirectional sync ──────────────────────────────────────
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS kommo_last_sync_at     TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(20);
+
+ALTER TABLE klienci
+  ADD COLUMN IF NOT EXISTS kommo_last_sync_at     TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(20);
+
+-- ─── EPIC 7 — HR/Kadry extended ─────────────────────────────────────────────
+
+-- Absences table (urlopy, L4, nieobecności)
+CREATE TABLE IF NOT EXISTS absencje (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  typ         VARCHAR(60) NOT NULL CHECK (typ IN ('Urlop','Choroba','L4','Opieka','Nieobecność nieusprawiedliwiona','Inne')),
+  data_od     DATE NOT NULL,
+  data_do     DATE NOT NULL,
+  powod       TEXT,
+  status      VARCHAR(30) NOT NULL DEFAULT 'Oczekuje' CHECK (status IN ('Oczekuje','Zatwierdzona','Odrzucona')),
+  created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMP DEFAULT NOW(),
+  updated_at  TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT absencje_data_check CHECK (data_do >= data_od)
+);
+CREATE INDEX IF NOT EXISTS idx_absencje_user      ON absencje (user_id, data_od DESC);
+CREATE INDEX IF NOT EXISTS idx_absencje_data      ON absencje (data_od, data_do);
+CREATE INDEX IF NOT EXISTS idx_absencje_status    ON absencje (status);
+
+-- Position card acknowledgements (for KadryDokumenty HR cards)
+CREATE TABLE IF NOT EXISTS position_card_acknowledgements (
+  id             SERIAL PRIMARY KEY,
+  user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  card_version   VARCHAR(20),
+  acknowledged_at TIMESTAMP DEFAULT NOW(),
+  status         VARCHAR(30) DEFAULT 'Podpisana' CHECK (status IN ('Podpisana','Wycofana')),
+  ip_address     VARCHAR(45),
+  UNIQUE (user_id, card_version)
+);
+CREATE INDEX IF NOT EXISTS idx_pca_user ON position_card_acknowledgements (user_id);
+
 -- ============================================================
 -- KONIEC MIGRACJI
 -- ==========================

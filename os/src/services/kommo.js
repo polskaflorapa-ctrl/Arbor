@@ -175,24 +175,62 @@ function kommoWebhookConfigured(kind) {
   return Boolean(resolveKommoWebhookUrl(kind));
 }
 
-async function postKommoWebhook(payload, kind = 'crm') {
+/**
+ * Post webhook with exponential-backoff retry (3 attempts, 500 ms → 1 s → 2 s).
+ * Throws on final failure so callers can handle / log without crashing the request.
+ */
+async function postKommoWebhook(payload, kind = 'crm', { retries = 3 } = {}) {
   const url = resolveKommoWebhookUrl(kind);
   const headers = { 'content-type': 'application/json' };
   if (KOMMO_WEBHOOK_SECRET_HEADER && KOMMO_WEBHOOK_SECRET) {
     headers[KOMMO_WEBHOOK_SECRET_HEADER] = KOMMO_WEBHOOK_SECRET;
   }
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  });
-  const bodyText = await response.text();
-  return { response, bodyText };
+  let lastErr;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method:  'POST',
+        headers,
+        body:    JSON.stringify(payload),
+        signal:  AbortSignal.timeout(8000), // 8 s per attempt
+      });
+      const bodyText = await response.text();
+      return { response, bodyText, attempt };
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries - 1) {
+        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Fire-and-forget wrapper — posts webhook, writes sync status back to tasks table.
+ * Never throws; logs failures silently.
+ */
+async function syncTaskToKommo(pool, taskRow, actor = null) {
+  if (!kommoWebhookConfigured('crm')) return;
+  const payload = buildKommoTaskPayload(taskRow, actor);
+  try {
+    await postKommoWebhook(payload, 'crm');
+    await pool.query(
+      `UPDATE tasks SET kommo_last_sync_at = NOW(), kommo_last_sync_status = 'ok' WHERE id = $1`,
+      [taskRow.id]
+    );
+  } catch (err) {
+    await pool.query(
+      `UPDATE tasks SET kommo_last_sync_at = NOW(), kommo_last_sync_status = 'error' WHERE id = $1`,
+      [taskRow.id]
+    ).catch(() => {});
+  }
 }
 
 module.exports = {
   buildKommoTaskPayload,
   buildKommoKlientPayload,
   postKommoWebhook,
+  syncTaskToKommo,
   kommoWebhookConfigured,
 };

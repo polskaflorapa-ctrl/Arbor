@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isSalesDirector, isDyrektorOrAdmin } = require('../middleware/auth');
 const { env } = require('../config/env');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const multer = require('multer');
@@ -13,8 +13,10 @@ const { TASK_ACCESS_DENIED, VALIDATION_FAILED } = require('../constants/error-co
 const {
   buildKommoTaskPayload,
   postKommoWebhook,
+  syncTaskToKommo,
   kommoWebhookConfigured,
 } = require('../services/kommo');
+const { pushToUser } = require('./notifications');
 const {
   validateClientPayment,
   grossForTask,
@@ -135,7 +137,7 @@ const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 const isTeamScoped = (user) => user.rola === 'Brygadzista' || user.rola === 'Pomocnik';
 const canSeeAllTasks = (user) => isDyrektor(user) || isSalesDirector(user);
-const canManageTaskBackoffice = (user) => isDyrektor(user) || isKierownik(user);
+const canManageTaskBackoffice = (user) => isDyrektorOrAdmin(user) || isKierownik(user);
 
 /** F3.5 — wymuszenie zdjęcia „Po” przy finish (ekipa): ustaw `TASK_FINISH_REQUIRE_PO_PHOTO=1` na serwerze. */
 function finishRequirePoPhoto() {
@@ -752,7 +754,7 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       status
     } = req.body;
 
-    const finalOddzialId = isDyrektor(req.user)
+    const finalOddzialId = isDyrektorOrAdmin(req.user)
       ? (oddzial_id || req.user.oddzial_id)
       : req.user.oddzial_id;
     const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
@@ -783,11 +785,12 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
     }
     const initialStatus = status || (toInt(wyceniajacy_id) ? 'Wycena_Terenowa' : 'Nowe');
 
-    if (ekipa_id) {
+    // Branch ownership check: non-admin users can only assign teams from their own branch
+    if (ekipa_id && !isDyrektorOrAdmin(req.user)) {
       const teamBranch = await pool.query('SELECT oddzial_id FROM teams WHERE id = $1', [toNum(ekipa_id)]);
       if (
         !teamBranch.rows.length ||
-        (!isDyrektor(req.user) && Number(teamBranch.rows[0].oddzial_id) !== Number(finalOddzialId))
+        Number(teamBranch.rows[0].oddzial_id) !== Number(finalOddzialId)
       ) {
         return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
       }
@@ -1422,8 +1425,35 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
       return res.json({ message: 'Status zmieniony', idempotent_replay: true });
     }
     const { status } = req.body;
-    await client.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, req.params.id]);
+    const prevR = await client.query('SELECT status, oddzial_id FROM tasks WHERE id = $1', [taskId]);
+    const prevStatus = prevR.rows[0]?.status;
+    const taskOddzialId = prevR.rows[0]?.oddzial_id;
+    await client.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, taskId]);
     await client.query('COMMIT');
+    await req.auditLog({
+      action: 'task.status_change',
+      entityType: 'task',
+      entityId: taskId,
+      metadata: { from: prevStatus, to: status, oddzial_id: taskOddzialId },
+    });
+    // EPIC 8: auto-sync status to Kommo (fire-and-forget, never blocks response)
+    if (kommoWebhookConfigured('crm')) {
+      const fullTask = await pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]);
+      if (fullTask.rows.length) {
+        syncTaskToKommo(pool, fullTask.rows[0], { id: req.user.id, login: req.user.login }).catch(() => {});
+      }
+    }
+    // Real-time SSE: push task_update event to the assigned team member if present
+    try {
+      const tRow = await pool.query(
+        `SELECT t.ekipa_id, e.brygadzista_id
+         FROM tasks t LEFT JOIN teams e ON e.id = t.ekipa_id
+         WHERE t.id = $1`, [taskId]
+      );
+      if (tRow.rows[0]?.brygadzista_id) {
+        pushToUser(tRow.rows[0].brygadzista_id, { event: 'task_update', task_id: taskId, status });
+      }
+    } catch { /* non-critical */ }
     res.json({ message: 'Status zmieniony' });
   } catch (err) {
     try {

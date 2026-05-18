@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isDyrektorOrAdmin } = require('../middleware/auth');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { z } = require('zod');
 
@@ -419,7 +419,7 @@ router.put(
       const id = req.params.id;
       let branchClause = '';
       const params = [status, id];
-      if (!isDyrektor(req.user)) {
+      if (!isDyrektorOrAdmin(req.user)) {
         branchClause = 'AND e.oddzial_id = $3';
         params.push(req.user.oddzial_id);
       }
