@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const logger = require('../config/logger');
@@ -151,6 +152,68 @@ function cleanupTemporaryUpload(stored) {
   if (stored?.temporaryLocal) cleanupLocalFile(stored.localPath);
 }
 
+async function runUploadStorageSelfTest() {
+  const mode = uploadStorageMode();
+  const fileName = `storage_smoke_${Date.now()}_${Math.random().toString(16).slice(2)}.txt`;
+  const body = Buffer.from(`arbor upload storage smoke ${new Date().toISOString()}\n`, 'utf8');
+
+  if (mode === 'local') {
+    const dir = path.join(getUploadsRoot(), 'health');
+    fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, fileName);
+    fs.writeFileSync(filePath, body);
+    const readBack = fs.readFileSync(filePath);
+    if (!readBack.equals(body)) {
+      cleanupLocalFile(filePath);
+      throw new Error('Local upload storage write/read mismatch.');
+    }
+    cleanupLocalFile(filePath);
+    return {
+      ok: true,
+      mode,
+      backend: 'local',
+      checked: 'write_read_delete',
+      url: `/uploads/health/${fileName}`,
+      durable: false,
+      warning: 'Local upload storage is not durable on Render Free.',
+    };
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'arbor-upload-smoke-'));
+  const tmpPath = path.join(tmpDir, fileName);
+  let stored;
+  try {
+    fs.writeFileSync(tmpPath, body);
+    stored = await persistUploadedFile(
+      {
+        path: tmpPath,
+        filename: fileName,
+        originalname: fileName,
+        mimetype: 'text/plain',
+        size: body.length,
+      },
+      { folder: 'health', fileName }
+    );
+    await deleteStoredUpload(stored);
+    return {
+      ok: true,
+      mode,
+      backend: stored.backend,
+      checked: 'put_delete',
+      key: stored.key || null,
+      url: stored.url || null,
+      durable: true,
+    };
+  } finally {
+    cleanupLocalFile(tmpPath);
+    try {
+      fs.rmdirSync(tmpDir);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 module.exports = {
   uploadStorageMode,
   persistUploadedFile,
@@ -158,4 +221,5 @@ module.exports = {
   deleteUploadByUrl,
   cleanupLocalFile,
   cleanupTemporaryUpload,
+  runUploadStorageSelfTest,
 };

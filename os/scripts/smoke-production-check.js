@@ -92,11 +92,17 @@ async function loginForSmoke() {
     });
     const meJson = parseJson(me.body);
     const role = meJson?.rola;
+    const canRunOpsSmoke = ['Prezes', 'Dyrektor', 'Administrator'].includes(role);
 
     checks.push({
       name: 'ops-smoke',
       result: await check('/api/ops/smoke', { headers: authHeaders }),
-      expected: ['Prezes', 'Dyrektor'].includes(role) ? [200] : [403],
+      expected: canRunOpsSmoke ? [200] : [403],
+    });
+    checks.push({
+      name: 'storage-smoke',
+      result: await check('/api/ops/storage-smoke', { headers: authHeaders }),
+      expected: canRunOpsSmoke ? [200] : [403],
     });
     checks.push({
       name: 'quotations-panel-assign-auth',

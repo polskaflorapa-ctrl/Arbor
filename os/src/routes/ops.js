@@ -5,10 +5,11 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const logger = require('../config/logger');
 const { sendSmsOptional } = require('../services/twilioSms');
 const { sendSystemEmailOptional } = require('../services/systemEmail');
+const { runUploadStorageSelfTest, uploadStorageMode } = require('../services/upload-storage');
 
 const router = express.Router();
 
-router.get('/smoke', authMiddleware, requireRole('Prezes', 'Dyrektor'), async (req, res) => {
+router.get('/smoke', authMiddleware, requireRole('Prezes', 'Dyrektor', 'Administrator'), async (req, res) => {
   const startedAt = Date.now();
   try {
     const [dbRes, usersRes, tasksRes] = await Promise.all([
@@ -34,6 +35,28 @@ router.get('/smoke', authMiddleware, requireRole('Prezes', 'Dyrektor'), async (r
     logger.error('Blad smoke check', { message: e.message, requestId: req.requestId });
     res.status(503).json({
       status: 'failed',
+      error: e.message,
+      duration_ms: Date.now() - startedAt,
+      requestId: req.requestId,
+    });
+  }
+});
+
+router.get('/storage-smoke', authMiddleware, requireRole('Prezes', 'Dyrektor', 'Administrator'), async (req, res) => {
+  const startedAt = Date.now();
+  try {
+    const result = await runUploadStorageSelfTest();
+    res.json({
+      status: 'ok',
+      ...result,
+      duration_ms: Date.now() - startedAt,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('Blad storage smoke check', { message: e.message, mode: uploadStorageMode(), requestId: req.requestId });
+    res.status(503).json({
+      status: 'failed',
+      mode: uploadStorageMode(),
       error: e.message,
       duration_ms: Date.now() - startedAt,
       requestId: req.requestId,
