@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Platform, RefreshControl, ScrollView,
+  ActivityIndicator, Linking, Platform, RefreshControl, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar,
 } from 'react-native';
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
@@ -22,6 +22,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
+import { openAddressInMaps } from '../utils/maps-link';
 import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
 const FIELD_PHOTO_REQUIREMENTS = [
@@ -49,10 +50,29 @@ function taskNumber(value: unknown) {
 
 function isFieldDraftTask(task: any) {
   const notes = String(task?.notatki_wewnetrzne || task?.notatki || '');
-  return task?.ankieta_uproszczona === true ||
+  return normalizeTaskStatus(task?.status) === TASK_STATUS.WYCENA_TERENOWA ||
+    task?.ankieta_uproszczona === true ||
     notes.includes('TRYB TERENOWY') ||
     notes.includes('PRZEKAZANIE DO BIURA') ||
     notes.includes('FORMULARZ WYCENY TERENOWEJ');
+}
+
+function isEstimatorRole(role: unknown) {
+  return role === 'Wyceniający' || role === 'Wyceniajacy';
+}
+
+function hasTaskContact(task: any) {
+  return Boolean(String(task?.klient_telefon || '').trim());
+}
+
+function hasTaskAddress(task: any) {
+  return Boolean(String(task?.adres || task?.miasto || '').trim());
+}
+
+function isAssignedToEstimator(task: any, user: any) {
+  if (!isEstimatorRole(user?.rola)) return true;
+  if (task?.wyceniajacy_id == null || user?.id == null) return false;
+  return String(task.wyceniajacy_id) === String(user.id);
 }
 
 function parseTaskDate(value: unknown) {
@@ -188,7 +208,7 @@ export default function ZleceniaScreen() {
       const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
-        const list = Array.isArray(d) ? d : [];
+        const list = (Array.isArray(d) ? d : []).filter((task) => isAssignedToEstimator(task, parsedUser));
         setZlecenia(list);
         setFiltered(list);
       } else {
@@ -240,6 +260,7 @@ export default function ZleceniaScreen() {
 
   const isBrygadzista = user?.rola === 'Brygadzista';
   const isPomocnik = user?.rola === 'Pomocnik';
+  const isWyceniajacy = isEstimatorRole(user?.rola);
   const isCrew = isBrygadzista || isPomocnik;
   const todayKey = useMemo(() => localDateKey(new Date()), []);
   const displayList = useMemo(() => {
@@ -288,6 +309,29 @@ export default function ZleceniaScreen() {
       officeReady: officeReady.length,
       needsPlan: needsPlan.length,
       readyForCrew: readyForCrew.length,
+    };
+  }, [todayKey, zlecenia]);
+  const estimatorPlan = useMemo(() => {
+    const fieldTasks = zlecenia
+      .filter((task) => !isTaskClosed(task.status))
+      .filter(isFieldDraftTask)
+      .sort((a, b) => taskSortValue(a) - taskSortValue(b));
+    const today = fieldTasks.filter((task) => taskDateKey(task) === todayKey);
+    const openToday = today.filter((task) => normalizeTaskStatus(task.status) !== TASK_STATUS.DO_ZATWIERDZENIA);
+    const next = openToday[0] || fieldTasks[0] || null;
+    const missingContact = today.filter((task) => !hasTaskContact(task)).length;
+    const missingAddress = today.filter((task) => !hasTaskAddress(task)).length;
+    const readyForOffice = fieldTasks.filter(taskReadyForOffice).length;
+    const missingEvidence = fieldTasks.filter((task) => taskEvidenceReadyCount(task) < FIELD_PHOTO_REQUIREMENTS.length).length;
+    return {
+      today,
+      openToday,
+      next,
+      routePreview: (today.length ? today : fieldTasks).slice(0, 6),
+      missingContact,
+      missingAddress,
+      readyForOffice,
+      missingEvidence,
     };
   }, [todayKey, zlecenia]);
   const quickModeOptions: { key: OrderQuickMode; label: string; count: number; color: string; icon: IoniconName }[] = [
@@ -423,6 +467,135 @@ export default function ZleceniaScreen() {
           );
         })}
       </ScrollView>
+      {isWyceniajacy && !isCrew ? (
+        <View style={S.estimatorTodayCard}>
+          <View style={S.estimatorTodayHead}>
+            <PlatinumIconBadge icon="navigate-circle-outline" color={theme.accent} size={18} style={S.estimatorTodayIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={S.estimatorTodayTitle}>Moje oględziny dzisiaj</Text>
+              <Text style={S.estimatorTodaySub}>Telefon, mapa, zdjęcia i pakiet dla biura bez szukania po liście.</Text>
+            </View>
+            <TouchableOpacity
+              style={S.estimatorTodayFilter}
+              onPress={() => {
+                setQuickMode('today');
+                setFiltrStatus('');
+                void triggerHaptic('light');
+              }}
+            >
+              <Text style={S.estimatorTodayFilterText}>Dzisiaj</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={S.estimatorStatsGrid}>
+            {[
+              { key: 'today', label: 'Plan', value: estimatorPlan.today.length, color: theme.info },
+              { key: 'left', label: 'Zostało', value: estimatorPlan.openToday.length, color: theme.accent },
+              { key: 'photo', label: 'Braki foto', value: estimatorPlan.missingEvidence, color: estimatorPlan.missingEvidence ? theme.warning : theme.success },
+              { key: 'office', label: 'Do biura', value: estimatorPlan.readyForOffice, color: theme.success },
+            ].map((item) => (
+              <View key={item.key} style={[S.estimatorStatTile, { borderColor: item.color + '55', backgroundColor: item.color + '13' }]}>
+                <Text style={[S.estimatorStatValue, { color: item.color }]}>{item.value}</Text>
+                <Text style={S.estimatorStatLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+          {estimatorPlan.next ? (
+            <View style={S.estimatorNextCard}>
+              <View style={S.estimatorNextTop}>
+                <View style={[S.estimatorNextTime, { borderColor: theme.accent, backgroundColor: theme.accentLight }]}>
+                  <Text style={[S.estimatorNextTimeText, { color: theme.accent }]}>{taskTimeLabel(estimatorPlan.next)}</Text>
+                  <Text style={S.estimatorNextDateText}>{formatTaskDay(estimatorPlan.next.data_planowana)}</Text>
+                </View>
+                <TouchableOpacity
+                  style={{ flex: 1 }}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    router.push(`/zlecenie/${estimatorPlan.next.id}`);
+                  }}
+                >
+                  <Text style={S.estimatorNextLabel}>Następna wizyta</Text>
+                  <Text style={S.estimatorNextClient} numberOfLines={1}>{estimatorPlan.next.klient_nazwa || `Zlecenie #${estimatorPlan.next.id}`}</Text>
+                  <Text style={S.estimatorNextAddress} numberOfLines={1}>
+                    {[estimatorPlan.next.adres, estimatorPlan.next.miasto].filter(Boolean).join(', ') || 'Brak adresu'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={S.estimatorEvidenceRow}>
+                {FIELD_PHOTO_REQUIREMENTS.map((item) => {
+                  const done = taskNumber(estimatorPlan.next?.[item.key]) > 0;
+                  return (
+                    <View key={item.key} style={[S.estimatorEvidencePill, { borderColor: done ? theme.success : theme.warning, backgroundColor: done ? theme.successBg : theme.warningBg }]}>
+                      <PlatinumIconBadge icon={done ? 'checkmark-circle' : item.icon} color={done ? theme.success : theme.warning} size={8} style={S.estimatorEvidenceIcon} />
+                      <Text style={[S.estimatorEvidenceText, { color: done ? theme.success : theme.warning }]}>{item.label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={S.estimatorActionRow}>
+                <TouchableOpacity
+                  disabled={!hasTaskContact(estimatorPlan.next)}
+                  style={[S.estimatorActionBtn, { opacity: hasTaskContact(estimatorPlan.next) ? 1 : 0.46 }]}
+                  onPress={() => {
+                    if (estimatorPlan.next?.klient_telefon) void Linking.openURL(`tel:${estimatorPlan.next.klient_telefon}`);
+                  }}
+                >
+                  <Ionicons name="call-outline" size={15} color={theme.accent} />
+                  <Text style={S.estimatorActionText}>Dzwoń</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={!hasTaskAddress(estimatorPlan.next)}
+                  style={[S.estimatorActionBtn, { opacity: hasTaskAddress(estimatorPlan.next) ? 1 : 0.46 }]}
+                  onPress={() => void openAddressInMaps(estimatorPlan.next?.adres || '', estimatorPlan.next?.miasto || '')}
+                >
+                  <Ionicons name="map-outline" size={15} color={theme.accent} />
+                  <Text style={S.estimatorActionText}>Mapa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.estimatorActionBtn, S.estimatorPrimaryAction]}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    router.push(`/zlecenie/${estimatorPlan.next.id}?tab=zdjecia` as never);
+                  }}
+                >
+                  <Ionicons name="camera-outline" size={15} color={theme.accentText} />
+                  <Text style={S.estimatorPrimaryActionText}>Pakiet</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={S.estimatorEmptyBox}>
+              <Ionicons name="checkmark-done-outline" size={17} color={theme.success} />
+              <Text style={S.estimatorEmptyText}>Brak otwartych oględzin na dzisiaj.</Text>
+            </View>
+          )}
+          {estimatorPlan.routePreview.length > 1 ? (
+            <View style={S.estimatorRouteList}>
+              {estimatorPlan.routePreview.map((task, index) => {
+                const ready = taskEvidenceReadyCount(task) >= FIELD_PHOTO_REQUIREMENTS.length;
+                return (
+                  <TouchableOpacity
+                    key={task.id}
+                    style={[S.estimatorRouteRow, { borderColor: task.id === estimatorPlan.next?.id ? theme.accent : theme.border, backgroundColor: task.id === estimatorPlan.next?.id ? theme.accentLight : theme.surface2 }]}
+                    onPress={() => {
+                      void triggerHaptic('light');
+                      router.push(`/zlecenie/${task.id}`);
+                    }}
+                  >
+                    <View style={[S.estimatorRouteIndex, { borderColor: ready ? theme.success : theme.warning }]}>
+                      <Text style={[S.estimatorRouteIndexText, { color: ready ? theme.success : theme.warning }]}>{index + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={S.estimatorRouteClient} numberOfLines={1}>{task.klient_nazwa || `Zlecenie #${task.id}`}</Text>
+                      <Text style={S.estimatorRouteMeta} numberOfLines={1}>{taskTimeLabel(task)} - {[task.adres, task.miasto].filter(Boolean).join(', ') || 'Brak adresu'}</Text>
+                    </View>
+                    <Ionicons name={ready ? 'checkmark-circle' : 'camera-outline'} size={17} color={ready ? theme.success : theme.warning} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       {/* Wyszukiwarka */}
       <View style={S.searchRow}>
         <PlatinumIconBadge icon="search-outline" color={theme.textMuted} size={20} style={S.searchIconBadge} />
@@ -1022,6 +1195,142 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 4,
   },
   officeNextBtnText: { color: t.accent, fontSize: 11, fontWeight: '900' },
+  estimatorTodayCard: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    backgroundColor: t.cardBg,
+    padding: 12,
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.12,
+      radius: t.shadowRadius * 0.38,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
+  },
+  estimatorTodayHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  estimatorTodayIcon: { width: 38, height: 38, borderRadius: 12 },
+  estimatorTodayTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
+  estimatorTodaySub: { color: t.textMuted, fontSize: 12, lineHeight: 16, marginTop: 2 },
+  estimatorTodayFilter: {
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  estimatorTodayFilterText: { color: t.accent, fontSize: 11, fontWeight: '900' },
+  estimatorStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  estimatorStatTile: {
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 70,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  estimatorStatValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  estimatorStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  estimatorNextCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    padding: 11,
+    gap: 10,
+  },
+  estimatorNextTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  estimatorNextTime: {
+    width: 62,
+    minHeight: 54,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  estimatorNextTimeText: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  estimatorNextDateText: { color: t.textMuted, fontSize: 10, fontWeight: '800', marginTop: 2 },
+  estimatorNextLabel: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  estimatorNextClient: { color: t.text, fontSize: 14, fontWeight: '900', marginTop: 2 },
+  estimatorNextAddress: { color: t.textSub, fontSize: 12, marginTop: 2 },
+  estimatorEvidenceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  estimatorEvidencePill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  estimatorEvidenceIcon: { width: 16, height: 16, borderRadius: 6 },
+  estimatorEvidenceText: { fontSize: 11, fontWeight: '900' },
+  estimatorActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  estimatorActionBtn: {
+    flexGrow: 1,
+    minHeight: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  estimatorActionText: { color: t.accent, fontSize: 12, fontWeight: '900' },
+  estimatorPrimaryAction: {
+    borderColor: t.accent,
+    backgroundColor: t.accent,
+  },
+  estimatorPrimaryActionText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
+  estimatorEmptyBox: {
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.success,
+    backgroundColor: t.successBg,
+    padding: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  estimatorEmptyText: { color: t.success, fontSize: 12, fontWeight: '900' },
+  estimatorRouteList: { gap: 7 },
+  estimatorRouteRow: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  estimatorRouteIndex: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.cardBg,
+  },
+  estimatorRouteIndexText: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  estimatorRouteClient: { color: t.text, fontSize: 12.5, fontWeight: '900' },
+  estimatorRouteMeta: { color: t.textMuted, fontSize: 10.5, marginTop: 1 },
   crewTodayCard: {
     marginHorizontal: 14,
     marginTop: 8,

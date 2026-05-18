@@ -57,44 +57,10 @@ function getTaskLocation(task) {
   return task?.miasto || task?.oddzial_nazwa || task?.adres || 'Brak lokalizacji';
 }
 
-function statusLabel(status) {
-  return String(status || 'Nowe').replace('_', ' ');
-}
-
 function teamDisplayName(task) {
   if (task?.ekipa_nazwa) return task.ekipa_nazwa;
   if (task?.ekipa_id) return `Ekipa #${task.ekipa_id}`;
   return 'Nieprzypisana';
-}
-
-function buildTeamRanking(tasks) {
-  const rows = new Map();
-  for (const task of tasks) {
-    if (!task?.ekipa_id && !task?.ekipa_nazwa) continue;
-    const key = task.ekipa_id || task.ekipa_nazwa;
-    const current = rows.get(key) || {
-      key,
-      name: teamDisplayName(task),
-      branch: task.oddzial_nazwa || task.miasto || '',
-      works: 0,
-      revenue: 0,
-      done: 0,
-      active: 0,
-    };
-    current.works += 1;
-    current.revenue += Number(task.wartosc_planowana) || 0;
-    if (isTaskDone(task.status)) current.done += 1;
-    if (isTaskInProgress(task.status)) current.active += 1;
-    rows.set(key, current);
-  }
-  return [...rows.values()]
-    .map((row) => ({
-      ...row,
-      score: row.done * 3 + row.active * 2 + row.works,
-      effectiveness: percent(row.done, row.works),
-    }))
-    .sort((a, b) => b.score - a.score || b.revenue - a.revenue)
-    .slice(0, 5);
 }
 
 function AnimatedNumber({ value, duration = 900 }) {
@@ -129,8 +95,6 @@ const KPI_ICONS = {
 };
 const QL_ICONS = {
   '/nowe-zlecenie': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
-  '/misja-dnia':    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/><path d="M6 19h4"/></svg>,
-  '/autoplan-dnia': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 15c4-8 12-8 16 0"/><path d="M8 15c2-4 6-4 8 0"/><circle cx="12" cy="16" r="2"/><path d="M12 4v3"/><path d="M4.9 6.9l2.1 2.1"/><path d="M19.1 6.9 17 9"/></svg>,
   '/kierownik':     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
   '/ekipy':         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   '/raporty':       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
@@ -548,22 +512,7 @@ export default function Dashboard() {
     { label: 'Finanse', path: '/ksiegowosc' },
   ].filter((item) => visibleQuickLinks.some((link) => link.path === item.path) || item.path === '/raporty/analityka');
 
-  const formatMoney = (value) => `${(Number(value) || 0).toLocaleString('pl-PL')} PLN`;
   const statusLabel = (value) => String(value || 'Nowe').replace('_', ' ');
-  const shortDate = (value) => {
-    if (!value) return 'Brak terminu';
-    try {
-      return new Date(value).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
-    } catch {
-      return 'Brak terminu';
-    }
-  };
-
-  const dashboardKpis = kpiData.slice(0, 6).map((item, index) => ({
-    ...item,
-    tone: ['var(--warning)', 'var(--info)', 'var(--success)', 'var(--accent)', '#eab308', '#fb7185'][index] || 'var(--accent)',
-    trend: index === 0 ? 'otwarte tematy' : index === 1 ? 'teren dzisiaj' : index === 2 ? 'zamknięte' : index === 3 ? 'wartość' : 'status',
-  }));
 
   const teamRanking = useMemo(() => {
     const map = new Map();
@@ -600,12 +549,6 @@ export default function Dashboard() {
       sub: 'Aktywne zlecenia do pilnowania operacyjnego.',
       tone: 'field',
     },
-  ];
-
-  const opsIndicators = [
-    { label: 'Wykonanie zleceń', value: stats.zakonczone || 0, total: Math.max((stats.nowe || 0) + (stats.w_realizacji || 0) + (stats.zakonczone || 0), 1) },
-    { label: 'Prace w toku', value: stats.w_realizacji || 0, total: Math.max((stats.nowe || 0) + (stats.w_realizacji || 0), 1) },
-    { label: 'Gotowość payroll', value: payrollClose.export_allowed ? 1 : 0, total: 1 },
   ];
 
   return (
@@ -1167,7 +1110,7 @@ const d = {
     flexShrink: 0,
   },
   menuLine: { width: 15, height: 2, borderRadius: 4, background: 'currentColor', opacity: 0.86 },
-  pageTitle: { margin: 0, fontSize: 22, lineHeight: 1.1, fontWeight: 900, color: 'var(--text)' },
+  pageTitleLegacy: { margin: 0, fontSize: 22, lineHeight: 1.1, fontWeight: 900, color: 'var(--text)' },
   pageSub: { marginTop: 4, fontSize: 12, color: 'var(--text-muted)', fontWeight: 750, textTransform: 'capitalize' },
   searchBox: {
     display: 'flex',
@@ -1231,13 +1174,13 @@ const d = {
   },
   weatherBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
   dateBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
-  kpiGrid: {
+  kpiGridLegacy: {
     display: 'grid',
     gridTemplateColumns: 'repeat(6, minmax(145px, 1fr))',
     gap: 12,
     marginBottom: 14,
   },
-  kpiCard: {
+  kpiCardLegacy: {
     minHeight: 104,
     border: '1px solid var(--glass-border)',
     borderRadius: 8,
@@ -1257,7 +1200,7 @@ const d = {
   kpiCard_blue: { border: '1px solid rgba(91,192,235,0.24)' },
   kpiCard_amber: { border: '1px solid rgba(242,184,75,0.28)' },
   kpiCard_danger: { border: '1px solid rgba(248,113,113,0.3)' },
-  kpiIcon: {
+  kpiIconLegacy: {
     width: 42,
     height: 42,
     borderRadius: 8,
@@ -1269,8 +1212,8 @@ const d = {
     border: '1px solid var(--logo-tint-border)',
   },
   kpiCardText: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 },
-  kpiCardLabel: { fontSize: 11, color: 'var(--text-sub)', fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.2 },
-  kpiCardValue: { fontSize: 24, color: 'var(--text)', fontWeight: 950, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
+  kpiCardLabelLegacy: { fontSize: 11, color: 'var(--text-sub)', fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.2 },
+  kpiCardValueLegacy: { fontSize: 24, color: 'var(--text)', fontWeight: 950, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
   kpiCardSub: { fontSize: 12, color: 'var(--accent)', fontWeight: 800, lineHeight: 1.25 },
   referenceGrid: {
     display: 'grid',
@@ -1278,13 +1221,13 @@ const d = {
     gap: 14,
     marginBottom: 14,
   },
-  lowerGrid: {
+  lowerGridLegacy: {
     display: 'grid',
     gridTemplateColumns: 'minmax(320px, 1.25fr) minmax(300px, .9fr) minmax(300px, .9fr)',
     gap: 14,
     marginBottom: 14,
   },
-  panel: {
+  panelLegacy: {
     border: '1px solid var(--glass-border)',
     borderRadius: 8,
     background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
@@ -1298,7 +1241,7 @@ const d = {
     boxShadow: 'var(--shadow-sm)',
     overflow: 'hidden',
   },
-  panelHeader: {
+  panelHeaderLegacy: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -1306,8 +1249,8 @@ const d = {
     padding: '14px 16px',
     borderBottom: '1px solid var(--border)',
   },
-  panelTitle: { margin: 0, fontSize: 15, color: 'var(--text)', fontWeight: 950, textTransform: 'uppercase', lineHeight: 1.25 },
-  panelSub: { margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, lineHeight: 1.35 },
+  panelTitleLegacy: { margin: 0, fontSize: 15, color: 'var(--text)', fontWeight: 950, textTransform: 'uppercase', lineHeight: 1.25 },
+  panelSubLegacy: { margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, lineHeight: 1.35 },
   linkBtn: {
     border: 'none',
     background: 'transparent',
@@ -1318,7 +1261,7 @@ const d = {
     whiteSpace: 'nowrap',
   },
   tableShell: { padding: '0 14px 14px', overflowX: 'auto' },
-  tableHead: {
+  tableHeadLegacy: {
     display: 'grid',
     gridTemplateColumns: '110px minmax(190px, 1.3fr) minmax(110px, .8fr) 110px 100px 100px',
     gap: 12,
@@ -1330,7 +1273,7 @@ const d = {
     textTransform: 'uppercase',
     borderBottom: '1px solid var(--border)',
   },
-  tableRow: {
+  tableRowLegacy: {
     display: 'grid',
     gridTemplateColumns: '110px minmax(190px, 1.3fr) minmax(110px, .8fr) 110px 100px 100px',
     gap: 12,
@@ -1348,7 +1291,7 @@ const d = {
     fontWeight: 750,
   },
   tableId: { color: 'var(--text)', fontWeight: 900 },
-  tableStrong: { color: 'var(--text)', fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  tableStrongLegacy: { color: 'var(--text)', fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   tableValue: { color: 'var(--text)', fontWeight: 900, textAlign: 'right' },
   tableEmpty: { padding: 18, color: 'var(--text-muted)', fontSize: 13, fontWeight: 750 },
   rankingList: { padding: '8px 12px 12px' },
@@ -1411,8 +1354,8 @@ const d = {
   scheduleTime: { color: 'var(--accent)', fontWeight: 950, fontSize: 12, fontVariantNumeric: 'tabular-nums' },
   scheduleMain: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
   scheduleArrow: { color: 'var(--text-muted)', display: 'inline-flex', justifyContent: 'flex-end' },
-  alertList: { padding: '8px 12px 12px' },
-  alertRow: {
+  alertListLegacy: { padding: '8px 12px 12px' },
+  alertRowLegacy: {
     display: 'grid',
     gridTemplateColumns: '28px 1fr 22px',
     gap: 9,
@@ -1436,7 +1379,7 @@ const d = {
   metricRow: { display: 'flex', flexDirection: 'column', gap: 6 },
   metricTop: { display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--text-sub)', fontSize: 12, fontWeight: 850 },
   progressTrack: { height: 6, borderRadius: 8, overflow: 'hidden', background: 'rgba(148,163,184,0.18)' },
-  progressFill: { display: 'block', height: '100%', borderRadius: 8, background: 'var(--accent-gradient)' },
+  progressFillLegacy: { display: 'block', height: '100%', borderRadius: 8, background: 'var(--accent-gradient)' },
   metricMeta: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 750 },
   reportShortcuts: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, padding: '0 14px 14px' },
   reportBtn: {

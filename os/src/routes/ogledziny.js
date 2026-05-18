@@ -4,6 +4,7 @@ const path = require('path');
 const multer = require('multer');
 const pool = require('../config/database');
 const logger = require('../config/logger');
+const { uploadsPath } = require('../config/uploadPaths');
 const { authMiddleware } = require('../middleware/auth');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { z } = require('zod');
@@ -84,7 +85,7 @@ const toNum = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-const ogledzinyMediaDir = path.join(__dirname, '../uploads/ogledziny');
+const ogledzinyMediaDir = uploadsPath('ogledziny');
 const ogledzinyMediaStorage = multer.diskStorage({
   destination: (_, __, cb) => {
     fs.mkdirSync(ogledzinyMediaDir, { recursive: true });

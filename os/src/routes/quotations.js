@@ -20,6 +20,7 @@ const { afterQuotationFullyApproved, resendQuotationClientOffer } = require('../
 const { validateQuotationCompleteForVisitEnd, gpsCheckForVisitStart } = require('../services/quotationValidation');
 const { applyAutoFlags } = require('../services/quotationItemFlags');
 const { assertEstimatorAvailableForBranch } = require('../services/branchResources');
+const { uploadsPath } = require('../config/uploadPaths');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -98,7 +99,7 @@ function toFloatBody(val) {
 
 const qItemPhotoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join('uploads', 'quotations', 'items');
+    const dir = uploadsPath('quotations', 'items');
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -118,7 +119,7 @@ const qItemPhotoUpload = multer({
 
 const qHeadPhotoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join('uploads', 'quotations', 'head');
+    const dir = uploadsPath('quotations', 'head');
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },

@@ -32,6 +32,7 @@ const { sendSmsOptional } = require('../services/twilioSms');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
 const { assertTeamAvailableForBranch, assertEstimatorAvailableForBranch } = require('../services/branchResources');
+const { uploadsPath } = require('../config/uploadPaths');
 
 const router = express.Router();
 
@@ -136,7 +137,8 @@ function kommoActor(req) {
 const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
 const isTeamScoped = (user) => user.rola === 'Brygadzista' || user.rola === 'Pomocnik';
-const canSeeAllTasks = (user) => isDyrektor(user) || isSalesDirector(user);
+const isEstimator = (user) => user.rola === 'Wyceniający' || user.rola === 'Wyceniajacy';
+const canSeeAllTasks = (user) => isDyrektorOrAdmin(user) || isSalesDirector(user);
 const canManageTaskBackoffice = (user) => isDyrektorOrAdmin(user) || isKierownik(user);
 
 /** F3.5 — wymuszenie zdjęcia „Po” przy finish (ekipa): ustaw `TASK_FINISH_REQUIRE_PO_PHOTO=1` na serwerze. */
@@ -215,6 +217,11 @@ const getTaskScope = (user, alias = 't', startParam = 1) => {
     return { clause, params: [user.id], nextParam: startParam + 1 };
   }
 
+  if (isEstimator(user)) {
+    const clause = `${alias}.wyceniajacy_id = $${startParam}`;
+    return { clause, params: [user.id], nextParam: startParam + 1 };
+  }
+
   const clause = `${alias}.oddzial_id = $${startParam}`;
   return { clause, params: [user.oddzial_id], nextParam: startParam + 1 };
 };
@@ -241,7 +248,7 @@ const requireTaskAccess = async (req, res, next) => {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join('uploads', 'tasks');
+    const dir = uploadsPath('tasks');
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -354,7 +361,10 @@ const taskCreateSchema = z.object({
   czas_planowany_godziny: z.union([z.number(), z.string()]).optional().nullable(),
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
   godzina_rozpoczecia: z.string().trim().optional().nullable(),
+  opis: z.string().trim().max(6000).optional().nullable(),
+  opis_pracy: z.string().trim().max(6000).optional().nullable(),
   notatki_wewnetrzne: z.string().optional().nullable(),
+  notatki: z.string().optional().nullable(),
   oddzial_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
@@ -394,6 +404,51 @@ const taskAssignSchema = z.object({
 
 const taskStatusSchema = z.object({
   status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']),
+});
+
+const TASK_FORWARD_TRANSITIONS = Object.freeze({
+  Nowe: ['Wycena_Terenowa'],
+  Wycena_Terenowa: ['Do_Zatwierdzenia'],
+  Do_Zatwierdzenia: ['Zaplanowane'],
+  Zaplanowane: ['W_Realizacji'],
+  W_Realizacji: ['Zakonczone'],
+  Zakonczone: [],
+  Anulowane: [],
+});
+const CLOSED_TASK_STATUSES_FLOW = new Set(['Zakonczone', 'Anulowane']);
+
+function canTaskStatusTransition(fromStatus, toStatus, options = {}) {
+  const from = String(fromStatus || 'Nowe');
+  const to = String(toStatus || '');
+  if (!to) return false;
+  if (from === to) return true;
+  const next = [...(TASK_FORWARD_TRANSITIONS[from] || [])];
+  if (options.allowCancel !== false && !CLOSED_TASK_STATUSES_FLOW.has(from) && !next.includes('Anulowane')) {
+    next.push('Anulowane');
+  }
+  return next.includes(to);
+}
+
+const taskFieldPackageSchema = z.object({
+  opis: z.string().trim().max(6000).optional().nullable(),
+  zakres_prac: z.string().trim().max(6000).optional().nullable(),
+  ryzyka: z.string().trim().max(3000).optional().nullable(),
+  typy_prac: z.array(z.string().trim().max(120)).max(20).optional(),
+  sprzet: z.array(z.string().trim().max(120)).max(30).optional(),
+  warunki_rozliczenia: z.string().trim().max(1000).optional().nullable(),
+  odpady: z.string().trim().max(1000).optional().nullable(),
+  czas_planowany_godziny: z.union([z.number(), z.string()]).optional().nullable(),
+  wartosc_planowana: z.union([z.number(), z.string()]).optional().nullable(),
+  klient_zaakceptowal: z.boolean().optional(),
+  send_to_office: z.boolean().optional(),
+});
+
+const taskOfficePlanSchema = z.object({
+  data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
+  godzina_rozpoczecia: z.string().trim().max(8).optional().nullable(),
+  czas_planowany_godziny: z.union([z.number(), z.string()]).optional().nullable(),
+  ekipa_id: z.union([z.number().int().positive(), z.string().trim().min(1)]),
+  sprzet_notatka: z.string().trim().max(2000).optional().nullable(),
 });
 
 const taskClientContactSchema = z.object({
@@ -749,7 +804,7 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       klient_nazwa, klient_telefon, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
       czas_planowany_godziny, data_planowana, godzina_rozpoczecia,
-      notatki_wewnetrzne, oddzial_id, ekipa_id,
+      opis, opis_pracy, notatki_wewnetrzne, notatki, oddzial_id, ekipa_id,
       wyceniajacy_id, source_ogledziny_id, pin_lat, pin_lng, ankieta_uproszczona,
       status
     } = req.body;
@@ -784,6 +839,8 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
     }
     const initialStatus = status || (toInt(wyceniajacy_id) ? 'Wycena_Terenowa' : 'Nowe');
+    const taskOpis = toStr(opis) || toStr(opis_pracy);
+    const taskNotes = [toStr(notatki_wewnetrzne), toStr(notatki)].filter(Boolean).join('\n\n') || null;
 
     // Branch ownership check: non-admin users can only assign teams from their own branch
     if (ekipa_id && !isDyrektorOrAdmin(req.user)) {
@@ -801,9 +858,9 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         klient_nazwa, klient_telefon, adres, miasto,
         typ_uslugi, priorytet, wartosc_planowana,
         czas_planowany_godziny, data_planowana,
-        notatki_wewnetrzne, status, kierownik_id,
+        opis, notatki_wewnetrzne, status, kierownik_id,
         oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
       RETURNING id`,
       [
         klient_nazwa,
@@ -815,7 +872,8 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         toNum(wartosc_planowana),
         toNum(czas_planowany_godziny),
         plannedDateTime,
-        toStr(notatki_wewnetrzne),
+        taskOpis,
+        taskNotes,
         initialStatus,
         req.user.id,
         toNum(finalOddzialId),
@@ -1364,6 +1422,146 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
   }
 });
 
+router.put('/:id/field-package', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskFieldPackageSchema), requireTaskAccess, async (req, res) => {
+  try {
+    const taskR = await pool.query(
+      'SELECT id, status, wyceniajacy_id, notatki_wewnetrzne FROM tasks WHERE id = $1',
+      [req.params.id]
+    );
+    if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    const task = taskR.rows[0];
+    const assignedEstimator = isEstimator(req.user) && Number(task.wyceniajacy_id) === Number(req.user.id);
+    if (!canManageTaskBackoffice(req.user) && !assignedEstimator) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+
+    const zakres = toStr(req.body.zakres_prac || req.body.opis);
+    const ryzyka = toStr(req.body.ryzyka);
+    const typyPrac = Array.isArray(req.body.typy_prac) ? req.body.typy_prac.filter(Boolean).join(', ') : '';
+    const sprzet = Array.isArray(req.body.sprzet) ? req.body.sprzet.filter(Boolean).join(', ') : '';
+    const warunkiRozliczenia = toStr(req.body.warunki_rozliczenia);
+    const odpady = toStr(req.body.odpady);
+    const hours = toNum(req.body.czas_planowany_godziny);
+    const value = toNum(req.body.wartosc_planowana);
+    const accepted = req.body.klient_zaakceptowal === true;
+    const nextStatus = req.body.send_to_office && accepted ? 'Do_Zatwierdzenia' : task.status;
+    const actor = [req.user.imie, req.user.nazwisko].filter(Boolean).join(' ') || req.user.login || `#${req.user.id}`;
+    const fieldLines = [
+      'PRZEKAZANIE DO BIURA',
+      `Typy prac: ${typyPrac || '-'}`,
+      `Zakres prac: ${zakres || '-'}`,
+      `Czas pracy: ${hours != null ? `${hours} h` : '-'}`,
+      `Budzet klienta: ${value != null ? `${value} PLN` : '-'}`,
+      `Sprzet: ${sprzet || '-'}`,
+      `Warunki rozliczenia: ${warunkiRozliczenia || '-'}`,
+      `Odpady: ${odpady || '-'}`,
+      `Ryzyka: ${ryzyka || '-'}`,
+      `Klient zaakceptowal: ${accepted ? 'tak' : 'nie'}`,
+      `Wyceniacz: ${actor}`,
+      `Data przekazania: ${new Date().toISOString()}`,
+    ];
+    const nextNotes = [
+      String(task.notatki_wewnetrzne || '').trim(),
+      fieldLines.join('\n'),
+    ].filter(Boolean).join('\n\n').slice(0, 12000);
+
+    await pool.query(
+      `UPDATE tasks
+       SET opis = COALESCE($1, opis),
+           notatki_wewnetrzne = $2,
+           czas_planowany_godziny = COALESCE($3, czas_planowany_godziny),
+           wartosc_planowana = COALESCE($4, wartosc_planowana),
+           status = $5,
+           updated_at = NOW()
+       WHERE id = $6`,
+      [zakres, nextNotes, hours, value, nextStatus, req.params.id]
+    );
+
+    res.json({ message: 'Pakiet terenowy zapisany', status: nextStatus });
+  } catch (err) {
+    logger.error('Blad zapisu pakietu terenowego', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskOfficePlanSchema), requireTaskAccess, async (req, res) => {
+  try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    const taskId = Number(req.params.id);
+    const { data_planowana, godzina_rozpoczecia, czas_planowany_godziny, ekipa_id, sprzet_notatka } = req.body;
+    const taskR = await pool.query(
+      'SELECT id, status, oddzial_id, notatki_wewnetrzne FROM tasks WHERE id = $1',
+      [taskId]
+    );
+    if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    const task = taskR.rows[0];
+    if (task.status === 'Zakonczone' || task.status === 'Anulowane') {
+      return res.status(400).json({ error: 'Nie można planować zakończonego lub anulowanego zlecenia.' });
+    }
+
+    const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
+    const hours = toNum(czas_planowany_godziny) ?? 2;
+    const teamId = toNum(ekipa_id);
+    if (!teamId) return res.status(400).json({ error: 'Wybierz ekipę.' });
+
+    if (task.oddzial_id) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, teamId, task.oddzial_id, plannedDateTime);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
+    const planDay = String(plannedDateTime).slice(0, 10);
+    const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
+    const d = new Date(plannedDateTime);
+    const startMin = d.getHours() * 60 + d.getMinutes();
+    const durMin = Math.max(15, Math.round(Number(hours || 2) * 60));
+    if (planRangeConflicts(busyRanges, startMin, durMin)) {
+      return res.status(409).json({
+        error: 'Konflikt terminu: ekipa ma już zaplanowane zlecenie lub aktywną rezerwację w tym przedziale.',
+        code: 'TASK_PLAN_CONFLICT',
+      });
+    }
+
+    const note = String(sprzet_notatka || '').trim();
+    const planLines = [
+      'PLAN BIURA',
+      `Termin: ${plannedDateTime}`,
+      `Czas: ${hours} h`,
+      `Ekipa: #${teamId}`,
+      note ? `Sprzet / uwagi: ${note}` : '',
+      `Zaplanowal: ${req.user.login || req.user.id}`,
+      `Data planowania: ${new Date().toISOString()}`,
+    ].filter(Boolean);
+    const nextNotes = [String(task.notatki_wewnetrzne || '').trim(), planLines.join('\n')]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 12000);
+
+    await pool.query(
+      `UPDATE tasks
+       SET data_planowana = $1::timestamptz,
+           czas_planowany_godziny = $2,
+           ekipa_id = $3,
+           status = 'Zaplanowane',
+           notatki_wewnetrzne = $4,
+           updated_at = NOW()
+       WHERE id = $5`,
+      [plannedDateTime, hours, teamId, nextNotes, taskId]
+    );
+    res.json({
+      message: 'Zlecenie zaplanowane',
+      id: taskId,
+      status: 'Zaplanowane',
+      data_planowana: plannedDateTime,
+      czas_planowany_godziny: hours,
+      ekipa_id: teamId,
+    });
+  } catch (err) {
+    logger.error('Blad planowania zlecenia przez biuro', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
 router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskAssignSchema), requireTaskAccess, async (req, res) => {
   try {
     if (!canManageTaskBackoffice(req.user)) {
@@ -1426,8 +1624,19 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
     }
     const { status } = req.body;
     const prevR = await client.query('SELECT status, oddzial_id FROM tasks WHERE id = $1', [taskId]);
+    if (!prevR.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    }
     const prevStatus = prevR.rows[0]?.status;
     const taskOddzialId = prevR.rows[0]?.oddzial_id;
+    if (!canTaskStatusTransition(prevStatus, status, { allowCancel: true })) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: `Niedozwolona zmiana statusu: ${prevStatus || 'brak'} -> ${status || 'brak'}`,
+        code: 'TASK_STATUS_TRANSITION_BLOCKED',
+      });
+    }
     await client.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, taskId]);
     await client.query('COMMIT');
     await req.auditLog({

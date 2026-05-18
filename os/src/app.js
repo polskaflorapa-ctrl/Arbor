@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('./config/database');
 const { env } = require('./config/env');
+const { getUploadsRoot } = require('./config/uploadPaths');
 const { API_VERSION, API_FEATURES } = require('./config/version');
 
 const { requestContext } = require('./middleware/request-context');
@@ -57,7 +58,7 @@ const hrRoutes = require('./routes/hr');
 
 const createApp = () => {
   const app = express();
-  const uploadsDir = path.join(__dirname, 'uploads');
+  const uploadsDir = getUploadsRoot();
   const allowedOrigins = env.CORS_ORIGINS
     ? env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
     : ['*'];

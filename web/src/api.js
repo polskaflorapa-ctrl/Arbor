@@ -4,6 +4,7 @@
  * i przekierowuje do loginu gdy token wygaśnie (401)
  */
 import axios from 'axios';
+import { getReactApiBase } from './utils/apiBase';
 import { getStoredToken } from './utils/storedToken';
 import {
   getMockData,
@@ -16,20 +17,8 @@ import {
   getMockQuotationDetail,
 } from './utils/testMode';
 
-/** Normalizacja: pełny host z Rendera bez `/api` → dopinamy `/api` (trasy OS są pod /api/…). */
-function normalizeReactApiBase(raw) {
-  let t = String(raw || '').trim();
-  if (!t) return '';
-  t = t.replace(/\/+$/, '');
-  if (t === '/api') return '/api';
-  if (/\/api$/i.test(t)) return t;
-  if (t.startsWith('http://') || t.startsWith('https://')) return `${t}/api`;
-  return t;
-}
-
-const RAW_API_URL = normalizeReactApiBase(process.env.REACT_APP_API_URL);
 /** CRA dev: REACT_APP_API_URL=/api + `src/setupProxy.js` (ARBOR_API_PROXY_TARGET) — omija CORS. */
-const API_URL = RAW_API_URL || '/api';
+const API_URL = getReactApiBase();
 let isRedirectingToLogin = false;
 const API_URL_WITHOUT_API_SUFFIX = API_URL.replace(/\/api\/?$/, '');
 const HAS_VALID_API_FALLBACK_BASE =

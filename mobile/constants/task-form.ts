@@ -10,6 +10,64 @@ export const TASK_SERVICE_TYPES = [
 
 export const TASK_PRIORITIES = ['Niski', 'Normalny', 'Wysoki', 'Pilny'] as const;
 
+export const TASK_SCOPE_PRESETS = [
+  {
+    key: 'crown_pruning',
+    label: 'Przycinka korony',
+    serviceType: 'Pielęgnacja',
+    scopeLine: 'Przycinka korony zgodnie ze szkicem, z zabezpieczeniem ogrodzenia i rabat.',
+  },
+  {
+    key: 'removal',
+    label: 'Wycinka drzewa',
+    serviceType: 'Wycinka',
+    scopeLine: 'Wycinka drzewa sekcyjnie, kontrolowany zrzut materiału i uporządkowanie terenu.',
+  },
+  {
+    key: 'stump',
+    label: 'Pniak / frezowanie',
+    serviceType: 'Frezowanie pniaków',
+    scopeLine: 'Usunięcie albo frezowanie pniaka, zasypanie urobku i oczyszczenie miejsca pracy.',
+  },
+  {
+    key: 'hedge',
+    label: 'Żywopłot / ogród',
+    serviceType: 'Ogrodnictwo',
+    scopeLine: 'Formowanie żywopłotu i prace ogrodnicze według ustalonej linii cięcia.',
+  },
+  {
+    key: 'cleanup',
+    label: 'Porządki / wywóz',
+    serviceType: 'Inne',
+    scopeLine: 'Zebranie gałęzi, wywóz odpadów zielonych i pozostawienie czystego terenu.',
+  },
+] as const;
+
+export const TASK_EQUIPMENT_OPTIONS = [
+  { key: 'rebak', label: 'Rębak', field: 'rebak' },
+  { key: 'pila_wysiegniku', label: 'Piła na wysięgniku', field: 'pila_wysiegniku' },
+  { key: 'nozyce_dlugie', label: 'Nożyce długie', field: 'nozyce_dlugie' },
+  { key: 'kosiarka', label: 'Kosiarka', field: 'kosiarka' },
+  { key: 'podkaszarka', label: 'Podkaszarka', field: 'podkaszarka' },
+  { key: 'lopata', label: 'Łopata', field: 'lopata' },
+  { key: 'mulczer', label: 'Mulczer', field: 'mulczer' },
+] as const;
+
+export const TASK_RISK_PRESETS = [
+  { key: 'power', label: 'Linie / przewody', note: 'Ryzyko BHP: linie, przewody albo instalacje w strefie pracy.' },
+  { key: 'access', label: 'Wąski dojazd', note: 'Ryzyko logistyczne: wąski dojazd, ograniczone miejsce dla auta albo rębaka.' },
+  { key: 'property', label: 'Ogrodzenie / dach', note: 'Ryzyko szkody: ogrodzenie, dach, elewacja albo rabaty blisko zakresu.' },
+  { key: 'client', label: 'Klient na miejscu', note: 'Uzgodnić z klientem strefę bezpieczną i przestawienie aut przed startem.' },
+  { key: 'permit', label: 'Zgoda / decyzja', note: 'Sprawdzić zgodę albo decyzję administracyjną przed wykonaniem pracy.' },
+] as const;
+
+export const TASK_SETTLEMENT_OPTIONS = [
+  { key: 'fixed', label: 'Cena za zakres', note: 'Warunki rozliczenia: cena ryczałtowa za zaakceptowany zakres.' },
+  { key: 'hourly', label: 'Godzinowo', note: 'Warunki rozliczenia: rozliczenie godzinowe według realnego czasu pracy.' },
+  { key: 'mixed', label: 'Zakres + dopłaty', note: 'Warunki rozliczenia: cena za zakres podstawowy, dopłaty po akceptacji klienta.' },
+  { key: 'office', label: 'Do weryfikacji biura', note: 'Warunki rozliczenia: biuro potwierdza finalną cenę przed planowaniem.' },
+] as const;
+
 export type TaskServiceType = typeof TASK_SERVICE_TYPES[number];
 export type TaskPriority = typeof TASK_PRIORITIES[number];
 
@@ -76,6 +134,17 @@ export function createTaskFormDefaults(overrides: Partial<TaskFormState> = {}) {
   return { ...TASK_FORM_DEFAULTS, ...overrides };
 }
 
+export function appendUniqueLine(value: unknown, line: unknown) {
+  const nextLine = String(line || '').trim();
+  if (!nextLine) return String(value || '').trim();
+  const lines = String(value || '')
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (lines.some((item) => item.toLowerCase() === nextLine.toLowerCase())) return lines.join('\n');
+  return [...lines, nextLine].join('\n');
+}
+
 function trimOrNull(value: unknown) {
   const text = String(value || '').trim();
   return text || null;
@@ -123,8 +192,8 @@ export function buildTaskCreatePayload(
     data_planowana: form.data_planowana,
     godzina_rozpoczecia: form.godzina_rozpoczecia || null,
     opis_pracy: trimOrNull(form.opis_pracy),
-    opis: trimOrNull(form.opis),
-    notatki_wewnetrzne: trimOrNull(form.notatki_wewnetrzne),
+    opis: trimOrNull(form.opis) || trimOrNull(form.opis_pracy),
+    notatki_wewnetrzne: trimOrNull(form.notatki_wewnetrzne) || trimOrNull(form.notatki),
     notatki: trimOrNull(form.notatki),
     oddzial_id: form.oddzial_id || user?.oddzial_id || null,
     ekipa_id: intOrNull(form.ekipa_id),

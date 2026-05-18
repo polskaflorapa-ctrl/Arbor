@@ -4,11 +4,12 @@
  * Parity z mobile: test-mode.tsx + api-diagnostyka.tsx
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getReactApiBase } from '../utils/apiBase';
 import { isTestModeEnabled, toggleTestMode, TEST_USERS } from '../utils/testMode';
 import { getStoredToken } from '../utils/storedToken';
 import './DevPanel.css';
 
-const API_BASE = (process.env.REACT_APP_API_URL || '/api').replace(/\/$/, '');
+const API_BASE = getReactApiBase();
 const AUTO_REFRESH_MS = 30000;
 const DIAG_HISTORY_KEY = 'api_diagnostic_history_v1';
 const DIAG_HISTORY_MAX = 5;

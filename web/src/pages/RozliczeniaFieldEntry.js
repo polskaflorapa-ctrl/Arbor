@@ -11,7 +11,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
-import StatusMessage from '../components/StatusMessage';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 

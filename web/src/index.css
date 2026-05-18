@@ -738,6 +738,14 @@ body.theme-light .clients-main [style*='background: var(--bg-card)'] {
   border-radius: 6px;
 }
 
+.arbor-sidebar .arbor-subnav-summary::-webkit-details-marker {
+  display: none;
+}
+
+.arbor-sidebar .arbor-subnav-summary::marker {
+  content: '';
+}
+
 .arbor-sidebar button,
 .arbor-sidebar [role='button'] {
   filter: none !important;

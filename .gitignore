@@ -19,6 +19,7 @@ web/node_modules/.cache/
 mobile/.expo/
 mobile/dist/
 os/coverage/
+os/coverage_output.txt
 blobs/
 manifests/
 

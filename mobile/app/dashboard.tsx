@@ -296,7 +296,7 @@ export default function DashboardScreen() {
   const doneCount = countStatus(TASK_STATUS.ZAKONCZONE, ['zakonczone', 'done']);
   const workflowSteps: WorkflowStep[] = [
     { key: 'telefon', title: 'Telefon', subtitle: 'przyjecie', value: intakeCount, icon: 'call-outline', color: ARBOR_UI.leaf, path: '/nowe-zlecenie' },
-    { key: 'teren', title: 'Teren', subtitle: 'ogledziny', value: quoteCount, icon: 'camera-outline', color: theme.info, path: '/plan-ogledzin' },
+    { key: 'teren', title: 'Teren', subtitle: 'ogledziny', value: quoteCount, icon: 'camera-outline', color: theme.info, path: '/zlecenia' },
     { key: 'biuro', title: 'Biuro', subtitle: 'opracowanie', value: officeCount, icon: 'file-tray-full-outline', color: ARBOR_UI.warning, path: '/wyceny-do-biura' },
     { key: 'ekipa', title: 'Ekipa', subtitle: 'plan i praca', value: plannedCount + inProgressCount, icon: 'people-circle-outline', color: ARBOR_UI.forest, path: '/harmonogram' },
     { key: 'zamkniecie', title: 'Koniec', subtitle: 'raporty', value: doneCount, icon: 'checkmark-done-outline', color: ARBOR_UI.moss, path: '/raporty-mobilne' },
@@ -305,7 +305,7 @@ export default function DashboardScreen() {
   const workflowTotal = workflowSteps.reduce((sum, step) => sum + (step.key === 'ekipa' ? 0 : step.value), 0) + plannedCount + inProgressCount;
   const workflowDoneLabel = `${doneCount}/${Math.max(totalCount, workflowTotal, doneCount)}`;
   const roleBrief = isWyceniajacy
-    ? { title: 'Tryb wyceniajacego', text: 'Plan wizyt, zdjecia, szkic i formularz u klienta.', action: 'Otworz plan', icon: 'map-outline' as IoniconName, path: '/plan-ogledzin' }
+    ? { title: 'Tryb wyceniajacego', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
     : isSpecjalista
       ? { title: 'Tryb biura', text: 'Dopnij pakiety z terenu, telefon do klienta i gotowy termin dla ekipy.', action: 'Do opracowania', icon: 'file-tray-full-outline' as IoniconName, path: '/wyceny-do-biura' }
       : isBrygadzista

@@ -18,6 +18,16 @@ const TASK_STATUSES = [
   TASK_STATUS.ANULOWANE,
 ];
 
+const TASK_FORWARD_TRANSITIONS = Object.freeze({
+  [TASK_STATUS.NOWE]: [TASK_STATUS.WYCENA_TERENOWA],
+  [TASK_STATUS.WYCENA_TERENOWA]: [TASK_STATUS.DO_ZATWIERDZENIA],
+  [TASK_STATUS.DO_ZATWIERDZENIA]: [TASK_STATUS.ZAPLANOWANE],
+  [TASK_STATUS.ZAPLANOWANE]: [TASK_STATUS.W_REALIZACJI],
+  [TASK_STATUS.W_REALIZACJI]: [TASK_STATUS.ZAKONCZONE],
+  [TASK_STATUS.ZAKONCZONE]: [],
+  [TASK_STATUS.ANULOWANE]: [],
+});
+
 const TASK_STATUS_ALIASES = new Map([
   ['Zako\u0144czone', TASK_STATUS.ZAKONCZONE],
   ['W realizacji', TASK_STATUS.W_REALIZACJI],
@@ -45,6 +55,24 @@ function isTaskDone(status) {
 
 function isTaskInProgress(status) {
   return normalizeTaskStatus(status) === TASK_STATUS.W_REALIZACJI;
+}
+
+function getNextTaskStatuses(status, options = {}) {
+  const { includeCurrent = false, allowCancel = true } = options;
+  const normalized = normalizeTaskStatus(status) || TASK_STATUS.NOWE;
+  const next = [...(TASK_FORWARD_TRANSITIONS[normalized] || [])];
+  if (allowCancel && !CLOSED_TASK_STATUSES.has(normalized) && !next.includes(TASK_STATUS.ANULOWANE)) {
+    next.push(TASK_STATUS.ANULOWANE);
+  }
+  return includeCurrent ? [normalized, ...next] : next;
+}
+
+function canTransitionTaskStatus(fromStatus, toStatus, options = {}) {
+  const from = normalizeTaskStatus(fromStatus) || TASK_STATUS.NOWE;
+  const to = normalizeTaskStatus(toStatus);
+  if (!to) return false;
+  if (from === to) return true;
+  return getNextTaskStatuses(from, options).includes(to);
 }
 
 function taskStageLabel(status) {
@@ -77,5 +105,7 @@ module.exports = {
   isTaskClosed,
   isTaskDone,
   isTaskInProgress,
+  getNextTaskStatuses,
+  canTransitionTaskStatus,
   taskStageLabel,
 };

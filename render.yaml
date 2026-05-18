@@ -1,17 +1,14 @@
-# Render Blueprint — cały stack z monorepo (Postgres + arbor-os + arbo-web)
-# Panel: New → Blueprint → wybierz repo i branch (np. main/master).
+# Render Blueprint - ARBOR free-first stack.
+# Create in Render as: New -> Blueprint -> this GitHub repo -> branch master.
 #
-# Po pierwszym deployu:
-# - Front dostaje REACT_APP_API_URL z URL usługi arbor-os (w buildzie).
-# - OS: PUBLIC_BASE_URL ustawiane automatycznie z RENDER_EXTERNAL_URL (patrz os/src/config/env.js).
-# - Postgres: plan poniżej jest płatny na Render — możesz podmienić na własną bazę (DATABASE_URL z panelu).
-# - Opcjonalnie: CORS_ORIGINS = https://<twoja-usługa-web>.onrender.com (bez wildcardu, jeśli chcesz credentials).
-
-databases:
-  - name: arbor-postgres
-    region: frankfurt
-    databaseName: arbor_db
-    plan: basic-256mb
+# Free setup:
+# - arbor-os: Render Free web service
+# - arbor-web: Render Static site
+# - DATABASE_URL: set manually from Neon Free Postgres
+#
+# Important limitation: Render Free has an ephemeral filesystem. Uploaded photos,
+# sketches, PDFs and recordings can disappear after restart/redeploy. For real
+# company usage move uploads to S3/R2/Supabase Storage or upgrade API hosting.
 
 services:
   - type: web
@@ -21,31 +18,45 @@ services:
     plan: free
     rootDir: os
     buildCommand: npm ci
+    preDeployCommand: npm run db:migrate
     startCommand: npm start
     healthCheckPath: /api/ready
+    autoDeployTrigger: commit
+    maxShutdownDelaySeconds: 60
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DB_NAME
-        value: arbor_db
       - key: DATABASE_URL
-        fromDatabase:
-          name: arbor-postgres
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: TRUST_PROXY
+        value: "1"
+      - key: UPLOADS_DIR
+        value: /tmp/arbor-uploads
+      - key: PHONE_RECORDING_STORAGE
+        value: local
+      - key: PHONE_RECORDINGS_DIR
+        value: /tmp/arbor-phone-recordings
+      - key: METRICS_ENABLED
+        value: "false"
+      - key: CORS_ORIGINS
+        sync: false
 
   - type: web
-    name: arbo-web
+    name: arbor-web
     runtime: static
-    region: frankfurt
-    plan: free
     rootDir: web
     buildCommand: npm ci && npm run build
     staticPublishPath: ./build
+    autoDeployTrigger: commit
     envVars:
       - key: REACT_APP_API_URL
         fromService:
           name: arbor-os
           type: web
           envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

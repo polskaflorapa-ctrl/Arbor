@@ -5,6 +5,7 @@ const PDFDocument = require('pdfkit');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
+const { uploadsPath } = require('../config/uploadPaths');
 const { getTwilioSmsStatusCallbackUrl } = require('./twilioStatusCallback');
 
 function getSmsClient() {
@@ -63,7 +64,7 @@ async function loadQuotationPdfPayload(quotationId) {
 async function generateQuotationPdfToDisk(quotationId) {
   const { q, items } = await loadQuotationPdfPayload(quotationId);
 
-  const dir = path.join(process.cwd(), 'uploads', 'quotations');
+  const dir = uploadsPath('quotations');
   fs.mkdirSync(dir, { recursive: true });
   const filename = `wycena_${quotationId}.pdf`;
   const abs = path.join(dir, filename);

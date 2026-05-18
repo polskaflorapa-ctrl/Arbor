@@ -1,15 +1,17 @@
-# UWAGA: preferowany blueprint jest w KORZENIU repozytorium — `/render.yaml` (API + front + baza w jednym).
-# Ten plik: deploy samego statycznego frontu z katalogu `web/`. REACT_APP_API_URL musisz wtedy ustawić ręcznie w panelu.
-#
-# Dokumentacja: https://render.com/docs/blueprint-spec
+# Standalone web deploy.
+# Preferred production deploy is the root /render.yaml blueprint.
 
 services:
   - type: web
-    name: arbo-web
+    name: arbor-web
     runtime: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./build
+    autoDeployTrigger: commit
     envVars:
-      # Ustaw w Render Dashboard → Environment (wartość nie jest w repo)
       - key: REACT_APP_API_URL
         sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

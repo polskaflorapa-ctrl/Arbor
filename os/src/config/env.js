@@ -11,6 +11,7 @@ const envSchema = z.object({
   DB_NAME: z.string().optional(),
   DB_USER: z.string().optional(),
   DB_PASSWORD: z.string().optional(),
+  UPLOADS_DIR: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE: z.string().optional(),

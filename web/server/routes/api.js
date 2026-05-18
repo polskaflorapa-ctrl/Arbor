@@ -12,6 +12,7 @@ const {
   isTaskInProgress,
   isValidTaskStatus,
   normalizeTaskStatus,
+  canTransitionTaskStatus,
   taskStageLabel: workflowTaskStageLabel,
 } = require('../lib/taskWorkflow');
 
@@ -111,6 +112,45 @@ function dateYmd(value) {
 
 function resourceDate(value) {
   return dateYmd(value) || new Date().toISOString().slice(0, 10);
+}
+
+function buildLocalPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
+  const rawDate = String(dataPlanowana || '').trim();
+  if (!rawDate) return rawDate;
+  const rawHour = String(godzinaRozpoczecia || '').trim().slice(0, 5);
+  if (!rawHour) return rawDate;
+  const datePart = rawDate.includes('T') ? rawDate.slice(0, 10) : rawDate.split(' ')[0];
+  const hourMatch = rawHour.match(/^(\d{1,2}):(\d{2})$/);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || !hourMatch) return rawDate;
+  const hh = String(Math.min(23, Number(hourMatch[1]))).padStart(2, '0');
+  const mm = String(Math.min(59, Number(hourMatch[2]))).padStart(2, '0');
+  return `${datePart}T${hh}:${mm}:00`;
+}
+
+function localPlanMinutes(value, fallbackTime = '08:00') {
+  const raw = String(value || '').trim();
+  const time = raw.includes('T') ? raw.split('T')[1]?.slice(0, 5) : String(fallbackTime || '08:00').slice(0, 5);
+  const match = String(time || '08:00').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return 8 * 60;
+  return Math.min(23, Number(match[1])) * 60 + Math.min(59, Number(match[2]));
+}
+
+function localTaskBusyRanges(state, teamId, day, ignoreTaskId = null) {
+  return (state.zlecenia || [])
+    .filter((task) => Number(task.ekipa_id) === Number(teamId))
+    .filter((task) => Number(task.id) !== Number(ignoreTaskId))
+    .filter((task) => !isTaskClosed(task.status))
+    .filter((task) => resourceDate(task.data_planowana) === day)
+    .map((task) => {
+      const start = localPlanMinutes(task.data_planowana, task.godzina_rozpoczecia);
+      const duration = Math.max(15, Math.round(Number(task.czas_planowany_godziny || 2) * 60));
+      return { start, end: start + duration, taskId: task.id };
+    });
+}
+
+function localPlanConflicts(ranges, start, duration) {
+  const end = start + duration;
+  return ranges.some((range) => start < range.end && end > range.start);
 }
 
 const CLOSED_DELEGATION_STATUSES = new Set(['Anulowana', 'Zakonczona', 'Zakończona']);
@@ -254,7 +294,11 @@ function enrichQuotation(state, z) {
 }
 
 function canSeeAllZlecenia(user) {
-  return ['Prezes', 'Dyrektor'].includes(user?.rola);
+  return ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
+}
+
+function isEstimatorUser(user) {
+  return user?.rola === 'Wyceniający' || user?.rola === 'Wyceniajacy';
 }
 
 function isSalesDirector(user) {
@@ -298,6 +342,9 @@ function visibleZlecenia(state, user) {
   if (['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia'].includes(user.rola) && user.ekipa_id) {
     return rows.filter((z) => String(z.ekipa_id) === String(user.ekipa_id));
   }
+  if (isEstimatorUser(user)) {
+    return rows.filter((z) => String(z.wyceniajacy_id || '') === String(user.id || ''));
+  }
   if (user.oddzial_id != null) return rows.filter((z) => String(z.oddzial_id) === String(user.oddzial_id));
   return [];
 }
@@ -319,6 +366,33 @@ function taskPhotos(state, taskId) {
   const key = String(taskId);
   if (!Array.isArray(state.taskZdjecia[key])) state.taskZdjecia[key] = [];
   return state.taskZdjecia[key];
+}
+
+function ensureTaskProblemStore(state) {
+  if (!state.taskProblemy || typeof state.taskProblemy !== 'object') state.taskProblemy = {};
+  if (!state.nextTaskProblemId) state.nextTaskProblemId = 1;
+}
+
+function taskProblems(state, taskId) {
+  ensureTaskProblemStore(state);
+  const key = String(taskId);
+  if (!Array.isArray(state.taskProblemy[key])) state.taskProblemy[key] = [];
+  return state.taskProblemy[key];
+}
+
+function normalizeTaskProblemType(value) {
+  const allowed = new Set(['zakres', 'dojazd', 'sprzet', 'bhp', 'klient', 'inne']);
+  const raw = String(value || '').trim().toLowerCase();
+  return allowed.has(raw) ? raw : 'inne';
+}
+
+function buildTaskProblemRow(state, problem) {
+  return {
+    ...problem,
+    zglaszajacy: userName(state, problem.user_id),
+    created_at: problem.created_at || problem.data_zgloszenia,
+    data_zgloszenia: problem.data_zgloszenia || problem.created_at,
+  };
 }
 
 function normalizePhotoTags(raw) {
@@ -1459,7 +1533,8 @@ router.post('/tasks/nowe', requireAuth, (req, res) => {
       czas_planowany_godziny: toNum(b.czas_planowany_godziny),
       wartosc_planowana: toNum(b.wartosc_planowana),
       notatki_wewnetrzne: b.notatki_wewnetrzne || null,
-      opis: b.opis || null,
+      opis_pracy: b.opis_pracy || null,
+      opis: b.opis || b.opis_pracy || null,
       created_by: req.user.id,
       kierownik_id: req.user.id,
       wyceniajacy_id: toNum(b.wyceniajacy_id) || (b.ankieta_uproszczona ? req.user.id : null),
@@ -1766,6 +1841,107 @@ router.delete('/tasks/:id(\\d+)/zdjecia/:photoId(\\d+)', requireAuth, (req, res)
   res.json({ ok: true });
 });
 
+router.get('/tasks/:id(\\d+)/problemy', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  const rows = readOnly((state) => {
+    if (!canUserViewZlecenie(state, req.user, id)) return null;
+    return taskProblems(state, id)
+      .map((problem) => buildTaskProblemRow(state, problem))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  });
+  if (!rows) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.json(rows);
+});
+
+function createLocalTaskProblem(req, res) {
+  const id = toNum(req.params.id);
+  const opis = String(req.body?.opis || '').trim();
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  if (!opis) return res.status(400).json({ error: 'Opis problemu jest wymagany' });
+  const row = withStore((state) => {
+    if (!canUserViewZlecenie(state, req.user, id)) return null;
+    const task = (state.zlecenia || []).find((z) => Number(z.id) === Number(id));
+    if (!task) return null;
+    ensureTaskProblemStore(state);
+    const problem = {
+      id: state.nextTaskProblemId++,
+      task_id: id,
+      user_id: req.user.id,
+      typ: normalizeTaskProblemType(req.body?.typ),
+      opis: opis.slice(0, 3000),
+      status: 'Zgloszony',
+      data_zgloszenia: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    taskProblems(state, id).push(problem);
+    task.updated_at = new Date().toISOString();
+    return buildTaskProblemRow(state, problem);
+  });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.status(201).json(row);
+}
+
+router.post('/tasks/:id(\\d+)/problemy', requireAuth, createLocalTaskProblem);
+router.post('/tasks/:id(\\d+)/problem', requireAuth, createLocalTaskProblem);
+
+router.post('/tasks/:id(\\d+)/logi', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  const row = withStore((state) => {
+    if (!canUserViewZlecenie(state, req.user, id)) return null;
+    if (!state.taskLogi || typeof state.taskLogi !== 'object') state.taskLogi = {};
+    if (!state.nextTaskLogId) state.nextTaskLogId = 1;
+    const key = String(id);
+    if (!Array.isArray(state.taskLogi[key])) state.taskLogi[key] = [];
+    const log = {
+      id: state.nextTaskLogId++,
+      task_id: id,
+      user_id: req.user.id,
+      tresc: String(req.body?.tresc || '').trim().slice(0, 3000),
+      status: String(req.body?.status || '').trim().slice(0, 80) || null,
+      created_at: new Date().toISOString(),
+    };
+    state.taskLogi[key].push(log);
+    return log;
+  });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.status(201).json(row);
+});
+
+router.put('/tasks/:id(\\d+)/status', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  const nextStatus = normalizeTaskStatus(req.body?.status);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  if (!isValidTaskStatus(nextStatus)) return res.status(400).json({ error: 'Nieprawidlowy status' });
+  const row = withStore((state) => {
+    if (!canUserViewZlecenie(state, req.user, id)) return null;
+    const task = (state.zlecenia || []).find((z) => Number(z.id) === Number(id));
+    if (!task) return null;
+    const crewCanUpdate = req.user?.ekipa_id && String(req.user.ekipa_id) === String(task.ekipa_id);
+    if (!canManageTaskRows(req.user) && !crewCanUpdate) return { _forbidden: true };
+    if (isTaskClosed(task.status) && !canManageTaskRows(req.user)) return { _closed: true };
+    if (!canTransitionTaskStatus(task.status, nextStatus, { allowCancel: canManageTaskRows(req.user) })) {
+      return { _badTransition: { from: task.status, to: nextStatus } };
+    }
+    task.status = nextStatus;
+    if (nextStatus === TASK_STATUS.W_REALIZACJI && !task.started_at) task.started_at = new Date().toISOString();
+    if (nextStatus === TASK_STATUS.ZAKONCZONE) task.data_zakonczenia = task.data_zakonczenia || new Date().toISOString();
+    task.updated_at = new Date().toISOString();
+    return buildTaskRow(state, task);
+  });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do zmiany statusu' });
+  if (row?._closed) return res.status(400).json({ error: 'Zlecenie jest juz zamkniete' });
+  if (row?._badTransition) {
+    return res.status(409).json({
+      error: `Niedozwolona zmiana statusu: ${row._badTransition.from || 'brak'} -> ${row._badTransition.to || 'brak'}`,
+      code: 'TASK_STATUS_TRANSITION_BLOCKED',
+    });
+  }
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.json(row);
+});
+
 router.get('/tasks/:id(\\d+)', requireAuth, (req, res) => {
   const id = toNum(req.params.id);
   if (!id) return res.status(400).json({ error: 'Nieprawidłowe id' });
@@ -1787,6 +1963,9 @@ router.put('/tasks/:id(\\d+)', requireAuth, (req, res) => {
     if (!canUserViewZlecenie(state, req.user, id)) return null;
     const z = state.zlecenia.find((x) => x.id === id);
     if (!z) return null;
+    if (b.status !== undefined && !canTransitionTaskStatus(z.status, normalizeTaskStatus(b.status), { allowCancel: canManageTaskRows(req.user) })) {
+      return { _badTransition: { from: z.status, to: normalizeTaskStatus(b.status) } };
+    }
     const targetBranchId = b.oddzial_id !== undefined ? toNum(b.oddzial_id) : z.oddzial_id;
     const targetTeamId = b.ekipa_id !== undefined ? toNum(b.ekipa_id) : z.ekipa_id;
     const day = resourceDate(b.data_wykonania || b.data_planowana || z.data_wykonania || z.data_planowana);
@@ -1814,7 +1993,121 @@ router.put('/tasks/:id(\\d+)', requireAuth, (req, res) => {
     return enrichWycena(state, z);
   });
   if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (row?._badTransition) {
+    return res.status(409).json({
+      error: `Niedozwolona zmiana statusu: ${row._badTransition.from || 'brak'} -> ${row._badTransition.to || 'brak'}`,
+      code: 'TASK_STATUS_TRANSITION_BLOCKED',
+    });
+  }
   if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostępu' });
+  res.json(row);
+});
+
+router.put('/tasks/:id(\\d+)/field-package', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  const b = req.body || {};
+  if (!id) return res.status(400).json({ error: 'Nieprawidłowe id' });
+  const row = withStore((state) => {
+    const z = state.zlecenia.find((x) => Number(x.id) === Number(id));
+    if (!z || !canUserViewZlecenie(state, req.user, id)) return null;
+    const assignedEstimator = isEstimatorUser(req.user) && String(z.wyceniajacy_id || '') === String(req.user.id || '');
+    if (!canManageTaskRows(req.user) && !assignedEstimator) return { _forbidden: true };
+
+    const zakres = String(b.zakres_prac || b.opis || '').trim();
+    const ryzyka = String(b.ryzyka || '').trim();
+    const typyPrac = Array.isArray(b.typy_prac) ? b.typy_prac.filter(Boolean).join(', ') : '';
+    const sprzet = Array.isArray(b.sprzet) ? b.sprzet.filter(Boolean).join(', ') : '';
+    const warunkiRozliczenia = String(b.warunki_rozliczenia || '').trim();
+    const odpady = String(b.odpady || '').trim();
+    const hours = toNum(b.czas_planowany_godziny);
+    const value = toNum(b.wartosc_planowana);
+    const accepted = b.klient_zaakceptowal === true;
+    const actor = [req.user.imie, req.user.nazwisko].filter(Boolean).join(' ') || req.user.login || `#${req.user.id}`;
+    const fieldLines = [
+      'PRZEKAZANIE DO BIURA',
+      `Typy prac: ${typyPrac || '-'}`,
+      `Zakres prac: ${zakres || '-'}`,
+      `Czas pracy: ${hours != null ? `${hours} h` : '-'}`,
+      `Budzet klienta: ${value != null ? `${value} PLN` : '-'}`,
+      `Sprzet: ${sprzet || '-'}`,
+      `Warunki rozliczenia: ${warunkiRozliczenia || '-'}`,
+      `Odpady: ${odpady || '-'}`,
+      `Ryzyka: ${ryzyka || '-'}`,
+      `Klient zaakceptowal: ${accepted ? 'tak' : 'nie'}`,
+      `Wyceniacz: ${actor}`,
+      `Data przekazania: ${new Date().toISOString()}`,
+    ];
+    z.opis = zakres || z.opis || null;
+    z.notatki_wewnetrzne = [String(z.notatki_wewnetrzne || '').trim(), fieldLines.join('\n')]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 12000);
+    if (hours != null) z.czas_planowany_godziny = hours;
+    if (value != null) z.wartosc_planowana = value;
+    if (b.send_to_office === true && accepted) z.status = TASK_STATUS.DO_ZATWIERDZENIA;
+    z.updated_at = new Date().toISOString();
+    return buildTaskRow(state, z);
+  });
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do pakietu terenowego' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostępu' });
+  res.json(row);
+});
+
+router.put('/tasks/:id(\\d+)/office-plan', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  const b = req.body || {};
+  if (!canManageTaskRows(req.user)) return res.status(403).json({ error: 'Brak uprawnien do planowania zlecen' });
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  if (!String(b.data_planowana || '').trim()) return res.status(400).json({ error: 'Podaj termin' });
+  const teamId = toNum(b.ekipa_id);
+  if (!teamId) return res.status(400).json({ error: 'Wybierz ekipe' });
+
+  const row = withStore((state) => {
+    if (!canUserViewZlecenie(state, req.user, id)) return null;
+    const z = state.zlecenia.find((x) => Number(x.id) === Number(id));
+    if (!z) return null;
+    if (isTaskClosed(z.status)) return { _closed: true };
+
+    const plannedDateTime = buildLocalPlannedDateTime(b.data_planowana, b.godzina_rozpoczecia);
+    const hours = toNum(b.czas_planowany_godziny) ?? toNum(z.czas_planowany_godziny) ?? 2;
+    const day = resourceDate(plannedDateTime);
+    const branchError = teamBranchError(state, teamId, z.oddzial_id, day);
+    if (branchError) return { _branchError: branchError };
+    const busyRanges = localTaskBusyRanges(state, teamId, day, id);
+    const startMin = localPlanMinutes(plannedDateTime, b.godzina_rozpoczecia);
+    const durationMin = Math.max(15, Math.round(Number(hours || 2) * 60));
+    if (localPlanConflicts(busyRanges, startMin, durationMin)) {
+      return { _conflict: true };
+    }
+
+    const note = String(b.sprzet_notatka || '').trim();
+    const planLines = [
+      'PLAN BIURA',
+      `Termin: ${plannedDateTime}`,
+      `Czas: ${hours} h`,
+      `Ekipa: #${teamId}`,
+      note ? `Sprzet / uwagi: ${note}` : '',
+      `Zaplanowal: ${req.user.login || req.user.id}`,
+      `Data planowania: ${new Date().toISOString()}`,
+    ].filter(Boolean);
+
+    z.data_planowana = plannedDateTime;
+    z.godzina_rozpoczecia = String(b.godzina_rozpoczecia || '').slice(0, 5) || z.godzina_rozpoczecia || null;
+    z.czas_planowany_godziny = hours;
+    z.ekipa_id = teamId;
+    z.status = TASK_STATUS.ZAPLANOWANE;
+    z.notatki_wewnetrzne = [String(z.notatki_wewnetrzne || '').trim(), planLines.join('\n')]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 12000);
+    z.updated_at = new Date().toISOString();
+    return buildTaskRow(state, z);
+  });
+
+  if (row?._closed) return res.status(400).json({ error: 'Nie mozna planowac zakonczonego lub anulowanego zlecenia.' });
+  if (row?._branchError) return res.status(409).json({ error: row._branchError });
+  if (row?._conflict) return res.status(409).json({ error: 'Konflikt terminu: ekipa ma juz zaplanowane zlecenie w tym przedziale.', code: 'TASK_PLAN_CONFLICT' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
   res.json(row);
 });
 

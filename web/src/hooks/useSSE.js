@@ -15,9 +15,10 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
+import { getReactApiBase } from '../utils/apiBase';
 import { getStoredToken } from '../utils/storedToken';
 
-const BASE_URL = (process.env.REACT_APP_API_URL || '/api').replace(/\/+$/, '');
+const BASE_URL = getReactApiBase();
 const STREAM_URL = `${BASE_URL}/notifications/stream`;
 
 // Backoff: 1s, 2s, 4s, 8s, 16s, max 30s

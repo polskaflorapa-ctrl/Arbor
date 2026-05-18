@@ -34,7 +34,14 @@ import {
 import { subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
-import { TASK_STATUSES, isTaskDone, makeTaskStatusColorMap } from '../../constants/task-workflow';
+import { TASK_STATUS, TASK_STATUSES, getNextTaskStatuses, isTaskDone, makeTaskStatusColorMap } from '../../constants/task-workflow';
+import {
+  TASK_EQUIPMENT_OPTIONS,
+  TASK_RISK_PRESETS,
+  TASK_SCOPE_PRESETS,
+  TASK_SETTLEMENT_OPTIONS,
+  appendUniqueLine,
+} from '../../constants/task-form';
 import { triggerHaptic } from '../../utils/haptics';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -81,6 +88,7 @@ const SAFETY_CHECKLIST_ITEMS = [
     icon: 'chatbubble-ellipses-outline',
   },
 ] as const;
+const DEFAULT_FIELD_SETTLEMENT = TASK_SETTLEMENT_OPTIONS[0]?.note || '';
 type PhotoTypeKey = (typeof TYP_ZDJECIA_KEYS)[number];
 type PhotoFilterKey = 'all' | PhotoTypeKey;
 
@@ -244,6 +252,15 @@ export default function ZlecenieDetailScreen() {
   const [clientSignature, setClientSignature] = useState<any>(null);
   const [scopeConfirmed, setScopeConfirmed] = useState(false);
   const [safetyChecks, setSafetyChecks] = useState<Record<string, boolean>>({});
+  const [fieldScopeDraft, setFieldScopeDraft] = useState('');
+  const [fieldTimeDraft, setFieldTimeDraft] = useState('');
+  const [fieldBudgetDraft, setFieldBudgetDraft] = useState('');
+  const [fieldRiskDraft, setFieldRiskDraft] = useState('');
+  const [fieldScopePresetKeys, setFieldScopePresetKeys] = useState<string[]>([]);
+  const [fieldEquipmentKeys, setFieldEquipmentKeys] = useState<string[]>([]);
+  const [fieldSettlementDraft, setFieldSettlementDraft] = useState<string>(DEFAULT_FIELD_SETTLEMENT);
+  const [fieldClientAccepted, setFieldClientAccepted] = useState(false);
+  const [fieldPackageSaving, setFieldPackageSaving] = useState(false);
   const scopeConfirmKey = useMemo(() => `arbor-task-scope-confirmed:${id}`, [id]);
   const safetyChecklistKey = useMemo(() => `arbor-task-safety-checklist:${id}`, [id]);
 
@@ -337,6 +354,18 @@ export default function ZlecenieDetailScreen() {
   }, [loadAll]);
 
   useEffect(() => { void init(); }, [init]);
+
+  useEffect(() => {
+    if (!zlecenie?.id) return;
+    setFieldScopeDraft(String(zlecenie.opis || zlecenie.opis_pracy || '').trim());
+    setFieldTimeDraft(zlecenie.czas_planowany_godziny != null ? String(zlecenie.czas_planowany_godziny) : '');
+    setFieldBudgetDraft(zlecenie.wartosc_planowana != null ? String(zlecenie.wartosc_planowana) : '');
+    setFieldRiskDraft('');
+    setFieldScopePresetKeys([]);
+    setFieldEquipmentKeys([]);
+    setFieldSettlementDraft(DEFAULT_FIELD_SETTLEMENT);
+    setFieldClientAccepted(false);
+  }, [zlecenie?.id]);
 
   useEffect(() => {
     let alive = true;
@@ -438,6 +467,116 @@ export default function ZlecenieDetailScreen() {
         }
       }
     ]);
+  };
+
+  const toggleFieldScopePreset = (preset: (typeof TASK_SCOPE_PRESETS)[number]) => {
+    setFieldScopePresetKeys((prev) => (
+      prev.includes(preset.key) ? prev.filter((key) => key !== preset.key) : [...prev, preset.key]
+    ));
+    setFieldScopeDraft((prev) => appendUniqueLine(prev, preset.scopeLine));
+    void triggerHaptic('light');
+  };
+
+  const toggleFieldEquipment = (preset: (typeof TASK_EQUIPMENT_OPTIONS)[number]) => {
+    setFieldEquipmentKeys((prev) => (
+      prev.includes(preset.key) ? prev.filter((key) => key !== preset.key) : [...prev, preset.key]
+    ));
+    void triggerHaptic('light');
+  };
+
+  const appendFieldRiskPreset = (preset: (typeof TASK_RISK_PRESETS)[number]) => {
+    setFieldRiskDraft((prev) => appendUniqueLine(prev, preset.note));
+    void triggerHaptic('light');
+  };
+
+  const saveFieldPackage = async (sendToOffice = false) => {
+    const scope = fieldScopeDraft.trim();
+    if (!scope) {
+      void triggerHaptic('warning');
+      Alert.alert('Zakres prac', 'Wpisz krótki, konkretny zakres prac dla biura i ekipy.');
+      return;
+    }
+    if (sendToOffice) {
+      const missing: string[] = [];
+      if (!fieldDraftPhotosReady) {
+        missing.push(...fieldDraftPhotoChecklist.filter((row) => !row.done).map((row) => row.label));
+      }
+      if (!fieldTimeDraft.trim()) missing.push('czas pracy');
+      if (!fieldBudgetDraft.trim()) missing.push('budżet');
+      if (!fieldSettlementDraft.trim()) missing.push('warunki rozliczenia');
+      if (!fieldClientAccepted) missing.push('akceptacja klienta');
+      if (missing.length) {
+        void triggerHaptic('warning');
+        Alert.alert('Jeszcze nie do biura', `Uzupełnij: ${missing.join(', ')}.`);
+        return;
+      }
+    }
+
+    const selectedScopePresets = TASK_SCOPE_PRESETS
+      .filter((preset) => fieldScopePresetKeys.includes(preset.key))
+      .map((preset) => preset.label);
+    const selectedEquipment = TASK_EQUIPMENT_OPTIONS
+      .filter((preset) => fieldEquipmentKeys.includes(preset.key))
+      .map((preset) => preset.label);
+    const body = {
+      opis: scope,
+      zakres_prac: scope,
+      czas_planowany_godziny: fieldTimeDraft.trim() || null,
+      wartosc_planowana: fieldBudgetDraft.trim() || null,
+      ryzyka: fieldRiskDraft.trim() || null,
+      typy_prac: selectedScopePresets,
+      sprzet: selectedEquipment,
+      warunki_rozliczenia: fieldSettlementDraft.trim() || null,
+      klient_zaakceptowal: fieldClientAccepted,
+      send_to_office: sendToOffice,
+    };
+    const idempotencyKey = createOfflineRequestId(`task-${id}-field-package`);
+    setFieldPackageSaving(true);
+    try {
+      if (!token) { router.replace('/login'); return; }
+      const res = await fetch(`${API_URL}/tasks/${id}/field-package`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        void triggerHaptic('success');
+        await loadAll();
+        Alert.alert('Gotowe', sendToOffice ? 'Pakiet wrócił do biura do planowania.' : 'Pakiet terenowy zapisany.');
+      } else if (res.status >= 500) {
+        const queued = await queueRequestWithOfflineFallback({
+          id: idempotencyKey,
+          dedupeKey: `task-field-package:${id}`,
+          url: `${API_URL}/tasks/${id}/field-package`,
+          method: 'PUT',
+          body,
+        });
+        setOfflineQueueCount(queued);
+        void triggerHaptic('warning');
+        Alert.alert(t('notif.alert.offlineTitle'), 'Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
+      } else {
+        void triggerHaptic('warning');
+        const msg = await res.text().catch(() => '');
+        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 300) || `HTTP ${res.status}`);
+      }
+    } catch {
+      const queued = await queueRequestWithOfflineFallback({
+        id: idempotencyKey,
+        dedupeKey: `task-field-package:${id}`,
+        url: `${API_URL}/tasks/${id}/field-package`,
+        method: 'PUT',
+        body,
+      });
+      setOfflineQueueCount(queued);
+      void triggerHaptic('warning');
+      Alert.alert(t('notif.alert.offlineTitle'), 'Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
+    } finally {
+      setFieldPackageSaving(false);
+    }
   };
 
   const rozpocznij = async () => {
@@ -1182,6 +1321,10 @@ export default function ZlecenieDetailScreen() {
     ((finishRequirements.require_po_photo && !finishRequirements.has_po_photo) ||
       (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo));
   const mozeZmieniacStatus = ['Kierownik', 'Dyrektor', 'Administrator'].includes(user?.rola);
+  const mobileStatusOptions = getNextTaskStatuses(zlecenie.status, {
+    includeCurrent: true,
+    allowCancel: mozeZmieniacStatus,
+  });
   const S = makeStyles(theme);
 
   if (guard.ready && !guard.allowed) {
@@ -1212,7 +1355,14 @@ export default function ZlecenieDetailScreen() {
   );
 
   const statusKolor = statusPalette[zlecenie.status as keyof typeof statusPalette] || theme.textMuted;
-  const isFieldDraft = zlecenie.ankieta_uproszczona === true || String(zlecenie.notatki_wewnetrzne || '').includes('TRYB TERENOWY');
+  const isAssignedEstimator =
+    (user?.rola === 'Wyceniający' || user?.rola === 'Wyceniajacy') &&
+    Number(zlecenie.wyceniajacy_id) === Number(user?.id);
+  const isFieldDraft =
+    zlecenie.status === TASK_STATUS.WYCENA_TERENOWA ||
+    zlecenie.ankieta_uproszczona === true ||
+    String(zlecenie.notatki_wewnetrzne || '').includes('TRYB TERENOWY');
+  const showFieldPackageCard = isAssignedEstimator && zlecenie.status === TASK_STATUS.WYCENA_TERENOWA;
   const hasCheckin = zdjecia.some((z: any) => z.typ === 'checkin');
   const fieldWycenaPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['wycena', 'przed', 'checkin'])).length;
   const fieldSketchPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['szkic', 'sketch'])).length;
@@ -1479,6 +1629,13 @@ export default function ZlecenieDetailScreen() {
     },
   ];
   const fieldDraftPhotosReady = fieldDraftPhotoChecklist.every((row) => row.done);
+  const fieldPackageReadyForOffice =
+    fieldDraftPhotosReady &&
+    Boolean(fieldScopeDraft.trim()) &&
+    Boolean(fieldTimeDraft.trim()) &&
+    Boolean(fieldBudgetDraft.trim()) &&
+    Boolean(fieldSettlementDraft.trim()) &&
+    fieldClientAccepted;
   const evidenceQuickCards: {
     type: PhotoTypeKey;
     label: string;
@@ -1797,6 +1954,27 @@ export default function ZlecenieDetailScreen() {
     ].join('\n');
     await Clipboard.setStringAsync(summary);
     Alert.alert('Skopiowano', 'Podsumowanie teczki zlecenia skopiowane do schowka.');
+  };
+  const copyCrewBrief = async () => {
+    const plannedDate = zlecenie.data_planowana ? String(zlecenie.data_planowana).slice(0, 10) : 'brak terminu';
+    const plannedTime = zlecenie.godzina_rozpoczecia || (String(zlecenie.data_planowana || '').includes('T') ? String(zlecenie.data_planowana).split('T')[1]?.slice(0, 5) : '');
+    const brief = [
+      `Zlecenie #${id}: ${zlecenie.klient_nazwa || '-'}`,
+      `Telefon: ${zlecenie.klient_telefon || '-'}`,
+      `Adres: ${[zlecenie.adres, zlecenie.miasto].filter(Boolean).join(', ') || '-'}`,
+      `Termin: ${[plannedDate, plannedTime, zlecenie.czas_planowany_godziny ? `${zlecenie.czas_planowany_godziny} h` : ''].filter(Boolean).join(' | ')}`,
+      `Ekipa: ${zlecenie.ekipa_nazwa || '-'}`,
+      scopeLine || zlecenie.opis || zlecenie.opis_pracy ? `Zakres: ${scopeLine || zlecenie.opis || zlecenie.opis_pracy}` : null,
+      accessLine ? `Dostep: ${accessLine}` : null,
+      riskLine ? `Ryzyka: ${riskLine}` : null,
+      taskEquipmentList.length ? `Sprzet: ${taskEquipmentList.join(', ')}` : null,
+      `Zdjecia: wycena ${fieldWycenaPhotosCount}, szkic ${fieldSketchPhotosCount}, dojazd ${fieldAccessPhotosCount}`,
+      `BHP: ${safetyDoneCount}/${safetyChecklistRows.length}`,
+      `Problemy otwarte: ${unresolvedIssuesCount}`,
+    ].filter(Boolean).join('\n');
+    await Clipboard.setStringAsync(brief);
+    void triggerHaptic('success');
+    Alert.alert('Skopiowano', 'Odprawa ekipy jest w schowku.');
   };
   const suggestedAction = (() => {
     if (isEkipa) {
@@ -2533,6 +2711,187 @@ export default function ZlecenieDetailScreen() {
         </View>
       ) : null}
 
+      {showFieldPackageCard ? (
+        <View style={[S.fieldPackageCard, { backgroundColor: fieldPackageReadyForOffice ? theme.successBg : theme.cardBg, borderColor: fieldPackageReadyForOffice ? theme.success : theme.cardBorder }]}>
+          <View style={S.fieldPackageHead}>
+            <View style={[S.fieldPackageIcon, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}>
+              <Ionicons name="leaf-outline" size={20} color={theme.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.fieldPackageTitle, { color: theme.text }]}>Pakiet wyceny terenowej</Text>
+              <Text style={[S.fieldPackageSub, { color: theme.textMuted }]}>
+                Zdjęcia, szkic, zakres, czas, budżet i ryzyka. Po akceptacji wraca do biura.
+              </Text>
+            </View>
+          </View>
+
+          <View style={S.fieldPackageChecks}>
+            {fieldDraftPhotoChecklist.map((row) => (
+              <TouchableOpacity
+                key={row.key}
+                style={[S.fieldPackageCheck, { backgroundColor: row.done ? theme.successBg : theme.warningBg, borderColor: row.done ? theme.success : theme.warning }]}
+                onPress={() => {
+                  setPhotoFilter(row.type as PhotoFilterKey);
+                  setActiveTab('zdjecia');
+                  void triggerHaptic('light');
+                }}
+              >
+                <Ionicons name={row.done ? 'checkmark-circle' : 'camera-outline'} size={16} color={row.done ? theme.success : theme.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.fieldPackageCheckLabel, { color: theme.text }]} numberOfLines={1}>{row.label}</Text>
+                  <Text style={[S.fieldPackageCheckHint, { color: theme.textMuted }]}>{row.hint}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Typ prac</Text>
+          <View style={S.fieldPackageChipRow}>
+            {TASK_SCOPE_PRESETS.map((preset) => {
+              const selected = fieldScopePresetKeys.includes(preset.key);
+              return (
+                <TouchableOpacity
+                  key={preset.key}
+                  style={[
+                    S.fieldPackageChip,
+                    {
+                      backgroundColor: selected ? theme.accentLight : theme.surface2,
+                      borderColor: selected ? theme.accent : theme.border,
+                    },
+                  ]}
+                  onPress={() => toggleFieldScopePreset(preset)}
+                >
+                  <Text style={[S.fieldPackageChipText, { color: selected ? theme.accent : theme.textSub }]}>{preset.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Zakres prac dla ekipy</Text>
+          <TextInput
+            style={[S.fieldPackageInput, S.fieldPackageTextarea, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+            placeholder="np. przyciąć koronę od strony ogrodzenia, usunąć suche gałęzie, zabezpieczyć rabatę"
+            placeholderTextColor={theme.textMuted}
+            value={fieldScopeDraft}
+            onChangeText={setFieldScopeDraft}
+            multiline
+          />
+          <View style={S.fieldPackageTwoCol}>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Czas pracy</Text>
+              <TextInput
+                style={[S.fieldPackageInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+                placeholder="np. 3"
+                placeholderTextColor={theme.textMuted}
+                value={fieldTimeDraft}
+                onChangeText={setFieldTimeDraft}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Budżet PLN</Text>
+              <TextInput
+                style={[S.fieldPackageInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+                placeholder="np. 2500"
+                placeholderTextColor={theme.textMuted}
+                value={fieldBudgetDraft}
+                onChangeText={setFieldBudgetDraft}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+          <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Sprzęt dla biura</Text>
+          <View style={S.fieldPackageChipRow}>
+            {TASK_EQUIPMENT_OPTIONS.map((preset) => {
+              const selected = fieldEquipmentKeys.includes(preset.key);
+              return (
+                <TouchableOpacity
+                  key={preset.key}
+                  style={[
+                    S.fieldPackageChip,
+                    {
+                      backgroundColor: selected ? theme.accentLight : theme.surface2,
+                      borderColor: selected ? theme.accent : theme.border,
+                    },
+                  ]}
+                  onPress={() => toggleFieldEquipment(preset)}
+                >
+                  <Text style={[S.fieldPackageChipText, { color: selected ? theme.accent : theme.textSub }]}>{preset.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Warunki rozliczenia</Text>
+          <View style={S.fieldPackageChipRow}>
+            {TASK_SETTLEMENT_OPTIONS.map((preset) => {
+              const selected = fieldSettlementDraft === preset.note;
+              return (
+                <TouchableOpacity
+                  key={preset.key}
+                  style={[
+                    S.fieldPackageChip,
+                    {
+                      backgroundColor: selected ? theme.accentLight : theme.surface2,
+                      borderColor: selected ? theme.accent : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    setFieldSettlementDraft(preset.note);
+                    void triggerHaptic('light');
+                  }}
+                >
+                  <Text style={[S.fieldPackageChipText, { color: selected ? theme.accent : theme.textSub }]}>{preset.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Ryzyka / uwagi BHP</Text>
+          <View style={S.fieldPackageChipRow}>
+            {TASK_RISK_PRESETS.map((preset) => (
+              <TouchableOpacity
+                key={preset.key}
+                style={[S.fieldPackageChip, { backgroundColor: fieldRiskDraft.includes(preset.note) ? theme.warningBg : theme.surface2, borderColor: fieldRiskDraft.includes(preset.note) ? theme.warning : theme.border }]}
+                onPress={() => appendFieldRiskPreset(preset)}
+              >
+                <Text style={[S.fieldPackageChipText, { color: fieldRiskDraft.includes(preset.note) ? theme.warning : theme.textSub }]}>{preset.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            style={[S.fieldPackageInput, S.fieldPackageTextareaSmall, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+            placeholder="np. linia nad ogrodzeniem, wąski dojazd, auto klienta do przestawienia"
+            placeholderTextColor={theme.textMuted}
+            value={fieldRiskDraft}
+            onChangeText={setFieldRiskDraft}
+            multiline
+          />
+          <Text style={[S.fieldPackageSettlementText, { color: theme.textMuted }]}>{fieldSettlementDraft}</Text>
+          <View style={[S.fieldPackageAcceptRow, { backgroundColor: theme.surface2, borderColor: fieldClientAccepted ? theme.success : theme.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.fieldPackageAcceptTitle, { color: theme.text }]}>Klient akceptuje zakres i budżet</Text>
+              <Text style={[S.fieldPackageAcceptSub, { color: theme.textMuted }]}>Bez tego nie oddajemy zlecenia do biura jako gotowego do planowania.</Text>
+            </View>
+            <Switch value={fieldClientAccepted} onValueChange={setFieldClientAccepted} />
+          </View>
+          <View style={S.fieldPackageActions}>
+            <TouchableOpacity
+              style={[S.fieldPackageBtnSecondary, { borderColor: theme.border, backgroundColor: theme.surface2 }]}
+              disabled={fieldPackageSaving}
+              onPress={() => void saveFieldPackage(false)}
+            >
+              <Text style={[S.fieldPackageBtnSecondaryText, { color: theme.textSub }]}>Zapisz draft</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.fieldPackageBtnPrimary, { backgroundColor: fieldPackageReadyForOffice ? theme.success : theme.accent, opacity: fieldPackageSaving ? 0.65 : 1 }]}
+              disabled={fieldPackageSaving}
+              onPress={() => void saveFieldPackage(true)}
+            >
+              <Text style={S.fieldPackageBtnPrimaryText}>{fieldPackageSaving ? 'Zapisuję...' : 'Klient akceptuje - do biura'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {/* ── AKCJE EKIPY (brygadzista / pomocnik) ── */}
       {isEkipa ? (
         <View style={[S.crewBriefCard, { backgroundColor: scopeConfirmed ? theme.successBg : theme.surface2, borderColor: scopeConfirmed ? theme.success : theme.cardBorder }]}>
@@ -2568,6 +2927,10 @@ export default function ZlecenieDetailScreen() {
             <TouchableOpacity style={[S.crewBriefActionBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => setActiveTab('zdjecia')}>
               <Ionicons name="images-outline" size={15} color={theme.accent} />
               <Text style={[S.crewBriefActionText, { color: theme.accent }]}>Zdjęcia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[S.crewBriefActionBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => { void copyCrewBrief(); }}>
+              <Ionicons name="copy-outline" size={15} color={theme.warning} />
+              <Text style={[S.crewBriefActionText, { color: theme.warning }]}>Kopiuj</Text>
             </TouchableOpacity>
           </View>
 
@@ -2927,7 +3290,7 @@ export default function ZlecenieDetailScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
           style={[S.statusScroll, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}
           contentContainerStyle={S.statusScrollContent}>
-          {TASK_STATUSES.map(s => (
+          {mobileStatusOptions.map(s => (
             <TouchableOpacity key={s}
               style={[
                 S.statusBtn,
@@ -2944,6 +3307,10 @@ export default function ZlecenieDetailScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+          <View style={[S.statusHintPill, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+            <Ionicons name="git-branch-outline" size={13} color={theme.warning} />
+            <Text style={[S.statusHintText, { color: theme.warning }]}>tylko kolejny krok</Text>
+          </View>
         </ScrollView>
       )}
 
@@ -4883,6 +5250,107 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 5,
   },
   officeHandoffLine: { fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  fieldPackageCard: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+  },
+  fieldPackageHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fieldPackageIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldPackageTitle: { fontSize: 15, fontWeight: '900' },
+  fieldPackageSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  fieldPackageChecks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fieldPackageCheck: {
+    flexGrow: 1,
+    flexBasis: '31%',
+    minHeight: 62,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  fieldPackageCheckLabel: { fontSize: 11.5, fontWeight: '900' },
+  fieldPackageCheckHint: { fontSize: 10.5, marginTop: 2, fontWeight: '700' },
+  fieldPackageLabel: { fontSize: 12, fontWeight: '900', marginTop: 2 },
+  fieldPackageChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  fieldPackageChip: {
+    minHeight: 34,
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    justifyContent: 'center',
+  },
+  fieldPackageChipText: {
+    fontSize: 11.5,
+    fontWeight: '900',
+  },
+  fieldPackageInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  fieldPackageTextarea: { minHeight: 92, textAlignVertical: 'top', lineHeight: 18 },
+  fieldPackageTextareaSmall: { minHeight: 70, textAlignVertical: 'top', lineHeight: 18 },
+  fieldPackageTwoCol: { flexDirection: 'row', gap: 10 },
+  fieldPackageSettlementText: { fontSize: 11, lineHeight: 15, fontWeight: '700' },
+  fieldPackageAcceptRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fieldPackageAcceptTitle: { fontSize: 13, fontWeight: '900' },
+  fieldPackageAcceptSub: { fontSize: 11, lineHeight: 15, marginTop: 2 },
+  fieldPackageActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  fieldPackageBtnSecondary: {
+    flexGrow: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  fieldPackageBtnSecondaryText: { fontSize: 12, fontWeight: '900' },
+  fieldPackageBtnPrimary: {
+    flexGrow: 2,
+    minHeight: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  fieldPackageBtnPrimaryText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
   crewBriefCard: {
     marginHorizontal: 14,
     marginBottom: 10,
@@ -5194,6 +5662,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderRadius: 20, borderWidth: 1,
   },
   statusBtnTxt: { fontSize: 12, fontWeight: '500' },
+  statusHintPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statusHintText: { fontSize: 11, fontWeight: '800' },
 
   // Taby
   tabs: {

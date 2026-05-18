@@ -9,6 +9,13 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getRolaColor } from '../theme';
 import { telHref } from '../utils/telLink';
 import PayrollRatesPanel from '../components/PayrollRatesPanel';
+import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined';
+import DeleteOutline from '@mui/icons-material/DeleteOutline';
+import EditOutlined from '@mui/icons-material/EditOutlined';
+import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined';
+import LockOutlined from '@mui/icons-material/LockOutlined';
+import VisibilityOffOutlined from '@mui/icons-material/VisibilityOffOutlined';
+import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 
 export default function Uzytkownicy() {
   const [uzytkownicy, setUzytkownicy] = useState([]);
@@ -48,6 +55,7 @@ export default function Uzytkownicy() {
   const openedFromRouteRef = useRef(null);
  
   const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
+  const isAdmin = currentUser?.rola === 'Administrator';
   const isKierownik = currentUser?.rola === 'Kierownik';
   const isSalesDirector = [
     'Dyrektor Sprzedazy',
@@ -55,7 +63,7 @@ export default function Uzytkownicy() {
     'Dyrektor dzialu sprzedaz',
     'Dyrektor działu sprzedaż',
   ].includes(currentUser?.rola);
-  const mozeEdytowac = isDyrektor || isKierownik;
+  const mozeEdytowac = isDyrektor || isAdmin || isKierownik;
   const mozePrzenosicSpecjalistow = isDyrektor || isSalesDirector;
   const mozePrzeniescUsera = (u) => mozePrzenosicSpecjalistow && u?.rola === 'Specjalista';
  
@@ -304,7 +312,7 @@ export default function Uzytkownicy() {
  
         {/* Komunikat */}
         <StatusMessage
-          message={komunikat.tekst ? `${komunikat.typ === 'error' ? '❌' : '✅'} ${komunikat.tekst}` : ''}
+          message={komunikat.tekst ? `${komunikat.typ === 'error' ? 'Błąd: ' : ''}${komunikat.tekst}` : ''}
           style={s.komunikat}
         />
  
@@ -313,16 +321,16 @@ export default function Uzytkownicy() {
           <>
             <div style={s.headerRow}>
               <div>
-                <h1 style={s.title}>👥 Użytkownicy</h1>
+                <h1 style={s.title}>Użytkownicy</h1>
                 <p style={s.sub}>Zarządzanie pracownikami i uprawnieniami</p>
               </div>
               {mozeEdytowac && (
                 <button style={s.btnPrimary} onClick={otworzNowy}>+ Nowy użytkownik</button>
               )}
             </div>
- 
+
             <div style={s.filtryRow}>
-              <input style={s.searchInput} placeholder="🔍 Szukaj po imieniu, loginie, emailu..."
+              <input style={s.searchInput} placeholder="Szukaj po imieniu, loginie, emailu..."
                 value={szukaj} onChange={e => setSzukaj(e.target.value)} />
               <select style={s.filtrInput} value={filtrRola} onChange={e => setFiltrRola(e.target.value)}>
                 <option value="">Wszystkie role</option>
@@ -341,19 +349,19 @@ export default function Uzytkownicy() {
               {(isDyrektor || isSalesDirector) && (
                 <select style={s.filtrInput} value={filtrOddzial} onChange={e => setFiltrOddzial(e.target.value)}>
                   <option value="">Wszystkie oddziały</option>
-                  {oddzialy.map(o => <option key={o.id} value={o.id}>🏢 {o.nazwa}</option>)}
+                  {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                 </select>
               )}
               {(filtrRola || filtrOddzial || szukaj) && (
                 <button style={s.clearBtn} onClick={() => { setFiltrRola(''); setFiltrOddzial(''); setSzukaj(''); }}>
-                  ✕ Wyczyść
+                  Wyczyść
                 </button>
               )}
               <span style={s.countBadge}>{filtrowane.length} / {uzytkownicy.length}</span>
             </div>
- 
+
             {loading ? (
-              <div style={s.loading}>⏳ Ładowanie...</div>
+              <div style={s.loading}>Ładowanie...</div>
             ) : (
               <div style={s.listCardsWrap}>
                 {filtrowane.length === 0 ? (
@@ -375,14 +383,23 @@ export default function Uzytkownicy() {
                             </div>
                           </div>
                           <div style={s.akcjeRow} onClick={(e) => e.stopPropagation()}>
-                            <button style={s.btnSm} onClick={() => otworzSzczegoly(u)}>👁</button>
-                            <button style={s.btnSm} onClick={() => navigate(`/profil/${u.id}`)}>Profil</button>
+                            <button style={s.actionIconBtn} title="Szczegóły" aria-label="Szczegóły użytkownika" onClick={() => otworzSzczegoly(u)}>
+                              <VisibilityOutlined style={s.iconSm} />
+                            </button>
+                            <button style={s.actionIconBtn} title="Profil pracownika" aria-label="Profil pracownika" onClick={() => navigate(`/profil/${u.id}`)}>
+                              <AccountCircleOutlined style={s.iconSm} />
+                            </button>
                             {mozeEdytowac && (
                               <>
-                                <button style={s.btnSm} onClick={() => otworzEdycje(u)}>✏️</button>
-                                <button style={{ ...s.btnSm, backgroundColor: u.aktywny ? 'rgba(248,113,113,0.12)' : 'var(--accent-surface)' }}
+                                <button style={s.actionIconBtn} title="Edytuj" aria-label="Edytuj użytkownika" onClick={() => otworzEdycje(u)}>
+                                  <EditOutlined style={s.iconSm} />
+                                </button>
+                                <button
+                                  style={{ ...s.actionIconBtn, ...(u.aktywny ? s.actionIconBtnDanger : s.actionIconBtnSuccess) }}
+                                  title={u.aktywny ? 'Dezaktywuj' : 'Aktywuj'}
+                                  aria-label={u.aktywny ? 'Dezaktywuj użytkownika' : 'Aktywuj użytkownika'}
                                   onClick={() => zmienAktywnosc(u.id, !u.aktywny)}>
-                                  {u.aktywny ? '🔒' : '🔓'}
+                                  {u.aktywny ? <LockOutlined style={s.iconSm} /> : <LockOpenOutlined style={s.iconSm} />}
                                 </button>
                               </>
                             )}
@@ -427,7 +444,7 @@ export default function Uzytkownicy() {
                             color: u.aktywny ? 'var(--accent-dk)' : 'var(--danger)',
                             border: `1px solid ${u.aktywny ? 'var(--logo-tint-border)' : 'rgba(248,113,113,0.35)'}`
                           }}>
-                            {u.aktywny ? '✅ Aktywny' : '❌ Nieaktywny'}
+                            {u.aktywny ? 'Aktywny' : 'Nieaktywny'}
                           </span>
                         </div>
                       </div>
@@ -445,15 +462,15 @@ export default function Uzytkownicy() {
             <div style={s.headerRow}>
               <div style={s.breadcrumb}>
                 <button style={s.backBtn} onClick={() => setTryb('lista')}>← Powrót</button>
-                <h1 style={s.title}>👤 {wybranyUser.imie} {wybranyUser.nazwisko}</h1>
+                <h1 style={s.title}>{wybranyUser.imie} {wybranyUser.nazwisko}</h1>
               </div>
               {mozeEdytowac && (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={s.headerActions}>
                   <button style={s.btnSecondary} onClick={() => navigate(`/profil/${wybranyUser.id}`)}>Profil pracownika</button>
-                  <button style={s.btnSecondary} onClick={() => otworzEdycje(wybranyUser)}>✏️ Edytuj</button>
+                  <button style={s.btnSecondary} onClick={() => otworzEdycje(wybranyUser)}>Edytuj</button>
                   <button style={{ ...s.btnSecondary, backgroundColor: wybranyUser.aktywny ? 'rgba(248,113,113,0.12)' : 'var(--accent-surface)', color: wybranyUser.aktywny ? 'var(--danger)' : 'var(--accent-dk)' }}
                     onClick={() => zmienAktywnosc(wybranyUser.id, !wybranyUser.aktywny)}>
-                    {wybranyUser.aktywny ? '🔒 Dezaktywuj' : '🔓 Aktywuj'}
+                    {wybranyUser.aktywny ? 'Dezaktywuj' : 'Aktywuj'}
                   </button>
                 </div>
               )}
@@ -461,7 +478,7 @@ export default function Uzytkownicy() {
  
             <div style={s.twoCol}>
               <div style={s.card}>
-                <div style={s.cardTitle}>📋 Dane podstawowe</div>
+                <div style={s.cardTitle}>Dane podstawowe</div>
                 <div style={s.avatarBig}>
                   <div style={{ ...s.avatarLarge, backgroundColor: getRolaColor(wybranyUser.rola) }}>
                     {wybranyUser.imie?.[0]}{wybranyUser.nazwisko?.[0]}
@@ -478,7 +495,7 @@ export default function Uzytkownicy() {
                   { label: 'Oddział', value: wybranyUser.oddzial_nazwa },
                   { label: 'Stanowisko', value: wybranyUser.stanowisko },
                   { label: 'Data zatrudnienia', value: wybranyUser.data_zatrudnienia ? wybranyUser.data_zatrudnienia.split('T')[0] : null },
-                  { label: 'Status', value: wybranyUser.aktywny ? '✅ Aktywny' : '❌ Nieaktywny' },
+                  { label: 'Status', value: wybranyUser.aktywny ? 'Aktywny' : 'Nieaktywny' },
                 ].map((row) => {
                   if (!row.value && row.value !== 0) return null;
                   const display =
@@ -514,7 +531,7 @@ export default function Uzytkownicy() {
               <div>
                 {isDyrektor && (
                   <div style={{ ...s.card, marginBottom: 16 }}>
-                    <div style={s.cardTitle}>💰 Dane finansowe</div>
+                    <div style={s.cardTitle}>Dane finansowe</div>
                     {wybranyUser.stawka_godzinowa && (
                       <div style={s.detailRow}>
                         <span style={s.detailLabel}>Stawka godzinowa</span>
@@ -537,7 +554,7 @@ export default function Uzytkownicy() {
                 />
  
                 <div style={{ ...s.card, marginBottom: 16 }}>
-                  <div style={s.cardTitle}>🆘 Kontakt awaryjny</div>
+                  <div style={s.cardTitle}>Kontakt awaryjny</div>
                   {wybranyUser.kontakt_awaryjny_imie || wybranyUser.kontakt_awaryjny_telefon ? (
                     <>
                       {wybranyUser.kontakt_awaryjny_imie && (
@@ -566,14 +583,14 @@ export default function Uzytkownicy() {
  
                 {wybranyUser.adres_zamieszkania && (
                   <div style={{ ...s.card, marginBottom: 16 }}>
-                    <div style={s.cardTitle}>🏠 Adres zamieszkania</div>
+                    <div style={s.cardTitle}>Adres zamieszkania</div>
                     <p style={{ margin: 0, fontSize: 14 }}>{wybranyUser.adres_zamieszkania}</p>
                   </div>
                 )}
  
                 {wybranyUser.notatki && (
                   <div style={s.card}>
-                    <div style={s.cardTitle}>📝 Notatki</div>
+                    <div style={s.cardTitle}>Notatki</div>
                     <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{wybranyUser.notatki}</p>
                   </div>
                 )}
@@ -583,7 +600,7 @@ export default function Uzytkownicy() {
             {/* Zmiana hasła */}
             {isDyrektor && (
               <div style={s.card}>
-                <div style={s.cardTitle}>🔑 Zmiana hasła</div>
+                <div style={s.cardTitle}>Zmiana hasła</div>
                 {!pokazFormHaslo ? (
                   <button style={s.btnSecondary} onClick={() => setPokazFormHaslo(true)}>Zmień hasło</button>
                 ) : (
@@ -593,7 +610,7 @@ export default function Uzytkownicy() {
                         placeholder="Nowe hasło (min. 6 znaków)"
                         value={noweHaslo} onChange={e => setNoweHaslo(e.target.value)} />
                       <button style={s.eyeBtn} onClick={() => setPokazHaslo(!pokazHaslo)}>
-                        {pokazHaslo ? '🙈' : '👁'}
+                        {pokazHaslo ? <VisibilityOffOutlined style={s.iconSm} /> : <VisibilityOutlined style={s.iconSm} />}
                       </button>
                     </div>
                     <button style={s.btnPrimary} onClick={zmienHaslo}>Zapisz</button>
@@ -606,7 +623,7 @@ export default function Uzytkownicy() {
             {/* Kompetencje */}
             <div style={s.card}>
               <div style={{ ...s.cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>🎓 Kompetencje ({kompetencje.length})</span>
+                <span>Kompetencje ({kompetencje.length})</span>
                 {mozeEdytowac && (
                   <button style={s.btnSmGreen} onClick={() => setPokazFormKomp(!pokazFormKomp)}>+ Dodaj</button>
                 )}
@@ -685,15 +702,19 @@ export default function Uzytkownicy() {
                             <td style={s.td}>
                               {k.data_waznosci ? (
                                 <span style={{ ...s.waznosc, backgroundColor: waznosc === 'expired' ? 'rgba(248,113,113,0.12)' : waznosc === 'soon' ? 'rgba(251,191,36,0.12)' : 'var(--accent-surface)', color: waznosc === 'expired' ? 'var(--danger)' : waznosc === 'soon' ? 'var(--warning)' : 'var(--accent-dk)' }}>
-                                  {waznosc === 'expired' ? '⚠️ ' : waznosc === 'soon' ? '⏰ ' : '✅ '}
+                                  {waznosc === 'expired' ? 'Wygasło: ' : waznosc === 'soon' ? 'Do odnowienia: ' : ''}
                                   {k.data_waznosci.split('T')[0]}
                                 </span>
                               ) : <span style={s.gray}>bezterminowo</span>}
                             </td>
                             {mozeEdytowac && (
                               <td style={s.td}>
-                                <button style={{ ...s.btnSm, backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)' }}
-                                  onClick={() => usunKompetencje(k.id)}>🗑</button>
+                                <button style={{ ...s.actionIconBtn, ...s.actionIconBtnDanger }}
+                                  title="Usuń kompetencję"
+                                  aria-label="Usuń kompetencję"
+                                  onClick={() => usunKompetencje(k.id)}>
+                                  <DeleteOutline style={s.iconSm} />
+                                </button>
                               </td>
                             )}
                           </tr>
@@ -713,12 +734,12 @@ export default function Uzytkownicy() {
             <div style={s.headerRow}>
               <div style={s.breadcrumb}>
                 <button style={s.backBtn} onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>← Powrót</button>
-                <h1 style={s.title}>{tryb === 'nowy' ? '➕ Nowy użytkownik' : `✏️ Edytuj: ${wybranyUser?.imie} ${wybranyUser?.nazwisko}`}</h1>
+                <h1 style={s.title}>{tryb === 'nowy' ? 'Nowy użytkownik' : `Edytuj użytkownika: ${wybranyUser?.imie} ${wybranyUser?.nazwisko}`}</h1>
               </div>
             </div>
  
             <div style={s.card}>
-              <div style={s.cardTitle}>👤 Dane podstawowe</div>
+              <div style={s.cardTitle}>Dane podstawowe</div>
               <div style={s.formGrid}>
                 {tryb === 'nowy' && (
                   <div style={s.formGroup}>
@@ -775,7 +796,7 @@ export default function Uzytkownicy() {
                     <label style={s.label}>Oddział</label>
                     <select style={s.input} value={form.oddzial_id} onChange={e => setForm({ ...form, oddzial_id: e.target.value })}>
                       <option value="">— brak —</option>
-                      {oddzialy.map(o => <option key={o.id} value={o.id}>🏢 {o.nazwa}</option>)}
+                      {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                     </select>
                   </div>
                 )}
@@ -794,7 +815,7 @@ export default function Uzytkownicy() {
  
             {isDyrektor && (
               <div style={s.card}>
-                <div style={s.cardTitle}>💰 Dane finansowe</div>
+                <div style={s.cardTitle}>Dane finansowe</div>
                 <div style={s.formGrid}>
                   <div style={s.formGroup}>
                     <label style={s.label}>Stawka godzinowa (PLN/h)</label>
@@ -811,7 +832,7 @@ export default function Uzytkownicy() {
             )}
  
             <div style={s.card}>
-              <div style={s.cardTitle}>📬 Dane dodatkowe</div>
+              <div style={s.cardTitle}>Dane dodatkowe</div>
               <div style={s.formGrid}>
                 <div style={{ ...s.formGroup, gridColumn: '1 / -1' }}>
                   <label style={s.label}>Adres zamieszkania</label>
@@ -838,7 +859,7 @@ export default function Uzytkownicy() {
  
             <div style={s.formButtons}>
               <button style={s.btnPrimary} onClick={zapiszUzytkownika}>
-                {tryb === 'nowy' ? '✅ Utwórz użytkownika' : '✅ Zapisz zmiany'}
+                {tryb === 'nowy' ? 'Utwórz użytkownika' : 'Zapisz zmiany'}
               </button>
               <button style={s.btnGray} onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>
                 Anuluj
@@ -856,7 +877,8 @@ const s = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
   main: { flex: 1, padding: '24px', overflowX: 'hidden' },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
+  breadcrumb: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexWrap: 'wrap' },
+  headerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
   backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
@@ -867,44 +889,64 @@ const s = {
   countBadge: { fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' },
   card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 16 },
   listCardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
-  listCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 },
+  listCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: 14 },
   userListCard: {
     background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
     border: '1px solid var(--border2)',
     borderRadius: 14,
     boxShadow: 'var(--shadow-sm)',
-    padding: 12,
+    padding: 14,
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
     cursor: 'pointer',
+    minWidth: 0,
+    overflow: 'hidden',
   },
-  userListTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  userListTop: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'flex-start', gap: 10 },
   userListMetaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   userListBranch: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
   transferSelect: { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, backgroundColor: 'var(--bg-card)', color: 'var(--text)', width: '100%' },
   userListContact: { fontSize: 12, color: 'var(--text)', fontWeight: 500 },
   userListContactMuted: { fontSize: 12, color: 'var(--text-muted)' },
   userListBottom: { display: 'flex', justifyContent: 'flex-end' },
-  cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: 'var(--text)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)', letterSpacing: 0 },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 0 },
   tableScroll: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 500 },
   th: { padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  avatarRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  avatarRow: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 },
   avatar: { width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 'bold', flexShrink: 0 },
   avatarBig: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 },
   avatarLarge: { width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 'bold', flexShrink: 0 },
-  fullName: { fontWeight: '600', fontSize: 14, color: 'var(--text)' },
-  loginText: { fontSize: 12, color: 'var(--text-muted)' },
+  fullName: { fontWeight: '700', fontSize: 14, color: 'var(--text)', lineHeight: 1.25, overflowWrap: 'anywhere' },
+  loginText: { fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 170 },
   rolaBadge: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
   statusBadge: { padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600', display: 'inline-block' },
   waznosc: { padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: '600', display: 'inline-block' },
-  akcjeRow: { display: 'flex', gap: 6 },
+  akcjeRow: { display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', flexShrink: 0, maxWidth: 168 },
+  actionIconBtn: {
+    width: 36,
+    height: 36,
+    minWidth: 36,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    backgroundColor: 'var(--bg-deep)',
+    color: 'var(--accent)',
+    border: '1px solid var(--logo-tint-border)',
+    borderRadius: 8,
+    cursor: 'pointer',
+    lineHeight: 1,
+  },
+  actionIconBtnDanger: { backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)' },
+  actionIconBtnSuccess: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)' },
+  iconSm: { fontSize: 18, display: 'block' },
   btnSm: { padding: '5px 9px', backgroundColor: 'var(--bg-deep)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  btnSmGreen: { padding: '5px 12px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
-  btnPrimary: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '600' },
+  btnSmGreen: { padding: '5px 12px', background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))', color: '#fff', border: '1px solid var(--accent-dk)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '700', boxShadow: 'var(--shadow-sm)' },
+  btnPrimary: { padding: '10px 20px', background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))', color: '#fff', border: '1px solid var(--accent-dk)', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '700', boxShadow: 'var(--shadow-sm)' },
   btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   btnGray: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
   detailRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },

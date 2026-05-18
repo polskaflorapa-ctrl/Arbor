@@ -43,6 +43,8 @@
     "check:web": "npm run verify:web:test && npm run verify:web",
     "check:os": "npm run verify:os",
     "doctor": "node ./scripts/doctor.cjs",
+    "deploy:free:check": "node ./scripts/deploy-free-preflight.cjs",
+    "smoke:render": "node ./os/scripts/smoke-production-check.js",
     "up": "node ./scripts/up.cjs",
     "up:force": "node ./scripts/up.cjs --force",
     "down": "node ./scripts/down.cjs",

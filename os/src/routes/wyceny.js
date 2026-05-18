@@ -18,6 +18,7 @@ const { z } = require('zod');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { uploadsPath } = require('../config/uploadPaths');
 const {
   HOLD_TTL_HOURS,
   rangesOverlap,
@@ -26,7 +27,7 @@ const {
 } = require('../services/taskScheduling');
 const { assertTeamAvailableForBranch } = require('../services/branchResources');
 
-const uploadDir = path.join(__dirname, '../../uploads/wyceny');
+const uploadDir = uploadsPath('wyceny');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({

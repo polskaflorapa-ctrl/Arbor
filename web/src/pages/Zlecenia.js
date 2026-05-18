@@ -20,13 +20,26 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-import { TASK_PRIORITIES, TASK_SERVICE_TYPES, createTaskFormDefaults } from '../utils/taskForm';
+import {
+  TASK_PRIORITIES,
+  TASK_EQUIPMENT_OPTIONS,
+  TASK_RISK_PRESETS,
+  TASK_SCOPE_PRESETS,
+  TASK_SERVICE_TYPES,
+  TASK_SETTLEMENT_OPTIONS,
+  appendUniqueLine,
+  buildTaskCreatePayload,
+  createTaskFormDefaults,
+  getTaskCreateMissingFields,
+} from '../utils/taskForm';
 import {
   CREW_REQUIRED_TASK_STATUSES,
   FIELD_EVIDENCE_REQUIRED_TASK_STATUSES,
   PRICE_REQUIRED_TASK_STATUSES,
   TASK_STATUS,
   TASK_STATUSES,
+  canTransitionTaskStatus,
+  getNextTaskStatuses,
   getTaskStatusColor,
   isTaskClosed,
   isTaskDone,
@@ -61,20 +74,12 @@ const SMART_FILTERS = [
   { key: 'contactToday', label: 'Kontakt dziś' },
 ];
 const OPERATIONAL_VIEWS = [
-  { key: 'today', label: 'Plan dnia', detail: 'Dzisiejsze wykonanie', smartFilter: 'today' },
-  { key: 'dispatch', label: 'Do obsadzenia', detail: 'Brak ekipy', smartFilter: 'unassigned' },
-  { key: 'schedule', label: 'Do zaplanowania', detail: 'Brak terminu', smartFilter: 'noDate' },
-  { key: 'active', label: 'Aktywne', detail: 'W realizacji', status: 'W_Realizacji' },
-  { key: 'contact', label: 'Kontakt', detail: 'Brak telefonu', smartFilter: 'noContact' },
-  { key: 'documentation', label: 'Dokumentacja', detail: 'Brak zdjęć z wyceny', smartFilter: 'noMedia' },
-  { key: 'fieldInspection', label: 'Oględziny', detail: 'U wyceniających', smartFilter: 'fieldInspection' },
-  { key: 'officeApproval', label: 'Biuro zatwierdza', detail: 'Wycena + ekipa gotowe', smartFilter: 'officeApproval' },
-  { key: 'contactTodo', label: 'Do kontaktu', detail: 'Bez domkniętej rozmowy', smartFilter: 'contactTodo' },
-  { key: 'followup', label: 'Follow-up', detail: 'Czeka na klienta', smartFilter: 'contactWaiting' },
-  { key: 'followupDue', label: 'Follow-up dziś', detail: 'Oddzwonić dzisiaj', smartFilter: 'contactToday' },
-  { key: 'followupLate', label: 'Zaległe kontakty', detail: 'Po terminie reakcji', smartFilter: 'contactOverdue' },
-  { key: 'contactRisk', label: 'Ryzyko kontaktu', detail: 'Wymaga reakcji', smartFilter: 'contactRisk' },
-  { key: 'close', label: 'Do zamknięcia', detail: 'Gotowe do domknięcia', smartFilter: 'readyClose' },
+  { key: 'intake', label: '1. Telefon', detail: 'zgłoszenie z biura', status: TASK_STATUS.NOWE },
+  { key: 'fieldInspection', label: '2. Oględziny', detail: 'u wyceniającego', status: TASK_STATUS.WYCENA_TERENOWA },
+  { key: 'officeApproval', label: '3. Biuro planuje', detail: 'po akceptacji klienta', status: TASK_STATUS.DO_ZATWIERDZENIA },
+  { key: 'planned', label: '4. Ekipa gotowa', detail: 'termin i brygada', status: TASK_STATUS.ZAPLANOWANE },
+  { key: 'active', label: '5. Wykonanie', detail: 'ekipa w terenie', status: TASK_STATUS.W_REALIZACJI },
+  { key: 'close', label: '6. Zamknięcie', detail: 'dowody i rozliczenie', smartFilter: 'readyClose' },
 ];
 const TASK_SORT_OPTIONS = [
   { key: 'risk', label: 'Najpierw ryzyko', detail: 'Blokery, termin, pilność' },
@@ -97,12 +102,63 @@ const FORM_STEPS = [
   { key: 'summary', label: 'Podsumowanie', detail: 'kontrola przed zapisem' },
 ];
 const FORM_STEP_KEYS = new Set(FORM_STEPS.map((step) => step.key));
+const FORM_WORKFLOW_STEPS = [
+  { status: TASK_STATUS.NOWE, step: '1', label: 'Telefon', detail: 'biuro przyjmuje zgłoszenie' },
+  { status: TASK_STATUS.WYCENA_TERENOWA, step: '2', label: 'Oględziny', detail: 'wyceniacz zbiera zdjęcia i zakres' },
+  { status: TASK_STATUS.DO_ZATWIERDZENIA, step: '3', label: 'Biuro planuje', detail: 'klient akceptuje, biuro dopina szczegóły' },
+  { status: TASK_STATUS.ZAPLANOWANE, step: '4', label: 'Ekipa gotowa', detail: 'termin, brygada i sprzęt są ustawione' },
+  { status: TASK_STATUS.W_REALIZACJI, step: '5', label: 'Wykonanie', detail: 'ekipa pracuje według briefu' },
+  { status: TASK_STATUS.ZAKONCZONE, step: '6', label: 'Zamknięcie', detail: 'dowody i rozliczenie są kompletne' },
+];
+const TASK_CREATE_FIELD_LABELS = {
+  klient_nazwa: 'klient',
+  adres: 'adres',
+  miasto: 'miasto',
+  data_planowana: 'termin oględzin lub pracy',
+  oddzial_id: 'oddział',
+  wyceniajacy_id: 'wyceniacz',
+};
+const TASK_CREATE_FIELD_STEPS = {
+  klient_nazwa: 'client',
+  adres: 'client',
+  miasto: 'client',
+  data_planowana: 'planning',
+  oddzial_id: 'planning',
+  wyceniajacy_id: 'planning',
+};
+const OFFICE_PLAN_DEFAULTS = {
+  data_planowana: '',
+  godzina_rozpoczecia: '08:00',
+  czas_planowany_godziny: '2',
+  ekipa_id: '',
+  sprzet_notatka: '',
+};
+const QUICK_CALL_DEFAULTS = Object.freeze({
+  klient_nazwa: '',
+  klient_telefon: '',
+  adres: '',
+  miasto: '',
+  data_planowana: '',
+  godzina_rozpoczecia: '',
+  oddzial_id: '',
+  wyceniajacy_id: '',
+  opis_pracy: '',
+  priorytet: 'Normalny',
+});
 const FIELD_PHOTO_TYPES = [
   { key: 'Wycena', label: 'Wycena u klienta' },
   { key: 'Szkic', label: 'Szkic / rysunek' },
   { key: 'Przed', label: 'Przed pracą' },
   { key: 'Po', label: 'Po pracy' },
   { key: 'Inne', label: 'Inne' },
+];
+const CREW_ISSUE_TYPES = [
+  { key: 'zakres', label: 'Zakres pracy' },
+  { key: 'dojazd', label: 'Dojazd / dostep' },
+  { key: 'sprzet', label: 'Sprzet' },
+  { key: 'bhp', label: 'BHP / ryzyko' },
+  { key: 'klient', label: 'Klient' },
+  { key: 'inne', label: 'Inne' },
 ];
 function formatMoneyBrief(value) {
   return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN`;
@@ -308,6 +364,219 @@ function TaskPhotosPanel({
   );
 }
 
+function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus }) {
+  if (!task) return null;
+  const currentStatus = task.status || TASK_STATUS.NOWE;
+  const nextStatuses = getNextTaskStatuses(currentStatus, { allowCancel: canChange });
+  const activeIndex = Math.max(0, FORM_WORKFLOW_STEPS.findIndex((step) => step.status === currentStatus));
+  const actionableNext = nextStatuses.filter((status) => status !== TASK_STATUS.ANULOWANE);
+  const cancelAllowed = nextStatuses.includes(TASK_STATUS.ANULOWANE);
+
+  return (
+    <section style={styles.workflowPathPanel}>
+      <div style={styles.workflowPathHeader}>
+        <div>
+          <div style={styles.detailOpsEyebrow}>Oś statusów</div>
+          <div style={styles.workflowPathTitle}>Telefon -> oględziny -> biuro -> ekipa -> zamknięcie</div>
+          <p style={styles.workflowPathSubtitle}>
+            System pokazuje tylko następny logiczny ruch. Przeskoki bokiem są blokowane, żeby zlecenia nie wpadały w chaos.
+          </p>
+        </div>
+        <span style={{ ...styles.businessHealth, ...styles.businessHealth_good }}>
+          Etap {FORM_WORKFLOW_STEPS[activeIndex]?.step || '1'}
+        </span>
+      </div>
+      <div style={styles.workflowPathSteps}>
+        {FORM_WORKFLOW_STEPS.map((step, index) => {
+          const active = step.status === currentStatus;
+          const done = index < activeIndex;
+          return (
+            <div
+              key={step.status}
+              style={{
+                ...styles.workflowPathStep,
+                ...(active ? styles.workflowPathStepActive : done ? styles.workflowPathStepDone : {}),
+              }}
+            >
+              <span style={styles.workflowPathNo}>{step.step}</span>
+              <strong>{step.label}</strong>
+              <small>{step.detail}</small>
+            </div>
+          );
+        })}
+      </div>
+      <div style={styles.workflowPathActions}>
+        {actionableNext.length ? actionableNext.map((status) => (
+          <button
+            key={status}
+            type="button"
+            style={styles.workflowPathBtn}
+            disabled={!canChange || statusBusy}
+            onClick={() => onChangeStatus(status)}
+          >
+            Przejdź do: {status}
+          </button>
+        )) : (
+          <span style={styles.workflowPathDone}>Brak następnego kroku w czystej ścieżce.</span>
+        )}
+        {cancelAllowed ? (
+          <button
+            type="button"
+            style={styles.workflowPathCancelBtn}
+            disabled={!canChange || statusBusy}
+            onClick={() => onChangeStatus(TASK_STATUS.ANULOWANE)}
+          >
+            Anuluj
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function CrewExecutionBrief({
+  styles,
+  task,
+  photos,
+  issues,
+  safetyChecklist,
+  equipment,
+  issueDraft,
+  issueSaving,
+  statusBusy,
+  canChangeStatus,
+  onIssueDraftChange,
+  onReportIssue,
+  onStart,
+  onFinish,
+  onCopy,
+}) {
+  if (!task) return null;
+  const description = getTaskCrewDescription(task);
+  const risk = getTaskCrewRisk(task);
+  const equipmentNote = getTaskCrewEquipmentNote(task);
+  const fieldPhotos = photos
+    .filter((photo) => ['Wycena', 'Szkic', 'Przed'].includes(photo.typ))
+    .slice(0, 4);
+  const visibleChecklist = safetyChecklist.slice(0, 6);
+  const canStart = canChangeStatus && task.status === TASK_STATUS.ZAPLANOWANE;
+  const canFinish = canChangeStatus && isTaskInProgress(task.status);
+
+  return (
+    <section className="zlecenia-crew-brief" style={styles.crewBriefPanel}>
+      <div style={styles.crewBriefHeader}>
+        <div>
+          <div style={styles.detailOpsEyebrow}>Brief brygady</div>
+          <div style={styles.crewBriefTitle}>Jedna instrukcja wykonania pracy</div>
+          <p style={styles.crewBriefSubtitle}>
+            To jest pakiet dla ekipy: co robimy, gdzie, jakim sprzetem, jakie ryzyka i jakie zdjecia pokazal wyceniajacy.
+          </p>
+        </div>
+        <span style={{ ...styles.businessHealth, ...styles.businessHealth_good }}>
+          {task.status || 'Nowe'}
+        </span>
+      </div>
+
+      <div style={styles.crewBriefGrid}>
+        <div style={styles.crewBriefMain}>
+          <div style={styles.crewBriefRow}>
+            <span>Termin</span>
+            <strong>{formatTaskPlanLine(task)}</strong>
+          </div>
+          <div style={styles.crewBriefRow}>
+            <span>Klient</span>
+            <strong>{task.klient_nazwa || 'Brak klienta'}{task.klient_telefon ? ` | ${task.klient_telefon}` : ''}</strong>
+          </div>
+          <div style={styles.crewBriefRow}>
+            <span>Adres</span>
+            <strong>{getTaskAddressLine(task) || 'Brak adresu'}</strong>
+          </div>
+          <div style={styles.crewBriefBlock}>
+            <span>Zakres prac</span>
+            <p>{description || 'Brak jasnego opisu. Biuro albo wyceniajacy musi dopisac zakres przed wyjazdem ekipy.'}</p>
+          </div>
+          <div style={styles.crewBriefTwoCol}>
+            <div style={styles.crewBriefBlock}>
+              <span>Sprzet i logistyka</span>
+              <p>{[equipment.join(', '), equipmentNote].filter(Boolean).join(' | ') || 'Sprzet nie zostal doprecyzowany.'}</p>
+            </div>
+            <div style={styles.crewBriefBlock}>
+              <span>Ryzyka / BHP</span>
+              <p>{risk || 'Brak wpisanych ryzyk. Sprawdzic teren przed startem pracy.'}</p>
+            </div>
+          </div>
+        </div>
+
+        <aside style={styles.crewBriefSide}>
+          <div style={styles.crewBriefActions}>
+            <button type="button" style={styles.crewActionBtn} disabled={!canStart || statusBusy} onClick={onStart}>
+              Start pracy
+            </button>
+            <button type="button" style={styles.crewActionBtn} disabled={!canFinish || statusBusy} onClick={onFinish}>
+              Zakoncz
+            </button>
+            <button type="button" style={styles.crewActionBtnSecondary} onClick={onCopy}>
+              Kopiuj brief
+            </button>
+          </div>
+          <div style={styles.crewIssueBox}>
+            <div style={styles.detailDecisionLabel}>Szybkie zgloszenie problemu</div>
+            <select
+              style={styles.crewIssueSelect}
+              value={issueDraft.typ}
+              onChange={(event) => onIssueDraftChange({ ...issueDraft, typ: event.target.value })}
+              disabled={issueSaving}
+            >
+              {CREW_ISSUE_TYPES.map((item) => (
+                <option key={item.key} value={item.key}>{item.label}</option>
+              ))}
+            </select>
+            <textarea
+              style={styles.crewIssueTextarea}
+              value={issueDraft.opis}
+              placeholder="Co blokuje prace? Np. brak dostepu, klient zmienil zakres, potrzebna zwyzka."
+              onChange={(event) => onIssueDraftChange({ ...issueDraft, opis: event.target.value })}
+              disabled={issueSaving}
+            />
+            <button type="button" style={styles.crewIssueBtn} disabled={issueSaving} onClick={onReportIssue}>
+              {issueSaving ? 'Zglaszam...' : 'Zglos problem'}
+            </button>
+            <small style={styles.crewIssueCount}>Zgloszenia: {issues.length}</small>
+          </div>
+        </aside>
+      </div>
+
+      <div style={styles.crewBriefBottom}>
+        <div style={styles.crewChecklist}>
+          {visibleChecklist.map((item) => (
+            <div
+              key={item.key}
+              style={{
+                ...styles.crewChecklistItem,
+                ...(item.ok ? styles.detailChecklistOk : item.required ? styles.detailChecklistDanger : styles.detailChecklistWarn),
+              }}
+            >
+              <span>{item.ok ? 'OK' : item.required ? 'Wymagane' : 'Uwaga'}</span>
+              <strong>{item.label}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </div>
+        <div style={styles.crewPhotoStrip}>
+          {fieldPhotos.length ? fieldPhotos.map((photo) => (
+            <a key={photo.id || photo.sciezka} href={taskAssetUrl(photo.sciezka || photo.url)} target="_blank" rel="noreferrer" style={styles.crewPhotoLink}>
+              <img src={taskAssetUrl(photo.sciezka || photo.url)} alt={photo.opis || 'Zdjecie z wyceny'} style={styles.crewPhotoThumb} />
+              <span style={styles.crewPhotoLabel}>{taskPhotoTypeLabel(photo.typ)}</span>
+            </a>
+          )) : (
+            <div style={styles.crewPhotoEmpty}>Brak zdjec wyceny/szkicu dla ekipy.</div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function getTaskDay(task) {
   return task.data_planowana || task.data_wykonania
     ? String(task.data_planowana || task.data_wykonania).slice(0, 10)
@@ -316,6 +585,34 @@ function getTaskDay(task) {
 
 function getTaskAddressLine(task) {
   return [task.adres, task.miasto].filter(Boolean).join(', ');
+}
+
+function extractTaskNoteLine(task, label) {
+  const raw = String(task?.notatki_wewnetrzne || '');
+  const line = raw
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .find((item) => item.toLowerCase().startsWith(`${String(label).toLowerCase()}:`));
+  return line ? line.slice(String(label).length + 1).trim() : '';
+}
+
+function getTaskCrewDescription(task) {
+  return task?.opis_pracy || task?.opis || extractTaskNoteLine(task, 'Zakres prac') || task?.wynik || '';
+}
+
+function getTaskCrewRisk(task) {
+  return task?.ryzyka || extractTaskNoteLine(task, 'Ryzyka') || '';
+}
+
+function getTaskCrewEquipmentNote(task) {
+  return task?.sprzet_notatka || extractTaskNoteLine(task, 'Sprzet / uwagi') || extractTaskNoteLine(task, 'Sprzet') || '';
+}
+
+function formatTaskPlanLine(task) {
+  const day = task?.data_planowana ? String(task.data_planowana).slice(0, 10) : 'brak daty';
+  const time = task?.godzina_rozpoczecia || (String(task?.data_planowana || '').includes('T') ? String(task.data_planowana).split('T')[1]?.slice(0, 5) : '');
+  const hours = task?.czas_planowany_godziny ? `${task.czas_planowany_godziny} h` : 'brak czasu';
+  return [day, time, hours].filter(Boolean).join(' | ');
 }
 
 function getMapsHref(task) {
@@ -1396,6 +1693,7 @@ export default function Zlecenia() {
   const [potwierdzUsuniecie, setPotwierdzUsuniecie] = useState(null);
   const [formStep, setFormStep] = useState('client');
   const [taskPhotosById, setTaskPhotosById] = useState({});
+  const [taskProblemsById, setTaskProblemsById] = useState({});
   const [taskPhotosLoading, setTaskPhotosLoading] = useState(false);
   const [uploadingTaskPhoto, setUploadingTaskPhoto] = useState(false);
   const [taskPhotoDraft, setTaskPhotoDraft] = useState({
@@ -1417,7 +1715,14 @@ export default function Zlecenia() {
   );
   const [contactDraft, setContactDraft] = useState('');
   const [contactDueDraft, setContactDueDraft] = useState('');
+  const [officePlan, setOfficePlan] = useState(OFFICE_PLAN_DEFAULTS);
+  const [officePlanSaving, setOfficePlanSaving] = useState(false);
+  const [quickCall, setQuickCall] = useState(QUICK_CALL_DEFAULTS);
+  const [quickCallSaving, setQuickCallSaving] = useState(false);
+  const [crewIssueDraft, setCrewIssueDraft] = useState({ typ: 'inne', opis: '' });
+  const [crewIssueSaving, setCrewIssueSaving] = useState(false);
   const [commandTab, setCommandTab] = useState('dispatch');
+  const [showAdvancedOps, setShowAdvancedOps] = useState(false);
   const [workflowConfig, setWorkflowConfig] = useState(() => {
     const parsed = getLocalStorageJson(WORKFLOW_CONFIG_KEY, {});
     return { ...DEFAULT_WORKFLOW_CONFIG, ...parsed };
@@ -1426,13 +1731,17 @@ export default function Zlecenia() {
   const location = useLocation();
  
   const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
+  const isAdmin = currentUser?.rola === 'Administrator';
+  const canManageAllBranches = isDyrektor || isAdmin;
   const isKierownik = currentUser?.rola === 'Kierownik';
   const isSpecjalista = currentUser?.rola === 'Specjalista';
   const isWyceniajacy = currentUser?.rola === 'Wyceniający' || currentUser?.rola === 'Wyceniajacy';
-  const mozeTworzyc = isDyrektor || isKierownik || isSpecjalista || isWyceniajacy;
-  const mozeEdytowac = isDyrektor || isKierownik || isSpecjalista || isWyceniajacy;
-  const mozeUsuwac = isDyrektor;
-  const mozePrzesuwacStatus = isDyrektor || isKierownik;
+  const mozeTworzyc = canManageAllBranches || isKierownik || isSpecjalista || isWyceniajacy;
+  const mozeEdytowac = canManageAllBranches || isKierownik || isSpecjalista || isWyceniajacy;
+  const mozePlanowacBiuro = canManageAllBranches || isKierownik || isSpecjalista;
+  const mozeUsuwac = canManageAllBranches;
+  const mozePrzesuwacStatus = canManageAllBranches || isKierownik;
+  const mozeObslugiwacRealizacje = mozePrzesuwacStatus || String(currentUser?.rola || '').toLowerCase().includes('bryg');
 
   useEffect(() => {
     localStorage.setItem(VIEW_MODE_KEY, tryb);
@@ -1488,13 +1797,49 @@ export default function Zlecenia() {
   }, [tryb, wybraneZlecenie]);
 
   useEffect(() => {
+    if (!currentUser?.oddzial_id) return;
+    setQuickCall((prev) => ({
+      ...prev,
+      oddzial_id: prev.oddzial_id || String(currentUser.oddzial_id),
+      wyceniajacy_id: isWyceniajacy ? (prev.wyceniajacy_id || String(currentUser.id || '')) : prev.wyceniajacy_id,
+    }));
+  }, [currentUser?.id, currentUser?.oddzial_id, isWyceniajacy]);
+
+  useEffect(() => {
     if (!wybraneZlecenie?.id) {
       setContactDraft('');
+      setOfficePlan(OFFICE_PLAN_DEFAULTS);
+      setCrewIssueDraft({ typ: 'inne', opis: '' });
       return;
     }
     setContactDraft(clientContacts[String(wybraneZlecenie.id)]?.note || '');
     setContactDueDraft(toDatetimeLocalValue(clientContacts[String(wybraneZlecenie.id)]?.dueAt));
+    setCrewIssueDraft({ typ: 'inne', opis: '' });
   }, [wybraneZlecenie?.id, clientContacts]);
+
+  useEffect(() => {
+    if (!wybraneZlecenie?.id) {
+      setOfficePlan(OFFICE_PLAN_DEFAULTS);
+      return;
+    }
+    const rawDate = String(wybraneZlecenie.data_planowana || '');
+    const datePart = rawDate ? rawDate.slice(0, 10) : '';
+    const timePart = wybraneZlecenie.godzina_rozpoczecia || (rawDate.includes('T') ? rawDate.split('T')[1]?.slice(0, 5) : '') || '08:00';
+    setOfficePlan({
+      data_planowana: datePart,
+      godzina_rozpoczecia: timePart,
+      czas_planowany_godziny: String(wybraneZlecenie.czas_planowany_godziny || wybraneZlecenie.czas_realizacji_godz || '2'),
+      ekipa_id: wybraneZlecenie.ekipa_id ? String(wybraneZlecenie.ekipa_id) : '',
+      sprzet_notatka: '',
+    });
+  }, [
+    wybraneZlecenie?.id,
+    wybraneZlecenie?.data_planowana,
+    wybraneZlecenie?.godzina_rozpoczecia,
+    wybraneZlecenie?.czas_planowany_godziny,
+    wybraneZlecenie?.czas_realizacji_godz,
+    wybraneZlecenie?.ekipa_id,
+  ]);
  
   const loadData = async (user) => {
     try {
@@ -1544,6 +1889,46 @@ export default function Zlecenia() {
       return [];
     } finally {
       setTaskPhotosLoading(false);
+    }
+  };
+
+  const loadTaskProblems = async (taskId, options = {}) => {
+    if (!taskId) return [];
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/tasks/${taskId}/problemy`, { headers: authHeaders(token), dedupe: false });
+      const rows = Array.isArray(data) ? data : [];
+      setTaskProblemsById((prev) => ({ ...prev, [String(taskId)]: rows }));
+      return rows;
+    } catch (err) {
+      if (!options.silent) pokazKomunikat(getApiErrorMessage(err, 'Nie udalo sie pobrac problemow zlecenia'), 'error');
+      return [];
+    }
+  };
+
+  const reportCrewIssue = async () => {
+    const taskId = wybraneZlecenie?.id;
+    if (!taskId) return;
+    const opis = String(crewIssueDraft.opis || '').trim();
+    if (!opis) {
+      pokazKomunikat('Opisz problem przed wyslaniem.', 'error');
+      return;
+    }
+    setCrewIssueSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.post(
+        `/tasks/${taskId}/problemy`,
+        { typ: crewIssueDraft.typ || 'inne', opis },
+        { headers: authHeaders(token) }
+      );
+      await loadTaskProblems(taskId, { silent: true });
+      setCrewIssueDraft({ typ: 'inne', opis: '' });
+      pokazKomunikat(`Problem zgloszony dla zlecenia #${taskId}.`);
+    } catch (err) {
+      pokazKomunikat(getApiErrorMessage(err, 'Nie udalo sie zglosic problemu'), 'error');
+    } finally {
+      setCrewIssueSaving(false);
     }
   };
 
@@ -1603,6 +1988,35 @@ export default function Zlecenia() {
 
   const setField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+  const applyScopePreset = (preset) => {
+    setForm((prev) => ({
+      ...prev,
+      typ_uslugi: preset.serviceType || prev.typ_uslugi,
+      opis_pracy: appendUniqueLine(prev.opis_pracy, preset.scopeLine),
+    }));
+  };
+
+  const toggleEquipmentPreset = (preset) => {
+    if (!preset.field) return;
+    setForm((prev) => ({ ...prev, [preset.field]: !prev[preset.field] }));
+  };
+
+  const appendRiskPreset = (preset) => {
+    setForm((prev) => ({
+      ...prev,
+      notatki: appendUniqueLine(prev.notatki, preset.note),
+      notatki_wewnetrzne: appendUniqueLine(prev.notatki_wewnetrzne, preset.note),
+    }));
+  };
+
+  const applySettlementPreset = (preset) => {
+    setForm((prev) => ({
+      ...prev,
+      notatki: appendUniqueLine(prev.notatki, preset.note),
+      notatki_wewnetrzne: appendUniqueLine(prev.notatki_wewnetrzne, preset.note),
+    }));
+  };
+
   const handleFormStatusChange = (nextStatus) => {
     setField('status', nextStatus);
     if (tryb === 'nowy' || nextStatus !== TASK_STATUS.ZAKONCZONE || isTaskDone(wybraneZlecenie?.status)) return;
@@ -1622,17 +2036,91 @@ export default function Zlecenia() {
   };
  
   const otworzNowe = () => {
-    setForm(PUSTY_FORMULARZ);
+    setForm(createTaskFormDefaults({
+      status: isWyceniajacy ? TASK_STATUS.WYCENA_TERENOWA : TASK_STATUS.NOWE,
+      oddzial_id: currentUser?.oddzial_id || '',
+      wyceniajacy_id: isWyceniajacy ? currentUser?.id || '' : '',
+    }));
     setWybraneZlecenie(null);
     setFormStep('client');
     setTaskPhotoDraft({ typ: 'Wycena', opis: '', tagi: 'wycena, teren' });
     setTryb('nowy');
   };
+
+  const setQuickCallField = (field, value) => {
+    setQuickCall((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'oddzial_id' ? { wyceniajacy_id: '' } : {}),
+    }));
+  };
+
+  const utworzOgledzinyZTelefonu = async () => {
+    const missing = [];
+    if (!String(quickCall.klient_nazwa || '').trim()) missing.push('klient');
+    if (!String(quickCall.klient_telefon || '').trim()) missing.push('telefon');
+    if (!String(quickCall.adres || '').trim()) missing.push('adres');
+    if (!String(quickCall.miasto || '').trim()) missing.push('miasto');
+    if (!String(quickCall.data_planowana || '').trim()) missing.push('data oględzin');
+    if (!String(quickCall.wyceniajacy_id || '').trim()) missing.push('wyceniacz');
+    if (canManageAllBranches && !String(quickCall.oddzial_id || '').trim()) missing.push('oddział');
+    if (missing.length) {
+      pokazKomunikat(`Telefon do biura: uzupełnij ${missing.join(', ')}`, 'error');
+      return false;
+    }
+    setQuickCallSaving(true);
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const payload = buildTaskCreatePayload(
+        createTaskFormDefaults({
+          ...quickCall,
+          status: TASK_STATUS.WYCENA_TERENOWA,
+          typ_uslugi: 'Wycinka',
+          opis_pracy: appendUniqueLine(
+            quickCall.opis_pracy,
+            'Źródło: telefon do biura. Cel: oględziny u klienta i pakiet zdjęć dla biura.',
+          ),
+          notatki_wewnetrzne: appendUniqueLine(
+            quickCall.opis_pracy,
+            `Telefon przyjął: ${[currentUser?.imie, currentUser?.nazwisko].filter(Boolean).join(' ') || currentUser?.login || 'biuro'}`,
+          ),
+          ankieta_uproszczona: true,
+        }),
+        currentUser,
+        {
+          initialStatus: TASK_STATUS.WYCENA_TERENOWA,
+          extra: { source: 'office_call_intake' },
+        },
+      );
+      const { data } = await api.post('/tasks/nowe', payload, { headers: h });
+      const created = data && typeof data === 'object' ? data : {};
+      pokazKomunikat(`Oględziny utworzone i wysłane do wyceniacza${created.id ? ` (#${created.id})` : ''}`);
+      setSmartFilter('fieldInspection');
+      setFiltrStatus('');
+      setSzukaj('');
+      setQuickCall({
+        ...QUICK_CALL_DEFAULTS,
+        oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
+        godzina_rozpoczecia: quickCall.godzina_rozpoczecia || '',
+      });
+      await loadData(currentUser);
+      return true;
+    } catch (err) {
+      pokazKomunikat(getApiErrorMessage(err, 'Nie udało się utworzyć oględzin z telefonu'), 'error');
+      return false;
+    } finally {
+      setQuickCallSaving(false);
+    }
+  };
  
   const otworzSzczegoly = (z) => {
     setWybraneZlecenie(z);
     setTryb('szczegoly');
-    if (z?.id) loadTaskPhotos(z.id, { silent: true });
+    if (z?.id) {
+      loadTaskPhotos(z.id, { silent: true });
+      loadTaskProblems(z.id, { silent: true });
+    }
   };
  
   const otworzEdycje = (z, step = 'client') => {
@@ -1644,8 +2132,9 @@ export default function Zlecenia() {
       data_planowana: z.data_planowana ? z.data_planowana.split('T')[0] : '',
       godzina_rozpoczecia: z.godzina_rozpoczecia || '',
       wartosc_planowana: z.wartosc_planowana || '', czas_planowany_godziny: z.czas_planowany_godziny || '',
-      ekipa_id: z.ekipa_id || '', kierownik_id: z.kierownik_id || '',
-      opis_pracy: z.opis_pracy || '',
+      oddzial_id: z.oddzial_id || currentUser?.oddzial_id || '',
+      ekipa_id: z.ekipa_id || '', kierownik_id: z.kierownik_id || '', wyceniajacy_id: z.wyceniajacy_id || '',
+      opis_pracy: z.opis_pracy || '', opis: z.opis || '', notatki_wewnetrzne: z.notatki_wewnetrzne || '',
       wywoz: !!z.wywoz, usuwanie_pni: !!z.usuwanie_pni,
       czas_realizacji_godz: z.czas_realizacji_godz || '',
       rebak: !!z.rebak, pila_wysiegniku: !!z.pila_wysiegniku, nozyce_dlugie: !!z.nozyce_dlugie,
@@ -1657,7 +2146,10 @@ export default function Zlecenia() {
     });
     setWybraneZlecenie(z);
     setFormStep(FORM_STEP_KEYS.has(step) ? step : 'client');
-    if (z?.id) loadTaskPhotos(z.id, { silent: true });
+    if (z?.id) {
+      loadTaskPhotos(z.id, { silent: true });
+      loadTaskProblems(z.id, { silent: true });
+    }
     setTryb('edytuj');
   };
 
@@ -1669,7 +2161,21 @@ export default function Zlecenia() {
   });
  
   const zapiszZlecenie = async (options = {}) => {
-    if (!form.klient_nazwa) { pokazKomunikat('Podaj nazwę klienta', 'error'); return false; }
+    if (tryb === 'nowy') {
+      const missing = getTaskCreateMissingFields(form, { requireBranch: canManageAllBranches });
+      if (missing.length) {
+        const firstMissing = missing[0];
+        setFormStep(TASK_CREATE_FIELD_STEPS[firstMissing] || 'client');
+        pokazKomunikat(
+          `Uzupełnij: ${missing.map((field) => TASK_CREATE_FIELD_LABELS[field] || field).join(', ')}`,
+          'error'
+        );
+        return false;
+      }
+    } else if (!form.klient_nazwa) {
+      pokazKomunikat('Podaj nazwę klienta', 'error');
+      return false;
+    }
     const closesTask = tryb !== 'nowy' && form.status === TASK_STATUS.ZAKONCZONE && !isTaskDone(wybraneZlecenie?.status);
     let closureGuardForSave = null;
     if (closesTask && !options.forceClose) {
@@ -1690,8 +2196,18 @@ export default function Zlecenia() {
       const h = authHeaders(token);
       let savedTask = null;
       if (tryb === 'nowy') {
-        const res = await api.post(`/tasks`, form, { headers: h });
-        savedTask = res.data || null;
+        const initialStatus = form.wyceniajacy_id && form.status === TASK_STATUS.NOWE
+          ? TASK_STATUS.WYCENA_TERENOWA
+          : form.status || TASK_STATUS.NOWE;
+        const payload = buildTaskCreatePayload(form, currentUser, { initialStatus });
+        const res = await api.post(`/tasks/nowe`, payload, { headers: h });
+        const created = res.data || {};
+        savedTask = {
+          ...payload,
+          ...created,
+          id: created.id || payload.id,
+          status: created.status || payload.status,
+        };
         pokazKomunikat('Zlecenie zostało utworzone');
       } else {
         const res = await api.put(`/tasks/${wybraneZlecenie.id}`, form, { headers: h });
@@ -1824,6 +2340,10 @@ export default function Zlecenia() {
   const zmienStatusInline = async (taskId, nextStatus, options = {}) => {
     const task = zlecenia.find((z) => z.id === taskId);
     if (!task || task.status === nextStatus) return true;
+    if (!canTransitionTaskStatus(task.status, nextStatus, { allowCancel: mozePrzesuwacStatus })) {
+      pokazKomunikat(`Ten przeskok statusu jest zablokowany: ${task.status || 'brak'} -> ${nextStatus}.`, 'error');
+      return false;
+    }
     if (nextStatus === TASK_STATUS.W_REALIZACJI) {
       const inProgressCount = zlecenia.filter((z) => isTaskInProgress(z.status)).length;
       if (!isTaskInProgress(task.status) && inProgressCount >= 10) {
@@ -1870,6 +2390,51 @@ export default function Zlecenia() {
       return false;
     } finally {
       setStatusUpdatingId(null);
+    }
+  };
+
+  const setOfficePlanField = (field, value) => {
+    setOfficePlan((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const zapiszPlanBiura = async () => {
+    if (!wybraneZlecenie?.id) return false;
+    const missing = [];
+    if (!officePlan.data_planowana) missing.push('data');
+    if (!officePlan.godzina_rozpoczecia) missing.push('godzina');
+    if (!officePlan.czas_planowany_godziny) missing.push('czas');
+    if (!officePlan.ekipa_id) missing.push('ekipa');
+    if (missing.length) {
+      pokazKomunikat(`Uzupełnij plan: ${missing.join(', ')}`, 'error');
+      return false;
+    }
+
+    setOfficePlanSaving(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.put(`/tasks/${wybraneZlecenie.id}/office-plan`, officePlan, { headers: authHeaders(token) });
+      const plannedTeam = ekipy.find((e) => String(e.id) === String(officePlan.ekipa_id));
+      const updated = {
+        ...wybraneZlecenie,
+        ...(data && typeof data === 'object' ? data : {}),
+        id: wybraneZlecenie.id,
+        status: TASK_STATUS.ZAPLANOWANE,
+        data_planowana: data?.data_planowana || officePlan.data_planowana,
+        godzina_rozpoczecia: officePlan.godzina_rozpoczecia,
+        czas_planowany_godziny: data?.czas_planowany_godziny || officePlan.czas_planowany_godziny,
+        ekipa_id: data?.ekipa_id || officePlan.ekipa_id,
+        ekipa_nazwa: data?.ekipa_nazwa || plannedTeam?.nazwa || wybraneZlecenie.ekipa_nazwa,
+      };
+      setWybraneZlecenie(updated);
+      setZlecenia((prev) => prev.map((z) => (String(z.id) === String(updated.id) ? { ...z, ...updated } : z)));
+      await loadData(currentUser);
+      pokazKomunikat('Zlecenie zaplanowane dla ekipy');
+      return true;
+    } catch (err) {
+      pokazKomunikat(getApiErrorMessage(err, 'Nie udało się zaplanować zlecenia'), 'error');
+      return false;
+    } finally {
+      setOfficePlanSaving(false);
     }
   };
 
@@ -2057,16 +2622,26 @@ export default function Zlecenia() {
   const buildTaskBrief = (task, index, diagnostics = getTaskDiagnostics(task, todayIso)) => {
     const address = getTaskAddressLine(task) || 'brak adresu';
     const phone = task.klient_telefon || 'brak telefonu';
-    const planned = task.data_planowana ? String(task.data_planowana).slice(0, 10) : 'brak terminu';
+    const planned = formatTaskPlanLine(task);
     const blockers = diagnostics.items.length ? diagnostics.items.map((item) => item.label).join(', ') : 'brak';
     const mapUrl = getMapsHref(task);
+    const equipment = getTaskEquipmentList(task);
+    const description = getTaskCrewDescription(task);
+    const risk = getTaskCrewRisk(task);
+    const equipmentNote = getTaskCrewEquipmentNote(task);
+    const photos = getTaskPhotoSummary(task);
     return [
       `${index ? `${index}. ` : ''}Zlecenie #${task.id}: ${task.klient_nazwa || 'bez klienta'}`,
       `Telefon: ${phone}`,
       `Adres: ${address}`,
       `Termin: ${planned}`,
+      `Ekipa: ${task.ekipa_nazwa || (task.ekipa_id ? `#${task.ekipa_id}` : 'brak')}`,
       `Status: ${task.status || 'brak'}`,
       `Priorytet: ${task.priorytet || 'brak'} | Wartość: ${formatCurrency(task.wartosc_planowana)}`,
+      description ? `Zakres: ${description}` : null,
+      equipment.length || equipmentNote ? `Sprzet: ${[equipment.join(', '), equipmentNote].filter(Boolean).join(' | ')}` : null,
+      risk ? `Ryzyka: ${risk}` : null,
+      `Zdjecia: ${photos.total} razem, wycena/szkic: ${photos.fieldEvidence}`,
       `Blokery: ${blockers}`,
       `Następny ruch: ${diagnostics.nextAction.label}`,
       mapUrl ? `Mapa: ${mapUrl}` : null,
@@ -2412,6 +2987,33 @@ export default function Zlecenia() {
   const areAllVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedTaskIds.includes(id));
   const KANBAN_COLUMNS = TASK_STATUSES;
   const oddzialyOpcje = [...new Set(zlecenia.map((z) => z.oddzial_id).filter(Boolean))];
+  const branchSelectOptions = [
+    ...new Set([currentUser?.oddzial_id, form.oddzial_id, quickCall.oddzial_id, ...oddzialyOpcje]
+      .filter((value) => value !== undefined && value !== null && value !== '')
+      .map((value) => String(value)))
+  ];
+  const estimatorOptions = uzytkownicy
+    .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy')
+    .filter((u) => (
+      !form.oddzial_id ||
+      !u.oddzial_id ||
+      String(u.oddzial_id) === String(form.oddzial_id) ||
+      String(u.id) === String(form.wyceniajacy_id)
+    ));
+  const quickCallEstimatorOptions = uzytkownicy
+    .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy')
+    .filter((u) => (
+      !quickCall.oddzial_id ||
+      !u.oddzial_id ||
+      String(u.oddzial_id) === String(quickCall.oddzial_id) ||
+      String(u.id) === String(quickCall.wyceniajacy_id)
+    ));
+  const teamOptions = ekipy.filter((ekipa) => (
+    !form.oddzial_id ||
+    !ekipa.oddzial_id ||
+    String(ekipa.oddzial_id) === String(form.oddzial_id) ||
+    String(ekipa.id) === String(form.ekipa_id)
+  ));
   const kanbanStats = KANBAN_COLUMNS.map((status) => {
     const items = widoczneZlecenia.filter((z) => z.status === status);
     const total = items.reduce((sum, z) => sum + (parseFloat(z.wartosc_planowana) || 0), 0);
@@ -2429,13 +3031,41 @@ export default function Zlecenia() {
   const isFirstFormStep = formStepIndex === 0;
   const isLastFormStep = formStepIndex === FORM_STEPS.length - 1;
   const formPreviewTask = buildTaskFromForm();
+  const formWorkflowStageIndex = Math.max(
+    0,
+    FORM_WORKFLOW_STEPS.findIndex((step) => step.status === (formPreviewTask.status || TASK_STATUS.NOWE))
+  );
+  const formWorkflowStage = FORM_WORKFLOW_STEPS[formWorkflowStageIndex] || FORM_WORKFLOW_STEPS[0];
+  const formStatusOptions = tryb === 'nowy'
+    ? [TASK_STATUS.NOWE, TASK_STATUS.WYCENA_TERENOWA]
+    : getNextTaskStatuses(wybraneZlecenie?.status || form.status, {
+      includeCurrent: true,
+      allowCancel: mozePrzesuwacStatus,
+    });
   const formPreviewContact = formPreviewTask?.id ? getClientContact(formPreviewTask.id) : {};
   const formPreviewMeta = getTaskBusinessMeta(formPreviewTask, todayIso, formPreviewContact);
   const formPreviewPrice = getTaskPriceGuidance(formPreviewTask, formPreviewMeta);
   const formPreviewSafety = getTaskSafetyChecklist(formPreviewTask, formPreviewMeta, formPreviewContact);
   const formPreviewSafetyRequired = formPreviewSafety.filter((item) => item.required && !item.ok);
   const selectedTaskPhotos = wybraneZlecenie?.id ? (taskPhotosById[String(wybraneZlecenie.id)] || []) : [];
+  const selectedTaskProblems = wybraneZlecenie?.id ? (taskProblemsById[String(wybraneZlecenie.id)] || []) : [];
   const fieldPhotoCount = selectedTaskPhotos.filter((photo) => ['Wycena', 'Szkic'].includes(photo.typ)).length;
+  const detailPlanTeamOptions = wybraneZlecenie
+    ? ekipy.filter((ekipa) => (
+      !wybraneZlecenie.oddzial_id ||
+      !ekipa.oddzial_id ||
+      String(ekipa.oddzial_id) === String(wybraneZlecenie.oddzial_id) ||
+      String(ekipa.id) === String(officePlan.ekipa_id)
+    ))
+    : [];
+  const officePlanTeam = detailPlanTeamOptions.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id))
+    || ekipy.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id));
+  const showOfficePlanPanel = Boolean(
+    wybraneZlecenie &&
+    mozePlanowacBiuro &&
+    !isTaskClosed(wybraneZlecenie.status) &&
+    [TASK_STATUS.DO_ZATWIERDZENIA, TASK_STATUS.ZAPLANOWANE].includes(wybraneZlecenie.status)
+  );
   const detailHeroTone = detailSafetyRequiredIssues.length
     ? 'danger'
     : detailRequiredIssues.length
@@ -2590,8 +3220,6 @@ export default function Zlecenia() {
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
               actions={
                 <>
-                  <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>{t('common.exportCsv')}</button>
-                  <button type="button" style={s.btnSecondary} onClick={exportFilteredXlsx}>{t('common.exportXlsx')}</button>
                   <button type="button" style={s.btnSecondary} onClick={() => { setFiltrStatus(''); setTryb('kanban'); }}>{t('pages.zlecenia.kanbanTitle')}</button>
                   {mozeTworzyc && <button type="button" style={s.btnPrimary} onClick={otworzNowe}>+ {t('common.newOrder')}</button>}
                 </>
@@ -2601,18 +3229,23 @@ export default function Zlecenia() {
               <div style={s.commandHeader}>
                 <div>
                   <div style={s.commandEyebrow}>Centrum pracy</div>
-                  <div style={s.commandTitle}>Wybierz widok i jedź po decyzjach, nie po tabeli.</div>
+                  <div style={s.commandTitle}>Jedna droga zlecenia: od telefonu do wykonania pracy.</div>
                 </div>
                 <div style={s.commandActions}>
                   <button type="button" style={s.btnSecondary} onClick={() => setTryb('kanban')}>Kanban</button>
-                  <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>CSV</button>
-                  <button type="button" style={s.btnSecondary} onClick={() => copyDispatchManifest(widoczneZlecenia, 'bieżącego widoku')}>
-                    Odprawa widoku
-                  </button>
-                  {viewRouteHref ? (
-                    <a href={viewRouteHref} target="_blank" rel="noreferrer" style={s.btnSecondary}>
-                      Trasa top 8
-                    </a>
+                  {showAdvancedOps ? (
+                    <>
+                      <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>CSV</button>
+                      <button type="button" style={s.btnSecondary} onClick={exportFilteredXlsx}>XLSX</button>
+                      <button type="button" style={s.btnSecondary} onClick={() => copyDispatchManifest(widoczneZlecenia, 'bieżącego widoku')}>
+                        Odprawa widoku
+                      </button>
+                      {viewRouteHref ? (
+                        <a href={viewRouteHref} target="_blank" rel="noreferrer" style={s.btnSecondary}>
+                          Trasa top 8
+                        </a>
+                      ) : null}
+                    </>
                   ) : null}
                 </div>
               </div>
@@ -2630,6 +3263,167 @@ export default function Zlecenia() {
                   <strong style={s.commandStatStrong}>{formatCurrency(filtrowane.reduce((sum, z) => sum + (parseFloat(z.wartosc_planowana) || 0), 0))}</strong>
                 </div>
               </div>
+              {mozeTworzyc ? (
+                <div style={s.quickCallPanel}>
+                  <div style={s.quickCallHeader}>
+                    <div>
+                      <div style={s.dispatchEyebrow}>Telefon do biura</div>
+                      <div style={s.quickCallTitle}>30 sekund: klient, adres, termin i wyceniacz</div>
+                    </div>
+                    <span style={s.quickCallStatus}>Tworzy: Wycena_Terenowa</span>
+                  </div>
+                  <div style={s.quickCallGrid}>
+                    <div style={s.fg}>
+                      <label style={s.label}>Klient *</label>
+                      <input
+                        style={s.input}
+                        placeholder="Imię / firma"
+                        value={quickCall.klient_nazwa}
+                        onChange={(event) => setQuickCallField('klient_nazwa', event.target.value)}
+                      />
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Telefon *</label>
+                      <input
+                        style={s.input}
+                        placeholder="+48 000 000 000"
+                        value={quickCall.klient_telefon}
+                        onChange={(event) => setQuickCallField('klient_telefon', event.target.value)}
+                      />
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Adres *</label>
+                      <input
+                        style={s.input}
+                        placeholder="ulica, numer"
+                        value={quickCall.adres}
+                        onChange={(event) => setQuickCallField('adres', event.target.value)}
+                      />
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Miasto *</label>
+                      <CityInput
+                        style={s.input}
+                        placeholder="Kraków"
+                        value={quickCall.miasto}
+                        onChange={(event) => setQuickCallField('miasto', event.target.value)}
+                        extraCities={zlecenia.map((z) => z.miasto)}
+                      />
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Data oględzin *</label>
+                      <input
+                        style={s.input}
+                        type="date"
+                        value={quickCall.data_planowana}
+                        onChange={(event) => setQuickCallField('data_planowana', event.target.value)}
+                      />
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Godzina</label>
+                      <input
+                        style={s.input}
+                        type="time"
+                        value={quickCall.godzina_rozpoczecia}
+                        onChange={(event) => setQuickCallField('godzina_rozpoczecia', event.target.value)}
+                      />
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Oddział</label>
+                      <select
+                        style={s.input}
+                        value={quickCall.oddzial_id}
+                        disabled={!canManageAllBranches && !!currentUser?.oddzial_id}
+                        onChange={(event) => setQuickCallField('oddzial_id', event.target.value)}
+                      >
+                        <option value="">— wybierz —</option>
+                        {branchSelectOptions.map((oddzialId) => (
+                          <option key={oddzialId} value={oddzialId}>Oddział #{oddzialId}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={s.fg}>
+                      <label style={s.label}>Wyceniacz *</label>
+                      <select
+                        style={s.input}
+                        value={quickCall.wyceniajacy_id}
+                        onChange={(event) => setQuickCallField('wyceniajacy_id', event.target.value)}
+                      >
+                        <option value="">— wybierz —</option>
+                        {quickCallEstimatorOptions.map((u) => (
+                          <option key={u.id} value={u.id}>{u.imie} {u.nazwisko}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ ...s.fg, gridColumn: '1 / -1' }}>
+                      <label style={s.label}>Notatka z rozmowy</label>
+                      <textarea
+                        style={{ ...s.input, minHeight: 58, resize: 'vertical' }}
+                        placeholder="np. klient prosi o oględziny po 15:00, brama od strony ogrodu, do wyceny 2 drzewa"
+                        value={quickCall.opis_pracy}
+                        onChange={(event) => setQuickCallField('opis_pracy', event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div style={s.quickCallFooter}>
+                    <span>Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.</span>
+                    <div style={s.quickCallActions}>
+                      <button type="button" style={s.btnSecondary} onClick={otworzNowe}>Pełny formularz</button>
+                      <button
+                        type="button"
+                        style={{ ...s.btnPrimary, ...(quickCallSaving ? s.formWizardBtnDisabled : {}) }}
+                        disabled={quickCallSaving}
+                        onClick={utworzOgledzinyZTelefonu}
+                      >
+                        {quickCallSaving ? 'Tworzę...' : 'Utwórz oględziny'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              <div style={s.workflowLanePanel}>
+                <div style={s.workflowLaneHeader}>
+                  <div>
+                    <div style={s.dispatchEyebrow}>Jedna ścieżka zlecenia</div>
+                    <div style={s.workflowLaneTitle}>Telefon -> oględziny -> biuro -> ekipa -> zamknięcie</div>
+                  </div>
+                  <span style={s.workflowLaneHint}>Kliknij etap, żeby zobaczyć tylko te sprawy.</span>
+                </div>
+                <div style={s.savedViews}>
+                  {operationalViews.map((view) => (
+                    <button
+                      key={view.key}
+                      type="button"
+                      onClick={() => applyOperationalView(view)}
+                      style={{
+                        ...s.savedViewBtn,
+                        ...(activeOperationalViewKey === view.key ? s.savedViewBtnActive : {}),
+                      }}
+                    >
+                      <span style={s.savedViewLabel}>{view.label}</span>
+                      <span style={s.savedViewMeta}>{view.detail}</span>
+                      <span style={s.savedViewCount}>{view.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={s.advancedOpsHeader}>
+                <div>
+                  <strong style={s.advancedOpsTitle}>Kontrola operacyjna</strong>
+                  <span style={s.advancedOpsText}>Ryzyka, audyt, finanse i wszystkie filtry są dostępne tutaj, ale nie mieszają się z codzienną ścieżką.</span>
+                </div>
+                <button type="button" style={s.btnSecondary} onClick={() => setShowAdvancedOps((value) => !value)}>
+                  {showAdvancedOps ? 'Ukryj kontrolę' : 'Pokaż kontrolę'}
+                </button>
+              </div>
+              {!showAdvancedOps && smartFilter ? (
+                <div style={s.activeFilterBanner}>
+                  <span>Aktywny filtr: <strong>{activeSmartLabel || smartFilter}</strong></span>
+                  <button type="button" style={s.clearBtn} onClick={() => setSmartFilter('')}>Wyczyść</button>
+                </div>
+              ) : null}
+              {showAdvancedOps ? (
+                <>
               <div className="zlecenia-ops-grid" style={s.opsGrid}>
                 {zleceniaOpsCards.map((card) => (
                   <button
@@ -2677,23 +3471,6 @@ export default function Zlecenia() {
                     );
                   })}
                 </div>
-              </div>
-              <div style={s.savedViews}>
-                {operationalViews.map((view) => (
-                  <button
-                    key={view.key}
-                    type="button"
-                    onClick={() => applyOperationalView(view)}
-                    style={{
-                      ...s.savedViewBtn,
-                      ...(activeOperationalViewKey === view.key ? s.savedViewBtnActive : {}),
-                    }}
-                  >
-                    <span style={s.savedViewLabel}>{view.label}</span>
-                    <span style={s.savedViewMeta}>{view.detail}</span>
-                    <span style={s.savedViewCount}>{view.count}</span>
-                  </button>
-                ))}
               </div>
               <div style={s.commandTabs}>
                 {COMMAND_TABS.map((tab) => (
@@ -2986,8 +3763,11 @@ export default function Zlecenia() {
                 </div>
               </div>
               )}
+                </>
+              ) : null}
             </div>
 
+            {showAdvancedOps ? (
             <div style={s.smartFilterRow}>
               <span style={s.smartFilterTitle}>Inteligentne widoki</span>
               {smartFilterCounts.map((item) => (
@@ -3010,6 +3790,7 @@ export default function Zlecenia() {
                 </button>
               ) : null}
             </div>
+            ) : null}
 
             <div style={s.filtryRow}>
               <input style={s.searchInput} placeholder={t('pages.zlecenia.searchPlaceholder')}
@@ -3533,6 +4314,14 @@ export default function Zlecenia() {
                 ))}
               </div>
             </section>
+
+            <WorkflowPathPanel
+              styles={s}
+              task={wybraneZlecenie}
+              canChange={mozePrzesuwacStatus}
+              statusBusy={statusUpdatingId === wybraneZlecenie.id}
+              onChangeStatus={(nextStatus) => zmienStatusInline(wybraneZlecenie.id, nextStatus)}
+            />
  
             <div style={s.detailOpsPanel}>
               <div>
@@ -3566,6 +4355,24 @@ export default function Zlecenia() {
                 </button>
               </div>
             </div>
+
+            <CrewExecutionBrief
+              styles={s}
+              task={wybraneZlecenie}
+              photos={selectedTaskPhotos}
+              issues={selectedTaskProblems}
+              safetyChecklist={detailSafetyChecklist}
+              equipment={detailEquipmentList}
+              issueDraft={crewIssueDraft}
+              issueSaving={crewIssueSaving}
+              statusBusy={statusUpdatingId === wybraneZlecenie.id}
+              canChangeStatus={mozeObslugiwacRealizacje}
+              onIssueDraftChange={setCrewIssueDraft}
+              onReportIssue={reportCrewIssue}
+              onStart={() => zmienStatusInline(wybraneZlecenie.id, TASK_STATUS.W_REALIZACJI)}
+              onFinish={() => zmienStatusInline(wybraneZlecenie.id, TASK_STATUS.ZAKONCZONE)}
+              onCopy={() => copyTaskBrief(wybraneZlecenie)}
+            />
 
             {detailBusinessMeta ? (
               <div className="zlecenia-detail-passport" style={s.detailPassportPanel}>
@@ -3616,6 +4423,93 @@ export default function Zlecenia() {
                       <small>{item.detail}</small>
                     </div>
                   ))}
+                </div>
+              </div>
+            ) : null}
+
+            {showOfficePlanPanel ? (
+              <div className="zlecenia-office-plan" style={s.officePlanPanel}>
+                <div style={s.officePlanHeader}>
+                  <div>
+                    <div style={s.detailOpsEyebrow}>Plan biura</div>
+                    <div style={s.officePlanTitle}>Do zaplanowania dla ekipy</div>
+                    <p style={s.officePlanSubtitle}>
+                      Biuro dopina termin, ekipę i sprzęt na podstawie pakietu z wyceny terenowej.
+                    </p>
+                  </div>
+                  <span style={{ ...s.businessHealth, ...s.businessHealth_good }}>
+                    {wybraneZlecenie.status === TASK_STATUS.ZAPLANOWANE ? 'Zaplanowane' : 'Czeka na plan'}
+                  </span>
+                </div>
+                <div style={s.officePlanGrid}>
+                  <div style={s.fg}>
+                    <label style={s.label}>Data</label>
+                    <input
+                      type="date"
+                      style={s.input}
+                      value={officePlan.data_planowana}
+                      onChange={(event) => setOfficePlanField('data_planowana', event.target.value)}
+                    />
+                  </div>
+                  <div style={s.fg}>
+                    <label style={s.label}>Godzina startu</label>
+                    <input
+                      type="time"
+                      style={s.input}
+                      value={officePlan.godzina_rozpoczecia}
+                      onChange={(event) => setOfficePlanField('godzina_rozpoczecia', event.target.value)}
+                    />
+                  </div>
+                  <div style={s.fg}>
+                    <label style={s.label}>Czas pracy (h)</label>
+                    <input
+                      type="number"
+                      min="0.25"
+                      step="0.25"
+                      style={s.input}
+                      value={officePlan.czas_planowany_godziny}
+                      onChange={(event) => setOfficePlanField('czas_planowany_godziny', event.target.value)}
+                    />
+                  </div>
+                  <div style={s.fg}>
+                    <label style={s.label}>Ekipa</label>
+                    <select
+                      style={s.input}
+                      value={officePlan.ekipa_id}
+                      onChange={(event) => setOfficePlanField('ekipa_id', event.target.value)}
+                    >
+                      <option value="">— wybierz ekipę —</option>
+                      {detailPlanTeamOptions.map((ekipa) => (
+                        <option key={ekipa.id} value={ekipa.id}>{ekipa.nazwa || `Ekipa #${ekipa.id}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ ...s.fg, ...s.officePlanNoteField }}>
+                    <label style={s.label}>Sprzęt / uwagi dla brygady</label>
+                    <textarea
+                      style={{ ...s.input, ...s.officePlanTextarea }}
+                      value={officePlan.sprzet_notatka}
+                      placeholder="np. rębak, zwyżka, zabezpieczenie rabaty, dojazd od bramy bocznej"
+                      onChange={(event) => setOfficePlanField('sprzet_notatka', event.target.value)}
+                    />
+                  </div>
+                </div>
+                <div style={s.officePlanFooter}>
+                  <div style={s.officePlanSummary}>
+                    <strong>{officePlanTeam?.nazwa || 'Ekipa nie wybrana'}</strong>
+                    <span>
+                      {officePlan.data_planowana || 'brak daty'} {officePlan.godzina_rozpoczecia || ''}
+                      {officePlan.czas_planowany_godziny ? ` · ${officePlan.czas_planowany_godziny} h` : ''}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    style={{ ...s.bulkBtn, ...(officePlanSaving ? { opacity: 0.62, cursor: 'wait' } : {}) }}
+                    disabled={officePlanSaving}
+                    onClick={zapiszPlanBiura}
+                  >
+                    {officePlanSaving ? 'Zapisuję...' : 'Zapisz i ustaw Zaplanowane'}
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -3993,6 +4887,30 @@ export default function Zlecenia() {
                   </button>
                 ))}
               </div>
+              <div style={s.formFlowPanel}>
+                <div style={s.formFlowHeader}>
+                  <span>Jedna ścieżka zlecenia</span>
+                  <strong>{formWorkflowStage.label}</strong>
+                </div>
+                <div style={s.formFlowSteps}>
+                  {FORM_WORKFLOW_STEPS.map((step, index) => (
+                    <div
+                      key={step.status}
+                      style={{
+                        ...s.formFlowStep,
+                        ...(index < formWorkflowStageIndex ? s.formFlowStepDone : {}),
+                        ...(index === formWorkflowStageIndex ? s.formFlowStepActive : {}),
+                      }}
+                    >
+                      <span style={{ ...s.formFlowStepNo, borderColor: getStatusColor(step.status) }}>{step.step}</span>
+                      <span style={s.formFlowStepText}>
+                        <strong>{step.label}</strong>
+                        <small>{step.detail}</small>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
  
             <div style={{ ...s.card, display: formStep === 'client' ? undefined : 'none' }}>
@@ -4029,8 +4947,44 @@ export default function Zlecenia() {
                   </select></div>
                 <div style={s.fg}><label style={s.label}>Status</label>
                   <select style={s.input} value={form.status} onChange={e => handleFormStatusChange(e.target.value)}>
-                    {TASK_STATUSES.map((status) => (
+                    {formStatusOptions.map((status) => (
                       <option key={status} value={status}>{t(`taskStatus.${status}`, { defaultValue: status })}</option>
+                    ))}
+                  </select>
+                  {tryb !== 'nowy' ? (
+                    <small style={s.formStatusHint}>Aktualny etap plus następny dozwolony krok. Reszta jest blokowana przez workflow.</small>
+                  ) : null}
+                </div>
+                <div style={s.fg}><label style={s.label}>Oddział</label>
+                  <select
+                    style={s.input}
+                    value={form.oddzial_id}
+                    disabled={!canManageAllBranches && !!currentUser?.oddzial_id}
+                    onChange={e => setForm(prev => ({
+                      ...prev,
+                      oddzial_id: e.target.value,
+                      ekipa_id: '',
+                      wyceniajacy_id: '',
+                    }))}
+                  >
+                    <option value="">— wybierz oddział —</option>
+                    {branchSelectOptions.map((oddzialId) => (
+                      <option key={oddzialId} value={oddzialId}>Oddział #{oddzialId}</option>
+                    ))}
+                  </select></div>
+                <div style={s.fg}><label style={s.label}>Wyceniacz / oględziny</label>
+                  <select
+                    style={s.input}
+                    value={form.wyceniajacy_id}
+                    onChange={e => setForm(prev => ({
+                      ...prev,
+                      wyceniajacy_id: e.target.value,
+                      status: e.target.value && prev.status === TASK_STATUS.NOWE ? TASK_STATUS.WYCENA_TERENOWA : prev.status,
+                    }))}
+                  >
+                    <option value="">— jeszcze nie przypisano —</option>
+                    {estimatorOptions.map((u) => (
+                      <option key={u.id} value={u.id}>{u.imie} {u.nazwisko}</option>
                     ))}
                   </select></div>
                 <div style={s.fg}><label style={s.label}>Priorytet</label>
@@ -4046,7 +5000,7 @@ export default function Zlecenia() {
                 <div style={s.fg}><label style={s.label}>Ekipa</label>
                   <select style={s.input} value={form.ekipa_id} onChange={e => setField('ekipa_id', e.target.value)}>
                     <option value="">— brak —</option>
-                    {ekipy.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
+                    {teamOptions.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
                   </select></div>
                 <div style={s.fg}><label style={s.label}>Kierownik</label>
                   <select style={s.input} value={form.kierownik_id} onChange={e => setField('kierownik_id', e.target.value)}>
@@ -4060,6 +5014,27 @@ export default function Zlecenia() {
  
             <div style={{ ...s.card, display: formStep === 'work' ? undefined : 'none' }}>
               <div style={s.cardTitle}>1. Opis pracy</div>
+              <div style={s.inspectionPresetPanel}>
+                <div style={s.inspectionPresetHead}>
+                  <strong>Szybki zakres oględzin</strong>
+                  <span>Klikasz typ pracy, a system dopisuje ten sam opis dla biura, wyceniacza i ekipy.</span>
+                </div>
+                <div style={s.inspectionPresetGrid}>
+                  {TASK_SCOPE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      style={{
+                        ...s.inspectionChip,
+                        ...(form.opis_pracy?.includes(preset.scopeLine) ? s.inspectionChipActive : {}),
+                      }}
+                      onClick={() => applyScopePreset(preset)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea style={{ ...s.input, minHeight: 80, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
                 placeholder="np. Przycinanie żywopłotu i drzew, usuwanie gałęzi..."
                 value={form.opis_pracy} onChange={e => setField('opis_pracy', e.target.value)} />
@@ -4085,6 +5060,21 @@ export default function Zlecenia() {
  
               <div style={s.card}>
                 <div style={s.cardTitle}>5–8. Cechy pracy / sprzęt</div>
+                <div style={s.inspectionPresetGrid}>
+                  {TASK_EQUIPMENT_OPTIONS.map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      style={{
+                        ...s.inspectionChip,
+                        ...(form[preset.field] ? s.inspectionChipActive : {}),
+                      }}
+                      onClick={() => toggleEquipmentPreset(preset)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
                 <TakNie label="6. Rębak" field="rebak" form={form} onChange={setField} />
                 <TakNie label="7. Piła na wysięgniku" field="pila_wysiegniku" form={form} onChange={setField} />
                 <TakNie label="8. Nożyce długie" field="nozyce_dlugie" form={form} onChange={setField} />
@@ -4094,9 +5084,49 @@ export default function Zlecenia() {
                 <TakNie label="20. Mulczer" field="mulczer" form={form} onChange={setField} />
               </div>
             </div>
+
+            <div style={{ ...s.card, display: formStep === 'work' ? undefined : 'none' }}>
+              <div style={s.cardTitle}>Ryzyka BHP / dojazd</div>
+              <div style={s.inspectionPresetGrid}>
+                {TASK_RISK_PRESETS.map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    style={{
+                      ...s.inspectionChip,
+                      ...(form.notatki?.includes(preset.note) ? s.inspectionChipActive : {}),
+                    }}
+                    onClick={() => appendRiskPreset(preset)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
  
             <div style={{ ...s.card, display: formStep === 'finance' ? undefined : 'none' }}>
               <div style={s.cardTitle}>10–15. Wynik i finanse</div>
+              <div style={s.inspectionPresetPanel}>
+                <div style={s.inspectionPresetHead}>
+                  <strong>Warunki rozliczenia</strong>
+                  <span>Jedna notatka dla biura i kierownika, żeby później nie zgadywać, co uzgodniono z klientem.</span>
+                </div>
+                <div style={s.inspectionPresetGrid}>
+                  {TASK_SETTLEMENT_OPTIONS.map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      style={{
+                        ...s.inspectionChip,
+                        ...(form.notatki?.includes(preset.note) ? s.inspectionChipActive : {}),
+                      }}
+                      onClick={() => applySettlementPreset(preset)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={s.formGrid}>
                 <div style={{ ...s.fg, gridColumn: '1 / -1' }}><label style={s.label}>10. Wynik rozmowy z klientem</label>
                   <input style={s.input} placeholder="np. Klient zgadza się na wykonanie robót. Trzeba ustalić termin."
@@ -4292,6 +5322,136 @@ const s = {
     lineHeight: 1,
     fontWeight: 950,
     fontVariantNumeric: 'tabular-nums',
+  },
+  quickCallPanel: {
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(34,197,94,0.11), var(--glass-bg))',
+    padding: 12,
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-sm)',
+  },
+  quickCallHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  quickCallTitle: {
+    color: 'var(--text)',
+    fontSize: 15,
+    fontWeight: 950,
+    marginTop: 2,
+    lineHeight: 1.25,
+  },
+  quickCallStatus: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 30,
+    border: '1px solid rgba(52,211,153,0.35)',
+    borderRadius: 8,
+    backgroundColor: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    padding: '5px 9px',
+    fontSize: 11,
+    fontWeight: 950,
+  },
+  quickCallGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 10,
+  },
+  quickCallFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 750,
+  },
+  quickCallActions: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  workflowLanePanel: {
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(30,111,74,0.14), var(--glass-bg))',
+    padding: 12,
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-sm)',
+  },
+  workflowLaneHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  workflowLaneTitle: {
+    color: 'var(--text)',
+    fontSize: 15,
+    lineHeight: 1.25,
+    fontWeight: 950,
+    marginTop: 2,
+  },
+  workflowLaneHint: {
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 800,
+    maxWidth: 260,
+    lineHeight: 1.35,
+  },
+  advancedOpsHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.1)',
+    padding: '10px 12px',
+    marginBottom: 12,
+  },
+  advancedOpsTitle: {
+    display: 'block',
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 950,
+  },
+  advancedOpsText: {
+    display: 'block',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 720,
+    lineHeight: 1.35,
+    marginTop: 2,
+  },
+  activeFilterBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent-surface)',
+    color: 'var(--text)',
+    padding: '9px 11px',
+    marginBottom: 12,
+    fontSize: 12,
+    fontWeight: 850,
   },
   opsGrid: {
     display: 'grid',
@@ -5196,6 +6356,114 @@ const s = {
     lineHeight: 1.2,
     fontSize: 12,
   },
+  formFlowPanel: {
+    marginTop: 12,
+    padding: 12,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-deep)',
+  },
+  formFlowHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 10,
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 850,
+    textTransform: 'uppercase',
+  },
+  formFlowSteps: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+    gap: 8,
+  },
+  formFlowStep: {
+    minHeight: 66,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-muted)',
+    padding: '9px 10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+  },
+  formFlowStepActive: {
+    border: '1px solid rgba(52,211,153,0.42)',
+    backgroundColor: 'rgba(52,211,153,0.1)',
+    color: 'var(--text)',
+  },
+  formFlowStepDone: {
+    color: 'var(--text-sub)',
+    opacity: 0.82,
+  },
+  formFlowStepNo: {
+    flex: '0 0 auto',
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    border: '1px solid var(--accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--accent)',
+    fontSize: 12,
+    fontWeight: 950,
+    fontVariantNumeric: 'tabular-nums',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  formFlowStepText: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    lineHeight: 1.25,
+    fontSize: 12,
+  },
+  inspectionPresetPanel: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-deep)',
+    padding: 10,
+    marginBottom: 10,
+  },
+  inspectionPresetHead: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  inspectionPresetGrid: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  inspectionChip: {
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-sub)',
+    minHeight: 36,
+    padding: '7px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 850,
+    fontFamily: 'inherit',
+  },
+  inspectionChipActive: {
+    border: '1px solid var(--accent)',
+    backgroundColor: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    boxShadow: 'inset 3px 0 0 var(--accent)',
+  },
   formWizardActions: {
     display: 'flex',
     gap: 12,
@@ -5946,6 +7214,389 @@ const s = {
     fontSize: 11,
     lineHeight: 1.25,
     fontWeight: 750,
+  },
+  officePlanPanel: {
+    border: '1px solid rgba(52,211,153,0.34)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.12), var(--glass-bg))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  officePlanHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  officePlanTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 16,
+    fontWeight: 950,
+    lineHeight: 1.2,
+  },
+  officePlanSubtitle: {
+    margin: '4px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    maxWidth: 720,
+  },
+  officePlanGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+    gap: 10,
+    alignItems: 'start',
+  },
+  officePlanNoteField: {
+    gridColumn: '1 / -1',
+  },
+  officePlanTextarea: {
+    minHeight: 72,
+    resize: 'vertical',
+    lineHeight: 1.35,
+  },
+  officePlanFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
+  },
+  officePlanSummary: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    minWidth: 0,
+    color: 'var(--text)',
+    fontSize: 13,
+    lineHeight: 1.25,
+  },
+  workflowPathPanel: {
+    border: '1px solid rgba(14,165,233,0.28)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(14,165,233,0.1), var(--glass-bg))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  workflowPathHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  workflowPathTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 16,
+    fontWeight: 950,
+    lineHeight: 1.2,
+  },
+  workflowPathSubtitle: {
+    margin: '4px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    maxWidth: 780,
+  },
+  workflowPathSteps: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+    gap: 8,
+  },
+  workflowPathStep: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.12)',
+    padding: '8px 9px',
+    minHeight: 86,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    color: 'var(--text-muted)',
+  },
+  workflowPathStepActive: {
+    border: '1px solid rgba(14,165,233,0.42)',
+    backgroundColor: 'rgba(14,165,233,0.12)',
+    color: 'var(--text)',
+  },
+  workflowPathStepDone: {
+    border: '1px solid rgba(52,211,153,0.28)',
+    backgroundColor: 'rgba(52,211,153,0.08)',
+    color: 'var(--text)',
+  },
+  workflowPathNo: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    color: 'var(--accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 11,
+    fontWeight: 950,
+  },
+  workflowPathActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
+  },
+  workflowPathBtn: {
+    border: '1px solid rgba(52,211,153,0.38)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(52,211,153,0.14)',
+    color: 'var(--accent)',
+    padding: '8px 11px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  workflowPathCancelBtn: {
+    border: '1px solid rgba(239,83,80,0.34)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(239,83,80,0.1)',
+    color: 'var(--danger)',
+    padding: '8px 11px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  workflowPathDone: {
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  crewBriefPanel: {
+    border: '1px solid rgba(34,197,94,0.32)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(22,101,52,0.18), var(--glass-bg))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  crewBriefHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  crewBriefTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 17,
+    fontWeight: 950,
+    lineHeight: 1.2,
+  },
+  crewBriefSubtitle: {
+    margin: '4px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    maxWidth: 760,
+  },
+  crewBriefGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 340px)',
+    gap: 10,
+    alignItems: 'stretch',
+  },
+  crewBriefMain: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.16)',
+    padding: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    minWidth: 0,
+  },
+  crewBriefSide: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-deep)',
+    padding: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    minWidth: 0,
+  },
+  crewBriefRow: {
+    display: 'grid',
+    gridTemplateColumns: '110px 1fr',
+    gap: 10,
+    alignItems: 'baseline',
+    color: 'var(--text)',
+    fontSize: 13,
+    lineHeight: 1.3,
+  },
+  crewBriefBlock: {
+    borderTop: '1px solid var(--border)',
+    paddingTop: 8,
+    minWidth: 0,
+  },
+  crewBriefTwoCol: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 10,
+  },
+  crewBriefActions: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 8,
+  },
+  crewActionBtn: {
+    border: '1px solid rgba(52,211,153,0.42)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(52,211,153,0.16)',
+    color: 'var(--accent)',
+    padding: '8px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  crewActionBtnSecondary: {
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text)',
+    padding: '8px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  crewIssueBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 7,
+  },
+  crewIssueSelect: {
+    width: '100%',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text)',
+    padding: '7px 9px',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  crewIssueTextarea: {
+    width: '100%',
+    minHeight: 70,
+    resize: 'vertical',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text)',
+    padding: '8px 9px',
+    fontSize: 12,
+    lineHeight: 1.35,
+    boxSizing: 'border-box',
+  },
+  crewIssueBtn: {
+    border: '1px solid rgba(249,168,37,0.36)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(249,168,37,0.12)',
+    color: 'var(--warning)',
+    padding: '8px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  crewIssueCount: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 800,
+  },
+  formStatusHint: {
+    display: 'block',
+    marginTop: 5,
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.35,
+    fontWeight: 750,
+  },
+  crewBriefBottom: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(240px, 360px)',
+    gap: 10,
+    marginTop: 10,
+  },
+  crewChecklist: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gap: 8,
+  },
+  crewChecklistItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.16)',
+    padding: '8px 9px',
+    minHeight: 78,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+  },
+  crewPhotoStrip: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 8,
+    alignContent: 'start',
+  },
+  crewPhotoLink: {
+    position: 'relative',
+    display: 'block',
+    borderRadius: 8,
+    overflow: 'hidden',
+    border: '1px solid var(--border)',
+    minHeight: 92,
+    backgroundColor: 'var(--bg-deep)',
+    textDecoration: 'none',
+  },
+  crewPhotoThumb: {
+    width: '100%',
+    height: 92,
+    objectFit: 'cover',
+    display: 'block',
+  },
+  crewPhotoLabel: {
+    position: 'absolute',
+    left: 6,
+    bottom: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    color: '#fff',
+    padding: '3px 7px',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+  crewPhotoEmpty: {
+    gridColumn: '1 / -1',
+    border: '1px dashed var(--border)',
+    borderRadius: 8,
+    padding: 12,
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 800,
   },
   detailPassportPanel: {
     border: '1px solid var(--glass-border)',
