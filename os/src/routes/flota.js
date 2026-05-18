@@ -443,4 +443,69 @@ router.put(
   }
 );
 
+const rezerwacjaPatchBodySchema = z.object({
+  data_od: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  data_do: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/** PATCH /flota/rezerwacje/:id — przesuwa daty rezerwacji (drag & drop) */
+router.patch(
+  '/rezerwacje/:id',
+  authMiddleware,
+  validateParams(flotaIdParamsSchema),
+  validateBody(rezerwacjaPatchBodySchema),
+  async (req, res) => {
+    try {
+      const { data_od, data_do } = req.body;
+      if (data_do < data_od) {
+        return res.status(400).json({ error: 'data_do_przed_data_od' });
+      }
+      const id = req.params.id;
+      // Sprawdź czy rezerwacja istnieje i należy do oddziału usera
+      let branchClause = '';
+      const params = [data_od, data_do, id];
+      if (!isDyrektorOrAdmin(req.user)) {
+        branchClause = 'AND e.oddzial_id = $4';
+        params.push(req.user.oddzial_id);
+      }
+      // Sprawdź kolizję z innymi rezerwacjami (wyklucz siebie)
+      const existing = await pool.query(
+        `SELECT r.sprzet_id FROM equipment_reservations r
+           JOIN equipment_items e ON e.id = r.sprzet_id
+          WHERE r.id = $1 ${!isDyrektorOrAdmin(req.user) ? 'AND e.oddzial_id = $2' : ''}`,
+        !isDyrektorOrAdmin(req.user) ? [id, req.user.oddzial_id] : [id]
+      );
+      if (!existing.rows[0]) return res.status(404).json({ error: 'nie_znaleziono' });
+      const sprzetId = existing.rows[0].sprzet_id;
+      const clash = await pool.query(
+        `SELECT id FROM equipment_reservations
+          WHERE sprzet_id = $1 AND id != $2
+            AND status NOT IN ('Anulowane', 'Zwrócone')
+            AND NOT (data_do < $3::date OR data_od > $4::date)
+          LIMIT 1`,
+        [sprzetId, id, data_od, data_do]
+      );
+      if (clash.rows.length) {
+        return res.status(409).json({ error: 'rezerwacja_kolizja_sprzet' });
+      }
+      const r = await pool.query(
+        `UPDATE equipment_reservations r
+            SET data_od = $1::date, data_do = $2::date, updated_at = NOW()
+          FROM equipment_items e
+          WHERE r.id = $3::int AND r.sprzet_id = e.id ${branchClause}
+        RETURNING r.id`,
+        params
+      );
+      if (!r.rowCount) return res.status(404).json({ error: 'nie_znaleziono' });
+      res.json({ message: 'ok' });
+    } catch (err) {
+      if (err.code === '42P01') {
+        return res.status(404).json({ error: 'rezerwacje_not_migrated' });
+      }
+      logger.error('Blad patch rezerwacji sprzetu', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
 module.exports = router;

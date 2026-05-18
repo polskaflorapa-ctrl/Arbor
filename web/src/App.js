@@ -54,6 +54,7 @@ import RozliczeniaFieldEntry from './pages/RozliczeniaFieldEntry';
 import AutoDispatch from './pages/AutoDispatch';
 import BiDashboard from './pages/BiDashboard';
 import HrPanel from './pages/HrPanel';
+import KalendarzZasobow from './pages/KalendarzZasobow';
 import AiChat from './components/AiChat';
 import { DevPanel } from './components/DevPanel';
 
@@ -107,6 +108,7 @@ function App() {
           <Route path="/flota" element={<Flota />} />
           <Route path="/magazyn" element={<MagazynWeb />} />
           <Route path="/rezerwacje-sprzetu" element={<RezerwacjeSprzetu />} />
+          <Route path="/kalendarz-zasobow" element={<KalendarzZasobow />} />
 
           {/* Quotation / estimator */}
           <Route path="/wycena-kalendarz" element={
