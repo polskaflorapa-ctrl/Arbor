@@ -3,6 +3,8 @@ const path = require('node:path');
 
 const files = [
   ['Render arbor-os env', 'deploy/render-arbor-os.env.example'],
+  ['Railway arbor-os demo env', 'deploy/railway-arbor-os.env.example'],
+  ['Cloudflare Pages web demo env', 'deploy/cloudflare-pages.env.example'],
   ['Local production doctor env', 'deploy/local-production-doctor.env.example'],
   ['Mobile Expo env', 'deploy/mobile-production.env.example'],
   ['Web env', 'deploy/web-production.env.example'],

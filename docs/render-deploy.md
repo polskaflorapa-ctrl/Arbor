@@ -6,6 +6,8 @@ This repo is configured for a free-first deployment:
 - `arbor-web` on Render Static or Vercel Free.
 - PostgreSQL on Neon Free.
 
+Railway + Cloudflare Pages demo path is described in `docs/free-demo-deploy.md`.
+
 ## Important limitation
 
 Render Free has an ephemeral filesystem. Local uploads can disappear after a
