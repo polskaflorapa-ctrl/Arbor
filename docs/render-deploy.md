@@ -16,7 +16,7 @@ company use.
 ## 1. Create Neon Free database
 
 1. Create a Neon project.
-2. Copy the pooled or direct PostgreSQL connection string.
+2. Open `Connect` and enable/use the pooled connection string (`-pooler` in the host).
 3. Keep it for Render as `DATABASE_URL`.
 
 Before clicking deploy, run locally:

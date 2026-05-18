@@ -54,6 +54,7 @@ async function main() {
   assert(webService.runtime === 'static', 'arbor-web should be a Render static site.');
   assert(apiService.envVars.some((env) => env.key === 'DATABASE_URL' && env.sync === false), 'DATABASE_URL must be manual from Neon Free.');
   assert(apiService.envVars.some((env) => env.key === 'UPLOADS_DIR'), 'UPLOADS_DIR must be configured.');
+  assert(apiService.envVars.some((env) => env.key === 'DB_POOL_MAX' && Number(env.value) <= 5), 'DB_POOL_MAX should stay low for Neon Free.');
 
   assert(osBlueprint.services?.[0]?.plan === 'free', 'os/render.yaml should also use Render Free.');
   assert(webBlueprint.services?.[0]?.runtime === 'static', 'web/render.yaml should deploy as static.');

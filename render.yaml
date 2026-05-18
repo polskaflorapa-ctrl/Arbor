@@ -40,6 +40,12 @@ services:
         value: /tmp/arbor-phone-recordings
       - key: METRICS_ENABLED
         value: "false"
+      - key: DB_POOL_MAX
+        value: "5"
+      - key: DB_CONNECT_TIMEOUT_MS
+        value: "10000"
+      - key: DB_IDLE_TIMEOUT_MS
+        value: "10000"
       - key: CORS_ORIGINS
         sync: false
 
