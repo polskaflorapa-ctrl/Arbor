@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -22,9 +23,105 @@ function delta(n) {
   return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#16a34a' : '#dc2626' };
 }
 
+// ─── CSV export helper ───────────────────────────────────────────────────────
+
+function downloadCSV(rows, filename) {
+  if (!rows?.length) return;
+  const keys = Object.keys(rows[0]);
+  const lines = [
+    keys.join(';'),
+    ...rows.map(r => keys.map(k => {
+      const v = r[k] ?? '';
+      const s = String(v).replace(/"/g, '""');
+      return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
+    }).join(';'))
+  ];
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Drill-down modal ────────────────────────────────────────────────────────
+
+const STATUS_COLORS_DRILL = {
+  Zakonczone: '#16a34a', Zaplanowane: '#2563eb', 'W trakcie': '#d97706',
+  Wstrzymane: '#6b7280', Anulowane: '#ef4444',
+};
+
+function DrillModal({ title, tasks, loading, onClose }) {
+  return (
+    <div style={dm.overlay} onClick={onClose}>
+      <div style={dm.panel} onClick={e => e.stopPropagation()}>
+        <div style={dm.header}>
+          <span style={dm.title}>{title}</span>
+          <button style={dm.close} onClick={onClose}>✕</button>
+        </div>
+        {loading
+          ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-sub)' }}>Ładowanie…</div>
+          : tasks.length === 0
+          ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-sub)' }}>Brak zleceń</div>
+          : (
+            <div style={{ overflowY: 'auto', maxHeight: '60vh' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
+                  <tr>
+                    {['Nr','Status','Usługa','Data','Ekipa','Oddział','Plan PLN'].map(h => (
+                      <th key={h} style={dm.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map(t => (
+                    <tr key={t.id} style={dm.tr}>
+                      <td style={dm.td}>{t.numer || `#${t.id}`}</td>
+                      <td style={dm.td}>
+                        <span style={{ ...dm.badge, background: STATUS_COLORS_DRILL[t.status] || '#6b7280' }}>
+                          {t.status}
+                        </span>
+                      </td>
+                      <td style={dm.td}>{t.typ_uslugi || '—'}</td>
+                      <td style={dm.td}>{t.data_planowana?.slice(0,10) || '—'}</td>
+                      <td style={dm.td}>{t.ekipa_nazwa || '—'}</td>
+                      <td style={dm.td}>{t.oddzial_nazwa || '—'}</td>
+                      <td style={{ ...dm.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {t.wartosc_planowana ? pln(t.wartosc_planowana) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+        {!loading && tasks.length > 0 && (
+          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-sub)' }}>{tasks.length} zleceń (maks. 100)</span>
+            <button style={dm.csvBtn} onClick={() => downloadCSV(tasks, `drill-${Date.now()}.csv`)}>⬇ CSV</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const dm = {
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  panel:   { background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 860, boxShadow: '0 8px 40px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  header:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)' },
+  title:   { fontSize: 16, fontWeight: 700, color: 'var(--text)' },
+  close:   { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-sub)' },
+  th:      { padding: '8px 10px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)' },
+  tr:      { borderBottom: '1px solid var(--border-light, var(--border))', transition: 'background 0.15s' },
+  td:      { padding: '9px 10px', color: 'var(--text)', verticalAlign: 'middle' },
+  badge:   { display: 'inline-block', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#fff', fontWeight: 600 },
+  csvBtn:  { padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 },
+};
+
 // ─── Inline SVG bar chart ────────────────────────────────────────────────────
 
-function BarChart({ data, valueKey, labelKey, color = 'var(--accent)', height = 160 }) {
+function BarChart({ data, valueKey, labelKey, color = 'var(--accent)', height = 160, onBarClick }) {
   if (!data?.length) return <div style={ch.empty}>Brak danych</div>;
   const max = Math.max(...data.map(d => d[valueKey] || 0), 1);
   const barW = Math.max(8, Math.floor(480 / data.length) - 4);
@@ -37,12 +134,14 @@ function BarChart({ data, valueKey, labelKey, color = 'var(--accent)', height = 
           const x = i * (barW + 4) + 2;
           const y = height - h;
           return (
-            <g key={i}>
+            <g key={i} style={{ cursor: onBarClick ? 'pointer' : 'default' }}
+               onClick={() => onBarClick && onBarClick(d)}>
               <rect x={x} y={y} width={barW} height={h} rx={3}
                     fill={color} opacity={0.85} />
+              <rect x={x} y={0} width={barW} height={height + 30} fill="transparent" />
               <text x={x + barW / 2} y={height + 14} textAnchor="middle"
                     fontSize={9} fill="var(--text-sub)">
-                {String(d[labelKey] || '').slice(-5)}
+                {String(d[labelKey] || '').slice(-8)}
               </text>
               {h > 20 && (
                 <text x={x + barW / 2} y={y - 4} textAnchor="middle"
@@ -145,6 +244,17 @@ export default function BiDashboard() {
   const [error, setError]         = useState('');
   const [activeTab, setActiveTab] = useState('overview');
 
+  // Drill-down
+  const [drill, setDrill]         = useState(null); // { title, tasks, loading }
+
+  // Alerts tab
+  const [alertCfg, setAlertCfg]   = useState(() => {
+    const saved = getLocalStorageJson('bi_alert_cfg');
+    return saved || { completion_threshold: 60, overdue_threshold: 10, recipients: '', days: 30 };
+  });
+  const [alertResult, setAlertResult] = useState(null);
+  const [alertChecking, setAlertChecking] = useState(false);
+
   // Defined inside component so they pick up the current language via t()
   const PERIODS = [
     { label: t('biDashboard.periods.d7'),   days: 7 },
@@ -159,6 +269,7 @@ export default function BiDashboard() {
     { key: 'teams',    label: `👥 ${t('biDashboard.tabs.teams')}` },
     { key: 'services', label: `🌳 ${t('biDashboard.tabs.services')}` },
     { key: 'funnel',   label: `🎯 ${t('biDashboard.tabs.funnel')}` },
+    { key: 'alerts',   label: `⚡ Alerty` },
   ];
 
   const load = useCallback(async () => {
@@ -189,6 +300,41 @@ export default function BiDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── Drill-down ──────────────────────────────────────────────────────────────
+  const openDrill = useCallback(async ({ title, dim, id, val }) => {
+    setDrill({ title, tasks: [], loading: true });
+    const token = getStoredToken();
+    const h = authHeaders(token);
+    try {
+      const params = new URLSearchParams({ dim, days });
+      if (id)  params.set('id', id);
+      if (val) params.set('val', val);
+      const res = await api.get(`/bi/drill?${params}`, { headers: h });
+      setDrill({ title, tasks: Array.isArray(res.data) ? res.data : [], loading: false });
+    } catch {
+      setDrill({ title, tasks: [], loading: false });
+    }
+  }, [days]);
+
+  // ── Alerty ──────────────────────────────────────────────────────────────────
+  const checkAlerts = useCallback(async () => {
+    setAlertChecking(true); setAlertResult(null);
+    const token = getStoredToken();
+    try {
+      const res = await api.post('/bi/alerts/check', alertCfg, { headers: authHeaders(token) });
+      setAlertResult(res.data);
+    } catch (e) {
+      setAlertResult({ error: e.response?.data?.error || e.message });
+    } finally {
+      setAlertChecking(false);
+    }
+  }, [alertCfg]);
+
+  const saveAlertCfg = (next) => {
+    setAlertCfg(next);
+    try { localStorage.setItem('bi_alert_cfg', JSON.stringify(next)); } catch {}
+  };
+
   const ov = overview;
 
   return (
@@ -214,6 +360,13 @@ export default function BiDashboard() {
             <button type="button" onClick={load} disabled={loading} style={s.refreshBtn}>
               {loading ? '⏳' : '↻'}
             </button>
+            <button type="button" style={s.refreshBtn} title="Eksportuj CSV"
+              onClick={() => {
+                if (activeTab === 'branches') downloadCSV(branches, `oddzialy-${days}d.csv`);
+                else if (activeTab === 'teams') downloadCSV(teams, `ekipy-${days}d.csv`);
+                else if (activeTab === 'services') downloadCSV(serviceMix, `uslugi-${days}d.csv`);
+                else if (activeTab === 'overview' && ov) downloadCSV([ov], `kpi-${days}d.csv`);
+              }}>⬇ CSV</button>
             <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>← Powrót</button>
           </div>
         </div>
@@ -287,7 +440,8 @@ export default function BiDashboard() {
                   </thead>
                   <tbody>
                     {branches.map(b => (
-                      <tr key={b.oddzial_id} style={s.tr}>
+                      <tr key={b.oddzial_id} style={{ ...s.tr, cursor: 'pointer' }}
+                          onClick={() => openDrill({ title: `Zlecenia — ${b.oddzial_nazwa}`, dim: 'oddzial', id: b.oddzial_id })}>
                         <td style={{ ...s.td, fontWeight: 600 }}>{b.oddzial_nazwa}</td>
                         <td style={s.tdNum}>{num(b.tasks_total)}</td>
                         <td style={s.tdNum}>{num(b.tasks_done)}</td>
@@ -310,7 +464,8 @@ export default function BiDashboard() {
             <div style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.revenueByBranch')}</div>
               <BarChart data={branches} valueKey="revenue_planned" labelKey="oddzial_nazwa"
-                color="var(--accent)" height={140} />
+                color="var(--accent)" height={140}
+                onBarClick={b => openDrill({ title: `Zlecenia — ${b.oddzial_nazwa}`, dim: 'oddzial', id: b.oddzial_id })} />
             </div>
           </div>
         )}
@@ -331,7 +486,8 @@ export default function BiDashboard() {
                   </thead>
                   <tbody>
                     {teams.map(tm => (
-                      <tr key={tm.team_id} style={s.tr}>
+                      <tr key={tm.team_id} style={{ ...s.tr, cursor: 'pointer' }}
+                          onClick={() => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })}>
                         <td style={{ ...s.td, color: 'var(--text-sub)', width: 32 }}>{tm.rank}</td>
                         <td style={{ ...s.td, fontWeight: 600 }}>{tm.team_name}</td>
                         <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{tm.oddzial_nazwa}</td>
@@ -356,7 +512,8 @@ export default function BiDashboard() {
             <div style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.teamRevenueTop')}</div>
               <BarChart data={teams.slice(0, 10)} valueKey="revenue" labelKey="team_name"
-                color="#7c3aed" height={140} />
+                color="#7c3aed" height={140}
+                onBarClick={tm => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })} />
             </div>
           </div>
         )}
@@ -371,7 +528,8 @@ export default function BiDashboard() {
             <div style={s.card}>
               <div style={s.cardTitle}>Przychód wg usługi</div>
               <BarChart data={serviceMix} valueKey="revenue" labelKey="typ_uslugi"
-                color="#d97706" height={140} />
+                color="#d97706" height={140}
+                onBarClick={sm => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })} />
             </div>
             <div style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.serviceDetails')}</div>
@@ -386,7 +544,8 @@ export default function BiDashboard() {
                   </thead>
                   <tbody>
                     {serviceMix.map((sm, i) => (
-                      <tr key={i} style={s.tr}>
+                      <tr key={i} style={{ ...s.tr, cursor: 'pointer' }}
+                          onClick={() => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })}>
                         <td style={{ ...s.td, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ width: 10, height: 10, borderRadius: 2, background: DONUT_COLORS[i % DONUT_COLORS.length], flexShrink: 0 }} />
                           {sm.typ_uslugi}
@@ -444,13 +603,87 @@ export default function BiDashboard() {
           </div>
         )}
 
-        {loading && !ov && (
+        {/* ── ALERTS TAB ── */}
+        {activeTab === 'alerts' && (
+          <div style={s.content}>
+            <div style={s.card}>
+              <div style={s.cardTitle}>⚡ Konfiguracja alertów KPI</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 480 }}>
+                <div>
+                  <label style={al.label}>Próg ukończenia (%) — alert gdy poniżej</label>
+                  <input type="number" style={al.input} min={0} max={100}
+                    value={alertCfg.completion_threshold}
+                    onChange={e => saveAlertCfg({ ...alertCfg, completion_threshold: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label style={al.label}>Maksymalna liczba przeterminowanych zleceń</label>
+                  <input type="number" style={al.input} min={0}
+                    value={alertCfg.overdue_threshold}
+                    onChange={e => saveAlertCfg({ ...alertCfg, overdue_threshold: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label style={al.label}>Okres analizy (dni)</label>
+                  <input type="number" style={al.input} min={7} max={365}
+                    value={alertCfg.days}
+                    onChange={e => saveAlertCfg({ ...alertCfg, days: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label style={al.label}>Adresy e-mail (oddzielone przecinkiem)</label>
+                  <input type="text" style={al.input} placeholder="dyrektor@firma.pl, kierownik@firma.pl"
+                    value={alertCfg.recipients}
+                    onChange={e => saveAlertCfg({ ...alertCfg, recipients: e.target.value })} />
+                  <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 4 }}>
+                    Wymaga skonfigurowanego SMTP_HOST, SMTP_USER, SMTP_PASS na serwerze
+                  </div>
+                </div>
+                <button style={al.btn} disabled={alertChecking} onClick={checkAlerts}>
+                  {alertChecking ? '⏳ Sprawdzam…' : '🔍 Sprawdź teraz i wyślij e-mail'}
+                </button>
+              </div>
+            </div>
+
+            {alertResult && !alertResult.error && (
+              <div style={s.card}>
+                <div style={s.cardTitle}>Wynik sprawdzenia — {alertResult.checked_at?.slice(0,19)?.replace('T',' ')}</div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+                  <div style={al.stat}><span style={al.statN}>{alertResult.completion_pct}%</span><span style={al.statL}>Ukończenie</span></div>
+                  <div style={al.stat}><span style={al.statN}>{alertResult.tasks_total}</span><span style={al.statL}>Zleceń</span></div>
+                  <div style={al.stat}><span style={al.statN}>{alertResult.tasks_overdue}</span><span style={al.statL}>Przeterminowane</span></div>
+                </div>
+                {alertResult.alerts.length === 0
+                  ? <div style={{ color: '#16a34a', fontWeight: 600 }}>✅ Wszystko w normie — brak alertów</div>
+                  : alertResult.alerts.map((a, i) => (
+                      <div key={i} style={{ color: '#dc2626', fontWeight: 600, marginBottom: 6 }}>{a}</div>
+                    ))
+                }
+                <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-sub)' }}>
+                  E-mail: {alertResult.email?.sent ? '✅ Wysłano' : alertResult.email?.skipped === 'no_alerts' ? '— brak alertów' : alertResult.email?.skipped === 'no_smtp' ? '⚠️ Brak SMTP' : alertResult.email?.skipped === 'no_to' ? '⚠️ Brak adresów e-mail' : '❌ Błąd'}
+                </div>
+              </div>
+            )}
+            {alertResult?.error && (
+              <div style={s.errorBox}>Błąd: {alertResult.error}</div>
+            )}
+          </div>
+        )}
+
+        {loading && !ov && activeTab !== 'alerts' && (
           <div style={s.emptyState}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>⏳</div>
             <p>Ładowanie danych analitycznych…</p>
           </div>
         )}
       </main>
+
+      {/* Drill-down modal */}
+      {drill && (
+        <DrillModal
+          title={drill.title}
+          tasks={drill.tasks}
+          loading={drill.loading}
+          onClose={() => setDrill(null)}
+        />
+      )}
     </div>
   );
 }
@@ -494,4 +727,13 @@ const s = {
 
 const ch = {
   empty: { textAlign: 'center', padding: '30px 0', color: 'var(--text-sub)', fontSize: 13 },
+};
+
+const al = {
+  label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6 },
+  input: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
+  btn:   { padding: '10px 20px', border: 'none', borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent, #fff)', cursor: 'pointer', fontSize: 14, fontWeight: 700, width: '100%' },
+  stat:  { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 20px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-card2)', minWidth: 100 },
+  statN: { fontSize: 24, fontWeight: 800, color: 'var(--text)' },
+  statL: { fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 4 },
 };

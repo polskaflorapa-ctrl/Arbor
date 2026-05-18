@@ -324,4 +324,127 @@ router.get('/funnel', async (req, res) => {
   }
 });
 
+// ─── GET /api/bi/drill — szczegółowa lista zadań dla wybranego wymiaru ────────
+// ?dim=oddzial|ekipa|usluga&id=N&val=STR&days=N
+router.get('/drill', async (req, res) => {
+  if (!canViewBI(req.user)) return res.status(403).json({ error: 'Brak uprawnień' });
+
+  const days   = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+  const dim    = req.query.dim;   // oddzial | ekipa | usluga
+  const id     = Number(req.query.id) || null;
+  const val    = req.query.val || null;  // dla usluga (string)
+  const branchId = scopedOddzialId(req.user, null);
+
+  const params = [days];
+  let dimClause = '';
+
+  if (dim === 'oddzial' && id) {
+    if (branchId && branchId !== id) return res.status(403).json({ error: 'Brak uprawnień' });
+    dimClause = ` AND t.oddzial_id = $${params.push(id)}`;
+  } else if (dim === 'ekipa' && id) {
+    dimClause = ` AND t.ekipa_id = $${params.push(id)}`;
+    if (branchId) dimClause += ` AND t.oddzial_id = $${params.push(branchId)}`;
+  } else if (dim === 'usluga' && val) {
+    dimClause = ` AND COALESCE(NULLIF(TRIM(t.typ_uslugi),''),'Inne') = $${params.push(val)}`;
+    if (branchId) dimClause += ` AND t.oddzial_id = $${params.push(branchId)}`;
+  } else {
+    if (branchId) dimClause = ` AND t.oddzial_id = $${params.push(branchId)}`;
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT
+         t.id, t.numer, t.status, t.typ_uslugi,
+         t.data_planowana::text AS data_planowana,
+         t.wartosc_planowana, t.wartosc_rzeczywista,
+         COALESCE(t.adres_ulica || ', ' || t.adres_miasto, t.adres_miasto, t.adres_ulica, '—') AS adres,
+         e.nazwa AS ekipa_nazwa,
+         o.nazwa AS oddzial_nazwa
+       FROM tasks t
+       LEFT JOIN teams e ON e.id = t.ekipa_id
+       LEFT JOIN oddzialy o ON o.id = t.oddzial_id
+       WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
+         AND t.status != 'Anulowane'
+         ${dimClause}
+       ORDER BY t.data_planowana DESC
+       LIMIT 100`,
+      params
+    );
+    res.json(r.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/bi/alerts/check — sprawdź progi KPI i wyślij e-mail ─────────
+// Body: { completion_threshold, overdue_threshold, recipients, days }
+router.post('/alerts/check', async (req, res) => {
+  if (!canViewBI(req.user)) return res.status(403).json({ error: 'Brak uprawnień' });
+
+  const { sendSystemEmailOptional } = require('../services/systemEmail');
+  const completionThreshold = Number(req.body.completion_threshold ?? 60);
+  const overdueThreshold    = Number(req.body.overdue_threshold ?? 10);
+  const recipients          = String(req.body.recipients || '').trim();
+  const days                = Math.min(Math.max(Number(req.body.days) || 30, 7), 365);
+  const branchId = scopedOddzialId(req.user, null);
+  const { clause: bc, params: bp } = scopeClause(branchId, 2);
+
+  try {
+    const r = await pool.query(
+      `SELECT
+         COUNT(*)                                                            AS tasks_total,
+         COUNT(*) FILTER (WHERE status = 'Zakonczone')                      AS tasks_done,
+         COUNT(*) FILTER (WHERE status NOT IN ('Zakonczone','Anulowane')
+                          AND data_planowana < NOW())                        AS tasks_overdue
+       FROM tasks t
+       WHERE data_planowana >= NOW() - INTERVAL '1 day' * $1 ${bc}`,
+      [days, ...bp]
+    );
+    const row = r.rows[0];
+    const total    = Number(row.tasks_total);
+    const done     = Number(row.tasks_done);
+    const overdue  = Number(row.tasks_overdue);
+    const compPct  = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    const alerts = [];
+    if (compPct < completionThreshold) {
+      alerts.push(`⚠️ Wskaźnik ukończenia: ${compPct}% (próg: ${completionThreshold}%)`);
+    }
+    if (overdue > overdueThreshold) {
+      alerts.push(`⚠️ Przeterminowane zlecenia: ${overdue} szt. (próg: ${overdueThreshold})`);
+    }
+
+    let emailResult = { sent: false, skipped: 'no_alerts' };
+    if (alerts.length > 0 && recipients) {
+      const text = [
+        `ARBOR — Alert KPI (ostatnie ${days} dni)`,
+        '',
+        ...alerts,
+        '',
+        `Łączne zlecenia: ${total}`,
+        `Ukończone: ${done}`,
+        `Przeterminowane: ${overdue}`,
+      ].join('\n');
+      emailResult = await sendSystemEmailOptional({
+        to: recipients,
+        subject: `ARBOR Alert KPI — ${alerts.length} problem${alerts.length > 1 ? 'y' : ''}`,
+        text,
+        html: `<pre style="font-family:sans-serif">${text}</pre>`,
+      });
+    }
+
+    res.json({
+      checked_at: new Date().toISOString(),
+      period_days: days,
+      completion_pct: compPct,
+      tasks_total: total,
+      tasks_overdue: overdue,
+      alerts,
+      email: emailResult,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
