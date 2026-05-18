@@ -12,6 +12,14 @@ const envSchema = z.object({
   DB_USER: z.string().optional(),
   DB_PASSWORD: z.string().optional(),
   UPLOADS_DIR: z.string().optional(),
+  UPLOAD_STORAGE: z
+    .string()
+    .optional()
+    .default('local')
+    .transform((s) => {
+      const value = String(s || 'local').trim().toLowerCase();
+      return ['local', 's3'].includes(value) ? value : 'local';
+    }),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE: z.string().optional(),
@@ -51,6 +59,7 @@ const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
   S3_PUBLIC_BASE_URL: z.string().optional(),
+  S3_UPLOAD_PREFIX: z.string().optional(),
   S3_FORCE_PATH_STYLE: z
     .string()
     .optional()

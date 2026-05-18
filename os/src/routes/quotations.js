@@ -21,6 +21,12 @@ const { validateQuotationCompleteForVisitEnd, gpsCheckForVisitStart } = require(
 const { applyAutoFlags } = require('../services/quotationItemFlags');
 const { assertEstimatorAvailableForBranch } = require('../services/branchResources');
 const { uploadsPath } = require('../config/uploadPaths');
+const {
+  cleanupLocalFile,
+  cleanupTemporaryUpload,
+  deleteStoredUpload,
+  persistUploadedFile,
+} = require('../services/upload-storage');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -810,21 +816,33 @@ router.post(
   validateParams(itemIdParam),
   qItemPhotoUpload.single('zdjecie'),
   async (req, res) => {
+    let storedPhoto;
     try {
       const row = await fetchQuotation(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
-      if (!canView(req.user, row)) return res.status(403).json({ error: 'Brak dostępu' });
+      if (!row) {
+        cleanupLocalFile(req.file);
+        return res.status(404).json({ error: 'Nie znaleziono' });
+      }
+      if (!canView(req.user, row)) {
+        cleanupLocalFile(req.file);
+        return res.status(403).json({ error: 'Brak dostępu' });
+      }
       const reviewer = isKierownik(req.user) || isDyrektor(req.user);
       if (!canEditDraft(req.user, row) && !reviewer) {
+        cleanupLocalFile(req.file);
         return res.status(403).json({ error: 'Brak uprawnień do dodawania zdjęć' });
       }
       const it = await pool.query(`SELECT 1 FROM quotation_items WHERE id = $1 AND quotation_id = $2`, [
         req.params.itemId,
         req.params.id,
       ]);
-      if (!it.rows[0]) return res.status(404).json({ error: 'Brak pozycji' });
+      if (!it.rows[0]) {
+        cleanupLocalFile(req.file);
+        return res.status(404).json({ error: 'Brak pozycji' });
+      }
       if (!req.file) return res.status(400).json({ error: 'Brak pliku (pole zdjecie)' });
-      const rel = `/uploads/quotations/items/${req.file.filename}`;
+      storedPhoto = await persistUploadedFile(req.file, { folder: 'quotations/items', fileName: req.file.filename });
+      const rel = storedPhoto.url;
       const kind = req.body.photo_kind === 'annotated' ? 'annotated' : 'general';
       const ts = new Date().toISOString();
       const autorTyp =
@@ -846,8 +864,11 @@ router.post(
           kind,
         ]
       );
+      cleanupTemporaryUpload(storedPhoto);
       res.status(201).json(rows[0]);
     } catch (err) {
+      if (storedPhoto) await deleteStoredUpload(storedPhoto);
+      else cleanupLocalFile(req.file);
       logger.error('quotations.item.zdjecia', { message: err.message });
       res.status(500).json({ error: err.message || 'Błąd uploadu' });
     }
@@ -982,16 +1003,25 @@ router.post('/:id/photos', validateParams(idParam), validateBody(photoSchema), a
 });
 
 router.post('/:id/zdjecia', validateParams(idParam), qHeadPhotoUpload.single('zdjecie'), async (req, res) => {
+  let storedPhoto;
   try {
     const row = await fetchQuotation(req.params.id);
-    if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
-    if (!canView(req.user, row)) return res.status(403).json({ error: 'Brak dostępu' });
+    if (!row) {
+      cleanupLocalFile(req.file);
+      return res.status(404).json({ error: 'Nie znaleziono' });
+    }
+    if (!canView(req.user, row)) {
+      cleanupLocalFile(req.file);
+      return res.status(403).json({ error: 'Brak dostępu' });
+    }
     const reviewer = isKierownik(req.user) || isDyrektor(req.user);
     if (!canEditDraft(req.user, row) && !reviewer) {
+      cleanupLocalFile(req.file);
       return res.status(403).json({ error: 'Brak uprawnień do dodawania zdjęć' });
     }
     if (!req.file) return res.status(400).json({ error: 'Brak pliku (pole zdjecie)' });
-    const rel = `/uploads/quotations/head/${req.file.filename}`;
+    storedPhoto = await persistUploadedFile(req.file, { folder: 'quotations/head', fileName: req.file.filename });
+    const rel = storedPhoto.url;
     const kind = req.body.photo_kind === 'annotated' ? 'annotated' : 'general';
     const ts = new Date().toISOString();
     const autorTyp =
@@ -1012,8 +1042,11 @@ router.post('/:id/zdjecia', validateParams(idParam), qHeadPhotoUpload.single('zd
         kind,
       ]
     );
+    cleanupTemporaryUpload(storedPhoto);
     res.status(201).json(rows[0]);
   } catch (err) {
+    if (storedPhoto) await deleteStoredUpload(storedPhoto);
+    else cleanupLocalFile(req.file);
     logger.error('quotations.zdjecia', { message: err.message });
     res.status(500).json({ error: err.message || 'Błąd uploadu' });
   }

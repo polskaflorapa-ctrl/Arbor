@@ -26,6 +26,8 @@ services:
         value: "1"
       - key: UPLOADS_DIR
         value: /tmp/arbor-uploads
+      - key: UPLOAD_STORAGE
+        value: local
       - key: PHONE_RECORDING_STORAGE
         value: local
       - key: PHONE_RECORDINGS_DIR

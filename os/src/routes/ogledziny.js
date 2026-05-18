@@ -8,6 +8,12 @@ const { uploadsPath } = require('../config/uploadPaths');
 const { authMiddleware } = require('../middleware/auth');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
 const { z } = require('zod');
+const {
+  cleanupLocalFile,
+  cleanupTemporaryUpload,
+  deleteStoredUpload,
+  persistUploadedFile,
+} = require('../services/upload-storage');
 
 const router = express.Router();
 
@@ -528,6 +534,7 @@ router.post(
   ogledzinyMediaUpload.any(),
   async (req, res) => {
     await runMigration();
+    let storedMedia;
     try {
       const id = String(req.params.id);
       const file = Array.isArray(req.files) ? req.files[0] : req.file;
@@ -536,11 +543,11 @@ router.post(
       const ogQ = await pool.query('SELECT * FROM ogledziny WHERE id=$1', [id]);
       const row = ogQ.rows[0];
       if (!row) {
-        fs.unlink(file.path, () => {});
+        cleanupLocalFile(file);
         return res.status(404).json({ error: req.t('errors.ogledziny.inspectionNotFound') });
       }
       if (!canAccessOgledzinyRecord(req.user, row)) {
-        fs.unlink(file.path, () => {});
+        cleanupLocalFile(file);
         return res.status(403).json({ error: req.t('errors.auth.forbidden') });
       }
 
@@ -553,16 +560,19 @@ router.post(
           : mime.startsWith('image/')
             ? 'photo'
             : 'video';
-      const url = `/uploads/ogledziny/${file.filename}`;
+      storedMedia = await persistUploadedFile(file, { folder: 'ogledziny', fileName: file.filename });
+      const url = storedMedia.url;
       const ins = await pool.query(
         `INSERT INTO ogledziny_media (ogledziny_id, url, mime, kind) VALUES ($1,$2,$3,$4) RETURNING id, ogledziny_id, url, mime, kind, created_at`,
         [id, url, mime, kind],
       );
+      cleanupTemporaryUpload(storedMedia);
       res.status(201).json(ins.rows[0]);
     } catch (e) {
-      const files = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
-      for (const file of files) {
-        if (file?.path) fs.unlink(file.path, () => {});
+      if (storedMedia) await deleteStoredUpload(storedMedia);
+      else {
+        const files = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+        for (const file of files) cleanupLocalFile(file);
       }
       logger.error('ogledziny.media', { message: e.message, requestId: req.requestId });
       res.status(500).json({ error: req.t('errors.http.serverError') });

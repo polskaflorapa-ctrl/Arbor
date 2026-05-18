@@ -33,6 +33,13 @@ const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
 const { assertTeamAvailableForBranch, assertEstimatorAvailableForBranch } = require('../services/branchResources');
 const { uploadsPath } = require('../config/uploadPaths');
+const {
+  cleanupLocalFile,
+  cleanupTemporaryUpload,
+  deleteStoredUpload,
+  deleteUploadByUrl,
+  persistUploadedFile,
+} = require('../services/upload-storage');
 
 const router = express.Router();
 
@@ -271,12 +278,7 @@ const upload = multer({
 });
 
 function cleanupUploadedFile(file) {
-  if (!file?.path) return;
-  try {
-    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-  } catch (e) {
-    logger.warn('upload.cleanup', { message: e.message, path: file.path });
-  }
+  cleanupLocalFile(file);
 }
 
 const toNum = (val) => {
@@ -2362,13 +2364,13 @@ router.get('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), r
 
 router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, upload.single('zdjecie'), async (req, res) => {
   let client;
+  let storedPhoto;
   try {
     if (!req.file) {
       return res.status(400).json({ error: req.t('errors.tasks.missingFile') });
     }
     const taskId = Number(req.params.id);
     const typ = req.body.typ || 'Przed';
-    const sciezka = '/uploads/tasks/' + req.file.filename;
     const photoLat = toNum(req.body.lat);
     const photoLon = toNum(req.body.lon);
     const opisRaw = req.body.opis;
@@ -2393,12 +2395,15 @@ router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), 
       cleanupUploadedFile(req.file);
       return res.json({ message: 'Zdjecie dodane', sciezka: null, idempotent_replay: true });
     }
+    storedPhoto = await persistUploadedFile(req.file, { folder: 'tasks', fileName: req.file.filename });
+    const sciezka = storedPhoto.url;
     await client.query(
       `INSERT INTO photos (task_id, user_id, typ, url, sciezka, data_dodania, lat, lon, opis, tagi)
        VALUES ($1, $2, $3, $4, $4, NOW(), $5, $6, $7, $8)`,
       [taskId, req.user.id, typ, sciezka, photoLat, photoLon, photoOpis, photoTagi]
     );
     await client.query('COMMIT');
+    cleanupTemporaryUpload(storedPhoto);
     res.json({ message: 'Zdjecie dodane', sciezka });
   } catch (err) {
     if (client) {
@@ -2408,7 +2413,8 @@ router.post('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), 
         /* ignore */
       }
     }
-    cleanupUploadedFile(req.file);
+    if (storedPhoto) await deleteStoredUpload(storedPhoto);
+    else cleanupUploadedFile(req.file);
     logger.error('Blad dodawania zdjecia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message });
   } finally {
@@ -2485,19 +2491,11 @@ router.delete(
     try {
       const taskId = Number(req.params.id);
       const photoId = Number(req.params.photoId);
-      const sel = await pool.query(`SELECT sciezka FROM photos WHERE id = $1 AND task_id = $2`, [photoId, taskId]);
+      const sel = await pool.query(`SELECT COALESCE(sciezka, url) AS sciezka FROM photos WHERE id = $1 AND task_id = $2`, [photoId, taskId]);
       if (!sel.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
       const sciezka = sel.rows[0].sciezka;
       await pool.query(`DELETE FROM photos WHERE id = $1 AND task_id = $2`, [photoId, taskId]);
-      if (sciezka && typeof sciezka === 'string') {
-        const rel = sciezka.replace(/^\/+/, '');
-        const abs = path.isAbsolute(rel) ? rel : path.join(process.cwd(), rel);
-        try {
-          if (fs.existsSync(abs)) fs.unlinkSync(abs);
-        } catch (e) {
-          logger.warn('photo.unlink', { message: e.message, abs });
-        }
-      }
+      await deleteUploadByUrl(sciezka);
       res.json({ ok: true });
     } catch (err) {
       logger.error('Blad usuwania zdjecia', { message: err.message, requestId: req.requestId });

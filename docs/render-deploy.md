@@ -13,6 +13,22 @@ restart or redeploy. This is OK for early testing, but field photos and sketches
 must move to Cloudflare R2, Supabase Storage, S3, or a paid host before daily
 company use.
 
+ARBOR can already switch uploads to S3-compatible storage with:
+
+```bash
+UPLOAD_STORAGE=s3
+S3_BUCKET=<bucket>
+S3_REGION=auto
+S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+S3_ACCESS_KEY_ID=<key>
+S3_SECRET_ACCESS_KEY=<secret>
+S3_PUBLIC_BASE_URL=https://<public-bucket-or-custom-domain>
+S3_UPLOAD_PREFIX=uploads
+```
+
+For quick free testing keep `UPLOAD_STORAGE=local`. For real field photos on
+Render Free, use `UPLOAD_STORAGE=s3` before crews start relying on the gallery.
+
 ## 1. Create Neon Free database
 
 1. Create a Neon project.
@@ -38,6 +54,8 @@ npm run deploy:free:check
    - `DATABASE_URL=<your Neon connection string>`.
 7. Optional after `arbor-web` gets its URL:
    - set `CORS_ORIGINS=https://<arbor-web>.onrender.com`.
+8. Before using real customer photos on Render Free, set R2/S3 variables from
+   the storage block above and change `UPLOAD_STORAGE=s3`.
 
 The web service gets `REACT_APP_API_URL` automatically from `arbor-os`.
 

@@ -56,6 +56,7 @@ async function main() {
   assert(webService.runtime === 'static', 'arbor-web should be a Render static site.');
   assert(apiService.envVars.some((env) => env.key === 'DATABASE_URL' && env.sync === false), 'DATABASE_URL must be manual from Neon Free.');
   assert(apiService.envVars.some((env) => env.key === 'UPLOADS_DIR'), 'UPLOADS_DIR must be configured.');
+  assert(apiService.envVars.some((env) => env.key === 'UPLOAD_STORAGE'), 'UPLOAD_STORAGE must be explicit.');
   assert(apiService.envVars.some((env) => env.key === 'DB_POOL_MAX' && Number(env.value) <= 5), 'DB_POOL_MAX should stay low for Neon Free.');
 
   assert(osBlueprint.services?.[0]?.plan === 'free', 'os/render.yaml should also use Render Free.');
@@ -69,6 +70,7 @@ async function main() {
   console.log('[deploy-free] Local config OK.');
   console.log('[deploy-free] Required manual env in Render arbor-os: DATABASE_URL from Neon Free.');
   console.log('[deploy-free] After first DB migration, create the first admin with: npm run bootstrap:admin');
+  console.log('[deploy-free] For real photos on Render Free, switch UPLOAD_STORAGE=s3 and set S3/R2 env vars.');
   console.log('[deploy-free] Recommended after web deploy: CORS_ORIGINS=https://<your-web-domain>.');
 
   if (apiUrlArg) {
