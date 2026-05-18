@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const PDFDocument = require('pdfkit');
@@ -7,6 +8,7 @@ const logger = require('../config/logger');
 const { env } = require('../config/env');
 const { uploadsPath } = require('../config/uploadPaths');
 const { getTwilioSmsStatusCallbackUrl } = require('./twilioStatusCallback');
+const { cleanupTemporaryUpload, persistUploadedFile, uploadStorageMode } = require('./upload-storage');
 
 function getSmsClient() {
   const accountSid = env.TWILIO_ACCOUNT_SID;
@@ -61,16 +63,13 @@ async function loadQuotationPdfPayload(quotationId) {
   return { q, items };
 }
 
-async function generateQuotationPdfToDisk(quotationId) {
+async function writeQuotationPdfToFile(quotationId, absPath) {
   const { q, items } = await loadQuotationPdfPayload(quotationId);
 
-  const dir = uploadsPath('quotations');
-  fs.mkdirSync(dir, { recursive: true });
-  const filename = `wycena_${quotationId}.pdf`;
-  const abs = path.join(dir, filename);
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
 
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
-  const stream = fs.createWriteStream(abs);
+  const stream = fs.createWriteStream(absPath);
   doc.pipe(stream);
   writeQuotationPdfContent(doc, q, items);
   doc.end();
@@ -78,7 +77,73 @@ async function generateQuotationPdfToDisk(quotationId) {
     stream.on('finish', resolve);
     stream.on('error', reject);
   });
-  return `/uploads/quotations/${filename}`;
+}
+
+async function generateQuotationPdfAsset(quotationId) {
+  const filename = `wycena_${quotationId}.pdf`;
+  const mode = uploadStorageMode();
+  const tempDir = mode === 's3' ? fs.mkdtempSync(path.join(os.tmpdir(), 'arbor-quotation-pdf-')) : null;
+  const dir = tempDir || uploadsPath('quotations');
+  const absPath = path.join(dir, filename);
+
+  await writeQuotationPdfToFile(quotationId, absPath);
+
+  if (mode !== 's3') {
+    return {
+      url: `/uploads/quotations/${filename}`,
+      absPath,
+      temporaryLocal: false,
+      storage: null,
+      tempDir: null,
+    };
+  }
+
+  let storage;
+  try {
+    storage = await persistUploadedFile(
+      {
+        path: absPath,
+        filename,
+        originalname: filename,
+        mimetype: 'application/pdf',
+        size: fs.statSync(absPath).size,
+      },
+      { folder: 'quotations', fileName: filename }
+    );
+  } catch (error) {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+    throw error;
+  }
+
+  return {
+    url: storage.url,
+    absPath,
+    temporaryLocal: true,
+    storage,
+    tempDir,
+  };
+}
+
+function cleanupQuotationPdfAsset(asset) {
+  if (!asset?.temporaryLocal) return;
+  cleanupTemporaryUpload(asset.storage);
+  if (asset.tempDir) {
+    try {
+      fs.rmdirSync(asset.tempDir);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+async function generateQuotationPdfToDisk(quotationId) {
+  const asset = await generateQuotationPdfAsset(quotationId);
+  cleanupQuotationPdfAsset(asset);
+  return asset.url;
 }
 
 async function generateQuotationPdfBuffer(quotationId) {
@@ -215,22 +280,25 @@ async function afterQuotationFullyApproved(pool, quotationId) {
   const q = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
   if (!q) return;
   const token = crypto.randomBytes(24).toString('hex');
-  const pdfUrl = await generateQuotationPdfToDisk(quotationId);
-  const pdfAbs = path.join(process.cwd(), pdfUrl.replace(/^\//, ''));
+  const pdfAsset = await generateQuotationPdfAsset(quotationId);
 
-  await pool.query(
-    `UPDATE quotations SET
-      client_acceptance_token = $1,
-      pdf_url = $2,
-      status = 'Wyslana_Klientowi',
-      wyslano_klientowi_at = NOW(),
-      updated_at = NOW()
-     WHERE id = $3`,
-    [token, pdfUrl, quotationId]
-  );
+  try {
+    await pool.query(
+      `UPDATE quotations SET
+        client_acceptance_token = $1,
+        pdf_url = $2,
+        status = 'Wyslana_Klientowi',
+        wyslano_klientowi_at = NOW(),
+        updated_at = NOW()
+       WHERE id = $3`,
+      [token, pdfAsset.url, quotationId]
+    );
 
-  const q2 = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
-  await deliverOfferSmsEmail(pool, quotationId, q2, pdfAbs);
+    const q2 = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+    await deliverOfferSmsEmail(pool, quotationId, q2, pdfAsset.absPath);
+  } finally {
+    cleanupQuotationPdfAsset(pdfAsset);
+  }
 
   if (q.wyceniajacy_id) {
     await pool.query(
@@ -265,22 +333,21 @@ async function resendQuotationClientOffer(pool, quotationId) {
     throw err;
   }
 
-  let pdfUrl = q.pdf_url;
-  const absPath = (rel) => path.join(process.cwd(), String(rel || '').replace(/^\//, ''));
-  if (!pdfUrl || !fs.existsSync(absPath(pdfUrl))) {
-    pdfUrl = await generateQuotationPdfToDisk(quotationId);
-    await pool.query(`UPDATE quotations SET pdf_url = $1, updated_at = NOW() WHERE id = $2`, [pdfUrl, quotationId]);
+  const pdfAsset = await generateQuotationPdfAsset(quotationId);
+  try {
+    await pool.query(`UPDATE quotations SET pdf_url = $1, updated_at = NOW() WHERE id = $2`, [pdfAsset.url, quotationId]);
+    const qFresh = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
+    await deliverOfferSmsEmail(pool, quotationId, qFresh, pdfAsset.absPath);
+  } finally {
+    cleanupQuotationPdfAsset(pdfAsset);
   }
-
-  const pdfAbs = absPath(pdfUrl);
-  const qFresh = (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
-  await deliverOfferSmsEmail(pool, quotationId, qFresh, pdfAbs);
   return (await pool.query(`SELECT * FROM quotations WHERE id = $1`, [quotationId])).rows[0];
 }
 
 module.exports = {
   afterQuotationFullyApproved,
   resendQuotationClientOffer,
+  generateQuotationPdfAsset,
   generateQuotationPdfToDisk,
   generateQuotationPdfBuffer,
   publicBase,

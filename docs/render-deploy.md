@@ -26,8 +26,9 @@ S3_PUBLIC_BASE_URL=https://<public-bucket-or-custom-domain>
 S3_UPLOAD_PREFIX=uploads
 ```
 
-For quick free testing keep `UPLOAD_STORAGE=local`. For real field photos on
-Render Free, use `UPLOAD_STORAGE=s3` before crews start relying on the gallery.
+For quick free testing keep `UPLOAD_STORAGE=local`. For real field photos and
+client offer PDFs on Render Free, use `UPLOAD_STORAGE=s3` before crews start
+relying on the gallery and clients start receiving links.
 
 ## 1. Create Neon Free database
 
@@ -54,8 +55,8 @@ npm run deploy:free:check
    - `DATABASE_URL=<your Neon connection string>`.
 7. Optional after `arbor-web` gets its URL:
    - set `CORS_ORIGINS=https://<arbor-web>.onrender.com`.
-8. Before using real customer photos on Render Free, set R2/S3 variables from
-   the storage block above and change `UPLOAD_STORAGE=s3`.
+8. Before using real customer photos or sending client offer PDFs on Render Free,
+   set R2/S3 variables from the storage block above and change `UPLOAD_STORAGE=s3`.
 
 The web service gets `REACT_APP_API_URL` automatically from `arbor-os`.
 
