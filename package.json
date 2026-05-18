@@ -52,6 +52,7 @@
     "deploy:prod:doctor": "npm run prod:doctor -w arbor-os --",
     "deploy:prod:bootstrap": "node ./scripts/run-production-bootstrap.cjs",
     "start:api:prod": "node ./scripts/start-api-with-migrations.cjs",
+    "seed:president-demo": "npm run seed:president-demo -w arbor-os",
     "backup:db": "npm run backup:db -w arbor-os",
     "backup:db:check": "npm run backup:db:check -w arbor-os",
     "restore:db": "npm run restore:db -w arbor-os --",

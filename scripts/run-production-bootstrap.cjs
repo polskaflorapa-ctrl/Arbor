@@ -8,6 +8,7 @@ const argv = process.argv.slice(2);
 const dryRun = argv.includes('--dry-run');
 const skipBackup = argv.includes('--skip-backup');
 const skipStorage = argv.includes('--skip-storage');
+const seedDemo = argv.includes('--seed-demo');
 
 function argValue(name, fallback = '') {
   const index = argv.indexOf(name);
@@ -114,6 +115,9 @@ function main() {
 
   run('database migration', ['run', 'db:migrate', '-w', 'arbor-os'], env);
   run('production admin bootstrap', ['run', 'bootstrap:admin', '-w', 'arbor-os'], env);
+  if (seedDemo) {
+    run('president demo seed', ['run', 'seed:president-demo', '-w', 'arbor-os'], env);
+  }
   run(
     'production doctor',
     ['run', 'deploy:prod:doctor', ...(skipStorage ? ['--', '--skip-storage'] : [])],

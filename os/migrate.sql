@@ -128,6 +128,13 @@ CREATE INDEX IF NOT EXISTS idx_tasks_data        ON tasks(data_planowana);
 CREATE INDEX IF NOT EXISTS idx_tasks_oddzial     ON tasks(oddzial_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_brygadzista ON tasks(brygadzista_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_ekipa       ON tasks(ekipa_id);
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_status_check;
+ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_typ_uslugi_check;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kod_pocztowy VARCHAR(10);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS opis TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wartosc_rzeczywista DECIMAL(10,2);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wyceniajacy_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lat DECIMAL(10,7);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lng DECIMAL(10,7);
@@ -298,6 +305,20 @@ CREATE TABLE IF NOT EXISTS ogledziny_media (
 );
 CREATE INDEX IF NOT EXISTS idx_ogledziny_media_ogl ON ogledziny_media(ogledziny_id);
 
+CREATE TABLE IF NOT EXISTS ogledziny_field_events (
+  id             SERIAL PRIMARY KEY,
+  ogledziny_id   INTEGER NOT NULL REFERENCES ogledziny(id) ON DELETE CASCADE,
+  user_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type     VARCHAR(30) NOT NULL,
+  lat            NUMERIC(10,7),
+  lng            NUMERIC(10,7),
+  eta_min        INTEGER,
+  note           TEXT,
+  recorded_at    TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ogledziny_field_events_ogl ON ogledziny_field_events(ogledziny_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ogledziny_field_events_time ON ogledziny_field_events(recorded_at DESC);
+
 -- ─── 8. TASK_POMOCNICY ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS task_pomocnicy (
   id               SERIAL PRIMARY KEY,
@@ -324,6 +345,12 @@ CREATE TABLE IF NOT EXISTS work_logs (
 );
 
 -- ─── 10. ISSUES ──────────────────────────────────────────────────────────────
+ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS duration_hours DECIMAL(5,2);
+ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS opis TEXT;
+ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'completed';
+ALTER TABLE work_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+ALTER TABLE work_logs DROP CONSTRAINT IF EXISTS work_logs_status_check;
+
 CREATE TABLE IF NOT EXISTS issues (
   id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   task_id     INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
@@ -562,6 +589,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
   created_at            TIMESTAMP DEFAULT NOW(),
   updated_at            TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE vehicles DROP CONSTRAINT IF EXISTS vehicles_typ_check;
+ALTER TABLE vehicles DROP CONSTRAINT IF EXISTS vehicles_status_check;
 
 -- ─── 23. EQUIPMENT_ITEMS (FLOTA - SPRZET) ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS equipment_items (
@@ -579,6 +608,8 @@ CREATE TABLE IF NOT EXISTS equipment_items (
   created_at        TIMESTAMP DEFAULT NOW(),
   updated_at        TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE equipment_items DROP CONSTRAINT IF EXISTS equipment_items_typ_check;
+ALTER TABLE equipment_items DROP CONSTRAINT IF EXISTS equipment_items_status_check;
 
 -- ─── 24. REPAIRS (FLOTA - NAPRAWY) ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS repairs (
@@ -1270,6 +1301,7 @@ CREATE INDEX IF NOT EXISTS idx_equipment_reservations_ekipa_dates
   ON equipment_reservations (ekipa_id, data_od, data_do);
 
 -- ─── RBAC: CHECK constraint on users.rola ────────────────────────────────────
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rola_check;
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.check_constraints
@@ -1305,6 +1337,44 @@ CREATE TABLE IF NOT EXISTS audit_log (
   entity_id     TEXT,
   metadata      JSONB
 );
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS request_id TEXT;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS user_id INTEGER;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS user_login TEXT;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS rola TEXT;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS oddzial_id INTEGER;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS action TEXT;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS entity_type TEXT;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS entity_id TEXT;
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS metadata JSONB;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'audit_log'
+      AND column_name = 'ts'
+  ) THEN
+    UPDATE audit_log
+      SET created_at = COALESCE(created_at, ts, NOW())
+      WHERE created_at IS NULL;
+  ELSE
+    UPDATE audit_log
+      SET created_at = COALESCE(created_at, NOW())
+      WHERE created_at IS NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'audit_log'
+      AND column_name = 'user_rola'
+  ) THEN
+    UPDATE audit_log
+      SET rola = COALESCE(rola, user_rola)
+      WHERE rola IS NULL;
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at  ON audit_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity      ON audit_log (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user        ON audit_log (user_id);

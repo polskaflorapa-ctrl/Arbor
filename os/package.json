@@ -13,6 +13,7 @@
     "test:coverage": "jest --coverage --runInBand",
     "smoke:user": "node scripts/create-smoke-user.js",
     "seed:demo-tasks": "node scripts/seed-demo-tasks.js",
+    "seed:president-demo": "node scripts/seed-president-demo.js",
     "smoke:auth": "node scripts/smoke-auth-check.js",
     "smoke:basic": "powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -BaseUrl http://127.0.0.1:3000",
     "smoke:basic:auth": "powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -BaseUrl http://127.0.0.1:3000 -Login smoke_admin -Password Smoke123!",

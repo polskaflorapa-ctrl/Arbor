@@ -6,6 +6,7 @@ const criticalNodeFiles = [
   'scripts/deploy-cloudflare-pages.cjs',
   'scripts/run-production-bootstrap.cjs',
   'scripts/start-api-with-migrations.cjs',
+  'os/scripts/seed-president-demo.js',
   'os/scripts/bootstrap-admin.js',
   'os/scripts/production-doctor.js',
   'os/scripts/db-backup.js',

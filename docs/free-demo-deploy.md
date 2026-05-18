@@ -80,16 +80,31 @@ BOOTSTRAP_ADMIN_ROLE=Administrator
 BOOTSTRAP_ADMIN_BRANCH_NAME=Centrala
 ```
 
-Na szybki pokaz, jesli `pg_dump` nie jest jeszcze zainstalowany:
+Na szybki pokaz, jesli `pg_dump` nie jest jeszcze zainstalowany, od razu
+wstaw tez dane pokazowe dla prezesa:
 
 ```powershell
-npm run deploy:prod:bootstrap -- --skip-backup
+npm run deploy:prod:bootstrap -- --seed-demo --skip-backup
 ```
 
 Docelowo, z PostgreSQL client tools:
 
 ```powershell
 npm run deploy:prod:bootstrap
+```
+
+Same dane demo mozna dosiac osobno:
+
+```powershell
+npm run seed:president-demo
+```
+
+Wszyscy uzytkownicy `demo_*` dostaja domyslne haslo `Demo123!ARBOR`.
+Mozesz zmienic je przed seedem:
+
+```powershell
+$env:DEMO_PASSWORD="<inne-haslo-do-pokazu>"
+npm run seed:president-demo
 ```
 
 ## 5. Cloudflare Pages web
@@ -140,6 +155,6 @@ Web powinien logowac sie przez Cloudflare Pages/Vercel i rozmawiac z API przez
 1. Neon `DATABASE_URL`.
 2. R2 bucket + public URL.
 3. Railway API z `deploy/railway-arbor-os.env.example`.
-4. `npm run deploy:prod:bootstrap -- --skip-backup`.
+4. `npm run deploy:prod:bootstrap -- --seed-demo --skip-backup`.
 5. Cloudflare Pages web z `REACT_APP_API_URL`.
 6. Login admina i pokaz sciezki: telefon -> ogledziny -> zdjecia -> zlecenie -> ekipa.

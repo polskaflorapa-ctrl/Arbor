@@ -22,10 +22,12 @@ function main() {
   assert(fs.existsSync('docs/free-demo-deploy.md'), 'Free demo deploy runbook is missing.');
   assert(fs.existsSync('scripts/start-api-with-migrations.cjs'), 'API production start script is missing.');
   assert(fs.existsSync('scripts/deploy-cloudflare-pages.cjs'), 'Cloudflare Pages deploy script is missing.');
+  assert(fs.existsSync('os/scripts/seed-president-demo.js'), 'President demo seed script is missing.');
 
   assert(rootPackage.scripts?.['start:api:prod'], 'Root start:api:prod script is missing.');
   assert(rootPackage.scripts?.['deploy:demo:check'], 'Root deploy:demo:check script is missing.');
   assert(rootPackage.scripts?.['deploy:pages:cloudflare'], 'Root deploy:pages:cloudflare script is missing.');
+  assert(rootPackage.scripts?.['seed:president-demo'], 'Root seed:president-demo script is missing.');
 
   console.log('[demo-deploy] OK');
 }
