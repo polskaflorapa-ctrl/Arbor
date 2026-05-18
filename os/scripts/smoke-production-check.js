@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 const baseUrl = process.argv[2] || process.env.BASE_URL;
-const token = process.argv[3] || process.env.SMOKE_TOKEN;
+const providedToken = process.argv[3] || process.env.SMOKE_TOKEN;
 
 if (!baseUrl) {
   console.error('Usage: node scripts/smoke-production-check.js <BASE_URL> [TOKEN]');
+  console.error('Optional env for login smoke: SMOKE_LOGIN + SMOKE_PASSWORD.');
   process.exit(2);
 }
 
@@ -15,9 +16,39 @@ const check = async (path, opts = {}) => {
   return { ok: res.ok, status: res.status, body: text };
 };
 
-const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function loginForSmoke() {
+  const login = process.env.SMOKE_LOGIN || process.env.BOOTSTRAP_ADMIN_LOGIN;
+  const password = process.env.SMOKE_PASSWORD || process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  if (!login || !password) return null;
+
+  const result = await check('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login, haslo: password }),
+  });
+  if (!result.ok) {
+    throw new Error(`Login smoke failed: status=${result.status} body=${result.body.slice(0, 200)}`);
+  }
+
+  const json = parseJson(result.body);
+  if (!json?.token) {
+    throw new Error('Login smoke failed: response did not include token.');
+  }
+  console.log(`OK login-smoke status=${result.status} login=${login}`);
+  return json.token;
+}
 
 (async () => {
+  const token = providedToken || await loginForSmoke();
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
   const checks = [];
   checks.push({ name: 'ready', result: await check('/api/ready'), expected: [200] });
   checks.push({
@@ -53,10 +84,19 @@ const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
   });
 
   if (token) {
+    const me = await check('/api/auth/me', { headers: authHeaders });
+    checks.push({
+      name: 'auth-me',
+      result: me,
+      expected: [200],
+    });
+    const meJson = parseJson(me.body);
+    const role = meJson?.rola;
+
     checks.push({
       name: 'ops-smoke',
       result: await check('/api/ops/smoke', { headers: authHeaders }),
-      expected: [200],
+      expected: ['Prezes', 'Dyrektor'].includes(role) ? [200] : [403],
     });
     checks.push({
       name: 'quotations-panel-assign-auth',

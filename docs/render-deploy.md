@@ -95,6 +95,14 @@ npm run deploy:free:check -- https://<arbor-os-url>.onrender.com
 npm run smoke:render -- https://<arbor-os-url>.onrender.com
 ```
 
+Authenticated smoke check after creating the first admin:
+
+```powershell
+$env:SMOKE_LOGIN="admin"
+$env:SMOKE_PASSWORD="<same-password-used-for-bootstrap>"
+npm run smoke:render -- https://<arbor-os-url>.onrender.com
+```
+
 If Render Free is sleeping, first request may be slow. If `/api/ready` fails,
 check `DATABASE_URL` and Render logs.
 
