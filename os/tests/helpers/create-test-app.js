@@ -7,6 +7,10 @@ const createTestApp = (basePath, router) => {
   const app = express();
   app.use(requestContext);
   app.use(localeMiddleware);
+  app.use((req, _res, next) => {
+    req.auditLog = req.auditLog || (async () => {});
+    next();
+  });
   app.use(express.json());
   app.use(basePath, router);
   app.use(notFoundHandler);

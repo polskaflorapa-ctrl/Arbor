@@ -2348,15 +2348,21 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
         });
       }
     }
-    await pool.query(
+    const update = await pool.query(
       `UPDATE tasks
        SET ekipa_id = $1,
            status = CASE WHEN status IN ('Do_Zatwierdzenia', 'Wycena_Terenowa') THEN 'Zaplanowane' ELSE status END,
            updated_at = NOW()
-       WHERE id = $2`,
+       WHERE id = $2
+       RETURNING id, status`,
       [toNum(ekipa_id), req.params.id]
     );
-    res.json({ message: 'Ekipa przypisana' });
+    const workflowRow = await fetchTaskWorkflowRow(req.params.id)
+      .catch(() => update.rows[0] || { id: req.params.id, status: task.status });
+    res.json({
+      message: 'Ekipa przypisana',
+      ...decorateTaskWorkflow(workflowRow || update.rows[0] || { id: req.params.id, status: task.status }),
+    });
   } catch (err) {
     logger.error('Blad przypisywania ekipy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -2374,7 +2380,13 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
     const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:status`);
     if (replay) {
       await client.query('ROLLBACK');
-      return res.json({ message: 'Status zmieniony', idempotent_replay: true });
+      const workflowRow = await fetchTaskWorkflowRow(taskId)
+        .catch(() => ({ id: taskId }));
+      return res.json({
+        message: 'Status zmieniony',
+        idempotent_replay: true,
+        ...decorateTaskWorkflow(workflowRow || { id: taskId }),
+      });
     }
     const { status } = req.body;
     const prevR = await client.query('SELECT status, oddzial_id FROM tasks WHERE id = $1', [taskId]);
@@ -2391,7 +2403,7 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
         code: 'TASK_STATUS_TRANSITION_BLOCKED',
       });
     }
-    await client.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, taskId]);
+    await client.query('UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2', [status, taskId]);
     await client.query('COMMIT');
     await req.auditLog({
       action: 'task.status_change',
@@ -2417,7 +2429,12 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
         pushToUser(tRow.rows[0].brygadzista_id, { event: 'task_update', task_id: taskId, status });
       }
     } catch { /* non-critical */ }
-    res.json({ message: 'Status zmieniony' });
+    const workflowRow = await fetchTaskWorkflowRow(taskId)
+      .catch(() => ({ id: taskId, status }));
+    res.json({
+      message: 'Status zmieniony',
+      ...decorateTaskWorkflow(workflowRow || { id: taskId, status }),
+    });
   } catch (err) {
     try {
       await client.query('ROLLBACK');
