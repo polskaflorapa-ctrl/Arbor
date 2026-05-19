@@ -64,6 +64,16 @@ type ReadinessCheck = {
   hint: string;
 };
 
+function taskMutationPayload(data: unknown) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const {
+    message: _message,
+    idempotent_replay: _idempotentReplay,
+    ...taskFields
+  } = data as Record<string, unknown>;
+  return taskFields;
+}
+
 const PHOTO_REQUIREMENTS = [
   { key: 'photo_wycena', label: 'Wycena', icon: 'image-outline' },
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
@@ -421,7 +431,12 @@ export default function WycenyDoBiuraScreen() {
         return;
       }
       void triggerHaptic('success');
-      setItems((prev) => prev.filter((item) => item.id !== row.id));
+      const updated = { ...row, ...taskMutationPayload(data) } as FieldDraft;
+      setItems((prev) => (
+        String(updated.status || '') === 'Zaplanowane' || updated.workflow_ready_for_next === true
+          ? prev.filter((item) => item.id !== row.id)
+          : prev.map((item) => (item.id === row.id ? updated : item))
+      ));
       void load();
     } catch (err) {
       void triggerHaptic('error');

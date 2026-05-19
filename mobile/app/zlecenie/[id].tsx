@@ -203,6 +203,29 @@ function workflowPhotoFilterFor(item?: WorkflowMissingItem): PhotoFilterKey {
   return 'all';
 }
 
+function taskMutationPayload(data: unknown) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const {
+    message: _message,
+    idempotent_replay: _idempotentReplay,
+    sprzet_ids: _equipmentIds,
+    rezerwacje_sprzetu: _equipmentReservations,
+    ...taskFields
+  } = data as Record<string, unknown>;
+  return taskFields;
+}
+
+function mergeTaskMutationResponse(currentTask: any, data: unknown, fallback: Record<string, unknown> = {}) {
+  const taskFields = taskMutationPayload(data);
+  const merged = {
+    ...(currentTask || {}),
+    ...fallback,
+    ...taskFields,
+  } as Record<string, unknown>;
+  if (merged.id == null) merged.id = fallback.id ?? currentTask?.id;
+  return merged;
+}
+
 function orderPrioColors(theme: Theme) {
   return {
     Pilny: theme.danger,
@@ -485,7 +508,13 @@ export default function ZlecenieDetailScreen() {
               },
               body: JSON.stringify({ status: nowyStatus }),
             });
-            if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.statusChanged')); }
+            if (res.ok) {
+              const data = await res.json().catch(() => ({}));
+              setZlecenie((prev: any) => mergeTaskMutationResponse(prev, data, { id: Number(id), status: nowyStatus }));
+              void triggerHaptic('success');
+              await loadAll();
+              Alert.alert(t('common.ok'), t('order.statusChanged'));
+            }
             else if (res.status >= 500) {
               void triggerHaptic('warning');
               const queued = await queueRequestWithOfflineFallback({
@@ -593,6 +622,8 @@ export default function ZlecenieDetailScreen() {
         body: JSON.stringify(body),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setZlecenie((prev: any) => mergeTaskMutationResponse(prev, data, { id: Number(id) }));
         void triggerHaptic('success');
         await loadAll();
         Alert.alert('Gotowe', sendToOffice ? 'Pakiet wrócił do biura do planowania.' : 'Pakiet terenowy zapisany.');

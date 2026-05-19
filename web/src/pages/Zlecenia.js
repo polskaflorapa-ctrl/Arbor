@@ -729,6 +729,29 @@ function getTaskWorkflowStageFromApi(task = {}) {
   };
 }
 
+function taskMutationPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const {
+    message: _message,
+    idempotent_replay: _idempotentReplay,
+    sprzet_ids: _equipmentIds,
+    rezerwacje_sprzetu: _equipmentReservations,
+    ...taskFields
+  } = data;
+  return taskFields;
+}
+
+function mergeTaskMutationResponse(currentTask, data, fallback = {}) {
+  const taskFields = taskMutationPayload(data);
+  const merged = {
+    ...(currentTask || {}),
+    ...fallback,
+    ...taskFields,
+  };
+  if (merged.id == null) merged.id = fallback.id ?? currentTask?.id;
+  return merged;
+}
+
 function getTaskDiagnostics(task, todayIso) {
   const day = getTaskDay(task);
   const status = String(task.status || '');
@@ -2469,14 +2492,15 @@ export default function Zlecenia() {
     setStatusUpdatingId(taskId);
     try {
       const token = getStoredToken();
-      await api.put(
+      const { data } = await api.put(
         `/tasks/${taskId}/status`,
         { status: nextStatus },
         { headers: authHeaders(token) }
       );
-      setZlecenia((prev) => prev.map((z) => (z.id === taskId ? { ...z, status: nextStatus } : z)));
+      const updated = mergeTaskMutationResponse(task, data, { id: taskId, status: nextStatus });
+      setZlecenia((prev) => prev.map((z) => (z.id === taskId ? mergeTaskMutationResponse(z, data, updated) : z)));
       if (wybraneZlecenie?.id === taskId) {
-        setWybraneZlecenie((prev) => ({ ...prev, status: nextStatus }));
+        setWybraneZlecenie((prev) => mergeTaskMutationResponse(prev, data, updated));
       }
       await runStatusWorkflow(task, nextStatus);
       if (nextStatus === TASK_STATUS.ZAKONCZONE && closureGuardForStatus) {

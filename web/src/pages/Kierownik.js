@@ -19,6 +19,12 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 import { TASK_STATUS, TASK_STATUSES, getTaskStatusColor, isTaskDone, isTaskInProgress } from '../utils/taskWorkflow';
 
+function taskMutationPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const { message: _message, idempotent_replay: _idempotentReplay, ...taskFields } = data;
+  return taskFields;
+}
+
 export default function Kierownik() {
   const { t } = useTranslation();
   const [zlecenia, setZlecenia] = useState([]);
@@ -73,10 +79,13 @@ export default function Kierownik() {
   const przypisz = async (taskId, ekipaId) => {
     try {
       const token = getStoredToken();
-      await api.put(`/tasks/${taskId}/przypisz`,
+      const { data } = await api.put(`/tasks/${taskId}/przypisz`,
         { ekipa_id: ekipaId || null },
         { headers: authHeaders(token) }
       );
+      setZlecenia((prev) => prev.map((z) => (
+        z.id === taskId ? { ...z, ekipa_id: ekipaId || null, ...taskMutationPayload(data) } : z
+      )));
       showMsg(successMessage('Ekipa przypisana!'));
       loadData(user);
     } catch (err) {
@@ -87,10 +96,13 @@ export default function Kierownik() {
   const zmienStatus = async (taskId, status) => {
     try {
       const token = getStoredToken();
-      await api.put(`/tasks/${taskId}/status`,
+      const { data } = await api.put(`/tasks/${taskId}/status`,
         { status },
         { headers: authHeaders(token) }
       );
+      setZlecenia((prev) => prev.map((z) => (
+        z.id === taskId ? { ...z, status, ...taskMutationPayload(data) } : z
+      )));
       showMsg(successMessage(`Status zmieniony na ${status}`));
       loadData(user);
     } catch (err) {

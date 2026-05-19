@@ -98,6 +98,18 @@ function equipmentDisplayName(row) {
     .join(' - ') || 'Sprzet';
 }
 
+function taskMutationPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const {
+    message: _message,
+    idempotent_replay: _idempotentReplay,
+    sprzet_ids: _equipmentIds,
+    rezerwacje_sprzetu: _equipmentReservations,
+    ...taskFields
+  } = data;
+  return taskFields;
+}
+
 export default function ZlecenieDetail() {
   const { t } = useTranslation();
   const { id } = useParams();
@@ -245,9 +257,15 @@ export default function ZlecenieDetail() {
   const zmienStatus = async (status) => {
     try {
       const token = getStoredToken();
-      await api.put(`/tasks/${id}/status`, { status }, {
+      const { data } = await api.put(`/tasks/${id}/status`, { status }, {
         headers: authHeaders(token)
       });
+      setZlecenie((prev) => ({
+        ...(prev || {}),
+        ...taskMutationPayload(data),
+        id: data?.id || prev?.id || Number(id),
+        status: data?.status || status,
+      }));
       showMsg(successMessage(`Status zmieniony na ${status}`));
       loadAll();
     } catch (err) {
