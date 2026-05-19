@@ -399,6 +399,68 @@ describe('Tasks routes', () => {
     expect(res.body.workflow_missing_labels).not.toContain('szkic zakresu');
   });
 
+  it('PUT /tasks/:id/office-plan returns crew-ready workflow after assigning team and slot', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', oddzial_id: 5, notatki_wewnetrzne: 'PRZEKAZANIE DO BIURA' }] };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('FROM wyceny') && s.includes('status_akceptacji')) return { rows: [] };
+      if (s.includes('UPDATE tasks') && s.includes('RETURNING id, status')) {
+        return { rows: [{ id: 12, status: 'Zaplanowane' }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            klient_nazwa: 'A',
+            klient_telefon: '+48123123123',
+            adres: 'Testowa 1',
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            opis_pracy: 'Przycinka korony',
+            wartosc_planowana: 1500,
+            czas_planowany_godziny: 3,
+            ekipa_id: 9,
+            ekipa_nazwa: 'Ekipa A',
+            photo_total: 3,
+            photo_wycena: 1,
+            photo_szkic: 1,
+            photo_dojazd: 1,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '08:00',
+        czas_planowany_godziny: 3,
+        ekipa_id: 9,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('Zaplanowane');
+    expect(res.body.workflow_stage).toBe('crewReady');
+    expect(res.body.workflow_ready_for_next).toBe(true);
+    expect(res.body.workflow_next_status).toBe('W_Realizacji');
+    expect(res.body.workflow_missing_labels).not.toContain('ekipa');
+  });
+
   it('POST /tasks/:id/start returns 400 for brygadzista without checklist', async () => {
     const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });

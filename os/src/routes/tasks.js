@@ -2288,7 +2288,7 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       .join('\n\n')
       .slice(0, 12000);
 
-    await pool.query(
+    const update = await pool.query(
       `UPDATE tasks
        SET data_planowana = $1::timestamptz,
            czas_planowany_godziny = $2,
@@ -2296,18 +2296,17 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
            status = 'Zaplanowane',
            notatki_wewnetrzne = $4,
            updated_at = NOW()
-       WHERE id = $5`,
+       WHERE id = $5
+       RETURNING id, status`,
       [plannedDateTime, hours, teamId, nextNotes, taskId]
     );
+    const workflowRow = await fetchTaskWorkflowRow(taskId)
+      .catch(() => update.rows[0] || { id: taskId, status: 'Zaplanowane' });
     res.json({
       message: equipmentNames.length
         ? `Zlecenie zaplanowane. Zarezerwowano sprzet: ${equipmentNames.join(', ')}.`
         : 'Zlecenie zaplanowane',
-      id: taskId,
-      status: 'Zaplanowane',
-      data_planowana: plannedDateTime,
-      czas_planowany_godziny: hours,
-      ekipa_id: teamId,
+      ...decorateTaskWorkflow(workflowRow || update.rows[0] || { id: taskId, status: 'Zaplanowane' }),
       sprzet_ids: shouldSyncEquipment ? selectedEquipmentIds : undefined,
       rezerwacje_sprzetu: equipmentSync.reservations,
     });
