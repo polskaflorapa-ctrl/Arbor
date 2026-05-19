@@ -667,6 +667,68 @@ function getTaskPhotoSummary(task = {}) {
   };
 }
 
+function getTaskWorkflowMissingFromApi(task = {}) {
+  const rawItems = Array.isArray(task.workflow_missing_items) ? task.workflow_missing_items : [];
+  const labels = Array.isArray(task.workflow_missing_labels) ? task.workflow_missing_labels : [];
+  const items = [
+    ...rawItems.map((item) => ({
+      key: String(item?.key || item?.label || '').trim(),
+      label: String(item?.label || item?.key || '').trim(),
+      required: item?.required !== false,
+    })),
+    ...labels.map((label) => ({
+      key: String(label || '').trim(),
+      label: String(label || '').trim(),
+      required: true,
+    })),
+  ].filter((item) => item.label);
+
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = `${item.key || item.label}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function taskWorkflowBlockerTone(item) {
+  const key = String(item?.key || item?.label || '').toLowerCase();
+  if (key.includes('phone') || key.includes('telefon') || key.includes('client') || key.includes('klient')) return 'danger';
+  return 'warning';
+}
+
+function normalizeTaskWorkflowBlockerKey(item) {
+  const key = String(item?.key || item?.label || '').toLowerCase();
+  if (key.includes('phone') || key.includes('telefon')) return 'noContact';
+  if (key.includes('team') || key.includes('ekipa')) return 'unassigned';
+  if (key.includes('date') || key.includes('termin')) return 'noDate';
+  if (key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('budżet')) return 'noPrice';
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję')) return 'noMedia';
+  if (key.includes('sketch') || key.includes('szkic')) return 'noFieldSketch';
+  if (key.includes('estimator') || key.includes('wyceniacz')) return 'estimator';
+  if (key.includes('brief') || key.includes('opis') || key.includes('zakres')) return 'brief';
+  return `api_${key || 'workflow'}`.replace(/\s+/g, '_');
+}
+
+function getTaskWorkflowStageFromApi(task = {}) {
+  if (!task.workflow_stage && !task.workflow_stage_label) return null;
+  const status = String(task.status || '');
+  let tone = 'blue';
+  if (task.workflow_blockers_count > 0) tone = 'warning';
+  else if (status === TASK_STATUS.ANULOWANE) tone = 'danger';
+  else if (isTaskClosed(status)) tone = 'good';
+  else if ([TASK_STATUS.DO_ZATWIERDZENIA, TASK_STATUS.ZAPLANOWANE].includes(status)) tone = 'good';
+
+  return {
+    key: task.workflow_stage || status || 'workflow',
+    step: task.workflow_stage_step || '',
+    label: task.workflow_stage_label || status || 'Workflow',
+    detail: task.workflow_stage_detail || task.workflow_next_action || '',
+    tone,
+  };
+}
+
 function getTaskDiagnostics(task, todayIso) {
   const day = getTaskDay(task);
   const status = String(task.status || '');
@@ -688,7 +750,7 @@ function getTaskDiagnostics(task, todayIso) {
     noPrice: Boolean(!hasPrice && needsPrice && !isClosed),
   };
 
-  const blockers = [
+  const localBlockers = [
     has.noContact ? { key: 'noContact', label: 'Brak telefonu', tone: 'danger' } : null,
     has.unassigned ? { key: 'unassigned', label: 'Brak ekipy', tone: 'warning' } : null,
     has.noDate ? { key: 'noDate', label: 'Brak terminu', tone: 'warning' } : null,
@@ -696,6 +758,20 @@ function getTaskDiagnostics(task, todayIso) {
     has.noFieldSketch ? { key: 'noFieldSketch', label: 'Brak wyceny/szkicu', tone: 'warning' } : null,
     has.noPrice ? { key: 'noPrice', label: 'Brak ceny', tone: 'warning' } : null,
   ].filter(Boolean);
+  const apiBlockers = getTaskWorkflowMissingFromApi(task)
+    .filter((item) => item.required !== false)
+    .map((item) => ({
+      key: normalizeTaskWorkflowBlockerKey(item),
+      label: item.label,
+      tone: taskWorkflowBlockerTone(item),
+    }));
+  const blockerSeen = new Set();
+  const blockers = [...localBlockers, ...apiBlockers].filter((item) => {
+    const key = String(item.key || item.label || '').toLowerCase();
+    if (blockerSeen.has(key)) return false;
+    blockerSeen.add(key);
+    return true;
+  });
 
   const risks = [
     has.overdue ? { key: 'overdue', label: 'Po terminie', tone: 'danger' } : null,
@@ -713,8 +789,18 @@ function getTaskDiagnostics(task, todayIso) {
       (status === TASK_STATUS.NOWE && !isClosed ? 8 : 0)
   );
 
-  let nextAction = { label: 'Otwórz szczegóły', target: 'details' };
-  if (has.noContact) nextAction = { label: 'Uzupełnij kontakt', target: 'edit' };
+  let nextAction = { label: task.workflow_next_action || 'Otwórz szczegóły', target: 'details' };
+  if (blockers.length) {
+    const first = blockers[0];
+    const key = String(first.key || first.label || '').toLowerCase();
+    nextAction = {
+      label: `Uzupełnij: ${first.label}`,
+      target: key.includes('media') || key.includes('photo') || key.includes('sketch') || key.includes('zdj') || key.includes('szkic')
+        ? 'details'
+        : 'edit',
+    };
+  }
+  else if (has.noContact) nextAction = { label: 'Uzupełnij kontakt', target: 'edit' };
   else if (has.unassigned) nextAction = { label: 'Przypisz ekipę', target: 'edit' };
   else if (has.noDate) nextAction = { label: 'Ustal termin', target: 'edit' };
   else if (has.noMedia || has.noFieldSketch) nextAction = { label: 'Dodaj zdjęcia', target: 'details' };
@@ -745,6 +831,9 @@ function getTaskDiagnostics(task, todayIso) {
 }
 
 function getTaskInspectionWorkflow(task = {}, diagnostics = null) {
+  const apiStage = getTaskWorkflowStageFromApi(task);
+  if (apiStage) return apiStage;
+
   const status = String(task.status || '');
   const photos = diagnostics?.photos || getTaskPhotoSummary(task);
   const isClosed = isTaskClosed(status);
