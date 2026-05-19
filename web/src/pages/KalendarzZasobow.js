@@ -126,6 +126,34 @@ function taskClientLabel(task) {
   return task?.klient_nazwa || task?.adres || `Zlecenie #${task?.id}`;
 }
 
+function equipmentBranchId(item) {
+  return item?.oddzial_id == null || item.oddzial_id === '' ? '' : String(item.oddzial_id);
+}
+
+function isEquipmentUnavailable(item) {
+  const status = String(item?.status || '').toLowerCase();
+  return status.includes('serwis') || status.includes('awari') || status.includes('wycof');
+}
+
+function activeReservation(rez) {
+  const status = String(rez?.status || '').toLowerCase();
+  return !status.includes('anul') && !status.includes('zwr');
+}
+
+function reservationOverlapsDay(rez, day) {
+  const start = String(rez?.data_od || '').slice(0, 10);
+  const end = String(rez?.data_do || '').slice(0, 10);
+  return Boolean(day && start && end && start <= day && end >= day);
+}
+
+function taskReservationEquipmentIds(rezerwacje, taskId) {
+  return [...new Set((rezerwacje || [])
+    .filter((rez) => String(rez?.task_id || '') === String(taskId || ''))
+    .filter(activeReservation)
+    .map((rez) => String(rez.sprzet_id))
+    .filter(Boolean))];
+}
+
 function buildSlotSuggestions(tasks, task, form) {
   const teamId = String(form?.ekipa_id || '');
   const day = String(form?.data_planowana || '');
@@ -269,7 +297,7 @@ function NowaRezerwacjaModal({ sprzet, ekipy, defaultSprzet, defaultDate, onSave
 
 const mStyles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  panel:   { background: 'var(--bg-card)', borderRadius: 12, padding: 24, minWidth: 360, maxWidth: 460, width: '90vw', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' },
+  panel:   { background: 'var(--bg-card)', borderRadius: 12, padding: 24, minWidth: 360, maxWidth: 460, width: '90vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' },
   label:   { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, marginTop: 12 },
   select:  { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14 },
   input:   { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
@@ -286,6 +314,11 @@ const mStyles = {
   planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#92400e', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
   warningList: { margin: '6px 0 0', paddingLeft: 18 },
   errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.32)', color: '#ef4444', fontSize: 12, fontWeight: 700 },
+  linkedTaskBox: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.24)', lineHeight: 1.55 },
+  multiSelect: { minHeight: 112, lineHeight: 1.35 },
+  equipmentHint: { marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
+  equipmentActions: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
+  tinyBtn: { padding: '5px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   actionsRow: { display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end', flexWrap: 'wrap' },
   btnCancel: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
   btnGhost: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
@@ -293,7 +326,7 @@ const mStyles = {
 };
 
 // ─── podgląd/edycja istniejącej rezerwacji ────────────────────────────────────
-function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onClose, saving }) {
+function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onOpenTask, onClose, saving }) {
   const [status, setStatus] = useState(rez.status);
   return (
     <div style={mStyles.overlay} onClick={onClose}>
@@ -304,6 +337,13 @@ function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onClose, saving }) 
           <div><b>Ekipa:</b> {rez.ekipa_nazwa}</div>
           <div><b>Od:</b> {rez.data_od?.slice(0,10)}</div>
           <div><b>Do:</b> {rez.data_do?.slice(0,10)}</div>
+          {rez.task_id && (
+            <div style={mStyles.linkedTaskBox}>
+              <div><b>Zlecenie:</b> #{rez.task_id} {rez.task_klient_nazwa || ''}</div>
+              {rez.task_adres && <div><b>Adres:</b> {rez.task_adres}</div>}
+              {rez.notatki && <div><b>Uwagi:</b> {rez.notatki}</div>}
+            </div>
+          )}
         </div>
         <label style={mStyles.label}>Status</label>
         <select style={mStyles.select} value={status} onChange={e => setStatus(e.target.value)}>
@@ -313,6 +353,7 @@ function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onClose, saving }) 
         </select>
         <div style={{ display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
           <button style={mStyles.btnCancel} onClick={onClose}>Zamknij</button>
+          {rez.task_id && <button style={mStyles.btnGhost} onClick={onOpenTask}>Otworz zlecenie</button>}
           <button style={mStyles.btnSave} disabled={saving || status === rez.status}
             onClick={() => onStatusChange(rez.id, status)}>
             {saving ? 'Zapisuję…' : 'Zapisz status'}
@@ -324,17 +365,61 @@ function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onClose, saving }) 
 }
 
 // ─── główny komponent ────────────────────────────────────────────────────────
-function TaskPlanModal({ task, teams, tasks, onSave, onClose, onOpenTask, saving, error }) {
+function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose, onOpenTask, saving, error }) {
+  const existingEquipmentIds = useMemo(
+    () => taskReservationEquipmentIds(rezerwacje, task?.id),
+    [rezerwacje, task?.id],
+  );
   const [form, setForm] = useState({
     data_planowana: taskDate(task) || toISO(new Date()),
     godzina_rozpoczecia: taskTime(task),
     czas_planowany_godziny: String(taskHours(task)),
     ekipa_id: task.ekipa_id ? String(task.ekipa_id) : '',
     sprzet_notatka: '',
+    sprzet_ids: existingEquipmentIds,
   });
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const setEquipment = (selectedOptions) => {
+    const ids = Array.from(selectedOptions || []).map((option) => option.value).filter(Boolean);
+    set('sprzet_ids', ids);
+  };
   const { ekipa_id, data_planowana, godzina_rozpoczecia, czas_planowany_godziny } = form;
+  const equipmentOptions = useMemo(() => {
+    const selected = new Set((form.sprzet_ids || []).map(String));
+    const taskBranch = taskBranchId(task);
+    return [...(sprzet || [])]
+      .filter((item) => {
+        const sameBranch = !taskBranch || !equipmentBranchId(item) || equipmentBranchId(item) === taskBranch;
+        return selected.has(String(item.id)) || (sameBranch && !isEquipmentUnavailable(item));
+      })
+      .sort((a, b) => {
+        const aTeam = ekipa_id && String(a.ekipa_id || '') === String(ekipa_id) ? 0 : 1;
+        const bTeam = ekipa_id && String(b.ekipa_id || '') === String(ekipa_id) ? 0 : 1;
+        if (aTeam !== bTeam) return aTeam - bTeam;
+        return String(a.typ || '').localeCompare(String(b.typ || ''), 'pl') || String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl');
+      });
+  }, [ekipa_id, form.sprzet_ids, sprzet, task]);
+  const selectedEquipment = useMemo(
+    () => equipmentOptions.filter((item) => (form.sprzet_ids || []).some((id) => String(id) === String(item.id))),
+    [equipmentOptions, form.sprzet_ids],
+  );
+  const equipmentConflicts = useMemo(() => {
+    if (!data_planowana || !(form.sprzet_ids || []).length) return [];
+    const selected = new Set((form.sprzet_ids || []).map(String));
+    return (rezerwacje || [])
+      .filter(activeReservation)
+      .filter((rez) => selected.has(String(rez.sprzet_id)))
+      .filter((rez) => String(rez.task_id || '') !== String(task?.id || ''))
+      .filter((rez) => reservationOverlapsDay(rez, data_planowana))
+      .slice(0, 6);
+  }, [data_planowana, form.sprzet_ids, rezerwacje, task?.id]);
+  const teamEquipmentIds = useMemo(
+    () => equipmentOptions
+      .filter((item) => ekipa_id && String(item.ekipa_id || '') === String(ekipa_id))
+      .map((item) => String(item.id)),
+    [ekipa_id, equipmentOptions],
+  );
   const slotSuggestions = useMemo(
     () => buildSlotSuggestions(tasks, task, { ekipa_id, data_planowana, czas_planowany_godziny }),
     [tasks, task, ekipa_id, data_planowana, czas_planowany_godziny],
@@ -378,6 +463,55 @@ function TaskPlanModal({ task, teams, tasks, onSave, onClose, onOpenTask, saving
             </select>
           </div>
         </div>
+
+        <label style={mStyles.label}>Sprzet do zlecenia</label>
+        <select
+          multiple
+          style={{ ...mStyles.select, ...mStyles.multiSelect }}
+          value={form.sprzet_ids || []}
+          onChange={(e) => setEquipment(e.target.selectedOptions)}
+        >
+          {equipmentOptions.map((item) => (
+            <option key={item.id} value={item.id}>
+              {[item.typ, item.nazwa || `Sprzet #${item.id}`, item.ekipa_nazwa ? `(${item.ekipa_nazwa})` : ''].filter(Boolean).join(' - ')}
+            </option>
+          ))}
+        </select>
+        <div style={mStyles.equipmentHint}>
+          {selectedEquipment.length
+            ? `Wybrano: ${selectedEquipment.map((item) => item.nazwa || `#${item.id}`).join(', ')}`
+            : 'Brak wybranego sprzetu - plan zapisze sam termin i ekipe.'}
+        </div>
+        <div style={mStyles.equipmentActions}>
+          <button
+            type="button"
+            style={mStyles.tinyBtn}
+            disabled={!teamEquipmentIds.length}
+            onClick={() => set('sprzet_ids', teamEquipmentIds)}
+          >
+            Sprzet tej ekipy
+          </button>
+          <button
+            type="button"
+            style={mStyles.tinyBtn}
+            onClick={() => set('sprzet_ids', [])}
+          >
+            Wyczysc
+          </button>
+        </div>
+
+        {equipmentConflicts.length > 0 && (
+          <div style={mStyles.planWarning}>
+            <div>Uwaga: wybrany sprzet ma rezerwacje w tym dniu:</div>
+            <ul style={mStyles.warningList}>
+              {equipmentConflicts.map((rez) => (
+                <li key={rez.id}>
+                  {rez.sprzet_nazwa || `#${rez.sprzet_id}`} - {rez.ekipa_nazwa || 'inna ekipa'}{rez.task_id ? `, zlecenie #${rez.task_id}` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div style={mStyles.slotPanel}>
           <div style={mStyles.slotHead}>
@@ -602,6 +736,10 @@ export default function KalendarzZasobow() {
   const visibleTeams = useMemo(() => {
     return ekipy.filter((team) => !selectedBranchId || String(teamBranchId(team)) === String(selectedBranchId));
   }, [ekipy, selectedBranchId]);
+
+  const visibleSprzet = useMemo(() => {
+    return sprzet.filter((item) => !selectedBranchId || equipmentBranchId(item) === String(selectedBranchId));
+  }, [selectedBranchId, sprzet]);
 
   const plannerTeams = useMemo(() => {
     if (!modalTaskPlan) return visibleTeams.length ? visibleTeams : ekipy;
@@ -830,11 +968,12 @@ export default function KalendarzZasobow() {
         godzina_rozpoczecia: form.godzina_rozpoczecia,
         czas_planowany_godziny: form.czas_planowany_godziny,
         ekipa_id: form.ekipa_id,
+        sprzet_ids: form.sprzet_ids || [],
         sprzet_notatka: form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.',
       }, { headers: authHeaders(token) });
       showMsg(`Zapisano plan zlecenia #${task.id}.`);
       setModalTaskPlan(null);
-      await loadAll();
+      await Promise.all([loadAll(), loadRezerwacje()]);
     } catch (err) {
       const code = err.response?.data?.error;
       setTaskPlanErr(code || 'Nie udalo sie zapisac planu.');
@@ -873,15 +1012,17 @@ export default function KalendarzZasobow() {
     setSaving(true);
     try {
       const token = getStoredToken();
+      const existingEquipmentIds = taskReservationEquipmentIds(rezerwacje, task.id);
       await api.put(`/tasks/${task.id}/office-plan`, {
         data_planowana: dayISO,
         godzina_rozpoczecia: nextTime,
         czas_planowany_godziny: nextHours,
         ekipa_id: teamId,
+        sprzet_ids: existingEquipmentIds,
         sprzet_notatka: 'Przesunieto w harmonogramie ekip.',
       }, { headers: authHeaders(token) });
       showMsg(`Zlecenie #${task.id} zaplanowane: ${dayISO} ${nextTime}.`);
-      await loadAll();
+      await Promise.all([loadAll(), loadRezerwacje()]);
     } catch (err) {
       const code = err.response?.data?.error;
       showMsg(code || 'Nie udalo sie przesunac zlecenia.', 'err');
@@ -961,6 +1102,8 @@ export default function KalendarzZasobow() {
     const width  = spanDays * COL_W - 4;
     const color  = STATUS_COLOR[rez.status] || '#6b7280';
     const isAnulowana = rez.status === 'Anulowane';
+    const taskLabel = rez.task_id ? `#${rez.task_id} ${rez.task_klient_nazwa || ''}`.trim() : '';
+    const barLabel = taskLabel || rez.ekipa_nazwa || rez.status || '';
 
     return (
       <div
@@ -968,7 +1111,7 @@ export default function KalendarzZasobow() {
         draggable={canEdit && !isAnulowana}
         onDragStart={(e) => handleDragStart(e, rez, startISO)}
         onClick={(e) => { e.stopPropagation(); setModalDet(rez); }}
-        title={`${rez.sprzet_nazwa} | ${rez.ekipa_nazwa}\n${rezOd} → ${rezDo}\nStatus: ${rez.status}`}
+        title={`${rez.sprzet_nazwa} | ${rez.ekipa_nazwa}\n${rezOd} -> ${rezDo}\nStatus: ${rez.status}${taskLabel ? `\nZlecenie: ${taskLabel}` : ''}${rez.task_adres ? `\n${rez.task_adres}` : ''}`}
         style={{
           position: 'absolute',
           left:     left,
@@ -993,7 +1136,7 @@ export default function KalendarzZasobow() {
           boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
         }}
       >
-        {spanDays > 1 ? `${rez.ekipa_nazwa}` : ''}
+        {barLabel}
       </div>
     );
   };
@@ -1324,13 +1467,13 @@ export default function KalendarzZasobow() {
             </div>
 
             {/* wiersze sprzętu */}
-            {sprzet.length === 0 && (
+            {visibleSprzet.length === 0 && (
               <div style={{ padding: '40px 24px', color: 'var(--text-muted)', textAlign: 'center' }}>
-                Brak sprzętu. Dodaj urządzenia w module Flota.
+                Brak sprzetu w wybranym oddziale. Dodaj urzadzenia w module Flota albo zmien filtr oddzialu.
               </div>
             )}
 
-            {sprzet.map((s) => {
+            {visibleSprzet.map((s) => {
               const rowRez = rezBySprzet[s.id] || [];
 
               return (
@@ -1400,7 +1543,7 @@ export default function KalendarzZasobow() {
       {/* ── modals ──────────────────────────────────────────────────────────── */}
       {modalNew && (
         <NowaRezerwacjaModal
-          sprzet={sprzet}
+          sprzet={visibleSprzet.length ? visibleSprzet : sprzet}
           ekipy={ekipy}
           defaultSprzet={modalNew.sprzetId}
           defaultDate={modalNew.date}
@@ -1415,6 +1558,10 @@ export default function KalendarzZasobow() {
           rez={modalDet}
           ekipy={ekipy}
           onStatusChange={handleStatusChange}
+          onOpenTask={() => {
+            setModalDet(null);
+            navigate(`/zlecenia?search=${modalDet.task_id}`);
+          }}
           onClose={() => setModalDet(null)}
           saving={saving}
         />
@@ -1425,6 +1572,8 @@ export default function KalendarzZasobow() {
           task={modalTaskPlan}
           teams={plannerTeams}
           tasks={tasks}
+          sprzet={visibleSprzet.length ? visibleSprzet : sprzet}
+          rezerwacje={rezerwacje}
           onSave={handleTaskPlanSave}
           onClose={closeTaskPlan}
           onOpenTask={() => openFullTask(modalTaskPlan)}
