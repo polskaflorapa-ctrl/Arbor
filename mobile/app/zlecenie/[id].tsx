@@ -34,7 +34,7 @@ import {
 import { subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
-import { TASK_STATUS, TASK_STATUSES, getNextTaskStatuses, isTaskDone, makeTaskStatusColorMap } from '../../constants/task-workflow';
+import { TASK_STATUS, TASK_STATUSES, getNextTaskStatuses, getTaskWorkflowStep, isTaskDone, makeTaskStatusColorMap } from '../../constants/task-workflow';
 import {
   TASK_EQUIPMENT_OPTIONS,
   TASK_RISK_PRESETS,
@@ -152,6 +152,55 @@ function compactLines(value: unknown) {
 
 function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+type WorkflowMissingItem = {
+  key: string;
+  label: string;
+  required: boolean;
+};
+
+function taskWorkflowMissingItems(task: any): WorkflowMissingItem[] {
+  const rawItems = Array.isArray(task?.workflow_missing_items) ? task.workflow_missing_items : [];
+  const labels = Array.isArray(task?.workflow_missing_labels) ? task.workflow_missing_labels : [];
+  const items = [
+    ...rawItems.map((item: any) => ({
+      key: String(item?.key || item?.label || '').trim(),
+      label: String(item?.label || item?.key || '').trim(),
+      required: item?.required !== false,
+    })),
+    ...labels.map((label: unknown) => ({
+      key: String(label || '').trim(),
+      label: String(label || '').trim(),
+      required: true,
+    })),
+  ].filter((item) => item.label);
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.key || item.label}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function workflowTargetFor(item?: WorkflowMissingItem) {
+  const key = String(item?.key || item?.label || '').toLowerCase();
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję') || key.includes('sketch') || key.includes('szkic') || key.includes('dojazd')) {
+    return 'photos';
+  }
+  if (key.includes('brief') || key.includes('opis') || key.includes('zakres') || key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('budżet') || key.includes('hours') || key.includes('czas')) {
+    return 'field';
+  }
+  return 'details';
+}
+
+function workflowPhotoFilterFor(item?: WorkflowMissingItem): PhotoFilterKey {
+  const key = String(item?.key || item?.label || '').toLowerCase();
+  if (key.includes('szkic') || key.includes('sketch')) return 'szkic';
+  if (key.includes('dojazd') || key.includes('posesja')) return 'dojazd';
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję') || key.includes('wycena')) return 'wycena';
+  return 'all';
 }
 
 function orderPrioColors(theme: Theme) {
@@ -1858,6 +1907,52 @@ export default function ZlecenieDetailScreen() {
     Boolean(zlecenie.ekipa_id) &&
     Boolean(zlecenie.czas_planowany_godziny) &&
     Boolean(zlecenie.wartosc_planowana);
+  const workflowStep = getTaskWorkflowStep(zlecenie.status);
+  const workflowMissingItems = taskWorkflowMissingItems(zlecenie);
+  const workflowRequiredMissing = workflowMissingItems.filter((item) => item.required !== false);
+  const workflowFirstMissing = workflowRequiredMissing[0] || workflowMissingItems[0] || null;
+  const workflowReadyForNext = typeof zlecenie.workflow_ready_for_next === 'boolean'
+    ? zlecenie.workflow_ready_for_next
+    : workflowRequiredMissing.length === 0;
+  const workflowBlockersCount = Number.isFinite(Number(zlecenie.workflow_blockers_count))
+    ? Number(zlecenie.workflow_blockers_count)
+    : workflowRequiredMissing.length;
+  const workflowStageLabel = String(zlecenie.workflow_stage_label || workflowStep.label || statusUi(zlecenie.status));
+  const workflowStageDetail = String(zlecenie.workflow_stage_detail || workflowStep.detail || '');
+  const workflowNextStatus = String(zlecenie.workflow_next_status || '');
+  const workflowNextAction = String(
+    zlecenie.workflow_next_action ||
+    (workflowFirstMissing ? `Uzupelnij: ${workflowFirstMissing.label}` : workflowNextStatus ? `Przejdz do: ${workflowNextStatus}` : 'Otworz szczegoly'),
+  );
+  const workflowPrimaryTarget = workflowTargetFor(workflowFirstMissing || undefined);
+  const workflowColor = workflowBlockersCount > 0
+    ? theme.warning
+    : workflowReadyForNext
+      ? theme.success
+      : theme.accent;
+  const workflowPrimaryCta = workflowFirstMissing
+    ? 'Uzupelnij'
+    : workflowNextStatus && mozeZmieniacStatus
+      ? 'Zmien etap'
+      : showFieldPackageCard
+        ? 'Pakiet'
+        : 'Otworz';
+  const runWorkflowPrimaryAction = () => {
+    if (workflowFirstMissing) {
+      if (workflowPrimaryTarget === 'photos') {
+        setPhotoFilter(workflowPhotoFilterFor(workflowFirstMissing));
+        setActiveTab('zdjecia');
+      } else {
+        setActiveTab('info');
+      }
+      return;
+    }
+    if (workflowNextStatus && mozeZmieniacStatus) {
+      void zmienStatus(workflowNextStatus);
+      return;
+    }
+    setActiveTab('info');
+  };
 
   // Suma godzin z logów
   const totalGodziny = logi.reduce((sum: number, l: any) => sum + (parseFloat(l.duration_hours) || 0), 0);
@@ -2032,6 +2127,24 @@ export default function ZlecenieDetailScreen() {
         detail: 'Zlecenie domknięte. Uzupełnij raport dzienny ekipy.',
         cta: 'Otwórz raport',
         onPress: () => router.push('/raport-dzienny'),
+      };
+    }
+    if (workflowFirstMissing) {
+      return {
+        icon: workflowPrimaryTarget === 'photos' ? 'camera-outline' as IoniconName : 'create-outline' as IoniconName,
+        title: `Sugerowany krok: ${workflowNextAction}`,
+        detail: `Etap "${workflowStageLabel}" nie pojdzie dalej bez tego pola.`,
+        cta: workflowPrimaryCta,
+        onPress: runWorkflowPrimaryAction,
+      };
+    }
+    if (workflowReadyForNext && workflowNextStatus && mozeZmieniacStatus) {
+      return {
+        icon: 'arrow-forward-circle-outline' as IoniconName,
+        title: `Sugerowany krok: ${workflowNextAction}`,
+        detail: `Etap "${workflowStageLabel}" jest gotowy do kolejnego statusu.`,
+        cta: workflowPrimaryCta,
+        onPress: runWorkflowPrimaryAction,
       };
     }
     if (mozeZmieniacStatus) {
@@ -2681,6 +2794,50 @@ export default function ZlecenieDetailScreen() {
           <PlatinumIconBadge icon="chevron-forward" color={theme.textMuted} size={11} style={{ width: 24, height: 24, borderRadius: 8 }} />
         </TouchableOpacity>
       ) : null}
+
+      <View style={[S.workflowCard, { borderColor: workflowColor, backgroundColor: workflowBlockersCount > 0 ? theme.warningBg : theme.cardBg }]}>
+        <View style={S.workflowHead}>
+          <View style={[S.workflowIconWrap, { backgroundColor: workflowColor + '18', borderColor: workflowColor }]}>
+            <Ionicons name={workflowReadyForNext ? 'checkmark-circle-outline' : 'git-network-outline'} size={17} color={workflowColor} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={S.workflowTitle}>{workflowStageLabel}</Text>
+            <Text style={S.workflowDetail} numberOfLines={2}>{workflowStageDetail}</Text>
+          </View>
+          <View style={[S.workflowCountBadge, { borderColor: workflowColor, backgroundColor: theme.cardBg }]}>
+            <Text style={[S.workflowCountValue, { color: workflowColor }]}>{workflowBlockersCount}</Text>
+            <Text style={S.workflowCountLabel}>braki</Text>
+          </View>
+        </View>
+        {workflowMissingItems.length ? (
+          <View style={S.workflowMissingWrap}>
+            {workflowMissingItems.slice(0, 4).map((item) => (
+              <TouchableOpacity
+                key={`${item.key}-${item.label}`}
+                style={[S.workflowMissingChip, { borderColor: item.required === false ? theme.border : workflowColor, backgroundColor: theme.cardBg }]}
+                onPress={() => {
+                  if (workflowTargetFor(item) === 'photos') {
+                    setPhotoFilter(workflowPhotoFilterFor(item));
+                    setActiveTab('zdjecia');
+                  } else {
+                    setActiveTab('info');
+                  }
+                }}
+              >
+                <Ionicons name={item.required === false ? 'ellipse-outline' : 'alert-circle-outline'} size={13} color={item.required === false ? theme.textMuted : workflowColor} />
+                <Text style={[S.workflowMissingText, { color: item.required === false ? theme.textMuted : theme.text }]} numberOfLines={1}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+        <View style={S.workflowFooter}>
+          <Text style={[S.workflowNextText, { color: workflowColor }]} numberOfLines={2}>{workflowNextAction}</Text>
+          <TouchableOpacity style={[S.workflowBtn, { backgroundColor: workflowColor, borderColor: workflowColor }]} onPress={runWorkflowPrimaryAction}>
+            <Text style={S.workflowBtnText}>{workflowPrimaryCta}</Text>
+            <Ionicons name="chevron-forward" size={14} color={theme.accentText} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {isFieldDraft && officeHandoffLines.length ? (
         <View style={[S.officeHandoffCard, { backgroundColor: officeHandoffReady ? theme.successBg : theme.warningBg, borderColor: officeHandoffReady ? theme.success : theme.warning }]}>
@@ -5187,12 +5344,47 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: t.infoBg,
   },
   workflowTitle: { color: t.text, fontSize: 13, fontWeight: '800' },
   workflowDetail: { color: t.textMuted, fontSize: 12, marginTop: 2 },
+  workflowCountBadge: {
+    minWidth: 48,
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  workflowCountValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  workflowCountLabel: { color: t.textMuted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  workflowMissingWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  workflowMissingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    maxWidth: '100%',
+  },
+  workflowMissingText: { fontSize: 11.5, fontWeight: '800' },
+  workflowFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  workflowNextText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   workflowBtn: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
