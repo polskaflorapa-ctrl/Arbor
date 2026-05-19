@@ -1351,7 +1351,7 @@ router.patch(
     try {
       const taskId = Number(req.params.id);
       const r = await pool.query(
-        `SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny FROM tasks WHERE id = $1`,
+        `SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks WHERE id = $1`,
         [taskId]
       );
       if (!r.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -1383,6 +1383,33 @@ router.patch(
         req.body.data_planowana,
         taskId,
       ]);
+      const oldDay = row.data_planowana ? String(row.data_planowana).slice(0, 10) : '';
+      const nextDay = String(req.body.data_planowana || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(nextDay)) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(oldDay)) {
+          await pool.query(
+            `UPDATE equipment_reservations
+                SET data_od = data_od + ($1::date - $2::date),
+                    data_do = data_do + ($1::date - $2::date),
+                    updated_at = NOW()
+              WHERE task_id = $3
+                AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'
+                AND LOWER(COALESCE(status, '')) NOT LIKE 'zwr%'`,
+            [nextDay, oldDay, taskId]
+          );
+        } else {
+          await pool.query(
+            `UPDATE equipment_reservations
+                SET data_od = $1::date,
+                    data_do = $1::date,
+                    updated_at = NOW()
+              WHERE task_id = $2
+                AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'
+                AND LOWER(COALESCE(status, '')) NOT LIKE 'zwr%'`,
+            [nextDay, taskId]
+          );
+        }
+      }
       res.json({ message: 'Plan zaktualizowany' });
     } catch (err) {
       logger.error('tasks.planPatch', { message: err.message, requestId: req.requestId });

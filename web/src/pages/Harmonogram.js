@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -39,10 +39,55 @@ function formatBlockTime(z) {
   return '08:00';
 }
 
+function toISODate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function weekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function visibleDateRange(date, view) {
+  if (view === 'miesiac') {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { from: toISODate(start), to: toISODate(end) };
+  }
+  if (view === 'tydzien') {
+    const start = weekStart(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { from: toISODate(start), to: toISODate(end) };
+  }
+  const day = toISODate(date);
+  return { from: day, to: day };
+}
+
+function isActiveReservation(row) {
+  const status = String(row?.status || '').toLowerCase();
+  return !status.includes('anul') && !status.includes('zwr');
+}
+
+function taskPhotoCount(task) {
+  return Number(task?.photo_total || task?.photos_count || task?.zdjecia_count || 0) || 0;
+}
+
+function taskHasWorkBrief(task) {
+  return Boolean(String(task?.opis_pracy || task?.opis || task?.wynik || task?.notatki_wewnetrzne || '').trim());
+}
+
 export default function Harmonogram() {
   const [zlecenia, setZlecenia] = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
   const [ekipy, setEkipy] = useState([]);
+  const [rezerwacje, setRezerwacje] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtrOddzial, setFiltrOddzial] = useState('');
   const [filtrEkipa, setFiltrEkipa] = useState('');
@@ -53,6 +98,17 @@ export default function Harmonogram() {
   const [planMsg, setPlanMsg] = useState('');
   const navigate = useNavigate();
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
+  const dateRange = useMemo(() => visibleDateRange(currentDate, widok), [currentDate, widok]);
+  const rezerwacjeByTask = useMemo(() => {
+    const map = new Map();
+    for (const row of rezerwacje) {
+      if (!row?.task_id || !isActiveReservation(row)) continue;
+      const key = String(row.task_id);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+    }
+    return map;
+  }, [rezerwacje]);
 
   const loadData = useCallback(async () => {
     try {
@@ -64,10 +120,11 @@ export default function Harmonogram() {
         zleceniaEndpoint = `/tasks/moje`;
       }
       
-      const [zRes, oRes, eRes] = await Promise.all([
+      const [zRes, oRes, eRes, rRes] = await Promise.all([
         api.get(zleceniaEndpoint, { headers: h }),
         api.get(`/oddzialy`, { headers: h }),
         api.get(`/ekipy`, { headers: h }),
+        api.get(`/flota/rezerwacje?from=${dateRange.from}&to=${dateRange.to}`, { headers: h }).catch(() => ({ data: [] })),
       ]);
       const rawZ = zRes.data;
       setZlecenia(Array.isArray(rawZ) ? rawZ : rawZ?.items || []);
@@ -75,12 +132,14 @@ export default function Harmonogram() {
       setOddzialy(Array.isArray(rawO) ? rawO : rawO?.oddzialy || []);
       const rawE = eRes.data;
       setEkipy(Array.isArray(rawE) ? rawE : rawE?.ekipy || []);
+      setRezerwacje(Array.isArray(rRes.data) ? rRes.data : []);
     } catch (err) {
       console.error('Błąd ładowania:', err);
+      setRezerwacje([]);
     } finally {
       setLoading(false);
     }
-  }, [isBrygadzista]);
+  }, [dateRange.from, dateRange.to, isBrygadzista]);
 
   const patchTaskPlan = useCallback(
     async (taskId, dayDate, hour) => {
@@ -118,11 +177,7 @@ export default function Harmonogram() {
   const canEdit = isDyrektor || isKierownik;
 
   const getTydzien = (date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    const pon = new Date(d);
-    pon.setDate(d.getDate() + diff);
+    const pon = weekStart(date);
     return Array.from({ length: 7 }, (_, i) => {
       const dd = new Date(pon);
       dd.setDate(pon.getDate() + i);
@@ -138,10 +193,10 @@ export default function Harmonogram() {
   const getKolor = (z) => ekipaKolorMap[z.ekipa_id] || STATUS_KOLOR[z.status] || 'var(--text-muted)';
 
   const tydzien = getTydzien(currentDate);
-  const dzisiaj = new Date().toISOString().split('T')[0];
+  const dzisiaj = toISODate(new Date());
 
   const zleceniaNaDzien = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = toISODate(date);
     return zlecenia.filter(z => {
       if (z.data_planowana?.split('T')[0] !== dateStr) return false;
       if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
@@ -223,7 +278,7 @@ export default function Harmonogram() {
       <div style={{...styles.timeGrid, gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(${dni.length}, 1fr)`}}>
         <div style={styles.timeCorner} />
         {dni.map(d => {
-          const ds = d.toISOString().split('T')[0];
+          const ds = toISODate(d);
           const isToday = ds === dzisiaj;
           return (
             <div key={ds} style={{...styles.dayColHeader, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
@@ -253,7 +308,7 @@ export default function Harmonogram() {
           </div>
 
           {dni.map(d => {
-            const ds = d.toISOString().split('T')[0];
+            const ds = toISODate(d);
             const isToday = ds === dzisiaj;
             const zl = zleceniaNaDzien(d);
 
@@ -303,6 +358,9 @@ export default function Harmonogram() {
                   const top = (start - DAY_START_HOUR) * HOUR_SLOT_HEIGHT;
                   const height = Math.max(getCzasTrwania(z) * HOUR_SLOT_HEIGHT, 34);
                   const kolor = getKolor(z);
+                  const photoCount = taskPhotoCount(z);
+                  const equipmentCount = (rezerwacjeByTask.get(String(z.id)) || []).length;
+                  const hasBrief = taskHasWorkBrief(z);
                   const gap = 4;
                   const colWidth = `calc((100% - ${(laneCount - 1) * gap}px) / ${laneCount})`;
                   const left = `calc(${lane} * (${colWidth} + ${gap}px))`;
@@ -333,7 +391,28 @@ export default function Harmonogram() {
                       {height > 45 && (
                         <div style={styles.blockSub}>{z.ekipa_nazwa || 'Brak ekipy'}</div>
                       )}
-                      {height > 60 && z.adres && (
+                      {height > 52 && (
+                        <div style={styles.blockBadges}>
+                          <span
+                            style={{ ...styles.blockBadge, ...(photoCount ? styles.blockBadgeOk : styles.blockBadgeWarn) }}
+                            title={photoCount ? `${photoCount} zdjec w zleceniu` : 'Brak zdjec z ogledzin / pracy'}
+                          >
+                            {photoCount ? `${photoCount} zdj.` : 'bez zdj.'}
+                          </span>
+                          <span
+                            style={{ ...styles.blockBadge, ...(equipmentCount ? styles.blockBadgeOk : styles.blockBadgeNeutral) }}
+                            title={equipmentCount ? `${equipmentCount} aktywne rezerwacje sprzetu` : 'Brak sprzetu przypisanego do zlecenia'}
+                          >
+                            {equipmentCount ? `${equipmentCount} sprz.` : 'sprz. -'}
+                          </span>
+                          {!hasBrief && (
+                            <span style={{ ...styles.blockBadge, ...styles.blockBadgeWarn }} title="Brak opisu pracy dla ekipy">
+                              opis -
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {height > 82 && z.adres && (
                         <div style={styles.blockSub}>{z.adres.substring(0, 20)}</div>
                       )}
                     </div>
@@ -363,7 +442,7 @@ export default function Harmonogram() {
         {DNI_KROTKO.map(d => <div key={d} style={styles.miesiacHeader}>{d}</div>)}
         {dniArray.map((data, i) => {
           if (!data) return <div key={`e-${i}`} style={styles.miesiacEmpty} />;
-          const ds = data.toISOString().split('T')[0];
+          const ds = toISODate(data);
           const isToday = ds === dzisiaj;
           const zl = zleceniaNaDzien(data);
           return (
@@ -447,6 +526,12 @@ export default function Harmonogram() {
         {canEdit && !loading ? (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
             Przeciągnij blok zlecenia na inny dzień lub godzinę, aby zmienić termin (widok dzień / tydzień).
+            Rezerwacje sprzętu z tego zlecenia przesuwają się razem z terminem.
+          </div>
+        ) : null}
+        {!loading ? (
+          <div style={styles.readinessHint}>
+            Na blokach: zdjęcia z oględzin/pracy, aktywny sprzęt i brak opisu dla ekipy.
           </div>
         ) : null}
 
@@ -564,6 +649,7 @@ const styles = {
   },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 8, background: 'var(--surface-glass)' },
   calendarWrap: { background: 'var(--surface-raised)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)', overflow: 'hidden', flex: 1, minHeight: 520 },
+  readinessHint: { marginBottom: 10, fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
   calBody: { display: 'flex', flexDirection: 'column', minHeight: 520, height: '100%' },
   timeGrid: { display: 'grid' },
   timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border2)', borderRight: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--bg-card2), var(--bg-card))' },
@@ -581,6 +667,11 @@ const styles = {
   nowDot: { position: 'absolute', left: -4, top: -5, width: 10, height: 10, borderRadius: '50%', backgroundColor: 'var(--danger)' },
   blockTitle: { fontSize: 11, fontWeight: 900, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   blockSub: { fontSize: 10, color: 'var(--text-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700 },
+  blockBadges: { display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', overflow: 'hidden', maxHeight: 20 },
+  blockBadge: { display: 'inline-flex', alignItems: 'center', height: 16, padding: '0 5px', borderRadius: 999, fontSize: 9, fontWeight: 900, lineHeight: '16px', whiteSpace: 'nowrap', border: '1px solid transparent' },
+  blockBadgeOk: { backgroundColor: 'rgba(34,197,94,0.16)', color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)' },
+  blockBadgeWarn: { backgroundColor: 'rgba(245,158,11,0.16)', color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.32)' },
+  blockBadgeNeutral: { backgroundColor: 'rgba(148,163,184,0.16)', color: 'var(--text-muted)', borderColor: 'rgba(148,163,184,0.24)' },
   miesiacGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, padding: 16, minHeight: 500 },
   miesiacHeader: { textAlign: 'center', fontSize: 12, fontWeight: 900, color: 'var(--text-muted)', padding: '6px 0', textTransform: 'uppercase' },
   miesiacEmpty: { minHeight: 100 },
