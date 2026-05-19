@@ -1299,6 +1299,10 @@ CREATE INDEX IF NOT EXISTS idx_equipment_reservations_sprzet_dates
   ON equipment_reservations (sprzet_id, data_od, data_do);
 CREATE INDEX IF NOT EXISTS idx_equipment_reservations_ekipa_dates
   ON equipment_reservations (ekipa_id, data_od, data_do);
+ALTER TABLE equipment_reservations ADD COLUMN IF NOT EXISTS task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+ALTER TABLE equipment_reservations ADD COLUMN IF NOT EXISTS notatki TEXT;
+CREATE INDEX IF NOT EXISTS idx_equipment_reservations_task
+  ON equipment_reservations (task_id);
 
 -- ─── RBAC: CHECK constraint on users.rola ────────────────────────────────────
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rola_check;

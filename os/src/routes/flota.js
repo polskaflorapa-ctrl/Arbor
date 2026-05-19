@@ -339,10 +339,13 @@ router.get('/rezerwacje', authMiddleware, validateQuery(rezerwacjeRangeQuerySche
     }
     const result = await pool.query(
       `SELECT r.id, r.sprzet_id, r.ekipa_id, r.data_od, r.data_do, r.caly_dzien, r.status,
-              e.nazwa AS sprzet_nazwa, t.nazwa AS ekipa_nazwa
+              r.task_id, r.notatki,
+              e.nazwa AS sprzet_nazwa, t.nazwa AS ekipa_nazwa,
+              tk.klient_nazwa AS task_klient_nazwa, tk.adres AS task_adres
          FROM equipment_reservations r
          JOIN equipment_items e ON e.id = r.sprzet_id
          JOIN teams t ON t.id = r.ekipa_id
+         LEFT JOIN tasks tk ON tk.id = r.task_id
         WHERE r.data_do >= $1::date AND r.data_od <= $2::date
           ${branchClause}
         ORDER BY r.data_od, e.nazwa, t.nazwa`,

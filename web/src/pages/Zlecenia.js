@@ -132,6 +132,7 @@ const OFFICE_PLAN_DEFAULTS = {
   czas_planowany_godziny: '2',
   ekipa_id: '',
   sprzet_notatka: '',
+  sprzet_ids: [],
 };
 const QUICK_CALL_DEFAULTS = Object.freeze({
   klient_nazwa: '',
@@ -1672,6 +1673,7 @@ export default function Zlecenia() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ekipy, setEkipy] = useState([]);
   const [uzytkownicy, setUzytkownicy] = useState([]);
+  const [sprzetItems, setSprzetItems] = useState([]);
   const [tryb, setTryb] = useState(() => {
     const v = localStorage.getItem(VIEW_MODE_KEY) || 'lista';
     return ZLECENIA_TRYBY.has(v) ? v : 'lista';
@@ -1831,6 +1833,7 @@ export default function Zlecenia() {
       czas_planowany_godziny: String(wybraneZlecenie.czas_planowany_godziny || wybraneZlecenie.czas_realizacji_godz || '2'),
       ekipa_id: wybraneZlecenie.ekipa_id ? String(wybraneZlecenie.ekipa_id) : '',
       sprzet_notatka: '',
+      sprzet_ids: [],
     });
   }, [
     wybraneZlecenie?.id,
@@ -1846,17 +1849,28 @@ export default function Zlecenia() {
       const token = getStoredToken();
       const h = authHeaders(token);
       const rola = user?.rola;
-      const endpoint = (rola === 'Dyrektor' || rola === 'Administrator') ? `/tasks/wszystkie` : `/tasks`;
-      const [zRes, eRes, uRes, contactRes, closureRes] = await Promise.all([
+      const canLoadAllTasks = [
+        'Prezes',
+        'Dyrektor',
+        'Administrator',
+        'Dyrektor Sprzedazy',
+        'Dyrektor Sprzedaży',
+        'Dyrektor dzialu sprzedaz',
+        'Dyrektor działu sprzedaż',
+      ].includes(rola);
+      const endpoint = canLoadAllTasks ? `/tasks/wszystkie` : `/tasks`;
+      const [zRes, eRes, uRes, equipmentRes, contactRes, closureRes] = await Promise.all([
         api.get(endpoint, { headers: h }),
         api.get(`/ekipy`, { headers: h }),
         api.get(`/uzytkownicy`, { headers: h }),
+        api.get('/flota/sprzet', { headers: h }).catch(() => ({ data: [] })),
         api.get('/tasks/client-contacts', { headers: h }).catch(() => ({ data: null })),
         api.get('/tasks/closure-events', { headers: h }).catch(() => ({ data: null })),
       ]);
       setZlecenia(Array.isArray(zRes.data) ? zRes.data : []);
       setEkipy(Array.isArray(eRes.data) ? eRes.data : []);
       setUzytkownicy(Array.isArray(uRes.data) ? uRes.data : []);
+      setSprzetItems(Array.isArray(equipmentRes.data) ? equipmentRes.data : (equipmentRes.data?.items || []));
       if (contactRes.data) {
         setClientContacts(normalizeClientContactsPayload(contactRes.data));
       }
@@ -2397,6 +2411,11 @@ export default function Zlecenia() {
     setOfficePlan((prev) => ({ ...prev, [field]: value }));
   };
 
+  const setOfficePlanEquipment = (selectedOptions) => {
+    const ids = Array.from(selectedOptions || []).map((option) => option.value).filter(Boolean);
+    setOfficePlan((prev) => ({ ...prev, sprzet_ids: ids }));
+  };
+
   const zapiszPlanBiura = async () => {
     if (!wybraneZlecenie?.id) return false;
     const missing = [];
@@ -2428,7 +2447,7 @@ export default function Zlecenia() {
       setWybraneZlecenie(updated);
       setZlecenia((prev) => prev.map((z) => (String(z.id) === String(updated.id) ? { ...z, ...updated } : z)));
       await loadData(currentUser);
-      pokazKomunikat('Zlecenie zaplanowane dla ekipy');
+      pokazKomunikat(data?.message || 'Zlecenie zaplanowane dla ekipy');
       return true;
     } catch (err) {
       pokazKomunikat(getApiErrorMessage(err, 'Nie udało się zaplanować zlecenia'), 'error');
@@ -3060,6 +3079,25 @@ export default function Zlecenia() {
     : [];
   const officePlanTeam = detailPlanTeamOptions.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id))
     || ekipy.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id));
+  const detailEquipmentOptions = wybraneZlecenie
+    ? [...sprzetItems]
+      .filter((item) => {
+        const selected = (officePlan.sprzet_ids || []).some((id) => String(id) === String(item.id));
+        const sameBranch = !wybraneZlecenie.oddzial_id || !item.oddzial_id || String(item.oddzial_id) === String(wybraneZlecenie.oddzial_id);
+        const status = String(item.status || '').toLowerCase();
+        const unavailable = status.includes('serwis') || status.includes('awari') || status.includes('wycof');
+        return selected || (sameBranch && !unavailable);
+      })
+      .sort((a, b) => {
+        const aTeam = officePlan.ekipa_id && String(a.ekipa_id || '') === String(officePlan.ekipa_id) ? 0 : 1;
+        const bTeam = officePlan.ekipa_id && String(b.ekipa_id || '') === String(officePlan.ekipa_id) ? 0 : 1;
+        if (aTeam !== bTeam) return aTeam - bTeam;
+        return String(a.typ || '').localeCompare(String(b.typ || ''), 'pl') || String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl');
+      })
+    : [];
+  const selectedOfficeEquipment = detailEquipmentOptions.filter((item) =>
+    (officePlan.sprzet_ids || []).some((id) => String(id) === String(item.id))
+  );
   const showOfficePlanPanel = Boolean(
     wybraneZlecenie &&
     mozePlanowacBiuro &&
@@ -4483,6 +4521,26 @@ export default function Zlecenia() {
                         <option key={ekipa.id} value={ekipa.id}>{ekipa.nazwa || `Ekipa #${ekipa.id}`}</option>
                       ))}
                     </select>
+                  </div>
+                  <div style={{ ...s.fg, ...s.officePlanEquipmentField }}>
+                    <label style={s.label}>Sprzet do rezerwacji</label>
+                    <select
+                      multiple
+                      style={{ ...s.input, ...s.officePlanMultiSelect }}
+                      value={officePlan.sprzet_ids || []}
+                      onChange={(event) => setOfficePlanEquipment(event.target.selectedOptions)}
+                    >
+                      {detailEquipmentOptions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {[item.typ, item.nazwa || `Sprzet #${item.id}`, item.ekipa_nazwa ? `(${item.ekipa_nazwa})` : ''].filter(Boolean).join(' - ')}
+                        </option>
+                      ))}
+                    </select>
+                    <small style={s.officePlanEquipmentHint}>
+                      {selectedOfficeEquipment.length
+                        ? `Wybrano: ${selectedOfficeEquipment.map((item) => item.nazwa || `#${item.id}`).join(', ')}`
+                        : 'Rezerwacja powstanie razem z planem zlecenia.'}
+                    </small>
                   </div>
                   <div style={{ ...s.fg, ...s.officePlanNoteField }}>
                     <label style={s.label}>Sprzęt / uwagi dla brygady</label>
@@ -7254,6 +7312,22 @@ const s = {
   },
   officePlanNoteField: {
     gridColumn: '1 / -1',
+  },
+  officePlanEquipmentField: {
+    gridColumn: '1 / -1',
+  },
+  officePlanMultiSelect: {
+    minHeight: 118,
+    lineHeight: 1.35,
+    padding: '8px 10px',
+  },
+  officePlanEquipmentHint: {
+    display: 'block',
+    marginTop: 6,
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
   },
   officePlanTextarea: {
     minHeight: 72,

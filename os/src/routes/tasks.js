@@ -294,6 +294,11 @@ const toInt = (val) => {
   return Number.isNaN(n) ? null : n;
 };
 
+const normalizeIdList = (val) => {
+  if (!Array.isArray(val)) return [];
+  return [...new Set(val.map((item) => toInt(item)).filter(Boolean))];
+};
+
 const toStr = (val) => {
   if (val === '' || val === null || val === undefined) return null;
   return val;
@@ -416,6 +421,162 @@ function buildTaskPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
   const hh = String(Math.min(23, Number(hourMatch[1]))).padStart(2, '0');
   const mm = String(Math.min(59, Number(hourMatch[2]))).padStart(2, '0');
   return `${datePart} ${hh}:${mm}:00`;
+}
+
+let equipmentReservationTaskSchemaReady = false;
+
+async function ensureEquipmentReservationTaskSchema(db) {
+  if (equipmentReservationTaskSchemaReady) return;
+  await db.query('ALTER TABLE equipment_reservations ADD COLUMN IF NOT EXISTS task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
+  await db.query('ALTER TABLE equipment_reservations ADD COLUMN IF NOT EXISTS notatki TEXT');
+  await db.query('CREATE INDEX IF NOT EXISTS idx_equipment_reservations_task ON equipment_reservations (task_id)');
+  equipmentReservationTaskSchemaReady = true;
+}
+
+async function syncTaskEquipmentReservations(db, {
+  taskId,
+  oddzialId,
+  teamId,
+  plannedDateTime,
+  sprzetIds,
+  note,
+  userId,
+}) {
+  const ids = normalizeIdList(sprzetIds);
+  await ensureEquipmentReservationTaskSchema(db);
+
+  if (!ids.length) {
+    await db.query(
+      `UPDATE equipment_reservations
+          SET status = 'Anulowane', updated_at = NOW()
+        WHERE task_id = $1
+          AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'`,
+      [taskId]
+    );
+    return { ok: true, reservations: [] };
+  }
+
+  const equipmentResult = await db.query(
+    `SELECT id, nazwa, typ, oddzial_id, ekipa_id, status
+       FROM equipment_items
+      WHERE id = ANY($1::int[])`,
+    [ids]
+  );
+  const equipmentById = new Map(equipmentResult.rows.map((item) => [Number(item.id), item]));
+  const missing = ids.filter((id) => !equipmentById.has(Number(id)));
+  if (missing.length) {
+    return {
+      ok: false,
+      status: 404,
+      error: `Nie znaleziono sprzetu: ${missing.join(', ')}`,
+      code: 'EQUIPMENT_NOT_FOUND',
+    };
+  }
+
+  const branchId = toInt(oddzialId);
+  for (const id of ids) {
+    const item = equipmentById.get(Number(id));
+    if (branchId && item.oddzial_id && Number(item.oddzial_id) !== branchId) {
+      return {
+        ok: false,
+        status: 400,
+        error: `Sprzet "${item.nazwa || `#${id}`}" nalezy do innego oddzialu.`,
+        code: 'EQUIPMENT_BRANCH_MISMATCH',
+      };
+    }
+    const itemStatus = String(item.status || '').toLowerCase();
+    if (itemStatus.includes('serwis') || itemStatus.includes('awari') || itemStatus.includes('wycof')) {
+      return {
+        ok: false,
+        status: 409,
+        error: `Sprzet "${item.nazwa || `#${id}`}" nie jest dostepny.`,
+        code: 'EQUIPMENT_UNAVAILABLE',
+      };
+    }
+  }
+
+  const day = String(plannedDateTime || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Nieprawidlowa data rezerwacji sprzetu.',
+      code: 'EQUIPMENT_RESERVATION_DATE_INVALID',
+    };
+  }
+
+  for (const id of ids) {
+    const item = equipmentById.get(Number(id));
+    const clash = await db.query(
+      `SELECT r.id, r.ekipa_id, r.task_id, t.nazwa AS ekipa_nazwa
+         FROM equipment_reservations r
+         LEFT JOIN teams t ON t.id = r.ekipa_id
+        WHERE r.sprzet_id = $1
+          AND LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%'
+          AND LOWER(COALESCE(r.status, '')) NOT LIKE 'zwr%'
+          AND NOT (r.data_do < $2::date OR r.data_od > $3::date)
+          AND (r.task_id IS NULL OR r.task_id <> $4::int)
+          AND r.ekipa_id IS DISTINCT FROM $5::int
+        LIMIT 1`,
+      [id, day, day, taskId, teamId]
+    );
+    if (clash.rows.length) {
+      const row = clash.rows[0];
+      return {
+        ok: false,
+        status: 409,
+        error: `Konflikt rezerwacji sprzetu: "${item.nazwa || `#${id}`}" jest juz zarezerwowany ${day}${row.ekipa_nazwa ? ` dla ${row.ekipa_nazwa}` : ''}.`,
+        code: 'EQUIPMENT_RESERVATION_CONFLICT',
+      };
+    }
+  }
+
+  await db.query(
+    `UPDATE equipment_reservations
+        SET status = 'Anulowane', updated_at = NOW()
+      WHERE task_id = $1
+        AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'`,
+    [taskId]
+  );
+
+  const reservations = [];
+  for (const id of ids) {
+    const item = equipmentById.get(Number(id));
+    const reservationBranchId = branchId || toInt(item.oddzial_id);
+    if (!reservationBranchId) {
+      return {
+        ok: false,
+        status: 400,
+        error: `Brak oddzialu dla rezerwacji sprzetu "${item.nazwa || `#${id}`}".`,
+        code: 'EQUIPMENT_BRANCH_REQUIRED',
+      };
+    }
+    const insert = await db.query(
+      `INSERT INTO equipment_reservations (
+         oddzial_id, sprzet_id, ekipa_id, data_od, data_do, caly_dzien,
+         status, user_id, task_id, notatki
+       )
+       VALUES ($1,$2,$3,$4::date,$5::date,true,'Zarezerwowane',$6,$7,$8)
+       RETURNING id, sprzet_id`,
+      [
+        reservationBranchId,
+        id,
+        teamId,
+        day,
+        day,
+        userId || null,
+        taskId,
+        note || `Rezerwacja z planu zlecenia #${taskId}`,
+      ]
+    );
+    reservations.push({
+      id: insert.rows[0].id,
+      sprzet_id: insert.rows[0].sprzet_id,
+      sprzet_nazwa: item.nazwa || `Sprzet #${id}`,
+    });
+  }
+
+  return { ok: true, reservations };
 }
 
 function hasExplicitPlannedHour(dataPlanowana, godzinaRozpoczecia) {
@@ -558,6 +719,7 @@ const taskOfficePlanSchema = z.object({
   czas_planowany_godziny: z.union([z.number(), z.string()]).optional().nullable(),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim().min(1)]),
   sprzet_notatka: z.string().trim().max(2000).optional().nullable(),
+  sprzet_ids: z.array(z.union([z.number().int().positive(), z.string().trim().min(1)])).max(30).optional(),
 });
 
 const taskClientContactSchema = z.object({
@@ -726,6 +888,12 @@ router.get('/stats', authMiddleware, async (req, res) => {
     logger.error('Blad pobierania statystyk zlecen', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
+});
+
+router.get('/', authMiddleware, validateQuery(taskListQuerySchema), (req, res) => {
+  const query = new URLSearchParams(req.query).toString();
+  const target = `${req.baseUrl}/wszystkie${query ? `?${query}` : ''}`;
+  return res.redirect(307, target);
 });
 
 router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), async (req, res) => {
@@ -1631,7 +1799,9 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
     const taskId = Number(req.params.id);
-    const { data_planowana, godzina_rozpoczecia, czas_planowany_godziny, ekipa_id, sprzet_notatka } = req.body;
+    const { data_planowana, godzina_rozpoczecia, czas_planowany_godziny, ekipa_id, sprzet_notatka, sprzet_ids } = req.body;
+    const shouldSyncEquipment = Object.prototype.hasOwnProperty.call(req.body, 'sprzet_ids');
+    const selectedEquipmentIds = shouldSyncEquipment ? normalizeIdList(sprzet_ids) : [];
     const taskR = await pool.query(
       'SELECT id, status, oddzial_id, notatki_wewnetrzne FROM tasks WHERE id = $1',
       [taskId]
@@ -1664,11 +1834,30 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
     }
 
     const note = String(sprzet_notatka || '').trim();
+    const equipmentSync = shouldSyncEquipment
+      ? await syncTaskEquipmentReservations(pool, {
+        taskId,
+        oddzialId: task.oddzial_id,
+        teamId,
+        plannedDateTime,
+        sprzetIds: selectedEquipmentIds,
+        note,
+        userId: req.user.id,
+      })
+      : { ok: true, reservations: [] };
+    if (!equipmentSync.ok) {
+      return res.status(equipmentSync.status || 400).json({
+        error: equipmentSync.error,
+        code: equipmentSync.code,
+      });
+    }
+    const equipmentNames = equipmentSync.reservations.map((item) => item.sprzet_nazwa).filter(Boolean);
     const planLines = [
       'PLAN BIURA',
       `Termin: ${plannedDateTime}`,
       `Czas: ${hours} h`,
       `Ekipa: #${teamId}`,
+      equipmentNames.length ? `Sprzet zarezerwowany: ${equipmentNames.join(', ')}` : '',
       note ? `Sprzet / uwagi: ${note}` : '',
       `Zaplanowal: ${req.user.login || req.user.id}`,
       `Data planowania: ${new Date().toISOString()}`,
@@ -1690,12 +1879,16 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       [plannedDateTime, hours, teamId, nextNotes, taskId]
     );
     res.json({
-      message: 'Zlecenie zaplanowane',
+      message: equipmentNames.length
+        ? `Zlecenie zaplanowane. Zarezerwowano sprzet: ${equipmentNames.join(', ')}.`
+        : 'Zlecenie zaplanowane',
       id: taskId,
       status: 'Zaplanowane',
       data_planowana: plannedDateTime,
       czas_planowany_godziny: hours,
       ekipa_id: teamId,
+      sprzet_ids: shouldSyncEquipment ? selectedEquipmentIds : undefined,
+      rezerwacje_sprzetu: equipmentSync.reservations,
     });
   } catch (err) {
     logger.error('Blad planowania zlecenia przez biuro', { message: err.message, requestId: req.requestId });
