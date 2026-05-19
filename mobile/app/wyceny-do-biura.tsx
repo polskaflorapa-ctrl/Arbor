@@ -46,6 +46,10 @@ type FieldDraft = {
   photo_szkic?: number;
   photo_dojazd?: number;
   missing_items?: string[];
+  workflow_missing_labels?: string[];
+  workflow_ready_for_next?: boolean;
+  workflow_next_action?: string;
+  workflow_stage_label?: string;
   created_at?: string;
   updated_at?: string;
 };
@@ -91,6 +95,8 @@ function formatDate(value?: string) {
 }
 
 function missingList(row: FieldDraft) {
+  const workflow = Array.isArray(row.workflow_missing_labels) ? row.workflow_missing_labels.filter(Boolean) : [];
+  if (workflow.length) return workflow;
   return Array.isArray(row.missing_items) ? row.missing_items.filter(Boolean) : [];
 }
 
@@ -188,8 +194,9 @@ function readinessChecks(row: FieldDraft): ReadinessCheck[] {
 }
 
 function primaryMissing(row: FieldDraft) {
+  if (row.workflow_ready_for_next && row.workflow_next_action) return row.workflow_next_action;
   const missing = missingList(row);
-  if (!missing.length) return 'Przekazać do planowania';
+  if (!missing.length) return row.workflow_next_action || 'Przekazac do planowania';
   return missing[0];
 }
 

@@ -148,7 +148,7 @@ describe('Tasks routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(42);
     const insertCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO tasks'));
-    expect(insertCall?.[1]?.[8]).toBe('2026-05-10 09:30:00');
+    expect(insertCall?.[1]).toContain('2026-05-10 09:30:00');
   });
 
   it('returns 409 when creating task conflicts with another task on the same team', async () => {
@@ -287,15 +287,16 @@ describe('Tasks routes', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({
+    expect(res.body).toMatchObject({
       items: [
-        { id: 1, klient_nazwa: 'A' },
-        { id: 2, klient_nazwa: 'B' },
+        expect.objectContaining({ id: 1, klient_nazwa: 'A', workflow_stage: 'intake' }),
+        expect.objectContaining({ id: 2, klient_nazwa: 'B', workflow_stage: 'intake' }),
       ],
       total: 2,
       limit: 10,
       offset: 0,
     });
+    expect(res.body.items[0].workflow_missing_labels).toContain('telefon klienta');
   });
 
   it('GET /tasks/moje returns field evidence photo counters for crew', async () => {
@@ -319,14 +320,17 @@ describe('Tasks routes', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([{
-      id: 1,
-      klient_nazwa: 'A',
-      photo_total: 3,
-      photo_wycena: 1,
-      photo_szkic: 1,
-      photo_dojazd: 1,
-    }]);
+    expect(res.body).toEqual([
+      expect.objectContaining({
+        id: 1,
+        klient_nazwa: 'A',
+        photo_total: 3,
+        photo_wycena: 1,
+        photo_szkic: 1,
+        photo_dojazd: 1,
+        workflow_stage: 'intake',
+      }),
+    ]);
     expect(pool.query).toHaveBeenCalledWith(
       expect.stringContaining('COALESCE(ps.photo_total, 0)::int AS photo_total'),
       ['2026-05-13', 2]

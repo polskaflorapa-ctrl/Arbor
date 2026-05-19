@@ -58,6 +58,38 @@ async function ensureKommoTaskColumns() {
   }
 }
 
+let _taskOperationalCols = false;
+async function ensureTaskOperationalColumns() {
+  if (_taskOperationalCols) return;
+  const stmts = [
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS godzina_rozpoczecia TIME',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS opis_pracy TEXT',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notatki TEXT',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wywoz BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS usuwanie_pni BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS czas_realizacji_godz DECIMAL(5,2)',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS rebak BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pila_wysiegniku BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS nozyce_dlugie BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kosiarka BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS podkaszarka BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS lopata BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS mulczer BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ilosc_osob INTEGER',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS arborysta BOOLEAN DEFAULT false',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wynik TEXT',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS budzet DECIMAL(10,2)',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS rabat DECIMAL(5,2)',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kwota_minimalna DECIMAL(10,2)',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS zrebki VARCHAR(100)',
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS drzewno VARCHAR(200)',
+  ];
+  for (const sql of stmts) {
+    await pool.query(sql);
+  }
+  _taskOperationalCols = true;
+}
+
 let _issuesCompatCols = false;
 async function ensureIssuesCompatColumns() {
   if (_issuesCompatCols) return;
@@ -287,6 +319,8 @@ const toNum = (val) => {
   const n = parseFloat(val);
   return isNaN(n) ? null : n;
 };
+
+const toBool = (val) => val === true || val === 'true' || val === 1 || val === '1';
 
 const toInt = (val) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -623,6 +657,7 @@ function normalizeIssueTyp(value) {
 const taskCreateSchema = z.object({
   klient_nazwa: z.string().trim().min(1, 'klient_nazwa jest wymagane'),
   klient_telefon: z.string().trim().optional().nullable(),
+  klient_email: z.string().trim().optional().nullable(),
   adres: z.string().trim().min(1, 'adres jest wymagany'),
   miasto: z.string().trim().min(1, 'miasto jest wymagane'),
   typ_uslugi: z.string().trim().optional().nullable(),
@@ -637,17 +672,37 @@ const taskCreateSchema = z.object({
   notatki: z.string().optional().nullable(),
   oddzial_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  kierownik_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   source_ogledziny_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   pin_lat: z.union([z.number(), z.string()]).optional().nullable(),
   pin_lng: z.union([z.number(), z.string()]).optional().nullable(),
   ankieta_uproszczona: z.boolean().optional(),
+  wywoz: z.boolean().optional(),
+  usuwanie_pni: z.boolean().optional(),
+  czas_realizacji_godz: z.union([z.number(), z.string()]).optional().nullable(),
+  rebak: z.boolean().optional(),
+  pila_wysiegniku: z.boolean().optional(),
+  nozyce_dlugie: z.boolean().optional(),
+  kosiarka: z.boolean().optional(),
+  podkaszarka: z.boolean().optional(),
+  lopata: z.boolean().optional(),
+  mulczer: z.boolean().optional(),
+  ilosc_osob: z.union([z.number(), z.string()]).optional().nullable(),
+  arborysta: z.boolean().optional(),
+  wynik: z.string().trim().max(4000).optional().nullable(),
+  budzet: z.union([z.number(), z.string()]).optional().nullable(),
+  rabat: z.union([z.number(), z.string()]).optional().nullable(),
+  kwota_minimalna: z.union([z.number(), z.string()]).optional().nullable(),
+  zrebki: z.string().trim().max(100).optional().nullable(),
+  drzewno: z.string().trim().max(200).optional().nullable(),
   status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']).optional(),
 });
 
 const taskUpdateSchema = z.object({
   klient_nazwa: z.string().trim().min(1, 'klient_nazwa jest wymagane'),
   klient_telefon: z.string().trim().optional().nullable(),
+  klient_email: z.string().trim().optional().nullable(),
   adres: z.string().trim().min(1, 'adres jest wymagany'),
   miasto: z.string().trim().min(1, 'miasto jest wymagane'),
   typ_uslugi: z.string().trim().optional().nullable(),
@@ -657,10 +712,36 @@ const taskUpdateSchema = z.object({
   wartosc_rzeczywista: z.union([z.number(), z.string()]).optional().nullable(),
   czas_planowany_godziny: z.union([z.number(), z.string()]).optional().nullable(),
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
+  godzina_rozpoczecia: z.string().trim().optional().nullable(),
   notatki_wewnetrzne: z.string().optional().nullable(),
+  notatki: z.string().optional().nullable(),
   /** Zakres / dodatkowa praca (opis dla ekipy i biura). */
   opis: z.string().optional().nullable(),
+  opis_pracy: z.string().optional().nullable(),
   notatki_klienta: z.string().optional().nullable(),
+  oddzial_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  kierownik_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']).optional(),
+  wywoz: z.boolean().optional(),
+  usuwanie_pni: z.boolean().optional(),
+  czas_realizacji_godz: z.union([z.number(), z.string()]).optional().nullable(),
+  rebak: z.boolean().optional(),
+  pila_wysiegniku: z.boolean().optional(),
+  nozyce_dlugie: z.boolean().optional(),
+  kosiarka: z.boolean().optional(),
+  podkaszarka: z.boolean().optional(),
+  lopata: z.boolean().optional(),
+  mulczer: z.boolean().optional(),
+  ilosc_osob: z.union([z.number(), z.string()]).optional().nullable(),
+  arborysta: z.boolean().optional(),
+  wynik: z.string().trim().max(4000).optional().nullable(),
+  budzet: z.union([z.number(), z.string()]).optional().nullable(),
+  rabat: z.union([z.number(), z.string()]).optional().nullable(),
+  kwota_minimalna: z.union([z.number(), z.string()]).optional().nullable(),
+  zrebki: z.string().trim().max(100).optional().nullable(),
+  drzewno: z.string().trim().max(200).optional().nullable(),
 });
 
 /** PATCH /tasks/:id/plan — tylko termin (`data_planowana`). */
@@ -697,6 +778,118 @@ function canTaskStatusTransition(fromStatus, toStatus, options = {}) {
     next.push('Anulowane');
   }
   return next.includes(to);
+}
+
+const TASK_WORKFLOW_STAGES = Object.freeze({
+  Nowe: { key: 'intake', step: '1', label: 'Telefon', detail: 'biuro przyjmuje zgloszenie' },
+  Wycena_Terenowa: { key: 'fieldInspection', step: '2', label: 'Ogledziny', detail: 'wyceniacz zbiera zdjecia, zakres i budzet' },
+  Do_Zatwierdzenia: { key: 'officeApproval', step: '3', label: 'Biuro planuje', detail: 'klient zaakceptowal, biuro dopina szczegoly' },
+  Zaplanowane: { key: 'crewReady', step: '4', label: 'Ekipa gotowa', detail: 'termin, brygada i sprzet sa ustawione' },
+  W_Realizacji: { key: 'execution', step: '5', label: 'Wykonanie', detail: 'ekipa pracuje wedlug briefu' },
+  Zakonczone: { key: 'done', step: '6', label: 'Zamkniecie', detail: 'dowody i rozliczenie kompletne' },
+  Anulowane: { key: 'cancelled', step: 'X', label: 'Anulowane', detail: 'zlecenie wycofane z procesu' },
+});
+
+function normalizeTaskStatusFlow(status) {
+  const raw = String(status || 'Nowe');
+  return raw === 'Zako\u0144czone' ? 'Zakonczone' : raw;
+}
+
+function hasTaskText(row, fields) {
+  return fields.some((field) => String(row?.[field] || '').trim());
+}
+
+function hasTaskNumber(row, fields) {
+  return fields.some((field) => {
+    const value = row?.[field];
+    if (value === null || value === undefined || value === '') return false;
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0;
+  });
+}
+
+function taskPhotoCount(row, ...fields) {
+  for (const field of fields) {
+    const value = Number(row?.[field]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+}
+
+function buildTaskWorkflowMissing(row = {}) {
+  const status = normalizeTaskStatusFlow(row.status);
+  const missing = [];
+  const add = (key, label, required = true) => missing.push({ key, label, required });
+  const hasBrief = hasTaskText(row, ['opis_pracy', 'opis', 'wynik', 'notatki_wewnetrzne']);
+  const hasPrice = hasTaskNumber(row, ['wartosc_planowana', 'budzet']);
+  const hasHours = hasTaskNumber(row, ['czas_planowany_godziny', 'czas_realizacji_godz']);
+  const hasDate = Boolean(String(row.data_planowana || '').trim());
+  const hasTeam = Boolean(row.ekipa_id || row.ekipa_nazwa);
+  const photoWycena = taskPhotoCount(row, 'photo_wycena', 'photos_wycena');
+  const photoSzkic = taskPhotoCount(row, 'photo_szkic', 'photos_szkic');
+  const photoDojazd = taskPhotoCount(row, 'photo_dojazd', 'photos_dojazd');
+
+  if (status === 'Nowe') {
+    if (!hasTaskText(row, ['klient_nazwa'])) add('client', 'klient');
+    if (!hasTaskText(row, ['klient_telefon'])) add('phone', 'telefon klienta');
+    if (!hasTaskText(row, ['adres', 'miasto'])) add('address', 'adres realizacji');
+    if (!hasDate) add('inspection_date', 'termin ogledzin');
+    if (!row.wyceniajacy_id) add('estimator', 'wyceniacz');
+    return missing;
+  }
+
+  if (['Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji'].includes(status)) {
+    if (!hasBrief) add('brief', 'opis / zakres prac');
+  }
+
+  if (['Wycena_Terenowa', 'Do_Zatwierdzenia'].includes(status)) {
+    if (photoWycena <= 0) add('photo_wycena', 'zdjecie ogolne / wycena');
+    if (photoSzkic <= 0) add('photo_szkic', 'szkic zakresu');
+    if (photoDojazd <= 0) add('photo_dojazd', 'dojazd / posesja', false);
+    if (!hasPrice) add('price', 'cena / budzet');
+    if (!hasHours) add('hours', 'czas pracy');
+  }
+
+  if (['Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji'].includes(status)) {
+    if (!hasTeam) add('team', 'ekipa');
+    if (!hasDate) add('work_date', 'termin pracy');
+  }
+
+  return missing;
+}
+
+function decorateTaskWorkflow(row = {}) {
+  const status = normalizeTaskStatusFlow(row.status);
+  const stage = TASK_WORKFLOW_STAGES[status] || TASK_WORKFLOW_STAGES.Nowe;
+  const missing = buildTaskWorkflowMissing(row);
+  const blockers = missing.filter((item) => item.required);
+  const nextStatus = (TASK_FORWARD_TRANSITIONS[status] || [])[0] || null;
+  const readyForNext = Boolean(nextStatus) && blockers.length === 0;
+  const nextAction = CLOSED_TASK_STATUSES_FLOW.has(status)
+    ? 'Zamkniete'
+    : blockers[0]
+      ? `Uzupelnij: ${blockers[0].label}`
+      : nextStatus
+        ? `Przejdz do: ${TASK_WORKFLOW_STAGES[nextStatus]?.label || nextStatus}`
+        : 'Otworz szczegoly';
+
+  return {
+    ...row,
+    workflow_stage: stage.key,
+    workflow_stage_step: stage.step,
+    workflow_stage_label: stage.label,
+    workflow_stage_detail: stage.detail,
+    workflow_next_status: nextStatus,
+    workflow_next_action: nextAction,
+    workflow_ready_for_next: readyForNext,
+    workflow_blockers_count: blockers.length,
+    workflow_missing_items: missing,
+    workflow_missing_labels: missing.map((item) => item.label),
+  };
+}
+
+function decorateTaskWorkflowRows(rows = []) {
+  return rows.map((row) => decorateTaskWorkflow(row));
 }
 
 const taskFieldPackageSchema = z.object({
@@ -863,7 +1056,7 @@ router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (r
        ORDER BY t.id ASC`,
       [dzisiaj, req.user.id]
     );
-    res.json(result.rows);
+    res.json(decorateTaskWorkflowRows(result.rows));
   } catch (err) {
     logger.error('Blad pobierania moich zlecen', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -959,7 +1152,7 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
        LIMIT $${limIdx} OFFSET $${offIdx}`,
         p2
       );
-      return res.json({ items: result.rows, total, limit: Number(lim), offset: Number(off) });
+      return res.json({ items: decorateTaskWorkflowRows(result.rows), total, limit: Number(lim), offset: Number(off) });
     }
 
     const result = await pool.query(
@@ -975,7 +1168,7 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
        ORDER BY t.data_planowana DESC, t.id DESC`,
       params
     );
-    res.json(result.rows);
+    res.json(decorateTaskWorkflowRows(result.rows));
   } catch (err) {
     logger.error('Blad pobierania listy zlecen', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -1056,7 +1249,9 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
          LIMIT $${limIdx} OFFSET $${offIdx}`,
         [...params, lim, off]
       );
-      return res.json({ items: result.rows, total, limit: Number(lim), offset: Number(off) });
+      const items = decorateTaskWorkflowRows(result.rows)
+        .map((row) => ({ ...row, missing_items: row.workflow_missing_labels || row.missing_items || [] }));
+      return res.json({ items, total, limit: Number(lim), offset: Number(off) });
     }
 
     const result = await pool.query(
@@ -1065,7 +1260,8 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
        ORDER BY t.created_at DESC, t.id DESC`,
       params
     );
-    res.json(result.rows);
+    res.json(decorateTaskWorkflowRows(result.rows)
+      .map((row) => ({ ...row, missing_items: row.workflow_missing_labels || row.missing_items || [] })));
   } catch (err) {
     logger.error('Blad pobierania draftow terenowych', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -1077,13 +1273,16 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
     if (!canManageTaskBackoffice(req.user)) {
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
+    await ensureTaskOperationalColumns();
     const {
-      klient_nazwa, klient_telefon, adres, miasto,
+      klient_nazwa, klient_telefon, klient_email, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
       czas_planowany_godziny, data_planowana, godzina_rozpoczecia,
       opis, opis_pracy, notatki_wewnetrzne, notatki, oddzial_id, ekipa_id,
-      wyceniajacy_id, source_ogledziny_id, pin_lat, pin_lng, ankieta_uproszczona,
-      status
+      kierownik_id, wyceniajacy_id, source_ogledziny_id, pin_lat, pin_lng, ankieta_uproszczona,
+      status, wywoz, usuwanie_pni, czas_realizacji_godz, rebak, pila_wysiegniku,
+      nozyce_dlugie, kosiarka, podkaszarka, lopata, mulczer, ilosc_osob, arborysta,
+      wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno
     } = req.body;
 
     const finalOddzialId = isDyrektorOrAdmin(req.user)
@@ -1116,8 +1315,10 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
     }
     const initialStatus = status || (toInt(wyceniajacy_id) ? 'Wycena_Terenowa' : 'Nowe');
-    const taskOpis = toStr(opis) || toStr(opis_pracy);
+    const taskOpisPracy = toStr(opis_pracy) || toStr(opis);
+    const taskOpis = toStr(opis) || taskOpisPracy;
     const taskNotes = [toStr(notatki_wewnetrzne), toStr(notatki)].filter(Boolean).join('\n\n') || null;
+    const finalKierownikId = toInt(kierownik_id) || req.user.id;
 
     // Branch ownership check: non-admin users can only assign teams from their own branch
     if (ekipa_id && !isDyrektorOrAdmin(req.user)) {
@@ -1132,16 +1333,23 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
 
     const result = await pool.query(
       `INSERT INTO tasks (
-        klient_nazwa, klient_telefon, adres, miasto,
+        klient_nazwa, klient_telefon, klient_email, adres, miasto,
         typ_uslugi, priorytet, wartosc_planowana,
-        czas_planowany_godziny, data_planowana,
-        opis, notatki_wewnetrzne, status, kierownik_id,
-        oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        czas_planowany_godziny, data_planowana, godzina_rozpoczecia,
+        opis, opis_pracy, notatki_wewnetrzne, notatki, status, kierownik_id,
+        oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona,
+        wywoz, usuwanie_pni, czas_realizacji_godz, rebak, pila_wysiegniku,
+        nozyce_dlugie, kosiarka, podkaszarka, lopata, mulczer, ilosc_osob, arborysta,
+        wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41
+      )
       RETURNING id`,
       [
         klient_nazwa,
         toStr(klient_telefon),
+        toStr(klient_email),
         adres,
         miasto,
         typ_uslugi || 'Wycinka',
@@ -1149,16 +1357,37 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         toNum(wartosc_planowana),
         toNum(czas_planowany_godziny),
         plannedDateTime,
+        toStr(godzina_rozpoczecia),
         taskOpis,
+        taskOpisPracy,
         taskNotes,
+        toStr(notatki),
         initialStatus,
-        req.user.id,
+        finalKierownikId,
         toNum(finalOddzialId),
         toNum(ekipa_id),
         toInt(wyceniajacy_id),
         toNum(pin_lat),
         toNum(pin_lng),
-        ankieta_uproszczona === true
+        ankieta_uproszczona === true,
+        toBool(wywoz),
+        toBool(usuwanie_pni),
+        toNum(czas_realizacji_godz),
+        toBool(rebak),
+        toBool(pila_wysiegniku),
+        toBool(nozyce_dlugie),
+        toBool(kosiarka),
+        toBool(podkaszarka),
+        toBool(lopata),
+        toBool(mulczer),
+        toInt(ilosc_osob),
+        toBool(arborysta),
+        toStr(wynik),
+        toNum(budzet),
+        toNum(rabat),
+        toNum(kwota_minimalna),
+        toStr(zrebki),
+        toStr(drzewno)
       ]
     );
     const taskId = result.rows[0].id;
@@ -1652,11 +1881,25 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
       `SELECT t.*,
         te.nazwa as ekipa_nazwa,
         u.imie || ' ' || u.nazwisko as kierownik_nazwa,
-        b.nazwa as oddzial_nazwa
+        b.nazwa as oddzial_nazwa,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
+        COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
        FROM tasks t
        LEFT JOIN teams te ON t.ekipa_id = te.id
        LEFT JOIN users u ON t.brygadzista_id = u.id
        LEFT JOIN branches b ON t.oddzial_id = b.id
+       LEFT JOIN (
+         SELECT
+           p.task_id,
+           COUNT(*)::int AS photo_total,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('wycena', 'przed', 'checkin'))::int AS photo_wycena,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('szkic', 'sketch'))::int AS photo_szkic,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('dojazd', 'posesja', 'dojazd_posesja'))::int AS photo_dojazd
+         FROM photos p
+         GROUP BY p.task_id
+       ) ps ON ps.task_id = t.id
        WHERE t.id = $1`,
       [req.params.id]
     );
@@ -1711,7 +1954,7 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
       has_po_photo: poCount >= FINISH_PHOTO_MIN.po,
       has_przed_photo: prCount >= FINISH_PHOTO_MIN.przed,
     };
-    res.json(row);
+    res.json(decorateTaskWorkflow(row));
   } catch (err) {
     logger.error('Blad pobierania zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -1723,52 +1966,147 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
     if (!canManageTaskBackoffice(req.user)) {
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
+    await ensureTaskOperationalColumns();
     const {
-      klient_nazwa, klient_telefon, adres, miasto,
+      klient_nazwa, klient_telefon, klient_email, adres, miasto,
       typ_uslugi, priorytet, wartosc_planowana,
       wartosc_rzeczywista, czas_planowany_godziny, data_planowana,
-      notatki_wewnetrzne, opis, notatki_klienta
+      godzina_rozpoczecia, notatki_wewnetrzne, notatki, opis, opis_pracy,
+      notatki_klienta, oddzial_id, ekipa_id, kierownik_id, wyceniajacy_id,
+      status, wywoz, usuwanie_pni, czas_realizacji_godz, rebak, pila_wysiegniku,
+      nozyce_dlugie, kosiarka, podkaszarka, lopata, mulczer, ilosc_osob,
+      arborysta, wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno
     } = req.body;
 
     const curR = await pool.query(
-      'SELECT wartosc_rzeczywista, opis, notatki_klienta FROM tasks WHERE id = $1',
+      'SELECT * FROM tasks WHERE id = $1',
       [req.params.id]
     );
     if (!curR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
     const cur = curR.rows[0];
-    const wr = Object.prototype.hasOwnProperty.call(req.body, 'wartosc_rzeczywista')
+    const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
+    const nextOddzialId = isDyrektorOrAdmin(req.user)
+      ? (Object.prototype.hasOwnProperty.call(req.body, 'oddzial_id') ? toNum(oddzial_id) : cur.oddzial_id)
+      : (cur.oddzial_id || req.user.oddzial_id);
+    const nextTeamId = Object.prototype.hasOwnProperty.call(req.body, 'ekipa_id') ? toNum(ekipa_id) : cur.ekipa_id;
+    const nextEstimatorId = Object.prototype.hasOwnProperty.call(req.body, 'wyceniajacy_id') ? toInt(wyceniajacy_id) : cur.wyceniajacy_id;
+    const nextKierownikId = Object.prototype.hasOwnProperty.call(req.body, 'kierownik_id') ? toInt(kierownik_id) : cur.kierownik_id;
+    let nextStatus = status || cur.status || 'Nowe';
+    if (!status && nextEstimatorId && cur.status === 'Nowe') nextStatus = 'Wycena_Terenowa';
+    if (!canTaskStatusTransition(cur.status, nextStatus, { allowCancel: true })) {
+      return res.status(409).json({
+        error: `Niedozwolona zmiana statusu: ${cur.status || 'brak'} -> ${nextStatus || 'brak'}`,
+        code: 'TASK_STATUS_TRANSITION_BLOCKED',
+      });
+    }
+    if (!isDyrektorOrAdmin(req.user) && nextOddzialId && Number(nextOddzialId) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+    if (nextTeamId && nextOddzialId) {
+      const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, plannedDateTime);
+      if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
+    if (nextEstimatorId && nextOddzialId) {
+      const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, plannedDateTime);
+      if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
+    }
+    if (nextTeamId && hasExplicitPlannedHour(data_planowana, godzina_rozpoczecia)) {
+      const planDay = String(plannedDateTime).slice(0, 10);
+      const busyRanges = await getTeamBusyRanges(pool, Number(nextTeamId), planDay, null, Number(req.params.id));
+      const d = new Date(plannedDateTime);
+      if (!Number.isNaN(d.getTime())) {
+        const startMin = d.getHours() * 60 + d.getMinutes();
+        const durMin = Math.max(15, Math.round(Number(czas_planowany_godziny || 2) * 60));
+        if (planRangeConflicts(busyRanges, startMin, durMin)) {
+          return res.status(409).json({
+            error: 'Konflikt terminu: ekipa ma juz zaplanowane zlecenie lub aktywna rezerwacje w tym przedziale.',
+            code: 'TASK_PLAN_CONFLICT',
+          });
+        }
+      }
+    }
+
+    const hasBody = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
+    const keepStr = (field, value) => hasBody(field) ? toStr(value) : cur[field];
+    const keepNum = (field, value) => hasBody(field) ? toNum(value) : cur[field];
+    const keepInt = (field, value) => hasBody(field) ? toInt(value) : cur[field];
+    const keepBool = (field, value) => hasBody(field) ? toBool(value) : cur[field];
+
+    const wr = hasBody('wartosc_rzeczywista')
       ? toNum(wartosc_rzeczywista)
       : cur.wartosc_rzeczywista;
-    const op = Object.prototype.hasOwnProperty.call(req.body, 'opis') ? toStr(opis) : cur.opis;
-    const nk = Object.prototype.hasOwnProperty.call(req.body, 'notatki_klienta')
+    const hasOpisPracy = hasBody('opis_pracy');
+    const hasOpis = hasBody('opis');
+    const opisPracy = hasOpisPracy ? toStr(opis_pracy) : cur.opis_pracy;
+    const op = hasOpisPracy
+      ? (opisPracy || toStr(opis) || cur.opis)
+      : hasOpis
+        ? (toStr(opis) || opisPracy)
+        : (cur.opis || opisPracy);
+    const nk = hasBody('notatki_klienta')
       ? toStr(notatki_klienta)
       : cur.notatki_klienta;
 
-    await pool.query(
+    const update = await pool.query(
       `UPDATE tasks SET
-        klient_nazwa=$1, klient_telefon=$2, adres=$3, miasto=$4,
-        typ_uslugi=$5, priorytet=$6, wartosc_planowana=$7,
-        czas_planowany_godziny=$8, data_planowana=$9, notatki_wewnetrzne=$10,
-        wartosc_rzeczywista=$11, opis=$12, notatki_klienta=$13
-       WHERE id=$14`,
+        klient_nazwa=$1, klient_telefon=$2, klient_email=$3, adres=$4, miasto=$5,
+        typ_uslugi=$6, priorytet=$7, wartosc_planowana=$8,
+        czas_planowany_godziny=$9, data_planowana=$10, godzina_rozpoczecia=$11,
+        notatki_wewnetrzne=$12, notatki=$13,
+        wartosc_rzeczywista=$14, opis=$15, opis_pracy=$16, notatki_klienta=$17,
+        status=$18, oddzial_id=$19, ekipa_id=$20, kierownik_id=$21, wyceniajacy_id=$22,
+        wywoz=$23, usuwanie_pni=$24, czas_realizacji_godz=$25, rebak=$26,
+        pila_wysiegniku=$27, nozyce_dlugie=$28, kosiarka=$29, podkaszarka=$30,
+        lopata=$31, mulczer=$32, ilosc_osob=$33, arborysta=$34,
+        wynik=$35, budzet=$36, rabat=$37, kwota_minimalna=$38, zrebki=$39, drzewno=$40,
+        updated_at=NOW()
+       WHERE id=$41
+       RETURNING *`,
       [
         klient_nazwa,
         toStr(klient_telefon),
+        toStr(klient_email),
         adres,
         miasto,
         typ_uslugi,
         priorytet,
         toNum(wartosc_planowana),
         toNum(czas_planowany_godziny),
-        data_planowana,
-        toStr(notatki_wewnetrzne),
+        plannedDateTime,
+        toStr(godzina_rozpoczecia),
+        keepStr('notatki_wewnetrzne', notatki_wewnetrzne),
+        keepStr('notatki', notatki),
         wr,
         op,
+        opisPracy,
         nk,
+        nextStatus,
+        nextOddzialId,
+        nextTeamId,
+        nextKierownikId,
+        nextEstimatorId,
+        keepBool('wywoz', wywoz),
+        keepBool('usuwanie_pni', usuwanie_pni),
+        keepNum('czas_realizacji_godz', czas_realizacji_godz),
+        keepBool('rebak', rebak),
+        keepBool('pila_wysiegniku', pila_wysiegniku),
+        keepBool('nozyce_dlugie', nozyce_dlugie),
+        keepBool('kosiarka', kosiarka),
+        keepBool('podkaszarka', podkaszarka),
+        keepBool('lopata', lopata),
+        keepBool('mulczer', mulczer),
+        keepInt('ilosc_osob', ilosc_osob),
+        keepBool('arborysta', arborysta),
+        keepStr('wynik', wynik),
+        keepNum('budzet', budzet),
+        keepNum('rabat', rabat),
+        keepNum('kwota_minimalna', kwota_minimalna),
+        keepStr('zrebki', zrebki),
+        keepStr('drzewno', drzewno),
         req.params.id
       ]
     );
-    res.json({ message: 'Zaktualizowano' });
+    res.json(decorateTaskWorkflow(update.rows[0] || { id: req.params.id, status: nextStatus }));
   } catch (err) {
     logger.error('Blad aktualizacji zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -1777,6 +2115,7 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
 
 router.put('/:id/field-package', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskFieldPackageSchema), requireTaskAccess, async (req, res) => {
   try {
+    await ensureTaskOperationalColumns();
     const taskR = await pool.query(
       'SELECT id, status, wyceniajacy_id, notatki_wewnetrzne FROM tasks WHERE id = $1',
       [req.params.id]
@@ -1821,13 +2160,17 @@ router.put('/:id/field-package', authMiddleware, validateParams(taskIdParamsSche
     await pool.query(
       `UPDATE tasks
        SET opis = COALESCE($1, opis),
+           opis_pracy = COALESCE($1, opis_pracy),
            notatki_wewnetrzne = $2,
+           notatki = $2,
            czas_planowany_godziny = COALESCE($3, czas_planowany_godziny),
            wartosc_planowana = COALESCE($4, wartosc_planowana),
+           budzet = COALESCE($4, budzet),
+           wynik = COALESCE($7, wynik),
            status = $5,
            updated_at = NOW()
        WHERE id = $6`,
-      [zakres, nextNotes, hours, value, nextStatus, req.params.id]
+      [zakres, nextNotes, hours, value, nextStatus, req.params.id, accepted ? 'Klient zaakceptowal zakres i budzet w terenie.' : null]
     );
 
     res.json({ message: 'Pakiet terenowy zapisany', status: nextStatus });
