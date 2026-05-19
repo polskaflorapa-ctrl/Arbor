@@ -892,6 +892,32 @@ function decorateTaskWorkflowRows(rows = []) {
   return rows.map((row) => decorateTaskWorkflow(row));
 }
 
+async function fetchTaskWorkflowRow(taskId) {
+  const result = await pool.query(
+    `SELECT t.*,
+        te.nazwa as ekipa_nazwa,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
+        COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
+       FROM tasks t
+       LEFT JOIN teams te ON t.ekipa_id = te.id
+       LEFT JOIN (
+         SELECT
+           p.task_id,
+           COUNT(*)::int AS photo_total,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('wycena', 'przed', 'checkin'))::int AS photo_wycena,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('szkic', 'sketch'))::int AS photo_szkic,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(p.typ, '')) IN ('dojazd', 'posesja', 'dojazd_posesja'))::int AS photo_dojazd
+         FROM photos p
+         GROUP BY p.task_id
+       ) ps ON ps.task_id = t.id
+       WHERE t.id = $1`,
+    [taskId]
+  );
+  return result.rows[0] || null;
+}
+
 const taskFieldPackageSchema = z.object({
   opis: z.string().trim().max(6000).optional().nullable(),
   zakres_prac: z.string().trim().max(6000).optional().nullable(),
@@ -2106,7 +2132,9 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
         req.params.id
       ]
     );
-    res.json(decorateTaskWorkflow(update.rows[0] || { id: req.params.id, status: nextStatus }));
+    const workflowRow = await fetchTaskWorkflowRow(req.params.id)
+      .catch(() => update.rows[0] || { id: req.params.id, status: nextStatus });
+    res.json(decorateTaskWorkflow(workflowRow || update.rows[0] || { id: req.params.id, status: nextStatus }));
   } catch (err) {
     logger.error('Blad aktualizacji zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -2157,7 +2185,7 @@ router.put('/:id/field-package', authMiddleware, validateParams(taskIdParamsSche
       fieldLines.join('\n'),
     ].filter(Boolean).join('\n\n').slice(0, 12000);
 
-    await pool.query(
+    const update = await pool.query(
       `UPDATE tasks
        SET opis = COALESCE($1, opis),
            opis_pracy = COALESCE($1, opis_pracy),
@@ -2169,11 +2197,17 @@ router.put('/:id/field-package', authMiddleware, validateParams(taskIdParamsSche
            wynik = COALESCE($7, wynik),
            status = $5,
            updated_at = NOW()
-       WHERE id = $6`,
+       WHERE id = $6
+       RETURNING id, status`,
       [zakres, nextNotes, hours, value, nextStatus, req.params.id, accepted ? 'Klient zaakceptowal zakres i budzet w terenie.' : null]
     );
 
-    res.json({ message: 'Pakiet terenowy zapisany', status: nextStatus });
+    const workflowRow = await fetchTaskWorkflowRow(req.params.id)
+      .catch(() => update.rows[0] || { id: req.params.id, status: nextStatus });
+    res.json({
+      message: 'Pakiet terenowy zapisany',
+      ...decorateTaskWorkflow(workflowRow || update.rows[0] || { id: req.params.id, status: nextStatus }),
+    });
   } catch (err) {
     logger.error('Blad zapisu pakietu terenowego', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });

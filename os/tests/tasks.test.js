@@ -342,6 +342,63 @@ describe('Tasks routes', () => {
     expect(sql).toContain('FROM photos p');
   });
 
+  it('PUT /tasks/:id/field-package returns decorated workflow with fresh photo counters', async () => {
+    const token = jwt.sign(
+      { id: 7, rola: 'Wyceniajacy', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('ALTER TABLE tasks')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, wyceniajacy_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Wycena_Terenowa', wyceniajacy_id: 7, notatki_wewnetrzne: '' }] };
+      }
+      if (s.includes('UPDATE tasks') && s.includes('RETURNING id, status')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia' }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Do_Zatwierdzenia',
+            klient_nazwa: 'A',
+            klient_telefon: '+48123123123',
+            adres: 'Testowa 1',
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            opis_pracy: 'Przycinka korony',
+            wartosc_planowana: 1500,
+            czas_planowany_godziny: 3,
+            ekipa_id: null,
+            photo_total: 3,
+            photo_wycena: 1,
+            photo_szkic: 1,
+            photo_dojazd: 1,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/field-package')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        zakres_prac: 'Przycinka korony',
+        czas_planowany_godziny: 3,
+        wartosc_planowana: 1500,
+        klient_zaakceptowal: true,
+        send_to_office: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('Do_Zatwierdzenia');
+    expect(res.body.workflow_stage).toBe('officeApproval');
+    expect(res.body.workflow_missing_labels).toContain('ekipa');
+    expect(res.body.workflow_missing_labels).not.toContain('zdjecie ogolne / wycena');
+    expect(res.body.workflow_missing_labels).not.toContain('szkic zakresu');
+  });
+
   it('POST /tasks/:id/start returns 400 for brygadzista without checklist', async () => {
     const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
