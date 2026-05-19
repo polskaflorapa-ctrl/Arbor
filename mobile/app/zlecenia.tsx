@@ -119,6 +119,25 @@ function taskEvidenceReadyCount(task: any) {
   return FIELD_PHOTO_REQUIREMENTS.filter((item) => taskNumber(task?.[item.key]) > 0).length;
 }
 
+function taskWorkflowMissingLabels(task: any) {
+  const labels = Array.isArray(task?.workflow_missing_labels) ? task.workflow_missing_labels : [];
+  return labels.map((label: unknown) => String(label || '').trim()).filter(Boolean);
+}
+
+function taskWorkflowMissingIncludes(task: any, patterns: string[]) {
+  const haystack = taskWorkflowMissingLabels(task).join(' ').toLowerCase();
+  return patterns.some((pattern) => haystack.includes(pattern));
+}
+
+function taskWorkflowReadyForNext(task: any) {
+  return typeof task?.workflow_ready_for_next === 'boolean' ? task.workflow_ready_for_next : null;
+}
+
+function taskWorkflowNextAction(task: any) {
+  const action = String(task?.workflow_next_action || '').trim();
+  return action || '';
+}
+
 function taskPhotoTotal(task: any) {
   const total = taskNumber(task?.photo_total);
   return total > 0 ? total : taskEvidenceReadyCount(task);
@@ -146,18 +165,33 @@ function taskHasPlannedSlot(task: any) {
 }
 
 function taskEvidenceComplete(task: any) {
+  if (taskWorkflowMissingIncludes(task, ['zdjec', 'zdję', 'szkic', 'dojazd', 'photo'])) return false;
   return taskEvidenceReadyCount(task) === FIELD_PHOTO_REQUIREMENTS.length;
 }
 
 function taskReadyForOffice(task: any) {
-  return isFieldDraftTask(task) && taskEvidenceComplete(task) && !isTaskClosed(task?.status);
+  if (isTaskClosed(task?.status)) return false;
+  const status = normalizeTaskStatus(task?.status);
+  if (status === TASK_STATUS.DO_ZATWIERDZENIA) return true;
+  const apiReady = taskWorkflowReadyForNext(task);
+  if (status === TASK_STATUS.WYCENA_TERENOWA && apiReady !== null) return apiReady;
+  return isFieldDraftTask(task) && taskEvidenceComplete(task);
 }
 
 function taskNeedsCrewPlan(task: any) {
-  return taskReadyForOffice(task) && (!taskHasAssignedCrew(task) || !taskHasPlannedSlot(task));
+  if (isTaskClosed(task?.status)) return false;
+  const status = normalizeTaskStatus(task?.status);
+  const officeStage = status === TASK_STATUS.DO_ZATWIERDZENIA || taskReadyForOffice(task);
+  if (!officeStage) return false;
+  if (taskWorkflowMissingIncludes(task, ['ekipa', 'team', 'termin pracy', 'work_date'])) return true;
+  return !taskHasAssignedCrew(task) || !taskHasPlannedSlot(task);
 }
 
 function taskReadyForCrew(task: any) {
+  const status = normalizeTaskStatus(task?.status);
+  if (status === TASK_STATUS.ZAPLANOWANE) return true;
+  const apiReady = taskWorkflowReadyForNext(task);
+  if (status === TASK_STATUS.DO_ZATWIERDZENIA && apiReady !== null) return apiReady;
   return taskReadyForOffice(task) && taskHasAssignedCrew(task) && taskHasPlannedSlot(task);
 }
 
@@ -845,9 +879,10 @@ export default function ZleceniaScreen() {
           const photoReady = photoReadyCount === FIELD_PHOTO_REQUIREMENTS.length;
           const photoTotal = taskPhotoTotal(z);
           const missingEvidenceItems = FIELD_PHOTO_REQUIREMENTS.filter((item) => taskNumber(z[item.key]) <= 0);
+          const workflowNextAction = taskWorkflowNextAction(z);
           const evidenceHint = photoReady
-            ? 'Komplet: wycena, szkic i dojazd'
-            : `Brakuje: ${missingEvidenceItems.map((item) => item.label).join(', ')}`;
+            ? (workflowNextAction || 'Komplet: wycena, szkic i dojazd')
+            : (workflowNextAction || `Brakuje: ${missingEvidenceItems.map((item) => item.label).join(', ')}`);
           const handoffReady = taskReadyForCrew(z);
           const isNextCrewTask = isCrew && crewPlan.next?.id === z.id;
           const isTodayTask = taskDateKey(z) === todayKey;
