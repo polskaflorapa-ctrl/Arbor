@@ -44,6 +44,7 @@ import {
   isTaskClosed,
   isTaskDone,
   isTaskInProgress,
+  mergeTaskMutationResponse,
 } from '../utils/taskWorkflow';
 
 const PUSTY_FORMULARZ = createTaskFormDefaults();
@@ -727,29 +728,6 @@ function getTaskWorkflowStageFromApi(task = {}) {
     detail: task.workflow_stage_detail || task.workflow_next_action || '',
     tone,
   };
-}
-
-function taskMutationPayload(data) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const {
-    message: _message,
-    idempotent_replay: _idempotentReplay,
-    sprzet_ids: _equipmentIds,
-    rezerwacje_sprzetu: _equipmentReservations,
-    ...taskFields
-  } = data;
-  return taskFields;
-}
-
-function mergeTaskMutationResponse(currentTask, data, fallback = {}) {
-  const taskFields = taskMutationPayload(data);
-  const merged = {
-    ...(currentTask || {}),
-    ...fallback,
-    ...taskFields,
-  };
-  if (merged.id == null) merged.id = fallback.id ?? currentTask?.id;
-  return merged;
 }
 
 function getTaskDiagnostics(task, todayIso) {

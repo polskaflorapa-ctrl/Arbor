@@ -132,3 +132,26 @@ export function getTaskStatusColor(status, fallback = '#6B7280') {
 export function getTaskStatusBadgeBg(status, fallback = 'rgba(148,163,184,0.16)') {
   return TASK_STATUS_BADGE_BG[normalizeTaskStatus(status)] || fallback;
 }
+
+export function taskMutationPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const {
+    message: _message,
+    idempotent_replay: _idempotentReplay,
+    sprzet_ids: _equipmentIds,
+    rezerwacje_sprzetu: _equipmentReservations,
+    ...taskFields
+  } = data;
+  return taskFields;
+}
+
+export function mergeTaskMutationResponse(currentTask, data, fallback = {}) {
+  const taskFields = taskMutationPayload(data);
+  const merged = {
+    ...(currentTask || {}),
+    ...fallback,
+    ...taskFields,
+  };
+  if (merged.id == null) merged.id = fallback.id ?? currentTask?.id;
+  return merged;
+}

@@ -17,13 +17,14 @@ import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-import { TASK_STATUS, TASK_STATUSES, getTaskStatusColor, isTaskDone, isTaskInProgress } from '../utils/taskWorkflow';
-
-function taskMutationPayload(data) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const { message: _message, idempotent_replay: _idempotentReplay, ...taskFields } = data;
-  return taskFields;
-}
+import {
+  TASK_STATUS,
+  TASK_STATUSES,
+  getTaskStatusColor,
+  isTaskDone,
+  isTaskInProgress,
+  taskMutationPayload,
+} from '../utils/taskWorkflow';
 
 export default function Kierownik() {
   const { t } = useTranslation();

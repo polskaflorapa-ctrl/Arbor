@@ -19,6 +19,7 @@ import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { API_URL } from '../constants/api';
+import { taskMutationPayload } from '../constants/task-workflow';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { openAddressInMaps } from '../utils/maps-link';
@@ -63,16 +64,6 @@ type ReadinessCheck = {
   done: boolean;
   hint: string;
 };
-
-function taskMutationPayload(data: unknown) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const {
-    message: _message,
-    idempotent_replay: _idempotentReplay,
-    ...taskFields
-  } = data as Record<string, unknown>;
-  return taskFields;
-}
 
 const PHOTO_REQUIREMENTS = [
   { key: 'photo_wycena', label: 'Wycena', icon: 'image-outline' },

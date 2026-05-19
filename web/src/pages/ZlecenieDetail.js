@@ -40,7 +40,7 @@ import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-import { TASK_STATUSES, getTaskStatusColor, isTaskDone } from '../utils/taskWorkflow';
+import { TASK_STATUSES, getTaskStatusColor, isTaskDone, taskMutationPayload } from '../utils/taskWorkflow';
 
 const BASE = '';
 
@@ -96,18 +96,6 @@ function equipmentDisplayName(row) {
   return [row?.sprzet_typ, row?.sprzet_nazwa || (row?.sprzet_id ? `Sprzet #${row.sprzet_id}` : '')]
     .filter(Boolean)
     .join(' - ') || 'Sprzet';
-}
-
-function taskMutationPayload(data) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const {
-    message: _message,
-    idempotent_replay: _idempotentReplay,
-    sprzet_ids: _equipmentIds,
-    rezerwacje_sprzetu: _equipmentReservations,
-    ...taskFields
-  } = data;
-  return taskFields;
 }
 
 export default function ZlecenieDetail() {

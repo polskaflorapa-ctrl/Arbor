@@ -127,3 +127,30 @@ export function makeTaskStatusColorMap(theme: Theme) {
     return acc;
   }, {});
 }
+
+export function taskMutationPayload(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const {
+    message: _message,
+    idempotent_replay: _idempotentReplay,
+    sprzet_ids: _equipmentIds,
+    rezerwacje_sprzetu: _equipmentReservations,
+    ...taskFields
+  } = data as Record<string, unknown>;
+  return taskFields;
+}
+
+export function mergeTaskMutationResponse(
+  currentTask: Record<string, unknown> | null | undefined,
+  data: unknown,
+  fallback: Record<string, unknown> = {},
+) {
+  const taskFields = taskMutationPayload(data);
+  const merged = {
+    ...(currentTask || {}),
+    ...fallback,
+    ...taskFields,
+  };
+  if (merged.id == null) merged.id = fallback.id ?? currentTask?.id;
+  return merged;
+}

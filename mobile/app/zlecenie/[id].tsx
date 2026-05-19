@@ -34,7 +34,15 @@ import {
 import { subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
-import { TASK_STATUS, TASK_STATUSES, getNextTaskStatuses, getTaskWorkflowStep, isTaskDone, makeTaskStatusColorMap } from '../../constants/task-workflow';
+import {
+  TASK_STATUS,
+  TASK_STATUSES,
+  getNextTaskStatuses,
+  getTaskWorkflowStep,
+  isTaskDone,
+  makeTaskStatusColorMap,
+  mergeTaskMutationResponse,
+} from '../../constants/task-workflow';
 import {
   TASK_EQUIPMENT_OPTIONS,
   TASK_RISK_PRESETS,
@@ -201,29 +209,6 @@ function workflowPhotoFilterFor(item?: WorkflowMissingItem): PhotoFilterKey {
   if (key.includes('dojazd') || key.includes('posesja')) return 'dojazd';
   if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję') || key.includes('wycena')) return 'wycena';
   return 'all';
-}
-
-function taskMutationPayload(data: unknown) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const {
-    message: _message,
-    idempotent_replay: _idempotentReplay,
-    sprzet_ids: _equipmentIds,
-    rezerwacje_sprzetu: _equipmentReservations,
-    ...taskFields
-  } = data as Record<string, unknown>;
-  return taskFields;
-}
-
-function mergeTaskMutationResponse(currentTask: any, data: unknown, fallback: Record<string, unknown> = {}) {
-  const taskFields = taskMutationPayload(data);
-  const merged = {
-    ...(currentTask || {}),
-    ...fallback,
-    ...taskFields,
-  } as Record<string, unknown>;
-  if (merged.id == null) merged.id = fallback.id ?? currentTask?.id;
-  return merged;
 }
 
 function orderPrioColors(theme: Theme) {
@@ -437,7 +422,13 @@ export default function ZlecenieDetailScreen() {
     setFieldEquipmentKeys([]);
     setFieldSettlementDraft(DEFAULT_FIELD_SETTLEMENT);
     setFieldClientAccepted(false);
-  }, [zlecenie?.id]);
+  }, [
+    zlecenie?.czas_planowany_godziny,
+    zlecenie?.id,
+    zlecenie?.opis,
+    zlecenie?.opis_pracy,
+    zlecenie?.wartosc_planowana,
+  ]);
 
   useEffect(() => {
     let alive = true;
