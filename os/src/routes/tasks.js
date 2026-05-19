@@ -1658,6 +1658,23 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
     } catch {
       row.client_signature = null;
     }
+    try {
+      const equipment = await pool.query(
+        `SELECT r.id, r.sprzet_id, r.ekipa_id, r.data_od, r.data_do, r.caly_dzien,
+                r.status, r.notatki,
+                e.nazwa AS sprzet_nazwa, e.typ AS sprzet_typ, e.nr_seryjny,
+                e.status AS sprzet_status, te.nazwa AS ekipa_nazwa
+           FROM equipment_reservations r
+           JOIN equipment_items e ON e.id = r.sprzet_id
+           LEFT JOIN teams te ON te.id = r.ekipa_id
+          WHERE r.task_id = $1
+          ORDER BY r.data_od DESC, r.id DESC`,
+        [req.params.id]
+      );
+      row.equipment_reservations = equipment.rows;
+    } catch {
+      row.equipment_reservations = [];
+    }
     const tid = req.params.id;
     const { po: poCount, przed: prCount } = await countTaskFinishPhotos(pool, tid);
     row.finish_requirements = {
@@ -2679,7 +2696,7 @@ router.get('/:id/zdjecia', authMiddleware, validateParams(taskIdParamsSchema), r
        FROM photos p
        LEFT JOIN users u ON p.user_id = u.id
        WHERE p.task_id = $1
-       ORDER BY COALESCE(p.data_dodania, p.id)`,
+       ORDER BY p.data_dodania DESC NULLS LAST, p.id DESC`,
       [req.params.id]
     );
     const rows = result.rows.map(r => ({

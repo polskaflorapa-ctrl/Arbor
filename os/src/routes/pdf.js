@@ -148,12 +148,12 @@ router.get('/zlecenie/:id', pdfAuthOrAccessToken, validateParams(pdfIdParamsSche
        JOIN users u ON tp.pomocnik_id = u.id WHERE tp.task_id = $1`, [id]
     );
     const phRes = await pool.query(
-      `SELECT ph.id, ph.typ, ph.url, ph.sciezka, ph.opis, ph.tagi, ph.data_dodania, ph.created_at,
+      `SELECT ph.id, ph.typ, ph.url, ph.sciezka, ph.opis, ph.tagi, ph.data_dodania,
               u.imie || ' ' || u.nazwisko as autor
        FROM photos ph
        LEFT JOIN users u ON ph.user_id = u.id
        WHERE ph.task_id = $1
-       ORDER BY COALESCE(ph.data_dodania, ph.created_at), ph.id`,
+       ORDER BY ph.data_dodania DESC NULLS LAST, ph.id DESC`,
       [id]
     );
     const rRes = await pool.query('SELECT * FROM rozliczenia WHERE task_id = $1', [id]);

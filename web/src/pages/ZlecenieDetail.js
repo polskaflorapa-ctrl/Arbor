@@ -87,6 +87,17 @@ function SmsTemplateIcon({ typ }) {
   }
 }
 
+function isActiveEquipmentReservation(row) {
+  const status = String(row?.status || '').toLowerCase();
+  return !status.includes('anul') && !status.includes('zwr');
+}
+
+function equipmentDisplayName(row) {
+  return [row?.sprzet_typ, row?.sprzet_nazwa || (row?.sprzet_id ? `Sprzet #${row.sprzet_id}` : '')]
+    .filter(Boolean)
+    .join(' - ') || 'Sprzet';
+}
+
 export default function ZlecenieDetail() {
   const { t } = useTranslation();
   const { id } = useParams();
@@ -638,6 +649,14 @@ export default function ZlecenieDetail() {
     })
     .slice()
     .sort((a, b) => (new Date(a.created_at || a.data_dodania).getTime() - new Date(b.created_at || b.data_dodania).getTime()) * mediaSortFactor);
+  const equipmentReservations = useMemo(
+    () => Array.isArray(zlecenie?.equipment_reservations) ? zlecenie.equipment_reservations : [],
+    [zlecenie]
+  );
+  const activeEquipmentReservations = useMemo(
+    () => equipmentReservations.filter(isActiveEquipmentReservation),
+    [equipmentReservations]
+  );
 
   const finishRequirements = useMemo(() => {
     const raw = zlecenie?.finish_requirements;
@@ -949,6 +968,11 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiNum}>{wideo.length}</div>
             <div style={styles.kpiLabel}>Filmy</div>
           </div>
+          <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)' }}>
+            <div style={styles.kpiIcon}><ChecklistOutlined sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
+            <div style={styles.kpiNum}>{activeEquipmentReservations.length}</div>
+            <div style={styles.kpiLabel}>Sprzet</div>
+          </div>
         </div>
 
         <TaskCommandCenter
@@ -1147,6 +1171,36 @@ export default function ZlecenieDetail() {
                   <PlaceOutlined sx={{ fontSize: 20 }} />
                   {zlecenie.adres}, {zlecenie.miasto}
                 </a>
+              </div>
+
+              <div style={styles.card}>
+                <div style={styles.cardTitle}>Sprzet i instrukcje dla ekipy</div>
+                {equipmentReservations.length ? (
+                  <div style={styles.equipmentList}>
+                    {equipmentReservations.map((row) => {
+                      const active = isActiveEquipmentReservation(row);
+                      return (
+                        <div key={row.id} style={{ ...styles.equipmentCard, opacity: active ? 1 : 0.62 }}>
+                          <div style={styles.equipmentTop}>
+                            <strong>{equipmentDisplayName(row)}</strong>
+                            <span style={{ ...styles.equipmentStatus, ...(active ? styles.equipmentStatusActive : styles.equipmentStatusInactive) }}>
+                              {row.status || 'Zarezerwowane'}
+                            </span>
+                          </div>
+                          <div style={styles.equipmentMeta}>
+                            {row.ekipa_nazwa || zlecenie.ekipa_nazwa || 'Ekipa'} · {formatDate(row.data_od)} - {formatDate(row.data_do)}
+                          </div>
+                          {row.nr_seryjny && <div style={styles.equipmentMeta}>Nr seryjny: {row.nr_seryjny}</div>}
+                          {row.notatki && <div style={styles.equipmentNote}>{row.notatki}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={styles.empty}>
+                    Brak sprzetu przypisanego do zlecenia. Biuro moze go dodac w Planie biura albo w Kalendarzu zasobow.
+                  </div>
+                )}
               </div>
 
               {/* PDF */}
@@ -2047,6 +2101,14 @@ const styles = {
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
   card: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  equipmentList: { display: 'grid', gap: 10 },
+  equipmentCard: { border: '1px solid var(--border)', borderRadius: 10, padding: 12, backgroundColor: 'var(--bg-deep)' },
+  equipmentTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, fontSize: 14, color: 'var(--text)', flexWrap: 'wrap' },
+  equipmentStatus: { padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' },
+  equipmentStatusActive: { backgroundColor: 'rgba(34,197,94,0.16)', color: 'var(--accent)' },
+  equipmentStatusInactive: { backgroundColor: 'rgba(148,163,184,0.18)', color: 'var(--text-muted)' },
+  equipmentMeta: { marginTop: 5, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
+  equipmentNote: { marginTop: 8, padding: '8px 10px', borderRadius: 8, backgroundColor: 'var(--bg-card)', color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.45 },
   notatki: { marginTop: 16, backgroundColor: 'var(--bg-deep)', borderRadius: 8, padding: 14 },
   notatkiLabel: { fontSize: 12, color: 'var(--warning)', fontWeight: '600', marginBottom: 6 },
   notatkiText: { fontSize: 14, color: 'var(--text-sub)', lineHeight: 1.6 },
