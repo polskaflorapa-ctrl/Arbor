@@ -47,6 +47,9 @@ tmp_*.py
 .claude/
 .codex-up.log
 .codex-up.err.log
+os-api-3001.log
+web-3002.log
+public-web-tunnel.log
 
 # IDE
 .idea/

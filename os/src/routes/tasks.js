@@ -143,10 +143,11 @@ function kommoActor(req) {
 
 const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
+const isSpecjalista = (user) => user.rola === 'Specjalista';
 const isTeamScoped = (user) => user.rola === 'Brygadzista' || user.rola === 'Pomocnik';
 const isEstimator = (user) => user.rola === 'Wyceniający' || user.rola === 'Wyceniajacy';
 const canSeeAllTasks = (user) => isDyrektorOrAdmin(user) || isSalesDirector(user);
-const canManageTaskBackoffice = (user) => isDyrektorOrAdmin(user) || isKierownik(user);
+const canManageTaskBackoffice = (user) => isDyrektorOrAdmin(user) || isKierownik(user) || isSpecjalista(user);
 
 /** F3.5 — wymuszenie zdjęcia „Po” przy finish (ekipa): ustaw `TASK_FINISH_REQUIRE_PO_PHOTO=1` na serwerze. */
 function finishRequirePoPhoto() {
@@ -297,6 +298,112 @@ const toStr = (val) => {
   if (val === '' || val === null || val === undefined) return null;
   return val;
 };
+
+function splitClientName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { imie: parts[0] || null, nazwisko: null };
+  return { imie: parts[0], nazwisko: parts.slice(1).join(' ') };
+}
+
+async function ensureIntakeClient({ klient_nazwa, klient_telefon, adres, miasto, created_by }) {
+  const phone = String(klient_telefon || '').trim();
+  const name = String(klient_nazwa || '').trim();
+  const { imie, nazwisko } = splitClientName(name);
+  if (phone) {
+    const existing = await pool.query('SELECT id FROM klienci WHERE telefon = $1 ORDER BY id LIMIT 1', [phone]);
+    if (existing.rows[0]) {
+      const { rows } = await pool.query(
+        `UPDATE klienci
+         SET imie = COALESCE($2, imie),
+             nazwisko = COALESCE($3, nazwisko),
+             firma = CASE WHEN $2 IS NULL THEN COALESCE($4, firma) ELSE firma END,
+             adres = COALESCE($5, adres),
+             miasto = COALESCE($6, miasto),
+             zrodlo = COALESCE(zrodlo, 'telefon'),
+             created_by = COALESCE(created_by, $7),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING id`,
+        [existing.rows[0].id, imie, nazwisko, name || null, adres || null, miasto || null, created_by || null]
+      );
+      return rows[0]?.id || existing.rows[0].id;
+    }
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO klienci (imie, nazwisko, firma, telefon, adres, miasto, zrodlo, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,'telefon',$7)
+     RETURNING id`,
+    [imie, nazwisko, imie ? null : name || null, phone || null, adres || null, miasto || null, created_by || null]
+  );
+  return rows[0]?.id || null;
+}
+
+async function createLinkedInspectionForFieldTask({
+  taskId,
+  wyceniajacyId,
+  wycenaId,
+  klient_nazwa,
+  klient_telefon,
+  adres,
+  miasto,
+  plannedDateTime,
+  notes,
+  createdBy,
+}) {
+  const estimatorId = toInt(wyceniajacyId);
+  if (!taskId || !estimatorId) return null;
+
+  const existing = await pool.query('SELECT id FROM ogledziny WHERE task_id = $1 ORDER BY id LIMIT 1', [taskId]);
+  if (existing.rows[0]) {
+    const { rows } = await pool.query(
+      `UPDATE ogledziny
+       SET brygadzista_id = COALESCE(brygadzista_id, $2),
+           wycena_id = COALESCE($3, wycena_id),
+           data_planowana = COALESCE($4::timestamptz, data_planowana),
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [existing.rows[0].id, estimatorId, wycenaId || null, plannedDateTime || null]
+    );
+    return rows[0]?.id || existing.rows[0].id;
+  }
+
+  const clientId = await ensureIntakeClient({
+    klient_nazwa,
+    klient_telefon,
+    adres,
+    miasto,
+    created_by: createdBy,
+  });
+  const inspectionNote = [
+    `Zgloszenie z telefonu zapisane jako zlecenie #${taskId}.`,
+    klient_telefon ? `Telefon klienta: ${klient_telefon}` : '',
+    notes ? `Notatka biura:\n${notes}` : '',
+    'Cel: wyceniacz robi zdjecia, szkic, zakres, czas, budzet i ryzyka dla biura.',
+  ].filter(Boolean).join('\n');
+
+  const { rows } = await pool.query(
+    `INSERT INTO ogledziny (
+       klient_id, brygadzista_id, data_planowana, status, adres, miasto,
+       notatki, wycena_id, task_id, created_by
+     )
+     VALUES ($1,$2,$3,'Zaplanowane',$4,$5,$6,$7,$8,$9)
+     RETURNING id`,
+    [
+      clientId,
+      estimatorId,
+      plannedDateTime || null,
+      adres || null,
+      miasto || null,
+      inspectionNote,
+      wycenaId || null,
+      taskId,
+      createdBy || null,
+    ]
+  );
+  return rows[0]?.id || null;
+}
 
 function buildTaskPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
   const rawDate = String(dataPlanowana || '').trim();
@@ -917,6 +1024,7 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
     }
 
     const sourceOgledzinyId = toInt(source_ogledziny_id);
+    let ogledzinyId = null;
     if (sourceOgledzinyId) {
       try {
         const sourceNote = [
@@ -941,9 +1049,40 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       } catch (linkErr) {
         logger.warn('tasks.create.linkInspection', { message: linkErr.message, requestId: req.requestId, sourceOgledzinyId, taskId, wycenaId });
       }
+    } else if (initialStatus === 'Wycena_Terenowa' && toInt(wyceniajacy_id)) {
+      try {
+        ogledzinyId = await createLinkedInspectionForFieldTask({
+          taskId,
+          wyceniajacyId: wyceniajacy_id,
+          wycenaId,
+          klient_nazwa,
+          klient_telefon: toStr(klient_telefon),
+          adres,
+          miasto,
+          plannedDateTime,
+          notes: taskNotes || taskOpis,
+          createdBy: req.user.id,
+        });
+        if (ogledzinyId) {
+          await pool.query(
+            `UPDATE tasks
+             SET notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(notatki_wewnetrzne, ''), $2),
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [taskId, `Powiazane ogledziny terenowe: #${ogledzinyId}.`]
+          );
+        }
+      } catch (inspectionErr) {
+        logger.warn('tasks.create.autoInspection', {
+          message: inspectionErr.message,
+          requestId: req.requestId,
+          taskId,
+          wycenaId,
+        });
+      }
     }
 
-    res.json({ id: taskId, wycena_id: wycenaId });
+    res.json({ id: taskId, wycena_id: wycenaId, ogledziny_id: ogledzinyId || sourceOgledzinyId || null });
   } catch (err) {
     logger.error('Blad tworzenia zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message });
