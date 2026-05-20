@@ -2463,7 +2463,7 @@ export default function Zlecenia() {
     window.setTimeout(() => setQuickCallFocused(false), 1200);
   };
 
-  const utworzOgledzinyZTelefonu = async () => {
+  const getQuickCallMissingFields = () => {
     const missing = [];
     if (!String(quickCall.klient_nazwa || '').trim()) missing.push('klient');
     if (!String(quickCall.klient_telefon || '').trim()) missing.push('telefon');
@@ -2472,6 +2472,11 @@ export default function Zlecenia() {
     if (!String(quickCall.data_planowana || '').trim()) missing.push('data oględzin');
     if (!String(quickCall.wyceniajacy_id || '').trim()) missing.push('wyceniacz');
     if (canManageAllBranches && !String(quickCall.oddzial_id || '').trim()) missing.push('oddział');
+    return missing;
+  };
+
+  const utworzOgledzinyZTelefonu = async () => {
+    const missing = getQuickCallMissingFields();
     if (missing.length) {
       pokazKomunikat(`Telefon do biura: uzupełnij ${missing.join(', ')}`, 'error');
       return false;
@@ -2519,6 +2524,8 @@ export default function Zlecenia() {
   };
 
   const quickCallHasDraft = hasQuickCallDraftData(quickCall);
+  const quickCallMissingFields = getQuickCallMissingFields();
+  const quickCallReady = quickCallMissingFields.length === 0;
  
   const otworzSzczegoly = (z) => {
     setWybraneZlecenie(z);
@@ -3878,17 +3885,22 @@ export default function Zlecenia() {
                     </div>
                   </div>
                   <div style={s.quickCallFooter}>
-                    <span>
-                      {quickCallHasDraft ? 'Szkic zapisany lokalnie. ' : ''}
-                      Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.
+                    <span style={s.quickCallFooterText}>
+                      <span style={quickCallReady ? s.quickCallReady : s.quickCallMissing}>
+                        {quickCallReady ? 'Gotowe do wysłania wyceniaczowi.' : `Brakuje: ${quickCallMissingFields.join(', ')}`}
+                      </span>
+                      <span style={s.quickCallFooterHint}>
+                        {quickCallHasDraft ? 'Szkic zapisany lokalnie. ' : ''}
+                        Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.
+                      </span>
                     </span>
                     <div style={s.quickCallActions}>
                       <button type="button" style={s.btnSecondary} onClick={otworzPelnyFormularzZTelefonu}>Pełny formularz</button>
                       <button type="button" style={s.btnSecondary} onClick={resetQuickCallDraft}>Wyczyść</button>
                       <button
                         type="button"
-                        style={{ ...s.btnPrimary, ...(quickCallSaving ? s.formWizardBtnDisabled : {}) }}
-                        disabled={quickCallSaving}
+                        style={{ ...s.btnPrimary, ...((quickCallSaving || !quickCallReady) ? s.formWizardBtnDisabled : {}) }}
+                        disabled={quickCallSaving || !quickCallReady}
                         onClick={utworzOgledzinyZTelefonu}
                       >
                         {quickCallSaving ? 'Tworzę...' : 'Utwórz oględziny'}
@@ -5929,6 +5941,25 @@ const s = {
     borderTop: '1px solid var(--border)',
     color: 'var(--text-muted)',
     fontSize: 12,
+    fontWeight: 750,
+  },
+  quickCallFooterText: {
+    flex: '1 1 280px',
+    minWidth: 0,
+    display: 'grid',
+    gap: 3,
+    lineHeight: 1.35,
+  },
+  quickCallMissing: {
+    color: 'var(--danger)',
+    fontWeight: 950,
+  },
+  quickCallReady: {
+    color: 'var(--accent)',
+    fontWeight: 950,
+  },
+  quickCallFooterHint: {
+    color: 'var(--text-muted)',
     fontWeight: 750,
   },
   quickCallActions: {
