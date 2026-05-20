@@ -1996,6 +1996,7 @@ export default function Zlecenia() {
   const [currentUser, setCurrentUser] = useState(null);
   const [ekipy, setEkipy] = useState([]);
   const [uzytkownicy, setUzytkownicy] = useState([]);
+  const [oddzialy, setOddzialy] = useState([]);
   const [sprzetItems, setSprzetItems] = useState([]);
   const [tryb, setTryb] = useState(() => {
     const v = localStorage.getItem(VIEW_MODE_KEY) || 'lista';
@@ -2212,10 +2213,11 @@ export default function Zlecenia() {
         'Dyrektor działu sprzedaż',
       ].includes(rola);
       const endpoint = canLoadAllTasks ? `/tasks/wszystkie` : `/tasks`;
-      const [zRes, eRes, uRes, equipmentRes, contactRes, closureRes] = await Promise.all([
+      const [zRes, eRes, uRes, branchesRes, equipmentRes, contactRes, closureRes] = await Promise.all([
         api.get(endpoint, { headers: h }),
         api.get(`/ekipy`, { headers: h }),
         api.get(`/uzytkownicy`, { headers: h }),
+        api.get('/oddzialy', { headers: h }).catch(() => ({ data: [] })),
         api.get('/flota/sprzet', { headers: h }).catch(() => ({ data: [] })),
         api.get('/tasks/client-contacts', { headers: h }).catch(() => ({ data: null })),
         api.get('/tasks/closure-events', { headers: h }).catch(() => ({ data: null })),
@@ -2223,6 +2225,7 @@ export default function Zlecenia() {
       setZlecenia(Array.isArray(zRes.data) ? zRes.data : []);
       setEkipy(Array.isArray(eRes.data) ? eRes.data : []);
       setUzytkownicy(Array.isArray(uRes.data) ? uRes.data : []);
+      setOddzialy(Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data?.oddzialy || []));
       setSprzetItems(Array.isArray(equipmentRes.data) ? equipmentRes.data : (equipmentRes.data?.items || []));
       if (contactRes.data) {
         setClientContacts(normalizeClientContactsPayload(contactRes.data));
@@ -3473,6 +3476,12 @@ export default function Zlecenia() {
   if (currentUser?.oddzial_id) {
     branchLabelsById.set(String(currentUser.oddzial_id), currentUser.oddzial_nazwa || `Oddział #${currentUser.oddzial_id}`);
   }
+  for (const branch of oddzialy) {
+    if (branch.id) {
+      const id = String(branch.id);
+      branchLabelsById.set(id, branch.nazwa || branch.miasto || `Oddział #${id}`);
+    }
+  }
   for (const task of zlecenia) {
     if (task.oddzial_id) {
       const id = String(task.oddzial_id);
@@ -3481,12 +3490,44 @@ export default function Zlecenia() {
       }
     }
   }
+  for (const worker of uzytkownicy) {
+    if (worker.oddzial_id) {
+      const id = String(worker.oddzial_id);
+      if (!branchLabelsById.has(id) || !branchLabelsById.get(id)) {
+        branchLabelsById.set(id, worker.oddzial_nazwa || worker.oddzial || worker.miasto || `Oddział #${id}`);
+      }
+    }
+  }
+  for (const team of ekipy) {
+    if (team.oddzial_id) {
+      const id = String(team.oddzial_id);
+      if (!branchLabelsById.has(id) || !branchLabelsById.get(id)) {
+        branchLabelsById.set(id, team.oddzial_nazwa || team.oddzial || team.miasto || `Oddział #${id}`);
+      }
+    }
+  }
+  for (const item of sprzetItems) {
+    if (item.oddzial_id) {
+      const id = String(item.oddzial_id);
+      if (!branchLabelsById.has(id) || !branchLabelsById.get(id)) {
+        branchLabelsById.set(id, item.oddzial_nazwa || item.oddzial || item.lokalizacja || `Oddział #${id}`);
+      }
+    }
+  }
   const getBranchLabel = (oddzialId) => {
     const id = String(oddzialId || '');
     if (!id) return 'Brak oddziału';
     return branchLabelsById.get(id) || `Oddział #${id}`;
   };
-  const oddzialyOpcje = [...new Set(zlecenia.map((z) => z.oddzial_id).filter(Boolean))];
+  const oddzialyOpcje = [
+    ...new Set([
+      ...zlecenia.map((z) => z.oddzial_id),
+      ...oddzialy.map((oddzial) => oddzial.id),
+      ...uzytkownicy.map((u) => u.oddzial_id),
+      ...ekipy.map((ekipa) => ekipa.oddzial_id),
+      ...sprzetItems.map((item) => item.oddzial_id),
+    ].filter(Boolean).map((value) => String(value))),
+  ];
   const branchSelectOptions = [
     ...new Set([currentUser?.oddzial_id, form.oddzial_id, quickCall.oddzial_id, ...oddzialyOpcje]
       .filter((value) => value !== undefined && value !== null && value !== '')
