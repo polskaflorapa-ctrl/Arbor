@@ -2385,6 +2385,23 @@ export default function Zlecenia() {
     }));
   };
 
+  const focusQuickCallClient = () => {
+    window.setTimeout(() => {
+      quickCallClientInputRef.current?.focus({ preventScroll: true });
+    }, 80);
+  };
+
+  const resetQuickCallDraft = () => {
+    setQuickCall({
+      ...QUICK_CALL_DEFAULTS,
+      oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
+      godzina_rozpoczecia: quickCall.godzina_rozpoczecia || '',
+    });
+    setQuickCallFocused(true);
+    focusQuickCallClient();
+    window.setTimeout(() => setQuickCallFocused(false), 1200);
+  };
+
   const utworzOgledzinyZTelefonu = async () => {
     const missing = [];
     if (!String(quickCall.klient_nazwa || '').trim()) missing.push('klient');
@@ -2429,11 +2446,7 @@ export default function Zlecenia() {
       setSmartFilter('fieldInspection');
       setFiltrStatus('');
       setSzukaj('');
-      setQuickCall({
-        ...QUICK_CALL_DEFAULTS,
-        oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
-        godzina_rozpoczecia: quickCall.godzina_rozpoczecia || '',
-      });
+      resetQuickCallDraft();
       await loadData(currentUser);
       return true;
     } catch (err) {
@@ -3788,6 +3801,7 @@ export default function Zlecenia() {
                     <span>Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.</span>
                     <div style={s.quickCallActions}>
                       <button type="button" style={s.btnSecondary} onClick={otworzNowe}>Pełny formularz</button>
+                      <button type="button" style={s.btnSecondary} onClick={resetQuickCallDraft}>Wyczyść</button>
                       <button
                         type="button"
                         style={{ ...s.btnPrimary, ...(quickCallSaving ? s.formWizardBtnDisabled : {}) }}
