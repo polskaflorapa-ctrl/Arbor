@@ -1964,6 +1964,7 @@ export default function Zlecenia() {
   const { t } = useTranslation();
   const taskPhotoInputRef = useRef(null);
   const quickCallRef = useRef(null);
+  const quickCallClientInputRef = useRef(null);
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2074,12 +2075,13 @@ export default function Zlecenia() {
     setSmartFilter('');
     setFiltrStatus('');
     setQuickCallFocused(true);
-    const scrollTimer = window.setTimeout(() => {
+    const focusPanelTimer = window.setTimeout(() => {
       quickCallRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      quickCallClientInputRef.current?.focus({ preventScroll: true });
     }, 120);
     const focusTimer = window.setTimeout(() => setQuickCallFocused(false), 2400);
     return () => {
-      window.clearTimeout(scrollTimer);
+      window.clearTimeout(focusPanelTimer);
       window.clearTimeout(focusTimer);
     };
   }, [location.search, mozeTworzyc]);
@@ -3691,6 +3693,8 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Klient *</label>
                       <input
+                        ref={quickCallClientInputRef}
+                        data-testid="quick-call-client"
                         style={s.input}
                         placeholder="Imię / firma"
                         value={quickCall.klient_nazwa}

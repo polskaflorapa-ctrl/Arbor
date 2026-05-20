@@ -303,7 +303,13 @@ export default function Sidebar() {
     if (!currentUser) return [];
     if (canCreateQuickActions) {
       return [
-        { label: 'Przyjmij telefon', hint: 'zgłoszenie -> oględziny', path: '/zlecenia?focus=telefon', icon: 'plus' },
+        {
+          id: 'phone-intake',
+          label: 'Przyjmij telefon',
+          hint: 'zgłoszenie -> oględziny',
+          path: () => `/zlecenia?focus=telefon&t=${Date.now()}`,
+          icon: 'plus',
+        },
       ];
     }
     return [];
@@ -484,9 +490,12 @@ export default function Sidebar() {
                   <div style={sb.quickStack}>
                     {quickActions.map((action) => (
                       <button
-                        key={action.path}
+                        key={action.id}
                         type="button"
-                        onClick={() => navigate(action.path)}
+                        onClick={() => {
+                          const target = typeof action.path === 'function' ? action.path() : action.path;
+                          navigate(target);
+                        }}
                         style={sb.quickButton}
                       >
                         <span style={sb.quickIcon}>{ICONS[action.icon]}</span>
