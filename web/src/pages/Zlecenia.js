@@ -3913,7 +3913,7 @@ export default function Zlecenia() {
                       />
                     </div>
                     <div style={s.fg}>
-                      <label style={s.label}>Oddział</label>
+                      <label style={s.label}>Oddział *</label>
                       <select
                         style={s.input}
                         value={quickCall.oddzial_id}

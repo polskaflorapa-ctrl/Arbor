@@ -63,6 +63,11 @@ function teamDisplayName(task) {
   return 'Nieprzypisana';
 }
 
+function dashboardTaskKey(task, index, scope) {
+  const stableId = task?.id ?? task?.numer ?? task?.kod ?? task?.uuid;
+  return stableId ? `${scope}-${stableId}` : `${scope}-row-${index}`;
+}
+
 function AnimatedNumber({ value, duration = 900 }) {
   const [display, setDisplay] = useState(0);
   const raf = useRef(null);
@@ -673,8 +678,8 @@ export default function Dashboard() {
               ) : ostatnie.length === 0 ? (
                 <div style={d.tableEmpty}>Brak zleceń do pokazania.</div>
               ) : (
-                ostatnie.slice(0, 5).map((task) => (
-                  <button key={task.id} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.tableRow}>
+                ostatnie.slice(0, 5).map((task, index) => (
+                  <button key={dashboardTaskKey(task, index, 'recent-table')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.tableRow}>
                     <span style={d.tableId}>{formatOrderId(task)}</span>
                     <span style={d.tableStrong}>{task.klient_nazwa || 'Brak klienta'}</span>
                     <span>{getTaskLocation(task)}</span>
@@ -738,8 +743,8 @@ export default function Dashboard() {
             <div style={d.scheduleList}>
               {scheduleItems.length === 0 ? (
                 <div style={d.tableEmpty}>Brak zaplanowanych prac na dziś.</div>
-              ) : scheduleItems.map((task) => (
-                <button key={task.id} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.scheduleRow}>
+              ) : scheduleItems.map((task, index) => (
+                <button key={dashboardTaskKey(task, index, 'schedule')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.scheduleRow}>
                   <span style={d.scheduleTime}>{formatTaskTime(task)}</span>
                   <span style={d.scheduleMain}>
                     <strong>{task.typ_uslugi || task.klient_nazwa || 'Zlecenie'}</strong>
@@ -987,7 +992,7 @@ export default function Dashboard() {
                   <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Brak zleceń</p>
                 </div>
               ) : ostatnie.map((z, i) => (
-                <div key={z.id}
+                <div key={dashboardTaskKey(z, i, 'recent-card')}
                   onClick={() => navigate(`/zlecenia/${z.id}`)}
                   onMouseEnter={() => setHovered(`z${z.id}`)}
                   onMouseLeave={() => setHovered(null)}
