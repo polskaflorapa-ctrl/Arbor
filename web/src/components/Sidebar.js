@@ -303,7 +303,7 @@ export default function Sidebar() {
     if (!currentUser) return [];
     if (canCreateQuickActions) {
       return [
-        { label: 'Przyjmij telefon', hint: 'zgłoszenie -> oględziny', path: '/zlecenia', icon: 'plus' },
+        { label: 'Przyjmij telefon', hint: 'zgłoszenie -> oględziny', path: '/zlecenia?focus=telefon', icon: 'plus' },
       ];
     }
     return [];

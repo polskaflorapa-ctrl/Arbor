@@ -1963,6 +1963,7 @@ function getClientMessageNextStep(task, diagnostics) {
 export default function Zlecenia() {
   const { t } = useTranslation();
   const taskPhotoInputRef = useRef(null);
+  const quickCallRef = useRef(null);
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2016,6 +2017,7 @@ export default function Zlecenia() {
   const [officePlanSaving, setOfficePlanSaving] = useState(false);
   const [quickCall, setQuickCall] = useState(QUICK_CALL_DEFAULTS);
   const [quickCallSaving, setQuickCallSaving] = useState(false);
+  const [quickCallFocused, setQuickCallFocused] = useState(false);
   const [crewIssueDraft, setCrewIssueDraft] = useState({ typ: 'inne', opis: '' });
   const [crewIssueSaving, setCrewIssueSaving] = useState(false);
   const [commandTab, setCommandTab] = useState('dispatch');
@@ -2064,6 +2066,23 @@ export default function Zlecenia() {
     setFiltrOddzial('');
     setFiltrEkipa('');
   }, [location.search]);
+
+  useEffect(() => {
+    const focus = new URLSearchParams(location.search).get('focus') || '';
+    if (focus !== 'telefon' || !mozeTworzyc) return undefined;
+    setTryb('lista');
+    setSmartFilter('');
+    setFiltrStatus('');
+    setQuickCallFocused(true);
+    const scrollTimer = window.setTimeout(() => {
+      quickCallRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    const focusTimer = window.setTimeout(() => setQuickCallFocused(false), 2400);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(focusTimer);
+    };
+  }, [location.search, mozeTworzyc]);
 
   useEffect(() => {
     localStorage.setItem(TASK_SORT_KEY, TASK_SORT_KEYS.has(sortMode) ? sortMode : 'risk');
@@ -3654,7 +3673,13 @@ export default function Zlecenia() {
                 </div>
               </div>
               {mozeTworzyc ? (
-                <div style={s.quickCallPanel}>
+                <div
+                  ref={quickCallRef}
+                  style={{
+                    ...s.quickCallPanel,
+                    ...(quickCallFocused ? s.quickCallPanelFocused : {}),
+                  }}
+                >
                   <div style={s.quickCallHeader}>
                     <div>
                       <div style={s.dispatchEyebrow}>Telefon do biura</div>
@@ -5752,6 +5777,13 @@ const s = {
     padding: 12,
     marginBottom: 12,
     boxShadow: 'var(--shadow-sm)',
+    scrollMarginTop: 18,
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+  },
+  quickCallPanelFocused: {
+    borderColor: 'var(--accent)',
+    background: 'linear-gradient(135deg, rgba(34,197,94,0.2), var(--glass-bg-strong))',
+    boxShadow: '0 0 0 3px rgba(34,197,94,0.18), var(--shadow-md)',
   },
   quickCallHeader: {
     display: 'flex',
