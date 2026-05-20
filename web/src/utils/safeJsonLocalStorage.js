@@ -17,6 +17,7 @@ export function getLocalStorageJson(key, fallback = null) {
 const LOCAL_STORAGE_JSON_KEYS = new Set([
   'user',
   'zlecenia_workflow_config',
+  'zlecenia_quick_call_draft',
   'arbor_wynagrodzenie_wyceniajacy_reguly_v1',
   'arbor_recent_cities',
 ]);

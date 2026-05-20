@@ -54,6 +54,7 @@ const SMART_FILTER_KEY = 'zlecenia_smart_filter';
 const TASK_SORT_KEY = 'zlecenia_sort_mode';
 const CLIENT_CONTACT_KEY = 'zlecenia_client_contact_state';
 const CLOSURE_DECISION_KEY = 'zlecenia_closure_decision_events';
+const QUICK_CALL_DRAFT_KEY = 'zlecenia_quick_call_draft';
 const ZLECENIA_TRYBY = new Set(['lista', 'kanban', 'nowy', 'edytuj', 'szczegoly']);
 const SMART_FILTERS = [
   { key: 'overdue', label: 'Przeterminowane' },
@@ -147,6 +148,31 @@ const QUICK_CALL_DEFAULTS = Object.freeze({
   opis_pracy: '',
   priorytet: 'Normalny',
 });
+const QUICK_CALL_DRAFT_FIELDS = Object.keys(QUICK_CALL_DEFAULTS);
+const QUICK_CALL_DRAFT_DIRTY_FIELDS = [
+  'klient_nazwa',
+  'klient_telefon',
+  'adres',
+  'miasto',
+  'data_planowana',
+  'wyceniajacy_id',
+  'opis_pracy',
+];
+
+function normalizeQuickCallDraft(raw) {
+  const next = { ...QUICK_CALL_DEFAULTS };
+  if (!raw || typeof raw !== 'object') return next;
+  for (const field of QUICK_CALL_DRAFT_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(raw, field)) {
+      next[field] = raw[field] == null ? '' : String(raw[field]);
+    }
+  }
+  return next;
+}
+
+function hasQuickCallDraftData(draft) {
+  return QUICK_CALL_DRAFT_DIRTY_FIELDS.some((field) => String(draft?.[field] || '').trim());
+}
 const FIELD_PHOTO_TYPES = [
   { key: 'Wycena', label: 'Wycena u klienta' },
   { key: 'Szkic', label: 'Szkic / rysunek' },
@@ -2016,7 +2042,9 @@ export default function Zlecenia() {
   const [contactDueDraft, setContactDueDraft] = useState('');
   const [officePlan, setOfficePlan] = useState(OFFICE_PLAN_DEFAULTS);
   const [officePlanSaving, setOfficePlanSaving] = useState(false);
-  const [quickCall, setQuickCall] = useState(QUICK_CALL_DEFAULTS);
+  const [quickCall, setQuickCall] = useState(() =>
+    normalizeQuickCallDraft(getLocalStorageJson(QUICK_CALL_DRAFT_KEY, QUICK_CALL_DEFAULTS))
+  );
   const [quickCallSaving, setQuickCallSaving] = useState(false);
   const [quickCallFocused, setQuickCallFocused] = useState(false);
   const [crewIssueDraft, setCrewIssueDraft] = useState({ typ: 'inne', opis: '' });
@@ -2097,6 +2125,15 @@ export default function Zlecenia() {
   useEffect(() => {
     localStorage.setItem(CLOSURE_DECISION_KEY, JSON.stringify(closureDecisionEvents));
   }, [closureDecisionEvents]);
+
+  useEffect(() => {
+    const normalized = normalizeQuickCallDraft(quickCall);
+    if (hasQuickCallDraftData(normalized)) {
+      localStorage.setItem(QUICK_CALL_DRAFT_KEY, JSON.stringify(normalized));
+    } else {
+      localStorage.removeItem(QUICK_CALL_DRAFT_KEY);
+    }
+  }, [quickCall]);
  
   useEffect(() => {
     const parsedUser = getLocalStorageJson('user');
@@ -2392,6 +2429,7 @@ export default function Zlecenia() {
   };
 
   const resetQuickCallDraft = () => {
+    localStorage.removeItem(QUICK_CALL_DRAFT_KEY);
     setQuickCall({
       ...QUICK_CALL_DEFAULTS,
       oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
@@ -2456,6 +2494,8 @@ export default function Zlecenia() {
       setQuickCallSaving(false);
     }
   };
+
+  const quickCallHasDraft = hasQuickCallDraftData(quickCall);
  
   const otworzSzczegoly = (z) => {
     setWybraneZlecenie(z);
@@ -3798,7 +3838,10 @@ export default function Zlecenia() {
                     </div>
                   </div>
                   <div style={s.quickCallFooter}>
-                    <span>Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.</span>
+                    <span>
+                      {quickCallHasDraft ? 'Szkic zapisany lokalnie. ' : ''}
+                      Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.
+                    </span>
                     <div style={s.quickCallActions}>
                       <button type="button" style={s.btnSecondary} onClick={otworzNowe}>Pełny formularz</button>
                       <button type="button" style={s.btnSecondary} onClick={resetQuickCallDraft}>Wyczyść</button>
