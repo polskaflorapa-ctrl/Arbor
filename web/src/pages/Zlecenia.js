@@ -3542,6 +3542,9 @@ export default function Zlecenia() {
       String(u.id) === String(form.wyceniajacy_id)
     ));
   const quickCallEstimatorOptions = getEstimatorOptionsForBranch(quickCall.oddzial_id, quickCall.wyceniajacy_id);
+  const quickCallBranchSelected = Boolean(String(quickCall.oddzial_id || '').trim());
+  const quickCallNoEstimatorForBranch = quickCallBranchSelected && quickCallEstimatorOptions.length === 0;
+  const quickCallNeedsEstimatorChoice = quickCallBranchSelected && quickCallEstimatorOptions.length > 1 && !quickCall.wyceniajacy_id;
   const quickCallAutoEstimatorId = !quickCall.wyceniajacy_id && quickCallEstimatorOptions.length === 1
     ? String(quickCallEstimatorOptions[0].id)
     : '';
@@ -3926,7 +3929,10 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Wyceniacz *</label>
                       <select
-                        style={s.input}
+                        style={{
+                          ...s.input,
+                          ...(quickCallNoEstimatorForBranch ? s.inputDanger : {}),
+                        }}
                         value={quickCall.wyceniajacy_id}
                         onChange={(event) => setQuickCallField('wyceniajacy_id', event.target.value)}
                       >
@@ -3935,6 +3941,15 @@ export default function Zlecenia() {
                           <option key={u.id} value={u.id}>{u.imie} {u.nazwisko}</option>
                         ))}
                       </select>
+                      {quickCallNoEstimatorForBranch ? (
+                        <div style={s.quickCallFieldHintDanger}>
+                          Brak wyceniacza w oddziale {getBranchLabel(quickCall.oddzial_id)}.
+                        </div>
+                      ) : quickCallNeedsEstimatorChoice ? (
+                        <div style={s.quickCallFieldHint}>
+                          W oddziale jest kilku wyceniaczy. Wybierz osobę do oględzin.
+                        </div>
+                      ) : null}
                     </div>
                     <div style={{ ...s.fg, gridColumn: '1 / -1' }}>
                       <label style={s.label}>Notatka z rozmowy</label>
@@ -5992,6 +6007,20 @@ const s = {
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: 10,
   },
+  quickCallFieldHint: {
+    marginTop: 6,
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 750,
+    lineHeight: 1.35,
+  },
+  quickCallFieldHintDanger: {
+    marginTop: 6,
+    color: 'var(--danger)',
+    fontSize: 11,
+    fontWeight: 850,
+    lineHeight: 1.35,
+  },
   quickCallFooter: {
     display: 'flex',
     alignItems: 'center',
@@ -7391,6 +7420,7 @@ const s = {
   fg: { display: 'flex', flexDirection: 'column', gap: 5 },
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)', outline: 'none' },
+  inputDanger: { borderColor: 'var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.14)' },
   komunikat: { padding: '12px 16px', borderRadius: 10, marginBottom: 16, fontSize: 14, fontWeight: '500' },
   copyFallback: {
     border: '1px solid var(--border2)',
