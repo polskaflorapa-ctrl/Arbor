@@ -3420,6 +3420,23 @@ export default function Zlecenia() {
   const detailClosureEvents = wybraneZlecenie ? (closureDecisionEvents[String(wybraneZlecenie.id)] || []) : [];
   const areAllVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedTaskIds.includes(id));
   const KANBAN_COLUMNS = TASK_STATUSES;
+  const branchLabelsById = new Map();
+  if (currentUser?.oddzial_id) {
+    branchLabelsById.set(String(currentUser.oddzial_id), currentUser.oddzial_nazwa || `Oddział #${currentUser.oddzial_id}`);
+  }
+  for (const task of zlecenia) {
+    if (task.oddzial_id) {
+      const id = String(task.oddzial_id);
+      if (!branchLabelsById.has(id) || !branchLabelsById.get(id)) {
+        branchLabelsById.set(id, task.oddzial_nazwa || task.oddzial || task.miasto || `Oddział #${id}`);
+      }
+    }
+  }
+  const getBranchLabel = (oddzialId) => {
+    const id = String(oddzialId || '');
+    if (!id) return 'Brak oddziału';
+    return branchLabelsById.get(id) || `Oddział #${id}`;
+  };
   const oddzialyOpcje = [...new Set(zlecenia.map((z) => z.oddzial_id).filter(Boolean))];
   const branchSelectOptions = [
     ...new Set([currentUser?.oddzial_id, form.oddzial_id, quickCall.oddzial_id, ...oddzialyOpcje]
@@ -3810,7 +3827,7 @@ export default function Zlecenia() {
                       >
                         <option value="">— wybierz —</option>
                         {branchSelectOptions.map((oddzialId) => (
-                          <option key={oddzialId} value={oddzialId}>Oddział #{oddzialId}</option>
+                          <option key={oddzialId} value={oddzialId}>{getBranchLabel(oddzialId)}</option>
                         ))}
                       </select>
                     </div>
@@ -4295,7 +4312,7 @@ export default function Zlecenia() {
                 <select style={s.filtrInput} value={filtrOddzial} onChange={e => setFiltrOddzial(e.target.value)}>
                   <option value="">Wszystkie oddziały</option>
                   {oddzialyOpcje.map((oddzial) => (
-                    <option key={oddzial} value={oddzial}>Oddział {oddzial}</option>
+                    <option key={oddzial} value={oddzial}>{getBranchLabel(oddzial)}</option>
                   ))}
                 </select>
               )}
@@ -4611,7 +4628,7 @@ export default function Zlecenia() {
               </select>
               <select style={s.filtrInput} value={filtrOddzial} onChange={e => { setFiltrOddzial(e.target.value); setFiltrEkipa(''); }}>
                 <option value="">{t('common.allBranches')}</option>
-                {oddzialyOpcje.map((id) => <option key={id} value={String(id)}>{t('common.branch')} #{id}</option>)}
+                {oddzialyOpcje.map((id) => <option key={id} value={String(id)}>{getBranchLabel(id)}</option>)}
               </select>
               <select style={s.filtrInput} value={filtrEkipa} onChange={e => setFiltrEkipa(e.target.value)}>
                 <option value="">{t('common.allTeams')}</option>
@@ -5477,7 +5494,7 @@ export default function Zlecenia() {
                   >
                     <option value="">— wybierz oddział —</option>
                     {branchSelectOptions.map((oddzialId) => (
-                      <option key={oddzialId} value={oddzialId}>Oddział #{oddzialId}</option>
+                      <option key={oddzialId} value={oddzialId}>{getBranchLabel(oddzialId)}</option>
                     ))}
                   </select></div>
                 <div style={s.fg}><label style={s.label}>Wyceniacz / oględziny</label>
