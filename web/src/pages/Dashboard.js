@@ -524,7 +524,8 @@ export default function Dashboard() {
       if (!prev.branch) prev.branch = z.miasto || z.oddzial_nazwa || '';
       map.set(name, prev);
     }
-    return Array.from(map.values())
+    return Array.from(map.entries())
+      .map(([key, team]) => ({ ...team, key }))
       .sort((a, b) => b.value - a.value || b.count - a.count)
       .slice(0, 5);
   }, [ostatnie]);
@@ -759,11 +760,11 @@ export default function Dashboard() {
             </div>
             <div style={d.alertList}>
               {alertItems.slice(0, 5).map((alert, index) => (
-                <button key={`${alert.label}-${index}`} type="button" onClick={alert.action} style={d.alertRow}>
+                <button key={`${alert.title}-${index}`} type="button" onClick={() => navigate('/powiadomienia')} style={d.alertRow}>
                   <span style={{ ...d.alertIcon, ...(d[`alertIcon_${alert.tone}`] || {}) }} />
                   <span style={d.alertText}>
-                    <strong>{alert.label}</strong>
-                    <small>{alert.detail}</small>
+                    <strong>{alert.title}</strong>
+                    <small>{alert.sub}</small>
                   </span>
                   <span style={d.scheduleArrow}>{QL_CHEVRON}</span>
                 </button>
