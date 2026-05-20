@@ -2414,6 +2414,29 @@ export default function Zlecenia() {
     setTryb('nowy');
   };
 
+  const otworzPelnyFormularzZTelefonu = () => {
+    const intakeNote = 'Źródło: telefon do biura. Cel: oględziny u klienta i pakiet zdjęć dla biura.';
+    const operatorName = [currentUser?.imie, currentUser?.nazwisko].filter(Boolean).join(' ') || currentUser?.login || 'biuro';
+    setForm(createTaskFormDefaults({
+      ...quickCall,
+      status: TASK_STATUS.WYCENA_TERENOWA,
+      typ_uslugi: 'Wycinka',
+      oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
+      wyceniajacy_id: quickCall.wyceniajacy_id || (isWyceniajacy ? currentUser?.id || '' : ''),
+      opis_pracy: appendUniqueLine(quickCall.opis_pracy, intakeNote),
+      opis: appendUniqueLine(quickCall.opis_pracy, intakeNote),
+      notatki_wewnetrzne: appendUniqueLine(
+        quickCall.opis_pracy,
+        `Telefon przyjął: ${operatorName}`,
+      ),
+      ankieta_uproszczona: true,
+    }));
+    setWybraneZlecenie(null);
+    setFormStep('client');
+    setTaskPhotoDraft({ typ: 'Wycena', opis: '', tagi: 'wycena, teren' });
+    setTryb('nowy');
+  };
+
   const setQuickCallField = (field, value) => {
     setQuickCall((prev) => ({
       ...prev,
@@ -3860,7 +3883,7 @@ export default function Zlecenia() {
                       Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.
                     </span>
                     <div style={s.quickCallActions}>
-                      <button type="button" style={s.btnSecondary} onClick={otworzNowe}>Pełny formularz</button>
+                      <button type="button" style={s.btnSecondary} onClick={otworzPelnyFormularzZTelefonu}>Pełny formularz</button>
                       <button type="button" style={s.btnSecondary} onClick={resetQuickCallDraft}>Wyczyść</button>
                       <button
                         type="button"
