@@ -2186,17 +2186,10 @@ export default function Zlecenia() {
       godzina_rozpoczecia: timePart,
       czas_planowany_godziny: String(wybraneZlecenie.czas_planowany_godziny || wybraneZlecenie.czas_realizacji_godz || '2'),
       ekipa_id: wybraneZlecenie.ekipa_id ? String(wybraneZlecenie.ekipa_id) : '',
-      sprzet_notatka: '',
-      sprzet_ids: [],
+      sprzet_notatka: getTaskCrewEquipmentNote(wybraneZlecenie),
+      sprzet_ids: Array.isArray(wybraneZlecenie.sprzet_ids) ? wybraneZlecenie.sprzet_ids.map(String) : [],
     });
-  }, [
-    wybraneZlecenie?.id,
-    wybraneZlecenie?.data_planowana,
-    wybraneZlecenie?.godzina_rozpoczecia,
-    wybraneZlecenie?.czas_planowany_godziny,
-    wybraneZlecenie?.czas_realizacji_godz,
-    wybraneZlecenie?.ekipa_id,
-  ]);
+  }, [wybraneZlecenie]);
  
   const loadData = async (user) => {
     try {
@@ -2865,6 +2858,9 @@ export default function Zlecenia() {
         czas_planowany_godziny: data?.czas_planowany_godziny || officePlan.czas_planowany_godziny,
         ekipa_id: data?.ekipa_id || officePlan.ekipa_id,
         ekipa_nazwa: data?.ekipa_nazwa || plannedTeam?.nazwa || wybraneZlecenie.ekipa_nazwa,
+        sprzet_ids: data?.sprzet_ids || officePlan.sprzet_ids,
+        sprzet_notatka: data?.sprzet_notatka || officePlan.sprzet_notatka,
+        rezerwacje_sprzetu: data?.rezerwacje_sprzetu || wybraneZlecenie.rezerwacje_sprzetu,
       };
       setWybraneZlecenie(updated);
       setZlecenia((prev) => prev.map((z) => (String(z.id) === String(updated.id) ? { ...z, ...updated } : z)));
@@ -3595,7 +3591,10 @@ export default function Zlecenia() {
   const formPreviewSafetyRequired = formPreviewSafety.filter((item) => item.required && !item.ok);
   const selectedTaskPhotos = wybraneZlecenie?.id ? (taskPhotosById[String(wybraneZlecenie.id)] || []) : [];
   const selectedTaskProblems = wybraneZlecenie?.id ? (taskProblemsById[String(wybraneZlecenie.id)] || []) : [];
-  const fieldPhotoCount = selectedTaskPhotos.filter((photo) => ['Wycena', 'Szkic'].includes(photo.typ)).length;
+  const fieldPhotoCount = selectedTaskPhotos.filter((photo) => {
+    const kind = String(photo.typ || photo.type || '').toLowerCase();
+    return kind.includes('wycen') || kind.includes('szkic') || kind.includes('rys');
+  }).length;
   const detailPlanTeamOptions = wybraneZlecenie
     ? ekipy.filter((ekipa) => (
       !wybraneZlecenie.oddzial_id ||
@@ -3625,6 +3624,71 @@ export default function Zlecenia() {
   const selectedOfficeEquipment = detailEquipmentOptions.filter((item) =>
     (officePlan.sprzet_ids || []).some((id) => String(id) === String(item.id))
   );
+  const officePlanCrewBrief = wybraneZlecenie ? getTaskCrewDescription(wybraneZlecenie) : '';
+  const officePlanEquipmentNote = String(officePlan.sprzet_notatka || '').trim();
+  const officePlanReadinessItems = wybraneZlecenie ? [
+    {
+      key: 'slot',
+      label: 'Termin i start',
+      detail: officePlan.data_planowana && officePlan.godzina_rozpoczecia
+        ? `${officePlan.data_planowana} ${officePlan.godzina_rozpoczecia}`
+        : 'wybierz datę i godzinę startu',
+      ok: Boolean(officePlan.data_planowana && officePlan.godzina_rozpoczecia),
+      required: true,
+    },
+    {
+      key: 'hours',
+      label: 'Czas pracy',
+      detail: Number(officePlan.czas_planowany_godziny) > 0
+        ? `${officePlan.czas_planowany_godziny} h`
+        : 'podaj realny czas pracy brygady',
+      ok: Number(officePlan.czas_planowany_godziny) > 0,
+      required: true,
+    },
+    {
+      key: 'team',
+      label: 'Ekipa',
+      detail: officePlanTeam?.nazwa || 'wybierz brygadę dla zlecenia',
+      ok: Boolean(officePlan.ekipa_id),
+      required: true,
+    },
+    {
+      key: 'photos',
+      label: 'Zdjęcia / szkic',
+      detail: fieldPhotoCount ? `${fieldPhotoCount} zdjęć z oględzin` : 'dodaj zdjęcia lub szkic przed wyjazdem ekipy',
+      ok: fieldPhotoCount > 0,
+      required: false,
+    },
+    {
+      key: 'brief',
+      label: 'Instrukcja dla ekipy',
+      detail: officePlanCrewBrief || officePlanEquipmentNote
+        ? 'jest opis zakresu albo uwagi logistyczne'
+        : 'dopisz zakres pracy lub uwagi dla brygady',
+      ok: Boolean(officePlanCrewBrief || officePlanEquipmentNote),
+      required: false,
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzęt',
+      detail: selectedOfficeEquipment.length
+        ? selectedOfficeEquipment.map((item) => item.nazwa || `#${item.id}`).join(', ')
+        : (officePlanEquipmentNote || 'brak konkretnych rezerwacji sprzętu'),
+      ok: selectedOfficeEquipment.length > 0 || Boolean(officePlanEquipmentNote) || detailEquipmentList.length > 0,
+      required: false,
+    },
+  ] : [];
+  const officePlanRequiredMissing = officePlanReadinessItems.filter((item) => item.required && !item.ok);
+  const officePlanWarningMissing = officePlanReadinessItems.filter((item) => !item.required && !item.ok);
+  const officePlanStatusTone = officePlanRequiredMissing.length ? 'danger' : officePlanWarningMissing.length ? 'warning' : 'good';
+  const officePlanStatusLabel = wybraneZlecenie?.status === TASK_STATUS.ZAPLANOWANE && !officePlanRequiredMissing.length
+    ? 'Zaplanowane'
+    : officePlanRequiredMissing.length
+      ? `Brakuje: ${officePlanRequiredMissing.length}`
+      : officePlanWarningMissing.length
+        ? 'Do doprecyzowania'
+        : 'Gotowe dla ekipy';
+  const officePlanCanSubmit = !officePlanSaving && officePlanRequiredMissing.length === 0;
   const showOfficePlanPanel = Boolean(
     wybraneZlecenie &&
     mozePlanowacBiuro &&
@@ -5052,16 +5116,31 @@ export default function Zlecenia() {
                       Biuro dopina termin, ekipę i sprzęt na podstawie pakietu z wyceny terenowej.
                     </p>
                   </div>
-                  <span style={{ ...s.businessHealth, ...s.businessHealth_good }}>
-                    {wybraneZlecenie.status === TASK_STATUS.ZAPLANOWANE ? 'Zaplanowane' : 'Czeka na plan'}
+                  <span style={{ ...s.businessHealth, ...s[`businessHealth_${officePlanStatusTone}`] }}>
+                    {officePlanStatusLabel}
                   </span>
+                </div>
+                <div style={s.officePlanReadinessGrid}>
+                  {officePlanReadinessItems.map((item) => (
+                    <div
+                      key={item.key}
+                      style={{
+                        ...s.officePlanReadinessItem,
+                        ...(item.ok ? s.detailChecklistOk : item.required ? s.detailChecklistDanger : s.detailChecklistWarn),
+                      }}
+                    >
+                      <span style={s.detailChecklistStatus}>{item.ok ? 'OK' : item.required ? 'Wymagane' : 'Uwaga'}</span>
+                      <strong>{item.label}</strong>
+                      <small>{item.detail}</small>
+                    </div>
+                  ))}
                 </div>
                 <div style={s.officePlanGrid}>
                   <div style={s.fg}>
                     <label style={s.label}>Data</label>
                     <input
                       type="date"
-                      style={s.input}
+                      style={{ ...s.input, ...(!officePlan.data_planowana ? s.inputDanger : {}) }}
                       value={officePlan.data_planowana}
                       onChange={(event) => setOfficePlanField('data_planowana', event.target.value)}
                     />
@@ -5070,7 +5149,7 @@ export default function Zlecenia() {
                     <label style={s.label}>Godzina startu</label>
                     <input
                       type="time"
-                      style={s.input}
+                      style={{ ...s.input, ...(!officePlan.godzina_rozpoczecia ? s.inputDanger : {}) }}
                       value={officePlan.godzina_rozpoczecia}
                       onChange={(event) => setOfficePlanField('godzina_rozpoczecia', event.target.value)}
                     />
@@ -5081,7 +5160,7 @@ export default function Zlecenia() {
                       type="number"
                       min="0.25"
                       step="0.25"
-                      style={s.input}
+                      style={{ ...s.input, ...(Number(officePlan.czas_planowany_godziny) > 0 ? {} : s.inputDanger) }}
                       value={officePlan.czas_planowany_godziny}
                       onChange={(event) => setOfficePlanField('czas_planowany_godziny', event.target.value)}
                     />
@@ -5089,7 +5168,7 @@ export default function Zlecenia() {
                   <div style={s.fg}>
                     <label style={s.label}>Ekipa</label>
                     <select
-                      style={s.input}
+                      style={{ ...s.input, ...(!officePlan.ekipa_id ? s.inputDanger : {}) }}
                       value={officePlan.ekipa_id}
                       onChange={(event) => setOfficePlanField('ekipa_id', event.target.value)}
                     >
@@ -5098,6 +5177,9 @@ export default function Zlecenia() {
                         <option key={ekipa.id} value={ekipa.id}>{ekipa.nazwa || `Ekipa #${ekipa.id}`}</option>
                       ))}
                     </select>
+                    {!detailPlanTeamOptions.length ? (
+                      <small style={s.officePlanFieldDanger}>Brak dostępnej ekipy w oddziale. Najpierw dodaj ekipę albo delegację.</small>
+                    ) : null}
                   </div>
                   <div style={{ ...s.fg, ...s.officePlanEquipmentField }}>
                     <label style={s.label}>Sprzet do rezerwacji</label>
@@ -5139,11 +5221,11 @@ export default function Zlecenia() {
                   </div>
                   <button
                     type="button"
-                    style={{ ...s.bulkBtn, ...(officePlanSaving ? { opacity: 0.62, cursor: 'wait' } : {}) }}
-                    disabled={officePlanSaving}
+                    style={{ ...s.bulkBtn, ...(!officePlanCanSubmit ? { opacity: 0.62, cursor: officePlanSaving ? 'wait' : 'not-allowed' } : {}) }}
+                    disabled={!officePlanCanSubmit}
                     onClick={zapiszPlanBiura}
                   >
-                    {officePlanSaving ? 'Zapisuję...' : 'Zapisz i ustaw Zaplanowane'}
+                    {officePlanSaving ? 'Zapisuję...' : officePlanRequiredMissing.length ? 'Uzupełnij plan' : 'Zapisz i ustaw Zaplanowane'}
                   </button>
                 </div>
               </div>
@@ -7924,6 +8006,24 @@ const s = {
     lineHeight: 1.35,
     maxWidth: 720,
   },
+  officePlanReadinessGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))',
+    gap: 8,
+    marginBottom: 10,
+  },
+  officePlanReadinessItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    padding: '8px 9px',
+    minHeight: 82,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    color: 'var(--text)',
+    minWidth: 0,
+  },
   officePlanGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
@@ -7947,6 +8047,14 @@ const s = {
     color: 'var(--text-muted)',
     fontSize: 12,
     fontWeight: 700,
+    lineHeight: 1.35,
+  },
+  officePlanFieldDanger: {
+    display: 'block',
+    marginTop: 6,
+    color: 'var(--danger)',
+    fontSize: 11,
+    fontWeight: 850,
     lineHeight: 1.35,
   },
   officePlanTextarea: {
