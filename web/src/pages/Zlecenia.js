@@ -1025,17 +1025,30 @@ function getTaskDiagnostics(task, todayIso) {
   if (blockers.length) {
     const first = blockers[0];
     const key = String(first.key || first.label || '').toLowerCase();
+    const isOfficePlanBlocker = status === TASK_STATUS.DO_ZATWIERDZENIA && (
+      key.includes('unassigned') ||
+      key.includes('team') ||
+      key.includes('ekip') ||
+      key.includes('date') ||
+      key.includes('termin') ||
+      key.includes('time') ||
+      key.includes('godzin') ||
+      key.includes('hours') ||
+      key.includes('czas')
+    );
     nextAction = {
       label: `Uzupełnij: ${first.label}`,
       target: key.includes('media') || key.includes('photo') || key.includes('sketch') || key.includes('zdj') || key.includes('szkic')
-        ? 'details'
-        : 'edit',
+        ? 'photos'
+        : isOfficePlanBlocker
+          ? 'officePlan'
+          : 'edit',
     };
   }
   else if (has.noContact) nextAction = { label: 'Uzupełnij kontakt', target: 'edit' };
-  else if (has.unassigned) nextAction = { label: 'Przypisz ekipę', target: 'edit' };
-  else if (has.noDate) nextAction = { label: 'Ustal termin', target: 'edit' };
-  else if (has.noMedia || has.noFieldSketch) nextAction = { label: 'Dodaj zdjęcia', target: 'details' };
+  else if (has.unassigned) nextAction = { label: 'Przypisz ekipę', target: status === TASK_STATUS.DO_ZATWIERDZENIA ? 'officePlan' : 'edit' };
+  else if (has.noDate) nextAction = { label: 'Ustal termin', target: status === TASK_STATUS.DO_ZATWIERDZENIA ? 'officePlan' : 'edit' };
+  else if (has.noMedia || has.noFieldSketch) nextAction = { label: 'Dodaj zdjęcia', target: 'photos' };
   else if (has.noPrice) nextAction = { label: 'Uzupełnij wycenę', target: 'edit' };
   else if (status === TASK_STATUS.NOWE && has.overdue) nextAction = { label: 'Przeplanuj oględziny', target: 'edit' };
   else if (status === TASK_STATUS.NOWE) nextAction = { label: 'Wyślij do wyceniającego', target: 'status', nextStatus: TASK_STATUS.WYCENA_TERENOWA };
@@ -3139,6 +3152,16 @@ export default function Zlecenia() {
     const action = diagnostics.nextAction;
     if (action.target === 'status' && action.nextStatus && mozePrzesuwacStatus) {
       await zmienStatusInline(task.id, action.nextStatus);
+      return;
+    }
+    if (action.target === 'officePlan') {
+      otworzSzczegoly(task);
+      window.setTimeout(() => scrollToDetailSection('officePlan'), 180);
+      return;
+    }
+    if (action.target === 'photos') {
+      otworzSzczegoly(task);
+      window.setTimeout(() => scrollToDetailSection('photos'), 180);
       return;
     }
     if (action.target === 'edit' && mozeEdytowac) {
