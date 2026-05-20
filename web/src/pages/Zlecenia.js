@@ -2437,11 +2437,30 @@ export default function Zlecenia() {
     setTryb('nowy');
   };
 
+  const getEstimatorOptionsForBranch = (branchId, selectedEstimatorId = '') => (
+    uzytkownicy
+      .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy')
+      .filter((u) => (
+        !branchId ||
+        !u.oddzial_id ||
+        String(u.oddzial_id) === String(branchId) ||
+        String(u.id) === String(selectedEstimatorId)
+      ))
+  );
+
   const setQuickCallField = (field, value) => {
+    if (field === 'oddzial_id') {
+      const estimatorsForBranch = getEstimatorOptionsForBranch(value);
+      setQuickCall((prev) => ({
+        ...prev,
+        oddzial_id: value,
+        wyceniajacy_id: estimatorsForBranch.length === 1 ? String(estimatorsForBranch[0].id) : '',
+      }));
+      return;
+    }
     setQuickCall((prev) => ({
       ...prev,
       [field]: value,
-      ...(field === 'oddzial_id' ? { wyceniajacy_id: '' } : {}),
     }));
   };
 
@@ -3481,14 +3500,16 @@ export default function Zlecenia() {
       String(u.oddzial_id) === String(form.oddzial_id) ||
       String(u.id) === String(form.wyceniajacy_id)
     ));
-  const quickCallEstimatorOptions = uzytkownicy
-    .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy')
-    .filter((u) => (
-      !quickCall.oddzial_id ||
-      !u.oddzial_id ||
-      String(u.oddzial_id) === String(quickCall.oddzial_id) ||
-      String(u.id) === String(quickCall.wyceniajacy_id)
+  const quickCallEstimatorOptions = getEstimatorOptionsForBranch(quickCall.oddzial_id, quickCall.wyceniajacy_id);
+  const quickCallAutoEstimatorId = !quickCall.wyceniajacy_id && quickCallEstimatorOptions.length === 1
+    ? String(quickCallEstimatorOptions[0].id)
+    : '';
+  useEffect(() => {
+    if (!quickCallAutoEstimatorId) return;
+    setQuickCall((prev) => (
+      prev.wyceniajacy_id ? prev : { ...prev, wyceniajacy_id: quickCallAutoEstimatorId }
     ));
+  }, [quickCallAutoEstimatorId]);
   const teamOptions = ekipy.filter((ekipa) => (
     !form.oddzial_id ||
     !ekipa.oddzial_id ||
