@@ -927,6 +927,7 @@ export default function ZleceniaScreen() {
     const active = zlecenia.filter((z) => !isTaskClosed(z.status));
     const phone = active.filter((z) => taskStatusIs(z, TASK_STATUS.NOWE)).length;
     const field = active.filter((z) => taskStatusIs(z, TASK_STATUS.WYCENA_TERENOWA) || isFieldDraftTask(z)).length;
+    const signal = active.filter(taskNeedsFieldSignal).length;
     const office = active.filter(taskReadyForOffice).length;
     const plan = active.filter(taskNeedsCrewPlan).length;
     const crew = active.filter(taskReadyForCrew).length;
@@ -934,6 +935,7 @@ export default function ZleceniaScreen() {
       { key: 'myTurn', label: 'Moje teraz', hint: 'moja kolej', value: myTurnCount, color: myTurnCount ? theme.warning : theme.success, icon: 'radio-button-on-outline', mode: 'myTurn' },
       { key: 'phone', label: 'Telefon', hint: 'nowe', value: phone, color: theme.success, icon: 'call-outline', mode: 'active' },
       { key: 'field', label: 'Teren', hint: 'wycena', value: field, color: theme.info, icon: 'camera-outline', mode: 'field' },
+      { key: 'signal', label: 'Sygnal', hint: 'check-in', value: signal, color: signal ? theme.danger : theme.success, icon: 'radio-outline', mode: 'needsSignal' },
       { key: 'office', label: 'Biuro', hint: 'dowody OK', value: office, color: theme.accent, icon: 'file-tray-full-outline', mode: 'officeReady' },
       { key: 'plan', label: 'Plan', hint: 'ekipa/slot', value: plan, color: plan ? theme.warning : theme.success, icon: 'calendar-number-outline', mode: 'needsPlan' },
       { key: 'crew', label: 'Ekipa', hint: 'gotowe', value: crew, color: theme.success, icon: 'people-circle-outline', mode: 'today' },
@@ -972,7 +974,7 @@ export default function ZleceniaScreen() {
           ? `${orderSummary.missingEvidence} zleceń z terenu nie ma pełnego pakietu foto.`
           : 'Lista jest uporządkowana. Możesz pracować po aktywnych zleceniach.';
     return { stages, nextMode, nextTitle, nextSub };
-  }, [myTurnCount, orderSummary.missingEvidence, orderSummary.needsPlan, orderSummary.officeReady, theme, zlecenia]);
+  }, [myTurnCount, orderSummary.missingEvidence, orderSummary.needsPlan, orderSummary.needsSignal, orderSummary.officeReady, theme, zlecenia]);
   const operationsQueue = useMemo(() => {
     const relevant = zlecenia
       .filter((task) => taskIsOperationallyRelevant(task, user, todayKey))
@@ -1636,7 +1638,12 @@ export default function ZleceniaScreen() {
           const stageOwner = taskStageOwnerSummary(z);
           const stageOwnerColor = taskStageOwnerColor(stageOwner.tone, theme);
           const fieldExecution = getTaskFieldExecutionSummary(z);
-          const fieldExecutionColor = fieldExecutionToneColor(fieldExecution.tone, theme);
+          const openProblemCount = taskOpenProblemCount(z);
+          const fieldSignalNeedsAttention = taskNeedsFieldSignal(z);
+          const fieldExecutionColor = openProblemCount > 0
+            ? theme.danger
+            : fieldExecutionToneColor(fieldExecution.tone, theme);
+          const fieldSignalVisible = fieldExecution.relevant || openProblemCount > 0;
           const isMyTurnTask = taskMatchesCurrentUserTurn(z, user);
           const officePlanChecks = taskOfficePlanChecks(z);
           const officePlanReadyCount = officePlanChecks.filter((check) => check.ready).length;
