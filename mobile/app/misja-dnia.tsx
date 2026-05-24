@@ -25,6 +25,7 @@ import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getOfflineQueueSize } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
+import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 
 type TaskItem = {
   id: number;
@@ -55,6 +56,17 @@ type TaskItem = {
   ankieta_uproszczona?: boolean;
   workflow_missing_labels?: unknown[];
   workflow_ready_for_next?: boolean;
+  problem_open?: string | number;
+  issues_open?: string | number;
+  unresolved_issues_count?: string | number;
+  open_problems_count?: string | number;
+  problemy_otwarte?: string | number;
+  active_work_count?: string | number;
+  last_checkin_at?: string | null;
+  active_work_started_at?: string | null;
+  last_work_finished_at?: string | null;
+  problemy?: unknown[];
+  issues?: unknown[];
 };
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -106,6 +118,71 @@ const taskEvidenceCount = (task: TaskItem) => {
   if (total > 0) return total;
   return taskNumber(task.photo_wycena) + taskNumber(task.photo_szkic) + taskNumber(task.photo_dojazd);
 };
+
+function taskOpenProblemCount(task?: TaskItem | null) {
+  const direct = taskNumber(
+    task?.problem_open ??
+    task?.issues_open ??
+    task?.unresolved_issues_count ??
+    task?.open_problems_count ??
+    task?.problemy_otwarte,
+  );
+  if (direct > 0) return direct;
+  const rows = Array.isArray(task?.problemy)
+    ? task.problemy
+    : Array.isArray(task?.issues)
+      ? task.issues
+      : [];
+  return rows.filter((row) => {
+    const item = row as { status?: unknown; state?: unknown };
+    const status = String(item?.status || item?.state || '').toLowerCase();
+    return !status || !status.includes('rozw') && !status.includes('closed') && !status.includes('done');
+  }).length;
+}
+
+function taskNeedsFieldSignal(task: TaskItem) {
+  if (isTaskClosed(task.status)) return false;
+  const status = normalizeTaskStatus(task.status);
+  const fieldExecution = getTaskFieldExecutionSummary(task);
+  const crewStage = status === TASK_STATUS.ZAPLANOWANE || status === TASK_STATUS.W_REALIZACJI;
+  const fieldStage = status === TASK_STATUS.WYCENA_TERENOWA || status === TASK_STATUS.DO_ZATWIERDZENIA || isFieldTask(task);
+  const missingCheckin = fieldExecution.key === 'missing';
+  const missingPhotos = fieldExecution.relevant &&
+    fieldExecution.missingPhotoLabels.length > 0 &&
+    (crewStage || fieldStage);
+  return missingCheckin || missingPhotos || taskOpenProblemCount(task) > 0;
+}
+
+function taskFieldSignalBreakdown(items: TaskItem[]) {
+  const signalRows = items
+    .map((task) => ({
+      task,
+      field: getTaskFieldExecutionSummary(task),
+      problems: taskOpenProblemCount(task),
+    }))
+    .filter((row) => taskNeedsFieldSignal(row.task))
+    .sort((a, b) => {
+      const priority = (row: typeof a) => {
+        if (row.problems > 0) return 0;
+        if (row.field.key === 'missing') return 1;
+        if (row.field.missingPhotoLabels.length > 0) return 2;
+        return 3;
+      };
+      const byPriority = priority(a) - priority(b);
+      if (byPriority !== 0) return byPriority;
+      const byDate = taskSortValue(a.task) - taskSortValue(b.task);
+      if (byDate !== 0) return byDate;
+      return Number(a.task.id || 0) - Number(b.task.id || 0);
+    });
+  return {
+    signalRows,
+    signalCount: signalRows.length,
+    signalCheckin: signalRows.filter((row) => row.field.key === 'missing').length,
+    signalPhotos: signalRows.filter((row) => row.field.relevant && row.field.missingPhotoLabels.length > 0).length,
+    signalProblems: signalRows.reduce((sum, row) => sum + row.problems, 0),
+    signalNext: signalRows[0] || null,
+  };
+}
 
 const taskBriefText = (task?: TaskItem | null) => String(
   task?.opis_pracy || task?.opis || task?.notatki_wewnetrzne || task?.notatki || '',
@@ -431,6 +508,7 @@ export default function MisjaDniaScreen() {
     const missingEvidence = openTasks.filter((task) => taskEvidenceCount(task) <= 0).length;
     const plannedMinutes = openTasks.reduce((acc, task) => acc + taskPlannedMinutes(task), 0);
     const doneCount = routeTasks.filter((task) => isTaskDone(task.status)).length;
+    const signal = taskFieldSignalBreakdown(openTasks);
     return {
       routeTasks,
       openTasks,
@@ -442,6 +520,7 @@ export default function MisjaDniaScreen() {
       plannedMinutes,
       doneCount,
       progressPct: routeTasks.length ? Math.round((doneCount / routeTasks.length) * 100) : 0,
+      ...signal,
     };
   }, [sortedTodayTasks]);
 
@@ -456,6 +535,7 @@ export default function MisjaDniaScreen() {
     const missingContact = openTasks.filter((task) => !task.klient_telefon || !taskAddressLabel(task)).length;
     const checks = taskFieldPackageChecks(next);
     const checksDone = checks.filter((check) => check.done).length;
+    const signal = taskFieldSignalBreakdown(openTasks);
     return {
       fieldTasks,
       openTasks,
@@ -466,6 +546,7 @@ export default function MisjaDniaScreen() {
       checks,
       checksDone,
       packagePct: checks.length ? Math.round((checksDone / checks.length) * 100) : 0,
+      ...signal,
     };
   }, [sortedTodayTasks, userId]);
 
@@ -498,6 +579,15 @@ export default function MisjaDniaScreen() {
           : `${crewRoutePlan.stops.length} punktow gotowych do nawigacji.`,
         done: crewRoutePlan.missingAddresses === 0,
         icon: 'navigate-outline',
+      },
+      {
+        key: 'signal',
+        label: 'Sygnaly do biura',
+        hint: crewRoutePlan.signalCount > 0
+          ? `${crewRoutePlan.signalCount} wymaga reakcji: check-in ${crewRoutePlan.signalCheckin}, foto ${crewRoutePlan.signalPhotos}, problemy ${crewRoutePlan.signalProblems}.`
+          : 'Check-in, foto i problemy sa pod kontrola.',
+        done: crewRoutePlan.signalCount === 0,
+        icon: 'radio-outline',
       },
       {
         key: 'report',
@@ -704,6 +794,41 @@ export default function MisjaDniaScreen() {
               </View>
             </View>
 
+            {crewRoutePlan.signalCount > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={S.fieldSignalAlert}
+                onPress={() => router.push('/zlecenia?mode=needsSignal' as never)}
+              >
+                <View style={S.fieldSignalIcon}>
+                  <Ionicons name="radio-outline" size={18} color={theme.warning} />
+                </View>
+                <View style={S.fieldSignalBody}>
+                  <Text style={S.fieldSignalTitle}>Biuro czeka na sygnal z terenu</Text>
+                  <Text style={S.fieldSignalText} numberOfLines={2}>
+                    {crewRoutePlan.signalNext
+                      ? `${crewRoutePlan.signalNext.task.klient_nazwa || `Zlecenie #${crewRoutePlan.signalNext.task.id}`}: ${crewRoutePlan.signalNext.field.label}. ${crewRoutePlan.signalNext.field.detail}`
+                      : 'Otworz zlecenia wymagajace check-in, zdjec albo problemu.'}
+                  </Text>
+                  <View style={S.fieldSignalPills}>
+                    <View style={S.fieldSignalPill}>
+                      <Text style={S.fieldSignalPillValue}>{crewRoutePlan.signalCheckin}</Text>
+                      <Text style={S.fieldSignalPillLabel}>check-in</Text>
+                    </View>
+                    <View style={S.fieldSignalPill}>
+                      <Text style={S.fieldSignalPillValue}>{crewRoutePlan.signalPhotos}</Text>
+                      <Text style={S.fieldSignalPillLabel}>foto</Text>
+                    </View>
+                    <View style={S.fieldSignalPill}>
+                      <Text style={S.fieldSignalPillValue}>{crewRoutePlan.signalProblems}</Text>
+                      <Text style={S.fieldSignalPillLabel}>problemy</Text>
+                    </View>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.warning} />
+              </TouchableOpacity>
+            ) : null}
+
             <View style={S.crewProgressBox}>
               <View style={S.crewProgressMeta}>
                 <Text style={S.crewProgressText}>Postep trasy</Text>
@@ -837,6 +962,41 @@ export default function MisjaDniaScreen() {
                 <Text style={S.crewStatLabel}>dla biura</Text>
               </View>
             </View>
+
+            {estimatorDayPlan.signalCount > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={S.fieldSignalAlert}
+                onPress={() => router.push('/zlecenia?mode=needsSignal' as never)}
+              >
+                <View style={S.fieldSignalIcon}>
+                  <Ionicons name="radio-outline" size={18} color={theme.warning} />
+                </View>
+                <View style={S.fieldSignalBody}>
+                  <Text style={S.fieldSignalTitle}>Biuro czeka na pakiet wyceny</Text>
+                  <Text style={S.fieldSignalText} numberOfLines={2}>
+                    {estimatorDayPlan.signalNext
+                      ? `${estimatorDayPlan.signalNext.task.klient_nazwa || `Zlecenie #${estimatorDayPlan.signalNext.task.id}`}: ${estimatorDayPlan.signalNext.field.detail}`
+                      : 'Uzupelnij zdjecia, szkic, check-in albo problem w zleceniu.'}
+                  </Text>
+                  <View style={S.fieldSignalPills}>
+                    <View style={S.fieldSignalPill}>
+                      <Text style={S.fieldSignalPillValue}>{estimatorDayPlan.signalCheckin}</Text>
+                      <Text style={S.fieldSignalPillLabel}>check-in</Text>
+                    </View>
+                    <View style={S.fieldSignalPill}>
+                      <Text style={S.fieldSignalPillValue}>{estimatorDayPlan.signalPhotos}</Text>
+                      <Text style={S.fieldSignalPillLabel}>foto</Text>
+                    </View>
+                    <View style={S.fieldSignalPill}>
+                      <Text style={S.fieldSignalPillValue}>{estimatorDayPlan.signalProblems}</Text>
+                      <Text style={S.fieldSignalPillLabel}>problemy</Text>
+                    </View>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.warning} />
+              </TouchableOpacity>
+            ) : null}
 
             {estimatorDayPlan.checks.length ? (
               <>
@@ -1290,6 +1450,43 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   crewStatValue: { fontSize: 15, fontWeight: '900', color: t.text, fontVariant: ['tabular-nums'] },
   crewStatLabel: { fontSize: 9.5, fontWeight: '800', color: t.textMuted, marginTop: 2 },
+  fieldSignalAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderColor: t.warning + '55',
+    borderRadius: 12,
+    backgroundColor: t.warningBg,
+    padding: 10,
+  },
+  fieldSignalIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.warning + '55',
+    backgroundColor: t.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldSignalBody: { flex: 1, gap: 6 },
+  fieldSignalTitle: { fontSize: 12.5, fontWeight: '900', color: t.warning },
+  fieldSignalText: { fontSize: 11.5, fontWeight: '700', color: t.textSub, lineHeight: 16 },
+  fieldSignalPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  fieldSignalPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: t.warning + '33',
+    borderRadius: 999,
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  fieldSignalPillValue: { fontSize: 11, fontWeight: '900', color: t.warning, fontVariant: ['tabular-nums'] },
+  fieldSignalPillLabel: { fontSize: 9.5, fontWeight: '900', color: t.textMuted },
   crewProgressBox: { gap: 7 },
   crewProgressMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   crewProgressText: { fontSize: 11, fontWeight: '800', color: t.textSub },

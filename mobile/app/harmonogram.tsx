@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Linking, Modal, RefreshControl, ScrollView,
+  ActivityIndicator, Linking, Modal, RefreshControl, ScrollView, Share,
   StyleSheet, StatusBar, Text, TouchableOpacity, View
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
@@ -296,6 +296,38 @@ function reservationCoversDay(row: EquipmentReservation, day: string) {
 
 function reservationDisplayName(row: EquipmentReservation) {
   return String(row.sprzet_nazwa || (row.sprzet_id ? `Sprzet #${row.sprzet_id}` : 'Sprzet'));
+}
+
+function taskMapSearchLink(task: any) {
+  const address = taskAddressLabel(task);
+  return address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : '';
+}
+
+function taskBriefScope(task: any) {
+  return compactProtocolValue(
+    protocolLine(task, 'Zakres prac'),
+    task?.opis_pracy || task?.opis || task?.typ_uslugi || 'zakres w karcie zlecenia',
+  );
+}
+
+function taskBriefEquipmentLabel(rows: EquipmentReservation[]) {
+  return rows.length ? rows.map(reservationDisplayName).join(', ') : 'brak rezerwacji';
+}
+
+function buildTaskDayBriefLine(task: any, index: number, equipmentRows: EquipmentReservation[]) {
+  const fieldExecution = getTaskFieldExecutionSummary(task);
+  const phone = taskPhoneNumber(task);
+  const mapLink = taskMapSearchLink(task);
+  return [
+    `${index + 1}. ${taskTimeLabel(task)}-${taskEndTimeLabel(task)} | ${task?.klient_nazwa || `Zlecenie #${task?.id}`}`,
+    `Adres: ${taskAddressLabel(task) || 'brak adresu'}`,
+    `Zakres: ${taskBriefScope(task)}`,
+    `Ekipa: ${task?.ekipa_nazwa || (task?.ekipa_id ? `#${task.ekipa_id}` : 'brak')}`,
+    `Sprzet: ${taskBriefEquipmentLabel(equipmentRows)}`,
+    `Foto: ${taskPhotoReadyCount(task)}/${FIELD_PHOTO_REQUIREMENTS.length} | Teren: ${fieldExecution.label}`,
+    phone ? `Tel: ${phone}` : '',
+    mapLink ? `Mapa: ${mapLink}` : '',
+  ].filter(Boolean).join('\n');
 }
 
 function getCalendarDays(year: number, month: number) {
@@ -756,6 +788,43 @@ export default function HarmonogramScreen() {
     await openRouteInMaps(routePlan.routeStops);
   }, [routePlan.routeStops]);
 
+  const shareDayBrief = useCallback(async (title: string, briefTasks: any[]) => {
+    const rows = [...briefTasks].sort(sortRouteTasks);
+    if (!rows.length) return;
+    const totalHours = rows.reduce((sum, task) => sum + taskNumber(task?.czas_planowany_godziny), 0);
+    const missingAddress = rows.filter((task) => !hasTaskAddress(task)).length;
+    const conflictCount = countScheduleConflicts(rows);
+    const notReady = rows.filter((task) =>
+      !isTaskClosed(task?.status) &&
+      taskExecutionReadyChecks(task, equipmentRowsForTask(task)).some((check) => !check.ok),
+    ).length;
+    const equipmentConflicts = rows.filter((task) =>
+      equipmentRowsForTask(task).some((row) => equipmentConflictKeys.has(String(row.sprzet_id || ''))),
+    ).length;
+    const control = [
+      conflictCount ? `kolizje godzin: ${conflictCount}` : '',
+      equipmentConflicts ? `kolizje sprzetu: ${equipmentConflicts}` : '',
+      notReady ? `niegotowe karty: ${notReady}` : '',
+      missingAddress ? `brak adresu: ${missingAddress}` : '',
+    ].filter(Boolean);
+    const message = [
+      title,
+      `Data: ${selectedDateTitle || selectedDateKey}`,
+      `Punkty: ${rows.length} | Czas: ${totalHours ? totalHours.toFixed(1) : '0'} h`,
+      `Kontrola: ${control.length ? control.join(' | ') : 'plan gotowy'}`,
+      '',
+      ...rows.map((task, index) => buildTaskDayBriefLine(task, index, equipmentRowsForTask(task))),
+      '',
+      'ARBOR-OS: plan dnia z aplikacji.',
+    ].join('\n\n');
+
+    try {
+      await Share.share({ title, message });
+    } catch {
+      // Udostepnianie jest pomocnicze; nie blokujemy pracy harmonogramu.
+    }
+  }, [equipmentConflictKeys, equipmentRowsForTask, selectedDateKey, selectedDateTitle]);
+
   const S = makeStyles(theme);
 
   if (guard.ready && !guard.allowed) {
@@ -1028,23 +1097,45 @@ export default function HarmonogramScreen() {
                         <View style={[S.routeProgressFill, { width: `${routePlan.progressPct}%`, backgroundColor: theme.success }]} />
                       </View>
                     </View>
-                    <TouchableOpacity
-                      style={[
-                        S.routeMapButton,
-                        {
-                          borderColor: routePlan.routeStops.length ? theme.accent : theme.border,
-                          backgroundColor: routePlan.routeStops.length ? theme.accentLight : theme.cardBg,
-                          opacity: routePlan.routeStops.length ? 1 : 0.55,
-                        },
-                      ]}
-                      onPress={() => { void openSelectedDayRoute(); }}
-                      disabled={!routePlan.routeStops.length}
-                    >
-                      <PlatinumIconBadge icon="map-outline" color={routePlan.routeStops.length ? theme.accent : theme.textMuted} size={9} style={S.routeMapIcon} />
-                      <Text style={[S.routeMapText, { color: routePlan.routeStops.length ? theme.accent : theme.textMuted }]}>
-                        Trasa dnia
-                      </Text>
-                    </TouchableOpacity>
+                    <View style={S.routeMapButtons}>
+                      <TouchableOpacity
+                        style={[
+                          S.routeMapButton,
+                          {
+                            borderColor: visibleDayTasks.length ? theme.success + '55' : theme.border,
+                            backgroundColor: visibleDayTasks.length ? theme.successBg : theme.cardBg,
+                            opacity: visibleDayTasks.length ? 1 : 0.55,
+                          },
+                        ]}
+                        onPress={() => {
+                          void triggerHaptic('light');
+                          void shareDayBrief('Odprawa dnia brygady', visibleDayTasks);
+                        }}
+                        disabled={!visibleDayTasks.length}
+                      >
+                        <PlatinumIconBadge icon="document-text-outline" color={visibleDayTasks.length ? theme.success : theme.textMuted} size={9} style={S.routeMapIcon} />
+                        <Text style={[S.routeMapText, { color: visibleDayTasks.length ? theme.success : theme.textMuted }]}>
+                          Odprawa
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          S.routeMapButton,
+                          {
+                            borderColor: routePlan.routeStops.length ? theme.accent : theme.border,
+                            backgroundColor: routePlan.routeStops.length ? theme.accentLight : theme.cardBg,
+                            opacity: routePlan.routeStops.length ? 1 : 0.55,
+                          },
+                        ]}
+                        onPress={() => { void openSelectedDayRoute(); }}
+                        disabled={!routePlan.routeStops.length}
+                      >
+                        <PlatinumIconBadge icon="map-outline" color={routePlan.routeStops.length ? theme.accent : theme.textMuted} size={9} style={S.routeMapIcon} />
+                        <Text style={[S.routeMapText, { color: routePlan.routeStops.length ? theme.accent : theme.textMuted }]}>
+                          Trasa
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                   {routePlan.next ? (
                     <View style={S.nextRouteCard}>
@@ -1596,6 +1687,16 @@ export default function HarmonogramScreen() {
 
                       <View style={S.ekipaActionsRow}>
                         <TouchableOpacity
+                          style={S.routeSmallBtn}
+                          onPress={() => {
+                            void triggerHaptic('light');
+                            void shareDayBrief(`Odprawa - ${ekipa.nazwa || `Ekipa #${ekipa.id}`}`, plan.tasks);
+                          }}
+                        >
+                          <PlatinumIconBadge icon="document-text-outline" color={theme.success} size={8} style={S.routeSmallIcon} />
+                          <Text style={[S.routeSmallText, { color: theme.success }]}>Brief</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
                           style={[
                             S.routeSmallBtn,
                             {
@@ -2128,6 +2229,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   routeProgressFill: {
     height: '100%',
     borderRadius: 999,
+  },
+  routeMapButtons: {
+    gap: 7,
+    alignItems: 'stretch',
   },
   routeMapButton: {
     minHeight: 42,
