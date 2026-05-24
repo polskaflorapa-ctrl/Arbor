@@ -614,6 +614,7 @@ export function getMockData(endpoint) {
     '/flota/rezerwacje': [],
     '/tasks/client-contacts': { contacts: {} },
     '/tasks/closure-events': { events: {} },
+    '/notifications': { notifications: [], unread_count: 0 },
     '/ekipy/ranking': {
       month: { ranking: rankingRows },
       weeks: [{ week_start: new Date().toISOString().slice(0, 10), ranking: rankingRows }],

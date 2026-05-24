@@ -279,6 +279,14 @@ export default function AutoDispatch() {
                         {issue.label} — {issue.action}
                       </span>
                     ))}
+                    <span style={s.riskTaskFooter}>
+                      <span style={(task.issues || []).some(issue => issue.severity === 'critical') ? s.riskBadgeCritical : s.riskBadgeWarn}>
+                        {(task.issues || []).filter(issue => issue.severity === 'critical').length
+                          ? `${(task.issues || []).filter(issue => issue.severity === 'critical').length} kryt.`
+                          : `${(task.issues || []).length} uwag`}
+                      </span>
+                      <span style={s.openTaskCta}>Otworz zlecenie</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -423,6 +431,10 @@ const s = {
   riskTaskTop:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 13 },
   riskTaskClient:{ fontSize: 12, color: 'var(--text-sub)' },
   riskTaskIssue:{ fontSize: 11, color: 'var(--text-muted, var(--text-sub))', lineHeight: 1.35 },
+  riskTaskFooter:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
+  riskBadgeCritical:{ flexShrink: 0, borderRadius: 999, padding: '2px 7px', background: '#fee2e2', color: '#b91c1c', fontSize: 10, fontWeight: 900 },
+  riskBadgeWarn:{ flexShrink: 0, borderRadius: 999, padding: '2px 7px', background: '#fef9c3', color: '#a16207', fontSize: 10, fontWeight: 900 },
+  openTaskCta:{ marginLeft: 'auto', color: '#2563eb', fontSize: 11, fontWeight: 800 },
   qualityPill:{ flexShrink: 0, minWidth: 40, textAlign: 'center', borderRadius: 6, padding: '2px 6px', background: '#f1f5f9', color: '#334155', fontSize: 11, fontWeight: 800 },
   statsBar: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
   statCard: { flex: 1, minWidth: 100, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' },

@@ -34,6 +34,7 @@ function renderAutoDispatch() {
     >
       <Routes>
         <Route path="/auto-dispatch" element={<AutoDispatch />} />
+        <Route path="/zlecenia/:id" element={<div>Szczegoly zlecenia</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -81,7 +82,7 @@ test('loads and renders AI dispatch advisor brief', async () => {
           status: 'Do_Zatwierdzenia',
           quality_score: 46,
           issues: [
-            { key: 'client_phone', label: 'Brak telefonu', action: 'Dodaj numer telefonu klienta.' },
+            { key: 'client_phone', severity: 'critical', label: 'Brak telefonu', action: 'Dodaj numer telefonu klienta.' },
           ],
         },
       ],
@@ -106,6 +107,11 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(screen.getByText('Napraw blokady przed solverem')).toBeInTheDocument();
   expect(screen.getByText('ZL/42')).toBeInTheDocument();
   expect(screen.getByText(/Jan Kowalski/)).toBeInTheDocument();
+  expect(screen.getByText('1 kryt.')).toBeInTheDocument();
+  expect(screen.getByText('Otworz zlecenie')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: /ZL\/42/ }));
+  expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();
 });
 
 test('checks AI advisor before saving and stops when blockers exist', async () => {

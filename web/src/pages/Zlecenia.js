@@ -2880,9 +2880,43 @@ function getTaskDecisionRecommendation(task, meta, checklist, contact = {}) {
   return meta?.diagnostics?.nextAction?.label || 'Otwórz szczegóły i przejdź po checklistach.';
 }
 
+function getTaskDetailActionDetail(action, task, meta, missingItem = null) {
+  if (!action) return 'Sprawdź kartę zlecenia i wybierz kolejny krok.';
+  if (missingItem?.detail) return missingItem.detail;
+  if (action.target === 'photos') return 'Dodaj brakujące zdjęcia, szkic albo dokumentację z terenu.';
+  if (action.target === 'contact') return 'Zapisz kontakt z klientem i kolejny termin follow-upu.';
+  if (action.target === 'officePlan') return 'Uzupełnij termin, ekipę i czas pracy w planie biura.';
+  if (action.target === 'edit') return 'Otwórz formularz i uzupełnij wskazane pole w karcie zlecenia.';
+  if (action.target === 'status') {
+    if (action.nextStatus === TASK_STATUS.ZAKONCZONE) {
+      return 'Zlecenie jest kompletne. Zrób finalną kontrolę jakości i zamknij rozliczenie.';
+    }
+    if (action.nextStatus === TASK_STATUS.W_REALIZACJI) {
+      return 'Plan jest gotowy dla ekipy. Potwierdź start pracy w terenie.';
+    }
+    if (action.nextStatus === TASK_STATUS.ZAPLANOWANE) {
+      return 'Plan biura jest gotowy. Zatwierdź termin i przekaż odprawę ekipie.';
+    }
+    if (action.nextStatus === TASK_STATUS.DO_ZATWIERDZENIA) {
+      return 'Pakiet z oględzin jest kompletny. Przekaż zlecenie do decyzji klienta i biura.';
+    }
+    if (action.nextStatus === TASK_STATUS.WYCENA_TERENOWA) {
+      return 'Dane kontaktowe są gotowe. Przekaż temat specjaliście ds. wyceny.';
+    }
+  }
+  if (meta?.diagnostics?.readyToClose) {
+    return 'Zlecenie wygląda gotowo do zamknięcia po finalnej kontroli jakości.';
+  }
+  return 'Przejdź do wskazanego kroku i domknij najbliższą decyzję.';
+}
+
 function getTaskDetailNextAction(task, meta, checklist) {
   const price = getTaskPriceGuidance(task, meta);
-  if (price.tone === 'danger') return { label: 'Popraw finanse', target: 'edit' };
+  const withDetail = (action, missingItem = null) => ({
+    ...action,
+    detail: action.detail || getTaskDetailActionDetail(action, task, meta, missingItem),
+  });
+  if (price.tone === 'danger') return withDetail({ label: 'Popraw finanse', target: 'edit' });
   const missingRequired = checklist.find((item) => item.required && !item.ok);
   if (missingRequired) {
     const labels = {
@@ -2892,10 +2926,10 @@ function getTaskDetailNextAction(task, meta, checklist) {
       team: 'Przypisz ekipę',
       price: 'Popraw finanse',
     };
-    return { label: labels[missingRequired.key] || `Popraw: ${missingRequired.label}`, target: 'edit' };
+    return withDetail({ label: labels[missingRequired.key] || `Popraw: ${missingRequired.label}`, target: 'edit' }, missingRequired);
   }
-  if (meta?.followup?.overdue) return { label: 'Zapisz kontakt', target: 'contact' };
-  return meta?.diagnostics?.nextAction || { label: 'Otwórz szczegóły', target: 'details' };
+  if (meta?.followup?.overdue) return withDetail({ label: 'Zapisz kontakt', target: 'contact' });
+  return withDetail(meta?.diagnostics?.nextAction || { label: 'Otwórz szczegóły', target: 'details' });
 }
 
 function getRepairActionForItem(item, source, showOfficePlanPanel) {
@@ -6085,6 +6119,9 @@ export default function Zlecenia() {
     : detailRequiredIssues.length
       ? 'warning'
       : detailBusinessMeta?.severity || 'good';
+  const detailReadinessScore = detailBusinessMeta
+    ? Math.max(0, detailBusinessMeta.diagnostics.score - detailSafetyRequiredIssues.length * 22)
+    : null;
   const detailHeroStats = wybraneZlecenie ? [
     {
       label: 'Status',
@@ -6100,7 +6137,7 @@ export default function Zlecenia() {
     },
     {
       label: 'Gotowość',
-      value: detailBusinessMeta ? `${detailBusinessMeta.diagnostics.score}/100` : 'Brak',
+      value: detailReadinessScore !== null ? `${detailReadinessScore}/100` : 'Brak',
       detail: detailRequiredIssues[0]?.label || detailSafetyRequiredIssues[0]?.label || 'Można odprawić bez blokad',
       tone: detailHeroTone,
     },

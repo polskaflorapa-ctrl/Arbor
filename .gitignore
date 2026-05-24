@@ -52,6 +52,7 @@ tmp_*.py
 os-api-3001.log
 web-3002.log
 web-serve-*.log
+web-vite-*.log
 public-web-tunnel.log
 logs/
 .tmp-chrome-*/
