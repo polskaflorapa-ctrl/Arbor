@@ -156,24 +156,28 @@ npm run deploy:pages:cloudflare
 
 ## 7. Netlify alternatywnie
 
-Repo ma juz `netlify.toml`. Netlify powinien wykryc:
+Repo ma juz `netlify.toml`. W tym wariancie Netlify publikuje panel i odpala
+backend Express jako funkcje serverless pod tym samym adresem `/api/*`, wiec
+nie potrzebujesz Rendera dla demo.
+
+Netlify powinien wykryc:
 
 ```text
-Base directory: web
-Build command: npm ci && npm run build
-Publish directory: build
+Build command: npm ci && npm run build -w arbor-web
+Publish directory: web/build
+Functions directory: netlify/functions
 ```
 
-Ustaw zmienna:
+Zmienne ustaw z:
 
 ```text
-REACT_APP_API_URL=https://<arbor-os>.up.railway.app/api
+deploy/netlify-web.env.example
 ```
 
 Lokalny check przed deployem:
 
 ```powershell
-npm run deploy:netlify:check -- https://<arbor-os>.up.railway.app
+npm run deploy:netlify:check
 ```
 
 ## 8. Vercel alternatywnie
