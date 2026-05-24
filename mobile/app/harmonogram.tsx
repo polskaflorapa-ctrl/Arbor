@@ -632,13 +632,14 @@ export default function HarmonogramScreen() {
       setRouteFocusedTaskId('');
       return;
     }
-    setRouteFocusedTaskId(prefTaskRaw);
+    if (prefTaskRaw === routeFocusedTaskId) return;
     const task = sortedDayTasks.find((item) => String(item?.id || '') === prefTaskRaw);
     if (task) {
+      setRouteFocusedTaskId(prefTaskRaw);
       setSelectedTask(task);
       setModalVisible(true);
     }
-  }, [prefTaskRaw, sortedDayTasks]);
+  }, [prefTaskRaw, routeFocusedTaskId, sortedDayTasks]);
   const visibleDayTasks = useMemo(() => {
     if (teamFilter === 'all') return sortedDayTasks;
     if (teamFilter === 'unassigned') return sortedDayTasks.filter((task) => !task.ekipa_id && !task.ekipa_nazwa);

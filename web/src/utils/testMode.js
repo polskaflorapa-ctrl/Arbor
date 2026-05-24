@@ -324,7 +324,13 @@ export function isTestModeEnabled() {
   if (stored !== null) {
     return stored === 'true';
   }
-  return process.env.REACT_APP_TEST_MODE === 'true';
+  const viteEnv = import.meta?.env || {};
+  const legacyEnv = typeof process !== 'undefined' ? (process.env || {}) : {};
+  return (
+    viteEnv.VITE_TEST_MODE === 'true' ||
+    legacyEnv.VITE_TEST_MODE === 'true' ||
+    legacyEnv.REACT_APP_TEST_MODE === 'true'
+  );
 }
 
 /**
