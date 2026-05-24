@@ -2,6 +2,16 @@
 
 Backend API for ARBOR-OS.
 
+## Source Of Truth
+
+`os/` is the production backend for ARBOR. It owns API behavior, database
+migrations, authorization, integrations, and production smoke checks.
+
+`web/server/` is allowed only as a local demo/mock server. If a feature is
+needed by real web or mobile users, implement and verify it here first.
+
+See `../docs/ADR-0001-backend-source-of-truth.md`.
+
 ## Quick Start
 
 1. Install dependencies:
