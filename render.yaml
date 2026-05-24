@@ -75,7 +75,7 @@ services:
     staticPublishPath: ./build
     autoDeployTrigger: commit
     envVars:
-      - key: REACT_APP_API_URL
+      - key: VITE_API_URL
         fromService:
           name: arbor-os
           type: web

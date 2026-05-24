@@ -66,10 +66,36 @@ export default function AutoDispatch() {
   const [advisor, setAdvisor]       = useState(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorError, setAdvisorError] = useState('');
+  const [preflightHold, setPreflightHold] = useState(null);
 
-  const runSolver = useCallback(async (save = false) => {
+  const fetchAdvisorBrief = useCallback(async () => {
+    const token = getStoredToken();
+    const res = await api.get('/ai/dispatch-brief', {
+      params: { date, oddzial_id: user?.oddzial_id },
+      headers: authHeaders(token),
+    });
+    return res.data;
+  }, [date, user?.oddzial_id]);
+
+  const runSolver = useCallback(async (save = false, options = {}) => {
     setLoading(true); setError(''); setSuccess(''); setPlan(null); setSavedPlanId(null);
     try {
+      if (save && !options.skipPreflight) {
+        const brief = advisor?.date === date ? advisor : await fetchAdvisorBrief();
+        setAdvisor(brief);
+        const blocked = Number(brief?.metrics?.blocked || 0);
+        if (blocked > 0) {
+          setPreflightHold({
+            blocked,
+            warnings: Number(brief?.metrics?.warnings || 0),
+            total: Number(brief?.metrics?.tasks_total || 0),
+            ready: Number(brief?.metrics?.ready_for_dispatch || 0),
+          });
+          setError(`AI Dyspozytor zatrzymal zapis planu: ${blocked} zlecen ma blokady krytyczne.`);
+          return;
+        }
+      }
+      setPreflightHold(null);
       const token = getStoredToken();
       const endpoint = save ? '/dispatch/plan/save' : '/dispatch/plan';
       const res = await api.post(endpoint, { date, oddzial_id: user?.oddzial_id }, { headers: authHeaders(token) });
@@ -82,7 +108,7 @@ export default function AutoDispatch() {
     } catch (e) {
       setError(e.response?.data?.error || e.message);
     } finally { setLoading(false); }
-  }, [date, user?.oddzial_id]);
+  }, [advisor, date, fetchAdvisorBrief, user?.oddzial_id]);
 
   const applyPlan = useCallback(async () => {
     if (!savedPlanId) return;
@@ -100,18 +126,15 @@ export default function AutoDispatch() {
     setAdvisorLoading(true);
     setAdvisorError('');
     try {
-      const token = getStoredToken();
-      const res = await api.get('/ai/dispatch-brief', {
-        params: { date, oddzial_id: user?.oddzial_id },
-        headers: authHeaders(token),
-      });
-      setAdvisor(res.data);
+      const brief = await fetchAdvisorBrief();
+      setAdvisor(brief);
+      setPreflightHold(null);
     } catch (e) {
       setAdvisorError(e.response?.data?.error || e.message);
     } finally {
       setAdvisorLoading(false);
     }
-  }, [date, user?.oddzial_id]);
+  }, [fetchAdvisorBrief]);
 
   const stats = plan?.stats;
 
@@ -135,7 +158,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); }}
               style={s.dateInput}
             />
           </div>
@@ -160,6 +183,26 @@ export default function AutoDispatch() {
         {error   && <div style={s.errorBox}>{error}</div>}
         {success && <div style={s.successBox}>{success}</div>}
         {advisorError && <div style={s.errorBox}>{advisorError}</div>}
+
+        {preflightHold && (
+          <div style={s.preflightBox}>
+            <div style={s.preflightText}>
+              <strong>AI Dyspozytor zatrzymal zapis planu.</strong>
+              <span>
+                Gotowe: {preflightHold.ready} / {preflightHold.total}. Blokady: {preflightHold.blocked}.
+                {preflightHold.warnings > 0 ? ` Uwagi: ${preflightHold.warnings}.` : ''}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => runSolver(true, { skipPreflight: true })}
+              disabled={loading}
+              style={s.preflightBypassBtn}
+            >
+              Zapisz mimo blokad
+            </button>
+          </div>
+        )}
 
         {advisor && (
           <section style={s.advisorPanel}>
@@ -358,6 +401,9 @@ const s = {
   applyBtn: { padding: '10px 18px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
   successBox:{ padding: '12px 16px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', marginBottom: 16, fontSize: 14, fontWeight: 600 },
+  preflightBox:{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '12px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', marginBottom: 16 },
+  preflightText:{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, lineHeight: 1.4 },
+  preflightBypassBtn:{ flexShrink: 0, padding: '8px 12px', borderRadius: 7, border: '1px solid #f97316', background: '#fff', color: '#c2410c', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   advisorPanel:{ marginBottom: 20, padding: '16px 18px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' },
   advisorHeader:{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
   advisorEyebrow:{ fontSize: 11, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 0 },

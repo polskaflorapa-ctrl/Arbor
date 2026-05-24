@@ -84,7 +84,7 @@ the same public URL write/read/delete test used by `/api/ops/storage-smoke`.
 8. Before using real customer photos or sending client offer PDFs on Render Free,
    set R2/S3 variables from the storage block above and change `UPLOAD_STORAGE=s3`.
 
-The web service gets `REACT_APP_API_URL` automatically from `arbor-os`.
+The web service gets `VITE_API_URL` automatically from `arbor-os`.
 
 ## 3. Create first production admin
 
@@ -133,7 +133,7 @@ The root `vercel.json` is ready for Vercel Free.
 Set this Vercel environment variable:
 
 ```bash
-REACT_APP_API_URL=https://<arbor-os-url>.onrender.com/api
+VITE_API_URL=https://<arbor-os-url>.onrender.com/api
 ```
 
 Then deploy the same GitHub repo in Vercel.

@@ -347,6 +347,11 @@ export default function Dashboard() {
     navigate('/zlecenia');
   }, [navigate]);
 
+  const openTaskDetail = useCallback((taskId) => {
+    if (!taskId) return;
+    navigate(`/zlecenia/${taskId}`);
+  }, [navigate]);
+
   const runDashboardSearch = useCallback((event) => {
     event.preventDefault();
     const query = searchQuery.trim();
@@ -974,6 +979,7 @@ export default function Dashboard() {
             tasks={allTasks}
             payrollClose={payrollClose}
             onOpenFilter={openSmartTaskFilter}
+            onOpenTask={openTaskDetail}
           />
         )}
 

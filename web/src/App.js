@@ -1,63 +1,65 @@
+import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Zlecenia from './pages/Zlecenia';
-import NoweZlecenie from './pages/NoweZlecenie';
-import Kierownik from './pages/Kierownik';
-import Ekipy from './pages/Ekipy';
-import RaportyCentrum from './pages/RaportyCentrum';
-import Raporty from './pages/Raporty';
-import RaportDzienny from './pages/RaportDzienny';
-import RaportyMobilne from './pages/RaportyMobilne';
-import KpiTydzien from './pages/KpiTydzien';
-import MisjaDnia from './pages/MisjaDnia';
-import AutoplanDnia from './pages/AutoplanDnia';
-import Uzytkownicy from './pages/Uzytkownicy';
-import UzytkownikDetail from './pages/UzytkownikDetail';
-import NowyPracownik from './pages/NowyPracownik';
-import Oddzialy from './pages/Oddzialy';
-import OddzialDetail from './pages/OddzialDetail';
-import Flota from './pages/Flota';
-import MagazynWeb from './pages/MagazynWeb';
-import RezerwacjeSprzetu from './pages/RezerwacjeSprzetu';
-import PotwierdzeniaEkip from './pages/PotwierdzeniaEkip';
-import RankingBrygad from './pages/RankingBrygad';
-import Crm from './pages/Crm';
-import CrmDashboard from './pages/CrmDashboard';
-import CrmPipeline from './pages/CrmPipeline';
-import Powiadomienia from './pages/Powiadomienia';
-import Telefonia from './pages/Telefonia';
-import Harmonogram from './pages/Harmonogram';
-import Ksiegowosc from './pages/Ksiegowosc';
-import WycenaKalendarz from './pages/WycenaKalendarz';
-import BlokadyKalendarza from './pages/BlokadyKalendarza';
-import WycenaRysuj from './pages/WycenaRysuj';
-import ZatwierdzWyceny from './pages/ZatwierdzWyceny';
-import WycenyTerenowe from './pages/WycenyTerenowe';
-import WycenaTerenowaDetail from './pages/WycenaTerenowaDetail';
-import ZarzadzajRolami from './pages/ZarzadzajRolami';
-import Klienci from './pages/Klienci';
-import Ogledziny from './pages/Ogledziny';
-import OgledzinyDokumentacja from './pages/OgledzinyDokumentacja';
-import WyceniajacyHub from './pages/WyceniajacyHub';
-import Profil from './pages/Profil';
-import ZadaniaOperatora from './pages/ZadaniaOperatora';
-import KadryDokumenty from './pages/KadryDokumenty';
-import KartaStanowiskaDruk from './pages/KartaStanowiskaDruk';
-import WynagrodzenieWyceniajacych from './pages/WynagrodzenieWyceniajacych';
-import PayrollM11 from './pages/PayrollM11';
-import Integracje from './pages/Integracje';
-import Eksploruj from './pages/Eksploruj';
-import RozliczeniaFieldEntry from './pages/RozliczeniaFieldEntry';
-import AutoDispatch from './pages/AutoDispatch';
-import BiDashboard from './pages/BiDashboard';
-import HrPanel from './pages/HrPanel';
-import KalendarzZasobow from './pages/KalendarzZasobow';
-import MapaLive from './pages/MapaLive';
 import AiChat from './components/AiChat';
 import { DevPanel } from './components/DevPanel';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Zlecenia = lazy(() => import('./pages/Zlecenia'));
+const NoweZlecenie = lazy(() => import('./pages/NoweZlecenie'));
+const Kierownik = lazy(() => import('./pages/Kierownik'));
+const Ekipy = lazy(() => import('./pages/Ekipy'));
+const RaportyCentrum = lazy(() => import('./pages/RaportyCentrum'));
+const Raporty = lazy(() => import('./pages/Raporty'));
+const RaportDzienny = lazy(() => import('./pages/RaportDzienny'));
+const RaportyMobilne = lazy(() => import('./pages/RaportyMobilne'));
+const KpiTydzien = lazy(() => import('./pages/KpiTydzien'));
+const MisjaDnia = lazy(() => import('./pages/MisjaDnia'));
+const AutoplanDnia = lazy(() => import('./pages/AutoplanDnia'));
+const Uzytkownicy = lazy(() => import('./pages/Uzytkownicy'));
+const UzytkownikDetail = lazy(() => import('./pages/UzytkownikDetail'));
+const NowyPracownik = lazy(() => import('./pages/NowyPracownik'));
+const Oddzialy = lazy(() => import('./pages/Oddzialy'));
+const OddzialDetail = lazy(() => import('./pages/OddzialDetail'));
+const Flota = lazy(() => import('./pages/Flota'));
+const MagazynWeb = lazy(() => import('./pages/MagazynWeb'));
+const RezerwacjeSprzetu = lazy(() => import('./pages/RezerwacjeSprzetu'));
+const PotwierdzeniaEkip = lazy(() => import('./pages/PotwierdzeniaEkip'));
+const RankingBrygad = lazy(() => import('./pages/RankingBrygad'));
+const Crm = lazy(() => import('./pages/Crm'));
+const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
+const CrmPipeline = lazy(() => import('./pages/CrmPipeline'));
+const Powiadomienia = lazy(() => import('./pages/Powiadomienia'));
+const Telefonia = lazy(() => import('./pages/Telefonia'));
+const Harmonogram = lazy(() => import('./pages/Harmonogram'));
+const Ksiegowosc = lazy(() => import('./pages/Ksiegowosc'));
+const WycenaKalendarz = lazy(() => import('./pages/WycenaKalendarz'));
+const BlokadyKalendarza = lazy(() => import('./pages/BlokadyKalendarza'));
+const WycenaRysuj = lazy(() => import('./pages/WycenaRysuj'));
+const ZatwierdzWyceny = lazy(() => import('./pages/ZatwierdzWyceny'));
+const WycenyTerenowe = lazy(() => import('./pages/WycenyTerenowe'));
+const WycenaTerenowaDetail = lazy(() => import('./pages/WycenaTerenowaDetail'));
+const ZarzadzajRolami = lazy(() => import('./pages/ZarzadzajRolami'));
+const Klienci = lazy(() => import('./pages/Klienci'));
+const Ogledziny = lazy(() => import('./pages/Ogledziny'));
+const OgledzinyDokumentacja = lazy(() => import('./pages/OgledzinyDokumentacja'));
+const WyceniajacyHub = lazy(() => import('./pages/WyceniajacyHub'));
+const Profil = lazy(() => import('./pages/Profil'));
+const ZadaniaOperatora = lazy(() => import('./pages/ZadaniaOperatora'));
+const KadryDokumenty = lazy(() => import('./pages/KadryDokumenty'));
+const KartaStanowiskaDruk = lazy(() => import('./pages/KartaStanowiskaDruk'));
+const WynagrodzenieWyceniajacych = lazy(() => import('./pages/WynagrodzenieWyceniajacych'));
+const PayrollM11 = lazy(() => import('./pages/PayrollM11'));
+const Integracje = lazy(() => import('./pages/Integracje'));
+const Eksploruj = lazy(() => import('./pages/Eksploruj'));
+const RozliczeniaFieldEntry = lazy(() => import('./pages/RozliczeniaFieldEntry'));
+const AutoDispatch = lazy(() => import('./pages/AutoDispatch'));
+const BiDashboard = lazy(() => import('./pages/BiDashboard'));
+const HrPanel = lazy(() => import('./pages/HrPanel'));
+const KalendarzZasobow = lazy(() => import('./pages/KalendarzZasobow'));
+const MapaLive = lazy(() => import('./pages/MapaLive'));
 
 // Role constants — single source of truth for App.js route guards
 const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
@@ -72,6 +74,7 @@ function App() {
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AiChat />
         <DevPanel />
+        <Suspense fallback={<div className="loading">Ladowanie...</div>}>
         <Routes>
           {/* Public */}
           <Route path="/" element={<Login />} />
@@ -219,6 +222,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </Suspense>
       </HashRouter>
     </ThemeProvider>
   );

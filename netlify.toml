@@ -6,7 +6,7 @@
   NODE_VERSION = "20"
   NPM_CONFIG_AUDIT = "false"
   NPM_CONFIG_FUND = "false"
-  REACT_APP_API_URL = "/api"
+  VITE_API_URL = "/api"
 
 [functions]
   directory = "netlify/functions"

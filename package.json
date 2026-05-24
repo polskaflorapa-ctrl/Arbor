@@ -32,7 +32,7 @@
     "status:json:strict": "node ./scripts/status.cjs --json --strict",
     "ci:check": "node ./scripts/ci-check.cjs",
     "verify:mobile": "npm run typecheck -w arbor-mobile && npm run lint -w arbor-mobile",
-    "verify:web:test": "npm test -w arbor-web -- --watchAll=false",
+    "verify:web:test": "npm test -w arbor-web",
     "verify:web": "npm run build -w arbor-web",
     "verify:os": "npm run lint -w arbor-os",
     "verify:os:test": "npm test -w arbor-os",

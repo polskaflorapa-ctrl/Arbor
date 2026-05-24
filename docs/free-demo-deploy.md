@@ -144,13 +144,13 @@ Opcja w panelu Cloudflare Pages:
 Build command: npm ci && npm run build -w arbor-web
 Build output directory: web/build
 Environment variable:
-REACT_APP_API_URL=https://<arbor-os>.up.railway.app/api
+VITE_API_URL=https://<arbor-os>.up.railway.app/api
 ```
 
 Opcja z terminala po zalogowaniu `wrangler`:
 
 ```powershell
-$env:REACT_APP_API_URL="https://<arbor-os>.up.railway.app/api"
+$env:VITE_API_URL="https://<arbor-os>.up.railway.app/api"
 npm run deploy:pages:cloudflare
 ```
 
@@ -187,7 +187,7 @@ Repo ma juz `vercel.json`.
 Ustaw:
 
 ```text
-REACT_APP_API_URL=https://<arbor-os>.up.railway.app/api
+VITE_API_URL=https://<arbor-os>.up.railway.app/api
 ```
 
 Output jest `web/build`.
@@ -203,7 +203,7 @@ npm run smoke:render -- https://<arbor-os>.up.railway.app
 ```
 
 Web powinien logowac sie przez Cloudflare Pages / Netlify / Vercel i rozmawiac
-z API przez `REACT_APP_API_URL`.
+z API przez `VITE_API_URL`.
 
 ## Najkrotszy plan na pokaz
 
@@ -211,5 +211,5 @@ z API przez `REACT_APP_API_URL`.
 2. R2 bucket + public URL.
 3. Railway API z `deploy/railway-arbor-os.env.example` albo Koyeb API z `deploy/koyeb-arbor-os.env.example`.
 4. `npm run deploy:prod:bootstrap -- --seed-demo --skip-backup`.
-5. Cloudflare Pages / Netlify / Vercel web z `REACT_APP_API_URL`.
+5. Cloudflare Pages / Netlify / Vercel web z `VITE_API_URL`.
 6. Login admina i pokaz sciezki: telefon -> ogledziny -> zdjecia -> zlecenie -> ekipa.

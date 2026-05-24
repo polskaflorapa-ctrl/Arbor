@@ -1,6 +1,6 @@
 /**
  * Test mode utilities dla web aplikacji.
- * Włącz: REACT_APP_TEST_MODE=true w .env lub przez dev panel
+ * Włącz: VITE_TEST_MODE=true w .env lub przez dev panel
  */
 
 const TEST_MODE_STORAGE_KEY = 'arbor-test-mode';
@@ -491,6 +491,25 @@ export function getMockTaskPhotos(taskId) {
     created_at: new Date(now - (rows.length - index) * 900000).toISOString(),
   }));
 }
+
+export function getMockTaskProblems(taskId) {
+  const id = Number(taskId);
+  if (id === 102) {
+    return [
+      {
+        id: 10201,
+        task_id: id,
+        typ: 'organizacja',
+        opis: 'Klient prosi o potwierdzenie terminu przed wyslaniem ekipy.',
+        status: 'open',
+        created_at: new Date(Date.now() - 45 * 60000).toISOString(),
+        autor: 'Test Specjalista Wyceny',
+      },
+    ];
+  }
+  return [];
+}
+
 function getStoredTestUser() {
   try {
     return JSON.parse(localStorage.getItem('user') || 'null');
@@ -585,6 +604,10 @@ export function getMockData(endpoint) {
     '/tasks/stats': taskStats,
     '/oddzialy': MOCK_DATA.oddzialy,
     '/ekipy': MOCK_DATA.ekipy,
+    '/flota/sprzet': [],
+    '/flota/rezerwacje': [],
+    '/tasks/client-contacts': { contacts: {} },
+    '/tasks/closure-events': { events: {} },
     '/ekipy/ranking': {
       month: { ranking: rankingRows },
       weeks: [{ week_start: new Date().toISOString().slice(0, 10), ranking: rankingRows }],

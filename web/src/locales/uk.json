@@ -728,7 +728,7 @@
     "kommoTitle": "Kommo (зовнішній CRM)",
     "kommoBody": "Воронку, ліди та автоматизацію продажів можна вести в Kommo. ARBOR з'єднується із зовнішнім CRM через інтеграції (вебхуки) — згідно з налаштуванням на сервері.",
     "openKommo": "Відкрити Kommo",
-    "kommoEnvHint": "Щоб показати кнопку Kommo, задайте REACT_APP_KOMMO_APP_URL=https://ваш-піддомен.kommo.com у середовищі фронту.",
+    "kommoEnvHint": "Щоб показати кнопку Kommo, задайте VITE_KOMMO_APP_URL=https://ваш-піддомен.kommo.com у середовищі фронту.",
     "kommoOwnSetupHint": "Підключення власної Kommo (webhook, ID полів, тест): web/docs/kommo-wlasna-instancja.md",
     "releaseChecklistHint": "План продукту (CRM + інше): web/docs/cmr-crm-jesien-checklist.md",
     "dashboard": {

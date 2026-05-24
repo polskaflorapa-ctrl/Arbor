@@ -55,7 +55,7 @@ async function main() {
   console.info("[status] Arbor stack");
   console.info("[status] -------------------------------");
   console.info(`[status] WEB port 3000 open : ${yesNo(webOpen)}`);
-  console.info(`[status] WEB port 3002 open : ${yesNo(altWebOpen)} (CRA fallback)`);
+  console.info(`[status] WEB port 3002 open : ${yesNo(altWebOpen)} (Vite dev fallback)`);
   console.info(`[status] API port 3001 open : ${yesNo(apiOpen)}`);
   console.info(`[status] Proxy target       : ${proxyTarget}`);
   console.info(`[status] API health         : ${yesNo(healthOk)}${healthNote ? ` (${healthNote})` : ""}`);

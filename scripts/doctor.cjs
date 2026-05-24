@@ -9,7 +9,7 @@ async function main() {
 
   console.info("[doctor] Arbor local diagnostics");
   console.info(`[doctor] web:3000 ${webPortOpen ? "OPEN" : "CLOSED"}`);
-  console.info(`[doctor] web:3002 ${webFallbackPortOpen ? "OPEN" : "CLOSED"} (CRA fallback)`);
+  console.info(`[doctor] web:3002 ${webFallbackPortOpen ? "OPEN" : "CLOSED"} (Vite dev fallback)`);
   console.info(`[doctor] api:3001 ${apiPortOpen ? "OPEN" : "CLOSED"}`);
   console.info(`[doctor] proxy target: ${proxyTarget}`);
 

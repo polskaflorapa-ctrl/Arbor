@@ -731,7 +731,7 @@
     "kommoTitle": "Kommo (zewnętrzny CRM)",
     "kommoBody": "Lejek, leady i automatyzacje sprzedaży możesz prowadzić w Kommo. ARBOR łączy się z zewnętrznym CRM przez integracje (webhooki) — np. przekazanie kontekstu zlecenia lub klienta, zgodnie z konfiguracją na serwerze.",
     "openKommo": "Otwórz Kommo",
-    "kommoEnvHint": "Aby pokazać przycisk otwarcia Kommo, ustaw w pliku środowiska frontu: REACT_APP_KOMMO_APP_URL=https://twoj-subdomena.kommo.com",
+    "kommoEnvHint": "Aby pokazać przycisk otwarcia Kommo, ustaw w pliku środowiska frontu: VITE_KOMMO_APP_URL=https://twoj-subdomena.kommo.com",
     "kommoOwnSetupHint": "Podłączenie własnej Kommo (webhook, ID pól, test): web/docs/kommo-wlasna-instancja.md",
     "releaseChecklistHint": "Plan produktu (CRM + reszta): web/docs/cmr-crm-jesien-checklist.md",
     "dashboard": {

@@ -31,7 +31,7 @@ function fmtPlDateTime(iso) {
   }
 }
 
-/** Bazowy URL hosta OS (PDF, publiczny link akceptacji) — z CRA `REACT_APP_API_URL=/api` → origin proxowany. */
+/** Bazowy URL hosta OS (PDF, publiczny link akceptacji) — z Vite `VITE_API_URL=/api` → origin proxowany. */
 function osOrigin() {
   const raw = String(process.env.REACT_APP_API_URL || '').trim();
   if (raw.startsWith('http://') || raw.startsWith('https://')) {

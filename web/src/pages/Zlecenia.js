@@ -4006,6 +4006,32 @@ export default function Zlecenia() {
     setTryb('nowy');
   };
 
+  const focusQuickCallPanel = () => {
+    if (!mozeTworzyc) return;
+    setTryb('lista');
+    setSmartFilter('');
+    setFiltrStatus('');
+    setFiltrTyp('');
+    setFiltrOddzial('');
+    setFiltrEkipa('');
+    setSzukaj('');
+    setQuickCallFocused(true);
+    window.setTimeout(() => {
+      quickCallRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      quickCallClientInputRef.current?.focus({ preventScroll: true });
+    }, 120);
+    window.setTimeout(() => setQuickCallFocused(false), 2400);
+  };
+
+  const focusQuickCallField = (field) => {
+    focusQuickCallPanel();
+    window.setTimeout(() => {
+      const target = document.querySelector(`[data-quick-call-field="${field}"]`);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target?.focus?.({ preventScroll: true });
+    }, 180);
+  };
+
   const otworzPelnyFormularzZTelefonu = () => {
     const intakeNote = 'Źródło: telefon do biura. Cel: oględziny u klienta i pakiet zdjęć dla biura.';
     const operatorName = [currentUser?.imie, currentUser?.nazwisko].filter(Boolean).join(' ') || currentUser?.login || 'biuro';
@@ -4083,12 +4109,14 @@ export default function Zlecenia() {
 
   const getQuickCallMissingFields = () => {
     const missing = [];
+    const selectedEstimatorId = String(quickCall.wyceniajacy_id || '').trim();
+    const hasValidEstimator = selectedEstimatorId && uzytkownicy.some((u) => String(u.id) === selectedEstimatorId);
     if (!String(quickCall.klient_nazwa || '').trim()) missing.push('klient');
     if (!String(quickCall.klient_telefon || '').trim()) missing.push('telefon');
     if (!String(quickCall.adres || '').trim()) missing.push('adres');
     if (!String(quickCall.miasto || '').trim()) missing.push('miasto');
     if (!String(quickCall.data_planowana || '').trim()) missing.push('data oględzin');
-    if (!String(quickCall.wyceniajacy_id || '').trim()) missing.push('specjalista ds. wyceny');
+    if (!hasValidEstimator) missing.push('specjalista ds. wyceny');
     if (canManageAllBranches && !String(quickCall.oddzial_id || '').trim()) missing.push('oddział');
     return missing;
   };
@@ -5499,6 +5527,18 @@ export default function Zlecenia() {
   const selectedVisibleTasks = widoczneZlecenia.filter((z) => selectedTaskIds.includes(z.id));
   const viewRouteHref = getDirectionsHref(widoczneZlecenia.slice(0, 8));
   const selectedRouteHref = getDirectionsHref(selectedVisibleTasks);
+  const hasActiveListFilters = Boolean(filtrStatus || filtrTyp || filtrEkipa || filtrOddzial || szukaj || smartFilter);
+  const emptyListSteps = zlecenia.length === 0
+    ? [
+        { key: 'phone', label: '1. Telefon', detail: 'Zapisz klienta, adres i termin oględzin.' },
+        { key: 'field', label: '2. Oględziny', detail: 'Specjalista dostaje pakiet w mobilce.' },
+        { key: 'office', label: '3. Plan', detail: 'Biuro dopina ekipę, sprzęt i odprawę.' },
+      ]
+    : [
+        { key: 'filters', label: '1. Filtry', detail: 'Wyczyść lub zmień aktywne zawężenie.' },
+        { key: 'risk', label: '2. Ryzyko', detail: 'Wróć do kolejki posortowanej według blokad.' },
+        { key: 'kanban', label: '3. Etapy', detail: 'Przejdź na Kanban, jeśli szukasz statusu.' },
+      ];
   const detailContact = wybraneZlecenie ? getClientContact(wybraneZlecenie.id) : {};
   const detailContactOption = getClientContactOption(detailContact.status);
   const detailFollowupMeta = getContactFollowupMeta(detailContact);
@@ -5698,6 +5738,7 @@ export default function Zlecenia() {
   const quickCallEstimatorLabel = quickCallEstimator
     ? [quickCallEstimator.imie, quickCallEstimator.nazwisko].filter(Boolean).join(' ') || quickCallEstimator.login || `#${quickCallEstimator.id}`
     : '';
+  const quickCallEstimatorReady = Boolean(quickCall.wyceniajacy_id && quickCallEstimatorLabel);
   const quickCallBranchLabel = quickCall.oddzial_id ? getBranchLabel(quickCall.oddzial_id) : '';
   const quickCallInspectionPackage = buildQuickCallInspectionPackage({
     quickCall,
@@ -5711,7 +5752,42 @@ export default function Zlecenia() {
     { key: 'address', label: 'Adres', value: quickCallInspectionPackage.address || 'Brak', ready: Boolean(quickCallInspectionPackage.address) },
     { key: 'slot', label: 'Oględziny', value: quickCallInspectionPackage.slot || 'Brak terminu', ready: Boolean(quickCall.data_planowana) },
     { key: 'branch', label: 'Oddział', value: quickCallBranchLabel || 'Brak', ready: Boolean(quickCall.oddzial_id) },
-    { key: 'estimator', label: 'Specjalista ds. wyceny', value: quickCallEstimatorLabel || 'Brak', ready: Boolean(quickCall.wyceniajacy_id) },
+    { key: 'estimator', label: 'Specjalista ds. wyceny', value: quickCallEstimatorLabel || 'Brak', ready: quickCallEstimatorReady },
+  ];
+  const quickCallReadyCount = quickCallPackagePreview.filter((item) => item.ready).length;
+  const quickCallCompletionPercent = Math.round((quickCallReadyCount / quickCallPackagePreview.length) * 100);
+  const quickCallMissingSummary = quickCallMissingFields.length > 2
+    ? `${quickCallMissingFields.slice(0, 2).join(', ')} +${quickCallMissingFields.length - 2}`
+    : quickCallMissingFields.join(', ');
+  const quickCallIntakeSteps = [
+    {
+      key: 'contact',
+      label: 'Kontakt',
+      detail: quickCall.klient_nazwa && quickCall.klient_telefon ? 'Klient i telefon są gotowe' : 'Uzupełnij klienta i telefon',
+      ready: Boolean(quickCall.klient_nazwa && quickCall.klient_telefon),
+      field: quickCall.klient_nazwa ? 'phone' : 'client',
+    },
+    {
+      key: 'address',
+      label: 'Adres',
+      detail: quickCallInspectionPackage.address || 'Dodaj ulicę i miasto',
+      ready: Boolean(quickCallInspectionPackage.address),
+      field: quickCall.adres ? 'city' : 'address',
+    },
+    {
+      key: 'inspection',
+      label: 'Oględziny',
+      detail: quickCallInspectionPackage.slot || 'Wybierz datę oględzin',
+      ready: Boolean(quickCall.data_planowana),
+      field: 'date',
+    },
+    {
+      key: 'estimator',
+      label: 'Wycena',
+      detail: quickCallEstimatorLabel || 'Przypisz specjalistę ds. wyceny',
+      ready: quickCallEstimatorReady,
+      field: 'estimator',
+    },
   ];
   const quickCallFieldTasks = [
     'Zdjęcia miejsca i drzew',
@@ -6305,12 +6381,49 @@ export default function Zlecenia() {
                     </div>
                     <span style={s.quickCallStatus}>Tworzy: Wycena_Terenowa</span>
                   </div>
+                  <div style={s.quickCallProgressPanel}>
+                    <div style={s.quickCallProgressHead}>
+                      <div>
+                        <span style={s.quickCallProgressLabel}>Kompletność rozmowy</span>
+                        <strong style={s.quickCallProgressValue}>
+                          {quickCallCompletionPercent}% · {quickCallReadyCount}/{quickCallPackagePreview.length}
+                        </strong>
+                      </div>
+                      <span style={quickCallReady ? s.quickCallProgressReady : s.quickCallProgressMissing}>
+                        {quickCallReady ? 'Można utworzyć oględziny' : `Brakuje: ${quickCallMissingSummary || 'danych'}`}
+                      </span>
+                    </div>
+                    <div style={s.quickCallProgressTrack}>
+                      <span style={{ ...s.quickCallProgressFill, width: `${quickCallCompletionPercent}%` }} />
+                    </div>
+                    <div style={s.quickCallStepGrid}>
+                      {quickCallIntakeSteps.map((step) => (
+                        <button
+                          key={step.key}
+                          type="button"
+                          data-testid={`quick-call-step-${step.key}`}
+                          style={{
+                            ...s.quickCallStep,
+                            ...(step.ready ? s.quickCallStepReady : s.quickCallStepMissing),
+                          }}
+                          onClick={() => focusQuickCallField(step.field)}
+                        >
+                          <span style={s.quickCallStepDot}>{step.ready ? '✓' : '!'}</span>
+                          <span style={s.quickCallStepBody}>
+                            <strong>{step.label}</strong>
+                            <small>{step.detail}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div style={s.quickCallGrid}>
                     <div style={s.fg}>
                       <label style={s.label}>Klient *</label>
                       <input
                         ref={quickCallClientInputRef}
                         data-testid="quick-call-client"
+                        data-quick-call-field="client"
                         style={s.input}
                         placeholder="Imię / firma"
                         value={quickCall.klient_nazwa}
@@ -6320,6 +6433,7 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Telefon *</label>
                       <input
+                        data-quick-call-field="phone"
                         style={s.input}
                         placeholder="+48 000 000 000"
                         value={quickCall.klient_telefon}
@@ -6329,6 +6443,7 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Adres *</label>
                       <input
+                        data-quick-call-field="address"
                         style={s.input}
                         placeholder="ulica, numer"
                         value={quickCall.adres}
@@ -6338,6 +6453,7 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Miasto *</label>
                       <CityInput
+                        data-quick-call-field="city"
                         style={s.input}
                         placeholder="Kraków"
                         value={quickCall.miasto}
@@ -6360,6 +6476,7 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Data oględzin *</label>
                       <input
+                        data-quick-call-field="date"
                         style={s.input}
                         type="date"
                         value={quickCall.data_planowana}
@@ -6392,6 +6509,7 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Specjalista ds. wyceny *</label>
                       <select
+                        data-quick-call-field="estimator"
                         style={{
                           ...s.input,
                           ...(quickCallNoEstimatorForBranch ? s.inputDanger : {}),
@@ -7021,7 +7139,63 @@ export default function Zlecenia() {
                   <span style={s.listCardsHeaderText}>Kliknij kartę, aby otworzyć szczegóły</span>
                 </div>
                 {widoczneZlecenia.length === 0 ? (
-                  <div style={{ ...s.card, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>{t('pages.zlecenia.emptyList')}</div>
+                  <div style={s.listEmptyPanel} data-testid="zlecenia-empty-state">
+                    <div style={s.listEmptyMain}>
+                      <span style={s.listEmptyEyebrow}>
+                        {zlecenia.length === 0 ? 'Start operacyjny' : 'Widok bez wyników'}
+                      </span>
+                      <strong style={s.listEmptyTitle}>
+                        {zlecenia.length === 0 ? 'Zacznij od telefonu do biura' : 'Ten filtr nie ma zleceń'}
+                      </strong>
+                      <p style={s.listEmptyText}>
+                        {zlecenia.length === 0
+                          ? 'Najkrótsza ścieżka to szybki formularz: klient, telefon, adres, termin i specjalista ds. wyceny.'
+                          : 'Zlecenia są w systemie, ale obecne filtry nie zwracają żadnej pozycji. Wyczyść je albo wróć do kolejki ryzyka.'}
+                      </p>
+                      <div style={s.listEmptyActions}>
+                        {mozeTworzyc ? (
+                          <button type="button" data-testid="empty-state-phone" style={s.listEmptyPrimaryBtn} onClick={focusQuickCallPanel}>
+                            Przyjmij telefon
+                          </button>
+                        ) : null}
+                        {mozeTworzyc ? (
+                          <button type="button" data-testid="empty-state-full-form" style={s.listEmptySecondaryBtn} onClick={otworzNowe}>
+                            Pełny formularz
+                          </button>
+                        ) : null}
+                        {hasActiveListFilters && zlecenia.length > 0 ? (
+                          <button
+                            type="button"
+                            data-testid="empty-state-clear-filters"
+                            style={s.listEmptySecondaryBtn}
+                            onClick={() => {
+                              setFiltrStatus('');
+                              setFiltrTyp('');
+                              setFiltrEkipa('');
+                              setFiltrOddzial('');
+                              setSzukaj('');
+                              setSmartFilter('');
+                              setSortMode('risk');
+                            }}
+                          >
+                            Wyczyść filtry
+                          </button>
+                        ) : (
+                          <button type="button" data-testid="empty-state-kanban" style={s.listEmptySecondaryBtn} onClick={() => setTryb('kanban')}>
+                            Zobacz Kanban
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div style={s.listEmptyFlow}>
+                      {emptyListSteps.map((item) => (
+                        <div key={item.key} style={s.listEmptyStep}>
+                          <span style={s.listEmptyStepLabel}>{item.label}</span>
+                          <small style={s.listEmptyStepDetail}>{item.detail}</small>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <div className="zlecenia-list-grid" style={s.listCardsGrid}>
                     {widoczneZlecenia.map((z) => {
@@ -9022,6 +9196,124 @@ const s = {
     padding: '5px 9px',
     fontSize: 11,
     fontWeight: 950,
+  },
+  quickCallProgressPanel: {
+    border: '1px solid rgba(20,131,79,0.18)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.82), rgba(229,246,236,0.68))',
+    padding: '10px 11px',
+    marginBottom: 10,
+    display: 'grid',
+    gap: 8,
+  },
+  quickCallProgressHead: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  quickCallProgressLabel: {
+    display: 'block',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    lineHeight: 1.15,
+    textTransform: 'uppercase',
+  },
+  quickCallProgressValue: {
+    display: 'block',
+    marginTop: 2,
+    color: 'var(--text)',
+    fontSize: 15,
+    fontWeight: 950,
+    lineHeight: 1.15,
+  },
+  quickCallProgressReady: {
+    minHeight: 28,
+    border: '1px solid rgba(20,131,79,0.22)',
+    borderRadius: 8,
+    background: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    padding: '5px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  quickCallProgressMissing: {
+    minHeight: 28,
+    border: '1px solid rgba(199,119,0,0.28)',
+    borderRadius: 8,
+    background: 'rgba(251,191,36,0.1)',
+    color: 'var(--warning)',
+    padding: '5px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  quickCallProgressTrack: {
+    height: 8,
+    borderRadius: 8,
+    background: 'rgba(20,131,79,0.1)',
+    overflow: 'hidden',
+  },
+  quickCallProgressFill: {
+    display: 'block',
+    height: '100%',
+    borderRadius: 8,
+    background: 'linear-gradient(90deg, var(--accent), #2FBF71)',
+    transition: 'width 0.2s ease',
+  },
+  quickCallStepGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gap: 7,
+  },
+  quickCallStep: {
+    minWidth: 0,
+    minHeight: 54,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.74)',
+    color: 'var(--text)',
+    padding: '8px 9px',
+    display: 'grid',
+    gridTemplateColumns: '22px minmax(0, 1fr)',
+    gap: 7,
+    alignItems: 'center',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  quickCallStepReady: {
+    border: '1px solid rgba(20,131,79,0.22)',
+    background: 'rgba(34,197,94,0.08)',
+  },
+  quickCallStepMissing: {
+    border: '1px solid rgba(199,119,0,0.26)',
+    background: 'rgba(251,191,36,0.08)',
+  },
+  quickCallStepDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    background: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    fontWeight: 950,
+  },
+  quickCallStepBody: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 2,
+    color: 'var(--text)',
+    fontSize: 12,
+    lineHeight: 1.2,
   },
   quickCallGrid: {
     display: 'grid',
@@ -13245,6 +13537,100 @@ const s = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))',
     gap: 12,
+  },
+  listEmptyPanel: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 14,
+    alignItems: 'stretch',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.9), rgba(229,246,236,0.72))',
+    boxShadow: 'var(--shadow-md)',
+    padding: 16,
+  },
+  listEmptyMain: {
+    minWidth: 0,
+    display: 'grid',
+    alignContent: 'center',
+    gap: 7,
+  },
+  listEmptyEyebrow: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 950,
+    lineHeight: 1.15,
+    textTransform: 'uppercase',
+  },
+  listEmptyTitle: {
+    color: 'var(--text)',
+    fontSize: 22,
+    lineHeight: 1.15,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  listEmptyText: {
+    margin: 0,
+    color: 'var(--text-sub)',
+    fontSize: 13,
+    fontWeight: 740,
+    lineHeight: 1.4,
+    maxWidth: 680,
+  },
+  listEmptyActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  listEmptyPrimaryBtn: {
+    minHeight: 38,
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent)',
+    color: '#fff',
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 950,
+    fontFamily: 'inherit',
+  },
+  listEmptySecondaryBtn: {
+    minHeight: 38,
+    border: '1px solid rgba(20,131,79,0.24)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.78)',
+    color: 'var(--accent)',
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+    fontFamily: 'inherit',
+  },
+  listEmptyFlow: {
+    display: 'grid',
+    gap: 8,
+  },
+  listEmptyStep: {
+    minWidth: 0,
+    border: '1px solid rgba(20,131,79,0.16)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.72)',
+    padding: '10px 11px',
+    display: 'grid',
+    gap: 3,
+  },
+  listEmptyStepLabel: {
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 950,
+    lineHeight: 1.2,
+  },
+  listEmptyStepDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 760,
+    lineHeight: 1.3,
   },
   listTaskCard: {
     background: 'rgba(18,24,41,0.75)',

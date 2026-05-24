@@ -40,13 +40,13 @@ function mainChecks() {
   assert(rootPackage.workspaces?.includes('os'), 'Root package workspaces should include os.');
   assert(rootPackage.dependencies?.['serverless-http'], 'Root package should include serverless-http for Netlify API functions.');
   assert(rootPackage.dependencies?.['@netlify/database'], 'Root package should include @netlify/database for Netlify Database support.');
-  assert(webPackage.scripts?.build === 'react-scripts build', 'arbor-web build script should run CRA build.');
+  assert(webPackage.scripts?.build === 'vite build', 'arbor-web build script should run Vite build.');
 
   assert(/\[build\]/.test(netlifyToml), 'netlify.toml is missing [build].');
   assert(/command\s*=\s*"npm ci && npm run build -w arbor-web"/.test(netlifyToml), 'netlify.toml build command is unexpected.');
   assert(/publish\s*=\s*"web\/build"/.test(netlifyToml), 'netlify.toml should publish web/build.');
   assert(/NODE_VERSION\s*=\s*"20"/.test(netlifyToml), 'netlify.toml should pin Node 20.');
-  assert(/REACT_APP_API_URL\s*=\s*"\/api"/.test(netlifyToml), 'netlify.toml should build the web app against same-origin /api.');
+  assert(/VITE_API_URL\s*=\s*"\/api"/.test(netlifyToml), 'netlify.toml should build the web app against same-origin /api.');
   assert(/\[functions\]/.test(netlifyToml), 'netlify.toml is missing [functions].');
   assert(/directory\s*=\s*"netlify\/functions"/.test(netlifyToml), 'netlify.toml should use netlify/functions.');
   assert(/from\s*=\s*"\/api\/\*"/.test(netlifyToml), 'netlify.toml should route /api/* to the API function.');

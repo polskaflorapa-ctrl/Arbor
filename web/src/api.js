@@ -14,11 +14,12 @@ import {
   getMockTaskDetail,
   getMockTaskLogi,
   getMockTaskPhotos,
+  getMockTaskProblems,
   mockMarkTaskFinishedInTestMode,
   getMockQuotationDetail,
 } from './utils/testMode';
 
-/** CRA dev: REACT_APP_API_URL=/api + `src/setupProxy.js` (ARBOR_API_PROXY_TARGET) — omija CORS. */
+/** Vite dev: API_URL=/api + proxy z `vite.config.js` (ARBOR_API_PROXY_TARGET) omija CORS. */
 const API_URL = getReactApiBase();
 let isRedirectingToLogin = false;
 const API_URL_WITHOUT_API_SUFFIX = API_URL.replace(/\/api\/?$/, '');
@@ -109,6 +110,18 @@ function getTestModeMockResponse(config) {
   if (mTasksPhotos && method === 'get') {
     return {
       data: getMockTaskPhotos(mTasksPhotos[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksProblems = path.match(/^\/tasks\/(\d+)\/problemy$/);
+  if (mTasksProblems && method === 'get') {
+    return {
+      data: getMockTaskProblems(mTasksProblems[1]),
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -312,7 +325,7 @@ api.interceptors.response.use(
       networkCooldownUntil = Date.now() + NETWORK_COOLDOWN_MS;
       error.userMessage =
         'Backend API nie odpowiada (brama/proxy). Uruchom API: w katalogu projektu `npm run server` lub `cd server && npm start` ' +
-        '(domyślnie http://localhost:3001). W dev CRA żądania `/api` idą tam przez `src/setupProxy.js` — ustaw `ARBOR_API_PROXY_TARGET` w `.env.local`, jeśli API jest na innym hoście/porcie.';
+        '(domyślnie http://localhost:3001). W dev Vite żądania `/api` idą przez proxy w `vite.config.js` — ustaw `ARBOR_API_PROXY_TARGET` w `.env.local`, jeśli API jest na innym hoście/porcie.';
     } else if (error.response?.status >= 500) {
       networkCooldownUntil = Date.now() + NETWORK_COOLDOWN_MS;
       error.userMessage = `Błąd serwera API (${requestDebug.method} ${requestDebug.fullUrl || requestDebug.urlPath}).`;
