@@ -616,6 +616,63 @@ export function getMockData(endpoint) {
     '/uzytkownicy': scopeMockUsers(MOCK_DATA.uzytkownicy, currentUser),
     '/wyceny': MOCK_DATA.wyceny,
     '/raporty/ranking-brygad': rankingBrygad,
+    '/ai/dispatch-brief': {
+      source: 'rules',
+      date: digestDate,
+      summary: 'Testowy dyspozytor wskazuje najpierw blokady danych, potem trasy.',
+      metrics: {
+        tasks_total: 5,
+        ready_for_dispatch: 3,
+        blocked: 2,
+        warnings: 2,
+        overdue: 1,
+        unassigned: 1,
+        missing_gps: 1,
+        low_margin: 1,
+        teams_available: 2,
+        total_value: 18400,
+        avg_quality: 76,
+      },
+      recommendations: [
+        {
+          priority: 'high',
+          title: 'Napraw 2 zlecenia przed solverem',
+          rationale: 'Braki krytyczne w danych moga zablokowac dobry plan dnia.',
+          suggested_action: 'Uzupelnij telefon, termin i zakres w zleceniach o najnizszej jakosci.',
+          risk: 'high',
+        },
+        {
+          priority: 'medium',
+          title: 'Dodaj pinezke GPS do adresu',
+          rationale: 'Bez wspolrzednych solver bazuje na przyblizeniach trasy.',
+          suggested_action: 'Otworz ryzykowne zlecenie i ustaw pin lokalizacji.',
+          risk: 'medium',
+        },
+      ],
+      top_tasks: [
+        {
+          task_id: 102,
+          task_numer: 'TEST-102',
+          client: 'Wspolnota Zielona 8',
+          status: 'Wycena_Terenowa',
+          quality_score: 48,
+          issues: [
+            { key: 'price', severity: 'critical', label: 'Brak ceny', action: 'Uzupelnij cene przed planowaniem.' },
+            { key: 'duration', severity: 'critical', label: 'Brak czasu', action: 'Dodaj planowany czas pracy.' },
+          ],
+        },
+        {
+          task_id: 103,
+          task_numer: 'TEST-103',
+          client: 'Osiedle Lesne Tarasy',
+          status: 'Do_Zatwierdzenia',
+          quality_score: 84,
+          issues: [
+            { key: 'gps', severity: 'warning', label: 'Brak pinezki GPS', action: 'Dodaj pinezke lokalizacji.' },
+          ],
+        },
+      ],
+    },
     '/automations/daily-digest/preview': operationalDigestPreview,
     '/automations/run-daily': {
       success: true,
