@@ -29,6 +29,7 @@ import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getRoleDisplayName } from '../utils/role-display';
+import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { TASK_STATUS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
 // ─── Typy ikon Ionicons ────────────────────────────────────────────────────────
@@ -154,6 +155,55 @@ function dashboardFocusHint(path: string) {
   return hints[path] || 'Otworz modul i kontynuuj prace.';
 }
 
+function dashboardRoleText(role: unknown) {
+  return String(role || '').toLowerCase();
+}
+
+function isEstimatorRoleValue(role: unknown) {
+  return dashboardRoleText(role).includes('wyceniaj');
+}
+
+function filterDashboardOrdersForUser(tasks: any[], user: any) {
+  if (!isEstimatorRoleValue(user?.rola)) return tasks;
+  return tasks.filter((task) => String(task?.wyceniajacy_id || '') === String(user?.id || ''));
+}
+
+function dashboardNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function dashboardOpenProblemCount(task: any) {
+  const direct = dashboardNumber(
+    task?.problem_open ??
+    task?.issues_open ??
+    task?.unresolved_issues_count ??
+    task?.open_problems_count ??
+    task?.problemy_otwarte,
+  );
+  if (direct > 0) return direct;
+  const rows = Array.isArray(task?.problemy)
+    ? task.problemy
+    : Array.isArray(task?.issues)
+      ? task.issues
+      : [];
+  return rows.filter((row: any) => {
+    const status = String(row?.status || row?.state || '').toLowerCase();
+    return !status || (!status.includes('rozw') && !status.includes('closed') && !status.includes('done'));
+  }).length;
+}
+
+function dashboardTaskNeedsSignal(task: any) {
+  if (isTaskClosed(task?.status)) return false;
+  const status = normalizeTaskStatus(task?.status);
+  const field = getTaskFieldExecutionSummary(task);
+  const crewStage = status === TASK_STATUS.ZAPLANOWANE || status === TASK_STATUS.W_REALIZACJI;
+  const fieldStage = status === TASK_STATUS.WYCENA_TERENOWA || status === TASK_STATUS.DO_ZATWIERDZENIA;
+  const missingCheckin = field.key === 'missing';
+  const missingPhotos = field.relevant && field.missingPhotoLabels.length > 0 && (crewStage || fieldStage);
+  return missingCheckin || missingPhotos || dashboardOpenProblemCount(task) > 0;
+}
+
 export default function DashboardScreen() {
   const { theme } = useTheme();
   const { language, t } = useLanguage();
@@ -176,17 +226,17 @@ export default function DashboardScreen() {
       setUser(u);
       const h = { Authorization: `Bearer ${token}` };
 
-      // Wyceniający nie ma dostępu do zleceń — skip fetching
-      if (u.rola === 'Wyceniający') { setLoadError(null); return; }
-
       const endpoint = (u.rola === 'Brygadzista' || u.rola === 'Pomocnik')
         ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
+      const shouldLoadStats = !isEstimatorRoleValue(u.rola);
 
       const [zRes, sRes] = await Promise.all([
         fetchJsonWithStatus(endpoint, h),
-        fetchJsonWithStatus(`${API_URL}/tasks/stats`, h),
+        shouldLoadStats
+          ? fetchJsonWithStatus(`${API_URL}/tasks/stats`, h)
+          : Promise.resolve({ ok: true, status: 200, data: stats }),
       ]);
-      const nextOrders = zRes.ok ? readArrayPayload(zRes.data) : zlecenia;
+      const nextOrders = zRes.ok ? filterDashboardOrdersForUser(readArrayPayload(zRes.data), u) : zlecenia;
       const nextStats = sRes.ok && sRes.data && typeof sRes.data === 'object' ? sRes.data : stats;
       // Najpierw twarde błędy HTTP — wcześniej szły bezgłośnie.
       if (!zRes.ok && !sRes.ok) {
@@ -322,6 +372,32 @@ export default function DashboardScreen() {
   const workflowActiveStep = workflowSteps.find((step) => step.key !== 'zamkniecie' && step.value > 0) || workflowSteps[0];
   const workflowTotal = workflowSteps.reduce((sum, step) => sum + (step.key === 'ekipa' ? 0 : step.value), 0) + plannedCount + inProgressCount;
   const workflowDoneLabel = `${doneCount}/${Math.max(totalCount, workflowTotal, doneCount)}`;
+  const dashboardSignal = useMemo(() => {
+    const active = zlecenia.filter((task) => !isTaskClosed(task?.status));
+    const rows = active
+      .map((task) => {
+        const field = getTaskFieldExecutionSummary(task);
+        const problems = dashboardOpenProblemCount(task);
+        const needs = dashboardTaskNeedsSignal(task);
+        const priority = problems > 0 ? 0 : field.key === 'missing' ? 1 : field.missingPhotoLabels.length > 0 ? 2 : 3;
+        return { task, field, problems, needs, priority };
+      })
+      .filter((row) => row.needs)
+      .sort((a, b) => a.priority - b.priority);
+    const checkin = rows.filter((row) => row.field.key === 'missing').length;
+    const photos = rows.filter((row) => row.field.missingPhotoLabels.length > 0).length;
+    const problems = rows.reduce((sum, row) => sum + row.problems, 0);
+    const next = rows[0] || null;
+    return {
+      total: rows.length,
+      checkin,
+      photos,
+      problems,
+      next,
+      color: rows.length ? ARBOR_UI.danger : ARBOR_UI.leaf,
+      background: rows.length ? ARBOR_UI.dangerSoft : ARBOR_UI.leafSoft,
+    };
+  }, [zlecenia]);
   const roleBrief = isWyceniajacy
     ? { title: 'Tryb specjalisty ds. wyceny', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
     : isSpecjalista
@@ -655,6 +731,51 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {(zlecenia.length > 0 || isCrew || isWyceniajacy) ? (
+          <TouchableOpacity
+            style={[
+              S.signalCard,
+              {
+                borderColor: dashboardSignal.color + '55',
+                backgroundColor: dashboardSignal.background,
+              },
+            ]}
+            onPress={() => {
+              void openWithContext('/zlecenia', dashboardSignal.total ? 'Brak sygnalu' : 'Sygnaly terenowe', 'dashboard-field-signal');
+            }}
+          >
+            <View style={[S.signalIcon, { borderColor: dashboardSignal.color + '55', backgroundColor: ARBOR_UI.paper }]}>
+              <Ionicons name={dashboardSignal.total ? 'radio-outline' : 'checkmark-done-outline'} size={20} color={dashboardSignal.color} />
+            </View>
+            <View style={S.signalBody}>
+              <View style={S.signalTop}>
+                <Text style={[S.signalTitle, { color: dashboardSignal.color }]}>
+                  {dashboardSignal.total ? 'Brak sygnalu z terenu' : 'Sygnaly terenowe OK'}
+                </Text>
+                <Text style={[S.signalCount, { color: dashboardSignal.color }]}>{dashboardSignal.total}</Text>
+              </View>
+              <Text style={S.signalSub} numberOfLines={2}>
+                {dashboardSignal.next
+                  ? `${dashboardSignal.next.task?.klient_nazwa || `Zlecenie #${dashboardSignal.next.task?.id}`}: ${dashboardSignal.next.problems > 0 ? `${dashboardSignal.next.problems} problem` : dashboardSignal.next.field.detail}`
+                  : 'Nie ma blokad check-in, zdjec ani otwartych problemow.'}
+              </Text>
+              <View style={S.signalPills}>
+                {[
+                  { key: 'checkin', label: 'Check-in', value: dashboardSignal.checkin },
+                  { key: 'photos', label: 'Foto', value: dashboardSignal.photos },
+                  { key: 'problems', label: 'Problemy', value: dashboardSignal.problems },
+                ].map((item) => (
+                  <View key={item.key} style={[S.signalPill, { borderColor: dashboardSignal.color + '40', backgroundColor: ARBOR_UI.paper }]}>
+                    <Text style={[S.signalPillValue, { color: dashboardSignal.color }]}>{item.value}</Text>
+                    <Text style={S.signalPillLabel}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={dashboardSignal.color} />
+          </TouchableOpacity>
+        ) : null}
+
         <View style={S.workflowCard}>
           <View style={S.workflowHead}>
             <View style={S.workflowTitleBlock}>
@@ -727,6 +848,41 @@ export default function DashboardScreen() {
               <Text style={S.roleBriefBtnText}>{roleBrief.action}</Text>
             </TouchableOpacity>
           </View>
+          {dashboardSignal.total > 0 ? (
+            <TouchableOpacity
+              style={{
+                marginTop: 10,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: dashboardSignal.color + '55',
+                backgroundColor: dashboardSignal.background,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+              }}
+              onPress={() => {
+                const taskId = dashboardSignal.next?.task?.id;
+                void openWithContext(
+                  taskId ? `/zlecenie/${taskId}` : '/zlecenia',
+                  'Sygnały terenowe',
+                  'dashboard-field-signal',
+                );
+              }}
+            >
+              <Ionicons name="radio-outline" size={18} color={dashboardSignal.color} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: dashboardSignal.color, fontWeight: '900', fontSize: 12 }}>
+                  {dashboardSignal.total} zleceń wymaga sygnału z terenu
+                </Text>
+                <Text style={{ color: theme.textSub, fontSize: 11, marginTop: 2 }}>
+                  Check-in: {dashboardSignal.checkin} / Foto: {dashboardSignal.photos} / Problemy: {dashboardSignal.problems}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={dashboardSignal.color} />
+            </TouchableOpacity>
+          ) : null}
           <View style={S.workflowFooter}>
             <Text style={S.workflowFooterText}>Zamkniete</Text>
             <Text style={S.workflowFooterValue}>{workflowDoneLabel}</Text>
@@ -1151,6 +1307,54 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   opsMetricValue: { color: ARBOR_UI.forest, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
   opsMetricLabel: { color: ARBOR_UI.muted, fontSize: 11, fontWeight: '800' },
   opsMetricDivider: { width: 1, backgroundColor: ARBOR_UI.line },
+  signalCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...shadowStyle(t, { color: '#14532D', opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+  },
+  signalIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signalBody: { flex: 1, gap: 7 },
+  signalTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  signalTitle: { flex: 1, fontSize: 14, fontWeight: '900' },
+  signalCount: {
+    minWidth: 28,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  signalSub: { color: ARBOR_UI.muted, fontSize: 11.5, lineHeight: 16, fontWeight: '800' },
+  signalPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  signalPill: {
+    minHeight: 26,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  signalPillValue: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  signalPillLabel: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '900' },
   workflowCard: {
     marginHorizontal: 16,
     marginTop: 12,
