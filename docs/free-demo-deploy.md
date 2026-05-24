@@ -2,7 +2,7 @@
 
 Cel: szybki pokaz dla prezesa bez platnego serwera. Ten wariant uzywa:
 
-- Railway: API `arbor-os`.
+- Railway, Koyeb albo lokalny tunel: API `arbor-os`.
 - Neon: Postgres.
 - Cloudflare R2: zdjecia, szkice i PDF-y.
 - Cloudflare Pages, Netlify albo Vercel: web `arbor-web`.
@@ -62,7 +62,36 @@ Po deployu sprawdz:
 npm run deploy:free:check -- https://<arbor-os>.up.railway.app
 ```
 
-## 4. Pierwszy admin i demo dane
+## 4. Koyeb API alternatywnie
+
+Koyeb pozwala wdrozyc `os/` jako web service Node/Express. Uzyj katalogu roboczego
+`os/`, procesu `web: npm start` z `os/Procfile` i zmiennych z:
+
+```text
+deploy/koyeb-arbor-os.env.example
+```
+
+Najwazniejsze wartosci:
+
+```text
+DATABASE_URL=postgresql://<user>:<password>@<neon-pooler-host>/<db>?sslmode=require
+CORS_ORIGINS=https://<arbor-web>.netlify.app
+PUBLIC_BASE_URL=https://<arbor-os>.koyeb.app
+```
+
+Lokalny check konfiguracji:
+
+```powershell
+npm run deploy:koyeb:check
+```
+
+Po wdrozeniu:
+
+```powershell
+npm run deploy:koyeb:check -- https://<arbor-os>.koyeb.app
+```
+
+## 5. Pierwszy admin i demo dane
 
 Lokalnie utworz ignorowany plik z sekretami:
 
@@ -107,7 +136,7 @@ $env:DEMO_PASSWORD="<inne-haslo-do-pokazu>"
 npm run seed:president-demo
 ```
 
-## 5. Cloudflare Pages web
+## 6. Cloudflare Pages web
 
 Opcja w panelu Cloudflare Pages:
 
@@ -125,7 +154,7 @@ $env:REACT_APP_API_URL="https://<arbor-os>.up.railway.app/api"
 npm run deploy:pages:cloudflare
 ```
 
-## 6. Netlify alternatywnie
+## 7. Netlify alternatywnie
 
 Repo ma juz `netlify.toml`. Netlify powinien wykryc:
 
@@ -147,7 +176,7 @@ Lokalny check przed deployem:
 npm run deploy:netlify:check -- https://<arbor-os>.up.railway.app
 ```
 
-## 7. Vercel alternatywnie
+## 8. Vercel alternatywnie
 
 Repo ma juz `vercel.json`.
 
@@ -159,7 +188,7 @@ REACT_APP_API_URL=https://<arbor-os>.up.railway.app/api
 
 Output jest `web/build`.
 
-## 8. Finalny smoke
+## 9. Finalny smoke
 
 Po stworzeniu admina:
 
@@ -176,7 +205,7 @@ z API przez `REACT_APP_API_URL`.
 
 1. Neon `DATABASE_URL`.
 2. R2 bucket + public URL.
-3. Railway API z `deploy/railway-arbor-os.env.example`.
+3. Railway API z `deploy/railway-arbor-os.env.example` albo Koyeb API z `deploy/koyeb-arbor-os.env.example`.
 4. `npm run deploy:prod:bootstrap -- --seed-demo --skip-backup`.
 5. Cloudflare Pages / Netlify / Vercel web z `REACT_APP_API_URL`.
 6. Login admina i pokaz sciezki: telefon -> ogledziny -> zdjecia -> zlecenie -> ekipa.

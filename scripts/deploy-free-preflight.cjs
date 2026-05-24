@@ -71,6 +71,8 @@ async function main() {
   assert(fs.existsSync('deploy/mobile-production.env.example'), 'Mobile production env template is missing.');
   assert(fs.existsSync('deploy/web-production.env.example'), 'Web production env template is missing.');
   assert(fs.existsSync('deploy/netlify-web.env.example'), 'Netlify web env template is missing.');
+  assert(fs.existsSync('deploy/koyeb-arbor-os.env.example'), 'Koyeb arbor-os env template is missing.');
+  assert(fs.existsSync('os/Procfile'), 'Koyeb arbor-os Procfile is missing.');
   assert(fs.existsSync('os/scripts/bootstrap-admin.js'), 'Production admin bootstrap script is missing.');
   assert(fs.existsSync('os/scripts/production-doctor.js'), 'Production doctor script is missing.');
   assert(fs.existsSync('os/scripts/db-backup.js'), 'Database backup script is missing.');

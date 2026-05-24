@@ -40,6 +40,11 @@ const envSchema = z.object({
     if (manual) return manual;
     const render = process.env.RENDER_EXTERNAL_URL;
     if (render != null && String(render).trim() !== '') return String(render).trim().replace(/\/+$/, '');
+    const koyeb = process.env.KOYEB_PUBLIC_DOMAIN;
+    if (koyeb != null && String(koyeb).trim() !== '') {
+      const domain = String(koyeb).trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      return `https://${domain}`;
+    }
     return undefined;
   }, z.string().optional()),
   SMTP_HOST: z.string().default('smtp.gmail.com'),

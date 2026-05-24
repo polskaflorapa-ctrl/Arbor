@@ -49,6 +49,7 @@
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
     "deploy:netlify:check": "node ./scripts/deploy-netlify-check.cjs",
+    "deploy:koyeb:check": "node ./scripts/deploy-koyeb-check.cjs",
     "deploy:free:check": "node ./scripts/deploy-free-preflight.cjs",
     "deploy:demo:check": "node ./scripts/demo-deploy-check.cjs",
     "deploy:pages:cloudflare": "node ./scripts/deploy-cloudflare-pages.cjs",
