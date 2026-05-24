@@ -4,7 +4,6 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import OpsRadar from '../components/OpsRadar';
-import OperationalDigestPanel from '../components/OperationalDigestPanel';
 import TelemetryStatus from '../components/TelemetryStatus';
 import { getRolaColor } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -873,8 +872,6 @@ export default function Dashboard() {
             </div>
           </div>
         </section>
-
-        <OperationalDigestPanel user={user} />
 
         <section style={d.shortcutPanel}>
           <div style={d.panelHeader}>

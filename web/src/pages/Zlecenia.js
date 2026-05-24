@@ -8895,10 +8895,10 @@ const s = {
   decisionQuickBtn: {
     minWidth: 0,
     minHeight: 48,
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(22,138,74,0.18)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
-    color: 'var(--text-sub)',
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.82), rgba(240,247,242,0.72))',
+    color: 'var(--text)',
     padding: '7px 8px',
     cursor: 'pointer',
     display: 'grid',
@@ -8909,16 +8909,18 @@ const s = {
   },
   decisionQuickBtnActive: {
     border: '1px solid var(--accent)',
-    background: 'var(--accent-surface)',
+    background: 'linear-gradient(180deg, var(--accent-surface), rgba(255,255,255,0.78))',
     color: 'var(--accent)',
     boxShadow: 'inset 3px 0 0 var(--accent)',
   },
   decisionQuickBtnSpan: {
+    color: 'inherit',
     fontSize: 10,
     fontWeight: 900,
     lineHeight: 1.1,
   },
   decisionQuickBtnStrong: {
+    color: 'inherit',
     fontSize: 16,
     fontWeight: 950,
     lineHeight: 1,
@@ -9055,7 +9057,7 @@ const s = {
   },
   quickCallPackageGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
     gap: 7,
   },
   quickCallPackageItem: {
@@ -9108,7 +9110,7 @@ const s = {
   },
   quickCallSchedulePanel: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(220px, 1fr) minmax(180px, auto)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
     gap: 10,
     alignItems: 'center',
     border: '1px solid var(--border)',
@@ -9152,9 +9154,9 @@ const s = {
   quickCallScheduleSide: {
     display: 'flex',
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     gap: 6,
-    maxWidth: 360,
+    maxWidth: '100%',
   },
   quickCallScheduleItem: {
     border: '1px solid var(--border)',
