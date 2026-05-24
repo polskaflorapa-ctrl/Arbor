@@ -77,6 +77,8 @@ const ARBOR_UI = {
   text: '#102116',
   muted: '#647567',
   warning: '#B45309',
+  danger: '#DC2626',
+  dangerSoft: '#FEE2E2',
 };
 
 interface QuickAction {
@@ -273,11 +275,12 @@ export default function DashboardScreen() {
   const isPomBez     = rola === 'Pomocnik bez doświadczenia';
   const isMagazynier = rola === 'Magazynier';
   const isCrew = isBrygadzista || isPomocnik || isPomBez;
+  const dashboardOrders = useMemo(() => filterDashboardOrdersForUser(zlecenia, user), [zlecenia, user]);
 
   const delayedCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return zlecenia.filter((z) => {
+    return dashboardOrders.filter((z) => {
       if (!z.data_planowana) return false;
       const raw = typeof z.data_planowana === 'string' ? z.data_planowana.split('T')[0] : '';
       const d = new Date(raw);
@@ -287,14 +290,16 @@ export default function DashboardScreen() {
       const st = z.status || '';
       return !isTaskClosed(st);
     }).length;
-  }, [zlecenia]);
+  }, [dashboardOrders]);
+  const signalCount = useMemo(() => dashboardOrders.filter(dashboardTaskNeedsSignal).length, [dashboardOrders]);
+  const riskCount = Math.max(delayedCount, signalCount);
   const activeCount = Number(stats.w_realizacji || 0) + Number(stats.zaplanowane || 0);
-  const totalCount = zlecenia.length || Number(stats.nowe || 0) + Number(stats.w_realizacji || 0) + Number(stats.zakonczone || 0);
-  const taskStatusCounts = useMemo(() => zlecenia.reduce<Record<string, number>>((acc, task) => {
+  const totalCount = dashboardOrders.length || Number(stats.nowe || 0) + Number(stats.w_realizacji || 0) + Number(stats.zakonczone || 0);
+  const taskStatusCounts = useMemo(() => dashboardOrders.reduce<Record<string, number>>((acc, task) => {
     const status = normalizeTaskStatus(task?.status);
     if (status) acc[status] = (acc[status] || 0) + 1;
     return acc;
-  }, {}), [zlecenia]);
+  }, {}), [dashboardOrders]);
   const statNumber = (keys: string[]) => keys.reduce((best, key) => {
     const value = Number(stats?.[key]);
     return Math.max(best, Number.isFinite(value) ? value : 0);
@@ -638,9 +643,9 @@ export default function DashboardScreen() {
               <Text style={S.opsMetricLabel}>Aktywne</Text>
             </View>
             <View style={S.opsMetricDivider} />
-            <View style={S.opsMetric}>
-              <Text style={S.opsMetricValue}>{delayedCount}</Text>
-              <Text style={S.opsMetricLabel}>Ryzyka</Text>
+            <View style={[S.opsMetric, riskCount > 0 && { backgroundColor: ARBOR_UI.dangerSoft, borderRadius: 10 }]}>
+              <Text style={[S.opsMetricValue, riskCount > 0 && { color: ARBOR_UI.danger }]}>{riskCount}</Text>
+              <Text style={S.opsMetricLabel}>{signalCount > delayedCount ? 'Sygnały' : 'Ryzyka'}</Text>
             </View>
             <View style={S.opsMetricDivider} />
             <View style={S.opsMetric}>
@@ -770,7 +775,7 @@ export default function DashboardScreen() {
             { label: t('dashboard.stats.new'), value: stats.nowe || 0, color: ARBOR_UI.leaf, icon: 'flash-outline' as IoniconName },
             { label: t('dashboard.stats.progress'), value: stats.w_realizacji || 0, color: ARBOR_UI.warning, icon: 'sync-outline' as IoniconName },
             { label: t('dashboard.stats.done'), value: stats.zakonczone || 0, color: ARBOR_UI.forest, icon: 'checkmark-circle-outline' as IoniconName },
-            { label: t('dashboard.stats.total'), value: zlecenia.length, color: ARBOR_UI.moss, icon: 'list-outline' as IoniconName },
+            { label: t('dashboard.stats.total'), value: dashboardOrders.length, color: ARBOR_UI.moss, icon: 'list-outline' as IoniconName },
           ].map((s, i) => (
             <PlatinumAppear key={i} delayMs={40 * i} style={S.statWrap}>
               <View style={[S.statCard, { borderTopColor: s.color }]}>
@@ -904,7 +909,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {zlecenia.length === 0 ? (
+          {dashboardOrders.length === 0 ? (
             <View style={S.empty}>
               <PlatinumIconBadge icon="clipboard-outline" color={theme.textMuted} size={28} style={S.emptyIconBadge} />
               <Text style={S.emptyTitle}>{t('dashboard.emptyOrders')}</Text>
@@ -915,7 +920,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
           ) : (
-            zlecenia.slice(0, 5).map((z, i) => (
+            dashboardOrders.slice(0, 5).map((z, i) => (
               <PlatinumAppear key={z.id} delayMs={35 * i}>
                 <PlatinumPressable
                   style={S.card}
