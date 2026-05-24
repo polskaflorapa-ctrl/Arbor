@@ -138,6 +138,36 @@ async function ensureTaskClientContactTables() {
   _taskClientContactTables = true;
 }
 
+let _taskClosureDecisionTables = false;
+async function ensureTaskClosureDecisionTables() {
+  if (_taskClosureDecisionTables) return;
+  const stmts = [
+    `CREATE TABLE IF NOT EXISTS task_closure_decision_events (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      action VARCHAR(40) NOT NULL,
+      severity VARCHAR(16),
+      status_before VARCHAR(64),
+      status_after VARCHAR(64),
+      blockers JSONB DEFAULT '[]'::jsonb,
+      warnings JSONB DEFAULT '[]'::jsonb,
+      risk_score INTEGER DEFAULT 0,
+      quality_score INTEGER DEFAULT 0,
+      value NUMERIC(12,2) DEFAULT 0,
+      note TEXT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_task_closure_decision_task ON task_closure_decision_events(task_id, created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_task_closure_decision_action ON task_closure_decision_events(action)',
+    'CREATE INDEX IF NOT EXISTS idx_task_closure_decision_created ON task_closure_decision_events(created_at DESC)',
+  ];
+  for (const sql of stmts) {
+    await pool.query(sql);
+  }
+  _taskClosureDecisionTables = true;
+}
+
 let _taskClientSignatureTable = false;
 async function ensureTaskClientSignatureTable() {
   if (_taskClientSignatureTable) return;
@@ -419,7 +449,7 @@ async function createLinkedInspectionForFieldTask({
     `Zgloszenie z telefonu zapisane jako zlecenie #${taskId}.`,
     klient_telefon ? `Telefon klienta: ${klient_telefon}` : '',
     notes ? `Notatka biura:\n${notes}` : '',
-    'Cel: wyceniacz robi zdjecia, szkic, zakres, czas, budzet i ryzyka dla biura.',
+    'Cel: specjalista ds. wyceny robi zdjecia, szkic, zakres, czas, budzet i ryzyka dla biura.',
   ].filter(Boolean).join('\n');
 
   const { rows } = await pool.query(
@@ -455,6 +485,65 @@ function buildTaskPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
   const hh = String(Math.min(23, Number(hourMatch[1]))).padStart(2, '0');
   const mm = String(Math.min(59, Number(hourMatch[2]))).padStart(2, '0');
   return `${datePart} ${hh}:${mm}:00`;
+}
+
+function firstTaskText(row, keys = []) {
+  for (const key of keys) {
+    const value = String(row?.[key] ?? '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
+function extractLabeledNote(row, label) {
+  const notes = String([row?.notatki_wewnetrzne, row?.notatki].filter(Boolean).join('\n'));
+  const escaped = String(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = notes.match(new RegExp(`${escaped}:\\s*([^\\n]+)`, 'i'));
+  return match ? String(match[1] || '').trim() : '';
+}
+
+function buildTaskAddressLine(row = {}) {
+  return [row.adres, row.miasto].map((item) => String(item || '').trim()).filter(Boolean).join(', ');
+}
+
+function buildOfficePlanPackageLines({
+  task,
+  plannedDateTime,
+  hours,
+  teamId,
+  teamName,
+  equipmentNames = [],
+  note = '',
+  actor = '',
+}) {
+  const scope = firstTaskText(task, ['opis_pracy', 'opis', 'wynik']) || extractLabeledNote(task, 'Zakres prac');
+  const risks = extractLabeledNote(task, 'Ryzyka');
+  const fieldEquipment = extractLabeledNote(task, 'Sprzet');
+  const settlement = extractLabeledNote(task, 'Warunki rozliczenia');
+  const waste = extractLabeledNote(task, 'Odpady');
+  const value = Number(task?.wartosc_planowana ?? task?.budzet ?? 0) || 0;
+  const photosTotal = Number(task?.photo_total || 0);
+  const photosField = Number(task?.photo_wycena || 0) + Number(task?.photo_szkic || 0);
+  const equipmentLine = [equipmentNames.join(', '), fieldEquipment, note].filter(Boolean).join(' | ');
+  return [
+    'PLAN BIURA / PAKIET DLA EKIPY',
+    `Klient: ${task?.klient_nazwa || 'brak'}`,
+    `Telefon: ${task?.klient_telefon || 'brak'}`,
+    `Adres: ${buildTaskAddressLine(task) || 'brak'}`,
+    `Typ prac: ${task?.typ_uslugi || '-'}`,
+    `Zakres z terenu: ${scope || '-'}`,
+    `Ryzyka: ${risks || '-'}`,
+    settlement ? `Warunki rozliczenia: ${settlement}` : '',
+    waste ? `Odpady: ${waste}` : '',
+    `Budzet/wartosc: ${value ? `${value} PLN` : '-'}`,
+    `Zdjecia/szkic: ${photosField}/${photosTotal}`,
+    `Termin: ${plannedDateTime}`,
+    `Czas: ${hours} h`,
+    `Ekipa: ${teamName || `#${teamId}`} (#${teamId})`,
+    `Sprzet: ${equipmentLine || '-'}`,
+    `Zaplanowal: ${actor}`,
+    `Data planowania: ${new Date().toISOString()}`,
+  ].filter(Boolean);
 }
 
 let equipmentReservationTaskSchemaReady = false;
@@ -510,11 +599,12 @@ async function syncTaskEquipmentReservations(db, {
   const branchId = toInt(oddzialId);
   for (const id of ids) {
     const item = equipmentById.get(Number(id));
-    if (branchId && item.oddzial_id && Number(item.oddzial_id) !== branchId) {
+    const equipmentTravelsWithTeam = teamId && item.ekipa_id && Number(item.ekipa_id) === Number(teamId);
+    if (branchId && item.oddzial_id && Number(item.oddzial_id) !== branchId && !equipmentTravelsWithTeam) {
       return {
         ok: false,
         status: 400,
-        error: `Sprzet "${item.nazwa || `#${id}`}" nalezy do innego oddzialu.`,
+        error: `Sprzet "${item.nazwa || `#${id}`}" nalezy do innego oddzialu. Mozna go uzyc tylko wtedy, gdy jest przypisany do delegowanej ekipy.`,
         code: 'EQUIPMENT_BRANCH_MISMATCH',
       };
     }
@@ -747,6 +837,7 @@ const taskUpdateSchema = z.object({
 /** PATCH /tasks/:id/plan — tylko termin (`data_planowana`). */
 const taskPlanPatchSchema = z.object({
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
+  ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
 });
 
 const taskAssignSchema = z.object({
@@ -782,7 +873,7 @@ function canTaskStatusTransition(fromStatus, toStatus, options = {}) {
 
 const TASK_WORKFLOW_STAGES = Object.freeze({
   Nowe: { key: 'intake', step: '1', label: 'Telefon', detail: 'biuro przyjmuje zgloszenie' },
-  Wycena_Terenowa: { key: 'fieldInspection', step: '2', label: 'Ogledziny', detail: 'wyceniacz zbiera zdjecia, zakres i budzet' },
+  Wycena_Terenowa: { key: 'fieldInspection', step: '2', label: 'Ogledziny', detail: 'specjalista ds. wyceny zbiera zdjecia, zakres i budzet' },
   Do_Zatwierdzenia: { key: 'officeApproval', step: '3', label: 'Biuro planuje', detail: 'klient zaakceptowal, biuro dopina szczegoly' },
   Zaplanowane: { key: 'crewReady', step: '4', label: 'Ekipa gotowa', detail: 'termin, brygada i sprzet sa ustawione' },
   W_Realizacji: { key: 'execution', step: '5', label: 'Wykonanie', detail: 'ekipa pracuje wedlug briefu' },
@@ -825,6 +916,8 @@ function buildTaskWorkflowMissing(row = {}) {
   const hasHours = hasTaskNumber(row, ['czas_planowany_godziny', 'czas_realizacji_godz']);
   const hasDate = Boolean(String(row.data_planowana || '').trim());
   const hasTeam = Boolean(row.ekipa_id || row.ekipa_nazwa);
+  const hasEquipment = hasTaskNumber(row, ['equipment_reserved_count', 'sprzet_reserved_count', 'rezerwacje_sprzetu_count']) ||
+    hasTaskText(row, ['equipment_reserved_names', 'sprzet_notatka']);
   const photoWycena = taskPhotoCount(row, 'photo_wycena', 'photos_wycena');
   const photoSzkic = taskPhotoCount(row, 'photo_szkic', 'photos_szkic');
   const photoDojazd = taskPhotoCount(row, 'photo_dojazd', 'photos_dojazd');
@@ -834,7 +927,7 @@ function buildTaskWorkflowMissing(row = {}) {
     if (!hasTaskText(row, ['klient_telefon'])) add('phone', 'telefon klienta');
     if (!hasTaskText(row, ['adres', 'miasto'])) add('address', 'adres realizacji');
     if (!hasDate) add('inspection_date', 'termin ogledzin');
-    if (!row.wyceniajacy_id) add('estimator', 'wyceniacz');
+    if (!row.wyceniajacy_id) add('estimator', 'specjalista ds. wyceny');
     return missing;
   }
 
@@ -853,15 +946,178 @@ function buildTaskWorkflowMissing(row = {}) {
   if (['Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji'].includes(status)) {
     if (!hasTeam) add('team', 'ekipa');
     if (!hasDate) add('work_date', 'termin pracy');
+    if (!hasEquipment) add('equipment', 'sprzet', false);
   }
 
   return missing;
+}
+
+function taskMoneyAndTimeReadiness(row = {}) {
+  const value = Number(row.wartosc_planowana ?? row.budzet ?? row.wartosc_zaproponowana ?? row.wartosc_szacowana ?? 0);
+  const hours = Number(row.czas_planowany_godziny ?? row.czas_realizacji_godz ?? 0);
+  const hasValue = Number.isFinite(value) && value > 0;
+  const hasHours = Number.isFinite(hours) && hours > 0;
+  return {
+    ready: hasValue && hasHours,
+    value,
+    hours,
+    label: hasValue && hasHours
+      ? `${value.toLocaleString('pl-PL')} PLN / ${hours}h`
+      : hasValue
+        ? `${value.toLocaleString('pl-PL')} PLN / brak h`
+        : hasHours
+          ? `brak ceny / ${hours}h`
+          : 'brak',
+  };
+}
+
+function taskEquipmentReadiness(row = {}) {
+  const directCount = Number(
+    row.equipment_reserved_count ??
+    row.sprzet_reserved_count ??
+    row.rezerwacje_sprzetu_count ??
+    0
+  );
+  const noteEquipment = extractLabeledNote(row, 'Sprzet');
+  const names = String(row.equipment_reserved_names || row.sprzet_notatka || noteEquipment || '').trim();
+  const notes = String([row.notatki_wewnetrzne, row.notatki, row.sprzet_notatka].filter(Boolean).join('\n')).toLowerCase();
+  const explicitNoEquipment = /bez\s+(dodatkowego\s+)?sprz[eę]tu|sprz[eę]t\s*:\s*(brak|-|nie)/i.test(notes);
+  const ids = row.sprzet_ids ?? row.sprzetIds;
+  const idsCount = Array.isArray(ids)
+    ? ids.filter(Boolean).length
+    : typeof ids === 'string'
+      ? ids.split(',').map((id) => id.trim()).filter(Boolean).length
+      : 0;
+  const equipmentFlags = [
+    'rebak',
+    'pila_wysiegniku',
+    'nozyce_dlugie',
+    'kosiarka',
+    'podkaszarka',
+    'lopata',
+    'mulczer',
+    'arborysta',
+  ];
+  const flagCount = equipmentFlags.filter((key) => Boolean(row[key])).length;
+  const count = Math.max(
+    Number.isFinite(directCount) ? directCount : 0,
+    idsCount,
+    flagCount,
+  );
+  return {
+    ready: count > 0 || Boolean(names) || explicitNoEquipment,
+    count,
+    label: count > 0 ? `${count} poz.` : names || (explicitNoEquipment ? 'bez dodatkowego' : 'brak'),
+  };
+}
+
+function taskRiskReadiness(row = {}) {
+  const raw = String([
+    row.notatki_wewnetrzne,
+    row.notatki,
+    row.opis,
+    row.opis_pracy,
+    row.wynik,
+  ].filter(Boolean).join('\n')).toLowerCase();
+  return /ryzyk|bhp|zgod|linie|ogrodzenie|dach|elewac|trudny dojazd|ruch pieszy|brak szczegolnych/.test(raw);
+}
+
+function taskPhotoReadiness(row = {}) {
+  const wycena = taskPhotoCount(row, 'photo_wycena', 'photos_wycena');
+  const szkic = taskPhotoCount(row, 'photo_szkic', 'photos_szkic');
+  const dojazd = taskPhotoCount(row, 'photo_dojazd', 'photos_dojazd');
+  return {
+    ready: wycena > 0 && szkic > 0 && dojazd > 0,
+    totalReady: [wycena, szkic, dojazd].filter((count) => count > 0).length,
+    totalRequired: 3,
+    label: `${[wycena, szkic, dojazd].filter((count) => count > 0).length}/3`,
+  };
+}
+
+function decorateReadinessChecks(checks) {
+  const readyCount = checks.filter((item) => item.ready).length;
+  const missing = checks.filter((item) => !item.ready);
+  return {
+    checks,
+    ready: missing.length === 0,
+    ready_count: readyCount,
+    total_count: checks.length,
+    missing_items: missing.map((item) => ({
+      key: item.key,
+      label: item.label,
+      value: item.value,
+    })),
+    missing_labels: missing.map((item) => item.label),
+  };
+}
+
+function taskOfficePlanReadiness(row = {}) {
+  const photos = taskPhotoReadiness(row);
+  const moneyAndTime = taskMoneyAndTimeReadiness(row);
+  const equipment = taskEquipmentReadiness(row);
+  const hasScope = hasTaskText(row, ['opis_pracy', 'opis', 'wynik', 'notatki_wewnetrzne', 'typ_uslugi']);
+  const hasTeam = Boolean(row.ekipa_id || row.ekipa_nazwa);
+  const hasSlot = Boolean(String(row.data_planowana || '').trim()) && hasTaskNumber(row, ['czas_planowany_godziny', 'czas_realizacji_godz']);
+  return decorateReadinessChecks([
+    { key: 'photos', label: 'Zdjecia', value: photos.label, ready: photos.ready },
+    { key: 'scope', label: 'Zakres', value: hasScope ? 'OK' : 'brak', ready: hasScope },
+    { key: 'money_time', label: 'Cena/czas', value: moneyAndTime.label, ready: moneyAndTime.ready },
+    { key: 'team', label: 'Ekipa', value: row.ekipa_nazwa || (row.ekipa_id ? `#${row.ekipa_id}` : 'brak'), ready: hasTeam },
+    { key: 'slot', label: 'Termin', value: String(row.data_planowana || '').trim() ? 'OK' : 'brak', ready: hasSlot },
+    { key: 'equipment', label: 'Sprzet', value: equipment.label, ready: equipment.ready },
+  ]);
+}
+
+function taskCrewExecutionReadiness(row = {}) {
+  const office = taskOfficePlanReadiness(row);
+  const hasAddress = hasTaskText(row, ['adres', 'miasto']);
+  const riskReady = taskRiskReadiness(row);
+  return decorateReadinessChecks([
+    { key: 'address', label: 'Adres', value: hasAddress ? 'OK' : 'brak', ready: hasAddress },
+    ...office.checks,
+    { key: 'risk', label: 'BHP', value: riskReady ? 'OK' : 'brak', ready: riskReady },
+  ]);
+}
+
+function getTaskTransitionBlockers(row = {}, toStatus) {
+  const fromStatus = normalizeTaskStatusFlow(row.status);
+  const nextStatus = normalizeTaskStatusFlow(toStatus);
+  if (!nextStatus || fromStatus === nextStatus || nextStatus === 'Anulowane') return [];
+  const decorated = decorateTaskWorkflow(row);
+  if (fromStatus === 'Do_Zatwierdzenia' && nextStatus === 'Zaplanowane') {
+    return decorated.office_plan_missing_items || [];
+  }
+  if (fromStatus === 'Zaplanowane' && nextStatus === 'W_Realizacji') {
+    return decorated.crew_execution_missing_items || [];
+  }
+  if (decorated.workflow_next_status === nextStatus) {
+    return (decorated.workflow_missing_items || []).filter((item) => item.required !== false);
+  }
+  return [];
+}
+
+function taskTransitionBlockedPayload(fromStatus, toStatus, blockers = []) {
+  const missingItems = blockers.map((item) => ({
+    key: item.key,
+    label: item.label,
+    value: item.value,
+  }));
+  return {
+    error: `Nie można przejść dalej: ${fromStatus || 'brak'} -> ${toStatus || 'brak'}. Uzupełnij wymagane dane.`,
+    code: 'TASK_WORKFLOW_BLOCKED',
+    from_status: fromStatus || null,
+    to_status: toStatus || null,
+    missing_items: missingItems,
+    missing_labels: missingItems.map((item) => item.label),
+  };
 }
 
 function decorateTaskWorkflow(row = {}) {
   const status = normalizeTaskStatusFlow(row.status);
   const stage = TASK_WORKFLOW_STAGES[status] || TASK_WORKFLOW_STAGES.Nowe;
   const missing = buildTaskWorkflowMissing(row);
+  const officePlan = taskOfficePlanReadiness(row);
+  const crewExecution = taskCrewExecutionReadiness(row);
   const blockers = missing.filter((item) => item.required);
   const nextStatus = (TASK_FORWARD_TRANSITIONS[status] || [])[0] || null;
   const readyForNext = Boolean(nextStatus) && blockers.length === 0;
@@ -885,12 +1141,74 @@ function decorateTaskWorkflow(row = {}) {
     workflow_blockers_count: blockers.length,
     workflow_missing_items: missing,
     workflow_missing_labels: missing.map((item) => item.label),
+    office_plan_ready: officePlan.ready,
+    office_plan_ready_count: officePlan.ready_count,
+    office_plan_total_count: officePlan.total_count,
+    office_plan_checks: officePlan.checks,
+    office_plan_missing_items: officePlan.missing_items,
+    office_plan_missing_labels: officePlan.missing_labels,
+    crew_execution_ready: crewExecution.ready,
+    crew_execution_ready_count: crewExecution.ready_count,
+    crew_execution_total_count: crewExecution.total_count,
+    crew_execution_checks: crewExecution.checks,
+    crew_execution_missing_items: crewExecution.missing_items,
+    crew_execution_missing_labels: crewExecution.missing_labels,
   };
 }
 
 function decorateTaskWorkflowRows(rows = []) {
   return rows.map((row) => decorateTaskWorkflow(row));
 }
+
+const TASK_WORK_LOG_AGG_SELECT = `
+        COALESCE(wl.work_logs_total, 0)::int AS work_logs_total,
+        COALESCE(wl.active_work_count, 0)::int AS active_work_count,
+        wl.last_checkin_at,
+        wl.active_work_started_at,
+        wl.last_work_finished_at`;
+
+const TASK_WORK_LOG_AGG_JOIN = `
+       LEFT JOIN (
+         SELECT
+           task_id,
+           COUNT(*)::int AS work_logs_total,
+           COUNT(*) FILTER (
+             WHERE end_time IS NULL
+               AND LOWER(COALESCE(status, '')) NOT LIKE '%check%'
+           )::int AS active_work_count,
+           MAX(start_time) FILTER (
+             WHERE LOWER(COALESCE(status, '')) LIKE '%check%'
+           ) AS last_checkin_at,
+           MAX(start_time) FILTER (
+             WHERE end_time IS NULL
+               AND LOWER(COALESCE(status, '')) NOT LIKE '%check%'
+           ) AS active_work_started_at,
+           MAX(end_time) FILTER (
+             WHERE end_time IS NOT NULL
+               AND LOWER(COALESCE(status, '')) NOT LIKE '%check%'
+           ) AS last_work_finished_at
+         FROM work_logs
+         GROUP BY task_id
+       ) wl ON wl.task_id = t.id`;
+
+const TASK_ISSUE_AGG_SELECT = `
+        COALESCE(ia.problem_total, 0)::int AS problem_total,
+        COALESCE(ia.problem_open, 0)::int AS problem_open`;
+
+const TASK_ISSUE_AGG_JOIN = `
+       LEFT JOIN (
+         SELECT
+           task_id,
+           COUNT(*)::int AS problem_total,
+           COUNT(*) FILTER (
+             WHERE LOWER(COALESCE(status, '')) NOT LIKE 'rozwi%'
+               AND LOWER(COALESCE(status, '')) NOT LIKE 'zamkn%'
+               AND LOWER(COALESCE(status, '')) NOT LIKE 'resolved%'
+               AND LOWER(COALESCE(status, '')) NOT LIKE 'done%'
+           )::int AS problem_open
+         FROM issues
+         GROUP BY task_id
+       ) ia ON ia.task_id = t.id`;
 
 async function fetchTaskWorkflowRow(taskId) {
   const result = await pool.query(
@@ -899,7 +1217,11 @@ async function fetchTaskWorkflowRow(taskId) {
         COALESCE(ps.photo_total, 0)::int AS photo_total,
         COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
         COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
-        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
+        COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
+        COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
+        ${TASK_WORK_LOG_AGG_SELECT},
+        ${TASK_ISSUE_AGG_SELECT}
        FROM tasks t
        LEFT JOIN teams te ON t.ekipa_id = te.id
        LEFT JOIN (
@@ -912,6 +1234,18 @@ async function fetchTaskWorkflowRow(taskId) {
          FROM photos p
          GROUP BY p.task_id
        ) ps ON ps.task_id = t.id
+       LEFT JOIN (
+         SELECT
+           r.task_id,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%')::int AS equipment_reserved_count,
+           STRING_AGG(e.nazwa, ', ' ORDER BY e.nazwa) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%') AS equipment_reserved_names
+         FROM equipment_reservations r
+         LEFT JOIN equipment_items e ON e.id = r.sprzet_id
+         WHERE r.task_id IS NOT NULL
+         GROUP BY r.task_id
+       ) er ON er.task_id = t.id
+       ${TASK_WORK_LOG_AGG_JOIN}
+       ${TASK_ISSUE_AGG_JOIN}
        WHERE t.id = $1`,
     [taskId]
   );
@@ -947,6 +1281,26 @@ const taskClientContactSchema = z.object({
   due_at: z.string().trim().max(80).optional().nullable(),
 });
 
+const taskClosureDecisionItemSchema = z.object({
+  key: z.string().trim().max(120).optional().nullable(),
+  label: z.string().trim().max(240).optional().nullable(),
+  detail: z.string().trim().max(1200).optional().nullable(),
+  required: z.boolean().optional().nullable(),
+}).passthrough();
+
+const taskClosureDecisionSchema = z.object({
+  action: z.enum(['blocked_attempt', 'warning_review', 'forced_close', 'clean_close', 'fix_started']),
+  severity: z.enum(['good', 'warning', 'danger']).optional().nullable(),
+  status_before: z.string().trim().max(64).optional().nullable(),
+  status_after: z.string().trim().max(64).optional().nullable(),
+  blockers: z.array(taskClosureDecisionItemSchema).max(40).optional().default([]),
+  warnings: z.array(taskClosureDecisionItemSchema).max(40).optional().default([]),
+  risk_score: z.coerce.number().int().min(0).max(10000).optional().default(0),
+  quality_score: z.coerce.number().int().min(0).max(10000).optional().default(0),
+  value: z.coerce.number().min(0).max(999999999).optional().default(0),
+  note: z.string().trim().max(2000).optional().nullable(),
+});
+
 const taskClientSignatureSchema = z.object({
   signer_name: z.string().trim().min(2).max(120),
   signature_data_url: z.string().trim().max(400000).optional().nullable(),
@@ -971,6 +1325,12 @@ const taskStartSchema = z.object({
     hint: z.string().trim().max(500).optional().nullable(),
     done: z.boolean(),
   })).max(50).optional(),
+});
+
+const taskCheckinSchema = z.object({
+  lat: z.union([z.number(), z.string().trim().min(1)]).optional().nullable(),
+  lng: z.union([z.number(), z.string().trim().min(1)]).optional().nullable(),
+  note: z.string().trim().max(1000).optional().nullable(),
 });
 
 const taskStopSchema = z.object({
@@ -1048,6 +1408,8 @@ const taskListQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+  from: z.string().trim().max(20).optional(),
+  to: z.string().trim().max(20).optional(),
 });
 
 const taskMojeQuerySchema = z.object({
@@ -1063,7 +1425,10 @@ router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (r
         COALESCE(ps.photo_total, 0)::int AS photo_total,
         COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
         COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
-        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
+        COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
+        COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
+        ${TASK_WORK_LOG_AGG_SELECT}
        FROM tasks t
        LEFT JOIN teams te ON t.ekipa_id = te.id
        LEFT JOIN team_members tm ON tm.team_id = te.id AND tm.user_id = $2
@@ -1077,7 +1442,18 @@ router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (r
          FROM photos p
          GROUP BY p.task_id
        ) ps ON ps.task_id = t.id
-       WHERE t.data_planowana = $1
+       LEFT JOIN (
+         SELECT
+           r.task_id,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%')::int AS equipment_reserved_count,
+           STRING_AGG(e.nazwa, ', ' ORDER BY e.nazwa) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%') AS equipment_reserved_names
+         FROM equipment_reservations r
+         LEFT JOIN equipment_items e ON e.id = r.sprzet_id
+         WHERE r.task_id IS NOT NULL
+         GROUP BY r.task_id
+       ) er ON er.task_id = t.id
+       ${TASK_WORK_LOG_AGG_JOIN}
+       WHERE t.data_planowana::date = $1::date
        AND (t.brygadzista_id = $2 OR te.brygadzista_id = $2 OR tm.user_id = $2)
        ORDER BY t.id ASC`,
       [dzisiaj, req.user.id]
@@ -1117,7 +1493,7 @@ router.get('/', authMiddleware, validateQuery(taskListQuerySchema), (req, res) =
 
 router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), async (req, res) => {
   try {
-    const { oddzial_id, limit, offset } = req.query;
+    const { oddzial_id, limit, offset, from, to } = req.query;
     let whereClause = '';
     let params = [];
     if (isTeamScoped(req.user)) {
@@ -1138,6 +1514,16 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
       whereClause = `WHERE ${scope.clause}`;
       params = scope.params;
     }
+    const whereParts = whereClause ? [whereClause.replace(/^WHERE\s+/i, '')] : [];
+    if (from) {
+      params.push(from);
+      whereParts.push(`t.data_planowana::date >= $${params.length}::date`);
+    }
+    if (to) {
+      params.push(to);
+      whereParts.push(`t.data_planowana::date <= $${params.length}::date`);
+    }
+    whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 
     const baseFrom = `
        FROM tasks t
@@ -1154,6 +1540,18 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
          FROM photos p
          GROUP BY p.task_id
        ) ps ON ps.task_id = t.id
+       LEFT JOIN (
+         SELECT
+           r.task_id,
+           COUNT(*) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%')::int AS equipment_reserved_count,
+           STRING_AGG(e.nazwa, ', ' ORDER BY e.nazwa) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%') AS equipment_reserved_names
+         FROM equipment_reservations r
+         LEFT JOIN equipment_items e ON e.id = r.sprzet_id
+         WHERE r.task_id IS NOT NULL
+         GROUP BY r.task_id
+       ) er ON er.task_id = t.id
+       ${TASK_WORK_LOG_AGG_JOIN}
+       ${TASK_ISSUE_AGG_JOIN}
        ${whereClause}`;
 
     if (limit != null) {
@@ -1172,7 +1570,11 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
         COALESCE(ps.photo_total, 0)::int AS photo_total,
         COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
         COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
-        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
+        COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
+        COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
+        ${TASK_WORK_LOG_AGG_SELECT},
+        ${TASK_ISSUE_AGG_SELECT}
         ${baseFrom}
        ORDER BY t.data_planowana DESC, t.id DESC
        LIMIT $${limIdx} OFFSET $${offIdx}`,
@@ -1189,7 +1591,11 @@ router.get('/wszystkie', authMiddleware, validateQuery(taskListQuerySchema), asy
         COALESCE(ps.photo_total, 0)::int AS photo_total,
         COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
         COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
-        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd
+        COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
+        COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
+        COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
+        ${TASK_WORK_LOG_AGG_SELECT},
+        ${TASK_ISSUE_AGG_SELECT}
        ${baseFrom}
        ORDER BY t.data_planowana DESC, t.id DESC`,
       params
@@ -1240,6 +1646,16 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
         FROM photos p
         GROUP BY p.task_id
       ) ps ON ps.task_id = t.id
+      LEFT JOIN (
+        SELECT
+          r.task_id,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%')::int AS equipment_reserved_count,
+          STRING_AGG(e.nazwa, ', ' ORDER BY e.nazwa) FILTER (WHERE LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%') AS equipment_reserved_names
+        FROM equipment_reservations r
+        LEFT JOIN equipment_items e ON e.id = r.sprzet_id
+        WHERE r.task_id IS NOT NULL
+        GROUP BY r.task_id
+      ) er ON er.task_id = t.id
       ${whereClause}`;
 
     const selectSql = `SELECT
@@ -1252,6 +1668,8 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
         COALESCE(ps.photo_wycena, 0)::int AS photo_wycena,
         COALESCE(ps.photo_szkic, 0)::int AS photo_szkic,
         COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
+        COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
+        COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
         ARRAY_REMOVE(ARRAY[
           CASE WHEN COALESCE(ps.photo_wycena, 0) = 0 THEN 'zdjęcie ogólne / wycena' END,
           CASE WHEN COALESCE(ps.photo_szkic, 0) = 0 THEN 'szkic zakresu' END,
@@ -1505,7 +1923,33 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       }
     }
 
-    res.json({ id: taskId, wycena_id: wycenaId, ogledziny_id: ogledzinyId || sourceOgledzinyId || null });
+    const workflowFallback = {
+      id: taskId,
+      status: initialStatus,
+      klient_nazwa,
+      klient_telefon: toStr(klient_telefon),
+      adres,
+      miasto,
+      data_planowana: plannedDateTime,
+      wyceniajacy_id: toInt(wyceniajacy_id),
+      ekipa_id: toNum(ekipa_id),
+      opis: taskOpis,
+      opis_pracy: taskOpisPracy,
+      wartosc_planowana: toNum(wartosc_planowana),
+      budzet: toNum(budzet),
+      czas_planowany_godziny: toNum(czas_planowany_godziny),
+      czas_realizacji_godz: toNum(czas_realizacji_godz),
+      photo_total: 0,
+      photo_wycena: 0,
+      photo_szkic: 0,
+      photo_dojazd: 0,
+    };
+    const workflowRow = await fetchTaskWorkflowRow(taskId).catch(() => null);
+    res.json({
+      wycena_id: wycenaId,
+      ogledziny_id: ogledzinyId || sourceOgledzinyId || null,
+      ...decorateTaskWorkflow(workflowRow || workflowFallback),
+    });
   } catch (err) {
     logger.error('Blad tworzenia zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message });
@@ -1615,7 +2059,8 @@ router.patch(
       if (st === 'Zakonczone' || st === 'Anulowane') {
         return res.status(400).json({ error: 'Nie można przesunąć zakończonego lub anulowanego zlecenia.' });
       }
-      const teamId = row.ekipa_id != null ? Number(row.ekipa_id) : null;
+      const hasTeamBody = Object.prototype.hasOwnProperty.call(req.body, 'ekipa_id');
+      const teamId = hasTeamBody ? toNum(req.body.ekipa_id) : (row.ekipa_id != null ? Number(row.ekipa_id) : null);
       if (teamId) {
         const planDay = String(req.body.data_planowana).slice(0, 10);
         if (row.oddzial_id) {
@@ -1634,8 +2079,9 @@ router.patch(
           });
         }
       }
-      await pool.query(`UPDATE tasks SET data_planowana = $1::timestamptz, updated_at = NOW() WHERE id = $2`, [
+      await pool.query(`UPDATE tasks SET data_planowana = $1::timestamptz, ekipa_id = $2, updated_at = NOW() WHERE id = $3`, [
         req.body.data_planowana,
+        teamId,
         taskId,
       ]);
       const oldDay = row.data_planowana ? String(row.data_planowana).slice(0, 10) : '';
@@ -1665,7 +2111,48 @@ router.patch(
           );
         }
       }
-      res.json({ message: 'Plan zaktualizowany' });
+
+      let workflowRow = await fetchTaskWorkflowRow(taskId).catch(() => null);
+      let hasWorkflowRow = Boolean(workflowRow?.id);
+      let workflow = decorateTaskWorkflow(workflowRow || {
+        ...row,
+        id: taskId,
+        data_planowana: req.body.data_planowana,
+        ekipa_id: teamId,
+      });
+      let promoted = false;
+      const beforeStatus = normalizeTaskStatusFlow(row.status);
+      if (beforeStatus === 'Do_Zatwierdzenia' && workflow.office_plan_ready) {
+        await pool.query(
+          `UPDATE tasks SET status = 'Zaplanowane', updated_at = NOW() WHERE id = $1`,
+          [taskId]
+        );
+        promoted = true;
+        workflowRow = await fetchTaskWorkflowRow(taskId).catch(() => null);
+        hasWorkflowRow = Boolean(workflowRow?.id);
+        workflow = decorateTaskWorkflow(workflowRow || {
+          ...workflow,
+          status: 'Zaplanowane',
+          data_planowana: req.body.data_planowana,
+          ekipa_id: teamId,
+        });
+      }
+
+      const missingLabels = hasWorkflowRow ? (workflow.office_plan_missing_labels || []) : [];
+      res.json({
+        message: promoted
+          ? 'Plan zaktualizowany. Zlecenie gotowe dla ekipy.'
+          : missingLabels.length
+            ? `Plan zaktualizowany. Braki przed zatwierdzeniem: ${missingLabels.join(', ')}.`
+            : 'Plan zaktualizowany',
+        plan_promoted: promoted,
+        status: workflow.status || (promoted ? 'Zaplanowane' : row.status),
+        office_plan_ready: workflow.office_plan_ready,
+        office_plan_missing_labels: missingLabels,
+        crew_execution_ready: workflow.crew_execution_ready,
+        crew_execution_missing_labels: workflow.crew_execution_missing_labels || [],
+        task: workflow,
+      });
     } catch (err) {
       logger.error('tasks.planPatch', { message: err.message, requestId: req.requestId });
       res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -1684,6 +2171,46 @@ function mapClientContact(row, history = []) {
     actor: row?.actor || null,
     history,
   };
+}
+
+function normalizeJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function mapClosureDecisionEvent(row, actorFallback = 'Operator') {
+  return {
+    id: Number(row?.id),
+    task_id: Number(row?.task_id),
+    action: row?.action || '',
+    severity: row?.severity || '',
+    status_before: row?.status_before || '',
+    status_after: row?.status_after || '',
+    blockers: normalizeJsonArray(row?.blockers),
+    warnings: normalizeJsonArray(row?.warnings),
+    risk_score: Number(row?.risk_score) || 0,
+    quality_score: Number(row?.quality_score) || 0,
+    value: Number(row?.value) || 0,
+    note: row?.note || '',
+    created_at: row?.created_at || null,
+    created_by: row?.created_by || null,
+    actor: row?.actor || actorFallback,
+  };
+}
+
+function requestActorName(req) {
+  return [req.user?.imie, req.user?.nazwisko].filter(Boolean).join(' ')
+    || req.user?.login
+    || 'Operator';
 }
 
 router.get('/client-contacts', authMiddleware, async (req, res) => {
@@ -1708,6 +2235,37 @@ router.get('/client-contacts', authMiddleware, async (req, res) => {
     res.json({ contacts });
   } catch (err) {
     logger.error('tasks.clientContacts.list', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/closure-events', authMiddleware, async (req, res) => {
+  try {
+    await ensureTaskClosureDecisionTables();
+    const scope = getTaskScope(req.user, 't', 1);
+    const where = scope.clause ? `WHERE ${scope.clause}` : '';
+    const result = await pool.query(
+      `SELECT e.id, e.task_id, e.action, e.severity, e.status_before, e.status_after,
+              e.blockers, e.warnings, e.risk_score, e.quality_score, e.value,
+              e.note, e.created_at, e.created_by,
+              u.imie || ' ' || u.nazwisko AS actor
+       FROM task_closure_decision_events e
+       JOIN tasks t ON t.id = e.task_id
+       LEFT JOIN users u ON u.id = e.created_by
+       ${where}
+       ORDER BY e.created_at DESC
+       LIMIT 500`,
+      scope.params
+    );
+    const events = {};
+    for (const row of result.rows) {
+      const event = mapClosureDecisionEvent(row);
+      const key = String(event.task_id);
+      events[key] = [...(events[key] || []), event].slice(0, 30);
+    }
+    res.json({ events });
+  } catch (err) {
+    logger.error('tasks.closureEvents.list', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
@@ -1807,6 +2365,45 @@ router.patch(
       res.status(500).json({ error: req.t('errors.http.serverError') });
     } finally {
       if (client) client.release();
+    }
+  }
+);
+
+router.post(
+  '/:id/closure-events',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskClosureDecisionSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    try {
+      await ensureTaskClosureDecisionTables();
+      const body = req.body;
+      const result = await pool.query(
+        `INSERT INTO task_closure_decision_events (
+          task_id, action, severity, status_before, status_after, blockers, warnings,
+          risk_score, quality_score, value, note, created_by, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, NOW())
+        RETURNING *`,
+        [
+          req.params.id,
+          body.action,
+          body.severity || (body.blockers?.length ? 'danger' : body.warnings?.length ? 'warning' : 'good'),
+          body.status_before || null,
+          body.status_after || null,
+          JSON.stringify(body.blockers || []),
+          JSON.stringify(body.warnings || []),
+          body.risk_score || 0,
+          body.quality_score || 0,
+          body.value || 0,
+          body.note || null,
+          req.user.id,
+        ]
+      );
+      res.json(mapClosureDecisionEvent(result.rows[0], requestActorName(req)));
+    } catch (err) {
+      logger.error('tasks.closureEvents.create', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   }
 );
@@ -2010,13 +2607,14 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
     );
     if (!curR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
     const cur = curR.rows[0];
+    const hasBody = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
     const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
     const nextOddzialId = isDyrektorOrAdmin(req.user)
-      ? (Object.prototype.hasOwnProperty.call(req.body, 'oddzial_id') ? toNum(oddzial_id) : cur.oddzial_id)
+      ? (hasBody('oddzial_id') ? toNum(oddzial_id) : cur.oddzial_id)
       : (cur.oddzial_id || req.user.oddzial_id);
-    const nextTeamId = Object.prototype.hasOwnProperty.call(req.body, 'ekipa_id') ? toNum(ekipa_id) : cur.ekipa_id;
-    const nextEstimatorId = Object.prototype.hasOwnProperty.call(req.body, 'wyceniajacy_id') ? toInt(wyceniajacy_id) : cur.wyceniajacy_id;
-    const nextKierownikId = Object.prototype.hasOwnProperty.call(req.body, 'kierownik_id') ? toInt(kierownik_id) : cur.kierownik_id;
+    const nextTeamId = hasBody('ekipa_id') ? toNum(ekipa_id) : cur.ekipa_id;
+    const nextEstimatorId = hasBody('wyceniajacy_id') ? toInt(wyceniajacy_id) : cur.wyceniajacy_id;
+    const nextKierownikId = hasBody('kierownik_id') ? toInt(kierownik_id) : cur.kierownik_id;
     let nextStatus = status || cur.status || 'Nowe';
     if (!status && nextEstimatorId && cur.status === 'Nowe') nextStatus = 'Wycena_Terenowa';
     if (!canTaskStatusTransition(cur.status, nextStatus, { allowCancel: true })) {
@@ -2024,6 +2622,42 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
         error: `Niedozwolona zmiana statusu: ${cur.status || 'brak'} -> ${nextStatus || 'brak'}`,
         code: 'TASK_STATUS_TRANSITION_BLOCKED',
       });
+    }
+    if (nextStatus !== (cur.status || 'Nowe')) {
+      const workflowCurrent = await fetchTaskWorkflowRow(req.params.id).catch(() => cur);
+      const transitionCandidate = {
+        ...(workflowCurrent || cur),
+        status: cur.status || 'Nowe',
+        klient_nazwa: hasBody('klient_nazwa') ? klient_nazwa : (workflowCurrent?.klient_nazwa ?? cur.klient_nazwa),
+        klient_telefon: hasBody('klient_telefon') ? toStr(klient_telefon) : (workflowCurrent?.klient_telefon ?? cur.klient_telefon),
+        adres: hasBody('adres') ? adres : (workflowCurrent?.adres ?? cur.adres),
+        miasto: hasBody('miasto') ? miasto : (workflowCurrent?.miasto ?? cur.miasto),
+        opis: hasBody('opis') ? toStr(opis) : (workflowCurrent?.opis ?? cur.opis),
+        opis_pracy: hasBody('opis_pracy') ? toStr(opis_pracy) : (workflowCurrent?.opis_pracy ?? cur.opis_pracy),
+        notatki_wewnetrzne: hasBody('notatki_wewnetrzne') ? toStr(notatki_wewnetrzne) : (workflowCurrent?.notatki_wewnetrzne ?? cur.notatki_wewnetrzne),
+        notatki: hasBody('notatki') ? toStr(notatki) : (workflowCurrent?.notatki ?? cur.notatki),
+        wynik: hasBody('wynik') ? toStr(wynik) : (workflowCurrent?.wynik ?? cur.wynik),
+        wartosc_planowana: hasBody('wartosc_planowana') ? toNum(wartosc_planowana) : (workflowCurrent?.wartosc_planowana ?? cur.wartosc_planowana),
+        budzet: hasBody('budzet') ? toNum(budzet) : (workflowCurrent?.budzet ?? cur.budzet),
+        czas_planowany_godziny: hasBody('czas_planowany_godziny') ? toNum(czas_planowany_godziny) : (workflowCurrent?.czas_planowany_godziny ?? cur.czas_planowany_godziny),
+        czas_realizacji_godz: hasBody('czas_realizacji_godz') ? toNum(czas_realizacji_godz) : (workflowCurrent?.czas_realizacji_godz ?? cur.czas_realizacji_godz),
+        data_planowana: hasBody('data_planowana') || hasBody('godzina_rozpoczecia') ? plannedDateTime : (workflowCurrent?.data_planowana ?? cur.data_planowana),
+        godzina_rozpoczecia: hasBody('godzina_rozpoczecia') ? toStr(godzina_rozpoczecia) : (workflowCurrent?.godzina_rozpoczecia ?? cur.godzina_rozpoczecia),
+        ekipa_id: nextTeamId,
+        wyceniajacy_id: nextEstimatorId,
+        rebak: hasBody('rebak') ? toBool(rebak) : (workflowCurrent?.rebak ?? cur.rebak),
+        pila_wysiegniku: hasBody('pila_wysiegniku') ? toBool(pila_wysiegniku) : (workflowCurrent?.pila_wysiegniku ?? cur.pila_wysiegniku),
+        nozyce_dlugie: hasBody('nozyce_dlugie') ? toBool(nozyce_dlugie) : (workflowCurrent?.nozyce_dlugie ?? cur.nozyce_dlugie),
+        kosiarka: hasBody('kosiarka') ? toBool(kosiarka) : (workflowCurrent?.kosiarka ?? cur.kosiarka),
+        podkaszarka: hasBody('podkaszarka') ? toBool(podkaszarka) : (workflowCurrent?.podkaszarka ?? cur.podkaszarka),
+        lopata: hasBody('lopata') ? toBool(lopata) : (workflowCurrent?.lopata ?? cur.lopata),
+        mulczer: hasBody('mulczer') ? toBool(mulczer) : (workflowCurrent?.mulczer ?? cur.mulczer),
+        arborysta: hasBody('arborysta') ? toBool(arborysta) : (workflowCurrent?.arborysta ?? cur.arborysta),
+      };
+      const transitionBlockers = getTaskTransitionBlockers(transitionCandidate, nextStatus);
+      if (transitionBlockers.length) {
+        return res.status(409).json(taskTransitionBlockedPayload(cur.status, nextStatus, transitionBlockers));
+      }
     }
     if (!isDyrektorOrAdmin(req.user) && nextOddzialId && Number(nextOddzialId) !== Number(req.user.oddzial_id)) {
       return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
@@ -2052,7 +2686,6 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       }
     }
 
-    const hasBody = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
     const keepStr = (field, value) => hasBody(field) ? toStr(value) : cur[field];
     const keepNum = (field, value) => hasBody(field) ? toNum(value) : cur[field];
     const keepInt = (field, value) => hasBody(field) ? toInt(value) : cur[field];
@@ -2177,13 +2810,32 @@ router.put('/:id/field-package', authMiddleware, validateParams(taskIdParamsSche
       `Odpady: ${odpady || '-'}`,
       `Ryzyka: ${ryzyka || '-'}`,
       `Klient zaakceptowal: ${accepted ? 'tak' : 'nie'}`,
-      `Wyceniacz: ${actor}`,
+      `Specjalista ds. wyceny: ${actor}`,
       `Data przekazania: ${new Date().toISOString()}`,
     ];
     const nextNotes = [
       String(task.notatki_wewnetrzne || '').trim(),
       fieldLines.join('\n'),
     ].filter(Boolean).join('\n\n').slice(0, 12000);
+
+    if (nextStatus !== task.status) {
+      const workflowCurrent = await fetchTaskWorkflowRow(req.params.id).catch(() => task);
+      const transitionBlockers = getTaskTransitionBlockers({
+        ...(workflowCurrent || task),
+        status: task.status,
+        opis: zakres || workflowCurrent?.opis,
+        opis_pracy: zakres || workflowCurrent?.opis_pracy,
+        notatki_wewnetrzne: nextNotes,
+        notatki: nextNotes,
+        czas_planowany_godziny: hours ?? workflowCurrent?.czas_planowany_godziny,
+        wartosc_planowana: value ?? workflowCurrent?.wartosc_planowana,
+        budzet: value ?? workflowCurrent?.budzet,
+        wynik: accepted ? 'Klient zaakceptowal zakres i budzet w terenie.' : workflowCurrent?.wynik,
+      }, nextStatus);
+      if (transitionBlockers.length) {
+        return res.status(409).json(taskTransitionBlockedPayload(task.status, nextStatus, transitionBlockers));
+      }
+    }
 
     const update = await pool.query(
       `UPDATE tasks
@@ -2238,9 +2890,11 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
     const teamId = toNum(ekipa_id);
     if (!teamId) return res.status(400).json({ error: 'Wybierz ekipę.' });
 
+    let teamCheckRow = null;
     if (task.oddzial_id) {
       const teamCheck = await assertTeamAvailableForBranch(pool, teamId, task.oddzial_id, plannedDateTime);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+      teamCheckRow = teamCheck.row || null;
     }
     const planDay = String(plannedDateTime).slice(0, 10);
     const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
@@ -2255,6 +2909,22 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
     }
 
     const note = String(sprzet_notatka || '').trim();
+    const workflowCurrent = await fetchTaskWorkflowRow(taskId).catch(() => task);
+    if (task.status !== 'Zaplanowane') {
+      const transitionBlockers = getTaskTransitionBlockers({
+        ...(workflowCurrent || task),
+        status: task.status,
+        data_planowana: plannedDateTime,
+        godzina_rozpoczecia: toStr(godzina_rozpoczecia),
+        czas_planowany_godziny: hours,
+        ekipa_id: teamId,
+        sprzet_ids: selectedEquipmentIds,
+        sprzet_notatka: note,
+      }, 'Zaplanowane');
+      if (transitionBlockers.length) {
+        return res.status(409).json(taskTransitionBlockedPayload(task.status, 'Zaplanowane', transitionBlockers));
+      }
+    }
     const equipmentSync = shouldSyncEquipment
       ? await syncTaskEquipmentReservations(pool, {
         taskId,
@@ -2273,16 +2943,19 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       });
     }
     const equipmentNames = equipmentSync.reservations.map((item) => item.sprzet_nazwa).filter(Boolean);
-    const planLines = [
-      'PLAN BIURA',
-      `Termin: ${plannedDateTime}`,
-      `Czas: ${hours} h`,
-      `Ekipa: #${teamId}`,
-      equipmentNames.length ? `Sprzet zarezerwowany: ${equipmentNames.join(', ')}` : '',
-      note ? `Sprzet / uwagi: ${note}` : '',
-      `Zaplanowal: ${req.user.login || req.user.id}`,
-      `Data planowania: ${new Date().toISOString()}`,
-    ].filter(Boolean);
+    const teamName = teamCheckRow?.nazwa
+      || (Number(workflowCurrent?.ekipa_id) === Number(teamId) ? workflowCurrent?.ekipa_nazwa : '')
+      || `#${teamId}`;
+    const planLines = buildOfficePlanPackageLines({
+      task: workflowCurrent || task,
+      plannedDateTime,
+      hours,
+      teamId,
+      teamName,
+      equipmentNames,
+      note,
+      actor: req.user.login || req.user.id,
+    });
     const nextNotes = [String(task.notatki_wewnetrzne || '').trim(), planLines.join('\n')]
       .filter(Boolean)
       .join('\n\n')
@@ -2295,10 +2968,11 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
            ekipa_id = $3,
            status = 'Zaplanowane',
            notatki_wewnetrzne = $4,
+           godzina_rozpoczecia = COALESCE($5::time, godzina_rozpoczecia),
            updated_at = NOW()
-       WHERE id = $5
+       WHERE id = $6
        RETURNING id, status`,
-      [plannedDateTime, hours, teamId, nextNotes, taskId]
+      [plannedDateTime, hours, teamId, nextNotes, toStr(godzina_rozpoczecia) || null, taskId]
     );
     const workflowRow = await fetchTaskWorkflowRow(taskId)
       .catch(() => update.rows[0] || { id: taskId, status: 'Zaplanowane' });
@@ -2307,6 +2981,7 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
         ? `Zlecenie zaplanowane. Zarezerwowano sprzet: ${equipmentNames.join(', ')}.`
         : 'Zlecenie zaplanowane',
       ...decorateTaskWorkflow(workflowRow || update.rows[0] || { id: taskId, status: 'Zaplanowane' }),
+      ekipa_nazwa: workflowRow?.ekipa_nazwa || teamName,
       sprzet_ids: shouldSyncEquipment ? selectedEquipmentIds : undefined,
       rezerwacje_sprzetu: equipmentSync.reservations,
     });
@@ -2348,14 +3023,26 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
         });
       }
     }
+    let nextAssignedStatus = task.status;
+    if (task.status === 'Do_Zatwierdzenia') {
+      const workflowCurrent = await fetchTaskWorkflowRow(req.params.id).catch(() => task);
+      const transitionBlockers = getTaskTransitionBlockers({
+        ...(workflowCurrent || task),
+        status: task.status,
+        ekipa_id: toNum(ekipa_id),
+      }, 'Zaplanowane');
+      if (transitionBlockers.length === 0) {
+        nextAssignedStatus = 'Zaplanowane';
+      }
+    }
     const update = await pool.query(
       `UPDATE tasks
        SET ekipa_id = $1,
-           status = CASE WHEN status IN ('Do_Zatwierdzenia', 'Wycena_Terenowa') THEN 'Zaplanowane' ELSE status END,
+           status = $3,
            updated_at = NOW()
        WHERE id = $2
        RETURNING id, status`,
-      [toNum(ekipa_id), req.params.id]
+      [toNum(ekipa_id), req.params.id, nextAssignedStatus]
     );
     const workflowRow = await fetchTaskWorkflowRow(req.params.id)
       .catch(() => update.rows[0] || { id: req.params.id, status: task.status });
@@ -2403,6 +3090,15 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
         code: 'TASK_STATUS_TRANSITION_BLOCKED',
       });
     }
+    const workflowCurrent = await fetchTaskWorkflowRow(taskId).catch(() => prevR.rows[0] || { id: taskId, status: prevStatus });
+    const transitionBlockers = getTaskTransitionBlockers({
+      ...(workflowCurrent || prevR.rows[0] || {}),
+      status: prevStatus,
+    }, status);
+    if (transitionBlockers.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(taskTransitionBlockedPayload(prevStatus, status, transitionBlockers));
+    }
     await client.query('UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2', [status, taskId]);
     await client.query('COMMIT');
     await req.auditLog({
@@ -2442,6 +3138,61 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
       /* ignore */
     }
     logger.error('Blad aktualizacji statusu', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/:id/checkin', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskCheckinSchema), requireTaskAccess, async (req, res) => {
+  const taskId = Number(req.params.id);
+  const latN = toNum(req.body.lat);
+  const lngN = toNum(req.body.lng);
+
+  if (!isTeamScoped(req.user) && !canManageTaskBackoffice(req.user)) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
+  if (isTeamScoped(req.user) && (latN == null || lngN == null)) {
+    return res.status(400).json({
+      error: req.t('errors.tasks.startLocationRequired'),
+      code: VALIDATION_FAILED,
+      requestId: req.requestId,
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const replay = await tryConsumeIdempotencyKey(client, req, `task:${taskId}:checkin`);
+    if (replay) {
+      const wl = await client.query(
+        `SELECT id FROM work_logs WHERE task_id = $1 AND user_id = $2 AND status = 'Check_In' ORDER BY start_time DESC LIMIT 1`,
+        [taskId, req.user.id]
+      );
+      await client.query('ROLLBACK');
+      return res.json({ message: 'Check-in zapisany', checkin_id: wl.rows[0]?.id ?? null, idempotent_replay: true });
+    }
+    const result = await client.query(
+      `INSERT INTO work_logs (
+        task_id, user_id, start_time, end_time, start_lat, start_lng, end_lat, end_lng, status, czas_pracy_minuty
+      ) VALUES ($1, $2, NOW(), NOW(), $3, $4, $3, $4, 'Check_In', 0) RETURNING id`,
+      [taskId, req.user.id, latN, lngN]
+    );
+    await client.query('COMMIT');
+    await req.auditLog({
+      action: 'task.field_checkin',
+      entityType: 'task',
+      entityId: taskId,
+      metadata: { lat: latN, lng: lngN, note: req.body.note || null },
+    });
+    res.json({ message: 'Check-in zapisany', checkin_id: result.rows[0].id });
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    logger.error('Blad check-in zlecenia', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   } finally {
     client.release();

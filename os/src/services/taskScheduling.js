@@ -35,7 +35,7 @@ function checkTeamConflict({ busyRanges, hour, durationMinutes }) {
  */
 async function getTeamBusyRanges(pool, teamId, day, excludeWycenaId = null, excludeTaskId = null) {
   const taskRows = await pool.query(
-    `SELECT data_planowana, COALESCE(czas_planowany_godziny, 2) AS czas_h
+    `SELECT data_planowana, godzina_rozpoczecia, COALESCE(czas_planowany_godziny, 2) AS czas_h
      FROM tasks
      WHERE ekipa_id = $1
        AND data_planowana::date = $2::date
@@ -60,7 +60,10 @@ async function getTeamBusyRanges(pool, teamId, day, excludeWycenaId = null, excl
   const ranges = [];
   for (const row of taskRows.rows) {
     const date = new Date(row.data_planowana);
-    const start = date.getHours() * 60 + date.getMinutes();
+    const explicitStart = row.godzina_rozpoczecia
+      ? parseClockToMinutes(String(row.godzina_rozpoczecia).slice(0, 5))
+      : null;
+    const start = explicitStart != null ? explicitStart : date.getHours() * 60 + date.getMinutes();
     const end = start + Math.max(15, Math.round(Number(row.czas_h || 2) * 60));
     ranges.push({ start, end });
   }

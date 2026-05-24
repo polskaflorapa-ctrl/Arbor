@@ -5,13 +5,29 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin } = require('../middleware/auth');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
+const { getBranchResources } = require('../services/branchResources');
 const { z } = require('zod');
 
 const router = express.Router();
-const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
+const isDyrektor = (user) => isDyrektorOrAdmin(user);
+
+let equipmentReservationTaskColumnsReady = false;
+
+async function ensureEquipmentReservationTaskColumns() {
+  if (equipmentReservationTaskColumnsReady) return;
+  await pool.query('ALTER TABLE equipment_reservations ADD COLUMN IF NOT EXISTS task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
+  await pool.query('ALTER TABLE equipment_reservations ADD COLUMN IF NOT EXISTS notatki TEXT');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_equipment_reservations_task ON equipment_reservations (task_id)');
+  equipmentReservationTaskColumnsReady = true;
+}
 
 const flotaOddzialQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
+  include_delegacje: z
+    .preprocess((v) => (v === undefined ? false : ['1', 'true', true].includes(v)), z.boolean())
+    .optional()
+    .default(false),
+  date: z.string().max(40).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -175,15 +191,33 @@ router.post('/pojazdy', authMiddleware, validateBody(pojazdCreateSchema), async 
 
 router.get('/sprzet', authMiddleware, validateQuery(flotaOddzialQuerySchema), async (req, res) => {
   try {
-    const { oddzial_id, limit, offset } = req.query;
+    const { oddzial_id, include_delegacje, date, limit, offset } = req.query;
+    if (oddzial_id != null && !isDyrektor(req.user) && Number(oddzial_id) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
     let where = '';
     let params = [];
+    let delegatedTeamIds = [];
+    const targetBranchId = oddzial_id != null ? oddzial_id : (!isDyrektor(req.user) ? req.user.oddzial_id : null);
+    if (include_delegacje && targetBranchId) {
+      const resources = await getBranchResources(pool, targetBranchId, date);
+      delegatedTeamIds = (resources.ekipy || [])
+        .filter((team) => team.delegowany && team.id)
+        .map((team) => Number(team.id))
+        .filter((id) => Number.isFinite(id));
+    }
     if (oddzial_id != null) {
       where = 'WHERE e.oddzial_id = $1';
       params = [oddzial_id];
     } else if (!isDyrektor(req.user)) {
       where = 'WHERE e.oddzial_id = $1';
       params = [req.user.oddzial_id];
+    }
+    if (delegatedTeamIds.length) {
+      const idx = params.length + 1;
+      const delegatedClause = `e.ekipa_id = ANY($${idx}::int[])`;
+      where = where ? `${where} OR ${delegatedClause}` : `WHERE ${delegatedClause}`;
+      params.push(delegatedTeamIds);
     }
     const selectList = `SELECT e.*, b.nazwa as oddzial_nazwa, t.nazwa as ekipa_nazwa
        FROM equipment_items e
@@ -320,6 +354,8 @@ const rezerwacjaPostBodySchema = z.object({
   data_od: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   data_do: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   caly_dzien: z.boolean().optional().default(true),
+  task_id: z.coerce.number().int().positive().optional().nullable(),
+  notatki: z.string().max(1000).optional().nullable(),
   status: z.enum(['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane']).optional().default('Zarezerwowane'),
 });
 
@@ -337,7 +373,7 @@ router.get('/rezerwacje', authMiddleware, validateQuery(rezerwacjeRangeQuerySche
       branchClause = 'AND e.oddzial_id = $3';
       params.push(req.user.oddzial_id);
     }
-    const result = await pool.query(
+    const queryReservations = () => pool.query(
       `SELECT r.id, r.sprzet_id, r.ekipa_id, r.data_od, r.data_do, r.caly_dzien, r.status,
               r.task_id, r.notatki,
               e.nazwa AS sprzet_nazwa, t.nazwa AS ekipa_nazwa,
@@ -351,6 +387,14 @@ router.get('/rezerwacje', authMiddleware, validateQuery(rezerwacjeRangeQuerySche
         ORDER BY r.data_od, e.nazwa, t.nazwa`,
       params
     );
+    let result;
+    try {
+      result = await queryReservations();
+    } catch (err) {
+      if (err.code !== '42703') throw err;
+      await ensureEquipmentReservationTaskColumns();
+      result = await queryReservations();
+    }
     res.json(result.rows);
   } catch (err) {
     if (err.code === '42P01') {
@@ -364,7 +408,7 @@ router.get('/rezerwacje', authMiddleware, validateQuery(rezerwacjeRangeQuerySche
 /** POST /flota/rezerwacje */
 router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema), async (req, res) => {
   try {
-    const { sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status } = req.body;
+    const { sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status, task_id, notatki } = req.body;
     if (data_do < data_od) {
       return res.status(400).json({ error: 'data_do_przed_data_od' });
     }
@@ -383,6 +427,18 @@ router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema
       }
     }
     const oddzialId = sprOdd || teamOdd || req.user.oddzial_id;
+    const taskId = task_id == null ? null : Number(task_id);
+    if (taskId) {
+      const taskRow = await pool.query('SELECT id, oddzial_id FROM tasks WHERE id = $1', [taskId]);
+      if (!taskRow.rows[0]) return res.status(404).json({ error: 'task_nieznaleziony' });
+      if (
+        !isDyrektorOrAdmin(req.user) &&
+        taskRow.rows[0].oddzial_id &&
+        Number(taskRow.rows[0].oddzial_id) !== Number(req.user.oddzial_id)
+      ) {
+        return res.status(403).json({ error: 'brak_dostepu_zlecenie' });
+      }
+    }
     const clash = await pool.query(
       `SELECT id FROM equipment_reservations
         WHERE sprzet_id = $1
@@ -394,12 +450,19 @@ router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema
     if (clash.rows.length) {
       return res.status(409).json({ error: 'rezerwacja_kolizja_sprzet' });
     }
-    const ins = await pool.query(
-      `INSERT INTO equipment_reservations (oddzial_id, sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status, user_id)
+    const note = typeof notatki === 'string' && notatki.trim() ? notatki.trim() : null;
+    let insertSql = `INSERT INTO equipment_reservations (oddzial_id, sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status, user_id)
        VALUES ($1,$2,$3,$4::date,$5::date,$6,$7,$8)
-       RETURNING id`,
-      [oddzialId, sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status, req.user.id]
-    );
+       RETURNING id`;
+    let insertParams = [oddzialId, sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status, req.user.id];
+    if (taskId || note) {
+      await ensureEquipmentReservationTaskColumns();
+      insertSql = `INSERT INTO equipment_reservations (oddzial_id, sprzet_id, ekipa_id, data_od, data_do, caly_dzien, status, user_id, task_id, notatki)
+       VALUES ($1,$2,$3,$4::date,$5::date,$6,$7,$8,$9,$10)
+       RETURNING id`;
+      insertParams = [...insertParams, taskId, note];
+    }
+    const ins = await pool.query(insertSql, insertParams);
     res.json({ id: ins.rows[0].id });
   } catch (err) {
     if (err.code === '42P01') {

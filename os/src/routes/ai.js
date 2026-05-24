@@ -3,10 +3,13 @@ const router = express.Router();
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware } = require('../middleware/auth');
-const { env } = require('../config/env');
 const { validateBody } = require('../middleware/validate');
 const { z } = require('zod');
-const Anthropic = require('@anthropic-ai/sdk');
+const {
+  generateAiText,
+  getAiConfigurationStatus,
+  isAiAuthError,
+} = require('../services/aiProviders');
 
 const aiChatSchema = z.object({
   messages: z.array(z.object({
@@ -27,8 +30,6 @@ const aiTodayPlanSchema = z.object({
   horizon_days: z.coerce.number().int().min(1).max(14).optional().default(3),
 });
 
-const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
 const SYSTEM_PROMPT = `Jesteś asystentem AI wbudowanym w system ARBOR-OS — oprogramowanie do zarządzania firmą arborystyczną (wycinka i pielęgnacja drzew, frezowanie pni, usługi alpinistyczne).
 
 Twoje zadania:
@@ -41,6 +42,19 @@ Twoje zadania:
 - Nie wymyślaj danych których nie masz — mów "sprawdź w systemie" jeśli nie masz danych
 
 Format odpowiedzi: krótkie akapity, używaj list tylko gdy naprawdę potrzeba.`;
+
+const sendAiError = (req, res, error, fallbackKey) => {
+  if (error?.configuration) {
+    return res.status(503).json({ error: req.t('errors.ai.providerNotConfigured') });
+  }
+  if (isAiAuthError(error)) {
+    const key = error.provider === 'huggingface'
+      ? 'errors.ai.huggingFaceKeyInvalid'
+      : 'errors.ai.anthropicKeyInvalid';
+    return res.status(500).json({ error: req.t(key) });
+  }
+  return res.status(500).json({ error: error.message || req.t(fallbackKey) });
+};
 
 // ── POST /api/ai/chat ───────────────────────────────────────────────────────
 router.post('/chat', authMiddleware, validateBody(aiChatSchema), async (req, res) => {
@@ -68,24 +82,22 @@ router.post('/chat', authMiddleware, validateBody(aiChatSchema), async (req, res
 
     const systemWithContext = SYSTEM_PROMPT + dbContext;
 
-    // Konwertuj wiadomości do formatu Anthropic
+    // Konwertuj wiadomosci do wspolnego formatu providerow.
     const anthropicMessages = messages.map(m => ({
       role: m.role === 'user' ? 'user' : 'assistant',
       content: m.content,
     }));
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
+    const aiResult = await generateAiText({
       system: systemWithContext,
       messages: anthropicMessages,
+      maxTokens: 1024,
     });
 
-    res.json({ reply: response.content[0].text });
+    res.json({ reply: aiResult.text, provider: aiResult.provider, model: aiResult.model });
   } catch (e) {
     logger.error('AI chat error', { message: e.message, requestId: req.requestId });
-    if (e.status === 401) return res.status(500).json({ error: req.t('errors.ai.anthropicKeyInvalid') });
-    res.status(500).json({ error: e.message || req.t('errors.ai.genericAi') });
+    return sendAiError(req, res, e, 'errors.ai.genericAi');
   }
 });
 
@@ -117,39 +129,48 @@ Odpowiedz po polsku, konkretnie i zwięźle. Format JSON:
   "zalecenia": "krótkie uwagi"
 }`;
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 800,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: imageBase64,
-            },
+    const anthropicMessages = [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mediaType,
+            data: imageBase64,
           },
-          { type: 'text', text: prompt },
-        ],
-      }],
+        },
+        { type: 'text', text: prompt },
+      ],
+    }];
+    const huggingFaceMessages = [{
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: `data:${mediaType};base64,${imageBase64}` } },
+      ],
+    }];
+
+    const aiResult = await generateAiText({
+      messages: anthropicMessages,
+      huggingFaceMessages,
+      maxTokens: 800,
+      requiresVision: true,
     });
 
-    const text = response.content[0].text;
+    const text = aiResult.text;
 
     // Spróbuj sparsować JSON z odpowiedzi
     let parsed = null;
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-  } catch { /* zostaw parsed = null */ }
+    } catch { /* zostaw parsed = null */ }
 
-    res.json({ raw: text, parsed });
+    res.json({ raw: text, parsed, provider: aiResult.provider, model: aiResult.model });
   } catch (e) {
     logger.error('AI photo error', { message: e.message, requestId: req.requestId });
-    if (e.status === 401) return res.status(500).json({ error: req.t('errors.ai.anthropicKeyInvalid') });
-    res.status(500).json({ error: e.message || req.t('errors.ai.imageAnalysisFailed') });
+    return sendAiError(req, res, e, 'errors.ai.imageAnalysisFailed');
   }
 });
 
@@ -207,7 +228,7 @@ router.post('/today-plan', authMiddleware, validateBody(aiTodayPlanSchema), asyn
       },
     ];
 
-    if (!env.ANTHROPIC_API_KEY) {
+    if (!getAiConfigurationStatus().textAvailable) {
       return res.json({
         source: 'rules',
         horizon_days: horizon,
@@ -227,30 +248,47 @@ Zwroc JSON:
 {"recommendations":[{"priority":"high|medium|low","title":"...","rationale":"...","suggested_action":"...","risk":"high|medium|low"}]}
 Maksymalnie 5 rekomendacji, konkretnie, po polsku.`;
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 900,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const raw = response.content?.[0]?.text || '';
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    let parsed = null;
-    if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        parsed = null;
+    try {
+      const aiResult = await generateAiText({
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 900,
+      });
+      const raw = aiResult.text || '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      let parsed = null;
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          parsed = null;
+        }
       }
-    }
 
-    res.json({
-      source: 'ai',
-      horizon_days: horizon,
-      tasks_considered: todayRes.rows.length,
-      overdue: overdueRes.rows,
-      recommendations: parsed?.recommendations || deterministicPlan,
-      raw,
-    });
+      return res.json({
+        source: 'ai',
+        provider: aiResult.provider,
+        model: aiResult.model,
+        horizon_days: horizon,
+        tasks_considered: todayRes.rows.length,
+        overdue: overdueRes.rows,
+        recommendations: parsed?.recommendations || deterministicPlan,
+        raw,
+      });
+    } catch (aiError) {
+      logger.warn('AI today-plan provider failed; using rules', {
+        message: aiError.message,
+        provider: aiError.provider,
+        requestId: req.requestId,
+      });
+      return res.json({
+        source: 'rules',
+        provider_error: true,
+        horizon_days: horizon,
+        tasks_considered: todayRes.rows.length,
+        overdue: overdueRes.rows,
+        recommendations: deterministicPlan,
+      });
+    }
   } catch (e) {
     logger.error('AI today-plan error', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: e.message || req.t('errors.ai.genericAi') });

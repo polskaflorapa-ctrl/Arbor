@@ -90,8 +90,6 @@ const userSelectSql = `
   FROM users u
   LEFT JOIN branches b ON b.id = u.oddzial_id`;
 
-const userOrderSql = 'ORDER BY u.rola, u.nazwisko';
-
 const buildUserScope = (user, startParam = 1) => {
   if (isDyrektorOrAdmin(user)) return { clause: '', params: [] };
   if (isSalesDirector(user)) {

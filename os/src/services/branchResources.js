@@ -133,6 +133,10 @@ async function getBranchResources(pool, branchIdValue, dateValue) {
       u.telefon as brygadzista_telefon,
       u.procent_wynagrodzenia,
       b.nazwa as oddzial_nazwa,
+      t.oddzial_id as oddzial_macierzysty_id,
+      b.nazwa as oddzial_macierzysty_nazwa,
+      $1::int as dostepny_w_oddziale_id,
+      target.nazwa as dostepny_w_oddziale_nazwa,
       COUNT(DISTINCT tm.user_id)::int as liczba_czlonkow,
       (t.oddzial_id = $1) as natywny_oddzial,
       (ad.id IS NOT NULL AND t.oddzial_id <> $1) as delegowany,
@@ -159,13 +163,14 @@ async function getBranchResources(pool, branchIdValue, dateValue) {
     LEFT JOIN active_team_delegations ad ON ad.ekipa_id = t.id
     LEFT JOIN users u ON t.brygadzista_id = u.id
     LEFT JOIN branches b ON t.oddzial_id = b.id
+    LEFT JOIN branches target ON target.id = $1
     LEFT JOIN branches bo ON ad.oddzial_z = bo.id
     LEFT JOIN team_members tm ON tm.team_id = t.id
     LEFT JOIN planned_task_load pt ON pt.ekipa_id = t.id
     LEFT JOIN held_quote_load hq ON hq.ekipa_id = t.id
     WHERE COALESCE(t.aktywny, true) = true
       AND (t.oddzial_id = $1 OR ad.id IS NOT NULL)
-    GROUP BY t.id, u.imie, u.nazwisko, u.telefon, u.procent_wynagrodzenia, b.nazwa,
+    GROUP BY t.id, u.imie, u.nazwisko, u.telefon, u.procent_wynagrodzenia, b.nazwa, target.nazwa,
       ad.id, ad.oddzial_z, bo.nazwa, ad.data_od, ad.data_do, ad.status, ad.cel,
       pt.task_count, pt.task_minutes, hq.hold_count, hq.hold_minutes
     ORDER BY obciazenie_proc_dzien ASC, delegowany ASC, t.nazwa ASC`;
@@ -190,6 +195,10 @@ async function getBranchResources(pool, branchIdValue, dateValue) {
     SELECT
       u.id, u.login, u.imie, u.nazwisko, u.email, u.telefon, u.rola, u.oddzial_id, u.aktywny,
       b.nazwa as oddzial_nazwa,
+      u.oddzial_id as oddzial_macierzysty_id,
+      b.nazwa as oddzial_macierzysty_nazwa,
+      $1::int as dostepny_w_oddziale_id,
+      target.nazwa as dostepny_w_oddziale_nazwa,
       (u.oddzial_id = $1) as natywny_oddzial,
       (ad.id IS NOT NULL AND u.oddzial_id <> $1) as delegowany,
       ad.id as delegacja_id,
@@ -202,6 +211,7 @@ async function getBranchResources(pool, branchIdValue, dateValue) {
     FROM users u
     LEFT JOIN active_user_delegations ad ON ad.delegate_user_id = u.id
     LEFT JOIN branches b ON u.oddzial_id = b.id
+    LEFT JOIN branches target ON target.id = $1
     LEFT JOIN branches bo ON ad.oddzial_z = bo.id
     WHERE COALESCE(u.aktywny, true) = true
       AND LOWER(COALESCE(u.rola, '')) LIKE 'wyceniaj%'

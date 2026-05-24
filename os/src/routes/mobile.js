@@ -12,6 +12,7 @@ const {
 const { companySettingsWriteSchema } = require('../schemas/company-settings');
 const { buildTeamDayReport, loadTeamDayEnrichment } = require('../services/payrollTeamDay');
 const { getRaportyMobileAggregates } = require('../services/raportyMobileStats');
+const { ensureGpsTables } = require('../services/juwentus-gps');
 
 const router = express.Router();
 
@@ -42,6 +43,17 @@ const pushTokenBodySchema = z.object({
 const pushTokenDeleteSchema = z.object({
   expo_token: z.string().min(32).max(512),
 });
+const mobileLocationBodySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  accuracy_m: z.coerce.number().min(0).max(100000).nullable().optional(),
+  speed_kmh: z.coerce.number().min(0).max(300).nullable().optional(),
+  heading: z.coerce.number().min(0).max(360).nullable().optional(),
+  battery_pct: z.coerce.number().min(0).max(100).nullable().optional(),
+  activity: z.string().trim().max(80).nullable().optional(),
+  platform: z.string().trim().max(30).nullable().optional(),
+  recorded_at: z.string().trim().max(80).nullable().optional(),
+});
 
 function isLikelyExpoPushToken(token) {
   const s = String(token || '').trim();
@@ -50,6 +62,29 @@ function isLikelyExpoPushToken(token) {
 
 const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
 const isKierownik = (user) => user.rola === 'Kierownik';
+
+function normalizeRoleName(role) {
+  return String(role || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function canSendMobileLiveGps(user) {
+  const role = normalizeRoleName(user?.rola);
+  return role === 'brygadzista' || role === 'pomocnik' || role.startsWith('wyceniaj');
+}
+
+function normalizeRecordedAt(value) {
+  const date = value ? new Date(value) : new Date();
+  const time = date.getTime();
+  if (!Number.isFinite(time)) return new Date();
+  const now = Date.now();
+  if (time > now + 10 * 60 * 1000) return new Date();
+  if (time < now - 24 * 60 * 60 * 1000) return new Date();
+  return date;
+}
 
 // GET /api/mobile/ustawienia
 router.get('/ustawienia', authMiddleware, async (req, res) => {
@@ -332,6 +367,65 @@ router.post('/me/team-day-close', authMiddleware, validateBody(teamDayCloseBodyS
     }
     logger.error('mobile.team-day-close', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message || req.t('errors.http.serverError') });
+  }
+});
+
+/** LIVE GPS - pozycja z aplikacji mobilnej (foreground heartbeat dla ekip i wyceniajacych). */
+router.post('/me/location', authMiddleware, validateBody(mobileLocationBodySchema), async (req, res) => {
+  try {
+    if (!canSendMobileLiveGps(req.user)) {
+      return res.status(403).json({ error: 'Live GPS jest dostepny tylko dla ekipy terenowej i wyceniajacych.' });
+    }
+
+    await ensureGpsTables();
+    const recordedAt = normalizeRecordedAt(req.body.recorded_at);
+    const sourcePayload = {
+      user_id: req.user.id,
+      rola: req.user.rola,
+      oddzial_id: req.user.oddzial_id ?? null,
+      ekipa_id: req.user.ekipa_id ?? null,
+      accuracy_m: req.body.accuracy_m ?? null,
+      battery_pct: req.body.battery_pct ?? null,
+      activity: req.body.activity ?? null,
+      platform: req.body.platform ?? null,
+      recorded_by: 'mobile-foreground-heartbeat',
+    };
+
+    await pool.query(
+      `INSERT INTO gps_vehicle_positions (
+        provider, external_id, plate_number, lat, lng, speed_kmh, heading, recorded_at, source_payload
+      ) VALUES (
+        'mobile', $1, NULL, $2, $3, $4, $5, $6, $7::jsonb
+      )
+      ON CONFLICT (provider, external_id, recorded_at) DO UPDATE SET
+        lat = EXCLUDED.lat,
+        lng = EXCLUDED.lng,
+        speed_kmh = EXCLUDED.speed_kmh,
+        heading = EXCLUDED.heading,
+        source_payload = EXCLUDED.source_payload`,
+      [
+        String(req.user.id),
+        req.body.lat,
+        req.body.lng,
+        req.body.speed_kmh ?? null,
+        req.body.heading ?? null,
+        recordedAt.toISOString(),
+        JSON.stringify(sourcePayload),
+      ]
+    );
+
+    res.status(201).json({
+      ok: true,
+      provider: 'mobile',
+      user_id: req.user.id,
+      recorded_at: recordedAt.toISOString(),
+    });
+  } catch (e) {
+    if (String(e.message || '').includes('gps_vehicle_positions')) {
+      return res.status(503).json({ error: 'Uruchom migracje GPS LIVE.' });
+    }
+    logger.error('mobile.live-gps-location', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
 

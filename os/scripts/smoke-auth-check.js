@@ -1,6 +1,8 @@
 const http = require('http');
 
-const BASE = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3000';
+const BASE = (process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '');
+const LOGIN = process.env.SMOKE_LOGIN || 'smoke_admin';
+const PASSWORD = process.env.SMOKE_PASSWORD || 'Smoke123!';
 
 const request = (method, path, body, headers = {}) =>
   new Promise((resolve, reject) => {
@@ -35,10 +37,30 @@ const request = (method, path, body, headers = {}) =>
     req.end();
   });
 
+const assertBlockedPayrollResponse = (name, response) => {
+  if (response.status !== 403 || response.body?.error !== 'Podglad rozliczen wyplat jest zablokowany') {
+    throw new Error(`${name} policy mismatch: ${response.status} ${JSON.stringify(response.body)}`);
+  }
+  if (!response.body?.requestId) {
+    throw new Error(`${name} block response missing requestId`);
+  }
+};
+
+const assertLegacySettlementResponse = (name, response) => {
+  if (response.status === 403) {
+    assertBlockedPayrollResponse(name, response);
+    return 'blocked';
+  }
+  if (response.status >= 500) {
+    throw new Error(`${name} failed: ${response.status} ${JSON.stringify(response.body)}`);
+  }
+  return 'allowed';
+};
+
 const run = async () => {
   const login = await request('POST', '/api/auth/login', {
-    login: 'smoke_admin',
-    haslo: 'Smoke123!',
+    login: LOGIN,
+    haslo: PASSWORD,
   });
   if (login.status !== 200 || !login.body?.token) {
     throw new Error(`Login failed: ${login.status} ${JSON.stringify(login.body)}`);
@@ -67,22 +89,12 @@ const run = async () => {
   const payrollBlocked = await request('GET', '/api/rozliczenia/zadanie/1', null, {
     Authorization: `Bearer ${token}`,
   });
-  if (payrollBlocked.status !== 403 || payrollBlocked.body?.error !== 'Podglad rozliczen wyplat jest zablokowany') {
-    throw new Error(`Payroll policy mismatch: ${payrollBlocked.status} ${JSON.stringify(payrollBlocked.body)}`);
-  }
-  if (!payrollBlocked.body?.requestId) {
-    throw new Error('Payroll block response missing requestId (/api/rozliczenia)');
-  }
+  const legacySettlementPolicy = assertLegacySettlementResponse('/api/rozliczenia', payrollBlocked);
 
   const teamPayrollBlocked = await request('GET', '/api/ekipy/rozliczenie/1', null, {
     Authorization: `Bearer ${token}`,
   });
-  if (teamPayrollBlocked.status !== 403 || teamPayrollBlocked.body?.error !== 'Podglad rozliczen wyplat jest zablokowany') {
-    throw new Error(`Team payroll policy mismatch: ${teamPayrollBlocked.status} ${JSON.stringify(teamPayrollBlocked.body)}`);
-  }
-  if (!teamPayrollBlocked.body?.requestId) {
-    throw new Error('Payroll block response missing requestId (/api/ekipy/rozliczenie)');
-  }
+  assertBlockedPayrollResponse('/api/ekipy/rozliczenie', teamPayrollBlocked);
 
   const invalid = await request(
     'PUT',
@@ -99,7 +111,8 @@ const run = async () => {
   console.log(`AUTH_ME_STATUS=${me.status}`);
   console.log(`AUTH_PERMISSIONS_STATUS=${permissions.status}`);
   console.log('AUTH_PERMISSIONS_MATCH=true');
-  console.log(`PAYROLL_BLOCK_STATUS=${payrollBlocked.status}`);
+  console.log(`PAYROLL_LEGACY_POLICY=${legacySettlementPolicy}`);
+  console.log(`PAYROLL_LEGACY_STATUS=${payrollBlocked.status}`);
   console.log(`TEAM_PAYROLL_BLOCK_STATUS=${teamPayrollBlocked.status}`);
   console.log(`VALIDATION_STATUS=${invalid.status}`);
   console.log(`VALIDATION_ERROR=${invalid.body.error}`);

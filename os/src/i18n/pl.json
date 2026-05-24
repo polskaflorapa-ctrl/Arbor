@@ -77,6 +77,8 @@
     "ai": {
       "messagesRequired": "Brak wiadomosci",
       "anthropicKeyInvalid": "Nieprawidlowy klucz API Anthropic",
+      "huggingFaceKeyInvalid": "Nieprawidlowy klucz API Hugging Face",
+      "providerNotConfigured": "Brak konfiguracji AI. Ustaw ANTHROPIC_API_KEY albo HF_TOKEN.",
       "genericAi": "Blad AI",
       "imageRequired": "Brak zdjecia",
       "imageAnalysisFailed": "Blad analizy zdjecia"

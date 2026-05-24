@@ -4,12 +4,12 @@ const logger = require('../config/logger');
 const { authMiddleware, requireNieBrygadzista, isSalesDirector } = require('../middleware/auth');
 const { blockPayrollSettlements } = require('../middleware/payroll-policy');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
-const { syncJuwentusGps, getLiveTeamLocations } = require('../services/juwentus-gps');
+const { ensureGpsTables, syncJuwentusGps, getLiveTeamLocations } = require('../services/juwentus-gps');
 const { getBranchResources } = require('../services/branchResources');
 const { z } = require('zod');
 
 const router = express.Router();
-const isDyrektor = (user) => ['Prezes', 'Dyrektor'].includes(user.rola);
+const isDyrektor = (user) => ['Prezes', 'Dyrektor', 'Administrator'].includes(user.rola) || isSalesDirector(user);
 
 const optionalIntId = z
   .any()
@@ -81,7 +81,7 @@ const ekipaCzlonkowieParamsSchema = z.object({
   userId: z.coerce.number().int().positive(),
 });
 
-const canSeeAllTeamRanking = (user) => isDyrektor(user) || isSalesDirector(user);
+const canSeeAllTeamRanking = (user) => isDyrektor(user) || user?.rola === 'Administrator' || isSalesDirector(user);
 const canViewTeamRanking = (user) => canSeeAllTeamRanking(user) || user?.rola === 'Kierownik';
 const COMPLETED_STATUS = new Set(['zakonczone', 'zakonczony']);
 
@@ -132,7 +132,11 @@ function buildRankingForPeriod(rows, start, end) {
         ekipa_nazwa: task.ekipa_nazwa || `Ekipa #${teamId}`,
         oddzial_id: task.oddzial_id || null,
         oddzial_nazwa: task.oddzial_nazwa || null,
+        ekipa_oddzial_id: task.ekipa_oddzial_id || null,
+        ekipa_oddzial_nazwa: task.ekipa_oddzial_nazwa || null,
         zadania: 0,
+        delegowane_zadania: 0,
+        macierzyste_zadania: 0,
         zakonczone: 0,
         w_realizacji: 0,
         zaplanowane: 0,
@@ -145,7 +149,14 @@ function buildRankingForPeriod(rows, start, end) {
     const status = normalizeStatus(task.status);
     const value = Number(task.wartosc_rzeczywista ?? task.wartosc_planowana ?? 0) || 0;
     const hours = Number(task.czas_planowany_godziny ?? 0) || 0;
+    const delegatedTask = Boolean(
+      task.oddzial_id &&
+      task.ekipa_oddzial_id &&
+      Number(task.oddzial_id) !== Number(task.ekipa_oddzial_id)
+    );
     row.zadania += 1;
+    if (delegatedTask) row.delegowane_zadania += 1;
+    else row.macierzyste_zadania += 1;
     row.wartosc += value;
     row.godziny_planowane += hours;
     if (COMPLETED_STATUS.has(status) || status.includes('zakoncz')) {
@@ -168,6 +179,7 @@ function buildRankingForPeriod(rows, start, end) {
       godziny_planowane: Math.round(row.godziny_planowane * 10) / 10,
       skutecznosc: row.zadania ? Math.round((row.zakonczone / row.zadania) * 100) : 0,
       score: Math.round(row.score_raw * 10) / 10,
+      delegowany: row.delegowane_zadania > 0,
     }))
     .sort((a, b) =>
       b.score - a.score ||
@@ -325,9 +337,12 @@ router.get('/ranking', authMiddleware, validateQuery(ekipaRankingQuerySchema), a
          t.data_zakonczenia,
          t.created_at,
          te.nazwa AS ekipa_nazwa,
+         te.oddzial_id AS ekipa_oddzial_id,
+         tb.nazwa AS ekipa_oddzial_nazwa,
          b.nazwa AS oddzial_nazwa
        FROM tasks t
        LEFT JOIN teams te ON te.id = t.ekipa_id
+       LEFT JOIN branches tb ON tb.id = te.oddzial_id
        LEFT JOIN branches b ON b.id = t.oddzial_id
        ${where}`,
       params
@@ -375,6 +390,7 @@ router.get('/live-locations', authMiddleware, validateQuery(liveLocationsQuerySc
 
 router.get('/gps-user-assignments', authMiddleware, async (req, res) => {
   try {
+    await ensureGpsTables();
     const scopedOddzialId = isDyrektor(req.user) ? null : req.user.oddzial_id;
     const params = [];
     let where = '';
@@ -399,6 +415,7 @@ router.get('/gps-user-assignments', authMiddleware, async (req, res) => {
 
 router.post('/gps-user-assignments', authMiddleware, requireNieBrygadzista, validateBody(gpsUserAssignmentSchema), async (req, res) => {
   try {
+    await ensureGpsTables();
     const { user_id, plate_number, active, notes } = req.body;
     await pool.query(
       `INSERT INTO gps_user_vehicle_assignments (user_id, plate_number, active, notes)

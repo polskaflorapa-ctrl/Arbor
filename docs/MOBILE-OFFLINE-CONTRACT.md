@@ -51,10 +51,29 @@ Sprawdza:
 
 - `/api/ready`,
 - login smoke,
+- zdjecia wymagane do ogledzin (`Wycena`, `Szkic`, `Dojazd`),
+- pakiet terenowy: zakres, czas, budzet, ryzyka, akceptacja klienta,
 - zgloszenie problemu z `opis`,
 - normalizacje typu problemu `usterka -> Awaria_Sprzetu`,
 - upload zdjecia,
 - replay uploadu zdjecia z tym samym `Idempotency-Key`.
+
+Pelny smoke operacyjny, ktory spina kontrakt auth + teren + F0.3/payroll:
+
+```powershell
+cd C:\Users\paha1\arbor
+npm run smoke:operational
+```
+
+W tym trybie, jesli nie podasz `SMOKE_OPERATIONAL_TASK_ID`, smoke tworzy wlasne zlecenie testowe, uzupelnia pakiet terenowy, a potem sprawdza plan biura: ekipa, termin, opcjonalna rezerwacja sprzetu i blokada konfliktu tego samego slotu.
+
+Opcjonalne domkniecie start/finish na konkretnym zleceniu:
+
+```powershell
+$env:SMOKE_OPERATIONAL_TASK_ID="123"
+$env:SMOKE_OPERATIONAL_FINISH="1"
+npm run smoke:operational
+```
 
 ## Lokalne uruchomienie mobile
 
