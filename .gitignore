@@ -50,6 +50,7 @@ tmp_*.py
 os-api-3001.log
 web-3002.log
 public-web-tunnel.log
+logs/
 
 # IDE
 .idea/

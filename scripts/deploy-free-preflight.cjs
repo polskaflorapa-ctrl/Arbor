@@ -42,6 +42,7 @@ async function main() {
   const osBlueprint = parseYaml('os/render.yaml');
   const webBlueprint = parseYaml('web/render.yaml');
   const vercel = JSON.parse(read('vercel.json'));
+  const netlifyToml = read('netlify.toml');
   const rootPackage = JSON.parse(read('package.json'));
   const osPackage = JSON.parse(read('os/package.json'));
 
@@ -62,11 +63,14 @@ async function main() {
   assert(osBlueprint.services?.[0]?.plan === 'free', 'os/render.yaml should also use Render Free.');
   assert(webBlueprint.services?.[0]?.runtime === 'static', 'web/render.yaml should deploy as static.');
   assert(vercel.outputDirectory === 'web/build', 'vercel.json should publish web/build.');
+  assert(/base\s*=\s*"web"/.test(netlifyToml), 'netlify.toml should build from web/.');
+  assert(/publish\s*=\s*"build"/.test(netlifyToml), 'netlify.toml should publish build with base=web.');
   assert(fs.existsSync('web/src/utils/apiBase.js'), 'web API URL normalizer is missing.');
   assert(fs.existsSync('deploy/render-arbor-os.env.example'), 'Render env template is missing.');
   assert(fs.existsSync('deploy/local-production-doctor.env.example'), 'Local production doctor env template is missing.');
   assert(fs.existsSync('deploy/mobile-production.env.example'), 'Mobile production env template is missing.');
   assert(fs.existsSync('deploy/web-production.env.example'), 'Web production env template is missing.');
+  assert(fs.existsSync('deploy/netlify-web.env.example'), 'Netlify web env template is missing.');
   assert(fs.existsSync('os/scripts/bootstrap-admin.js'), 'Production admin bootstrap script is missing.');
   assert(fs.existsSync('os/scripts/production-doctor.js'), 'Production doctor script is missing.');
   assert(fs.existsSync('os/scripts/db-backup.js'), 'Database backup script is missing.');

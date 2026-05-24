@@ -50,6 +50,22 @@ services:
         value: "10000"
       - key: CORS_ORIGINS
         sync: false
+      # SMS — Zadarma (priorytet) LUB Twilio (fallback)
+      # Zadarma: zadarma.com → Panel → API → klucz i sekret
+      - key: ZADARMA_API_KEY
+        sync: false
+      - key: ZADARMA_API_SECRET
+        sync: false
+      # Zadarma: opcjonalny nadawca SMS (nazwa, max 11 znaków), np. "ARBOR"
+      - key: ZADARMA_CALLER_ID
+        sync: false
+      # Twilio (opcjonalny fallback — zostaw puste jeśli używasz Zadarma)
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE
+        sync: false
 
   - type: web
     name: arbor-web

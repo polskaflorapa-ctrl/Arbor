@@ -2,6 +2,7 @@ const { spawnSync } = require('node:child_process');
 
 const criticalNodeFiles = [
   'scripts/deploy-free-preflight.cjs',
+  'scripts/deploy-netlify-check.cjs',
   'scripts/demo-deploy-check.cjs',
   'scripts/deploy-cloudflare-pages.cjs',
   'scripts/run-production-bootstrap.cjs',
@@ -40,6 +41,7 @@ function run(command, args, options = {}) {
 
 function main() {
   run('npm', ['run', 'deploy:free:check']);
+  run('npm', ['run', 'deploy:netlify:check']);
   run('npm', ['run', 'deploy:demo:check']);
   run('npm', ['run', 'deploy:prod:doctor', '--', '--skip-db', '--skip-storage']);
   run('npm', ['run', 'backup:db:check']);
