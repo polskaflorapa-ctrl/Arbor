@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../api';
+import ModernDataRow from './ModernDataRow';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
 
@@ -121,33 +122,27 @@ export default function PayrollRatesPanel({ userId, allowEdit, onMessage }) {
       ) : rows.length === 0 ? (
         <p style={s.gray}>Brak wpisów w `user_payroll_rates` — dodaj pierwszą stawkę, aby raport dnia mógł naliczać wynagrodzenie.</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>Od (data)</th>
-                <th style={s.th}>PLN/h</th>
-                <th style={s.th}>Zakres</th>
-                <th style={s.th}>× weekend</th>
-                <th style={s.th}>× noc</th>
-                <th style={s.th}>× święto</th>
-                <th style={s.th}>Alpina PLN</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td style={s.td}>{r.effective_from ? String(r.effective_from).slice(0, 10) : '—'}</td>
-                  <td style={s.td}>{r.rate_pln_per_hour}</td>
-                  <td style={s.td}>{r.role_scope}</td>
-                  <td style={s.td}>{r.weekend_multiplier}</td>
-                  <td style={s.td}>{r.night_multiplier}</td>
-                  <td style={s.td}>{r.holiday_multiplier}</td>
-                  <td style={s.td}>{r.alpine_addon_pln}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="modern-data-stack">
+          {rows.map((r) => (
+            <ModernDataRow
+              key={r.id}
+              idLabel="Rate ID"
+              idValue={`RATE-${r.id}`}
+              title={r.role_scope || 'Zakres roli'}
+              subtitle={r.effective_from ? `Od ${String(r.effective_from).slice(0, 10)}` : 'Brak daty startu'}
+              tone="success"
+              status="ACTIVE RATE"
+              statusValue="active"
+              statusState="success"
+              metrics={[
+                { label: 'PLN / h', value: r.rate_pln_per_hour, tone: 'success' },
+                { label: 'Weekend', value: r.weekend_multiplier },
+                { label: 'Noc', value: r.night_multiplier },
+                { label: 'Święto', value: r.holiday_multiplier },
+                { label: 'Alpina PLN', value: r.alpine_addon_pln },
+              ]}
+            />
+          ))}
         </div>
       )}
 

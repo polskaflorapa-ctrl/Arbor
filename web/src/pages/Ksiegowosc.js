@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
 import CityInput from '../components/CityInput';
+import ModernDataRow from '../components/ModernDataRow';
 import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
 import PaymentsOutlined from '@mui/icons-material/PaymentsOutlined';
@@ -334,54 +335,45 @@ export default function Ksiegowosc() {
                 <p style={styles.emptySub}>Kliknij "+ Nowa faktura" aby wystawić pierwszą fakturę</p>
               </div>
             ) : (
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      {['Numer', 'Klient', 'Data', 'Termin', 'Netto', 'VAT', 'Brutto', 'Płatność', 'Status', 'Akcja'].map(h => (
-                        <th key={h} style={styles.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtrowane.map((f, i) => (
-                      <tr key={f.id} style={{backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)'}}>
-                        <td style={{...styles.td, fontWeight: '700', color: 'var(--accent)'}}>{f.numer}</td>
-                        <td style={styles.td}>
-                          <div style={styles.klientNazwa}>{f.klient_nazwa}</div>
-                          {f.klient_nip && <div style={styles.klientNip}>NIP: {f.klient_nip}</div>}
-                        </td>
-                        <td style={styles.td}>{formatDate(f.data_wystawienia)}</td>
-                        <td style={{...styles.td, color: isOverdue(f.termin_platnosci, f.status) ? '#EF5350' : 'var(--text)'}}>
-                          {formatDate(f.termin_platnosci) || '-'}
-                         </td>
-                        <td style={styles.td}>{fmt(f.netto)} PLN</td>
-                        <td style={styles.td}>{fmt(f.vat_kwota)} PLN</td>
-                        <td style={{...styles.td, fontWeight: '700', color: 'var(--accent)'}}>{fmt(f.brutto)} PLN</td>
-                        <td style={styles.td}>
-                          <span style={styles.platBadge}>{f.forma_platnosci}</span>
-                        </td>
-                        <td style={styles.td}>
-                          <select
-                            style={{...styles.statusSelect, borderColor: STATUS_KOLOR[f.status] || '#9CA3AF'}}
-                            value={f.status}
-                            onChange={e => zmienStatus(f.id, e.target.value)}
-                          >
-                            <option value="Nieoplacona">{t('pages.ksiegowosc.optUnpaidShort')}</option>
-                            <option value="Oplacona">{t('pages.ksiegowosc.optPaidShort')}</option>
-                            <option value="Przeterminowana">⚠️ Przeterminowana</option>
-                            <option value="Anulowana">❌ Anulowana</option>
-                          </select>
-                        </td>
-                        <td style={styles.td}>
-                          <button style={styles.pdfBtn} onClick={() => pobierzFakturePdf(f.id)}>
-                            📄 PDF
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {filtrowane.map((f) => (
+                  <ModernDataRow
+                    key={f.id}
+                    idLabel="Invoice"
+                    idValue={f.numer}
+                    title={f.klient_nazwa}
+                    subtitle={f.klient_nip ? `NIP: ${f.klient_nip}` : f.forma_platnosci}
+                    tone={f.status === 'Oplacona' ? 'success' : f.status === 'Przeterminowana' ? 'danger' : 'warning'}
+                    status={f.status}
+                    statusValue={f.status}
+                    statusState={f.status === 'Oplacona' ? 'success' : f.status === 'Przeterminowana' ? 'danger' : 'warning'}
+                    metrics={[
+                      { label: 'Data', value: formatDate(f.data_wystawienia) },
+                      { label: 'Termin', value: formatDate(f.termin_platnosci) || '-', tone: isOverdue(f.termin_platnosci, f.status) ? 'danger' : undefined },
+                      { label: 'Netto', value: `${fmt(f.netto)} PLN` },
+                      { label: 'VAT', value: `${fmt(f.vat_kwota)} PLN` },
+                      { label: 'Brutto', value: `${fmt(f.brutto)} PLN`, tone: 'success' },
+                      { label: 'Płatność', value: f.forma_platnosci, mono: false },
+                    ]}
+                    actions={
+                      <>
+                        <select
+                          style={{...styles.statusSelect, borderColor: STATUS_KOLOR[f.status] || '#9CA3AF'}}
+                          value={f.status}
+                          onChange={e => zmienStatus(f.id, e.target.value)}
+                        >
+                          <option value="Nieoplacona">{t('pages.ksiegowosc.optUnpaidShort')}</option>
+                          <option value="Oplacona">{t('pages.ksiegowosc.optPaidShort')}</option>
+                          <option value="Przeterminowana">Przeterminowana</option>
+                          <option value="Anulowana">Anulowana</option>
+                        </select>
+                        <button style={styles.pdfBtn} onClick={() => pobierzFakturePdf(f.id)}>
+                          PDF
+                        </button>
+                      </>
+                    }
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -477,67 +469,56 @@ export default function Ksiegowosc() {
                 <button type="button" style={styles.addPozBtn} onClick={dodajPozycje}>+ Dodaj pozycję</button>
               </div>
 
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      {['Nazwa', 'Jedn.', 'Ilość', 'Cena netto', 'VAT %', 'Wartość netto', 'Wartość brutto', ''].map(h => (
-                        <th key={h} style={styles.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {form.pozycje.map((p, idx) => {
-                      const wNetto = (parseFloat(p.ilosc) || 0) * (parseFloat(p.cena_netto) || 0);
-                      const wBrutto = wNetto * (1 + (parseFloat(p.vat_stawka) || 0) / 100);
-                      return (
-                        <tr key={idx}>
-                          <td style={styles.td}>
-                            <input style={{...styles.inputSm, width: 180}} value={p.nazwa} required
-                              onChange={e => updatePozycja(idx, 'nazwa', e.target.value)}
-                              placeholder="np. Wycinka drzew" />
-                          </td>
-                          <td style={styles.td}>
-                            <select style={styles.inputSm} value={p.jednostka}
-                              onChange={e => updatePozycja(idx, 'jednostka', e.target.value)}>
-                              <option value="szt">szt</option>
-                              <option value="usł">usł</option>
-                              <option value="godz">godz</option>
-                              <option value="m2">m²</option>
-                              <option value="m3">m³</option>
-                              <option value="km">km</option>
-                            </select>
-                          </td>
-                          <td style={styles.td}>
-                            <input style={{...styles.inputSm, width: 60}} type="number" step="0.5" value={p.ilosc}
-                              onChange={e => updatePozycja(idx, 'ilosc', e.target.value)} />
-                          </td>
-                          <td style={styles.td}>
-                            <input style={{...styles.inputSm, width: 90}} type="number" step="0.01" value={p.cena_netto} required
-                              onChange={e => updatePozycja(idx, 'cena_netto', e.target.value)}
-                              placeholder="0.00" />
-                          </td>
-                          <td style={styles.td}>
-                            <select style={styles.inputSm} value={p.vat_stawka}
-                              onChange={e => updatePozycja(idx, 'vat_stawka', e.target.value)}>
-                              <option value="23">23%</option>
-                              <option value="8">8%</option>
-                              <option value="5">5%</option>
-                              <option value="0">0%</option>
-                            </select>
-                          </td>
-                          <td style={{...styles.td, fontWeight: '600'}}>{fmt(wNetto)} PLN</td>
-                          <td style={{...styles.td, fontWeight: '700', color: 'var(--accent)'}}>{fmt(wBrutto)} PLN</td>
-                          <td style={styles.td}>
-                            {form.pozycje.length > 1 && (
-                              <button type="button" style={styles.delBtn} onClick={() => usunPozycje(idx)}>✕</button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {form.pozycje.map((p, idx) => {
+                  const wNetto = (parseFloat(p.ilosc) || 0) * (parseFloat(p.cena_netto) || 0);
+                  const wBrutto = wNetto * (1 + (parseFloat(p.vat_stawka) || 0) / 100);
+                  return (
+                    <div key={idx} className="modern-data-row modern-data-row--info">
+                      <div className="modern-data-row__identity">
+                        <div className="modern-data-row__icon">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z" /><path d="M9 7h6M9 11h6M9 15h3" /></svg>
+                        </div>
+                        <div className="modern-data-row__id-copy">
+                          <span className="modern-data-row__id-label">Pozycja</span>
+                          <span className="modern-data-row__id-value">ITEM-{idx + 1}</span>
+                        </div>
+                      </div>
+                      <div className="modern-data-row__metric-grid">
+                        <input style={{...styles.inputSm, width: '100%'}} value={p.nazwa} required onChange={e => updatePozycja(idx, 'nazwa', e.target.value)} placeholder="np. Wycinka drzew" />
+                        <select style={styles.inputSm} value={p.jednostka} onChange={e => updatePozycja(idx, 'jednostka', e.target.value)}>
+                          <option value="szt">szt</option>
+                          <option value="usł">usł</option>
+                          <option value="godz">godz</option>
+                          <option value="m2">m²</option>
+                          <option value="m3">m³</option>
+                          <option value="km">km</option>
+                        </select>
+                        <input style={styles.inputSm} type="number" step="0.5" value={p.ilosc} onChange={e => updatePozycja(idx, 'ilosc', e.target.value)} />
+                        <input style={styles.inputSm} type="number" step="0.01" value={p.cena_netto} required onChange={e => updatePozycja(idx, 'cena_netto', e.target.value)} placeholder="0.00" />
+                        <select style={styles.inputSm} value={p.vat_stawka} onChange={e => updatePozycja(idx, 'vat_stawka', e.target.value)}>
+                          <option value="23">23%</option>
+                          <option value="8">8%</option>
+                          <option value="5">5%</option>
+                          <option value="0">0%</option>
+                        </select>
+                        <div className="modern-data-row__metric">
+                          <span className="modern-data-row__metric-label">Netto</span>
+                          <span className="modern-data-row__metric-value modern-data-row__metric-value--mono">{fmt(wNetto)} PLN</span>
+                        </div>
+                        <div className="modern-data-row__metric">
+                          <span className="modern-data-row__metric-label">Brutto</span>
+                          <span className="modern-data-row__metric-value modern-data-row__metric-value--mono modern-data-row__metric-value--success">{fmt(wBrutto)} PLN</span>
+                        </div>
+                      </div>
+                      <div className="modern-data-row__right">
+                        {form.pozycje.length > 1 && (
+                          <button type="button" style={styles.delBtn} onClick={() => usunPozycje(idx)}>Usuń</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div style={styles.sumaBox}>

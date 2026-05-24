@@ -154,7 +154,7 @@ export default function NowyPracownik() {
                     <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                   </optgroup>
                   <optgroup label={t('pages.nowyPracownik.optgroupOther')}>
-                    <option value="Wyceniający">Wyceniający</option>
+                    <option value="Wyceniający">Specjalista ds. wyceny</option>
                     <option value="Magazynier">Magazynier</option>
                   </optgroup>
                 </select>

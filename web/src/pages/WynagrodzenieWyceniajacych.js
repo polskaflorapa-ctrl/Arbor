@@ -4,9 +4,11 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { computeEstimatorPayout } from '../utils/computeEstimatorPayout';
 import { computeEstimatorMonth, filterQuotesForEstimatorRole, resolveEstimatorContract } from '../utils/estimatorCompensation';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { isTaskDone } from '../utils/taskWorkflow';
@@ -212,7 +214,7 @@ export default function WynagrodzenieWyceniajacych() {
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
         <Sidebar />
         <div style={{ padding: 32 }}>
-          <PageHeader title="Rozliczenie wyceniających" subtitle="Brak uprawnień" />
+          <PageHeader title="Rozliczenie specjalistów ds. wyceny" subtitle="Brak uprawnień" />
         </div>
       </div>
     );
@@ -223,14 +225,14 @@ export default function WynagrodzenieWyceniajacych() {
       <Sidebar />
       <div style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
         <PageHeader
-          title="Rozliczenie wyceniających"
+          title="Rozliczenie specjalistów ds. wyceny"
           subtitle="Stawka dzienna + % od zrealizowanych zleceń (wyceniajacy_id po zatwierdzeniu wyceny) + dodatki. API: backend_routes_arbor_wyceny.js + sql/arbor_wyceny_wynagrodzenie_media.sql"
         />
         <StatusMessage message={msg} />
 
         <div style={card}>
           <div style={grid}>
-            <label style={lab}>Wyceniający</label>
+            <label style={lab}>Specjalista ds. wyceny</label>
             <select
               style={inp}
               value={wybranyId}
@@ -240,7 +242,7 @@ export default function WynagrodzenieWyceniajacych() {
               <option value="">— wybierz —</option>
               {(widziTylkoSiebie ? uzytkownicy.filter((u) => u.id === user.id) : wyceniajacy).map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.imie} {u.nazwisko} ({u.rola})
+                  {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})
                   {u.oddzial_nazwa ? ` · ${u.oddzial_nazwa}` : ''}
                 </option>
               ))}
@@ -311,7 +313,7 @@ export default function WynagrodzenieWyceniajacych() {
 
             {!contract ? (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-                Brak umowy kontraktowej dla tego wyceniającego w tabeli <code>WYCENIAJACY_UMOWY</code> (oddział ID: {selectedUser?.oddzial_id ?? '—'}, login: {selectedUser?.login ?? '—'}).
+                Brak umowy kontraktowej dla tego specjalisty ds. wyceny w tabeli <code>WYCENIAJACY_UMOWY</code> (oddział ID: {selectedUser?.oddzial_id ?? '—'}, login: {selectedUser?.login ?? '—'}).
                 Uzupełnij <code>web/src/constants/wyceniajacyUmowy.js</code>.
               </p>
             ) : (
@@ -337,40 +339,47 @@ export default function WynagrodzenieWyceniajacych() {
                     Brak wycen ze statusem {contract.quoteStatusesForCommission.join('/')} w miesiącu {contractMonthYm} dla tej osoby.
                   </p>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 12 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                        <th style={th2}>#Wycena · klient</th>
-                        <th style={th2}>Status</th>
-                        <th style={{ ...th2, textAlign: 'right' }}>Podstawa</th>
-                        <th style={{ ...th2, textAlign: 'right' }}>Prowizja</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contractResult.lines.map((line) => (
-                        <tr key={String(line.wycenaId)} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={td2}>#{line.wycenaId} · {line.client}</td>
-                          <td style={td2}>{line.status}</td>
-                          <td style={{ ...td2, textAlign: 'right' }}>{fmtPln(line.basisPln)}</td>
-                          <td style={{ ...td2, textAlign: 'right', color: 'var(--accent)', fontWeight: 700 }}>+{fmtPln(line.commissionPln)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="modern-data-stack" style={{ marginBottom: 12 }}>
+                    {contractResult.lines.map((line) => (
+                      <ModernDataRow
+                        key={String(line.wycenaId)}
+                        idLabel="Quote ID"
+                        idValue={`#${line.wycenaId}`}
+                        title={line.client}
+                        subtitle={line.status}
+                        tone="success"
+                        status="COMMISSION"
+                        statusValue="success"
+                        statusState="success"
+                        metrics={[
+                          { label: 'Podstawa', value: fmtPln(line.basisPln) },
+                          { label: 'Prowizja', value: `+${fmtPln(line.commissionPln)}`, tone: 'success' },
+                        ]}
+                      />
+                    ))}
+                  </div>
                 )}
 
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                  <tbody>
-                    <tr><td style={tdL}>Część dzienna ({contractResult.workingDays} × {fmtPln(contract.dailyBasePln)})</td><td style={tdR}>{fmtPln(contractResult.baseFromDaysPln)}</td></tr>
-                    <tr><td style={tdL}>{(contract.percentRealized * 100).toFixed(2)}% × {fmtPln(contractResult.totalRealizedBasisPln)}</td><td style={tdR}>{fmtPln(contractResult.variableFromPercentPln)}</td></tr>
-                    {contractResult.addonsPln > 0 && (
-                      <tr><td style={tdL}>Addony stałe</td><td style={tdR}>{fmtPln(contractResult.addonsPln)}</td></tr>
-                    )}
-                    <tr style={{ fontWeight: 800, borderTop: '1px solid var(--border)' }}>
-                      <td style={tdL}>Razem (kontraktowe)</td><td style={tdR}>{fmtPln(contractResult.totalPln)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div className="modern-data-stack">
+                  {[
+                    { label: `Część dzienna (${contractResult.workingDays} × ${fmtPln(contract.dailyBasePln)})`, value: fmtPln(contractResult.baseFromDaysPln) },
+                    { label: `${(contract.percentRealized * 100).toFixed(2)}% × ${fmtPln(contractResult.totalRealizedBasisPln)}`, value: fmtPln(contractResult.variableFromPercentPln) },
+                    ...(contractResult.addonsPln > 0 ? [{ label: 'Addony stałe', value: fmtPln(contractResult.addonsPln) }] : []),
+                    { label: 'Razem (kontraktowe)', value: fmtPln(contractResult.totalPln), tone: 'success' },
+                  ].map((row) => (
+                    <ModernDataRow
+                      key={row.label}
+                      idLabel="Contract Calc"
+                      idValue="PAYOUT"
+                      title={row.label}
+                      tone={row.tone || 'info'}
+                      status={row.tone ? 'TOTAL' : 'CALC'}
+                      statusValue={row.tone || 'info'}
+                      statusState={row.tone || 'info'}
+                      metrics={[{ label: 'Kwota', value: row.value, tone: row.tone }]}
+                    />
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -378,15 +387,26 @@ export default function WynagrodzenieWyceniajacych() {
 
         <div style={{ ...card, marginTop: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Podsumowanie</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <tbody>
-              <tr><td style={tdL}>Część dzienna</td><td style={tdR}>{fmtPln(wynik.czescDzienna)}</td></tr>
-              <tr><td style={tdL}>{procent}% × {fmtPln(sumaZrealizowanych)}</td><td style={tdR}>{fmtPln(wynik.czescProcentowa)}</td></tr>
-              <tr><td style={tdL}>Dodatki</td><td style={tdR}>{fmtPln(wynik.dodatki)}</td></tr>
-              <tr style={{ fontWeight: 800, borderTop: '1px solid var(--border)' }}>
-                <td style={tdL}>Razem</td><td style={tdR}>{fmtPln(wynik.razem)}</td></tr>
-            </tbody>
-          </table>
+          <div className="modern-data-stack">
+            {[
+              { label: 'Część dzienna', value: fmtPln(wynik.czescDzienna) },
+              { label: `${procent}% × ${fmtPln(sumaZrealizowanych)}`, value: fmtPln(wynik.czescProcentowa) },
+              { label: 'Dodatki', value: fmtPln(wynik.dodatki) },
+              { label: 'Razem', value: fmtPln(wynik.razem), tone: 'success' },
+            ].map((row) => (
+              <ModernDataRow
+                key={row.label}
+                idLabel="Summary"
+                idValue="EST-PAY"
+                title={row.label}
+                tone={row.tone || 'info'}
+                status={row.tone ? 'TOTAL' : 'CALC'}
+                statusValue={row.tone || 'info'}
+                statusState={row.tone || 'info'}
+                metrics={[{ label: 'Kwota', value: row.value, tone: row.tone }]}
+              />
+            ))}
+          </div>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 12, marginBottom: 0 }}>
             Suma: jeśli działa endpoint podsumowania, używana jest suma po <code>wyceniajacy_id</code> z serwera; inaczej lokalna lista zadań (<code>created_by</code> / <code>wyceniajacy_id</code> / <code>wycenil_id</code>). Pole „Suma ręcznie” ma pierwszeństwo.
           </p>
@@ -422,7 +442,3 @@ const btnPri = {
   fontWeight: 700,
   cursor: 'pointer',
 };
-const tdL = { padding: '8px 0', color: 'var(--text-sub)' };
-const tdR = { padding: '8px 0', textAlign: 'right', fontWeight: 600 };
-const th2 = { padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600 };
-const td2 = { padding: '8px 8px' };

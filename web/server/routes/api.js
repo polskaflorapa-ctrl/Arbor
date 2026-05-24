@@ -356,6 +356,14 @@ function canUserViewZlecenie(state, user, taskId) {
   return visibleZlecenia(state, user).some((x) => x.id === taskId);
 }
 
+function canUserUpdateFieldTask(user, task) {
+  if (canManageTaskRows(user)) return true;
+  if (user?.ekipa_id && task?.ekipa_id && Number(user.ekipa_id) === Number(task.ekipa_id)) return true;
+  if (user?.id && task?.wyceniajacy_id && Number(user.id) === Number(task.wyceniajacy_id)) return true;
+  const role = String(user?.rola || '').toLowerCase();
+  return role.includes('brygadz') || role.includes('pomoc') || role.includes('wycen');
+}
+
 function ensureTaskPhotoStore(state) {
   if (!state.taskZdjecia || typeof state.taskZdjecia !== 'object') state.taskZdjecia = {};
   if (!state.nextTaskZdjecieId) state.nextTaskZdjecieId = 1;
@@ -378,6 +386,67 @@ function taskProblems(state, taskId) {
   const key = String(taskId);
   if (!Array.isArray(state.taskProblemy[key])) state.taskProblemy[key] = [];
   return state.taskProblemy[key];
+}
+
+function ensureTaskLogStore(state) {
+  if (!state.taskLogi || typeof state.taskLogi !== 'object') state.taskLogi = {};
+  if (!state.nextTaskLogId) state.nextTaskLogId = 1;
+}
+
+function taskLogs(state, taskId) {
+  ensureTaskLogStore(state);
+  const key = String(taskId);
+  if (!Array.isArray(state.taskLogi[key])) state.taskLogi[key] = [];
+  return state.taskLogi[key];
+}
+
+function normalizeLogStatus(status) {
+  return String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .trim();
+}
+
+function isCheckinLog(log) {
+  const key = normalizeLogStatus(log?.status || log?.tresc);
+  return key.includes('check_in') || key.includes('checkin') || key.includes('przyjazd') || key.includes('dojechal');
+}
+
+function isStartLog(log) {
+  const key = normalizeLogStatus(log?.status || log?.tresc);
+  return key === 'start' || key.includes('start_work') || key.includes('rozpoczecie') || key.includes('rozpoczeto');
+}
+
+function isFinishLog(log) {
+  const key = normalizeLogStatus(log?.status || log?.tresc);
+  return key === 'finish' || key.includes('finish_work') || key.includes('zakonczenie') || key.includes('zakonczono');
+}
+
+function buildTaskLogRow(state, log) {
+  const author = userName(state, log.user_id);
+  return {
+    ...log,
+    user_name: author,
+    autor: author,
+  };
+}
+
+function addTaskLog(state, taskId, user, patch) {
+  ensureTaskLogStore(state);
+  const log = {
+    id: state.nextTaskLogId++,
+    task_id: Number(taskId),
+    user_id: user?.id ?? null,
+    status: patch.status || null,
+    tresc: String(patch.tresc || '').trim().slice(0, 3000),
+    lat: toNum(patch.lat),
+    lng: toNum(patch.lng),
+    created_at: patch.created_at || new Date().toISOString(),
+  };
+  taskLogs(state, taskId).push(log);
+  return log;
 }
 
 function normalizeTaskProblemType(value) {
@@ -423,10 +492,46 @@ function buildTaskPhotoSummary(state, task) {
   };
 }
 
+function buildTaskProblemSummary(state, task) {
+  const problems = taskProblems(state, task.id);
+  const open = problems.filter((row) => {
+    const status = String(row.status || '').trim().toLowerCase();
+    return !status.startsWith('rozwi') && !status.startsWith('zamkn') && !status.startsWith('resolved') && !status.startsWith('done');
+  }).length;
+  return {
+    problem_total: problems.length,
+    problem_open: open,
+    issues_count: problems.length,
+    issues_open: open,
+  };
+}
+
+function buildTaskWorkSummary(state, task) {
+  const logs = taskLogs(state, task.id)
+    .slice()
+    .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+  const lastCheckin = logs.filter(isCheckinLog).at(-1);
+  const lastStart = logs.filter(isStartLog).at(-1);
+  const lastFinish = logs.filter(isFinishLog).at(-1);
+  const lastStartAt = lastStart?.created_at ? new Date(lastStart.created_at).getTime() : 0;
+  const lastFinishAt = lastFinish?.created_at ? new Date(lastFinish.created_at).getTime() : 0;
+  const active = Boolean(lastStartAt && (!lastFinishAt || lastStartAt > lastFinishAt));
+  return {
+    work_logs_total: logs.length,
+    active_work_count: active ? 1 : 0,
+    last_checkin_at: task.last_checkin_at || lastCheckin?.created_at || null,
+    active_work_started_at: active ? (task.active_work_started_at || lastStart?.created_at || null) : null,
+    last_work_finished_at: task.last_work_finished_at || lastFinish?.created_at || task.data_zakonczenia || null,
+    last_work_log_at: logs.at(-1)?.created_at || null,
+  };
+}
+
 function buildTaskRow(state, task) {
   return {
     ...enrichWycena(state, task),
     ...buildTaskPhotoSummary(state, task),
+    ...buildTaskProblemSummary(state, task),
+    ...buildTaskWorkSummary(state, task),
   };
 }
 
@@ -1642,7 +1747,7 @@ router.get('/tasks/closure-events', requireAuth, (req, res) => {
 });
 
 router.get('/tasks', requireAuth, (req, res) => {
-  const list = readOnly((state) => visibleZlecenia(state, req.user).map((z) => enrichWycena(state, z)));
+  const list = readOnly((state) => visibleZlecenia(state, req.user).map((z) => buildTaskRow(state, z)));
   res.json(list);
 });
 
@@ -1885,28 +1990,125 @@ function createLocalTaskProblem(req, res) {
 router.post('/tasks/:id(\\d+)/problemy', requireAuth, createLocalTaskProblem);
 router.post('/tasks/:id(\\d+)/problem', requireAuth, createLocalTaskProblem);
 
+router.get('/tasks/:id(\\d+)/logi', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  const rows = readOnly((state) => {
+    if (!canUserViewZlecenie(state, req.user, id)) return null;
+    return taskLogs(state, id)
+      .slice()
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      .map((log) => buildTaskLogRow(state, log));
+  });
+  if (!rows) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.json(rows);
+});
+
 router.post('/tasks/:id(\\d+)/logi', requireAuth, (req, res) => {
   const id = toNum(req.params.id);
   if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
   const row = withStore((state) => {
     if (!canUserViewZlecenie(state, req.user, id)) return null;
-    if (!state.taskLogi || typeof state.taskLogi !== 'object') state.taskLogi = {};
-    if (!state.nextTaskLogId) state.nextTaskLogId = 1;
-    const key = String(id);
-    if (!Array.isArray(state.taskLogi[key])) state.taskLogi[key] = [];
-    const log = {
-      id: state.nextTaskLogId++,
-      task_id: id,
-      user_id: req.user.id,
+    const log = addTaskLog(state, id, req.user, {
       tresc: String(req.body?.tresc || '').trim().slice(0, 3000),
       status: String(req.body?.status || '').trim().slice(0, 80) || null,
-      created_at: new Date().toISOString(),
-    };
-    state.taskLogi[key].push(log);
-    return log;
+      lat: req.body?.lat,
+      lng: req.body?.lng,
+    });
+    return buildTaskLogRow(state, log);
   });
   if (!row) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
   res.status(201).json(row);
+});
+
+router.post('/tasks/:id(\\d+)/checkin', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  const result = withStore((state) => {
+    const task = (state.zlecenia || []).find((z) => Number(z.id) === Number(id));
+    if (!task || !canUserViewZlecenie(state, req.user, id)) return null;
+    if (!canUserUpdateFieldTask(req.user, task)) return { _forbidden: true };
+    if (isTaskClosed(task.status)) return { _closed: true };
+    const now = new Date().toISOString();
+    task.last_checkin_at = now;
+    task.last_checkin_lat = toNum(req.body?.lat);
+    task.last_checkin_lng = toNum(req.body?.lng);
+    task.updated_at = now;
+    const log = addTaskLog(state, id, req.user, {
+      status: 'check_in',
+      tresc: req.body?.note || 'Check-in GPS: ekipa potwierdzila przyjazd do klienta.',
+      lat: req.body?.lat,
+      lng: req.body?.lng,
+      created_at: now,
+    });
+    return { task: buildTaskRow(state, task), log: buildTaskLogRow(state, log) };
+  });
+  if (result?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do check-in' });
+  if (result?._closed) return res.status(400).json({ error: 'Zlecenie jest juz zamkniete' });
+  if (!result) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.status(201).json(result);
+});
+
+router.post('/tasks/:id(\\d+)/start', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  const result = withStore((state) => {
+    const task = (state.zlecenia || []).find((z) => Number(z.id) === Number(id));
+    if (!task || !canUserViewZlecenie(state, req.user, id)) return null;
+    if (!canUserUpdateFieldTask(req.user, task)) return { _forbidden: true };
+    if (isTaskClosed(task.status)) return { _closed: true };
+    const now = new Date().toISOString();
+    task.status = TASK_STATUS.W_REALIZACJI;
+    task.started_at = task.started_at || now;
+    task.active_work_started_at = now;
+    task.last_start_lat = toNum(req.body?.lat);
+    task.last_start_lng = toNum(req.body?.lng);
+    task.updated_at = now;
+    const log = addTaskLog(state, id, req.user, {
+      status: 'start',
+      tresc: 'Start pracy z aplikacji mobilnej.',
+      lat: req.body?.lat,
+      lng: req.body?.lng,
+      created_at: now,
+    });
+    return { task: buildTaskRow(state, task), log: buildTaskLogRow(state, log) };
+  });
+  if (result?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do startu pracy' });
+  if (result?._closed) return res.status(400).json({ error: 'Zlecenie jest juz zamkniete' });
+  if (!result) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.status(201).json(result);
+});
+
+router.post('/tasks/:id(\\d+)/finish', requireAuth, (req, res) => {
+  const id = toNum(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Nieprawidlowe id' });
+  const result = withStore((state) => {
+    const task = (state.zlecenia || []).find((z) => Number(z.id) === Number(id));
+    if (!task || !canUserViewZlecenie(state, req.user, id)) return null;
+    if (!canUserUpdateFieldTask(req.user, task)) return { _forbidden: true };
+    if (isTaskClosed(task.status)) return { task: buildTaskRow(state, task), already_closed: true };
+    const now = new Date().toISOString();
+    const payment = req.body?.payment && typeof req.body.payment === 'object' ? req.body.payment : null;
+    task.status = TASK_STATUS.ZAKONCZONE;
+    task.data_zakonczenia = task.data_zakonczenia || now;
+    task.last_work_finished_at = now;
+    task.active_work_started_at = null;
+    task.last_finish_lat = toNum(req.body?.lat);
+    task.last_finish_lng = toNum(req.body?.lng);
+    if (payment) task.payment = { ...(task.payment || {}), ...payment, updated_at: now };
+    task.updated_at = now;
+    const log = addTaskLog(state, id, req.user, {
+      status: 'finish',
+      tresc: req.body?.notatki || 'Zakonczono prace z aplikacji mobilnej.',
+      lat: req.body?.lat,
+      lng: req.body?.lng,
+      created_at: now,
+    });
+    return { task: buildTaskRow(state, task), log: buildTaskLogRow(state, log) };
+  });
+  if (result?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do zakonczenia pracy' });
+  if (!result) return res.status(404).json({ error: 'Nie znaleziono lub brak dostepu' });
+  res.status(201).json(result);
 });
 
 router.put('/tasks/:id(\\d+)/status', requireAuth, (req, res) => {
@@ -1948,7 +2150,7 @@ router.get('/tasks/:id(\\d+)', requireAuth, (req, res) => {
   const row = readOnly((state) => {
     if (!canUserViewZlecenie(state, req.user, id)) return null;
     const z = state.zlecenia.find((x) => x.id === id);
-    return z ? enrichWycena(state, z) : null;
+    return z ? buildTaskRow(state, z) : null;
   });
   if (!row) return res.status(404).json({ error: 'Nie znaleziono' });
   res.json(row);
@@ -1990,7 +2192,7 @@ router.put('/tasks/:id(\\d+)', requireAuth, (req, res) => {
       if (b.data_planowana) z.data_planowana = b.data_planowana;
       if (b.data_wykonania) z.data_wykonania = b.data_wykonania;
     }
-    return enrichWycena(state, z);
+    return buildTaskRow(state, z);
   });
   if (row?._forbidden) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
   if (row?._badTransition) {

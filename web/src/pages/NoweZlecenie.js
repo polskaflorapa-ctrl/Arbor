@@ -7,6 +7,7 @@ import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 import {
@@ -314,14 +315,14 @@ export default function NoweZlecenie() {
                     </div>
                   )}
                 </Field>
-                <Field label="Wyceniający (kalendarz)" icon={IKONY.estimator}>
+                <Field label="Specjalista ds. wyceny (kalendarz)" icon={IKONY.estimator}>
                   <select style={S.input} value={form.wyceniajacy_id} onChange={setField('wyceniajacy_id')}>
-                    <option value="">-- wybierz wyceniającego --</option>
+                    <option value="">-- wybierz specjalistę ds. wyceny --</option>
                     {estimators
                       .filter((u) => !form.oddzial_id || Number(u.oddzial_id) === Number(form.oddzial_id))
                       .map((u) => (
                         <option key={u.id} value={u.id}>
-                          {u.imie} {u.nazwisko} ({u.rola})
+                          {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})
                         </option>
                       ))}
                   </select>

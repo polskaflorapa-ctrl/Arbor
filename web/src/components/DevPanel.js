@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getReactApiBase } from '../utils/apiBase';
 import { isTestModeEnabled, toggleTestMode, TEST_USERS } from '../utils/testMode';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
 import './DevPanel.css';
 
@@ -162,7 +163,7 @@ export function DevPanel() {
       const user = TEST_USERS[selectedUser];
       localStorage.setItem('token', 'test_token_' + Date.now());
       localStorage.setItem('user', JSON.stringify(user));
-      alert(`✓ Tryb testowy włączony\nRola: ${user.rola}`);
+      alert(`✓ Tryb testowy włączony\nRola: ${getRoleDisplayName(user.rola)}`);
       window.location.reload();
     } else {
       localStorage.removeItem('token');
@@ -177,7 +178,7 @@ export function DevPanel() {
     if (testModeEnabled) {
       const user = TEST_USERS[role];
       localStorage.setItem('user', JSON.stringify(user));
-      alert(`✓ Zmieniono rolę na: ${user.rola}`);
+      alert(`✓ Zmieniono rolę na: ${getRoleDisplayName(user.rola)}`);
       window.location.reload();
     }
   };
@@ -231,7 +232,7 @@ export function DevPanel() {
                   <option value="dyrektor">Dyrektor</option>
                   <option value="kierownik">Kierownik Oddziału</option>
                   <option value="brygadzista">Brygadzista</option>
-                  <option value="wyceniajacy">Wyceniający</option>
+                  <option value="wyceniajacy">Specjalista ds. wyceny</option>
                 </select>
               </div>
             )}

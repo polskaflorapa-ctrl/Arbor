@@ -10,6 +10,7 @@ import DoneAllOutlined from '@mui/icons-material/DoneAllOutlined';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 
@@ -227,7 +228,7 @@ export default function Powiadomienia() {
                   <select style={styles.input} value={form.to_user_id} onChange={e => setForm({...form, to_user_id: e.target.value})} required>
                     <option value="">{t('pages.powiadomienia.recipientPlaceholder')}</option>
                     {kierownicy.map(k => (
-                      <option key={k.id} value={k.id}>{k.imie} {k.nazwisko} ({k.rola})</option>
+                      <option key={k.id} value={k.id}>{k.imie} {k.nazwisko} ({getRoleDisplayName(k.rola)})</option>
                     ))}
                   </select>
                 </div>

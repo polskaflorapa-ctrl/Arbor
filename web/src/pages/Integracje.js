@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 
@@ -352,48 +354,47 @@ export default function Integracje() {
             <span>Strona {page} / {totalPages}</span>
           </div>
           {loading ? (
-            <div style={styles.empty}>Ładowanie...</div>
+            <div style={styles.empty}>?adowanie...</div>
           ) : logs.length === 0 ? (
-            <div style={styles.empty}>Brak logów</div>
+            <div style={styles.empty}>Brak log?w</div>
           ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}></th>
-                  <th style={styles.th}>Data</th>
-                  <th style={styles.th}>Kanał</th>
-                  <th style={styles.th}>Zlecenie</th>
-                  <th style={styles.th}>Tytuł</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Akcja</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((l) => (
-                  <tr key={l.id}>
-                    <td style={styles.td}>
-                      <input
-                        type="checkbox"
-                        checked={selectedLogIds.includes(l.id)}
-                        onChange={(e) => {
-                          setSelectedLogIds((prev) => (
-                            e.target.checked ? [...prev, l.id] : prev.filter((x) => x !== l.id)
-                          ));
-                        }}
-                      />
-                    </td>
-                    <td style={styles.td}>{new Date(l.created_at).toLocaleString('pl-PL')}</td>
-                    <td style={styles.td}>{String(l.channel || '').toUpperCase()}</td>
-                    <td style={styles.td}>#{l.task_id}</td>
-                    <td style={styles.td}>{l.title}</td>
-                    <td style={styles.td}>{l.status}</td>
-                    <td style={styles.td}>
+            <div className="modern-data-stack">
+              {logs.map((l) => (
+                <ModernDataRow
+                  key={l.id}
+                  idLabel="Integration Log"
+                  idValue={`LOG-${l.id}`}
+                  title={l.title}
+                  subtitle={`${String(l.channel || '').toUpperCase()} ? #${l.task_id || '-'}`}
+                  tone={l.status === 'ok' || l.status === 'sent' ? 'success' : l.status === 'error' ? 'danger' : 'info'}
+                  status={l.status || 'brak'}
+                  statusValue={l.status || 'brak'}
+                  statusState={l.status === 'ok' || l.status === 'sent' ? 'success' : l.status === 'error' ? 'danger' : 'info'}
+                  metrics={[
+                    { label: 'Data', value: l.created_at ? new Date(l.created_at).toLocaleString('pl-PL') : 'brak' },
+                    { label: 'Kana?', value: String(l.channel || '').toUpperCase() || 'brak' },
+                    { label: 'Zlecenie', value: l.task_id ? `#${l.task_id}` : 'brak', tone: l.task_id ? 'info' : undefined },
+                  ]}
+                  actions={
+                    <>
+                      <label style={styles.checkboxAction}>
+                        <input
+                          type="checkbox"
+                          checked={selectedLogIds.includes(l.id)}
+                          onChange={(e) => {
+                            setSelectedLogIds((prev) => (
+                              e.target.checked ? [...prev, l.id] : prev.filter((x) => x !== l.id)
+                            ));
+                          }}
+                        />
+                        Select
+                      </label>
                       <button type="button" style={styles.retryBtn} onClick={() => retryLog(l.id)} disabled={retryLocked}>Retry</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </>
+                  }
+                />
+              ))}
+            </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
             <button type="button" style={styles.btn} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Poprzednia</button>
@@ -404,32 +405,28 @@ export default function Integracje() {
         <div style={styles.tableWrap}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>Audit retry (ostatnie akcje)</div>
           {retryAudit.length === 0 ? (
-            <div style={styles.empty}>Brak wpisów audytu.</div>
+            <div style={styles.empty}>Brak wpis?w audytu.</div>
           ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Data</th>
-                  <th style={styles.th}>Tryb</th>
-                  <th style={styles.th}>Użytkownik</th>
-                  <th style={styles.th}>Źródło logu</th>
-                  <th style={styles.th}>Nowy log</th>
-                  <th style={styles.th}>IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {retryAudit.slice(0, 20).map((a) => (
-                  <tr key={a.id}>
-                    <td style={styles.td}>{new Date(a.created_at).toLocaleString('pl-PL')}</td>
-                    <td style={styles.td}>{a.mode}</td>
-                    <td style={styles.td}>{a.actor_user_name || a.actor_user_id}</td>
-                    <td style={styles.td}>#{a.source_log_id}</td>
-                    <td style={styles.td}>#{a.created_log_id}</td>
-                    <td style={styles.td}>{a.ip || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="modern-data-stack">
+              {retryAudit.slice(0, 20).map((a) => (
+                <ModernDataRow
+                  key={a.id}
+                  idLabel="Retry Audit"
+                  idValue={`AUD-${a.id}`}
+                  title={a.actor_user_name || `User #${a.actor_user_id}`}
+                  subtitle={a.created_at ? new Date(a.created_at).toLocaleString('pl-PL') : 'brak daty'}
+                  tone="info"
+                  status={a.mode || 'retry'}
+                  statusValue={a.mode || 'retry'}
+                  statusState="info"
+                  metrics={[
+                    { label: '?r?d?o logu', value: a.source_log_id ? `#${a.source_log_id}` : 'brak' },
+                    { label: 'Nowy log', value: a.created_log_id ? `#${a.created_log_id}` : 'brak', tone: 'success' },
+                    { label: 'IP', value: a.ip || 'brak' },
+                  ]}
+                />
+              ))}
+            </div>
           )}
         </div>
         <div style={styles.tableWrap}>
@@ -479,7 +476,7 @@ export default function Integracje() {
               <div style={{ maxHeight: 180, overflow: 'auto', display: 'grid', gap: 6 }}>
                 {users.map((u) => (
                   <label key={u.id} style={styles.workflowStatRow}>
-                    <span>{u.imie} {u.nazwisko} ({u.rola})</span>
+                    <span>{u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})</span>
                     <input
                       type="checkbox"
                       checked={securityForm.users.includes(u.id)}
@@ -531,41 +528,28 @@ export default function Integracje() {
             <button type="button" style={styles.btn} onClick={exportDenylistHistoryCsv}>Eksport CSV</button>
           </div>
           {filteredDenylistHistory.length > 0 ? (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Data</th>
-                  <th style={styles.th}>Akcja</th>
-                  <th style={styles.th}>Kto</th>
-                  <th style={styles.th}>Diff</th>
-                  <th style={styles.th}>Kanały (next)</th>
-                  <th style={styles.th}>Userzy (next)</th>
-                  <th style={styles.th}>Rollback</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDenylistHistory.slice(0, 50).map((h) => (
-                  <tr key={h.id}>
-                    <td style={styles.td}>{new Date(h.created_at).toLocaleString('pl-PL')}</td>
-                    <td style={styles.td}>{h.action}</td>
-                    <td style={styles.td}>{h.actor_user_name || h.actor_user_id}</td>
-                    <td style={styles.td}>
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        <small>
-                          kanały: <span style={{ color: '#EF5350' }}>-{((h.prev?.channels || []).filter((x) => !(h.next?.channels || []).includes(x))).join(', ') || 'brak'}</span>{' '}
-                          <span style={{ color: '#4CAF50' }}>+{((h.next?.channels || []).filter((x) => !(h.prev?.channels || []).includes(x))).join(', ') || 'brak'}</span>
-                        </small>
-                        <small>
-                          userzy: <span style={{ color: '#EF5350' }}>-{((h.prev?.users || []).filter((x) => !(h.next?.users || []).includes(x))).join(', ') || 'brak'}</span>{' '}
-                          <span style={{ color: '#4CAF50' }}>+{((h.next?.users || []).filter((x) => !(h.prev?.users || []).includes(x))).join(', ') || 'brak'}</span>
-                        </small>
-                      </div>
-                    </td>
-                    <td style={styles.td}>{(h.next?.channels || []).join(', ') || 'brak'}</td>
-                    <td style={styles.td}>{(h.next?.users || []).join(', ') || 'brak'}</td>
-                    <td style={styles.td}>
+            <div className="modern-data-stack">
+              {filteredDenylistHistory.slice(0, 50).map((h) => (
+                <ModernDataRow
+                  key={h.id}
+                  idLabel="Denylist Change"
+                  idValue={`DENY-${h.id}`}
+                  title={h.action}
+                  subtitle={h.actor_user_name || h.actor_user_id || 'system'}
+                  tone={isRollbackAllowed(h) ? 'warning' : 'danger'}
+                  status={isRollbackAllowed(h) ? 'ROLLBACK READY' : 'LOCKED'}
+                  statusValue={isRollbackAllowed(h) ? 'warning' : 'danger'}
+                  statusState={isRollbackAllowed(h) ? 'warning' : 'danger'}
+                  metrics={[
+                    { label: 'Data', value: h.created_at ? new Date(h.created_at).toLocaleString('pl-PL') : 'brak' },
+                    { label: 'Kana?y next', value: (h.next?.channels || []).join(', ') || 'brak', mono: false },
+                    { label: 'Userzy next', value: (h.next?.users || []).join(', ') || 'brak', mono: false },
+                    { label: 'Kana?y diff', value: `-${((h.prev?.channels || []).filter((x) => !(h.next?.channels || []).includes(x))).join(', ') || 'brak'} / +${((h.next?.channels || []).filter((x) => !(h.prev?.channels || []).includes(x))).join(', ') || 'brak'}`, mono: false },
+                  ]}
+                  actions={
+                    <>
                       {!isRollbackAllowed(h) ? (
-                        <span style={styles.rollbackBlockedBadge}>niedostępny ({ROLLBACK_MAX_AGE_DAYS}d+)</span>
+                        <span style={styles.rollbackBlockedBadge}>niedost?pny ({ROLLBACK_MAX_AGE_DAYS}d+)</span>
                       ) : null}
                       <button
                         type="button"
@@ -581,11 +565,11 @@ export default function Integracje() {
                       >
                         Cofnij do tego
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </>
+                  }
+                />
+              ))}
+            </div>
           ) : (
             <div style={styles.empty}>Brak historii zmian denylisty.</div>
           )}
@@ -610,6 +594,7 @@ const styles = {
   th: { textAlign: 'left', fontSize: 12, padding: 8, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' },
   td: { fontSize: 13, padding: 8, borderBottom: '1px solid var(--border)' },
   retryBtn: { padding: '6px 10px', borderRadius: 6, border: '1px solid var(--accent)', color: 'var(--accent)', background: 'transparent', cursor: 'pointer' },
+  checkboxAction: { display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
   empty: { padding: 18, color: 'var(--text-muted)' },
   trendRow: { display: 'flex', alignItems: 'flex-end', gap: 10, minHeight: 130 },
   trendCol: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 44 },

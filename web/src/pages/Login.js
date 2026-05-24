@@ -5,6 +5,15 @@ import { getStoredToken } from '../utils/storedToken';
 import { useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
+const DEMO_ACCOUNTS = [
+  { label: 'Dyrektor', login: 'demo_dyrektor', haslo: 'Demo123!ARBOR' },
+  { label: 'Prezes', login: 'demo_prezes', haslo: 'Demo123!ARBOR' },
+  { label: 'Specjalista', login: 'demo_specjalista', haslo: 'Demo123!ARBOR' },
+];
+
+const SHOW_DEMO_ACCOUNTS =
+  process.env.NODE_ENV !== 'production' || process.env.REACT_APP_SHOW_DEMO_LOGINS === '1';
+
 export default function Login() {
   const { t } = useTranslation();
   const [login, setLogin] = useState('');
@@ -54,6 +63,12 @@ export default function Login() {
     } finally { setLoading(false); }
   };
 
+  const fillDemoAccount = (account) => {
+    setLogin(account.login);
+    setHaslo(account.haslo);
+    setError('');
+  };
+
   return (
     <div style={s.root}>
       {/* Tło z efektem */}
@@ -75,6 +90,25 @@ export default function Login() {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
           <LanguageSwitcher />
         </div>
+
+        {SHOW_DEMO_ACCOUNTS && (
+          <div style={s.demoPanel} aria-label="Konta demo">
+            <div style={s.demoTitle}>Konta demo</div>
+            <div style={s.demoGrid}>
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.login}
+                  type="button"
+                  style={s.demoBtn}
+                  onClick={() => fillDemoAccount(account)}
+                >
+                  <span style={s.demoRole}>{account.label}</span>
+                  <span style={s.demoLogin}>{account.login}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleLogin} style={s.form}>
           {/* Login */}
@@ -201,6 +235,55 @@ const s = {
   },
   logoText: { margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text)', letterSpacing: '0' },
   subtitle: { margin: '0 0 32px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' },
+  demoPanel: {
+    margin: '0 0 18px',
+    padding: 10,
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--accent-surface)',
+  },
+  demoTitle: {
+    marginBottom: 8,
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  demoGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 8,
+  },
+  demoBtn: {
+    minWidth: 0,
+    minHeight: 48,
+    display: 'grid',
+    gap: 2,
+    alignContent: 'center',
+    padding: '7px 8px',
+    borderRadius: 8,
+    border: '1px solid var(--border2)',
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  demoRole: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  demoLogin: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 700,
+  },
   form: { display: 'flex', flexDirection: 'column', gap: 18 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
   label: { fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' },

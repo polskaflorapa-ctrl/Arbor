@@ -94,7 +94,7 @@ function buildChecks({
 function nextMove(checks, task) {
   const missing = checks.find((item) => !item.ok);
   if (missing) return { label: missing.label, detail: missing.detail, target: missing.target };
-  if (task?.status === TASK_STATUS.NOWE) return { label: 'Wyślij do wyceniającego', detail: 'Biuro ma termin i kontakt, teren może działać', status: TASK_STATUS.WYCENA_TERENOWA };
+  if (task?.status === TASK_STATUS.NOWE) return { label: 'Wyślij do specjalisty ds. wyceny', detail: 'Biuro ma termin i kontakt, teren może działać', status: TASK_STATUS.WYCENA_TERENOWA };
   if (task?.status === TASK_STATUS.WYCENA_TERENOWA) return { label: 'Klient akceptuje', detail: 'Zdjęcia i cena wracają do biura', status: TASK_STATUS.DO_ZATWIERDZENIA };
   if (task?.status === TASK_STATUS.DO_ZATWIERDZENIA) return { label: 'Zatwierdź plan ekipy', detail: 'Biuro dopina termin, ekipę i odprawę', status: TASK_STATUS.ZAPLANOWANE };
   if (task?.status === TASK_STATUS.ZAPLANOWANE) return { label: 'Start realizacji', detail: 'Można przekazać ekipie', status: TASK_STATUS.W_REALIZACJI };

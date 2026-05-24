@@ -4,7 +4,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Zlecenia from './pages/Zlecenia';
-import ZlecenieDetail from './pages/ZlecenieDetail';
 import NoweZlecenie from './pages/NoweZlecenie';
 import Kierownik from './pages/Kierownik';
 import Ekipy from './pages/Ekipy';
@@ -24,6 +23,7 @@ import Flota from './pages/Flota';
 import MagazynWeb from './pages/MagazynWeb';
 import RezerwacjeSprzetu from './pages/RezerwacjeSprzetu';
 import PotwierdzeniaEkip from './pages/PotwierdzeniaEkip';
+import RankingBrygad from './pages/RankingBrygad';
 import Crm from './pages/Crm';
 import CrmDashboard from './pages/CrmDashboard';
 import CrmPipeline from './pages/CrmPipeline';
@@ -55,6 +55,7 @@ import AutoDispatch from './pages/AutoDispatch';
 import BiDashboard from './pages/BiDashboard';
 import HrPanel from './pages/HrPanel';
 import KalendarzZasobow from './pages/KalendarzZasobow';
+import MapaLive from './pages/MapaLive';
 import AiChat from './components/AiChat';
 import { DevPanel } from './components/DevPanel';
 
@@ -84,7 +85,7 @@ function App() {
           <Route path="/zadania" element={<ZadaniaOperatora />} />
           <Route path="/potwierdzenia-ekip" element={<PotwierdzeniaEkip />} />
           <Route path="/zlecenia" element={<Zlecenia />} />
-          <Route path="/zlecenia/:id" element={<ZlecenieDetail />} />
+          <Route path="/zlecenia/:id" element={<Zlecenia />} />
           <Route path="/raporty" element={<RaportyCentrum />} />
           <Route path="/raporty/analityka" element={<Raporty />} />
           <Route path="/raporty/dzienny" element={<RaportDzienny />} />
@@ -109,6 +110,9 @@ function App() {
           <Route path="/magazyn" element={<MagazynWeb />} />
           <Route path="/rezerwacje-sprzetu" element={<RezerwacjeSprzetu />} />
           <Route path="/kalendarz-zasobow" element={<KalendarzZasobow />} />
+          <Route path="/mapa-live" element={
+            <ProtectedRoute roles={MGMT}><MapaLive /></ProtectedRoute>
+          } />
 
           {/* Quotation / estimator */}
           <Route path="/wycena-kalendarz" element={
@@ -153,6 +157,9 @@ function App() {
           } />
           <Route path="/ekipy" element={
             <ProtectedRoute roles={MGMT}><Ekipy /></ProtectedRoute>
+          } />
+          <Route path="/ranking-brygad" element={
+            <ProtectedRoute roles={MGMT}><RankingBrygad /></ProtectedRoute>
           } />
           <Route path="/auto-dispatch" element={
             <ProtectedRoute roles={MGMT}><AutoDispatch /></ProtectedRoute>

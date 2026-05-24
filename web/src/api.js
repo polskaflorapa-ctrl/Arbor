@@ -13,6 +13,7 @@ import {
   TEST_TOKEN,
   getMockTaskDetail,
   getMockTaskLogi,
+  getMockTaskPhotos,
   mockMarkTaskFinishedInTestMode,
   getMockQuotationDetail,
 } from './utils/testMode';
@@ -96,6 +97,18 @@ function getTestModeMockResponse(config) {
   if (mTasksLogi && method === 'get') {
     return {
       data: getMockTaskLogi(mTasksLogi[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksPhotos = path.match(/^\/tasks\/(\d+)\/zdjecia$/);
+  if (mTasksPhotos && method === 'get') {
+    return {
+      data: getMockTaskPhotos(mTasksPhotos[1]),
       status: 200,
       statusText: 'OK',
       headers: {},

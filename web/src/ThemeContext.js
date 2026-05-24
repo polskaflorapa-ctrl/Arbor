@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export const THEMES = {
   dark: {
     id: 'dark',
-    label: 'Noc leśna',
+    label: 'Arbor nocny',
     bg: '#07110c',
     bgCard: '#0d1a13',
     bgDeep: '#040907',
@@ -21,25 +21,25 @@ export const THEMES = {
   },
   light: {
     id: 'light',
-    label: 'Biały ogród',
-    bg: '#f6fbf7',
+    label: 'Arbor jasny',
+    bg: '#f4faf5',
     bgCard: '#ffffff',
     bgDeep: '#eef8f1',
-    sidebar: '#ffffff',
+    sidebar: '#06331f',
     accent: '#14834f',
     accentDk: '#0f6b3f',
-    text: '#10261b',
+    text: '#102218',
     textSub: '#3f5f4b',
-    textMuted: '#6e8475',
-    border: 'rgba(20, 91, 54, 0.11)',
-    border2: 'rgba(20, 131, 79, 0.22)',
-    inputBg: '#fbfefc',
-    previewDot: '#14834f',
-    previewBg: '#f6fbf7',
+    textMuted: '#6a7c70',
+    border: 'rgba(15,95,58,0.12)',
+    border2: 'rgba(40,182,108,0.24)',
+    inputBg: '#ffffff',
+    previewDot: '#28b66c',
+    previewBg: '#f4faf5',
   },
   green: {
     id: 'green',
-    label: 'Arbor Green',
+    label: 'Arbor terenowy',
     bg: '#06110d',
     bgCard: '#0c1d14',
     bgDeep: '#030806',
@@ -68,10 +68,13 @@ export function ThemeProvider({ children }) {
   const [themeId, setThemeId] = useState(() => {
     try {
       const raw = localStorage.getItem('arbor-theme');
-      const t = raw == null ? '' : String(raw).trim();
-      if (!t || t === 'undefined' || t === 'null') return 'light';
-      if (t === 'green') return 'light';
-      return THEMES[t] ? t : 'light';
+      const stored = raw == null ? '' : String(raw).trim();
+      if (!stored || stored === 'undefined' || stored === 'null') return 'light';
+      if ((stored === 'dark' || stored === 'green') && localStorage.getItem('arbor-premium-theme-migrated') !== '1') {
+        localStorage.setItem('arbor-premium-theme-migrated', '1');
+        return 'light';
+      }
+      return THEMES[stored] ? stored : 'light';
     } catch {
       return 'light';
     }

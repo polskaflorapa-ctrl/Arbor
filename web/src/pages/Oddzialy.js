@@ -19,6 +19,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 
@@ -313,7 +314,7 @@ export default function Oddzialy() {
                 <Field label="Kierownik">
                   <select style={S.input} value={form.kierownik_id} onChange={e => setForm({ ...form, kierownik_id: e.target.value })}>
                     <option value="">-- brak --</option>
-                    {kierownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({u.rola})</option>)}
+                    {kierownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})</option>)}
                   </select>
                 </Field>
               </div>
@@ -334,7 +335,7 @@ export default function Oddzialy() {
                 <Field label="Typ zasobu *">
                   <select style={S.input} value={formDelegacja.zasob_typ} onChange={e => handleDelegacjaType(e.target.value)} required>
                     <option value="ekipa">Ekipa</option>
-                    <option value="wyceniajacy">Wyceniajacy</option>
+                    <option value="wyceniajacy">Specjalista ds. wyceny</option>
                   </select>
                 </Field>
                 {formDelegacja.zasob_typ === 'ekipa' && (
@@ -346,7 +347,7 @@ export default function Oddzialy() {
                 </Field>
                 )}
                 {formDelegacja.zasob_typ === 'wyceniajacy' && (
-                  <Field label="Wyceniajacy *">
+                  <Field label="Specjalista ds. wyceny *">
                     <select style={S.input} value={formDelegacja.user_id} onChange={e => handleDelegacjaResource(e.target.value)} required>
                       <option value="">-- wybierz --</option>
                       {wyceniajacy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({oddzialName(u.oddzial_id)})</option>)}
@@ -387,7 +388,7 @@ export default function Oddzialy() {
                 <Field label="Pracownik *">
                   <select style={S.input} value={formPrzenies.user_id} onChange={e => setFormPrzenies({ ...formPrzenies, user_id: e.target.value })} required>
                     <option value="">-- wybierz --</option>
-                    {uzytkownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({u.rola}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>)}
+                    {uzytkownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>)}
                   </select>
                 </Field>
                 <Field label="Do oddziału *">
@@ -493,7 +494,7 @@ export default function Oddzialy() {
                       <strong style={{ fontSize: 14, color: 'var(--text)' }}>
                         {d.zasob_nazwa || d.ekipa_nazwa || d.user_nazwa || '-'}
                         <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                          {d.zasob_typ === 'wyceniajacy' ? 'Wyceniajacy' : 'Ekipa'}
+                          {d.zasob_typ === 'wyceniajacy' ? 'Specjalista ds. wyceny' : 'Ekipa'}
                         </span>
                       </strong>
                       <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6B7280' }}>

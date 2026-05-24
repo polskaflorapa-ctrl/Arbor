@@ -22,6 +22,7 @@ import api from '../api';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
 import TaskStatusIcon from '../components/TaskStatusIcon';
+import ModernDataRow from '../components/ModernDataRow';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { TASK_STATUS, getTaskStatusColor, isTaskDone as isWorkflowTaskDone } from '../utils/taskWorkflow';
@@ -882,51 +883,38 @@ export default function Raporty() {
               <span style={styles.analyticsTitle}>Analityka oddziałów (miesięczna)</span>
               <span style={styles.analyticsSubTitle}>Plan/Fakt + dzienny rozkład wykonanych zleceń</span>
             </div>
-            <div style={styles.analyticsScroll}>
-              <table style={styles.analyticsTable}>
-                <thead>
-                  <tr>
-                    <th style={styles.analyticsThSticky}>Oddział</th>
-                    <th style={styles.analyticsTh}>Plan / miesiąc</th>
-                    <th style={styles.analyticsTh}>Fakt / miesiąc</th>
-                    <th style={styles.analyticsTh}>Miesięcznie</th>
-                    <th style={styles.analyticsTh}>Śr. dziennie</th>
-                    <th style={styles.analyticsTh}>Obrót plan</th>
-                    <th style={styles.analyticsTh}>Obrót fakt</th>
-                    <th style={styles.analyticsTh}>Realizacja obrotu</th>
-                    {oddzialAnalytics.dayLabels.map((day) => (
-                      <th key={day} style={styles.analyticsThDay}>{day}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {oddzialAnalytics.rows.map((row) => (
-                    <tr key={row.oddzialId}>
-                      <td style={styles.analyticsTdSticky}>{row.oddzialNazwa}</td>
-                      <td style={styles.analyticsTd}>{row.planMonth}</td>
-                      <td style={styles.analyticsTd}>{row.factMonth}</td>
-                      <td style={styles.analyticsTd}>
-                        <span style={{ ...styles.badge, backgroundColor: getSkutecznoscColor(Math.round(row.monthlyPct)) }}>
-                          {row.monthlyPct.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td style={styles.analyticsTd}>{row.dailyAvg.toFixed(2)}</td>
-                      <td style={styles.analyticsTd}>{formatCurrency(row.revenuePlan)}</td>
-                      <td style={styles.analyticsTd}>{formatCurrency(row.revenueDone)}</td>
-                      <td style={styles.analyticsTd}>
-                        <span style={{ ...styles.badge, backgroundColor: getSkutecznoscColor(Math.round(row.revenuePct)) }}>
-                          {row.revenuePct.toFixed(1)}%
-                        </span>
-                      </td>
+            <div className="modern-data-stack" style={{ marginTop: 10 }}>
+              {oddzialAnalytics.rows.map((row) => (
+                <ModernDataRow
+                  key={row.oddzialId}
+                  idLabel="Oddział"
+                  idValue={row.oddzialNazwa}
+                  title="Miesięczna telemetria operacyjna"
+                  subtitle="Plan, wykonanie, obrót i dzienny rozkład prac"
+                  tone={row.monthlyPct >= 85 ? 'success' : row.monthlyPct >= 55 ? 'warning' : 'danger'}
+                  status={row.monthlyPct >= 85 ? 'ON_TRACK' : row.monthlyPct >= 55 ? 'WATCH' : 'CRITICAL'}
+                  statusState={row.monthlyPct >= 85 ? 'success' : row.monthlyPct >= 55 ? 'warning' : 'danger'}
+                  metrics={[
+                    { label: 'Plan / miesiąc', value: row.planMonth.toLocaleString(localeNum) },
+                    { label: 'Fakt / miesiąc', value: row.factMonth.toLocaleString(localeNum), tone: row.factMonth >= row.planMonth ? 'success' : 'info' },
+                    { label: 'Miesięcznie', value: `${row.monthlyPct.toFixed(1)}%`, tone: row.monthlyPct >= 85 ? 'success' : 'warning' },
+                    { label: 'Śr. dziennie', value: row.dailyAvg.toFixed(2) },
+                    { label: 'Obrót plan', value: formatCurrency(row.revenuePlan) },
+                    { label: 'Obrót fakt', value: formatCurrency(row.revenueDone), tone: row.revenueDone >= row.revenuePlan ? 'success' : 'info' },
+                    { label: 'Realizacja obrotu', value: `${row.revenuePct.toFixed(1)}%`, tone: row.revenuePct >= 85 ? 'success' : 'warning' },
+                  ]}
+                  actions={(
+                    <div style={styles.analyticsDayMatrix} aria-label="Dzienny rozkład wykonanych zleceń">
                       {row.dailyDoneMap.map((val, idx) => (
-                        <td key={`${row.oddzialId}-${idx}`} style={styles.analyticsTdDay}>
+                        <span key={`${row.oddzialId}-${idx}`} style={val > 0 ? styles.analyticsDayCellActive : styles.analyticsDayCell}>
+                          <b>{oddzialAnalytics.dayLabels[idx]}</b>
                           {val}
-                        </td>
+                        </span>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </div>
+                  )}
+                />
+              ))}
             </div>
             {(isDyrektor || isKierownik) && (
               <>
@@ -1055,41 +1043,28 @@ export default function Raporty() {
                 <p>{t('pages.raporty.brygadzisci.emptyRanking')}</p>
               </div>
             ) : (
-              <div style={styles.tableScroll}>
-                <table style={{ ...styles.table, minWidth: 920 }}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>{t('pages.raporty.brygadzisci.thRank')}</th>
-                      <th style={styles.th}>{t('pages.raporty.brygadzisci.thLeader')}</th>
-                      <th style={styles.th}>{t('pages.raporty.brygadzisci.thBranches')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thTurnover')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thOrders')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thDone')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thUpsell')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thBony')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thDays')}</th>
-                      <th style={{ ...styles.th, textAlign: 'right' }}>{t('pages.raporty.brygadzisci.thAvgDay')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rankingBrygadzistow.map((r, idx) => (
-                      <tr key={r.key}>
-                        <td style={styles.td}>{idx + 1}</td>
-                        <td style={{ ...styles.td, fontWeight: 700, color: 'var(--text)' }}>{r.label}</td>
-                        <td style={styles.td}>{r.oddzialyArr.length ? r.oddzialyArr.join(', ') : '—'}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: 'var(--accent)' }}>{formatCurrency(r.obrot)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.zlecenia.toLocaleString(localeNum)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.zakonczone.toLocaleString(localeNum)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.dop.toLocaleString(localeNum)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.bony.toLocaleString(localeNum)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right' }}>{r.dniLiczba.toLocaleString(localeNum)}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', color: 'var(--text-sub)' }}>
-                          {r.dniLiczba > 0 ? formatCurrency(r.sredniObrotNaDzien) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {rankingBrygadzistow.map((r, idx) => (
+                  <ModernDataRow
+                    key={r.key}
+                    idLabel={t('pages.raporty.brygadzisci.thRank')}
+                    idValue={`#${idx + 1}`}
+                    title={r.label}
+                    subtitle={r.oddzialyArr.length ? r.oddzialyArr.join(', ') : 'Brak oddziału'}
+                    tone={idx === 0 ? 'success' : idx < 3 ? 'info' : 'warning'}
+                    status={idx === 0 ? 'LEADER' : 'RANKED'}
+                    statusState={idx === 0 ? 'success' : 'info'}
+                    metrics={[
+                      { label: t('pages.raporty.brygadzisci.thTurnover'), value: formatCurrency(r.obrot), tone: 'success' },
+                      { label: t('pages.raporty.brygadzisci.thOrders'), value: r.zlecenia.toLocaleString(localeNum) },
+                      { label: t('pages.raporty.brygadzisci.thDone'), value: r.zakonczone.toLocaleString(localeNum), tone: 'info' },
+                      { label: t('pages.raporty.brygadzisci.thUpsell'), value: r.dop.toLocaleString(localeNum), tone: r.dop > 0 ? 'success' : undefined },
+                      { label: t('pages.raporty.brygadzisci.thBony'), value: r.bony.toLocaleString(localeNum), tone: r.bony > 0 ? 'success' : undefined },
+                      { label: t('pages.raporty.brygadzisci.thDays'), value: r.dniLiczba.toLocaleString(localeNum) },
+                      { label: t('pages.raporty.brygadzisci.thAvgDay'), value: r.dniLiczba > 0 ? formatCurrency(r.sredniObrotNaDzien) : '—', tone: 'info' },
+                    ]}
+                  />
+                ))}
               </div>
             )}
 
@@ -1510,6 +1485,9 @@ const styles = {
   analyticsTd: { padding: '8px 10px', color: 'var(--text-sub)', fontSize: 12, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' },
   analyticsTdSticky: { position: 'sticky', left: 0, zIndex: 2, padding: '8px 12px', color: 'var(--text)', backgroundColor: 'var(--bg-card)', fontSize: 12, fontWeight: 700, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' },
   analyticsTdDay: { padding: '8px 6px', color: 'var(--text-sub)', fontSize: 12, borderBottom: '1px solid var(--border)', textAlign: 'center' },
+  analyticsDayMatrix: { display: 'grid', gridTemplateColumns: 'repeat(7, minmax(34px, 1fr))', gap: 6, maxWidth: 360 },
+  analyticsDayCell: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 10, background: 'rgba(255,255,255,0.025)', color: 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' },
+  analyticsDayCellActive: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 10, background: 'rgba(0,230,118,0.11)', color: 'var(--accent)', fontSize: 10, fontFamily: 'var(--font-mono)', boxShadow: '0 0 14px rgba(0,230,118,0.14)' },
   analyticsGoalsGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 },
   goalCard: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 12, padding: 10, boxShadow: 'var(--shadow-sm)' },
   goalTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },

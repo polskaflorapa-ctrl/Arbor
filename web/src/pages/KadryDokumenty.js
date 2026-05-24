@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
+import ModernDataRow from '../components/ModernDataRow';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken } from '../utils/storedToken';
 
@@ -151,12 +152,6 @@ export default function KadryDokumenty() {
     URL.revokeObjectURL(url);
   };
 
-  const toneStyle = (tone) => {
-    if (tone === 'ok') return S.badgeOk;
-    if (tone === 'warn') return S.badgeWarn;
-    return S.badgeDanger;
-  };
-
   return (
     <div className="app-shell" style={S.wrap}>
       <Sidebar />
@@ -218,58 +213,41 @@ export default function KadryDokumenty() {
               ) : filteredCards.length === 0 ? (
                 <div style={S.empty}>Brak dokumentów pasujących do filtrów.</div>
               ) : (
-                <div style={S.tableWrap}>
-                  <table style={S.table}>
-                    <thead>
-                      <tr>
-                        <th style={S.th}>Pracownik</th>
-                        <th style={S.th}>Dokument</th>
-                        <th style={S.th}>Status</th>
-                        <th style={S.th}>Rozliczenie</th>
-                        <th style={S.th}>Wersja / podpis</th>
-                        <th style={S.th}>Akcja</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCards.map((card) => {
-                        const meta = statusMeta(card);
-                        return (
-                          <tr key={card.user_id} style={S.tr}>
-                            <td style={S.td}>
-                              <strong style={S.name}>{fullName(card)}</strong>
-                              <span style={S.muted}>{card.employee_role || 'brak roli'}</span>
-                            </td>
-                            <td style={S.td}>
-                              <strong style={S.cellTitle}>{card.stanowisko || 'Brak stanowiska'}</strong>
-                              <span style={S.muted}>{isFieldWorker(card) ? 'Karta + BHP terenowe' : 'Karta stanowiska'}</span>
-                            </td>
-                            <td style={S.td}>
-                              <span style={{ ...S.statusBadge, ...toneStyle(meta.tone) }}>{meta.label}</span>
-                              {card.acknowledged_by_name ? <span style={S.muted}>{card.acknowledged_by_name}</span> : null}
-                            </td>
-                            <td style={S.td}>
-                              <span style={S.settlement}>{formatSettlement(card)}</span>
-                              {card.settlement_notes ? <span style={S.muted}>{card.settlement_notes}</span> : null}
-                            </td>
-                            <td style={S.td}>
-                              <span style={S.muted}>Wersja: {formatDateTime(card.updated_at)}</span>
-                              <span style={S.muted}>Podpis: {formatDateTime(card.acknowledged_at)}</span>
-                            </td>
-                            <td style={S.td}>
-                              <div style={S.rowActions}>
-                                <button type="button" style={S.rowBtn} onClick={() => navigate(`/profil/${card.user_id}`)}>
-                                  Profil
-                                </button>
-                                <button type="button" style={S.rowBtnPrimary} onClick={() => navigate(`/kadry-dokumenty/druk/${card.user_id}`)}>
-                                  PDF
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="modern-data-stack">
+                  {filteredCards.map((card) => {
+                    const meta = statusMeta(card);
+                    return (
+                      <ModernDataRow
+                        key={card.user_id}
+                        idLabel="Employee ID"
+                        idValue={`USR-${card.user_id}`}
+                        title={fullName(card)}
+                        subtitle={card.employee_role || 'brak roli'}
+                        tone={meta.tone === 'ok' ? 'success' : meta.tone === 'danger' ? 'danger' : 'warning'}
+                        status={meta.label}
+                        statusValue={meta.label}
+                        statusState={meta.tone === 'ok' ? 'success' : meta.tone === 'danger' ? 'danger' : 'warning'}
+                        metrics={[
+                          { label: 'Dokument', value: card.stanowisko || 'Brak stanowiska', mono: false },
+                          { label: 'Typ', value: isFieldWorker(card) ? 'Karta + BHP terenowe' : 'Karta stanowiska', mono: false },
+                          { label: 'Rozliczenie', value: formatSettlement(card), mono: false },
+                          { label: 'Wersja', value: formatDateTime(card.updated_at) },
+                          { label: 'Podpis', value: formatDateTime(card.acknowledged_at), tone: card.acknowledged_at ? 'success' : 'warning' },
+                          { label: 'Potwierdził', value: card.acknowledged_by_name || 'brak', mono: false },
+                        ]}
+                        actions={
+                          <>
+                            <button type="button" style={S.rowBtn} onClick={() => navigate(`/profil/${card.user_id}`)}>
+                              Profil
+                            </button>
+                            <button type="button" style={S.rowBtnPrimary} onClick={() => navigate(`/kadry-dokumenty/druk/${card.user_id}`)}>
+                              PDF
+                            </button>
+                          </>
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
             </section>

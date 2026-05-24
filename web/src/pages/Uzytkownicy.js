@@ -3,9 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getRolaColor } from '../theme';
 import { telHref } from '../utils/telLink';
 import PayrollRatesPanel from '../components/PayrollRatesPanel';
@@ -341,7 +343,7 @@ export default function Uzytkownicy() {
                 <option value="Kierownik">Kierownik</option>
                 <option value="Brygadzista">Brygadzista</option>
                 <option value="Specjalista">Specjalista</option>
-                <option value="Wyceniający">Wyceniający</option>
+                <option value="Wyceniający">Specjalista ds. wyceny</option>
                 <option value="Pomocnik">Pomocnik</option>
                 <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                 <option value="Magazynier">Magazynier</option>
@@ -406,7 +408,7 @@ export default function Uzytkownicy() {
                           </div>
                         </div>
                         <div style={s.userListMetaRow}>
-                          <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>{u.rola}</span>
+                          <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>{getRoleDisplayName(u.rola)}</span>
                           <span style={s.userListBranch}>{u.oddzial_nazwa || '—'}</span>
                         </div>
                         {mozePrzeniescUsera(u) && (
@@ -484,7 +486,7 @@ export default function Uzytkownicy() {
                     {wybranyUser.imie?.[0]}{wybranyUser.nazwisko?.[0]}
                   </div>
                   <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(wybranyUser.rola), fontSize: 13 }}>
-                    {wybranyUser.rola}
+                    {getRoleDisplayName(wybranyUser.rola)}
                   </span>
                 </div>
                 {[
@@ -678,50 +680,40 @@ export default function Uzytkownicy() {
               {kompetencje.length === 0 ? (
                 <p style={s.gray}>Brak zarejestrowanych kompetencji</p>
               ) : (
-                <div style={s.tableScroll}>
-                  <table style={s.table}>
-                    <thead>
-                      <tr>
-                        <th style={s.th}>Nazwa</th>
-                        <th style={s.th}>Typ</th>
-                        <th style={s.th}>Nr dokumentu</th>
-                        <th style={s.th}>Data uzyskania</th>
-                        <th style={s.th}>Ważność</th>
-                        {mozeEdytowac && <th style={s.th}></th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kompetencje.map((k, i) => {
-                        const waznosc = isWazna(k.data_waznosci);
-                        return (
-                          <tr key={k.id} style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)' }}>
-                            <td style={{ ...s.td, fontWeight: '600' }}>{k.nazwa}</td>
-                            <td style={s.td}>{k.typ}</td>
-                            <td style={s.td}>{k.nr_dokumentu || '—'}</td>
-                            <td style={s.td}>{k.data_uzyskania ? k.data_uzyskania.split('T')[0] : '—'}</td>
-                            <td style={s.td}>
-                              {k.data_waznosci ? (
-                                <span style={{ ...s.waznosc, backgroundColor: waznosc === 'expired' ? 'rgba(248,113,113,0.12)' : waznosc === 'soon' ? 'rgba(251,191,36,0.12)' : 'var(--accent-surface)', color: waznosc === 'expired' ? 'var(--danger)' : waznosc === 'soon' ? 'var(--warning)' : 'var(--accent-dk)' }}>
-                                  {waznosc === 'expired' ? 'Wygasło: ' : waznosc === 'soon' ? 'Do odnowienia: ' : ''}
-                                  {k.data_waznosci.split('T')[0]}
-                                </span>
-                              ) : <span style={s.gray}>bezterminowo</span>}
-                            </td>
-                            {mozeEdytowac && (
-                              <td style={s.td}>
-                                <button style={{ ...s.actionIconBtn, ...s.actionIconBtnDanger }}
-                                  title="Usuń kompetencję"
-                                  aria-label="Usuń kompetencję"
-                                  onClick={() => usunKompetencje(k.id)}>
-                                  <DeleteOutline style={s.iconSm} />
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="modern-data-stack">
+                  {kompetencje.map((k) => {
+                    const waznosc = isWazna(k.data_waznosci);
+                    return (
+                      <ModernDataRow
+                        key={k.id}
+                        idLabel="Competency ID"
+                        idValue={`COMP-${k.id}`}
+                        title={k.nazwa}
+                        subtitle={k.nr_dokumentu || 'Brak numeru dokumentu'}
+                        tone={waznosc === 'expired' ? 'danger' : waznosc === 'soon' ? 'warning' : 'success'}
+                        status={waznosc === 'expired' ? 'WYGASŁO' : waznosc === 'soon' ? 'DO ODNOWIENIA' : 'AKTYWNA'}
+                        statusValue={waznosc}
+                        statusState={waznosc === 'expired' ? 'danger' : waznosc === 'soon' ? 'warning' : 'success'}
+                        metrics={[
+                          { label: 'Typ', value: k.typ, mono: false },
+                          { label: 'Data uzyskania', value: k.data_uzyskania ? k.data_uzyskania.split('T')[0] : 'brak' },
+                          { label: 'Ważność', value: k.data_waznosci ? k.data_waznosci.split('T')[0] : 'bezterminowo', tone: waznosc === 'expired' ? 'danger' : waznosc === 'soon' ? 'warning' : 'success' },
+                        ]}
+                        actions={
+                          mozeEdytowac ? (
+                            <button
+                              style={{ ...s.actionIconBtn, ...s.actionIconBtnDanger }}
+                              title="Usuń kompetencję"
+                              aria-label="Usuń kompetencję"
+                              onClick={() => usunKompetencje(k.id)}
+                            >
+                              <DeleteOutline style={s.iconSm} />
+                            </button>
+                          ) : null
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -785,7 +777,7 @@ export default function Uzytkownicy() {
                     {isDyrektor && <option value="Kierownik">Kierownik</option>}
                     <option value="Brygadzista">Brygadzista</option>
                     <option value="Specjalista">Specjalista</option>
-                    {isDyrektor && <option value="Wyceniający">Wyceniający</option>}
+                    {isDyrektor && <option value="Wyceniający">Specjalista ds. wyceny</option>}
                     <option value="Pomocnik">Pomocnik</option>
                     <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                     <option value="Magazynier">Magazynier</option>

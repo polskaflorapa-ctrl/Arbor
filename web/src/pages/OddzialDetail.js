@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
@@ -11,9 +12,10 @@ import useAsyncLoad from '../hooks/useAsyncLoad';
 import { addTeamMember, removeTeamMember } from '../utils/teamMembersApi';
 import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-import { TASK_STATUS, getTaskStatusColor, normalizeTaskStatus } from '../utils/taskWorkflow';
+import { TASK_STATUS, normalizeTaskStatus } from '../utils/taskWorkflow';
 
 const FEATURES = [
   '/dashboard', '/misja-dnia', '/nowe-zlecenie', '/harmonogram',
@@ -470,43 +472,32 @@ export default function OddzialDetail() {
                 <p>Brak zleceń w tym oddziale</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['ID', 'Klient', 'Adres', 'Ekipa', 'Data', 'Status', 'Wartość', ''].map(h => (
-                      <th key={h} style={{ padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {zlecenia.map((z, i) => (
-                    <tr key={z.id}
-                      style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)', cursor: 'pointer', transition: 'background 0.15s' }}
-                      onClick={() => navigate(`/zlecenia/${z.id}`)}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0F172A'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)'}>
-                      <td style={S.td}><span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: '600' }}>#{z.id}</span></td>
-                      <td style={{ ...S.td, fontWeight: '600' }}>{z.klient_nazwa}</td>
-                      <td style={S.td}>{z.adres}</td>
-                      <td style={S.td}>{z.ekipa_nazwa || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Brak</span>}</td>
-                      <td style={S.td}>{z.data_planowana?.split('T')[0] || '-'}</td>
-                      <td style={S.td}>
-                        <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: getTaskStatusColor(z.status) }}>
-                          {z.status}
-                        </span>
-                      </td>
-                      <td style={{ ...S.td, fontWeight: '600', color: 'var(--accent)' }}>
-                        {z.wartosc_planowana ? `${parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN` : '-'}
-                      </td>
-                      <td style={S.td}>
-                        <button style={S.detailBtn} onClick={e => { e.stopPropagation(); navigate(`/zlecenia/${z.id}`); }}>
-                          Otwórz →
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="modern-data-stack" style={{ padding: 14 }}>
+                {zlecenia.map((z) => (
+                  <ModernDataRow
+                    key={z.id}
+                    idLabel="Order ID"
+                    idValue={`#${z.id}`}
+                    title={z.klient_nazwa}
+                    subtitle={z.adres || 'Brak adresu'}
+                    tone={normalizeTaskStatus(z.status) === TASK_STATUS.ZAKONCZONE ? 'success' : 'info'}
+                    status={z.status}
+                    statusValue={z.status}
+                    statusState={normalizeTaskStatus(z.status) === TASK_STATUS.ZAKONCZONE ? 'success' : 'info'}
+                    onClick={() => navigate(`/zlecenia/${z.id}`)}
+                    metrics={[
+                      { label: 'Ekipa', value: z.ekipa_nazwa || 'Brak', mono: false },
+                      { label: 'Data', value: z.data_planowana?.split('T')[0] || '-' },
+                      { label: 'Wartość', value: z.wartosc_planowana ? `${parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN` : '-', tone: 'success' },
+                    ]}
+                    actions={
+                      <button style={S.detailBtn} onClick={e => { e.stopPropagation(); navigate(`/zlecenia/${z.id}`); }}>
+                        Otwórz
+                      </button>
+                    }
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -648,7 +639,7 @@ export default function OddzialDetail() {
                           <select style={S.input} value={formCzlonek.user_id} onChange={e => setFormCzlonek({ ...formCzlonek, user_id: e.target.value })} required>
                             <option value="">-- wybierz --</option>
                             {wolniPracownicyDoEkipy.map(u => (
-                              <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({u.rola})</option>
+                              <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})</option>
                             ))}
                           </select>
                         </Field>
@@ -679,7 +670,7 @@ export default function OddzialDetail() {
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--text)' }}>{c.imie} {c.nazwisko}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
-                            <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{c.rola}</span>
+                            <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
                             <span>💰 {c.stawka_godzinowa || 0} PLN/h</span>
                           </div>
                         </div>
@@ -740,7 +731,7 @@ export default function OddzialDetail() {
                           <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                         </optgroup>
                         <optgroup label="Inne">
-                          <option value="Wyceniający">Wyceniający</option>
+                          <option value="Wyceniający">Specjalista ds. wyceny</option>
                           <option value="Magazynier">Magazynier</option>
                         </optgroup>
                       </select>
@@ -764,82 +755,62 @@ export default function OddzialDetail() {
               </div>
             )}
 
-            <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ borderRadius: 12, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
               {pracownicy.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
                   <p>Brak pracowników w tym oddziale</p>
                 </div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Pracownik', 'Login', 'Rola', 'Telefon', 'Stawka/Procent', 'Status', 'Akcje'].map(h => (
-                        <th key={h} style={{ padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pracownicy.map((p, i) => (
-                      <tr key={p.id}
-                        style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onClick={() => navigate(`/uzytkownicy/${p.id}`)}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0F172A'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)'}>
-                        <td style={S.td}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: (ROLA_KOLOR[p.rola] || '#6B7280') + '22', color: ROLA_KOLOR[p.rola] || '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 'bold', flexShrink: 0 }}>
-                              {p.imie?.[0]}{p.nazwisko?.[0]}
-                            </div>
-                            <span style={{ fontWeight: '600' }}>{p.imie} {p.nazwisko}</span>
-                          </div>
-                        </td>
-                        <td style={{ ...S.td, color: 'var(--text-muted)' }}>@{p.login}</td>
-                        <td style={S.td}>
-                          <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: ROLA_KOLOR[p.rola] || '#6B7280' }}>{p.rola}</span>
-                        </td>
-                        <td style={S.td}>
-                          {p.telefon ? (
-                            telHref(p.telefon) ? (
-                              <a
-                                href={telHref(p.telefon)}
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
-                              >
-                                {p.telefon}
-                              </a>
-                            ) : (
-                              p.telefon
-                            )
-                          ) : (
-                            '-'
+                <div className="modern-data-stack">
+                  {pracownicy.map((p) => (
+                    <ModernDataRow
+                      key={p.id}
+                      idLabel={getRoleDisplayName(p.rola)}
+                      idValue={`${p.imie} ${p.nazwisko}`}
+                      subtitle={`@${p.login}`}
+                      tone={p.aktywny ? 'success' : 'danger'}
+                      statusState={p.aktywny ? 'success' : 'danger'}
+                      statusValue={p.aktywny ? 'Aktywny' : 'Nieaktywny'}
+                      icon={
+                        <span style={{ fontSize: 13, fontWeight: 'bold', color: ROLA_KOLOR[p.rola] || '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          {p.imie?.[0]}{p.nazwisko?.[0]}
+                        </span>
+                      }
+                      metrics={[
+                        { label: 'Rola', value: getRoleDisplayName(p.rola), mono: false },
+                        {
+                          label: 'Telefon',
+                          value: p.telefon
+                            ? telHref(p.telefon)
+                              ? <a href={telHref(p.telefon)} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>{p.telefon}</a>
+                              : p.telefon
+                            : '—',
+                          mono: false,
+                        },
+                        {
+                          label: p.rola === 'Brygadzista' ? 'Procent' : 'Stawka',
+                          value: p.rola === 'Brygadzista' ? `${p.procent_wynagrodzenia || 15}%` : `${p.stawka_godzinowa || 0} PLN/h`,
+                          tone: 'success',
+                        },
+                      ]}
+                      onClick={() => navigate(`/uzytkownicy/${p.id}`)}
+                      actions={
+                        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                          <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>Profil</button>
+                          {isDyrektor && (
+                            <button
+                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#FFF8E1' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#F9A825' : 'var(--accent)' }}
+                              onClick={e => toggleAktywny(e, p.id, p.aktywny)}
+                            >
+                              {p.aktywny ? 'Zablokuj' : 'Aktywuj'}
+                            </button>
                           )}
-                        </td>
-                        <td style={{ ...S.td, fontWeight: '600', color: 'var(--accent)' }}>
-                          {p.rola === 'Brygadzista'
-                            ? <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 'bold' }}>{p.procent_wynagrodzenia || 15}%</span>
-                            : `${p.stawka_godzinowa || 0} PLN/h`}
-                        </td>
-                        <td style={S.td}>
-                          <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: p.aktywny ? '#4CAF50' : '#EF5350' }}>
-                            {p.aktywny ? '✅ Aktywny' : '❌ Nieaktywny'}
-                          </span>
-                        </td>
-                        <td style={S.td} onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>✏️</button>
-                            {isDyrektor && (
-                              <button style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#FFF8E1' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#F9A825' : 'var(--accent)' }}
-                                onClick={e => toggleAktywny(e, p.id, p.aktywny)}>
-                                {p.aktywny ? '🔴' : '🟢'}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      }
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </>
@@ -1028,7 +999,6 @@ function Field({ label, children }) {
 }
 
 const S = {
-  td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   addBtn: { padding: '8px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
   editBtn: { padding: '4px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },

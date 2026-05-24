@@ -67,7 +67,7 @@
     "users": "Użytkownicy",
     "branches": "Oddziały",
     "roles": "Role",
-    "estimatorPayout": "Rozliczenie wyceniających",
+    "estimatorPayout": "Rozliczenie specjalistów ds. wyceny",
     "telephony": "Telefonia",
     "integrations": "Integracje",
     "cmr": "CMR (listy przewozowe)",
@@ -81,13 +81,14 @@
     "missionToday": "Misja dnia",
     "kpiWeek": "Liga brygad",
     "autoplanDay": "Autoplan dnia",
-    "estimatorHub": "Hub wyceniającego",
+    "estimatorHub": "Centrum specjalisty ds. wyceny",
     "profile": "Profil",
     "todos": "Zadania",
     "hrDocuments": "Kadry / Dokumenty",
     "crewAttendance": "Potwierdzenia ekip",
     "fieldSettlements": "Rozliczenia polowe",
     "autoDispatch": "Auto-Dispatch (VRP)",
+    "liveMap": "Mapa live",
     "bi": "BI — Analityka",
     "hr": "HR — Kadry"
   },
@@ -651,7 +652,7 @@
   },
   "payrollM11": {
     "title": "Rozliczenia ekip (M11)",
-    "subtitle": "Eksport godzin i kwot do kadr / ERP oraz podgląd naliczeń wyceniających.",
+    "subtitle": "Eksport godzin i kwot do kadr / ERP oraz podgląd naliczeń specjalistów ds. wyceny.",
     "month": "Miesiąc",
     "exportSection": "Eksport miesięczny",
     "exportHint": "Plik zawiera linie raportów dnia ekip (godziny × stawka). Kierownik widzi tylko swój oddział.",
@@ -692,7 +693,7 @@
     "clTarget": "Pracownik (linia)",
     "clEditor": "Kto poprawił",
     "clChange": "Zmiana",
-    "estimatorSection": "Naliczenia wyceniających (miesiąc)",
+    "estimatorSection": "Naliczenia specjalistów ds. wyceny (miesiąc)",
     "loadAccrual": "Odśwież listę",
     "emptyAccrual": "Brak wpisów w tym miesiącu.",
     "noAccess": "Ta strona jest dostępna dla dyrekcji, administratora i kierownika oddziału.",
@@ -1013,7 +1014,7 @@
     "sectionTitle": "Obiekty — szkic na zdjęciu",
     "hint": "Dla każdej pozycji otwórz rysunek, wybierz zdjęcie z dysku, dodaj adnotacje i zapisz (jak w aplikacji mobilnej: „Adnotacje”).",
     "openDraw": "Adnotacje (rysuj)",
-    "noItems": "Brak pozycji (obiektów) przy tej wycenie. Pozycje dodaje wyceniający w terenie w aplikacji mobilnej.",
+    "noItems": "Brak pozycji (obiektów) przy tej wycenie. Pozycje dodaje specjalista ds. wyceny w terenie w aplikacji mobilnej.",
     "listLink": "Szkic (obiekty)",
     "loadItemsError": "Nie udało się wczytać pozycji wyceny."
   },
@@ -1037,7 +1038,7 @@
     "videoQueued": "Wideo oczekuje w kolejce (tylko mobile)"
   },
   "hub": {
-    "title": "Hub wyceniającego",
+    "title": "Centrum specjalisty ds. wyceny",
     "subtitle": "KPI zaplanowanych oględzin na dziś i szybkie przejścia — odpowiednik widoku mobilnego.",
     "platinumBar": "Platinum Estimator Command Hub",
     "loading": "Ładowanie…",
@@ -1048,7 +1049,7 @@
       "quoteCalendar": "Kalendarz wycen",
       "newQuote": "Nowa wycena",
       "fieldQuotes": "Wyceny terenowe (M1)",
-      "estimatorPay": "Rozliczenie wyceniających",
+      "estimatorPay": "Rozliczenie specjalistów ds. wyceny",
       "approveQuotes": "Zatwierdzanie wycen"
     },
     "kpi": {

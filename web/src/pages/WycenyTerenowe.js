@@ -91,7 +91,7 @@ export default function WycenyTerenowe() {
   const doAssign = async (qid) => {
     const wyc = assignPick[qid];
     if (!wyc) {
-      setErr('Wybierz wyceniającego');
+      setErr('Wybierz specjalistę ds. wyceny');
       return;
     }
     setBusy(true);
@@ -137,7 +137,7 @@ export default function WycenyTerenowe() {
     }
   };
 
-  if (!user || !['Kierownik', 'Prezes', 'Dyrektor', 'Specjalista', 'Wyceniający', 'WyceniajÄ…cy'].includes(user.rola)) {
+  if (!user || !['Kierownik', 'Prezes', 'Dyrektor', 'Specjalista', 'Wyceniający', 'Wyceniajacy'].includes(user.rola)) {
     return (
       <div style={S.wrap}>
         <Sidebar />
@@ -198,7 +198,7 @@ export default function WycenyTerenowe() {
                       value={assignPick[q.id] || ''}
                       onChange={(e) => setAssignPick((p) => ({ ...p, [q.id]: e.target.value }))}
                     >
-                      <option value="">— wyceniający —</option>
+                      <option value="">— specjalista ds. wyceny —</option>
                       {users
                         .filter((u) => !u.oddzial_id || String(u.oddzial_id) === String(q.oddzial_id))
                         .map((u) => (

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import ModernDataRow from '../components/ModernDataRow';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -45,11 +46,6 @@ function downloadCSV(rows, filename) {
 
 // ─── Drill-down modal ────────────────────────────────────────────────────────
 
-const STATUS_COLORS_DRILL = {
-  Zakonczone: '#16a34a', Zaplanowane: '#2563eb', 'W trakcie': '#d97706',
-  Wstrzymane: '#6b7280', Anulowane: '#ef4444',
-};
-
 function DrillModal({ title, tasks, loading, onClose }) {
   return (
     <div style={dm.overlay} onClick={onClose}>
@@ -63,35 +59,25 @@ function DrillModal({ title, tasks, loading, onClose }) {
           : tasks.length === 0
           ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-sub)' }}>Brak zleceń</div>
           : (
-            <div style={{ overflowY: 'auto', maxHeight: '60vh' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
-                  <tr>
-                    {['Nr','Status','Usługa','Data','Ekipa','Oddział','Plan PLN'].map(h => (
-                      <th key={h} style={dm.th}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.map(t => (
-                    <tr key={t.id} style={dm.tr}>
-                      <td style={dm.td}>{t.numer || `#${t.id}`}</td>
-                      <td style={dm.td}>
-                        <span style={{ ...dm.badge, background: STATUS_COLORS_DRILL[t.status] || '#6b7280' }}>
-                          {t.status}
-                        </span>
-                      </td>
-                      <td style={dm.td}>{t.typ_uslugi || '—'}</td>
-                      <td style={dm.td}>{t.data_planowana?.slice(0,10) || '—'}</td>
-                      <td style={dm.td}>{t.ekipa_nazwa || '—'}</td>
-                      <td style={dm.td}>{t.oddzial_nazwa || '—'}</td>
-                      <td style={{ ...dm.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {t.wartosc_planowana ? pln(t.wartosc_planowana) : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="modern-data-stack" style={{ overflowY: 'auto', maxHeight: '60vh', padding: 12 }}>
+              {tasks.map(t => (
+                <ModernDataRow
+                  key={t.id}
+                  idLabel="Order"
+                  idValue={t.numer || `#${t.id}`}
+                  title={t.typ_uslugi || 'Zlecenie'}
+                  subtitle={`${t.oddzial_nazwa || 'brak oddziału'} · ${t.ekipa_nazwa || 'brak ekipy'}`}
+                  tone={t.status === 'Zakonczone' ? 'success' : t.status === 'Anulowane' ? 'danger' : 'info'}
+                  status={t.status}
+                  statusValue={t.status}
+                  statusState={t.status === 'Zakonczone' ? 'success' : t.status === 'Anulowane' ? 'danger' : 'info'}
+                  metrics={[
+                    { label: 'Data', value: t.data_planowana?.slice(0,10) || '—' },
+                    { label: 'Ekipa', value: t.ekipa_nazwa || '—', mono: false },
+                    { label: 'Plan PLN', value: t.wartosc_planowana ? pln(t.wartosc_planowana) : '—', tone: 'success' },
+                  ]}
+                />
+              ))}
             </div>
           )
         }
@@ -429,35 +415,29 @@ export default function BiDashboard() {
           <div style={s.content}>
             <div style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.branchComparison')} — ostatnie {days} dni</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      {['Oddział','Zlec.','Ukończ.','%','Zaległe','Plan PLN','Real PLN','Ekipy'].map(h => (
-                        <th key={h} style={s.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {branches.map(b => (
-                      <tr key={b.oddzial_id} style={{ ...s.tr, cursor: 'pointer' }}
-                          onClick={() => openDrill({ title: `Zlecenia — ${b.oddzial_nazwa}`, dim: 'oddzial', id: b.oddzial_id })}>
-                        <td style={{ ...s.td, fontWeight: 600 }}>{b.oddzial_nazwa}</td>
-                        <td style={s.tdNum}>{num(b.tasks_total)}</td>
-                        <td style={s.tdNum}>{num(b.tasks_done)}</td>
-                        <td style={{ ...s.tdNum, color: b.completion_pct >= 80 ? '#16a34a' : '#ca8a04' }}>
-                          {pct(b.completion_pct)}
-                        </td>
-                        <td style={{ ...s.tdNum, color: b.tasks_overdue > 0 ? '#dc2626' : 'var(--text)' }}>
-                          {num(b.tasks_overdue)}
-                        </td>
-                        <td style={s.tdNum}>{pln(b.revenue_planned)}</td>
-                        <td style={s.tdNum}>{pln(b.revenue_actual)}</td>
-                        <td style={s.tdNum}>{num(b.teams_active)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {branches.map(b => (
+                  <ModernDataRow
+                    key={b.oddzial_id}
+                    idLabel="Branch"
+                    idValue={`BR-${b.oddzial_id}`}
+                    title={b.oddzial_nazwa}
+                    subtitle={`Aktywne ekipy: ${num(b.teams_active)}`}
+                    tone={b.tasks_overdue > 0 ? 'warning' : 'success'}
+                    status={b.completion_pct >= 80 ? 'ON TRACK' : 'WATCH'}
+                    statusValue={b.completion_pct >= 80 ? 'success' : 'warning'}
+                    statusState={b.completion_pct >= 80 ? 'success' : 'warning'}
+                    onClick={() => openDrill({ title: `Zlecenia — ${b.oddzial_nazwa}`, dim: 'oddzial', id: b.oddzial_id })}
+                    metrics={[
+                      { label: 'Zlecenia', value: num(b.tasks_total) },
+                      { label: 'Ukończone', value: num(b.tasks_done), tone: 'success' },
+                      { label: 'Skuteczność', value: pct(b.completion_pct), tone: b.completion_pct >= 80 ? 'success' : 'warning' },
+                      { label: 'Zaległe', value: num(b.tasks_overdue), tone: b.tasks_overdue > 0 ? 'danger' : undefined },
+                      { label: 'Plan PLN', value: pln(b.revenue_planned) },
+                      { label: 'Real PLN', value: pln(b.revenue_actual), tone: 'success' },
+                    ]}
+                  />
+                ))}
               </div>
             </div>
 
@@ -475,38 +455,29 @@ export default function BiDashboard() {
           <div style={s.content}>
             <div style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.teamRanking')} — ostatnie {days} dni</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      {['#','Ekipa','Oddział','Zlec.','Ukończ.','%','Zaległe','Przychód plan'].map(h => (
-                        <th key={h} style={s.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.map(tm => (
-                      <tr key={tm.team_id} style={{ ...s.tr, cursor: 'pointer' }}
-                          onClick={() => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })}>
-                        <td style={{ ...s.td, color: 'var(--text-sub)', width: 32 }}>{tm.rank}</td>
-                        <td style={{ ...s.td, fontWeight: 600 }}>{tm.team_name}</td>
-                        <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{tm.oddzial_nazwa}</td>
-                        <td style={s.tdNum}>{num(tm.tasks_total)}</td>
-                        <td style={s.tdNum}>{num(tm.tasks_done)}</td>
-                        <td style={{ ...s.tdNum, color: tm.completion_pct >= 80 ? '#16a34a' : '#ca8a04' }}>
-                          {pct(tm.completion_pct)}
-                        </td>
-                        <td style={{ ...s.tdNum, color: tm.tasks_overdue > 0 ? '#dc2626' : 'var(--text)' }}>
-                          {num(tm.tasks_overdue)}
-                        </td>
-                        <td style={s.tdNum}>{pln(tm.revenue)}</td>
-                      </tr>
-                    ))}
-                    {teams.length === 0 && (
-                      <tr><td colSpan={8} style={{ ...s.td, textAlign: 'center', color: 'var(--text-sub)', padding: 32 }}>Brak danych</td></tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {teams.map(tm => (
+                  <ModernDataRow
+                    key={tm.team_id}
+                    idLabel="Team Rank"
+                    idValue={`#${tm.rank}`}
+                    title={tm.team_name}
+                    subtitle={tm.oddzial_nazwa}
+                    tone={tm.tasks_overdue > 0 ? 'warning' : 'success'}
+                    status={tm.completion_pct >= 80 ? 'HIGH PERF' : 'TRACKED'}
+                    statusValue={tm.completion_pct >= 80 ? 'success' : 'info'}
+                    statusState={tm.completion_pct >= 80 ? 'success' : 'info'}
+                    onClick={() => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })}
+                    metrics={[
+                      { label: 'Zlecenia', value: num(tm.tasks_total) },
+                      { label: 'Ukończone', value: num(tm.tasks_done), tone: 'success' },
+                      { label: 'Skuteczność', value: pct(tm.completion_pct), tone: tm.completion_pct >= 80 ? 'success' : 'warning' },
+                      { label: 'Zaległe', value: num(tm.tasks_overdue), tone: tm.tasks_overdue > 0 ? 'danger' : undefined },
+                      { label: 'Przychód plan', value: pln(tm.revenue), tone: 'success' },
+                    ]}
+                  />
+                ))}
+                {teams.length === 0 && <div className="modern-data-empty">Brak danych</div>}
               </div>
             </div>
             <div style={s.card}>
@@ -533,30 +504,26 @@ export default function BiDashboard() {
             </div>
             <div style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.serviceDetails')}</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      {['Usługa','Zlecenia','Przychód','Udział %'].map(h => (
-                        <th key={h} style={s.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {serviceMix.map((sm, i) => (
-                      <tr key={i} style={{ ...s.tr, cursor: 'pointer' }}
-                          onClick={() => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })}>
-                        <td style={{ ...s.td, display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 10, height: 10, borderRadius: 2, background: DONUT_COLORS[i % DONUT_COLORS.length], flexShrink: 0 }} />
-                          {sm.typ_uslugi}
-                        </td>
-                        <td style={s.tdNum}>{num(sm.tasks_count)}</td>
-                        <td style={s.tdNum}>{pln(sm.revenue)}</td>
-                        <td style={s.tdNum}>{pct(sm.pct)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {serviceMix.map((sm, i) => (
+                  <ModernDataRow
+                    key={i}
+                    idLabel="Service Mix"
+                    idValue={`SVC-${i + 1}`}
+                    title={sm.typ_uslugi}
+                    subtitle={`Udział: ${pct(sm.pct)}`}
+                    tone="info"
+                    status="REVENUE"
+                    statusValue="info"
+                    statusState="info"
+                    onClick={() => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })}
+                    metrics={[
+                      { label: 'Zlecenia', value: num(sm.tasks_count) },
+                      { label: 'Przychód', value: pln(sm.revenue), tone: 'success' },
+                      { label: 'Udział', value: pct(sm.pct), tone: 'info' },
+                    ]}
+                  />
+                ))}
               </div>
             </div>
           </div>

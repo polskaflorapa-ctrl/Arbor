@@ -5,6 +5,7 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -42,42 +43,26 @@ function PayrollLineCorrectionRow({ line, reportId, locked, saving, onSave, t, b
   };
 
   return (
-    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-      <td style={td}>{userLabel}</td>
-      <td style={td}>
-        {locked ? (
-          line.hours_total
-        ) : (
-          <input style={{ ...inp, maxWidth: 100 }} value={hours} onChange={(e) => setHours(e.target.value)} />
-        )}
-      </td>
-      <td style={td}>
-        {locked ? (
-          fmtPln(line.pay_pln)
-        ) : (
-          <input style={{ ...inp, maxWidth: 110 }} value={pay} onChange={(e) => setPay(e.target.value)} />
-        )}
-      </td>
-      <td style={td}>
-        {locked ? (
-          '—'
-        ) : (
-          <input
-            style={{ ...inp, maxWidth: 200 }}
-            placeholder={t('payrollM11.lineCorrectionNotePh')}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        )}
-      </td>
-      <td style={td}>
-        {!locked && (
-          <button type="button" style={btnPri} disabled={saving} onClick={submit}>
-            {saving ? '…' : t('payrollM11.lineCorrectionSave')}
-          </button>
-        )}
-      </td>
-    </tr>
+    <ModernDataRow
+      idLabel="Payroll Line"
+      idValue={`LINE-${line.id}`}
+      title={userLabel}
+      subtitle={locked ? t('payrollM11.reportApproved') : t('payrollM11.reportPending')}
+      tone={locked ? 'success' : 'warning'}
+      status={locked ? 'LOCKED' : 'EDITABLE'}
+      statusValue={locked ? 'success' : 'warning'}
+      statusState={locked ? 'success' : 'warning'}
+      metrics={[
+        { label: t('payrollM11.thHours'), value: locked ? line.hours_total : <input style={{ ...inp, maxWidth: 100 }} value={hours} onChange={(e) => setHours(e.target.value)} /> },
+        { label: t('payrollM11.thPay'), value: locked ? fmtPln(line.pay_pln) : <input style={{ ...inp, maxWidth: 110 }} value={pay} onChange={(e) => setPay(e.target.value)} />, tone: 'success' },
+        { label: t('payrollM11.thNote'), value: locked ? '—' : <input style={{ ...inp, maxWidth: 200 }} placeholder={t('payrollM11.lineCorrectionNotePh')} value={note} onChange={(e) => setNote(e.target.value)} />, mono: false },
+      ]}
+      actions={!locked ? (
+        <button type="button" style={btnPri} disabled={saving} onClick={submit}>
+          {saving ? '…' : t('payrollM11.lineCorrectionSave')}
+        </button>
+      ) : null}
+    />
   );
 }
 
@@ -501,33 +486,20 @@ export default function PayrollM11() {
                     </button>
                   </div>
                 ) : null}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                        <th style={th}>{t('payrollM11.thUser')}</th>
-                        <th style={th}>{t('payrollM11.thHours')}</th>
-                        <th style={th}>{t('payrollM11.thPay')}</th>
-                        <th style={th}>{t('payrollM11.thNote')}</th>
-                        <th style={th} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(rep.lines || []).map((ln) => (
-                        <PayrollLineCorrectionRow
-                          key={ln.id}
-                          line={ln}
-                          reportId={rep.id}
-                          locked={!!rep.approved_at}
-                          saving={savingLineId === ln.id}
-                          onSave={saveLineCorrection}
-                          t={t}
-                          btnPri={btnPri}
-                          inp={inp}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="modern-data-stack">
+                  {(rep.lines || []).map((ln) => (
+                    <PayrollLineCorrectionRow
+                      key={ln.id}
+                      line={ln}
+                      reportId={rep.id}
+                      locked={!!rep.approved_at}
+                      saving={savingLineId === ln.id}
+                      onSave={saveLineCorrection}
+                      t={t}
+                      btnPri={btnPri}
+                      inp={inp}
+                    />
+                  ))}
                 </div>
               </div>
             ))
@@ -554,41 +526,26 @@ export default function PayrollM11() {
           ) : correctionLog.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', marginBottom: 0 }}>{t('payrollM11.correctionLogEmpty')}</p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                    <th style={th}>{t('payrollM11.clWhen')}</th>
-                    <th style={th}>{t('payrollM11.clDay')}</th>
-                    <th style={th}>{t('payrollM11.clTarget')}</th>
-                    <th style={th}>{t('payrollM11.clEditor')}</th>
-                    <th style={th}>{t('payrollM11.clChange')}</th>
-                    <th style={th}>{t('payrollM11.thNote')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {correctionLog.map((c) => (
-                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={td}>{formatLogWhen(c.created_at)}</td>
-                      <td style={td}>
-                        {c.report_date} · #{c.team_id}
-                      </td>
-                      <td style={td}>
-                        {[c.target_imie, c.target_nazwisko].filter(Boolean).join(' ') || (c.target_user_id ? `#${c.target_user_id}` : '—')}
-                      </td>
-                      <td style={td}>
-                        {[c.editor_imie, c.editor_nazwisko].filter(Boolean).join(' ') || (c.edited_by ? `#${c.edited_by}` : '—')}
-                      </td>
-                      <td style={td}>
-                        {Number(c.prev_hours_total)}h / {fmtPln(c.prev_pay_pln)} → {Number(c.new_hours_total)}h / {fmtPln(c.new_pay_pln)}
-                      </td>
-                      <td style={{ ...td, maxWidth: 220, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {c.correction_note || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="modern-data-stack">
+              {correctionLog.map((c) => (
+                <ModernDataRow
+                  key={c.id}
+                  idLabel="Correction"
+                  idValue={`COR-${c.id}`}
+                  title={[c.target_imie, c.target_nazwisko].filter(Boolean).join(' ') || (c.target_user_id ? `#${c.target_user_id}` : '—')}
+                  subtitle={`${c.report_date} · #${c.team_id}`}
+                  tone="warning"
+                  status="CORRECTED"
+                  statusValue="warning"
+                  statusState="warning"
+                  metrics={[
+                    { label: t('payrollM11.clWhen'), value: formatLogWhen(c.created_at) },
+                    { label: t('payrollM11.clEditor'), value: [c.editor_imie, c.editor_nazwisko].filter(Boolean).join(' ') || (c.edited_by ? `#${c.edited_by}` : '—'), mono: false },
+                    { label: t('payrollM11.clChange'), value: `${Number(c.prev_hours_total)}h / ${fmtPln(c.prev_pay_pln)} → ${Number(c.new_hours_total)}h / ${fmtPln(c.new_pay_pln)}`, tone: 'success' },
+                    { label: t('payrollM11.thNote'), value: c.correction_note || '—', mono: false },
+                  ]}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -603,27 +560,24 @@ export default function PayrollM11() {
           {!accrual.length && !loadingAccrual ? (
             <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 0 }}>{t('payrollM11.emptyAccrual')}</p>
           ) : (
-            <div style={{ overflowX: 'auto', marginTop: 12 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                    <th style={th}>{t('payrollM11.thName')}</th>
-                    <th style={th}>{t('payrollM11.thCommission')}</th>
-                    <th style={th}>{t('payrollM11.thExtra')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accrual.map((row) => (
-                    <tr key={row.id || `${row.wyceniajacy_id}-${row.accrual_month}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={td}>
-                        {[row.imie, row.nazwisko].filter(Boolean).join(' ') || `ID ${row.wyceniajacy_id}`}
-                      </td>
-                      <td style={td}>{fmtPln(row.commission_base)}</td>
-                      <td style={td}>{fmtPln(row.extra_work_pln)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="modern-data-stack" style={{ marginTop: 12 }}>
+              {accrual.map((row) => (
+                <ModernDataRow
+                  key={row.id || `${row.wyceniajacy_id}-${row.accrual_month}`}
+                  idLabel="Estimator"
+                  idValue={`EST-${row.wyceniajacy_id}`}
+                  title={[row.imie, row.nazwisko].filter(Boolean).join(' ') || `ID ${row.wyceniajacy_id}`}
+                  subtitle={row.accrual_month || month}
+                  tone="success"
+                  status="ACCRUAL"
+                  statusValue="success"
+                  statusState="success"
+                  metrics={[
+                    { label: t('payrollM11.thCommission'), value: fmtPln(row.commission_base), tone: 'success' },
+                    { label: t('payrollM11.thExtra'), value: fmtPln(row.extra_work_pln), tone: row.extra_work_pln ? 'info' : undefined },
+                  ]}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -683,5 +637,3 @@ const btnSec = {
   fontWeight: 600,
   cursor: 'pointer',
 };
-const th = { padding: '10px 8px', color: 'var(--text-muted)', fontWeight: 600 };
-const td = { padding: '10px 8px' };

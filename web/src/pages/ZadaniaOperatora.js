@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
+import ModernDataRow from '../components/ModernDataRow';
 import { readStoredUser } from '../utils/readStoredUser';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
 
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
@@ -31,6 +33,19 @@ const EMPTY_FORM = {
   priority: 'normal',
   due_at: '',
 };
+
+function taskPriorityTone(priority) {
+  if (priority === 'urgent') return 'danger';
+  if (priority === 'high') return 'warning';
+  return 'info';
+}
+
+function taskStatusTone(status) {
+  if (status === 'done') return 'success';
+  if (status === 'archived') return 'danger';
+  if (status === 'in_progress') return 'info';
+  return 'warning';
+}
 
 function normalizeTasks(payload) {
   const rows = Array.isArray(payload?.tasks) ? payload.tasks : Array.isArray(payload) ? payload : [];
@@ -238,13 +253,6 @@ export default function ZadaniaOperatora() {
     }
   };
 
-  const badgeStyle = (tone) => {
-    if (tone === 'danger') return S.badgeDanger;
-    if (tone === 'warn') return S.badgeWarn;
-    if (tone === 'info') return S.badgeInfo;
-    return S.badgeMuted;
-  };
-
   return (
     <div style={S.wrap}>
       <Sidebar />
@@ -290,7 +298,7 @@ export default function ZadaniaOperatora() {
                   >
                     <option value="">Wybierz pracownika</option>
                     {assignableUsers.map((row) => (
-                      <option key={row.id} value={row.id}>{fullName(row)} ({row.rola})</option>
+                      <option key={row.id} value={row.id}>{fullName(row)} ({getRoleDisplayName(row.rola)})</option>
                     ))}
                   </select>
                 </label>
@@ -382,68 +390,51 @@ export default function ZadaniaOperatora() {
 
             {message ? <div style={S.alert}>{message}</div> : null}
             {loading ? (
-              <div style={S.empty}>Ładowanie zadań...</div>
+              <div className="modern-data-empty">Ladowanie zadan...</div>
             ) : visibleTasks.length === 0 ? (
-              <div style={S.empty}>Brak zadań pasujących do filtrów.</div>
+              <div className="modern-data-empty">Brak zadan pasujacych do filtrow.</div>
             ) : (
-              <div style={S.tableWrap}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>Zadanie</th>
-                      <th style={S.th}>Status</th>
-                      <th style={S.th}>Osoba</th>
-                      <th style={S.th}>Termin</th>
-                      <th style={S.th}>Akcje</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleTasks.map((task) => {
-                      const due = getDueMeta(task);
-                      const priority = PRIORITY_META[task.priority] || PRIORITY_META.normal;
-                      const canChange = canManage || Number(task.assigned_to) === Number(user?.id) || Number(task.created_by) === Number(user?.id);
-                      return (
-                        <tr key={task.id} style={{ ...S.tr, ...(due.overdue ? S.trOverdue : {}) }}>
-                          <td style={S.td}>
-                            <strong style={S.taskTitle}>{task.title}</strong>
-                            <span style={{ ...S.badge, ...badgeStyle(priority.tone) }}>{priority.label}</span>
-                            {task.opis ? <span style={S.muted}>{task.opis}</span> : null}
-                          </td>
-                          <td style={S.td}>
-                            <span style={{ ...S.badge, ...(task.status === 'done' ? S.badgeOk : task.status === 'in_progress' ? S.badgeInfo : S.badgeMuted) }}>
-                              {STATUS_LABELS[task.status] || task.status}
-                            </span>
-                          </td>
-                          <td style={S.td}>
-                            <strong style={S.cellTitle}>{task.assignee_name || `#${task.assigned_to}`}</strong>
-                            <span style={S.muted}>od {task.created_by_name || `#${task.created_by}`}</span>
-                          </td>
-                          <td style={S.td}>
-                            <span style={{ ...S.due, ...(due.overdue ? S.dueOverdue : due.today ? S.dueToday : {}) }}>
-                              {due.label}
-                            </span>
-                          </td>
-                          <td style={S.td}>
-                            <div style={S.rowActions}>
-                              {canChange && task.status !== 'in_progress' && task.status !== 'done' && task.status !== 'archived' ? (
-                                <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'in_progress' })}>W toku</button>
-                              ) : null}
-                              {canChange && task.status === 'in_progress' ? (
-                                <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'todo' })}>Do zrobienia</button>
-                              ) : null}
-                              {canChange && task.status !== 'done' && task.status !== 'archived' ? (
-                                <button type="button" style={S.rowBtnPrimary} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'done' })}>Gotowe</button>
-                              ) : null}
-                              {canManage && task.status === 'done' ? (
-                                <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'archived' })}>Archiwum</button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {visibleTasks.map((task) => {
+                  const due = getDueMeta(task);
+                  const priority = PRIORITY_META[task.priority] || PRIORITY_META.normal;
+                  const canChange = canManage || Number(task.assigned_to) === Number(user?.id) || Number(task.created_by) === Number(user?.id);
+                  return (
+                    <ModernDataRow
+                      key={task.id}
+                      idLabel="Task ID"
+                      idValue={`TASK-${task.id}`}
+                      title={task.title}
+                      subtitle={task.opis || 'Brak opisu'}
+                      tone={due.overdue ? 'danger' : taskPriorityTone(task.priority)}
+                      status={STATUS_LABELS[task.status] || task.status}
+                      statusValue={task.status}
+                      statusState={taskStatusTone(task.status)}
+                      metrics={[
+                        { label: 'Priorytet', value: priority.label, tone: taskPriorityTone(task.priority), mono: false },
+                        { label: 'Osoba', value: task.assignee_name || `#${task.assigned_to}`, mono: false },
+                        { label: 'Utworzyl', value: task.created_by_name || `#${task.created_by}`, mono: false },
+                        { label: 'Termin', value: due.label, tone: due.overdue ? 'danger' : due.today ? 'warning' : undefined, mono: false },
+                      ]}
+                      actions={
+                        <>
+                          {canChange && task.status !== 'in_progress' && task.status !== 'done' && task.status !== 'archived' ? (
+                            <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'in_progress' })}>W toku</button>
+                          ) : null}
+                          {canChange && task.status === 'in_progress' ? (
+                            <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'todo' })}>Do zrobienia</button>
+                          ) : null}
+                          {canChange && task.status !== 'done' && task.status !== 'archived' ? (
+                            <button type="button" style={S.rowBtnPrimary} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'done' })}>Gotowe</button>
+                          ) : null}
+                          {canManage && task.status === 'done' ? (
+                            <button type="button" style={S.rowBtn} disabled={busyId === task.id} onClick={() => patchTask(task, { status: 'archived' })}>Archiwum</button>
+                          ) : null}
+                        </>
+                      }
+                    />
+                  );
+                })}
               </div>
             )}
           </section>

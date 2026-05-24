@@ -20,7 +20,7 @@ export const TASK_STATUSES = [
 
 export const TASK_WORKFLOW_STEPS = [
   { status: TASK_STATUS.NOWE, step: '1', label: 'Telefon', detail: 'biuro przyjmuje zgloszenie' },
-  { status: TASK_STATUS.WYCENA_TERENOWA, step: '2', label: 'Ogledziny', detail: 'wyceniacz zbiera zdjecia, zakres i budzet' },
+  { status: TASK_STATUS.WYCENA_TERENOWA, step: '2', label: 'Ogledziny', detail: 'specjalista ds. wyceny zbiera zdjecia, zakres i budzet' },
   { status: TASK_STATUS.DO_ZATWIERDZENIA, step: '3', label: 'Biuro planuje', detail: 'klient akceptuje, biuro dopina szczegoly' },
   { status: TASK_STATUS.ZAPLANOWANE, step: '4', label: 'Ekipa gotowa', detail: 'termin, brygada i sprzet sa ustawione' },
   { status: TASK_STATUS.W_REALIZACJI, step: '5', label: 'Wykonanie', detail: 'ekipa pracuje wedlug briefu' },

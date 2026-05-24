@@ -358,7 +358,7 @@ export default function WycenaKalendarz() {
         <button style={S.backBtn} onClick={() => navigate(-1)}>←</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={S.headerTitle}>📋 Kalendarz Wycen</div>
-          <div style={S.headerSub}>Planowanie i zarządzanie wizytami wyceniającego</div>
+          <div style={S.headerSub}>Planowanie i zarządzanie wizytami specjalisty ds. wyceny</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
           <button type="button" style={S.linkBtn} onClick={() => navigate('/blokady-kalendarza')}>
@@ -645,7 +645,7 @@ export default function WycenaKalendarz() {
                   <div style={S.wycenaDetail}>
                     {w.wycena_uwagi && <div style={S.detailRow}><span style={S.detailLabel}>Uwagi:</span><span style={S.detailVal}>{w.wycena_uwagi}</span></div>}
                     {w.czas_planowany_godziny && <div style={S.detailRow}><span style={S.detailLabel}>Czas:</span><span style={S.detailVal}>{w.czas_planowany_godziny}h</span></div>}
-                    {w.wyceniajacy_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Wyceniający:</span><span style={S.detailVal}>{w.wyceniajacy_nazwa}</span></div>}
+                    {w.wyceniajacy_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Specjalista ds. wyceny:</span><span style={S.detailVal}>{w.wyceniajacy_nazwa}</span></div>}
                     {w.zatwierdzone_przez_nazwa && <div style={S.detailRow}><span style={S.detailLabel}>Zatwierdził:</span><span style={S.detailVal}>{w.zatwierdzone_przez_nazwa}</span></div>}
                     {(w.status_akceptacji === 'oczekuje' || w.status_akceptacji === 'rezerwacja_wstepna') && (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -15,6 +15,7 @@ import useAsyncLoad from '../hooks/useAsyncLoad';
 import { addTeamMember, removeTeamMember } from '../utils/teamMembersApi';
 import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 
@@ -317,6 +318,9 @@ export default function Ekipy() {
             <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
               Dodaj nową ekipę
             </button>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--bg-card2)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
+              Ranking brygad
+            </button>
           </div>
         </div>
 
@@ -573,7 +577,7 @@ export default function Ekipy() {
                       <select style={S.input} value={formCzlonek.user_id} onChange={e => setFormCzlonek({ ...formCzlonek, user_id: e.target.value })} required>
                         <option value="">-- wybierz pracownika --</option>
                         {dostepniPracownicy.map(u => (
-                          <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({u.rola}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>
+                          <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>
                         ))}
                       </select>
                     </Field>
@@ -622,7 +626,7 @@ export default function Ekipy() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--text)' }}>{c.imie} {c.nazwisko}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2 }}>
-                        <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{c.rola}</span>
+                        <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
                         <span>{t('pages.ekipy.hourlyRate', { rate: c.stawka_godzinowa || 0 })}</span>
                       </div>
                     </div>

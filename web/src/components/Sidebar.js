@@ -4,9 +4,8 @@ import { useSSE } from '../hooks/useSSE';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import { getRolaColor } from '../theme';
-import { useTheme, THEMES } from '../ThemeContext';
-import LanguageSwitcher from './LanguageSwitcher';
 import { readStoredUser } from '../utils/readStoredUser';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
@@ -24,6 +23,7 @@ const ICONS = {
   zlecenia:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
   harmonogram:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   kierownik:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>,
+  liveMap:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/></svg>,
   dispatch:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>,
   bi:           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><path d="M2 20h20"/></svg>,
   ekipy:        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
@@ -57,28 +57,28 @@ function NavChevron() {
 }
 
 const NAV_GROUPS = [
-  { key: 'start', label: 'Start' },
-  { key: 'operations', label: 'Operacje' },
-  { key: 'sales', label: 'Sprzedaz' },
-  { key: 'hr', label: 'Kadry' },
-  { key: 'finance', label: 'Finanse' },
-  { key: 'assets', label: 'Zasoby' },
-  { key: 'settings', label: 'Ustawienia' },
+  { key: 'start', label: 'Start', moreLabel: 'Profil i zadania' },
+  { key: 'sales', label: 'Sprzedaż i oględziny', moreLabel: 'CRM, klienci i wyceny' },
+  { key: 'planning', label: 'Planowanie', moreLabel: 'Harmonogram i dispatch' },
+  { key: 'execution', label: 'Ekipy i wykonanie', moreLabel: 'Teren, sprzęt i magazyn' },
+  { key: 'company', label: 'Firma', moreLabel: 'Kadry, oddziały i finanse' },
+  { key: 'reports', label: 'Raporty', moreLabel: 'Analityka i rankingi' },
 ];
 
 const NAV_GROUP_BY_PATH = {
   '/dashboard': 'start',
   '/eksploruj': 'start',
-  '/profil': 'settings',
-  '/zadania': 'settings',
-  '/raporty': 'settings',
-  '/zlecenia': 'operations',
-  '/harmonogram': 'operations',
-  '/kierownik': 'operations',
-  '/auto-dispatch': 'operations',
-  '/bi': 'operations',
-  '/hr': 'hr',
-  '/ekipy': 'operations',
+  '/profil': 'start',
+  '/zadania': 'start',
+  '/raporty': 'reports',
+  '/zlecenia': 'planning',
+  '/harmonogram': 'planning',
+  '/kierownik': 'planning',
+  '/auto-dispatch': 'planning',
+  '/mapa-live': 'planning',
+  '/bi': 'reports',
+  '/hr': 'company',
+  '/ekipy': 'execution',
   '/wyceniajacy-hub': 'sales',
   '/crm': 'sales',
   '/wycena-kalendarz': 'sales',
@@ -87,31 +87,64 @@ const NAV_GROUP_BY_PATH = {
   '/wyceny-terenowe': 'sales',
   '/klienci': 'sales',
   '/telefonia': 'sales',
-  '/integracje': 'sales',
-  '/kadry-dokumenty': 'hr',
-  '/rozliczenia-ekip': 'finance',
-  '/rozliczenia-polowe': 'finance',
-  '/wynagrodzenie-wyceniajacych': 'finance',
-  '/ksiegowosc': 'finance',
-  '/flota': 'assets',
-  '/magazyn': 'assets',
-  '/rezerwacje-sprzetu': 'assets',
-  '/kalendarz-zasobow': 'assets',
-  '/potwierdzenia-ekip': 'operations',
-  '/uzytkownicy': 'settings',
-  '/oddzialy': 'settings',
-  '/zarzadzaj-rolami': 'settings',
+  '/integracje': 'company',
+  '/kadry-dokumenty': 'company',
+  '/rozliczenia-ekip': 'company',
+  '/rozliczenia-polowe': 'execution',
+  '/wynagrodzenie-wyceniajacych': 'company',
+  '/ksiegowosc': 'company',
+  '/flota': 'execution',
+  '/magazyn': 'execution',
+  '/rezerwacje-sprzetu': 'execution',
+  '/kalendarz-zasobow': 'planning',
+  '/potwierdzenia-ekip': 'execution',
+  '/ranking-brygad': 'reports',
+  '/uzytkownicy': 'company',
+  '/oddzialy': 'company',
+  '/zarzadzaj-rolami': 'company',
 };
 
-const PRIMARY_NAV_PATHS = new Set([
+const CORE_NAV_PATHS = new Set([
   '/dashboard',
+  '/crm',
   '/zlecenia',
   '/harmonogram',
-  '/crm',
-  '/zadania',
-  '/kadry-dokumenty',
-  '/rozliczenia-ekip',
+  '/ekipy',
   '/flota',
+  '/kadry-dokumenty',
+  '/raporty',
+]);
+
+function isPrimaryNavPath(path, role) {
+  if (CORE_NAV_PATHS.has(path)) return true;
+  const normalizedRole = String(role || '').toLowerCase();
+  const rolePrimary = new Set();
+  if (normalizedRole.includes('wyceniaj') || normalizedRole.includes('specjal')) {
+    rolePrimary.add('/wyceniajacy-hub');
+    rolePrimary.add('/wyceny-terenowe');
+  }
+  if (normalizedRole.includes('magazyn')) {
+    rolePrimary.add('/magazyn');
+    rolePrimary.add('/rezerwacje-sprzetu');
+  }
+  if (normalizedRole.includes('prezes') || normalizedRole.includes('dyrektor')) {
+    rolePrimary.add('/bi');
+  }
+  if (normalizedRole.includes('administrator')) {
+    rolePrimary.add('/uzytkownicy');
+    rolePrimary.add('/oddzialy');
+  }
+  return rolePrimary.has(path);
+}
+
+const COLLAPSED_NAV_PATHS = new Set([
+  '/dashboard',
+  '/crm',
+  '/zlecenia',
+  '/harmonogram',
+  '/ekipy',
+  '/raporty',
+  '/profil',
 ]);
 
 function groupLinks(links) {
@@ -146,7 +179,6 @@ export default function Sidebar() {
   const [hovered, setHovered] = useState(null);
   const notifRef = useRef(null);
   const notificationsInFlightRef = useRef(false);
-  const { themeId, setTheme } = useTheme();
 
   useEffect(() => {
     const u = readStoredUser();
@@ -212,6 +244,7 @@ export default function Sidebar() {
       { path: '/rozliczenia-polowe', labelKey: 'nav.fieldSettlements', icon: 'raporty',   roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista'] },
       { path: '/kierownik',         labelKey: 'nav.planning',      icon: 'kierownik',   roles: MGMT },
       { path: '/auto-dispatch',     labelKey: 'nav.autoDispatch',  icon: 'dispatch',    roles: MGMT },
+      { path: '/mapa-live',         labelKey: 'nav.liveMap',       icon: 'liveMap',     roles: MGMT, primary: false },
       { path: '/bi',                labelKey: 'nav.bi',            icon: 'bi',          roles: MGMT },
       { path: '/hr',                labelKey: 'nav.hr',            icon: 'uzytkownicy', roles: MGMT },
       { path: '/ekipy',             labelKey: 'nav.teams',         icon: 'ekipy',       roles: MGMT },
@@ -232,13 +265,13 @@ export default function Sidebar() {
       .filter(l => l.roles.includes(currentUser.rola))
       .map((link) => ({
         ...link,
-        primary: PRIMARY_NAV_PATHS.has(link.path),
+        primary: link.primary === false ? false : isPrimaryNavPath(link.path, currentUser.rola),
       }));
   }, [currentUser]);
 
   const groupedLinks = useMemo(() => groupLinks(links), [links]);
   const collapsedLinks = useMemo(() => (
-    links.filter((link) => link.primary || isActivePath(location.pathname, link.path))
+    links.filter((link) => COLLAPSED_NAV_PATHS.has(link.path) || isActivePath(location.pathname, link.path))
   ), [links, location.pathname]);
 
   const loadNotifications = async () => {
@@ -373,7 +406,7 @@ export default function Sidebar() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={sb.userName}>{currentUser.imie} {currentUser.nazwisko}</div>
                 <div style={{ ...sb.rolaBadge, background: rolaColor + '22', color: rolaColor }}>
-                  {currentUser.rola}
+                  {getRoleDisplayName(currentUser.rola)}
                 </div>
                 <div style={sb.branchPill}>
                   Oddział: {branchName}
@@ -393,6 +426,30 @@ export default function Sidebar() {
         <nav style={sb.nav}>
           {!collapsed ? (
             <>
+              {quickActions.length > 0 && (
+                <div style={sb.quickPanel}>
+                  <div style={sb.quickTitle}>Szybkie akcje</div>
+                  <div style={sb.quickStack}>
+                    {quickActions.map((action) => (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() => {
+                          const target = typeof action.path === 'function' ? action.path() : action.path;
+                          navigate(target);
+                        }}
+                        style={sb.quickButton}
+                      >
+                        <span style={sb.quickIcon}>{ICONS[action.icon]}</span>
+                        <span style={sb.quickText}>
+                          <span style={sb.quickLabel}>{action.label}</span>
+                          {action.hint ? <span style={sb.quickHint}>{action.hint}</span> : null}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {groupedLinks.map((group, gi) => (
                 <div key={group.key} style={gi === 0 ? sb.navGroupFirst : sb.navGroup}>
                   <div style={sb.navGroupTitle}>
@@ -445,7 +502,7 @@ export default function Sidebar() {
                           <summary className="arbor-subnav-summary" style={sb.subNavSummary}>
                             <span style={sb.subNavSummaryDot} />
                             <span style={{ flex: 1 }}>
-                              {t('sidebar.moreInGroup', { defaultValue: 'Podmoduły' })}
+                              {t(`sidebar.groupMore.${group.key}`, { defaultValue: group.moreLabel || 'Podmoduły' })}
                             </span>
                             <span style={sb.subNavCount}>{group.secondaryItems.length}</span>
                           </summary>
@@ -484,30 +541,6 @@ export default function Sidebar() {
                   </div>
                 </div>
               ))}
-              {quickActions.length > 0 && (
-                <div style={sb.quickPanel}>
-                  <div style={sb.quickTitle}>Szybkie akcje</div>
-                  <div style={sb.quickStack}>
-                    {quickActions.map((action) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        onClick={() => {
-                          const target = typeof action.path === 'function' ? action.path() : action.path;
-                          navigate(target);
-                        }}
-                        style={sb.quickButton}
-                      >
-                        <span style={sb.quickIcon}>{ICONS[action.icon]}</span>
-                        <span style={sb.quickText}>
-                          <span style={sb.quickLabel}>{action.label}</span>
-                          {action.hint ? <span style={sb.quickHint}>{action.hint}</span> : null}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             collapsedLinks.map((link) => {
@@ -629,45 +662,7 @@ export default function Sidebar() {
                 )}
               </div>
 
-              <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
-              <div style={{ padding: '6px 12px', background: 'var(--ios-inset-bg)' }}>
-                <LanguageSwitcher
-                  compact
-                  style={{ justifyContent: 'flex-start', width: '100%' }}
-                />
-              </div>
-              <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
-              <div style={{
-                padding: '7px 12px',
-                background: 'var(--ios-inset-bg)',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 8,
-              }}
-              >
-                <span className="ios-section-title" style={{ margin: '0 0 2px 0', width: '100%' }}>{t('sidebar.theme')}</span>
-                {Object.values(THEMES).map((th) => (
-                  <button
-                    key={th.id}
-                    title={th.label}
-                    type="button"
-                    onClick={() => setTheme(th.id)}
-                    style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: th.previewDot,
-                      border: themeId === th.id ? '2px solid var(--accent)' : '2px solid transparent',
-                      cursor: 'pointer',
-                      boxShadow: themeId === th.id ? `0 0 6px ${th.previewDot}55` : 'none',
-                      outline: 'none',
-                      transition: 'border-color 0.2s, box-shadow 0.2s',
-                      flexShrink: 0,
-                      padding: 0,
-                    }}
-                  />
-                ))}
-              </div>
-              <div style={{ height: 1, background: 'var(--border)' }} aria-hidden />
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.08)' }} aria-hidden />
               <div
                 onClick={handleLogout}
                 onKeyDown={onActivateKeyDown(handleLogout)}
@@ -767,30 +762,6 @@ export default function Sidebar() {
                   </div>
                 )}
               </div>
-              <div style={{ padding: '8px 4px', borderTop: '1px solid var(--border)' }}>
-                <LanguageSwitcher compact style={{ justifyContent: 'center', width: '100%' }} />
-              </div>
-              <div style={{ padding: '8px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                {Object.values(THEMES).map((th) => (
-                  <button
-                    key={th.id}
-                    title={th.label}
-                    type="button"
-                    onClick={() => setTheme(th.id)}
-                    style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: th.previewDot,
-                      border: themeId === th.id ? '2px solid var(--accent)' : '2px solid transparent',
-                      cursor: 'pointer',
-                      boxShadow: themeId === th.id ? `0 0 8px ${th.previewDot}88` : 'none',
-                      outline: 'none',
-                      transition: 'all 0.2s',
-                      flexShrink: 0,
-                      padding: 0,
-                    }}
-                  />
-                ))}
-              </div>
               <div
                 onClick={handleLogout}
                 onKeyDown={onActivateKeyDown(handleLogout)}
@@ -824,221 +795,161 @@ export default function Sidebar() {
 }
 
 // ─── Style ────────────────────────────────────────────────────────────────────
+/* Arbor navigation shell. */
+const NAV_BG = '#06331f';
+const NAV_MUTED= 'rgba(244,255,248,0.62)';
+const NAV_BORDER = 'rgba(255,255,255,0.14)';
+
 const sb = {
   root: {
     height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 200,
-    background: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-card2) 56%, var(--bg-deep) 100%)', display: 'flex', flexDirection: 'column',
-    backgroundImage: 'linear-gradient(180deg, var(--sidebar) 0%, var(--bg-card2) 56%, var(--bg-deep) 100%), repeating-linear-gradient(135deg, var(--leaf-line) 0 1px, transparent 1px 22px)',
-    borderRight: '1px solid var(--border2)', transition: 'width 0.25s ease',
-    overflow: 'hidden', boxShadow: 'var(--shadow-md)',
+    background: 'linear-gradient(180deg, #06331f, #0c4d31 68%, #093a25)',
+    backgroundColor: NAV_BG,
+    display: 'flex', flexDirection: 'column',
+    borderRight: 'none',
+    transition: 'width 0.25s ease',
+    overflow: 'hidden',
+    boxShadow: '16px 0 46px rgba(11,61,39,0.22)',
   },
   collapseBtn: {
-    position: 'absolute', right: -12, top: 28, width: 24, height: 24,
-    borderRadius: '50%', background: 'linear-gradient(135deg, var(--bg-card2), var(--bg-card))',
-    border: '1px solid var(--border2)',
+    position: 'absolute', right: -13, top: 28, width: 26, height: 26,
+    borderRadius: '50%', background: '#0c4d31',
+    border: `1px solid ${NAV_BORDER}`,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'var(--accent)', zIndex: 201, boxShadow: 'var(--shadow-sm)',
+    color: '#f4fff8', zIndex: 201, boxShadow: '0 10px 24px rgba(0,0,0,0.24)',
     transition: 'all 0.15s',
   },
   logo: {
-    display: 'flex', alignItems: 'center', gap: 12,
-    padding: '20px 16px 18px', borderBottom: '1px solid var(--border)',
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '16px 14px 14px', borderBottom: `1px solid ${NAV_BORDER}`,
   },
   logoIcon: {
-    width: 50, height: 50, borderRadius: '50%', background: 'linear-gradient(135deg, var(--logo-tint-bg), rgba(20,131,79,0.04))',
-    border: '1px solid var(--logo-tint-border)',
+    width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(145deg, #eaffef, #8ce6ac)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.38), 0 10px 22px rgba(20,91,54,0.1)',
+    flexShrink: 0, color: '#0f5f3a',
   },
-  logoName: { fontSize: 18, fontWeight: 900, color: 'var(--text)', letterSpacing: 0 },
-  logoSub: { fontSize: 10, color: 'var(--text-sub)', letterSpacing: 0, marginTop: 2, fontWeight: 700 },
+  logoName: { fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 700, color: '#ffffff', letterSpacing: 0 },
+  logoSub: { fontSize: 10, color: NAV_MUTED, letterSpacing: 0, marginTop: 2, fontWeight: 500 },
   userCard: {
-    display: 'flex', alignItems: 'center', gap: 10, margin: '12px 12px 6px',
-    background: 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))', borderRadius: 8,
-    border: '1px solid var(--glass-border)',
-    boxShadow: 'var(--shadow-sm)',
+    display: 'flex', alignItems: 'center', gap: 10, margin: '10px 10px 6px',
+    background: 'rgba(255,255,255,0.075)', borderRadius: 8,
+    border: `1px solid ${NAV_BORDER}`,
+    padding: '10px 12px',
   },
   avatar: {
-    width: 38, height: 38, borderRadius: '50%', display: 'flex', alignItems: 'center',
+    width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center',
     justifyContent: 'center', flexShrink: 0,
-    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)',
   },
-  avatarText: { fontSize: 13, fontWeight: 800 },
-  userName: { fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  rolaBadge: { fontSize: 10, fontWeight: 700, borderRadius: 6, padding: '2px 8px', display: 'inline-block', marginTop: 3 },
+  avatarText: { fontSize: 12, fontWeight: 700 },
+  userName: { fontSize: 13, fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  rolaBadge: { fontSize: 10, fontWeight: 600, borderRadius: 4, padding: '2px 7px', display: 'inline-block', marginTop: 3 },
   branchPill: {
-    marginTop: 7,
-    display: 'inline-flex',
-    alignItems: 'center',
-    minHeight: 26,
-    padding: '4px 9px',
-    borderRadius: 7,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
-    color: 'var(--text-sub)',
-    fontSize: 11,
-    fontWeight: 800,
+    marginTop: 3,
+    display: 'flex', alignItems: 'center',
+    color: NAV_MUTED, fontSize: 11, fontWeight: 500,
   },
   quickPanel: {
-    margin: '14px 4px 8px',
+    margin: '4px 8px 10px',
     padding: '10px',
     borderRadius: 8,
-    border: '1px solid var(--glass-border)',
-    background: 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))',
-    boxShadow: 'var(--shadow-sm)',
+    border: `1px solid ${NAV_BORDER}`,
+    background: 'rgba(255,255,255,0.075)',
   },
   quickTitle: {
     margin: '0 0 8px',
-    color: 'var(--text-muted)',
+    color: NAV_MUTED,
     fontSize: 10,
-    fontWeight: 900,
+    fontWeight: 700,
+    letterSpacing: '0.08em',
     textTransform: 'uppercase',
   },
-  quickStack: { display: 'grid', gap: 7 },
+  quickStack: { display: 'grid', gap: 5 },
   quickButton: {
-    minHeight: 42,
+    minHeight: 38,
     width: '100%',
     display: 'flex',
     alignItems: 'center',
     gap: 9,
-    border: '1px solid var(--border)',
-    borderRadius: 7,
-    background: 'var(--accent-surface)',
-    color: 'var(--text)',
-    padding: '7px 9px',
+    border: `1px solid ${NAV_BORDER}`,
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.1)',
+    color: '#ffffff',
+    padding: '6px 9px',
     fontSize: 13,
-    fontWeight: 850,
+    fontWeight: 500,
     textAlign: 'left',
     cursor: 'pointer',
   },
-  quickText: {
-    minWidth: 0,
-    display: 'grid',
-    gap: 1,
-  },
-  quickLabel: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
+  quickText: { minWidth: 0, display: 'grid', gap: 1 },
+  quickLabel: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   quickHint: {
-    color: 'var(--text-muted)',
-    fontSize: 11,
-    fontWeight: 750,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    color: NAV_MUTED, fontSize: 11, fontWeight: 400,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
   quickIcon: {
-    width: 23,
-    height: 23,
-    borderRadius: 6,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'var(--accent)',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)',
+    width: 22, height: 22, borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    color: '#8ce6ac', background: 'rgba(255,255,255,0.12)',
     flexShrink: 0,
   },
-  sectionLabel: { fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: 1.5, padding: '12px 16px 4px' },
-  separator: { height: 1, background: 'var(--border)', margin: '4px 12px' },
+  sectionLabel: {
+    fontSize: 10, color: NAV_MUTED, fontWeight: 700,
+    letterSpacing: '0.09em', padding: '10px 14px 4px', textTransform: 'uppercase',
+  },
+  separator: { height: 1, background: NAV_BORDER, margin: '4px 10px' },
   nav: { flex: 1, minHeight: 0, padding: '2px 8px 4px', overflowY: 'auto' },
-  navGroupFirst: { margin: '0 0 8px' },
-  navGroup: { margin: '10px 0 8px' },
+  navGroupFirst: { margin: '0 0 6px' },
+  navGroup: { margin: '8px 0 6px' },
   navGroupTitle: {
     margin: '0 10px 5px',
-    fontSize: 10,
-    fontWeight: 800,
-    color: 'var(--text-muted)',
-    letterSpacing: 0,
-    textTransform: 'uppercase',
+    fontSize: 10, fontWeight: 700, fontFamily: 'Inter, sans-serif',
+    color: NAV_MUTED, letterSpacing: '0.09em', textTransform: 'uppercase',
   },
-  navGroupInset: { margin: 0, border: '1px solid var(--glass-border)', background: 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))' },
+  navGroupInset: { margin: 0, border: `1px solid ${NAV_BORDER}`, background: 'rgba(255,255,255,0.07)', borderRadius: 8 },
   navItem: {
     display: 'flex', alignItems: 'center', borderRadius: 6, cursor: 'pointer',
-    fontSize: 13, fontWeight: 500, transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
+    fontSize: 13, fontWeight: 500, transition: 'background 0.12s ease, color 0.12s ease',
     marginBottom: 3, userSelect: 'none',
   },
-  subNavDetails: {
-    margin: 0,
-    padding: 0,
-  },
+  subNavDetails: { margin: 0, padding: 0 },
   subNavSummary: {
-    minHeight: 38,
-    padding: '8px 10px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    cursor: 'pointer',
-    color: 'var(--text-muted)',
-    fontSize: 12,
-    fontWeight: 850,
-    listStyle: 'none',
-    userSelect: 'none',
-    background: 'var(--ios-inset-bg)',
+    minHeight: 36, padding: '6px 10px',
+    display: 'flex', alignItems: 'center', gap: 8,
+    cursor: 'pointer', color: NAV_MUTED,
+    fontSize: 12, fontWeight: 600,
+    listStyle: 'none', userSelect: 'none',
+    background: 'transparent',
   },
   subNavSummaryDot: {
-    width: 7,
-    height: 7,
-    borderRadius: '50%',
-    background: 'var(--accent)',
-    opacity: 0.75,
-    flexShrink: 0,
+    width: 6, height: 6, borderRadius: '50%',
+    background: '#8ce6ac', opacity: 0.8, flexShrink: 0,
   },
   subNavCount: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 7,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    color: 'var(--text-muted)',
-    fontSize: 11,
-    fontWeight: 900,
+    minWidth: 20, height: 20, borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(255,255,255,0.08)',
+    color: NAV_MUTED, fontSize: 11, fontWeight: 700,
     fontVariantNumeric: 'tabular-nums',
   },
   subNavList: {
-    display: 'grid',
-    gap: 2,
-    padding: '6px 6px 8px',
-    background: 'rgba(0,0,0,0.08)',
-    borderTop: '1px solid var(--border)',
+    display: 'grid', gap: 2, padding: '4px 6px 6px',
+    background: 'rgba(0,0,0,0.12)', borderTop: `1px solid ${NAV_BORDER}`,
   },
   subNavItem: {
-    minHeight: 34,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 6,
-    padding: '6px 8px',
-    cursor: 'pointer',
-    transition: 'background 0.15s ease, color 0.15s ease',
+    minHeight: 32, display: 'flex', alignItems: 'center', gap: 8,
+    borderRadius: 5, padding: '5px 8px', cursor: 'pointer',
+    transition: 'background 0.12s ease, color 0.12s ease',
   },
   subNavIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    transform: 'scale(0.86)',
+    width: 20, height: 20, borderRadius: 5,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, transform: 'scale(0.86)',
   },
   subNavLabel: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 12,
-    fontWeight: 760,
-    lineHeight: 1.2,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500,
+    lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
-  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' },
+  activeDot: { marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#8ce6ac' },
   bottom: { padding: '4px 8px 10px', flexShrink: 0 },
   badge: {
     position: 'absolute', top: -4, right: -4, background: '#EF4444', color: '#fff',
@@ -1046,27 +957,27 @@ const sb = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px',
   },
   notifPanel: {
-    position: 'fixed', bottom: 80, width: 340, background: 'linear-gradient(180deg, var(--bg-card), var(--bg-card2))',
-    border: '1px solid var(--border2)', borderRadius: 8,
-    boxShadow: 'var(--shadow-lg)',
+    position: 'fixed', bottom: 80, width: 340, background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.12)', borderRadius: 10,
+    boxShadow: '0 18px 44px rgba(15,95,58,0.14)',
     zIndex: 1000, maxHeight: 460, overflowY: 'auto',
   },
   notifHeader: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '14px 16px', borderBottom: '1px solid var(--border)',
-    position: 'sticky', top: 0, background: 'var(--bg-card2)', zIndex: 1,
+    padding: '14px 16px', borderBottom: '1px solid rgba(15,95,58,0.12)',
+    position: 'sticky', top: 0, background: '#ffffff', zIndex: 1,
   },
-  notifTitle: { fontSize: 14, fontWeight: 700, color: 'var(--text)' },
-  markAllBtn: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 },
+  notifTitle: { fontSize: 14, fontWeight: 700, color: '#323338' },
+  markAllBtn: { fontSize: 12, color: '#0f6b3f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 },
   notifEmpty: { padding: '32px 24px', textAlign: 'center' },
   notifItem: {
-    display: 'flex', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)',
+    display: 'flex', gap: 10, padding: '12px 14px', borderBottom: '1px solid rgba(15,95,58,0.12)',
     cursor: 'pointer', transition: 'background 0.15s',
   },
   notifDot: { width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   notifTop: { display: 'flex', justifyContent: 'space-between', marginBottom: 2 },
   notifTyp: { fontSize: 11, fontWeight: 700, textTransform: 'uppercase' },
-  notifTime: { fontSize: 10, color: 'var(--text-muted)' },
-  notifOd: { fontSize: 12, color: 'var(--text-sub)', marginBottom: 2 },
-  notifTresc: { fontSize: 12, color: 'var(--text-sub)', lineHeight: 1.45 },
+  notifTime: { fontSize: 10, color: '#676879' },
+  notifOd: { fontSize: 12, color: '#676879', marginBottom: 2 },
+  notifTresc: { fontSize: 12, color: '#676879', lineHeight: 1.45 },
 };

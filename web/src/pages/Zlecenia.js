@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
 import api from '../api';
@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
 import CityInput from '../components/CityInput';
+import TelemetryStatus from '../components/TelemetryStatus';
 import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
 import ViewKanbanOutlined from '@mui/icons-material/ViewKanbanOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
@@ -18,6 +19,7 @@ import RouteOutlined from '@mui/icons-material/RouteOutlined';
 import SmsOutlined from '@mui/icons-material/SmsOutlined';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 import {
@@ -57,6 +59,7 @@ const CLOSURE_DECISION_KEY = 'zlecenia_closure_decision_events';
 const QUICK_CALL_DRAFT_KEY = 'zlecenia_quick_call_draft';
 const ZLECENIA_TRYBY = new Set(['lista', 'kanban', 'nowy', 'edytuj', 'szczegoly']);
 const SMART_FILTERS = [
+  { key: 'myTurn', label: 'Moje teraz' },
   { key: 'overdue', label: 'Przeterminowane' },
   { key: 'unassigned', label: 'Bez ekipy' },
   { key: 'urgent', label: 'Pilne' },
@@ -66,8 +69,12 @@ const SMART_FILTERS = [
   { key: 'noMedia', label: 'Bez zdjęć' },
   { key: 'noFieldSketch', label: 'Bez szkicu' },
   { key: 'noPrice', label: 'Bez wyceny' },
-  { key: 'fieldInspection', label: 'U wyceniającego' },
+  { key: 'fieldInspection', label: 'U specjalisty ds. wyceny' },
   { key: 'officeApproval', label: 'Do zatwierdzenia' },
+  { key: 'officePlanBlocked', label: 'Pakiet biura blokuje' },
+  { key: 'crewPackageBlocked', label: 'Pakiet ekipy blokuje' },
+  { key: 'noCheckin', label: 'Brak check-in' },
+  { key: 'fieldActive', label: 'Praca trwa' },
   { key: 'readyClose', label: 'Do zamknięcia' },
   { key: 'contactTodo', label: 'Do kontaktu' },
   { key: 'contactWaiting', label: 'Czeka na odp.' },
@@ -76,8 +83,9 @@ const SMART_FILTERS = [
   { key: 'contactToday', label: 'Kontakt dziś' },
 ];
 const OPERATIONAL_VIEWS = [
+  { key: 'myTurn', label: 'Moje teraz', detail: 'kto ma piłkę', smartFilter: 'myTurn' },
   { key: 'intake', label: '1. Telefon', detail: 'zgłoszenie z biura', status: TASK_STATUS.NOWE },
-  { key: 'fieldInspection', label: '2. Oględziny', detail: 'u wyceniającego', status: TASK_STATUS.WYCENA_TERENOWA },
+  { key: 'fieldInspection', label: '2. Oględziny', detail: 'u specjalisty ds. wyceny', status: TASK_STATUS.WYCENA_TERENOWA },
   { key: 'officeApproval', label: '3. Biuro planuje', detail: 'po akceptacji klienta', status: TASK_STATUS.DO_ZATWIERDZENIA },
   { key: 'planned', label: '4. Ekipa gotowa', detail: 'termin i brygada', status: TASK_STATUS.ZAPLANOWANE },
   { key: 'active', label: '5. Wykonanie', detail: 'ekipa w terenie', status: TASK_STATUS.W_REALIZACJI },
@@ -106,7 +114,7 @@ const FORM_STEPS = [
 const FORM_STEP_KEYS = new Set(FORM_STEPS.map((step) => step.key));
 const FORM_WORKFLOW_STEPS = [
   { status: TASK_STATUS.NOWE, step: '1', label: 'Telefon', detail: 'biuro przyjmuje zgłoszenie' },
-  { status: TASK_STATUS.WYCENA_TERENOWA, step: '2', label: 'Oględziny', detail: 'wyceniacz zbiera zdjęcia i zakres' },
+  { status: TASK_STATUS.WYCENA_TERENOWA, step: '2', label: 'Oględziny', detail: 'specjalista ds. wyceny zbiera zdjęcia i zakres' },
   { status: TASK_STATUS.DO_ZATWIERDZENIA, step: '3', label: 'Biuro planuje', detail: 'klient akceptuje, biuro dopina szczegóły' },
   { status: TASK_STATUS.ZAPLANOWANE, step: '4', label: 'Ekipa gotowa', detail: 'termin, brygada i sprzęt są ustawione' },
   { status: TASK_STATUS.W_REALIZACJI, step: '5', label: 'Wykonanie', detail: 'ekipa pracuje według briefu' },
@@ -118,7 +126,7 @@ const TASK_CREATE_FIELD_LABELS = {
   miasto: 'miasto',
   data_planowana: 'termin oględzin lub pracy',
   oddzial_id: 'oddział',
-  wyceniajacy_id: 'wyceniacz',
+  wyceniajacy_id: 'specjalista ds. wyceny',
 };
 const TASK_CREATE_FIELD_STEPS = {
   klient_nazwa: 'client',
@@ -128,6 +136,22 @@ const TASK_CREATE_FIELD_STEPS = {
   oddzial_id: 'planning',
   wyceniajacy_id: 'planning',
 };
+const FORM_REPAIR_FIELD_STEPS = {
+  klient_nazwa: 'client',
+  klient_telefon: 'client',
+  adres: 'client',
+  miasto: 'client',
+  data_planowana: 'planning',
+  godzina_rozpoczecia: 'planning',
+  ekipa_id: 'planning',
+  wyceniajacy_id: 'planning',
+  opis_pracy: 'work',
+  arborysta: 'work',
+  sprzet: 'work',
+  wartosc_planowana: 'finance',
+  budzet: 'finance',
+  czas_planowany_godziny: 'finance',
+};
 const OFFICE_PLAN_DEFAULTS = {
   data_planowana: '',
   godzina_rozpoczecia: '08:00',
@@ -136,11 +160,15 @@ const OFFICE_PLAN_DEFAULTS = {
   sprzet_notatka: '',
   sprzet_ids: [],
 };
+const OFFICE_PLAN_DAY_START_MIN = 8 * 60;
+const OFFICE_PLAN_DAY_END_MIN = 18 * 60;
+const OFFICE_PLAN_SLOT_STEP_MIN = 30;
 const QUICK_CALL_DEFAULTS = Object.freeze({
   klient_nazwa: '',
   klient_telefon: '',
   adres: '',
   miasto: '',
+  typ_uslugi: TASK_SERVICE_TYPES[0],
   data_planowana: '',
   godzina_rozpoczecia: '',
   oddzial_id: '',
@@ -158,6 +186,8 @@ const QUICK_CALL_DRAFT_DIRTY_FIELDS = [
   'wyceniajacy_id',
   'opis_pracy',
 ];
+const QUICK_CALL_DAILY_TARGET = 12;
+const QUICK_CALL_DAILY_LIMIT = 17;
 
 function normalizeQuickCallDraft(raw) {
   const next = { ...QUICK_CALL_DEFAULTS };
@@ -172,6 +202,468 @@ function normalizeQuickCallDraft(raw) {
 
 function hasQuickCallDraftData(draft) {
   return QUICK_CALL_DRAFT_DIRTY_FIELDS.some((field) => String(draft?.[field] || '').trim());
+}
+
+function formatQuickCallInspectionSlot(draft) {
+  const day = String(draft?.data_planowana || '').trim();
+  const time = String(draft?.godzina_rozpoczecia || '').trim();
+  return [day, time].filter(Boolean).join(' ');
+}
+
+function taskDateOnly(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : '';
+}
+
+function teamHomeBranchId(team) {
+  return team?.oddzial_macierzysty_id || team?.oddzial_id || '';
+}
+
+function teamAvailableBranchId(team) {
+  return team?.dostepny_w_oddziale_id || team?.delegowany_do_oddzial_id || teamHomeBranchId(team);
+}
+
+function isDelegatedTeam(team) {
+  const homeBranchId = String(teamHomeBranchId(team) || '');
+  const availableBranchId = String(teamAvailableBranchId(team) || '');
+  return Boolean(
+    team?.delegowany ||
+    team?.delegacja_id ||
+    (homeBranchId && availableBranchId && homeBranchId !== availableBranchId)
+  );
+}
+
+function getTeamOptionKey(team) {
+  return [
+    team?.id || 'team',
+    teamAvailableBranchId(team) || 'branch',
+    team?.delegacja_id || 'native',
+  ].join('-');
+}
+
+function getTeamOptionLabel(team) {
+  const name = team?.nazwa || team?.name || `Ekipa #${team?.id || '-'}`;
+  if (!isDelegatedTeam(team)) return name;
+  const from = team?.delegacja_oddzial_z_nazwa || team?.oddzial_macierzysty_nazwa || team?.oddzial_nazwa || 'oddzial macierzysty';
+  const to = team?.dostepny_w_oddziale_nazwa || team?.delegowany_do_oddzial_nazwa || 'oddzial docelowy';
+  return `${name} (delegacja: ${from} -> ${to})`;
+}
+
+function mergeTeamOptions(baseTeams = [], branchTeams = []) {
+  const rows = new Map();
+  for (const team of [...baseTeams, ...branchTeams]) {
+    if (!team?.id) continue;
+    rows.set(getTeamOptionKey(team), team);
+  }
+  return [...rows.values()];
+}
+
+function mergeEquipmentOptions(baseItems = [], branchItems = []) {
+  const rows = new Map();
+  for (const item of [...baseItems, ...branchItems]) {
+    if (!item?.id) continue;
+    rows.set(String(item.id), item);
+  }
+  return [...rows.values()];
+}
+
+function isEquipmentAssignedToTeam(item, teamId) {
+  return Boolean(teamId && item?.ekipa_id && String(item.ekipa_id) === String(teamId));
+}
+
+function getEquipmentPlanLabel(item, { teamId = '', taskBranchId = '', getBranchLabel = null } = {}) {
+  const name = item?.nazwa || `Sprzet #${item?.id || '-'}`;
+  const parts = [item?.typ, name].filter(Boolean);
+  const meta = [];
+  if (item?.ekipa_nazwa) meta.push(item.ekipa_nazwa);
+  const fromOtherBranch = taskBranchId && item?.oddzial_id && String(item.oddzial_id) !== String(taskBranchId);
+  if (fromOtherBranch && isEquipmentAssignedToTeam(item, teamId)) {
+    meta.push('sprzet ekipy delegowanej');
+  } else if (item?.oddzial_nazwa) {
+    meta.push(item.oddzial_nazwa);
+  } else if (item?.oddzial_id && typeof getBranchLabel === 'function') {
+    meta.push(getBranchLabel(item.oddzial_id));
+  }
+  return meta.length ? `${parts.join(' - ')} (${meta.join(' / ')})` : parts.join(' - ');
+}
+
+function normalizeTimeHM(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return '';
+  const hour = Math.max(0, Math.min(23, Number(match[1]) || 0));
+  const minute = Math.max(0, Math.min(59, Number(match[2]) || 0));
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function minutesToTimeHM(minutes) {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function inspectionSlotSuggestions() {
+  const slots = [];
+  for (let minute = 8 * 60; minute <= 18 * 60; minute += 45) {
+    slots.push(minutesToTimeHM(minute));
+  }
+  return slots;
+}
+
+function getQuickCallScheduleDiagnostics({ tasks = [], estimatorId, day, time }) {
+  const selectedEstimatorId = String(estimatorId || '').trim();
+  const selectedDay = taskDateOnly(day);
+  const selectedTime = normalizeTimeHM(time);
+  if (!selectedEstimatorId || !selectedDay) {
+    return {
+      tone: 'info',
+      count: 0,
+      label: 'Wybierz datę i specjalistę',
+      detail: 'System pokaże obciążenie dnia przed utworzeniem oględzin.',
+      items: [],
+      blockingReason: '',
+      suggestedTime: '',
+    };
+  }
+
+  const items = tasks
+    .filter((task) => String(task.wyceniajacy_id || '') === selectedEstimatorId)
+    .filter((task) => taskDateOnly(task.data_planowana || task.data_wykonania) === selectedDay)
+    .filter((task) => !isTaskClosed(task.status))
+    .map((task) => ({
+      id: task.id,
+      client: task.klient_nazwa || `Zlecenie #${task.id}`,
+      time: normalizeTimeHM(task.godzina_rozpoczecia || task.data_planowana),
+      status: task.status || '',
+      city: task.miasto || '',
+    }))
+    .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+
+  const usedTimes = new Set(items.map((item) => item.time).filter(Boolean));
+  const exactConflict = Boolean(selectedTime && usedTimes.has(selectedTime));
+  const suggestedTime = exactConflict
+    ? inspectionSlotSuggestions().find((slot) => !usedTimes.has(slot)) || ''
+    : '';
+  const overTarget = items.length >= QUICK_CALL_DAILY_TARGET;
+  const overLimit = items.length >= QUICK_CALL_DAILY_LIMIT;
+  const tone = exactConflict || overLimit ? 'danger' : overTarget ? 'warning' : 'success';
+  const label = `${items.length}/${QUICK_CALL_DAILY_LIMIT} oględzin w tym dniu`;
+  const detail = exactConflict
+    ? `Konflikt godziny ${selectedTime}. Wybierz inną godzinę dla tego specjalisty.`
+    : overLimit
+      ? 'Dzień jest już bardzo mocno obciążony. Możesz dopisać tylko świadomie.'
+      : overTarget
+        ? 'Dzień jest gęsty. Sprawdź trasę i czas dojazdu.'
+        : 'Wyceniający ma jeszcze miejsce na oględziny.';
+
+  return {
+    tone,
+    count: items.length,
+    label,
+    detail,
+    items,
+    blockingReason: exactConflict ? detail : '',
+    suggestedTime,
+  };
+}
+
+function timeHMToMinutes(value) {
+  const normalized = normalizeTimeHM(value);
+  if (!normalized) return null;
+  const [hour, minute] = normalized.split(':').map((part) => Number(part));
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+}
+
+function getTaskStartTimeHM(task = {}) {
+  return normalizeTimeHM(
+    task.godzina_rozpoczecia ||
+    (String(task.data_planowana || '').includes('T') ? String(task.data_planowana).slice(11, 16) : '')
+  );
+}
+
+function getTaskDurationMinutes(task = {}) {
+  const hours = Number(task.czas_planowany_godziny || task.czas_realizacji_godz || 2);
+  return Math.max(15, Math.round((Number.isFinite(hours) && hours > 0 ? hours : 2) * 60));
+}
+
+function rangesOverlap(startA, endA, startB, endB) {
+  return startA < endB && startB < endA;
+}
+
+function getTeamDayRanges(tasks = [], { teamId, day, excludeTaskId } = {}) {
+  const selectedTeamId = String(teamId || '').trim();
+  const selectedDay = taskDateOnly(day);
+  if (!selectedTeamId || !selectedDay) return [];
+  return tasks
+    .filter((task) => String(task.id || '') !== String(excludeTaskId || ''))
+    .filter((task) => String(task.ekipa_id || '') === selectedTeamId)
+    .filter((task) => taskDateOnly(task.data_planowana || task.data_wykonania) === selectedDay)
+    .filter((task) => !isTaskClosed(task.status))
+    .map((task) => {
+      const start = timeHMToMinutes(getTaskStartTimeHM(task));
+      if (start == null) return null;
+      const duration = getTaskDurationMinutes(task);
+      return {
+        id: task.id,
+        start,
+        end: start + duration,
+        startLabel: minutesToTimeHM(start),
+        endLabel: minutesToTimeHM(start + duration),
+        client: task.klient_nazwa || `Zlecenie #${task.id}`,
+        city: task.miasto || '',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start);
+}
+
+function getOfficePlanSuggestion({ tasks = [], teams = [], task, day, durationHours, preferredTeamId } = {}) {
+  const selectedDay = taskDateOnly(day);
+  const duration = Math.max(15, Math.round((Number(durationHours) || 2) * 60));
+  const availableTeams = [...teams].sort((a, b) => {
+    if (preferredTeamId && String(a.id) === String(preferredTeamId)) return -1;
+    if (preferredTeamId && String(b.id) === String(preferredTeamId)) return 1;
+    return String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl');
+  });
+  if (!selectedDay || !availableTeams.length) {
+    return {
+      ok: false,
+      tone: 'warning',
+      label: !selectedDay ? 'Wybierz datę pracy' : 'Brak ekipy do podpowiedzi',
+      detail: !selectedDay ? 'Asystent znajdzie wolny slot po wyborze daty.' : 'Najpierw dodaj ekipę albo delegację do oddziału.',
+      teamId: '',
+      time: '',
+      ranges: [],
+    };
+  }
+
+  let bestBusyFallback = null;
+  for (const team of availableTeams) {
+    const ranges = getTeamDayRanges(tasks, {
+      teamId: team.id,
+      day: selectedDay,
+      excludeTaskId: task?.id,
+    });
+    for (
+      let start = OFFICE_PLAN_DAY_START_MIN;
+      start + duration <= OFFICE_PLAN_DAY_END_MIN;
+      start += OFFICE_PLAN_SLOT_STEP_MIN
+    ) {
+      const end = start + duration;
+      const conflict = ranges.some((range) => rangesOverlap(start, end, range.start, range.end));
+      if (!conflict) {
+        return {
+          ok: true,
+          tone: ranges.length ? 'success' : 'info',
+          label: `${team.nazwa || `Ekipa #${team.id}`} · ${minutesToTimeHM(start)}-${minutesToTimeHM(end)}`,
+          detail: ranges.length
+            ? `W tym dniu ekipa ma ${ranges.length} inne prace, ale ten slot jest wolny.`
+            : 'Ekipa nie ma innych prac w tym dniu.',
+          teamId: String(team.id),
+          teamName: team.nazwa || `Ekipa #${team.id}`,
+          date: selectedDay,
+          time: minutesToTimeHM(start),
+          endTime: minutesToTimeHM(end),
+          ranges,
+        };
+      }
+    }
+    if (!bestBusyFallback || ranges.length < bestBusyFallback.ranges.length) {
+      bestBusyFallback = {
+        team,
+        ranges,
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    tone: 'danger',
+    label: 'Brak wolnego slotu w godzinach 08:00-18:00',
+    detail: bestBusyFallback?.team
+      ? `Najmniej obciążona: ${bestBusyFallback.team.nazwa || `Ekipa #${bestBusyFallback.team.id}`}. Otwórz harmonogram i wybierz ręcznie.`
+      : 'Brak dostępnych ekip w tym oddziale.',
+    teamId: bestBusyFallback?.team ? String(bestBusyFallback.team.id) : '',
+    date: selectedDay,
+    time: '',
+    ranges: bestBusyFallback?.ranges || [],
+  };
+}
+
+function getOfficePlanTeamConflictSummary(tasks = [], task = {}, plan = {}) {
+  const teamId = String(plan.ekipa_id || task.ekipa_id || '').trim();
+  const day = taskDateOnly(plan.data_planowana || task.data_planowana || task.data_wykonania);
+  const start = timeHMToMinutes(plan.godzina_rozpoczecia || getTaskStartTimeHM(task));
+  if (!teamId || !day || start == null) {
+    return {
+      readyToCheck: false,
+      ok: false,
+      hardConflict: false,
+      warning: false,
+      outsideWorkday: false,
+      conflicts: [],
+      label: 'Najpierw wybierz termin i ekipe',
+      detail: 'Radar konfliktow ruszy po wyborze daty, godziny i ekipy.',
+    };
+  }
+
+  const duration = Math.max(15, Math.round((Number(plan.czas_planowany_godziny || task.czas_planowany_godziny || task.czas_realizacji_godz) || 2) * 60));
+  const end = start + duration;
+  const outsideWorkday = start < OFFICE_PLAN_DAY_START_MIN || end > OFFICE_PLAN_DAY_END_MIN;
+  const conflicts = getTeamDayRanges(tasks, {
+    teamId,
+    day,
+    excludeTaskId: task.id,
+  })
+    .filter((range) => rangesOverlap(start, end, range.start, range.end))
+    .slice(0, 5);
+
+  return {
+    readyToCheck: true,
+    ok: conflicts.length === 0,
+    hardConflict: conflicts.length > 0,
+    warning: outsideWorkday && conflicts.length === 0,
+    outsideWorkday,
+    conflicts,
+    label: conflicts.length
+      ? `${conflicts.length} kolizja grafiku`
+      : outsideWorkday
+        ? 'Poza standardowymi godzinami'
+        : 'Slot ekipy wolny',
+    detail: conflicts.length
+      ? conflicts.map((range) => `${range.startLabel}-${range.endLabel} #${range.id} ${range.client}`).join(' | ')
+      : outsideWorkday
+        ? `Wybrany zakres ${minutesToTimeHM(start)}-${minutesToTimeHM(end)} wychodzi poza 08:00-18:00.`
+      : `${minutesToTimeHM(start)}-${minutesToTimeHM(end)} bez kolizji w grafiku ekipy.`,
+  };
+}
+
+function activeEquipmentReservation(row) {
+  const status = String(row?.status || '').toLowerCase();
+  return !status.includes('anul') && !status.includes('zwr');
+}
+
+function equipmentReservationOverlapsDay(row, day) {
+  const start = String(row?.data_od || '').slice(0, 10);
+  const end = String(row?.data_do || '').slice(0, 10);
+  return Boolean(day && start && end && start <= day && end >= day);
+}
+
+function getOfficePlanEquipmentConflictSummary(reservations = [], task = {}, plan = {}, options = {}) {
+  const selected = new Set((plan.sprzet_ids || []).map(String).filter(Boolean));
+  const day = taskDateOnly(plan.data_planowana || task.data_planowana || task.data_wykonania);
+  const teamId = String(plan.ekipa_id || task.ekipa_id || '').trim();
+  if (!selected.size) {
+    return {
+      readyToCheck: false,
+      ok: true,
+      hardConflict: false,
+      warning: false,
+      pending: false,
+      conflicts: [],
+      label: 'Sprzet nie wybrany',
+      detail: 'Mozesz zapisac plan z uwaga logistyczna zamiast konkretnej rezerwacji.',
+    };
+  }
+  if (!day) {
+    return {
+      readyToCheck: false,
+      ok: false,
+      hardConflict: false,
+      warning: true,
+      pending: false,
+      conflicts: [],
+      label: 'Wybierz date',
+      detail: 'Radar sprzetu sprawdza rezerwacje dopiero po wyborze dnia.',
+    };
+  }
+  if (options.loading) {
+    return {
+      readyToCheck: true,
+      ok: false,
+      hardConflict: false,
+      warning: false,
+      pending: true,
+      conflicts: [],
+      label: 'Sprawdzam sprzet',
+      detail: 'Pobieram rezerwacje sprzetu dla wybranego dnia.',
+    };
+  }
+  if (options.error) {
+    return {
+      readyToCheck: true,
+      ok: false,
+      hardConflict: false,
+      warning: true,
+      pending: false,
+      conflicts: [],
+      label: 'Radar sprzetu nie odpowiada',
+      detail: options.error,
+    };
+  }
+
+  const conflicts = (reservations || [])
+    .filter(activeEquipmentReservation)
+    .filter((row) => selected.has(String(row?.sprzet_id || '')))
+    .filter((row) => String(row?.task_id || '') !== String(task?.id || ''))
+    .filter((row) => !teamId || String(row?.ekipa_id || '') !== teamId)
+    .filter((row) => equipmentReservationOverlapsDay(row, day))
+    .slice(0, 8);
+
+  return {
+    readyToCheck: true,
+    ok: conflicts.length === 0,
+    hardConflict: conflicts.length > 0,
+    warning: false,
+    pending: false,
+    conflicts,
+    label: conflicts.length ? `${conflicts.length} kolizja sprzetu` : 'Sprzet wolny',
+    detail: conflicts.length
+      ? conflicts.map((row) => `${row.sprzet_nazwa || `Sprzet #${row.sprzet_id}`} - ${row.ekipa_nazwa || 'inna ekipa'}${row.task_id ? `, zlecenie #${row.task_id}` : ''}`).join(' | ')
+      : 'Wybrany sprzet nie ma aktywnej rezerwacji innej ekipy w tym dniu.',
+  };
+}
+
+function buildQuickCallInspectionPackage({
+  quickCall,
+  branchLabel = '',
+  estimatorLabel = '',
+  operatorName = 'biuro',
+}) {
+  const serviceType = quickCall?.typ_uslugi || TASK_SERVICE_TYPES[0];
+  const client = String(quickCall?.klient_nazwa || '').trim();
+  const phone = String(quickCall?.klient_telefon || '').trim();
+  const address = [quickCall?.adres, quickCall?.miasto].map((item) => String(item || '').trim()).filter(Boolean).join(', ');
+  const slot = formatQuickCallInspectionSlot(quickCall);
+  const callNote = String(quickCall?.opis_pracy || '').trim();
+  const fieldBrief = [
+    callNote || 'Oględziny po telefonie z biura.',
+    'Na miejscu: zdjęcia, szkic zakresu, czas pracy, budżet, ryzyka, decyzja klienta.',
+    'Po akceptacji klienta odeślij zlecenie do biura do planowania ekipy.',
+  ].filter(Boolean).join('\n');
+  const internalNotes = [
+    'PAKIET OGLĘDZIN Z TELEFONU',
+    `Źródło: telefon do biura`,
+    `Telefon przyjął: ${operatorName}`,
+    `Klient: ${client || 'brak'}`,
+    `Telefon klienta: ${phone || 'brak'}`,
+    `Adres oględzin: ${address || 'brak'}`,
+    `Typ prac: ${serviceType}`,
+    `Termin oględzin: ${slot || 'brak'}`,
+    `Oddział: ${branchLabel || 'brak'}`,
+    `Specjalista ds. wyceny: ${estimatorLabel || 'brak'}`,
+    callNote ? `Notatka z rozmowy: ${callNote}` : null,
+    'Zadanie specjalisty ds. wyceny: zdjęcia + szkic, zakres, czas, budżet, ryzyka BHP/logistyki, decyzja klienta.',
+  ].filter(Boolean).join('\n');
+  return {
+    fieldBrief,
+    internalNotes,
+    serviceType,
+    slot,
+    address,
+  };
 }
 const FIELD_PHOTO_TYPES = [
   { key: 'Wycena', label: 'Wycena u klienta' },
@@ -274,6 +766,11 @@ function taskPhotoTypeLabel(type) {
   return found?.label || type || 'Inne';
 }
 
+function isFieldEvidencePhoto(photo) {
+  const kind = String(photo?.typ || photo?.type || '').toLowerCase();
+  return ['wycen', 'szkic', 'rys', 'przed'].some((needle) => kind.includes(needle));
+}
+
 function TaskPhotosPanel({
   styles,
   title,
@@ -289,6 +786,8 @@ function TaskPhotosPanel({
   onDraw,
   onDelete,
   onSaveDraft,
+  repairFocus,
+  onCloseRepair,
 }) {
   const canUpload = Boolean(taskId);
   return (
@@ -301,6 +800,23 @@ function TaskPhotosPanel({
         </div>
         <span style={styles.taskPhotosCount}>{loading ? '...' : photos.length}</span>
       </div>
+
+      {repairFocus ? (
+        <div style={styles.taskPhotosRepairBanner}>
+          <div>
+            <span style={styles.formRepairEyebrow}>Tryb naprawy dokumentacji</span>
+            <strong style={styles.formRepairTitle}>{repairFocus.label || 'Dodaj zdjecia / szkic'}</strong>
+            <small style={styles.formRepairDetail}>
+              {repairFocus.detail || 'Po dodaniu zdjecia karta zlecenia zostanie odswiezona automatycznie.'}
+            </small>
+          </div>
+          {onCloseRepair ? (
+            <button type="button" style={styles.formRepairCloseBtn} onClick={onCloseRepair}>
+              Zamknij tryb
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {canUpload ? (
         <>
@@ -351,7 +867,7 @@ function TaskPhotosPanel({
       ) : (
         <div style={styles.taskPhotosDraftBox}>
           <strong>Zapisz szybki draft zlecenia, potem od razu dodaj zdjęcia.</strong>
-          <span>To jest tryb dla wyceniającego u klienta: minimum danych, zapis, zdjęcia, szkic, następny klient.</span>
+          <span>To jest tryb dla specjalisty ds. wyceny u klienta: minimum danych, zapis, zdjęcia, szkic, następny klient.</span>
           <button type="button" style={styles.taskPhotosBtn} onClick={onSaveDraft}>
             Zapisz draft i dodaj zdjęcia
           </button>
@@ -392,7 +908,7 @@ function TaskPhotosPanel({
   );
 }
 
-function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus }) {
+function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus, focused = false }) {
   if (!task) return null;
   const currentStatus = task.status || TASK_STATUS.NOWE;
   const nextStatuses = getNextTaskStatuses(currentStatus, { allowCancel: canChange });
@@ -401,7 +917,12 @@ function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus
   const cancelAllowed = nextStatuses.includes(TASK_STATUS.ANULOWANE);
 
   return (
-    <section style={styles.workflowPathPanel}>
+    <section
+      className="zlecenia-workflow-path"
+      data-detail-section="workflowPath"
+      data-focused={focused ? 'true' : 'false'}
+      style={{ ...styles.workflowPathPanel, ...(focused ? styles.workflowPathPanelFocused : {}) }}
+    >
       <div style={styles.workflowPathHeader}>
         <div>
           <div style={styles.detailOpsEyebrow}>Oś statusów</div>
@@ -502,7 +1023,7 @@ function getDetailWorkflowCommandRows({ task, meta, qualityChecklist = [], safet
 
   const intakeRequired = [q.phone, q.address, q.date].filter(Boolean);
   if (!task.wyceniajacy_id && currentStatus === TASK_STATUS.NOWE) {
-    intakeRequired.push({ key: 'estimator', label: 'Wyceniacz', ok: false, required: true });
+    intakeRequired.push({ key: 'estimator', label: 'Specjalista ds. wyceny', ok: false, required: true });
   }
   const fieldRequired = [
     q.media,
@@ -526,7 +1047,7 @@ function getDetailWorkflowCommandRows({ task, meta, qualityChecklist = [], safet
       primary: task.klient_nazwa || 'Nowy klient',
       detail: task.klient_telefon ? `Tel. ${task.klient_telefon}` : 'Brak telefonu utrudni potwierdzenie terminu.',
       missing: missingLabels(intakeRequired),
-      actionLabel: missingLabels(intakeRequired).length ? 'Uzupełnij dane' : 'Wyślij do wyceniacza',
+      actionLabel: missingLabels(intakeRequired).length ? 'Uzupełnij dane' : 'Wyślij do specjalisty ds. wyceny',
       action: missingLabels(intakeRequired).length
         ? { target: 'edit', formStep: 'client' }
         : { target: 'status', nextStatus: TASK_STATUS.WYCENA_TERENOWA },
@@ -535,7 +1056,7 @@ function getDetailWorkflowCommandRows({ task, meta, qualityChecklist = [], safet
       key: 'field',
       step: '2',
       title: 'Oględziny i pakiet terenowy',
-      owner: 'Wyceniacz',
+      owner: 'Specjalista ds. wyceny',
       status: TASK_STATUS.WYCENA_TERENOWA,
       state: rowState(TASK_STATUS.WYCENA_TERENOWA, missingLabels(fieldRequired), optionalMissingLabels([q['field-sketch']]), isStepDone(TASK_STATUS.WYCENA_TERENOWA) && hasFieldPackage),
       primary: `${photoSummary.total || photos.length || 0} zdjęć / ${photoSummary.fieldEvidence || 0} wycena i szkic`,
@@ -667,6 +1188,397 @@ function DetailWorkflowCommandCenter({ styles, rows, statusBusy, canChangeStatus
   );
 }
 
+function DetailStageOwnerPanel({ styles, task, rows, currentUser, statusBusy, canChangeStatus, onCommand, onShowPath }) {
+  if (!task || !rows?.length) return null;
+  const currentStatus = task.status || TASK_STATUS.NOWE;
+  const currentIndex = rows.findIndex((row) => row.status === currentStatus);
+  const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
+  const nextRow = currentIndex >= 0 ? rows[currentIndex + 1] : null;
+  const missing = currentRow.missing || [];
+  const optionalMissing = currentRow.optionalMissing || [];
+  const tone = currentRow.state === 'blocked'
+    ? 'danger'
+    : currentRow.state === 'warning'
+      ? 'warning'
+      : currentRow.state === 'done'
+        ? 'good'
+        : 'active';
+  const actionDisabled = statusBusy || !currentRow.action || (currentRow.action.target === 'status' && !canChangeStatus);
+  const ownerText = missing.length
+    ? `${currentRow.owner} musi domknac: ${missing.slice(0, 3).join(', ')}.`
+    : optionalMissing.length
+      ? `${currentRow.owner} moze dopiac: ${optionalMissing.slice(0, 2).join(', ')}.`
+      : nextRow
+        ? `Etap jest gotowy do przekazania dalej: ${nextRow.owner}.`
+        : 'Sciezka jest domknieta, zostaje kontrola i archiwum.';
+
+  return (
+    <section className="zlecenia-stage-owner" style={{ ...styles.detailOwnerPanel, ...(styles[`detailOwnerPanel_${tone}`] || {}) }}>
+      <div style={styles.detailOwnerMain}>
+        <div style={styles.detailOpsEyebrow}>Właściciel etapu</div>
+        <div style={styles.detailOwnerTitle}>
+          Teraz odpowiada: <strong>{currentRow.owner}</strong>
+        </div>
+        <p style={styles.detailOwnerText}>{ownerText}</p>
+        <div style={styles.detailOwnerMeta}>
+          <span style={styles.detailOwnerMetaPill}>Status: {currentStatus}</span>
+          <span style={styles.detailOwnerMetaPill}>Twoja rola: {getRoleDisplayName(currentUser?.rola, 'brak')}</span>
+          <span style={styles.detailOwnerMetaPill}>Następny etap: {nextRow?.title || 'koniec ścieżki'}</span>
+        </div>
+      </div>
+      <div style={styles.detailOwnerActionBox}>
+        <span style={styles.detailDecisionLabel}>Co robimy teraz</span>
+        <strong style={styles.detailOwnerActionTitle}>{currentRow.actionLabel || 'Sprawdź etap'}</strong>
+        <small style={styles.detailOwnerActionDetail}>{currentRow.detail}</small>
+        <button
+          type="button"
+          data-testid="detail-stage-owner-action"
+          style={{ ...styles.detailOwnerActionBtn, ...(actionDisabled ? styles.detailWorkflowActionDisabled : {}) }}
+          disabled={actionDisabled}
+          onClick={() => onCommand(currentRow.action)}
+        >
+          {statusBusy ? 'Pracuję...' : currentRow.actionLabel || 'Otwórz'}
+        </button>
+        <button
+          type="button"
+          data-testid="detail-stage-owner-path"
+          style={styles.detailOwnerSecondaryBtn}
+          onClick={onShowPath}
+        >
+          Pokaż całą ścieżkę
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function OfficeDecisionBoard({
+  styles,
+  cards,
+  recommendation,
+  nextActionLabel,
+  nextActionDetail,
+  primaryDisabled,
+  onPrimary,
+  onAction,
+}) {
+  if (!cards?.length) return null;
+  return (
+    <section className="zlecenia-office-decision-board" style={styles.officeDecisionBoard}>
+      <div style={styles.officeDecisionHead}>
+        <div>
+          <div style={styles.detailOpsEyebrow}>Panel dyspozytora biura</div>
+          <div style={styles.officeDecisionTitle}>{recommendation}</div>
+          <p style={styles.officeDecisionSubtitle}>
+            Jeden ekran decyzji: pakiet z oględzin, plan ekipy, dokumentacja, klient i następny ruch.
+          </p>
+        </div>
+        <div style={styles.officeDecisionNext}>
+          <span style={styles.detailDecisionLabel}>Następny ruch</span>
+          <strong style={styles.officeDecisionNextTitle}>{nextActionLabel}</strong>
+          <small style={styles.officeDecisionNextDetail}>{nextActionDetail}</small>
+          <button
+            type="button"
+            style={{ ...styles.bulkBtn, ...(primaryDisabled ? styles.formWizardBtnDisabled : {}) }}
+            disabled={primaryDisabled}
+            onClick={onPrimary}
+          >
+            Wykonaj teraz
+          </button>
+        </div>
+      </div>
+      <div style={styles.officeDecisionCards}>
+        {cards.map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            style={{
+              ...styles.officeDecisionCard,
+              ...(styles[`officeDecisionCard_${card.tone}`] || {}),
+            }}
+            onClick={() => onAction?.(card.action)}
+          >
+            <span style={styles.officeDecisionCardLabel}>{card.label}</span>
+            <strong style={styles.officeDecisionCardValue}>{card.value}</strong>
+            <small style={styles.officeDecisionCardDetail}>{card.detail}</small>
+            <span style={styles.officeDecisionCardAction}>{card.actionLabel}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DetailRepairPanel({ styles, items, score, onAction }) {
+  if (!items?.length) return null;
+  const blockers = items.filter((item) => item.required);
+  const warnings = items.filter((item) => !item.required);
+  const lead = blockers[0] || warnings[0] || items[0];
+  return (
+    <section className="zlecenia-detail-repair-panel" style={styles.detailRepairPanel}>
+      <div style={styles.detailRepairHeader}>
+        <div>
+          <div style={styles.detailOpsEyebrow}>Napraw braki</div>
+          <div style={styles.detailRepairTitle}>
+            {blockers.length ? 'Najpierw zamknij blokady zlecenia' : 'Dopnij ostrzezenia przed przekazaniem ekipie'}
+          </div>
+          <p style={styles.detailRepairSubtitle}>
+            Jeden panel pokazuje, co blokuje przejscie od ogledzin do planu ekipy. Klikniecie prowadzi od razu do miejsca naprawy.
+          </p>
+        </div>
+        <div style={styles.detailRepairScore}>
+          <span style={styles.detailRepairScoreLabel}>Gotowosc</span>
+          <strong style={styles.detailRepairScoreValue}>{score ?? '-'}/100</strong>
+          <small style={styles.detailRepairScoreDetail}>{blockers.length} blokad / {warnings.length} uwag</small>
+        </div>
+      </div>
+
+      <div style={styles.detailRepairLead}>
+        <div>
+          <span style={styles.detailRepairLeadLabel}>{lead.owner}</span>
+          <strong style={styles.detailRepairLeadTitle}>{lead.label}</strong>
+          <small style={styles.detailRepairLeadDetail}>{lead.detail}</small>
+        </div>
+        <button type="button" style={styles.detailRepairPrimaryBtn} onClick={() => onAction?.(lead.action)}>
+          {lead.actionLabel}
+        </button>
+      </div>
+
+      <div style={styles.detailRepairGrid}>
+        {items.slice(0, 8).map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            style={{
+              ...styles.detailRepairItem,
+              ...(item.required ? styles.detailRepairItemDanger : styles.detailRepairItemWarning),
+            }}
+            onClick={() => onAction?.(item.action)}
+          >
+            <span style={styles.detailRepairItemTop}>
+              <strong>{item.required ? 'Blokada' : 'Uwaga'}</strong>
+              <small>{item.owner}</small>
+            </span>
+            <span style={styles.detailRepairItemLabel}>{item.label}</span>
+            <small style={styles.detailRepairItemDetail}>{item.detail}</small>
+            <span style={styles.detailRepairItemAction}>{item.actionLabel}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function OfficePlanningQueue({
+  styles,
+  rows,
+  total,
+  ready,
+  blocked,
+  value,
+  onPlan,
+  onOpenCalendar,
+  onApplyView,
+  onCopy,
+}) {
+  if (!rows?.length) return null;
+  return (
+    <section className="zlecenia-office-planning-queue" style={styles.officePlanningQueue}>
+      <div style={styles.officePlanningQueueHead}>
+        <div>
+          <div style={styles.detailOpsEyebrow}>Kolejka biura</div>
+          <div style={styles.officePlanningQueueTitle}>Pakiety z terenu do zaplanowania</div>
+          <p style={styles.officePlanningQueueSubtitle}>
+            Tu trafiają zlecenia zaakceptowane przez klienta w terenie. Biuro tylko dopina ekipę, termin, sprzęt i puszcza do harmonogramu.
+          </p>
+        </div>
+        <div style={styles.officePlanningQueueStats}>
+          <span style={styles.officePlanningQueueStat}><strong>{total}</strong> pakietów</span>
+          <span style={styles.officePlanningQueueStat}><strong>{ready}</strong> gotowe</span>
+          <span style={styles.officePlanningQueueStat}><strong>{blocked}</strong> z brakami</span>
+          <span style={styles.officePlanningQueueStat}><strong>{formatMoneyBrief(value)}</strong></span>
+        </div>
+      </div>
+      <div style={styles.officePlanningQueueRows}>
+        {rows.map((row) => (
+          <article key={row.task.id} style={styles.officePlanningQueueRow}>
+            <button type="button" style={styles.officePlanningQueueMain} onClick={() => onPlan(row.task)}>
+              <span style={styles.officePlanningQueueId}>#{row.task.id}</span>
+              <span style={styles.officePlanningQueueBody}>
+                <strong>{row.task.klient_nazwa || 'Bez klienta'}</strong>
+                <small>{row.address || 'Brak adresu'} · {row.branchLabel}</small>
+              </span>
+            </button>
+            <div style={styles.officePlanningQueueMeta}>
+              <span>{row.slotLabel}</span>
+              <span>{row.teamLabel}</span>
+              <span>{row.equipmentLabel}</span>
+              <span>{row.photos.total} zdjęć / {row.photos.fieldEvidence} wycena</span>
+            </div>
+            <div style={styles.officePlanningQueueBadges}>
+              {row.missing.length ? (
+                row.missing.slice(0, 3).map((label) => (
+                  <span key={label} style={{ ...styles.officePlanningBadge, ...styles.officePlanningBadgeDanger }}>{label}</span>
+                ))
+              ) : (
+                <span style={{ ...styles.officePlanningBadge, ...styles.officePlanningBadgeGood }}>plan OK</span>
+              )}
+              {row.warnings.slice(0, 2).map((label) => (
+                <span key={label} style={{ ...styles.officePlanningBadge, ...styles.officePlanningBadgeWarning }}>{label}</span>
+              ))}
+            </div>
+            <div style={styles.officePlanningQueueActions}>
+              <button type="button" style={styles.officePlanningQueueBtn} onClick={() => onPlan(row.task)}>
+                Planuj
+              </button>
+              <button type="button" style={styles.officePlanningQueueBtnSecondary} onClick={() => onOpenCalendar?.(row.task)}>
+                Kalendarz
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div style={styles.officePlanningQueueFoot}>
+        <button type="button" style={styles.bulkBtn} onClick={onApplyView}>
+          Pokaż pełną kolejkę
+        </button>
+        <button type="button" style={styles.bulkBtnSecondary} onClick={() => onOpenCalendar?.()}>
+          Harmonogram ekip
+        </button>
+        <button type="button" style={styles.bulkBtnSecondary} onClick={onCopy}>
+          Kopiuj odprawę planowania
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function OfficePlanHandoffCard({
+  styles,
+  task,
+  branchLabel,
+  photos = [],
+  fieldPhotoCount = 0,
+  readinessItems = [],
+  statusLabel,
+  statusTone,
+  teamLabel,
+  planLabel,
+  equipmentLabel,
+  priceLabel,
+  scopeLabel,
+  riskLabel,
+  canPlan,
+  onPlan,
+  onCalendar,
+  onCopy,
+  onPhotos,
+}) {
+  if (!task) return null;
+  const requiredMissing = readinessItems.filter((item) => item.required && !item.ok);
+  const warnings = readinessItems.filter((item) => !item.required && !item.ok);
+  const leadIssue = requiredMissing[0] || warnings[0] || null;
+  const handoffTone = requiredMissing.length ? 'danger' : warnings.length ? 'warning' : 'good';
+  const cards = [
+    {
+      key: 'client',
+      label: 'Klient / adres',
+      value: task.klient_nazwa || `Zlecenie #${task.id}`,
+      detail: [getTaskAddressLine(task), branchLabel].filter(Boolean).join(' | ') || 'Brak adresu',
+      ok: Boolean(task.klient_nazwa && getTaskAddressLine(task)),
+    },
+    {
+      key: 'field',
+      label: 'Dowody z terenu',
+      value: `${fieldPhotoCount}/${photos.length || 0}`,
+      detail: fieldPhotoCount ? 'Zdjecia lub szkic z ogledzin sa w pakiecie.' : 'Brakuje zdjec z ogledzin.',
+      ok: fieldPhotoCount > 0,
+      action: onPhotos,
+    },
+    {
+      key: 'scope',
+      label: 'Zakres / ryzyka',
+      value: scopeLabel ? 'Opisany' : 'Brak opisu',
+      detail: [scopeLabel, riskLabel].filter(Boolean).join(' | ') || 'Dopisz zakres i ryzyka dla brygady.',
+      ok: Boolean(scopeLabel),
+    },
+    {
+      key: 'money',
+      label: 'Budzet',
+      value: priceLabel,
+      detail: 'Cena, czas i warunki musza byc jasne przed planowaniem.',
+      ok: Boolean(task.wartosc_planowana || task.budzet),
+    },
+    {
+      key: 'crew',
+      label: 'Ekipa / termin',
+      value: teamLabel || 'Bez ekipy',
+      detail: planLabel || 'Wybierz date, godzine i czas pracy.',
+      ok: Boolean(teamLabel && planLabel),
+      action: onPlan,
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzet',
+      value: equipmentLabel ? 'Ustalony' : 'Do dopiecia',
+      detail: equipmentLabel || 'Wybierz sprzet albo dopisz uwagi logistyczne.',
+      ok: Boolean(equipmentLabel),
+      action: onPlan,
+    },
+  ];
+
+  return (
+    <section className="zlecenia-office-handoff" style={{ ...styles.officeHandoffPanel, ...(styles[`officeHandoffPanel_${handoffTone}`] || {}) }}>
+      <div style={styles.officeHandoffHeader}>
+        <div>
+          <div style={styles.detailOpsEyebrow}>Pakiet planowania</div>
+          <div style={styles.officeHandoffTitle}>Jedna karta od telefonu do ekipy</div>
+          <p style={styles.officeHandoffSubtitle}>
+            Biuro widzi tu wszystko, co musi byc gotowe przed wrzuceniem pracy do harmonogramu: klient, teren, zakres, cena, ekipa, termin i sprzet.
+          </p>
+        </div>
+        <div style={styles.officeHandoffStatusBox}>
+          <span style={{ ...styles.businessHealth, ...styles[`businessHealth_${statusTone || handoffTone}`] }}>
+            {statusLabel || (leadIssue ? 'Do poprawy' : 'Gotowe')}
+          </span>
+          <small>{leadIssue ? leadIssue.detail : 'Pakiet mozna przekazac do planowania.'}</small>
+        </div>
+      </div>
+
+      <div style={styles.officeHandoffGrid}>
+        {cards.map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            style={{
+              ...styles.officeHandoffCard,
+              ...(card.ok ? styles.officeHandoffCardOk : styles.officeHandoffCardWarn),
+              ...(card.action ? styles.officeHandoffCardClickable : {}),
+            }}
+            onClick={card.action || undefined}
+          >
+            <span style={styles.officeHandoffCardLabel}>{card.label}</span>
+            <strong style={styles.officeHandoffCardValue}>{card.value}</strong>
+            <small style={styles.officeHandoffCardDetail}>{card.detail}</small>
+          </button>
+        ))}
+      </div>
+
+      <div style={styles.officeHandoffActions}>
+        <button type="button" style={styles.bulkBtn} disabled={!canPlan} onClick={onPlan}>
+          Otworz plan biura
+        </button>
+        <button type="button" style={styles.bulkBtnSecondary} onClick={onCalendar}>
+          Harmonogram ekip
+        </button>
+        <button type="button" style={styles.bulkBtnSecondary} onClick={onCopy}>
+          Kopiuj pakiet
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function CrewExecutionBrief({
   styles,
   task,
@@ -688,10 +1600,32 @@ function CrewExecutionBrief({
   const description = getTaskCrewDescription(task);
   const risk = getTaskCrewRisk(task);
   const equipmentNote = getTaskCrewEquipmentNote(task);
-  const fieldPhotos = photos
-    .filter((photo) => ['Wycena', 'Szkic', 'Przed'].includes(photo.typ))
+  const crewEquipment = equipment || [];
+  const fieldPhotos = (photos || [])
+    .filter(isFieldEvidencePhoto)
     .slice(0, 4);
-  const visibleChecklist = safetyChecklist.slice(0, 6);
+  const visibleChecklist = (safetyChecklist || []).slice(0, 6);
+  const crewReadiness = buildCrewBriefReadiness({
+    task,
+    fieldPhotos,
+    safetyChecklist,
+    equipment: crewEquipment,
+    description,
+    risk,
+    equipmentNote,
+  });
+  const readinessTone = crewReadiness.blockers.length
+    ? 'danger'
+    : crewReadiness.warnings.length
+      ? 'warning'
+      : 'good';
+  const readinessLabel = crewReadiness.blockers.length
+    ? `Brakuje: ${crewReadiness.blockers[0].label}`
+    : crewReadiness.warnings.length
+      ? `Do doprecyzowania: ${crewReadiness.warnings[0].label}`
+      : 'Gotowe do wyjazdu';
+  const phoneHref = telHref(task.klient_telefon);
+  const mapHref = getMapsHref(task);
   const canStart = canChangeStatus && task.status === TASK_STATUS.ZAPLANOWANE;
   const canFinish = canChangeStatus && isTaskInProgress(task.status);
 
@@ -705,9 +1639,38 @@ function CrewExecutionBrief({
             To jest pakiet dla ekipy: co robimy, gdzie, jakim sprzetem, jakie ryzyka i jakie zdjecia pokazal wyceniajacy.
           </p>
         </div>
-        <span style={{ ...styles.businessHealth, ...styles.businessHealth_good }}>
-          {task.status || 'Nowe'}
+        <span style={{ ...styles.businessHealth, ...styles[`businessHealth_${readinessTone}`] }}>
+          Pakiet {crewReadiness.score}%
         </span>
+      </div>
+
+      <div data-testid="crew-readiness-panel" style={styles.crewPackagePanel}>
+        <div style={styles.crewPackageSummary}>
+          <span style={styles.detailDecisionLabel}>Gotowość wyjazdu</span>
+          <strong style={styles.crewPackageTitle}>{readinessLabel}</strong>
+          <small style={styles.crewPackageDetail}>
+            {crewReadiness.blockers.length
+              ? 'Nie puszczaj ekipy, dopóki wymagane braki nie są zamknięte.'
+              : crewReadiness.warnings.length
+                ? 'Ekipę można odprawić, ale biuro powinno doprecyzować ostrzeżenia.'
+                : 'Ekipa ma komplet informacji do wykonania pracy.'}
+          </small>
+        </div>
+        <div style={styles.crewPackageGrid}>
+          {crewReadiness.items.map((item) => (
+            <div
+              key={item.key}
+              style={{
+                ...styles.crewPackageItem,
+                ...(item.ok ? styles.crewPackageItemOk : item.required ? styles.crewPackageItemDanger : styles.crewPackageItemWarn),
+              }}
+            >
+              <span>{item.ok ? 'OK' : item.required ? 'Brak' : 'Uwaga'}</span>
+              <strong>{item.label}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div style={styles.crewBriefGrid}>
@@ -726,12 +1689,12 @@ function CrewExecutionBrief({
           </div>
           <div style={styles.crewBriefBlock}>
             <span>Zakres prac</span>
-            <p>{description || 'Brak jasnego opisu. Biuro albo wyceniajacy musi dopisac zakres przed wyjazdem ekipy.'}</p>
+            <p>{description || 'Brak jasnego opisu. Biuro albo specjalista ds. wyceny musi dopisac zakres przed wyjazdem ekipy.'}</p>
           </div>
           <div style={styles.crewBriefTwoCol}>
             <div style={styles.crewBriefBlock}>
               <span>Sprzet i logistyka</span>
-              <p>{[equipment.join(', '), equipmentNote].filter(Boolean).join(' | ') || 'Sprzet nie zostal doprecyzowany.'}</p>
+              <p>{[crewEquipment.join(', '), equipmentNote].filter(Boolean).join(' | ') || 'Sprzet nie zostal doprecyzowany.'}</p>
             </div>
             <div style={styles.crewBriefBlock}>
               <span>Ryzyka / BHP</span>
@@ -742,6 +1705,16 @@ function CrewExecutionBrief({
 
         <aside style={styles.crewBriefSide}>
           <div style={styles.crewBriefActions}>
+            {phoneHref ? (
+              <a href={phoneHref} style={styles.crewActionBtnSecondary}>
+                Telefon
+              </a>
+            ) : null}
+            {mapHref ? (
+              <a href={mapHref} target="_blank" rel="noreferrer" style={styles.crewActionBtnSecondary}>
+                Mapa
+              </a>
+            ) : null}
             <button type="button" style={styles.crewActionBtn} disabled={!canStart || statusBusy} onClick={onStart}>
               Start pracy
             </button>
@@ -808,6 +1781,85 @@ function CrewExecutionBrief({
       </div>
     </section>
   );
+}
+
+function buildCrewBriefReadiness({
+  task,
+  fieldPhotos = [],
+  safetyChecklist = [],
+  equipment = [],
+  description = '',
+  risk = '',
+  equipmentNote = '',
+}) {
+  const hasDate = Boolean(task?.data_planowana);
+  const hasStartTime = Boolean(task?.godzina_rozpoczecia || String(task?.data_planowana || '').includes('T'));
+  const safetyBlockers = safetyChecklist.filter((item) => item.required && !item.ok);
+  const items = [
+    {
+      key: 'slot',
+      label: 'Termin',
+      detail: hasDate && hasStartTime ? formatTaskPlanLine(task) : 'brak daty albo godziny startu',
+      ok: hasDate && hasStartTime,
+      required: true,
+    },
+    {
+      key: 'address',
+      label: 'Adres',
+      detail: getTaskAddressLine(task) || 'brak adresu do mapy',
+      ok: Boolean(getTaskAddressLine(task)),
+      required: true,
+    },
+    {
+      key: 'contact',
+      label: 'Kontakt',
+      detail: task?.klient_telefon || 'brak telefonu klienta',
+      ok: Boolean(task?.klient_telefon),
+      required: true,
+    },
+    {
+      key: 'scope',
+      label: 'Zakres',
+      detail: description ? 'opis pracy jest w briefie' : 'brak jasnego opisu pracy',
+      ok: Boolean(description),
+      required: true,
+    },
+    {
+      key: 'photos',
+      label: 'Zdjęcia',
+      detail: fieldPhotos.length ? `${fieldPhotos.length} dowodów z oględzin` : 'brak zdjęć z wyceny/szkicu',
+      ok: fieldPhotos.length > 0,
+      required: true,
+    },
+    {
+      key: 'team',
+      label: 'Ekipa',
+      detail: task?.ekipa_nazwa || (task?.ekipa_id ? `Ekipa #${task.ekipa_id}` : 'brak przypisanej ekipy'),
+      ok: Boolean(task?.ekipa_id || task?.ekipa_nazwa),
+      required: true,
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzęt',
+      detail: [equipment.join(', '), equipmentNote].filter(Boolean).join(' | ') || 'sprzęt nie został doprecyzowany',
+      ok: equipment.length > 0 || Boolean(equipmentNote),
+      required: false,
+    },
+    {
+      key: 'risk',
+      label: 'BHP / ryzyka',
+      detail: risk || safetyBlockers[0]?.detail || 'brak wpisanych ryzyk terenowych',
+      ok: Boolean(risk) && safetyBlockers.length === 0,
+      required: false,
+    },
+  ];
+  const okCount = items.filter((item) => item.ok).length;
+  return {
+    items,
+    score: Math.round((okCount / items.length) * 100),
+    blockers: items.filter((item) => item.required && !item.ok),
+    warnings: items.filter((item) => !item.required && !item.ok),
+  };
 }
 
 function getTaskDay(task) {
@@ -899,6 +1951,90 @@ function getTaskPhotoSummary(task = {}) {
   };
 }
 
+function formatTaskFieldStamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+}
+
+function getTaskFieldExecutionSummary(task = {}, photoSummary = getTaskPhotoSummary(task)) {
+  const status = String(task.status || '');
+  const activeCount = Number(task.active_work_count || 0) || 0;
+  const hasActiveWork = activeCount > 0 || Boolean(task.active_work_started_at);
+  const hasCheckin = Boolean(task.last_checkin_at);
+  const hasFinishedWork = Boolean(task.last_work_finished_at);
+  const needsCrewSignal = [TASK_STATUS.ZAPLANOWANE, TASK_STATUS.W_REALIZACJI].includes(status) && !isTaskClosed(status);
+  const photoChecks = [
+    { key: 'wycena', label: 'Wycena', count: photoSummary.valuation, required: true },
+    { key: 'szkic', label: 'Szkic', count: photoSummary.sketch, required: true },
+    { key: 'dojazd', label: 'Dojazd', count: photoSummary.access, required: true },
+  ];
+  const missingPhotos = photoChecks.filter((item) => item.required && item.count <= 0);
+
+  if (hasActiveWork) {
+    return {
+      tone: missingPhotos.length ? 'warning' : 'good',
+      label: 'Praca trwa',
+      detail: `start ${formatTaskFieldStamp(task.active_work_started_at) || 'z mobilki'}`,
+      photoChecks,
+      missingPhotos,
+    };
+  }
+  if (hasFinishedWork || isTaskClosed(status)) {
+    return {
+      tone: missingPhotos.length ? 'warning' : 'good',
+      label: 'Teren zamkniety',
+      detail: hasFinishedWork ? `koniec ${formatTaskFieldStamp(task.last_work_finished_at)}` : 'status zamkniety',
+      photoChecks,
+      missingPhotos,
+    };
+  }
+  if (hasCheckin) {
+    return {
+      tone: missingPhotos.length ? 'warning' : 'good',
+      label: 'Dojechali',
+      detail: `check-in ${formatTaskFieldStamp(task.last_checkin_at)}`,
+      photoChecks,
+      missingPhotos,
+    };
+  }
+  if (needsCrewSignal) {
+    return {
+      tone: 'danger',
+      label: 'Brak check-in',
+      detail: 'ekipa nie potwierdzila miejsca',
+      photoChecks,
+      missingPhotos,
+    };
+  }
+  if (status === TASK_STATUS.DO_ZATWIERDZENIA) {
+    return {
+      tone: missingPhotos.length ? 'warning' : 'good',
+      label: 'Czeka na plan',
+      detail: missingPhotos.length ? `brakuje: ${missingPhotos.map((item) => item.label).join(', ')}` : 'pakiet terenowy gotowy',
+      photoChecks,
+      missingPhotos,
+    };
+  }
+  if (status === TASK_STATUS.WYCENA_TERENOWA) {
+    return {
+      tone: missingPhotos.length ? 'warning' : 'good',
+      label: 'U specjalisty ds. wyceny',
+      detail: missingPhotos.length ? 'zbieramy zdjecia i szkic' : 'zdjecia terenowe sa',
+      photoChecks,
+      missingPhotos,
+    };
+  }
+  return {
+    tone: 'muted',
+    label: 'Przed terenem',
+    detail: 'jeszcze bez pracy ekipy',
+    photoChecks,
+    missingPhotos,
+  };
+}
+
 function getTaskWorkflowMissingFromApi(task = {}) {
   const rawItems = Array.isArray(task.workflow_missing_items) ? task.workflow_missing_items : [];
   const labels = Array.isArray(task.workflow_missing_labels) ? task.workflow_missing_labels : [];
@@ -924,6 +2060,68 @@ function getTaskWorkflowMissingFromApi(task = {}) {
   });
 }
 
+function getTaskReadinessChecksFromApi(task = {}, field = '') {
+  const rows = Array.isArray(task?.[field]) ? task[field] : [];
+  return rows
+    .map((row) => {
+      const key = String(row?.key || '').trim();
+      const label = String(row?.label || key || '').trim();
+      if (!label) return null;
+      const ok = row?.ready === true || row?.ok === true;
+      return {
+        key: key || label,
+        label,
+        detail: row?.value != null ? String(row.value) : ok ? 'OK' : 'brak',
+        ok,
+        required: row?.required !== false,
+      };
+    })
+    .filter(Boolean);
+}
+
+function getTaskPackageReadiness(task = {}, type = 'office') {
+  const isOffice = type === 'office';
+  const checks = getTaskReadinessChecksFromApi(task, isOffice ? 'office_plan_checks' : 'crew_execution_checks');
+  const readyFlag = isOffice ? task.office_plan_ready : task.crew_execution_ready;
+  const readyCountRaw = Number(isOffice ? task.office_plan_ready_count : task.crew_execution_ready_count);
+  const totalCountRaw = Number(isOffice ? task.office_plan_total_count : task.crew_execution_total_count);
+  const missingItems = Array.isArray(isOffice ? task.office_plan_missing_items : task.crew_execution_missing_items)
+    ? (isOffice ? task.office_plan_missing_items : task.crew_execution_missing_items)
+    : [];
+  const missingLabels = Array.isArray(isOffice ? task.office_plan_missing_labels : task.crew_execution_missing_labels)
+    ? (isOffice ? task.office_plan_missing_labels : task.crew_execution_missing_labels)
+    : [];
+  const missing = [
+    ...missingItems.map((item) => String(item?.label || item?.key || '').trim()),
+    ...missingLabels.map((label) => String(label || '').trim()),
+  ].filter(Boolean);
+  const fallbackMissing = checks.filter((item) => !item.ok).map((item) => item.label);
+  const uniqueMissing = uniqueTextValues([...missing, ...fallbackMissing]);
+  const total = Number.isFinite(totalCountRaw) && totalCountRaw > 0 ? totalCountRaw : checks.length;
+  const readyCount = Number.isFinite(readyCountRaw) && readyCountRaw >= 0
+    ? readyCountRaw
+    : checks.filter((item) => item.ok).length;
+  const ready = readyFlag === true || (total > 0 && readyCount >= total && uniqueMissing.length === 0);
+  const relevantStatuses = isOffice
+    ? [TASK_STATUS.DO_ZATWIERDZENIA, TASK_STATUS.ZAPLANOWANE, TASK_STATUS.W_REALIZACJI]
+    : [TASK_STATUS.ZAPLANOWANE, TASK_STATUS.W_REALIZACJI];
+  const relevant = relevantStatuses.includes(String(task.status || '')) && !isTaskClosed(task.status);
+  const score = total > 0 ? Math.round((Math.min(readyCount, total) / total) * 100) : (ready ? 100 : 0);
+  const leadMissing = uniqueMissing[0] || '';
+  return {
+    type,
+    relevant,
+    ready,
+    score,
+    readyCount,
+    total,
+    missing: uniqueMissing,
+    label: isOffice ? 'Pakiet biura' : 'Pakiet ekipy',
+    status: ready ? 'OK' : leadMissing || 'do sprawdzenia',
+    tone: ready ? 'good' : uniqueMissing.length ? 'danger' : 'warning',
+  };
+}
+
 function taskWorkflowBlockerTone(item) {
   const key = String(item?.key || item?.label || '').toLowerCase();
   if (key.includes('phone') || key.includes('telefon') || key.includes('client') || key.includes('klient')) return 'danger';
@@ -938,7 +2136,7 @@ function normalizeTaskWorkflowBlockerKey(item) {
   if (key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('budżet')) return 'noPrice';
   if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję')) return 'noMedia';
   if (key.includes('sketch') || key.includes('szkic')) return 'noFieldSketch';
-  if (key.includes('estimator') || key.includes('wyceniacz')) return 'estimator';
+  if (key.includes('estimator') || key.includes('wyceniacz') || key.includes('specjalista ds. wyceny')) return 'estimator';
   if (key.includes('brief') || key.includes('opis') || key.includes('zakres')) return 'brief';
   return `api_${key || 'workflow'}`.replace(/\s+/g, '_');
 }
@@ -966,6 +2164,7 @@ function getTaskDiagnostics(task, todayIso) {
   const status = String(task.status || '');
   const isClosed = isTaskClosed(status);
   const photos = getTaskPhotoSummary(task);
+  const fieldExecution = getTaskFieldExecutionSummary(task, photos);
   const needsCrew = CREW_REQUIRED_TASK_STATUSES.has(status);
   const needsFieldEvidence = FIELD_EVIDENCE_REQUIRED_TASK_STATUSES.has(status);
   const needsPrice = PRICE_REQUIRED_TASK_STATUSES.has(status);
@@ -980,12 +2179,15 @@ function getTaskDiagnostics(task, todayIso) {
     noMedia: Boolean(photos.total === 0 && needsFieldEvidence && !isClosed),
     noFieldSketch: Boolean(photos.total > 0 && photos.fieldEvidence === 0 && needsFieldEvidence && !isClosed),
     noPrice: Boolean(!hasPrice && needsPrice && !isClosed),
+    noCheckin: Boolean(fieldExecution.label === 'Brak check-in' && !isClosed),
+    fieldActive: Boolean(fieldExecution.label === 'Praca trwa' && !isClosed),
   };
 
   const localBlockers = [
     has.noContact ? { key: 'noContact', label: 'Brak telefonu', tone: 'danger' } : null,
     has.unassigned ? { key: 'unassigned', label: 'Brak ekipy', tone: 'warning' } : null,
     has.noDate ? { key: 'noDate', label: 'Brak terminu', tone: 'warning' } : null,
+    has.noCheckin ? { key: 'noCheckin', label: 'Brak check-in', tone: 'danger' } : null,
     has.noMedia ? { key: 'noMedia', label: 'Brak zdjęć', tone: 'warning' } : null,
     has.noFieldSketch ? { key: 'noFieldSketch', label: 'Brak wyceny/szkicu', tone: 'warning' } : null,
     has.noPrice ? { key: 'noPrice', label: 'Brak ceny', tone: 'warning' } : null,
@@ -1051,7 +2253,7 @@ function getTaskDiagnostics(task, todayIso) {
   else if (has.noMedia || has.noFieldSketch) nextAction = { label: 'Dodaj zdjęcia', target: 'photos' };
   else if (has.noPrice) nextAction = { label: 'Uzupełnij wycenę', target: 'edit' };
   else if (status === TASK_STATUS.NOWE && has.overdue) nextAction = { label: 'Przeplanuj oględziny', target: 'edit' };
-  else if (status === TASK_STATUS.NOWE) nextAction = { label: 'Wyślij do wyceniającego', target: 'status', nextStatus: TASK_STATUS.WYCENA_TERENOWA };
+  else if (status === TASK_STATUS.NOWE) nextAction = { label: 'Wyślij do specjalisty ds. wyceny', target: 'status', nextStatus: TASK_STATUS.WYCENA_TERENOWA };
   else if (readyForOfficeApproval) nextAction = { label: 'Klient akceptuje', target: 'status', nextStatus: TASK_STATUS.DO_ZATWIERDZENIA };
   else if (readyForCrewPlan) nextAction = { label: 'Zatwierdź plan ekipy', target: 'status', nextStatus: TASK_STATUS.ZAPLANOWANE };
   else if (status === TASK_STATUS.ZAPLANOWANE && has.overdue) nextAction = { label: 'Przeplanuj termin ekipy', target: 'edit' };
@@ -1102,9 +2304,89 @@ function getTaskInspectionWorkflow(task = {}, diagnostics = null) {
     return { key: 'officeApproval', step: '3', label: 'Biuro zatwierdza', detail: 'Klient zaakceptował, biuro dopina ekipę i termin', tone: 'good' };
   }
   if (status === TASK_STATUS.WYCENA_TERENOWA) {
-    return { key: 'fieldInspection', step: '2', label: 'Oględziny / wycena', detail: 'Wyceniający zbiera zdjęcia, zakres i cenę', tone: 'warning' };
+    return { key: 'fieldInspection', step: '2', label: 'Oględziny / wycena', detail: 'Specjalista ds. wyceny zbiera zdjęcia, zakres i cenę', tone: 'warning' };
   }
   return { key: 'intake', step: '1', label: 'Biuro umawia', detail: 'Telefon, adres i termin oględzin', tone: 'muted' };
+}
+
+function getTaskStageOwnerSummary(task = {}, diagnostics = null, workflowStage = null) {
+  const status = String(task.status || '');
+  const has = diagnostics?.has || {};
+  const hasBlockers = Boolean(diagnostics?.blockers?.length);
+  const hasRisks = Boolean(diagnostics?.risks?.length);
+  const baseTone = hasBlockers ? 'danger' : hasRisks ? 'warning' : workflowStage?.tone || 'good';
+  const action = diagnostics?.nextAction || { label: 'Otwórz szczegóły', target: 'details' };
+
+  if (status === TASK_STATUS.ANULOWANE) {
+    return {
+      owner: 'Biuro',
+      nextOwner: 'Archiwum',
+      title: 'Zlecenie anulowane',
+      detail: 'Sprawdź powód anulowania i kontakt z klientem.',
+      tone: 'danger',
+      action,
+    };
+  }
+  if (isTaskClosed(status)) {
+    return {
+      owner: 'Biuro / kierownik',
+      nextOwner: 'Rozliczenie',
+      title: 'Po wykonaniu',
+      detail: 'Zostaje kontrola dokumentów, rozliczenie i historia klienta.',
+      tone: 'good',
+      action,
+    };
+  }
+  if (isTaskInProgress(status)) {
+    return {
+      owner: 'Ekipa w terenie',
+      nextOwner: 'Biuro / kierownik',
+      title: 'Wykonanie pracy',
+      detail: 'Ekipa pracuje według briefu i zgłasza problemy z terenu.',
+      tone: hasBlockers ? 'danger' : 'blue',
+      action,
+    };
+  }
+  if (status === TASK_STATUS.ZAPLANOWANE) {
+    return {
+      owner: 'Brygadzista',
+      nextOwner: 'Ekipa w terenie',
+      title: 'Odprawa ekipy',
+      detail: has.overdue ? 'Termin wymaga przeplanowania przed startem.' : 'Brief, zdjęcia, ryzyka i sprzęt powinny być gotowe dla brygady.',
+      tone: has.overdue ? 'danger' : baseTone,
+      action,
+    };
+  }
+  if (status === TASK_STATUS.DO_ZATWIERDZENIA) {
+    return {
+      owner: 'Biuro / kierownik',
+      nextOwner: 'Brygadzista',
+      title: 'Plan po akceptacji',
+      detail: has.unassigned || has.noDate ? 'Dopnij ekipę, termin, godzinę i sprzęt.' : 'Plan jest gotowy do przekazania ekipie.',
+      tone: baseTone,
+      action,
+    };
+  }
+  if (status === TASK_STATUS.WYCENA_TERENOWA) {
+    return {
+      owner: 'Specjalista ds. wyceny',
+      nextOwner: 'Biuro',
+      title: 'Pakiet z oględzin',
+      detail: has.noMedia || has.noFieldSketch || has.noPrice
+        ? 'Potrzebne zdjęcia, szkic, zakres, czas i budżet z terenu.'
+        : 'Pakiet z oględzin może wrócić do biura.',
+      tone: baseTone,
+      action,
+    };
+  }
+  return {
+    owner: 'Specjalista biura',
+    nextOwner: 'Specjalista ds. wyceny',
+    title: 'Telefon i oględziny',
+    detail: has.noContact || has.noDate ? 'Domknij kontakt, adres, termin i specjalistę ds. wyceny.' : 'Gotowe do wysłania na oględziny.',
+    tone: baseTone,
+    action,
+  };
 }
 
 function getTaskQueueMeta(task, todayIso) {
@@ -1478,7 +2760,7 @@ function getTaskQualityChecklist(task, meta, contact = {}) {
 }
 
 function getTaskEquipmentList(task) {
-  return [
+  const presetEquipment = [
     ['Rębak', task.rebak],
     ['Piła na wysięgniku', task.pila_wysiegniku],
     ['Nożyce długie', task.nozyce_dlugie],
@@ -1487,6 +2769,45 @@ function getTaskEquipmentList(task) {
     ['Łopata', task.lopata],
     ['Mulczer', task.mulczer],
   ].filter(([, enabled]) => Boolean(enabled)).map(([label]) => label);
+  return uniqueTextValues([...presetEquipment, ...getTaskReservedEquipmentList(task)]);
+}
+
+function getTaskEquipmentReservations(task) {
+  const rows = Array.isArray(task?.equipment_reservations)
+    ? task.equipment_reservations
+    : Array.isArray(task?.rezerwacje_sprzetu)
+      ? task.rezerwacje_sprzetu
+      : [];
+  return rows.filter((row) => {
+    const status = String(row?.status || '').toLowerCase();
+    return !status.startsWith('anul') && !status.startsWith('zwr');
+  });
+}
+
+function getTaskReservedEquipmentList(task) {
+  return getTaskEquipmentReservations(task)
+    .map((row) => row?.sprzet_nazwa || row?.nazwa_sprzetu || (row?.sprzet_id ? `Sprzet #${row.sprzet_id}` : ''))
+    .filter(Boolean);
+}
+
+function getTaskReservedEquipmentIds(task) {
+  return getTaskEquipmentReservations(task)
+    .map((row) => row?.sprzet_id)
+    .filter((id) => id !== null && id !== undefined && id !== '')
+    .map(String);
+}
+
+function uniqueTextValues(values) {
+  const seen = new Set();
+  return values
+    .map((value) => String(value || '').trim())
+    .filter((value) => {
+      if (!value) return false;
+      const key = value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function getTaskSafetyChecklist(task, meta, contact = {}) {
@@ -1576,6 +2897,99 @@ function getTaskDetailNextAction(task, meta, checklist) {
   }
   if (meta?.followup?.overdue) return { label: 'Zapisz kontakt', target: 'contact' };
   return meta?.diagnostics?.nextAction || { label: 'Otwórz szczegóły', target: 'details' };
+}
+
+function getRepairActionForItem(item, source, showOfficePlanPanel) {
+  const key = item?.key;
+  if (key === 'media' || key === 'field-sketch' || key === 'photos') return { target: 'photos' };
+  if (key === 'price') return { target: 'edit', formStep: 'finance', focusField: 'wartosc_planowana' };
+  if (key === 'hours') {
+    return showOfficePlanPanel ? { target: 'officePlan' } : { target: 'edit', formStep: 'finance', focusField: 'czas_planowany_godziny' };
+  }
+  if (key === 'date' || key === 'slot') {
+    return showOfficePlanPanel ? { target: 'officePlan' } : { target: 'edit', formStep: 'planning', focusField: 'data_planowana' };
+  }
+  if (key === 'team') {
+    return showOfficePlanPanel ? { target: 'officePlan' } : { target: 'edit', formStep: 'planning', focusField: 'ekipa_id' };
+  }
+  if (key === 'phone') return { target: 'edit', formStep: 'client', focusField: 'klient_telefon' };
+  if (key === 'address') return { target: 'edit', formStep: 'client', focusField: 'adres' };
+  if (key === 'brief') return { target: 'edit', formStep: 'work', focusField: 'opis_pracy' };
+  if (key === 'arborist') return { target: 'edit', formStep: 'work', focusField: 'arborysta' };
+  if (key === 'equipment') return { target: 'edit', formStep: 'work', focusField: 'sprzet' };
+  if (key === 'contact') return { target: 'contact' };
+  if (source === 'office') return { target: 'officePlan' };
+  return { target: 'decision' };
+}
+
+function getRepairActionLabel(action) {
+  if (action?.target === 'photos') return 'Otworz zdjecia';
+  if (action?.target === 'officePlan') return 'Otworz plan';
+  if (action?.target === 'contact') return 'Kontakt';
+  if (action?.target === 'decision') return 'Decyzja';
+  if (action?.formStep === 'finance') return 'Popraw cene';
+  if (action?.formStep === 'planning') return 'Planowanie';
+  if (action?.formStep === 'work') return 'Opis / BHP';
+  if (action?.formStep === 'client') return 'Dane klienta';
+  return 'Napraw';
+}
+
+function getRepairItemKey(item, source) {
+  if (!item) return source;
+  if (item.key === 'media' || item.key === 'field-sketch' || item.key === 'photos') return 'photos';
+  if (item.key === 'date' || item.key === 'slot') return 'date';
+  if (item.key === 'team') return 'team';
+  if (item.key === 'brief') return 'brief';
+  if (item.key === 'price') return 'price';
+  if (item.key === 'hours') return 'hours';
+  return `${source}-${item.key || item.label}`;
+}
+
+function buildDetailRepairItems({
+  qualityChecklist = [],
+  safetyChecklist = [],
+  officePlanReadinessItems = [],
+  showOfficePlanPanel = false,
+}) {
+  const rows = [];
+  const seen = new Set();
+  const add = (item, source, owner, requiredOverride = null) => {
+    if (!item || item.ok) return;
+    const key = getRepairItemKey(item, source);
+    if (seen.has(key)) return;
+    seen.add(key);
+    const required = requiredOverride ?? item.required !== false;
+    const action = getRepairActionForItem(item, source, showOfficePlanPanel);
+    rows.push({
+      key,
+      label: item.label,
+      detail: item.detail,
+      owner,
+      required,
+      tone: required ? 'danger' : 'warning',
+      action: {
+        ...action,
+        repairLabel: item.label,
+        repairDetail: item.detail,
+      },
+      actionLabel: getRepairActionLabel(action),
+    });
+  };
+
+  qualityChecklist.filter((item) => item.required && !item.ok).forEach((item) => add(item, 'quality', 'Biuro', true));
+  officePlanReadinessItems.filter((item) => item.required && !item.ok).forEach((item) => add(item, 'office', 'Plan biura', true));
+  safetyChecklist.filter((item) => item.required && !item.ok).forEach((item) => add(item, 'safety', 'BHP / brygada', true));
+  qualityChecklist
+    .filter((item) => !item.required && !item.ok && ['field-sketch', 'hours', 'brief', 'contact'].includes(item.key))
+    .forEach((item) => add(item, 'quality-warning', 'Kontrola jakosci', false));
+  officePlanReadinessItems
+    .filter((item) => !item.required && !item.ok)
+    .forEach((item) => add(item, 'office-warning', 'Plan biura', false));
+  safetyChecklist
+    .filter((item) => !item.required && !item.ok && ['equipment', 'client'].includes(item.key))
+    .forEach((item) => add(item, 'safety-warning', 'BHP / brygada', false));
+
+  return rows.sort((a, b) => Number(b.required) - Number(a.required));
 }
 
 function getFormStepForEditAction(action) {
@@ -1992,7 +3406,7 @@ function getClientMessageNextStep(task, diagnostics) {
   if (diagnostics.has.noDate) return 'Skontaktujemy się, żeby potwierdzić dogodny termin.';
   if (diagnostics.has.noContact) return 'Prosimy o potwierdzenie numeru kontaktowego w odpowiedzi.';
   if (diagnostics.has.overdue) return 'Potwierdzimy najbliższe dostępne okno prac.';
-  if (task.status === TASK_STATUS.WYCENA_TERENOWA) return 'Wyceniający przygotuje zdjęcia, zakres i propozycję ceny.';
+  if (task.status === TASK_STATUS.WYCENA_TERENOWA) return 'Specjalista ds. wyceny przygotuje zdjęcia, zakres i propozycję ceny.';
   if (task.status === TASK_STATUS.DO_ZATWIERDZENIA) return 'Biuro dopina ekipę, godzinę i potwierdzenie prac.';
   if (task.status === TASK_STATUS.ZAPLANOWANE) return 'Przed przyjazdem potwierdzimy szczegóły organizacyjne.';
   if (isTaskInProgress(task.status)) return 'Po zakończeniu przekażemy podsumowanie prac.';
@@ -2004,13 +3418,17 @@ export default function Zlecenia() {
   const taskPhotoInputRef = useRef(null);
   const quickCallRef = useRef(null);
   const quickCallClientInputRef = useRef(null);
+  const workflowPathFocusTimerRef = useRef(null);
+  const liveRefreshRef = useRef({ busy: false });
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [ekipy, setEkipy] = useState([]);
+  const [branchTeams, setBranchTeams] = useState([]);
   const [uzytkownicy, setUzytkownicy] = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
   const [sprzetItems, setSprzetItems] = useState([]);
+  const [branchEquipment, setBranchEquipment] = useState([]);
   const [tryb, setTryb] = useState(() => {
     const v = localStorage.getItem(VIEW_MODE_KEY) || 'lista';
     return ZLECENIA_TRYBY.has(v) ? v : 'lista';
@@ -2031,6 +3449,7 @@ export default function Zlecenia() {
   const [copyFallback, setCopyFallback] = useState(null);
   const [potwierdzUsuniecie, setPotwierdzUsuniecie] = useState(null);
   const [formStep, setFormStep] = useState('client');
+  const [formRepairFocus, setFormRepairFocus] = useState(null);
   const [taskPhotosById, setTaskPhotosById] = useState({});
   const [taskProblemsById, setTaskProblemsById] = useState({});
   const [taskPhotosLoading, setTaskPhotosLoading] = useState(false);
@@ -2040,12 +3459,14 @@ export default function Zlecenia() {
     opis: '',
     tagi: 'wycena, teren',
   });
+  const [taskPhotoRepairFocus, setTaskPhotoRepairFocus] = useState(null);
   const [closeGuard, setCloseGuard] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [activeClosureIssueKey, setActiveClosureIssueKey] = useState('');
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
+  const [workflowPathFocused, setWorkflowPathFocused] = useState(false);
   const [clientContacts, setClientContacts] = useState(() =>
     normalizeClientContactsPayload(getLocalStorageJson(CLIENT_CONTACT_KEY, {}))
   );
@@ -2056,6 +3477,9 @@ export default function Zlecenia() {
   const [contactDueDraft, setContactDueDraft] = useState('');
   const [officePlan, setOfficePlan] = useState(OFFICE_PLAN_DEFAULTS);
   const [officePlanSaving, setOfficePlanSaving] = useState(false);
+  const [officePlanEquipmentReservations, setOfficePlanEquipmentReservations] = useState([]);
+  const [officePlanEquipmentReservationsLoading, setOfficePlanEquipmentReservationsLoading] = useState(false);
+  const [officePlanEquipmentReservationsErr, setOfficePlanEquipmentReservationsErr] = useState('');
   const [quickCall, setQuickCall] = useState(() =>
     normalizeQuickCallDraft(getLocalStorageJson(QUICK_CALL_DRAFT_KEY, QUICK_CALL_DEFAULTS))
   );
@@ -2071,6 +3495,7 @@ export default function Zlecenia() {
   });
   const navigate = useNavigate();
   const location = useLocation();
+  const { id: routeTaskId } = useParams();
  
   const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const isAdmin = currentUser?.rola === 'Administrator';
@@ -2092,6 +3517,12 @@ export default function Zlecenia() {
   useEffect(() => {
     localStorage.setItem(WORKFLOW_CONFIG_KEY, JSON.stringify(workflowConfig));
   }, [workflowConfig]);
+
+  useEffect(() => () => {
+    if (workflowPathFocusTimerRef.current) {
+      window.clearTimeout(workflowPathFocusTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (smartFilter) localStorage.setItem(SMART_FILTER_KEY, smartFilter);
@@ -2200,11 +3631,120 @@ export default function Zlecenia() {
       czas_planowany_godziny: String(wybraneZlecenie.czas_planowany_godziny || wybraneZlecenie.czas_realizacji_godz || '2'),
       ekipa_id: wybraneZlecenie.ekipa_id ? String(wybraneZlecenie.ekipa_id) : '',
       sprzet_notatka: getTaskCrewEquipmentNote(wybraneZlecenie),
-      sprzet_ids: Array.isArray(wybraneZlecenie.sprzet_ids) ? wybraneZlecenie.sprzet_ids.map(String) : [],
+      sprzet_ids: Array.isArray(wybraneZlecenie.sprzet_ids) && wybraneZlecenie.sprzet_ids.length
+        ? wybraneZlecenie.sprzet_ids.map(String)
+        : getTaskReservedEquipmentIds(wybraneZlecenie),
     });
   }, [wybraneZlecenie]);
+
+  useEffect(() => {
+    const branchId = String(
+      wybraneZlecenie?.oddzial_id ||
+      form.oddzial_id ||
+      quickCall.oddzial_id ||
+      currentUser?.oddzial_id ||
+      ''
+    ).trim();
+    const planningDay = String(
+      officePlan.data_planowana ||
+      taskDateOnly(wybraneZlecenie?.data_planowana) ||
+      form.data_planowana ||
+      quickCall.data_planowana ||
+      new Date().toISOString().slice(0, 10)
+    ).slice(0, 10);
+
+    if (!currentUser || !branchId) {
+      setBranchTeams([]);
+      setBranchEquipment([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadBranchTeams = async () => {
+      try {
+        const token = getStoredToken();
+        const requestConfig = {
+          headers: authHeaders(token),
+          params: {
+            oddzial_id: branchId,
+            include_delegacje: '1',
+            date: planningDay,
+          },
+          dedupe: false,
+        };
+        const [{ data }, equipmentRes] = await Promise.all([
+          api.get('/ekipy', requestConfig),
+          api.get('/flota/sprzet', requestConfig).catch(() => ({ data: [] })),
+        ]);
+        if (!cancelled) {
+          setBranchTeams(Array.isArray(data) ? data : (data?.items || []));
+          const equipmentData = equipmentRes.data;
+          setBranchEquipment(Array.isArray(equipmentData) ? equipmentData : (equipmentData?.items || []));
+        }
+      } catch {
+        if (!cancelled) {
+          setBranchTeams([]);
+          setBranchEquipment([]);
+        }
+      }
+    };
+
+    loadBranchTeams();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    currentUser,
+    currentUser?.oddzial_id,
+    wybraneZlecenie?.oddzial_id,
+    wybraneZlecenie?.data_planowana,
+    form.oddzial_id,
+    form.data_planowana,
+    quickCall.oddzial_id,
+    quickCall.data_planowana,
+    officePlan.data_planowana,
+  ]);
+
+  useEffect(() => {
+    const day = String(officePlan.data_planowana || '').slice(0, 10);
+    if (!wybraneZlecenie?.id || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      setOfficePlanEquipmentReservations([]);
+      setOfficePlanEquipmentReservationsErr('');
+      setOfficePlanEquipmentReservationsLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadOfficePlanEquipmentReservations = async () => {
+      const token = getStoredToken();
+      if (!token) return;
+      setOfficePlanEquipmentReservationsLoading(true);
+      setOfficePlanEquipmentReservationsErr('');
+      try {
+        const { data } = await api.get(
+          `/flota/rezerwacje?from=${encodeURIComponent(day)}&to=${encodeURIComponent(day)}`,
+          { headers: authHeaders(token), dedupe: false }
+        );
+        if (!cancelled) {
+          setOfficePlanEquipmentReservations(Array.isArray(data) ? data : data?.items || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setOfficePlanEquipmentReservations([]);
+          setOfficePlanEquipmentReservationsErr(getApiErrorMessage(err, 'Nie udalo sie sprawdzic rezerwacji sprzetu.'));
+        }
+      } finally {
+        if (!cancelled) setOfficePlanEquipmentReservationsLoading(false);
+      }
+    };
+
+    loadOfficePlanEquipmentReservations();
+    return () => {
+      cancelled = true;
+    };
+  }, [officePlan.data_planowana, wybraneZlecenie?.id]);
  
-  const loadData = async (user) => {
+  const loadData = async (user, options = {}) => {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
@@ -2228,7 +3768,8 @@ export default function Zlecenia() {
         api.get('/tasks/client-contacts', { headers: h }).catch(() => ({ data: null })),
         api.get('/tasks/closure-events', { headers: h }).catch(() => ({ data: null })),
       ]);
-      setZlecenia(Array.isArray(zRes.data) ? zRes.data : []);
+      const taskRows = Array.isArray(zRes.data) ? zRes.data : [];
+      setZlecenia(taskRows);
       setEkipy(Array.isArray(eRes.data) ? eRes.data : []);
       setUzytkownicy(Array.isArray(uRes.data) ? uRes.data : []);
       setOddzialy(Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data?.oddzialy || []));
@@ -2239,12 +3780,47 @@ export default function Zlecenia() {
       if (closureRes.data) {
         setClosureDecisionEvents(normalizeClosureDecisionPayload(closureRes.data));
       }
+      return taskRows;
     } catch (err) {
-      pokazKomunikat(getApiErrorMessage(err, 'Błąd ładowania danych'), 'error');
+      if (!options.silent) {
+        pokazKomunikat(getApiErrorMessage(err, 'Błąd ładowania danych'), 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!currentUser || tryb === 'nowy' || tryb === 'edytuj') return undefined;
+
+    let active = true;
+    const refreshLiveTasks = async () => {
+      if (!active || document.visibilityState !== 'visible' || liveRefreshRef.current.busy) return;
+      liveRefreshRef.current.busy = true;
+      try {
+        await loadData(currentUser, { silent: true });
+      } finally {
+        liveRefreshRef.current.busy = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshLiveTasks();
+    }, 30000);
+    const handleFocus = () => {
+      void refreshLiveTasks();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [currentUser, tryb]); // eslint-disable-line react-hooks/exhaustive-deps
  
   const pokazKomunikat = (tekst, typ = 'success') => {
     setKomunikat({ tekst, typ });
@@ -2331,7 +3907,15 @@ export default function Zlecenia() {
         await api.post(`/tasks/${taskId}/zdjecia`, formData, { headers: authHeaders(token) });
       }
       await loadTaskPhotos(taskId, { silent: true });
-      pokazKomunikat(`Dodano zdjęcia: ${list.length}`);
+      if (taskPhotoRepairFocus) {
+        const refreshedTasks = (await loadData(currentUser)) || [];
+        const refreshedTask = refreshedTasks.find((task) => String(task.id) === String(taskId));
+        if (refreshedTask) setWybraneZlecenie(refreshedTask);
+        setFormRepairFocus(null);
+        setTaskPhotoRepairFocus(null);
+        setTryb('szczegoly');
+      }
+      pokazKomunikat(taskPhotoRepairFocus ? `Dokumentacja uzupelniona: ${list.length} zdj.` : `Dodano zdjecia: ${list.length}`);
       setTaskPhotoDraft((prev) => ({ ...prev, opis: '' }));
     } catch (err) {
       pokazKomunikat(getApiErrorMessage(err, 'Nie udało się dodać zdjęć'), 'error');
@@ -2426,8 +4010,9 @@ export default function Zlecenia() {
   const otworzPelnyFormularzZTelefonu = () => {
     const intakeNote = 'Źródło: telefon do biura. Cel: oględziny u klienta i pakiet zdjęć dla biura.';
     const operatorName = [currentUser?.imie, currentUser?.nazwisko].filter(Boolean).join(' ') || currentUser?.login || 'biuro';
-    setForm(createTaskFormDefaults({
-      ...quickCall,
+    setForm({
+      ...createTaskFormDefaults({
+        ...quickCall,
       status: TASK_STATUS.WYCENA_TERENOWA,
       typ_uslugi: 'Wycinka',
       oddzial_id: quickCall.oddzial_id || currentUser?.oddzial_id || '',
@@ -2439,7 +4024,13 @@ export default function Zlecenia() {
         `Telefon przyjął: ${operatorName}`,
       ),
       ankieta_uproszczona: true,
-    }));
+      }),
+      typ_uslugi: quickCallInspectionPackage.serviceType,
+      opis_pracy: quickCallInspectionPackage.fieldBrief,
+      opis: quickCallInspectionPackage.fieldBrief,
+      notatki_wewnetrzne: quickCallInspectionPackage.internalNotes,
+      notatki: quickCallInspectionPackage.internalNotes,
+    });
     setWybraneZlecenie(null);
     setFormStep('client');
     setTaskPhotoDraft({ typ: 'Wycena', opis: '', tagi: 'wycena, teren' });
@@ -2498,7 +4089,7 @@ export default function Zlecenia() {
     if (!String(quickCall.adres || '').trim()) missing.push('adres');
     if (!String(quickCall.miasto || '').trim()) missing.push('miasto');
     if (!String(quickCall.data_planowana || '').trim()) missing.push('data oględzin');
-    if (!String(quickCall.wyceniajacy_id || '').trim()) missing.push('wyceniacz');
+    if (!String(quickCall.wyceniajacy_id || '').trim()) missing.push('specjalista ds. wyceny');
     if (canManageAllBranches && !String(quickCall.oddzial_id || '').trim()) missing.push('oddział');
     return missing;
   };
@@ -2509,13 +4100,24 @@ export default function Zlecenia() {
       pokazKomunikat(`Telefon do biura: uzupełnij ${missing.join(', ')}`, 'error');
       return false;
     }
+    const schedule = getQuickCallScheduleDiagnostics({
+      tasks: zlecenia,
+      estimatorId: quickCall.wyceniajacy_id,
+      day: quickCall.data_planowana,
+      time: quickCall.godzina_rozpoczecia,
+    });
+    if (schedule.blockingReason) {
+      pokazKomunikat(schedule.blockingReason, 'error');
+      return false;
+    }
     setQuickCallSaving(true);
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
       const payload = buildTaskCreatePayload(
-        createTaskFormDefaults({
-          ...quickCall,
+        {
+          ...createTaskFormDefaults({
+            ...quickCall,
           status: TASK_STATUS.WYCENA_TERENOWA,
           typ_uslugi: 'Wycinka',
           opis_pracy: appendUniqueLine(
@@ -2527,7 +4129,13 @@ export default function Zlecenia() {
             `Telefon przyjął: ${[currentUser?.imie, currentUser?.nazwisko].filter(Boolean).join(' ') || currentUser?.login || 'biuro'}`,
           ),
           ankieta_uproszczona: true,
-        }),
+          }),
+          typ_uslugi: quickCallInspectionPackage.serviceType,
+          opis_pracy: quickCallInspectionPackage.fieldBrief,
+          opis: quickCallInspectionPackage.fieldBrief,
+          notatki_wewnetrzne: quickCallInspectionPackage.internalNotes,
+          notatki: quickCallInspectionPackage.internalNotes,
+        },
         currentUser,
         {
           initialStatus: TASK_STATUS.WYCENA_TERENOWA,
@@ -2536,7 +4144,7 @@ export default function Zlecenia() {
       );
       const { data } = await api.post('/tasks/nowe', payload, { headers: h });
       const created = data && typeof data === 'object' ? data : {};
-      pokazKomunikat(`Oględziny utworzone i wysłane do wyceniacza${created.id ? ` (#${created.id})` : ''}`);
+      pokazKomunikat(`Oględziny utworzone i wysłane do specjalisty ds. wyceny${created.id ? ` (#${created.id})` : ''}`);
       setSmartFilter('fieldInspection');
       setFiltrStatus('');
       setSzukaj('');
@@ -2553,18 +4161,59 @@ export default function Zlecenia() {
 
   const quickCallHasDraft = hasQuickCallDraftData(quickCall);
   const quickCallMissingFields = getQuickCallMissingFields();
-  const quickCallReady = quickCallMissingFields.length === 0;
+  const quickCallSchedule = getQuickCallScheduleDiagnostics({
+    tasks: zlecenia,
+    estimatorId: quickCall.wyceniajacy_id,
+    day: quickCall.data_planowana,
+    time: quickCall.godzina_rozpoczecia,
+  });
+  const quickCallReady = quickCallMissingFields.length === 0 && !quickCallSchedule.blockingReason;
  
+  const refreshTaskDetail = async (taskId, baseTask = null) => {
+    if (!taskId) return;
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/tasks/${taskId}`, { headers: authHeaders(token), dedupe: false });
+      if (!data || typeof data !== 'object') return;
+      const freshTask = { ...(baseTask || {}), ...data };
+      setZlecenia((prev) => prev.map((item) => (String(item.id) === String(taskId) ? { ...item, ...freshTask } : item)));
+      setWybraneZlecenie((prev) => (String(prev?.id || '') === String(taskId) ? { ...(prev || {}), ...freshTask } : prev));
+    } catch {
+      // Lista moze nadal dzialac na danych skroconych; pelny detail jest tylko wzbogaceniem.
+    }
+  };
+
   const otworzSzczegoly = (z) => {
     setWybraneZlecenie(z);
     setTryb('szczegoly');
+    setFormRepairFocus(null);
+    setTaskPhotoRepairFocus(null);
     if (z?.id) {
       loadTaskPhotos(z.id, { silent: true });
       loadTaskProblems(z.id, { silent: true });
+      refreshTaskDetail(z.id, z);
     }
   };
+
+  useEffect(() => {
+    if (!routeTaskId || loading || !zlecenia.length) return;
+    if (String(wybraneZlecenie?.id || '') === String(routeTaskId) && tryb === 'szczegoly') return;
+    const task = zlecenia.find((item) => String(item.id) === String(routeTaskId));
+    if (task) otworzSzczegoly(task);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeTaskId, loading, zlecenia]);
+
+  useEffect(() => {
+    if (tryb !== 'edytuj' || !formRepairFocus?.field) return undefined;
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector(`[data-repair-field="${formRepairFocus.field}"]`);
+      if (target?.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (target?.focus) target.focus({ preventScroll: true });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [tryb, formStep, formRepairFocus?.field]);
  
-  const otworzEdycje = (z, step = 'client') => {
+  const otworzEdycje = (z, step = 'client', repairFocus = null) => {
     setForm({
       klient_nazwa: z.klient_nazwa || '', klient_telefon: z.klient_telefon || '',
       klient_email: z.klient_email || '', adres: z.adres || '', miasto: z.miasto || '',
@@ -2587,6 +4236,7 @@ export default function Zlecenia() {
     });
     setWybraneZlecenie(z);
     setFormStep(FORM_STEP_KEYS.has(step) ? step : 'client');
+    setFormRepairFocus(repairFocus);
     if (z?.id) {
       loadTaskPhotos(z.id, { silent: true });
       loadTaskProblems(z.id, { silent: true });
@@ -2652,8 +4302,12 @@ export default function Zlecenia() {
         pokazKomunikat('Zlecenie zostało utworzone');
       } else {
         const res = await api.put(`/tasks/${wybraneZlecenie.id}`, form, { headers: h });
-        savedTask = res.data || wybraneZlecenie;
-        pokazKomunikat('Zlecenie zaktualizowane');
+        savedTask = mergeTaskMutationResponse(wybraneZlecenie, res.data, {
+          ...wybraneZlecenie,
+          ...form,
+          id: wybraneZlecenie.id,
+        });
+        pokazKomunikat(options.returnToDetails ? 'Poprawka zapisana - sprawdzam kartę zlecenia' : 'Zlecenie zaktualizowane');
       }
       if (closesTask && closureGuardForSave) {
         await recordClosureDecision(
@@ -2668,6 +4322,16 @@ export default function Zlecenia() {
         if (options.nextStep === 'media') await loadTaskPhotos(savedTask.id, { silent: true });
         return true;
       }
+      if (options.returnToDetails && savedTask) {
+        setFormRepairFocus(null);
+        setWybraneZlecenie(savedTask);
+        setTryb('szczegoly');
+        await Promise.all([
+          loadTaskPhotos(savedTask.id, { silent: true }),
+          loadTaskProblems(savedTask.id, { silent: true }),
+        ]);
+        return true;
+      }
       setTryb('lista');
       return true;
     } catch (err) {
@@ -2678,6 +4342,11 @@ export default function Zlecenia() {
 
   const zapiszDraftIDodajZdjecia = async () => {
     await zapiszZlecenie({ stayOpen: true, nextStep: 'media' });
+  };
+
+  const anulujFormularz = () => {
+    setFormRepairFocus(null);
+    setTryb(wybraneZlecenie ? 'szczegoly' : 'lista');
   };
  
   const usunZlecenie = async (id) => {
@@ -2844,6 +4513,20 @@ export default function Zlecenia() {
     setOfficePlan((prev) => ({ ...prev, sprzet_ids: ids }));
   };
 
+  const applyOfficePlanSuggestion = (suggestion) => {
+    if (!suggestion?.ok) {
+      pokazKomunikat(suggestion?.detail || 'Brak gotowej podpowiedzi planu.', 'error');
+      return;
+    }
+    setOfficePlan((prev) => ({
+      ...prev,
+      data_planowana: suggestion.date || prev.data_planowana,
+      godzina_rozpoczecia: suggestion.time || prev.godzina_rozpoczecia,
+      ekipa_id: suggestion.teamId || prev.ekipa_id,
+    }));
+    pokazKomunikat(`Wstawiono podpowiedź: ${suggestion.label}`);
+  };
+
   const zapiszPlanBiura = async () => {
     if (!wybraneZlecenie?.id) return false;
     const missing = [];
@@ -2856,11 +4539,35 @@ export default function Zlecenia() {
       return false;
     }
 
+    const conflictSummary = getOfficePlanTeamConflictSummary(zlecenia, wybraneZlecenie, officePlan);
+    if (conflictSummary.hardConflict) {
+      pokazKomunikat(`Konflikt grafiku ekipy: ${conflictSummary.detail}`, 'error');
+      return false;
+    }
+    const equipmentConflictSummary = getOfficePlanEquipmentConflictSummary(
+      officePlanEquipmentReservations,
+      wybraneZlecenie,
+      officePlan,
+      {
+        loading: officePlanEquipmentReservationsLoading,
+        error: officePlanEquipmentReservationsErr,
+      }
+    );
+    if (equipmentConflictSummary.pending) {
+      pokazKomunikat('Poczekaj, sprawdzam rezerwacje sprzetu.', 'error');
+      return false;
+    }
+    if (equipmentConflictSummary.hardConflict) {
+      pokazKomunikat(`Konflikt rezerwacji sprzetu: ${equipmentConflictSummary.detail}`, 'error');
+      return false;
+    }
+
     setOfficePlanSaving(true);
     try {
       const token = getStoredToken();
       const { data } = await api.put(`/tasks/${wybraneZlecenie.id}/office-plan`, officePlan, { headers: authHeaders(token) });
-      const plannedTeam = ekipy.find((e) => String(e.id) === String(officePlan.ekipa_id));
+      const plannedTeam = ekipyPlanowania.find((e) => String(e.id) === String(officePlan.ekipa_id))
+        || ekipy.find((e) => String(e.id) === String(officePlan.ekipa_id));
       const updated = {
         ...wybraneZlecenie,
         ...(data && typeof data === 'object' ? data : {}),
@@ -2873,7 +4580,8 @@ export default function Zlecenia() {
         ekipa_nazwa: data?.ekipa_nazwa || plannedTeam?.nazwa || wybraneZlecenie.ekipa_nazwa,
         sprzet_ids: data?.sprzet_ids || officePlan.sprzet_ids,
         sprzet_notatka: data?.sprzet_notatka || officePlan.sprzet_notatka,
-        rezerwacje_sprzetu: data?.rezerwacje_sprzetu || wybraneZlecenie.rezerwacje_sprzetu,
+        rezerwacje_sprzetu: data?.rezerwacje_sprzetu || data?.equipment_reservations || wybraneZlecenie.rezerwacje_sprzetu,
+        equipment_reservations: data?.equipment_reservations || data?.rezerwacje_sprzetu || wybraneZlecenie.equipment_reservations,
       };
       setWybraneZlecenie(updated);
       setZlecenia((prev) => prev.map((z) => (String(z.id) === String(updated.id) ? { ...z, ...updated } : z)));
@@ -3102,6 +4810,71 @@ export default function Zlecenia() {
     copyText(buildTaskBrief(task, null, diagnostics), `Skopiowano brief zlecenia #${task.id}.`);
   };
 
+  const copyCrewBrief = (task) => {
+    if (!task) return;
+    const taskId = String(task.id);
+    const photosForTask = taskId === String(wybraneZlecenie?.id || '')
+      ? selectedTaskPhotos
+      : (taskPhotosById[taskId] || []);
+    const problemsForTask = taskId === String(wybraneZlecenie?.id || '')
+      ? selectedTaskProblems
+      : (taskProblemsById[taskId] || []);
+    const contact = getClientContact(task.id);
+    const meta = getTaskBusinessMeta(task, todayIso, contact);
+    const checklist = taskId === String(wybraneZlecenie?.id || '')
+      ? detailSafetyChecklist
+      : getTaskSafetyChecklist(task, meta, contact);
+    const equipment = getTaskEquipmentList(task);
+    const description = getTaskCrewDescription(task);
+    const risk = getTaskCrewRisk(task);
+    const equipmentNote = getTaskCrewEquipmentNote(task);
+    const fieldPhotos = photosForTask.filter(isFieldEvidencePhoto);
+    const readiness = buildCrewBriefReadiness({
+      task,
+      fieldPhotos,
+      safetyChecklist: checklist,
+      equipment,
+      description,
+      risk,
+      equipmentNote,
+    });
+    const photoLines = fieldPhotos.slice(0, 6).map((photo, index) => {
+      const url = taskAssetUrl(photo.sciezka || photo.url);
+      return `${index + 1}. ${taskPhotoTypeLabel(photo.typ)}${photo.opis ? ` - ${photo.opis}` : ''}${url ? ` | ${url}` : ''}`;
+    });
+    const problemLines = problemsForTask.slice(0, 5).map((problem, index) => {
+      const type = CREW_ISSUE_TYPES.find((item) => item.key === problem.typ)?.label || problem.typ || problem.type || 'Problem';
+      const text = problem.opis || problem.description || problem.notatka || '';
+      return `${index + 1}. ${type}${text ? ` - ${text}` : ''}`;
+    });
+    const safetyMissing = checklist.filter((item) => !item.ok).map((item) => `${item.label}: ${item.detail}`);
+    const text = [
+      `ARBOR-OS | ODPRAWA BRYGADY | Zlecenie #${task.id}`,
+      `Gotowość pakietu: ${readiness.score}%`,
+      readiness.blockers.length ? `Blokady: ${readiness.blockers.map((item) => item.label).join(', ')}` : 'Blokady: brak',
+      '',
+      `Klient: ${task.klient_nazwa || 'brak'}`,
+      `Telefon: ${task.klient_telefon || 'brak'}`,
+      `Adres: ${getTaskAddressLine(task) || 'brak'}`,
+      getMapsHref(task) ? `Mapa: ${getMapsHref(task)}` : null,
+      `Termin: ${formatTaskPlanLine(task)}`,
+      `Ekipa: ${task.ekipa_nazwa || (task.ekipa_id ? `#${task.ekipa_id}` : 'brak')}`,
+      `Status: ${task.status || 'brak'}`,
+      `Wartość: ${formatCurrency(task.wartosc_planowana)}`,
+      '',
+      `Zakres prac: ${description || 'brak opisu'}`,
+      `Sprzęt/logistyka: ${[equipment.join(', '), equipmentNote].filter(Boolean).join(' | ') || 'brak doprecyzowania'}`,
+      `Ryzyka/BHP: ${risk || 'brak wpisanych ryzyk'}`,
+      '',
+      photoLines.length ? `Zdjęcia z oględzin:\n${photoLines.join('\n')}` : 'Zdjęcia z oględzin: brak',
+      safetyMissing.length ? `Braki BHP / odprawy:\n${safetyMissing.join('\n')}` : 'BHP / odprawa: bez braków krytycznych',
+      problemLines.length ? `Zgłoszone problemy:\n${problemLines.join('\n')}` : 'Zgłoszone problemy: brak',
+      '',
+      'Instrukcja: ekipa przed startem potwierdza zakres, zdjęcia i dojazd. Każdą zmianę zakresu zgłasza w aplikacji przed wykonaniem.',
+    ].filter(Boolean).join('\n');
+    copyText(text, `Skopiowano odprawę brygady #${task.id}.`);
+  };
+
   const buildClientMessage = (task, diagnostics = getTaskDiagnostics(task, todayIso)) => {
     const planned = task.data_planowana ? String(task.data_planowana).slice(0, 10) : '';
     const address = getTaskAddressLine(task);
@@ -3148,6 +4921,79 @@ export default function Zlecenia() {
     copyText(manifest, `Skopiowano odprawę: ${scopedTasks.length} zleceń.`);
   };
 
+  const buildOfficePlanHandoffText = (task) => {
+    if (!task) return '';
+    const taskId = String(task.id || '');
+    const isCurrentTask = taskId === String(wybraneZlecenie?.id || '');
+    const photosForTask = isCurrentTask
+      ? selectedTaskPhotos
+      : (taskPhotosById[taskId] || []);
+    const fieldPhotos = photosForTask.filter(isFieldEvidencePhoto);
+    const photoLines = fieldPhotos.slice(0, 8).map((photo, index) => {
+      const url = taskAssetUrl(photo.sciezka || photo.url);
+      return `${index + 1}. ${taskPhotoTypeLabel(photo.typ)}${photo.opis ? ` - ${photo.opis}` : ''}${url ? ` | ${url}` : ''}`;
+    });
+    const diagnostics = getTaskDiagnostics(task, todayIso);
+    const readiness = isCurrentTask ? officePlanReadinessItems : [];
+    const requiredMissing = readiness.filter((item) => item.required && !item.ok).map((item) => item.label);
+    const warnings = readiness.filter((item) => !item.required && !item.ok).map((item) => item.label);
+    const branchLabel = task.oddzial_id ? getBranchLabel(task.oddzial_id) : 'brak oddzialu';
+    const description = getTaskCrewDescription(task);
+    const risk = getTaskCrewRisk(task);
+    const equipmentNote = getTaskCrewEquipmentNote(task);
+    const equipmentList = getTaskEquipmentList(task);
+    const planDate = isCurrentTask
+      ? (officePlan.data_planowana || taskDateOnly(task.data_planowana))
+      : taskDateOnly(task.data_planowana);
+    const planTime = isCurrentTask
+      ? (officePlan.godzina_rozpoczecia || task.godzina_rozpoczecia || '')
+      : (task.godzina_rozpoczecia || '');
+    const planHours = isCurrentTask
+      ? (officePlan.czas_planowany_godziny || task.czas_planowany_godziny || '')
+      : (task.czas_planowany_godziny || '');
+    const teamLabel = isCurrentTask
+      ? (officePlanTeamLabel || task.ekipa_nazwa || (task.ekipa_id ? `#${task.ekipa_id}` : 'brak'))
+      : (task.ekipa_nazwa || (task.ekipa_id ? `#${task.ekipa_id}` : 'brak'));
+    const equipmentLabel = isCurrentTask
+      ? (officePlanHandoffEquipmentLabel || equipmentList.join(', ') || equipmentNote || 'brak')
+      : ([equipmentList.join(', '), equipmentNote].filter(Boolean).join(' | ') || 'brak');
+    const value = Number(task.wartosc_planowana || task.budzet || 0);
+    const mapUrl = getMapsHref(task);
+
+    return [
+      `ARBOR-OS | PAKIET PLANOWANIA | Zlecenie #${task.id}`,
+      `Status: ${task.status || 'brak'} | Oddzial: ${branchLabel} | Gotowosc: ${diagnostics.score}/100`,
+      '',
+      'KLIENT',
+      `Nazwa: ${task.klient_nazwa || 'brak'}`,
+      `Telefon: ${task.klient_telefon || 'brak'}`,
+      `Adres: ${getTaskAddressLine(task) || 'brak'}`,
+      mapUrl ? `Mapa: ${mapUrl}` : null,
+      '',
+      'PAKIET Z OGLEDZIN',
+      `Zakres: ${description || 'brak opisu zakresu'}`,
+      `Ryzyka: ${risk || 'brak ryzyk'}`,
+      `Zdjecia/szkic: ${fieldPhotos.length}/${photosForTask.length || 0}`,
+      photoLines.length ? photoLines.join('\n') : 'Brak linkow do zdjec z ogledzin.',
+      '',
+      'PLAN BIURA',
+      `Termin: ${[planDate, planTime].filter(Boolean).join(' ') || 'brak'}`,
+      `Czas: ${planHours ? `${planHours} h` : 'brak'}`,
+      `Ekipa: ${teamLabel}`,
+      `Sprzet: ${equipmentLabel}`,
+      `Budzet/wartosc: ${formatCurrencyZero(value)}`,
+      '',
+      'BRAKI I UWAGI',
+      requiredMissing.length ? `Blokady: ${requiredMissing.join(', ')}` : 'Blokady: brak',
+      warnings.length ? `Uwagi: ${warnings.join(', ')}` : 'Uwagi: brak',
+      `Nastepny ruch: ${diagnostics.nextAction?.label || 'sprawdz zlecenie'}`,
+    ].filter(Boolean).join('\n');
+  };
+
+  const copyOfficePlanHandoff = (task) => {
+    copyText(buildOfficePlanHandoffText(task), `Skopiowano pakiet planowania zlecenia #${task.id}.`);
+  };
+
   const handleTaskNextAction = async (task, diagnostics) => {
     const action = diagnostics.nextAction;
     if (action.target === 'status' && action.nextStatus && mozePrzesuwacStatus) {
@@ -3181,23 +5027,69 @@ export default function Zlecenia() {
   };
 
   const handleDetailDecisionAction = async () => {
-    if (!wybraneZlecenie || !detailNextAction) return;
-    if (detailNextAction.target === 'edit' && mozeEdytowac) {
-      otworzEdycje(wybraneZlecenie, getFormStepForEditAction(detailNextAction));
+    const action = detailNextAction || detailBusinessMeta?.diagnostics?.nextAction;
+    if (!wybraneZlecenie || !action) return;
+    if (action.target === 'edit' && mozeEdytowac) {
+      otworzEdycje(wybraneZlecenie, getFormStepForEditAction(action));
       return;
     }
-    if (detailNextAction.target === 'contact') {
+    if (action.target === 'contact') {
+      scrollToDetailSection('contact');
       pokazKomunikat('Sekcja kontaktu jest poniżej. Zapisz notatkę lub ustaw follow-up po rozmowie.');
       return;
     }
-    await handleTaskNextAction(wybraneZlecenie, { ...detailBusinessMeta.diagnostics, nextAction: detailNextAction });
+    await handleTaskNextAction(wybraneZlecenie, { ...(detailBusinessMeta?.diagnostics || {}), nextAction: action });
   };
 
   const scrollToDetailSection = (sectionKey) => {
-    window.requestAnimationFrame(() => {
-      document.querySelector(`[data-detail-section="${sectionKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    const run = () => {
+      const target = document.querySelector(`[data-detail-section="${sectionKey}"]`);
+      if (!target) return false;
+      if (typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return true;
+      }
+      if (typeof window.scrollTo === 'function' && typeof target.getBoundingClientRect === 'function') {
+        const currentTop = window.scrollY || document.documentElement?.scrollTop || document.body?.scrollTop || 0;
+        window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + currentTop - 12), behavior: 'smooth' });
+        return true;
+      }
+      return false;
+    };
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(run);
+    } else {
+      window.setTimeout(run, 0);
+    }
   };
+
+  const focusWorkflowPath = () => {
+    setWorkflowPathFocused(true);
+    scrollToDetailSection('workflowPath');
+    if (workflowPathFocusTimerRef.current) {
+      window.clearTimeout(workflowPathFocusTimerRef.current);
+    }
+    workflowPathFocusTimerRef.current = window.setTimeout(() => {
+      setWorkflowPathFocused(false);
+      workflowPathFocusTimerRef.current = null;
+    }, 2600);
+  };
+
+  useEffect(() => {
+    const focus = new URLSearchParams(location.search).get('focus') || '';
+    if (!routeTaskId || tryb !== 'szczegoly' || String(wybraneZlecenie?.id || '') !== String(routeTaskId)) return undefined;
+    if (!['photos', 'officePlan', 'crewBrief', 'decision', 'contact'].includes(focus)) return undefined;
+    let attempts = 0;
+    let timer = null;
+    const tick = () => {
+      attempts += 1;
+      scrollToDetailSection(focus);
+      if (attempts < 6) timer = window.setTimeout(tick, 240);
+    };
+    timer = window.setTimeout(tick, 220);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, routeTaskId, tryb, wybraneZlecenie?.id]);
 
   const handleDetailWorkflowCommand = async (action) => {
     if (!wybraneZlecenie || !action) return;
@@ -3214,10 +5106,26 @@ export default function Zlecenia() {
         pokazKomunikat('Brak uprawnień do edycji tego zlecenia.', 'error');
         return;
       }
-      otworzEdycje(wybraneZlecenie, action.formStep || getFormStepForEditAction(action));
+      otworzEdycje(wybraneZlecenie, action.formStep || getFormStepForEditAction(action), action.focusField ? {
+        field: action.focusField,
+        label: action.repairLabel || action.label || 'Pole do poprawy',
+        detail: action.repairDetail || action.detail || '',
+      } : null);
       return;
     }
     if (action.target === 'photos') {
+      if (action.repairLabel || action.repairDetail) {
+        const label = action.repairLabel || 'Dokumentacja zdjeciowa';
+        const detail = action.repairDetail || 'Dodaj zdjecie z wyceny albo szkic zakresu.';
+        const lower = `${label} ${detail}`.toLowerCase();
+        const isSketch = lower.includes('szkic') || lower.includes('rys');
+        setTaskPhotoRepairFocus({ label, detail });
+        setTaskPhotoDraft((prev) => ({
+          ...prev,
+          typ: isSketch ? 'Szkic' : 'Wycena',
+          tagi: isSketch ? 'szkic, wycena, teren' : 'wycena, teren',
+        }));
+      }
       scrollToDetailSection('photos');
       return;
     }
@@ -3233,8 +5141,39 @@ export default function Zlecenia() {
       scrollToDetailSection('decision');
       return;
     }
+    if (action.target === 'contact') {
+      scrollToDetailSection('contact');
+      return;
+    }
     if (action.target === 'copyBrief') {
       copyTaskBrief(wybraneZlecenie);
+    }
+  };
+
+  const handleOfficeDecisionAction = (action) => {
+    if (!wybraneZlecenie || !action) return;
+    if (action === 'photos') {
+      scrollToDetailSection('photos');
+      return;
+    }
+    if (action === 'officePlan') {
+      scrollToDetailSection('officePlan');
+      return;
+    }
+    if (action === 'crewBrief') {
+      scrollToDetailSection('crewBrief');
+      return;
+    }
+    if (action === 'contact') {
+      scrollToDetailSection('contact');
+      return;
+    }
+    if (action === 'finance') {
+      if (mozeEdytowac) {
+        otworzEdycje(wybraneZlecenie, 'finance');
+        return;
+      }
+      scrollToDetailSection('decision');
     }
   };
 
@@ -3345,9 +5284,46 @@ export default function Zlecenia() {
   };
  
   const todayIso = new Date().toISOString().slice(0, 10);
+  const isTaskForCurrentUserTurn = (task, diagnostics = getTaskDiagnostics(task, todayIso)) => {
+    if (!currentUser || !task || isTaskClosed(task.status)) return false;
+    const role = String(currentUser.rola || '').toLowerCase();
+    const status = String(task.status || '');
+    const userId = String(currentUser.id || '');
+    const userTeamId = String(currentUser.ekipa_id || '');
+    const taskEstimatorId = String(task.wyceniajacy_id || '');
+    const taskTeamId = String(task.ekipa_id || '');
+    const taskLeaderId = String(task.brygadzista_id || '');
+    const branchMatches = !currentUser.oddzial_id || !task.oddzial_id || String(task.oddzial_id) === String(currentUser.oddzial_id);
+
+    if (role.includes('wyceniaj')) {
+      return status === TASK_STATUS.WYCENA_TERENOWA && taskEstimatorId && taskEstimatorId === userId;
+    }
+    if (role.includes('bryg') || role.includes('pomoc')) {
+      const teamMatches = (userTeamId && taskTeamId === userTeamId) || (userId && taskLeaderId === userId);
+      return teamMatches && [TASK_STATUS.ZAPLANOWANE, TASK_STATUS.W_REALIZACJI].includes(status);
+    }
+    if (role.includes('specjal') || role.includes('sprzeda')) {
+      return branchMatches && [TASK_STATUS.NOWE, TASK_STATUS.DO_ZATWIERDZENIA].includes(status);
+    }
+    if (role.includes('kierownik')) {
+      return branchMatches && (
+        [TASK_STATUS.NOWE, TASK_STATUS.DO_ZATWIERDZENIA].includes(status) ||
+        diagnostics.readyToClose ||
+        diagnostics.blockers.length > 0
+      );
+    }
+    if (['prezes', 'dyrektor', 'administrator'].includes(role)) {
+      return [TASK_STATUS.NOWE, TASK_STATUS.DO_ZATWIERDZENIA].includes(status) ||
+        diagnostics.readyToClose ||
+        diagnostics.blockers.length > 0 ||
+        diagnostics.has.overdue;
+    }
+    return false;
+  };
   const matchesSmartFilter = (task, filterKey = smartFilter) => {
     if (!filterKey) return true;
     const diagnostics = getTaskDiagnostics(task, todayIso);
+    if (filterKey === 'myTurn') return isTaskForCurrentUserTurn(task, diagnostics);
     if (filterKey === 'overdue') return diagnostics.has.overdue;
     if (filterKey === 'unassigned') return diagnostics.has.unassigned;
     if (filterKey === 'urgent') return diagnostics.has.urgent;
@@ -3357,8 +5333,18 @@ export default function Zlecenia() {
     if (filterKey === 'noMedia') return diagnostics.has.noMedia;
     if (filterKey === 'noFieldSketch') return diagnostics.has.noFieldSketch;
     if (filterKey === 'noPrice') return diagnostics.has.noPrice;
+    if (filterKey === 'noCheckin') return diagnostics.has.noCheckin;
+    if (filterKey === 'fieldActive') return diagnostics.has.fieldActive;
     if (filterKey === 'fieldInspection') return getTaskInspectionWorkflow(task, diagnostics).key === 'fieldInspection';
     if (filterKey === 'officeApproval') return getTaskInspectionWorkflow(task, diagnostics).key === 'officeApproval';
+    if (filterKey === 'officePlanBlocked') {
+      const readiness = getTaskPackageReadiness(task, 'office');
+      return readiness.relevant && !readiness.ready;
+    }
+    if (filterKey === 'crewPackageBlocked') {
+      const readiness = getTaskPackageReadiness(task, 'crew');
+      return readiness.relevant && !readiness.ready;
+    }
     if (filterKey === 'readyClose') return diagnostics.has.readyClose;
     if (filterKey === 'contactTodo') {
       const contactStatus = getClientContact(task.id).status;
@@ -3380,10 +5366,19 @@ export default function Zlecenia() {
     if (view.status && task.status !== view.status) return false;
     return true;
   };
-  const operationalViews = OPERATIONAL_VIEWS.map((view) => ({
-    ...view,
-    count: zlecenia.filter((task) => matchesOperationalView(task, view)).length,
-  }));
+  const operationalViews = OPERATIONAL_VIEWS.map((view) => {
+    const viewTasks = zlecenia.filter((task) => matchesOperationalView(task, view));
+    const openViewTasks = viewTasks.filter((task) => !isTaskClosed(task.status));
+    const viewDiagnostics = openViewTasks.map((task) => getTaskDiagnostics(task, todayIso));
+    const blocked = viewDiagnostics.filter((diagnostics) => diagnostics.blockers.length > 0).length;
+    const ready = viewDiagnostics.filter((diagnostics) => diagnostics.blockers.length === 0).length;
+    return {
+      ...view,
+      count: viewTasks.length,
+      blocked,
+      ready,
+    };
+  });
   const activeOperationalViewKey = operationalViews.find((view) =>
     (view.smartFilter || '') === (smartFilter || '') &&
     (view.status || '') === (filtrStatus || '') &&
@@ -3430,17 +5425,36 @@ export default function Zlecenia() {
   const visibleNoMedia = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).has.noMedia).length;
   const visibleNoFieldSketch = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).has.noFieldSketch).length;
   const visibleNoPrice = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).has.noPrice).length;
+  const visibleNoCheckin = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).has.noCheckin).length;
+  const visibleFieldActive = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).has.fieldActive).length;
   const visibleFieldInspection = visibleOpenTasks.filter((task) => getTaskInspectionWorkflow(task, getTaskDiagnostics(task, todayIso)).key === 'fieldInspection').length;
   const visibleOfficeApproval = visibleOpenTasks.filter((task) => getTaskInspectionWorkflow(task, getTaskDiagnostics(task, todayIso)).key === 'officeApproval').length;
+  const visibleOfficePlanBlocked = visibleOpenTasks.filter((task) => {
+    const readiness = getTaskPackageReadiness(task, 'office');
+    return readiness.relevant && !readiness.ready;
+  }).length;
+  const visibleCrewPackageBlocked = visibleOpenTasks.filter((task) => {
+    const readiness = getTaskPackageReadiness(task, 'crew');
+    return readiness.relevant && !readiness.ready;
+  }).length;
   const visibleToday = widoczneZlecenia.filter((task) => getTaskDiagnostics(task, todayIso).has.today).length;
   const visibleReadyClose = widoczneZlecenia.filter((task) => getTaskDiagnostics(task, todayIso).has.readyClose).length;
+  const visibleWorkflowBlocked = visibleOpenTasks.filter((task) => getTaskDiagnostics(task, todayIso).blockers.length > 0).length;
+  const workflowPathStats = [
+    { key: 'open', label: 'Otwarte w widoku', value: visibleOpenTasks.length, detail: 'bez zamknietych i anulowanych' },
+    { key: 'ready', label: 'Gotowe do kroku', value: Math.max(0, visibleOpenTasks.length - visibleWorkflowBlocked), detail: 'bez krytycznych brakow' },
+    { key: 'blocked', label: 'Z blokada', value: visibleWorkflowBlocked, detail: 'wymaga reakcji biura lub terenu' },
+  ];
   const dispatchReadiness = [
     { key: 'crew', label: 'Obsada', count: visibleUnassigned, ok: 'Ekipy gotowe', danger: 'Bez ekipy', filterKey: 'unassigned' },
     { key: 'time', label: 'Termin', count: visibleNoDate, ok: 'Plan gotowy', danger: 'Bez terminu', filterKey: 'noDate' },
     { key: 'photos', label: 'Zdjęcia', count: visibleNoMedia, ok: 'Dokumentacja OK', danger: 'Bez zdjęć', filterKey: 'noMedia' },
     { key: 'sketch', label: 'Szkic', count: visibleNoFieldSketch, ok: 'Zakres opisany', danger: 'Bez szkicu', filterKey: 'noFieldSketch' },
     { key: 'price', label: 'Wycena', count: visibleNoPrice, ok: 'Cena OK', danger: 'Bez wyceny', filterKey: 'noPrice' },
+    { key: 'checkin', label: 'Check-in', count: visibleNoCheckin, ok: 'Teren potwierdzony', danger: 'Brak check-in', filterKey: 'noCheckin' },
     { key: 'contact', label: 'Kontakt', count: visibleNoContact, ok: 'Kontakt OK', danger: 'Brak telefonu', filterKey: 'noContact' },
+    { key: 'officePackage', label: 'Pakiet biura', count: visibleOfficePlanBlocked, ok: 'Planowanie OK', danger: 'Blokuje biuro', filterKey: 'officePlanBlocked' },
+    { key: 'crewPackage', label: 'Pakiet ekipy', count: visibleCrewPackageBlocked, ok: 'Ekipa gotowa', danger: 'Blokuje ekipę', filterKey: 'crewPackageBlocked' },
   ];
   const zleceniaOpsCards = [
     { label: 'Widoczne', value: widoczneZlecenia.length, detail: `${zlecenia.length} w systemie`, tone: 'green' },
@@ -3450,7 +5464,11 @@ export default function Zlecenia() {
     { label: 'Bez terminu', value: visibleNoDate, detail: 'nie wejdą do planu', tone: visibleNoDate ? 'warning' : 'green', filterKey: 'noDate' },
     { label: 'Bez zdjęć', value: visibleNoMedia, detail: 'ryzyko sporu z klientem', tone: visibleNoMedia ? 'danger' : 'green', filterKey: 'noMedia' },
     { label: 'Bez wyceny', value: visibleNoPrice, detail: 'teren bez ceny', tone: visibleNoPrice ? 'warning' : 'green', filterKey: 'noPrice' },
-    { label: 'U wyceniających', value: visibleFieldInspection, detail: 'oględziny / wycena', tone: 'warning', filterKey: 'fieldInspection' },
+    { label: 'Brak check-in', value: visibleNoCheckin, detail: 'ekipa nie potwierdzila miejsca', tone: visibleNoCheckin ? 'danger' : 'green', filterKey: 'noCheckin' },
+    { label: 'Praca trwa', value: visibleFieldActive, detail: 'aktywny log czasu', tone: visibleFieldActive ? 'blue' : 'green', filterKey: 'fieldActive' },
+    { label: 'Pakiet biura', value: visibleOfficePlanBlocked, detail: 'blokuje plan', tone: visibleOfficePlanBlocked ? 'danger' : 'green', filterKey: 'officePlanBlocked' },
+    { label: 'Pakiet ekipy', value: visibleCrewPackageBlocked, detail: 'blokuje start', tone: visibleCrewPackageBlocked ? 'warning' : 'green', filterKey: 'crewPackageBlocked' },
+    { label: 'U specjalistów ds. wyceny', value: visibleFieldInspection, detail: 'oględziny / wycena', tone: 'warning', filterKey: 'fieldInspection' },
     { label: 'Do zatwierdzenia', value: visibleOfficeApproval, detail: 'biuro tylko akceptuje', tone: visibleOfficeApproval ? 'blue' : 'green', filterKey: 'officeApproval' },
     { label: 'Dzisiaj', value: visibleToday, detail: `${visibleReadyClose} do zamknięcia`, tone: 'blue', filterKey: 'today' },
   ];
@@ -3491,6 +5509,8 @@ export default function Zlecenia() {
   const detailClosureEvents = wybraneZlecenie ? (closureDecisionEvents[String(wybraneZlecenie.id)] || []) : [];
   const areAllVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedTaskIds.includes(id));
   const KANBAN_COLUMNS = TASK_STATUSES;
+  const ekipyPlanowania = mergeTeamOptions(ekipy, branchTeams);
+  const sprzetPlanowania = mergeEquipmentOptions(sprzetItems, branchEquipment);
   const branchLabelsById = new Map();
   if (currentUser?.oddzial_id) {
     branchLabelsById.set(String(currentUser.oddzial_id), currentUser.oddzial_nazwa || `Oddział #${currentUser.oddzial_id}`);
@@ -3525,7 +5545,21 @@ export default function Zlecenia() {
       }
     }
   }
-  for (const item of sprzetItems) {
+  for (const team of ekipyPlanowania) {
+    const id = String(teamAvailableBranchId(team) || '');
+    if (id && (!branchLabelsById.has(id) || !branchLabelsById.get(id))) {
+      branchLabelsById.set(
+        id,
+        team.dostepny_w_oddziale_nazwa ||
+          team.oddzial_macierzysty_nazwa ||
+          team.oddzial_nazwa ||
+          team.oddzial ||
+          team.miasto ||
+          `Oddział #${id}`
+      );
+    }
+  }
+  for (const item of sprzetPlanowania) {
     if (item.oddzial_id) {
       const id = String(item.oddzial_id);
       if (!branchLabelsById.has(id) || !branchLabelsById.get(id)) {
@@ -3538,13 +5572,95 @@ export default function Zlecenia() {
     if (!id) return 'Brak oddziału';
     return branchLabelsById.get(id) || `Oddział #${id}`;
   };
+  const officePlanningRows = zlecenia
+    .filter((task) => !isTaskClosed(task.status) && task.status === TASK_STATUS.DO_ZATWIERDZENIA)
+    .map((task) => {
+      const photos = getTaskPhotoSummary(task);
+      const meta = getTaskBusinessMeta(task, todayIso, getClientContact(task.id));
+      const equipment = getTaskEquipmentList(task);
+      const equipmentNote = getTaskCrewEquipmentNote(task);
+      const apiOfficeChecks = getTaskReadinessChecksFromApi(task, 'office_plan_checks');
+      const apiOfficeMissing = apiOfficeChecks.filter((item) => !item.ok).map((item) => item.label);
+      const missing = apiOfficeChecks.length ? apiOfficeMissing : [
+        !task.data_planowana ? 'data' : null,
+        !task.godzina_rozpoczecia ? 'godzina' : null,
+        Number(task.czas_planowany_godziny) > 0 ? null : 'czas',
+        !task.ekipa_id ? 'ekipa' : null,
+      ].filter(Boolean);
+      const warnings = apiOfficeChecks.length ? [] : [
+        photos.total > 0 ? null : 'brak zdjęć',
+        photos.fieldEvidence > 0 ? null : 'brak szkicu',
+        getTaskCrewDescription(task) ? null : 'brak zakresu',
+        getTaskCrewRisk(task) ? null : 'brak ryzyk',
+        equipment.length || equipmentNote ? null : 'brak sprzetu',
+      ].filter(Boolean);
+      return {
+        task,
+        meta,
+        photos,
+        equipment,
+        equipmentLabel: equipment.length ? `${equipment.length} sprz.` : (equipmentNote ? 'uwagi sprz.' : 'sprzet -'),
+        missing,
+        warnings,
+        value: Number(task.wartosc_planowana) || 0,
+        address: getTaskAddressLine(task),
+        branchLabel: getBranchLabel(task.oddzial_id),
+        slotLabel: formatTaskPlanLine(task),
+        teamLabel: task.ekipa_nazwa || (task.ekipa_id ? `Ekipa #${task.ekipa_id}` : 'Bez ekipy'),
+      };
+    })
+    .sort((a, b) => {
+      if (a.missing.length !== b.missing.length) return a.missing.length - b.missing.length;
+      const aDays = Number.isFinite(a.meta.daysLeft) ? a.meta.daysLeft : 9999;
+      const bDays = Number.isFinite(b.meta.daysLeft) ? b.meta.daysLeft : 9999;
+      if (aDays !== bDays) return aDays - bDays;
+      return Number(b.task.id || 0) - Number(a.task.id || 0);
+    });
+  const officePlanningTopRows = officePlanningRows.slice(0, 6);
+  const officePlanningReady = officePlanningRows.filter((row) => row.missing.length === 0).length;
+  const officePlanningBlocked = Math.max(0, officePlanningRows.length - officePlanningReady);
+  const officePlanningValue = officePlanningRows.reduce((sum, row) => sum + row.value, 0);
+  const officeApprovalView = OPERATIONAL_VIEWS.find((view) => view.key === 'officeApproval') || OPERATIONAL_VIEWS[2];
+  const openOfficePlanningTask = (task) => {
+    otworzSzczegoly(task);
+    window.setTimeout(() => scrollToDetailSection('officePlan'), 180);
+  };
+  const openResourceCalendarForTask = (task = null, options = {}) => {
+    const params = new URLSearchParams();
+    params.set('queue', 'planning');
+    params.set('tab', options.tab || 'teams');
+    params.set('modal', options.modal ?? (options.tab === 'equipment' ? '0' : '1'));
+
+    if (task?.id) {
+      const isCurrentTask = String(task.id) === String(wybraneZlecenie?.id || '');
+      const plannedDate = String(
+        (isCurrentTask ? officePlan.data_planowana : '') ||
+        task.data_planowana ||
+        task.data_zaplanowana ||
+        ''
+      ).slice(0, 10);
+      const teamId = (isCurrentTask ? officePlan.ekipa_id : '') || task.ekipa_id || '';
+      const branchId = task.oddzial_id || currentUser?.oddzial_id || '';
+      const equipmentIds = isCurrentTask && (officePlan.sprzet_ids || []).length
+        ? officePlan.sprzet_ids
+        : getTaskReservedEquipmentIds(task);
+
+      params.set('task', String(task.id));
+      if (plannedDate) params.set('date', plannedDate);
+      if (teamId) params.set('team', String(teamId));
+      if (branchId) params.set('oddzial', String(branchId));
+      if (equipmentIds.length) params.set('equipment', equipmentIds.map(String).join(','));
+    }
+
+    navigate(`/kalendarz-zasobow?${params.toString()}`);
+  };
   const oddzialyOpcje = [
     ...new Set([
       ...zlecenia.map((z) => z.oddzial_id),
       ...oddzialy.map((oddzial) => oddzial.id),
       ...uzytkownicy.map((u) => u.oddzial_id),
-      ...ekipy.map((ekipa) => ekipa.oddzial_id),
-      ...sprzetItems.map((item) => item.oddzial_id),
+      ...ekipyPlanowania.map((ekipa) => teamAvailableBranchId(ekipa)),
+      ...sprzetPlanowania.map((item) => item.oddzial_id),
     ].filter(Boolean).map((value) => String(value))),
   ];
   const branchSelectOptions = [
@@ -3561,6 +5677,31 @@ export default function Zlecenia() {
       String(u.id) === String(form.wyceniajacy_id)
     ));
   const quickCallEstimatorOptions = getEstimatorOptionsForBranch(quickCall.oddzial_id, quickCall.wyceniajacy_id);
+  const quickCallEstimator = uzytkownicy.find((u) => String(u.id) === String(quickCall.wyceniajacy_id));
+  const quickCallEstimatorLabel = quickCallEstimator
+    ? [quickCallEstimator.imie, quickCallEstimator.nazwisko].filter(Boolean).join(' ') || quickCallEstimator.login || `#${quickCallEstimator.id}`
+    : '';
+  const quickCallBranchLabel = quickCall.oddzial_id ? getBranchLabel(quickCall.oddzial_id) : '';
+  const quickCallInspectionPackage = buildQuickCallInspectionPackage({
+    quickCall,
+    branchLabel: quickCallBranchLabel,
+    estimatorLabel: quickCallEstimatorLabel,
+    operatorName: getOperatorName(),
+  });
+  const quickCallPackagePreview = [
+    { key: 'client', label: 'Klient', value: quickCall.klient_nazwa || 'Brak', ready: Boolean(quickCall.klient_nazwa) },
+    { key: 'phone', label: 'Telefon', value: quickCall.klient_telefon || 'Brak', ready: Boolean(quickCall.klient_telefon) },
+    { key: 'address', label: 'Adres', value: quickCallInspectionPackage.address || 'Brak', ready: Boolean(quickCallInspectionPackage.address) },
+    { key: 'slot', label: 'Oględziny', value: quickCallInspectionPackage.slot || 'Brak terminu', ready: Boolean(quickCall.data_planowana) },
+    { key: 'branch', label: 'Oddział', value: quickCallBranchLabel || 'Brak', ready: Boolean(quickCall.oddzial_id) },
+    { key: 'estimator', label: 'Specjalista ds. wyceny', value: quickCallEstimatorLabel || 'Brak', ready: Boolean(quickCall.wyceniajacy_id) },
+  ];
+  const quickCallFieldTasks = [
+    'Zdjęcia miejsca i drzew',
+    'Szkic cięcia / zakresu',
+    'Czas, budżet i ryzyka',
+    'Decyzja klienta po wycenie',
+  ];
   const quickCallBranchSelected = Boolean(String(quickCall.oddzial_id || '').trim());
   const quickCallNoEstimatorForBranch = quickCallBranchSelected && quickCallEstimatorOptions.length === 0;
   const quickCallNeedsEstimatorChoice = quickCallBranchSelected && quickCallEstimatorOptions.length > 1 && !quickCall.wyceniajacy_id;
@@ -3573,10 +5714,10 @@ export default function Zlecenia() {
       prev.wyceniajacy_id ? prev : { ...prev, wyceniajacy_id: quickCallAutoEstimatorId }
     ));
   }, [quickCallAutoEstimatorId]);
-  const teamOptions = ekipy.filter((ekipa) => (
+  const teamOptions = ekipyPlanowania.filter((ekipa) => (
     !form.oddzial_id ||
-    !ekipa.oddzial_id ||
-    String(ekipa.oddzial_id) === String(form.oddzial_id) ||
+    !teamAvailableBranchId(ekipa) ||
+    String(teamAvailableBranchId(ekipa)) === String(form.oddzial_id) ||
     String(ekipa.id) === String(form.ekipa_id)
   ));
   const kanbanStats = KANBAN_COLUMNS.map((status) => {
@@ -3587,7 +5728,6 @@ export default function Zlecenia() {
   const totalKanbanValue = kanbanStats.reduce((sum, s) => sum + s.total, 0);
  
   const getStatusColor = (st) => getTaskStatusColor(st);
-  const getPriorytetColor = (p) => ({ Pilny: '#EF5350', Wysoki: '#F9A825', Normalny: '#2196F3', Niski: '#9CA3AF' }[p] || '#6B7280');
   const formatCurrency = (v) => !v ? '—' : parseFloat(v).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' PLN';
   const formatCurrencyZero = (v) => (Number(v) || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 }) + ' PLN';
   const formatPercent = (v) => `${Math.round((Number(v) || 0) * 100)}%`;
@@ -3614,28 +5754,39 @@ export default function Zlecenia() {
   const formPreviewSafetyRequired = formPreviewSafety.filter((item) => item.required && !item.ok);
   const selectedTaskPhotos = wybraneZlecenie?.id ? (taskPhotosById[String(wybraneZlecenie.id)] || []) : [];
   const selectedTaskProblems = wybraneZlecenie?.id ? (taskProblemsById[String(wybraneZlecenie.id)] || []) : [];
-  const fieldPhotoCount = selectedTaskPhotos.filter((photo) => {
-    const kind = String(photo.typ || photo.type || '').toLowerCase();
-    return kind.includes('wycen') || kind.includes('szkic') || kind.includes('rys');
-  }).length;
+  const fieldPhotoCount = selectedTaskPhotos.filter(isFieldEvidencePhoto).length;
   const detailPlanTeamOptions = wybraneZlecenie
-    ? ekipy.filter((ekipa) => (
+    ? ekipyPlanowania.filter((ekipa) => (
       !wybraneZlecenie.oddzial_id ||
-      !ekipa.oddzial_id ||
-      String(ekipa.oddzial_id) === String(wybraneZlecenie.oddzial_id) ||
+      !teamAvailableBranchId(ekipa) ||
+      String(teamAvailableBranchId(ekipa)) === String(wybraneZlecenie.oddzial_id) ||
       String(ekipa.id) === String(officePlan.ekipa_id)
     ))
     : [];
+  const officePlanSuggestionDate = officePlan.data_planowana || taskDateOnly(wybraneZlecenie?.data_planowana) || todayIso;
+  const officePlanSuggestion = wybraneZlecenie ? getOfficePlanSuggestion({
+    tasks: zlecenia,
+    teams: detailPlanTeamOptions,
+    task: wybraneZlecenie,
+    day: officePlanSuggestionDate,
+    durationHours: officePlan.czas_planowany_godziny,
+    preferredTeamId: officePlan.ekipa_id,
+  }) : null;
   const officePlanTeam = detailPlanTeamOptions.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id))
+    || ekipyPlanowania.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id))
     || ekipy.find((ekipa) => String(ekipa.id) === String(officePlan.ekipa_id));
+  const officePlanTeamConflictSummary = wybraneZlecenie
+    ? getOfficePlanTeamConflictSummary(zlecenia, wybraneZlecenie, officePlan)
+    : { readyToCheck: false, ok: false, hardConflict: false, warning: false, outsideWorkday: false, conflicts: [], label: '', detail: '' };
   const detailEquipmentOptions = wybraneZlecenie
-    ? [...sprzetItems]
+    ? [...sprzetPlanowania]
       .filter((item) => {
         const selected = (officePlan.sprzet_ids || []).some((id) => String(id) === String(item.id));
         const sameBranch = !wybraneZlecenie.oddzial_id || !item.oddzial_id || String(item.oddzial_id) === String(wybraneZlecenie.oddzial_id);
+        const assignedToSelectedTeam = isEquipmentAssignedToTeam(item, officePlan.ekipa_id);
         const status = String(item.status || '').toLowerCase();
         const unavailable = status.includes('serwis') || status.includes('awari') || status.includes('wycof');
-        return selected || (sameBranch && !unavailable);
+        return selected || ((sameBranch || assignedToSelectedTeam) && !unavailable);
       })
       .sort((a, b) => {
         const aTeam = officePlan.ekipa_id && String(a.ekipa_id || '') === String(officePlan.ekipa_id) ? 0 : 1;
@@ -3646,6 +5797,23 @@ export default function Zlecenia() {
     : [];
   const selectedOfficeEquipment = detailEquipmentOptions.filter((item) =>
     (officePlan.sprzet_ids || []).some((id) => String(id) === String(item.id))
+  );
+  const officePlanEquipmentConflictSummary = wybraneZlecenie
+    ? getOfficePlanEquipmentConflictSummary(
+      officePlanEquipmentReservations,
+      wybraneZlecenie,
+      officePlan,
+      {
+        loading: officePlanEquipmentReservationsLoading,
+        error: officePlanEquipmentReservationsErr,
+      }
+    )
+    : { readyToCheck: false, ok: true, hardConflict: false, warning: false, pending: false, conflicts: [], label: '', detail: '' };
+  const showOfficePlanPanel = Boolean(
+    wybraneZlecenie &&
+    mozePlanowacBiuro &&
+    !isTaskClosed(wybraneZlecenie.status) &&
+    [TASK_STATUS.DO_ZATWIERDZENIA, TASK_STATUS.ZAPLANOWANE].includes(wybraneZlecenie.status)
   );
   const officePlanCrewBrief = wybraneZlecenie ? getTaskCrewDescription(wybraneZlecenie) : '';
   const officePlanEquipmentNote = String(officePlan.sprzet_notatka || '').trim();
@@ -3675,6 +5843,13 @@ export default function Zlecenia() {
       ok: Boolean(officePlan.ekipa_id),
       required: true,
     },
+    officePlanTeamConflictSummary.readyToCheck ? {
+      key: 'team-conflict',
+      label: 'Radar grafiku',
+      detail: officePlanTeamConflictSummary.detail,
+      ok: officePlanTeamConflictSummary.ok && !officePlanTeamConflictSummary.warning,
+      required: officePlanTeamConflictSummary.hardConflict,
+    } : null,
     {
       key: 'photos',
       label: 'Zdjęcia / szkic',
@@ -3695,29 +5870,112 @@ export default function Zlecenia() {
       key: 'equipment',
       label: 'Sprzęt',
       detail: selectedOfficeEquipment.length
-        ? selectedOfficeEquipment.map((item) => item.nazwa || `#${item.id}`).join(', ')
+        ? selectedOfficeEquipment.map((item) => getEquipmentPlanLabel(item, {
+          teamId: officePlan.ekipa_id,
+          taskBranchId: wybraneZlecenie?.oddzial_id,
+          getBranchLabel,
+        })).join(', ')
         : (officePlanEquipmentNote || 'brak konkretnych rezerwacji sprzętu'),
       ok: selectedOfficeEquipment.length > 0 || Boolean(officePlanEquipmentNote) || detailEquipmentList.length > 0,
       required: false,
     },
-  ] : [];
+    officePlanEquipmentConflictSummary.readyToCheck ? {
+      key: 'equipment-conflict',
+      label: 'Radar sprzetu',
+      detail: officePlanEquipmentConflictSummary.detail,
+      ok: officePlanEquipmentConflictSummary.ok && !officePlanEquipmentConflictSummary.warning && !officePlanEquipmentConflictSummary.pending,
+      required: officePlanEquipmentConflictSummary.hardConflict || officePlanEquipmentConflictSummary.pending,
+    } : null,
+  ].filter(Boolean) : [];
   const officePlanRequiredMissing = officePlanReadinessItems.filter((item) => item.required && !item.ok);
   const officePlanWarningMissing = officePlanReadinessItems.filter((item) => !item.required && !item.ok);
-  const officePlanStatusTone = officePlanRequiredMissing.length ? 'danger' : officePlanWarningMissing.length ? 'warning' : 'good';
+  const officePlanHasScheduleConflict = officePlanTeamConflictSummary.hardConflict;
+  const officePlanHasEquipmentConflict = officePlanEquipmentConflictSummary.hardConflict || officePlanEquipmentConflictSummary.pending;
+  const officePlanStatusTone = officePlanHasScheduleConflict || officePlanHasEquipmentConflict || officePlanRequiredMissing.length ? 'danger' : officePlanWarningMissing.length ? 'warning' : 'good';
   const officePlanStatusLabel = wybraneZlecenie?.status === TASK_STATUS.ZAPLANOWANE && !officePlanRequiredMissing.length
     ? 'Zaplanowane'
-    : officePlanRequiredMissing.length
+    : officePlanHasScheduleConflict
+      ? 'Konflikt terminu'
+      : officePlanHasEquipmentConflict
+        ? officePlanEquipmentConflictSummary.pending ? 'Sprawdzam sprzet' : 'Konflikt sprzetu'
+      : officePlanRequiredMissing.length
       ? `Brakuje: ${officePlanRequiredMissing.length}`
       : officePlanWarningMissing.length
         ? 'Do doprecyzowania'
         : 'Gotowe dla ekipy';
+  const officePlanTeamLabel = officePlanTeam
+    ? getTeamOptionLabel(officePlanTeam)
+    : (wybraneZlecenie?.ekipa_nazwa || (wybraneZlecenie?.ekipa_id ? `Ekipa #${wybraneZlecenie.ekipa_id}` : ''));
+  const officePlanHandoffPlanLabel = [
+    officePlan.data_planowana || taskDateOnly(wybraneZlecenie?.data_planowana),
+    officePlan.godzina_rozpoczecia,
+    officePlan.czas_planowany_godziny ? `${officePlan.czas_planowany_godziny} h` : '',
+  ].filter(Boolean).join(' | ');
+  const officePlanHandoffEquipmentLabel = selectedOfficeEquipment.length
+    ? selectedOfficeEquipment.map((item) => getEquipmentPlanLabel(item, {
+      teamId: officePlan.ekipa_id,
+      taskBranchId: wybraneZlecenie?.oddzial_id,
+      getBranchLabel,
+    })).join(', ')
+    : (detailEquipmentList.join(', ') || officePlanEquipmentNote || '');
   const officePlanCanSubmit = !officePlanSaving && officePlanRequiredMissing.length === 0;
-  const showOfficePlanPanel = Boolean(
-    wybraneZlecenie &&
-    mozePlanowacBiuro &&
-    !isTaskClosed(wybraneZlecenie.status) &&
-    [TASK_STATUS.DO_ZATWIERDZENIA, TASK_STATUS.ZAPLANOWANE].includes(wybraneZlecenie.status)
-  );
+  const detailRepairItems = wybraneZlecenie ? buildDetailRepairItems({
+    qualityChecklist: detailQualityChecklist,
+    safetyChecklist: detailSafetyChecklist,
+    officePlanReadinessItems,
+    showOfficePlanPanel,
+  }) : [];
+  const officeDecisionCards = wybraneZlecenie && detailBusinessMeta ? [
+    {
+      key: 'field-package',
+      label: 'Pakiet z oględzin',
+      value: fieldPhotoCount ? `${fieldPhotoCount} dowodów` : 'Brak zdjęć',
+      detail: detailRequiredIssues.find((item) => item.key === 'fieldEvidence')?.detail
+        || detailPriceGuidance?.detail
+        || 'Zdjęcia, szkic, zakres, czas i cena z terenu.',
+      tone: fieldPhotoCount && !detailRequiredIssues.some((item) => item.key === 'fieldEvidence') ? 'good' : 'warning',
+      action: 'photos',
+      actionLabel: 'Zdjęcia / szkic',
+    },
+    {
+      key: 'office-plan',
+      label: 'Plan ekipy',
+      value: officePlanStatusLabel,
+      detail: officePlanRequiredMissing[0]?.detail || officePlanWarningMissing[0]?.detail || 'Termin, ekipa i sprzęt są gotowe do przekazania.',
+      tone: officePlanStatusTone,
+      action: 'officePlan',
+      actionLabel: 'Plan biura',
+    },
+    {
+      key: 'money',
+      label: 'Cena i warunki',
+      value: detailPriceGuidance?.label || formatMoneyBrief(wybraneZlecenie.wartosc_planowana),
+      detail: `Wartość ${formatCurrencyZero(detailBusinessMeta.value)} · jakość ${detailBusinessMeta.diagnostics.score}/100`,
+      tone: detailPriceGuidance?.tone || 'good',
+      action: 'finance',
+      actionLabel: 'Finanse',
+    },
+    {
+      key: 'crew-brief',
+      label: 'Odprawa brygady',
+      value: detailSafetyRequiredIssues.length ? `BHP ${detailSafetyRequiredIssues.length}` : 'Gotowa',
+      detail: detailSafetyRequiredIssues[0]?.detail || detailEquipmentList.slice(0, 3).join(', ') || 'Brief, ryzyka i sprzęt są czytelne dla ekipy.',
+      tone: detailSafetyRequiredIssues.length ? 'danger' : detailSafetyChecklist.length ? 'good' : 'warning',
+      action: 'crewBrief',
+      actionLabel: 'Brief',
+    },
+    {
+      key: 'client',
+      label: 'Klient',
+      value: detailContactOption.label,
+      detail: wybraneZlecenie.klient_telefon
+        ? `${wybraneZlecenie.klient_telefon}${detailContact.dueAt ? ` · ${detailFollowupMeta.label}` : ''}`
+        : 'Brak telefonu klienta.',
+      tone: detailContactOption.tone === 'danger' || !wybraneZlecenie.klient_telefon ? 'danger' : detailContactOption.tone === 'warning' ? 'warning' : 'good',
+      action: 'contact',
+      actionLabel: 'Kontakt',
+    },
+  ] : [];
   const detailWorkflowRows = wybraneZlecenie && detailBusinessMeta
     ? getDetailWorkflowCommandRows({
       task: wybraneZlecenie,
@@ -3760,7 +6018,26 @@ export default function Zlecenia() {
       tone: selectedTaskPhotos.length ? 'blue' : 'warning',
     },
   ] : [];
-  const setFormStepSafe = (key) => setFormStep(FORM_STEP_KEYS.has(key) ? key : 'client');
+  const formRepairStep = formRepairFocus?.field ? FORM_REPAIR_FIELD_STEPS[formRepairFocus.field] : '';
+  const formRepairStepLabel = FORM_STEPS.find((step) => step.key === formRepairStep)?.label || currentFormStep.label;
+  const isRepairField = (field) => Boolean(formRepairFocus?.field && formRepairFocus.field === field);
+  const fgStyle = (field, extra = {}) => ({
+    ...s.fg,
+    ...extra,
+    ...(isRepairField(field) ? s.formRepairField : {}),
+  });
+  const inputStyle = (field, extra = {}) => ({
+    ...s.input,
+    ...(isRepairField(field) ? s.inputRepairFocus : {}),
+    ...extra,
+  });
+  const setFormStepSafe = (key) => {
+    const next = FORM_STEP_KEYS.has(key) ? key : 'client';
+    setFormStep(next);
+    if (formRepairFocus?.field && FORM_REPAIR_FIELD_STEPS[formRepairFocus.field] !== next) {
+      setFormRepairFocus(null);
+    }
+  };
   const goPrevFormStep = () => setFormStep(FORM_STEPS[Math.max(0, formStepIndex - 1)].key);
   const goNextFormStep = () => setFormStep(FORM_STEPS[Math.min(FORM_STEPS.length - 1, formStepIndex + 1)].key);
  
@@ -3937,7 +6214,7 @@ export default function Zlecenia() {
                   <div style={s.quickCallHeader}>
                     <div>
                       <div style={s.dispatchEyebrow}>Telefon do biura</div>
-                      <div style={s.quickCallTitle}>30 sekund: klient, adres, termin i wyceniacz</div>
+                      <div style={s.quickCallTitle}>30 sekund: klient, adres, termin i specjalista ds. wyceny</div>
                     </div>
                     <span style={s.quickCallStatus}>Tworzy: Wycena_Terenowa</span>
                   </div>
@@ -3982,6 +6259,18 @@ export default function Zlecenia() {
                       />
                     </div>
                     <div style={s.fg}>
+                      <label style={s.label}>Typ prac</label>
+                      <select
+                        style={s.input}
+                        value={quickCall.typ_uslugi || TASK_SERVICE_TYPES[0]}
+                        onChange={(event) => setQuickCallField('typ_uslugi', event.target.value)}
+                      >
+                        {TASK_SERVICE_TYPES.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={s.fg}>
                       <label style={s.label}>Data oględzin *</label>
                       <input
                         style={s.input}
@@ -4014,7 +6303,7 @@ export default function Zlecenia() {
                       </select>
                     </div>
                     <div style={s.fg}>
-                      <label style={s.label}>Wyceniacz *</label>
+                      <label style={s.label}>Specjalista ds. wyceny *</label>
                       <select
                         style={{
                           ...s.input,
@@ -4030,11 +6319,11 @@ export default function Zlecenia() {
                       </select>
                       {quickCallNoEstimatorForBranch ? (
                         <div style={s.quickCallFieldHintDanger}>
-                          Brak wyceniacza w oddziale {getBranchLabel(quickCall.oddzial_id)}.
+                          Brak specjalisty ds. wyceny w oddziale {getBranchLabel(quickCall.oddzial_id)}.
                         </div>
                       ) : quickCallNeedsEstimatorChoice ? (
                         <div style={s.quickCallFieldHint}>
-                          W oddziale jest kilku wyceniaczy. Wybierz osobę do oględzin.
+                          W oddziale jest kilku specjalistów ds. wyceny. Wybierz osobę do oględzin.
                         </div>
                       ) : null}
                     </div>
@@ -4048,14 +6337,74 @@ export default function Zlecenia() {
                       />
                     </div>
                   </div>
+                  <div style={s.quickCallPackagePanel}>
+                    <div style={s.quickCallPackageHeader}>
+                      <div>
+                        <div style={s.dispatchEyebrow}>Pakiet dla specjalisty ds. wyceny</div>
+                        <div style={s.quickCallPackageTitle}>To trafi do mobilki jako oględziny terenowe</div>
+                      </div>
+                      <span style={quickCallReady ? s.quickCallReady : s.quickCallMissing}>
+                        {quickCallReady ? 'Komplet podstawowy' : `${quickCallMissingFields.length} braków`}
+                      </span>
+                    </div>
+                    <div style={s.quickCallPackageGrid}>
+                      {quickCallPackagePreview.map((item) => (
+                        <div
+                          key={item.key}
+                          style={{
+                            ...s.quickCallPackageItem,
+                            ...(item.ready ? s.quickCallPackageItemReady : s.quickCallPackageItemMissing),
+                          }}
+                        >
+                          <span style={s.quickCallPackageLabel}>{item.label}</span>
+                          <strong style={s.quickCallPackageValue}>{item.value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                    <div
+                      style={{
+                        ...s.quickCallSchedulePanel,
+                        ...(s[`quickCallSchedulePanel_${quickCallSchedule.tone}`] || {}),
+                      }}
+                    >
+                      <div style={s.quickCallScheduleMain}>
+                        <span style={s.quickCallPackageLabel}>Kalendarz wyceniającego</span>
+                        <strong style={s.quickCallScheduleTitle}>{quickCallSchedule.label}</strong>
+                        <small style={s.quickCallScheduleDetail}>{quickCallSchedule.detail}</small>
+                      </div>
+                      <div style={s.quickCallScheduleSide}>
+                        {quickCallSchedule.items.slice(0, 4).map((item) => (
+                          <span key={item.id} style={s.quickCallScheduleItem}>
+                            {item.time || '--:--'} · #{item.id} {item.city || item.client}
+                          </span>
+                        ))}
+                        {quickCallSchedule.suggestedTime ? (
+                          <button
+                            type="button"
+                            style={s.quickCallScheduleFixBtn}
+                            onClick={() => setQuickCallField('godzina_rozpoczecia', quickCallSchedule.suggestedTime)}
+                          >
+                            Wstaw {quickCallSchedule.suggestedTime}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div style={s.quickCallTaskStrip}>
+                      {quickCallFieldTasks.map((item) => (
+                        <span key={item} style={s.quickCallTaskChip}>{item}</span>
+                      ))}
+                    </div>
+                  </div>
                   <div style={s.quickCallFooter}>
                     <span style={s.quickCallFooterText}>
                       <span style={quickCallReady ? s.quickCallReady : s.quickCallMissing}>
-                        {quickCallReady ? 'Gotowe do wysłania wyceniaczowi.' : `Brakuje: ${quickCallMissingFields.join(', ')}`}
+                        {quickCallReady
+                          ? 'Gotowe do wysłania specjaliście ds. wyceny.'
+                          : quickCallSchedule.blockingReason || `Brakuje: ${quickCallMissingFields.join(', ')}`}
                       </span>
                       <span style={s.quickCallFooterHint}>
                         {quickCallHasDraft ? 'Szkic zapisany lokalnie. ' : ''}
-                        Po zapisie wyceniacz zobaczy to w mobilce jako oględziny terenowe.
+                        Po zapisie specjalista ds. wyceny zobaczy to w mobilce jako oględziny terenowe.
                       </span>
                     </span>
                     <div style={s.quickCallActions}>
@@ -4081,6 +6430,21 @@ export default function Zlecenia() {
                   </div>
                   <span style={s.workflowLaneHint}>Kliknij etap, żeby zobaczyć tylko te sprawy.</span>
                 </div>
+                <div style={s.workflowHealthStrip}>
+                  {workflowPathStats.map((item) => (
+                    <div
+                      key={item.key}
+                      style={{
+                        ...s.workflowHealthItem,
+                        ...(item.key === 'blocked' && item.value > 0 ? s.workflowHealthItemWarn : {}),
+                      }}
+                    >
+                      <span style={s.workflowHealthLabel}>{item.label}</span>
+                      <strong style={s.workflowHealthValue}>{item.value}</strong>
+                      <small style={s.workflowHealthDetail}>{item.detail}</small>
+                    </div>
+                  ))}
+                </div>
                 <div style={s.savedViews}>
                   {operationalViews.map((view) => (
                     <button
@@ -4095,9 +6459,29 @@ export default function Zlecenia() {
                       <span style={s.savedViewLabel}>{view.label}</span>
                       <span style={s.savedViewMeta}>{view.detail}</span>
                       <span style={s.savedViewCount}>{view.count}</span>
+                      <span style={s.savedViewFoot}>
+                        <span style={view.blocked ? s.savedViewWarn : s.savedViewOk}>
+                          {view.blocked ? `Braki ${view.blocked}` : 'Bez blokad'}
+                        </span>
+                        <span>Gotowe {view.ready}</span>
+                      </span>
                     </button>
                   ))}
                 </div>
+                {mozePlanowacBiuro && officePlanningTopRows.length ? (
+                  <OfficePlanningQueue
+                    styles={s}
+                    rows={officePlanningTopRows}
+                    total={officePlanningRows.length}
+                    ready={officePlanningReady}
+                    blocked={officePlanningBlocked}
+                    value={officePlanningValue}
+                    onPlan={openOfficePlanningTask}
+                    onOpenCalendar={openResourceCalendarForTask}
+                    onApplyView={() => applyOperationalView(officeApprovalView)}
+                    onCopy={() => copyDispatchManifest(officePlanningRows.map((row) => row.task), 'pakietów do planowania')}
+                  />
+                ) : null}
               </div>
               <div style={s.advancedOpsHeader}>
                 <div>
@@ -4149,6 +6533,7 @@ export default function Zlecenia() {
                       <button
                         key={item.key}
                         type="button"
+                        data-testid={`dispatch-readiness-${item.key}`}
                         onClick={() => setSmartFilter(active ? '' : item.filterKey)}
                         style={{
                           ...s.dispatchReadinessItem,
@@ -4499,11 +6884,11 @@ export default function Zlecenia() {
                   <option key={type} value={type}>{t(`serviceType.${type}`, { defaultValue: type })}</option>
                 ))}
               </select>
-              {ekipy.length > 0 && (
+              {ekipyPlanowania.length > 0 && (
                 <select style={s.filtrInput} value={filtrEkipa} onChange={e => setFiltrEkipa(e.target.value)}>
                   <option value="">Wszystkie ekipy</option>
-                  {ekipy.map((ekipa) => (
-                    <option key={ekipa.id} value={ekipa.id}>{ekipa.nazwa || ekipa.name || `Ekipa #${ekipa.id}`}</option>
+                  {ekipyPlanowania.map((ekipa) => (
+                    <option key={getTeamOptionKey(ekipa)} value={ekipa.id}>{getTeamOptionLabel(ekipa)}</option>
                   ))}
                 </select>
               )}
@@ -4555,14 +6940,19 @@ export default function Zlecenia() {
                     {widoczneZlecenia.map((z) => {
                       const diagnostics = getTaskDiagnostics(z, todayIso);
                       const photoSummary = diagnostics.photos;
+                      const fieldExecution = getTaskFieldExecutionSummary(z, photoSummary);
                       const workflowStage = getTaskInspectionWorkflow(z, diagnostics);
+                      const stageOwner = getTaskStageOwnerSummary(z, diagnostics, workflowStage);
                       const phoneHref = telHref(z.klient_telefon);
                       const mapsHref = getMapsHref(z);
                       const contact = getClientContact(z.id);
                       const contactOption = getClientContactOption(contact.status);
                       const followupMeta = getContactFollowupMeta(contact);
+                      const officePackageReadiness = getTaskPackageReadiness(z, 'office');
+                      const crewPackageReadiness = getTaskPackageReadiness(z, 'crew');
+                      const packageReadinessRows = [officePackageReadiness, crewPackageReadiness].filter((item) => item.relevant);
                       return (
-                      <div key={z.id} style={s.listTaskCard} onClick={() => otworzSzczegoly(z)}>
+                      <div key={z.id} className="zlecenia-data-card" style={s.listTaskCard} onClick={() => otworzSzczegoly(z)}>
                         <div style={s.listTaskTop}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={(e) => e.stopPropagation()}>
                             <input
@@ -4607,6 +6997,27 @@ export default function Zlecenia() {
                           <div style={s.workflowStageBody}>
                             <strong>{workflowStage.label}</strong>
                             <small>{workflowStage.detail}</small>
+                          </div>
+                        </div>
+                        <div style={{ ...s.stageOwnerMini, ...(s[`stageOwnerMini_${stageOwner.tone}`] || {}) }}>
+                          <div style={s.stageOwnerTop}>
+                            <span style={s.stageOwnerLabel}>Kto ma piłkę</span>
+                            <strong style={s.stageOwnerName}>{stageOwner.owner}</strong>
+                          </div>
+                          <div style={s.stageOwnerTitle}>{stageOwner.title}</div>
+                          <small style={s.stageOwnerDetail}>{stageOwner.detail}</small>
+                          <div style={s.stageOwnerFooter} onClick={(event) => event.stopPropagation()}>
+                            <span style={s.stageOwnerNext}>Dalej: {stageOwner.nextOwner}</span>
+                            <button
+                              type="button"
+                              style={s.stageOwnerAction}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleTaskNextAction(z, { ...diagnostics, nextAction: stageOwner.action });
+                              }}
+                            >
+                              {stageOwner.action.label}
+                            </button>
                           </div>
                         </div>
                         <div style={s.fieldOpsRow} onClick={(event) => event.stopPropagation()}>
@@ -4662,9 +7073,34 @@ export default function Zlecenia() {
                             <strong>{photoSummary.sketch}</strong> szkic
                           </span>
                         </div>
+                        <div
+                          style={{
+                            ...s.fieldExecutionRow,
+                            ...(s[`fieldExecutionRow_${fieldExecution.tone}`] || {}),
+                          }}
+                        >
+                          <div style={s.fieldExecutionMain}>
+                            <span style={s.fieldExecutionLabel}>Teren</span>
+                            <strong>{fieldExecution.label}</strong>
+                            <small>{fieldExecution.detail}</small>
+                          </div>
+                          <div style={s.fieldExecutionDocs}>
+                            {fieldExecution.photoChecks.map((item) => (
+                              <span
+                                key={item.key}
+                                style={{
+                                  ...s.fieldExecutionChip,
+                                  ...(item.count > 0 ? s.fieldExecutionChipReady : s.fieldExecutionChipMissing),
+                                }}
+                              >
+                                {item.label}: {item.count}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                         <div style={s.listTaskChips}>
-                          <span style={{ ...s.badge, backgroundColor: getStatusColor(z.status) }}>{t(`taskStatus.${z.status}`, { defaultValue: z.status })}</span>
-                          <span style={{ ...s.badge, backgroundColor: getPriorytetColor(z.priorytet) }}>{z.priorytet}</span>
+                          <TelemetryStatus value={z.status} label={t(`taskStatus.${z.status}`, { defaultValue: z.status })} />
+                          <TelemetryStatus state={z.priorytet === 'Pilny' ? 'warning' : 'info'} label={z.priorytet} />
                         </div>
                         <div style={s.readinessBlock}>
                           <div style={s.readinessTop}>
@@ -4681,6 +7117,34 @@ export default function Zlecenia() {
                             />
                           </div>
                         </div>
+                        {packageReadinessRows.length ? (
+                          <div style={s.packageReadinessGrid}>
+                            {packageReadinessRows.map((item) => (
+                              <button
+                                key={item.type}
+                                type="button"
+                                data-testid={`task-${z.id}-package-${item.type}`}
+                                style={{
+                                  ...s.packageReadinessTile,
+                                  ...(s[`packageReadinessTile_${item.tone}`] || {}),
+                                }}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSmartFilter(item.type === 'office' ? 'officePlanBlocked' : 'crewPackageBlocked');
+                                }}
+                                title={item.missing.length ? item.missing.join(', ') : `${item.label}: OK`}
+                              >
+                                <span style={s.packageReadinessLabel}>{item.label}</span>
+                                <strong style={s.packageReadinessValue}>
+                                  {item.total ? `${item.readyCount}/${item.total}` : `${item.score}%`}
+                                </strong>
+                                <small style={s.packageReadinessHint}>
+                                  {item.ready ? 'OK' : item.status}
+                                </small>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
                         <div style={s.blockerWrap}>
                           {diagnostics.items.length === 0 ? (
                             <span style={{ ...s.blockerBadge, ...s.blockerGood }}>Gotowe operacyjnie</span>
@@ -4702,19 +7166,6 @@ export default function Zlecenia() {
                           ) : getSlaFlags(z).map((flag) => (
                             <span key={flag} style={s.slaBadge}>{slaFlagLabel(flag)}</span>
                           ))}
-                        </div>
-                        <div style={s.nextActionRow}>
-                          <span style={s.nextActionText}>Następny ruch</span>
-                          <button
-                            type="button"
-                            style={s.nextActionBtn}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleTaskNextAction(z, diagnostics);
-                            }}
-                          >
-                            {diagnostics.nextAction.label}
-                          </button>
                         </div>
                         <div style={s.listTaskFooter}>
                           <span style={s.listTaskDate}>{z.data_planowana ? z.data_planowana.split('T')[0] : '—'}</span>
@@ -4831,9 +7282,11 @@ export default function Zlecenia() {
               </select>
               <select style={s.filtrInput} value={filtrEkipa} onChange={e => setFiltrEkipa(e.target.value)}>
                 <option value="">{t('common.allTeams')}</option>
-                {ekipy
-                  .filter((e) => !filtrOddzial || String(e.oddzial_id || '') === filtrOddzial)
-                  .map((e) => <option key={e.id} value={String(e.id)}>{e.nazwa}</option>)}
+                {ekipyPlanowania
+                  .filter((e) => !filtrOddzial || String(teamAvailableBranchId(e) || '') === filtrOddzial)
+                  .map((e) => (
+                    <option key={getTeamOptionKey(e)} value={String(e.id)}>{getTeamOptionLabel(e)}</option>
+                  ))}
               </select>
               {(filtrTyp || szukaj || filtrOddzial || filtrEkipa || smartFilter) && (
                 <button style={s.clearBtn} onClick={() => { setFiltrStatus(''); setFiltrTyp(''); setFiltrOddzial(''); setFiltrEkipa(''); setSzukaj(''); setSmartFilter(''); }}>{t('pages.zlecenia.clear')}</button>
@@ -4873,7 +7326,7 @@ export default function Zlecenia() {
                         setDraggedTaskId(null);
                       }}>
                       <div style={s.kanbanColHeader}>
-                        <span style={{ ...s.badge, backgroundColor: getStatusColor(status) }}>{t(`taskStatus.${status}`, { defaultValue: status })}</span>
+                        <TelemetryStatus value={status} label={t(`taskStatus.${status}`, { defaultValue: status })} />
                         <span style={s.kanbanCount}>{items.length}</span>
                       </div>
                       <div style={s.kanbanColBody}>
@@ -4883,6 +7336,7 @@ export default function Zlecenia() {
                           const diagnostics = getTaskDiagnostics(z, todayIso);
                           return (
                           <div
+                            className="zlecenia-kanban-card"
                             key={z.id}
                             draggable={mozePrzesuwacStatus && statusUpdatingId !== z.id}
                             onDragStart={() => setDraggedTaskId(z.id)}
@@ -4908,7 +7362,7 @@ export default function Zlecenia() {
                               <span>{diagnostics.items[0]?.label || 'OK'}</span>
                             </div>
                             <div style={s.kanbanCardFooter}>
-                              <span style={{ ...s.badge, backgroundColor: getPriorytetColor(z.priorytet) }}>{z.priorytet}</span>
+                              <TelemetryStatus state={z.priorytet === 'Pilny' ? 'warning' : 'info'} label={z.priorytet} />
                               <span style={s.kanbanValue}>{formatCurrency(z.wartosc_planowana)}</span>
                             </div>
                             <div style={s.kanbanActions} onClick={(e) => e.stopPropagation()}>
@@ -5007,12 +7461,24 @@ export default function Zlecenia() {
               </div>
             </section>
 
+            <DetailStageOwnerPanel
+              styles={s}
+              task={wybraneZlecenie}
+              rows={detailWorkflowRows}
+              currentUser={currentUser}
+              statusBusy={statusUpdatingId === wybraneZlecenie.id}
+              canChangeStatus={mozePrzesuwacStatus}
+              onCommand={handleDetailWorkflowCommand}
+              onShowPath={focusWorkflowPath}
+            />
+
             <WorkflowPathPanel
               styles={s}
               task={wybraneZlecenie}
               canChange={mozePrzesuwacStatus}
               statusBusy={statusUpdatingId === wybraneZlecenie.id}
               onChangeStatus={(nextStatus) => zmienStatusInline(wybraneZlecenie.id, nextStatus)}
+              focused={workflowPathFocused}
             />
 
             <DetailWorkflowCommandCenter
@@ -5021,6 +7487,46 @@ export default function Zlecenia() {
               statusBusy={statusUpdatingId === wybraneZlecenie.id}
               canChangeStatus={mozePrzesuwacStatus}
               onCommand={handleDetailWorkflowCommand}
+            />
+
+            <OfficeDecisionBoard
+              styles={s}
+              cards={officeDecisionCards}
+              recommendation={detailDecisionRecommendation || 'Ustal następny ruch zlecenia'}
+              nextActionLabel={detailNextAction?.label || detailBusinessMeta?.diagnostics?.nextAction?.label || 'Sprawdź zlecenie'}
+              nextActionDetail={detailNextAction?.detail || detailBusinessMeta?.diagnostics?.nextAction?.detail || 'Najpierw domknij brakujące dane w ścieżce zlecenia.'}
+              primaryDisabled={statusUpdatingId === wybraneZlecenie.id || !(detailNextAction || detailBusinessMeta?.diagnostics?.nextAction)}
+              onPrimary={handleDetailDecisionAction}
+              onAction={handleOfficeDecisionAction}
+            />
+
+            <DetailRepairPanel
+              styles={s}
+              items={detailRepairItems}
+              score={detailBusinessMeta?.diagnostics?.score}
+              onAction={handleDetailWorkflowCommand}
+            />
+
+            <OfficePlanHandoffCard
+              styles={s}
+              task={wybraneZlecenie}
+              branchLabel={getBranchLabel(wybraneZlecenie.oddzial_id)}
+              photos={selectedTaskPhotos}
+              fieldPhotoCount={fieldPhotoCount}
+              readinessItems={officePlanReadinessItems}
+              statusLabel={officePlanStatusLabel}
+              statusTone={officePlanStatusTone}
+              teamLabel={officePlanTeamLabel}
+              planLabel={officePlanHandoffPlanLabel}
+              equipmentLabel={officePlanHandoffEquipmentLabel}
+              priceLabel={formatMoneyBrief(Number(wybraneZlecenie.wartosc_planowana || wybraneZlecenie.budzet || 0))}
+              scopeLabel={officePlanCrewBrief}
+              riskLabel={getTaskCrewRisk(wybraneZlecenie)}
+              canPlan={showOfficePlanPanel}
+              onPlan={() => scrollToDetailSection('officePlan')}
+              onCalendar={() => openResourceCalendarForTask(wybraneZlecenie, { tab: 'teams', modal: '1' })}
+              onCopy={() => copyOfficePlanHandoff(wybraneZlecenie)}
+              onPhotos={() => scrollToDetailSection('photos')}
             />
  
             <div style={s.detailOpsPanel}>
@@ -5049,7 +7555,7 @@ export default function Zlecenia() {
                   <ContentCopyOutlined style={s.fieldOpsIcon} aria-hidden />
                   Adres
                 </button>
-                <button type="button" style={s.fieldOpsBtn} onClick={() => copyTaskBrief(wybraneZlecenie)}>
+                <button type="button" style={s.fieldOpsBtn} onClick={() => copyCrewBrief(wybraneZlecenie)}>
                   <ContentCopyOutlined style={s.fieldOpsIcon} aria-hidden />
                   Brief
                 </button>
@@ -5072,7 +7578,7 @@ export default function Zlecenia() {
                 onReportIssue={reportCrewIssue}
                 onStart={() => zmienStatusInline(wybraneZlecenie.id, TASK_STATUS.W_REALIZACJI)}
                 onFinish={() => zmienStatusInline(wybraneZlecenie.id, TASK_STATUS.ZAKONCZONE)}
-                onCopy={() => copyTaskBrief(wybraneZlecenie)}
+                onCopy={() => copyCrewBrief(wybraneZlecenie)}
               />
             </div>
 
@@ -5158,6 +7664,99 @@ export default function Zlecenia() {
                     </div>
                   ))}
                 </div>
+                {officePlanSuggestion ? (
+                  <div
+                    style={{
+                      ...s.officePlanAssistant,
+                      ...(s[`officePlanAssistant_${officePlanSuggestion.tone}`] || {}),
+                    }}
+                  >
+                    <div style={s.officePlanAssistantMain}>
+                      <span style={s.detailOpsEyebrow}>Asystent slotu</span>
+                      <strong style={s.officePlanAssistantTitle}>{officePlanSuggestion.label}</strong>
+                      <small style={s.officePlanAssistantDetail}>{officePlanSuggestion.detail}</small>
+                    </div>
+                    <div style={s.officePlanAssistantBusy}>
+                      {officePlanSuggestion.ranges.slice(0, 4).map((range) => (
+                        <span key={range.id} style={s.officePlanAssistantBusyItem}>
+                          {range.startLabel}-{range.endLabel} · #{range.id} {range.city || range.client}
+                        </span>
+                      ))}
+                      {officePlanSuggestion.ok ? (
+                        <button
+                          type="button"
+                          style={s.officePlanAssistantBtn}
+                          onClick={() => applyOfficePlanSuggestion(officePlanSuggestion)}
+                        >
+                          Wstaw podpowiedź
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          style={s.officePlanAssistantBtnSecondary}
+                          onClick={() => openResourceCalendarForTask(wybraneZlecenie, { tab: 'teams', modal: '1' })}
+                        >
+                          Otwórz harmonogram
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+                {officePlanTeamConflictSummary.readyToCheck ? (
+                  <div
+                    style={{
+                      ...s.officePlanConflictBox,
+                      ...(officePlanTeamConflictSummary.hardConflict
+                        ? s.officePlanConflictBox_danger
+                        : officePlanTeamConflictSummary.warning
+                          ? s.officePlanConflictBox_warning
+                          : s.officePlanConflictBox_good),
+                    }}
+                  >
+                    <div>
+                      <span style={s.detailOpsEyebrow}>Radar grafiku ekipy</span>
+                      <strong style={s.officePlanConflictTitle}>{officePlanTeamConflictSummary.label}</strong>
+                      <small style={s.officePlanConflictDetail}>{officePlanTeamConflictSummary.detail}</small>
+                    </div>
+                    {officePlanTeamConflictSummary.conflicts.length ? (
+                      <div style={s.officePlanConflictList}>
+                        {officePlanTeamConflictSummary.conflicts.map((range) => (
+                          <span key={range.id}>
+                            {range.startLabel}-{range.endLabel} #{range.id} {range.city || range.client}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {officePlanEquipmentConflictSummary.readyToCheck ? (
+                  <div
+                    style={{
+                      ...s.officePlanConflictBox,
+                      ...(officePlanEquipmentConflictSummary.hardConflict || officePlanEquipmentConflictSummary.pending
+                        ? s.officePlanConflictBox_danger
+                        : officePlanEquipmentConflictSummary.warning
+                          ? s.officePlanConflictBox_warning
+                          : s.officePlanConflictBox_good),
+                    }}
+                  >
+                    <div>
+                      <span style={s.detailOpsEyebrow}>Radar rezerwacji sprzetu</span>
+                      <strong style={s.officePlanConflictTitle}>{officePlanEquipmentConflictSummary.label}</strong>
+                      <small style={s.officePlanConflictDetail}>{officePlanEquipmentConflictSummary.detail}</small>
+                    </div>
+                    {officePlanEquipmentConflictSummary.conflicts.length ? (
+                      <div style={s.officePlanConflictList}>
+                        {officePlanEquipmentConflictSummary.conflicts.map((row) => (
+                          <span key={row.id}>
+                            {row.sprzet_nazwa || `Sprzet #${row.sprzet_id}`} - {row.ekipa_nazwa || 'inna ekipa'}
+                            {row.task_id ? `, zlecenie #${row.task_id}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div style={s.officePlanGrid}>
                   <div style={s.fg}>
                     <label style={s.label}>Data</label>
@@ -5197,7 +7796,7 @@ export default function Zlecenia() {
                     >
                       <option value="">— wybierz ekipę —</option>
                       {detailPlanTeamOptions.map((ekipa) => (
-                        <option key={ekipa.id} value={ekipa.id}>{ekipa.nazwa || `Ekipa #${ekipa.id}`}</option>
+                        <option key={getTeamOptionKey(ekipa)} value={ekipa.id}>{getTeamOptionLabel(ekipa)}</option>
                       ))}
                     </select>
                     {!detailPlanTeamOptions.length ? (
@@ -5214,13 +7813,21 @@ export default function Zlecenia() {
                     >
                       {detailEquipmentOptions.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {[item.typ, item.nazwa || `Sprzet #${item.id}`, item.ekipa_nazwa ? `(${item.ekipa_nazwa})` : ''].filter(Boolean).join(' - ')}
+                          {getEquipmentPlanLabel(item, {
+                            teamId: officePlan.ekipa_id,
+                            taskBranchId: wybraneZlecenie?.oddzial_id,
+                            getBranchLabel,
+                          })}
                         </option>
                       ))}
                     </select>
                     <small style={s.officePlanEquipmentHint}>
                       {selectedOfficeEquipment.length
-                        ? `Wybrano: ${selectedOfficeEquipment.map((item) => item.nazwa || `#${item.id}`).join(', ')}`
+                        ? `Wybrano: ${selectedOfficeEquipment.map((item) => getEquipmentPlanLabel(item, {
+                          teamId: officePlan.ekipa_id,
+                          taskBranchId: wybraneZlecenie?.oddzial_id,
+                          getBranchLabel,
+                        })).join(', ')}`
                         : 'Rezerwacja powstanie razem z planem zlecenia.'}
                     </small>
                   </div>
@@ -5236,7 +7843,7 @@ export default function Zlecenia() {
                 </div>
                 <div style={s.officePlanFooter}>
                   <div style={s.officePlanSummary}>
-                    <strong>{officePlanTeam?.nazwa || 'Ekipa nie wybrana'}</strong>
+                    <strong>{officePlanTeam ? getTeamOptionLabel(officePlanTeam) : 'Ekipa nie wybrana'}</strong>
                     <span>
                       {officePlan.data_planowana || 'brak daty'} {officePlan.godzina_rozpoczecia || ''}
                       {officePlan.czas_planowany_godziny ? ` · ${officePlan.czas_planowany_godziny} h` : ''}
@@ -5249,6 +7856,20 @@ export default function Zlecenia() {
                     onClick={zapiszPlanBiura}
                   >
                     {officePlanSaving ? 'Zapisuję...' : officePlanRequiredMissing.length ? 'Uzupełnij plan' : 'Zapisz i ustaw Zaplanowane'}
+                  </button>
+                  <button
+                    type="button"
+                    style={s.bulkBtnSecondary}
+                    onClick={() => openResourceCalendarForTask(wybraneZlecenie, { tab: 'teams', modal: '1' })}
+                  >
+                    Otwórz harmonogram ekip
+                  </button>
+                  <button
+                    type="button"
+                    style={s.bulkBtnSecondary}
+                    onClick={() => openResourceCalendarForTask(wybraneZlecenie, { tab: 'equipment', modal: '0' })}
+                  >
+                    Sprzet dnia
                   </button>
                 </div>
               </div>
@@ -5269,6 +7890,8 @@ export default function Zlecenia() {
                 onPickFiles={uploadTaskPhotos}
                 onDraw={openTaskDraw}
                 onDelete={mozeEdytowac ? deleteTaskPhoto : null}
+                repairFocus={taskPhotoRepairFocus}
+                onCloseRepair={() => setTaskPhotoRepairFocus(null)}
               />
             </div>
 
@@ -5386,7 +8009,7 @@ export default function Zlecenia() {
               </div>
             ) : null}
 
-            <div style={s.clientContactPanel}>
+            <div data-detail-section="contact" style={s.clientContactPanel}>
               <div style={s.clientContactHeader}>
                 <div>
                   <div style={s.detailOpsEyebrow}>Kontakt z klientem</div>
@@ -5593,7 +8216,7 @@ export default function Zlecenia() {
             <PageHeader
               variant="plain"
               back={{
-                onClick: () => setTryb(wybraneZlecenie ? 'szczegoly' : 'lista'),
+                onClick: anulujFormularz,
                 label: t('common.back'),
               }}
               title={tryb === 'nowy' ? t('common.newOrder') : `${t('common.edit')} #${wybraneZlecenie?.id}`}
@@ -5644,7 +8267,7 @@ export default function Zlecenia() {
                         ...(index === formWorkflowStageIndex ? s.formFlowStepActive : {}),
                       }}
                     >
-                      <span style={{ ...s.formFlowStepNo, borderColor: getStatusColor(step.status) }}>{step.step}</span>
+                      <span style={{ ...s.formFlowStepNo, border: `1px solid ${getStatusColor(step.status)}` }}>{step.step}</span>
                       <span style={s.formFlowStepText}>
                         <strong>{step.label}</strong>
                         <small>{step.detail}</small>
@@ -5653,22 +8276,37 @@ export default function Zlecenia() {
                   ))}
                 </div>
               </div>
+              {formRepairFocus ? (
+                <div style={s.formRepairBanner}>
+                  <div>
+                    <span style={s.formRepairEyebrow}>Tryb naprawy</span>
+                    <strong style={s.formRepairTitle}>{formRepairFocus.label || 'Pole do poprawy'}</strong>
+                    <small style={s.formRepairDetail}>
+                      {formRepairFocus.detail || `Otworzony krok: ${formRepairStepLabel}. Pole zostalo podswietlone.`}
+                    </small>
+                  </div>
+                  <button type="button" style={s.formRepairCloseBtn} onClick={() => setFormRepairFocus(null)}>
+                    Zamknij podpowiedz
+                  </button>
+                </div>
+              ) : null}
             </div>
  
             <div style={{ ...s.card, display: formStep === 'client' ? undefined : 'none' }}>
               <div style={s.cardTitle}>Dane klienta</div>
               <div style={s.formGrid}>
-                <div style={s.fg}><label style={s.label}>Nazwa klienta *</label>
-                  <input style={s.input} placeholder="Imię i nazwisko / firma" value={form.klient_nazwa} onChange={e => setField('klient_nazwa', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Telefon</label>
-                  <input style={s.input} placeholder="+48 000 000 000" value={form.klient_telefon} onChange={e => setField('klient_telefon', e.target.value)} /></div>
+                <div style={fgStyle('klient_nazwa')}><label style={s.label}>Nazwa klienta *</label>
+                  <input data-repair-field="klient_nazwa" style={inputStyle('klient_nazwa')} placeholder="Imię i nazwisko / firma" value={form.klient_nazwa} onChange={e => setField('klient_nazwa', e.target.value)} /></div>
+                <div style={fgStyle('klient_telefon')}><label style={s.label}>Telefon</label>
+                  <input data-repair-field="klient_telefon" style={inputStyle('klient_telefon')} placeholder="+48 000 000 000" value={form.klient_telefon} onChange={e => setField('klient_telefon', e.target.value)} /></div>
                 <div style={s.fg}><label style={s.label}>Email</label>
                   <input style={s.input} type="email" value={form.klient_email} onChange={e => setField('klient_email', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Adres realizacji</label>
-                  <input style={s.input} placeholder="ul. Przykładowa 1" value={form.adres} onChange={e => setField('adres', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Miasto</label>
+                <div style={fgStyle('adres')}><label style={s.label}>Adres realizacji</label>
+                  <input data-repair-field="adres" style={inputStyle('adres')} placeholder="ul. Przykładowa 1" value={form.adres} onChange={e => setField('adres', e.target.value)} /></div>
+                <div style={fgStyle('miasto')}><label style={s.label}>Miasto</label>
                   <CityInput
-                    style={s.input}
+                    data-repair-field="miasto"
+                    style={inputStyle('miasto')}
                     placeholder="Warszawa"
                     value={form.miasto}
                     onChange={e => setField('miasto', e.target.value)}
@@ -5714,9 +8352,10 @@ export default function Zlecenia() {
                       <option key={oddzialId} value={oddzialId}>{getBranchLabel(oddzialId)}</option>
                     ))}
                   </select></div>
-                <div style={s.fg}><label style={s.label}>Wyceniacz / oględziny</label>
+                <div style={fgStyle('wyceniajacy_id')}><label style={s.label}>Specjalista ds. wyceny / oględziny</label>
                   <select
-                    style={s.input}
+                    data-repair-field="wyceniajacy_id"
+                    style={inputStyle('wyceniajacy_id')}
                     value={form.wyceniajacy_id}
                     onChange={e => setForm(prev => ({
                       ...prev,
@@ -5735,14 +8374,16 @@ export default function Zlecenia() {
                       <option key={priority} value={priority}>{priority}</option>
                     ))}
                   </select></div>
-                <div style={s.fg}><label style={s.label}>Data planowana</label>
-                  <input style={s.input} type="date" value={form.data_planowana} onChange={e => setField('data_planowana', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Godzina startu ekipy</label>
-                  <input style={s.input} type="time" value={form.godzina_rozpoczecia} onChange={e => setField('godzina_rozpoczecia', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Ekipa</label>
-                  <select style={s.input} value={form.ekipa_id} onChange={e => setField('ekipa_id', e.target.value)}>
+                <div style={fgStyle('data_planowana')}><label style={s.label}>Data planowana</label>
+                  <input data-repair-field="data_planowana" style={inputStyle('data_planowana')} type="date" value={form.data_planowana} onChange={e => setField('data_planowana', e.target.value)} /></div>
+                <div style={fgStyle('godzina_rozpoczecia')}><label style={s.label}>Godzina startu ekipy</label>
+                  <input data-repair-field="godzina_rozpoczecia" style={inputStyle('godzina_rozpoczecia')} type="time" value={form.godzina_rozpoczecia} onChange={e => setField('godzina_rozpoczecia', e.target.value)} /></div>
+                <div style={fgStyle('ekipa_id')}><label style={s.label}>Ekipa</label>
+                  <select data-repair-field="ekipa_id" style={inputStyle('ekipa_id')} value={form.ekipa_id} onChange={e => setField('ekipa_id', e.target.value)}>
                     <option value="">— brak —</option>
-                    {teamOptions.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
+                    {teamOptions.map(e => (
+                      <option key={getTeamOptionKey(e)} value={e.id}>{getTeamOptionLabel(e)}</option>
+                    ))}
                   </select></div>
                 <div style={s.fg}><label style={s.label}>Kierownik</label>
                   <select style={s.input} value={form.kierownik_id} onChange={e => setField('kierownik_id', e.target.value)}>
@@ -5759,7 +8400,7 @@ export default function Zlecenia() {
               <div style={s.inspectionPresetPanel}>
                 <div style={s.inspectionPresetHead}>
                   <strong>Szybki zakres oględzin</strong>
-                  <span>Klikasz typ pracy, a system dopisuje ten sam opis dla biura, wyceniacza i ekipy.</span>
+                  <span>Klikasz typ pracy, a system dopisuje ten sam opis dla biura, specjalisty ds. wyceny i ekipy.</span>
                 </div>
                 <div style={s.inspectionPresetGrid}>
                   {TASK_SCOPE_PRESETS.map((preset) => (
@@ -5777,7 +8418,7 @@ export default function Zlecenia() {
                   ))}
                 </div>
               </div>
-              <textarea style={{ ...s.input, minHeight: 80, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+              <textarea data-repair-field="opis_pracy" style={inputStyle('opis_pracy', { minHeight: 80, resize: 'vertical', width: '100%', boxSizing: 'border-box' })}
                 placeholder="np. Przycinanie żywopłotu i drzew, usuwanie gałęzi..."
                 value={form.opis_pracy} onChange={e => setField('opis_pracy', e.target.value)} />
             </div>
@@ -5795,12 +8436,12 @@ export default function Zlecenia() {
                     <input style={s.input} type="number" min="1" placeholder="np. 3"
                       value={form.ilosc_osob} onChange={e => setField('ilosc_osob', e.target.value)} /></div>
                 </div>
-                <div style={{ marginTop: 8 }}>
+                <div data-repair-field="arborysta" style={{ marginTop: 8, ...(isRepairField('arborysta') ? s.formRepairField : {}) }}>
                   <TakNie label="16. Arborysta" field="arborysta" form={form} onChange={setField} />
                 </div>
               </div>
  
-              <div style={s.card}>
+              <div data-repair-field="sprzet" style={{ ...s.card, ...(isRepairField('sprzet') ? s.formRepairCard : {}) }}>
                 <div style={s.cardTitle}>5–8. Cechy pracy / sprzęt</div>
                 <div style={s.inspectionPresetGrid}>
                   {TASK_EQUIPMENT_OPTIONS.map((preset) => (
@@ -5873,20 +8514,20 @@ export default function Zlecenia() {
                 <div style={{ ...s.fg, gridColumn: '1 / -1' }}><label style={s.label}>10. Wynik rozmowy z klientem</label>
                   <input style={s.input} placeholder="np. Klient zgadza się na wykonanie robót. Trzeba ustalić termin."
                     value={form.wynik} onChange={e => setField('wynik', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>11. Budżet (PLN)</label>
-                  <input style={s.input} type="number" step="0.01" placeholder="0.00" value={form.budzet} onChange={e => setField('budzet', e.target.value)} /></div>
+                <div style={fgStyle('budzet')}><label style={s.label}>11. Budżet (PLN)</label>
+                  <input data-repair-field="budzet" style={inputStyle('budzet')} type="number" step="0.01" placeholder="0.00" value={form.budzet} onChange={e => setField('budzet', e.target.value)} /></div>
                 <div style={s.fg}><label style={s.label}>12. Rabat (%)</label>
                   <input style={s.input} type="number" min="0" max="100" step="0.1" placeholder="0" value={form.rabat} onChange={e => setField('rabat', e.target.value)} /></div>
                 <div style={s.fg}><label style={s.label}>13. Kwota minimalna (PLN)</label>
                   <input style={s.input} type="number" step="0.01" placeholder="0.00" value={form.kwota_minimalna} onChange={e => setField('kwota_minimalna', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Wartość zlecenia (PLN)</label>
-                  <input style={s.input} type="number" step="0.01" placeholder="0.00" value={form.wartosc_planowana} onChange={e => setField('wartosc_planowana', e.target.value)} /></div>
+                <div style={fgStyle('wartosc_planowana')}><label style={s.label}>Wartość zlecenia (PLN)</label>
+                  <input data-repair-field="wartosc_planowana" style={inputStyle('wartosc_planowana')} type="number" step="0.01" placeholder="0.00" value={form.wartosc_planowana} onChange={e => setField('wartosc_planowana', e.target.value)} /></div>
                 <div style={s.fg}><label style={s.label}>14. Zrębki (m³)</label>
                   <input style={s.input} type="number" min="0" step="0.1" placeholder="0" value={form.zrebki} onChange={e => setField('zrebki', e.target.value)} /></div>
                 <div style={s.fg}><label style={s.label}>15. Drewno</label>
                   <input style={s.input} placeholder="np. 2 mp" value={form.drzewno} onChange={e => setField('drzewno', e.target.value)} /></div>
-                <div style={s.fg}><label style={s.label}>Czas planowany (h)</label>
-                  <input style={s.input} type="number" step="0.5" placeholder="0" value={form.czas_planowany_godziny} onChange={e => setField('czas_planowany_godziny', e.target.value)} /></div>
+                <div style={fgStyle('czas_planowany_godziny')}><label style={s.label}>Czas planowany (h)</label>
+                  <input data-repair-field="czas_planowany_godziny" style={inputStyle('czas_planowany_godziny')} type="number" step="0.5" placeholder="0" value={form.czas_planowany_godziny} onChange={e => setField('czas_planowany_godziny', e.target.value)} /></div>
               </div>
             </div>
  
@@ -5912,6 +8553,8 @@ export default function Zlecenia() {
                 onDraw={openTaskDraw}
                 onDelete={mozeEdytowac ? deleteTaskPhoto : null}
                 onSaveDraft={zapiszDraftIDodajZdjecia}
+                repairFocus={taskPhotoRepairFocus}
+                onCloseRepair={() => setTaskPhotoRepairFocus(null)}
               />
             )}
 
@@ -5972,7 +8615,16 @@ export default function Zlecenia() {
               >
                 Wstecz
               </button>
-              {isLastFormStep ? (
+              {formRepairFocus && tryb === 'edytuj' ? (
+                <>
+                  <button type="button" style={s.btnPrimary} onClick={() => zapiszZlecenie({ returnToDetails: true })}>
+                    Zapisz poprawkę i wróć do karty
+                  </button>
+                  <button type="button" style={s.btnGray} onClick={() => setFormStepSafe('summary')}>
+                    Podsumowanie
+                  </button>
+                </>
+              ) : isLastFormStep ? (
                 <button type="button" style={s.btnPrimary} onClick={() => zapiszZlecenie()}>
                   {tryb === 'nowy' ? t('pages.zlecenia.submitCreate') : t('pages.zlecenia.submitSave')}
                 </button>
@@ -5981,7 +8633,7 @@ export default function Zlecenia() {
                   Dalej
                 </button>
               )}
-              <button type="button" style={s.btnGray} onClick={() => setTryb(wybraneZlecenie ? 'szczegoly' : 'lista')}>{t('common.cancel')}</button>
+              <button type="button" style={s.btnGray} onClick={anulujFormularz}>{t('common.cancel')}</button>
             </div>
           </>
         )}
@@ -6063,6 +8715,8 @@ const s = {
     fontSize: 20,
     lineHeight: 1,
     fontWeight: 950,
+    fontFamily: 'var(--font-display)',
+    letterSpacing: '0.02em',
     fontVariantNumeric: 'tabular-nums',
   },
   quickCallPanel: {
@@ -6076,7 +8730,7 @@ const s = {
     transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
   },
   quickCallPanelFocused: {
-    borderColor: 'var(--accent)',
+    border: '1px solid var(--accent)',
     background: 'linear-gradient(135deg, rgba(34,197,94,0.2), var(--glass-bg-strong))',
     boxShadow: '0 0 0 3px rgba(34,197,94,0.18), var(--shadow-md)',
   },
@@ -6111,6 +8765,152 @@ const s = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: 10,
+  },
+  quickCallPackagePanel: {
+    border: '1px solid rgba(52,211,153,0.28)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.14)',
+    padding: 10,
+    marginTop: 10,
+    display: 'grid',
+    gap: 9,
+  },
+  quickCallPackageHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  quickCallPackageTitle: {
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 950,
+    lineHeight: 1.25,
+    marginTop: 2,
+  },
+  quickCallPackageGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+    gap: 7,
+  },
+  quickCallPackageItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    padding: '8px 9px',
+    minHeight: 64,
+    display: 'grid',
+    gap: 4,
+    minWidth: 0,
+  },
+  quickCallPackageItemReady: {
+    border: '1px solid rgba(52,211,153,0.26)',
+    background: 'rgba(52,211,153,0.07)',
+  },
+  quickCallPackageItemMissing: {
+    border: '1px solid rgba(239,83,80,0.28)',
+    background: 'rgba(239,83,80,0.08)',
+  },
+  quickCallPackageLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.15,
+  },
+  quickCallPackageValue: {
+    color: 'var(--text)',
+    fontSize: 13,
+    lineHeight: 1.25,
+    fontWeight: 920,
+    overflowWrap: 'anywhere',
+  },
+  quickCallTaskStrip: {
+    display: 'flex',
+    gap: 7,
+    flexWrap: 'wrap',
+  },
+  quickCallTaskChip: {
+    border: '1px solid rgba(52,211,153,0.24)',
+    borderRadius: 8,
+    background: 'rgba(52,211,153,0.08)',
+    color: 'var(--accent)',
+    padding: '5px 7px',
+    fontSize: 10,
+    lineHeight: 1.15,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+  },
+  quickCallSchedulePanel: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(220px, 1fr) minmax(180px, auto)',
+    gap: 10,
+    alignItems: 'center',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    padding: 10,
+  },
+  quickCallSchedulePanel_success: {
+    border: '1px solid rgba(22,138,74,0.24)',
+    background: 'rgba(22,138,74,0.06)',
+  },
+  quickCallSchedulePanel_warning: {
+    border: '1px solid rgba(199,119,0,0.3)',
+    background: 'rgba(199,119,0,0.08)',
+  },
+  quickCallSchedulePanel_danger: {
+    border: '1px solid rgba(220,38,38,0.3)',
+    background: 'rgba(220,38,38,0.08)',
+  },
+  quickCallSchedulePanel_info: {
+    border: '1px solid rgba(14,116,144,0.24)',
+    background: 'rgba(14,116,144,0.06)',
+  },
+  quickCallScheduleMain: {
+    display: 'grid',
+    gap: 3,
+    minWidth: 0,
+  },
+  quickCallScheduleTitle: {
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 950,
+    lineHeight: 1.25,
+  },
+  quickCallScheduleDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 750,
+    lineHeight: 1.35,
+  },
+  quickCallScheduleSide: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 6,
+    maxWidth: 360,
+  },
+  quickCallScheduleItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.5)',
+    color: 'var(--text-sub)',
+    padding: '5px 7px',
+    fontSize: 10,
+    lineHeight: 1.2,
+    fontWeight: 850,
+  },
+  quickCallScheduleFixBtn: {
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent)',
+    color: '#fff',
+    padding: '5px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    cursor: 'pointer',
   },
   quickCallFieldHint: {
     marginTop: 6,
@@ -6193,6 +8993,44 @@ const s = {
     fontWeight: 800,
     maxWidth: 260,
     lineHeight: 1.35,
+  },
+  workflowHealthStrip: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: 8,
+    marginBottom: 10,
+  },
+  workflowHealthItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.14)',
+    padding: '9px 10px',
+    display: 'grid',
+    gap: 3,
+    minHeight: 72,
+  },
+  workflowHealthItemWarn: {
+    border: '1px solid rgba(242,184,75,0.34)',
+    background: 'rgba(251,191,36,0.09)',
+  },
+  workflowHealthLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+  },
+  workflowHealthValue: {
+    color: 'var(--text)',
+    fontSize: 22,
+    lineHeight: 1,
+    fontWeight: 950,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  workflowHealthDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 760,
+    lineHeight: 1.25,
   },
   advancedOpsHeader: {
     display: 'flex',
@@ -6360,7 +9198,7 @@ const s = {
   savedViewBtn: {
     display: 'grid',
     gridTemplateColumns: '1fr auto',
-    gridTemplateRows: 'auto auto',
+    gridTemplateRows: 'auto auto auto',
     gap: '2px 8px',
     alignItems: 'center',
     textAlign: 'left',
@@ -6379,8 +9217,21 @@ const s = {
   },
   savedViewLabel: { fontSize: 13, fontWeight: 800 },
   savedViewMeta: { fontSize: 11, color: 'var(--text-muted)' },
+  savedViewFoot: {
+    gridColumn: 1,
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    lineHeight: 1.2,
+  },
+  savedViewOk: { color: 'var(--accent)' },
+  savedViewWarn: { color: 'var(--warning)' },
   savedViewCount: {
-    gridRow: '1 / 3',
+    gridRow: '1 / 4',
     gridColumn: 2,
     minWidth: 28,
     height: 28,
@@ -7204,6 +10055,66 @@ const s = {
     lineHeight: 1.25,
     fontSize: 12,
   },
+  formRepairBanner: {
+    marginTop: 12,
+    border: '1px solid rgba(249,168,37,0.36)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(249,168,37,0.12), var(--bg-deep))',
+    padding: 12,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: 10,
+    alignItems: 'center',
+  },
+  formRepairEyebrow: {
+    display: 'block',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    lineHeight: 1.1,
+    textTransform: 'uppercase',
+  },
+  formRepairTitle: {
+    display: 'block',
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 15,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  formRepairDetail: {
+    display: 'block',
+    marginTop: 3,
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    lineHeight: 1.3,
+    fontWeight: 720,
+    overflowWrap: 'anywhere',
+  },
+  formRepairCloseBtn: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text-sub)',
+    padding: '8px 10px',
+    fontSize: 11,
+    lineHeight: 1,
+    fontWeight: 900,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  formRepairField: {
+    border: '1px solid rgba(249,168,37,0.42)',
+    borderRadius: 8,
+    background: 'rgba(249,168,37,0.08)',
+    padding: 8,
+    boxShadow: 'inset 3px 0 0 rgba(249,168,37,0.8)',
+  },
+  formRepairCard: {
+    border: '1px solid rgba(249,168,37,0.42)',
+    boxShadow: 'inset 3px 0 0 rgba(249,168,37,0.8), var(--shadow-sm)',
+  },
   inspectionPresetPanel: {
     border: '1px solid var(--border)',
     borderRadius: 8,
@@ -7335,6 +10246,17 @@ const s = {
     fontSize: 12,
     fontVariantNumeric: 'tabular-nums',
   },
+  taskPhotosRepairBanner: {
+    border: '1px solid rgba(249,168,37,0.36)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(249,168,37,0.12), var(--bg-deep))',
+    padding: 12,
+    marginBottom: 10,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: 10,
+    alignItems: 'center',
+  },
   taskPhotosToolbar: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -7344,9 +10266,9 @@ const s = {
   },
   taskPhotosSelect: {
     padding: '9px 10px',
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-deep)',
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(6,9,19,0.5)',
     color: 'var(--text)',
     fontSize: 12,
     minWidth: 0,
@@ -7492,22 +10414,22 @@ const s = {
     fontWeight: 800,
   },
   tableScroll: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: 700 },
-  thCheck: { padding: '11px 8px', backgroundColor: 'var(--bg-deep)', width: 28 },
-  th: { padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--text)', textAlign: 'left', fontSize: 13, fontWeight: '600' },
-  tdCheck: { padding: '11px 8px', borderBottom: '1px solid var(--border)' },
-  td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  idBadge: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, fontWeight: '600' },
-  badge: { padding: '3px 10px', borderRadius: 8, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
+  table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 700 },
+  thCheck: { padding: '12px 8px', backgroundColor: 'rgba(13,18,30,0.8)', width: 28 },
+  th: { padding: '12px 14px', backgroundColor: 'rgba(13,18,30,0.8)', color: '#475569', textAlign: 'left', fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: '800', letterSpacing: '0.15em', textTransform: 'uppercase' },
+  tdCheck: { padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,0.02)' },
+  td: { padding: '12px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid rgba(255,255,255,0.02)', fontFamily: 'var(--font-mono)' },
+  idBadge: { backgroundColor: 'rgba(0,229,255,0.1)', color: 'var(--pulsar-blue)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(0,229,255,0.2)', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: '800' },
+  badge: { padding: '4px 10px', borderRadius: 8, color: 'var(--pulsar-blue)', backgroundColor: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.2)', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: '800', display: 'inline-block', textTransform: 'uppercase', letterSpacing: '0.08em' },
   akcjeRow: { display: 'flex', gap: 6 },
-  btnSm: { padding: '6px 9px', backgroundColor: 'rgba(0,0,0,0.16)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  btnPrimary: { padding: '10px 20px', background: 'linear-gradient(135deg, var(--accent), var(--accent-dk))', color: 'var(--on-accent)', border: '1px solid var(--accent)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: '900', boxShadow: '0 8px 20px rgba(34,197,94,0.22)' },
+  btnSm: { padding: '6px 9px', backgroundColor: 'transparent', color: 'var(--pulsar-blue)', border: '1px solid rgba(0,229,255,0.35)', borderRadius: 10, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  btnPrimary: { padding: '10px 20px', background: 'var(--pulsar-blue)', color: 'var(--space-bg)', border: '1px solid var(--pulsar-blue)', borderRadius: 12, cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: '900', boxShadow: 'none', textTransform: 'uppercase', letterSpacing: '0.06em' },
   btnSecondary: {
     padding: '8px 16px',
-    backgroundColor: 'rgba(0,0,0,0.16)',
-    color: 'var(--accent)',
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
+    backgroundColor: 'transparent',
+    color: 'var(--pulsar-blue)',
+    border: '1px solid rgba(0,229,255,0.45)',
+    borderRadius: 12,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: '800',
@@ -7516,16 +10438,17 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnGray: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
-  btnDanger: { padding: '10px 20px', backgroundColor: 'var(--danger)', color: 'var(--on-accent)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: '600' },
+  btnGray: { padding: '10px 20px', backgroundColor: 'rgba(13,18,30,0.8)', color: 'var(--text-sub)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, cursor: 'pointer', fontSize: 14 },
+  btnDanger: { padding: '10px 20px', backgroundColor: 'var(--danger)', color: 'var(--space-bg)', border: '1px solid var(--danger)', borderRadius: 12, cursor: 'pointer', fontSize: 14, fontWeight: '800' },
   detailRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },
   detailLabel: { fontSize: 13, color: 'var(--text-muted)', minWidth: 130 },
   detailValue: { fontSize: 13, color: 'var(--text)', fontWeight: '500', textAlign: 'right' },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 },
   fg: { display: 'flex', flexDirection: 'column', gap: 5 },
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)', outline: 'none' },
-  inputDanger: { borderColor: 'var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.14)' },
+  input: { padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', fontSize: 13, backgroundColor: 'rgba(13,18,30,0.8)', color: 'var(--text)', outline: 'none' },
+  inputRepairFocus: { border: '1px solid rgba(249,168,37,0.82)', boxShadow: '0 0 0 3px rgba(249,168,37,0.16)' },
+  inputDanger: { border: '1px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.14)' },
   komunikat: { padding: '12px 16px', borderRadius: 10, marginBottom: 16, fontSize: 14, fontWeight: '500' },
   copyFallback: {
     border: '1px solid var(--border2)',
@@ -7707,9 +10630,9 @@ const s = {
     marginBottom: 20,
   },
   kanbanCol: {
-    background: 'linear-gradient(180deg, var(--bg-card), var(--bg-deep))',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 8,
+    background: 'rgba(18,24,41,0.75)',
+    border: '1px solid rgba(255,255,255,0.04)',
+    borderRadius: 16,
     minHeight: 220,
     display: 'flex',
     flexDirection: 'column',
@@ -7720,7 +10643,7 @@ const s = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '10px 10px 8px',
-    borderBottom: '1px solid var(--border)',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
   },
   kanbanCount: {
     fontSize: 12,
@@ -7738,15 +10661,15 @@ const s = {
     color: 'var(--text-muted)',
     textAlign: 'center',
     padding: '20px 8px',
-    border: '1px dashed var(--border)',
-    borderRadius: 8,
+    border: '1px dashed rgba(255,255,255,0.05)',
+    borderRadius: 12,
   },
   kanbanCard: {
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    background: 'linear-gradient(160deg, var(--bg-card2), var(--bg-card))',
+    border: '1px solid rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    background: 'rgba(13,18,30,0.8)',
     padding: 10,
-    transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+    transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
   },
   kanbanCardTitle: {
     fontSize: 13,
@@ -7786,14 +10709,14 @@ const s = {
     justifyContent: 'flex-end',
   },
   kanbanActionBtn: {
-    border: '1px solid var(--border2)',
-    borderRadius: 6,
+    border: '1px solid rgba(0,229,255,0.35)',
+    borderRadius: 10,
     minWidth: 30,
     minHeight: 28,
     padding: '4px 8px',
     fontSize: 12,
-    backgroundColor: 'rgba(0,0,0,0.16)',
-    color: 'var(--accent)',
+    backgroundColor: 'transparent',
+    color: 'var(--pulsar-blue)',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
@@ -7913,10 +10836,10 @@ const s = {
     display: 'grid',
     gridTemplateColumns: 'minmax(280px, 1.1fr) minmax(360px, 1fr)',
     gap: 12,
-    border: '1px solid var(--glass-border)',
-    borderRadius: 8,
-    background: 'linear-gradient(135deg, rgba(110,231,168,0.14), var(--glass-bg-strong) 42%, var(--glass-bg))',
-    boxShadow: 'var(--shadow-md)',
+    border: '1px solid rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    background: 'rgba(18,24,41,0.75)',
+    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
     padding: 14,
     marginBottom: 12,
     overflow: 'hidden',
@@ -7934,6 +10857,8 @@ const s = {
     fontSize: 24,
     lineHeight: 1.12,
     fontWeight: 950,
+    fontFamily: 'var(--font-display)',
+    letterSpacing: '0.02em',
     overflowWrap: 'anywhere',
   },
   detailHeroMeta: {
@@ -7951,9 +10876,9 @@ const s = {
     minWidth: 0,
   },
   detailHeroStat: {
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    border: '1px solid rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    backgroundColor: 'rgba(13,18,30,0.8)',
     padding: '10px 11px',
     minHeight: 96,
     display: 'flex',
@@ -7963,12 +10888,12 @@ const s = {
     minWidth: 0,
   },
   detailHeroStat_good: {
-    border: '1px solid rgba(52,211,153,0.28)',
-    backgroundColor: 'rgba(52,211,153,0.09)',
+    border: '1px solid rgba(0,230,118,0.2)',
+    backgroundColor: 'rgba(0,230,118,0.1)',
   },
   detailHeroStat_blue: {
-    border: '1px solid rgba(91,192,235,0.28)',
-    backgroundColor: 'rgba(91,192,235,0.08)',
+    border: '1px solid rgba(0,229,255,0.2)',
+    backgroundColor: 'rgba(0,229,255,0.1)',
   },
   detailHeroStat_warning: {
     border: '1px solid rgba(242,184,75,0.34)',
@@ -7997,6 +10922,578 @@ const s = {
     fontSize: 11,
     lineHeight: 1.25,
     fontWeight: 750,
+  },
+  officeDecisionBoard: {
+    border: '1px solid rgba(52,211,153,0.34)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.13), var(--glass-bg-strong))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  officeDecisionHead: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 12,
+    alignItems: 'stretch',
+    marginBottom: 10,
+  },
+  officeDecisionTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 17,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  officeDecisionSubtitle: {
+    margin: '5px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    lineHeight: 1.35,
+    fontWeight: 720,
+    maxWidth: 760,
+  },
+  officeDecisionNext: {
+    border: '1px solid rgba(52,211,153,0.28)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.18)',
+    padding: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    minWidth: 0,
+  },
+  officeDecisionNextTitle: {
+    color: 'var(--text)',
+    fontSize: 15,
+    lineHeight: 1.25,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  officeDecisionNextDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.3,
+    fontWeight: 720,
+    overflowWrap: 'anywhere',
+  },
+  officeDecisionCards: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))',
+    gap: 8,
+  },
+  officeDecisionCard: {
+    minHeight: 132,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.14)',
+    color: 'var(--text)',
+    padding: '10px 11px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    textAlign: 'left',
+    cursor: 'pointer',
+    minWidth: 0,
+    boxShadow: 'none',
+  },
+  officeDecisionCard_good: {
+    border: '1px solid rgba(52,211,153,0.28)',
+    background: 'rgba(52,211,153,0.08)',
+  },
+  officeDecisionCard_warning: {
+    border: '1px solid rgba(249,168,37,0.34)',
+    background: 'rgba(249,168,37,0.09)',
+  },
+  officeDecisionCard_danger: {
+    border: '1px solid rgba(239,83,80,0.36)',
+    background: 'rgba(239,83,80,0.1)',
+  },
+  officeDecisionCardLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    lineHeight: 1.15,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+  },
+  officeDecisionCardValue: {
+    color: 'var(--text)',
+    fontSize: 16,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  officeDecisionCardDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.28,
+    fontWeight: 720,
+    overflowWrap: 'anywhere',
+  },
+  officeDecisionCardAction: {
+    marginTop: 'auto',
+    color: 'var(--laser-emerald)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 11,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  detailRepairPanel: {
+    border: '1px solid rgba(249,168,37,0.34)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(249,168,37,0.11), var(--glass-bg-strong))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  detailRepairHeader: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(132px, auto)',
+    gap: 12,
+    alignItems: 'stretch',
+    marginBottom: 10,
+  },
+  detailRepairTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 17,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  detailRepairSubtitle: {
+    margin: '5px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    lineHeight: 1.35,
+    fontWeight: 720,
+    maxWidth: 780,
+  },
+  detailRepairScore: {
+    border: '1px solid rgba(249,168,37,0.28)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.16)',
+    padding: 10,
+    display: 'grid',
+    gap: 4,
+    minWidth: 132,
+  },
+  detailRepairScoreLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  detailRepairScoreValue: {
+    color: 'var(--text)',
+    fontSize: 20,
+    lineHeight: 1.1,
+    fontWeight: 950,
+  },
+  detailRepairScoreDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.2,
+    fontWeight: 760,
+  },
+  detailRepairLead: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: 10,
+    alignItems: 'center',
+    border: '1px solid rgba(249,168,37,0.3)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.16)',
+    padding: 10,
+    marginBottom: 10,
+    minWidth: 0,
+  },
+  detailRepairLeadLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  detailRepairLeadTitle: {
+    display: 'block',
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 15,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  detailRepairLeadDetail: {
+    display: 'block',
+    marginTop: 3,
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    lineHeight: 1.3,
+    fontWeight: 720,
+    overflowWrap: 'anywhere',
+  },
+  detailRepairPrimaryBtn: {
+    border: '1px solid rgba(52,211,153,0.38)',
+    borderRadius: 8,
+    background: 'rgba(52,211,153,0.14)',
+    color: 'var(--accent)',
+    padding: '9px 12px',
+    fontSize: 12,
+    lineHeight: 1,
+    fontWeight: 950,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  detailRepairGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+    gap: 8,
+  },
+  detailRepairItem: {
+    minHeight: 128,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.14)',
+    color: 'var(--text)',
+    padding: '9px 10px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    textAlign: 'left',
+    cursor: 'pointer',
+    minWidth: 0,
+  },
+  detailRepairItemDanger: {
+    border: '1px solid rgba(239,83,80,0.36)',
+    background: 'rgba(239,83,80,0.1)',
+  },
+  detailRepairItemWarning: {
+    border: '1px solid rgba(249,168,37,0.34)',
+    background: 'rgba(249,168,37,0.09)',
+  },
+  detailRepairItemTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 6,
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    lineHeight: 1.1,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+  },
+  detailRepairItemLabel: {
+    color: 'var(--text)',
+    fontSize: 14,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  detailRepairItemDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.28,
+    fontWeight: 720,
+    overflowWrap: 'anywhere',
+  },
+  detailRepairItemAction: {
+    marginTop: 'auto',
+    color: 'var(--accent)',
+    fontSize: 11,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  officePlanningQueue: {
+    marginTop: 12,
+    border: '1px solid rgba(52,211,153,0.3)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.12), var(--bg-card))',
+    padding: 12,
+    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(20px)',
+  },
+  officePlanningQueueHead: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 12,
+    alignItems: 'start',
+    marginBottom: 10,
+  },
+  officePlanningQueueTitle: {
+    color: 'var(--text)',
+    fontSize: 16,
+    fontWeight: 950,
+    lineHeight: 1.2,
+    marginTop: 3,
+  },
+  officePlanningQueueSubtitle: {
+    margin: '4px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    maxWidth: 780,
+  },
+  officePlanningQueueStats: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(96px, 1fr))',
+    gap: 7,
+    minWidth: 0,
+  },
+  officePlanningQueueStat: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.15)',
+    color: 'var(--text-muted)',
+    padding: '7px 8px',
+    fontSize: 11,
+    fontWeight: 800,
+    lineHeight: 1.2,
+    minWidth: 0,
+  },
+  officePlanningQueueRows: {
+    display: 'grid',
+    gap: 8,
+  },
+  officePlanningQueueRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+    gap: 8,
+    alignItems: 'center',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    padding: 8,
+    minWidth: 0,
+  },
+  officePlanningQueueMain: {
+    display: 'grid',
+    gridTemplateColumns: '44px minmax(0, 1fr)',
+    gap: 8,
+    alignItems: 'center',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text)',
+    padding: 0,
+    textAlign: 'left',
+    cursor: 'pointer',
+    minWidth: 0,
+  },
+  officePlanningQueueId: {
+    width: 42,
+    height: 34,
+    borderRadius: 8,
+    border: '1px solid rgba(52,211,153,0.28)',
+    background: 'rgba(52,211,153,0.1)',
+    color: 'var(--accent)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 12,
+    fontWeight: 950,
+  },
+  officePlanningQueueBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    minWidth: 0,
+    fontSize: 13,
+    lineHeight: 1.25,
+  },
+  officePlanningQueueMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 800,
+    lineHeight: 1.25,
+    minWidth: 0,
+  },
+  officePlanningQueueBadges: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 5,
+    minWidth: 0,
+  },
+  officePlanningBadge: {
+    borderRadius: 999,
+    padding: '4px 7px',
+    fontSize: 10.5,
+    fontWeight: 900,
+    lineHeight: 1,
+    border: '1px solid var(--border)',
+  },
+  officePlanningBadgeGood: {
+    color: '#34D399',
+    border: '1px solid rgba(52,211,153,0.34)',
+    background: 'rgba(52,211,153,0.1)',
+  },
+  officePlanningBadgeWarning: {
+    color: '#F9A825',
+    border: '1px solid rgba(249,168,37,0.36)',
+    background: 'rgba(249,168,37,0.1)',
+  },
+  officePlanningBadgeDanger: {
+    color: '#EF5350',
+    border: '1px solid rgba(239,83,80,0.36)',
+    background: 'rgba(239,83,80,0.1)',
+  },
+  officePlanningQueueActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  officePlanningQueueBtn: {
+    minHeight: 36,
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    padding: '7px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: 'nowrap',
+    justifySelf: 'start',
+  },
+  officePlanningQueueBtnSecondary: {
+    minHeight: 36,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card2)',
+    color: 'var(--text)',
+    padding: '7px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: 'nowrap',
+  },
+  officePlanningQueueFoot: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
+  },
+  officeHandoffPanel: {
+    border: '1px solid rgba(14,165,233,0.28)',
+    borderRadius: 10,
+    background: 'linear-gradient(145deg, rgba(14,165,233,0.1), var(--glass-bg-strong))',
+    padding: '13px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  officeHandoffPanel_good: {
+    border: '1px solid rgba(52,211,153,0.34)',
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.11), var(--glass-bg-strong))',
+  },
+  officeHandoffPanel_warning: {
+    border: '1px solid rgba(242,184,75,0.38)',
+    background: 'linear-gradient(145deg, rgba(242,184,75,0.1), var(--glass-bg-strong))',
+  },
+  officeHandoffPanel_danger: {
+    border: '1px solid rgba(248,113,113,0.38)',
+    background: 'linear-gradient(145deg, rgba(248,113,113,0.1), var(--glass-bg-strong))',
+  },
+  officeHandoffHeader: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(260px, 1fr) minmax(210px, auto)',
+    gap: 12,
+    alignItems: 'start',
+    marginBottom: 10,
+  },
+  officeHandoffTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 17,
+    fontWeight: 950,
+    lineHeight: 1.18,
+  },
+  officeHandoffSubtitle: {
+    margin: '5px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 720,
+    lineHeight: 1.35,
+    maxWidth: 780,
+  },
+  officeHandoffStatusBox: {
+    display: 'grid',
+    gap: 6,
+    justifyItems: 'end',
+    textAlign: 'right',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 750,
+    lineHeight: 1.3,
+  },
+  officeHandoffGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+    gap: 8,
+  },
+  officeHandoffCard: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    color: 'var(--text)',
+    padding: '9px 10px',
+    minHeight: 92,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    textAlign: 'left',
+    minWidth: 0,
+  },
+  officeHandoffCardOk: {
+    border: '1px solid rgba(52,211,153,0.26)',
+    background: 'rgba(52,211,153,0.08)',
+  },
+  officeHandoffCardWarn: {
+    border: '1px solid rgba(242,184,75,0.32)',
+    background: 'rgba(242,184,75,0.08)',
+  },
+  officeHandoffCardClickable: {
+    cursor: 'pointer',
+  },
+  officeHandoffCardLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  officeHandoffCardValue: {
+    color: 'var(--text)',
+    fontSize: 14,
+    fontWeight: 950,
+    lineHeight: 1.2,
+    overflowWrap: 'anywhere',
+  },
+  officeHandoffCardDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 740,
+    lineHeight: 1.32,
+    overflowWrap: 'anywhere',
+  },
+  officeHandoffActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
   },
   officePlanPanel: {
     border: '1px solid rgba(52,211,153,0.34)',
@@ -8046,6 +11543,136 @@ const s = {
     gap: 4,
     color: 'var(--text)',
     minWidth: 0,
+  },
+  officePlanAssistant: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(240px, 1fr) minmax(220px, auto)',
+    alignItems: 'center',
+    gap: 12,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    padding: 12,
+    marginBottom: 12,
+  },
+  officePlanAssistant_success: {
+    border: '1px solid rgba(22,138,74,0.26)',
+    background: 'rgba(22,138,74,0.06)',
+  },
+  officePlanAssistant_info: {
+    border: '1px solid rgba(14,116,144,0.24)',
+    background: 'rgba(14,116,144,0.06)',
+  },
+  officePlanAssistant_warning: {
+    border: '1px solid rgba(199,119,0,0.3)',
+    background: 'rgba(199,119,0,0.08)',
+  },
+  officePlanAssistant_danger: {
+    border: '1px solid rgba(220,38,38,0.3)',
+    background: 'rgba(220,38,38,0.08)',
+  },
+  officePlanAssistantMain: {
+    display: 'grid',
+    gap: 4,
+    minWidth: 0,
+  },
+  officePlanAssistantTitle: {
+    color: 'var(--text)',
+    fontSize: 14,
+    fontWeight: 950,
+    lineHeight: 1.25,
+  },
+  officePlanAssistantDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    fontWeight: 750,
+    lineHeight: 1.35,
+  },
+  officePlanAssistantBusy: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 6,
+    maxWidth: 420,
+  },
+  officePlanAssistantBusyItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.62)',
+    color: 'var(--text-sub)',
+    padding: '5px 7px',
+    fontSize: 10,
+    fontWeight: 850,
+    lineHeight: 1.2,
+  },
+  officePlanAssistantBtn: {
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent)',
+    color: '#fff',
+    padding: '7px 10px',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+  },
+  officePlanAssistantBtnSecondary: {
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    padding: '7px 10px',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+  },
+  officePlanConflictBox: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(240px, 1fr) minmax(180px, auto)',
+    alignItems: 'center',
+    gap: 10,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    padding: 12,
+    marginBottom: 12,
+  },
+  officePlanConflictBox_good: {
+    border: '1px solid rgba(52,211,153,0.28)',
+    background: 'rgba(52,211,153,0.08)',
+  },
+  officePlanConflictBox_warning: {
+    border: '1px solid rgba(242,184,75,0.38)',
+    background: 'rgba(242,184,75,0.1)',
+  },
+  officePlanConflictBox_danger: {
+    border: '1px solid rgba(248,113,113,0.36)',
+    background: 'rgba(248,113,113,0.1)',
+  },
+  officePlanConflictTitle: {
+    display: 'block',
+    color: 'var(--text)',
+    fontSize: 14,
+    fontWeight: 950,
+    lineHeight: 1.25,
+    marginTop: 3,
+  },
+  officePlanConflictDetail: {
+    display: 'block',
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    fontWeight: 750,
+    lineHeight: 1.35,
+    marginTop: 4,
+  },
+  officePlanConflictList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 5,
+    color: 'var(--danger)',
+    fontSize: 11,
+    fontWeight: 850,
+    lineHeight: 1.25,
+    textAlign: 'right',
   },
   officePlanGrid: {
     display: 'grid',
@@ -8104,6 +11731,119 @@ const s = {
     fontSize: 13,
     lineHeight: 1.25,
   },
+  detailOwnerPanel: {
+    border: '1px solid rgba(52,211,153,0.3)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(52,211,153,0.12), var(--glass-bg-strong))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  detailOwnerPanel_active: {
+    border: '1px solid rgba(14,165,233,0.38)',
+    background: 'linear-gradient(135deg, rgba(14,165,233,0.12), var(--glass-bg-strong))',
+  },
+  detailOwnerPanel_good: {
+    border: '1px solid rgba(52,211,153,0.34)',
+    background: 'linear-gradient(135deg, rgba(52,211,153,0.12), var(--glass-bg-strong))',
+  },
+  detailOwnerPanel_warning: {
+    border: '1px solid rgba(242,184,75,0.38)',
+    background: 'linear-gradient(135deg, rgba(242,184,75,0.12), var(--glass-bg-strong))',
+  },
+  detailOwnerPanel_danger: {
+    border: '1px solid rgba(248,113,113,0.4)',
+    background: 'linear-gradient(135deg, rgba(248,113,113,0.13), var(--glass-bg-strong))',
+  },
+  detailOwnerMain: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  detailOwnerTitle: {
+    color: 'var(--text)',
+    fontSize: 18,
+    fontWeight: 900,
+    lineHeight: 1.2,
+    overflowWrap: 'anywhere',
+  },
+  detailOwnerText: {
+    margin: 0,
+    color: 'var(--text-sub)',
+    fontSize: 13,
+    fontWeight: 750,
+    lineHeight: 1.4,
+    maxWidth: 780,
+  },
+  detailOwnerMeta: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  detailOwnerMetaPill: {
+    border: '1px solid var(--border)',
+    borderRadius: 999,
+    background: 'rgba(0,0,0,0.12)',
+    color: 'var(--text-muted)',
+    padding: '4px 8px',
+    fontSize: 11,
+    fontWeight: 850,
+    lineHeight: 1.1,
+    maxWidth: '100%',
+    overflowWrap: 'anywhere',
+  },
+  detailOwnerActionBox: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    padding: 11,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 7,
+    minWidth: 0,
+  },
+  detailOwnerActionTitle: {
+    color: 'var(--accent)',
+    fontSize: 16,
+    fontWeight: 950,
+    lineHeight: 1.2,
+    overflowWrap: 'anywhere',
+  },
+  detailOwnerActionDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    flex: 1,
+  },
+  detailOwnerActionBtn: {
+    border: '1px solid rgba(52,211,153,0.36)',
+    borderRadius: 8,
+    background: 'rgba(52,211,153,0.14)',
+    color: 'var(--accent)',
+    padding: '8px 11px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 950,
+    textAlign: 'center',
+  },
+  detailOwnerSecondaryBtn: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text-sub)',
+    padding: '7px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+    textAlign: 'center',
+  },
   workflowPathPanel: {
     border: '1px solid rgba(14,165,233,0.28)',
     borderRadius: 8,
@@ -8111,6 +11851,10 @@ const s = {
     padding: '12px 14px',
     marginBottom: 12,
     boxShadow: 'var(--shadow-md)',
+  },
+  workflowPathPanelFocused: {
+    border: '1px solid rgba(132,204,22,0.72)',
+    boxShadow: '0 0 0 3px rgba(132,204,22,0.18), var(--shadow-md)',
   },
   workflowPathHeader: {
     display: 'flex',
@@ -8277,8 +12021,8 @@ const s = {
     backgroundColor: 'rgba(132,204,22,0.08)',
   },
   detailWorkflowStep_warning: {
-    border: '1px solid rgba(242,184,75,0.34)',
-    backgroundColor: 'rgba(242,184,75,0.1)',
+    border: '1px solid rgba(255,145,0,0.2)',
+    backgroundColor: 'rgba(255,145,0,0.1)',
   },
   detailWorkflowStep_blocked: {
     border: '1px solid rgba(248,113,113,0.35)',
@@ -8415,6 +12159,67 @@ const s = {
     lineHeight: 1.35,
     maxWidth: 760,
   },
+  crewPackagePanel: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    padding: 10,
+    marginBottom: 10,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(220px, 300px) minmax(0, 1fr)',
+    gap: 10,
+    alignItems: 'stretch',
+  },
+  crewPackageSummary: {
+    border: '1px solid rgba(34,197,94,0.18)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(236,253,245,0.82)',
+    padding: '9px 10px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+    minWidth: 0,
+  },
+  crewPackageTitle: {
+    color: 'var(--text)',
+    fontSize: 14,
+    fontWeight: 950,
+    lineHeight: 1.25,
+  },
+  crewPackageDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 750,
+    lineHeight: 1.35,
+  },
+  crewPackageGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))',
+    gap: 8,
+  },
+  crewPackageItem: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'var(--bg-card)',
+    padding: '7px 8px',
+    minHeight: 76,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    minWidth: 0,
+  },
+  crewPackageItemOk: {
+    border: '1px solid rgba(52,211,153,0.28)',
+    backgroundColor: 'rgba(236,253,245,0.7)',
+  },
+  crewPackageItemWarn: {
+    border: '1px solid rgba(249,168,37,0.34)',
+    backgroundColor: 'rgba(255,251,235,0.78)',
+  },
+  crewPackageItemDanger: {
+    border: '1px solid rgba(239,83,80,0.34)',
+    backgroundColor: 'rgba(254,242,242,0.82)',
+  },
   crewBriefGrid: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 340px)',
@@ -8462,7 +12267,7 @@ const s = {
   },
   crewBriefActions: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(94px, 1fr))',
     gap: 8,
   },
   crewActionBtn: {
@@ -8484,6 +12289,8 @@ const s = {
     cursor: 'pointer',
     fontSize: 12,
     fontWeight: 900,
+    textAlign: 'center',
+    textDecoration: 'none',
   },
   crewIssueBox: {
     display: 'flex',
@@ -8568,6 +12375,7 @@ const s = {
     display: 'block',
     borderRadius: 8,
     overflow: 'hidden',
+    backdropFilter: 'blur(20px)',
     border: '1px solid var(--border)',
     minHeight: 92,
     backgroundColor: 'var(--bg-deep)',
@@ -9106,16 +12914,17 @@ const s = {
     gap: 12,
   },
   listTaskCard: {
-    background: 'linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    background: 'rgba(18,24,41,0.75)',
+    border: '1px solid rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
     padding: 14,
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
     cursor: 'pointer',
     minHeight: 320,
+    backdropFilter: 'blur(20px)',
   },
   listTaskTop: {
     display: 'flex',
@@ -9130,9 +12939,9 @@ const s = {
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 6,
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: 10,
+    backgroundColor: 'rgba(13,18,30,0.8)',
     color: 'var(--text-muted)',
     padding: '4px 7px',
     fontSize: 11,
@@ -9142,7 +12951,7 @@ const s = {
     color: 'var(--text-sub)',
   },
   contactMiniDanger: {
-    color: '#C62828',
+    color: 'var(--danger)',
     border: '1px solid rgba(248,113,113,0.32)',
     backgroundColor: 'rgba(248,113,113,0.09)',
   },
@@ -9155,16 +12964,16 @@ const s = {
     flexShrink: 0,
   },
   contactDot_good: {
-    backgroundColor: '#34D399',
-    boxShadow: '0 0 0 2px rgba(52,211,153,0.16)',
+    backgroundColor: 'var(--laser-emerald)',
+    boxShadow: '0 0 8px rgba(0,230,118,0.45)',
   },
   contactDot_warning: {
-    backgroundColor: '#F9A825',
-    boxShadow: '0 0 0 2px rgba(249,168,37,0.16)',
+    backgroundColor: 'var(--supernova-orange)',
+    boxShadow: '0 0 8px rgba(255,145,0,0.42)',
   },
   contactDot_danger: {
-    backgroundColor: '#EF5350',
-    boxShadow: '0 0 0 2px rgba(239,83,80,0.16)',
+    backgroundColor: 'var(--danger)',
+    boxShadow: '0 0 8px rgba(255,61,113,0.42)',
   },
   contactDot_muted: {
     backgroundColor: '#94A3B8',
@@ -9220,6 +13029,99 @@ const s = {
   workflowStage_muted: {
     border: '1px solid var(--border)',
   },
+  stageOwnerMini: {
+    border: '1px solid rgba(52,211,153,0.26)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.09), var(--bg-deep))',
+    padding: '9px 10px',
+    display: 'grid',
+    gap: 6,
+    minWidth: 0,
+  },
+  stageOwnerMini_good: {
+    border: '1px solid rgba(52,211,153,0.3)',
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.1), var(--bg-deep))',
+  },
+  stageOwnerMini_warning: {
+    border: '1px solid rgba(242,184,75,0.34)',
+    background: 'linear-gradient(145deg, rgba(242,184,75,0.11), var(--bg-deep))',
+  },
+  stageOwnerMini_danger: {
+    border: '1px solid rgba(248,113,113,0.34)',
+    background: 'linear-gradient(145deg, rgba(248,113,113,0.1), var(--bg-deep))',
+  },
+  stageOwnerMini_blue: {
+    border: '1px solid rgba(91,192,235,0.32)',
+    background: 'linear-gradient(145deg, rgba(91,192,235,0.1), var(--bg-deep))',
+  },
+  stageOwnerMini_muted: {
+    border: '1px solid var(--border)',
+    background: 'var(--bg-deep)',
+  },
+  stageOwnerTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  stageOwnerLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  stageOwnerName: {
+    color: 'var(--accent)',
+    fontSize: 12,
+    fontWeight: 950,
+    lineHeight: 1.15,
+    textAlign: 'right',
+    overflowWrap: 'anywhere',
+  },
+  stageOwnerTitle: {
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 950,
+    lineHeight: 1.2,
+    overflowWrap: 'anywhere',
+  },
+  stageOwnerDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 750,
+    lineHeight: 1.35,
+    overflowWrap: 'anywhere',
+  },
+  stageOwnerFooter: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: 8,
+    alignItems: 'center',
+  },
+  stageOwnerNext: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 850,
+    lineHeight: 1.2,
+    overflowWrap: 'anywhere',
+  },
+  stageOwnerAction: {
+    minHeight: 30,
+    border: '1px solid rgba(52,211,153,0.36)',
+    borderRadius: 8,
+    background: 'rgba(52,211,153,0.14)',
+    color: 'var(--accent)',
+    padding: '6px 9px',
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 950,
+    textAlign: 'center',
+    maxWidth: 156,
+    lineHeight: 1.15,
+    overflowWrap: 'anywhere',
+  },
   fieldOpsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))',
@@ -9274,6 +13176,68 @@ const s = {
     whiteSpace: 'nowrap',
     color: 'var(--text-muted)',
   },
+  fieldExecutionRow: {
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    padding: '9px 10px',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(120px, 1fr) minmax(130px, auto)',
+    gap: 10,
+    alignItems: 'center',
+  },
+  fieldExecutionRow_good: {
+    borderColor: 'rgba(34,197,94,0.28)',
+    backgroundColor: 'rgba(34,197,94,0.08)',
+  },
+  fieldExecutionRow_warning: {
+    borderColor: 'rgba(245,158,11,0.34)',
+    backgroundColor: 'rgba(245,158,11,0.1)',
+  },
+  fieldExecutionRow_danger: {
+    borderColor: 'rgba(239,68,68,0.36)',
+    backgroundColor: 'rgba(239,68,68,0.1)',
+  },
+  fieldExecutionRow_muted: {
+    borderColor: 'rgba(148,163,184,0.18)',
+    backgroundColor: 'rgba(148,163,184,0.08)',
+  },
+  fieldExecutionMain: {
+    display: 'grid',
+    gap: 2,
+    minWidth: 0,
+  },
+  fieldExecutionLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+  },
+  fieldExecutionDocs: {
+    display: 'flex',
+    gap: 5,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  fieldExecutionChip: {
+    minHeight: 20,
+    border: '1px solid var(--border)',
+    borderRadius: 999,
+    padding: '2px 7px',
+    fontSize: 10,
+    fontWeight: 950,
+    whiteSpace: 'nowrap',
+  },
+  fieldExecutionChipReady: {
+    color: 'var(--accent)',
+    borderColor: 'rgba(34,197,94,0.28)',
+    backgroundColor: 'rgba(34,197,94,0.1)',
+  },
+  fieldExecutionChipMissing: {
+    color: 'var(--warning)',
+    borderColor: 'rgba(245,158,11,0.34)',
+    backgroundColor: 'rgba(245,158,11,0.1)',
+  },
   listTaskChips: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   readinessBlock: {
     border: '1px solid var(--border)',
@@ -9303,6 +13267,63 @@ const s = {
     height: '100%',
     borderRadius: 8,
     transition: 'width 0.18s ease',
+  },
+  packageReadinessGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))',
+    gap: 7,
+  },
+  packageReadinessTile: {
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    backgroundColor: 'rgba(13,18,30,0.82)',
+    color: 'var(--text)',
+    minHeight: 58,
+    padding: '8px 9px',
+    cursor: 'pointer',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gridTemplateRows: 'auto auto',
+    gap: '2px 8px',
+    alignItems: 'center',
+    textAlign: 'left',
+  },
+  packageReadinessTile_good: {
+    border: '1px solid rgba(52,211,153,0.3)',
+    backgroundColor: 'rgba(52,211,153,0.09)',
+  },
+  packageReadinessTile_warning: {
+    border: '1px solid rgba(251,191,36,0.32)',
+    backgroundColor: 'rgba(251,191,36,0.1)',
+  },
+  packageReadinessTile_danger: {
+    border: '1px solid rgba(248,113,113,0.34)',
+    backgroundColor: 'rgba(248,113,113,0.1)',
+  },
+  packageReadinessLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  packageReadinessValue: {
+    color: 'var(--text)',
+    fontSize: 14,
+    fontWeight: 950,
+    fontVariantNumeric: 'tabular-nums',
+    gridRow: '1 / span 2',
+    gridColumn: 2,
+  },
+  packageReadinessHint: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    fontWeight: 800,
+    lineHeight: 1.25,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0,
   },
   blockerWrap: { display: 'flex', gap: 5, flexWrap: 'wrap', minHeight: 22 },
   blockerBadge: {
