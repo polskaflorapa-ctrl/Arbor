@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import * as XLSX from 'xlsx';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
@@ -5256,33 +5255,6 @@ export default function Zlecenia() {
     pokazKomunikat(`Wyeksportowano ${rows.length} rekordów do CSV.`);
   };
 
-  const exportFilteredXlsx = () => {
-    const rows = widoczneZlecenia.map((z) => ({
-      ID: z.id,
-      Klient: z.klient_nazwa || '',
-      Adres: z.adres || '',
-      Miasto: z.miasto || '',
-      'Typ uslugi': z.typ_uslugi || '',
-      Status: z.status || '',
-      Priorytet: z.priorytet || '',
-      SLA: getSlaFlags(z).join(', ') || 'OK',
-      'Data planowana': z.data_planowana ? z.data_planowana.split('T')[0] : '',
-      'Wartosc planowana': z.wartosc_planowana ?? '',
-      'Oddzial ID': z.oddzial_id ?? '',
-      'Ekipa ID': z.ekipa_id ?? '',
-      'Kontakt status': getClientContactOption(getClientContact(z.id).status).label,
-      'Follow-up kontakt': getClientContact(z.id).dueAt ? formatContactStamp(getClientContact(z.id).dueAt) : '',
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Zlecenia');
-
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    XLSX.writeFile(workbook, `zlecenia-${stamp}.xlsx`);
-    pokazKomunikat(`Wyeksportowano ${rows.length} rekordów do XLSX.`);
-  };
- 
   const todayIso = new Date().toISOString().slice(0, 10);
   const isTaskForCurrentUserTurn = (task, diagnostics = getTaskDiagnostics(task, todayIso)) => {
     if (!currentUser || !task || isTaskClosed(task.status)) return false;
@@ -6292,7 +6264,6 @@ export default function Zlecenia() {
                   {showAdvancedOps ? (
                     <>
                       <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>CSV</button>
-                      <button type="button" style={s.btnSecondary} onClick={exportFilteredXlsx}>XLSX</button>
                       <button type="button" style={s.btnSecondary} onClick={() => copyDispatchManifest(widoczneZlecenia, 'bieżącego widoku')}>
                         Odprawa widoku
                       </button>
@@ -7309,7 +7280,6 @@ export default function Zlecenia() {
               actions={
                 <>
                   <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>{t('common.exportCsv')}</button>
-                  <button type="button" style={s.btnSecondary} onClick={exportFilteredXlsx}>{t('common.exportXlsx')}</button>
                   <button type="button" style={s.btnSecondary} onClick={() => setShowWorkflowPanel((v) => !v)}>
                     {t('pages.zlecenia.workflow')}
                   </button>
@@ -7558,6 +7528,32 @@ export default function Zlecenia() {
                   <span>{getTaskAddressLine(wybraneZlecenie) || 'Brak adresu'}</span>
                   <span>{wybraneZlecenie.typ_uslugi || 'Typ pracy nie ustawiony'}</span>
                   <span>{wybraneZlecenie.ekipa_nazwa || (wybraneZlecenie.ekipa_id ? `Ekipa #${wybraneZlecenie.ekipa_id}` : 'Bez ekipy')}</span>
+                </div>
+                <div style={s.detailHeroCommand}>
+                  <div style={s.detailHeroCommandText}>
+                    <span style={s.detailHeroCommandLabel}>Następny ruch</span>
+                    <strong style={s.detailHeroCommandTitle}>{detailNextAction?.label || detailBusinessMeta?.diagnostics?.nextAction?.label || 'Sprawdź zlecenie'}</strong>
+                    <small style={s.detailHeroCommandDetail}>{detailNextAction?.detail || detailBusinessMeta?.diagnostics?.nextAction?.detail || 'Domknij brakujące dane przed planowaniem lub zamknięciem.'}</small>
+                  </div>
+                  <div style={s.detailHeroCommandActions}>
+                    <button
+                      type="button"
+                      style={{
+                        ...s.detailHeroPrimaryAction,
+                        ...(statusUpdatingId === wybraneZlecenie.id || !(detailNextAction || detailBusinessMeta?.diagnostics?.nextAction) ? s.detailHeroActionDisabled : {}),
+                      }}
+                      disabled={statusUpdatingId === wybraneZlecenie.id || !(detailNextAction || detailBusinessMeta?.diagnostics?.nextAction)}
+                      onClick={handleDetailDecisionAction}
+                    >
+                      Wykonaj
+                    </button>
+                    <button type="button" style={s.detailHeroSecondaryAction} onClick={() => scrollToDetailSection('contact')}>
+                      Kontakt
+                    </button>
+                    <button type="button" style={s.detailHeroSecondaryAction} onClick={() => copyCrewBrief(wybraneZlecenie)}>
+                      Brief
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="zlecenia-detail-hero-stats" style={s.detailHeroStats}>
@@ -11100,12 +11096,12 @@ const s = {
   },
   detailHeroPanel: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(280px, 1.1fr) minmax(360px, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
     gap: 12,
-    border: '1px solid rgba(255,255,255,0.04)',
-    borderRadius: 16,
-    background: 'rgba(18,24,41,0.75)',
-    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(229,246,236,0.76))',
+    boxShadow: 'var(--shadow-md)',
     padding: 14,
     marginBottom: 12,
     overflow: 'hidden',
@@ -11115,7 +11111,7 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    gap: 7,
+    gap: 8,
   },
   detailHeroTitle: {
     margin: 0,
@@ -11124,7 +11120,7 @@ const s = {
     lineHeight: 1.12,
     fontWeight: 950,
     fontFamily: 'var(--font-display)',
-    letterSpacing: '0.02em',
+    letterSpacing: 0,
     overflowWrap: 'anywhere',
   },
   detailHeroMeta: {
@@ -11135,16 +11131,87 @@ const s = {
     fontSize: 12,
     fontWeight: 800,
   },
+  detailHeroCommand: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+    gap: 10,
+    alignItems: 'center',
+    border: '1px solid rgba(20,131,79,0.18)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.72)',
+    padding: '10px 11px',
+    marginTop: 3,
+  },
+  detailHeroCommandText: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 2,
+  },
+  detailHeroCommandLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.15,
+  },
+  detailHeroCommandTitle: {
+    color: 'var(--text)',
+    fontSize: 14,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  detailHeroCommandDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.3,
+    fontWeight: 760,
+    overflowWrap: 'anywhere',
+  },
+  detailHeroCommandActions: {
+    display: 'flex',
+    gap: 7,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  detailHeroPrimaryAction: {
+    minHeight: 34,
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent)',
+    color: '#fff',
+    padding: '7px 11px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 950,
+    fontFamily: 'inherit',
+  },
+  detailHeroSecondaryAction: {
+    minHeight: 34,
+    border: '1px solid rgba(20,131,79,0.22)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.82)',
+    color: 'var(--accent)',
+    padding: '7px 10px',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 900,
+    fontFamily: 'inherit',
+  },
+  detailHeroActionDisabled: {
+    opacity: 0.55,
+    cursor: 'not-allowed',
+  },
   detailHeroStats: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))',
     gap: 8,
     minWidth: 0,
   },
   detailHeroStat: {
-    border: '1px solid rgba(255,255,255,0.04)',
-    borderRadius: 14,
-    backgroundColor: 'rgba(13,18,30,0.8)',
+    border: '1px solid rgba(20,131,79,0.16)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.76)',
     padding: '10px 11px',
     minHeight: 96,
     display: 'flex',
@@ -11154,20 +11221,20 @@ const s = {
     minWidth: 0,
   },
   detailHeroStat_good: {
-    border: '1px solid rgba(0,230,118,0.2)',
-    backgroundColor: 'rgba(0,230,118,0.1)',
+    border: '1px solid rgba(20,131,79,0.2)',
+    backgroundColor: 'rgba(34,197,94,0.08)',
   },
   detailHeroStat_blue: {
-    border: '1px solid rgba(0,229,255,0.2)',
-    backgroundColor: 'rgba(0,229,255,0.1)',
+    border: '1px solid rgba(14,116,144,0.18)',
+    backgroundColor: 'rgba(14,116,144,0.07)',
   },
   detailHeroStat_warning: {
-    border: '1px solid rgba(242,184,75,0.34)',
-    backgroundColor: 'rgba(242,184,75,0.1)',
+    border: '1px solid rgba(199,119,0,0.28)',
+    backgroundColor: 'rgba(251,191,36,0.12)',
   },
   detailHeroStat_danger: {
-    border: '1px solid rgba(248,113,113,0.35)',
-    backgroundColor: 'rgba(248,113,113,0.11)',
+    border: '1px solid rgba(220,38,38,0.25)',
+    backgroundColor: 'rgba(248,113,113,0.1)',
   },
   detailHeroStatLabel: {
     color: 'var(--text-muted)',

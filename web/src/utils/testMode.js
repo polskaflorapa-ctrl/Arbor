@@ -534,6 +534,27 @@ function scopeMockUsers(users, user) {
 
 export function getMockData(endpoint) {
   const currentUser = getStoredTestUser();
+  const visibleTasks = scopeMockTasks(MOCK_DATA.zlecenia, currentUser);
+  const taskStats = visibleTasks.reduce((acc, task) => {
+    const status = String(task.status || 'Nowe');
+    if (status === 'Nowe') acc.nowe += 1;
+    if (status === 'W_Realizacji' || status === 'W realizacji') acc.w_realizacji += 1;
+    if (status === 'Zakonczone' || status === 'Zakończone') acc.zakonczone += 1;
+    return acc;
+  }, { nowe: 0, w_realizacji: 0, zakonczone: 0 });
+  const rankingRows = [
+    {
+      ekipa_id: 5,
+      ekipa_nazwa: 'Ekipa A',
+      oddzial_nazwa: 'Krakow',
+      ekipa_oddzial_nazwa: 'Krakow',
+      zadania: 6,
+      wartosc: 18400,
+      skutecznosc: 83,
+      score: 186,
+      delegowane_zadania: 0,
+    },
+  ];
   const rankingBrygad = {
     generated_at: new Date().toISOString(),
     as_of: new Date().toISOString().slice(0, 10),
@@ -558,63 +579,20 @@ export function getMockData(endpoint) {
     },
   };
   const digestDate = new Date().toISOString().slice(0, 10);
-  const operationalDigestPreview = {
-    date: digestDate,
-    branch_id: currentUser?.oddzial_id || null,
-    horizon_days: 3,
-    fleet_lookahead_days: 14,
-    generated_at: new Date().toISOString(),
-    summary: {
-      high_alerts: 2,
-      medium_alerts: 3,
-      total_alerts: 5,
-      today_tasks: 4,
-      horizon_tasks: 12,
-      overdue_tasks: 2,
-      unassigned_tasks: 3,
-      draft_reports: 2,
-      fleet_due: 1,
-      reservation_conflicts: 1,
-      margin_risks: 1,
-      kommo_sync_errors: 0,
-      query_errors: 0,
-    },
-    alerts: [
-      { level: 'high', type: 'tasks_overdue', title: 'Zalegle zlecenia', count: 2, action: 'Potwierdz nowy termin z klientem.' },
-      { level: 'high', type: 'equipment_reservation_conflicts', title: 'Kolizje rezerwacji sprzetu', count: 1, action: 'Rozwiaz konflikt przed startem ekip.' },
-      { level: 'medium', type: 'tasks_unassigned', title: 'Zlecenia bez ekipy', count: 3, action: 'Dopnij obsade w horyzoncie 3 dni.' },
-      { level: 'medium', type: 'draft_reports', title: 'Robocze raporty dzienne', count: 2, action: 'Zamknij raporty i uzupelnij podpisy.' },
-      { level: 'medium', type: 'fleet_due', title: 'Terminy floty i sprzetu', count: 1, action: 'Sprawdz przeglady i OC.' },
-    ],
-    details: {
-      overdue_tasks: [
-        { id: 101, klient_nazwa: 'Osiedle Parkowe', data_planowana: digestDate },
-        { id: 102, klient_nazwa: 'Wspolnota Lesna', data_planowana: digestDate },
-      ],
-      unassigned_tasks: [
-        { id: 110, klient_nazwa: 'Dom prywatny', data_planowana: digestDate },
-        { id: 111, klient_nazwa: 'Szkola Podstawowa', data_planowana: digestDate },
-      ],
-      fleet_due: [
-        { kind: 'vehicle', id: 4, label: 'KR 4321A', due_type: 'ubezpieczenie', due_date: digestDate },
-      ],
-      reservation_conflicts: [
-        { sprzet_id: 5, sprzet_nazwa: 'Rebak Jensen', conflict_pairs: 1, first_date: digestDate },
-      ],
-      margin_risks: [
-        { id: 90, klient_nazwa: 'Firma Ogrody', revenue: 4200, labor_cost: 3600, margin_pct: 14.3 },
-      ],
-    },
-    errors: [],
-  };
   const mapping = {
-    '/zlecenia': scopeMockTasks(MOCK_DATA.zlecenia, currentUser),
-    '/tasks/wszystkie': scopeMockTasks(MOCK_DATA.zlecenia, currentUser),
+    '/zlecenia': visibleTasks,
+    '/tasks/wszystkie': visibleTasks,
+    '/tasks/stats': taskStats,
     '/oddzialy': MOCK_DATA.oddzialy,
     '/ekipy': MOCK_DATA.ekipy,
+    '/ekipy/ranking': {
+      month: { ranking: rankingRows },
+      weeks: [{ week_start: new Date().toISOString().slice(0, 10), ranking: rankingRows }],
+    },
     '/ekipy/live-locations': { items: MOCK_DATA.liveLocations, count: MOCK_DATA.liveLocations.length },
     '/uzytkownicy': scopeMockUsers(MOCK_DATA.uzytkownicy, currentUser),
     '/wyceny': MOCK_DATA.wyceny,
+    '/payroll/month-close-status': { export_allowed: true, pending_count: 0 },
     '/raporty/ranking-brygad': rankingBrygad,
     '/ai/dispatch-brief': {
       source: 'rules',
@@ -672,17 +650,6 @@ export function getMockData(endpoint) {
           ],
         },
       ],
-    },
-    '/automations/daily-digest/preview': operationalDigestPreview,
-    '/automations/run-daily': {
-      success: true,
-      reminders: { scanned: 2, remindersCreated: 1 },
-      operationalDigest: {
-        date: digestDate,
-        global: { summary: operationalDigestPreview.summary, delivery: { recipients: 1, notifications_created: 1 } },
-        branches: [],
-      },
-      executedAt: new Date().toISOString(),
     },
   };
   return mapping[endpoint] ?? null;
