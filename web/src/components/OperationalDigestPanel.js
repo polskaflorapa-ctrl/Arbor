@@ -90,6 +90,7 @@ export default function OperationalDigestPanel({ user }) {
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [compact, setCompact] = useState(() => (typeof window === 'undefined' ? false : window.innerWidth < 840));
 
   const allowed = canViewDigest(user);
   const runAllowed = canRunDigest(user);
@@ -115,6 +116,14 @@ export default function OperationalDigestPanel({ user }) {
   useEffect(() => {
     loadPreview();
   }, [loadPreview]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResize = () => setCompact(window.innerWidth < 840);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const runNow = async () => {
     if (!runAllowed) return;
@@ -142,12 +151,17 @@ export default function OperationalDigestPanel({ user }) {
   const alertRows = Array.isArray(digest?.alerts) ? digest.alerts : [];
   const detailRows = useMemo(() => topDetails(digest), [digest]);
   const healthTone = Number(summary.high_alerts || 0) > 0 ? 'danger' : Number(summary.medium_alerts || 0) > 0 ? 'warning' : 'success';
+  const headerStyle = compact ? { ...styles.header, flexDirection: 'column', alignItems: 'stretch' } : styles.header;
+  const actionsStyle = compact ? { ...styles.actions, justifyContent: 'flex-start' } : styles.actions;
+  const scoreRailStyle = compact ? { ...styles.scoreRail, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' } : styles.scoreRail;
+  const contentGridStyle = compact ? { ...styles.contentGrid, gridTemplateColumns: 'minmax(0, 1fr)' } : styles.contentGrid;
+  const alertColumnStyle = compact ? { ...styles.alertColumn, borderRight: 0, borderBottom: '1px solid #e6e9ef' } : styles.alertColumn;
 
   if (!allowed) return null;
 
   return (
     <section style={styles.panel}>
-      <div style={styles.header}>
+      <div style={headerStyle}>
         <div>
           <div style={styles.eyebrow}>Poranny digest</div>
           <h2 style={styles.title}>Operacje do decyzji</h2>
@@ -155,7 +169,7 @@ export default function OperationalDigestPanel({ user }) {
             {digest?.date ? `Stan na ${dateLabel(digest.date)}` : 'Podglad alertow z automatyzacji dziennej.'}
           </p>
         </div>
-        <div style={styles.actions}>
+        <div style={actionsStyle}>
           <button type="button" onClick={loadPreview} disabled={loading || running} style={styles.ghostButton}>
             {loading ? 'Odswiezam...' : 'Odswiez'}
           </button>
@@ -171,7 +185,7 @@ export default function OperationalDigestPanel({ user }) {
       {message ? <div style={styles.successBox}>{message}</div> : null}
 
       <div style={styles.body}>
-        <div style={styles.scoreRail}>
+        <div style={scoreRailStyle}>
           <div style={{ ...styles.scoreCard, ...(scoreTone[healthTone] || scoreTone.neutral) }}>
             <span style={styles.scoreValue}>{metricValue(summary.high_alerts)}</span>
             <span style={styles.scoreLabel}>pilne</span>
@@ -190,8 +204,8 @@ export default function OperationalDigestPanel({ user }) {
           </div>
         </div>
 
-        <div style={styles.contentGrid}>
-          <div style={styles.alertColumn}>
+        <div style={contentGridStyle}>
+          <div style={alertColumnStyle}>
             <div style={styles.sectionTitle}>Alerty</div>
             {loading && !digest ? (
               <div style={styles.empty}>Ladowanie digestu...</div>

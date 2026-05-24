@@ -5,6 +5,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Integracje from './Integracje';
 import api from '../api';
 
+jest.mock('../components/Sidebar', () => ({
+  __esModule: true,
+  default: () => <aside data-testid="sidebar" />,
+}));
+
 jest.mock('../api', () => ({
   __esModule: true,
   default: {
