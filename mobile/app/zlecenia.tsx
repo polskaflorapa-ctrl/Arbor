@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Linking, Platform, RefreshControl, ScrollView,
@@ -35,6 +35,18 @@ const FIELD_PHOTO_REQUIREMENTS = [
 type OrderQuickMode = 'all' | 'myTurn' | 'today' | 'field' | 'officeReady' | 'needsPlan' | 'missingEvidence' | 'needsSignal' | 'active';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 type StageOwnerTone = 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'muted';
+
+const ORDER_QUICK_MODE_KEYS: OrderQuickMode[] = [
+  'all',
+  'myTurn',
+  'today',
+  'field',
+  'officeReady',
+  'needsPlan',
+  'missingEvidence',
+  'needsSignal',
+  'active',
+];
 
 type OfficeFlowStep = {
   key: string;
@@ -586,6 +598,12 @@ function fieldExecutionToneColor(tone: string, theme: Theme) {
   return theme.textMuted;
 }
 
+function normalizeOrderQuickMode(value: unknown): OrderQuickMode | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const key = String(raw || '').trim();
+  return ORDER_QUICK_MODE_KEYS.includes(key as OrderQuickMode) ? key as OrderQuickMode : null;
+}
+
 function taskOpenProblemCount(task: any) {
   const direct = taskNumber(
     task?.problem_open ??
@@ -720,6 +738,7 @@ function sortCrewTasks(a: any, b: any) {
 }
 
 export default function ZleceniaScreen() {
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const { theme } = useTheme();
   const { t } = useLanguage();
   const guard = useOddzialFeatureGuard('/zlecenia');
@@ -730,7 +749,7 @@ export default function ZleceniaScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filtrStatus, setFiltrStatus] = useState('');
-  const [quickMode, setQuickMode] = useState<OrderQuickMode>('all');
+  const [quickMode, setQuickMode] = useState<OrderQuickMode>(() => normalizeOrderQuickMode(params.mode) || 'all');
   const [error, setError] = useState<string | null>(null);
 
   const statusKolor = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
@@ -767,6 +786,11 @@ export default function ZleceniaScreen() {
   }, [t]);
 
   useEffect(() => { void loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const routeMode = normalizeOrderQuickMode(params.mode);
+    if (routeMode && routeMode !== quickMode) setQuickMode(routeMode);
+  }, [params.mode, quickMode]);
 
   useEffect(() => {
     const unsubscribe = subscribeOfflineFlushDone((d) => {

@@ -741,7 +741,11 @@ export default function DashboardScreen() {
               },
             ]}
             onPress={() => {
-              void openWithContext('/zlecenia', dashboardSignal.total ? 'Brak sygnalu' : 'Sygnaly terenowe', 'dashboard-field-signal');
+              void openWithContext(
+                dashboardSignal.total ? '/zlecenia?mode=needsSignal' : '/zlecenia',
+                dashboardSignal.total ? 'Brak sygnalu' : 'Sygnaly terenowe',
+                'dashboard-field-signal',
+              );
             }}
           >
             <View style={[S.signalIcon, { borderColor: dashboardSignal.color + '55', backgroundColor: ARBOR_UI.paper }]}>
