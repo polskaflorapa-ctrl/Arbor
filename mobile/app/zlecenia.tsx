@@ -459,18 +459,18 @@ function taskMatchesCurrentUserTurn(task: any, user: any) {
 
   if (role.includes('specjal') || role.includes('sprzed')) {
     return taskBranchMatchesUser(task, user) &&
-      (status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA || taskReadyForOffice(task));
+      (status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA || taskReadyForOffice(task) || taskNeedsFieldSignal(task));
   }
 
   if (role.includes('kierownik')) {
     return taskBranchMatchesUser(task, user) &&
       (status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA ||
-        taskReadyForOffice(task) || taskNeedsCrewPlan(task) || blockers);
+        taskReadyForOffice(task) || taskNeedsCrewPlan(task) || taskNeedsFieldSignal(task) || blockers);
   }
 
   if (role.includes('prezes') || role.includes('dyrektor') || role.includes('admin')) {
     return status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA ||
-      taskReadyForOffice(task) || taskNeedsCrewPlan(task) || blockers;
+      taskReadyForOffice(task) || taskNeedsCrewPlan(task) || taskNeedsFieldSignal(task) || blockers;
   }
 
   return !isTaskClosed(status);
