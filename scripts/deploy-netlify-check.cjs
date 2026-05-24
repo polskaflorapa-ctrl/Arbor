@@ -37,27 +37,32 @@ function mainChecks() {
 
   assert(rootPackage.engines?.node === '>=20', 'Root package should require Node >=20.');
   assert(rootPackage.workspaces?.includes('web'), 'Root package workspaces should include web.');
+  assert(rootPackage.workspaces?.includes('os'), 'Root package workspaces should include os.');
+  assert(rootPackage.dependencies?.['serverless-http'], 'Root package should include serverless-http for Netlify API functions.');
+  assert(rootPackage.dependencies?.['@netlify/database'], 'Root package should include @netlify/database for Netlify Database support.');
   assert(webPackage.scripts?.build === 'react-scripts build', 'arbor-web build script should run CRA build.');
 
   assert(/\[build\]/.test(netlifyToml), 'netlify.toml is missing [build].');
-  assert(/base\s*=\s*"web"/.test(netlifyToml), 'netlify.toml should build from web/.');
-  assert(/command\s*=\s*"npm ci && npm run build"/.test(netlifyToml), 'netlify.toml build command is unexpected.');
-  assert(/publish\s*=\s*"build"/.test(netlifyToml), 'netlify.toml should publish web/build via base=web.');
+  assert(/command\s*=\s*"npm ci && npm run build -w arbor-web"/.test(netlifyToml), 'netlify.toml build command is unexpected.');
+  assert(/publish\s*=\s*"web\/build"/.test(netlifyToml), 'netlify.toml should publish web/build.');
   assert(/NODE_VERSION\s*=\s*"20"/.test(netlifyToml), 'netlify.toml should pin Node 20.');
+  assert(/REACT_APP_API_URL\s*=\s*"\/api"/.test(netlifyToml), 'netlify.toml should build the web app against same-origin /api.');
+  assert(/\[functions\]/.test(netlifyToml), 'netlify.toml is missing [functions].');
+  assert(/directory\s*=\s*"netlify\/functions"/.test(netlifyToml), 'netlify.toml should use netlify/functions.');
+  assert(/from\s*=\s*"\/api\/\*"/.test(netlifyToml), 'netlify.toml should route /api/* to the API function.');
   assert(/Cache-Control\s*=\s*"public, max-age=31536000, immutable"/.test(netlifyToml), 'netlify.toml should cache hashed static assets.');
   assert(/X-Content-Type-Options\s*=\s*"nosniff"/.test(netlifyToml), 'netlify.toml should set nosniff.');
 
-  const apiRuleIndex = redirects.indexOf('/api/* /404.html 404');
   const spaRuleIndex = redirects.indexOf('/* /index.html 200');
-  assert(apiRuleIndex >= 0, 'web/public/_redirects should return a 404 for missing /api/* proxy.');
+  assert(!redirects.includes('/api/* /404.html 404'), 'web/public/_redirects should not shadow Netlify API functions.');
   assert(spaRuleIndex >= 0, 'web/public/_redirects should include the SPA fallback.');
-  assert(apiRuleIndex < spaRuleIndex, 'The /api/* 404 rule must come before the SPA fallback.');
 
+  assert(fs.existsSync('netlify/functions/api.js'), 'Netlify API function is missing.');
   assert(fs.existsSync('web/public/404.html'), 'web/public/404.html is missing.');
   assert(fs.existsSync('deploy/netlify-web.env.example'), 'deploy/netlify-web.env.example is missing.');
 
   console.log('[deploy-netlify] Local Netlify config OK.');
-  console.log('[deploy-netlify] Set REACT_APP_API_URL in Netlify before production deploy.');
+  console.log('[deploy-netlify] Netlify will serve web/build and route /api/* to the Express API function.');
 }
 
 async function main() {

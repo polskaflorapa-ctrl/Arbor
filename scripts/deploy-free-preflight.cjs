@@ -63,8 +63,9 @@ async function main() {
   assert(osBlueprint.services?.[0]?.plan === 'free', 'os/render.yaml should also use Render Free.');
   assert(webBlueprint.services?.[0]?.runtime === 'static', 'web/render.yaml should deploy as static.');
   assert(vercel.outputDirectory === 'web/build', 'vercel.json should publish web/build.');
-  assert(/base\s*=\s*"web"/.test(netlifyToml), 'netlify.toml should build from web/.');
-  assert(/publish\s*=\s*"build"/.test(netlifyToml), 'netlify.toml should publish build with base=web.');
+  assert(/publish\s*=\s*"web\/build"/.test(netlifyToml), 'netlify.toml should publish web/build.');
+  assert(/directory\s*=\s*"netlify\/functions"/.test(netlifyToml), 'netlify.toml should configure Netlify Functions.');
+  assert(/REACT_APP_API_URL\s*=\s*"\/api"/.test(netlifyToml), 'netlify.toml should build web against same-origin /api.');
   assert(fs.existsSync('web/src/utils/apiBase.js'), 'web API URL normalizer is missing.');
   assert(fs.existsSync('deploy/render-arbor-os.env.example'), 'Render env template is missing.');
   assert(fs.existsSync('deploy/local-production-doctor.env.example'), 'Local production doctor env template is missing.');

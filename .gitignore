@@ -41,6 +41,7 @@ deploy/*.env
 tmp_*.py
 
 # Codex / Claude agent runtime artifacts
+.netlify/
 .codex/
 .codex-*.log
 .codex-*.pid

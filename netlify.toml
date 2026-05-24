@@ -1,12 +1,23 @@
 [build]
-  base = "web"
-  command = "npm ci && npm run build"
-  publish = "build"
+  command = "npm ci && npm run build -w arbor-web"
+  publish = "web/build"
 
 [build.environment]
   NODE_VERSION = "20"
   NPM_CONFIG_AUDIT = "false"
   NPM_CONFIG_FUND = "false"
+  REACT_APP_API_URL = "/api"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["os/migrate.sql", "os/docs/openapi.yaml", "os/public/app/**"]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
 
 [[headers]]
   for = "/*"

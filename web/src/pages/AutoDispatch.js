@@ -21,6 +21,17 @@ function fmt(min) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function money(value) {
+  const numeric = Number(value || 0);
+  return numeric.toLocaleString('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 });
+}
+
+const PRIORITY_COLOR = {
+  high: '#dc2626',
+  medium: '#d97706',
+  low: '#2563eb',
+};
+
 // Reason codes → human-readable labels (kept in Polish; not in locale file)
 const REASON_LABEL = {
   no_teams:           'Brak ekip',
@@ -52,6 +63,9 @@ export default function AutoDispatch() {
   const [error, setError]           = useState('');
   const [success, setSuccess]       = useState('');
   const [expandedTeam, setExpandedTeam] = useState(null);
+  const [advisor, setAdvisor]       = useState(null);
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [advisorError, setAdvisorError] = useState('');
 
   const runSolver = useCallback(async (save = false) => {
     setLoading(true); setError(''); setSuccess(''); setPlan(null); setSavedPlanId(null);
@@ -82,6 +96,23 @@ export default function AutoDispatch() {
     } finally { setApplying(false); }
   }, [savedPlanId]);
 
+  const loadAdvisor = useCallback(async () => {
+    setAdvisorLoading(true);
+    setAdvisorError('');
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/ai/dispatch-brief', {
+        params: { date, oddzial_id: user?.oddzial_id },
+        headers: authHeaders(token),
+      });
+      setAdvisor(res.data);
+    } catch (e) {
+      setAdvisorError(e.response?.data?.error || e.message);
+    } finally {
+      setAdvisorLoading(false);
+    }
+  }, [date, user?.oddzial_id]);
+
   const stats = plan?.stats;
 
   return (
@@ -101,11 +132,19 @@ export default function AutoDispatch() {
         <div style={s.controls}>
           <div style={s.controlGroup}>
             <label style={s.label}>{t('autoDispatch.datePicker')}</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={s.dateInput} />
+            <input
+              type="date"
+              value={date}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); }}
+              style={s.dateInput}
+            />
           </div>
           <div style={s.btnRow}>
             <button type="button" onClick={() => runSolver(false)} disabled={loading} style={s.previewBtn}>
               {loading ? `⏳ ${t('autoDispatch.btnPreviewLoading')}` : `▶ ${t('autoDispatch.btnPreview')}`}
+            </button>
+            <button type="button" onClick={loadAdvisor} disabled={advisorLoading} style={s.aiBtn}>
+              {advisorLoading ? 'Analizuje...' : 'AI Dyspozytor'}
             </button>
             <button type="button" onClick={() => runSolver(true)} disabled={loading} style={s.saveBtn}>
               {loading ? '⏳...' : `💾 ${t('autoDispatch.btnSave')}`}
@@ -120,6 +159,89 @@ export default function AutoDispatch() {
 
         {error   && <div style={s.errorBox}>{error}</div>}
         {success && <div style={s.successBox}>{success}</div>}
+        {advisorError && <div style={s.errorBox}>{advisorError}</div>}
+
+        {advisor && (
+          <section style={s.advisorPanel}>
+            <div style={s.advisorHeader}>
+              <div>
+                <div style={s.advisorEyebrow}>AI Dyspozytor</div>
+                <h2 style={s.advisorTitle}>{advisor.summary || 'Kontrola jakosci planu dnia'}</h2>
+              </div>
+              <span style={s.advisorSource}>
+                {advisor.source === 'ai' ? (advisor.provider || 'AI') : 'Reguly'}
+              </span>
+            </div>
+
+            <div style={s.advisorMetrics}>
+              <Stat
+                label="Gotowe"
+                value={`${advisor.metrics?.ready_for_dispatch ?? 0} / ${advisor.metrics?.tasks_total ?? 0}`}
+                tone="ok"
+              />
+              <Stat
+                label="Blokady"
+                value={advisor.metrics?.blocked ?? 0}
+                tone={(advisor.metrics?.blocked ?? 0) > 0 ? 'bad' : 'ok'}
+              />
+              <Stat
+                label="Uwagi"
+                value={advisor.metrics?.warnings ?? 0}
+                tone={(advisor.metrics?.warnings ?? 0) > 0 ? 'warn' : 'ok'}
+              />
+              <Stat
+                label="Jakosc"
+                value={`${advisor.metrics?.avg_quality ?? 100}%`}
+                tone={(advisor.metrics?.avg_quality ?? 100) >= 80 ? 'ok' : 'warn'}
+              />
+              <Stat label="Wartosc" value={money(advisor.metrics?.total_value)} />
+            </div>
+
+            <div style={s.advisorGrid}>
+              <div style={s.advisorColumn}>
+                <h3 style={s.sectionTitle}>Rekomendacje</h3>
+                {(advisor.recommendations || []).map((item, idx) => (
+                  <div key={`${item.title || 'recommendation'}-${idx}`} style={s.recommendation}>
+                    <div style={s.recommendationTop}>
+                      <span style={{ ...s.priority, background: PRIORITY_COLOR[item.priority] || '#64748b' }}>
+                        {item.priority || 'info'}
+                      </span>
+                      <strong style={s.recommendationTitle}>{item.title}</strong>
+                    </div>
+                    {item.rationale && <p style={s.recommendationText}>{item.rationale}</p>}
+                    {item.suggested_action && <div style={s.recommendationAction}>{item.suggested_action}</div>}
+                  </div>
+                ))}
+              </div>
+
+              <div style={s.advisorColumn}>
+                <h3 style={s.sectionTitle}>Ryzykowne zlecenia</h3>
+                {(advisor.top_tasks || []).length === 0 && (
+                  <div style={s.advisorEmpty}>Brak otwartych zlecen do analizy.</div>
+                )}
+                {(advisor.top_tasks || []).map(task => (
+                  <button
+                    key={task.task_id}
+                    type="button"
+                    style={s.riskTask}
+                    onClick={() => task.task_id && navigate(`/zlecenia/${task.task_id}`)}
+                  >
+                    <span style={s.riskTaskTop}>
+                      <strong>{task.task_numer}</strong>
+                      <span style={s.qualityPill}>{task.quality_score}%</span>
+                    </span>
+                    <span style={s.riskTaskClient}>{task.client || 'Bez klienta'} · {task.status || '-'}</span>
+                    {(task.issues || []).slice(0, 2).map(issue => (
+                      <span key={`${task.task_id}-${issue.key}`} style={s.riskTaskIssue}>
+                        {issue.label} — {issue.action}
+                      </span>
+                    ))}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Stats bar */}
         {stats && (
@@ -231,10 +353,31 @@ const s = {
   dateInput:{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14 },
   btnRow:   { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' },
   previewBtn:{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  aiBtn:    { padding: '10px 18px', borderRadius: 8, border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   saveBtn:  { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   applyBtn: { padding: '10px 18px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
   successBox:{ padding: '12px 16px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', marginBottom: 16, fontSize: 14, fontWeight: 600 },
+  advisorPanel:{ marginBottom: 20, padding: '16px 18px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' },
+  advisorHeader:{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
+  advisorEyebrow:{ fontSize: 11, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 0 },
+  advisorTitle:{ margin: '3px 0 0', fontSize: 17, lineHeight: 1.35, color: 'var(--text)' },
+  advisorSource:{ flexShrink: 0, padding: '4px 8px', borderRadius: 6, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
+  advisorMetrics:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 14 },
+  advisorGrid:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 18, alignItems: 'start' },
+  advisorColumn:{ minWidth: 0 },
+  recommendation:{ padding: '10px 0', borderTop: '1px solid var(--border-light, var(--border))' },
+  recommendationTop:{ display: 'flex', alignItems: 'center', gap: 8 },
+  priority:{ color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' },
+  recommendationTitle:{ color: 'var(--text)', fontSize: 13 },
+  recommendationText:{ margin: '5px 0 0', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.45 },
+  recommendationAction:{ marginTop: 6, color: 'var(--text)', fontSize: 12, fontWeight: 600 },
+  advisorEmpty:{ padding: '12px 0', color: 'var(--text-sub)', fontSize: 13, borderTop: '1px solid var(--border-light, var(--border))' },
+  riskTask:{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 0', background: 'none', border: 'none', borderTop: '1px solid var(--border-light, var(--border))', color: 'var(--text)', textAlign: 'left', cursor: 'pointer' },
+  riskTaskTop:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 13 },
+  riskTaskClient:{ fontSize: 12, color: 'var(--text-sub)' },
+  riskTaskIssue:{ fontSize: 11, color: 'var(--text-muted, var(--text-sub))', lineHeight: 1.35 },
+  qualityPill:{ flexShrink: 0, minWidth: 40, textAlign: 'center', borderRadius: 6, padding: '2px 6px', background: '#f1f5f9', color: '#334155', fontSize: 11, fontWeight: 800 },
   statsBar: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
   statCard: { flex: 1, minWidth: 100, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' },
   statValue:{ fontSize: 22, fontWeight: 800 },

@@ -80,5 +80,9 @@
     "@expo/vector-icons": {
       "react-native": "0.81.5"
     }
+  },
+  "dependencies": {
+    "@netlify/database": "^1.0.0",
+    "serverless-http": "^4.0.0"
   }
 }
