@@ -3129,6 +3129,11 @@ export default function ZlecenieDetailScreen() {
   const officeReservationEquipmentId = taskReservedEquipmentIds[0] || officePlanForm.sprzetIds[0] || '';
   if (officeReservationTeamId) officeReservationRouteParams.prefEkipa = officeReservationTeamId;
   if (officeReservationEquipmentId) officeReservationRouteParams.prefSprzet = officeReservationEquipmentId;
+  const officeScheduleRouteParams: Record<string, string> = {
+    prefData: officeReservationRouteParams.prefData,
+    prefZlecenie: String(id),
+  };
+  if (officeReservationTeamId) officeScheduleRouteParams.prefEkipa = officeReservationTeamId;
   const officePlanBranchId = String(zlecenie.oddzial_id || '');
   const officePlanVisibleTeams = officePlanTeams
     .filter((team) => (
@@ -4728,7 +4733,10 @@ export default function ZlecenieDetailScreen() {
               <Ionicons name="file-tray-full-outline" size={15} color={theme.warning} />
               <Text style={[S.officeCommandActionText, { color: theme.warning }]}>Do opracowania</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[S.officeCommandActionBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]} onPress={() => router.push('/harmonogram' as never)}>
+            <TouchableOpacity
+              style={[S.officeCommandActionBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => router.push({ pathname: '/harmonogram', params: officeScheduleRouteParams } as never)}
+            >
               <Ionicons name="calendar-outline" size={15} color={theme.success} />
               <Text style={[S.officeCommandActionText, { color: theme.success }]}>Harmonogram</Text>
             </TouchableOpacity>
@@ -4818,7 +4826,7 @@ export default function ZlecenieDetailScreen() {
             ) : null}
             <TouchableOpacity
               style={[S.operationalPlanAction, { backgroundColor: theme.surface2, borderColor: theme.border }]}
-              onPress={() => router.push('/harmonogram' as never)}
+              onPress={() => router.push({ pathname: '/harmonogram', params: officeScheduleRouteParams } as never)}
             >
               <Ionicons name="calendar-outline" size={15} color={theme.success} />
               <Text style={[S.operationalPlanActionText, { color: theme.success }]}>Harmonogram</Text>

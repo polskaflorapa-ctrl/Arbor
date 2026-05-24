@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Linking, Modal, RefreshControl, ScrollView, Share,
@@ -41,6 +41,36 @@ type EquipmentReservation = {
   task_klient_nazwa?: string | null;
   notatki?: string | null;
 };
+
+type ScheduleRouteParams = {
+  prefData?: string | string[];
+  date?: string | string[];
+  prefEkipa?: string | string[];
+  team?: string | string[];
+  ekipa?: string | string[];
+  prefZlecenie?: string | string[];
+  task?: string | string[];
+  zlecenie?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+}
+
+function onlyDigits(value: string): string {
+  return value.replace(/[^\d]/g, '');
+}
+
+function isValidYmdDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [yRaw, mRaw, dRaw] = value.split('-');
+  const y = Number(yRaw);
+  const m = Number(mRaw);
+  const d = Number(dRaw);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
 
 function taskNumber(value: unknown) {
   const n = Number(value);
@@ -342,6 +372,10 @@ function getCalendarDays(year: number, month: number) {
 }
 
 export default function HarmonogramScreen() {
+  const params = useLocalSearchParams<ScheduleRouteParams>();
+  const prefDataRaw = firstParam(params.prefData) || firstParam(params.date);
+  const prefTeamRaw = firstParam(params.prefEkipa) || firstParam(params.team) || firstParam(params.ekipa);
+  const prefTaskRaw = onlyDigits(firstParam(params.prefZlecenie) || firstParam(params.task) || firstParam(params.zlecenie));
   const { theme } = useTheme();
   const { language, t } = useLanguage();
   const guard = useOddzialFeatureGuard('/harmonogram');
@@ -364,6 +398,7 @@ export default function HarmonogramScreen() {
 
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [routeFocusedTaskId, setRouteFocusedTaskId] = useState('');
   const [token, setToken] = useState<string | null>(null);
 
   const init = useCallback(async () => {
@@ -451,6 +486,14 @@ export default function HarmonogramScreen() {
   }, [token]);
 
   useEffect(() => { void init(); }, [init]);
+
+  useEffect(() => {
+    if (!prefDataRaw || !isValidYmdDate(prefDataRaw)) return;
+    const [y, m, d] = prefDataRaw.split('-').map(Number);
+    setViewYear(y);
+    setViewMonth(m - 1);
+    setSelectedDay(d);
+  }, [prefDataRaw]);
 
   useEffect(() => {
     if (user) void fetchMonthData(viewYear, viewMonth);
@@ -581,8 +624,21 @@ export default function HarmonogramScreen() {
   );
   const sortedDayTasks = useMemo(() => [...dayTasks].sort(sortRouteTasks), [dayTasks]);
   useEffect(() => {
-    setTeamFilter('all');
-  }, [selectedDateKey]);
+    const preferredTeam = prefTeamRaw === 'unassigned' ? 'unassigned' : onlyDigits(prefTeamRaw);
+    setTeamFilter(preferredTeam || 'all');
+  }, [prefTeamRaw, selectedDateKey]);
+  useEffect(() => {
+    if (!prefTaskRaw) {
+      setRouteFocusedTaskId('');
+      return;
+    }
+    setRouteFocusedTaskId(prefTaskRaw);
+    const task = sortedDayTasks.find((item) => String(item?.id || '') === prefTaskRaw);
+    if (task) {
+      setSelectedTask(task);
+      setModalVisible(true);
+    }
+  }, [prefTaskRaw, sortedDayTasks]);
   const visibleDayTasks = useMemo(() => {
     if (teamFilter === 'all') return sortedDayTasks;
     if (teamFilter === 'unassigned') return sortedDayTasks.filter((task) => !task.ekipa_id && !task.ekipa_nazwa);
@@ -1270,10 +1326,11 @@ export default function HarmonogramScreen() {
                   const executionMissing = executionChecks.filter((item) => !item.ok).map((item) => item.label);
                   const fieldExecution = getTaskFieldExecutionSummary(task);
                   const fieldExecutionColor = fieldExecutionToneColor(fieldExecution.tone, theme);
+                  const isFocusedRouteTask = routeFocusedTaskId && String(task.id || '') === routeFocusedTaskId;
                   return (
                   <TouchableOpacity
                     key={task.id}
-                    style={S.taskCard}
+                    style={[S.taskCard, isFocusedRouteTask && S.taskCardFocused]}
                     onPress={() => { setSelectedTask(task); setModalVisible(true); }}
                   >
                     <View style={S.routeRail}>
@@ -2287,6 +2344,10 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   taskCard: {
     flexDirection: 'row', borderRadius: 12, backgroundColor: t.surface2,
     marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: t.cardBorder,
+  },
+  taskCardFocused: {
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
   },
   taskStatusBar: { width: 5 },
   routeRail: {
