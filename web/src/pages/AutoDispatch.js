@@ -39,6 +39,39 @@ const REASON_LABEL = {
   capacity_exceeded:  'Przekroczony limit godzin',
 };
 
+function taskIssueBadge(issues = []) {
+  const critical = issues.filter(issue => issue.severity === 'critical').length;
+  return critical ? `${critical} kryt.` : `${issues.length} uwag`;
+}
+
+function formatAdvisorBrief(advisor) {
+  const metrics = advisor?.metrics || {};
+  const lines = [
+    'AI Dyspozytor - odprawa dnia',
+    advisor?.summary ? `Podsumowanie: ${advisor.summary}` : null,
+    `Gotowe: ${metrics.ready_for_dispatch ?? 0}/${metrics.tasks_total ?? 0} | Blokady: ${metrics.blocked ?? 0} | Uwagi: ${metrics.warnings ?? 0} | Jakosc: ${metrics.avg_quality ?? 100}%`,
+  ].filter(Boolean);
+
+  const recommendations = (advisor?.recommendations || []).slice(0, 3);
+  if (recommendations.length) {
+    lines.push('', 'Rekomendacje:');
+    recommendations.forEach(item => {
+      lines.push(`- [${item.priority || 'info'}] ${item.title || 'Bez tytulu'}${item.suggested_action ? ` -> ${item.suggested_action}` : ''}`);
+    });
+  }
+
+  const riskyTasks = (advisor?.top_tasks || []).slice(0, 5);
+  if (riskyTasks.length) {
+    lines.push('', 'Ryzykowne zlecenia:');
+    riskyTasks.forEach(task => {
+      const issues = (task.issues || []).map(issue => issue.label).filter(Boolean).join(', ');
+      lines.push(`- ${task.task_numer || `#${task.task_id}`} (${taskIssueBadge(task.issues || [])}) ${task.client || 'Bez klienta'}${issues ? `: ${issues}` : ''}`);
+    });
+  }
+
+  return lines.join('\n');
+}
+
 function Stat({ label, value, tone }) {
   const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--bg-card)';
   const fg = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ca8a04' : tone === 'bad' ? '#dc2626' : 'var(--text)';
@@ -67,6 +100,7 @@ export default function AutoDispatch() {
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorError, setAdvisorError] = useState('');
   const [preflightHold, setPreflightHold] = useState(null);
+  const [briefCopied, setBriefCopied] = useState(false);
 
   const fetchAdvisorBrief = useCallback(async () => {
     const token = getStoredToken();
@@ -129,12 +163,24 @@ export default function AutoDispatch() {
       const brief = await fetchAdvisorBrief();
       setAdvisor(brief);
       setPreflightHold(null);
+      setBriefCopied(false);
     } catch (e) {
       setAdvisorError(e.response?.data?.error || e.message);
     } finally {
       setAdvisorLoading(false);
     }
   }, [fetchAdvisorBrief]);
+
+  const copyAdvisorBrief = useCallback(async () => {
+    if (!advisor) return;
+    try {
+      await navigator.clipboard.writeText(formatAdvisorBrief(advisor));
+      setBriefCopied(true);
+      setAdvisorError('');
+    } catch (e) {
+      setAdvisorError('Nie udalo sie skopiowac odprawy.');
+    }
+  }, [advisor]);
 
   const stats = plan?.stats;
 
@@ -158,7 +204,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setBriefCopied(false); }}
               style={s.dateInput}
             />
           </div>
@@ -211,9 +257,14 @@ export default function AutoDispatch() {
                 <div style={s.advisorEyebrow}>AI Dyspozytor</div>
                 <h2 style={s.advisorTitle}>{advisor.summary || 'Kontrola jakosci planu dnia'}</h2>
               </div>
-              <span style={s.advisorSource}>
-                {advisor.source === 'ai' ? (advisor.provider || 'AI') : 'Reguly'}
-              </span>
+              <div style={s.advisorActions}>
+                <button type="button" onClick={copyAdvisorBrief} style={s.copyBriefBtn}>
+                  {briefCopied ? 'Skopiowano' : 'Kopiuj odprawe'}
+                </button>
+                <span style={s.advisorSource}>
+                  {advisor.source === 'ai' ? (advisor.provider || 'AI') : 'Reguly'}
+                </span>
+              </div>
             </div>
 
             <div style={s.advisorMetrics}>
@@ -281,9 +332,7 @@ export default function AutoDispatch() {
                     ))}
                     <span style={s.riskTaskFooter}>
                       <span style={(task.issues || []).some(issue => issue.severity === 'critical') ? s.riskBadgeCritical : s.riskBadgeWarn}>
-                        {(task.issues || []).filter(issue => issue.severity === 'critical').length
-                          ? `${(task.issues || []).filter(issue => issue.severity === 'critical').length} kryt.`
-                          : `${(task.issues || []).length} uwag`}
+                        {taskIssueBadge(task.issues || [])}
                       </span>
                       <span style={s.openTaskCta}>Otworz zlecenie</span>
                     </span>
@@ -416,6 +465,8 @@ const s = {
   advisorHeader:{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
   advisorEyebrow:{ fontSize: 11, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 0 },
   advisorTitle:{ margin: '3px 0 0', fontSize: 17, lineHeight: 1.35, color: 'var(--text)' },
+  advisorActions:{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 },
+  copyBriefBtn:{ padding: '6px 9px', borderRadius: 7, border: '1px solid #2563eb', background: '#fff', color: '#1d4ed8', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   advisorSource:{ flexShrink: 0, padding: '4px 8px', borderRadius: 6, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
   advisorMetrics:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 14 },
   advisorGrid:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 18, alignItems: 'start' },

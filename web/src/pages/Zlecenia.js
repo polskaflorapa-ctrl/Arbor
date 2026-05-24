@@ -1204,12 +1204,12 @@ function DetailStageOwnerPanel({ styles, task, rows, currentUser, statusBusy, ca
         : 'active';
   const actionDisabled = statusBusy || !currentRow.action || (currentRow.action.target === 'status' && !canChangeStatus);
   const ownerText = missing.length
-    ? `${currentRow.owner} musi domknac: ${missing.slice(0, 3).join(', ')}.`
+    ? `${currentRow.owner} musi domknąć: ${missing.slice(0, 3).join(', ')}.`
     : optionalMissing.length
-      ? `${currentRow.owner} moze dopiac: ${optionalMissing.slice(0, 2).join(', ')}.`
+      ? `${currentRow.owner} może dopiąć: ${optionalMissing.slice(0, 2).join(', ')}.`
       : nextRow
         ? `Etap jest gotowy do przekazania dalej: ${nextRow.owner}.`
-        : 'Sciezka jest domknieta, zostaje kontrola i archiwum.';
+        : 'Ścieżka jest domknięta, zostaje kontrola i archiwum.';
 
   return (
     <section className="zlecenia-stage-owner" style={{ ...styles.detailOwnerPanel, ...(styles[`detailOwnerPanel_${tone}`] || {}) }}>
@@ -2925,6 +2925,8 @@ function getTaskDetailNextAction(task, meta, checklist) {
       date: 'Ustal termin',
       team: 'Przypisz ekipę',
       price: 'Popraw finanse',
+      brief: 'Uzupełnij odprawę',
+      arborist: 'Oznacz arborystę',
     };
     return withDetail({ label: labels[missingRequired.key] || `Popraw: ${missingRequired.label}`, target: 'edit' }, missingRequired);
   }
@@ -5586,16 +5588,20 @@ export default function Zlecenia() {
   const detailSafetyChecklist = wybraneZlecenie && detailBusinessMeta
     ? getTaskSafetyChecklist(wybraneZlecenie, detailBusinessMeta, detailContact)
     : [];
+  const detailBlockingChecklist = [
+    ...detailQualityChecklist,
+    ...detailSafetyChecklist,
+  ];
   const detailSafetyOkCount = detailSafetyChecklist.filter((item) => item.ok).length;
   const detailSafetyRequiredIssues = detailSafetyChecklist.filter((item) => item.required && !item.ok);
   const detailEquipmentList = wybraneZlecenie ? getTaskEquipmentList(wybraneZlecenie) : [];
   const detailQualityOkCount = detailQualityChecklist.filter((item) => item.ok).length;
   const detailRequiredIssues = detailQualityChecklist.filter((item) => item.required && !item.ok);
   const detailDecisionRecommendation = wybraneZlecenie && detailBusinessMeta
-    ? getTaskDecisionRecommendation(wybraneZlecenie, detailBusinessMeta, detailQualityChecklist, detailContact)
+    ? getTaskDecisionRecommendation(wybraneZlecenie, detailBusinessMeta, detailBlockingChecklist, detailContact)
     : '';
   const detailNextAction = wybraneZlecenie && detailBusinessMeta
-    ? getTaskDetailNextAction(wybraneZlecenie, detailBusinessMeta, detailQualityChecklist)
+    ? getTaskDetailNextAction(wybraneZlecenie, detailBusinessMeta, detailBlockingChecklist)
     : null;
   const detailClosureEvents = wybraneZlecenie ? (closureDecisionEvents[String(wybraneZlecenie.id)] || []) : [];
   const areAllVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedTaskIds.includes(id));

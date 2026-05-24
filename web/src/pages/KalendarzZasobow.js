@@ -245,6 +245,145 @@ function taskEquipmentLabel(rezerwacje, task) {
   return 'sprz. -';
 }
 
+function compactText(value, fallback = '-') {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text || fallback;
+}
+
+function taskAddressLabel(task) {
+  return [task?.adres, task?.miasto]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function taskPhoneNumber(task) {
+  return String(task?.klient_telefon || task?.telefon || '').trim();
+}
+
+function taskMapSearchLink(task) {
+  const address = taskAddressLabel(task);
+  return address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : '';
+}
+
+function taskEndTime(task) {
+  return minutesToTime(taskRangeMinutes(task).end);
+}
+
+function taskValueLabel(task) {
+  const value = Number(task?.wartosc_planowana || task?.budzet || task?.wartosc_zaproponowana || task?.wartosc_szacowana || 0) || 0;
+  return value ? `${value.toLocaleString('pl-PL')} PLN` : 'brak ceny';
+}
+
+function taskReservationEquipmentRows(rezerwacje, task, day) {
+  return (rezerwacje || [])
+    .filter(activeReservation)
+    .filter((rez) => String(rez?.task_id || '') === String(task?.id || ''))
+    .filter((rez) => !day || reservationOverlapsDay(rez, day));
+}
+
+function reservationEquipmentName(rez, equipmentById) {
+  const item = equipmentById?.get?.(String(rez?.sprzet_id || ''));
+  return compactText(item?.nazwa || rez?.sprzet_nazwa || (rez?.sprzet_id ? `Sprzet #${rez.sprzet_id}` : ''), '');
+}
+
+function taskBriefEquipmentLabel(rezerwacje, task, day, equipmentById) {
+  const rows = taskReservationEquipmentRows(rezerwacje, task, day);
+  const names = rows
+    .map((rez) => reservationEquipmentName(rez, equipmentById))
+    .filter(Boolean);
+  const note = compactText(taskFieldEquipment(task), '');
+  const uniqueNames = [...new Set(names)];
+  if (note && uniqueNames.length) return `${uniqueNames.join(', ')} | ${note}`;
+  if (note) return note;
+  if (uniqueNames.length) return uniqueNames.join(', ');
+  return 'brak rezerwacji';
+}
+
+function buildTaskDayBriefLine(task, index, rezerwacje, day, equipmentById, teamsById) {
+  const range = taskRangeMinutes(task);
+  const team = teamsById?.get?.(String(task?.ekipa_id || ''));
+  const risk = compactText(taskRiskBrief(task), 'brak wpisu BHP');
+  const settlement = compactText(taskFieldSettlement(task), taskValueLabel(task));
+  const phone = taskPhoneNumber(task);
+  const mapLink = taskMapSearchLink(task);
+  return [
+    `${index + 1}. #${task?.id || '-'} | ${minutesToTime(range.start)}-${taskEndTime(task)} | ${taskClientLabel(task)}`,
+    `Adres: ${compactText(taskAddressLabel(task), 'brak adresu')}`,
+    `Ekipa: ${team?.nazwa || task?.ekipa_nazwa || (task?.ekipa_id ? `#${task.ekipa_id}` : 'brak')}`,
+    `Zakres: ${compactText(taskWorkBrief(task), 'brak opisu')}`,
+    `BHP / ryzyka: ${risk}`,
+    `Sprzet: ${taskBriefEquipmentLabel(rezerwacje, task, day, equipmentById)}`,
+    `Czas: ${taskHours(task)} h | Cena: ${settlement} | Foto: ${taskPhotoTotal(task)}`,
+    `Akceptacja klienta: ${taskClientAccepted(task) ? 'tak' : 'do potwierdzenia'}`,
+    phone ? `Telefon: ${phone}` : '',
+    mapLink ? `Mapa: ${mapLink}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function buildDayBrief({
+  dayISO,
+  dayLabel,
+  scheduledTasks,
+  visibleTeams,
+  rezerwacje,
+  equipmentById,
+  teamsById,
+  branchOptions,
+  selectedBranchId,
+  dayOpsSummary,
+  delegationSummary,
+}) {
+  const branchName = selectedBranchId
+    ? branchOptions.find((branch) => String(branch.id) === String(selectedBranchId))?.nazwa || `Oddzial #${selectedBranchId}`
+    : 'wszystkie oddzialy';
+  const visibleTeamIds = new Set((visibleTeams || []).map((team) => String(team.id)));
+  const dayTasks = (scheduledTasks || [])
+    .filter((task) => taskDate(task) === dayISO)
+    .filter((task) => !visibleTeamIds.size || visibleTeamIds.has(String(task?.ekipa_id || '')))
+    .slice()
+    .sort((a, b) => {
+      const teamA = String(a?.ekipa_id || '');
+      const teamB = String(b?.ekipa_id || '');
+      return teamA.localeCompare(teamB) || taskTime(a).localeCompare(taskTime(b)) || String(a.id).localeCompare(String(b.id));
+    });
+
+  const header = [
+    'ARBOR-OS | Odprawa dnia',
+    `Data: ${dayISO} (${dayLabel})`,
+    `Oddzial: ${branchName}`,
+    `Zlecenia: ${dayOpsSummary.tasks} | Rezerwacje sprzetu: ${dayOpsSummary.equipment} | Kolizje: ${dayOpsSummary.teamConflicts + dayOpsSummary.equipmentConflicts}`,
+    `Braki: zdjecia ${dayOpsSummary.noPhotos}, opis ${dayOpsSummary.noBrief}, sprzet ${dayOpsSummary.noEquipment}`,
+    `Delegacje: ${delegationSummary.delegated.length}`,
+  ];
+
+  if (!dayTasks.length) {
+    return `${header.join('\n')}\n\nBrak zaplanowanych zlecen na ten dzien.`;
+  }
+
+  const teamOrder = new Map((visibleTeams || []).map((team, index) => [String(team.id), index]));
+  const grouped = new Map();
+  for (const task of dayTasks) {
+    const key = String(task?.ekipa_id || 'bez-ekipy');
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(task);
+  }
+
+  const teamSections = [...grouped.entries()]
+    .sort(([a], [b]) => (teamOrder.get(a) ?? 9999) - (teamOrder.get(b) ?? 9999) || a.localeCompare(b))
+    .map(([teamId, rows]) => {
+      const team = teamsById?.get?.(teamId);
+      const title = team?.nazwa || rows[0]?.ekipa_nazwa || (teamId === 'bez-ekipy' ? 'Bez ekipy' : `Ekipa #${teamId}`);
+      const delegation = team && isTeamDelegatedToView(team) ? ` (${teamDelegationLabel(team)})` : '';
+      return [
+        `\n=== ${title}${delegation} ===`,
+        ...rows.map((task, index) => buildTaskDayBriefLine(task, index, rezerwacje, dayISO, equipmentById, teamsById)),
+      ].join('\n\n');
+    });
+
+  return `${header.join('\n')}\n${teamSections.join('\n')}`;
+}
+
 function dayReservationConflicts(rezerwacje, day, visibleEquipmentIds = null) {
   const byEquipment = new Map();
   for (const rez of rezerwacje || []) {
@@ -1533,10 +1672,63 @@ export default function KalendarzZasobow() {
   const goToday = () => setAnchor(new Date());
 
   // ─── flash message ────────────────────────────────────────────────────────
-  const showMsg = (txt, type = 'ok') => {
+  const showMsg = useCallback((txt, type = 'ok') => {
     setMsg(txt); setMsgType(type);
     setTimeout(() => setMsg(''), 3000);
-  };
+  }, []);
+
+  const copyTextToClipboard = useCallback(async (text, successMessage) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== 'undefined') {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'true');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } else {
+        throw new Error('Clipboard is not available');
+      }
+      showMsg(successMessage);
+    } catch {
+      showMsg('Nie udalo sie skopiowac odprawy.', 'err');
+    }
+  }, [showMsg]);
+
+  const copyDayBrief = useCallback(() => {
+    const brief = buildDayBrief({
+      dayISO,
+      dayLabel,
+      scheduledTasks,
+      visibleTeams,
+      rezerwacje,
+      equipmentById,
+      teamsById: teamsByIdForPlanning,
+      branchOptions,
+      selectedBranchId,
+      dayOpsSummary,
+      delegationSummary,
+    });
+    void copyTextToClipboard(brief, 'Odprawa dnia skopiowana.');
+  }, [
+    branchOptions,
+    copyTextToClipboard,
+    dayISO,
+    dayLabel,
+    dayOpsSummary,
+    delegationSummary,
+    equipmentById,
+    rezerwacje,
+    scheduledTasks,
+    selectedBranchId,
+    teamsByIdForPlanning,
+    visibleTeams,
+  ]);
 
   // ─── tworzenie rezerwacji ─────────────────────────────────────────────────
   const handleNewSave = async (form) => {
@@ -2081,6 +2273,9 @@ export default function KalendarzZasobow() {
               </button>
               <button type="button" style={st.opsAction} onClick={() => navigate('/oddzialy')}>
                 Delegacje
+              </button>
+              <button type="button" style={st.opsAction} onClick={copyDayBrief}>
+                Kopiuj odprawe
               </button>
             </div>
             {(selectedBranchId && delegationSummary.delegated.length > 0) && (

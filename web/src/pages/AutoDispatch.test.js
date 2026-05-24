@@ -26,6 +26,8 @@ const USER_JSON = JSON.stringify({
   nazwisko: 'Manager',
 });
 
+const writeTextMock = vi.fn();
+
 function renderAutoDispatch() {
   return render(
     <MemoryRouter
@@ -43,6 +45,11 @@ function renderAutoDispatch() {
 beforeEach(() => {
   localStorage.setItem('token', 'test-jwt');
   localStorage.setItem('user', USER_JSON);
+  writeTextMock.mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: writeTextMock },
+    configurable: true,
+  });
   api.get.mockReset();
   api.post.mockReset();
 });
@@ -109,6 +116,13 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(screen.getByText(/Jan Kowalski/)).toBeInTheDocument();
   expect(screen.getByText('1 kryt.')).toBeInTheDocument();
   expect(screen.getByText('Otworz zlecenie')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
+  await waitFor(() => {
+    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('AI Dyspozytor - odprawa dnia'));
+  });
+  expect(writeTextMock.mock.calls[0][0]).toContain('ZL/42 (1 kryt.) Jan Kowalski');
+  expect(screen.getByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: /ZL\/42/ }));
   expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();

@@ -47,6 +47,7 @@ tmp_*.py
 .codex-*.log
 .codex-*.pid
 .claude/
+.playwright-cli/
 .codex-up.log
 .codex-up.err.log
 os-api-3001.log
