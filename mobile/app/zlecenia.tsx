@@ -1749,21 +1749,28 @@ export default function ZleceniaScreen() {
                       <Text style={S.crewScopePreviewText} numberOfLines={2}>{scopePreview}</Text>
                     </View>
                   ) : null}
-                  {fieldExecution.relevant ? (
+                  {fieldSignalVisible ? (
                     <View style={[S.fieldExecutionMini, { borderColor: fieldExecutionColor + '66', backgroundColor: fieldExecutionColor + '10' }]}>
                       <View style={S.fieldExecutionHead}>
                         <PlatinumIconBadge
-                          icon={fieldExecution.key === 'active' ? 'pulse-outline' : fieldExecution.key === 'missing' ? 'alert-circle-outline' : 'navigate-circle-outline'}
+                          icon={openProblemCount > 0 ? 'warning-outline' : fieldExecution.key === 'active' ? 'pulse-outline' : fieldExecution.key === 'missing' ? 'alert-circle-outline' : 'navigate-circle-outline'}
                           color={fieldExecutionColor}
                           size={9}
                           style={S.fieldExecutionIcon}
                         />
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={[S.fieldExecutionTitle, { color: fieldExecutionColor }]} numberOfLines={1}>
-                            {fieldExecution.label}
+                            {openProblemCount > 0 ? 'Problem w terenie' : fieldExecution.label}
                           </Text>
-                          <Text style={S.fieldExecutionDetail} numberOfLines={1}>{fieldExecution.detail}</Text>
+                          <Text style={S.fieldExecutionDetail} numberOfLines={1}>
+                            {openProblemCount > 0 ? `${openProblemCount} otwarte - reakcja biura lub kierownika` : fieldExecution.detail}
+                          </Text>
                         </View>
+                        {fieldSignalNeedsAttention ? (
+                          <View style={[S.fieldExecutionAlertPill, { borderColor: fieldExecutionColor + '66', backgroundColor: theme.cardBg }]}>
+                            <Text style={[S.fieldExecutionAlertText, { color: fieldExecutionColor }]}>reakcja</Text>
+                          </View>
+                        ) : null}
                       </View>
                       <View style={S.fieldExecutionDocs}>
                         {fieldExecution.photoItems.map((item) => {
@@ -1785,6 +1792,39 @@ export default function ZleceniaScreen() {
                             </View>
                           );
                         })}
+                        {openProblemCount > 0 ? (
+                          <View style={[S.fieldExecutionDocChip, { borderColor: theme.danger + '66', backgroundColor: theme.dangerBg }]}>
+                            <Text style={[S.fieldExecutionDocText, { color: theme.danger }]}>
+                              Problemy: {openProblemCount}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={S.fieldExecutionActions}>
+                        <TouchableOpacity
+                          style={[S.fieldExecutionAction, { borderColor: fieldExecutionColor + '66', backgroundColor: theme.cardBg }]}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            void triggerHaptic('light');
+                            router.push(`/zlecenie/${z.id}?tab=${openProblemCount > 0 ? 'problemy' : 'logi'}` as never);
+                          }}
+                        >
+                          <Ionicons name={openProblemCount > 0 ? 'warning-outline' : 'radio-outline'} size={13} color={fieldExecutionColor} />
+                          <Text style={[S.fieldExecutionActionText, { color: fieldExecutionColor }]}>
+                            {openProblemCount > 0 ? 'Problem' : 'Sygnal'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[S.fieldExecutionAction, { borderColor: theme.accent + '55', backgroundColor: theme.cardBg }]}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            void triggerHaptic('light');
+                            router.push(`/zlecenie/${z.id}?tab=zdjecia` as never);
+                          }}
+                        >
+                          <Ionicons name="images-outline" size={13} color={theme.accent} />
+                          <Text style={[S.fieldExecutionActionText, { color: theme.accent }]}>Foto</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   ) : null}
@@ -2778,6 +2818,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldExecutionIcon: { width: 22, height: 22, borderRadius: 8 },
   fieldExecutionTitle: { fontSize: 12, fontWeight: '900' },
   fieldExecutionDetail: { color: t.textSub, fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  fieldExecutionAlertPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  fieldExecutionAlertText: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
   fieldExecutionDocs: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -2790,6 +2837,21 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 4,
   },
   fieldExecutionDocText: { fontSize: 10, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  fieldExecutionActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  fieldExecutionAction: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  fieldExecutionActionText: { fontSize: 10.5, fontWeight: '900' },
   crewStartMini: {
     marginTop: 9,
     borderWidth: 1,
