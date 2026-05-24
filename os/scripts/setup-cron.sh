@@ -10,6 +10,7 @@
 #   1. Daily DB backup at 03:00 server time
 #   2. Quotation SLA tick every 15 minutes (ops cleanup)
 #   3. Quotation expiry tick every hour
+#   4. Daily automations at 06:30 server time
 #
 # Required ENV vars (set them before running, or export in your shell):
 #   APP_DIR      — absolute path to the repo root (e.g. /home/arbor/arbor)
@@ -18,6 +19,7 @@
 #   OPS_CRON_SECRET — secret for /api/ops/... tick endpoints
 #
 # Optional:
+#   ADMIN_TOKEN         - admin bearer token for /api/automations/run-daily
 #   BACKUP_DIR          — where .dump files are stored (default: $APP_DIR/backups)
 #   BACKUP_RETAIN_DAYS  — how many days to keep backups (default: 30)
 #   BACKUP_ENCRYPT_KEY  — AES-256-CBC encryption key for backup files
@@ -27,9 +29,10 @@ set -euo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 
-APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 OPS_BASE_URL="${OPS_BASE_URL:-}"
 OPS_CRON_SECRET="${OPS_CRON_SECRET:-}"
+ADMIN_TOKEN="${ADMIN_TOKEN:-${SMOKE_TOKEN:-}}"
 BACKUP_DIR="${BACKUP_DIR:-$APP_DIR/backups}"
 BACKUP_RETAIN_DAYS="${BACKUP_RETAIN_DAYS:-30}"
 
@@ -44,6 +47,12 @@ if [[ -z "$OPS_BASE_URL" || -z "$OPS_CRON_SECRET" ]]; then
   SKIP_OPS=1
 else
   SKIP_OPS=0
+fi
+if [[ -z "$OPS_BASE_URL" || -z "$ADMIN_TOKEN" ]]; then
+  echo "WARNING: OPS_BASE_URL or ADMIN_TOKEN not set - daily automations cron will be skipped."
+  SKIP_DAILY=1
+else
+  SKIP_DAILY=0
 fi
 
 BACKUP_SCRIPT="$APP_DIR/os/scripts/backup.sh"
@@ -84,6 +93,14 @@ if [[ "$SKIP_OPS" -eq 0 ]]; then
 "
 fi
 
+# 4. Daily automations (reminders + operational digest)
+if [[ "$SKIP_DAILY" -eq 0 ]]; then
+  CRON_BLOCK="${CRON_BLOCK}
+# Arbor OS - daily automations and operational digest (daily at 06:30)
+30 6 * * * cd \"$APP_DIR\" && PROD_URL=\"$OPS_BASE_URL\" ADMIN_TOKEN=\"$ADMIN_TOKEN\" node os/scripts/trigger-daily-automations.js >> /var/log/arbor-daily-automations.log 2>&1
+"
+fi
+
 # ── Install into crontab ──────────────────────────────────────────────────────
 
 MARKER_START="# === ARBOR-OS-CRON-START ==="
@@ -113,6 +130,7 @@ echo ""
 echo "Log locations:"
 echo "  Backup: /var/log/arbor-backup.log"
 [[ "$SKIP_OPS" -eq 0 ]] && echo "  Ops:    /var/log/arbor-ops.log"
+[[ "$SKIP_DAILY" -eq 0 ]] && echo "  Daily:  /var/log/arbor-daily-automations.log"
 echo ""
 echo "To remove Arbor cron jobs, run:"
 echo "  crontab -l | grep -v 'ARBOR-OS-CRON' | crontab -"
