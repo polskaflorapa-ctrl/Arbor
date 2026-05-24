@@ -7,8 +7,9 @@ function numberEnv(value, fallback) {
 }
 
 function legacyDefine(env, key, viteKey = key.replace(/^REACT_APP_/, 'VITE_')) {
+  const runtimeEnv = process.env || {};
   return {
-    [`process.env.${key}`]: JSON.stringify(env[key] ?? env[viteKey] ?? ''),
+    [`process.env.${key}`]: JSON.stringify(runtimeEnv[key] ?? runtimeEnv[viteKey] ?? env[key] ?? env[viteKey] ?? ''),
   };
 }
 
