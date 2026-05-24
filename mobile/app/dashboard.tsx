@@ -27,6 +27,8 @@ import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
+import { buildNewOrderRoute } from '../utils/new-order-route';
+import { getRoleDisplayName } from '../utils/role-display';
 import { TASK_STATUS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
 // ─── Typy ikon Ionicons ────────────────────────────────────────────────────────
@@ -95,40 +97,49 @@ interface WorkflowStep {
 }
 
 type QuickCategoryId =
-  | 'operations'
-  | 'quotes'
-  | 'fleetMagazyn'
-  | 'reports'
-  | 'finance'
-  | 'administration'
-  | 'account';
+  | 'start'
+  | 'sales'
+  | 'planning'
+  | 'execution'
+  | 'company'
+  | 'reports';
 type QuickFilterKey = 'focus' | 'all' | QuickCategoryId;
 
 const QUICK_CATEGORY_ORDER: QuickCategoryId[] = [
-  'operations',
-  'quotes',
-  'fleetMagazyn',
+  'start',
+  'sales',
+  'planning',
+  'execution',
+  'company',
   'reports',
-  'finance',
-  'administration',
-  'account',
 ];
 
-function quickCategoryForAction(path: string, label: string): QuickCategoryId {
-  if (path === '/profil' || path === '/powiadomienia' || path === '/api-diagnostyka') return 'account';
-  if (['/uzytkownicy-mobile', '/oddzialy-mobile', '/oddzial-funkcje-admin', '/crm-mobile', '/crm-pipeline-mobile', '/klienci-mobile', '/telefonia-mobile'].includes(path)) return 'administration';
-  if (path === '/wyceniajacy-finanse' || (path === '/rozliczenia' && label.includes('godzin'))) return 'finance';
-  if (path === '/rozliczenia') return 'finance';
-  if (['/raporty-mobilne', '/kpi-tydzien', '/raport-dzienny'].includes(path)) return 'reports';
-  if (['/flota-mobile', '/rezerwacje-sprzetu', '/magazyn-mobile'].includes(path)) return 'fleetMagazyn';
-  if (['/wycena-kalendarz', '/wyceny-terenowe', '/wyceny-do-biura', '/zatwierdz-wyceny', '/ogledziny', '/plan-ogledzin', '/wyceniajacy-hub'].includes(path)) return 'quotes';
-  return 'operations';
+function quickCategoryForAction(path: string, _label: string): QuickCategoryId {
+  if (['/task-command-center', '/profil', '/powiadomienia', '/api-diagnostyka'].includes(path)) return 'start';
+  if ([
+    '/crm-mobile',
+    '/crm-pipeline-mobile',
+    '/klienci-mobile',
+    '/telefonia-mobile',
+    '/wyceniajacy-hub',
+    '/wycena-kalendarz',
+    '/wyceny-terenowe',
+    '/wyceny-do-biura',
+    '/zatwierdz-wyceny',
+    '/ogledziny',
+    '/plan-ogledzin',
+  ].includes(path)) return 'sales';
+  if (['/nowe-zlecenie', '/zlecenia', '/harmonogram', '/autoplan-dnia', '/blokady-kalendarza'].includes(path)) return 'planning';
+  if (['/misja-dnia', '/raport-dzienny', '/potwierdzenia-ekip', '/flota-mobile', '/rezerwacje-sprzetu', '/magazyn-mobile'].includes(path)) return 'execution';
+  if (['/uzytkownicy-mobile', '/oddzialy-mobile', '/oddzial-funkcje-admin', '/rozliczenia', '/wyceniajacy-finanse'].includes(path)) return 'company';
+  if (['/raporty-mobilne', '/kpi-tydzien'].includes(path)) return 'reports';
+  return 'planning';
 }
 
 function dashboardFocusHint(path: string) {
   const hints: Record<string, string> = {
     '/nowe-zlecenie': 'Szybkie przyjecie zlecenia, zdjecia i formularz terenowy.',
-    '/plan-ogledzin': 'Lista wizyt wyceniajacego na dzisiaj.',
+    '/plan-ogledzin': 'Lista wizyt specjalisty ds. wyceny na dzisiaj.',
     '/wyceny-terenowe': 'Wyceny u klienta, zdjecia i szkic.',
     '/wyceny-do-biura': 'Pakiety z terenu do domkniecia przez biuro.',
     '/harmonogram': 'Plan ekip, terminy i kolejnosc prac.',
@@ -248,10 +259,11 @@ export default function DashboardScreen() {
       ...(meta ? { meta } : {}),
     });
     setRecentContexts(next);
-    router.push(path as any);
+    router.push((path === '/nowe-zlecenie' ? buildNewOrderRoute({ source: 'dashboard' }) : path) as any);
   };
 
   const rola = user?.rola || '';
+  const rolaLabel = getRoleDisplayName(rola, 'Operator');
   const isDyrektor   = rola === 'Dyrektor' || rola === 'Administrator';
   const isKierownik  = rola === 'Kierownik';
   const isBrygadzista= rola === 'Brygadzista';
@@ -260,6 +272,7 @@ export default function DashboardScreen() {
   const isPomocnik   = rola === 'Pomocnik';
   const isPomBez     = rola === 'Pomocnik bez doświadczenia';
   const isMagazynier = rola === 'Magazynier';
+  const isCrew = isBrygadzista || isPomocnik || isPomBez;
 
   const delayedCount = useMemo(() => {
     const today = new Date();
@@ -305,11 +318,11 @@ export default function DashboardScreen() {
   const workflowTotal = workflowSteps.reduce((sum, step) => sum + (step.key === 'ekipa' ? 0 : step.value), 0) + plannedCount + inProgressCount;
   const workflowDoneLabel = `${doneCount}/${Math.max(totalCount, workflowTotal, doneCount)}`;
   const roleBrief = isWyceniajacy
-    ? { title: 'Tryb wyceniajacego', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
+    ? { title: 'Tryb specjalisty ds. wyceny', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
     : isSpecjalista
       ? { title: 'Tryb biura', text: 'Dopnij pakiety z terenu, telefon do klienta i gotowy termin dla ekipy.', action: 'Do opracowania', icon: 'file-tray-full-outline' as IoniconName, path: '/wyceny-do-biura' }
-      : isBrygadzista
-        ? { title: 'Tryb brygady', text: 'Najpierw dzisiejsza trasa, potem dowody i raport po pracy.', action: 'Moje zlecenia', icon: 'navigate-outline' as IoniconName, path: '/zlecenia' }
+      : isCrew
+        ? { title: 'Tryb ekipy', text: 'Najpierw dzisiejsza trasa, potem dowody i raport po pracy.', action: 'Tryb Dzisiaj', icon: 'navigate-outline' as IoniconName, path: '/misja-dnia' }
         : isMagazynier
           ? { title: 'Tryb magazynu', text: 'Sprzet, rezerwacje i wydania pod dzisiejsze ekipy.', action: 'Rezerwacje', icon: 'cube-outline' as IoniconName, path: '/rezerwacje-sprzetu' }
           : { title: 'Tryb dyspozytorni', text: 'Kontroluj przeplyw od telefonu do ekipy i zamkniecia raportu.', action: 'Harmonogram', icon: 'calendar-outline' as IoniconName, path: '/harmonogram' };
@@ -421,8 +434,8 @@ export default function DashboardScreen() {
   })();
   const focusActionPaths = isWyceniajacy
     ? ['/nowe-zlecenie', '/plan-ogledzin', '/wyceny-terenowe', '/wyceniajacy-hub']
-    : isBrygadzista
-      ? ['/zlecenia', '/raport-dzienny', '/rozliczenia', '/ogledziny']
+    : isCrew
+      ? ['/misja-dnia', '/zlecenia', '/raport-dzienny', '/rozliczenia']
       : isMagazynier
         ? ['/rezerwacje-sprzetu', '/magazyn-mobile', '/flota-mobile', '/harmonogram']
         : isSpecjalista
@@ -438,7 +451,7 @@ export default function DashboardScreen() {
     QUICK_CATEGORY_ORDER.forEach((c) => byCat.set(c, []));
     for (const a of quickActionsFiltered) {
       const cat = quickCategoryForAction(a.path, a.label);
-      const bucket = byCat.get(cat) ?? byCat.get('operations')!;
+      const bucket = byCat.get(cat) ?? byCat.get('planning')!;
       bucket.push(a);
     }
     return QUICK_CATEGORY_ORDER.map((key) => ({
@@ -546,7 +559,7 @@ export default function DashboardScreen() {
           <Text style={S.date}>{dzisiajLocalized || dzisiaj}</Text>
           <View style={[S.rolaBadge, { backgroundColor: (rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent) + '33' }]}>
             <Text style={[S.rolaText, { color: rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent }]}>
-              {user?.rola}
+              {rolaLabel}
             </Text>
           </View>
           <Text style={S.oddzialText}>{oddzialConfig.name}</Text>
@@ -616,7 +629,7 @@ export default function DashboardScreen() {
             <View style={S.opsHeroText}>
               <Text style={S.opsEyebrow}>ARBOR-OS MOBILE</Text>
               <Text style={S.opsTitle}>Centrum operacji terenowych</Text>
-              <Text style={S.opsSubtitle}>{oddzialConfig.name} / {user?.rola || 'Operator'}</Text>
+              <Text style={S.opsSubtitle}>{oddzialConfig.name} / {rolaLabel}</Text>
             </View>
           </View>
           <View style={S.opsHeroMetrics}>
@@ -824,7 +837,7 @@ export default function DashboardScreen() {
           <View style={S.quickAccessHead}>
             <View style={{ flex: 1 }}>
               <Text style={S.sectionTitle}>{t('dashboard.quickAccess')}</Text>
-              <Text style={S.quickAccessSub}>Filtruj moduly wedlug pracy, zamiast szukac w calej liscie.</Text>
+              <Text style={S.quickAccessSub}>Moduly sa ulozone wedlug procesu: sprzedaz, planowanie, wykonanie i firma.</Text>
             </View>
             <View style={S.quickAccessCount}>
               <Text style={S.quickAccessCountText}>{visibleQuickSections.reduce((sum, section) => sum + section.actions.length, 0)}</Text>
@@ -883,7 +896,7 @@ export default function DashboardScreen() {
         {!isWyceniajacy && <PlatinumCard style={[S.section, elevationCard(theme)]} glow>
           <View style={S.sectionHeader}>
             <Text style={S.sectionTitle}>
-              {isPomocnik || isBrygadzista ? t('dashboard.myTasks') : t('dashboard.latestTasks')}
+              {isCrew ? t('dashboard.myTasks') : t('dashboard.latestTasks')}
             </Text>
             <TouchableOpacity onPress={() => { void openWithContext('/zlecenia', t('dashboard.orders'), 'dashboard-latest-orders'); }} style={S.seeAllBtn}>
               <Text style={S.seeAll}>{t('dashboard.seeAll')}</Text>
@@ -896,7 +909,7 @@ export default function DashboardScreen() {
               <PlatinumIconBadge icon="clipboard-outline" color={theme.textMuted} size={28} style={S.emptyIconBadge} />
               <Text style={S.emptyTitle}>{t('dashboard.emptyOrders')}</Text>
               <Text style={S.emptySub}>
-                {isPomocnik || isBrygadzista
+                {isCrew
                   ? t('dashboard.emptyOrdersSubBrygadzista')
                   : t('dashboard.emptyOrdersSubDefault')}
               </Text>
@@ -968,8 +981,10 @@ export default function DashboardScreen() {
           { icon: 'home', path: '/dashboard', labelKey: 'dashboard.nav.start' },
           ...(isWyceniajacy
             ? [{ icon: 'calculator-outline' as IoniconName, path: '/wycena', labelKey: 'dashboard.nav.quotes' }]
+            : isCrew
+              ? [{ icon: 'navigate-circle-outline' as IoniconName, path: '/misja-dnia', labelKey: 'dashboard.todayMode' }]
             : [{ icon: 'clipboard-outline' as IoniconName, path: '/zlecenia', labelKey: 'dashboard.nav.orders' }]),
-          ...(isBrygadzista || isDyrektor || isKierownik
+          ...(isCrew || isDyrektor || isKierownik
             ? [{ icon: 'wallet-outline' as IoniconName, path: '/rozliczenia', labelKey: 'dashboard.nav.finance' }]
             : []),
           { icon: 'notifications-outline', path: '/powiadomienia', labelKey: 'dashboard.nav.alerts' },

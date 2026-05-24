@@ -37,6 +37,11 @@ import {
   type FieldProtocolForm,
   type FieldProtocolPreset,
 } from '../utils/field-protocol';
+import {
+  clearFieldProtocolDraft,
+  loadFieldProtocolDraft,
+  saveFieldProtocolDraft,
+} from '../utils/field-protocol-draft';
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 
@@ -75,6 +80,7 @@ type VideoSource = 'camera' | 'gallery';
 type EvidenceKind = 'before' | 'scope' | 'access' | 'risk';
 type OfficeReadyStepKey = 'evidence' | 'protocol' | 'draft';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+type ProtocolBooleanKey = 'haul' | 'stumpRemoval' | 'banner';
 
 const EVIDENCE_LABEL: Record<EvidenceKind, string> = {
   before: 'Stan przed praca',
@@ -82,6 +88,22 @@ const EVIDENCE_LABEL: Record<EvidenceKind, string> = {
   access: 'Dostep i dojazd',
   risk: 'Ryzyka',
 };
+const FIELD_DOC_EQUIPMENT_OPTIONS = Array.from(new Set([
+  ...FIELD_PROTOCOL_EQUIPMENT_OPTIONS,
+  'Rebak',
+  'Wysiegnik / pila na wysiegniku',
+  'Dlugie nozyce',
+  'Kosiarka',
+  'Kosa reczna',
+  'Lopata',
+  'Mulczer',
+  'Arborysta',
+]));
+const FIELD_DOC_QUICK_TOGGLES: { key: ProtocolBooleanKey; label: string; icon: IoniconName }[] = [
+  { key: 'haul', label: 'Wywoz', icon: 'car-outline' },
+  { key: 'stumpRemoval', label: 'Usuwanie pni', icon: 'disc-outline' },
+  { key: 'banner', label: 'Baner', icon: 'flag-outline' },
+];
 
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
@@ -108,6 +130,11 @@ function mediaUrl(item: InspectionMedia) {
   return `${API_BASE_URL}${raw.startsWith('/') ? raw : `/${raw}`}`;
 }
 
+function draftTimeLabel(value: string) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function OgledzinyDokumentacjaScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -129,6 +156,10 @@ export default function OgledzinyDokumentacjaScreen() {
   const [history, setHistory] = useState<UploadEntry[]>([]);
   const [protocol, setProtocol] = useState<FieldProtocolForm>(DEFAULT_FIELD_PROTOCOL);
   const [protocolSaving, setProtocolSaving] = useState<'draft' | 'ready' | null>(null);
+  const [protocolDraftLoaded, setProtocolDraftLoaded] = useState(false);
+  const [protocolDraftTouched, setProtocolDraftTouched] = useState(false);
+  const [protocolDraftSavedAt, setProtocolDraftSavedAt] = useState<string | null>(null);
+  const [protocolDraftRestored, setProtocolDraftRestored] = useState(false);
 
   const quoteId = routeQuoteId || String(detail?.wycena_id || '');
   const clientName = detail?.klient_nazwa || routeClient || t('inspectionDoc.subtitle', { id: inspectionId });
@@ -244,10 +275,12 @@ export default function OgledzinyDokumentacjaScreen() {
   };
 
   const patchProtocol = (patch: Partial<FieldProtocolForm>) => {
+    setProtocolDraftTouched(true);
     setProtocol((prev) => ({ ...prev, ...patch }));
   };
 
   const applyProtocolPreset = (preset: FieldProtocolPreset) => {
+    setProtocolDraftTouched(true);
     setProtocol((prev) => ({
       ...prev,
       work: mergeUniqueProtocolValues(prev.work, preset.work),
@@ -292,6 +325,53 @@ export default function OgledzinyDokumentacjaScreen() {
     void loadDetail(false);
   }, [loadDetail]);
 
+  useEffect(() => {
+    let active = true;
+    setProtocol(DEFAULT_FIELD_PROTOCOL);
+    setProtocolDraftLoaded(false);
+    setProtocolDraftTouched(false);
+    setProtocolDraftSavedAt(null);
+    setProtocolDraftRestored(false);
+
+    if (!inspectionId) {
+      setProtocolDraftLoaded(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    loadFieldProtocolDraft(inspectionId)
+      .then((draft) => {
+        if (!active) return;
+        if (draft) {
+          setProtocol((prev) => ({ ...prev, ...draft.protocol }));
+          setProtocolDraftSavedAt(draft.updatedAt);
+          setProtocolDraftRestored(true);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setProtocolDraftLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [inspectionId]);
+
+  useEffect(() => {
+    if (!inspectionId || !protocolDraftLoaded || !protocolDraftTouched) return;
+    const handle = setTimeout(() => {
+      void saveFieldProtocolDraft(inspectionId, protocol)
+        .then((draft) => {
+          setProtocolDraftSavedAt(draft.updatedAt);
+          setProtocolDraftRestored(false);
+        })
+        .catch(() => undefined);
+    }, 450);
+    return () => clearTimeout(handle);
+  }, [inspectionId, protocol, protocolDraftLoaded, protocolDraftTouched]);
+
   const openDraftForOffice = () => {
     void triggerHaptic('light');
     addHistory({ kind: 'draft', label: 'Otwarto szybki draft dla biura', state: 'done' });
@@ -328,6 +408,12 @@ export default function OgledzinyDokumentacjaScreen() {
     const requestId = createOfflineRequestId(`ogledziny-${inspectionId}-protocol-${savingKey}`);
 
     const queueProtocol = async () => {
+      const savedDraft = await saveFieldProtocolDraft(inspectionId, protocol).catch(() => null);
+      if (savedDraft) {
+        setProtocolDraftSavedAt(savedDraft.updatedAt);
+        setProtocolDraftTouched(false);
+        setProtocolDraftRestored(false);
+      }
       await enqueueOfflineRequest({
         id: requestId,
         dedupeKey: `ogledziny:${inspectionId}:protocol`,
@@ -370,6 +456,12 @@ export default function OgledzinyDokumentacjaScreen() {
           state: 'done',
         });
         void triggerHaptic('success');
+        setProtocolDraftTouched(false);
+        if (readyForOffice) {
+          await clearFieldProtocolDraft(inspectionId).catch(() => undefined);
+          setProtocolDraftSavedAt(null);
+          setProtocolDraftRestored(false);
+        }
         Alert.alert(
           readyForOffice ? 'Gotowe dla biura' : 'Protokół zapisany',
           readyForOffice
@@ -445,7 +537,7 @@ export default function OgledzinyDokumentacjaScreen() {
       // offline fallback below
     }
 
-    await queueInspectionMediaOffline(asset, 'photo');
+    await queueInspectionMediaOffline(asset, 'photo', evidenceKind);
     addHistory({ kind: 'photo', label: 'Zdjęcie dodane do kolejki offline', state: 'queued' });
     return 'queued' as const;
   };
@@ -783,6 +875,15 @@ export default function OgledzinyDokumentacjaScreen() {
               <Text style={S.protocolTitle}>Protokół u klienta</Text>
               <Text style={S.protocolSub}>Zakres, sprzęt, ryzyka i warunki dla biura.</Text>
             </View>
+            {protocolDraftSavedAt ? (
+              <View style={S.protocolDraftBadge}>
+                <Ionicons name="phone-portrait-outline" size={12} color={theme.success} />
+                <Text style={S.protocolDraftHint} numberOfLines={1}>
+                  {protocolDraftRestored ? 'Kopia przywrocona' : 'Kopia zapisana'}
+                  {draftTimeLabel(protocolDraftSavedAt) ? ` ${draftTimeLabel(protocolDraftSavedAt)}` : ''}
+                </Text>
+              </View>
+            ) : null}
             <View style={S.protocolScore}>
               <Text style={S.protocolScoreValue}>{protocolReadyCount}/6</Text>
               <Text style={S.protocolScoreLabel}>gotowe</Text>
@@ -815,9 +916,32 @@ export default function OgledzinyDokumentacjaScreen() {
             ))}
           </View>
 
+          <Text style={S.fieldLabel}>Decyzje terenowe</Text>
+          <View style={S.chipWrap}>
+            {FIELD_DOC_QUICK_TOGGLES.map((option) => (
+              <ProtocolChip
+                key={option.key}
+                label={option.label}
+                active={Boolean(protocol[option.key])}
+                onPress={() => patchProtocol({ [option.key]: !protocol[option.key] })}
+                theme={theme}
+              />
+            ))}
+          </View>
+
+          <Text style={S.fieldLabel}>Szczegoly pracy / instrukcja dla ekipy</Text>
+          <TextInput
+            value={protocol.workDetails}
+            onChangeText={(workDetails) => patchProtocol({ workDetails })}
+            multiline
+            placeholder="Np. z obu stron, sciagnac bluszcz, przyciac do linii ze zdjecia..."
+            placeholderTextColor={theme.textMuted}
+            style={S.textArea}
+          />
+
           <Text style={S.fieldLabel}>Sprzęt i zasoby</Text>
           <View style={S.chipWrap}>
-            {FIELD_PROTOCOL_EQUIPMENT_OPTIONS.map((option) => (
+            {FIELD_DOC_EQUIPMENT_OPTIONS.map((option) => (
               <ProtocolChip
                 key={option}
                 label={option}
@@ -888,6 +1012,61 @@ export default function OgledzinyDokumentacjaScreen() {
             </View>
           </View>
 
+          <View style={S.inputGrid}>
+            <View style={S.inputCell}>
+              <Text style={S.inputLabel}>Minimalna cena</Text>
+              <TextInput
+                value={protocol.minPrice}
+                onChangeText={(minPrice) => patchProtocol({ minPrice })}
+                keyboardType="decimal-pad"
+                placeholder="2200"
+                placeholderTextColor={theme.textMuted}
+                style={S.input}
+              />
+            </View>
+            <View style={S.inputCell}>
+              <Text style={S.inputLabel}>Cena klienta</Text>
+              <TextInput
+                value={protocol.acceptedPrice}
+                onChangeText={(acceptedPrice) => patchProtocol({ acceptedPrice })}
+                keyboardType="decimal-pad"
+                placeholder="2600"
+                placeholderTextColor={theme.textMuted}
+                style={S.input}
+              />
+            </View>
+            <View style={S.inputCell}>
+              <Text style={S.inputLabel}>Zrebki</Text>
+              <TextInput
+                value={protocol.chips}
+                onChangeText={(chips) => patchProtocol({ chips })}
+                keyboardType="decimal-pad"
+                placeholder="3"
+                placeholderTextColor={theme.textMuted}
+                style={S.input}
+              />
+            </View>
+            <View style={S.inputCell}>
+              <Text style={S.inputLabel}>Drewno</Text>
+              <TextInput
+                value={protocol.wood}
+                onChangeText={(wood) => patchProtocol({ wood })}
+                placeholder="zostaje / wywoz"
+                placeholderTextColor={theme.textMuted}
+                style={S.input}
+              />
+            </View>
+          </View>
+
+          <Text style={S.fieldLabel}>Arborysta / kto potrzebny</Text>
+          <TextInput
+            value={protocol.arborist}
+            onChangeText={(arborist) => patchProtocol({ arborist })}
+            placeholder="Np. Nazar, Wszyscy, nie"
+            placeholderTextColor={theme.textMuted}
+            style={S.input}
+          />
+
           <Text style={S.fieldLabel}>Wynik rozmowy</Text>
           <View style={S.chipWrap}>
             {FIELD_PROTOCOL_RESULT_OPTIONS.map((option) => (
@@ -911,7 +1090,7 @@ export default function OgledzinyDokumentacjaScreen() {
             style={S.textArea}
           />
 
-          <Text style={S.fieldLabel}>Notatki wyceniającego</Text>
+          <Text style={S.fieldLabel}>Notatki specjalisty ds. wyceny</Text>
           <TextInput
             value={protocol.notes}
             onChangeText={(notes) => patchProtocol({ notes })}
@@ -1357,6 +1536,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   protocolHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   protocolTitle: { color: t.text, fontSize: 16, fontWeight: '900' },
   protocolSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  protocolDraftBadge: {
+    maxWidth: 122,
+    borderWidth: 1,
+    borderColor: t.success + '44',
+    backgroundColor: t.successBg,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  protocolDraftHint: { color: t.success, fontSize: 10, fontWeight: '900' },
   protocolScore: {
     minWidth: 58,
     borderRadius: 13,

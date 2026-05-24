@@ -11,6 +11,7 @@ import { THEME_LABELS, ThemeName, themes, getRolaColor } from '../constants/them
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
+import { getRoleDisplayName } from '../utils/role-display';
 import { clearStoredSession, getStoredSession } from '../utils/session';
 import { unregisterExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
@@ -88,11 +89,12 @@ export default function ProfilScreen() {
   if (loading) return <View style={S.center}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
   const rolaKolor = rolaKolorMap[user?.rola as keyof typeof rolaKolorMap] || theme.accent;
+  const rolaLabel = getRoleDisplayName(user?.rola, '-');
   const initials = `${user?.imie?.[0] || ''}${user?.nazwisko?.[0] || ''}` || 'AR';
   const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(String(user?.rola || ''));
   const isFieldWorker = ['Brygadzista', 'Pomocnik'].includes(String(user?.rola || ''));
   const profileStats = [
-    { key: 'role', label: 'Rola', value: user?.rola || '-' },
+    { key: 'role', label: 'Rola', value: rolaLabel },
     { key: 'branch', label: 'Oddział', value: user?.oddzial_nazwa || 'Nieustawiony' },
     { key: 'mode', label: 'Tryb', value: guard.allowed ? 'Aktywny' : 'Ograniczony' },
   ];
@@ -138,7 +140,7 @@ export default function ProfilScreen() {
         <Text style={S.heroEyebrow}>Profil pracownika</Text>
         <Text style={S.name}>{user?.imie} {user?.nazwisko}</Text>
         <View style={[S.rolaBadge, { backgroundColor: rolaKolor + '33' }]}>
-          <Text style={[S.rolaText, { color: rolaKolor }]}>{user?.rola}</Text>
+          <Text style={[S.rolaText, { color: rolaKolor }]}>{rolaLabel}</Text>
         </View>
         {user?.oddzial_nazwa ? (
           <View style={S.oddzialRow}>

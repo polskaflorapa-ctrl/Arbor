@@ -26,6 +26,7 @@ import { openAddressInMaps } from '../utils/maps-link';
 import { createOfflineRequestId, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession } from '../utils/session';
+import { getRoleDisplayName } from '../utils/role-display';
 
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
@@ -495,7 +496,7 @@ export default function PlanOgledzinScreen() {
 
   const reportDelay = async (item: VisitRow, etaMin: number) => {
     setDelaySavingId(`${item.id}:${etaMin}`);
-    const note = `Wyceniajacy raportuje opoznienie +${etaMin} min.`;
+    const note = `Specjalista ds. wyceny raportuje opoznienie +${etaMin} min.`;
     try {
       const ok = await sendFieldEvent(item, 'delay', { etaMin, note });
       if (!ok) {
@@ -575,7 +576,7 @@ export default function PlanOgledzinScreen() {
           <Ionicons name="map-outline" size={22} color={theme.accent} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.headerEyebrow}>Trasa wyceniajacego</Text>
+          <Text style={styles.headerEyebrow}>Trasa specjalisty ds. wyceny</Text>
           <Text style={styles.title}>Plan ogledzin dnia</Text>
           <Text style={styles.subtitle}>Trasa, telefon, mapa i draft bez przepisywania.</Text>
         </View>
@@ -618,7 +619,7 @@ export default function PlanOgledzinScreen() {
             <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </View>
           <Text style={styles.progressHint}>
-            {user?.rola ? `${user.rola} - ` : ''}{today.length ? 'jedz po kolei wedlug godziny wizyty' : 'brak zaplanowanych ogledzin na dzis'}
+            {user?.rola ? `${getRoleDisplayName(user.rola)} - ` : ''}{today.length ? 'jedz po kolei wedlug godziny wizyty' : 'brak zaplanowanych ogledzin na dzis'}
           </Text>
         </View>
 

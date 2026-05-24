@@ -1,4 +1,5 @@
 import { AppPrivacyLock } from '../components/app-privacy-lock';
+import { LiveGpsHeartbeat } from '../components/live-gps-heartbeat';
 import { OfflineQueueSync } from '../components/offline-queue-sync';
 import { LanguageProvider } from '../constants/LanguageContext';
 import { ThemeProvider } from '../constants/ThemeContext';
@@ -137,6 +138,7 @@ export default function Layout() {
     <LanguageProvider>
       <ThemeProvider>
         <AppPrivacyLock />
+        <LiveGpsHeartbeat />
         <OfflineQueueSync />
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerShown: false }}>

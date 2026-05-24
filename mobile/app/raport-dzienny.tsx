@@ -60,6 +60,74 @@ type TaskLite = {
   adres?: string;
   typ_uslugi?: string;
   data_planowana?: string;
+  status?: string;
+  czas_planowany_godziny?: string | number | null;
+};
+
+type DayPreview = {
+  tasks_day: { id: number; klient_nazwa?: string; status?: string }[];
+  cash_by_forma: { forma_platnosc?: string | null; sum_kwota?: string | number; cnt?: number }[];
+  issues_count?: number;
+};
+
+type TeamDayPack = {
+  report: { id: number; status?: string } | null;
+  lines: unknown[];
+  day_preview: DayPreview | null;
+};
+
+const toDateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const taskDateKey = (value?: string | null) => {
+  if (!value) return '';
+  const direct = String(value).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) return direct;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : toDateKey(d);
+};
+
+const isCrewRole = (role?: string | null) => {
+  const value = String(role || '').toLowerCase();
+  return value === 'brygadzista' || value === 'pomocnik' || value.includes('pomocnik bez');
+};
+
+const canCloseTeamDayReport = (role?: string | null) => {
+  const value = String(role || '').toLowerCase();
+  return value === 'brygadzista' || value === 'pomocnik';
+};
+
+const isClosedTask = (status?: string | null) => {
+  const value = String(status || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return value === 'zakonczone' || value === 'anulowane';
+};
+
+const formatPln = (value?: string | number | null) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0.00 zl';
+  return `${n.toFixed(2)} zl`;
+};
+
+const normalizeTeamDayPack = (data: any): TeamDayPack => {
+  const preview = data?.day_preview && typeof data.day_preview === 'object'
+    ? {
+        tasks_day: Array.isArray(data.day_preview.tasks_day) ? data.day_preview.tasks_day : [],
+        cash_by_forma: Array.isArray(data.day_preview.cash_by_forma) ? data.day_preview.cash_by_forma : [],
+        issues_count: Number(data.day_preview.issues_count) || 0,
+      }
+    : null;
+  return {
+    report: data?.report ?? null,
+    lines: Array.isArray(data?.lines) ? data.lines : [],
+    day_preview: preview,
+  };
 };
 
 export default function RaportDzienny() {
@@ -76,8 +144,14 @@ export default function RaportDzienny() {
   const [podpisData, setPodpisData] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [userRole, setUserRole] = useState('');
+  const [teamDayPack, setTeamDayPack] = useState<TeamDayPack | null>(null);
+  const [teamDayLoading, setTeamDayLoading] = useState(false);
+  const [teamDayBusy, setTeamDayBusy] = useState(false);
+  const [cashReviewed, setCashReviewed] = useState(false);
+  const [issuesReviewed, setIssuesReviewed] = useState(false);
 
-  const dzisiaj = new Date().toISOString().split('T')[0];
+  const dzisiaj = toDateKey();
 
   const [form, setForm] = useState<RaportForm>({
     data_raportu: dzisiaj,
@@ -86,24 +160,51 @@ export default function RaportDzienny() {
     materialy: [],
   });
 
+  const fetchTeamDayReport = useCallback(async (storedToken: string, role: string) => {
+    if (!canCloseTeamDayReport(role)) {
+      setTeamDayPack(null);
+      return;
+    }
+    setTeamDayLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/mobile/me/team-day-report?date=${dzisiaj}`, {
+        headers: { Authorization: `Bearer ${storedToken}` },
+      });
+      setTeamDayPack(normalizeTeamDayPack(res.data));
+    } catch {
+      setTeamDayPack(null);
+    } finally {
+      setTeamDayLoading(false);
+    }
+  }, [dzisiaj]);
+
   const loadData = useCallback(async () => {
     try {
-      const { token: storedToken } = await getStoredSession();
+      const { token: storedToken, user } = await getStoredSession();
       if (!storedToken) { router.replace('/login'); return; }
+      const role = String(user?.rola || '');
       setToken(storedToken);
+      setUserRole(role);
       const flushInfo = await flushOfflineQueue(storedToken);
       setOfflineQueueCount(flushInfo.left);
       const h = { Authorization: `Bearer ${storedToken}` };
+      const taskEndpoint = isCrewRole(role)
+        ? `${API_URL}/tasks/moje?data=${dzisiaj}`
+        : `${API_URL}/tasks/wszystkie`;
 
       const [zRes, rRes] = await Promise.all([
-        axios.get(`${API_URL}/tasks/wszystkie`, { headers: h }),
+        axios.get(taskEndpoint, { headers: h }),
         axios.get(`${API_URL}/raporty-dzienne?data=${dzisiaj}`, { headers: h }),
       ]);
 
-      const dzisiejsze: TaskLite[] = zRes.data.filter((z: TaskLite) =>
-        z.data_planowana?.split('T')[0] === dzisiaj
-      );
+      const rawTasks: TaskLite[] = Array.isArray(zRes.data)
+        ? zRes.data
+        : Array.isArray(zRes.data?.items) ? zRes.data.items : [];
+      const dzisiejsze = isCrewRole(role)
+        ? rawTasks
+        : rawTasks.filter((z: TaskLite) => taskDateKey(z.data_planowana) === dzisiaj);
       setZlecenia(dzisiejsze);
+      await fetchTeamDayReport(storedToken, role);
 
       if (rRes.data.length > 0) {
         const r = rRes.data[0];
@@ -142,7 +243,7 @@ export default function RaportDzienny() {
     } finally {
       setLoading(false);
     }
-  }, [dzisiaj, router, t]);
+  }, [dzisiaj, fetchTeamDayReport, router, t]);
 
   useEffect(() => {
     void loadData();
@@ -265,10 +366,49 @@ export default function RaportDzienny() {
     );
   };
 
+  const closeTeamDay = async () => {
+    if (!token) { router.replace('/login'); return; }
+    if (!canCloseTeamDayReport(userRole)) return;
+    setTeamDayBusy(true);
+    try {
+      await axios.post(`${API_URL}/mobile/me/team-day-close`, {
+        report_date: dzisiaj,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchTeamDayReport(token, userRole);
+      void triggerHaptic('success');
+      Alert.alert('Zamkniecie dnia', 'Raport ekipy zostal przeliczony.');
+    } catch (err: any) {
+      void triggerHaptic('warning');
+      Alert.alert('Zamkniecie dnia', err?.response?.data?.error || 'Nie udalo sie przeliczyc raportu ekipy.');
+    } finally {
+      setTeamDayBusy(false);
+    }
+  };
+
   const S = makeStyles(theme);
   const totalMinutes = form.zadania.reduce((sum, row) => sum + (parseInt(row.czas_minuty) || 0), 0);
   const filledTasks = form.zadania.filter((row) => (parseInt(row.czas_minuty) || 0) > 0 || row.uwagi.trim()).length;
   const materialCount = form.materialy.filter((row) => row.nazwa.trim()).length;
+  const closedToday = zlecenia.filter((task) => isClosedTask(task.status)).length;
+  const openToday = zlecenia.filter((task) => !isClosedTask(task.status)).length;
+  const cashRows = teamDayPack?.day_preview?.cash_by_forma ?? [];
+  const cashTotal = cashRows.reduce((sum, row) => sum + (Number(row.sum_kwota) || 0), 0);
+  const issuesCount = teamDayPack?.day_preview?.issues_count ?? 0;
+  const allTimesReady = form.zadania.length === 0 || form.zadania.every((row) => (parseInt(row.czas_minuty) || 0) > 0);
+  const descriptionReady = form.opis_pracy.trim().length >= 10;
+  const cashReady = cashRows.length === 0 || cashReviewed;
+  const issuesReady = issuesCount === 0 || issuesReviewed;
+  const teamDayChecks = [
+    { key: 'tasks', label: 'Zlecenia zamkniete', value: `${closedToday}/${zlecenia.length}`, ready: zlecenia.length > 0 && openToday === 0 },
+    { key: 'time', label: 'Czasy pracy wpisane', value: `${filledTasks}/${form.zadania.length}`, ready: allTimesReady && form.zadania.length > 0 },
+    { key: 'desc', label: 'Opis dnia', value: descriptionReady ? 'OK' : 'brak', ready: descriptionReady },
+    { key: 'cash', label: 'Kasa sprawdzona', value: cashRows.length ? formatPln(cashTotal) : 'brak', ready: cashReady },
+    { key: 'issues', label: 'Problemy sprawdzone', value: String(issuesCount), ready: issuesReady },
+    { key: 'sign', label: 'Podpis', value: podpisData ? 'OK' : 'brak', ready: Boolean(podpisData) },
+  ];
+  const readyChecks = teamDayChecks.filter((check) => check.ready).length;
   const reportStats = [
     { key: 'tasks', label: 'Zlecenia', value: `${filledTasks}/${form.zadania.length}`, icon: 'clipboard-outline' as const, color: theme.accent },
     { key: 'time', label: 'Czas', value: `${Math.round(totalMinutes / 60 * 10) / 10}h`, icon: 'time-outline' as const, color: theme.info },
@@ -352,6 +492,111 @@ export default function RaportDzienny() {
           </View>
         ))}
       </View>
+
+      {canCloseTeamDayReport(userRole) ? (
+        <View style={[S.section, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+          <View style={S.teamCloseHeader}>
+            <View style={S.teamCloseTitleBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="shield-checkmark-outline" size={17} color={theme.accent} />
+                <Text style={[S.sectionTitle, { color: theme.text, marginBottom: 0 }]}>Zamkniecie dnia ekipy</Text>
+              </View>
+              <Text style={[S.teamCloseSub, { color: theme.textMuted }]}>
+                Jedna kontrola przed wyslaniem raportu do biura.
+              </Text>
+            </View>
+            <View style={[S.teamScore, { backgroundColor: readyChecks === teamDayChecks.length ? theme.successBg : theme.surface2 }]}>
+              <Text style={[S.teamScoreValue, { color: readyChecks === teamDayChecks.length ? theme.success : theme.accent }]}>
+                {readyChecks}/{teamDayChecks.length}
+              </Text>
+              <Text style={[S.teamScoreLabel, { color: theme.textMuted }]}>gotowe</Text>
+            </View>
+          </View>
+
+          <View style={S.checkList}>
+            {teamDayChecks.map((check) => (
+              <View key={check.key} style={[S.checkRow, { borderColor: theme.border }]}>
+                <Ionicons
+                  name={check.ready ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={18}
+                  color={check.ready ? theme.success : theme.textMuted}
+                />
+                <Text style={[S.checkLabel, { color: theme.text }]}>{check.label}</Text>
+                <Text style={[S.checkValue, { color: check.ready ? theme.success : theme.textMuted }]}>{check.value}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={[S.cashBox, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+            <View style={S.cashHeader}>
+              <Text style={[S.cashTitle, { color: theme.text }]}>Kasa od klientow</Text>
+              {teamDayLoading ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+            </View>
+            {cashRows.length === 0 ? (
+              <Text style={[S.emptyText, { color: theme.textMuted, padding: 4 }]}>Brak platnosci do rozliczenia.</Text>
+            ) : (
+              cashRows.map((row, idx) => (
+                <View key={`${row.forma_platnosc ?? 'x'}-${idx}`} style={S.cashLine}>
+                  <Text style={[S.cashForma, { color: theme.textSub }]}>
+                    {row.forma_platnosc?.trim() || 'Inne'} ({row.cnt ?? 0})
+                  </Text>
+                  <Text style={[S.cashKwota, { color: theme.success }]}>{formatPln(row.sum_kwota)}</Text>
+                </View>
+              ))
+            )}
+            {cashRows.length > 0 ? (
+              <View style={[S.cashLine, S.cashLineTotal]}>
+                <Text style={[S.cashForma, { color: theme.text }]}>Razem</Text>
+                <Text style={[S.cashKwota, { color: theme.text }]}>{formatPln(cashTotal)}</Text>
+              </View>
+            ) : null}
+            <View style={S.reviewRow}>
+              <TouchableOpacity
+                style={[
+                  S.reviewChip,
+                  { borderColor: cashReady ? theme.success : theme.border, backgroundColor: cashReviewed ? theme.successBg : theme.cardBg },
+                ]}
+                onPress={() => setCashReviewed(v => !v)}
+              >
+                <Ionicons name={cashReady ? 'checkmark-circle' : 'cash-outline'} size={15} color={cashReady ? theme.success : theme.textMuted} />
+                <Text style={[S.reviewChipText, { color: cashReady ? theme.success : theme.textSub }]}>Kasa sprawdzona</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  S.reviewChip,
+                  { borderColor: issuesReady ? theme.success : theme.border, backgroundColor: issuesReviewed ? theme.successBg : theme.cardBg },
+                ]}
+                onPress={() => setIssuesReviewed(v => !v)}
+              >
+                <Ionicons name={issuesReady ? 'checkmark-circle' : 'warning-outline'} size={15} color={issuesReady ? theme.success : theme.warning} />
+                <Text style={[S.reviewChipText, { color: issuesReady ? theme.success : theme.textSub }]}>Problemy sprawdzone</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {teamDayPack?.report ? (
+            <Text style={[S.teamReportMeta, { color: theme.textMuted }]}>Raport placowy #{teamDayPack.report.id} jest zapisany.</Text>
+          ) : null}
+
+          <TouchableOpacity
+            style={[
+              S.closeDayBtn,
+              { backgroundColor: theme.accent, opacity: teamDayBusy ? 0.65 : 1 },
+            ]}
+            onPress={() => void closeTeamDay()}
+            disabled={teamDayBusy}
+          >
+            {teamDayBusy ? (
+              <ActivityIndicator size="small" color={theme.accentText} />
+            ) : (
+              <Ionicons name="calculator-outline" size={17} color={theme.accentText} />
+            )}
+            <Text style={[S.closeDayBtnText, { color: theme.accentText }]}>
+              {teamDayBusy ? 'Przeliczam...' : 'Przelicz raport ekipy'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {/* Zlecenia dnia */}
       <View style={[S.section, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
@@ -688,6 +933,29 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '900', marginBottom: 12 },
   emptyText: { textAlign: 'center', padding: 16, fontSize: 14, fontWeight: '800' },
+  teamCloseHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
+  teamCloseTitleBox: { flex: 1, minWidth: 0 },
+  teamCloseSub: { fontSize: 12, fontWeight: '700', marginTop: 5, lineHeight: 17 },
+  teamScore: { minWidth: 72, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 10, alignItems: 'center' },
+  teamScoreValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  teamScoreLabel: { fontSize: 10, fontWeight: '800', marginTop: 1 },
+  checkList: { gap: 7, marginBottom: 12 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
+  checkLabel: { flex: 1, fontSize: 12, fontWeight: '800' },
+  checkValue: { fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  cashBox: { borderWidth: 1, borderRadius: 14, padding: 10, gap: 6 },
+  cashHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cashTitle: { fontSize: 13, fontWeight: '900' },
+  cashLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5 },
+  cashLineTotal: { borderTopWidth: 1, borderTopColor: t.border, marginTop: 2, paddingTop: 8 },
+  cashForma: { flex: 1, paddingRight: 10, fontSize: 12, fontWeight: '800' },
+  cashKwota: { fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  reviewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  reviewChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 },
+  reviewChipText: { fontSize: 12, fontWeight: '900' },
+  teamReportMeta: { fontSize: 12, fontWeight: '800', marginTop: 10 },
+  closeDayBtn: { marginTop: 12, borderRadius: 14, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  closeDayBtnText: { fontSize: 14, fontWeight: '900' },
   zadanieCard: { borderRadius: 14, padding: 12, marginBottom: 10, borderLeftWidth: 4, borderWidth: 1, borderColor: t.border },
   zadanieKlient: { fontSize: 14, fontWeight: '900', marginBottom: 2 },
   zadanieAdres: { fontSize: 12, marginBottom: 8, fontWeight: '700' },

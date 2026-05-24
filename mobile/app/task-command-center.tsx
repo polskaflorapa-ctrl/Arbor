@@ -34,6 +34,7 @@ import {
 import { isFeatureEnabledForOddzial } from '../utils/oddzial-features';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
+import { buildNewOrderRoute } from '../utils/new-order-route';
 
 const CATEGORY_ORDER: { id: 'all' | CommandCategory; icon: React.ComponentProps<typeof Ionicons>['name']; labelKey: string }[] = [
   { id: 'all', icon: 'apps-outline', labelKey: 'command.category.all' },
@@ -45,6 +46,10 @@ const CATEGORY_ORDER: { id: 'all' | CommandCategory; icon: React.ComponentProps<
   { id: 'administration', icon: 'settings-outline', labelKey: 'dashboard.quickCat.administration' },
   { id: 'account', icon: 'person-outline', labelKey: 'dashboard.quickCat.account' },
 ];
+
+function commandCenterRoute(path: string) {
+  return path === '/nowe-zlecenie' ? buildNewOrderRoute({ source: 'command-center' }) : path;
+}
 
 type Metrics = {
   active: number;
@@ -73,6 +78,11 @@ type CommandStat = {
 
 function normalizeStatus(status: unknown) {
   return String(status || '').toLowerCase();
+}
+
+function isCrewRole(role: string) {
+  const value = role.toLowerCase();
+  return value === 'brygadzista' || value === 'pomocnik' || value.includes('pomocnik bez');
 }
 
 function buildTaskMetrics(tasks: any[]): Metrics {
@@ -136,7 +146,7 @@ export default function TaskCommandCenterScreen() {
         }
       } else {
         const endpoint =
-          userRole === 'Brygadzista' || userRole === 'Pomocnik'
+          isCrewRole(userRole)
             ? `${API_URL}/tasks/moje`
             : `${API_URL}/tasks/wszystkie`;
         const res = await fetch(endpoint, { headers });
@@ -313,7 +323,7 @@ export default function TaskCommandCenterScreen() {
         ...(meta ? { meta } : {}),
       });
       setRecents(next);
-      router.push(action.path as never);
+      router.push(commandCenterRoute(action.path) as never);
     },
     [],
   );
@@ -326,7 +336,7 @@ export default function TaskCommandCenterScreen() {
       ...(item.meta ? { meta: item.meta } : {}),
     });
     setRecents(next);
-    router.push(item.path as never);
+    router.push(commandCenterRoute(item.path) as never);
   }, []);
 
   const clearRecents = useCallback(async () => {

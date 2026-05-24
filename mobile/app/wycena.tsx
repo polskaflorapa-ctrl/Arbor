@@ -28,6 +28,7 @@ import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
+import { getRoleDisplayName } from '../utils/role-display';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
@@ -279,7 +280,7 @@ export default function WycenaScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={S.headerTitle}>{t('wyceny.title')}</Text>
-          {user?.rola && <Text style={S.headerSub}>{user.rola}</Text>}
+          {user?.rola && <Text style={S.headerSub}>{getRoleDisplayName(user.rola)}</Text>}
         </View>
         <PlatinumCTA
           label={t('wyceny.header.newBtn')}

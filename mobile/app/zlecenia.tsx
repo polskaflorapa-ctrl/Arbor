@@ -19,10 +19,12 @@ import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
-import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
+import { subscribeOfflineFlushDone, subscribeTaskSync } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
+import { buildNewOrderRoute } from '../utils/new-order-route';
+import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
 const FIELD_PHOTO_REQUIREMENTS = [
@@ -30,8 +32,9 @@ const FIELD_PHOTO_REQUIREMENTS = [
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
   { key: 'photo_dojazd', label: 'Dojazd', icon: 'navigate-outline' },
 ] as const;
-type OrderQuickMode = 'all' | 'today' | 'field' | 'officeReady' | 'needsPlan' | 'missingEvidence' | 'active';
+type OrderQuickMode = 'all' | 'myTurn' | 'today' | 'field' | 'officeReady' | 'needsPlan' | 'missingEvidence' | 'needsSignal' | 'active';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+type StageOwnerTone = 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'muted';
 
 type OfficeFlowStep = {
   key: string;
@@ -59,6 +62,11 @@ function isFieldDraftTask(task: any) {
 
 function isEstimatorRole(role: unknown) {
   return role === 'Wyceniający' || role === 'Wyceniajacy';
+}
+
+function isCrewRoleValue(role: unknown) {
+  const value = String(role || '').toLowerCase();
+  return value === 'brygadzista' || value.includes('pomocnik');
 }
 
 function hasTaskContact(task: any) {
@@ -138,6 +146,39 @@ function taskWorkflowNextAction(task: any) {
   return action || '';
 }
 
+function readinessIconForKey(key: unknown): IoniconName {
+  const normalized = String(key || '').toLowerCase();
+  if (normalized.includes('photo') || normalized.includes('zdj') || normalized.includes('dowod')) return 'images-outline';
+  if (normalized.includes('scope') || normalized.includes('brief') || normalized.includes('zakres')) return 'list-outline';
+  if (normalized.includes('money') || normalized.includes('price') || normalized.includes('cena')) return 'cash-outline';
+  if (normalized.includes('time') || normalized.includes('hour') || normalized.includes('czas')) return 'time-outline';
+  if (normalized.includes('team') || normalized.includes('ekipa')) return 'people-outline';
+  if (normalized.includes('slot') || normalized.includes('date') || normalized.includes('termin')) return 'calendar-number-outline';
+  if (normalized.includes('equipment') || normalized.includes('sprzet')) return 'cube-outline';
+  if (normalized.includes('risk') || normalized.includes('bhp')) return 'shield-checkmark-outline';
+  if (normalized.includes('address') || normalized.includes('adres')) return 'location-outline';
+  return 'checkmark-circle-outline';
+}
+
+function apiReadinessChecks(task: any, field: string) {
+  const rows = Array.isArray(task?.[field]) ? task[field] : [];
+  return rows
+    .map((row: any) => {
+      const key = String(row?.key || '').trim();
+      const label = String(row?.label || key || '').trim();
+      if (!label) return null;
+      const ready = row?.ready === true || row?.ok === true;
+      return {
+        key: key || label,
+        label,
+        value: row?.value != null ? String(row.value) : ready ? 'OK' : 'brak',
+        ready,
+        icon: readinessIconForKey(key || label),
+      };
+    })
+    .filter(Boolean) as { key: string; label: string; value: string; ready: boolean; icon: IoniconName }[];
+}
+
 function taskPhotoTotal(task: any) {
   const total = taskNumber(task?.photo_total);
   return total > 0 ? total : taskEvidenceReadyCount(task);
@@ -152,6 +193,70 @@ function taskScopePreview(task: any) {
   return scope || task?.opis || task?.opis_pracy || task?.typ_uslugi || '';
 }
 
+function taskHasRiskBrief(task: any) {
+  if (taskWorkflowMissingIncludes(task, ['bhp', 'ryzyk', 'risk'])) return false;
+  const raw = String([
+    task?.notatki_wewnetrzne,
+    task?.notatki,
+    task?.opis,
+    task?.opis_pracy,
+  ].filter(Boolean).join('\n')).toLowerCase();
+  return /ryzyk|bhp|zgod|linie|ogrodzenie|dach|elewac|trudny dojazd|ruch pieszy|brak szczegolnych/.test(raw);
+}
+
+function taskCrewStartChecks(task: any) {
+  const apiChecks = apiReadinessChecks(task, 'crew_execution_checks');
+  if (apiChecks.length) return apiChecks;
+  const evidenceCount = taskEvidenceReadyCount(task);
+  const plannedHours = taskNumber(task?.czas_planowany_godziny);
+  const equipmentCount = taskEquipmentReservationCount(task);
+  const riskReady = taskHasRiskBrief(task);
+  return [
+    {
+      key: 'address',
+      label: 'Adres',
+      value: hasTaskAddress(task) ? 'OK' : 'brak',
+      ready: hasTaskAddress(task),
+      icon: 'location-outline' as IoniconName,
+    },
+    {
+      key: 'scope',
+      label: 'Zakres',
+      value: taskScopePreview(task) ? 'OK' : 'brak',
+      ready: Boolean(taskScopePreview(task)),
+      icon: 'list-outline' as IoniconName,
+    },
+    {
+      key: 'photos',
+      label: 'Zdjecia wyceny',
+      value: `${evidenceCount}/${FIELD_PHOTO_REQUIREMENTS.length}`,
+      ready: evidenceCount >= FIELD_PHOTO_REQUIREMENTS.length,
+      icon: 'camera-outline' as IoniconName,
+    },
+    {
+      key: 'time',
+      label: 'Plan czasu',
+      value: plannedHours > 0 ? `${plannedHours}h` : 'brak',
+      ready: plannedHours > 0,
+      icon: 'time-outline' as IoniconName,
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzet',
+      value: equipmentCount > 0 ? `${equipmentCount} poz.` : 'brak',
+      ready: equipmentCount > 0,
+      icon: 'construct-outline' as IoniconName,
+    },
+    {
+      key: 'risk',
+      label: 'BHP',
+      value: riskReady ? 'OK' : 'brak',
+      ready: riskReady,
+      icon: 'shield-checkmark-outline' as IoniconName,
+    },
+  ];
+}
+
 function taskStatusIs(task: any, status: string) {
   return normalizeTaskStatus(task?.status) === status;
 }
@@ -162,6 +267,122 @@ function taskHasAssignedCrew(task: any) {
 
 function taskHasPlannedSlot(task: any) {
   return Boolean(task?.data_planowana && (task?.godzina_rozpoczecia || task?.czas_planowany_godziny));
+}
+
+function taskEquipmentReservationCount(task: any) {
+  const direct = taskNumber(
+    task?.equipment_reserved_count ??
+    task?.sprzet_reserved_count ??
+    task?.rezerwacje_sprzetu_count,
+  );
+  if (direct > 0) return direct;
+  if (Array.isArray(task?.equipment_reservations)) return task.equipment_reservations.length;
+  if (Array.isArray(task?.rezerwacje_sprzetu)) return task.rezerwacje_sprzetu.length;
+  const ids = task?.sprzet_ids ?? task?.sprzetIds;
+  if (Array.isArray(ids)) return ids.filter(Boolean).length;
+  if (typeof ids === 'string') return ids.split(',').map((id) => id.trim()).filter(Boolean).length;
+  const equipmentFlags = [
+    'rebak',
+    'pila_wysiegniku',
+    'nozyce_dlugie',
+    'kosiarka',
+    'podkaszarka',
+    'lopata',
+    'mulczer',
+    'arborysta',
+  ];
+  return equipmentFlags.filter((key) => Boolean(task?.[key])).length;
+}
+
+function taskOfficeMoneyAndTime(task: any) {
+  const value = taskNumber(
+    task?.wartosc_planowana ??
+    task?.budzet ??
+    task?.wartosc_zaproponowana ??
+    task?.wartosc_szacowana,
+  );
+  const hours = taskNumber(task?.czas_planowany_godziny ?? task?.czas_realizacji_godz);
+  return {
+    value,
+    hours,
+    ready: value > 0 && hours > 0,
+    label: value > 0 && hours > 0
+      ? `${value.toLocaleString('pl-PL')} PLN / ${hours}h`
+      : value > 0
+        ? `${value.toLocaleString('pl-PL')} PLN / brak h`
+        : hours > 0
+          ? `brak ceny / ${hours}h`
+          : 'brak',
+  };
+}
+
+function taskOfficePlanChecks(task: any) {
+  const apiChecks = apiReadinessChecks(task, 'office_plan_checks');
+  if (apiChecks.length) return apiChecks;
+  const evidenceCount = taskEvidenceReadyCount(task);
+  const equipmentCount = taskEquipmentReservationCount(task);
+  const moneyAndTime = taskOfficeMoneyAndTime(task);
+  const scopeReady = Boolean(taskScopePreview(task));
+  return [
+    {
+      key: 'photos',
+      label: 'Zdjecia',
+      value: `${evidenceCount}/${FIELD_PHOTO_REQUIREMENTS.length}`,
+      ready: evidenceCount >= FIELD_PHOTO_REQUIREMENTS.length,
+      icon: 'images-outline' as IoniconName,
+    },
+    {
+      key: 'scope',
+      label: 'Zakres',
+      value: scopeReady ? 'OK' : 'brak',
+      ready: scopeReady,
+      icon: 'list-outline' as IoniconName,
+    },
+    {
+      key: 'money',
+      label: 'Cena/czas',
+      value: moneyAndTime.label,
+      ready: moneyAndTime.ready,
+      icon: 'cash-outline' as IoniconName,
+    },
+    {
+      key: 'team',
+      label: 'Ekipa',
+      value: task?.ekipa_nazwa || (task?.ekipa_id ? `#${task.ekipa_id}` : 'brak'),
+      ready: taskHasAssignedCrew(task),
+      icon: 'people-outline' as IoniconName,
+    },
+    {
+      key: 'slot',
+      label: 'Termin',
+      value: taskHasPlannedSlot(task) ? `${formatTaskDay(task?.data_planowana)} ${taskTimeLabel(task)}` : 'brak',
+      ready: taskHasPlannedSlot(task),
+      icon: 'calendar-number-outline' as IoniconName,
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzet',
+      value: equipmentCount > 0 ? `${equipmentCount} poz.` : 'brak',
+      ready: equipmentCount > 0,
+      icon: 'cube-outline' as IoniconName,
+    },
+  ];
+}
+
+function taskReservationRouteParams(task: any) {
+  const params: Record<string, string> = {
+    prefZlecenie: String(task?.id || ''),
+    prefData: taskDateKey(task) || '',
+  };
+  if (task?.ekipa_id) params.prefEkipa = String(task.ekipa_id);
+  const ids = task?.sprzet_ids ?? task?.sprzetIds;
+  const firstEquipmentId = Array.isArray(ids)
+    ? ids.map((id) => String(id || '').trim()).find(Boolean)
+    : typeof ids === 'string'
+      ? ids.split(',').map((id) => id.trim()).find(Boolean)
+      : '';
+  if (firstEquipmentId) params.prefSprzet = firstEquipmentId;
+  return params;
 }
 
 function taskEvidenceComplete(task: any) {
@@ -181,18 +402,307 @@ function taskReadyForOffice(task: any) {
 function taskNeedsCrewPlan(task: any) {
   if (isTaskClosed(task?.status)) return false;
   const status = normalizeTaskStatus(task?.status);
-  const officeStage = status === TASK_STATUS.DO_ZATWIERDZENIA || taskReadyForOffice(task);
+  const officeStage = status === TASK_STATUS.DO_ZATWIERDZENIA || status === TASK_STATUS.ZAPLANOWANE || taskReadyForOffice(task);
   if (!officeStage) return false;
-  if (taskWorkflowMissingIncludes(task, ['ekipa', 'team', 'termin pracy', 'work_date'])) return true;
-  return !taskHasAssignedCrew(task) || !taskHasPlannedSlot(task);
+  if (typeof task?.office_plan_ready === 'boolean') return !task.office_plan_ready;
+  if (taskWorkflowMissingIncludes(task, ['ekipa', 'team', 'termin pracy', 'work_date', 'sprzet', 'sprzÄ™t', 'equipment', 'czas', 'budzet', 'budĹĽet', 'cena', 'zakres'])) return true;
+  return taskOfficePlanChecks(task).some((check) => !check.ready);
 }
 
 function taskReadyForCrew(task: any) {
   const status = normalizeTaskStatus(task?.status);
-  if (status === TASK_STATUS.ZAPLANOWANE) return true;
+  if (typeof task?.crew_execution_ready === 'boolean') {
+    return status === TASK_STATUS.ZAPLANOWANE
+      ? task.crew_execution_ready
+      : taskReadyForOffice(task) && task.crew_execution_ready;
+  }
+  const planReady = taskOfficePlanChecks(task).every((check) => check.ready);
+  if (status === TASK_STATUS.ZAPLANOWANE) return planReady;
   const apiReady = taskWorkflowReadyForNext(task);
-  if (status === TASK_STATUS.DO_ZATWIERDZENIA && apiReady !== null) return apiReady;
-  return taskReadyForOffice(task) && taskHasAssignedCrew(task) && taskHasPlannedSlot(task);
+  if (status === TASK_STATUS.DO_ZATWIERDZENIA && apiReady !== null) return apiReady && planReady;
+  return taskReadyForOffice(task) && planReady;
+}
+
+function userRole(user: any) {
+  return String(user?.rola || '').toLowerCase();
+}
+
+function taskBranchMatchesUser(task: any, user: any) {
+  if (!user?.oddzial_id || !task?.oddzial_id) return true;
+  return String(user.oddzial_id) === String(task.oddzial_id);
+}
+
+function taskAssignedToUserCrew(task: any, user: any) {
+  const userId = String(user?.id || '');
+  const userTeamId = String(user?.ekipa_id || '');
+  const taskTeamId = String(task?.ekipa_id || '');
+  const taskLeaderId = String(task?.brygadzista_id || '');
+  return Boolean((userTeamId && taskTeamId === userTeamId) || (userId && taskLeaderId === userId));
+}
+
+function taskMatchesCurrentUserTurn(task: any, user: any) {
+  if (!user || !task || isTaskClosed(task?.status)) return false;
+  const role = userRole(user);
+  const status = normalizeTaskStatus(task?.status);
+  const userId = String(user?.id || '');
+  const blockers = taskWorkflowMissingLabels(task).length > 0;
+
+  if (role.includes('wyceniaj')) {
+    return status === TASK_STATUS.WYCENA_TERENOWA && String(task?.wyceniajacy_id || '') === userId;
+  }
+
+  if (role.includes('bryg') || role.includes('pomoc')) {
+    const scopedCrewListFallback = !user?.ekipa_id && !task?.ekipa_id && !task?.brygadzista_id;
+    return (taskAssignedToUserCrew(task, user) || scopedCrewListFallback) &&
+      (status === TASK_STATUS.ZAPLANOWANE || status === TASK_STATUS.W_REALIZACJI);
+  }
+
+  if (role.includes('specjal') || role.includes('sprzed')) {
+    return taskBranchMatchesUser(task, user) &&
+      (status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA || taskReadyForOffice(task));
+  }
+
+  if (role.includes('kierownik')) {
+    return taskBranchMatchesUser(task, user) &&
+      (status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA ||
+        taskReadyForOffice(task) || taskNeedsCrewPlan(task) || blockers);
+  }
+
+  if (role.includes('prezes') || role.includes('dyrektor') || role.includes('admin')) {
+    return status === TASK_STATUS.NOWE || status === TASK_STATUS.DO_ZATWIERDZENIA ||
+      taskReadyForOffice(task) || taskNeedsCrewPlan(task) || blockers;
+  }
+
+  return !isTaskClosed(status);
+}
+
+function taskStageOwnerSummary(task: any) {
+  const status = normalizeTaskStatus(task?.status);
+  const missing = taskWorkflowMissingLabels(task);
+
+  if (isTaskClosed(status)) {
+    return {
+      owner: 'Biuro',
+      title: 'Zamkniete',
+      detail: 'Zlecenie jest rozliczone albo zakonczone.',
+      tone: 'success' as StageOwnerTone,
+      icon: 'checkmark-done-outline' as IoniconName,
+    };
+  }
+
+  if (status === TASK_STATUS.WYCENA_TERENOWA || isFieldDraftTask(task)) {
+    if (taskReadyForOffice(task)) {
+      return {
+        owner: 'Biuro',
+        title: 'Do zatwierdzenia',
+        detail: 'Pakiet z terenu jest gotowy do planowania.',
+        tone: 'info' as StageOwnerTone,
+        icon: 'file-tray-full-outline' as IoniconName,
+      };
+    }
+    return {
+      owner: task?.wyceniajacy_nazwa || 'Specjalista ds. wyceny',
+      title: 'Teren',
+      detail: missing[0] || 'Zrob zdjecia, szkic, dojazd i opis zakresu.',
+      tone: 'warning' as StageOwnerTone,
+      icon: 'camera-outline' as IoniconName,
+    };
+  }
+
+  if (status === TASK_STATUS.NOWE) {
+    return {
+      owner: 'Specjalista biura',
+      title: 'Telefon',
+      detail: 'Ustal klienta, adres i termin ogledzin.',
+      tone: 'accent' as StageOwnerTone,
+      icon: 'call-outline' as IoniconName,
+    };
+  }
+
+  if (status === TASK_STATUS.DO_ZATWIERDZENIA || taskNeedsCrewPlan(task)) {
+    return {
+      owner: 'Biuro / kierownik',
+      title: 'Plan ekipy',
+      detail: 'Dobierz brygade, termin, sprzet i kalendarz.',
+      tone: taskNeedsCrewPlan(task) ? 'warning' as StageOwnerTone : 'info' as StageOwnerTone,
+      icon: 'calendar-number-outline' as IoniconName,
+    };
+  }
+
+  if ((status === TASK_STATUS.ZAPLANOWANE || status === TASK_STATUS.W_REALIZACJI) && taskNeedsFieldSignal(task)) {
+    const fieldExecution = getTaskFieldExecutionSummary(task);
+    const problems = taskOpenProblemCount(task);
+    return {
+      owner: task?.ekipa_nazwa || 'Brygada',
+      title: problems > 0 ? 'Problem w terenie' : fieldExecution.label,
+      detail: problems > 0 ? `${problems} otwarte problemy do reakcji.` : fieldExecution.detail,
+      tone: problems > 0 || fieldExecution.tone === 'danger' ? 'danger' as StageOwnerTone : 'warning' as StageOwnerTone,
+      icon: problems > 0 ? 'warning-outline' as IoniconName : 'radio-outline' as IoniconName,
+    };
+  }
+
+  if (status === TASK_STATUS.ZAPLANOWANE) {
+    return {
+      owner: task?.ekipa_nazwa || 'Brygada',
+      title: 'Gotowe do pracy',
+      detail: 'Ekipa ma instrukcje, zdjecia i slot w planie.',
+      tone: 'success' as StageOwnerTone,
+      icon: 'people-circle-outline' as IoniconName,
+    };
+  }
+
+  if (status === TASK_STATUS.W_REALIZACJI) {
+    return {
+      owner: task?.ekipa_nazwa || 'Ekipa',
+      title: 'W terenie',
+      detail: 'Realizacja trwa. Pilnuj zdjec i statusu koncowego.',
+      tone: 'success' as StageOwnerTone,
+      icon: 'construct-outline' as IoniconName,
+    };
+  }
+
+  return {
+    owner: 'Biuro',
+    title: 'Do sprawdzenia',
+    detail: taskWorkflowNextAction(task) || 'Sprawdz nastepny krok w szczegolach.',
+    tone: 'muted' as StageOwnerTone,
+    icon: 'git-network-outline' as IoniconName,
+  };
+}
+
+function taskStageOwnerColor(tone: StageOwnerTone, theme: Theme) {
+  if (tone === 'info') return theme.info;
+  if (tone === 'success') return theme.success;
+  if (tone === 'warning') return theme.warning;
+  if (tone === 'danger') return theme.danger;
+  if (tone === 'muted') return theme.textMuted;
+  return theme.accent;
+}
+
+function fieldExecutionToneColor(tone: string, theme: Theme) {
+  if (tone === 'success') return theme.success;
+  if (tone === 'warning') return theme.warning;
+  if (tone === 'danger') return theme.danger;
+  return theme.textMuted;
+}
+
+function taskOpenProblemCount(task: any) {
+  const direct = taskNumber(
+    task?.problem_open ??
+    task?.issues_open ??
+    task?.unresolved_issues_count ??
+    task?.open_problems_count ??
+    task?.problemy_otwarte,
+  );
+  if (direct > 0) return direct;
+  const rows = Array.isArray(task?.problemy)
+    ? task.problemy
+    : Array.isArray(task?.issues)
+      ? task.issues
+      : [];
+  return rows.filter((row: any) => {
+    const status = String(row?.status || row?.state || '').toLowerCase();
+    return !status || !status.includes('rozw') && !status.includes('closed') && !status.includes('done');
+  }).length;
+}
+
+function taskNeedsFieldSignal(task: any) {
+  if (isTaskClosed(task?.status)) return false;
+  const status = normalizeTaskStatus(task?.status);
+  const fieldExecution = getTaskFieldExecutionSummary(task);
+  const crewStage = status === TASK_STATUS.ZAPLANOWANE || status === TASK_STATUS.W_REALIZACJI;
+  const missingCheckin = fieldExecution.key === 'missing';
+  const missingPhotos = fieldExecution.relevant &&
+    fieldExecution.missingPhotoLabels.length > 0 &&
+    (crewStage || isFieldDraftTask(task) || status === TASK_STATUS.DO_ZATWIERDZENIA);
+  return missingCheckin || missingPhotos || taskOpenProblemCount(task) > 0;
+}
+
+function photoFilterForRequirement(key: string) {
+  return key.replace(/^photo_/, '');
+}
+
+function taskListAction(task: any) {
+  const status = normalizeTaskStatus(task?.status);
+  const missingPhoto = FIELD_PHOTO_REQUIREMENTS.find((item) => taskNumber(task?.[item.key]) <= 0);
+
+  if ((status === TASK_STATUS.WYCENA_TERENOWA || isFieldDraftTask(task)) && missingPhoto) {
+    return {
+      label: `Dodaj ${missingPhoto.label}`,
+      detail: 'Najpierw komplet zdjec z terenu.',
+      icon: missingPhoto.icon as IoniconName,
+      route: `/zlecenie/${task.id}?tab=zdjecia&photoFilter=${photoFilterForRequirement(missingPhoto.key)}`,
+    };
+  }
+
+  if (status === TASK_STATUS.WYCENA_TERENOWA || isFieldDraftTask(task)) {
+    return {
+      label: taskReadyForOffice(task) ? 'Przekaz do biura' : 'Uzupelnij pakiet',
+      detail: taskReadyForOffice(task) ? 'Pakiet terenowy jest gotowy do decyzji biura.' : 'Domknij zakres, cene, czas i BHP.',
+      icon: taskReadyForOffice(task) ? 'send-outline' as IoniconName : 'clipboard-outline' as IoniconName,
+      route: `/zlecenie/${task.id}?fieldFocus=${taskReadyForOffice(task) ? 'client' : 'scope'}`,
+    };
+  }
+
+  if (status === TASK_STATUS.NOWE) {
+    return {
+      label: 'Ustal ogledziny',
+      detail: 'Telefon, adres i termin dla specjalisty ds. wyceny.',
+      icon: 'call-outline' as IoniconName,
+      route: `/zlecenie/${task.id}`,
+    };
+  }
+
+  if (taskNeedsCrewPlan(task)) {
+    return {
+      label: 'Zaplanuj ekipe',
+      detail: 'Dobierz brygade, termin, sprzet i czas pracy.',
+      icon: 'calendar-number-outline' as IoniconName,
+      route: `/zlecenie/${task.id}`,
+    };
+  }
+
+  if (taskReadyForCrew(task)) {
+    return {
+      label: 'Brief ekipy',
+      detail: 'Sprawdz instrukcje, zdjecia i plan wykonania.',
+      icon: 'people-circle-outline' as IoniconName,
+      route: `/zlecenie/${task.id}`,
+    };
+  }
+
+  return {
+    label: 'Otworz',
+    detail: taskWorkflowNextAction(task) || 'Sprawdz karte zlecenia.',
+    icon: 'open-outline' as IoniconName,
+    route: `/zlecenie/${task.id}`,
+  };
+}
+
+function taskOperationPriority(task: any, user: any, todayKey: string) {
+  const status = normalizeTaskStatus(task?.status);
+  if (taskMatchesCurrentUserTurn(task, user)) return 0;
+  if (taskNeedsFieldSignal(task)) return 1;
+  if (taskNeedsCrewPlan(task)) return 2;
+  if (taskReadyForOffice(task)) return 3;
+  if (status === TASK_STATUS.NOWE) return 4;
+  if (isFieldDraftTask(task) && taskEvidenceReadyCount(task) < FIELD_PHOTO_REQUIREMENTS.length) return 5;
+  if (taskDateKey(task) === todayKey) return 5;
+  if (status === TASK_STATUS.W_REALIZACJI) return 6;
+  if (status === TASK_STATUS.ZAPLANOWANE) return 7;
+  return 20;
+}
+
+function taskIsOperationallyRelevant(task: any, user: any, todayKey: string) {
+  if (isTaskClosed(task?.status)) return false;
+  const status = normalizeTaskStatus(task?.status);
+  return taskMatchesCurrentUserTurn(task, user) ||
+    taskNeedsFieldSignal(task) ||
+    taskNeedsCrewPlan(task) ||
+    taskReadyForOffice(task) ||
+    status === TASK_STATUS.NOWE ||
+    (isFieldDraftTask(task) && taskEvidenceReadyCount(task) < FIELD_PHOTO_REQUIREMENTS.length) ||
+    taskDateKey(task) === todayKey;
 }
 
 function sortCrewTasks(a: any, b: any) {
@@ -237,7 +747,7 @@ export default function ZleceniaScreen() {
       if (!token) { router.replace('/login'); return; }
       if (parsedUser) setUser(parsedUser);
       const rola = parsedUser?.rola;
-      const endpoint = (rola === 'Pomocnik' || rola === 'Brygadzista')
+      const endpoint = isCrewRoleValue(rola)
         ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
       const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
       const d = await res.json().catch(() => ({}));
@@ -266,6 +776,13 @@ export default function ZleceniaScreen() {
   }, [loadData]);
 
   useEffect(() => {
+    const unsubscribe = subscribeTaskSync(() => {
+      void loadData();
+    });
+    return unsubscribe;
+  }, [loadData]);
+
+  useEffect(() => {
     let wynik = zlecenia;
     if (search) {
       wynik = wynik.filter(z =>
@@ -285,22 +802,31 @@ export default function ZleceniaScreen() {
       wynik = wynik.filter(taskNeedsCrewPlan);
     } else if (quickMode === 'missingEvidence') {
       wynik = wynik.filter((z) => isFieldDraftTask(z) && taskEvidenceReadyCount(z) < FIELD_PHOTO_REQUIREMENTS.length);
+    } else if (quickMode === 'needsSignal') {
+      wynik = wynik.filter(taskNeedsFieldSignal);
+    } else if (quickMode === 'myTurn') {
+      wynik = wynik.filter((z) => taskMatchesCurrentUserTurn(z, user));
     } else if (quickMode === 'active') {
       wynik = wynik.filter((z) => !isTaskClosed(z.status));
     }
     if (filtrStatus) wynik = wynik.filter(z => z.status === filtrStatus);
     setFiltered(wynik);
-  }, [quickMode, search, filtrStatus, zlecenia]);
+  }, [quickMode, search, filtrStatus, user, zlecenia]);
 
-  const isBrygadzista = user?.rola === 'Brygadzista';
-  const isPomocnik = user?.rola === 'Pomocnik';
   const isWyceniajacy = isEstimatorRole(user?.rola);
-  const isCrew = isBrygadzista || isPomocnik;
+  const isCrew = isCrewRoleValue(user?.rola);
   const todayKey = useMemo(() => localDateKey(new Date()), []);
   const displayList = useMemo(() => {
     const list = [...filtered];
-    return isCrew ? list.sort(sortCrewTasks) : list;
-  }, [filtered, isCrew]);
+    if (isCrew) return list.sort(sortCrewTasks);
+    return list.sort((a, b) => {
+      const byPriority = taskOperationPriority(a, user, todayKey) - taskOperationPriority(b, user, todayKey);
+      if (byPriority !== 0) return byPriority;
+      const byDate = taskSortValue(a) - taskSortValue(b);
+      if (byDate !== 0) return byDate;
+      return Number(a?.id || 0) - Number(b?.id || 0);
+    });
+  }, [filtered, isCrew, todayKey, user]);
   const crewPlan = useMemo(() => {
     const active = zlecenia
       .filter((z) => !isTaskClosed(z.status))
@@ -309,21 +835,31 @@ export default function ZleceniaScreen() {
     const inProgress = active.filter((z) => z.status === TASK_STATUS.W_REALIZACJI);
     const scheduledToday = today.filter((z) => z.status === TASK_STATUS.ZAPLANOWANE);
     const missingEvidenceToday = today.filter((z) => taskEvidenceReadyCount(z) < FIELD_PHOTO_REQUIREMENTS.length);
+    const missingAddressToday = today.filter((z) => !hasTaskAddress(z));
+    const missingScopeToday = today.filter((z) => !taskScopePreview(z));
+    const missingTimeToday = today.filter((z) => taskNumber(z.czas_planowany_godziny) <= 0);
     const fieldSlotToday = today.filter(isFieldDraftTask);
     const todayHours = today.reduce((sum, z) => sum + taskNumber(z.czas_planowany_godziny), 0);
     const next = inProgress[0] || scheduledToday[0] || today[0] || active[0] || null;
     const routePreview = (today.length ? today : active).slice(0, 5);
     const nextPhotoReady = next ? taskEvidenceReadyCount(next) : 0;
+    const startChecks = next ? taskCrewStartChecks(next) : [];
+    const readyChecks = startChecks.filter((check) => check.ready).length;
     return {
       active,
       today,
       inProgressCount: inProgress.length,
       scheduledTodayCount: scheduledToday.length,
       missingEvidenceTodayCount: missingEvidenceToday.length,
+      missingAddressTodayCount: missingAddressToday.length,
+      missingScopeTodayCount: missingScopeToday.length,
+      missingTimeTodayCount: missingTimeToday.length,
       fieldSlotTodayCount: fieldSlotToday.length,
       todayHours,
       next,
       nextPhotoReady,
+      startChecks,
+      readyChecks,
       routePreview,
     };
   }, [todayKey, zlecenia]);
@@ -335,6 +871,8 @@ export default function ZleceniaScreen() {
     const officeReady = fieldDrafts.filter(taskReadyForOffice);
     const needsPlan = fieldDrafts.filter(taskNeedsCrewPlan);
     const readyForCrew = fieldDrafts.filter(taskReadyForCrew);
+    const needsSignal = active.filter(taskNeedsFieldSignal);
+    const openProblems = active.filter((z) => taskOpenProblemCount(z) > 0);
     return {
       active: active.length,
       today: today.length,
@@ -343,8 +881,14 @@ export default function ZleceniaScreen() {
       officeReady: officeReady.length,
       needsPlan: needsPlan.length,
       readyForCrew: readyForCrew.length,
+      needsSignal: needsSignal.length,
+      openProblems: openProblems.length,
     };
   }, [todayKey, zlecenia]);
+  const myTurnCount = useMemo(
+    () => zlecenia.filter((task) => taskMatchesCurrentUserTurn(task, user)).length,
+    [user, zlecenia],
+  );
   const estimatorPlan = useMemo(() => {
     const fieldTasks = zlecenia
       .filter((task) => !isTaskClosed(task.status))
@@ -369,6 +913,7 @@ export default function ZleceniaScreen() {
     };
   }, [todayKey, zlecenia]);
   const quickModeOptions: { key: OrderQuickMode; label: string; count: number; color: string; icon: IoniconName }[] = [
+    { key: 'myTurn', label: 'Moje teraz', count: myTurnCount, color: myTurnCount ? theme.warning : theme.success, icon: 'radio-button-on-outline' },
     { key: 'all', label: 'Wszystkie', count: zlecenia.length, color: theme.accent, icon: 'albums-outline' },
     { key: 'today', label: 'Dzisiaj', count: orderSummary.today, color: theme.info, icon: 'calendar-outline' },
     { key: 'active', label: 'Aktywne', count: orderSummary.active, color: theme.success, icon: 'pulse-outline' },
@@ -376,6 +921,7 @@ export default function ZleceniaScreen() {
     { key: 'officeReady', label: 'Do biura', count: orderSummary.officeReady, color: theme.info, icon: 'file-tray-full-outline' },
     { key: 'needsPlan', label: 'Plan ekipy', count: orderSummary.needsPlan, color: orderSummary.needsPlan ? theme.warning : theme.success, icon: 'calendar-number-outline' },
     { key: 'missingEvidence', label: 'Braki foto', count: orderSummary.missingEvidence, color: orderSummary.missingEvidence ? theme.warning : theme.success, icon: 'camera-outline' },
+    { key: 'needsSignal', label: 'Brak sygnalu', count: orderSummary.needsSignal, color: orderSummary.needsSignal ? theme.danger : theme.success, icon: 'radio-outline' },
   ];
   const officeFlow = useMemo(() => {
     const active = zlecenia.filter((z) => !isTaskClosed(z.status));
@@ -385,27 +931,40 @@ export default function ZleceniaScreen() {
     const plan = active.filter(taskNeedsCrewPlan).length;
     const crew = active.filter(taskReadyForCrew).length;
     const stages: OfficeFlowStep[] = [
+      { key: 'myTurn', label: 'Moje teraz', hint: 'moja kolej', value: myTurnCount, color: myTurnCount ? theme.warning : theme.success, icon: 'radio-button-on-outline', mode: 'myTurn' },
       { key: 'phone', label: 'Telefon', hint: 'nowe', value: phone, color: theme.success, icon: 'call-outline', mode: 'active' },
       { key: 'field', label: 'Teren', hint: 'wycena', value: field, color: theme.info, icon: 'camera-outline', mode: 'field' },
       { key: 'office', label: 'Biuro', hint: 'dowody OK', value: office, color: theme.accent, icon: 'file-tray-full-outline', mode: 'officeReady' },
       { key: 'plan', label: 'Plan', hint: 'ekipa/slot', value: plan, color: plan ? theme.warning : theme.success, icon: 'calendar-number-outline', mode: 'needsPlan' },
       { key: 'crew', label: 'Ekipa', hint: 'gotowe', value: crew, color: theme.success, icon: 'people-circle-outline', mode: 'today' },
     ];
-    const nextMode: OrderQuickMode = orderSummary.needsPlan
+    const nextMode: OrderQuickMode = myTurnCount
+      ? 'myTurn'
+      : orderSummary.needsSignal
+      ? 'needsSignal'
+      : orderSummary.needsPlan
       ? 'needsPlan'
       : orderSummary.officeReady
         ? 'officeReady'
         : orderSummary.missingEvidence
           ? 'missingEvidence'
           : 'active';
-    const nextTitle = orderSummary.needsPlan
+    const nextTitle = myTurnCount
+      ? 'Najpierw Twoja kolej'
+      : orderSummary.needsSignal
+      ? 'Najpierw brak sygnalu z terenu'
+      : orderSummary.needsPlan
       ? 'Najpierw dobierz ekipę i godzinę'
       : orderSummary.officeReady
         ? 'Pakiety z terenu czekają w biurze'
         : orderSummary.missingEvidence
           ? 'Uzupełnij brakujące zdjęcia'
           : 'Brak krytycznego zatoru';
-    const nextSub = orderSummary.needsPlan
+    const nextSub = myTurnCount
+      ? `${myTurnCount} zlecen czeka na ruch tej roli.`
+      : orderSummary.needsSignal
+      ? `${orderSummary.needsSignal} zlecen wymaga check-inu, zdjec albo reakcji na problem.`
+      : orderSummary.needsPlan
       ? `${orderSummary.needsPlan} zleceń wymaga planu ekipy przed przekazaniem dalej.`
       : orderSummary.officeReady
         ? `${orderSummary.officeReady} pakietów ma komplet dowodów i może być opracowane.`
@@ -413,7 +972,33 @@ export default function ZleceniaScreen() {
           ? `${orderSummary.missingEvidence} zleceń z terenu nie ma pełnego pakietu foto.`
           : 'Lista jest uporządkowana. Możesz pracować po aktywnych zleceniach.';
     return { stages, nextMode, nextTitle, nextSub };
-  }, [orderSummary.missingEvidence, orderSummary.needsPlan, orderSummary.officeReady, theme, zlecenia]);
+  }, [myTurnCount, orderSummary.missingEvidence, orderSummary.needsPlan, orderSummary.officeReady, theme, zlecenia]);
+  const operationsQueue = useMemo(() => {
+    const relevant = zlecenia
+      .filter((task) => taskIsOperationallyRelevant(task, user, todayKey))
+      .sort((a, b) => {
+        const byPriority = taskOperationPriority(a, user, todayKey) - taskOperationPriority(b, user, todayKey);
+        if (byPriority !== 0) return byPriority;
+        const byDate = taskSortValue(a) - taskSortValue(b);
+        if (byDate !== 0) return byDate;
+        return Number(a?.id || 0) - Number(b?.id || 0);
+      });
+    const rows = relevant.slice(0, 4).map((task) => {
+      const stage = taskStageOwnerSummary(task);
+      const action = taskListAction(task);
+      return {
+        task,
+        stage,
+        action,
+        color: taskStageOwnerColor(stage.tone, theme),
+        isMine: taskMatchesCurrentUserTurn(task, user),
+      };
+    });
+    return {
+      rows,
+      hiddenCount: Math.max(0, relevant.length - rows.length),
+    };
+  }, [theme, todayKey, user, zlecenia]);
   const S = makeStyles(theme);
 
   if (guard.ready && !guard.allowed) {
@@ -432,13 +1017,13 @@ export default function ZleceniaScreen() {
       <ScreenHeader
         title={t('zlecenia.title')}
         right={
-          !isBrygadzista && !isPomocnik ? (
+          !isCrew ? (
             <PlatinumCTA
               label="+"
               style={S.headerAddBtn}
               onPress={() => {
                 void triggerHaptic('light');
-                router.push('/nowe-zlecenie');
+                router.push(buildNewOrderRoute({ source: 'zlecenia' }) as never);
               }}
             />
           ) : null
@@ -463,6 +1048,7 @@ export default function ZleceniaScreen() {
             { label: 'Dzisiaj', value: orderSummary.today, color: theme.info },
             { label: 'Z terenu', value: orderSummary.fieldDrafts, color: theme.success },
             { label: 'Braki foto', value: orderSummary.missingEvidence, color: orderSummary.missingEvidence ? theme.warning : theme.success },
+            { label: 'Brak sygnalu', value: orderSummary.needsSignal, color: orderSummary.needsSignal ? theme.danger : theme.success },
           ].map((item) => (
             <View key={item.label} style={[S.ordersHeroStat, { borderColor: item.color + '44', backgroundColor: item.color + '12' }]}>
               <Text style={[S.ordersHeroStatValue, { color: item.color }]}>{item.value}</Text>
@@ -724,6 +1310,73 @@ export default function ZleceniaScreen() {
         </View>
       ) : null}
 
+      {!isCrew && operationsQueue.rows.length ? (
+        <View style={S.operationsQueueCard}>
+          <View style={S.operationsQueueHead}>
+            <View style={S.operationsQueueIcon}>
+              <Ionicons name="radio-outline" size={18} color={theme.accent} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={S.operationsQueueTitle}>Kolejka operacyjna</Text>
+              <Text style={S.operationsQueueSub}>
+                Najpierw rzeczy, ktore blokuja przejscie od telefonu do ekipy.
+              </Text>
+            </View>
+            {operationsQueue.hiddenCount > 0 ? (
+              <View style={S.operationsQueueMore}>
+                <Text style={S.operationsQueueMoreText}>+{operationsQueue.hiddenCount}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View style={S.operationsQueueRows}>
+            {operationsQueue.rows.map((item, index) => (
+              <TouchableOpacity
+                key={item.task.id}
+                style={[
+                  S.operationsQueueRow,
+                  {
+                    borderColor: item.isMine ? theme.warning : item.color + '55',
+                    backgroundColor: item.isMine ? theme.warningBg : theme.surface2,
+                  },
+                ]}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  router.push(item.action.route as never);
+                }}
+              >
+                <View style={[S.operationsQueueIndex, { borderColor: item.color, backgroundColor: theme.cardBg }]}>
+                  <Text style={[S.operationsQueueIndexText, { color: item.color }]}>{index + 1}</Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={S.operationsQueueRowTop}>
+                    <Text style={S.operationsQueueClient} numberOfLines={1}>
+                      {item.task.klient_nazwa || `Zlecenie #${item.task.id}`}
+                    </Text>
+                    {item.isMine ? (
+                      <View style={[S.operationsQueueMineBadge, { borderColor: theme.warning, backgroundColor: theme.cardBg }]}>
+                        <Text style={[S.operationsQueueMineText, { color: theme.warning }]}>moja kolej</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={S.operationsQueueMeta} numberOfLines={1}>
+                    {[item.task.adres, item.task.miasto].filter(Boolean).join(', ') || statusLabel(item.task.status)}
+                  </Text>
+                  <Text style={S.operationsQueueDetail} numberOfLines={2}>
+                    {item.stage.owner}: {item.action.detail}
+                  </Text>
+                </View>
+                <View style={[S.operationsQueueAction, { borderColor: item.color + '55', backgroundColor: theme.cardBg }]}>
+                  <Ionicons name={item.action.icon} size={14} color={item.color} />
+                  <Text style={[S.operationsQueueActionText, { color: item.color }]} numberOfLines={1}>
+                    {item.action.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {error ? <ErrorBanner message={error} /> : null}
 
       {isCrew ? (
@@ -791,6 +1444,17 @@ export default function ZleceniaScreen() {
                     Dowody {crewPlan.nextPhotoReady}/{FIELD_PHOTO_REQUIREMENTS.length}
                   </Text>
                 </View>
+                <View style={[S.crewDocPill, { borderColor: theme.accent + '66' }]}>
+                  <PlatinumIconBadge
+                    icon="shield-checkmark-outline"
+                    color={theme.accent}
+                    size={9}
+                    style={S.crewDocIcon}
+                  />
+                  <Text style={[S.crewDocText, { color: theme.accent }]}>
+                    Start: BHP + foto przed
+                  </Text>
+                </View>
                 {crewPlan.next.czas_planowany_godziny ? (
                   <Text style={S.crewNextMeta}>{crewPlan.next.czas_planowany_godziny} h plan</Text>
                 ) : null}
@@ -806,6 +1470,88 @@ export default function ZleceniaScreen() {
               <Text style={S.crewNoWorkText}>Brak aktywnych zleceń dla ekipy.</Text>
             </View>
           )}
+          {crewPlan.next ? (
+            <View style={S.crewBriefBox}>
+              <View style={S.crewBriefHead}>
+                <PlatinumIconBadge icon="shield-checkmark-outline" color={theme.accent} size={10} style={S.crewBriefIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={S.crewBriefTitle}>Odprawa startowa</Text>
+                  <Text style={S.crewBriefSub}>
+                    {crewPlan.readyChecks}/{crewPlan.startChecks.length} gotowe przed ruszeniem do pracy.
+                  </Text>
+                </View>
+              </View>
+              <View style={S.crewBriefChecks}>
+                {crewPlan.startChecks.map((check) => (
+                  <View
+                    key={check.key}
+                    style={[
+                      S.crewBriefCheck,
+                      {
+                        borderColor: check.ready ? theme.success + '66' : theme.warning + '66',
+                        backgroundColor: check.ready ? theme.successBg : theme.warningBg,
+                      },
+                    ]}
+                  >
+                    <PlatinumIconBadge
+                      icon={check.ready ? 'checkmark-circle' : check.icon}
+                      color={check.ready ? theme.success : theme.warning}
+                      size={8}
+                      style={S.crewBriefCheckIcon}
+                    />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[S.crewBriefCheckLabel, { color: check.ready ? theme.success : theme.warning }]} numberOfLines={1}>
+                        {check.label}
+                      </Text>
+                      <Text style={S.crewBriefCheckValue} numberOfLines={1}>{check.value}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <View style={S.crewBriefWarningRow}>
+                {[
+                  { key: 'addr', label: 'Adres', value: crewPlan.missingAddressTodayCount },
+                  { key: 'scope', label: 'Zakres', value: crewPlan.missingScopeTodayCount },
+                  { key: 'time', label: 'Czas', value: crewPlan.missingTimeTodayCount },
+                ].map((item) => (
+                  <View key={item.key} style={[S.crewBriefWarningChip, { borderColor: item.value ? theme.warning + '66' : theme.success + '55' }]}>
+                    <Text style={[S.crewBriefWarningValue, { color: item.value ? theme.warning : theme.success }]}>{item.value}</Text>
+                    <Text style={S.crewBriefWarningLabel}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={S.crewBriefActions}>
+                <TouchableOpacity
+                  disabled={!hasTaskAddress(crewPlan.next)}
+                  style={[S.crewBriefAction, { opacity: hasTaskAddress(crewPlan.next) ? 1 : 0.5 }]}
+                  onPress={() => void openAddressInMaps(crewPlan.next?.adres || '', crewPlan.next?.miasto || '')}
+                >
+                  <Ionicons name="map-outline" size={15} color={theme.accent} />
+                  <Text style={S.crewBriefActionText}>Mapa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={S.crewBriefAction}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    router.push(`/zlecenie/${crewPlan.next.id}?tab=zdjecia` as never);
+                  }}
+                >
+                  <Ionicons name="camera-outline" size={15} color={theme.accent} />
+                  <Text style={S.crewBriefActionText}>Zdjecia</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={S.crewBriefAction}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    router.push('/raport-dzienny' as never);
+                  }}
+                >
+                  <Ionicons name="document-text-outline" size={15} color={theme.accent} />
+                  <Text style={S.crewBriefActionText}>Raport</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
           {crewPlan.routePreview.length > 0 ? (
             <View style={S.crewRoutePreview}>
               <View style={S.crewRoutePreviewHead}>
@@ -887,6 +1633,24 @@ export default function ZleceniaScreen() {
           const isNextCrewTask = isCrew && crewPlan.next?.id === z.id;
           const isTodayTask = taskDateKey(z) === todayKey;
           const scopePreview = taskScopePreview(z);
+          const stageOwner = taskStageOwnerSummary(z);
+          const stageOwnerColor = taskStageOwnerColor(stageOwner.tone, theme);
+          const fieldExecution = getTaskFieldExecutionSummary(z);
+          const fieldExecutionColor = fieldExecutionToneColor(fieldExecution.tone, theme);
+          const isMyTurnTask = taskMatchesCurrentUserTurn(z, user);
+          const officePlanChecks = taskOfficePlanChecks(z);
+          const officePlanReadyCount = officePlanChecks.filter((check) => check.ready).length;
+          const officePlanComplete = officePlanReadyCount === officePlanChecks.length;
+          const crewStartChecks = isCrew ? taskCrewStartChecks(z) : [];
+          const crewStartReadyCount = crewStartChecks.filter((check) => check.ready).length;
+          const crewStartComplete = crewStartChecks.length > 0 && crewStartReadyCount === crewStartChecks.length;
+          const crewStartMissing = crewStartChecks.filter((check) => !check.ready).map((check) => check.label);
+          const showOfficePlanMini = !isCrew && !isTaskClosed(z.status) && (
+            taskReadyForOffice(z) ||
+            taskNeedsCrewPlan(z) ||
+            normalizeTaskStatus(z.status) === TASK_STATUS.DO_ZATWIERDZENIA ||
+            normalizeTaskStatus(z.status) === TASK_STATUS.ZAPLANOWANE
+          );
           return (
             <PlatinumAppear key={z.id} delayMs={20 * Math.min(i, 8)}>
               <PlatinumPressable style={[S.card, isNextCrewTask && { borderColor: theme.accent, backgroundColor: theme.accentLight }]}
@@ -944,7 +1708,7 @@ export default function ZleceniaScreen() {
                         <Text style={S.dateText}> {z.data_planowana.split('T')[0]}</Text>
                       </View>
                     ) : null}
-                    {!isBrygadzista && !isPomocnik && z.wartosc_planowana ? (
+                    {!isCrew && z.wartosc_planowana ? (
                       <Text style={S.wartosc}>{parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN</Text>
                     ) : null}
                   </View>
@@ -954,10 +1718,115 @@ export default function ZleceniaScreen() {
                       <Text style={S.metaSmall}> {z.ekipa_nazwa}</Text>
                     </View>
                   ) : null}
+                  <View style={[
+                    S.stageOwnerMini,
+                    {
+                      borderColor: isMyTurnTask ? theme.warning : stageOwnerColor + '55',
+                      backgroundColor: isMyTurnTask ? theme.warningBg : stageOwnerColor + '10',
+                    },
+                  ]}>
+                    <View style={[S.stageOwnerIcon, { borderColor: stageOwnerColor + '55', backgroundColor: theme.cardBg }]}>
+                      <Ionicons name={stageOwner.icon} size={15} color={stageOwnerColor} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[S.stageOwnerLabel, { color: isMyTurnTask ? theme.warning : theme.textMuted }]}>
+                        {isMyTurnTask ? 'Twoja kolej' : 'Kto ma pilke'}
+                      </Text>
+                      <Text style={S.stageOwnerTitle} numberOfLines={1}>{stageOwner.owner} - {stageOwner.title}</Text>
+                      <Text style={S.stageOwnerDetail} numberOfLines={2}>{stageOwner.detail}</Text>
+                    </View>
+                  </View>
                   {isCrew && scopePreview ? (
                     <View style={[S.crewScopePreview, { borderColor: theme.border, backgroundColor: theme.surface2 }]}>
                       <PlatinumIconBadge icon="list-outline" color={theme.accent} size={9} style={S.crewScopePreviewIcon} />
                       <Text style={S.crewScopePreviewText} numberOfLines={2}>{scopePreview}</Text>
+                    </View>
+                  ) : null}
+                  {fieldExecution.relevant ? (
+                    <View style={[S.fieldExecutionMini, { borderColor: fieldExecutionColor + '66', backgroundColor: fieldExecutionColor + '10' }]}>
+                      <View style={S.fieldExecutionHead}>
+                        <PlatinumIconBadge
+                          icon={fieldExecution.key === 'active' ? 'pulse-outline' : fieldExecution.key === 'missing' ? 'alert-circle-outline' : 'navigate-circle-outline'}
+                          color={fieldExecutionColor}
+                          size={9}
+                          style={S.fieldExecutionIcon}
+                        />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[S.fieldExecutionTitle, { color: fieldExecutionColor }]} numberOfLines={1}>
+                            {fieldExecution.label}
+                          </Text>
+                          <Text style={S.fieldExecutionDetail} numberOfLines={1}>{fieldExecution.detail}</Text>
+                        </View>
+                      </View>
+                      <View style={S.fieldExecutionDocs}>
+                        {fieldExecution.photoItems.map((item) => {
+                          const done = item.count > 0;
+                          return (
+                            <View
+                              key={item.key}
+                              style={[
+                                S.fieldExecutionDocChip,
+                                {
+                                  borderColor: done ? theme.success + '66' : theme.warning + '66',
+                                  backgroundColor: done ? theme.cardBg : theme.warningBg,
+                                },
+                              ]}
+                            >
+                              <Text style={[S.fieldExecutionDocText, { color: done ? theme.success : theme.warning }]}>
+                                {item.label}: {item.count}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : null}
+                  {isCrew ? (
+                    <View style={[
+                      S.crewStartMini,
+                      {
+                        borderColor: crewStartComplete ? theme.success + '66' : theme.warning + '66',
+                        backgroundColor: crewStartComplete ? theme.successBg : theme.warningBg,
+                      },
+                    ]}>
+                      <View style={S.crewStartMiniHead}>
+                        <View style={[S.crewStartMiniIcon, { borderColor: crewStartComplete ? theme.success : theme.warning, backgroundColor: theme.cardBg }]}>
+                          <Ionicons name={crewStartComplete ? 'checkmark-done-outline' : 'shield-outline'} size={15} color={crewStartComplete ? theme.success : theme.warning} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[S.crewStartMiniTitle, { color: crewStartComplete ? theme.success : theme.warning }]}>
+                            Start pracy {crewStartReadyCount}/{crewStartChecks.length}
+                          </Text>
+                          <Text style={S.crewStartMiniSub} numberOfLines={1}>
+                            {crewStartComplete ? 'Karta gotowa dla brygady.' : `Brakuje: ${crewStartMissing.slice(0, 3).join(', ')}`}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={S.crewStartMiniGrid}>
+                        {crewStartChecks.map((check) => (
+                          <View
+                            key={check.key}
+                            style={[
+                              S.crewStartMiniCheck,
+                              {
+                                borderColor: check.ready ? theme.success + '66' : theme.warning + '66',
+                                backgroundColor: check.ready ? theme.cardBg : theme.warningBg,
+                              },
+                            ]}
+                          >
+                            <PlatinumIconBadge
+                              icon={check.ready ? 'checkmark-circle' : check.icon}
+                              color={check.ready ? theme.success : theme.warning}
+                              size={8}
+                              style={S.crewStartMiniCheckIcon}
+                            />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={[S.crewStartMiniCheckLabel, { color: check.ready ? theme.success : theme.warning }]} numberOfLines={1}>{check.label}</Text>
+                              <Text style={S.crewStartMiniCheckValue} numberOfLines={1}>{check.value}</Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
                     </View>
                   ) : null}
                   {fieldDraft ? (
@@ -1003,6 +1872,81 @@ export default function ZleceniaScreen() {
                           }}
                         >
                           <Text style={[S.fieldMiniOpenText, { color: photoReady ? theme.success : theme.warning }]}>Media</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : null}
+                  {showOfficePlanMini ? (
+                    <View style={[
+                      S.officePlanMini,
+                      {
+                        borderColor: officePlanComplete ? theme.success + '66' : theme.warning + '66',
+                        backgroundColor: officePlanComplete ? theme.successBg : theme.warningBg,
+                      },
+                    ]}>
+                      <View style={S.officePlanMiniHead}>
+                        <View style={[S.officePlanMiniIcon, { borderColor: officePlanComplete ? theme.success : theme.warning, backgroundColor: theme.cardBg }]}>
+                          <Ionicons name={officePlanComplete ? 'checkmark-done-outline' : 'calendar-number-outline'} size={15} color={officePlanComplete ? theme.success : theme.warning} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[S.officePlanMiniTitle, { color: officePlanComplete ? theme.success : theme.warning }]}>
+                            Plan biura {officePlanReadyCount}/{officePlanChecks.length}
+                          </Text>
+                          <Text style={S.officePlanMiniSub} numberOfLines={1}>
+                            {officePlanComplete ? 'Gotowe do przekazania ekipie.' : 'Domknij plan zanim ekipa ruszy w teren.'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={S.officePlanMiniGrid}>
+                        {officePlanChecks.map((check) => (
+                          <View
+                            key={check.key}
+                            style={[
+                              S.officePlanMiniCheck,
+                              {
+                                borderColor: check.ready ? theme.success + '66' : theme.warning + '66',
+                                backgroundColor: check.ready ? theme.cardBg : theme.warningBg,
+                              },
+                            ]}
+                          >
+                            <PlatinumIconBadge
+                              icon={check.ready ? 'checkmark-circle' : check.icon}
+                              color={check.ready ? theme.success : theme.warning}
+                              size={8}
+                              style={S.officePlanMiniCheckIcon}
+                            />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={[S.officePlanMiniCheckLabel, { color: check.ready ? theme.success : theme.warning }]} numberOfLines={1}>{check.label}</Text>
+                              <Text style={S.officePlanMiniCheckValue} numberOfLines={1}>{check.value}</Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                      <View style={S.officePlanMiniActions}>
+                        <TouchableOpacity
+                          style={[S.officePlanMiniAction, { borderColor: theme.accent + '55', backgroundColor: theme.cardBg }]}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            void triggerHaptic('light');
+                            router.push(`/zlecenie/${z.id}` as never);
+                          }}
+                        >
+                          <Ionicons name="create-outline" size={14} color={theme.accent} />
+                          <Text style={[S.officePlanMiniActionText, { color: theme.accent }]}>Plan</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[S.officePlanMiniAction, { borderColor: theme.info + '55', backgroundColor: theme.cardBg }]}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            void triggerHaptic('light');
+                            router.push({
+                              pathname: '/rezerwacje-sprzetu',
+                              params: taskReservationRouteParams(z),
+                            } as never);
+                          }}
+                        >
+                          <Ionicons name="cube-outline" size={14} color={theme.info} />
+                          <Text style={[S.officePlanMiniActionText, { color: theme.info }]}>Sprzet</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1230,6 +2174,114 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 4,
   },
   officeNextBtnText: { color: t.accent, fontSize: 11, fontWeight: '900' },
+  operationsQueueCard: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    backgroundColor: t.cardBg,
+    padding: 12,
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.12,
+      radius: t.shadowRadius * 0.38,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
+  },
+  operationsQueueHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  operationsQueueIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operationsQueueTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
+  operationsQueueSub: { color: t.textMuted, fontSize: 11.5, lineHeight: 16, marginTop: 2 },
+  operationsQueueMore: {
+    minWidth: 34,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  operationsQueueMoreText: {
+    color: t.accent,
+    fontSize: 11,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  operationsQueueRows: { gap: 8 },
+  operationsQueueRow: {
+    minHeight: 72,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  operationsQueueIndex: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operationsQueueIndexText: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  operationsQueueRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  operationsQueueClient: { flex: 1, color: t.text, fontSize: 13, fontWeight: '900' },
+  operationsQueueMineBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  operationsQueueMineText: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  operationsQueueMeta: { color: t.textMuted, fontSize: 10.5, fontWeight: '800', marginTop: 2 },
+  operationsQueueDetail: { color: t.textSub, fontSize: 11, lineHeight: 15, fontWeight: '800', marginTop: 3 },
+  operationsQueueAction: {
+    maxWidth: 104,
+    minHeight: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  operationsQueueActionText: {
+    flexShrink: 1,
+    fontSize: 10.5,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
   estimatorTodayCard: {
     marginHorizontal: 14,
     marginTop: 8,
@@ -1470,6 +2522,69 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   crewNoWorkIcon: { width: 30, height: 30, borderRadius: 10 },
   crewNoWorkText: { color: t.success, fontSize: 12, fontWeight: '900' },
+  crewBriefBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    padding: 10,
+    gap: 9,
+  },
+  crewBriefHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  crewBriefIcon: { width: 24, height: 24, borderRadius: 8 },
+  crewBriefTitle: { color: t.text, fontSize: 12.5, fontWeight: '900' },
+  crewBriefSub: { color: t.textMuted, fontSize: 10.5, marginTop: 1, fontWeight: '700' },
+  crewBriefChecks: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  crewBriefCheck: {
+    flexGrow: 1,
+    flexBasis: '46%',
+    minWidth: 118,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  crewBriefCheckIcon: { width: 16, height: 16, borderRadius: 6 },
+  crewBriefCheckLabel: { fontSize: 10.5, fontWeight: '900' },
+  crewBriefCheckValue: { color: t.textMuted, fontSize: 10, fontWeight: '800', marginTop: 1 },
+  crewBriefWarningRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  crewBriefWarningChip: {
+    flexGrow: 1,
+    borderWidth: 1,
+    borderRadius: 999,
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  crewBriefWarningValue: { fontSize: 12, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  crewBriefWarningLabel: { color: t.textMuted, fontSize: 10.5, fontWeight: '900' },
+  crewBriefActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  crewBriefAction: {
+    flexGrow: 1,
+    minHeight: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    backgroundColor: t.cardBg,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  crewBriefActionText: { color: t.accent, fontSize: 12, fontWeight: '900' },
   crewRoutePreview: {
     borderRadius: 14,
     borderWidth: 1,
@@ -1608,6 +2723,27 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   typText: { fontSize: 11, color: t.textSub, fontWeight: '800' },
   dateText: { fontSize: 11, color: t.textMuted },
   wartosc: { fontSize: 12, color: t.accent, fontWeight: '700' },
+  stageOwnerMini: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  stageOwnerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stageOwnerLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  stageOwnerTitle: { color: t.text, fontSize: 12.5, fontWeight: '900', marginTop: 1 },
+  stageOwnerDetail: { color: t.textSub, fontSize: 11, lineHeight: 15, marginTop: 1 },
   crewScopePreview: {
     marginTop: 8,
     borderWidth: 1,
@@ -1620,6 +2756,75 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   crewScopePreviewIcon: { width: 18, height: 18, borderRadius: 6 },
   crewScopePreviewText: { flex: 1, color: t.textSub, fontSize: 11.5, lineHeight: 16, fontWeight: '700' },
+  fieldExecutionMini: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 9,
+    gap: 8,
+  },
+  fieldExecutionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fieldExecutionIcon: { width: 22, height: 22, borderRadius: 8 },
+  fieldExecutionTitle: { fontSize: 12, fontWeight: '900' },
+  fieldExecutionDetail: { color: t.textSub, fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  fieldExecutionDocs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  fieldExecutionDocChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+  },
+  fieldExecutionDocText: { fontSize: 10, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  crewStartMini: {
+    marginTop: 9,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 9,
+    gap: 8,
+  },
+  crewStartMiniHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  crewStartMiniIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crewStartMiniTitle: { fontSize: 12, fontWeight: '900' },
+  crewStartMiniSub: { color: t.textSub, fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  crewStartMiniGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  crewStartMiniCheck: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 96,
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 7,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  crewStartMiniCheckIcon: { width: 15, height: 15, borderRadius: 5 },
+  crewStartMiniCheckLabel: { fontSize: 10, fontWeight: '900' },
+  crewStartMiniCheckValue: { color: t.textMuted, fontSize: 9.5, fontWeight: '800', marginTop: 1 },
   fieldMiniPanel: {
     marginTop: 9,
     borderWidth: 1,
@@ -1658,6 +2863,66 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 4,
   },
   fieldMiniOpenText: { fontSize: 10, fontWeight: '900' },
+  officePlanMini: {
+    marginTop: 9,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 9,
+    gap: 8,
+  },
+  officePlanMiniHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  officePlanMiniIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  officePlanMiniTitle: { fontSize: 12, fontWeight: '900' },
+  officePlanMiniSub: { color: t.textSub, fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  officePlanMiniGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  officePlanMiniCheck: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 112,
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  officePlanMiniCheckIcon: { width: 15, height: 15, borderRadius: 5 },
+  officePlanMiniCheckLabel: { fontSize: 10.5, fontWeight: '900' },
+  officePlanMiniCheckValue: { color: t.textMuted, fontSize: 10, fontWeight: '800', marginTop: 1 },
+  officePlanMiniActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  officePlanMiniAction: {
+    flexGrow: 1,
+    minHeight: 34,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  officePlanMiniActionText: { fontSize: 10.5, fontWeight: '900' },
   crewCardActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',

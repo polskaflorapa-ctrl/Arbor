@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -17,8 +18,11 @@ import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
-import { isTaskClosed, isTaskDone, isTaskInProgress } from '../constants/task-workflow';
+import { TASK_STATUS, isTaskClosed, isTaskDone, isTaskInProgress, normalizeTaskStatus } from '../constants/task-workflow';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { openAddressInMaps, openRouteInMaps } from '../utils/maps-link';
+import { buildNewOrderRoute } from '../utils/new-order-route';
+import { getOfflineQueueSize } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
@@ -31,15 +35,209 @@ type TaskItem = {
   priorytet?: string;
   data_planowana?: string;
   godzina_rozpoczecia?: string;
+  klient_telefon?: string;
+  opis?: string;
+  opis_pracy?: string;
+  notatki?: string;
+  notatki_wewnetrzne?: string;
+  czas_planowany_godziny?: string | number;
+  wartosc_planowana?: string | number;
+  budzet?: string | number;
+  wartosc_zaproponowana?: string | number;
+  wartosc_szacowana?: string | number;
+  photo_total?: string | number;
+  photo_wycena?: string | number;
+  photo_szkic?: string | number;
+  photo_dojazd?: string | number;
+  wyceniajacy_id?: string | number | null;
+  wyceniajacy_nazwa?: string | null;
+  ogledziny_id?: string | number | null;
+  ankieta_uproszczona?: boolean;
+  workflow_missing_labels?: unknown[];
+  workflow_ready_for_next?: boolean;
+};
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+const localDateKey = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const isToday = (isoLike?: string) => {
   if (!isoLike) return false;
-  const normalized = isoLike.split('T')[0];
-  return normalized === new Date().toISOString().split('T')[0];
+  const d = new Date(isoLike);
+  const normalized = Number.isNaN(d.getTime()) ? isoLike.split('T')[0] : localDateKey(d);
+  return normalized === localDateKey(new Date());
 };
 
 const formatHour = (hour?: string) => (hour ? hour.slice(0, 5) : '--:--');
+
+const taskNumber = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseTaskDate = (value?: string) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const taskSortValue = (task: TaskItem) => {
+  const dateValue = parseTaskDate(task.data_planowana)?.getTime();
+  if (dateValue) return dateValue;
+  const [hRaw, mRaw] = String(task.godzina_rozpoczecia || '').split(':');
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  if (Number.isFinite(h) && Number.isFinite(m)) return h * 60 + m;
+  return Number.MAX_SAFE_INTEGER;
+};
+
+const taskAddressLabel = (task?: TaskItem | null) => {
+  if (!task) return '';
+  return [task.adres, task.miasto].map((v) => String(v || '').trim()).filter(Boolean).join(', ');
+};
+
+const taskEvidenceCount = (task: TaskItem) => {
+  const total = taskNumber(task.photo_total);
+  if (total > 0) return total;
+  return taskNumber(task.photo_wycena) + taskNumber(task.photo_szkic) + taskNumber(task.photo_dojazd);
+};
+
+const taskBriefText = (task?: TaskItem | null) => String(
+  task?.opis_pracy || task?.opis || task?.notatki_wewnetrzne || task?.notatki || '',
+).trim();
+
+const taskWorkflowMissingLabels = (task?: TaskItem | null) => (
+  Array.isArray(task?.workflow_missing_labels) ? task.workflow_missing_labels : []
+)
+  .map((label) => String(label || '').trim())
+  .filter(Boolean);
+
+const isFieldTask = (task: TaskItem) => {
+  const notes = String([task.notatki_wewnetrzne, task.notatki, task.opis, task.opis_pracy].filter(Boolean).join('\n'));
+  return normalizeTaskStatus(task.status) === TASK_STATUS.WYCENA_TERENOWA ||
+    task.ankieta_uproszczona === true ||
+    notes.includes('TRYB TERENOWY') ||
+    notes.includes('PRZEKAZANIE DO BIURA') ||
+    notes.includes('FORMULARZ WYCENY TERENOWEJ') ||
+    notes.includes('FORMULARZ OGL');
+};
+
+const taskAssignedToEstimator = (task: TaskItem, userId: string) => {
+  if (!userId || task.wyceniajacy_id == null) return true;
+  return String(task.wyceniajacy_id) === userId;
+};
+
+const taskMoneyValue = (task: TaskItem) => taskNumber(
+  task.wartosc_planowana ?? task.budzet ?? task.wartosc_zaproponowana ?? task.wartosc_szacowana,
+);
+
+const taskTimeValue = (task: TaskItem) => taskNumber(task.czas_planowany_godziny);
+
+const taskFieldPackageChecks = (task?: TaskItem | null) => {
+  if (!task) return [];
+  const evidenceCount = Math.max(
+    taskEvidenceCount(task),
+    taskNumber(task.photo_wycena) + taskNumber(task.photo_szkic) + taskNumber(task.photo_dojazd),
+  );
+  const money = taskMoneyValue(task);
+  const hours = taskTimeValue(task);
+  const missing = taskWorkflowMissingLabels(task);
+  return [
+    {
+      key: 'contact',
+      label: 'Telefon klienta',
+      value: task.klient_telefon ? 'OK' : 'brak',
+      done: Boolean(task.klient_telefon),
+      icon: 'call-outline' as IoniconName,
+    },
+    {
+      key: 'address',
+      label: 'Adres ogledzin',
+      value: taskAddressLabel(task) ? 'OK' : 'brak',
+      done: Boolean(taskAddressLabel(task)),
+      icon: 'location-outline' as IoniconName,
+    },
+    {
+      key: 'evidence',
+      label: 'Zdjecia i szkic',
+      value: `${Math.min(evidenceCount, 3)}/3`,
+      done: evidenceCount >= 3,
+      icon: 'images-outline' as IoniconName,
+    },
+    {
+      key: 'scope',
+      label: 'Zakres prac',
+      value: taskBriefText(task) ? 'OK' : 'brak',
+      done: Boolean(taskBriefText(task)),
+      icon: 'list-outline' as IoniconName,
+    },
+    {
+      key: 'money',
+      label: 'Cena / budzet',
+      value: money > 0 ? `${money.toLocaleString('pl-PL')} PLN` : 'brak',
+      done: money > 0,
+      icon: 'cash-outline' as IoniconName,
+    },
+    {
+      key: 'time',
+      label: 'Czas pracy',
+      value: hours > 0 ? `${hours}h` : 'brak',
+      done: hours > 0,
+      icon: 'time-outline' as IoniconName,
+    },
+    ...missing.slice(0, 2).map((label, index) => ({
+      key: `api-${index}`,
+      label,
+      value: 'brak',
+      done: false,
+      icon: 'warning-outline' as IoniconName,
+    })),
+  ];
+};
+
+const taskFieldPackageReady = (task: TaskItem) => {
+  if (normalizeTaskStatus(task.status) === TASK_STATUS.DO_ZATWIERDZENIA) return true;
+  if (typeof task.workflow_ready_for_next === 'boolean') return task.workflow_ready_for_next;
+  const checks = taskFieldPackageChecks(task);
+  return checks.length > 0 && checks.every((check) => check.done);
+};
+
+const estimatorDocumentationRoute = (task: TaskItem) => {
+  if (task.ogledziny_id) {
+    const params = [
+      `ogledzinyId=${encodeURIComponent(String(task.ogledziny_id))}`,
+      `wycenaId=${encodeURIComponent(String(task.id))}`,
+      task.klient_nazwa ? `klient=${encodeURIComponent(task.klient_nazwa)}` : '',
+    ].filter(Boolean).join('&');
+    return `/ogledziny-dokumentacja?${params}`;
+  }
+  return `/zlecenie/${task.id}?tab=zdjecia&photoFilter=wycena`;
+};
+
+const taskPlannedMinutes = (task: TaskItem) => {
+  const hours = Number(String(task.czas_planowany_godziny || '').replace(',', '.'));
+  if (Number.isFinite(hours) && hours > 0) return Math.round(hours * 60);
+  return isTaskInProgress(task.status) ? 75 : 95;
+};
+
+const isCrewRole = (role: string) => {
+  const value = role.toLowerCase();
+  return value === 'brygadzista' || value === 'pomocnik' || value.includes('pomocnik bez');
+};
+
+const normalizedRole = (role: string) => role.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const isEstimatorRole = (role: string) => normalizedRole(role).includes('wyceniaj');
+
+const canCloseTeamDayReport = (role: string) => {
+  const value = role.toLowerCase();
+  return value === 'brygadzista' || value === 'pomocnik';
+};
 
 const formatPln = (v: string | number | undefined) => {
   const n = Number(v);
@@ -67,6 +265,8 @@ export default function MisjaDniaScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [userRole, setUserRole] = useState('');
+  const [userId, setUserId] = useState('');
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   type DayPreview = {
     cash_by_forma: { forma_platnosc?: string | null; sum_kwota?: string | number; cnt?: number }[];
     issues_count?: number;
@@ -79,9 +279,14 @@ export default function MisjaDniaScreen() {
   const [teamDayLoading, setTeamDayLoading] = useState(false);
   const [teamDayBusy, setTeamDayBusy] = useState(false);
 
+  const refreshOfflineQueueCount = useCallback(async () => {
+    const count = await getOfflineQueueSize().catch(() => 0);
+    setOfflineQueueCount(count);
+  }, []);
+
   const fetchTeamDayReport = useCallback(async (explicitRole?: string) => {
     const role = explicitRole ?? userRole;
-    if (role !== 'Brygadzista' && role !== 'Pomocnik') return;
+    if (!canCloseTeamDayReport(role)) return;
     const { token } = await getStoredSession();
     if (!token) return;
     const date = new Date().toISOString().split('T')[0];
@@ -122,7 +327,8 @@ export default function MisjaDniaScreen() {
       }
       const ur = user.rola ?? '';
       setUserRole(ur);
-      const endpoint = ur === 'Brygadzista' || ur === 'Pomocnik'
+      setUserId(String(user.id || ''));
+      const endpoint = isCrewRole(ur)
         ? `${API_URL}/tasks/moje`
         : `${API_URL}/tasks/wszystkie`;
       const res = await fetch(endpoint, {
@@ -132,16 +338,17 @@ export default function MisjaDniaScreen() {
         const data = await res.json();
         setTasks(Array.isArray(data) ? data : []);
       }
-      if (ur === 'Brygadzista' || ur === 'Pomocnik') {
+      if (canCloseTeamDayReport(ur)) {
         await fetchTeamDayReport(ur);
       } else {
         setTeamDayPack(null);
       }
     } finally {
+      await refreshOfflineQueueCount();
       setLoading(false);
       setRefreshing(false);
     }
-  }, [fetchTeamDayReport]);
+  }, [fetchTeamDayReport, refreshOfflineQueueCount]);
 
   useEffect(() => {
     void loadData();
@@ -149,19 +356,25 @@ export default function MisjaDniaScreen() {
 
   useEffect(() => {
     const unsubscribe = subscribeOfflineFlushDone((d) => {
+      void refreshOfflineQueueCount();
       if (d.flushed > 0) void loadData();
     });
     return unsubscribe;
-  }, [loadData]);
+  }, [loadData, refreshOfflineQueueCount]);
 
   const todayTasks = useMemo(
     () => tasks.filter((task) => isToday(task.data_planowana)),
     [tasks],
   );
 
-  const activeNow = useMemo(
-    () => todayTasks.filter((task) => isTaskInProgress(task.status)),
+  const sortedTodayTasks = useMemo(
+    () => [...todayTasks].sort((a, b) => taskSortValue(a) - taskSortValue(b)),
     [todayTasks],
+  );
+
+  const activeNow = useMemo(
+    () => sortedTodayTasks.filter((task) => isTaskInProgress(task.status)),
+    [sortedTodayTasks],
   );
 
   const urgentToday = useMemo(
@@ -176,7 +389,7 @@ export default function MisjaDniaScreen() {
   }, [todayTasks]);
 
   useEffect(() => {
-    if ((userRole === 'Brygadzista' || userRole === 'Pomocnik') && completion === 100 && todayTasks.length > 0) {
+    if (canCloseTeamDayReport(userRole) && completion === 100 && todayTasks.length > 0) {
       void fetchTeamDayReport();
     }
   }, [userRole, completion, todayTasks.length, fetchTeamDayReport]);
@@ -204,9 +417,99 @@ export default function MisjaDniaScreen() {
   }, [fetchTeamDayReport, t]);
 
   const remainingToday = useMemo(
-    () => todayTasks.filter((task) => !isTaskClosed(task.status)),
-    [todayTasks],
+    () => sortedTodayTasks.filter((task) => !isTaskClosed(task.status)),
+    [sortedTodayTasks],
   );
+
+  const crewRoutePlan = useMemo(() => {
+    const routeTasks = sortedTodayTasks.filter((task) => normalizeTaskStatus(task.status) !== TASK_STATUS.ANULOWANE);
+    const openTasks = routeTasks.filter((task) => !isTaskClosed(task.status));
+    const active = routeTasks.find((task) => isTaskInProgress(task.status)) || null;
+    const next = active || openTasks.find((task) => normalizeTaskStatus(task.status) === TASK_STATUS.ZAPLANOWANE) || openTasks[0] || null;
+    const stops = openTasks.map(taskAddressLabel).filter(Boolean);
+    const missingAddresses = openTasks.filter((task) => !taskAddressLabel(task)).length;
+    const missingEvidence = openTasks.filter((task) => taskEvidenceCount(task) <= 0).length;
+    const plannedMinutes = openTasks.reduce((acc, task) => acc + taskPlannedMinutes(task), 0);
+    const doneCount = routeTasks.filter((task) => isTaskDone(task.status)).length;
+    return {
+      routeTasks,
+      openTasks,
+      active,
+      next,
+      stops,
+      missingAddresses,
+      missingEvidence,
+      plannedMinutes,
+      doneCount,
+      progressPct: routeTasks.length ? Math.round((doneCount / routeTasks.length) * 100) : 0,
+    };
+  }, [sortedTodayTasks]);
+
+  const estimatorDayPlan = useMemo(() => {
+    const fieldTasks = sortedTodayTasks.filter((task) => (
+      isFieldTask(task) && taskAssignedToEstimator(task, userId) && normalizeTaskStatus(task.status) !== TASK_STATUS.ANULOWANE
+    ));
+    const openTasks = fieldTasks.filter((task) => !isTaskClosed(task.status));
+    const next = openTasks.find((task) => normalizeTaskStatus(task.status) === TASK_STATUS.WYCENA_TERENOWA) || openTasks[0] || null;
+    const readyForOffice = openTasks.filter((task) => taskFieldPackageReady(task)).length;
+    const missingEvidence = openTasks.filter((task) => taskEvidenceCount(task) < 3).length;
+    const missingContact = openTasks.filter((task) => !task.klient_telefon || !taskAddressLabel(task)).length;
+    const checks = taskFieldPackageChecks(next);
+    const checksDone = checks.filter((check) => check.done).length;
+    return {
+      fieldTasks,
+      openTasks,
+      next,
+      readyForOffice,
+      missingEvidence,
+      missingContact,
+      checks,
+      checksDone,
+      packagePct: checks.length ? Math.round((checksDone / checks.length) * 100) : 0,
+    };
+  }, [sortedTodayTasks, userId]);
+
+  const crewCommandChecks = useMemo(() => {
+    const next = crewRoutePlan.next;
+    return [
+      {
+        key: 'brief',
+        label: 'Brief i zakres',
+        hint: next
+          ? (taskBriefText(next) ? 'Opis pracy jest w zleceniu.' : 'Brakuje opisu pracy dla najblizszego punktu.')
+          : 'Brak otwartych prac.',
+        done: !next || Boolean(taskBriefText(next)),
+        icon: 'document-text-outline',
+      },
+      {
+        key: 'evidence',
+        label: 'Zdjecia / szkic',
+        hint: next
+          ? (taskEvidenceCount(next) > 0 ? `${taskEvidenceCount(next)} dowodow przy zleceniu.` : 'Dodaj lub sprawdz zdjecia przed praca.')
+          : 'Dzien domkniety.',
+        done: !next || taskEvidenceCount(next) > 0,
+        icon: 'camera-outline',
+      },
+      {
+        key: 'route',
+        label: 'Adres i trasa',
+        hint: crewRoutePlan.missingAddresses > 0
+          ? `Brakuje adresu przy ${crewRoutePlan.missingAddresses} punkcie.`
+          : `${crewRoutePlan.stops.length} punktow gotowych do nawigacji.`,
+        done: crewRoutePlan.missingAddresses === 0,
+        icon: 'navigate-outline',
+      },
+      {
+        key: 'report',
+        label: 'Zamkniecie dnia',
+        hint: crewRoutePlan.openTasks.length === 0
+          ? 'Mozna przeliczyc raport dnia.'
+          : `Pozostalo ${crewRoutePlan.openTasks.length} prac do domkniecia.`,
+        done: crewRoutePlan.openTasks.length === 0 && crewRoutePlan.routeTasks.length > 0,
+        icon: 'checkmark-done-outline',
+      },
+    ];
+  }, [crewRoutePlan]);
 
   const etaMinutes = useMemo(() => {
     // Lekki heurystyczny model ETA: 75 min na aktywne, 95 min na pozostałe.
@@ -221,6 +524,23 @@ export default function MisjaDniaScreen() {
     if (etaMinutes <= 240) return t('misja.eta.midDay');
     return t('misja.eta.heavyLoad');
   }, [etaMinutes, remainingToday.length, t]);
+
+  const callClient = useCallback(async (task?: TaskItem | null) => {
+    const phone = String(task?.klient_telefon || '').replace(/[^\d+]/g, '');
+    if (!phone) {
+      Alert.alert('', 'Brak numeru telefonu klienta.');
+      return;
+    }
+    try {
+      await Linking.openURL(`tel:${phone}`);
+    } catch {
+      Alert.alert('', 'Nie udalo sie uruchomic telefonu.');
+    }
+  }, []);
+
+  const crewRole = isCrewRole(userRole);
+  const estimatorRole = isEstimatorRole(userRole);
+  const teamDayReportRole = canCloseTeamDayReport(userRole);
 
   const S = makeStyles(theme);
 
@@ -302,6 +622,291 @@ export default function MisjaDniaScreen() {
           </View>
         </View>
 
+        {offlineQueueCount > 0 ? (
+          <View style={S.offlineNotice}>
+            <View style={S.offlineNoticeIcon}>
+              <Ionicons name="cloud-offline-outline" size={17} color={theme.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.offlineNoticeTitle}>Tryb odporny na internet</Text>
+              <Text style={S.offlineNoticeText}>
+                {offlineQueueCount} zmian czeka w kolejce. Dane zostana wyslane po powrocie sieci.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {crewRole ? (
+          <View style={S.crewCommandCard}>
+            <View style={S.crewCommandHead}>
+              <View style={S.crewCommandTitleBox}>
+                <Text style={S.crewCommandEyebrow}>Pulpit brygady</Text>
+                <Text style={S.crewCommandTitle}>
+                  {crewRoutePlan.next ? 'Nastepny punkt trasy' : 'Dzien domkniety'}
+                </Text>
+              </View>
+              <View style={S.crewCommandBadge}>
+                <Ionicons
+                  name={crewRoutePlan.active ? 'play-circle' : 'navigate-circle-outline'}
+                  size={16}
+                  color={crewRoutePlan.active ? theme.warning : theme.accent}
+                />
+                <Text style={[S.crewCommandBadgeText, { color: crewRoutePlan.active ? theme.warning : theme.accent }]}>
+                  {crewRoutePlan.active ? 'W pracy' : `${crewRoutePlan.openTasks.length} otwarte`}
+                </Text>
+              </View>
+            </View>
+
+            {crewRoutePlan.next ? (
+              <View style={S.crewNextBox}>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.crewNextTime}>{formatHour(crewRoutePlan.next.godzina_rozpoczecia)}</Text>
+                  <Text style={S.crewNextTitle} numberOfLines={2}>
+                    {crewRoutePlan.next.klient_nazwa || t('misja.taskFallback', { id: crewRoutePlan.next.id })}
+                  </Text>
+                  <Text style={S.crewNextAddress} numberOfLines={2} selectable>
+                    {taskAddressLabel(crewRoutePlan.next) || 'Brak adresu'}
+                  </Text>
+                </View>
+                <View style={S.crewNextPhotoBadge}>
+                  <Text style={S.crewNextPhotoNum}>{taskEvidenceCount(crewRoutePlan.next)}</Text>
+                  <Text style={S.crewNextPhotoLabel}>foto</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={S.crewNextBox}>
+                <Ionicons name="checkmark-done-circle-outline" size={26} color={theme.success} />
+                <View style={{ flex: 1 }}>
+                  <Text style={S.crewNextTitle}>Nie ma juz otwartych punktow.</Text>
+                  <Text style={S.crewNextAddress}>Mozna domknac raport dnia i kase.</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={S.crewStatsRow}>
+              <View style={S.crewStatTile}>
+                <Text style={S.crewStatValue}>{crewRoutePlan.routeTasks.length}</Text>
+                <Text style={S.crewStatLabel}>punkty</Text>
+              </View>
+              <View style={S.crewStatTile}>
+                <Text style={S.crewStatValue}>{crewRoutePlan.active ? 1 : 0}</Text>
+                <Text style={S.crewStatLabel}>aktywny</Text>
+              </View>
+              <View style={S.crewStatTile}>
+                <Text style={[S.crewStatValue, crewRoutePlan.missingEvidence > 0 && { color: theme.warning }]}>
+                  {crewRoutePlan.missingEvidence}
+                </Text>
+                <Text style={S.crewStatLabel}>braki foto</Text>
+              </View>
+              <View style={S.crewStatTile}>
+                <Text style={S.crewStatValue}>{formatDuration(crewRoutePlan.plannedMinutes, t)}</Text>
+                <Text style={S.crewStatLabel}>ETA</Text>
+              </View>
+            </View>
+
+            <View style={S.crewProgressBox}>
+              <View style={S.crewProgressMeta}>
+                <Text style={S.crewProgressText}>Postep trasy</Text>
+                <Text style={S.crewProgressText}>{crewRoutePlan.progressPct}%</Text>
+              </View>
+              <View style={S.progressTrack}>
+                <View style={[S.progressFill, { width: `${crewRoutePlan.progressPct}%` }]} />
+              </View>
+            </View>
+
+            <View style={S.crewChecks}>
+              {crewCommandChecks.map((row) => (
+                <View key={row.key} style={S.crewCheckRow}>
+                  <View style={[S.crewCheckIcon, { borderColor: row.done ? theme.success : theme.warning }]}>
+                    <Ionicons
+                      name={(row.done ? 'checkmark-circle' : row.icon) as React.ComponentProps<typeof Ionicons>['name']}
+                      size={17}
+                      color={row.done ? theme.success : theme.warning}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.crewCheckTitle}>{row.label}</Text>
+                    <Text style={S.crewCheckHint} numberOfLines={2}>{row.hint}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <View style={S.crewActionsRow}>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !crewRoutePlan.next && S.crewActionDisabled]}
+                disabled={!crewRoutePlan.next}
+                onPress={() => crewRoutePlan.next && router.push(`/zlecenie/${crewRoutePlan.next.id}`)}
+              >
+                <Ionicons name="open-outline" size={16} color={theme.accent} />
+                <Text style={S.crewActionText}>Otworz</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !crewRoutePlan.next && S.crewActionDisabled]}
+                disabled={!crewRoutePlan.next}
+                onPress={() => crewRoutePlan.next && void openAddressInMaps(crewRoutePlan.next.adres || '', crewRoutePlan.next.miasto)}
+              >
+                <Ionicons name="navigate-outline" size={16} color={theme.info} />
+                <Text style={S.crewActionText}>Nawiguj</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewActionBtn, crewRoutePlan.stops.length === 0 && S.crewActionDisabled]}
+                disabled={crewRoutePlan.stops.length === 0}
+                onPress={() => void openRouteInMaps(crewRoutePlan.stops)}
+              >
+                <Ionicons name="map-outline" size={16} color={theme.success} />
+                <Text style={S.crewActionText}>Trasa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !crewRoutePlan.next?.klient_telefon && S.crewActionDisabled]}
+                disabled={!crewRoutePlan.next?.klient_telefon}
+                onPress={() => void callClient(crewRoutePlan.next)}
+              >
+                <Ionicons name="call-outline" size={16} color={theme.warning} />
+                <Text style={S.crewActionText}>Telefon</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
+        {!crewRole && estimatorRole ? (
+          <View style={S.estimatorCommandCard}>
+            <View style={S.crewCommandHead}>
+              <View style={S.crewCommandTitleBox}>
+                <Text style={S.crewCommandEyebrow}>Pulpit specjalisty ds. wyceny</Text>
+                <Text style={S.crewCommandTitle}>
+                  {estimatorDayPlan.next ? 'Nastepny klient do ogledzin' : 'Brak ogledzin na dzisiaj'}
+                </Text>
+              </View>
+              <View style={S.crewCommandBadge}>
+                <Ionicons name="camera-outline" size={16} color={theme.info} />
+                <Text style={[S.crewCommandBadgeText, { color: theme.info }]}>
+                  {estimatorDayPlan.openTasks.length} otwarte
+                </Text>
+              </View>
+            </View>
+
+            {estimatorDayPlan.next ? (
+              <View style={S.estimatorNextBox}>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.crewNextTime}>{formatHour(estimatorDayPlan.next.godzina_rozpoczecia)}</Text>
+                  <Text style={S.crewNextTitle} numberOfLines={2}>
+                    {estimatorDayPlan.next.klient_nazwa || t('misja.taskFallback', { id: estimatorDayPlan.next.id })}
+                  </Text>
+                  <Text style={S.crewNextAddress} numberOfLines={2} selectable>
+                    {taskAddressLabel(estimatorDayPlan.next) || 'Brak adresu'}
+                  </Text>
+                  {taskBriefText(estimatorDayPlan.next) ? (
+                    <Text style={S.estimatorBrief} numberOfLines={2}>{taskBriefText(estimatorDayPlan.next)}</Text>
+                  ) : null}
+                </View>
+                <View style={S.estimatorPackageBadge}>
+                  <Text style={S.crewNextPhotoNum}>{estimatorDayPlan.packagePct}%</Text>
+                  <Text style={S.crewNextPhotoLabel}>pakiet</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={S.estimatorNextBox}>
+                <Ionicons name="leaf-outline" size={26} color={theme.success} />
+                <View style={{ flex: 1 }}>
+                  <Text style={S.crewNextTitle}>Nie ma przypisanych ogledzin na dzisiaj.</Text>
+                  <Text style={S.crewNextAddress}>Mozesz przejsc do zlecen albo odswiezyc liste.</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={S.crewStatsRow}>
+              <View style={S.crewStatTile}>
+                <Text style={S.crewStatValue}>{estimatorDayPlan.fieldTasks.length}</Text>
+                <Text style={S.crewStatLabel}>wizyty</Text>
+              </View>
+              <View style={S.crewStatTile}>
+                <Text style={[S.crewStatValue, estimatorDayPlan.missingEvidence > 0 && { color: theme.warning }]}>
+                  {estimatorDayPlan.missingEvidence}
+                </Text>
+                <Text style={S.crewStatLabel}>braki foto</Text>
+              </View>
+              <View style={S.crewStatTile}>
+                <Text style={[S.crewStatValue, estimatorDayPlan.missingContact > 0 && { color: theme.warning }]}>
+                  {estimatorDayPlan.missingContact}
+                </Text>
+                <Text style={S.crewStatLabel}>adres/tel</Text>
+              </View>
+              <View style={S.crewStatTile}>
+                <Text style={S.crewStatValue}>{estimatorDayPlan.readyForOffice}</Text>
+                <Text style={S.crewStatLabel}>dla biura</Text>
+              </View>
+            </View>
+
+            {estimatorDayPlan.checks.length ? (
+              <>
+                <View style={S.crewProgressBox}>
+                  <View style={S.crewProgressMeta}>
+                    <Text style={S.crewProgressText}>Gotowosc pakietu dla biura</Text>
+                    <Text style={S.crewProgressText}>{estimatorDayPlan.checksDone}/{estimatorDayPlan.checks.length}</Text>
+                  </View>
+                  <View style={S.progressTrack}>
+                    <View style={[S.progressFill, { width: `${estimatorDayPlan.packagePct}%` }]} />
+                  </View>
+                </View>
+
+                <View style={S.crewChecks}>
+                  {estimatorDayPlan.checks.map((row) => (
+                    <View key={row.key} style={S.crewCheckRow}>
+                      <View style={[S.crewCheckIcon, { borderColor: row.done ? theme.success : theme.warning }]}>
+                        <Ionicons
+                          name={row.done ? 'checkmark-circle' : row.icon}
+                          size={17}
+                          color={row.done ? theme.success : theme.warning}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={S.crewCheckTitle}>{row.label}</Text>
+                        <Text style={S.crewCheckHint} numberOfLines={1}>{row.value}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            <View style={S.crewActionsRow}>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !estimatorDayPlan.next && S.crewActionDisabled]}
+                disabled={!estimatorDayPlan.next}
+                onPress={() => estimatorDayPlan.next && router.push(`/zlecenie/${estimatorDayPlan.next.id}`)}
+              >
+                <Ionicons name="open-outline" size={16} color={theme.accent} />
+                <Text style={S.crewActionText}>Otworz</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !estimatorDayPlan.next && S.crewActionDisabled]}
+                disabled={!estimatorDayPlan.next}
+                onPress={() => estimatorDayPlan.next && router.push(estimatorDocumentationRoute(estimatorDayPlan.next) as never)}
+              >
+                <Ionicons name="camera-outline" size={16} color={theme.info} />
+                <Text style={S.crewActionText}>Dowody</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !estimatorDayPlan.next && S.crewActionDisabled]}
+                disabled={!estimatorDayPlan.next}
+                onPress={() => estimatorDayPlan.next && void openAddressInMaps(estimatorDayPlan.next.adres || '', estimatorDayPlan.next.miasto)}
+              >
+                <Ionicons name="navigate-outline" size={16} color={theme.success} />
+                <Text style={S.crewActionText}>Nawiguj</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewActionBtn, !estimatorDayPlan.next?.klient_telefon && S.crewActionDisabled]}
+                disabled={!estimatorDayPlan.next?.klient_telefon}
+                onPress={() => void callClient(estimatorDayPlan.next)}
+              >
+                <Ionicons name="call-outline" size={16} color={theme.warning} />
+                <Text style={S.crewActionText}>Telefon</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
         <View style={S.section}>
           <Text style={S.sectionTitle}>{t('misja.section.dayProgress')}</Text>
           <View style={S.progressTrack}>
@@ -331,7 +936,7 @@ export default function MisjaDniaScreen() {
           </View>
         </View>
 
-        {(userRole === 'Brygadzista' || userRole === 'Pomocnik') ? (
+        {teamDayReportRole ? (
           <View style={S.section}>
             <Text style={S.sectionTitle}>{t('misja.teamDay.cashTitle')}</Text>
             <Text style={[S.emptyText, { marginBottom: 8 }]}>{t('misja.teamDay.cashSub')}</Text>
@@ -373,7 +978,7 @@ export default function MisjaDniaScreen() {
           </View>
         ) : null}
 
-        {(userRole === 'Brygadzista' || userRole === 'Pomocnik') && todayTasks.length > 0 && completion === 100 ? (
+        {teamDayReportRole && todayTasks.length > 0 && completion === 100 ? (
           <View style={S.section}>
             <Text style={S.sectionTitle}>{t('misja.teamDay.title')}</Text>
             <Text style={[S.emptyText, { marginBottom: 10 }]}>{t('misja.teamDay.sub')}</Text>
@@ -469,7 +1074,7 @@ export default function MisjaDniaScreen() {
                 <Ionicons name="calendar-outline" size={16} color={theme.accent} />
                 <Text style={S.actionText}>{t('misja.action.schedule')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={S.actionBtn} onPress={() => router.push('/nowe-zlecenie')}>
+              <TouchableOpacity style={S.actionBtn} onPress={() => router.push(buildNewOrderRoute({ source: 'misja-dnia' }) as never)}>
                 <Ionicons name="add-circle-outline" size={16} color={theme.accent} />
                 <Text style={S.actionText}>{t('misja.action.newOrder')}</Text>
               </TouchableOpacity>
@@ -512,6 +1117,30 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   kpiNum: { fontSize: 22, fontWeight: '800', color: t.accent },
   kpiLabel: { fontSize: 12, color: t.textSub, marginTop: 2 },
+  offlineNotice: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: t.warning + '55',
+    borderRadius: 13,
+    backgroundColor: t.warningBg,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  offlineNoticeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.cardBg,
+    borderWidth: 1,
+    borderColor: t.warning + '44',
+  },
+  offlineNoticeTitle: { color: t.text, fontSize: 13, fontWeight: '900' },
+  offlineNoticeText: { color: t.textSub, fontSize: 11.5, lineHeight: 16, marginTop: 1 },
   progressTrack: {
     height: 10,
     borderRadius: 999,
@@ -543,6 +1172,164 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   etaTitle: { fontSize: 13, fontWeight: '700', color: t.text },
   etaValue: { fontSize: 22, fontWeight: '800', color: t.info },
   etaSub: { fontSize: 12, color: t.textSub },
+  crewCommandCard: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: t.accentLight,
+    borderRadius: 14,
+    backgroundColor: t.cardBg,
+    padding: 12,
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.24,
+      radius: t.shadowRadius * 0.55,
+      offsetY: Math.max(2, t.shadowOffsetY),
+      elevation: Math.max(2, t.cardElevation),
+    }),
+  },
+  estimatorCommandCard: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: t.info + '55',
+    borderRadius: 14,
+    backgroundColor: t.cardBg,
+    padding: 12,
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.24,
+      radius: t.shadowRadius * 0.55,
+      offsetY: Math.max(2, t.shadowOffsetY),
+      elevation: Math.max(2, t.cardElevation),
+    }),
+  },
+  crewCommandHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  crewCommandTitleBox: { flex: 1 },
+  crewCommandEyebrow: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: t.accent,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  crewCommandTitle: { fontSize: 18, fontWeight: '900', color: t.text, marginTop: 2 },
+  crewCommandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 999,
+    backgroundColor: t.surface2,
+  },
+  crewCommandBadgeText: { fontSize: 11, fontWeight: '900' },
+  crewNextBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 12,
+    backgroundColor: t.surface,
+    padding: 10,
+  },
+  estimatorNextBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: t.info + '44',
+    borderRadius: 12,
+    backgroundColor: t.surface,
+    padding: 10,
+  },
+  crewNextTime: { fontSize: 12, fontWeight: '900', color: t.info, fontVariant: ['tabular-nums'] },
+  crewNextTitle: { fontSize: 15, fontWeight: '900', color: t.text, marginTop: 2 },
+  crewNextAddress: { fontSize: 12, color: t.textSub, marginTop: 3, lineHeight: 16 },
+  estimatorBrief: { fontSize: 11.5, color: t.textMuted, marginTop: 5, lineHeight: 16 },
+  crewNextPhotoBadge: {
+    width: 54,
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+  },
+  crewNextPhotoNum: { fontSize: 18, fontWeight: '900', color: t.accent, fontVariant: ['tabular-nums'] },
+  crewNextPhotoLabel: { fontSize: 9, fontWeight: '900', color: t.textMuted, textTransform: 'uppercase' },
+  estimatorPackageBadge: {
+    width: 60,
+    minHeight: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.info + '44',
+    backgroundColor: t.infoBg,
+  },
+  crewStatsRow: { flexDirection: 'row', gap: 7 },
+  crewStatTile: {
+    flex: 1,
+    minHeight: 58,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 10,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 7,
+  },
+  crewStatValue: { fontSize: 15, fontWeight: '900', color: t.text, fontVariant: ['tabular-nums'] },
+  crewStatLabel: { fontSize: 9.5, fontWeight: '800', color: t.textMuted, marginTop: 2 },
+  crewProgressBox: { gap: 7 },
+  crewProgressMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  crewProgressText: { fontSize: 11, fontWeight: '800', color: t.textSub },
+  crewChecks: { gap: 7 },
+  crewCheckRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 10,
+    backgroundColor: t.surface,
+    padding: 9,
+  },
+  crewCheckIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.surface2,
+  },
+  crewCheckTitle: { fontSize: 12.5, fontWeight: '900', color: t.text },
+  crewCheckHint: { fontSize: 11, color: t.textMuted, lineHeight: 15, marginTop: 1 },
+  crewActionsRow: { flexDirection: 'row', gap: 7 },
+  crewActionBtn: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderColor: t.border,
+    borderRadius: 10,
+    backgroundColor: t.surface2,
+    paddingHorizontal: 4,
+  },
+  crewActionDisabled: { opacity: 0.45 },
+  crewActionText: { fontSize: 10.5, fontWeight: '900', color: t.text },
   section: {
     marginHorizontal: 12,
     marginBottom: 12,

@@ -12,6 +12,7 @@ import { shadowStyle } from '../constants/elevation';
 import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
+import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 import { isTaskInProgress, makeTaskStatusColorMap } from '../constants/task-workflow';
 
@@ -206,7 +207,7 @@ export default function OddzialyScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={S.personNazwa}>{u.imie} {u.nazwisko}</Text>
-                        <Text style={S.personRola}>{u.rola}</Text>
+                        <Text style={S.personRola}>{getRoleDisplayName(u.rola)}</Text>
                       </View>
                       {u.telefon && <Text style={S.personTel}>{u.telefon}</Text>}
                     </View>

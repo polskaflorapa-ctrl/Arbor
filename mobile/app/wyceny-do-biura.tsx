@@ -4,12 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Linking,
+  Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,9 +23,9 @@ import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { API_URL } from '../constants/api';
-import { taskMutationPayload } from '../constants/task-workflow';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
+import { TASK_STATUS } from '../constants/task-workflow';
 import { openAddressInMaps } from '../utils/maps-link';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
@@ -34,6 +38,7 @@ type FieldDraft = {
   adres?: string;
   miasto?: string;
   data_planowana?: string;
+  godzina_rozpoczecia?: string;
   status?: string;
   typ_uslugi?: string;
   wartosc_planowana?: number | string | null;
@@ -41,6 +46,7 @@ type FieldDraft = {
   ekipa_id?: number | string | null;
   ekipa_nazwa?: string | null;
   wyceniajacy_nazwa?: string | null;
+  oddzial_id?: number | string | null;
   oddzial_nazwa?: string | null;
   photo_total?: number;
   photo_wycena?: number;
@@ -55,7 +61,7 @@ type FieldDraft = {
   updated_at?: string;
 };
 
-type FilterKey = 'all' | 'urgent' | 'missing' | 'ready' | 'photos' | 'pricing' | 'planning';
+type FilterKey = 'all' | 'field' | 'office' | 'urgent' | 'missing' | 'ready' | 'photos' | 'pricing' | 'planning';
 
 type ReadinessCheck = {
   key: string;
@@ -63,6 +69,25 @@ type ReadinessCheck = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   done: boolean;
   hint: string;
+};
+
+type TeamLite = {
+  id: number | string;
+  nazwa: string;
+  oddzial_id?: number | string | null;
+  oddzial_nazwa?: string | null;
+  delegowany?: boolean;
+  natywny_oddzial?: boolean;
+  zajete_minuty?: number | string | null;
+  wolne_minuty?: number | string | null;
+};
+
+type OfficePlanForm = {
+  data: string;
+  godzina: string;
+  czas: string;
+  ekipaId: string;
+  note: string;
 };
 
 const PHOTO_REQUIREMENTS = [
@@ -73,12 +98,14 @@ const PHOTO_REQUIREMENTS = [
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'Wszystkie' },
+  { key: 'field', label: 'Teren' },
+  { key: 'office', label: 'Do biura' },
   { key: 'urgent', label: 'Pilne' },
-  { key: 'missing', label: 'Do uzupełnienia' },
+  { key: 'missing', label: 'Braki' },
   { key: 'photos', label: 'Foto' },
   { key: 'pricing', label: 'Cena' },
   { key: 'planning', label: 'Plan' },
-  { key: 'ready', label: 'Kompletne' },
+  { key: 'ready', label: 'Do planu' },
 ];
 
 const URGENT_AFTER_MINUTES = 120;
@@ -86,6 +113,76 @@ const URGENT_AFTER_MINUTES = 120;
 function asNumber(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function todayKey() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function dateInputValue(value?: string) {
+  if (!value) return todayKey();
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return todayKey();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function timeInputValue(row: FieldDraft) {
+  const direct = String(row.godzina_rozpoczecia || '').slice(0, 5);
+  if (/^\d{2}:\d{2}$/.test(direct)) return direct;
+  const raw = String(row.data_planowana || '');
+  if (!raw.includes('T')) return '08:00';
+  const fromDate = raw.split('T')[1]?.slice(0, 5) || '';
+  return /^\d{2}:\d{2}$/.test(fromDate) ? fromDate : '08:00';
+}
+
+function isYmd(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isHhMm(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function teamsForDraft(row: FieldDraft | null, teams: TeamLite[]) {
+  if (!row) return teams;
+  const branchId = String(row.oddzial_id || '');
+  const scoped = teams.filter((team) => (
+    !branchId ||
+    !team.oddzial_id ||
+    String(team.oddzial_id) === branchId ||
+    team.delegowany ||
+    team.natywny_oddzial
+  ));
+  return scoped.sort((a, b) => {
+    const aNative = branchId && String(a.oddzial_id || '') === branchId ? 1 : 0;
+    const bNative = branchId && String(b.oddzial_id || '') === branchId ? 1 : 0;
+    if (aNative !== bNative) return bNative - aNative;
+    return String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl');
+  });
+}
+
+function createPlanForm(row: FieldDraft, teams: TeamLite[]): OfficePlanForm {
+  const availableTeams = teamsForDraft(row, teams);
+  const currentTeam = row.ekipa_id ? String(row.ekipa_id) : '';
+  const fallbackTeam = currentTeam || (availableTeams[0]?.id != null ? String(availableTeams[0].id) : '');
+  return {
+    data: dateInputValue(row.data_planowana),
+    godzina: timeInputValue(row),
+    czas: row.czas_planowany_godziny != null && String(row.czas_planowany_godziny).trim()
+      ? String(row.czas_planowany_godziny)
+      : '2',
+    ekipaId: fallbackTeam,
+    note: '',
+  };
 }
 
 function formatDate(value?: string) {
@@ -156,6 +253,55 @@ function hasCrewPlan(row: FieldDraft) {
   return hasTeam(row) && hasPlannedTime(row);
 }
 
+function isFieldStage(row: FieldDraft) {
+  return String(row.status || '') === TASK_STATUS.WYCENA_TERENOWA;
+}
+
+function isOfficeStage(row: FieldDraft) {
+  return String(row.status || '') === TASK_STATUS.DO_ZATWIERDZENIA;
+}
+
+function isReadyToPlan(row: FieldDraft) {
+  return isOfficeStage(row) && missingList(row).length === 0;
+}
+
+function isLegacyReady(row: FieldDraft) {
+  return !isOfficeStage(row) && missingList(row).length === 0;
+}
+
+function stageMeta(row: FieldDraft, theme: Theme) {
+  if (isReadyToPlan(row)) {
+    return {
+      label: 'Do planu',
+      hint: 'klient zaakceptowal, biuro dopina termin',
+      icon: 'calendar-number-outline' as const,
+      color: theme.success,
+    };
+  }
+  if (isOfficeStage(row)) {
+    return {
+      label: 'Biuro sprawdza',
+      hint: 'zaakceptowane, ale paczka ma braki',
+      icon: 'file-tray-full-outline' as const,
+      color: theme.accent,
+    };
+  }
+  if (isLegacyReady(row)) {
+    return {
+      label: 'Gotowe z terenu',
+      hint: 'uzupelnij status do biura',
+      icon: 'checkmark-done-outline' as const,
+      color: theme.info,
+    };
+  }
+  return {
+    label: 'Teren / braki',
+    hint: 'specjalista ds. wyceny domyka zdjecia i zakres',
+    icon: 'alert-circle-outline' as const,
+    color: theme.warning,
+  };
+}
+
 function readinessChecks(row: FieldDraft): ReadinessCheck[] {
   const photosReady = PHOTO_REQUIREMENTS.filter((req) => asNumber(row[req.key]) > 0).length;
   const price = asNumber(row.wartosc_planowana);
@@ -208,12 +354,18 @@ function isUrgent(row: FieldDraft) {
 }
 
 function sortOfficeDrafts(a: FieldDraft, b: FieldDraft) {
+  const aReadyToPlan = isReadyToPlan(a) ? 1 : 0;
+  const bReadyToPlan = isReadyToPlan(b) ? 1 : 0;
+  if (aReadyToPlan !== bReadyToPlan) return bReadyToPlan - aReadyToPlan;
+  const aOffice = isOfficeStage(a) ? 1 : 0;
+  const bOffice = isOfficeStage(b) ? 1 : 0;
+  if (aOffice !== bOffice) return bOffice - aOffice;
   const aUrgent = isUrgent(a) ? 1 : 0;
   const bUrgent = isUrgent(b) ? 1 : 0;
   if (aUrgent !== bUrgent) return bUrgent - aUrgent;
   const aReady = missingList(a).length === 0 ? 1 : 0;
   const bReady = missingList(b).length === 0 ? 1 : 0;
-  if (aReady !== bReady) return aReady - bReady;
+  if (aReady !== bReady) return bReady - aReady;
   const ageDiff = draftAgeMinutes(b) - draftAgeMinutes(a);
   if (ageDiff !== 0) return ageDiff;
   return completionScore(a) - completionScore(b);
@@ -226,8 +378,37 @@ export default function WycenyDoBiuraScreen() {
   const [filter, setFilter] = useState<FilterKey>('missing');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [teams, setTeams] = useState<TeamLite[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [planRow, setPlanRow] = useState<FieldDraft | null>(null);
+  const [planForm, setPlanForm] = useState<OfficePlanForm>({ data: todayKey(), godzina: '08:00', czas: '2', ekipaId: '', note: '' });
+  const [planBusy, setPlanBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadTeams = useCallback(async (authToken: string) => {
+    setTeamsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/ekipy?include_delegacje=1`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json().catch(() => []);
+      const rows = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+      setTeams(rows.map((row: any) => ({
+        id: row.id,
+        nazwa: row.nazwa || `Ekipa #${row.id}`,
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        delegowany: Boolean(row.delegowany),
+        natywny_oddzial: Boolean(row.natywny_oddzial),
+        zajete_minuty: row.zajete_minuty,
+        wolne_minuty: row.wolne_minuty,
+      })));
+    } catch {
+      setTeams([]);
+    } finally {
+      setTeamsLoading(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -247,6 +428,7 @@ export default function WycenyDoBiuraScreen() {
         return;
       }
       setItems(Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []);
+      void loadTeams(token);
     } catch (err) {
       setItems([]);
       setError(err instanceof Error ? err.message : 'Nie udało się pobrać kolejki.');
@@ -254,7 +436,7 @@ export default function WycenyDoBiuraScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loadTeams]);
 
   useEffect(() => {
     void load();
@@ -270,6 +452,9 @@ export default function WycenyDoBiuraScreen() {
   const stats = useMemo(() => {
     const complete = items.filter((row) => missingList(row).length === 0).length;
     const urgent = items.filter(isUrgent).length;
+    const fieldOpen = items.filter(isFieldStage).length;
+    const officeIncoming = items.filter(isOfficeStage).length;
+    const readyToPlan = items.filter(isReadyToPlan).length;
     const oldestOpen = items
       .filter((row) => missingList(row).length > 0)
       .sort((a, b) => draftAgeMinutes(b) - draftAgeMinutes(a))[0];
@@ -277,6 +462,9 @@ export default function WycenyDoBiuraScreen() {
       total: items.length,
       complete,
       urgent,
+      fieldOpen,
+      officeIncoming,
+      readyToPlan,
       missing: Math.max(0, items.length - complete),
       oldestOpen,
     };
@@ -285,12 +473,14 @@ export default function WycenyDoBiuraScreen() {
     return items
       .filter((row) => {
         const ready = missingList(row).length === 0;
+        if (filter === 'field') return isFieldStage(row);
+        if (filter === 'office') return isOfficeStage(row);
         if (filter === 'urgent') return isUrgent(row);
         if (filter === 'missing') return !ready;
         if (filter === 'photos') return !photoPackageReady(row);
         if (filter === 'pricing') return !hasPrice(row);
         if (filter === 'planning') return !hasCrewPlan(row);
-        if (filter === 'ready') return ready;
+        if (filter === 'ready') return isReadyToPlan(row);
         return true;
       })
       .sort(sortOfficeDrafts);
@@ -305,7 +495,7 @@ export default function WycenyDoBiuraScreen() {
     const missingPhotos = items.filter((row) => !photoPackageReady(row)).length;
     const missingPrice = items.filter((row) => !hasPrice(row)).length;
     const missingPlan = items.filter((row) => !hasCrewPlan(row)).length;
-    const readyToApprove = items.filter((row) => missingList(row).length === 0 && hasTeam(row)).length;
+    const readyToApprove = items.filter(isReadyToPlan).length;
     return { evidenceReady, photoTotal, missingSketch, missingAccess, missingPhotos, missingPrice, missingPlan, readyToApprove };
   }, [items]);
   const evidenceCards: {
@@ -383,11 +573,11 @@ export default function WycenyDoBiuraScreen() {
     },
     {
       key: 'ready',
-      label: 'Gotowe',
-      value: stats.complete,
-      hint: 'mozna zatwierdzac',
+      label: 'Do planu',
+      value: stats.readyToPlan,
+      hint: 'status Do_Zatwierdzenia',
       icon: 'checkmark-done-outline',
-      color: stats.complete ? theme.accent : theme.textMuted,
+      color: stats.readyToPlan ? theme.accent : theme.textMuted,
     },
   ];
 
@@ -396,13 +586,36 @@ export default function WycenyDoBiuraScreen() {
     void load();
   };
 
-  const approveDraftPlan = async (row: FieldDraft) => {
-    if (!row.ekipa_id) {
+  const openOfficePlan = (row: FieldDraft) => {
+    setError(null);
+    setPlanRow(row);
+    setPlanForm(createPlanForm(row, teams));
+    void triggerHaptic('light');
+  };
+
+  const submitOfficePlan = async () => {
+    if (!planRow) return;
+    if (!isYmd(planForm.data)) {
       void triggerHaptic('warning');
-      setError('Najpierw wybierz ekipę. Bez ekipy nie można zatwierdzić planu.');
+      setError('Wpisz datę pracy w formacie RRRR-MM-DD.');
       return;
     }
-    setApprovingId(row.id);
+    if (!isHhMm(planForm.godzina)) {
+      void triggerHaptic('warning');
+      setError('Wpisz godzinę rozpoczęcia w formacie HH:MM.');
+      return;
+    }
+    if (!planForm.ekipaId) {
+      void triggerHaptic('warning');
+      setError('Wybierz ekipę do realizacji.');
+      return;
+    }
+    if (asNumber(planForm.czas) <= 0) {
+      void triggerHaptic('warning');
+      setError('Wpisz dodatni czas pracy w godzinach.');
+      return;
+    }
+    setPlanBusy(true);
     setError(null);
     try {
       const { token } = await getStoredSession();
@@ -410,51 +623,46 @@ export default function WycenyDoBiuraScreen() {
         router.replace('/login');
         return;
       }
-      const res = await fetch(`${API_URL}/tasks/${row.id}/przypisz`, {
+      const res = await fetch(`${API_URL}/tasks/${planRow.id}/office-plan`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ekipa_id: row.ekipa_id }),
+        body: JSON.stringify({
+          data_planowana: planForm.data,
+          godzina_rozpoczecia: planForm.godzina,
+          czas_planowany_godziny: planForm.czas,
+          ekipa_id: planForm.ekipaId,
+          sprzet_notatka: planForm.note.trim() || null,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         void triggerHaptic('warning');
-        setError(data?.error || `Nie zatwierdzono planu #${row.id}.`);
+        setError(data?.error || `Nie zaplanowano zlecenia #${planRow.id}.`);
         return;
       }
       void triggerHaptic('success');
-      const updated = { ...row, ...taskMutationPayload(data) } as FieldDraft;
-      setItems((prev) => (
-        String(updated.status || '') === 'Zaplanowane' || updated.workflow_ready_for_next === true
-          ? prev.filter((item) => item.id !== row.id)
-          : prev.map((item) => (item.id === row.id ? updated : item))
-      ));
+      setPlanRow(null);
+      setItems((prev) => prev.filter((item) => item.id !== planRow.id));
+      Alert.alert('Zaplanowane', data?.message || `Zlecenie #${planRow.id} przekazane do harmonogramu ekipy.`);
       void load();
     } catch (err) {
       void triggerHaptic('error');
-      setError(err instanceof Error ? err.message : `Nie zatwierdzono planu #${row.id}.`);
+      setError(err instanceof Error ? err.message : `Nie zaplanowano zlecenia #${planRow.id}.`);
     } finally {
-      setApprovingId(null);
+      setPlanBusy(false);
     }
   };
 
-  const confirmApproveDraft = (row: FieldDraft) => {
-    const when = [formatDate(row.data_planowana), row.czas_planowany_godziny ? `${row.czas_planowany_godziny} h` : 'bez czasu'].join(' · ');
-    Alert.alert(
-      'Zatwierdzić plan?',
-      `${row.klient_nazwa || `Zlecenie #${row.id}`}\n${row.ekipa_nazwa || `Ekipa #${row.ekipa_id}`}\n${when}`,
-      [
-        { text: 'Jeszcze nie', style: 'cancel' },
-        { text: 'Zatwierdź', onPress: () => void approveDraftPlan(row) },
-      ],
-    );
-  };
-
   const nextDraftMissing = nextDraft ? missingList(nextDraft) : [];
-  const nextDraftReady = !!nextDraft && nextDraftMissing.length === 0;
+  const nextDraftReady = !!nextDraft && isReadyToPlan(nextDraft);
+  const nextDraftPackageComplete = !!nextDraft && nextDraftMissing.length === 0;
+  const nextDraftLegacyReady = !!nextDraft && isLegacyReady(nextDraft);
   const nextDraftUrgent = !!nextDraft && isUrgent(nextDraft);
   const nextDraftScore = nextDraft ? completionScore(nextDraft) : 0;
   const nextDraftAddress = nextDraft ? [nextDraft.adres, nextDraft.miasto].filter(Boolean).join(', ') : '';
-  const nextDraftColor = nextDraftReady ? theme.success : nextDraftUrgent ? theme.danger : theme.warning;
+  const nextDraftStage = nextDraft ? stageMeta(nextDraft, theme) : null;
+  const nextDraftColor = nextDraftReady ? theme.success : nextDraftUrgent ? theme.danger : nextDraftStage?.color || theme.warning;
+  const planTeams = useMemo(() => teamsForDraft(planRow, teams), [planRow, teams]);
 
   if (loading) {
     return (
@@ -485,7 +693,7 @@ export default function WycenyDoBiuraScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={S.commandTitle}>Kolejka wycen terenowych</Text>
-              <Text style={S.commandText}>Najpierw domykamy braki, potem planujemy ekipę i termin.</Text>
+              <Text style={S.commandText}>Rozdzielamy drafty z terenu od paczek gotowych do planowania.</Text>
               <Text style={S.commandMeta}>
                 SLA: pilne po 2h lub poniżej 50% danych
                 {stats.oldestOpen ? ` · najstarszy czeka ${draftAgeLabel(stats.oldestOpen)}` : ''}
@@ -499,9 +707,11 @@ export default function WycenyDoBiuraScreen() {
 
         <View style={S.kpiRow}>
           <KpiCard label="W kolejce" value={stats.total} color={theme.accent} theme={theme} />
-          <KpiCard label="Pilne" value={stats.urgent} color={theme.danger} theme={theme} />
+          <KpiCard label="Teren" value={stats.fieldOpen} color={theme.warning} theme={theme} />
+          <KpiCard label="Do biura" value={stats.officeIncoming} color={theme.accent} theme={theme} />
+          <KpiCard label="Do planu" value={stats.readyToPlan} color={theme.success} theme={theme} />
           <KpiCard label="Braki" value={stats.missing} color={theme.warning} theme={theme} />
-          <KpiCard label="Gotowe" value={stats.complete} color={theme.success} theme={theme} />
+          <KpiCard label="Pilne" value={stats.urgent} color={theme.danger} theme={theme} />
         </View>
 
         <View style={S.officeBoard}>
@@ -516,7 +726,7 @@ export default function WycenyDoBiuraScreen() {
               </View>
             </View>
             <View style={S.officeBoardBadge}>
-              <Text style={S.officeBoardBadgeText}>{stats.missing ? `${stats.missing} otwarte` : 'czysto'}</Text>
+              <Text style={S.officeBoardBadgeText}>{stats.readyToPlan ? `${stats.readyToPlan} do planu` : `${stats.fieldOpen} z terenu`}</Text>
             </View>
           </View>
 
@@ -590,20 +800,20 @@ export default function WycenyDoBiuraScreen() {
             <View style={S.focusHeader}>
               <View style={[S.focusIcon, { backgroundColor: nextDraftColor + '1A' }]}>
                 <Ionicons
-                  name={nextDraftReady ? 'checkmark-done-outline' : nextDraftUrgent ? 'flame-outline' : 'file-tray-full-outline'}
+                  name={nextDraftReady ? 'checkmark-done-outline' : nextDraftUrgent ? 'flame-outline' : nextDraftStage?.icon || 'file-tray-full-outline'}
                   size={18}
                   color={nextDraftColor}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={S.focusEyebrow}>
-                  {nextDraftReady ? 'Gotowe do zatwierdzenia' : nextDraftUrgent ? 'Najpierw rozwiązać' : 'Następna sprawa dla biura'}
+                  {nextDraftReady ? 'Do planu' : nextDraftUrgent ? 'Najpierw rozwiazac' : nextDraftStage?.label || 'Nastepna sprawa dla biura'}
                 </Text>
                 <Text style={S.focusTitle} numberOfLines={1}>
                   #{nextDraft.id} {nextDraft.klient_nazwa || 'Bez klienta'}
                 </Text>
                 <Text style={S.focusSub} numberOfLines={1}>
-                  {nextDraftAddress || 'Brak adresu'} · czeka {draftAgeLabel(nextDraft)}
+                  {nextDraftAddress || 'Brak adresu'} · {nextDraftStage?.label || 'Etap'} · czeka {draftAgeLabel(nextDraft)}
                 </Text>
               </View>
               <View style={[S.focusBadge, { backgroundColor: nextDraftColor + '20', borderColor: nextDraftColor + '66' }]}>
@@ -635,9 +845,9 @@ export default function WycenyDoBiuraScreen() {
             </View>
 
             <View style={[S.nextStepBox, { borderColor: nextDraftColor, backgroundColor: nextDraftColor + '14' }]}>
-              <Ionicons name={nextDraftReady ? 'calendar-outline' : 'alert-circle-outline'} size={16} color={nextDraftColor} />
+              <Ionicons name={nextDraftReady ? 'calendar-outline' : nextDraftPackageComplete || nextDraftLegacyReady ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={16} color={nextDraftColor} />
               <Text style={[S.nextStepText, { color: nextDraftColor }]}>
-                {nextDraftReady ? 'Paczka kompletna: zaplanować termin i zatwierdzić ekipę.' : `Domknąć: ${primaryMissing(nextDraft)}`}
+                {nextDraftReady ? 'Paczka kompletna: zaplanowac termin i zatwierdzic ekipe.' : nextDraftPackageComplete ? 'Paczka kompletna, ale status jeszcze nie jest Do_Zatwierdzenia.' : `Domknac: ${primaryMissing(nextDraft)}`}
               </Text>
             </View>
 
@@ -686,18 +896,13 @@ export default function WycenyDoBiuraScreen() {
                 <Ionicons name="open-outline" size={15} color={theme.accent} />
                 <Text style={[S.actionText, { color: theme.accent }]}>Otwórz kartę</Text>
               </TouchableOpacity>
-              {nextDraftReady && nextDraft.ekipa_id ? (
+              {nextDraftReady ? (
                 <TouchableOpacity
-                  style={[S.actionBtn, S.actionBtnPrimary, approvingId === nextDraft.id && { opacity: 0.65 }]}
-                  onPress={() => confirmApproveDraft(nextDraft)}
-                  disabled={approvingId === nextDraft.id}
+                  style={[S.actionBtn, S.actionBtnPrimary]}
+                  onPress={() => openOfficePlan(nextDraft)}
                 >
-                  {approvingId === nextDraft.id ? (
-                    <ActivityIndicator size="small" color={theme.accentText} />
-                  ) : (
-                    <Ionicons name="checkmark-done-outline" size={15} color={theme.accentText} />
-                  )}
-                  <Text style={S.actionPrimaryText}>Zatwierdź plan</Text>
+                  <Ionicons name="calendar-number-outline" size={15} color={theme.accentText} />
+                  <Text style={S.actionPrimaryText}>Zaplanuj ekipę</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -726,7 +931,7 @@ export default function WycenyDoBiuraScreen() {
           <EmptyState
             icon="checkmark-done-circle-outline"
             title="Brak draftów do opracowania"
-            subtitle="Gdy wyceniający zapisze draft terenowy, pojawi się tutaj."
+            subtitle="Gdy specjalista ds. wyceny zapisze draft terenowy, pojawi się tutaj."
           />
         ) : visibleItems.length === 0 ? (
           <EmptyState
@@ -737,12 +942,14 @@ export default function WycenyDoBiuraScreen() {
         ) : (
           visibleItems.map((item, index) => {
             const missing = missingList(item);
-            const ready = missing.length === 0;
+            const packageComplete = missing.length === 0;
+            const ready = isReadyToPlan(item);
             const urgent = isUrgent(item);
             const score = completionScore(item);
             const address = [item.adres, item.miasto].filter(Boolean).join(', ');
-            const priorityColor = ready ? theme.success : urgent ? theme.danger : theme.warning;
-            const priorityLabel = ready ? 'gotowe do planu' : urgent ? 'pilne' : 'do triage';
+            const stage = stageMeta(item, theme);
+            const priorityColor = ready ? theme.success : urgent ? theme.danger : stage.color;
+            const priorityLabel = ready ? 'do planu' : urgent ? 'pilne' : stage.label;
             return (
               <PlatinumAppear key={item.id} delayMs={20 * Math.min(index, 8)}>
                 <View style={S.card}>
@@ -762,16 +969,17 @@ export default function WycenyDoBiuraScreen() {
                   <View style={S.progressBlock}>
                     <View style={S.progressTop}>
                       <Text style={S.progressLabel}>Kompletność pakietu</Text>
-                      <Text style={[S.progressValue, { color: ready ? theme.success : theme.warning }]}>
+                      <Text style={[S.progressValue, { color: packageComplete ? theme.success : theme.warning }]}>
                         {Math.round(score * 100)}%
                       </Text>
                     </View>
                     <View style={S.progressTrack}>
-                      <View style={[S.progressFill, { width: `${Math.round(score * 100)}%`, backgroundColor: ready ? theme.success : theme.warning }]} />
+                      <View style={[S.progressFill, { width: `${Math.round(score * 100)}%`, backgroundColor: packageComplete ? theme.success : theme.warning }]} />
                     </View>
                   </View>
 
                   <View style={S.metaGrid}>
+                    <MetaPill icon={stage.icon} text={stage.label} theme={theme} />
                     <MetaPill icon="calendar-outline" text={formatDate(item.data_planowana)} theme={theme} />
                     <MetaPill icon="cash-outline" text={formatMoney(item.wartosc_planowana)} theme={theme} />
                     <MetaPill icon="time-outline" text={item.czas_planowany_godziny ? `${item.czas_planowany_godziny} h` : 'bez czasu'} theme={theme} />
@@ -812,9 +1020,9 @@ export default function WycenyDoBiuraScreen() {
                   </View>
 
                   <View style={[S.nextStepBox, { borderColor: priorityColor, backgroundColor: priorityColor + '18' }]}>
-                    <Ionicons name={ready ? 'checkmark-done-outline' : urgent ? 'flame-outline' : 'alert-circle-outline'} size={16} color={priorityColor} />
-                    <Text style={[S.nextStepText, { color: ready ? theme.success : urgent ? theme.danger : theme.warning }]}>
-                      {urgent ? 'Pilne: ' : 'Następny krok: '}{primaryMissing(item)}
+                    <Ionicons name={ready ? 'checkmark-done-outline' : urgent ? 'flame-outline' : packageComplete ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={16} color={priorityColor} />
+                    <Text style={[S.nextStepText, { color: priorityColor }]}>
+                      {ready ? 'Nastepny krok: zaplanowac ekipe i termin.' : packageComplete ? 'Paczka kompletna, ale status jeszcze nie przeszedl do biura.' : `${urgent ? 'Pilne: ' : 'Nastepny krok: '}${primaryMissing(item)}`}
                     </Text>
                   </View>
 
@@ -832,7 +1040,9 @@ export default function WycenyDoBiuraScreen() {
                   ) : (
                     <View style={[S.readyBox, { borderColor: theme.success, backgroundColor: theme.successBg }]}>
                       <Ionicons name="checkmark-circle-outline" size={16} color={theme.success} />
-                      <Text style={[S.readyText, { color: theme.success }]}>Pakiet terenowy jest kompletny do dalszego planowania.</Text>
+                      <Text style={[S.readyText, { color: theme.success }]}>
+                        {ready ? 'Pakiet terenowy jest kompletny do dalszego planowania.' : 'Pakiet jest kompletny, ale czeka jeszcze na status Do_Zatwierdzenia.'}
+                      </Text>
                     </View>
                   )}
 
@@ -859,28 +1069,11 @@ export default function WycenyDoBiuraScreen() {
                     </TouchableOpacity>
                     {ready ? (
                       <TouchableOpacity
-                        style={S.actionBtn}
-                        onPress={() => {
-                          void triggerHaptic('light');
-                          router.push('/harmonogram' as never);
-                        }}
+                        style={[S.actionBtn, S.actionBtnPrimary]}
+                        onPress={() => openOfficePlan(item)}
                       >
-                        <Ionicons name="calendar-outline" size={15} color={theme.success} />
-                        <Text style={[S.actionText, { color: theme.success }]}>Plan</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {ready && item.ekipa_id ? (
-                      <TouchableOpacity
-                        style={[S.actionBtn, S.actionBtnPrimary, approvingId === item.id && { opacity: 0.65 }]}
-                        onPress={() => confirmApproveDraft(item)}
-                        disabled={approvingId === item.id}
-                      >
-                        {approvingId === item.id ? (
-                          <ActivityIndicator size="small" color={theme.accentText} />
-                        ) : (
-                          <Ionicons name="checkmark-done-outline" size={15} color={theme.accentText} />
-                        )}
-                        <Text style={S.actionPrimaryText}>Zatwierdź plan</Text>
+                        <Ionicons name="calendar-number-outline" size={15} color={theme.accentText} />
+                        <Text style={S.actionPrimaryText}>Zaplanuj</Text>
                       </TouchableOpacity>
                     ) : null}
                     {item.data_planowana ? (
@@ -918,6 +1111,162 @@ export default function WycenyDoBiuraScreen() {
           })
         )}
       </ScrollView>
+
+      <Modal
+        visible={!!planRow}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          if (!planBusy) setPlanRow(null);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={S.modalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={S.modalSheet}>
+            <View style={S.modalHeader}>
+              <View style={S.modalIcon}>
+                <Ionicons name="calendar-number-outline" size={18} color={theme.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.modalEyebrow}>Plan biura</Text>
+                <Text style={S.modalTitle} numberOfLines={1}>
+                  {planRow ? `#${planRow.id} ${planRow.klient_nazwa || 'Bez klienta'}` : 'Zlecenie'}
+                </Text>
+                <Text style={S.modalSub} numberOfLines={1}>
+                  {planRow ? [planRow.adres, planRow.miasto].filter(Boolean).join(', ') || 'Brak adresu' : ''}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={S.modalClose}
+                onPress={() => {
+                  if (!planBusy) setPlanRow(null);
+                }}
+              >
+                <Ionicons name="close-outline" size={22} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={S.modalContent} keyboardShouldPersistTaps="handled">
+              <View style={S.planInputGrid}>
+                <View style={S.planInputCell}>
+                  <Text style={S.inputLabel}>Data pracy</Text>
+                  <TextInput
+                    value={planForm.data}
+                    onChangeText={(value) => setPlanForm((current) => ({ ...current, data: value }))}
+                    placeholder="2026-05-21"
+                    placeholderTextColor={theme.textMuted}
+                    style={S.input}
+                  />
+                </View>
+                <View style={S.planInputCell}>
+                  <Text style={S.inputLabel}>Godzina</Text>
+                  <TextInput
+                    value={planForm.godzina}
+                    onChangeText={(value) => setPlanForm((current) => ({ ...current, godzina: value }))}
+                    placeholder="08:00"
+                    placeholderTextColor={theme.textMuted}
+                    style={S.input}
+                  />
+                </View>
+                <View style={S.planInputCell}>
+                  <Text style={S.inputLabel}>Czas pracy</Text>
+                  <TextInput
+                    value={planForm.czas}
+                    onChangeText={(value) => setPlanForm((current) => ({ ...current, czas: value.replace(',', '.') }))}
+                    placeholder="2"
+                    placeholderTextColor={theme.textMuted}
+                    keyboardType="decimal-pad"
+                    style={S.input}
+                  />
+                </View>
+              </View>
+
+              <View style={S.planSection}>
+                <View style={S.planSectionHead}>
+                  <Text style={S.inputLabel}>Ekipa</Text>
+                  {teamsLoading ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+                </View>
+                <View style={S.teamGrid}>
+                  {planTeams.map((team) => {
+                    const active = String(team.id) === String(planForm.ekipaId);
+                    const loadText = team.wolne_minuty != null
+                      ? `wolne ${team.wolne_minuty} min`
+                      : team.zajete_minuty != null
+                        ? `zajęte ${team.zajete_minuty} min`
+                        : team.oddzial_nazwa || 'ekipa';
+                    return (
+                      <TouchableOpacity
+                        key={String(team.id)}
+                        style={[S.teamChip, active && S.teamChipActive]}
+                        onPress={() => {
+                          setPlanForm((current) => ({ ...current, ekipaId: String(team.id) }));
+                          void triggerHaptic('light');
+                        }}
+                      >
+                        <Ionicons
+                          name={active ? 'checkmark-circle-outline' : 'people-outline'}
+                          size={15}
+                          color={active ? theme.accent : theme.textMuted}
+                        />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={[S.teamName, active && { color: theme.accent }]} numberOfLines={1}>
+                            {team.nazwa}
+                          </Text>
+                          <Text style={S.teamMeta} numberOfLines={1}>{loadText}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {!teamsLoading && planTeams.length === 0 ? (
+                    <View style={S.emptyTeamBox}>
+                      <Ionicons name="alert-circle-outline" size={16} color={theme.warning} />
+                      <Text style={S.emptyTeamText}>Brak ekip dla tego oddziału. Odśwież ekran albo dodaj delegację.</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              <View style={S.planSection}>
+                <Text style={S.inputLabel}>Sprzęt / uwagi dla magazynu</Text>
+                <TextInput
+                  value={planForm.note}
+                  onChangeText={(value) => setPlanForm((current) => ({ ...current, note: value }))}
+                  placeholder="Np. rębak, zwyżka, ograniczony wjazd, odpady do wywozu..."
+                  placeholderTextColor={theme.textMuted}
+                  multiline
+                  style={[S.input, S.noteInput]}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={S.modalActions}>
+              <TouchableOpacity
+                style={S.cancelBtn}
+                onPress={() => {
+                  if (!planBusy) setPlanRow(null);
+                }}
+                disabled={planBusy}
+              >
+                <Text style={S.cancelText}>Anuluj</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.submitBtn, planBusy && { opacity: 0.7 }]}
+                onPress={() => void submitOfficePlan()}
+                disabled={planBusy}
+              >
+                {planBusy ? (
+                  <ActivityIndicator size="small" color={theme.accentText} />
+                ) : (
+                  <Ionicons name="checkmark-done-outline" size={16} color={theme.accentText} />
+                )}
+                <Text style={S.submitText}>Zapisz plan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardSafeScreen>
   );
 }
@@ -942,7 +1291,9 @@ function MetaPill({ icon, text, theme }: { icon: React.ComponentProps<typeof Ion
 
 const stylesShared = StyleSheet.create({
   kpiCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 92,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
@@ -997,7 +1348,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kpiRow: { flexDirection: 'row', gap: 8 },
+  kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   officeBoard: {
     borderWidth: 1,
     borderColor: t.cardBorder,
@@ -1265,4 +1616,127 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.accent,
   },
   actionPrimaryText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(3, 10, 7, 0.48)',
+  },
+  modalSheet: {
+    maxHeight: '88%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: t.cardBorder,
+    backgroundColor: t.cardBg,
+    padding: 14,
+    gap: 12,
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  modalIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalEyebrow: { color: t.accent, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  modalTitle: { color: t.text, fontSize: 16, fontWeight: '900', marginTop: 2 },
+  modalSub: { color: t.textMuted, fontSize: 12, marginTop: 2 },
+  modalClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalContent: { gap: 12, paddingBottom: 4 },
+  planInputGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  planInputCell: { flexGrow: 1, flexBasis: '30%', minWidth: 96, gap: 6 },
+  inputLabel: { color: t.textSub, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  input: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    color: t.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  planSection: { gap: 8 },
+  planSectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  teamGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  teamChip: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minHeight: 56,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    borderRadius: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  teamChipActive: {
+    borderColor: t.accent,
+    backgroundColor: t.accentLight,
+  },
+  teamName: { color: t.text, fontSize: 12, fontWeight: '900' },
+  teamMeta: { color: t.textMuted, fontSize: 10, marginTop: 2, fontWeight: '700' },
+  emptyTeamBox: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: t.warning + '66',
+    backgroundColor: t.warningBg,
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyTeamText: { flex: 1, color: t.warning, fontSize: 12, lineHeight: 17, fontWeight: '800' },
+  noteInput: {
+    minHeight: 86,
+    textAlignVertical: 'top',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: t.border,
+    paddingTop: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelText: { color: t.textSub, fontSize: 13, fontWeight: '900' },
+  submitBtn: {
+    flex: 1.3,
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: t.accent,
+    backgroundColor: t.accent,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
+  },
+  submitText: { color: t.accentText, fontSize: 13, fontWeight: '900' },
 });

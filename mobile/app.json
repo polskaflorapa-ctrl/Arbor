@@ -38,6 +38,12 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ARBOR-OS uzywa lokalizacji w czasie pracy, aby pokazac pozycje brygad i wyceniajacych w harmonogramie."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

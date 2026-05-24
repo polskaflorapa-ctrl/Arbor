@@ -383,7 +383,7 @@ export default function WyceniajacyHubScreen() {
         <PlatinumCard style={S.section}>
           <View style={S.sectionHead}>
             <View style={{ flex: 1 }}>
-              <Text style={S.sectionTitle}>Plan dnia wyceniającego</Text>
+              <Text style={S.sectionTitle}>Plan dnia specjalisty ds. wyceny</Text>
               <Text style={S.sectionSub}>Telefon, mapa i draft zlecenia bez przepisywania danych.</Text>
             </View>
             <TouchableOpacity
