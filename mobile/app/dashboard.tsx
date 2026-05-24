@@ -848,41 +848,6 @@ export default function DashboardScreen() {
               <Text style={S.roleBriefBtnText}>{roleBrief.action}</Text>
             </TouchableOpacity>
           </View>
-          {dashboardSignal.total > 0 ? (
-            <TouchableOpacity
-              style={{
-                marginTop: 10,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: dashboardSignal.color + '55',
-                backgroundColor: dashboardSignal.background,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-              }}
-              onPress={() => {
-                const taskId = dashboardSignal.next?.task?.id;
-                void openWithContext(
-                  taskId ? `/zlecenie/${taskId}` : '/zlecenia',
-                  'Sygnały terenowe',
-                  'dashboard-field-signal',
-                );
-              }}
-            >
-              <Ionicons name="radio-outline" size={18} color={dashboardSignal.color} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: dashboardSignal.color, fontWeight: '900', fontSize: 12 }}>
-                  {dashboardSignal.total} zleceń wymaga sygnału z terenu
-                </Text>
-                <Text style={{ color: theme.textSub, fontSize: 11, marginTop: 2 }}>
-                  Check-in: {dashboardSignal.checkin} / Foto: {dashboardSignal.photos} / Problemy: {dashboardSignal.problems}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={dashboardSignal.color} />
-            </TouchableOpacity>
-          ) : null}
           <View style={S.workflowFooter}>
             <Text style={S.workflowFooterText}>Zamkniete</Text>
             <Text style={S.workflowFooterValue}>{workflowDoneLabel}</Text>
