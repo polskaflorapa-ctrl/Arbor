@@ -1428,7 +1428,8 @@ router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (r
         COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
         COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
         COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
-        ${TASK_WORK_LOG_AGG_SELECT}
+        ${TASK_WORK_LOG_AGG_SELECT},
+        ${TASK_ISSUE_AGG_SELECT}
        FROM tasks t
        LEFT JOIN teams te ON t.ekipa_id = te.id
        LEFT JOIN team_members tm ON tm.team_id = te.id AND tm.user_id = $2
@@ -1453,6 +1454,7 @@ router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (r
          GROUP BY r.task_id
        ) er ON er.task_id = t.id
        ${TASK_WORK_LOG_AGG_JOIN}
+       ${TASK_ISSUE_AGG_JOIN}
        WHERE t.data_planowana::date = $1::date
        AND (t.brygadzista_id = $2 OR te.brygadzista_id = $2 OR tm.user_id = $2)
        ORDER BY t.id ASC`,
@@ -1656,6 +1658,8 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
         WHERE r.task_id IS NOT NULL
         GROUP BY r.task_id
       ) er ON er.task_id = t.id
+      ${TASK_WORK_LOG_AGG_JOIN}
+      ${TASK_ISSUE_AGG_JOIN}
       ${whereClause}`;
 
     const selectSql = `SELECT
@@ -1670,6 +1674,8 @@ router.get('/field-drafts', authMiddleware, validateQuery(taskListQuerySchema), 
         COALESCE(ps.photo_dojazd, 0)::int AS photo_dojazd,
         COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count,
         COALESCE(er.equipment_reserved_names, '') AS equipment_reserved_names,
+        ${TASK_WORK_LOG_AGG_SELECT},
+        ${TASK_ISSUE_AGG_SELECT},
         ARRAY_REMOVE(ARRAY[
           CASE WHEN COALESCE(ps.photo_wycena, 0) = 0 THEN 'zdjęcie ogólne / wycena' END,
           CASE WHEN COALESCE(ps.photo_szkic, 0) = 0 THEN 'szkic zakresu' END,

@@ -485,6 +485,8 @@ describe('Tasks routes', () => {
         photo_wycena: 1,
         photo_szkic: 1,
         photo_dojazd: 1,
+        problem_total: 2,
+        problem_open: 1,
       }],
     });
 
@@ -501,6 +503,8 @@ describe('Tasks routes', () => {
         photo_wycena: 1,
         photo_szkic: 1,
         photo_dojazd: 1,
+        problem_total: 2,
+        problem_open: 1,
         workflow_stage: 'intake',
       }),
     ]);
@@ -513,6 +517,8 @@ describe('Tasks routes', () => {
     expect(sql).toContain('photo_szkic');
     expect(sql).toContain('photo_dojazd');
     expect(sql).toContain('FROM photos p');
+    expect(sql).toContain('COALESCE(ia.problem_open, 0)::int AS problem_open');
+    expect(sql).toContain('FROM issues');
   });
 
   it('PUT /tasks/:id/field-package returns decorated workflow with fresh photo counters', async () => {

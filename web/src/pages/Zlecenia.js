@@ -5456,6 +5456,51 @@ export default function Zlecenia() {
     { key: 'officePackage', label: 'Pakiet biura', count: visibleOfficePlanBlocked, ok: 'Planowanie OK', danger: 'Blokuje biuro', filterKey: 'officePlanBlocked' },
     { key: 'crewPackage', label: 'Pakiet ekipy', count: visibleCrewPackageBlocked, ok: 'Ekipa gotowa', danger: 'Blokuje ekipę', filterKey: 'crewPackageBlocked' },
   ];
+  const topDispatchBlocker = dispatchReadiness.find((item) => item.count > 0);
+  const decisionCommand = visibleWorkflowBlocked > 0
+    ? {
+        tone: 'warning',
+        label: 'Najpierw usuń blokady procesu',
+        detail: topDispatchBlocker
+          ? `${topDispatchBlocker.danger}: ${topDispatchBlocker.count} w bieżącym widoku`
+          : `${visibleWorkflowBlocked} otwartych zleceń wymaga reakcji`,
+        cta: 'Pokaż blokadę',
+        filterKey: topDispatchBlocker?.filterKey || 'overdue',
+      }
+    : businessGuard.criticalCount > 0
+      ? {
+          tone: 'danger',
+          label: 'Sprawdź marżę i ryzyko',
+          detail: `${businessGuard.criticalCount} pozycji pod kontrolą, ${formatMoneyBrief(businessGuard.riskValue)} wartości pod ryzykiem`,
+          cta: 'Otwórz finanse',
+          openFinance: true,
+        }
+      : visibleReadyClose > 0
+        ? {
+            tone: 'green',
+            label: 'Zamknij gotowe zlecenia',
+            detail: `${visibleReadyClose} zleceń czeka na finalne potwierdzenie i rozliczenie`,
+            cta: 'Pokaż do zamknięcia',
+            filterKey: 'readyClose',
+          }
+        : {
+            tone: 'green',
+            label: 'Widok jest operacyjnie czysty',
+            detail: 'Możesz pracować według kolejki ryzyka albo przejść do planowania.',
+            cta: 'Ustaw ryzyko',
+            sortKey: 'risk',
+          };
+  const decisionKpis = [
+    { key: 'blocked', label: 'Blokady', value: visibleWorkflowBlocked, detail: 'otwarte sprawy' },
+    { key: 'ready', label: 'Do zamknięcia', value: visibleReadyClose, detail: 'gotowe' },
+    { key: 'value', label: 'Wartość', value: formatMoneyBrief(visibleValue), detail: 'w widoku' },
+  ];
+  const decisionQuickActions = [
+    { key: 'unassigned', label: 'Bez ekipy', value: visibleUnassigned, filterKey: 'unassigned' },
+    { key: 'noDate', label: 'Bez terminu', value: visibleNoDate, filterKey: 'noDate' },
+    { key: 'readyClose', label: 'Do zamknięcia', value: visibleReadyClose, filterKey: 'readyClose' },
+    { key: 'finance', label: 'Ryzyko', value: businessGuard.criticalCount, openFinance: true },
+  ];
   const zleceniaOpsCards = [
     { label: 'Widoczne', value: widoczneZlecenia.length, detail: `${zlecenia.length} w systemie`, tone: 'green' },
     { label: 'Wartość widoku', value: formatMoneyBrief(visibleValue), detail: 'planowana wartość prac', tone: 'green' },
@@ -6165,6 +6210,77 @@ export default function Zlecenia() {
                 </>
               }
             />
+            <div
+              data-testid="zlecenia-decision-band"
+              style={{
+                ...s.decisionBand,
+                ...(s[`decisionBand_${decisionCommand.tone}`] || {}),
+              }}
+            >
+              <div style={s.decisionLead}>
+                <span style={s.decisionEyebrow}>
+                  {activeSmartLabel ? `Aktywny filtr: ${activeSmartLabel}` : 'Priorytet widoku'}
+                </span>
+                <strong style={s.decisionTitle}>{decisionCommand.label}</strong>
+                <span style={s.decisionText}>{decisionCommand.detail}</span>
+              </div>
+              <div style={s.decisionKpiGrid}>
+                {decisionKpis.map((item) => (
+                  <div key={item.key} style={s.decisionKpi}>
+                    <span style={s.decisionKpiLabel}>{item.label}</span>
+                    <strong style={s.decisionKpiValue}>{item.value}</strong>
+                    <small style={s.decisionKpiHint}>{item.detail}</small>
+                  </div>
+                ))}
+              </div>
+              <div style={s.decisionActions}>
+                <button
+                  type="button"
+                  data-testid="decision-primary-action"
+                  style={s.decisionPrimaryBtn}
+                  onClick={() => {
+                    if (decisionCommand.filterKey) setSmartFilter(decisionCommand.filterKey);
+                    if (decisionCommand.sortKey) setSortMode(decisionCommand.sortKey);
+                    if (decisionCommand.openFinance) {
+                      setShowAdvancedOps(true);
+                      setCommandTab('finance');
+                      setSortMode('risk');
+                    }
+                    setSelectedTaskIds([]);
+                  }}
+                >
+                  {decisionCommand.cta}
+                </button>
+                <div style={s.decisionQuickActions}>
+                  {decisionQuickActions.map((item) => {
+                    const active = item.filterKey && smartFilter === item.filterKey;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        data-testid={`decision-quick-${item.key}`}
+                        style={{
+                          ...s.decisionQuickBtn,
+                          ...(active ? s.decisionQuickBtnActive : {}),
+                        }}
+                        onClick={() => {
+                          if (item.openFinance) {
+                            setShowAdvancedOps(true);
+                            setCommandTab('finance');
+                            setSortMode('risk');
+                          }
+                          if (item.filterKey) setSmartFilter(active ? '' : item.filterKey);
+                          setSelectedTaskIds([]);
+                        }}
+                      >
+                        <span style={s.decisionQuickBtnSpan}>{item.label}</span>
+                        <strong style={s.decisionQuickBtnStrong}>{item.value}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
             <div style={s.commandPanel}>
               <div style={s.commandHeader}>
                 <div>
@@ -8660,6 +8776,154 @@ const s = {
   filtrInput: { padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--input-bg)', color: 'var(--text)' },
   clearBtn: { padding: '8px 13px', backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   countBadge: { fontSize: 12, color: 'var(--accent)', marginLeft: 'auto', whiteSpace: 'nowrap', border: '1px solid var(--border2)', borderRadius: 8, padding: '6px 9px', backgroundColor: 'var(--accent-surface)', fontWeight: 900 },
+  decisionBand: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 12,
+    alignItems: 'stretch',
+    border: '1px solid var(--border2)',
+    borderRadius: 8,
+    background: 'linear-gradient(135deg, var(--bg-card), var(--accent-surface))',
+    padding: 14,
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-sm)',
+  },
+  decisionBand_green: {
+    border: '1px solid rgba(22,138,74,0.28)',
+    boxShadow: 'inset 4px 0 0 var(--accent), var(--shadow-sm)',
+  },
+  decisionBand_warning: {
+    border: '1px solid rgba(199,119,0,0.34)',
+    background: 'linear-gradient(135deg, rgba(251,191,36,0.12), var(--bg-card))',
+    boxShadow: 'inset 4px 0 0 var(--warning), var(--shadow-sm)',
+  },
+  decisionBand_danger: {
+    border: '1px solid rgba(220,38,38,0.32)',
+    background: 'linear-gradient(135deg, rgba(248,113,113,0.11), var(--bg-card))',
+    boxShadow: 'inset 4px 0 0 var(--danger), var(--shadow-sm)',
+  },
+  decisionLead: {
+    minWidth: 0,
+    display: 'grid',
+    alignContent: 'center',
+    gap: 4,
+  },
+  decisionEyebrow: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    lineHeight: 1.2,
+  },
+  decisionTitle: {
+    color: 'var(--text)',
+    fontSize: 18,
+    fontWeight: 950,
+    lineHeight: 1.2,
+    overflowWrap: 'anywhere',
+  },
+  decisionText: {
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    fontWeight: 760,
+    lineHeight: 1.35,
+    overflowWrap: 'anywhere',
+  },
+  decisionKpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+    gap: 8,
+  },
+  decisionKpi: {
+    minWidth: 0,
+    minHeight: 76,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.62)',
+    padding: '9px 10px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 3,
+  },
+  decisionKpiLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.15,
+  },
+  decisionKpiValue: {
+    color: 'var(--text)',
+    fontSize: 19,
+    fontWeight: 950,
+    lineHeight: 1.05,
+    fontVariantNumeric: 'tabular-nums',
+    overflowWrap: 'anywhere',
+  },
+  decisionKpiHint: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 780,
+    lineHeight: 1.2,
+  },
+  decisionActions: {
+    display: 'grid',
+    gridTemplateRows: 'auto 1fr',
+    gap: 8,
+    minWidth: 0,
+  },
+  decisionPrimaryBtn: {
+    width: '100%',
+    minHeight: 40,
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent)',
+    color: '#fff',
+    padding: '9px 12px',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 950,
+    fontFamily: 'inherit',
+    boxShadow: '0 10px 22px rgba(15,95,58,0.18)',
+  },
+  decisionQuickActions: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+    gap: 7,
+  },
+  decisionQuickBtn: {
+    minWidth: 0,
+    minHeight: 48,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text-sub)',
+    padding: '7px 8px',
+    cursor: 'pointer',
+    display: 'grid',
+    gap: 2,
+    alignContent: 'center',
+    textAlign: 'left',
+    fontFamily: 'inherit',
+  },
+  decisionQuickBtnActive: {
+    border: '1px solid var(--accent)',
+    background: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    boxShadow: 'inset 3px 0 0 var(--accent)',
+  },
+  decisionQuickBtnSpan: {
+    fontSize: 10,
+    fontWeight: 900,
+    lineHeight: 1.1,
+  },
+  decisionQuickBtnStrong: {
+    fontSize: 16,
+    fontWeight: 950,
+    lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+  },
   commandPanel: {
     border: '1px solid var(--border2)',
     borderRadius: 8,
