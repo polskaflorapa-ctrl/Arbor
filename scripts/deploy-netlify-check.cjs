@@ -54,9 +54,12 @@ function mainChecks() {
   assert(/Cache-Control\s*=\s*"public, max-age=31536000, immutable"/.test(netlifyToml), 'netlify.toml should cache hashed static assets.');
   assert(/X-Content-Type-Options\s*=\s*"nosniff"/.test(netlifyToml), 'netlify.toml should set nosniff.');
 
+  const apiRuleIndex = redirects.indexOf('/api/* /.netlify/functions/api/:splat 200!');
   const spaRuleIndex = redirects.indexOf('/* /index.html 200');
   assert(!redirects.includes('/api/* /404.html 404'), 'web/public/_redirects should not shadow Netlify API functions.');
+  assert(apiRuleIndex >= 0, 'web/public/_redirects should route /api/* to the Netlify API function.');
   assert(spaRuleIndex >= 0, 'web/public/_redirects should include the SPA fallback.');
+  assert(apiRuleIndex < spaRuleIndex, 'web/public/_redirects should put the API function rule before the SPA fallback.');
 
   assert(fs.existsSync('netlify/functions/api.js'), 'Netlify API function is missing.');
   assert(fs.existsSync('web/public/404.html'), 'web/public/404.html is missing.');
