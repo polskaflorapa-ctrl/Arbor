@@ -28,6 +28,35 @@ import { getStoredSession } from '../utils/session';
 
 type EkipaRow = { id: number; nazwa: string };
 
+function normalizeAttendanceItem(item: any, fallbackDate: string): AttendanceEntry {
+  const teamId = String(item?.teamId ?? item?.team_id ?? '');
+  return {
+    id: String(item?.id || `${teamId}_${fallbackDate}`),
+    dateYmd: String(item?.dateYmd || item?.date_ymd || fallbackDate),
+    teamId,
+    teamName: String(item?.teamName || item?.team_name || item?.nazwa || `Ekipa #${teamId}`),
+    present: item?.present !== false,
+    note: String(item?.note || ''),
+    actor: String(item?.actor || item?.actor_name || ''),
+    at: String(item?.at || item?.updated_at || item?.created_at || new Date().toISOString()),
+  };
+}
+
+async function saveRemoteAttendance(auth: string, team: EkipaRow, entry: AttendanceEntry): Promise<AttendanceEntry> {
+  const res = await fetch(`${API_URL}/ekipy/${team.id}/attendance`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dateYmd: entry.dateYmd,
+      present: entry.present,
+      note: entry.note || '',
+    }),
+  });
+  if (!res.ok) throw new Error('attendance_save_failed');
+  const data = await res.json();
+  return normalizeAttendanceItem(data?.item || entry, entry.dateYmd);
+}
+
 export default function PotwierdzeniaEkipScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -40,10 +69,27 @@ export default function PotwierdzeniaEkipScreen() {
   const [entries, setEntries] = useState<AttendanceEntry[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  const refreshLocal = useCallback(async () => {
+  const refreshAttendance = useCallback(async (auth?: string | null, date = dateYmd) => {
+    if (auth) {
+      try {
+        const res = await fetch(`${API_URL}/ekipy/attendance?date=${encodeURIComponent(date)}`, {
+          headers: { Authorization: `Bearer ${auth}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const remoteItems = Array.isArray(data?.items)
+            ? data.items.map((item: any) => normalizeAttendanceItem(item, date))
+            : [];
+          setEntries(remoteItems);
+          return;
+        }
+      } catch {
+        // Offline fallback below.
+      }
+    }
     const list = await loadAttendance();
     setEntries(list);
-  }, []);
+  }, [dateYmd]);
 
   const loadEkipy = useCallback(async (auth: string) => {
     const res = await fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: { Authorization: `Bearer ${auth}` } });
@@ -63,10 +109,14 @@ export default function PotwierdzeniaEkipScreen() {
       const name = [String(user?.imie || ''), String(user?.nazwisko || '')].join(' ').trim();
       setActor(name || String(user?.rola || 'user'));
       if (tok) await loadEkipy(tok);
-      await refreshLocal();
+      await refreshAttendance(tok);
       setLoading(false);
     })();
-  }, [loadEkipy, refreshLocal]);
+  }, [loadEkipy, refreshAttendance]);
+
+  useEffect(() => {
+    if (!loading) void refreshAttendance(token, dateYmd);
+  }, [dateYmd, loading, refreshAttendance, token]);
 
   const dayEntries = attendanceForDate(entries, dateYmd);
   const byTeam = new Map(dayEntries.map((e) => [e.teamId, e]));
@@ -75,30 +125,54 @@ export default function PotwierdzeniaEkipScreen() {
 
   const toggle = async (team: EkipaRow, present: boolean) => {
     const prev = byTeam.get(String(team.id));
-    await upsertAttendance({
-      id: prev?.id,
+    const entry: AttendanceEntry = {
+      id: prev?.id || `${team.id}_${dateYmd}`,
       dateYmd,
       teamId: String(team.id),
       teamName: team.nazwa,
       present,
       note: notes[String(team.id)] ?? prev?.note ?? '',
       actor,
-    });
-    await refreshLocal();
+      at: new Date().toISOString(),
+    };
+    if (token) {
+      try {
+        const saved = await saveRemoteAttendance(token, team, entry);
+        await upsertAttendance(saved);
+        await refreshAttendance(token);
+        return;
+      } catch {
+        // Keep the field workflow usable offline.
+      }
+    }
+    await upsertAttendance(entry);
+    await refreshAttendance(token);
   };
 
   const saveNote = async (team: EkipaRow) => {
     const prev = byTeam.get(String(team.id));
-    await upsertAttendance({
-      id: prev?.id,
+    const entry: AttendanceEntry = {
+      id: prev?.id || `${team.id}_${dateYmd}`,
       dateYmd,
       teamId: String(team.id),
       teamName: team.nazwa,
       present: prev?.present ?? true,
       note: notes[String(team.id)] ?? prev?.note ?? '',
       actor,
-    });
-    await refreshLocal();
+      at: new Date().toISOString(),
+    };
+    if (token) {
+      try {
+        const saved = await saveRemoteAttendance(token, team, entry);
+        await upsertAttendance(saved);
+        await refreshAttendance(token);
+        return;
+      } catch {
+        // Keep the note locally when the server is unavailable.
+      }
+    }
+    await upsertAttendance(entry);
+    await refreshAttendance(token);
   };
 
   const S = makeStyles(theme);

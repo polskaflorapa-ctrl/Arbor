@@ -46,6 +46,7 @@ function mainChecks() {
   assert(/command\s*=\s*"npm ci && npm run build -w arbor-web"/.test(netlifyToml), 'netlify.toml build command is unexpected.');
   assert(/publish\s*=\s*"web\/build"/.test(netlifyToml), 'netlify.toml should publish web/build.');
   assert(/NODE_VERSION\s*=\s*"22\.12\.0"/.test(netlifyToml), 'netlify.toml should pin Node 22.12.0 for Vite 7.');
+  assert(/NPM_CONFIG_IGNORE_SCRIPTS\s*=\s*"true"/.test(netlifyToml), 'netlify.toml should skip install scripts for web-only Netlify builds.');
   assert(/VITE_API_URL\s*=\s*"\/api"/.test(netlifyToml), 'netlify.toml should build the web app against same-origin /api.');
   assert(/\[functions\]/.test(netlifyToml), 'netlify.toml is missing [functions].');
   assert(/directory\s*=\s*"netlify\/functions"/.test(netlifyToml), 'netlify.toml should use netlify/functions.');

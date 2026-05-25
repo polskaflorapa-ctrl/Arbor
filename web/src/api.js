@@ -41,7 +41,16 @@ const originalAdapter = axios.getAdapter
 
 function getRequestPath(url) {
   if (!url) return '';
-  return String(url).split('?')[0].replace(/\/+$|\/\?+$/g, '');
+  let path = String(url).split('?')[0].replace(/\/+$|\/\?+$/g, '');
+  try {
+    if (/^https?:\/\//i.test(path)) {
+      path = new URL(path).pathname.replace(/\/+$/g, '');
+    }
+  } catch {
+    // Keep the original path when URL parsing fails.
+  }
+  if (!path.startsWith('/')) path = `/${path}`;
+  return path.replace(/^\/api(?=\/|$)/, '') || '/';
 }
 
 function parseJsonData(data) {
@@ -54,6 +63,18 @@ function parseJsonData(data) {
     }
   }
   return data;
+}
+
+function getRequestDate(config) {
+  const fromParams = config?.params?.date;
+  if (fromParams) return String(fromParams);
+  try {
+    const raw = String(config?.url || '');
+    const query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+    return new URLSearchParams(query).get('date') || new Date().toISOString().slice(0, 10);
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
 }
 
 function getTestUserForLogin(login) {
@@ -74,6 +95,59 @@ function getTestModeMockResponse(config) {
     const user = getTestUserForLogin(body.login);
     return {
       data: { token: TEST_TOKEN, user },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ekipy/attendance' && method === 'get') {
+    const date = getRequestDate(config);
+    const teams = getMockData('/ekipy') || [];
+    const items = teams.map((team) => ({
+      id: `${team.id}_${date}`,
+      dateYmd: date,
+      teamId: String(team.id),
+      teamName: team.nazwa || `Ekipa #${team.id}`,
+      present: true,
+      note: '',
+      actor: 'Tryb testowy',
+      at: new Date().toISOString(),
+      oddzial_id: team.oddzial_id || null,
+    }));
+    return {
+      data: { date, items, summary: { total: items.length, confirmed: items.length, absent: 0 } },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTeamAttendance = path.match(/^\/ekipy\/(\d+)\/attendance$/);
+  if (mTeamAttendance && method === 'put') {
+    const body = parseJsonData(config.data);
+    const date = String(body.dateYmd || body.date || new Date().toISOString().slice(0, 10));
+    const teams = getMockData('/ekipy') || [];
+    const team = teams.find((item) => String(item.id) === String(mTeamAttendance[1])) || {};
+    return {
+      data: {
+        item: {
+          id: `${mTeamAttendance[1]}_${date}`,
+          dateYmd: date,
+          teamId: String(mTeamAttendance[1]),
+          teamName: team.nazwa || `Ekipa #${mTeamAttendance[1]}`,
+          present: body.present !== false,
+          note: body.note || '',
+          actor: 'Tryb testowy',
+          at: new Date().toISOString(),
+          oddzial_id: team.oddzial_id || null,
+        },
+        message: 'Potwierdzenie ekipy zapisane',
+      },
       status: 200,
       statusText: 'OK',
       headers: {},

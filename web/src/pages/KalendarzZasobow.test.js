@@ -26,7 +26,44 @@ const USER_JSON = JSON.stringify({
   nazwisko: 'Planer',
 });
 
-function mockCalendarApi() {
+function mockCalendarApi({ tasks } = {}) {
+  const taskRows = tasks ?? [
+    {
+      id: 42,
+      status: 'Zaplanowane',
+      ekipa_id: 3,
+      oddzial_id: 7,
+      klient_nazwa: 'Jan Kowalski',
+      klient_telefon: '+48 500 100 200',
+      adres: 'Lesna 12',
+      miasto: 'Wroclaw',
+      opis_pracy: 'Przycinka koron nad podjazdem',
+      ryzyka: 'Linia energetyczna przy bramie',
+      data_planowana: '2026-05-25T08:30:00',
+      godzina_rozpoczecia: '08:30',
+      czas_planowany_godziny: 3,
+      wartosc_planowana: 2500,
+      photos_count: 2,
+      notatki: 'Klient zaakceptowal: tak\nWarunki rozliczenia: 2500 PLN netto',
+    },
+    {
+      id: 43,
+      status: 'Zaplanowane',
+      ekipa_id: 4,
+      oddzial_id: 7,
+      klient_nazwa: 'Anna Nowak',
+      adres: 'Polna 8',
+      miasto: 'Wroclaw',
+      opis_pracy: 'Frezowanie pnia po wycince',
+      ryzyka: 'Waski wjazd',
+      data_planowana: '2026-05-25T12:00:00',
+      godzina_rozpoczecia: '12:00',
+      czas_planowany_godziny: 2,
+      wartosc_planowana: 900,
+      photos_count: 1,
+    },
+  ];
+
   api.get.mockImplementation((url) => {
     if (url === '/flota/sprzet') {
       return Promise.resolve({ data: [{ id: 11, nazwa: 'Rebak Forst', oddzial_id: 7 }] });
@@ -44,42 +81,7 @@ function mockCalendarApi() {
     }
     if (url === '/tasks/wszystkie') {
       return Promise.resolve({
-        data: [
-          {
-            id: 42,
-            status: 'Zaplanowane',
-            ekipa_id: 3,
-            oddzial_id: 7,
-            klient_nazwa: 'Jan Kowalski',
-            klient_telefon: '+48 500 100 200',
-            adres: 'Lesna 12',
-            miasto: 'Wroclaw',
-            opis_pracy: 'Przycinka koron nad podjazdem',
-            ryzyka: 'Linia energetyczna przy bramie',
-            data_planowana: '2026-05-25T08:30:00',
-            godzina_rozpoczecia: '08:30',
-            czas_planowany_godziny: 3,
-            wartosc_planowana: 2500,
-            photos_count: 2,
-            notatki: 'Klient zaakceptowal: tak\nWarunki rozliczenia: 2500 PLN netto',
-          },
-          {
-            id: 43,
-            status: 'Zaplanowane',
-            ekipa_id: 4,
-            oddzial_id: 7,
-            klient_nazwa: 'Anna Nowak',
-            adres: 'Polna 8',
-            miasto: 'Wroclaw',
-            opis_pracy: 'Frezowanie pnia po wycince',
-            ryzyka: 'Waski wjazd',
-            data_planowana: '2026-05-25T12:00:00',
-            godzina_rozpoczecia: '12:00',
-            czas_planowany_godziny: 2,
-            wartosc_planowana: 900,
-            photos_count: 1,
-          },
-        ],
+        data: taskRows,
       });
     }
     if (String(url).startsWith('/flota/rezerwacje')) {
@@ -173,9 +175,28 @@ test('copies a team-only day brief from the team header', async () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
   });
   const copied = navigator.clipboard.writeText.mock.calls[0][0];
+  expect(copied).toContain('ARBOR-OS | Odprawa ekipy');
   expect(copied).toContain('=== Brygada Alfa ===');
   expect(copied).toContain('#42 | 08:30-11:30 | Jan Kowalski');
   expect(copied).not.toContain('Brygada Beta');
   expect(copied).not.toContain('Anna Nowak');
+  expect(await screen.findByText('Odprawa ekipy Brygada Alfa skopiowana.')).toBeInTheDocument();
+});
+
+test('keeps an empty team brief tied to the selected team', async () => {
+  mockCalendarApi({ tasks: [] });
+
+  renderCalendar();
+
+  await screen.findByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' });
+  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' }));
+
+  await waitFor(() => {
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+  });
+  const copied = navigator.clipboard.writeText.mock.calls[0][0];
+  expect(copied).toContain('ARBOR-OS | Odprawa ekipy');
+  expect(copied).toContain('=== Brygada Alfa ===');
+  expect(copied).toContain('Brak zaplanowanych zlecen dla tej ekipy.');
   expect(await screen.findByText('Odprawa ekipy Brygada Alfa skopiowana.')).toBeInTheDocument();
 });

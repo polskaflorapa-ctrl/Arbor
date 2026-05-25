@@ -42,6 +42,23 @@ const ekipaIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+const ymdSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data musi miec format YYYY-MM-DD');
+
+const teamAttendanceQuerySchema = z.object({
+  date: ymdSchema.optional(),
+  oddzial_id: z.coerce.number().int().positive().optional(),
+});
+
+const teamAttendanceBodySchema = z.object({
+  dateYmd: ymdSchema.optional(),
+  date: ymdSchema.optional(),
+  present: z.boolean(),
+  note: z.string().max(1000).optional().nullable(),
+}).refine((body) => body.dateYmd || body.date, {
+  message: 'Data jest wymagana',
+  path: ['dateYmd'],
+});
+
 const liveLocationsQuerySchema = z.object({
   refresh: z
     .preprocess((v) => (v === undefined ? false : ['1', 'true', true].includes(v)), z.boolean())
@@ -84,6 +101,7 @@ const ekipaCzlonkowieParamsSchema = z.object({
 const canSeeAllTeamRanking = (user) => isDyrektor(user) || user?.rola === 'Administrator' || isSalesDirector(user);
 const canViewTeamRanking = (user) => canSeeAllTeamRanking(user) || user?.rola === 'Kierownik';
 const COMPLETED_STATUS = new Set(['zakonczone', 'zakonczony']);
+let teamAttendanceTablesReady = false;
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -106,6 +124,67 @@ function toDateKey(value) {
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString().slice(0, 10);
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function actorName(user) {
+  return [user?.imie, user?.nazwisko].map((value) => String(value || '').trim()).filter(Boolean).join(' ') ||
+    user?.login ||
+    user?.rola ||
+    'system';
+}
+
+async function ensureTeamAttendanceTables() {
+  if (teamAttendanceTablesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_attendance (
+      id SERIAL PRIMARY KEY,
+      date_ymd DATE NOT NULL,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      present BOOLEAN NOT NULL DEFAULT true,
+      note TEXT,
+      actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_name VARCHAR(160),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_team_attendance_day_team ON team_attendance(date_ymd, team_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_team_attendance_date ON team_attendance(date_ymd)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_team_attendance_team ON team_attendance(team_id)');
+  teamAttendanceTablesReady = true;
+}
+
+function mapAttendanceRow(row, dateValue) {
+  const present = row.present === null || row.present === undefined ? true : row.present === true;
+  const teamId = row.team_id ?? row.teamId;
+  const teamName = row.team_name || row.teamName || row.nazwa || `Ekipa #${teamId}`;
+  const stamp = row.updated_at || row.created_at || null;
+  return {
+    id: row.attendance_id ? String(row.attendance_id) : `${teamId}_${dateValue}`,
+    dateYmd: dateValue,
+    teamId: String(teamId),
+    teamName,
+    present,
+    note: row.note || '',
+    actor: row.actor_name || '',
+    at: stamp,
+    oddzial_id: row.oddzial_id || null,
+    oddzial_nazwa: row.oddzial_nazwa || null,
+  };
+}
+
+function attendanceSummary(items) {
+  const total = items.length;
+  const absent = items.filter((item) => item.present === false).length;
+  return {
+    total,
+    confirmed: total - absent,
+    absent,
+  };
 }
 
 function normalizeStatus(status) {
@@ -363,6 +442,92 @@ router.get('/ranking', authMiddleware, validateQuery(ekipaRankingQuerySchema), a
     });
   } catch (err) {
     logger.error('Blad pobierania rankingu ekip', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/attendance', authMiddleware, validateQuery(teamAttendanceQuerySchema), async (req, res) => {
+  try {
+    await ensureTeamAttendanceTables();
+    const date = req.query.date || todayKey();
+    const requestedOddzialId = req.query.oddzial_id || null;
+    if (requestedOddzialId && !isDyrektor(req.user) && Number(requestedOddzialId) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+
+    const scopedOddzialId = requestedOddzialId || (!isDyrektor(req.user) ? req.user.oddzial_id : null);
+    const params = [date];
+    let where = 'WHERE COALESCE(t.aktywny, true) = true';
+    if (scopedOddzialId) {
+      params.push(scopedOddzialId);
+      where += ` AND t.oddzial_id = $${params.length}`;
+    }
+
+    const { rows } = await pool.query(
+      `SELECT
+         t.id AS team_id,
+         t.nazwa AS team_name,
+         t.oddzial_id,
+         b.nazwa AS oddzial_nazwa,
+         a.id AS attendance_id,
+         a.present,
+         a.note,
+         a.actor_name,
+         a.created_at,
+         a.updated_at
+       FROM teams t
+       LEFT JOIN branches b ON b.id = t.oddzial_id
+       LEFT JOIN team_attendance a ON a.team_id = t.id AND a.date_ymd = $1::date
+       ${where}
+       ORDER BY t.nazwa`,
+      params
+    );
+    const items = rows.map((row) => mapAttendanceRow(row, date));
+    res.json({
+      date,
+      items,
+      summary: attendanceSummary(items),
+    });
+  } catch (err) {
+    logger.error('Blad pobierania potwierdzen ekip', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put('/:id/attendance', authMiddleware, validateParams(ekipaIdParamsSchema), validateBody(teamAttendanceBodySchema), async (req, res) => {
+  try {
+    await ensureTeamAttendanceTables();
+    const date = req.body.dateYmd || req.body.date;
+    const team = await pool.query('SELECT id, nazwa, oddzial_id FROM teams WHERE id = $1', [req.params.id]);
+    if (!team.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    const row = team.rows[0];
+    if (!isDyrektor(req.user) && row.oddzial_id != null && Number(row.oddzial_id) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+
+    const actor = actorName(req.user);
+    const saved = await pool.query(
+      `INSERT INTO team_attendance (date_ymd, team_id, present, note, actor_id, actor_name)
+       VALUES ($1::date, $2, $3, $4, $5, $6)
+       ON CONFLICT (date_ymd, team_id) DO UPDATE SET
+         present = EXCLUDED.present,
+         note = EXCLUDED.note,
+         actor_id = EXCLUDED.actor_id,
+         actor_name = EXCLUDED.actor_name,
+         updated_at = NOW()
+       RETURNING id AS attendance_id, date_ymd, team_id, present, note, actor_name, created_at, updated_at`,
+      [date, req.params.id, req.body.present, req.body.note || '', req.user.id || null, actor]
+    );
+    res.json({
+      item: mapAttendanceRow({
+        ...saved.rows[0],
+        team_name: row.nazwa,
+        oddzial_id: row.oddzial_id,
+      }, date),
+      message: 'Potwierdzenie ekipy zapisane',
+    });
+  } catch (err) {
+    logger.error('Blad zapisu potwierdzenia ekipy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

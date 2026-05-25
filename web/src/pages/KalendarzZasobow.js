@@ -1750,7 +1750,8 @@ export default function KalendarzZasobow() {
       noPhotos: teamTasks.filter((task) => taskPhotoTotal(task) <= 0).length,
       noBrief: teamTasks.filter((task) => !taskWorkBrief(task)).length,
     };
-    const brief = buildDayBrief({
+    const teamName = team?.nazwa || (teamId ? `Ekipa #${teamId}` : 'Ekipa');
+    let brief = buildDayBrief({
       dayISO,
       dayLabel,
       scheduledTasks: teamTasks,
@@ -1765,8 +1766,11 @@ export default function KalendarzZasobow() {
         delegated: team && isTeamDelegatedToView(team) ? [team] : [],
         delegatedTasks: [],
       },
-    });
-    void copyTextToClipboard(brief, `Odprawa ekipy ${team?.nazwa || teamId} skopiowana.`);
+    }).replace('ARBOR-OS | Odprawa dnia', 'ARBOR-OS | Odprawa ekipy');
+    if (!teamTasks.length) {
+      brief = `${brief}\n\n=== ${teamName} ===\nBrak zaplanowanych zlecen dla tej ekipy.`;
+    }
+    void copyTextToClipboard(brief, `Odprawa ekipy ${teamName} skopiowana.`);
   }, [
     branchOptions,
     copyTextToClipboard,
