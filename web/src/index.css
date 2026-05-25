@@ -2824,6 +2824,13 @@ body.theme-green {
   --glass-bg: rgba(255, 255, 255, 0.78) !important;
   --glass-bg-strong: rgba(255, 255, 255, 0.94) !important;
   --glass-border: rgba(15, 95, 58, 0.12) !important;
+  --space-bg: #f4faf5 !important;
+  --laser-emerald: #14834f !important;
+  --pulsar-blue: #177eaa !important;
+  --supernova-orange: #b7791f !important;
+  --forest-pattern: none !important;
+  --forest-line: rgba(20, 107, 67, 0.08) !important;
+  --surface-glass-token: rgba(255, 255, 255, 0.88) !important;
   --font-sans: 'Manrope', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
 }
 
@@ -2982,7 +2989,7 @@ h6 {
 
 .dashboard-content-grid > *,
 .dashboard-lower-grid > * {
-  border-radius: 24px !important;
+  border-radius: 8px !important;
 }
 
 .dashboard-kpi-grid > * {
@@ -2993,13 +3000,7 @@ h6 {
 
 .dashboard-kpi-grid > *::after {
   content: "" !important;
-  position: absolute !important;
-  right: -28px !important;
-  bottom: -34px !important;
-  width: 86px !important;
-  height: 86px !important;
-  border-radius: 999px !important;
-  background: rgba(40,182,108,0.1) !important;
+  display: none !important;
   pointer-events: none !important;
 }
 
@@ -3024,7 +3025,7 @@ h6 {
 .dashboard-content-grid button {
   background: linear-gradient(180deg, #fff, rgba(248,252,249,0.96)) !important;
   border: 1px solid rgba(15,95,58,0.12) !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   box-shadow: 0 8px 22px rgba(16,34,24,0.06), inset 0 1px 0 rgba(255,255,255,0.88) !important;
 }
 
@@ -3044,7 +3045,7 @@ textarea,
 #root .MuiInputBase-root {
   background: rgba(255,255,255,0.9) !important;
   border: 1px solid rgba(15,95,58,0.12) !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   color: var(--text) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px rgba(16,34,24,0.05) !important;
 }
@@ -3066,7 +3067,7 @@ button.btn-primary,
     linear-gradient(135deg, #0f6b3f, #28b66c) !important;
   color: #ffffff !important;
   border: 1px solid rgba(15,95,58,0.16) !important;
-  border-radius: 15px !important;
+  border-radius: 8px !important;
   box-shadow: 0 22px 50px rgba(20,107,67,0.18) !important;
 }
 
@@ -3075,7 +3076,7 @@ button.btn-primary,
   color: #0f6b3f !important;
   border-color: rgba(15,95,58,0.18) !important;
   background: rgba(255,255,255,0.9) !important;
-  border-radius: 15px !important;
+  border-radius: 8px !important;
 }
 
 button,
@@ -3096,7 +3097,7 @@ button:hover,
 
 .modern-data-row {
   border-left: 4px solid var(--row-accent, var(--accent)) !important;
-  border-radius: 18px !important;
+  border-radius: 8px !important;
 }
 
 .modern-data-row__icon {
@@ -3104,7 +3105,7 @@ button:hover,
   color: var(--row-accent, var(--accent)) !important;
   background: rgba(20,131,79,0.08) !important;
   border: 1px solid rgba(20,131,79,0.14) !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
 }
 
 ::-webkit-scrollbar-track {
@@ -3196,9 +3197,17 @@ body.theme-dark {
   --input-bg: #08120d !important;
   --surface-raised: linear-gradient(180deg, rgba(13,26,19,0.96), rgba(18,38,26,0.92)) !important;
   --surface-glass: linear-gradient(135deg, rgba(8,18,13,0.92), rgba(13,26,19,0.82)) !important;
+  --surface-field: #08120d !important;
   --glass-bg: rgba(13,26,19,0.72) !important;
   --glass-bg-strong: rgba(8,18,13,0.86) !important;
   --glass-border: rgba(207,230,215,0.14) !important;
+  --space-bg: #07110c !important;
+  --laser-emerald: #6ee7a8 !important;
+  --pulsar-blue: #7dd3fc !important;
+  --supernova-orange: #fbbf24 !important;
+  --forest-pattern: none !important;
+  --forest-line: rgba(110, 231, 168, 0.08) !important;
+  --surface-glass-token: rgba(13, 26, 19, 0.88) !important;
 }
 
 body.theme-dark,
