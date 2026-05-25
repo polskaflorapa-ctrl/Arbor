@@ -32,7 +32,12 @@ function mockCalendarApi() {
       return Promise.resolve({ data: [{ id: 11, nazwa: 'Rebak Forst', oddzial_id: 7 }] });
     }
     if (url === '/ekipy') {
-      return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa', oddzial_id: 7, oddzial_nazwa: 'Wroclaw' }] });
+      return Promise.resolve({
+        data: [
+          { id: 3, nazwa: 'Brygada Alfa', oddzial_id: 7, oddzial_nazwa: 'Wroclaw' },
+          { id: 4, nazwa: 'Brygada Beta', oddzial_id: 7, oddzial_nazwa: 'Wroclaw' },
+        ],
+      });
     }
     if (url === '/oddzialy') {
       return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
@@ -57,6 +62,22 @@ function mockCalendarApi() {
             wartosc_planowana: 2500,
             photos_count: 2,
             notatki: 'Klient zaakceptowal: tak\nWarunki rozliczenia: 2500 PLN netto',
+          },
+          {
+            id: 43,
+            status: 'Zaplanowane',
+            ekipa_id: 4,
+            oddzial_id: 7,
+            klient_nazwa: 'Anna Nowak',
+            adres: 'Polna 8',
+            miasto: 'Wroclaw',
+            opis_pracy: 'Frezowanie pnia po wycince',
+            ryzyka: 'Waski wjazd',
+            data_planowana: '2026-05-25T12:00:00',
+            godzina_rozpoczecia: '12:00',
+            czas_planowany_godziny: 2,
+            wartosc_planowana: 900,
+            photos_count: 1,
           },
         ],
       });
@@ -118,12 +139,12 @@ test('copies the dispatcher day brief with task, equipment, risk, and map contex
 
   renderCalendar();
 
-  await screen.findByRole('button', { name: /Kopiuj odprawe/i });
+  await screen.findByRole('button', { name: /^Kopiuj odprawe$/i });
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith('/tasks/wszystkie', expect.any(Object));
   });
 
-  await userEvent.click(screen.getByRole('button', { name: /Kopiuj odprawe/i }));
+  await userEvent.click(screen.getByRole('button', { name: /^Kopiuj odprawe$/i }));
 
   await waitFor(() => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
@@ -138,4 +159,23 @@ test('copies the dispatcher day brief with task, equipment, risk, and map contex
   expect(copied).toContain('Akceptacja klienta: tak');
   expect(copied).toContain('Mapa: https://www.google.com/maps/search/?api=1&query=Lesna%2012%2C%20Wroclaw');
   expect(await screen.findByText('Odprawa dnia skopiowana.')).toBeInTheDocument();
+});
+
+test('copies a team-only day brief from the team header', async () => {
+  mockCalendarApi();
+
+  renderCalendar();
+
+  await screen.findByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' });
+  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' }));
+
+  await waitFor(() => {
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+  });
+  const copied = navigator.clipboard.writeText.mock.calls[0][0];
+  expect(copied).toContain('=== Brygada Alfa ===');
+  expect(copied).toContain('#42 | 08:30-11:30 | Jan Kowalski');
+  expect(copied).not.toContain('Brygada Beta');
+  expect(copied).not.toContain('Anna Nowak');
+  expect(await screen.findByText('Odprawa ekipy Brygada Alfa skopiowana.')).toBeInTheDocument();
 });

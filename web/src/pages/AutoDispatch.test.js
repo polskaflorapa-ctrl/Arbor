@@ -128,6 +128,167 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();
 });
 
+test('falls back when Clipboard API is blocked', async () => {
+  writeTextMock.mockRejectedValueOnce(new Error('Clipboard blocked'));
+  const originalExecCommand = document.execCommand;
+  const execCommandMock = vi.fn().mockReturnValue(true);
+  Object.defineProperty(document, 'execCommand', {
+    value: execCommandMock,
+    configurable: true,
+  });
+
+  api.get.mockResolvedValue({
+    data: {
+      source: 'rules',
+      summary: 'Odprawa gotowa do wyslania.',
+      metrics: {
+        ready_for_dispatch: 1,
+        tasks_total: 1,
+        blocked: 0,
+        warnings: 0,
+        avg_quality: 96,
+      },
+      recommendations: [],
+      top_tasks: [],
+    },
+  });
+
+  try {
+    renderAutoDispatch();
+
+    await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+    expect(await screen.findByText('Odprawa gotowa do wyslania.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
+
+    await waitFor(() => {
+      expect(execCommandMock).toHaveBeenCalledWith('copy');
+    });
+    expect(screen.getByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
+    expect(screen.queryByText('Nie udalo sie skopiowac odprawy.')).not.toBeInTheDocument();
+  } finally {
+    Object.defineProperty(document, 'execCommand', {
+      value: originalExecCommand,
+      configurable: true,
+    });
+  }
+});
+
+test('shows a manual dispatch brief when automated copy is unavailable', async () => {
+  writeTextMock.mockRejectedValueOnce(new Error('Clipboard blocked'));
+  const originalExecCommand = document.execCommand;
+  Object.defineProperty(document, 'execCommand', {
+    value: vi.fn().mockReturnValue(false),
+    configurable: true,
+  });
+
+  api.get.mockResolvedValue({
+    data: {
+      source: 'rules',
+      summary: 'Schowek wymaga recznego kopiowania.',
+      metrics: {
+        ready_for_dispatch: 2,
+        tasks_total: 2,
+        blocked: 0,
+        warnings: 1,
+        avg_quality: 88,
+      },
+      recommendations: [
+        { priority: 'medium', title: 'Sprawdz kontakt', suggested_action: 'Potwierdz numer telefonu.' },
+      ],
+      top_tasks: [
+        {
+          task_id: 51,
+          task_numer: 'ZL/51',
+          client: 'Manual Copy',
+          issues: [{ severity: 'warning', label: 'Brak notatki' }],
+        },
+      ],
+    },
+  });
+
+  try {
+    renderAutoDispatch();
+
+    await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+    expect(await screen.findByText('Schowek wymaga recznego kopiowania.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
+
+    expect(await screen.findByText(/Automatyczne kopiowanie jest zablokowane/i)).toBeInTheDocument();
+    const manualBrief = screen.getByRole('textbox', { name: 'Pakiet odprawy do recznego skopiowania' });
+    expect(manualBrief.value).toContain('AI Dyspozytor - odprawa dnia');
+    expect(manualBrief.value).toContain('ZL/51 (1 uwag) Manual Copy');
+  } finally {
+    Object.defineProperty(document, 'execCommand', {
+      value: originalExecCommand,
+      configurable: true,
+    });
+  }
+});
+
+test('filters risky advisor tasks by severity', async () => {
+  api.get.mockResolvedValue({
+    data: {
+      source: 'rules',
+      summary: 'Lista ryzyk gotowa.',
+      metrics: {
+        ready_for_dispatch: 2,
+        tasks_total: 4,
+        blocked: 1,
+        warnings: 1,
+        avg_quality: 74,
+      },
+      recommendations: [],
+      top_tasks: [
+        {
+          task_id: 71,
+          task_numer: 'ZL/KRYT',
+          client: 'Krytyczny Klient',
+          status: 'Wycena_Terenowa',
+          quality_score: 41,
+          issues: [
+            { key: 'price', severity: 'critical', label: 'Brak ceny', action: 'Uzupelnij cene.' },
+          ],
+        },
+        {
+          task_id: 72,
+          task_numer: 'ZL/UWAG',
+          client: 'Uwaga Klient',
+          status: 'Do_Zatwierdzenia',
+          quality_score: 83,
+          issues: [
+            { key: 'gps', severity: 'warning', label: 'Brak pinezki GPS', action: 'Dodaj pinezke.' },
+          ],
+        },
+      ],
+    },
+  });
+
+  renderAutoDispatch();
+
+  await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+  expect(await screen.findByText('Lista ryzyk gotowa.')).toBeInTheDocument();
+
+  expect(screen.getByRole('button', { name: 'Wszystkie 2' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Krytyczne 1' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Uwagi 1' })).toBeInTheDocument();
+  expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
+  expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Krytyczne 1' }));
+  expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
+  expect(screen.queryByText('ZL/UWAG')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Uwagi 1' }));
+  expect(screen.queryByText('ZL/KRYT')).not.toBeInTheDocument();
+  expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Wszystkie 2' }));
+  expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
+  expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
+});
+
 test('checks AI advisor before saving and stops when blockers exist', async () => {
   api.get.mockResolvedValueOnce({
     data: {

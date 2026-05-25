@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
@@ -32,6 +32,12 @@ const PRIORITY_COLOR = {
   low: '#2563eb',
 };
 
+const RISK_FILTERS = [
+  { key: 'all', label: 'Wszystkie' },
+  { key: 'critical', label: 'Krytyczne' },
+  { key: 'warning', label: 'Uwagi' },
+];
+
 // Reason codes → human-readable labels (kept in Polish; not in locale file)
 const REASON_LABEL = {
   no_teams:           'Brak ekip',
@@ -42,6 +48,15 @@ const REASON_LABEL = {
 function taskIssueBadge(issues = []) {
   const critical = issues.filter(issue => issue.severity === 'critical').length;
   return critical ? `${critical} kryt.` : `${issues.length} uwag`;
+}
+
+function taskHasCriticalIssue(task) {
+  return (task.issues || []).some(issue => issue.severity === 'critical');
+}
+
+function taskHasWarningOnly(task) {
+  const issues = task.issues || [];
+  return issues.length > 0 && !taskHasCriticalIssue(task);
 }
 
 function formatAdvisorBrief(advisor) {
@@ -70,6 +85,35 @@ function formatAdvisorBrief(advisor) {
   }
 
   return lines.join('\n');
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (e) {
+      // Fall back below for browsers that expose Clipboard API but block it.
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    const copied = document.execCommand?.('copy');
+    if (!copied) throw new Error('Fallback copy failed');
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function Stat({ label, value, tone }) {
@@ -101,6 +145,8 @@ export default function AutoDispatch() {
   const [advisorError, setAdvisorError] = useState('');
   const [preflightHold, setPreflightHold] = useState(null);
   const [briefCopied, setBriefCopied] = useState(false);
+  const [briefCopyText, setBriefCopyText] = useState('');
+  const [riskFilter, setRiskFilter] = useState('all');
 
   const fetchAdvisorBrief = useCallback(async () => {
     const token = getStoredToken();
@@ -159,11 +205,13 @@ export default function AutoDispatch() {
   const loadAdvisor = useCallback(async () => {
     setAdvisorLoading(true);
     setAdvisorError('');
+    setBriefCopied(false);
+    setBriefCopyText('');
+    setRiskFilter('all');
     try {
       const brief = await fetchAdvisorBrief();
       setAdvisor(brief);
       setPreflightHold(null);
-      setBriefCopied(false);
     } catch (e) {
       setAdvisorError(e.response?.data?.error || e.message);
     } finally {
@@ -173,14 +221,31 @@ export default function AutoDispatch() {
 
   const copyAdvisorBrief = useCallback(async () => {
     if (!advisor) return;
+    const briefText = formatAdvisorBrief(advisor);
     try {
-      await navigator.clipboard.writeText(formatAdvisorBrief(advisor));
+      await copyTextToClipboard(briefText);
       setBriefCopied(true);
+      setBriefCopyText('');
       setAdvisorError('');
     } catch (e) {
-      setAdvisorError('Nie udalo sie skopiowac odprawy.');
+      setBriefCopied(false);
+      setBriefCopyText(briefText);
+      setAdvisorError('Automatyczne kopiowanie jest zablokowane. Pakiet odprawy jest zaznaczony ponizej.');
     }
   }, [advisor]);
+
+  const riskTasks = advisor?.top_tasks || [];
+  const riskStats = useMemo(() => {
+    const critical = riskTasks.filter(taskHasCriticalIssue).length;
+    const warning = riskTasks.filter(taskHasWarningOnly).length;
+    return { all: riskTasks.length, critical, warning };
+  }, [riskTasks]);
+
+  const filteredRiskTasks = useMemo(() => {
+    if (riskFilter === 'critical') return riskTasks.filter(taskHasCriticalIssue);
+    if (riskFilter === 'warning') return riskTasks.filter(taskHasWarningOnly);
+    return riskTasks;
+  }, [riskFilter, riskTasks]);
 
   const stats = plan?.stats;
 
@@ -204,7 +269,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setBriefCopied(false); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setBriefCopied(false); setBriefCopyText(''); setRiskFilter('all'); }}
               style={s.dateInput}
             />
           </div>
@@ -267,6 +332,17 @@ export default function AutoDispatch() {
               </div>
             </div>
 
+            {briefCopyText && (
+              <textarea
+                aria-label="Pakiet odprawy do recznego skopiowania"
+                value={briefCopyText}
+                readOnly
+                autoFocus
+                onFocus={e => e.target.select()}
+                style={s.manualBrief}
+              />
+            )}
+
             <div style={s.advisorMetrics}>
               <Stat
                 label="Gotowe"
@@ -309,11 +385,31 @@ export default function AutoDispatch() {
               </div>
 
               <div style={s.advisorColumn}>
-                <h3 style={s.sectionTitle}>Ryzykowne zlecenia</h3>
-                {(advisor.top_tasks || []).length === 0 && (
+                <div style={s.sectionTitleRow}>
+                  <h3 style={s.sectionTitle}>Ryzykowne zlecenia</h3>
+                  {riskStats.all > 0 && (
+                    <div style={s.riskFilters}>
+                      {RISK_FILTERS.map(filter => (
+                        <button
+                          key={filter.key}
+                          type="button"
+                          aria-pressed={riskFilter === filter.key}
+                          onClick={() => setRiskFilter(filter.key)}
+                          style={riskFilter === filter.key ? { ...s.riskFilterBtn, ...s.riskFilterBtnActive } : s.riskFilterBtn}
+                        >
+                          {filter.label} {riskStats[filter.key]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {riskStats.all === 0 && (
                   <div style={s.advisorEmpty}>Brak otwartych zlecen do analizy.</div>
                 )}
-                {(advisor.top_tasks || []).map(task => (
+                {riskStats.all > 0 && filteredRiskTasks.length === 0 && (
+                  <div style={s.advisorEmpty}>Brak zlecen w tym filtrze.</div>
+                )}
+                {filteredRiskTasks.map(task => (
                   <button
                     key={task.task_id}
                     type="button"
@@ -468,9 +564,14 @@ const s = {
   advisorActions:{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 },
   copyBriefBtn:{ padding: '6px 9px', borderRadius: 7, border: '1px solid #2563eb', background: '#fff', color: '#1d4ed8', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   advisorSource:{ flexShrink: 0, padding: '4px 8px', borderRadius: 6, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
+  manualBrief:{ width: '100%', minHeight: 130, boxSizing: 'border-box', resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid #f97316', background: '#fff7ed', color: '#7c2d12', fontSize: 12, lineHeight: 1.45, marginBottom: 14, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
   advisorMetrics:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 14 },
   advisorGrid:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 18, alignItems: 'start' },
   advisorColumn:{ minWidth: 0 },
+  sectionTitleRow:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  riskFilters:{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  riskFilterBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 10, fontWeight: 800 },
+  riskFilterBtnActive:{ border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8' },
   recommendation:{ padding: '10px 0', borderTop: '1px solid var(--border-light, var(--border))' },
   recommendationTop:{ display: 'flex', alignItems: 'center', gap: 8 },
   priority:{ color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' },

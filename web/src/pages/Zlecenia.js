@@ -119,6 +119,15 @@ const FORM_WORKFLOW_STEPS = [
   { status: TASK_STATUS.W_REALIZACJI, step: '5', label: 'Wykonanie', detail: 'ekipa pracuje według briefu' },
   { status: TASK_STATUS.ZAKONCZONE, step: '6', label: 'Zamknięcie', detail: 'dowody i rozliczenie są kompletne' },
 ];
+const WORKFLOW_STATUS_ACTION_LABELS = {
+  [TASK_STATUS.NOWE]: 'Telefon',
+  [TASK_STATUS.WYCENA_TERENOWA]: 'Oględziny',
+  [TASK_STATUS.DO_ZATWIERDZENIA]: 'Biuro planuje',
+  [TASK_STATUS.ZAPLANOWANE]: 'Ekipa gotowa',
+  [TASK_STATUS.W_REALIZACJI]: 'Wykonanie',
+  [TASK_STATUS.ZAKONCZONE]: 'Zakończone',
+  [TASK_STATUS.ANULOWANE]: 'Anulowane',
+};
 const TASK_CREATE_FIELD_LABELS = {
   klient_nazwa: 'klient',
   adres: 'adres',
@@ -907,7 +916,7 @@ function TaskPhotosPanel({
   );
 }
 
-function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus, focused = false }) {
+function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus, focused = false, statusBlockers = {} }) {
   if (!task) return null;
   const currentStatus = task.status || TASK_STATUS.NOWE;
   const nextStatuses = getNextTaskStatuses(currentStatus, { allowCancel: canChange });
@@ -954,17 +963,26 @@ function WorkflowPathPanel({ styles, task, canChange, statusBusy, onChangeStatus
         })}
       </div>
       <div style={styles.workflowPathActions}>
-        {actionableNext.length ? actionableNext.map((status) => (
-          <button
-            key={status}
-            type="button"
-            style={styles.workflowPathBtn}
-            disabled={!canChange || statusBusy}
-            onClick={() => onChangeStatus(status)}
-          >
-            Przejdź do: {status}
-          </button>
-        )) : (
+        {actionableNext.length ? actionableNext.map((status) => {
+          const blocker = statusBlockers[status];
+          const disabled = !canChange || statusBusy || Boolean(blocker);
+          return (
+            <button
+              key={status}
+              type="button"
+              style={{
+                ...styles.workflowPathBtn,
+                ...(blocker ? styles.workflowPathBtnBlocked : {}),
+                ...(disabled ? styles.detailWorkflowActionDisabled : {}),
+              }}
+              disabled={disabled}
+              title={blocker?.detail || undefined}
+              onClick={() => !blocker && onChangeStatus(status)}
+            >
+              {blocker ? `Najpierw: ${blocker.label}` : `Przejdź do: ${WORKFLOW_STATUS_ACTION_LABELS[status] || status}`}
+            </button>
+          );
+        }) : (
           <span style={styles.workflowPathDone}>Brak następnego kroku w czystej ścieżce.</span>
         )}
         {cancelAllowed ? (
@@ -1033,7 +1051,16 @@ function getDetailWorkflowCommandRows({ task, meta, qualityChecklist = [], safet
   const officeRequired = [q.team, q.date].filter(Boolean);
   const crewRequired = [s.team, s.address, s.brief].filter(Boolean);
   const executionRequired = [s.arborist].filter(Boolean);
-  const closeRequired = qualityChecklist.filter((item) => item.required && !item.ok);
+  const executionMissing = missingLabels(executionRequired);
+  const executionBlocker = executionRequired.find((item) => item?.required !== false && !item.ok);
+  const executionRepairAction = executionBlocker
+    ? getRepairActionForItem(executionBlocker, 'safety', showOfficePlanPanel)
+    : null;
+  const closeRequired = [...qualityChecklist, ...safetyChecklist].filter((item) => item.required && !item.ok);
+  const closeBlocker = closeRequired[0] || null;
+  const closeRepairAction = closeBlocker
+    ? getRepairActionForItem(closeBlocker, 'close', showOfficePlanPanel)
+    : null;
 
   return [
     {
@@ -1100,16 +1127,26 @@ function getDetailWorkflowCommandRows({ task, meta, qualityChecklist = [], safet
       title: 'Wykonanie pracy',
       owner: 'Ekipa w terenie',
       status: TASK_STATUS.W_REALIZACJI,
-      state: rowState(TASK_STATUS.W_REALIZACJI, missingLabels(executionRequired), [], isStepDone(TASK_STATUS.W_REALIZACJI)),
+      state: rowState(TASK_STATUS.W_REALIZACJI, executionMissing, [], isStepDone(TASK_STATUS.W_REALIZACJI)),
       primary: currentStatus === TASK_STATUS.W_REALIZACJI ? 'Praca w toku' : 'Czeka na start',
-      detail: executionRequired.find((item) => !item.ok)?.detail || 'Po starcie ekipa raportuje problemy i dowody wykonania.',
-      missing: missingLabels(executionRequired),
-      actionLabel: currentStatus === TASK_STATUS.ZAPLANOWANE ? 'Rozpocznij' : currentStatus === TASK_STATUS.W_REALIZACJI ? 'Zamknij pracę' : 'Pokaż odprawę',
-      action: currentStatus === TASK_STATUS.ZAPLANOWANE
-        ? { target: 'status', nextStatus: TASK_STATUS.W_REALIZACJI }
-        : currentStatus === TASK_STATUS.W_REALIZACJI
-          ? { target: 'status', nextStatus: TASK_STATUS.ZAKONCZONE }
-          : { target: 'crewBrief' },
+      detail: executionBlocker?.detail || 'Po starcie ekipa raportuje problemy i dowody wykonania.',
+      missing: executionMissing,
+      actionLabel: executionMissing.length
+        ? (executionBlocker?.key === 'arborist' ? 'Oznacz arborystę' : 'Popraw BHP')
+        : currentStatus === TASK_STATUS.ZAPLANOWANE
+          ? 'Rozpocznij'
+          : currentStatus === TASK_STATUS.W_REALIZACJI ? 'Zamknij pracę' : 'Pokaż odprawę',
+      action: executionMissing.length
+        ? {
+            ...(executionRepairAction || { target: 'edit', formStep: 'work' }),
+            repairLabel: executionBlocker?.label,
+            repairDetail: executionBlocker?.detail,
+          }
+        : currentStatus === TASK_STATUS.ZAPLANOWANE
+          ? { target: 'status', nextStatus: TASK_STATUS.W_REALIZACJI }
+          : currentStatus === TASK_STATUS.W_REALIZACJI
+            ? { target: 'status', nextStatus: TASK_STATUS.ZAKONCZONE }
+            : { target: 'crewBrief' },
     },
     {
       key: 'close',
@@ -1118,15 +1155,25 @@ function getDetailWorkflowCommandRows({ task, meta, qualityChecklist = [], safet
       owner: 'Biuro / kierownik',
       status: TASK_STATUS.ZAKONCZONE,
       state: currentStatus === TASK_STATUS.ZAKONCZONE ? 'done' : closeRequired.length ? 'blocked' : meta?.diagnostics?.readyToClose ? 'active' : 'ready',
-      primary: currentStatus === TASK_STATUS.ZAKONCZONE ? 'Zamknięte' : meta?.diagnostics?.readyToClose ? 'Gotowe do zamknięcia' : 'Jeszcze przed finalną kontrolą',
-      detail: closeRequired[0]?.detail || (contact.status === 'risk'
+      primary: currentStatus === TASK_STATUS.ZAKONCZONE
+        ? 'Zamknięte'
+        : closeRequired.length ? 'Blokada przed zamknięciem' : meta?.diagnostics?.readyToClose ? 'Gotowe do zamknięcia' : 'Jeszcze przed finalną kontrolą',
+      detail: closeBlocker?.detail || (contact.status === 'risk'
         ? 'Sprawdź kontakt, cenę, zdjęcia i kompletność danych.'
         : 'Po wykonaniu zostaje kontrola jakości i rozliczenie.'),
       missing: closeRequired.map((item) => item.label),
-      actionLabel: meta?.diagnostics?.readyToClose ? 'Zamknij zlecenie' : 'Centrum decyzji',
-      action: meta?.diagnostics?.readyToClose
-        ? { target: 'status', nextStatus: TASK_STATUS.ZAKONCZONE }
-        : { target: 'decision' },
+      actionLabel: closeRequired.length
+        ? (closeBlocker?.key === 'arborist' ? 'Oznacz arborystę' : 'Napraw blokadę')
+        : meta?.diagnostics?.readyToClose ? 'Zamknij zlecenie' : 'Centrum decyzji',
+      action: closeRequired.length
+        ? {
+            ...(closeRepairAction || { target: 'decision' }),
+            repairLabel: closeBlocker?.label,
+            repairDetail: closeBlocker?.detail,
+          }
+        : meta?.diagnostics?.readyToClose
+          ? { target: 'status', nextStatus: TASK_STATUS.ZAKONCZONE }
+          : { target: 'decision' },
     },
   ];
 }
@@ -2928,7 +2975,11 @@ function getTaskDetailNextAction(task, meta, checklist) {
       brief: 'Uzupełnij odprawę',
       arborist: 'Oznacz arborystę',
     };
-    return withDetail({ label: labels[missingRequired.key] || `Popraw: ${missingRequired.label}`, target: 'edit' }, missingRequired);
+    const repairAction = getRepairActionForItem(missingRequired, 'detail', false);
+    return withDetail({
+      ...repairAction,
+      label: labels[missingRequired.key] || `Popraw: ${missingRequired.label}`,
+    }, missingRequired);
   }
   if (meta?.followup?.overdue) return withDetail({ label: 'Zapisz kontakt', target: 'contact' });
   return withDetail(meta?.diagnostics?.nextAction || { label: 'Otwórz szczegóły', target: 'details' });
@@ -3040,7 +3091,10 @@ function getFormStepForEditAction(action) {
 function buildTaskClosureGuard(task, todayIso, contact = {}) {
   const meta = getTaskBusinessMeta(task, todayIso, contact);
   const price = getTaskPriceGuidance(task, meta);
-  const checklist = getTaskQualityChecklist(task, meta, contact);
+  const checklist = [
+    ...getTaskQualityChecklist(task, meta, contact),
+    ...getTaskSafetyChecklist(task, meta, contact),
+  ];
   const blockers = checklist.filter((item) => item.required && !item.ok);
   const warnings = checklist.filter((item) => !item.required && !item.ok);
 
@@ -5093,7 +5147,11 @@ export default function Zlecenia() {
     const action = detailNextAction || detailBusinessMeta?.diagnostics?.nextAction;
     if (!wybraneZlecenie || !action) return;
     if (action.target === 'edit' && mozeEdytowac) {
-      otworzEdycje(wybraneZlecenie, getFormStepForEditAction(action));
+      otworzEdycje(wybraneZlecenie, action.formStep || getFormStepForEditAction(action), action.focusField ? {
+        field: action.focusField,
+        label: action.repairLabel || action.label || 'Pole do poprawy',
+        detail: action.repairDetail || action.detail || '',
+      } : null);
       return;
     }
     if (action.target === 'contact') {
@@ -5597,6 +5655,9 @@ export default function Zlecenia() {
   const detailEquipmentList = wybraneZlecenie ? getTaskEquipmentList(wybraneZlecenie) : [];
   const detailQualityOkCount = detailQualityChecklist.filter((item) => item.ok).length;
   const detailRequiredIssues = detailQualityChecklist.filter((item) => item.required && !item.ok);
+  const detailWorkflowStatusBlockers = detailBlockingChecklist.find((item) => item.required && !item.ok)
+    ? { [TASK_STATUS.ZAKONCZONE]: detailBlockingChecklist.find((item) => item.required && !item.ok) }
+    : {};
   const detailDecisionRecommendation = wybraneZlecenie && detailBusinessMeta
     ? getTaskDecisionRecommendation(wybraneZlecenie, detailBusinessMeta, detailBlockingChecklist, detailContact)
     : '';
@@ -5787,12 +5848,12 @@ export default function Zlecenia() {
     operatorName: getOperatorName(),
   });
   const quickCallPackagePreview = [
-    { key: 'client', label: 'Klient', value: quickCall.klient_nazwa || 'Brak', ready: Boolean(quickCall.klient_nazwa) },
-    { key: 'phone', label: 'Telefon', value: quickCall.klient_telefon || 'Brak', ready: Boolean(quickCall.klient_telefon) },
-    { key: 'address', label: 'Adres', value: quickCallInspectionPackage.address || 'Brak', ready: Boolean(quickCallInspectionPackage.address) },
-    { key: 'slot', label: 'Oględziny', value: quickCallInspectionPackage.slot || 'Brak terminu', ready: Boolean(quickCall.data_planowana) },
-    { key: 'branch', label: 'Oddział', value: quickCallBranchLabel || 'Brak', ready: Boolean(quickCall.oddzial_id) },
-    { key: 'estimator', label: 'Specjalista ds. wyceny', value: quickCallEstimatorLabel || 'Brak', ready: quickCallEstimatorReady },
+    { key: 'client', label: 'Klient', value: quickCall.klient_nazwa || 'Brak', ready: Boolean(quickCall.klient_nazwa), field: 'client' },
+    { key: 'phone', label: 'Telefon', value: quickCall.klient_telefon || 'Brak', ready: Boolean(quickCall.klient_telefon), field: 'phone' },
+    { key: 'address', label: 'Adres', value: quickCallInspectionPackage.address || 'Brak', ready: Boolean(quickCallInspectionPackage.address), field: quickCall.adres ? 'city' : 'address' },
+    { key: 'slot', label: 'Oględziny', value: quickCallInspectionPackage.slot || 'Brak terminu', ready: Boolean(quickCall.data_planowana), field: 'date' },
+    { key: 'branch', label: 'Oddział', value: quickCallBranchLabel || 'Brak', ready: Boolean(quickCall.oddzial_id), field: 'branch' },
+    { key: 'estimator', label: 'Specjalista ds. wyceny', value: quickCallEstimatorLabel || 'Brak', ready: quickCallEstimatorReady, field: 'estimator' },
   ];
   const quickCallReadyCount = quickCallPackagePreview.filter((item) => item.ready).length;
   const quickCallCompletionPercent = Math.round((quickCallReadyCount / quickCallPackagePreview.length) * 100);
@@ -6538,6 +6599,7 @@ export default function Zlecenia() {
                     <div style={s.fg}>
                       <label style={s.label}>Oddział *</label>
                       <select
+                        data-quick-call-field="branch"
                         style={s.input}
                         value={quickCall.oddzial_id}
                         disabled={!canManageAllBranches && !!currentUser?.oddzial_id}
@@ -6591,22 +6653,36 @@ export default function Zlecenia() {
                         <div style={s.dispatchEyebrow}>Pakiet dla specjalisty ds. wyceny</div>
                         <div style={s.quickCallPackageTitle}>To trafi do mobilki jako oględziny terenowe</div>
                       </div>
-                      <span style={quickCallReady ? s.quickCallReady : s.quickCallMissing}>
+                      <span style={quickCallReady ? s.quickCallPackageStatusReady : s.quickCallPackageStatusMissing}>
                         {quickCallReady ? 'Komplet podstawowy' : `${quickCallMissingFields.length} braków`}
                       </span>
                     </div>
                     <div style={s.quickCallPackageGrid}>
                       {quickCallPackagePreview.map((item) => (
-                        <div
+                        <button
                           key={item.key}
+                          type="button"
+                          data-testid={`quick-call-package-${item.key}`}
                           style={{
                             ...s.quickCallPackageItem,
                             ...(item.ready ? s.quickCallPackageItemReady : s.quickCallPackageItemMissing),
                           }}
+                          onClick={() => focusQuickCallField(item.field)}
                         >
-                          <span style={s.quickCallPackageLabel}>{item.label}</span>
+                          <span style={s.quickCallPackageTop}>
+                            <span style={{
+                              ...s.quickCallPackageDot,
+                              ...(item.ready ? s.quickCallPackageDotReady : s.quickCallPackageDotMissing),
+                            }}>
+                              {item.ready ? '✓' : '!'}
+                            </span>
+                            <span style={s.quickCallPackageLabel}>{item.label}</span>
+                          </span>
                           <strong style={s.quickCallPackageValue}>{item.value}</strong>
-                        </div>
+                          <small style={s.quickCallPackageHint}>
+                            {item.ready ? 'Gotowe w pakiecie' : 'Kliknij, żeby uzupełnić'}
+                          </small>
+                        </button>
                       ))}
                     </div>
                     <div
@@ -7808,6 +7884,7 @@ export default function Zlecenia() {
               statusBusy={statusUpdatingId === wybraneZlecenie.id}
               onChangeStatus={(nextStatus) => zmienStatusInline(wybraneZlecenie.id, nextStatus)}
               focused={workflowPathFocused}
+              statusBlockers={detailWorkflowStatusBlockers}
             />
 
             <DetailWorkflowCommandCenter
@@ -9364,9 +9441,9 @@ const s = {
     gap: 10,
   },
   quickCallPackagePanel: {
-    border: '1px solid rgba(52,211,153,0.28)',
+    border: '1px solid rgba(20,131,79,0.18)',
     borderRadius: 8,
-    background: 'rgba(0,0,0,0.14)',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.9), rgba(229,246,236,0.66))',
     padding: 10,
     marginTop: 10,
     display: 'grid',
@@ -9386,6 +9463,30 @@ const s = {
     lineHeight: 1.25,
     marginTop: 2,
   },
+  quickCallPackageStatusReady: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 28,
+    border: '1px solid rgba(20,131,79,0.24)',
+    borderRadius: 8,
+    background: 'var(--accent-surface)',
+    color: 'var(--accent)',
+    padding: '5px 8px',
+    fontSize: 11,
+    fontWeight: 950,
+  },
+  quickCallPackageStatusMissing: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 28,
+    border: '1px solid rgba(199,119,0,0.28)',
+    borderRadius: 8,
+    background: 'rgba(251,191,36,0.1)',
+    color: 'var(--warning)',
+    padding: '5px 8px',
+    fontSize: 11,
+    fontWeight: 950,
+  },
   quickCallPackageGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 135px), 1fr))',
@@ -9394,20 +9495,49 @@ const s = {
   quickCallPackageItem: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'rgba(255,255,255,0.76)',
     padding: '8px 9px',
-    minHeight: 64,
+    minHeight: 76,
     display: 'grid',
     gap: 4,
     minWidth: 0,
+    color: 'var(--text)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    appearance: 'none',
   },
   quickCallPackageItemReady: {
-    border: '1px solid rgba(52,211,153,0.26)',
-    background: 'rgba(52,211,153,0.07)',
+    border: '1px solid rgba(20,131,79,0.22)',
+    background: 'rgba(34,197,94,0.08)',
   },
   quickCallPackageItemMissing: {
-    border: '1px solid rgba(239,83,80,0.28)',
-    background: 'rgba(239,83,80,0.08)',
+    border: '1px solid rgba(199,119,0,0.26)',
+    background: 'rgba(251,191,36,0.08)',
+  },
+  quickCallPackageTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    minWidth: 0,
+  },
+  quickCallPackageDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    display: 'inline-grid',
+    placeItems: 'center',
+    flexShrink: 0,
+    fontSize: 12,
+    fontWeight: 950,
+  },
+  quickCallPackageDotReady: {
+    background: 'rgba(34,197,94,0.14)',
+    color: 'var(--accent)',
+  },
+  quickCallPackageDotMissing: {
+    background: 'rgba(251,191,36,0.14)',
+    color: 'var(--warning)',
   },
   quickCallPackageLabel: {
     color: 'var(--text-muted)',
@@ -9422,6 +9552,12 @@ const s = {
     lineHeight: 1.25,
     fontWeight: 920,
     overflowWrap: 'anywhere',
+  },
+  quickCallPackageHint: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    lineHeight: 1.2,
+    fontWeight: 800,
   },
   quickCallTaskStrip: {
     display: 'flex',
@@ -12604,6 +12740,11 @@ const s = {
     cursor: 'pointer',
     fontSize: 12,
     fontWeight: 900,
+  },
+  workflowPathBtnBlocked: {
+    border: '1px solid rgba(239,83,80,0.32)',
+    backgroundColor: 'rgba(239,83,80,0.08)',
+    color: 'var(--danger)',
   },
   workflowPathCancelBtn: {
     border: '1px solid rgba(239,83,80,0.34)',

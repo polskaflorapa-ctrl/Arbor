@@ -1730,6 +1730,56 @@ export default function KalendarzZasobow() {
     visibleTeams,
   ]);
 
+  const copyTeamBrief = useCallback((team) => {
+    const teamId = String(team?.id || '');
+    const teamTasks = scheduledTasks.filter((task) => taskDate(task) === dayISO && String(task?.ekipa_id || '') === teamId);
+    const teamTaskIds = new Set(teamTasks.map((task) => String(task.id)));
+    const equipmentRows = (rezerwacje || [])
+      .filter(activeReservation)
+      .filter((rez) => reservationOverlapsDay(rez, dayISO))
+      .filter((rez) => teamTaskIds.has(String(rez?.task_id || '')));
+    const analysis = dayAnalysisByTeam.get(teamId);
+    const teamSummary = {
+      tasks: teamTasks.length,
+      readyQueue: 0,
+      queueMissing: 0,
+      equipment: equipmentRows.length,
+      equipmentConflicts: 0,
+      teamConflicts: analysis?.conflictIds?.size || 0,
+      noEquipment: teamTasks.filter((task) => !taskReservationEquipmentIds(rezerwacje, task.id).length && !taskFieldEquipment(task)).length,
+      noPhotos: teamTasks.filter((task) => taskPhotoTotal(task) <= 0).length,
+      noBrief: teamTasks.filter((task) => !taskWorkBrief(task)).length,
+    };
+    const brief = buildDayBrief({
+      dayISO,
+      dayLabel,
+      scheduledTasks: teamTasks,
+      visibleTeams: team ? [team] : [],
+      rezerwacje,
+      equipmentById,
+      teamsById: teamsByIdForPlanning,
+      branchOptions,
+      selectedBranchId,
+      dayOpsSummary: teamSummary,
+      delegationSummary: {
+        delegated: team && isTeamDelegatedToView(team) ? [team] : [],
+        delegatedTasks: [],
+      },
+    });
+    void copyTextToClipboard(brief, `Odprawa ekipy ${team?.nazwa || teamId} skopiowana.`);
+  }, [
+    branchOptions,
+    copyTextToClipboard,
+    dayAnalysisByTeam,
+    dayISO,
+    dayLabel,
+    equipmentById,
+    rezerwacje,
+    scheduledTasks,
+    selectedBranchId,
+    teamsByIdForPlanning,
+  ]);
+
   // ─── tworzenie rezerwacji ─────────────────────────────────────────────────
   const handleNewSave = async (form) => {
     if (!form.sprzet_id || !form.ekipa_id) {
@@ -2442,7 +2492,20 @@ export default function KalendarzZasobow() {
                             const hasConflict = (analysis?.conflictIds?.size || 0) > 0;
                             return (
                               <>
-                                <strong>{team.nazwa}</strong>
+                                <span style={st.dayTeamHeaderTop}>
+                                  <strong style={st.dayTeamName}>{team.nazwa}</strong>
+                                  <button
+                                    type="button"
+                                    style={st.teamBriefBtn}
+                                    aria-label={`Kopiuj odprawe ekipy ${team.nazwa || team.id}`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      copyTeamBrief(team);
+                                    }}
+                                  >
+                                    Brief
+                                  </button>
+                                </span>
                                 <span>{teamBranchLabel(team)}{isTeamDelegatedToView(team) ? ' · delegacja' : ''}</span>
                                 <span style={{ ...st.dayTeamHeaderMeta, ...(hasConflict ? st.dayTeamHeaderMetaConflict : {}) }}>
                                   {durationLabel(analysis?.loadMinutes || 0)} pracy · {analysis?.gaps?.length || 0} luk{hasConflict ? ' · konflikt' : ''}
@@ -2539,7 +2602,20 @@ export default function KalendarzZasobow() {
                       borderRight: '1px solid var(--border)',
                       flexShrink: 0, overflow: 'hidden',
                     }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.nazwa}</div>
+                      <div style={st.rangeTeamTop}>
+                        <div style={st.rangeTeamName}>{team.nazwa}</div>
+                        <button
+                          type="button"
+                          style={st.teamBriefBtn}
+                          aria-label={`Kopiuj odprawe ekipy ${team.nazwa || team.id}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            copyTeamBrief(team);
+                          }}
+                        >
+                          Brief
+                        </button>
+                      </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                         {teamBranchLabel(team)}{isTeamDelegatedToView(team) ? ' · delegacja' : ''}
                       </div>
@@ -3254,6 +3330,47 @@ const st = {
     color: 'var(--text)',
     fontSize: 13,
     lineHeight: 1.25,
+  },
+  dayTeamHeaderTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    minWidth: 0,
+  },
+  dayTeamName: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  rangeTeamTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    minWidth: 0,
+  },
+  rangeTeamName: {
+    minWidth: 0,
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 800,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  teamBriefBtn: {
+    flexShrink: 0,
+    border: '1px solid rgba(34,197,94,0.34)',
+    borderRadius: 7,
+    background: 'rgba(34,197,94,0.1)',
+    color: 'var(--accent)',
+    padding: '4px 7px',
+    fontSize: 10,
+    lineHeight: 1,
+    fontWeight: 900,
+    cursor: 'pointer',
   },
   dayTeamHeaderMeta: {
     display: 'inline-flex',
