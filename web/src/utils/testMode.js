@@ -4,6 +4,7 @@
  */
 
 const TEST_MODE_STORAGE_KEY = 'arbor-test-mode';
+const MOCK_TASK_OVERRIDES_KEY = 'arbor-test-mode-task-overrides';
 
 // Testowi użytkownicy o różnych rolach
 export const TEST_USERS = {
@@ -285,9 +286,67 @@ export const MOCK_DATA = {
 
 /** Zlecenia „zakończone” mockiem POST /finish — kolejne GET zwraca status Zakonczone. */
 const mockFinishedTaskIds = new Set();
+const mockTaskOverrides = new Map();
+let mockTaskOverridesStorageCache = null;
+
+function hydrateMockTaskOverrides() {
+  const raw = localStorage.getItem(MOCK_TASK_OVERRIDES_KEY) || '';
+  if (raw === mockTaskOverridesStorageCache) return;
+  mockTaskOverridesStorageCache = raw;
+  mockTaskOverrides.clear();
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    Object.entries(parsed || {}).forEach(([id, value]) => {
+      mockTaskOverrides.set(Number(id), { ...(value || {}), id: Number(id) });
+    });
+  } catch {
+    // Ignore malformed persisted test data.
+  }
+}
+
+function persistMockTaskOverrides() {
+  try {
+    const payload = Object.fromEntries(mockTaskOverrides.entries());
+    mockTaskOverridesStorageCache = JSON.stringify(payload);
+    localStorage.setItem(MOCK_TASK_OVERRIDES_KEY, mockTaskOverridesStorageCache);
+  } catch {
+    // Local persistence is best-effort in test mode.
+  }
+}
+
+function getMockTaskOverride(taskId) {
+  hydrateMockTaskOverrides();
+  return mockTaskOverrides.get(Number(taskId)) || {};
+}
+
+function getMockTasksWithOverrides() {
+  hydrateMockTaskOverrides();
+  const rows = MOCK_DATA.zlecenia.map((task) => ({
+    ...task,
+    ...(mockTaskOverrides.get(Number(task.id)) || {}),
+  }));
+  const existingIds = new Set(rows.map((task) => Number(task.id)));
+  mockTaskOverrides.forEach((task, id) => {
+    if (!existingIds.has(Number(id))) rows.push(task);
+  });
+  return rows;
+}
 
 export function mockMarkTaskFinishedInTestMode(taskId) {
   mockFinishedTaskIds.add(Number(taskId));
+}
+
+export function mockUpdateTaskInTestMode(taskId, patch = {}) {
+  hydrateMockTaskOverrides();
+  const id = Number(taskId);
+  const current = mockTaskOverrides.get(id) || {};
+  const next = { ...current, ...patch, id };
+  mockTaskOverrides.set(id, next);
+  persistMockTaskOverrides();
+  if (next.status === 'Zakonczone' || next.status === 'Zakończone') {
+    mockMarkTaskFinishedInTestMode(id);
+  }
+  return getMockTaskDetail(id);
 }
 
 /** Szczegół wyceny terenowej (`quotations`) — panel wysyłki F1.11 w trybie testowym. */
@@ -340,6 +399,9 @@ export function toggleTestMode(enabled) {
   localStorage.setItem(TEST_MODE_STORAGE_KEY, String(enabled));
   if (!enabled) {
     mockFinishedTaskIds.clear();
+    mockTaskOverrides.clear();
+    mockTaskOverridesStorageCache = '';
+    localStorage.removeItem(MOCK_TASK_OVERRIDES_KEY);
   }
 }
 
@@ -367,7 +429,7 @@ export function getTestToken() {
 export function getMockTaskDetail(taskId) {
   const id = Number(taskId);
   const finished = mockFinishedTaskIds.has(id);
-  return {
+  const detail = {
     id,
     klient_nazwa: '[Test] Klient mock',
     adres: 'ul. Mockowa 1',
@@ -399,6 +461,7 @@ export function getMockTaskDetail(taskId) {
       has_przed_photo: true,
     },
   };
+  return { ...detail, ...getMockTaskOverride(id) };
 }
 
 /** Jeden otwarty wpis czasu — wymagany przez POST /tasks/:id/finish na OS. Po mock finish — wpis zamknięty. */
@@ -559,7 +622,7 @@ function scopeMockUsers(users, user) {
 
 export function getMockData(endpoint) {
   const currentUser = getStoredTestUser();
-  const visibleTasks = scopeMockTasks(MOCK_DATA.zlecenia, currentUser);
+  const visibleTasks = scopeMockTasks(getMockTasksWithOverrides(), currentUser);
   const taskStats = visibleTasks.reduce((acc, task) => {
     const status = String(task.status || 'Nowe');
     if (status === 'Nowe') acc.nowe += 1;

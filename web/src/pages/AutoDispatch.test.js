@@ -1,7 +1,7 @@
 import '../i18n';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi } from 'vitest';
 import AutoDispatch from './AutoDispatch';
 import api from '../api';
@@ -28,6 +28,11 @@ const USER_JSON = JSON.stringify({
 
 const writeTextMock = vi.fn();
 
+function TaskRouteProbe() {
+  const location = useLocation();
+  return <div>Sciezka zlecenia: {location.pathname}{location.search}</div>;
+}
+
 function renderAutoDispatch() {
   return render(
     <MemoryRouter
@@ -36,7 +41,7 @@ function renderAutoDispatch() {
     >
       <Routes>
         <Route path="/auto-dispatch" element={<AutoDispatch />} />
-        <Route path="/zlecenia/:id" element={<div>Szczegoly zlecenia</div>} />
+        <Route path="/zlecenia/:id" element={<TaskRouteProbe />} />
       </Routes>
     </MemoryRouter>
   );
@@ -116,6 +121,7 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(screen.getByText(/Jan Kowalski/)).toBeInTheDocument();
   expect(screen.getByText('1 kryt.')).toBeInTheDocument();
   expect(screen.getByText('Otworz zlecenie')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/42' })).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe' }));
   await waitFor(() => {
@@ -124,8 +130,12 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(writeTextMock.mock.calls[0][0]).toContain('ZL/42 (1 kryt.) Jan Kowalski');
   expect(screen.getByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: /ZL\/42/ }));
-  expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/42' }));
+  const routeProbe = await screen.findByText(/Sciezka zlecenia:/);
+  expect(routeProbe).toHaveTextContent('/zlecenia/42?mode=edit');
+  expect(routeProbe).toHaveTextContent('step=client');
+  expect(routeProbe).toHaveTextContent('field=klient_telefon');
+  expect(routeProbe).toHaveTextContent('issue=client_phone');
 });
 
 test('falls back when Clipboard API is blocked', async () => {
@@ -273,6 +283,16 @@ test('filters risky advisor tasks by severity', async () => {
   expect(screen.getByRole('button', { name: 'Wszystkie 2' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Krytyczne 1' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Uwagi 1' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Brak ceny 1' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Brak pinezki GPS 1' })).toBeInTheDocument();
+  expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
+  expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Brak ceny 1' }));
+  expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
+  expect(screen.queryByText('ZL/UWAG')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Wyczysc brak' }));
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
 
@@ -287,6 +307,11 @@ test('filters risky advisor tasks by severity', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Wszystkie 2' }));
   expect(screen.getByText('ZL/KRYT')).toBeInTheDocument();
   expect(screen.getByText('ZL/UWAG')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/UWAG' }));
+  const routeProbe = await screen.findByText(/Sciezka zlecenia:/);
+  expect(routeProbe).toHaveTextContent('/zlecenia/72?focus=officePlan');
+  expect(routeProbe).toHaveTextContent('issue=gps');
 });
 
 test('checks AI advisor before saving and stops when blockers exist', async () => {

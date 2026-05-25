@@ -16,6 +16,7 @@ import {
   getMockTaskPhotos,
   getMockTaskProblems,
   mockMarkTaskFinishedInTestMode,
+  mockUpdateTaskInTestMode,
   getMockQuotationDetail,
 } from './utils/testMode';
 
@@ -160,6 +161,30 @@ function getTestModeMockResponse(config) {
   if (mTasksId && method === 'get') {
     return {
       data: getMockTaskDetail(mTasksId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mTasksId && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockUpdateTaskInTestMode(mTasksId[1], body),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksStatus = path.match(/^\/tasks\/(\d+)\/status$/);
+  if (mTasksStatus && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockUpdateTaskInTestMode(mTasksStatus[1], { status: body.status }),
       status: 200,
       statusText: 'OK',
       headers: {},

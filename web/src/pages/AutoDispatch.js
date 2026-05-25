@@ -37,6 +37,7 @@ const RISK_FILTERS = [
   { key: 'critical', label: 'Krytyczne' },
   { key: 'warning', label: 'Uwagi' },
 ];
+const EMPTY_TASKS = [];
 
 // Reason codes → human-readable labels (kept in Polish; not in locale file)
 const REASON_LABEL = {
@@ -57,6 +58,81 @@ function taskHasCriticalIssue(task) {
 function taskHasWarningOnly(task) {
   const issues = task.issues || [];
   return issues.length > 0 && !taskHasCriticalIssue(task);
+}
+
+function issueLabel(issue) {
+  return issue?.label || issue?.key || 'Inna uwaga';
+}
+
+function taskHasIssueLabel(task, label) {
+  return (task.issues || []).some(issue => issueLabel(issue) === label);
+}
+
+function summarizeTaskIssues(tasks) {
+  const summary = new Map();
+  tasks.forEach(task => {
+    (task.issues || []).forEach(issue => {
+      const label = issueLabel(issue);
+      const current = summary.get(label) || { label, count: 0, critical: 0 };
+      current.count += 1;
+      if (issue.severity === 'critical') current.critical += 1;
+      summary.set(label, current);
+    });
+  });
+  return Array.from(summary.values())
+    .sort((a, b) => (b.critical - a.critical) || (b.count - a.count) || a.label.localeCompare(b.label))
+    .slice(0, 4);
+}
+
+const ISSUE_REPAIR_TARGETS = {
+  client_phone: { mode: 'edit', step: 'client', field: 'klient_telefon' },
+  phone: { mode: 'edit', step: 'client', field: 'klient_telefon' },
+  address: { mode: 'edit', step: 'client', field: 'adres' },
+  price: { mode: 'edit', step: 'finance', field: 'wartosc_planowana' },
+  planned_duration: { mode: 'edit', step: 'finance', field: 'czas_planowany_godziny' },
+  duration: { mode: 'edit', step: 'finance', field: 'czas_planowany_godziny' },
+  hours: { mode: 'edit', step: 'finance', field: 'czas_planowany_godziny' },
+  date: { mode: 'edit', step: 'planning', field: 'data_planowana' },
+  slot: { mode: 'edit', step: 'planning', field: 'data_planowana' },
+  team: { mode: 'edit', step: 'planning', field: 'ekipa_id' },
+  gps: { mode: 'detail', focus: 'officePlan' },
+};
+
+function taskPath(task) {
+  return task?.task_id ? `/zlecenia/${task.task_id}` : '';
+}
+
+function primaryTaskIssue(task) {
+  const issues = task?.issues || [];
+  return issues.find(issue => issue.severity === 'critical') || issues[0] || null;
+}
+
+function repairTargetForIssue(issue) {
+  if (!issue?.key) return null;
+  return ISSUE_REPAIR_TARGETS[issue.key] || ISSUE_REPAIR_TARGETS[String(issue.key).replace(/^client_/, '')] || null;
+}
+
+function taskRepairPath(task) {
+  const basePath = taskPath(task);
+  if (!basePath) return '';
+  const issue = primaryTaskIssue(task);
+  const target = repairTargetForIssue(issue);
+  if (!target) return basePath;
+
+  const params = new URLSearchParams();
+  if (target.mode === 'edit') {
+    params.set('mode', 'edit');
+    params.set('step', target.step);
+    params.set('field', target.field);
+  } else if (target.focus) {
+    params.set('focus', target.focus);
+  }
+  if (issue?.key) params.set('issue', issue.key);
+  if (issue?.label) params.set('repairLabel', issue.label);
+  if (issue?.action) params.set('repairDetail', issue.action);
+
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 function formatAdvisorBrief(advisor) {
@@ -147,6 +223,7 @@ export default function AutoDispatch() {
   const [briefCopied, setBriefCopied] = useState(false);
   const [briefCopyText, setBriefCopyText] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
+  const [riskIssueFilter, setRiskIssueFilter] = useState('');
 
   const fetchAdvisorBrief = useCallback(async () => {
     const token = getStoredToken();
@@ -208,6 +285,7 @@ export default function AutoDispatch() {
     setBriefCopied(false);
     setBriefCopyText('');
     setRiskFilter('all');
+    setRiskIssueFilter('');
     try {
       const brief = await fetchAdvisorBrief();
       setAdvisor(brief);
@@ -234,18 +312,44 @@ export default function AutoDispatch() {
     }
   }, [advisor]);
 
-  const riskTasks = advisor?.top_tasks || [];
+  const selectRiskFilter = useCallback((filterKey) => {
+    setRiskFilter(filterKey);
+    setRiskIssueFilter('');
+  }, []);
+
+  const toggleRiskIssueFilter = useCallback((label) => {
+    setRiskIssueFilter(current => (current === label ? '' : label));
+  }, []);
+
+  const openRiskTask = useCallback((task) => {
+    const path = taskPath(task);
+    if (path) navigate(path);
+  }, [navigate]);
+
+  const repairRiskTask = useCallback((task) => {
+    const path = taskRepairPath(task);
+    if (path) navigate(path);
+  }, [navigate]);
+
+  const riskTasks = advisor?.top_tasks || EMPTY_TASKS;
   const riskStats = useMemo(() => {
     const critical = riskTasks.filter(taskHasCriticalIssue).length;
     const warning = riskTasks.filter(taskHasWarningOnly).length;
     return { all: riskTasks.length, critical, warning };
   }, [riskTasks]);
 
-  const filteredRiskTasks = useMemo(() => {
+  const severityFilteredRiskTasks = useMemo(() => {
     if (riskFilter === 'critical') return riskTasks.filter(taskHasCriticalIssue);
     if (riskFilter === 'warning') return riskTasks.filter(taskHasWarningOnly);
     return riskTasks;
   }, [riskFilter, riskTasks]);
+
+  const issueSummary = useMemo(() => summarizeTaskIssues(severityFilteredRiskTasks), [severityFilteredRiskTasks]);
+
+  const filteredRiskTasks = useMemo(() => {
+    if (!riskIssueFilter) return severityFilteredRiskTasks;
+    return severityFilteredRiskTasks.filter(task => taskHasIssueLabel(task, riskIssueFilter));
+  }, [riskIssueFilter, severityFilteredRiskTasks]);
 
   const stats = plan?.stats;
 
@@ -269,7 +373,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setBriefCopied(false); setBriefCopyText(''); setRiskFilter('all'); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setBriefCopied(false); setBriefCopyText(''); setRiskFilter('all'); setRiskIssueFilter(''); }}
               style={s.dateInput}
             />
           </div>
@@ -394,7 +498,7 @@ export default function AutoDispatch() {
                           key={filter.key}
                           type="button"
                           aria-pressed={riskFilter === filter.key}
-                          onClick={() => setRiskFilter(filter.key)}
+                          onClick={() => selectRiskFilter(filter.key)}
                           style={riskFilter === filter.key ? { ...s.riskFilterBtn, ...s.riskFilterBtnActive } : s.riskFilterBtn}
                         >
                           {filter.label} {riskStats[filter.key]}
@@ -403,6 +507,31 @@ export default function AutoDispatch() {
                     </div>
                   )}
                 </div>
+                {issueSummary.length > 0 && (
+                  <div style={s.issueSummary} aria-label="Najczestsze braki">
+                    <span style={s.issueSummaryLabel}>Braki</span>
+                    {issueSummary.map(issue => (
+                      <button
+                        key={issue.label}
+                        type="button"
+                        aria-pressed={riskIssueFilter === issue.label}
+                        onClick={() => toggleRiskIssueFilter(issue.label)}
+                        style={
+                          riskIssueFilter === issue.label
+                            ? { ...s.issueChip, ...(issue.critical ? s.issueChipCritical : s.issueChipWarn), ...s.issueChipActive }
+                            : { ...s.issueChip, ...(issue.critical ? s.issueChipCritical : s.issueChipWarn) }
+                        }
+                      >
+                        {issue.label} {issue.count}
+                      </button>
+                    ))}
+                    {riskIssueFilter && (
+                      <button type="button" onClick={() => setRiskIssueFilter('')} style={s.issueClearBtn}>
+                        Wyczysc brak
+                      </button>
+                    )}
+                  </div>
+                )}
                 {riskStats.all === 0 && (
                   <div style={s.advisorEmpty}>Brak otwartych zlecen do analizy.</div>
                 )}
@@ -410,12 +539,7 @@ export default function AutoDispatch() {
                   <div style={s.advisorEmpty}>Brak zlecen w tym filtrze.</div>
                 )}
                 {filteredRiskTasks.map(task => (
-                  <button
-                    key={task.task_id}
-                    type="button"
-                    style={s.riskTask}
-                    onClick={() => task.task_id && navigate(`/zlecenia/${task.task_id}`)}
-                  >
+                  <div key={task.task_id} style={s.riskTask}>
                     <span style={s.riskTaskTop}>
                       <strong>{task.task_numer}</strong>
                       <span style={s.qualityPill}>{task.quality_score}%</span>
@@ -430,9 +554,28 @@ export default function AutoDispatch() {
                       <span style={(task.issues || []).some(issue => issue.severity === 'critical') ? s.riskBadgeCritical : s.riskBadgeWarn}>
                         {taskIssueBadge(task.issues || [])}
                       </span>
-                      <span style={s.openTaskCta}>Otworz zlecenie</span>
+                      <span style={s.riskTaskActions}>
+                        <button
+                          type="button"
+                          onClick={() => openRiskTask(task)}
+                          disabled={!task.task_id}
+                          aria-label={`Otworz zlecenie ${task.task_numer || task.task_id || ''}`.trim()}
+                          style={s.openTaskCta}
+                        >
+                          Otworz zlecenie
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => repairRiskTask(task)}
+                          disabled={!task.task_id}
+                          aria-label={`Napraw w zleceniu ${task.task_numer || task.task_id || ''}`.trim()}
+                          style={s.repairTaskBtn}
+                        >
+                          Napraw w zleceniu
+                        </button>
+                      </span>
                     </span>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -572,6 +715,13 @@ const s = {
   riskFilters:{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
   riskFilterBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 10, fontWeight: 800 },
   riskFilterBtnActive:{ border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8' },
+  issueSummary:{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '8px 0 4px', borderTop: '1px solid var(--border-light, var(--border))' },
+  issueSummaryLabel:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' },
+  issueChip:{ padding: '4px 7px', borderRadius: 999, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 10, fontWeight: 850 },
+  issueChipCritical:{ background: '#fff1f2', color: '#be123c' },
+  issueChipWarn:{ background: '#fffbeb', color: '#92400e' },
+  issueChipActive:{ border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8' },
+  issueClearBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: '#fff', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 10, fontWeight: 800 },
   recommendation:{ padding: '10px 0', borderTop: '1px solid var(--border-light, var(--border))' },
   recommendationTop:{ display: 'flex', alignItems: 'center', gap: 8 },
   priority:{ color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' },
@@ -579,14 +729,16 @@ const s = {
   recommendationText:{ margin: '5px 0 0', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.45 },
   recommendationAction:{ marginTop: 6, color: 'var(--text)', fontSize: 12, fontWeight: 600 },
   advisorEmpty:{ padding: '12px 0', color: 'var(--text-sub)', fontSize: 13, borderTop: '1px solid var(--border-light, var(--border))' },
-  riskTask:{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 0', background: 'none', border: 'none', borderTop: '1px solid var(--border-light, var(--border))', color: 'var(--text)', textAlign: 'left', cursor: 'pointer' },
+  riskTask:{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 0', background: 'none', border: 'none', borderTop: '1px solid var(--border-light, var(--border))', color: 'var(--text)', textAlign: 'left' },
   riskTaskTop:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 13 },
   riskTaskClient:{ fontSize: 12, color: 'var(--text-sub)' },
   riskTaskIssue:{ fontSize: 11, color: 'var(--text-muted, var(--text-sub))', lineHeight: 1.35 },
   riskTaskFooter:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
   riskBadgeCritical:{ flexShrink: 0, borderRadius: 999, padding: '2px 7px', background: '#fee2e2', color: '#b91c1c', fontSize: 10, fontWeight: 900 },
   riskBadgeWarn:{ flexShrink: 0, borderRadius: 999, padding: '2px 7px', background: '#fef9c3', color: '#a16207', fontSize: 10, fontWeight: 900 },
-  openTaskCta:{ marginLeft: 'auto', color: '#2563eb', fontSize: 11, fontWeight: 800 },
+  riskTaskActions:{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' },
+  openTaskCta:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: '#fff', color: '#2563eb', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  repairTaskBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857', cursor: 'pointer', fontSize: 11, fontWeight: 900 },
   qualityPill:{ flexShrink: 0, minWidth: 40, textAlign: 'center', borderRadius: 6, padding: '2px 6px', background: '#f1f5f9', color: '#334155', fontSize: 11, fontWeight: 800 },
   statsBar: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
   statCard: { flex: 1, minWidth: 100, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' },

@@ -48,4 +48,63 @@ describe('api test-mode mocks', () => {
       note: 'Auto w serwisie',
     });
   });
+
+  it('persists task PUT mocks across list and detail reads', async () => {
+    const saved = await api.put('/api/tasks/101', {
+      klient_nazwa: 'Anna po korekcie',
+      status: 'Do_Zatwierdzenia',
+      wartosc_planowana: 4321,
+    });
+
+    expect(saved.status).toBe(200);
+    expect(saved.data).toMatchObject({
+      id: 101,
+      klient_nazwa: 'Anna po korekcie',
+      status: 'Do_Zatwierdzenia',
+      wartosc_planowana: 4321,
+    });
+
+    const detail = await api.get('/api/tasks/101', { dedupe: false });
+    expect(detail.data).toMatchObject({
+      id: 101,
+      klient_nazwa: 'Anna po korekcie',
+      status: 'Do_Zatwierdzenia',
+    });
+
+    const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
+    expect(list.data.find((task) => task.id === 101)).toMatchObject({
+      klient_nazwa: 'Anna po korekcie',
+      status: 'Do_Zatwierdzenia',
+      wartosc_planowana: 4321,
+    });
+  });
+
+  it('resets task override mocks when test storage is cleared', async () => {
+    await api.put('/api/tasks/101', {
+      klient_nazwa: 'Tymczasowa zmiana demo',
+      status: 'Do_Zatwierdzenia',
+    });
+
+    localStorage.clear();
+    localStorage.setItem('arbor-test-mode', 'true');
+
+    const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
+    expect(list.data.find((task) => task.id === 101)).toMatchObject({
+      klient_nazwa: 'Anna Kowalska',
+      status: 'Nowe',
+    });
+  });
+
+  it('serves task status PUT mocks and updates derived stats', async () => {
+    const saved = await api.put('/api/tasks/1/status', { status: 'Zakonczone' });
+
+    expect(saved.status).toBe(200);
+    expect(saved.data).toMatchObject({ id: 1, status: 'Zakonczone' });
+
+    const stats = await api.get('/api/tasks/stats', { dedupe: false });
+    expect(stats.data.zakonczone).toBeGreaterThanOrEqual(1);
+
+    const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
+    expect(list.data.find((task) => task.id === 1)).toMatchObject({ status: 'Zakonczone' });
+  });
 });

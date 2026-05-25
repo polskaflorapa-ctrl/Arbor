@@ -160,6 +160,20 @@ const FORM_REPAIR_FIELD_STEPS = {
   budzet: 'finance',
   czas_planowany_godziny: 'finance',
 };
+
+function getRouteEditRepair(search) {
+  const params = new URLSearchParams(search || '');
+  if (params.get('mode') !== 'edit') return null;
+  const field = params.get('field') || '';
+  if (!field || !FORM_REPAIR_FIELD_STEPS[field]) return null;
+  const requestedStep = params.get('step') || FORM_REPAIR_FIELD_STEPS[field];
+  return {
+    field,
+    step: FORM_STEP_KEYS.has(requestedStep) ? requestedStep : FORM_REPAIR_FIELD_STEPS[field],
+    label: params.get('repairLabel') || 'Pole do poprawy',
+    detail: params.get('repairDetail') || '',
+  };
+}
 const OFFICE_PLAN_DEFAULTS = {
   data_planowana: '',
   godzina_rozpoczecia: '08:00',
@@ -3125,7 +3139,7 @@ function buildTaskClosureGuard(task, todayIso, contact = {}) {
     checklist,
     blockers,
     warnings,
-    shouldPause: blockers.length > 0 || warnings.length > 0,
+    shouldPause: blockers.length > 0,
     canForceClose: blockers.length === 0,
   };
 }
@@ -4314,11 +4328,28 @@ export default function Zlecenia() {
 
   useEffect(() => {
     if (!routeTaskId || loading || !zlecenia.length) return;
-    if (String(wybraneZlecenie?.id || '') === String(routeTaskId) && tryb === 'szczegoly') return;
     const task = zlecenia.find((item) => String(item.id) === String(routeTaskId));
-    if (task) otworzSzczegoly(task);
+    if (!task) return;
+
+    const routeRepair = getRouteEditRepair(location.search);
+    if (routeRepair && mozeEdytowac) {
+      if (
+        String(wybraneZlecenie?.id || '') === String(routeTaskId) &&
+        tryb === 'edytuj' &&
+        formRepairFocus?.field === routeRepair.field
+      ) return;
+      otworzEdycje(task, routeRepair.step, {
+        field: routeRepair.field,
+        label: routeRepair.label,
+        detail: routeRepair.detail,
+      });
+      return;
+    }
+
+    if (String(wybraneZlecenie?.id || '') === String(routeTaskId) && tryb === 'szczegoly') return;
+    otworzSzczegoly(task);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeTaskId, loading, zlecenia]);
+  }, [routeTaskId, loading, zlecenia, location.search]);
 
   useEffect(() => {
     if (tryb !== 'edytuj' || !formRepairFocus?.field) return undefined;
@@ -11000,8 +11031,8 @@ const s = {
   taskPhotosSelect: {
     padding: '9px 10px',
     borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.05)',
-    backgroundColor: 'rgba(6,9,19,0.5)',
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text)',
     fontSize: 12,
     minWidth: 0,
@@ -11010,7 +11041,7 @@ const s = {
     padding: '9px 10px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text)',
     fontSize: 12,
     minWidth: 0,
@@ -11019,7 +11050,7 @@ const s = {
     padding: '9px 10px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text)',
     fontSize: 12,
     minWidth: 0,
@@ -11038,7 +11069,7 @@ const s = {
   taskPhotosBtnSecondary: {
     border: '1px solid var(--border2)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-sub)',
     padding: '9px 12px',
     cursor: 'pointer',
@@ -11049,7 +11080,7 @@ const s = {
   taskPhotosHint: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-muted)',
     padding: '8px 10px',
     fontSize: 12,
@@ -11072,7 +11103,7 @@ const s = {
   taskPhotosEmpty: {
     border: '1px dashed var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'rgba(255,255,255,0.74)',
     padding: 18,
     textAlign: 'center',
     color: 'var(--text-muted)',
@@ -11086,7 +11117,7 @@ const s = {
   taskPhotoCard: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-glass)',
     padding: 8,
     minWidth: 0,
     display: 'flex',
@@ -11097,7 +11128,7 @@ const s = {
     display: 'block',
     borderRadius: 7,
     overflow: 'hidden',
-    backgroundColor: '#07110d',
+    backgroundColor: '#EAF5EE',
     aspectRatio: '4 / 3',
   },
   taskPhotoImage: {
@@ -11148,20 +11179,20 @@ const s = {
   },
   tableScroll: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0, minWidth: 700 },
-  thCheck: { padding: '12px 8px', backgroundColor: 'rgba(13,18,30,0.8)', width: 28 },
-  th: { padding: '12px 14px', backgroundColor: 'rgba(13,18,30,0.8)', color: '#475569', textAlign: 'left', fontSize: 11, fontFamily: 'var(--font-display)', fontWeight: '800', letterSpacing: '0.15em', textTransform: 'uppercase' },
-  tdCheck: { padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,0.02)' },
-  td: { padding: '12px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid rgba(255,255,255,0.02)', fontFamily: 'var(--font-mono)' },
-  idBadge: { backgroundColor: 'rgba(0,229,255,0.1)', color: 'var(--pulsar-blue)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(0,229,255,0.2)', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: '800' },
-  badge: { padding: '4px 10px', borderRadius: 8, color: 'var(--pulsar-blue)', backgroundColor: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.2)', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: '800', display: 'inline-block', textTransform: 'uppercase', letterSpacing: '0.08em' },
+  thCheck: { padding: '12px 8px', backgroundColor: 'var(--surface-field)', width: 28 },
+  th: { padding: '12px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: '800', letterSpacing: 0, textTransform: 'uppercase' },
+  tdCheck: { padding: '12px 8px', borderBottom: '1px solid var(--border)' },
+  td: { padding: '12px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-sans)' },
+  idBadge: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.2)', fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: '800' },
+  badge: { padding: '4px 10px', borderRadius: 8, color: 'var(--accent)', backgroundColor: 'var(--accent-surface)', border: '1px solid rgba(20,131,79,0.2)', fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: '800', display: 'inline-block', textTransform: 'uppercase', letterSpacing: 0 },
   akcjeRow: { display: 'flex', gap: 6 },
-  btnSm: { padding: '6px 9px', backgroundColor: 'transparent', color: 'var(--pulsar-blue)', border: '1px solid rgba(0,229,255,0.35)', borderRadius: 10, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  btnPrimary: { padding: '10px 20px', background: 'var(--pulsar-blue)', color: 'var(--space-bg)', border: '1px solid var(--pulsar-blue)', borderRadius: 12, cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: '900', boxShadow: 'none', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  btnSm: { padding: '6px 9px', backgroundColor: 'rgba(20,131,79,0.08)', color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.26)', borderRadius: 10, cursor: 'pointer', fontSize: 13, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  btnPrimary: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.24)', borderRadius: 12, cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: '900', boxShadow: 'var(--shadow-sm)', textTransform: 'none', letterSpacing: 0 },
   btnSecondary: {
     padding: '8px 16px',
-    backgroundColor: 'transparent',
-    color: 'var(--pulsar-blue)',
-    border: '1px solid rgba(0,229,255,0.45)',
+    backgroundColor: 'rgba(20,131,79,0.08)',
+    color: 'var(--accent)',
+    border: '1px solid rgba(20,131,79,0.26)',
     borderRadius: 12,
     cursor: 'pointer',
     fontSize: 13,
@@ -11171,15 +11202,15 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnGray: { padding: '10px 20px', backgroundColor: 'rgba(13,18,30,0.8)', color: 'var(--text-sub)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, cursor: 'pointer', fontSize: 14 },
-  btnDanger: { padding: '10px 20px', backgroundColor: 'var(--danger)', color: 'var(--space-bg)', border: '1px solid var(--danger)', borderRadius: 12, cursor: 'pointer', fontSize: 14, fontWeight: '800' },
+  btnGray: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 12, cursor: 'pointer', fontSize: 14 },
+  btnDanger: { padding: '10px 20px', backgroundColor: 'var(--danger)', color: '#fff', border: '1px solid var(--danger)', borderRadius: 12, cursor: 'pointer', fontSize: 14, fontWeight: '800' },
   detailRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },
   detailLabel: { fontSize: 13, color: 'var(--text-muted)', minWidth: 130 },
   detailValue: { fontSize: 13, color: 'var(--text)', fontWeight: '500', textAlign: 'right' },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 },
   fg: { display: 'flex', flexDirection: 'column', gap: 5 },
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  input: { padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)', fontSize: 13, backgroundColor: 'rgba(13,18,30,0.8)', color: 'var(--text)', outline: 'none' },
+  input: { padding: '10px 12px', borderRadius: 12, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)', outline: 'none' },
   inputRepairFocus: { border: '1px solid rgba(249,168,37,0.82)', boxShadow: '0 0 0 3px rgba(249,168,37,0.16)' },
   inputDanger: { border: '1px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.14)' },
   komunikat: { padding: '12px 16px', borderRadius: 10, marginBottom: 16, fontSize: 14, fontWeight: '500' },
@@ -11363,8 +11394,8 @@ const s = {
     marginBottom: 20,
   },
   kanbanCol: {
-    background: 'rgba(18,24,41,0.75)',
-    border: '1px solid rgba(255,255,255,0.04)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 16,
     minHeight: 220,
     display: 'flex',
@@ -11376,7 +11407,7 @@ const s = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '10px 10px 8px',
-    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    borderBottom: '1px solid var(--border)',
   },
   kanbanCount: {
     fontSize: 12,
@@ -11394,13 +11425,14 @@ const s = {
     color: 'var(--text-muted)',
     textAlign: 'center',
     padding: '20px 8px',
-    border: '1px dashed rgba(255,255,255,0.05)',
+    border: '1px dashed var(--border)',
     borderRadius: 12,
+    background: 'rgba(255,255,255,0.58)',
   },
   kanbanCard: {
-    border: '1px solid rgba(255,255,255,0.04)',
+    border: '1px solid var(--border)',
     borderRadius: 14,
-    background: 'rgba(13,18,30,0.8)',
+    background: '#fff',
     padding: 10,
     transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
   },
@@ -11423,7 +11455,7 @@ const s = {
     padding: '5px 7px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-muted)',
     fontSize: 11,
     fontWeight: 800,
@@ -11442,14 +11474,14 @@ const s = {
     justifyContent: 'flex-end',
   },
   kanbanActionBtn: {
-    border: '1px solid rgba(0,229,255,0.35)',
+    border: '1px solid rgba(20,131,79,0.26)',
     borderRadius: 10,
     minWidth: 30,
     minHeight: 28,
     padding: '4px 8px',
     fontSize: 12,
-    backgroundColor: 'transparent',
-    color: 'var(--pulsar-blue)',
+    backgroundColor: 'rgba(20,131,79,0.08)',
+    color: 'var(--accent)',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
@@ -13817,10 +13849,10 @@ const s = {
     lineHeight: 1.3,
   },
   listTaskCard: {
-    background: 'rgba(18,24,41,0.75)',
-    border: '1px solid rgba(255,255,255,0.04)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 16,
-    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+    boxShadow: 'var(--shadow-md)',
     padding: 14,
     display: 'flex',
     flexDirection: 'column',
@@ -13842,9 +13874,9 @@ const s = {
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 6,
-    border: '1px solid rgba(255,255,255,0.05)',
+    border: '1px solid var(--border)',
     borderRadius: 10,
-    backgroundColor: 'rgba(13,18,30,0.8)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-muted)',
     padding: '4px 7px',
     fontSize: 11,
@@ -13885,7 +13917,7 @@ const s = {
   workflowStageRow: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: '8px 9px',
     display: 'grid',
     gridTemplateColumns: '28px 1fr',
@@ -13935,7 +13967,7 @@ const s = {
   stageOwnerMini: {
     border: '1px solid rgba(52,211,153,0.26)',
     borderRadius: 8,
-    background: 'linear-gradient(145deg, rgba(52,211,153,0.09), var(--bg-deep))',
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.09), rgba(255,255,255,0.82))',
     padding: '9px 10px',
     display: 'grid',
     gap: 6,
@@ -13943,23 +13975,23 @@ const s = {
   },
   stageOwnerMini_good: {
     border: '1px solid rgba(52,211,153,0.3)',
-    background: 'linear-gradient(145deg, rgba(52,211,153,0.1), var(--bg-deep))',
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.1), rgba(255,255,255,0.82))',
   },
   stageOwnerMini_warning: {
     border: '1px solid rgba(242,184,75,0.34)',
-    background: 'linear-gradient(145deg, rgba(242,184,75,0.11), var(--bg-deep))',
+    background: 'linear-gradient(145deg, rgba(242,184,75,0.11), rgba(255,255,255,0.82))',
   },
   stageOwnerMini_danger: {
     border: '1px solid rgba(248,113,113,0.34)',
-    background: 'linear-gradient(145deg, rgba(248,113,113,0.1), var(--bg-deep))',
+    background: 'linear-gradient(145deg, rgba(248,113,113,0.1), rgba(255,255,255,0.82))',
   },
   stageOwnerMini_blue: {
     border: '1px solid rgba(91,192,235,0.32)',
-    background: 'linear-gradient(145deg, rgba(91,192,235,0.1), var(--bg-deep))',
+    background: 'linear-gradient(145deg, rgba(91,192,235,0.1), rgba(255,255,255,0.82))',
   },
   stageOwnerMini_muted: {
     border: '1px solid var(--border)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
   },
   stageOwnerTop: {
     display: 'flex',
@@ -14034,7 +14066,7 @@ const s = {
     minHeight: 32,
     border: '1px solid var(--border2)',
     borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.16)',
+    backgroundColor: 'rgba(20,131,79,0.08)',
     color: 'var(--accent)',
     padding: '6px 8px',
     cursor: 'pointer',
@@ -14056,7 +14088,7 @@ const s = {
   documentationRow: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: '7px 8px',
     display: 'grid',
     gridTemplateColumns: '1fr repeat(3, auto)',
@@ -14082,7 +14114,7 @@ const s = {
   fieldExecutionRow: {
     border: '1px solid var(--border)',
     borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: 'var(--surface-field)',
     padding: '9px 10px',
     display: 'grid',
     gridTemplateColumns: 'minmax(120px, 1fr) minmax(130px, auto)',
@@ -14146,7 +14178,7 @@ const s = {
     border: '1px solid var(--border)',
     borderRadius: 8,
     padding: '8px 9px',
-    backgroundColor: 'rgba(0,0,0,0.16)',
+    backgroundColor: 'var(--surface-field)',
   },
   readinessTop: {
     display: 'flex',
@@ -14179,7 +14211,7 @@ const s = {
   packageReadinessTile: {
     border: '1px solid var(--border)',
     borderRadius: 10,
-    backgroundColor: 'rgba(13,18,30,0.82)',
+    backgroundColor: 'rgba(255,255,255,0.82)',
     color: 'var(--text)',
     minHeight: 58,
     padding: '8px 9px',
