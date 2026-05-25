@@ -71,14 +71,14 @@ export default function Login() {
 
   return (
     <div style={s.root}>
-      {/* Tło z efektem */}
+      {/* Tlo z efektem */}
       <div style={s.bgGlow1} />
       <div style={s.bgGlow2} />
 
       <div style={s.card}>
         {/* Logo */}
         <div style={s.logoRow}>
-          <div style={{ ...s.logoIcon, color: 'var(--accent)' }}>
+          <div style={s.logoIcon}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10"/>
             </svg>
@@ -130,7 +130,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Hasło */}
+          {/* Haslo */}
           <div style={s.field}>
             <label htmlFor={passwordInputId} style={s.label}>{t('login.passwordLabel')}</label>
             <div style={s.inputWrap}>
@@ -196,7 +196,7 @@ export default function Login() {
           </button>
         </form>
 
-        <p style={s.footer}>© {new Date().getFullYear()} ARBOR-OS</p>
+        <p style={s.footer}>&copy; {new Date().getFullYear()} ARBOR-OS</p>
       </div>
     </div>
   );
@@ -205,22 +205,23 @@ export default function Login() {
 const s = {
   root: {
     minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'var(--forest-pattern), linear-gradient(145deg, rgba(20,53,31,0.38) 0%, var(--bg) 44%, var(--bg-deep) 100%)',
+    background: 'linear-gradient(90deg, rgba(20,107,67,0.035) 1px, transparent 1px), linear-gradient(0deg, rgba(20,107,67,0.035) 1px, transparent 1px), linear-gradient(135deg, #f4faf5, #fbfefc 48%, #eaf5ee)',
+    backgroundSize: '36px 36px, 36px 36px, auto',
     position: 'relative', overflow: 'hidden', padding: 24,
   },
   bgGlow1: {
     position: 'absolute', inset: 0,
-    background: 'repeating-linear-gradient(115deg, transparent 0 26px, var(--forest-line) 26px 27px)',
-    opacity: 0.42,
+    background: 'linear-gradient(135deg, rgba(40,182,108,0.12), transparent 48%)',
+    opacity: 0.55,
     pointerEvents: 'none',
   },
   bgGlow2: {
     position: 'absolute', top: 0, right: 0, width: '42%', height: '100%',
-    background: 'linear-gradient(90deg, transparent 0%, rgba(155,217,87,0.08) 48%, rgba(138,106,62,0.08) 100%)',
+    background: 'linear-gradient(90deg, transparent 0%, rgba(20,131,79,0.1) 100%)',
     pointerEvents: 'none',
   },
   card: {
-    background: 'var(--forest-pattern), linear-gradient(155deg, var(--glass-bg-strong) 0%, var(--glass-bg) 100%)',
+    background: 'linear-gradient(155deg, rgba(255,255,255,0.98) 0%, rgba(239,250,243,0.9) 100%)',
     borderRadius: 20, padding: '40px 36px', width: '100%', maxWidth: 420,
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border2)',
     boxShadow: 'var(--shadow-lg)',
@@ -229,9 +230,10 @@ const s = {
   logoRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 },
   logoIcon: {
     width: 48, height: 48, borderRadius: 14,
-    background: 'linear-gradient(145deg, rgba(155,217,87,0.22), rgba(95,143,62,0.1))',
+    background: 'var(--accent-gradient)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--logo-tint-border)',
+    color: 'var(--on-accent)',
   },
   logoText: { margin: 0, fontSize: 26, fontWeight: 800, color: 'var(--text)', letterSpacing: '0' },
   subtitle: { margin: '0 0 32px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' },
@@ -248,7 +250,7 @@ const s = {
     fontSize: 11,
     fontWeight: 800,
     textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+    letterSpacing: 0,
   },
   demoGrid: {
     display: 'grid',
@@ -286,11 +288,11 @@ const s = {
   },
   form: { display: 'flex', flexDirection: 'column', gap: 18 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  label: { fontSize: 12, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 0 },
   inputWrap: { position: 'relative', display: 'flex', alignItems: 'center' },
   inputIcon: { position: 'absolute', left: 12, pointerEvents: 'none' },
   input: {
-    width: '100%', padding: '11px 12px 11px 40px', background: 'var(--bg-deep)',
+    width: '100%', padding: '11px 12px 11px 40px', background: 'var(--surface-field)',
     borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 10, color: 'var(--text)', fontSize: 14,
     outline: 'none', transition: 'border-color 0.2s',
   },
@@ -313,8 +315,8 @@ const s = {
   },
   errText: { fontSize: 13, color: 'var(--danger)', flex: 1 },
   btn: {
-    padding: '13px', background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 10,
-    fontSize: 14, fontWeight: 600, letterSpacing: '0.02em', cursor: 'pointer', display: 'flex', alignItems: 'center',
+    padding: '13px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: 'none', borderRadius: 10,
+    fontSize: 14, fontWeight: 800, letterSpacing: 0, cursor: 'pointer', display: 'flex', alignItems: 'center',
     justifyContent: 'center', gap: 8, transition: 'opacity 0.2s, filter 0.2s', marginTop: 4,
   },
   spinner: {
