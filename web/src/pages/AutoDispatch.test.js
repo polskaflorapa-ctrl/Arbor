@@ -122,7 +122,7 @@ test('loads and renders AI dispatch advisor brief', async () => {
     expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('AI Dyspozytor - odprawa dnia'));
   });
   expect(writeTextMock.mock.calls[0][0]).toContain('ZL/42 (1 kryt.) Jan Kowalski');
-  expect(screen.getByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: /ZL\/42/ }));
   expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();
@@ -164,7 +164,7 @@ test('falls back when Clipboard API is blocked', async () => {
     await waitFor(() => {
       expect(execCommandMock).toHaveBeenCalledWith('copy');
     });
-    expect(screen.getByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Skopiowano' })).toBeInTheDocument();
     expect(screen.queryByText('Nie udalo sie skopiowac odprawy.')).not.toBeInTheDocument();
   } finally {
     Object.defineProperty(document, 'execCommand', {
