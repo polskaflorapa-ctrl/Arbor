@@ -386,9 +386,9 @@ function buildPlanDefaults(task) {
 function getFreshness(row) {
   const age = ageMinutes(row.recorded_at);
   if (age == null) return { key: 'unknown', label: 'Brak czasu', color: '#94A3B8' };
-  if (age <= ONLINE_MINUTES) return { key: 'online', label: 'Online', color: '#00E676' };
-  if (age <= STALE_MINUTES) return { key: 'stale', label: 'Opóźniony', color: '#FF9100' };
-  return { key: 'offline', label: 'Offline', color: '#FF3D71' };
+  if (age <= ONLINE_MINUTES) return { key: 'online', label: 'Online', color: '#14834F' };
+  if (age <= STALE_MINUTES) return { key: 'stale', label: 'Opóźniony', color: '#B7791F' };
+  return { key: 'offline', label: 'Offline', color: '#BE123C' };
 }
 
 function sourceLabel(row) {
@@ -434,12 +434,12 @@ function taskStatusLabel(status) {
 }
 
 function taskStatusColor(status) {
-  if (status === 'W_Realizacji') return '#00E676';
-  if (status === 'Zaplanowane') return '#00E5FF';
-  if (status === 'Do_Zatwierdzenia') return '#FF9100';
-  if (status === 'Wycena_Terenowa') return '#A3E635';
+  if (status === 'W_Realizacji') return '#14834F';
+  if (status === 'Zaplanowane') return '#0E7490';
+  if (status === 'Do_Zatwierdzenia') return '#B7791F';
+  if (status === 'Wycena_Terenowa') return '#3F7D20';
   if (CLOSED_STATUSES.has(status)) return '#94A3B8';
-  return '#CBD5E1';
+  return '#64748B';
 }
 
 function taskPhotoSummary(task) {
@@ -814,14 +814,14 @@ export default function MapaLive() {
   const quickPlanReservationsBlocked = quickPlanReservationsLoading || Boolean(quickPlanReservationsErr);
   const quickPlanReady = quickPlanMissing.length === 0 && !quickPlanHasHardConflicts && !quickPlanReservationsBlocked;
   const quickPlanStatusTone = quickPlanReady
-    ? '#00E676'
+    ? '#14834F'
     : quickPlanHasHardConflicts
-      ? '#FF3D71'
+      ? '#BE123C'
       : quickPlanReservationsLoading
-        ? '#00E5FF'
+        ? '#0E7490'
         : quickPlanReservationsErr
-          ? '#FF9100'
-          : '#FF9100';
+          ? '#B7791F'
+          : '#B7791F';
   const quickPlanStatusLabel = quickPlanReady
     ? 'Plan gotowy'
     : quickPlanHasHardConflicts
@@ -984,7 +984,7 @@ export default function MapaLive() {
       <main className="app-main" style={S.main}>
         <section style={S.hero}>
           <div style={S.heroIcon}><MapOutlined /></div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={S.heroCopy}>
             <div style={S.eyebrow}>Live operations</div>
             <h1 style={S.title}>Mapa live brygad i wyceniających</h1>
             <p style={S.subtitle}>
@@ -1028,17 +1028,17 @@ export default function MapaLive() {
         </section>
 
         <section style={S.kpiGrid}>
-          <Kpi label="Wszystkie sygnały" value={stats.total} tone="#00E5FF" />
-          <Kpi label="Online ≤ 5 min" value={stats.online || 0} tone="#00E676" />
-          <Kpi label="Opóźnione" value={stats.stale || 0} tone="#FF9100" />
-          <Kpi label="Offline > 20 min" value={stats.offline || 0} tone="#FF3D71" />
-          <Kpi label="Z mobilki" value={stats.mobile} tone="#00E676" />
-          <Kpi label="Z pojazdów" value={stats.vehicles} tone="#00E5FF" />
-          <Kpi label="Zlecenia dzisiaj" value={activeTasks.length} tone="#A3E635" />
-          <Kpi label="Do zaplanowania" value={planningQueue.length} tone="#FF9100" />
-          <Kpi label="Brak check-in" value={checkinGapTasks.length} tone="#FF3D71" />
-          <Kpi label="Braki zdjec" value={photoGapTasks.length} tone="#FF9100" />
-          <Kpi label="Problemy" value={problemTasks.length} tone="#FF3D71" />
+          <Kpi label="Wszystkie sygnały" value={stats.total} tone="#0E7490" />
+          <Kpi label="Online ≤ 5 min" value={stats.online || 0} tone="#14834F" />
+          <Kpi label="Opóźnione" value={stats.stale || 0} tone="#B7791F" />
+          <Kpi label="Offline > 20 min" value={stats.offline || 0} tone="#BE123C" />
+          <Kpi label="Z mobilki" value={stats.mobile} tone="#14834F" />
+          <Kpi label="Z pojazdów" value={stats.vehicles} tone="#0E7490" />
+          <Kpi label="Zlecenia dzisiaj" value={activeTasks.length} tone="#3F7D20" />
+          <Kpi label="Do zaplanowania" value={planningQueue.length} tone="#B7791F" />
+          <Kpi label="Brak check-in" value={checkinGapTasks.length} tone="#BE123C" />
+          <Kpi label="Braki zdjec" value={photoGapTasks.length} tone="#B7791F" />
+          <Kpi label="Problemy" value={problemTasks.length} tone="#BE123C" />
         </section>
 
         <section style={S.officeLivePanel}>
@@ -1055,7 +1055,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Brak GPS"
               subtitle="Plan jest, sygnalu nie ma"
-              tone="#FF3D71"
+              tone="#BE123C"
               tasks={tasksWithoutGps}
               empty="Brak zlecen bez GPS."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1064,7 +1064,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Stary sygnal"
               subtitle="Mobilka albo pojazd milczy"
-              tone="#FF9100"
+              tone="#B7791F"
               tasks={staleTaskGps}
               empty="Sygnaly wygladaja aktualnie."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1076,7 +1076,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Brak check-in"
               subtitle="Plan jest, ale teren nie potwierdzil miejsca"
-              tone="#FF3D71"
+              tone="#BE123C"
               tasks={checkinGapTasks}
               empty="Wszystkie ekipy potwierdzily teren."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1085,7 +1085,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Braki zdjec"
               subtitle="Wycena, szkic, dojazd"
-              tone="#FF9100"
+              tone="#B7791F"
               tasks={photoGapTasks}
               empty="Pakiety zdjec sa kompletne."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1097,7 +1097,7 @@ export default function MapaLive() {
             <OfficeAlertColumn
               title="Problemy"
               subtitle="Tematy wymagajace reakcji"
-              tone="#FF3D71"
+              tone="#BE123C"
               tasks={problemTasks}
               empty="Brak otwartych problemow."
               onOpen={(task) => navigate(`/zlecenia/${task.id}`)}
@@ -1129,7 +1129,7 @@ export default function MapaLive() {
                 <div style={S.queueTitle}>Kolejka do dopiecia</div>
                 <div style={S.panelSub}>Bez ekipy, bez terminu, bez czasu pracy albo do zatwierdzenia po ogledzinach.</div>
               </div>
-              <span style={{ ...S.badge, borderColor: '#FF9100', color: '#FF9100' }}>
+              <span style={{ ...S.badge, borderColor: '#B7791F', color: '#B7791F' }}>
                 {planningQueue.length} tematow
               </span>
             </div>
@@ -1177,14 +1177,14 @@ export default function MapaLive() {
                 style={{
                   ...S.quickPlanReadiness,
                   borderColor: `${quickPlanStatusTone}55`,
-                  boxShadow: `0 0 0 1px ${quickPlanStatusTone}16, 0 16px 34px rgba(0,0,0,0.22)`,
+                  boxShadow: `0 0 0 1px ${quickPlanStatusTone}16, 0 12px 26px rgba(15,95,58,0.1)`,
                 }}
               >
                 <span
                   style={{
                     ...S.quickPlanReadyDot,
                     background: quickPlanStatusTone,
-                    boxShadow: `0 0 14px ${quickPlanStatusTone}`,
+                    boxShadow: `0 0 0 4px ${quickPlanStatusTone}18`,
                   }}
                 />
                 <div style={{ minWidth: 0 }}>
@@ -1357,8 +1357,8 @@ export default function MapaLive() {
                     ))}
                   </div>
                   <div style={S.quickTimelineLegend}>
-                    <span><i style={{ ...S.quickTimelineDot, background: '#FF9100' }} /> zajete</span>
-                    <span><i style={{ ...S.quickTimelineDot, background: '#00E676' }} /> wybrany plan</span>
+                    <span><i style={{ ...S.quickTimelineDot, background: '#B7791F' }} /> zajete</span>
+                    <span><i style={{ ...S.quickTimelineDot, background: '#14834F' }} /> wybrany plan</span>
                   </div>
                 </div>
               ) : null}
@@ -1434,16 +1434,16 @@ export default function MapaLive() {
           ) : null}
 
           <div style={S.alertStrip}>
-            <div style={{ ...S.alertCard, borderColor: tasksWithoutGps.length ? 'rgba(255,61,113,0.36)' : 'rgba(0,230,118,0.22)' }}>
-              <WarningAmberOutlined style={{ color: tasksWithoutGps.length ? '#FF3D71' : '#00E676', fontSize: 18 }} />
+            <div style={{ ...S.alertCard, borderColor: tasksWithoutGps.length ? 'rgba(190,18,60,0.28)' : 'rgba(20,131,79,0.2)' }}>
+              <WarningAmberOutlined style={{ color: tasksWithoutGps.length ? '#BE123C' : '#14834F', fontSize: 18 }} />
               <span>
                 {tasksWithoutGps.length
                   ? `${tasksWithoutGps.length} zlecen ma plan, ale nie ma sygnalu GPS.`
                   : 'Kazde aktywne zlecenie z planem ma sygnal GPS albo czeka na start.'}
               </span>
             </div>
-            <div style={{ ...S.alertCard, borderColor: staleTaskGps.length ? 'rgba(255,145,0,0.36)' : 'rgba(255,255,255,0.06)' }}>
-              <MyLocationOutlined style={{ color: staleTaskGps.length ? '#FF9100' : '#94A3B8', fontSize: 18 }} />
+            <div style={{ ...S.alertCard, borderColor: staleTaskGps.length ? 'rgba(183,121,31,0.28)' : 'rgba(20,131,79,0.14)' }}>
+              <MyLocationOutlined style={{ color: staleTaskGps.length ? '#B7791F' : '#64748B', fontSize: 18 }} />
               <span>
                 {staleTaskGps.length
                   ? `${staleTaskGps.length} zlecen ma opozniony albo stary sygnal.`
@@ -1479,7 +1479,7 @@ export default function MapaLive() {
                 <div style={S.panelTitle}>Radar pozycji</div>
                 <div style={S.panelSub}>Widok orientacyjny według koordynatów GPS</div>
               </div>
-              <MyLocationOutlined style={{ color: '#00E5FF' }} />
+              <MyLocationOutlined style={{ color: '#14834F' }} />
             </div>
             <div style={S.radar}>
               <div style={S.gridLineH} />
@@ -1584,7 +1584,7 @@ function Metric({ label, value }) {
 
 function OfficeAlertColumn({ title, subtitle, tone, tasks, empty, onOpen, meta }) {
   return (
-    <article style={{ ...S.officeLiveColumn, borderColor: tasks.length ? `${tone}42` : 'rgba(255,255,255,0.06)' }}>
+    <article style={{ ...S.officeLiveColumn, borderColor: tasks.length ? `${tone}42` : 'rgba(20,131,79,0.14)' }}>
       <div style={S.officeLiveColumnHead}>
         <div style={{ minWidth: 0 }}>
           <div style={S.officeLiveTitle}>{title}</div>
@@ -1603,7 +1603,7 @@ function OfficeAlertColumn({ title, subtitle, tone, tasks, empty, onOpen, meta }
             style={S.officeLiveTask}
             onClick={() => onOpen(task)}
           >
-            <span style={{ ...S.officeLiveDot, background: tone, boxShadow: `0 0 12px ${tone}` }} />
+            <span style={{ ...S.officeLiveDot, background: tone }} />
             <span style={{ minWidth: 0, flex: 1 }}>
               <strong style={S.officeLiveTaskTitle}>{taskClient(task)}</strong>
               <span style={S.officeLiveTaskMeta}>{taskAddress(task)}</span>
@@ -1619,14 +1619,14 @@ function OfficeAlertColumn({ title, subtitle, tone, tasks, empty, onOpen, meta }
 }
 
 function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
-  const fresh = live ? getFreshness(live) : { label: 'Brak GPS', color: '#FF3D71', key: 'missing' };
+  const fresh = live ? getFreshness(live) : { label: 'Brak GPS', color: '#BE123C', key: 'missing' };
   const liveHref = live ? mapHref(live) : '';
   const isRisk = !live || ['stale', 'offline'].includes(fresh.key);
   const photos = taskPhotoSummary(task);
   const issues = taskIssueSummary(task);
 
   return (
-    <article style={{ ...S.dispatchCard, borderColor: isRisk ? 'rgba(255,61,113,0.26)' : 'rgba(0,230,118,0.18)' }}>
+    <article style={{ ...S.dispatchCard, borderColor: isRisk ? 'rgba(190,18,60,0.22)' : 'rgba(20,131,79,0.16)' }}>
       <div style={{ ...S.statusRail, background: taskStatusColor(task.status) }} />
       <div style={S.dispatchTop}>
         <div style={S.dispatchIcon}>
@@ -1705,64 +1705,71 @@ function PlanningTaskCard({ task, onOpen, onSchedule }) {
 }
 
 const glass = {
-  background: 'rgba(18, 24, 41, 0.78)',
-  border: '1px solid rgba(255,255,255,0.06)',
-  boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
-  backdropFilter: 'blur(18px)',
+  background: 'rgba(255,255,255,0.88)',
+  border: '1px solid rgba(20,131,79,0.14)',
+  boxShadow: '0 18px 44px rgba(15,95,58,0.1)',
+  backdropFilter: 'blur(14px)',
 };
 
 const S = {
   main: {
     padding: 28,
     minHeight: '100vh',
-    background: 'radial-gradient(circle at 20% 0%, rgba(0,229,255,0.08), transparent 32%), radial-gradient(circle at 80% 12%, rgba(0,230,118,0.08), transparent 30%)',
+    background: 'linear-gradient(135deg, rgba(246,251,247,0.96), rgba(255,255,255,0.9) 44%, rgba(229,246,236,0.78))',
   },
   hero: {
     ...glass,
-    borderRadius: 22,
-    padding: 22,
+    borderRadius: 16,
+    padding: 18,
     display: 'flex',
     alignItems: 'center',
     gap: 16,
+    flexWrap: 'wrap',
     marginBottom: 14,
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.94), rgba(230,247,238,0.9))',
+  },
+  heroCopy: {
+    flex: '1 1 360px',
+    minWidth: 220,
   },
   heroIcon: {
     width: 54,
     height: 54,
-    borderRadius: 18,
+    borderRadius: 14,
     display: 'grid',
     placeItems: 'center',
-    background: 'rgba(0,229,255,0.12)',
-    color: '#00E5FF',
-    border: '1px solid rgba(0,229,255,0.24)',
+    background: 'rgba(20,131,79,0.1)',
+    color: '#14834F',
+    border: '1px solid rgba(20,131,79,0.2)',
   },
   eyebrow: {
-    color: '#00E676',
+    color: '#14834F',
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '0.14em',
+    letterSpacing: '0.08em',
     fontWeight: 800,
   },
   title: {
     margin: '4px 0',
     color: 'var(--text)',
-    fontSize: 28,
+    fontSize: 26,
     lineHeight: 1.15,
   },
   subtitle: {
     margin: 0,
     color: 'var(--text-muted)',
-    fontSize: 14,
+    fontSize: 13,
     maxWidth: 820,
+    lineHeight: 1.45,
   },
   refreshBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    border: '1px solid rgba(0,229,255,0.32)',
-    background: 'rgba(0,229,255,0.12)',
-    color: '#00E5FF',
-    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.26)',
+    background: '#14834F',
+    color: '#fff',
+    borderRadius: 12,
     padding: '11px 14px',
     fontWeight: 800,
     cursor: 'pointer',
@@ -1774,15 +1781,15 @@ const S = {
     gap: 8,
     marginBottom: 14,
     padding: 12,
-    borderRadius: 14,
-    border: '1px solid rgba(255,61,113,0.32)',
-    background: 'rgba(255,61,113,0.1)',
-    color: '#FF6B98',
+    borderRadius: 12,
+    border: '1px solid rgba(190,18,60,0.22)',
+    background: 'rgba(254,226,226,0.72)',
+    color: '#BE123C',
     fontWeight: 700,
   },
   toolbar: {
     ...glass,
-    borderRadius: 18,
+    borderRadius: 14,
     padding: 14,
     display: 'flex',
     alignItems: 'center',
@@ -1804,21 +1811,26 @@ const S = {
     fontWeight: 800,
   },
   select: {
-    background: 'rgba(6,9,19,0.75)',
+    background: '#fff',
     color: 'var(--text)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    border: '1px solid rgba(20,131,79,0.16)',
     borderRadius: 12,
     padding: '10px 12px',
     outline: 'none',
+    boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
   },
   lastSync: {
     marginLeft: 'auto',
     color: 'var(--text-muted)',
     fontSize: 13,
+    border: '1px solid rgba(20,131,79,0.14)',
+    borderRadius: 999,
+    background: 'rgba(240,247,242,0.78)',
+    padding: '8px 10px',
   },
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
     gap: 12,
     marginBottom: 14,
   },
@@ -1826,18 +1838,17 @@ const S = {
     ...glass,
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 18,
+    borderRadius: 14,
     padding: 16,
+    minHeight: 118,
   },
   kpiGlow: {
     position: 'absolute',
-    right: -18,
-    top: -18,
-    width: 62,
-    height: 62,
-    borderRadius: '50%',
-    filter: 'blur(18px)',
-    opacity: 0.28,
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 4,
+    opacity: 0.78,
   },
   kpiLabel: {
     color: 'var(--text-muted)',
@@ -1854,15 +1865,15 @@ const S = {
   },
   officeLivePanel: {
     ...glass,
-    borderRadius: 22,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 14,
   },
   officeLiveStamp: {
     borderRadius: 999,
-    border: '1px solid rgba(0,229,255,0.18)',
-    background: 'rgba(0,229,255,0.07)',
-    color: '#00E5FF',
+    border: '1px solid rgba(20,131,79,0.18)',
+    background: 'rgba(240,247,242,0.9)',
+    color: '#14834F',
     padding: '7px 10px',
     fontSize: 11,
     fontWeight: 900,
@@ -1870,15 +1881,16 @@ const S = {
   },
   officeLiveGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 230px), 1fr))',
     gap: 10,
   },
   officeLiveColumn: {
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.06)',
-    background: 'rgba(6,9,19,0.46)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.14)',
+    background: 'rgba(255,255,255,0.76)',
     padding: 12,
     minHeight: 214,
+    boxShadow: '0 12px 28px rgba(15,95,58,0.06)',
   },
   officeLiveColumnHead: {
     display: 'flex',
@@ -1901,8 +1913,8 @@ const S = {
   officeLiveCount: {
     minWidth: 32,
     height: 32,
-    borderRadius: 12,
-    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    border: '1px solid rgba(20,131,79,0.14)',
     display: 'inline-grid',
     placeItems: 'center',
     fontSize: 14,
@@ -1919,10 +1931,10 @@ const S = {
     display: 'flex',
     alignItems: 'flex-start',
     gap: 9,
-    border: '1px solid rgba(255,255,255,0.06)',
-    background: 'rgba(255,255,255,0.035)',
+    border: '1px solid rgba(20,131,79,0.12)',
+    background: 'rgba(246,251,247,0.78)',
     color: 'var(--text)',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 10,
     textAlign: 'left',
     cursor: 'pointer',
@@ -1953,15 +1965,15 @@ const S = {
   },
   officeLiveTaskFooter: {
     display: 'block',
-    color: '#CBD5E1',
+    color: '#34493B',
     fontSize: 11,
     fontWeight: 800,
     marginTop: 5,
     lineHeight: 1.35,
   },
   officeLiveEmpty: {
-    borderRadius: 14,
-    border: '1px dashed rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    border: '1px dashed rgba(20,131,79,0.18)',
     color: 'var(--text-muted)',
     padding: 12,
     fontSize: 12,
@@ -1969,14 +1981,14 @@ const S = {
   },
   dispatchPanel: {
     ...glass,
-    borderRadius: 22,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 14,
   },
   queueSection: {
-    borderRadius: 18,
-    border: '1px solid rgba(255,145,0,0.18)',
-    background: 'rgba(255,145,0,0.06)',
+    borderRadius: 14,
+    border: '1px solid rgba(183,121,31,0.18)',
+    background: 'rgba(255,251,235,0.72)',
     padding: 12,
     marginBottom: 12,
   },
@@ -1994,16 +2006,17 @@ const S = {
   },
   queueList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
     gap: 10,
   },
   planningCard: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.06)',
-    background: 'rgba(6,9,19,0.58)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.12)',
+    background: 'rgba(255,255,255,0.82)',
     padding: 13,
+    boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
   },
   planningTop: {
     display: 'flex',
@@ -2020,17 +2033,17 @@ const S = {
   },
   missingPill: {
     borderRadius: 999,
-    border: '1px solid rgba(255,145,0,0.28)',
-    background: 'rgba(255,145,0,0.08)',
-    color: '#FFB454',
+    border: '1px solid rgba(183,121,31,0.24)',
+    background: 'rgba(255,251,235,0.86)',
+    color: '#B7791F',
     padding: '5px 8px',
     fontSize: 11,
     fontWeight: 900,
   },
   quickPlanPanel: {
-    borderRadius: 18,
-    border: '1px solid rgba(0,229,255,0.22)',
-    background: 'rgba(0,229,255,0.06)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.18)',
+    background: 'rgba(240,247,242,0.72)',
     padding: 12,
     marginBottom: 12,
   },
@@ -2038,9 +2051,9 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 15,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(6,9,19,0.48)',
+    borderRadius: 12,
+    border: '1px solid rgba(20,131,79,0.14)',
+    background: 'rgba(255,255,255,0.82)',
     padding: '10px 12px',
     marginBottom: 12,
   },
@@ -2068,9 +2081,9 @@ const S = {
     gap: 5,
   },
   quickPlanInput: {
-    background: 'rgba(6,9,19,0.75)',
+    background: '#fff',
     color: 'var(--text)',
-    border: '1px solid rgba(255,255,255,0.08)',
+    border: '1px solid rgba(20,131,79,0.16)',
     borderRadius: 12,
     padding: '10px 12px',
     outline: 'none',
@@ -2092,8 +2105,8 @@ const S = {
   },
   tinyBtn: {
     borderRadius: 999,
-    border: '1px solid rgba(255,255,255,0.1)',
-    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(20,131,79,0.16)',
+    background: 'rgba(255,255,255,0.78)',
     color: 'var(--text)',
     padding: '6px 9px',
     fontSize: 11,
@@ -2102,9 +2115,9 @@ const S = {
   },
   quickSlotPanel: {
     marginTop: 12,
-    borderRadius: 16,
-    border: '1px solid rgba(0,230,118,0.2)',
-    background: 'rgba(0,230,118,0.06)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.18)',
+    background: 'rgba(240,247,242,0.8)',
     padding: 12,
   },
   quickSlotHead: {
@@ -2127,9 +2140,9 @@ const S = {
     alignItems: 'flex-start',
     gap: 2,
     borderRadius: 13,
-    border: '1px solid rgba(0,230,118,0.22)',
-    background: 'rgba(6,9,19,0.45)',
-    color: '#DDFCE8',
+    border: '1px solid rgba(20,131,79,0.2)',
+    background: '#fff',
+    color: '#102218',
     padding: '8px 11px',
     fontSize: 11,
     fontWeight: 800,
@@ -2137,13 +2150,13 @@ const S = {
     minWidth: 74,
   },
   quickSlotBtnActive: {
-    borderColor: '#00E676',
-    background: 'rgba(0,230,118,0.16)',
-    boxShadow: '0 0 18px rgba(0,230,118,0.16)',
+    borderColor: '#14834F',
+    background: 'rgba(20,131,79,0.1)',
+    boxShadow: '0 10px 24px rgba(20,131,79,0.1)',
   },
   quickSlotEmpty: {
     borderRadius: 12,
-    border: '1px dashed rgba(255,255,255,0.12)',
+    border: '1px dashed rgba(20,131,79,0.18)',
     color: 'var(--text-muted)',
     padding: 10,
     fontSize: 12,
@@ -2151,9 +2164,9 @@ const S = {
   },
   quickTimelinePanel: {
     marginTop: 12,
-    borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(6,9,19,0.42)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.14)',
+    background: 'rgba(255,255,255,0.76)',
     padding: 12,
   },
   quickTimelineHead: {
@@ -2170,15 +2183,15 @@ const S = {
     height: 46,
     borderRadius: 14,
     overflow: 'hidden',
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'linear-gradient(90deg, rgba(255,255,255,0.04), rgba(0,229,255,0.04))',
+    border: '1px solid rgba(20,131,79,0.14)',
+    background: 'linear-gradient(90deg, rgba(20,131,79,0.06), rgba(14,116,144,0.05))',
   },
   quickTimelineTick: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 1,
-    background: 'rgba(255,255,255,0.09)',
+    background: 'rgba(20,131,79,0.12)',
   },
   quickTimelineBusy: {
     position: 'absolute',
@@ -2189,9 +2202,9 @@ const S = {
     justifyContent: 'center',
     overflow: 'hidden',
     borderRadius: 10,
-    background: 'rgba(255,145,0,0.28)',
-    border: '1px solid rgba(255,145,0,0.46)',
-    color: '#FFE2B5',
+    background: 'rgba(183,121,31,0.18)',
+    border: '1px solid rgba(183,121,31,0.34)',
+    color: '#6B4E16',
     fontSize: 10,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -2205,10 +2218,10 @@ const S = {
     justifyContent: 'center',
     overflow: 'hidden',
     borderRadius: 11,
-    background: 'rgba(0,230,118,0.25)',
-    border: '1px solid rgba(0,230,118,0.58)',
-    color: '#DDFCE8',
-    boxShadow: '0 0 20px rgba(0,230,118,0.22)',
+    background: 'rgba(20,131,79,0.2)',
+    border: '1px solid rgba(20,131,79,0.38)',
+    color: '#0F5F3A',
+    boxShadow: '0 10px 22px rgba(20,131,79,0.12)',
     fontSize: 10,
     fontWeight: 900,
     whiteSpace: 'nowrap',
@@ -2243,9 +2256,9 @@ const S = {
   quickPlanError: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(255,61,113,0.25)',
-    background: 'rgba(255,61,113,0.08)',
-    color: '#FF6B98',
+    border: '1px solid rgba(190,18,60,0.22)',
+    background: 'rgba(254,226,226,0.7)',
+    color: '#BE123C',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -2253,9 +2266,9 @@ const S = {
   quickPlanWarn: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(255,145,0,0.28)',
-    background: 'rgba(255,145,0,0.08)',
-    color: '#FFB454',
+    border: '1px solid rgba(183,121,31,0.24)',
+    background: 'rgba(255,251,235,0.76)',
+    color: '#B7791F',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -2263,9 +2276,9 @@ const S = {
   quickPlanInfo: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(0,229,255,0.22)',
-    background: 'rgba(0,229,255,0.07)',
-    color: '#00E5FF',
+    border: '1px solid rgba(14,116,144,0.2)',
+    background: 'rgba(236,253,245,0.72)',
+    color: '#0E7490',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -2279,9 +2292,9 @@ const S = {
   quickPlanOk: {
     marginTop: 10,
     borderRadius: 12,
-    border: '1px solid rgba(0,230,118,0.24)',
-    background: 'rgba(0,230,118,0.08)',
-    color: '#00E676',
+    border: '1px solid rgba(20,131,79,0.22)',
+    background: 'rgba(220,252,231,0.7)',
+    color: '#14834F',
     padding: '9px 10px',
     fontSize: 12,
     fontWeight: 800,
@@ -2296,9 +2309,9 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 9,
-    border: '1px solid rgba(255,255,255,0.06)',
-    borderRadius: 15,
-    background: 'rgba(6,9,19,0.42)',
+    border: '1px solid rgba(20,131,79,0.14)',
+    borderRadius: 12,
+    background: 'rgba(255,255,255,0.78)',
     color: 'var(--text)',
     padding: 12,
     fontSize: 13,
@@ -2306,16 +2319,17 @@ const S = {
   },
   dispatchList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
     gap: 10,
   },
   dispatchCard: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.06)',
-    background: 'rgba(6,9,19,0.5)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.12)',
+    background: 'rgba(255,255,255,0.84)',
     padding: 14,
+    boxShadow: '0 12px 28px rgba(15,95,58,0.06)',
   },
   dispatchTop: {
     display: 'flex',
@@ -2326,12 +2340,12 @@ const S = {
   dispatchIcon: {
     width: 38,
     height: 38,
-    borderRadius: 13,
+    borderRadius: 12,
     display: 'grid',
     placeItems: 'center',
-    background: 'rgba(0,229,255,0.1)',
-    color: '#00E5FF',
-    border: '1px solid rgba(0,229,255,0.18)',
+    background: 'rgba(20,131,79,0.1)',
+    color: '#14834F',
+    border: '1px solid rgba(20,131,79,0.18)',
     flexShrink: 0,
   },
   dispatchTitle: {
@@ -2357,19 +2371,19 @@ const S = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
     gap: 14,
     alignItems: 'start',
   },
   radarPanel: {
     ...glass,
-    borderRadius: 22,
+    borderRadius: 16,
     padding: 16,
     minHeight: 540,
   },
   listPanel: {
     ...glass,
-    borderRadius: 22,
+    borderRadius: 16,
     padding: 16,
   },
   panelHeader: {
@@ -2393,9 +2407,9 @@ const S = {
     position: 'relative',
     height: 470,
     overflow: 'hidden',
-    borderRadius: 20,
-    background: 'radial-gradient(circle at center, rgba(0,229,255,0.16), rgba(6,9,19,0.94) 58%), linear-gradient(135deg, rgba(0,230,118,0.06), rgba(0,229,255,0.04))',
-    border: '1px solid rgba(0,229,255,0.12)',
+    borderRadius: 14,
+    background: 'radial-gradient(circle at center, rgba(20,131,79,0.12), rgba(255,255,255,0.92) 58%), linear-gradient(135deg, rgba(236,253,245,0.82), rgba(240,249,255,0.72))',
+    border: '1px solid rgba(20,131,79,0.14)',
   },
   gridLineH: {
     position: 'absolute',
@@ -2403,7 +2417,7 @@ const S = {
     right: 0,
     top: '50%',
     height: 1,
-    background: 'rgba(255,255,255,0.06)',
+    background: 'rgba(20,131,79,0.12)',
   },
   gridLineV: {
     position: 'absolute',
@@ -2411,19 +2425,19 @@ const S = {
     bottom: 0,
     left: '50%',
     width: 1,
-    background: 'rgba(255,255,255,0.06)',
+    background: 'rgba(20,131,79,0.12)',
   },
   radarCircleLarge: {
     position: 'absolute',
     inset: '12%',
     borderRadius: '50%',
-    border: '1px solid rgba(0,229,255,0.12)',
+    border: '1px solid rgba(20,131,79,0.16)',
   },
   radarCircleSmall: {
     position: 'absolute',
     inset: '31%',
     borderRadius: '50%',
-    border: '1px solid rgba(0,230,118,0.12)',
+    border: '1px solid rgba(20,131,79,0.18)',
   },
   radarPoint: {
     position: 'absolute',
@@ -2434,11 +2448,11 @@ const S = {
     border: '2px solid currentColor',
     display: 'grid',
     placeItems: 'center',
-    color: '#00E5FF',
-    background: 'rgba(6,9,19,0.86)',
+    color: '#0E7490',
+    background: '#fff',
     textDecoration: 'none',
     fontWeight: 900,
-    boxShadow: '0 0 18px currentColor',
+    boxShadow: '0 8px 18px rgba(15,95,58,0.12)',
   },
   emptyRadar: {
     position: 'absolute',
@@ -2459,10 +2473,11 @@ const S = {
   locationCard: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 18,
-    border: '1px solid rgba(255,255,255,0.06)',
-    background: 'rgba(6,9,19,0.48)',
+    borderRadius: 14,
+    border: '1px solid rgba(20,131,79,0.12)',
+    background: 'rgba(255,255,255,0.82)',
     padding: 14,
+    boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
   },
   statusRail: {
     position: 'absolute',
@@ -2497,7 +2512,7 @@ const S = {
     padding: '5px 9px',
     fontSize: 11,
     fontWeight: 900,
-    background: 'rgba(255,255,255,0.03)',
+    background: 'rgba(255,255,255,0.78)',
     whiteSpace: 'nowrap',
   },
   detailsGrid: {
@@ -2529,9 +2544,9 @@ const S = {
     alignItems: 'center',
     gap: 6,
     borderRadius: 12,
-    border: '1px solid rgba(0,229,255,0.32)',
-    background: 'rgba(0,229,255,0.1)',
-    color: '#00E5FF',
+    border: '1px solid rgba(20,131,79,0.24)',
+    background: '#14834F',
+    color: '#fff',
     textDecoration: 'none',
     padding: '8px 10px',
     fontWeight: 900,
@@ -2544,8 +2559,8 @@ const S = {
     justifyContent: 'center',
     gap: 6,
     borderRadius: 12,
-    border: '1px solid rgba(255,255,255,0.08)',
-    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(20,131,79,0.16)',
+    background: 'rgba(255,255,255,0.82)',
     color: 'var(--text)',
     padding: '8px 10px',
     fontWeight: 800,
@@ -2553,8 +2568,8 @@ const S = {
     cursor: 'pointer',
   },
   emptyList: {
-    borderRadius: 16,
-    border: '1px dashed rgba(255,255,255,0.12)',
+    borderRadius: 14,
+    border: '1px dashed rgba(20,131,79,0.18)',
     color: 'var(--text-muted)',
     padding: 20,
     textAlign: 'center',

@@ -848,8 +848,8 @@ const S = {
 
   header: {
     display: 'flex', alignItems: 'center', gap: 16, padding: '16px 18px', marginBottom: 14,
-    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))',
-    border: '1px solid rgba(191,225,146,0.16)', borderRadius: 8, boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-sm)', position: 'relative', zIndex: 1
   },
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
@@ -888,7 +888,7 @@ const S = {
 
   body: { display: 'flex', gap: 20, padding: '20px 0', flexWrap: 'wrap', position: 'relative', zIndex: 1 },
 
-  calBox: { flex: '0 0 380px', background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))', borderRadius: 8, padding: 20, border: '1px solid rgba(191,225,146,0.18)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
+  calBox: { flex: '1 1 320px', maxWidth: 420, minWidth: 0, background: 'var(--surface-glass)', borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border2)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)' },
@@ -909,7 +909,7 @@ const S = {
   legenda: { display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 6 },
 
-  dayPanel: { flex: 1, minWidth: 300, background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.86), rgba(8,16,11,0.92))', border: '1px solid rgba(191,225,146,0.18)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
+  dayPanel: { flex: '2 1 320px', minWidth: 0, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
   dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card2)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border2)' },
@@ -931,7 +931,7 @@ const S = {
 
   // Modal
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.98), rgba(8,16,11,0.98))', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid rgba(191,225,146,0.2)', boxShadow: 'var(--shadow-lg)' },
+  modal: { background: 'var(--surface-glass)', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-lg)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: 'var(--text)' },
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },

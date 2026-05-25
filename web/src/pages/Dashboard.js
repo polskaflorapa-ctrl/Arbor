@@ -22,10 +22,6 @@ function taskDateKey(task) {
   return String(task?.data_planowana || task?.data_wykonania || '').slice(0, 10);
 }
 
-function moneyShort(value) {
-  return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN`;
-}
-
 function moneyCompact(value) {
   return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł`;
 }
@@ -207,7 +203,7 @@ const INSET_LIST = {
     borderRadius: 8,
     overflow: 'hidden',
     border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
   },
   hairline: {
     height: 1,
@@ -273,7 +269,6 @@ const INSET_LIST = {
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({ nowe: 0, w_realizacji: 0, zakonczone: 0 });
   const [allTasks, setAllTasks] = useState([]);
   const [ostatnie, setOstatnie] = useState([]);
   const [teamRankingApi, setTeamRankingApi] = useState(null);
@@ -306,13 +301,11 @@ export default function Dashboard() {
       const rankingReq = canViewTeamRanking(actor)
         ? api.get('/ekipy/ranking', { headers: h, params: rankingParams, dedupe: false }).catch(() => ({ data: null }))
         : Promise.resolve({ data: null });
-      const [sRes, zRes, rRes] = await Promise.all([
-        api.get('/tasks/stats', { headers: h }),
+      const [zRes, rRes] = await Promise.all([
         api.get('/tasks/wszystkie', { headers: h }),
         rankingReq,
       ]);
       const taskRows = Array.isArray(zRes.data) ? zRes.data : [];
-      setStats(sRes.data);
       setAllTasks(taskRows);
       setOstatnie(taskRows.slice(0, 8));
       setTeamRankingApi(rRes.data || null);
@@ -360,12 +353,7 @@ export default function Dashboard() {
   }, [navigate, searchQuery]);
 
   const isBrygadzista = user?.rola === 'Brygadzista';
-  const isSpecjalista = user?.rola === 'Specjalista';
   const isWyceniajacy = user?.rola === 'Wyceniający';
-  const isMagazynier  = user?.rola === 'Magazynier';
-  const isPomocnik    = user?.rola === 'Pomocnik' || user?.rola === 'Pomocnik bez doświadczenia';
-  const isWorker      = isBrygadzista || isSpecjalista || isPomocnik || isMagazynier;
-  const canSeePayroll = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
   const sumaWartosci = allTasks.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
   const todayIso = new Date().toISOString().slice(0, 10);
   const openTasks = allTasks.filter((z) => !isTaskClosed(z.status));
@@ -445,57 +433,6 @@ export default function Dashboard() {
       tone: unassignedTasks.length ? 'amber' : 'green',
       path: '/harmonogram',
     },
-  ];
-
-  const executiveSignals = [
-    {
-      label: 'Pieniadze w systemie',
-      value: moneyShort(sumaWartosci),
-      sub: `Otwarte: ${openTasks.length} | w realizacji: ${activeTasks.length}`,
-      path: '/raporty/analityka',
-      tone: 'green',
-    },
-    {
-      label: 'Ryzyko operacyjne',
-      value: overdueTasks.length + unassignedTasks.length,
-      sub: `Po terminie: ${overdueTasks.length} | bez ekipy: ${unassignedTasks.length}`,
-      filterKey: overdueTasks.length > 0 ? 'overdue' : 'unassigned',
-      tone: overdueTasks.length > 0 ? 'danger' : 'amber',
-    },
-    {
-      label: 'Plan na dzis',
-      value: todayTasks.length,
-      sub: activeTasks.length > 0 ? `${activeTasks.length} zlecen w realizacji` : 'Sprawdz harmonogram ekip',
-      path: '/harmonogram',
-      tone: 'blue',
-    },
-    {
-      label: 'Zamkniecie miesiaca',
-      value: payrollClose.export_allowed ? 'OK' : payrollClose.pending_count,
-      sub: payrollClose.export_allowed ? 'Raporty gotowe do eksportu' : `Brakuje raportow dnia: ${payrollClose.pending_count}`,
-      path: '/rozliczenia-ekip',
-      tone: payrollClose.export_allowed ? 'green' : 'danger',
-    },
-  ];
-
-  const kpiData = [
-    { label: 'Nowe zlecenia', sub: 'Oczekują na przypisanie', value: stats.nowe || 0, icon: 'nowe', path: '/zlecenia' },
-    { label: 'W realizacji', sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', path: '/zlecenia' },
-    { label: 'Zakończone', sub: 'Zrealizowane zlecenia', value: stats.zakonczone || 0, icon: 'zakonczone', path: '/zlecenia' },
-    ...(!isWorker && !isWyceniajacy
-      ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', suffix: ' PLN', path: '/zlecenia' }]
-      : []),
-    ...(canSeePayroll
-      ? [{
-          label: payrollClose.export_allowed ? 'Payroll: eksport OK' : 'Payroll: eksport zablokowany',
-          sub: payrollClose.export_allowed
-            ? 'Miesiąc gotowy do eksportu'
-            : `Brakuje raportów dnia: ${payrollClose.pending_count}`,
-          value: payrollClose.pending_count,
-          icon: payrollClose.export_allowed ? 'zakonczone' : 'realizacja',
-          path: '/rozliczenia-ekip',
-        }]
-      : []),
   ];
 
   const quickLinks = useMemo(() => [
@@ -901,80 +838,6 @@ export default function Dashboard() {
         </section>
 
         {!isWyceniajacy && (
-          <div style={d.kpiSection}>
-            <div style={d.insetGroup}>
-              {kpiData.map((k, i) => (
-                <Fragment key={k.label}>
-                  {i > 0 ? <div style={d.insetHairline} /> : null}
-                  <button
-                    type="button"
-                    disabled={!k.path}
-                    onClick={() => k.path && navigate(k.path)}
-                    onMouseEnter={() => k.path && setHovered(`kpi${i}`)}
-                    onMouseLeave={() => setHovered(null)}
-                    style={{
-                      ...d.insetRow,
-                      cursor: k.path ? 'pointer' : 'default',
-                      opacity: k.path ? 1 : 0.92,
-                      background: hovered === `kpi${i}` && k.path ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
-                    }}
-                  >
-                    <span style={d.insetIconTile}>{KPI_ICONS[k.icon]}</span>
-                    <span style={d.insetRowTexts}>
-                      <span style={d.insetRowTitle}>{k.label}</span>
-                      <span style={d.insetRowSub}>{k.sub}</span>
-                    </span>
-                    <span style={d.kpiValue}>
-                      <AnimatedNumber value={k.value} />
-                      {k.suffix || ''}
-                    </span>
-                  </button>
-                </Fragment>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {canSeePayroll && (
-          <section style={d.executivePanel}>
-            <div style={d.executiveHead}>
-              <div>
-                <div style={d.executiveEyebrow}>Panel prezesa</div>
-                <h2 style={d.executiveTitle}>Najwazniejsze decyzje bez szukania po menu</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/raporty')}
-                style={d.executiveAction}
-              >
-                Centrum raportow
-                {QL_CHEVRON}
-              </button>
-            </div>
-            <div style={d.executiveGrid}>
-              {executiveSignals.map((signal, i) => (
-                <button
-                  key={signal.label}
-                  type="button"
-                  onClick={() => signal.filterKey ? openSmartTaskFilter(signal.filterKey) : navigate(signal.path)}
-                  onMouseEnter={() => setHovered(`exec-${i}`)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    ...d.executiveTile,
-                    ...(d[`executiveTile_${signal.tone}`] || d.executiveTile_green),
-                    background: hovered === `exec-${i}` ? 'var(--bg-card2)' : 'var(--bg-deep)',
-                  }}
-                >
-                  <span style={d.executiveTileLabel}>{signal.label}</span>
-                  <strong style={d.executiveTileValue}>{signal.value}</strong>
-                  <span style={d.executiveTileSub}>{signal.sub}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {!isWyceniajacy && (
           <OpsRadar
             tasks={allTasks}
             payrollClose={payrollClose}
@@ -1070,7 +933,7 @@ export default function Dashboard() {
                   onMouseEnter={() => setHovered(`z${z.id}`)}
                   onMouseLeave={() => setHovered(null)}
                   style={{ ...d.zRow, borderLeftColor: getTaskStatusColor(z.status, '#334155'),
-                    background: hovered === `z${z.id}` ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
+                    background: hovered === `z${z.id}` ? 'rgba(20,131,79,0.06)' : 'transparent' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={d.zKlient}>{z.klient_nazwa}</div>
                     <div style={d.zMeta}>
@@ -1565,26 +1428,6 @@ const d = {
     maxWidth: '100%',
   },
 
-  kpiSection: { display: 'none', marginBottom: 24 },
-  kpiValue: {
-    flexShrink: 0,
-    minWidth: 56,
-    textAlign: 'right',
-    fontSize: 20,
-    fontWeight: 650,
-    letterSpacing: 0,
-    fontVariantNumeric: 'tabular-nums',
-    color: 'var(--text)',
-  },
-  kpiValueCompact: {
-    width: 'calc(100% - 42px)',
-    minWidth: 'calc(100% - 42px)',
-    marginLeft: 42,
-    textAlign: 'left',
-    fontSize: 18,
-    maxWidth: '100%',
-    whiteSpace: 'normal',
-  },
   insetGroup: INSET_LIST.group,
   insetGroupLift: { ...INSET_LIST.group, marginTop: 12 },
   insetHairline: INSET_LIST.hairline,
@@ -1608,7 +1451,7 @@ const d = {
     justifyContent: 'space-between',
     minHeight: 48,
     padding: '11px 14px',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
   },
   pipeLabel: { fontSize: 15, fontWeight: 500, color: 'var(--text-sub)' },
   pipeValue: {
@@ -1617,95 +1460,6 @@ const d = {
     letterSpacing: 0,
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--text)',
-  },
-  executivePanel: {
-    display: 'none',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    padding: 18,
-    marginBottom: 20,
-    boxShadow: 'var(--shadow-sm)',
-  },
-  executiveHead: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-    marginBottom: 14,
-  },
-  executiveEyebrow: {
-    fontSize: 11,
-    fontWeight: 800,
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: 0,
-  },
-  executiveTitle: {
-    margin: '4px 0 0',
-    fontSize: 19,
-    lineHeight: 1.25,
-    fontWeight: 800,
-    color: 'var(--text)',
-    letterSpacing: 0,
-  },
-  executiveAction: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    background: 'var(--bg-deep)',
-    color: 'var(--text)',
-    padding: '9px 12px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  executiveGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-    gap: 10,
-  },
-  executiveTile: {
-    minHeight: 118,
-    border: '1px solid var(--border)',
-    borderTop: '3px solid var(--accent)',
-    borderRadius: 8,
-    color: 'var(--text)',
-    padding: '12px 13px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    display: 'grid',
-    alignContent: 'space-between',
-    gap: 8,
-    transition: 'background 0.12s ease, transform 0.12s ease',
-    fontFamily: 'inherit',
-  },
-  executiveTile_green: { borderTop: '3px solid #34D399' },
-  executiveTile_blue: { borderTop: '3px solid #60A5FA' },
-  executiveTile_amber: { borderTop: '3px solid #FBBF24' },
-  executiveTile_danger: { borderTop: '3px solid #F87171' },
-  executiveTileLabel: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: 0,
-  },
-  executiveTileValue: {
-    fontSize: 24,
-    lineHeight: 1,
-    fontWeight: 850,
-    color: 'var(--text)',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  executiveTileSub: {
-    fontSize: 12,
-    lineHeight: 1.4,
-    fontWeight: 550,
-    color: 'var(--text-sub)',
   },
   commandGrid: { display: 'none', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
   commandCard: {
@@ -1772,15 +1526,15 @@ const d = {
     gap: 8,
     padding: '0 16px',
     borderRadius: 12,
-    border: '1px solid var(--pulsar-blue)',
-    background: 'var(--pulsar-blue)',
+    border: '1px solid rgba(20,131,79,0.24)',
+    background: 'var(--accent-gradient)',
     color: 'var(--on-accent)',
     fontSize: 14,
     fontWeight: 800,
     cursor: 'pointer',
     boxShadow: 'none',
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
+    letterSpacing: 0,
+    textTransform: 'none',
   },
   secondaryAction: {
     minHeight: 42,
@@ -1790,9 +1544,9 @@ const d = {
     gap: 8,
     padding: '0 14px',
     borderRadius: 12,
-    border: '1px solid rgba(0,229,255,0.45)',
-    background: 'transparent',
-    color: 'var(--pulsar-blue)',
+    border: '1px solid rgba(20,131,79,0.24)',
+    background: 'rgba(20,131,79,0.08)',
+    color: 'var(--accent)',
     fontSize: 13,
     fontWeight: 750,
     cursor: 'pointer',
@@ -1943,7 +1697,7 @@ const d = {
     alignItems: 'center',
     minHeight: 38,
     border: 'none',
-    borderBottom: '1px solid rgba(255,255,255,0.02)',
+    borderBottom: '1px solid var(--border)',
     background: 'transparent',
     color: 'var(--text-sub)',
     textAlign: 'left',
@@ -1972,9 +1726,9 @@ const d = {
   progressFill: { display: 'block', height: '100%', borderRadius: 999, background: '#579bfc' },
   quickPanel: {
     borderRadius: 16,
-    border: '1px solid rgba(255,255,255,0.04)',
-    background: 'rgba(18,24,41,0.75)',
-    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+    border: '1px solid var(--glass-border)',
+    background: 'var(--surface-glass)',
+    boxShadow: 'var(--shadow-md)',
     paddingBottom: 14,
   },
   quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8, padding: '0 14px' },
@@ -1985,8 +1739,8 @@ const d = {
     minHeight: 58,
     padding: '10px 12px',
     borderRadius: 12,
-    border: '1px solid rgba(255,255,255,0.04)',
-    background: 'rgba(13,18,30,0.8)',
+    border: '1px solid var(--border)',
+    background: '#fff',
     color: 'var(--text)',
     textAlign: 'left',
     cursor: 'pointer',

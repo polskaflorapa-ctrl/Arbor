@@ -9,9 +9,9 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
 
 const S = {
-  wrap: { display: 'flex', minHeight: '100vh', background: 'var(--forest-pattern), linear-gradient(180deg, rgba(20,53,31,0.26), var(--bg-deep))' },
+  wrap: { display: 'flex', minHeight: '100vh', background: 'transparent' },
   main: { flex: 1, padding: '24px clamp(16px, 3vw, 32px) 40px', maxWidth: 'none', minWidth: 0 },
-  tabs: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', border: '1px solid var(--border2)', borderRadius: 8, padding: 4, width: 'fit-content', background: 'rgba(5,12,8,0.72)' },
+  tabs: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 4, width: 'fit-content', background: 'rgba(255,255,255,0.82)', boxShadow: 'var(--shadow-sm)' },
   tab: (on) => ({
     padding: '9px 14px',
     borderRadius: 6,
@@ -23,8 +23,8 @@ const S = {
     fontSize: 13,
   }),
   card: {
-    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(8,16,11,0.94))',
-    border: '1px solid rgba(191,225,146,0.16)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
@@ -42,8 +42,8 @@ const S = {
   },
   select: { padding: 8, borderRadius: 8, border: '1px solid var(--border)', minWidth: 220, background: 'var(--input-bg)' },
   err: { color: 'var(--danger)', marginTop: 8, fontWeight: 700 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 },
-  empty: { padding: 18, borderRadius: 8, border: '1px dashed rgba(191,225,146,0.18)', background: 'rgba(155,217,87,0.06)', color: 'var(--text-muted)', fontWeight: 650 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 12 },
+  empty: { padding: 18, borderRadius: 8, border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.72)', color: 'var(--text-muted)', fontWeight: 650 },
 };
 
 export default function WycenyTerenowe() {
