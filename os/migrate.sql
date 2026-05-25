@@ -139,9 +139,7 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wyceniajacy_id INTEGER REFERENCES use
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lat DECIMAL(10,7);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lng DECIMAL(10,7);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ankieta_uproszczona BOOLEAN DEFAULT false;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_wycena_id INTEGER REFERENCES wyceny(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_wyceniajacy ON tasks(wyceniajacy_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source_wycena_unique ON tasks(source_wycena_id) WHERE source_wycena_id IS NOT NULL;
 
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_at TIMESTAMPTZ;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32);
@@ -260,6 +258,8 @@ CREATE INDEX IF NOT EXISTS idx_wyceny_autor         ON wyceny(autor_id);
 CREATE INDEX IF NOT EXISTS idx_wyceny_status        ON wyceny(status);
 CREATE INDEX IF NOT EXISTS idx_wyceny_status_akc    ON wyceny(status_akceptacji);
 CREATE INDEX IF NOT EXISTS idx_wyceny_zdjecia_wycena ON wyceny_zdjecia(wycena_id);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS source_wycena_id INTEGER REFERENCES wyceny(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source_wycena_unique ON tasks(source_wycena_id) WHERE source_wycena_id IS NOT NULL;
 ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_ekipa_id INTEGER REFERENCES teams(id) ON DELETE SET NULL;
 ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_data DATE;
 ALTER TABLE wyceny ADD COLUMN IF NOT EXISTS proponowana_godzina TIME;
