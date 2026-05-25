@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -28,6 +28,11 @@ const MAX_ENTRIES = 400;
 
 function todayYmd() {
   return new Date().toISOString().split('T')[0];
+}
+
+function dateFromSearch(search) {
+  const date = new URLSearchParams(search || '').get('date') || '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '';
 }
 
 function readLog() {
@@ -77,10 +82,11 @@ function mergeAttendanceForDate(log, dateYmd, entries) {
 
 export default function PotwierdzeniaEkip() {
   const { t } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const { message: msg, showMessage: showMsg } = useTimedMessage();
 
-  const [selectedDate, setSelectedDate] = useState(todayYmd);
+  const [selectedDate, setSelectedDate] = useState(() => dateFromSearch(location.search) || todayYmd());
   const [ekipy, setEkipy] = useState([]);
   const [loading, setLoading] = useState(true);
   const [attendanceSource, setAttendanceSource] = useState('local');
@@ -140,6 +146,11 @@ export default function PotwierdzeniaEkip() {
   useEffect(() => {
     loadAttendance(selectedDate);
   }, [loadAttendance, selectedDate]);
+
+  useEffect(() => {
+    const routeDate = dateFromSearch(location.search);
+    if (routeDate && routeDate !== selectedDate) setSelectedDate(routeDate);
+  }, [location.search, selectedDate]);
 
   async function saveAttendanceRemote(ekipa, entry) {
     const token = getStoredToken();

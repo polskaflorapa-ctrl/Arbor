@@ -167,6 +167,26 @@ function mergeTeamRows(base = [], extra = []) {
   return [...map.values()];
 }
 
+function normalizeAttendanceItem(item, fallbackDate) {
+  const teamId = item?.teamId ?? item?.team_id;
+  return {
+    id: String(item?.id || `${teamId || ''}_${fallbackDate}`),
+    dateYmd: String(item?.dateYmd || item?.date_ymd || fallbackDate),
+    teamId: String(teamId || ''),
+    teamName: item?.teamName || item?.team_name || item?.nazwa || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
+    present: item?.present !== false,
+    note: String(item?.note || ''),
+    actor: String(item?.actor || item?.actor_name || ''),
+    at: String(item?.at || item?.updated_at || item?.created_at || ''),
+  };
+}
+
+function attendanceLine(entry) {
+  if (!entry) return '';
+  if (entry.present !== false) return 'Obecna';
+  return entry.note ? `Nieobecna - ${entry.note}` : 'Nieobecna';
+}
+
 function taskClientLabel(task) {
   return task?.klient_nazwa || task?.adres || `Zlecenie #${task?.id}`;
 }
@@ -326,6 +346,7 @@ function buildDayBrief({
   dayLabel,
   scheduledTasks,
   visibleTeams,
+  attendanceByTeam,
   rezerwacje,
   equipmentById,
   teamsById,
@@ -354,11 +375,20 @@ function buildDayBrief({
     `Oddzial: ${branchName}`,
     `Zlecenia: ${dayOpsSummary.tasks} | Rezerwacje sprzetu: ${dayOpsSummary.equipment} | Kolizje: ${dayOpsSummary.teamConflicts + dayOpsSummary.equipmentConflicts}`,
     `Braki: zdjecia ${dayOpsSummary.noPhotos}, opis ${dayOpsSummary.noBrief}, sprzet ${dayOpsSummary.noEquipment}`,
+    `Nieobecne ekipy: ${dayOpsSummary.absentTeams || 0}`,
     `Delegacje: ${delegationSummary.delegated.length}`,
   ];
+  const absentTeamNotes = (visibleTeams || [])
+    .map((team) => {
+      const attendance = attendanceByTeam?.get?.(String(team.id));
+      if (attendance?.present !== false) return '';
+      return `${team.nazwa || `Ekipa #${team.id}`}${attendance.note ? ` - ${attendance.note}` : ''}`;
+    })
+    .filter(Boolean);
+  const headerRows = absentTeamNotes.length ? [...header, `Nieobecne: ${absentTeamNotes.join('; ')}`] : header;
 
   if (!dayTasks.length) {
-    return `${header.join('\n')}\n\nBrak zaplanowanych zlecen na ten dzien.`;
+    return `${headerRows.join('\n')}\n\nBrak zaplanowanych zlecen na ten dzien.`;
   }
 
   const teamOrder = new Map((visibleTeams || []).map((team, index) => [String(team.id), index]));
@@ -375,13 +405,15 @@ function buildDayBrief({
       const team = teamsById?.get?.(teamId);
       const title = team?.nazwa || rows[0]?.ekipa_nazwa || (teamId === 'bez-ekipy' ? 'Bez ekipy' : `Ekipa #${teamId}`);
       const delegation = team && isTeamDelegatedToView(team) ? ` (${teamDelegationLabel(team)})` : '';
+      const attendanceStatus = attendanceLine(attendanceByTeam?.get?.(teamId));
       return [
         `\n=== ${title}${delegation} ===`,
+        attendanceStatus ? `Status ekipy: ${attendanceStatus}` : '',
         ...rows.map((task, index) => buildTaskDayBriefLine(task, index, rezerwacje, dayISO, equipmentById, teamsById)),
-      ].join('\n\n');
+      ].filter(Boolean).join('\n\n');
     });
 
-  return `${header.join('\n')}\n${teamSections.join('\n')}`;
+  return `${headerRows.join('\n')}\n${teamSections.join('\n')}`;
 }
 
 function dayReservationConflicts(rezerwacje, day, visibleEquipmentIds = null) {
@@ -682,12 +714,12 @@ const mStyles = {
   },
   fieldPackagePillOk: {
     color: '#16a34a',
-    borderColor: 'rgba(34,197,94,0.36)',
+    border: '1px solid rgba(34,197,94,0.36)',
     background: 'rgba(34,197,94,0.12)',
   },
   fieldPackagePillWarn: {
     color: '#b45309',
-    borderColor: 'rgba(245,158,11,0.36)',
+    border: '1px solid rgba(245,158,11,0.36)',
     background: 'rgba(245,158,11,0.12)',
   },
   fieldPackageChecks: {
@@ -705,11 +737,11 @@ const mStyles = {
     minWidth: 0,
   },
   fieldPackageCheckOk: {
-    borderColor: 'rgba(34,197,94,0.28)',
+    border: '1px solid rgba(34,197,94,0.28)',
     background: 'rgba(34,197,94,0.08)',
   },
   fieldPackageCheckWarn: {
-    borderColor: 'rgba(245,158,11,0.32)',
+    border: '1px solid rgba(245,158,11,0.32)',
     background: 'rgba(245,158,11,0.08)',
   },
   fieldPackageCheckStatus: {
@@ -1216,6 +1248,8 @@ export default function KalendarzZasobow() {
   const [tasks, setTasks]     = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
   const [rezerwacje, setRezerwacje] = useState([]);
+  const [attendanceRows, setAttendanceRows] = useState([]);
+  const [attendanceError, setAttendanceError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('teams');
   const [teamViewMode, setTeamViewMode] = useState('day');
@@ -1335,6 +1369,37 @@ export default function KalendarzZasobow() {
   }, [loadRezerwacje]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadAttendance = async () => {
+      const token = getStoredToken();
+      if (!token) return;
+      const query = new URLSearchParams({ date: dayISO });
+      if (selectedBranchId) query.set('oddzial_id', selectedBranchId);
+      try {
+        const res = await api.get(`/ekipy/attendance?${query.toString()}`, {
+          headers: authHeaders(token),
+        });
+        const items = Array.isArray(res.data?.items)
+          ? res.data.items.map((item) => normalizeAttendanceItem(item, dayISO))
+          : [];
+        if (!cancelled) {
+          setAttendanceRows(items);
+          setAttendanceError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setAttendanceRows([]);
+          setAttendanceError(true);
+        }
+      }
+    };
+    loadAttendance();
+    return () => {
+      cancelled = true;
+    };
+  }, [dayISO, selectedBranchId]);
+
+  useEffect(() => {
     if (!currentUser) return;
     if (!userCanSeeAllBranches && currentUser.oddzial_id) {
       setSelectedBranchId(String(currentUser.oddzial_id));
@@ -1399,6 +1464,14 @@ export default function KalendarzZasobow() {
   const visibleTeams = useMemo(() => {
     return teamsForPlanning.filter((team) => !selectedBranchId || String(teamBranchId(team)) === String(selectedBranchId));
   }, [selectedBranchId, teamsForPlanning]);
+
+  const attendanceByTeam = useMemo(() => {
+    const map = new Map();
+    for (const item of attendanceRows || []) {
+      if (item?.teamId) map.set(String(item.teamId), item);
+    }
+    return map;
+  }, [attendanceRows]);
 
   const visibleSprzet = useMemo(() => {
     return sprzet.filter((item) => !selectedBranchId || equipmentBranchId(item) === String(selectedBranchId));
@@ -1542,6 +1615,8 @@ export default function KalendarzZasobow() {
     const equipmentConflictGroups = dayReservationConflicts(rezerwacje, dayISO, visibleEquipmentIds.size ? visibleEquipmentIds : null);
     const teamConflictCount = [...dayAnalysisByTeam.values()]
       .reduce((sum, analysis) => sum + (analysis?.conflictIds?.size || 0), 0);
+    const absentTeams = visibleTeams.filter((team) => attendanceByTeam.get(String(team.id))?.present === false);
+    const absentTeamsWithTasks = absentTeams.filter((team) => (dayTasksByTeam.get(String(team.id)) || []).length > 0);
     const noEquipment = dayTasks.filter((task) => !taskReservationEquipmentIds(rezerwacje, task.id).length && !taskFieldEquipment(task)).length;
     const noPhotos = dayTasks.filter((task) => taskPhotoTotal(task) <= 0).length;
     const noBrief = dayTasks.filter((task) => !taskWorkBrief(task)).length;
@@ -1555,8 +1630,11 @@ export default function KalendarzZasobow() {
       noEquipment,
       noPhotos,
       noBrief,
+      absentTeams: absentTeams.length,
+      absentTeamsWithTasks: absentTeamsWithTasks.length,
+      attendanceError,
     };
-  }, [dayAnalysisByTeam, dayISO, planningQueueStats.missing, planningQueueStats.ready, rezerwacje, scheduledTasks, visibleSprzet]);
+  }, [attendanceByTeam, attendanceError, dayAnalysisByTeam, dayISO, dayTasksByTeam, planningQueueStats.missing, planningQueueStats.ready, rezerwacje, scheduledTasks, visibleSprzet, visibleTeams]);
 
   const teamsByIdForPlanning = useMemo(() => {
     const map = new Map();
@@ -1585,7 +1663,34 @@ export default function KalendarzZasobow() {
 
   const dayOpsAlerts = useMemo(() => {
     const alerts = [];
+    if (attendanceError) {
+      alerts.push({
+        key: 'attendance-load-error',
+        tone: 'warn',
+        kind: 'attendance',
+        category: 'Potwierdzenia ekip',
+        title: 'Brak aktualnej gotowosci',
+        detail: 'Nie udalo sie pobrac potwierdzen obecnosci ekip dla tego dnia.',
+        action: 'Sprawdz',
+      });
+    }
     for (const team of visibleTeams) {
+      const attendance = attendanceByTeam.get(String(team.id));
+      const teamTasks = dayTasksByTeam.get(String(team.id)) || [];
+      if (attendance?.present === false) {
+        alerts.push({
+          key: `attendance-${team.id}`,
+          tone: teamTasks.length ? 'bad' : 'warn',
+          kind: 'attendance',
+          team,
+          category: 'Nieobecna ekipa',
+          title: team.nazwa || `Ekipa #${team.id}`,
+          detail: teamTasks.length
+            ? `${teamTasks.length} zlecen zaplanowanych mimo braku gotowosci${attendance.note ? ` - ${attendance.note}` : ''}.`
+            : (attendance.note || 'Ekipa oznaczona jako niedostepna na ten dzien.'),
+          action: teamTasks.length ? 'Przeplanuj' : 'Potwierdzenia',
+        });
+      }
       const analysis = dayAnalysisByTeam.get(String(team.id));
       const ranges = analysis?.ranges || [];
       for (let i = 0; i < ranges.length; i += 1) {
@@ -1663,7 +1768,7 @@ export default function KalendarzZasobow() {
         return (order[a.tone] ?? 9) - (order[b.tone] ?? 9);
       })
       .slice(0, 10);
-  }, [dayAnalysisByTeam, dayISO, equipmentById, planningQueueRows, rezerwacje, scheduledTasks, visibleSprzet, visibleTeams]);
+  }, [attendanceByTeam, attendanceError, dayAnalysisByTeam, dayISO, dayTasksByTeam, equipmentById, planningQueueRows, rezerwacje, scheduledTasks, visibleSprzet, visibleTeams]);
 
   // ─── nawigacja ────────────────────────────────────────────────────────────
   const isTeamDayView = activeTab === 'teams' && teamViewMode === 'day';
@@ -1706,6 +1811,7 @@ export default function KalendarzZasobow() {
       dayLabel,
       scheduledTasks,
       visibleTeams,
+      attendanceByTeam,
       rezerwacje,
       equipmentById,
       teamsById: teamsByIdForPlanning,
@@ -1718,6 +1824,7 @@ export default function KalendarzZasobow() {
   }, [
     branchOptions,
     copyTextToClipboard,
+    attendanceByTeam,
     dayISO,
     dayLabel,
     dayOpsSummary,
@@ -1739,6 +1846,7 @@ export default function KalendarzZasobow() {
       .filter((rez) => reservationOverlapsDay(rez, dayISO))
       .filter((rez) => teamTaskIds.has(String(rez?.task_id || '')));
     const analysis = dayAnalysisByTeam.get(teamId);
+    const teamAttendance = attendanceByTeam.get(teamId);
     const teamSummary = {
       tasks: teamTasks.length,
       readyQueue: 0,
@@ -1749,6 +1857,9 @@ export default function KalendarzZasobow() {
       noEquipment: teamTasks.filter((task) => !taskReservationEquipmentIds(rezerwacje, task.id).length && !taskFieldEquipment(task)).length,
       noPhotos: teamTasks.filter((task) => taskPhotoTotal(task) <= 0).length,
       noBrief: teamTasks.filter((task) => !taskWorkBrief(task)).length,
+      absentTeams: teamAttendance?.present === false ? 1 : 0,
+      absentTeamsWithTasks: teamAttendance?.present === false && teamTasks.length ? 1 : 0,
+      attendanceError,
     };
     const teamName = team?.nazwa || (teamId ? `Ekipa #${teamId}` : 'Ekipa');
     let brief = buildDayBrief({
@@ -1756,6 +1867,7 @@ export default function KalendarzZasobow() {
       dayLabel,
       scheduledTasks: teamTasks,
       visibleTeams: team ? [team] : [],
+      attendanceByTeam,
       rezerwacje,
       equipmentById,
       teamsById: teamsByIdForPlanning,
@@ -1772,6 +1884,8 @@ export default function KalendarzZasobow() {
     }
     void copyTextToClipboard(brief, `Odprawa ekipy ${teamName} skopiowana.`);
   }, [
+    attendanceByTeam,
+    attendanceError,
     branchOptions,
     copyTextToClipboard,
     dayAnalysisByTeam,
@@ -2295,6 +2409,10 @@ export default function KalendarzZasobow() {
                 <span>Gotowe w kolejce</span>
                 <strong>{dayOpsSummary.readyQueue}</strong>
               </div>
+              <div style={{ ...st.opsMetric, ...((dayOpsSummary.absentTeamsWithTasks || dayOpsSummary.absentTeams) ? st.opsMetricBad : {}) }}>
+                <span>Nieobecne</span>
+                <strong>{dayOpsSummary.absentTeams}</strong>
+              </div>
               <div style={{ ...st.opsMetric, ...(dayOpsSummary.noPhotos ? st.opsMetricWarn : {}) }}>
                 <span>Bez zdjec</span>
                 <strong>{dayOpsSummary.noPhotos}</strong>
@@ -2373,6 +2491,10 @@ export default function KalendarzZasobow() {
                       }
                       if (alert.kind === 'queue' && alert.row) {
                         openQueueRepair(alert.row);
+                        return;
+                      }
+                      if (alert.kind === 'attendance') {
+                        navigate(`/potwierdzenia-ekip?date=${dayISO}`);
                         return;
                       }
                       if (alert.task) {
@@ -2483,19 +2605,20 @@ export default function KalendarzZasobow() {
                   <div style={st.dayPlanner}>
                     <div style={st.dayPlannerHeader}>
                       <div style={st.dayTimeHeader}>Godzina</div>
-                      {visibleTeams.map((team) => (
-                        <div
-                          key={team.id}
-                          style={{
-                            ...st.dayTeamHeader,
-                            ...(focusedTeamId && String(team.id) === String(focusedTeamId) ? st.focusedTeamHeader : {}),
-                          }}
-                        >
-                          {(() => {
-                            const analysis = dayAnalysisByTeam.get(String(team.id));
-                            const hasConflict = (analysis?.conflictIds?.size || 0) > 0;
-                            return (
-                              <>
+                      {visibleTeams.map((team) => {
+                        const teamAttendance = attendanceByTeam.get(String(team.id));
+                        const isAbsent = teamAttendance?.present === false;
+                        const analysis = dayAnalysisByTeam.get(String(team.id));
+                        const hasConflict = (analysis?.conflictIds?.size || 0) > 0;
+                        return (
+                          <div
+                            key={team.id}
+                            style={{
+                              ...st.dayTeamHeader,
+                              ...(isAbsent ? st.dayTeamHeaderAbsent : {}),
+                              ...(focusedTeamId && String(team.id) === String(focusedTeamId) ? st.focusedTeamHeader : {}),
+                            }}
+                          >
                                 <span style={st.dayTeamHeaderTop}>
                                   <strong style={st.dayTeamName}>{team.nazwa}</strong>
                                   <button
@@ -2510,15 +2633,15 @@ export default function KalendarzZasobow() {
                                     Brief
                                   </button>
                                 </span>
-                                <span>{teamBranchLabel(team)}{isTeamDelegatedToView(team) ? ' · delegacja' : ''}</span>
-                                <span style={{ ...st.dayTeamHeaderMeta, ...(hasConflict ? st.dayTeamHeaderMetaConflict : {}) }}>
-                                  {durationLabel(analysis?.loadMinutes || 0)} pracy · {analysis?.gaps?.length || 0} luk{hasConflict ? ' · konflikt' : ''}
-                                </span>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      ))}
+                            <span style={isAbsent ? st.teamAttendanceAbsent : undefined}>
+                              {isAbsent ? attendanceLine(teamAttendance) : `${teamBranchLabel(team)}${isTeamDelegatedToView(team) ? ' - delegacja' : ''}`}
+                            </span>
+                            <span style={{ ...st.dayTeamHeaderMeta, ...(hasConflict || isAbsent ? st.dayTeamHeaderMetaConflict : {}) }}>
+                              {durationLabel(analysis?.loadMinutes || 0)} pracy - {analysis?.gaps?.length || 0} luk{hasConflict ? ' - konflikt' : ''}{isAbsent ? ' - niedostepna' : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div style={st.dayPlannerBody}>
                       <div style={{ ...st.dayTimeRail, height: dayTimelineHeight }}>
@@ -2538,11 +2661,13 @@ export default function KalendarzZasobow() {
                         const teamTasks = dayTasksByTeam.get(String(team.id)) || [];
                         const analysis = dayAnalysisByTeam.get(String(team.id));
                         const isFocusedTeam = focusedTeamId && String(team.id) === String(focusedTeamId);
+                        const isAbsent = attendanceByTeam.get(String(team.id))?.present === false;
                         return (
                           <div
                             key={team.id}
                             style={{
                               ...st.dayTeamColumn,
+                              ...(isAbsent ? st.dayTeamColumnAbsent : {}),
                               ...(isFocusedTeam ? st.focusedTeamColumn : {}),
                               height: dayTimelineHeight,
                             }}
@@ -2582,20 +2707,26 @@ export default function KalendarzZasobow() {
                               );
                             })}
                             {teamTasks.length ? teamTasks.map(renderDayTaskBlock) : (
-                              <div style={st.dayEmptyColumn}>Brak zlecen w tym dniu</div>
+                              <div style={{ ...st.dayEmptyColumn, ...(isAbsent ? st.dayEmptyColumnAbsent : {}) }}>
+                                {isAbsent ? 'Ekipa nieobecna' : 'Brak zlecen w tym dniu'}
+                              </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ) : visibleTeams.map((team) => (
+                ) : visibleTeams.map((team) => {
+                  const teamAttendance = attendanceByTeam.get(String(team.id));
+                  const isAbsent = teamAttendance?.present === false;
+                  return (
                   <div
                     key={team.id}
                     style={{
                       display: 'flex',
                       borderBottom: '1px solid var(--border)',
                       minHeight: TEAM_ROW_H,
+                      ...(isAbsent ? st.absentTeamRangeRow : {}),
                       ...(focusedTeamId && String(team.id) === String(focusedTeamId) ? st.focusedTeamRangeRow : {}),
                     }}
                   >
@@ -2620,8 +2751,8 @@ export default function KalendarzZasobow() {
                           Brief
                         </button>
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                        {teamBranchLabel(team)}{isTeamDelegatedToView(team) ? ' · delegacja' : ''}
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, ...(isAbsent ? st.teamAttendanceAbsent : {}) }}>
+                        {isAbsent ? attendanceLine(teamAttendance) : `${teamBranchLabel(team)}${isTeamDelegatedToView(team) ? ' - delegacja' : ''}`}
                       </div>
                     </div>
                     {days.map((d) => {
@@ -2635,6 +2766,7 @@ export default function KalendarzZasobow() {
                         focusedDate &&
                         String(team.id) === String(focusedTeamId) &&
                         iso === focusedDate;
+                      const isAbsentCell = isAbsent && iso === dayISO;
                       const cellTasks = tasksByTeamDay.get(`${team.id}|${iso}`) || [];
                       return (
                         <div
@@ -2648,6 +2780,8 @@ export default function KalendarzZasobow() {
                               ? 'rgba(34,197,94,0.18)'
                               : isFocusedTeamDay
                               ? 'rgba(34,197,94,0.2)'
+                              : isAbsentCell
+                              ? 'rgba(239,68,68,0.1)'
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
@@ -2661,12 +2795,13 @@ export default function KalendarzZasobow() {
                           onDragLeave={handleTaskDragLeave}
                           onDrop={(e) => handleTaskDrop(e, team.id, iso)}
                         >
-                          {cellTasks.length ? cellTasks.map(renderTaskCard) : <div style={st.emptyTeamCell}>wolne</div>}
+                          {cellTasks.length ? cellTasks.map(renderTaskCard) : <div style={{ ...st.emptyTeamCell, ...(isAbsentCell ? st.emptyTeamCellAbsent : {}) }}>{isAbsentCell ? 'nieobecna' : 'wolne'}</div>}
                         </div>
                       );
                     })}
                   </div>
-                ))}
+                  );
+                })}
               </>
             ) : (
               <>
@@ -2935,15 +3070,15 @@ const st = {
     boxSizing: 'border-box',
   },
   opsMetricWarn: {
-    borderColor: 'rgba(245,158,11,0.45)',
+    border: '1px solid rgba(245,158,11,0.45)',
     background: 'rgba(245,158,11,0.1)',
   },
   opsMetricInfo: {
-    borderColor: 'rgba(14,165,233,0.45)',
+    border: '1px solid rgba(14,165,233,0.45)',
     background: 'rgba(14,165,233,0.1)',
   },
   opsMetricBad: {
-    borderColor: 'rgba(239,68,68,0.55)',
+    border: '1px solid rgba(239,68,68,0.55)',
     background: 'rgba(239,68,68,0.12)',
   },
   opsAction: {
@@ -3131,7 +3266,7 @@ const st = {
     minWidth: 0,
   },
   queueTaskWrapReady: {
-    borderColor: 'rgba(34,197,94,0.32)',
+    border: '1px solid rgba(34,197,94,0.32)',
     background: 'rgba(34,197,94,0.07)',
   },
   queueTaskMeta: {
@@ -3154,12 +3289,12 @@ const st = {
   },
   queueReadyPillOk: {
     color: '#16a34a',
-    borderColor: 'rgba(34,197,94,0.35)',
+    border: '1px solid rgba(34,197,94,0.35)',
     background: 'rgba(34,197,94,0.12)',
   },
   queueReadyPillWarn: {
     color: '#b45309',
-    borderColor: 'rgba(245,158,11,0.35)',
+    border: '1px solid rgba(245,158,11,0.35)',
     background: 'rgba(245,158,11,0.12)',
   },
   queueMissingList: {
@@ -3200,7 +3335,7 @@ const st = {
     textOverflow: 'ellipsis',
   },
   queueActionBtnPrimary: {
-    borderColor: 'rgba(34,197,94,0.42)',
+    border: '1px solid rgba(34,197,94,0.42)',
     background: 'rgba(34,197,94,0.14)',
     color: 'var(--accent)',
   },
@@ -3277,12 +3412,12 @@ const st = {
   },
   taskBadgeOk: {
     color: '#15803d',
-    borderColor: 'rgba(34,197,94,0.35)',
+    border: '1px solid rgba(34,197,94,0.35)',
     background: 'rgba(34,197,94,0.11)',
   },
   taskBadgeWarn: {
     color: '#b45309',
-    borderColor: 'rgba(245,158,11,0.35)',
+    border: '1px solid rgba(245,158,11,0.35)',
     background: 'rgba(245,158,11,0.12)',
   },
   emptyTeamCell: {
@@ -3296,6 +3431,11 @@ const st = {
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.72,
+  },
+  emptyTeamCellAbsent: {
+    border: '1px dashed rgba(239,68,68,0.35)',
+    background: 'rgba(239,68,68,0.08)',
+    color: '#dc2626',
   },
   dayPlanner: {
     minWidth: '100%',
@@ -3334,6 +3474,11 @@ const st = {
     color: 'var(--text)',
     fontSize: 13,
     lineHeight: 1.25,
+  },
+  dayTeamHeaderAbsent: {
+    borderRight: '1px solid rgba(239,68,68,0.42)',
+    background: 'linear-gradient(135deg, rgba(239,68,68,0.14), var(--bg-card))',
+    boxShadow: 'inset 0 -2px 0 rgba(239,68,68,0.65)',
   },
   dayTeamHeaderTop: {
     display: 'flex',
@@ -3376,6 +3521,10 @@ const st = {
     fontWeight: 900,
     cursor: 'pointer',
   },
+  teamAttendanceAbsent: {
+    color: '#dc2626',
+    fontWeight: 950,
+  },
   dayTeamHeaderMeta: {
     display: 'inline-flex',
     marginTop: 4,
@@ -3392,6 +3541,10 @@ const st = {
   },
   focusedTeamColumn: {
     background: 'linear-gradient(180deg, rgba(34,197,94,0.08), var(--bg-card))',
+  },
+  absentTeamRangeRow: {
+    boxShadow: 'inset 3px 0 0 #ef4444',
+    background: 'rgba(239,68,68,0.045)',
   },
   focusedTeamRangeRow: {
     boxShadow: 'inset 3px 0 0 var(--accent)',
@@ -3430,6 +3583,9 @@ const st = {
     borderRight: '1px solid var(--border)',
     background: 'var(--bg-card)',
     overflow: 'hidden',
+  },
+  dayTeamColumnAbsent: {
+    background: 'linear-gradient(180deg, rgba(239,68,68,0.09), var(--bg-card))',
   },
   dayHourSlot: {
     position: 'absolute',
@@ -3496,6 +3652,11 @@ const st = {
     padding: 10,
     textAlign: 'center',
     opacity: 0.72,
+  },
+  dayEmptyColumnAbsent: {
+    border: '1px dashed rgba(239,68,68,0.35)',
+    background: 'rgba(239,68,68,0.08)',
+    color: '#dc2626',
   },
   dayGapBlock: {
     position: 'absolute',

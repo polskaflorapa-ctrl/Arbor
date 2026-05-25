@@ -26,7 +26,7 @@ const USER_JSON = JSON.stringify({
   nazwisko: 'Planer',
 });
 
-function mockCalendarApi({ tasks } = {}) {
+function mockCalendarApi({ attendanceItems, tasks } = {}) {
   const taskRows = tasks ?? [
     {
       id: 42,
@@ -84,6 +84,18 @@ function mockCalendarApi({ tasks } = {}) {
         data: taskRows,
       });
     }
+    if (String(url).startsWith('/ekipy/attendance')) {
+      return Promise.resolve({
+        data: {
+          date: '2026-05-25',
+          items: attendanceItems ?? [
+            { teamId: '3', teamName: 'Brygada Alfa', dateYmd: '2026-05-25', present: true },
+            { teamId: '4', teamName: 'Brygada Beta', dateYmd: '2026-05-25', present: true },
+          ],
+          summary: { total: attendanceItems?.length ?? 2, confirmed: attendanceItems?.filter((item) => item.present !== false).length ?? 2, absent: attendanceItems?.filter((item) => item.present === false).length ?? 0 },
+        },
+      });
+    }
     if (String(url).startsWith('/flota/rezerwacje')) {
       return Promise.resolve({
         data: [
@@ -112,6 +124,7 @@ function renderCalendar() {
     >
       <Routes>
         <Route path="/kalendarz-zasobow" element={<KalendarzZasobow />} />
+        <Route path="/potwierdzenia-ekip" element={<div>Potwierdzenia ekip</div>} />
         <Route path="/" element={<div>Login</div>} />
       </Routes>
     </MemoryRouter>
@@ -199,4 +212,32 @@ test('keeps an empty team brief tied to the selected team', async () => {
   expect(copied).toContain('=== Brygada Alfa ===');
   expect(copied).toContain('Brak zaplanowanych zlecen dla tej ekipy.');
   expect(await screen.findByText('Odprawa ekipy Brygada Alfa skopiowana.')).toBeInTheDocument();
+});
+
+test('marks absent teams in dispatch planning and copied briefs', async () => {
+  mockCalendarApi({
+    attendanceItems: [
+      { teamId: '3', teamName: 'Brygada Alfa', dateYmd: '2026-05-25', present: false, note: 'Auto w serwisie' },
+      { teamId: '4', teamName: 'Brygada Beta', dateYmd: '2026-05-25', present: true },
+    ],
+  });
+
+  renderCalendar();
+
+  expect(await screen.findByText('Nieobecna - Auto w serwisie')).toBeInTheDocument();
+  expect(await screen.findByText('Nieobecna ekipa')).toBeInTheDocument();
+  expect(screen.getByText(/1 zlecen zaplanowanych mimo braku gotowosci/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: /^Kopiuj odprawe$/i }));
+
+  await waitFor(() => {
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1);
+  });
+  const copied = navigator.clipboard.writeText.mock.calls[0][0];
+  expect(copied).toContain('Nieobecne ekipy: 1');
+  expect(copied).toContain('Nieobecne: Brygada Alfa - Auto w serwisie');
+  expect(copied).toContain('Status ekipy: Nieobecna - Auto w serwisie');
+
+  await userEvent.click(screen.getByText('Nieobecna ekipa'));
+  expect(await screen.findByText('Potwierdzenia ekip')).toBeInTheDocument();
 });

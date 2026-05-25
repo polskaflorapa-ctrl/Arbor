@@ -93,6 +93,21 @@
     "hr": "HR — Kadry"
   },
   "pages": {
+    "crewAtt": {
+      "title": "Potwierdzenia ekip",
+      "subtitle": "Dzienna gotowosc brygad przed planowaniem prac.",
+      "hint": "Dane synchronizuja sie z ARBOR-OS, a przy problemie z siecia zostaje lokalna kopia.",
+      "date": "Dzien",
+      "total": "Ekipy",
+      "confirmed": "Gotowe",
+      "absent": "Nieobecne",
+      "present": "Obecna",
+      "note": "Uwagi",
+      "notePh": "Opcjonalnie: powod, auto, urlop, delegacja",
+      "loading": "Ladowanie ekip...",
+      "noTeams": "Brak ekip z API",
+      "errorLoad": "Nie udalo sie wczytac ekip"
+    },
     "warehouse": {
       "title": "Magazyn",
       "subtitle": "Sprzęt ewidencjonowany w systemie OS (dane z serwera).",
