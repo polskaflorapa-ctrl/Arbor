@@ -11396,7 +11396,7 @@ const s = {
   kanbanCol: {
     background: 'var(--surface-glass)',
     border: '1px solid var(--glass-border)',
-    borderRadius: 16,
+    borderRadius: 8,
     minHeight: 220,
     display: 'flex',
     flexDirection: 'column',
@@ -13851,7 +13851,7 @@ const s = {
   listTaskCard: {
     background: 'var(--surface-glass)',
     border: '1px solid var(--glass-border)',
-    borderRadius: 16,
+    borderRadius: 8,
     boxShadow: 'var(--shadow-md)',
     padding: 14,
     display: 'flex',

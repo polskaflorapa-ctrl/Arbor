@@ -1176,7 +1176,7 @@ const d = {
   },
   panelWide: {
     border: '1px solid rgba(15,95,58,0.12)',
-    borderRadius: 20,
+    borderRadius: 8,
     background: '#ffffff',
     boxShadow: '0 12px 32px rgba(16,34,24,0.08)',
     overflow: 'hidden',
@@ -1398,7 +1398,7 @@ const d = {
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: 18,
-    borderRadius: 16,
+    borderRadius: 8,
     width: '100%',
     maxWidth: '100%',
     boxSizing: 'border-box',
@@ -1725,7 +1725,7 @@ const d = {
   progress: { gridColumn: '1 / -1', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
   progressFill: { display: 'block', height: '100%', borderRadius: 999, background: '#579bfc' },
   quickPanel: {
-    borderRadius: 16,
+    borderRadius: 8,
     border: '1px solid var(--glass-border)',
     background: 'var(--surface-glass)',
     boxShadow: 'var(--shadow-md)',

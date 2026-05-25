@@ -1719,7 +1719,7 @@ const S = {
   },
   hero: {
     ...glass,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 18,
     display: 'flex',
     alignItems: 'center',
@@ -1865,7 +1865,7 @@ const S = {
   },
   officeLivePanel: {
     ...glass,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
     marginBottom: 14,
   },
@@ -1972,7 +1972,7 @@ const S = {
     lineHeight: 1.35,
   },
   officeLiveEmpty: {
-    borderRadius: 12,
+    borderRadius: 8,
     border: '1px dashed rgba(20,131,79,0.18)',
     color: 'var(--text-muted)',
     padding: 12,
@@ -1981,12 +1981,12 @@ const S = {
   },
   dispatchPanel: {
     ...glass,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
     marginBottom: 14,
   },
   queueSection: {
-    borderRadius: 14,
+    borderRadius: 8,
     border: '1px solid rgba(183,121,31,0.18)',
     background: 'rgba(255,251,235,0.72)',
     padding: 12,
@@ -2377,13 +2377,13 @@ const S = {
   },
   radarPanel: {
     ...glass,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
     minHeight: 540,
   },
   listPanel: {
     ...glass,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
   },
   panelHeader: {
