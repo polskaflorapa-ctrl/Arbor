@@ -167,6 +167,52 @@ function taskRepairPath(task, returnTo = '') {
   return query ? `${basePath}?${query}` : basePath;
 }
 
+function buildNextDispatchAction(advisor, riskTasks) {
+  if (!advisor) return null;
+  const metrics = advisor.metrics || {};
+  const nextTask = riskTasks.find(taskHasCriticalIssue) || riskTasks.find(taskHasWarningOnly) || null;
+  if (nextTask) {
+    const issue = primaryTaskIssue(nextTask);
+    const critical = taskHasCriticalIssue(nextTask);
+    const taskLabel = nextTask.task_numer || (nextTask.task_id ? `#${nextTask.task_id}` : 'Zlecenie');
+    const client = nextTask.client ? `${nextTask.client}. ` : '';
+    return {
+      kind: 'task',
+      tone: critical ? 'bad' : 'warn',
+      eyebrow: critical ? 'Nastepna blokada' : 'Nastepna uwaga',
+      title: `${taskLabel}: ${issueLabel(issue)}`,
+      detail: `${client}${issue?.action || 'Otworz zlecenie i uzupelnij dane.'}`,
+      button: critical ? 'Napraw blokade' : 'Otworz uwage',
+      task: nextTask,
+    };
+  }
+
+  const blocked = Number(metrics.blocked || 0);
+  const warnings = Number(metrics.warnings || 0);
+  const total = Number(metrics.tasks_total || 0);
+  if (blocked > 0) {
+    return {
+      kind: 'blocked_summary',
+      tone: 'bad',
+      eyebrow: 'Blokady w odprawie',
+      title: `${blocked} blokad do znalezienia`,
+      detail: 'Odprawa nie wskazala konkretnego zlecenia. Odswiez analize po sprawdzeniu listy.',
+      button: 'Odswiez odprawe',
+    };
+  }
+
+  return {
+    kind: total > 0 ? 'ready' : 'idle',
+    tone: 'ready',
+    eyebrow: total > 0 ? 'Gotowe do planowania' : 'Brak zlecen',
+    title: total > 0 ? 'Plan gotowy do solvera' : 'Nie ma zlecen do planowania',
+    detail: total > 0
+      ? (warnings > 0 ? `Bez blokad krytycznych. Zostalo ${warnings} uwag do kontroli.` : 'Brak blokad i uwag w odprawie dnia.')
+      : 'Odprawa nie znalazla otwartych zlecen na wybrany dzien.',
+    button: total > 0 ? 'Generuj podglad planu' : '',
+  };
+}
+
 function formatAdvisorBrief(advisor) {
   const metrics = advisor?.metrics || {};
   const lines = [
@@ -420,6 +466,26 @@ export default function AutoDispatch() {
     return severityFilteredRiskTasks.filter(task => taskHasIssueLabel(task, riskIssueFilter));
   }, [riskIssueFilter, severityFilteredRiskTasks]);
 
+  const nextDispatchAction = useMemo(
+    () => buildNextDispatchAction(advisor, riskTasks),
+    [advisor, riskTasks]
+  );
+
+  const handleNextDispatchAction = useCallback(() => {
+    if (!nextDispatchAction) return;
+    if (nextDispatchAction.kind === 'task') {
+      repairRiskTask(nextDispatchAction.task);
+      return;
+    }
+    if (nextDispatchAction.kind === 'ready') {
+      runSolver(false);
+      return;
+    }
+    if (nextDispatchAction.kind === 'blocked_summary') {
+      loadAdvisor();
+    }
+  }, [loadAdvisor, nextDispatchAction, repairRiskTask, runSolver]);
+
   const stats = plan?.stats;
 
   return (
@@ -539,6 +605,50 @@ export default function AutoDispatch() {
               />
               <Stat label="Wartosc" value={money(advisor.metrics?.total_value)} />
             </div>
+
+            {nextDispatchAction && (
+              <div
+                style={{
+                  ...s.dispatchGate,
+                  ...(nextDispatchAction.tone === 'bad'
+                    ? s.dispatchGateBad
+                    : nextDispatchAction.tone === 'warn'
+                      ? s.dispatchGateWarn
+                      : s.dispatchGateReady),
+                }}
+              >
+                <div style={s.dispatchGateText}>
+                  <span style={s.dispatchGateEyebrow}>{nextDispatchAction.eyebrow}</span>
+                  <strong style={s.dispatchGateTitle}>{nextDispatchAction.title}</strong>
+                  <span style={s.dispatchGateDetail}>{nextDispatchAction.detail}</span>
+                </div>
+                {nextDispatchAction.button && (
+                  <button
+                    type="button"
+                    onClick={handleNextDispatchAction}
+                    disabled={
+                      loading
+                      || advisorLoading
+                      || (nextDispatchAction.kind === 'task' && !nextDispatchAction.task?.task_id)
+                    }
+                    style={{
+                      ...s.dispatchGateBtn,
+                      ...(nextDispatchAction.tone === 'bad'
+                        ? s.dispatchGateBtnBad
+                        : nextDispatchAction.tone === 'warn'
+                          ? s.dispatchGateBtnWarn
+                          : s.dispatchGateBtnReady),
+                    }}
+                  >
+                    {loading && nextDispatchAction.kind === 'ready'
+                      ? 'Generuje...'
+                      : advisorLoading && nextDispatchAction.kind === 'blocked_summary'
+                        ? 'Odswieza...'
+                        : nextDispatchAction.button}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div style={s.advisorGrid}>
               <div style={s.advisorColumn}>
@@ -778,6 +888,18 @@ const s = {
   advisorSource:{ flexShrink: 0, padding: '4px 8px', borderRadius: 6, background: 'var(--surface-field)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
   manualBrief:{ width: '100%', minHeight: 130, boxSizing: 'border-box', resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid #f97316', background: '#fff7ed', color: '#7c2d12', fontSize: 12, lineHeight: 1.45, marginBottom: 14, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
   advisorMetrics:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 14 },
+  dispatchGate:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '11px 12px', marginBottom: 14, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' },
+  dispatchGateBad:{ borderColor: '#fecaca', background: '#fff1f2' },
+  dispatchGateWarn:{ borderColor: '#fde68a', background: '#fffbeb' },
+  dispatchGateReady:{ borderColor: '#bbf7d0', background: '#f0fdf4' },
+  dispatchGateText:{ display: 'grid', gap: 2, minWidth: 0, flex: '1 1 260px' },
+  dispatchGateEyebrow:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  dispatchGateTitle:{ color: 'var(--text)', fontSize: 13, lineHeight: 1.3 },
+  dispatchGateDetail:{ color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
+  dispatchGateBtn:{ flexShrink: 0, padding: '7px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 900 },
+  dispatchGateBtnBad:{ border: '1px solid #dc2626', background: '#fff', color: '#b91c1c' },
+  dispatchGateBtnWarn:{ border: '1px solid #d97706', background: '#fff', color: '#92400e' },
+  dispatchGateBtnReady:{ border: '1px solid #16a34a', background: '#fff', color: '#047857' },
   advisorGrid:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 18, alignItems: 'start' },
   advisorColumn:{ minWidth: 0 },
   sectionTitleRow:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },

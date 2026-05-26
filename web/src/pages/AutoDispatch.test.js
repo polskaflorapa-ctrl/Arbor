@@ -117,8 +117,11 @@ test('loads and renders AI dispatch advisor brief', async () => {
 
   expect(await screen.findByText('Najpierw popraw dwa krytyczne braki.')).toBeInTheDocument();
   expect(screen.getByText('Napraw blokady przed solverem')).toBeInTheDocument();
+  expect(screen.getByText('Nastepna blokada')).toBeInTheDocument();
+  expect(screen.getByText('ZL/42: Brak telefonu')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Napraw blokade' })).toBeInTheDocument();
   expect(screen.getByText('ZL/42')).toBeInTheDocument();
-  expect(screen.getByText(/Jan Kowalski/)).toBeInTheDocument();
+  expect(screen.getAllByText(/Jan Kowalski/).length).toBeGreaterThan(0);
   expect(screen.getByText('1 kryt.')).toBeInTheDocument();
   expect(screen.getByText('Otworz zlecenie')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Napraw w zleceniu ZL/42' })).toBeInTheDocument();
@@ -175,6 +178,9 @@ test('auto-refreshes advisor after returning from a repair', async () => {
 
   expect(await screen.findByText('Po poprawce zostala jedna uwaga.')).toBeInTheDocument();
   expect(screen.getByText('Poprawka zapisana. Odprawa odswiezona.')).toBeInTheDocument();
+  expect(screen.getByText('Nastepna uwaga')).toBeInTheDocument();
+  expect(screen.getByText('TEST-103: Brak pinezki GPS')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Otworz uwage' })).toBeInTheDocument();
   expect(screen.getByText('TEST-103')).toBeInTheDocument();
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(
@@ -184,6 +190,56 @@ test('auto-refreshes advisor after returning from a repair', async () => {
       })
     );
   });
+}, 10000);
+
+test('shows a solver-ready next action when the advisor has no blockers', async () => {
+  api.get.mockResolvedValueOnce({
+    data: {
+      source: 'rules',
+      summary: 'Wszystko gotowe do planowania.',
+      metrics: {
+        ready_for_dispatch: 5,
+        tasks_total: 5,
+        blocked: 0,
+        warnings: 0,
+        avg_quality: 98,
+        total_value: 22000,
+      },
+      recommendations: [],
+      top_tasks: [],
+    },
+  });
+  api.post.mockResolvedValueOnce({
+    data: {
+      routes: [],
+      stats: {
+        coverage_pct: 100,
+        tasks_assigned: 5,
+        tasks_total: 5,
+        teams_used: 2,
+        tasks_unassigned: 0,
+        solver_ms: 18,
+      },
+    },
+  });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
+
+  await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
+  expect(await screen.findByText('Wszystko gotowe do planowania.')).toBeInTheDocument();
+  expect(screen.getByText('Plan gotowy do solvera')).toBeInTheDocument();
+  expect(screen.getByText('Brak blokad i uwag w odprawie dnia.')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Generuj podglad planu' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/dispatch/plan',
+      expect.objectContaining({ date: '2026-05-25', oddzial_id: 7 }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('100%')).toBeInTheDocument();
 }, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {
