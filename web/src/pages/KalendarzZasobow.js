@@ -53,6 +53,15 @@ const STATUS_COLOR = {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const toISO = (d) => d.toISOString().split('T')[0];
 
+function dateFromRouteSearch(search) {
+  const value = new URLSearchParams(search || '').get('date') || '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+}
+
+function anchorFromISODate(value) {
+  return value ? new Date(`${value}T12:00:00`) : null;
+}
+
 function addDays(d, n) {
   const r = new Date(d);
   r.setDate(r.getDate() + n);
@@ -844,6 +853,8 @@ const mStyles = {
   slotBtn: { border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: 'var(--text)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, fontSize: 12, fontWeight: 800 },
   slotEmpty: { color: 'var(--text-muted)', fontSize: 12, fontWeight: 700 },
   planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#92400e', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
+  absenceGuard: { marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.34)', color: '#991b1b', fontSize: 12, fontWeight: 800, lineHeight: 1.45, display: 'grid', gap: 7 },
+  absenceConfirm: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#7f1d1d', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   warningList: { margin: '6px 0 0', paddingLeft: 18 },
   errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.32)', color: '#ef4444', fontSize: 12, fontWeight: 700 },
   linkedTaskBox: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.24)', lineHeight: 1.55 },
@@ -855,6 +866,7 @@ const mStyles = {
   btnCancel: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
   btnGhost: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
   btnSave:   { padding: '8px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  btnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
 };
 
 // ─── podgląd/edycja istniejącej rezerwacji ────────────────────────────────────
@@ -897,7 +909,7 @@ function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onOpenTask, onClose
 }
 
 // ─── główny komponent ────────────────────────────────────────────────────────
-function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose, onOpenTask, saving, error }) {
+function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, attendanceByTeam, onSave, onClose, onOpenTask, saving, error }) {
   const existingEquipmentIds = useMemo(
     () => taskReservationEquipmentIds(rezerwacje, task?.id),
     [rezerwacje, task?.id],
@@ -914,6 +926,7 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
   const [taskPhotos, setTaskPhotos] = useState([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [photosError, setPhotosError] = useState('');
+  const [absenceOverride, setAbsenceOverride] = useState(false);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setEquipment = (selectedOptions) => {
@@ -964,6 +977,15 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
   ];
   const packageReadyCount = packageChecks.filter((item) => item.ok).length;
   const packageReady = packageReadyCount === packageChecks.length;
+  const selectedTeam = useMemo(
+    () => (teams || []).find((team) => String(team.id) === String(ekipa_id)),
+    [ekipa_id, teams],
+  );
+  const selectedAttendance = attendanceByTeam?.get?.(String(ekipa_id));
+  const selectedTeamAbsent = selectedAttendance?.present === false;
+  useEffect(() => {
+    setAbsenceOverride(false);
+  }, [data_planowana, ekipa_id]);
   const previewPhotos = taskPhotos
     .filter((photo) => photo?.sciezka || photo?.url)
     .filter((photo) => ['wycena', 'szkic', 'sketch', 'przed', 'checkin', 'dojazd', 'posesja', 'dojazd_posesja'].includes(String(photo?.typ || '').toLowerCase()))
@@ -1118,6 +1140,24 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
           </div>
         </div>
 
+        {selectedTeamAbsent && (
+          <div style={mStyles.absenceGuard}>
+            <strong>Ekipa jest nieobecna</strong>
+            <span>
+              {selectedTeam?.nazwa || `Ekipa #${ekipa_id}`} ma status: {attendanceLine(selectedAttendance)}.
+              Zapis planu wymaga swiadomego potwierdzenia kierownika.
+            </span>
+            <label style={mStyles.absenceConfirm}>
+              <input
+                type="checkbox"
+                checked={absenceOverride}
+                onChange={(event) => setAbsenceOverride(event.target.checked)}
+              />
+              Potwierdzam decyzje kierownika i plan mimo braku gotowosci ekipy.
+            </label>
+          </div>
+        )}
+
         <label style={mStyles.label}>Sprzet do zlecenia</label>
         <select
           multiple
@@ -1229,7 +1269,14 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
         <div style={mStyles.actionsRow}>
           <button style={mStyles.btnCancel} onClick={onClose}>Zamknij</button>
           <button style={mStyles.btnGhost} onClick={onOpenTask}>Pelne zlecenie</button>
-          <button style={mStyles.btnSave} disabled={saving} onClick={() => onSave(task, form)}>
+          <button
+            style={{
+              ...mStyles.btnSave,
+              ...((selectedTeamAbsent && !absenceOverride) ? mStyles.btnDisabled : {}),
+            }}
+            disabled={saving || (selectedTeamAbsent && !absenceOverride)}
+            onClick={() => onSave(task, { ...form, absence_override: selectedTeamAbsent ? absenceOverride : false })}
+          >
             {saving ? 'Zapisuje...' : 'Zapisz plan'}
           </button>
         </div>
@@ -1241,6 +1288,7 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
 export default function KalendarzZasobow() {
   const navigate = useNavigate();
   const location = useLocation();
+  const initialRouteDate = dateFromRouteSearch(location.search);
   const [currentUser, setCurrentUser] = useState(null);
   const [sprzet, setSprzet]   = useState([]);   // lista equipment_items
   const [ekipy, setEkipy]     = useState([]);
@@ -1256,7 +1304,7 @@ export default function KalendarzZasobow() {
   const [planningQueueFilter, setPlanningQueueFilter] = useState('all');
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [rangeLen, setRangeLen] = useState(14);  // 14 lub 28 dni
-  const [anchor, setAnchor]   = useState(new Date());
+  const [anchor, setAnchor]   = useState(() => anchorFromISODate(initialRouteDate) || new Date());
   const [msg, setMsg]         = useState('');
   const [msgType, setMsgType] = useState('ok');
   const [modalNew, setModalNew]  = useState(null);   // { sprzetId, date }
@@ -2060,6 +2108,14 @@ export default function KalendarzZasobow() {
       setTaskPlanErr('Uzupelnij date, godzine, czas pracy i ekipe.');
       return;
     }
+    const selectedAttendance = attendanceByTeam.get(String(form.ekipa_id));
+    if (selectedAttendance?.present === false && !form.absence_override) {
+      setTaskPlanErr('Ekipa jest nieobecna. Potwierdz wyjatek kierownika albo wybierz inna ekipe.');
+      return;
+    }
+    const absenceNote = selectedAttendance?.present === false
+      ? `UWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(selectedAttendance)}.`
+      : '';
     setSaving(true);
     setTaskPlanErr('');
     try {
@@ -2070,7 +2126,7 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: form.czas_planowany_godziny,
         ekipa_id: form.ekipa_id,
         sprzet_ids: form.sprzet_ids || [],
-        sprzet_notatka: form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.',
+        sprzet_notatka: [form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.', absenceNote].filter(Boolean).join('\n'),
       }, { headers: authHeaders(token) });
       showMsg(`Zapisano plan zlecenia #${task.id}.`);
       setModalTaskPlan(null);
@@ -2109,6 +2165,17 @@ export default function KalendarzZasobow() {
     const nextTime = time || taskTime(task);
     const nextHours = taskHours(task);
     if (String(task.ekipa_id || '') === String(teamId) && taskDate(task) === dayISO && taskTime(task) === nextTime) return;
+    const targetAttendance = attendanceByTeam.get(String(teamId));
+    if (targetAttendance?.present === false) {
+      const targetTeam = teamsByIdForPlanning.get(String(teamId));
+      const confirmed = typeof window !== 'undefined' && window.confirm
+        ? window.confirm(`${targetTeam?.nazwa || `Ekipa #${teamId}`} jest oznaczona jako ${attendanceLine(targetAttendance)}. Czy kierownik potwierdza zaplanowanie mimo braku gotowosci?`)
+        : false;
+      if (!confirmed) {
+        showMsg('Planowanie przerwane: ekipa jest nieobecna.', 'err');
+        return;
+      }
+    }
 
     setSaving(true);
     try {
@@ -2120,7 +2187,9 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: nextHours,
         ekipa_id: teamId,
         sprzet_ids: existingEquipmentIds,
-        sprzet_notatka: 'Przesunieto w harmonogramie ekip.',
+        sprzet_notatka: targetAttendance?.present === false
+          ? `Przesunieto w harmonogramie ekip.\nUWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(targetAttendance)}.`
+          : 'Przesunieto w harmonogramie ekip.',
       }, { headers: authHeaders(token) });
       showMsg(`Zlecenie #${task.id} zaplanowane: ${dayISO} ${nextTime}.`);
       await Promise.all([loadAll(), loadRezerwacje()]);
@@ -2141,6 +2210,7 @@ export default function KalendarzZasobow() {
     return (
       <div
         key={task.id}
+        data-testid={`task-card-${task.id}`}
         draggable={canEdit}
         onDragStart={(e) => handleTaskDragStart(e, task)}
         onClick={(e) => { e.stopPropagation(); openTaskPlan(task); }}
@@ -2225,6 +2295,7 @@ export default function KalendarzZasobow() {
     return (
       <div
         key={task.id}
+        data-testid={`day-task-${task.id}`}
         draggable={canEdit}
         onDragStart={(e) => handleTaskDragStart(e, task)}
         onClick={(e) => { e.stopPropagation(); openTaskPlan(task); }}
@@ -2681,6 +2752,7 @@ export default function KalendarzZasobow() {
                               return (
                                 <div
                                   key={`${team.id}-${slotTime}`}
+                                  data-testid={`team-slot-${team.id}-${dayISO}-${slotTime}`}
                                   style={{
                                     ...st.dayHourSlot,
                                     top: (hour - DAY_START_HOUR) * DAY_HOUR_HEIGHT,
@@ -2771,6 +2843,7 @@ export default function KalendarzZasobow() {
                       return (
                         <div
                           key={`${team.id}-${iso}`}
+                          data-testid={`team-day-${team.id}-${iso}`}
                           style={{
                             width: TEAM_COL_W,
                             minWidth: TEAM_COL_W,
@@ -2966,6 +3039,7 @@ export default function KalendarzZasobow() {
           tasks={tasks}
           sprzet={visibleSprzet.length ? visibleSprzet : sprzet}
           rezerwacje={rezerwacje}
+          attendanceByTeam={attendanceByTeam}
           onSave={handleTaskPlanSave}
           onClose={closeTaskPlan}
           onOpenTask={() => openFullTask(modalTaskPlan)}

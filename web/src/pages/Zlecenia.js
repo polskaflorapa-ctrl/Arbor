@@ -161,6 +161,12 @@ const FORM_REPAIR_FIELD_STEPS = {
   czas_planowany_godziny: 'finance',
 };
 
+function getSafeInternalReturnPath(value) {
+  const path = String(value || '').trim();
+  if (!path || !path.startsWith('/') || path.startsWith('//') || path.includes('://')) return '';
+  return path;
+}
+
 function getRouteEditRepair(search) {
   const params = new URLSearchParams(search || '');
   if (params.get('mode') !== 'edit') return null;
@@ -172,6 +178,8 @@ function getRouteEditRepair(search) {
     step: FORM_STEP_KEYS.has(requestedStep) ? requestedStep : FORM_REPAIR_FIELD_STEPS[field],
     label: params.get('repairLabel') || 'Pole do poprawy',
     detail: params.get('repairDetail') || '',
+    returnTo: getSafeInternalReturnPath(params.get('returnTo')),
+    returnLabel: params.get('returnLabel') || '',
   };
 }
 const OFFICE_PLAN_DEFAULTS = {
@@ -3525,7 +3533,7 @@ export default function Zlecenia() {
   const liveRefreshRef = useRef({ busy: false });
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => getLocalStorageJson('user'));
   const [ekipy, setEkipy] = useState([]);
   const [branchTeams, setBranchTeams] = useState([]);
   const [uzytkownicy, setUzytkownicy] = useState([]);
@@ -3684,7 +3692,7 @@ export default function Zlecenia() {
   }, [quickCall]);
  
   useEffect(() => {
-    const parsedUser = getLocalStorageJson('user');
+    const parsedUser = getLocalStorageJson('user') || currentUser;
     if (!parsedUser) { navigate('/'); return; }
     setCurrentUser(parsedUser);
     loadData(parsedUser);
@@ -3696,8 +3704,9 @@ export default function Zlecenia() {
 
   useEffect(() => {
     if (tryb === 'szczegoly' && !wybraneZlecenie) setTryb('lista');
-    if (tryb === 'edytuj' && !wybraneZlecenie) setTryb('lista');
-  }, [tryb, wybraneZlecenie]);
+    const hasRoutedRepairEdit = Boolean(routeTaskId && getRouteEditRepair(location.search));
+    if (tryb === 'edytuj' && !wybraneZlecenie && !hasRoutedRepairEdit) setTryb('lista');
+  }, [tryb, wybraneZlecenie, routeTaskId, location.search]);
 
   useEffect(() => {
     if (!currentUser?.oddzial_id) return;
@@ -4327,29 +4336,56 @@ export default function Zlecenia() {
   };
 
   useEffect(() => {
-    if (!routeTaskId || loading || !zlecenia.length) return;
-    const task = zlecenia.find((item) => String(item.id) === String(routeTaskId));
-    if (!task) return;
+    if (!routeTaskId || loading) return undefined;
+    let cancelled = false;
 
-    const routeRepair = getRouteEditRepair(location.search);
-    if (routeRepair && mozeEdytowac) {
-      if (
-        String(wybraneZlecenie?.id || '') === String(routeTaskId) &&
-        tryb === 'edytuj' &&
-        formRepairFocus?.field === routeRepair.field
-      ) return;
-      otworzEdycje(task, routeRepair.step, {
-        field: routeRepair.field,
-        label: routeRepair.label,
-        detail: routeRepair.detail,
-      });
-      return;
-    }
+    const openRouteTask = async () => {
+      let task = zlecenia.find((item) => String(item.id) === String(routeTaskId));
+      if (!task) {
+        try {
+          const token = getStoredToken();
+          const { data } = await api.get(`/tasks/${routeTaskId}`, { headers: authHeaders(token), dedupe: false });
+          if (!data || typeof data !== 'object') return;
+          task = data;
+          setZlecenia((prev) => (
+            prev.some((item) => String(item.id) === String(routeTaskId))
+              ? prev.map((item) => (String(item.id) === String(routeTaskId) ? { ...item, ...data } : item))
+              : [data, ...prev]
+          ));
+        } catch {
+          return;
+        }
+      }
+      if (cancelled || !task) return;
 
-    if (String(wybraneZlecenie?.id || '') === String(routeTaskId) && tryb === 'szczegoly') return;
-    otworzSzczegoly(task);
+      const routeRepair = getRouteEditRepair(location.search);
+      if (routeRepair && !currentUser) return;
+      if (routeRepair && mozeEdytowac) {
+        if (
+          String(wybraneZlecenie?.id || '') === String(routeTaskId) &&
+          tryb === 'edytuj' &&
+          formRepairFocus?.field === routeRepair.field
+        ) return;
+        otworzEdycje(task, routeRepair.step, {
+          field: routeRepair.field,
+          label: routeRepair.label,
+          detail: routeRepair.detail,
+          returnTo: routeRepair.returnTo,
+          returnLabel: routeRepair.returnLabel,
+        });
+        return;
+      }
+
+      if (String(wybraneZlecenie?.id || '') === String(routeTaskId) && tryb === 'szczegoly') return;
+      otworzSzczegoly(task);
+    };
+
+    void openRouteTask();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeTaskId, loading, zlecenia, location.search]);
+  }, [routeTaskId, loading, zlecenia, location.search, currentUser, mozeEdytowac, tryb, wybraneZlecenie?.id, formRepairFocus?.field]);
 
   useEffect(() => {
     if (tryb !== 'edytuj' || !formRepairFocus?.field) return undefined;
@@ -4400,6 +4436,8 @@ export default function Zlecenia() {
   });
  
   const zapiszZlecenie = async (options = {}) => {
+    const repairReturnTo = options.returnToRepairSource ? getSafeInternalReturnPath(formRepairFocus?.returnTo) : '';
+    const repairReturnLabel = formRepairFocus?.returnLabel || 'AI Dyspozytor';
     if (tryb === 'nowy') {
       const missing = getTaskCreateMissingFields(form, { requireBranch: canManageAllBranches });
       if (missing.length) {
@@ -4455,7 +4493,13 @@ export default function Zlecenia() {
           ...form,
           id: wybraneZlecenie.id,
         });
-        pokazKomunikat(options.returnToDetails ? 'Poprawka zapisana - sprawdzam kartę zlecenia' : 'Zlecenie zaktualizowane');
+        pokazKomunikat(
+          repairReturnTo
+            ? `Poprawka zapisana - wracam do ${repairReturnLabel}`
+            : options.returnToDetails
+              ? 'Poprawka zapisana - sprawdzam kartę zlecenia'
+              : 'Zlecenie zaktualizowane'
+        );
       }
       if (closesTask && closureGuardForSave) {
         await recordClosureDecision(
@@ -4478,6 +4522,11 @@ export default function Zlecenia() {
           loadTaskPhotos(savedTask.id, { silent: true }),
           loadTaskProblems(savedTask.id, { silent: true }),
         ]);
+        return true;
+      }
+      if (repairReturnTo && savedTask) {
+        setFormRepairFocus(null);
+        navigate(repairReturnTo);
         return true;
       }
       setTryb('lista');
@@ -6248,6 +6297,7 @@ export default function Zlecenia() {
   ] : [];
   const formRepairStep = formRepairFocus?.field ? FORM_REPAIR_FIELD_STEPS[formRepairFocus.field] : '';
   const formRepairStepLabel = FORM_STEPS.find((step) => step.key === formRepairStep)?.label || currentFormStep.label;
+  const formRepairReturnLabel = formRepairFocus?.returnLabel || 'AI Dyspozytor';
   const isRepairField = (field) => Boolean(formRepairFocus?.field && formRepairFocus.field === field);
   const fgStyle = (field, extra = {}) => ({
     ...s.fg,
@@ -8721,6 +8771,11 @@ export default function Zlecenia() {
                     <small style={s.formRepairDetail}>
                       {formRepairFocus.detail || `Otworzony krok: ${formRepairStepLabel}. Pole zostalo podswietlone.`}
                     </small>
+                    {formRepairFocus.returnTo ? (
+                      <small style={s.formRepairDetail}>
+                        Po zapisie wrócisz do: {formRepairReturnLabel}.
+                      </small>
+                    ) : null}
                   </div>
                   <button type="button" style={s.formRepairCloseBtn} onClick={() => setFormRepairFocus(null)}>
                     Zamknij podpowiedz
@@ -9054,9 +9109,18 @@ export default function Zlecenia() {
               </button>
               {formRepairFocus && tryb === 'edytuj' ? (
                 <>
-                  <button type="button" style={s.btnPrimary} onClick={() => zapiszZlecenie({ returnToDetails: true })}>
-                    Zapisz poprawkę i wróć do karty
+                  <button
+                    type="button"
+                    style={s.btnPrimary}
+                    onClick={() => zapiszZlecenie(formRepairFocus.returnTo ? { returnToRepairSource: true } : { returnToDetails: true })}
+                  >
+                    {formRepairFocus.returnTo ? `Zapisz i wróć do ${formRepairReturnLabel}` : 'Zapisz poprawkę i wróć do karty'}
                   </button>
+                  {formRepairFocus.returnTo ? (
+                    <button type="button" style={s.btnGray} onClick={() => zapiszZlecenie({ returnToDetails: true })}>
+                      Zapisz i sprawdź kartę
+                    </button>
+                  ) : null}
                   <button type="button" style={s.btnGray} onClick={() => setFormStepSafe('summary')}>
                     Podsumowanie
                   </button>

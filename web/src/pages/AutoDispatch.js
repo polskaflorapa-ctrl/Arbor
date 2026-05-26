@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -13,6 +13,13 @@ const TEAM_COLORS = [
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function routeDateFromSearch(search) {
+  const value = new URLSearchParams(search || '').get('date') || '';
+  return ISO_DATE_RE.test(value) ? value : '';
 }
 
 function fmt(min) {
@@ -112,7 +119,7 @@ function repairTargetForIssue(issue) {
   return ISSUE_REPAIR_TARGETS[issue.key] || ISSUE_REPAIR_TARGETS[String(issue.key).replace(/^client_/, '')] || null;
 }
 
-function taskRepairPath(task) {
+function taskRepairPath(task, returnTo = '') {
   const basePath = taskPath(task);
   if (!basePath) return '';
   const issue = primaryTaskIssue(task);
@@ -130,6 +137,10 @@ function taskRepairPath(task) {
   if (issue?.key) params.set('issue', issue.key);
   if (issue?.label) params.set('repairLabel', issue.label);
   if (issue?.action) params.set('repairDetail', issue.action);
+  if (returnTo) {
+    params.set('returnTo', returnTo);
+    params.set('returnLabel', 'AI Dyspozytor');
+  }
 
   const query = params.toString();
   return query ? `${basePath}?${query}` : basePath;
@@ -205,10 +216,11 @@ function Stat({ label, value, tone }) {
 
 export default function AutoDispatch() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const user = readStoredUser();
 
-  const [date, setDate]             = useState(todayIso());
+  const [date, setDate]             = useState(() => routeDateFromSearch(location.search) || todayIso());
   const [plan, setPlan]             = useState(null);
   const [loading, setLoading]       = useState(false);
   const [applying, setApplying]     = useState(false);
@@ -224,6 +236,19 @@ export default function AutoDispatch() {
   const [briefCopyText, setBriefCopyText] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
   const [riskIssueFilter, setRiskIssueFilter] = useState('');
+
+  useEffect(() => {
+    const routeDate = routeDateFromSearch(location.search);
+    if (!routeDate || routeDate === date) return;
+    setDate(routeDate);
+    setAdvisor(null);
+    setAdvisorError('');
+    setPreflightHold(null);
+    setBriefCopied(false);
+    setBriefCopyText('');
+    setRiskFilter('all');
+    setRiskIssueFilter('');
+  }, [date, location.search]);
 
   const fetchAdvisorBrief = useCallback(async () => {
     const token = getStoredToken();
@@ -327,9 +352,9 @@ export default function AutoDispatch() {
   }, [navigate]);
 
   const repairRiskTask = useCallback((task) => {
-    const path = taskRepairPath(task);
+    const path = taskRepairPath(task, `/auto-dispatch?date=${encodeURIComponent(date)}`);
     if (path) navigate(path);
-  }, [navigate]);
+  }, [date, navigate]);
 
   const riskTasks = advisor?.top_tasks || EMPTY_TASKS;
   const riskStats = useMemo(() => {

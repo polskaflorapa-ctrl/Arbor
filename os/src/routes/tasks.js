@@ -487,6 +487,56 @@ function buildTaskPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
   return `${datePart} ${hh}:${mm}:00`;
 }
 
+let _teamAttendanceTablesForTasks = false;
+async function ensureTeamAttendanceTablesForTasks() {
+  if (_teamAttendanceTablesForTasks) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS team_attendance (
+      id SERIAL PRIMARY KEY,
+      date_ymd DATE NOT NULL,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      present BOOLEAN NOT NULL DEFAULT true,
+      note TEXT,
+      actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_name VARCHAR(160),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_team_attendance_day_team ON team_attendance(date_ymd, team_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_team_attendance_date ON team_attendance(date_ymd)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_team_attendance_team ON team_attendance(team_id)');
+  _teamAttendanceTablesForTasks = true;
+}
+
+async function getTeamAttendanceForPlan(teamId, plannedDateTime) {
+  const day = String(plannedDateTime || '').slice(0, 10);
+  if (!teamId || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  await ensureTeamAttendanceTablesForTasks();
+  const { rows } = await pool.query(
+    `SELECT t.id AS team_id,
+            t.nazwa AS team_name,
+            a.present,
+            a.note,
+            a.actor_name
+       FROM teams t
+       LEFT JOIN team_attendance a ON a.team_id = t.id AND a.date_ymd = $2::date
+      WHERE t.id = $1
+      LIMIT 1`,
+    [teamId, day]
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    day,
+    teamId: String(row.team_id || teamId),
+    teamName: row.team_name || `Ekipa #${teamId}`,
+    present: row.present === null || row.present === undefined ? true : row.present === true,
+    note: String(row.note || ''),
+    actor: String(row.actor_name || ''),
+  };
+}
+
 function firstTaskText(row, keys = []) {
   for (const key of keys) {
     const value = String(row?.[key] ?? '').trim();
@@ -1273,6 +1323,7 @@ const taskOfficePlanSchema = z.object({
   ekipa_id: z.union([z.number().int().positive(), z.string().trim().min(1)]),
   sprzet_notatka: z.string().trim().max(2000).optional().nullable(),
   sprzet_ids: z.array(z.union([z.number().int().positive(), z.string().trim().min(1)])).max(30).optional(),
+  absence_override: z.boolean().optional(),
 });
 
 const taskClientContactSchema = z.object({
@@ -2878,7 +2929,7 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
     const taskId = Number(req.params.id);
-    const { data_planowana, godzina_rozpoczecia, czas_planowany_godziny, ekipa_id, sprzet_notatka, sprzet_ids } = req.body;
+    const { data_planowana, godzina_rozpoczecia, czas_planowany_godziny, ekipa_id, sprzet_notatka, sprzet_ids, absence_override } = req.body;
     const shouldSyncEquipment = Object.prototype.hasOwnProperty.call(req.body, 'sprzet_ids');
     const selectedEquipmentIds = shouldSyncEquipment ? normalizeIdList(sprzet_ids) : [];
     const taskR = await pool.query(
@@ -2902,6 +2953,21 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
       teamCheckRow = teamCheck.row || null;
     }
+    const teamAttendance = await getTeamAttendanceForPlan(teamId, plannedDateTime);
+    if (teamAttendance?.present === false && absence_override !== true) {
+      return res.status(409).json({
+        error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+        code: 'TEAM_ABSENT',
+        attendance: {
+          teamId: teamAttendance.teamId,
+          teamName: teamAttendance.teamName,
+          dateYmd: teamAttendance.day,
+          present: false,
+          note: teamAttendance.note,
+          actor: teamAttendance.actor,
+        },
+      });
+    }
     const planDay = String(plannedDateTime).slice(0, 10);
     const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
     const d = new Date(plannedDateTime);
@@ -2914,7 +2980,13 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       });
     }
 
-    const note = String(sprzet_notatka || '').trim();
+    const absenceNote = teamAttendance?.present === false && absence_override === true
+      ? `Kierownik potwierdzil plan mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`
+      : '';
+    const note = [String(sprzet_notatka || '').trim(), absenceNote]
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, 2000);
     const workflowCurrent = await fetchTaskWorkflowRow(taskId).catch(() => task);
     if (task.status !== 'Zaplanowane') {
       const transitionBlockers = getTaskTransitionBlockers({

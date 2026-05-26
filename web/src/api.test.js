@@ -95,6 +95,22 @@ describe('api test-mode mocks', () => {
     });
   });
 
+  it('serves task details from the same mock row as the task list', async () => {
+    const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
+    const row = list.data.find((task) => task.id === 101);
+
+    const detail = await api.get('/api/tasks/101', { dedupe: false });
+
+    expect(detail.data).toMatchObject({
+      id: row.id,
+      klient_nazwa: row.klient_nazwa,
+      status: row.status,
+      data_planowana: row.data_planowana,
+      ekipa_id: row.ekipa_id,
+      ekipa_nazwa: '',
+    });
+  });
+
   it('serves task status PUT mocks and updates derived stats', async () => {
     const saved = await api.put('/api/tasks/1/status', { status: 'Zakonczone' });
 

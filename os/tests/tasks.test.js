@@ -652,6 +652,133 @@ describe('Tasks routes', () => {
     expect(savedNotes).toContain('Sprzet: bez dodatkowego sprzetu');
   });
 
+  it('PUT /tasks/:id/office-plan blocks an absent crew without manager override', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', oddzial_id: 5, notatki_wewnetrzne: '' }] };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Auto w serwisie',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '08:00',
+        czas_planowany_godziny: 3,
+        ekipa_id: 9,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_ABSENT');
+    expect(res.body.attendance).toMatchObject({
+      teamId: '9',
+      teamName: 'Ekipa A',
+      present: false,
+      note: 'Auto w serwisie',
+    });
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
+  });
+
+  it('PUT /tasks/:id/office-plan allows absent crew with override and records note', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', oddzial_id: 5, notatki_wewnetrzne: '' }] };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Auto w serwisie',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('FROM wyceny') && s.includes('status_akceptacji')) return { rows: [] };
+      if (s.includes('UPDATE tasks') && s.includes('RETURNING id, status')) {
+        return { rows: [{ id: 12, status: 'Zaplanowane' }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            klient_nazwa: 'A',
+            klient_telefon: '+48123123123',
+            adres: 'Testowa 1',
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            opis_pracy: 'Przycinka korony',
+            notatki_wewnetrzne: 'Ryzyka: brak szczegolnych.',
+            wartosc_planowana: 1500,
+            czas_planowany_godziny: 3,
+            ekipa_id: 9,
+            ekipa_nazwa: 'Ekipa A',
+            photo_total: 3,
+            photo_wycena: 1,
+            photo_szkic: 1,
+            photo_dojazd: 1,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '08:00',
+        czas_planowany_godziny: 3,
+        ekipa_id: 9,
+        sprzet_notatka: 'bez dodatkowego sprzetu',
+        absence_override: true,
+      });
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('notatki_wewnetrzne = $4');
+    });
+    const savedNotes = String(updateCall?.[1]?.[3] || '');
+    expect(savedNotes).toContain('Kierownik potwierdzil plan mimo nieobecnosci ekipy: Auto w serwisie');
+  });
+
   it('PUT /tasks/:id/przypisz returns decorated crew-ready workflow', async () => {
     const token = jwt.sign(
       { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },

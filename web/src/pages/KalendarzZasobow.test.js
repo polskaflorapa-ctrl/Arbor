@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -25,6 +25,7 @@ const USER_JSON = JSON.stringify({
   imie: 'Anna',
   nazwisko: 'Planer',
 });
+const TEST_DATE = new Date().toISOString().slice(0, 10);
 
 function mockCalendarApi({ attendanceItems, tasks } = {}) {
   const taskRows = tasks ?? [
@@ -39,7 +40,7 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
       miasto: 'Wroclaw',
       opis_pracy: 'Przycinka koron nad podjazdem',
       ryzyka: 'Linia energetyczna przy bramie',
-      data_planowana: '2026-05-25T08:30:00',
+      data_planowana: `${TEST_DATE}T08:30:00`,
       godzina_rozpoczecia: '08:30',
       czas_planowany_godziny: 3,
       wartosc_planowana: 2500,
@@ -56,7 +57,7 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
       miasto: 'Wroclaw',
       opis_pracy: 'Frezowanie pnia po wycince',
       ryzyka: 'Waski wjazd',
-      data_planowana: '2026-05-25T12:00:00',
+      data_planowana: `${TEST_DATE}T12:00:00`,
       godzina_rozpoczecia: '12:00',
       czas_planowany_godziny: 2,
       wartosc_planowana: 900,
@@ -87,10 +88,10 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
     if (String(url).startsWith('/ekipy/attendance')) {
       return Promise.resolve({
         data: {
-          date: '2026-05-25',
+          date: TEST_DATE,
           items: attendanceItems ?? [
-            { teamId: '3', teamName: 'Brygada Alfa', dateYmd: '2026-05-25', present: true },
-            { teamId: '4', teamName: 'Brygada Beta', dateYmd: '2026-05-25', present: true },
+            { teamId: '3', teamName: 'Brygada Alfa', dateYmd: TEST_DATE, present: true },
+            { teamId: '4', teamName: 'Brygada Beta', dateYmd: TEST_DATE, present: true },
           ],
           summary: { total: attendanceItems?.length ?? 2, confirmed: attendanceItems?.filter((item) => item.present !== false).length ?? 2, absent: attendanceItems?.filter((item) => item.present === false).length ?? 0 },
         },
@@ -106,8 +107,8 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
             sprzet_nazwa: 'Rebak Forst',
             ekipa_id: 3,
             status: 'Zarezerwowane',
-            data_od: '2026-05-25',
-            data_do: '2026-05-25',
+            data_od: TEST_DATE,
+            data_do: TEST_DATE,
           },
         ],
       });
@@ -119,7 +120,7 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
 function renderCalendar() {
   return render(
     <MemoryRouter
-      initialEntries={['/kalendarz-zasobow?date=2026-05-25&modal=0']}
+      initialEntries={[`/kalendarz-zasobow?date=${TEST_DATE}&modal=0`]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
@@ -132,6 +133,7 @@ function renderCalendar() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   localStorage.setItem('token', 'test-jwt');
   localStorage.setItem('user', USER_JSON);
   api.get.mockReset();
@@ -166,7 +168,7 @@ test('copies the dispatcher day brief with task, equipment, risk, and map contex
   });
   const copied = navigator.clipboard.writeText.mock.calls[0][0];
   expect(copied).toContain('ARBOR-OS | Odprawa dnia');
-  expect(copied).toContain('Data: 2026-05-25');
+  expect(copied).toContain(`Data: ${TEST_DATE}`);
   expect(copied).toContain('=== Brygada Alfa ===');
   expect(copied).toContain('#42 | 08:30-11:30 | Jan Kowalski');
   expect(copied).toContain('BHP / ryzyka: Linia energetyczna przy bramie');
@@ -181,7 +183,7 @@ test('copies a team-only day brief from the team header', async () => {
 
   renderCalendar();
 
-  await screen.findByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' });
+  await screen.findByTestId('day-task-42');
   await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' }));
 
   await waitFor(() => {
@@ -217,8 +219,8 @@ test('keeps an empty team brief tied to the selected team', async () => {
 test('marks absent teams in dispatch planning and copied briefs', async () => {
   mockCalendarApi({
     attendanceItems: [
-      { teamId: '3', teamName: 'Brygada Alfa', dateYmd: '2026-05-25', present: false, note: 'Auto w serwisie' },
-      { teamId: '4', teamName: 'Brygada Beta', dateYmd: '2026-05-25', present: true },
+      { teamId: '3', teamName: 'Brygada Alfa', dateYmd: TEST_DATE, present: false, note: 'Auto w serwisie' },
+      { teamId: '4', teamName: 'Brygada Beta', dateYmd: TEST_DATE, present: true },
     ],
   });
 
@@ -240,4 +242,85 @@ test('marks absent teams in dispatch planning and copied briefs', async () => {
 
   await userEvent.click(screen.getByText('Nieobecna ekipa'));
   expect(await screen.findByText('Potwierdzenia ekip')).toBeInTheDocument();
+});
+
+test('requires manager override before saving a plan for an absent team', async () => {
+  mockCalendarApi({
+    attendanceItems: [
+      { teamId: '3', teamName: 'Brygada Alfa', dateYmd: TEST_DATE, present: false, note: 'Auto w serwisie' },
+      { teamId: '4', teamName: 'Brygada Beta', dateYmd: TEST_DATE, present: true },
+    ],
+  });
+  api.put.mockResolvedValue({ data: {} });
+
+  renderCalendar();
+
+  await screen.findByText('Nieobecna - Auto w serwisie');
+  await userEvent.click(await screen.findByTestId('day-task-42'));
+
+  expect(await screen.findByText('Ekipa jest nieobecna')).toBeInTheDocument();
+  const saveButton = screen.getByRole('button', { name: 'Zapisz plan' });
+  expect(saveButton).toBeDisabled();
+
+  await userEvent.click(screen.getByRole('checkbox', { name: /Potwierdzam decyzje kierownika/i }));
+  expect(saveButton).not.toBeDisabled();
+
+  await userEvent.click(saveButton);
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/tasks/42/office-plan',
+      expect.objectContaining({
+        ekipa_id: '3',
+        sprzet_notatka: expect.stringContaining('UWAGA: kierownik potwierdzil plan mimo statusu ekipy: Nieobecna - Auto w serwisie.'),
+      }),
+      expect.any(Object)
+    );
+  });
+});
+
+test('requires confirmation before dragging a task onto an absent team', async () => {
+  mockCalendarApi({
+    attendanceItems: [
+      { teamId: '3', teamName: 'Brygada Alfa', dateYmd: TEST_DATE, present: false, note: 'Auto w serwisie' },
+      { teamId: '4', teamName: 'Brygada Beta', dateYmd: TEST_DATE, present: true },
+    ],
+  });
+  api.put.mockResolvedValue({ data: {} });
+  const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+  try {
+    renderCalendar();
+
+    await screen.findByTestId('day-task-43');
+    const targetSlot = screen.getByTestId(`team-slot-3-${TEST_DATE}-08:00`);
+    const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() };
+
+    fireEvent.dragStart(screen.getByTestId('day-task-43'), { dataTransfer });
+    fireEvent.drop(targetSlot, { dataTransfer });
+
+    await waitFor(() => {
+      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Brygada Alfa jest oznaczona jako Nieobecna - Auto w serwisie.'));
+    });
+    expect(api.put).not.toHaveBeenCalled();
+    expect(await screen.findByText('Planowanie przerwane: ekipa jest nieobecna.')).toBeInTheDocument();
+
+    fireEvent.dragStart(screen.getByTestId('day-task-43'), { dataTransfer });
+    fireEvent.drop(targetSlot, { dataTransfer });
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(
+        '/tasks/43/office-plan',
+        expect.objectContaining({
+          data_planowana: TEST_DATE,
+          godzina_rozpoczecia: '08:00',
+          ekipa_id: 3,
+          sprzet_notatka: expect.stringContaining('UWAGA: kierownik potwierdzil plan mimo statusu ekipy: Nieobecna - Auto w serwisie.'),
+        }),
+        expect.any(Object)
+      );
+    });
+  } finally {
+    confirmSpy.mockRestore();
+  }
 });

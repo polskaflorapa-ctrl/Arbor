@@ -33,10 +33,10 @@ function TaskRouteProbe() {
   return <div>Sciezka zlecenia: {location.pathname}{location.search}</div>;
 }
 
-function renderAutoDispatch() {
+function renderAutoDispatch(initialEntry = '/auto-dispatch') {
   return render(
     <MemoryRouter
-      initialEntries={['/auto-dispatch']}
+      initialEntries={[initialEntry]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
@@ -101,7 +101,7 @@ test('loads and renders AI dispatch advisor brief', async () => {
     },
   });
 
-  renderAutoDispatch();
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
   await userEvent.click(screen.getByRole('button', { name: 'AI Dyspozytor' }));
 
@@ -136,7 +136,9 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(routeProbe).toHaveTextContent('step=client');
   expect(routeProbe).toHaveTextContent('field=klient_telefon');
   expect(routeProbe).toHaveTextContent('issue=client_phone');
-});
+  expect(routeProbe).toHaveTextContent('returnTo=%2Fauto-dispatch%3Fdate%3D2026-05-25');
+  expect(routeProbe).toHaveTextContent('returnLabel=AI+Dyspozytor');
+}, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {
   writeTextMock.mockRejectedValueOnce(new Error('Clipboard blocked'));

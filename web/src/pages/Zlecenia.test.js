@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
 import Zlecenia from './Zlecenia';
@@ -33,6 +33,8 @@ const USER_JSON = JSON.stringify({
   nazwisko: 'Planer',
 });
 
+const scrollIntoViewMock = vi.fn();
+
 const TASK = {
   id: 42,
   status: 'Do_Zatwierdzenia',
@@ -41,7 +43,7 @@ const TASK = {
   klient_email: '',
   adres: 'Lesna 12',
   miasto: 'Wroclaw',
-  typ_uslugi: 'Pielęgnacja',
+  typ_uslugi: 'Pielegnacja',
   oddzial_id: 7,
   data_planowana: '',
   godzina_rozpoczecia: '',
@@ -50,6 +52,8 @@ const TASK = {
   opis_pracy: 'Przycinka koron nad podjazdem',
   ekipa_id: '',
 };
+
+const SLOW_FORM_RENDER = { timeout: 10000 };
 
 function mockZleceniaApi() {
   api.get.mockImplementation((url) => {
@@ -74,6 +78,7 @@ function renderRoute(path) {
     >
       <Routes>
         <Route path="/zlecenia/:id" element={<Zlecenia />} />
+        <Route path="/auto-dispatch" element={<div>Powrot do AI Dyspozytora</div>} />
         <Route path="/" element={<div>Login</div>} />
       </Routes>
     </MemoryRouter>
@@ -81,8 +86,14 @@ function renderRoute(path) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   localStorage.setItem('token', 'test-jwt');
   localStorage.setItem('user', USER_JSON);
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoViewMock,
+  });
+  scrollIntoViewMock.mockClear();
   api.get.mockReset();
   api.post.mockReset();
   api.put.mockReset();
@@ -100,11 +111,57 @@ test('opens routed repair links in edit mode and focuses the requested field', a
 
   renderRoute('/zlecenia/42?mode=edit&step=client&field=klient_telefon&repairLabel=Brak%20telefonu&repairDetail=Dodaj%20numer%20telefonu%20klienta.');
 
-  expect(await screen.findByText('Tryb naprawy')).toBeInTheDocument();
+  expect(await screen.findByText('Tryb naprawy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
   expect(screen.getByText('Brak telefonu')).toBeInTheDocument();
   expect(screen.getByText('Dodaj numer telefonu klienta.')).toBeInTheDocument();
 
   const phoneInput = screen.getByPlaceholderText('+48 000 000 000');
   expect(phoneInput).toHaveValue('');
   await waitFor(() => expect(document.activeElement).toBe(phoneInput));
-});
+}, 15000);
+
+test('returns to dispatcher after saving a routed repair link', async () => {
+  mockZleceniaApi();
+  api.put.mockResolvedValue({
+    data: {
+      ...TASK,
+      klient_telefon: '+48 600 700 800',
+    },
+  });
+
+  renderRoute('/zlecenia/42?mode=edit&step=client&field=klient_telefon&repairLabel=Brak%20telefonu&repairDetail=Dodaj%20numer%20telefonu%20klienta.&returnTo=%2Fauto-dispatch&returnLabel=AI%20Dyspozytor');
+
+  expect(await screen.findByText('Tryb naprawy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  const returnButton = screen.getByRole('button', {
+    name: (name) => name.includes('Zapisz') && name.includes('AI Dyspozytor'),
+  });
+  expect(returnButton).toBeInTheDocument();
+
+  fireEvent.change(screen.getByPlaceholderText('+48 000 000 000'), {
+    target: { value: '+48 600 700 800' },
+  });
+  fireEvent.click(returnButton);
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/tasks/42',
+      expect.objectContaining({ klient_telefon: '+48 600 700 800' }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Powrot do AI Dyspozytora', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+}, 15000);
+
+test('opens routed office planning focus links in task details', async () => {
+  mockZleceniaApi();
+
+  renderRoute('/zlecenia/42?focus=officePlan');
+
+  expect(await screen.findByText('Do zaplanowania dla ekipy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  const officePlanSection = document.querySelector('[data-detail-section="officePlan"]');
+  expect(officePlanSection).toBeTruthy();
+
+  await waitFor(() => {
+    expect(scrollIntoViewMock.mock.contexts).toContain(officePlanSection);
+  });
+}, 15000);

@@ -314,11 +314,6 @@ function persistMockTaskOverrides() {
   }
 }
 
-function getMockTaskOverride(taskId) {
-  hydrateMockTaskOverrides();
-  return mockTaskOverrides.get(Number(taskId)) || {};
-}
-
 function getMockTasksWithOverrides() {
   hydrateMockTaskOverrides();
   const rows = MOCK_DATA.zlecenia.map((task) => ({
@@ -330,6 +325,24 @@ function getMockTasksWithOverrides() {
     if (!existingIds.has(Number(id))) rows.push(task);
   });
   return rows;
+}
+
+function getMockTaskBase(taskId) {
+  const id = Number(taskId);
+  hydrateMockTaskOverrides();
+  const base = MOCK_DATA.zlecenia.find((task) => Number(task.id) === id) || {};
+  const hasBaseRow = Object.keys(base).length > 0;
+  const normalizedBase = { ...base };
+  if (hasBaseRow && !normalizedBase.ekipa_id && !normalizedBase.ekipa_nazwa) {
+    normalizedBase.ekipa_nazwa = '';
+  }
+  if (hasBaseRow && !normalizedBase.wyceniajacy_id && !normalizedBase.wyceniajacy_nazwa) {
+    normalizedBase.wyceniajacy_nazwa = '';
+  }
+  return {
+    ...normalizedBase,
+    ...(mockTaskOverrides.get(id) || {}),
+  };
 }
 
 export function mockMarkTaskFinishedInTestMode(taskId) {
@@ -429,6 +442,7 @@ export function getTestToken() {
 export function getMockTaskDetail(taskId) {
   const id = Number(taskId);
   const finished = mockFinishedTaskIds.has(id);
+  const base = getMockTaskBase(id);
   const detail = {
     id,
     klient_nazwa: '[Test] Klient mock',
@@ -461,7 +475,9 @@ export function getMockTaskDetail(taskId) {
       has_przed_photo: true,
     },
   };
-  return { ...detail, ...getMockTaskOverride(id) };
+  const merged = { ...detail, ...base, id };
+  if (finished) merged.status = 'Zakonczone';
+  return merged;
 }
 
 /** Jeden otwarty wpis czasu — wymagany przez POST /tasks/:id/finish na OS. Po mock finish — wpis zamknięty. */
