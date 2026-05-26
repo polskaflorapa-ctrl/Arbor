@@ -5,13 +5,19 @@ import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
 import BoltOutlined from '@mui/icons-material/BoltOutlined';
 import BusinessOutlined from '@mui/icons-material/BusinessOutlined';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
 import LocalPhoneOutlined from '@mui/icons-material/LocalPhoneOutlined';
 import MapOutlined from '@mui/icons-material/MapOutlined';
+import MyLocationOutlined from '@mui/icons-material/MyLocationOutlined';
+import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
+import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
+import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import TaskStatusIcon from '../components/TaskStatusIcon';
+import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -26,6 +32,35 @@ import {
   taskMutationPayload,
 } from '../utils/taskWorkflow';
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function cockpitTone(tone) {
+  if (tone === 'danger') return { color: 'var(--danger)', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.24)' };
+  if (tone === 'warning') return { color: 'var(--warning)', bg: 'rgba(245,158,11,0.13)', border: 'rgba(245,158,11,0.26)' };
+  if (tone === 'ok') return { color: 'var(--success)', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.24)' };
+  return { color: 'var(--accent)', bg: 'var(--accent-surface)', border: 'var(--border2)' };
+}
+
+function gpsLabel(status, ageMin) {
+  if (status === 'online') return ageMin == null ? 'online' : `${ageMin} min`;
+  if (status === 'stale') return ageMin == null ? 'opozniony' : `${ageMin} min`;
+  if (status === 'offline') return ageMin == null ? 'offline' : `${ageMin} min`;
+  return 'brak';
+}
+
+function CockpitMetric({ label, value, detail, tone = 'info' }) {
+  const t = cockpitTone(tone);
+  return (
+    <div style={{ ...styles.cockpitMetric, background: t.bg, borderColor: t.border }}>
+      <span style={styles.cockpitMetricLabel}>{label}</span>
+      <strong style={{ ...styles.cockpitMetricValue, color: t.color }}>{value}</strong>
+      {detail ? <small style={styles.cockpitMetricDetail}>{detail}</small> : null}
+    </div>
+  );
+}
+
 export default function Kierownik() {
   const { t } = useTranslation();
   const [zlecenia, setZlecenia] = useState([]);
@@ -39,6 +74,10 @@ export default function Kierownik() {
   const [filtrData, setFiltrData] = useState('');
   const [filtrEkipa, setFiltrEkipa] = useState('');
   const [sortBy, setSortBy] = useState('data');
+  const [cockpitDate, setCockpitDate] = useState(todayIso);
+  const [cockpit, setCockpit] = useState(null);
+  const [cockpitLoading, setCockpitLoading] = useState(false);
+  const [cockpitError, setCockpitError] = useState('');
   const navigate = useNavigate();
 
   const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u?.rola);
@@ -67,6 +106,29 @@ export default function Kierownik() {
     }
   }, [showMsg]);
 
+  const loadCockpit = useCallback(async (u, dateValue, oddzialId) => {
+    if (!u) return;
+    setCockpitLoading(true);
+    setCockpitError('');
+    try {
+      const token = getStoredToken();
+      const params = { date: dateValue || todayIso() };
+      if (['Prezes', 'Dyrektor'].includes(u?.rola) && oddzialId) {
+        params.oddzial_id = oddzialId;
+      }
+      const { data } = await api.get('/ops/kierownik-today', {
+        params,
+        headers: authHeaders(token),
+        dedupe: false,
+      });
+      setCockpit(data);
+    } catch (err) {
+      setCockpitError(getApiErrorMessage(err, 'Nie udalo sie wczytac cockpit kierownika.'));
+    } finally {
+      setCockpitLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const parsedUser = getLocalStorageJson('user');
     if (!parsedUser) { navigate('/'); return; }
@@ -77,20 +139,49 @@ export default function Kierownik() {
     loadData(parsedUser);
   }, [navigate, loadData]);
 
+  useEffect(() => {
+    if (!user) return;
+    const oddzialForCockpit = isDyrektor(user) ? filtrOddzial : user.oddzial_id;
+    loadCockpit(user, cockpitDate, oddzialForCockpit);
+  }, [cockpitDate, filtrOddzial, loadCockpit, user]);
+
   const przypisz = async (taskId, ekipaId) => {
-    try {
+    const applyAssignment = async (overrideAbsent = false) => {
       const token = getStoredToken();
       const { data } = await api.put(`/tasks/${taskId}/przypisz`,
-        { ekipa_id: ekipaId || null },
+        { ekipa_id: ekipaId || null, ...(overrideAbsent ? { absence_override: true } : {}) },
         { headers: authHeaders(token) }
       );
       setZlecenia((prev) => prev.map((z) => (
         z.id === taskId ? { ...z, ekipa_id: ekipaId || null, ...taskMutationPayload(data) } : z
       )));
-      showMsg(successMessage('Ekipa przypisana!'));
+      showMsg(successMessage(overrideAbsent ? 'Ekipa przypisana z potwierdzeniem kierownika.' : 'Ekipa przypisana!'));
       loadData(user);
+    };
+
+    try {
+      await applyAssignment(false);
     } catch (err) {
-      showMsg(errorMessage('Błąd zapisu'));
+      const payload = err?.response?.data || {};
+      if (payload.code === 'TEAM_ABSENT') {
+        const attendance = payload.attendance || {};
+        const reason = attendance.note ? ` Powod: ${attendance.note}.` : '';
+        const confirmed = typeof window !== 'undefined' && window.confirm
+          ? window.confirm(`${attendance.teamName || 'Wybrana ekipa'} jest oznaczona jako nieobecna.${reason} Czy kierownik potwierdza przypisanie mimo braku gotowosci?`)
+          : false;
+        if (!confirmed) {
+          showMsg(errorMessage('Przypisanie przerwane: ekipa jest nieobecna.'));
+          return;
+        }
+        try {
+          await applyAssignment(true);
+          return;
+        } catch (overrideErr) {
+          showMsg(errorMessage(overrideErr?.response?.data?.error || 'Blad zapisu potwierdzenia'));
+          return;
+        }
+      }
+      showMsg(errorMessage(payload.error || 'Błąd zapisu'));
     }
   };
 
@@ -144,6 +235,11 @@ export default function Kierownik() {
     setFiltrEkipa('');
   };
 
+  const cockpitSummary = cockpit?.summary || {};
+  const cockpitBlockers = cockpit?.blockers || [];
+  const cockpitTasks = cockpit?.tasks || [];
+  const cockpitTeams = cockpit?.teams || [];
+
   return (
     <div className="app-shell" style={styles.container}>
       <Sidebar />
@@ -165,6 +261,156 @@ export default function Kierownik() {
             </>
           }
         />
+
+        <section style={styles.cockpitPanel}>
+          <div style={styles.cockpitHeader}>
+            <div>
+              <div style={styles.cockpitTitleRow}>
+                <MyLocationOutlined sx={{ fontSize: 20, color: 'var(--accent)' }} />
+                <h2 style={styles.cockpitTitle}>Cockpit kierownika</h2>
+              </div>
+              <p style={styles.cockpitSub}>Dzisiejsze blokady, gotowosc ekip i zadania do interwencji.</p>
+            </div>
+            <div style={styles.cockpitControls}>
+              <input
+                type="date"
+                value={cockpitDate}
+                onChange={(e) => setCockpitDate(e.target.value || todayIso())}
+                style={styles.cockpitDate}
+              />
+              <button
+                type="button"
+                style={styles.cockpitRefresh}
+                onClick={() => loadCockpit(user, cockpitDate, isDyrektor(user) ? filtrOddzial : user?.oddzial_id)}
+                disabled={cockpitLoading}
+              >
+                <RefreshOutlined sx={{ fontSize: 16 }} />
+                {cockpitLoading ? 'Odswiezam' : 'Odswiez'}
+              </button>
+            </div>
+          </div>
+
+          {cockpitError ? (
+            <div style={styles.cockpitError}>{cockpitError}</div>
+          ) : null}
+
+          <div style={styles.cockpitMetrics}>
+            <CockpitMetric
+              label="Zlecenia dzis"
+              value={cockpitLoading ? '...' : cockpitSummary.tasks_total ?? 0}
+              detail={`${cockpitSummary.open ?? 0} otwarte`}
+            />
+            <CockpitMetric
+              label="Gotowe do wyslania"
+              value={cockpitLoading ? '...' : cockpitSummary.ready_for_dispatch ?? 0}
+              detail="bez blokad"
+              tone="ok"
+            />
+            <CockpitMetric
+              label="Blokady"
+              value={cockpitLoading ? '...' : cockpitSummary.blocked ?? 0}
+              detail={`${cockpitSummary.unassigned ?? 0} bez ekipy`}
+              tone={(cockpitSummary.blocked ?? 0) > 0 ? 'danger' : 'ok'}
+            />
+            <CockpitMetric
+              label="W realizacji"
+              value={cockpitLoading ? '...' : cockpitSummary.in_progress ?? 0}
+              detail={`${cockpitSummary.done ?? 0} zamkniete`}
+            />
+            <CockpitMetric
+              label="Problemy"
+              value={cockpitLoading ? '...' : cockpitSummary.open_issues ?? 0}
+              detail={`${cockpitSummary.unread_notifications ?? 0} powiadomien`}
+              tone={(cockpitSummary.open_issues ?? 0) > 0 ? 'warning' : 'ok'}
+            />
+            <CockpitMetric
+              label="GPS ekip"
+              value={cockpitLoading ? '...' : `${cockpitSummary.gps_online ?? 0}/${cockpitSummary.assigned_teams ?? 0}`}
+              detail={`${cockpitSummary.gps_attention ?? 0} do sprawdzenia`}
+              tone={(cockpitSummary.gps_attention ?? 0) > 0 ? 'warning' : 'ok'}
+            />
+          </div>
+
+          <div style={styles.cockpitGrid}>
+            <div style={styles.cockpitColumn}>
+              <div style={styles.cockpitSectionTitle}>
+                <ReportProblemOutlined sx={{ fontSize: 18 }} />
+                Priorytety naprawy
+              </div>
+              {cockpitBlockers.length === 0 ? (
+                <div style={styles.cockpitEmpty}>Brak aktywnych blokad dla wybranej daty.</div>
+              ) : cockpitBlockers.map((item) => {
+                const tone = cockpitTone(item.tone);
+                return (
+                  <button
+                    type="button"
+                    key={item.key}
+                    style={{ ...styles.blockerRow, borderColor: tone.border }}
+                    onClick={() => navigate(item.path || '/kierownik')}
+                  >
+                    <span style={{ ...styles.blockerCount, color: tone.color, background: tone.bg }}>{item.count}</span>
+                    <span style={styles.blockerBody}>
+                      <strong>{item.label}</strong>
+                      <small>{item.action}</small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={styles.cockpitColumn}>
+              <div style={styles.cockpitSectionTitle}>
+                <AssignmentOutlined sx={{ fontSize: 18 }} />
+                Zlecenia do interwencji
+              </div>
+              {cockpitTasks.length === 0 ? (
+                <div style={styles.cockpitEmpty}>Nie ma zlecen wymagajacych reakcji.</div>
+              ) : cockpitTasks.map((task) => (
+                <div key={task.id} style={styles.cockpitTask}>
+                  <div style={styles.cockpitTaskTop}>
+                    <strong>{task.numer}</strong>
+                    <span style={styles.cockpitTaskStatus}>{task.status || '-'}</span>
+                  </div>
+                  <div style={styles.cockpitTaskClient}>{task.klient_nazwa || 'Bez klienta'}</div>
+                  <div style={styles.cockpitChips}>
+                    {(task.blocker_labels || []).slice(0, 3).map((label) => (
+                      <span key={`${task.id}-${label}`} style={styles.cockpitChip}>{label}</span>
+                    ))}
+                  </div>
+                  <button type="button" style={styles.cockpitTaskBtn} onClick={() => navigate(task.action_path || `/zlecenia/${task.id}`)}>
+                    Napraw
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.cockpitColumn}>
+              <div style={styles.cockpitSectionTitle}>
+                <GroupsOutlined sx={{ fontSize: 18 }} />
+                Ekipy i GPS
+              </div>
+              {cockpitTeams.length === 0 ? (
+                <div style={styles.cockpitEmpty}>Brak aktywnych ekip w dzisiejszym planie.</div>
+              ) : cockpitTeams.map((team) => {
+                const toneName = team.gps_status === 'online' ? 'ok' : team.gps_status === 'missing' ? 'danger' : 'warning';
+                const tone = cockpitTone(toneName);
+                return (
+                  <div key={team.id} style={styles.teamLine}>
+                    <span style={styles.teamName}>{team.nazwa}</span>
+                    <span style={styles.teamMeta}>{team.tasks_total} zlec. / {team.in_progress} w toku</span>
+                    <span style={{ ...styles.gpsPill, color: tone.color, background: tone.bg }}>
+                      {gpsLabel(team.gps_status, team.gps_age_min)}
+                    </span>
+                  </div>
+                );
+              })}
+              <button type="button" style={styles.cockpitSecondaryBtn} onClick={() => navigate('/mapa-live')}>
+                <NotificationsActiveOutlined sx={{ fontSize: 16 }} />
+                Mapa live i powiadomienia
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* Statystyki oddziałów (tylko dla dyrektora) */}
         {isDyrektor(user) && (
@@ -309,6 +555,59 @@ export default function Kierownik() {
 const styles = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
   main: { flex: 1, padding: '24px', overflowX: 'hidden' },
+  cockpitPanel: {
+    marginBottom: 20,
+    padding: 16,
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    boxShadow: 'var(--shadow-md)',
+  },
+  cockpitHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 },
+  cockpitTitleRow: { display: 'flex', alignItems: 'center', gap: 8 },
+  cockpitTitle: { margin: 0, color: 'var(--text)', fontSize: 18, fontWeight: 800 },
+  cockpitSub: { margin: '4px 0 0', color: 'var(--text-sub)', fontSize: 13 },
+  cockpitControls: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  cockpitDate: { minHeight: 36, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 13 },
+  cockpitRefresh: {
+    minHeight: 36,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 11px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+    color: 'var(--text)',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  cockpitError: { marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.22)', fontSize: 13 },
+  cockpitMetrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 },
+  cockpitMetric: { minHeight: 82, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4, border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px' },
+  cockpitMetricLabel: { color: 'var(--text-sub)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
+  cockpitMetricValue: { fontSize: 24, lineHeight: 1, fontWeight: 900 },
+  cockpitMetricDetail: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 650 },
+  cockpitGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12, alignItems: 'start' },
+  cockpitColumn: { minWidth: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12 },
+  cockpitSectionTitle: { display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, color: 'var(--text)', fontSize: 13, fontWeight: 850 },
+  cockpitEmpty: { padding: '12px 0', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.45 },
+  blockerRow: { width: '100%', minHeight: 48, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', border: '0 solid var(--border)', borderTopWidth: 1, background: 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer' },
+  blockerCount: { minWidth: 34, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900 },
+  blockerBody: { minWidth: 0, display: 'grid', gap: 2, fontSize: 12 },
+  cockpitTask: { display: 'grid', gap: 5, padding: '9px 0', borderTop: '1px solid var(--border)' },
+  cockpitTaskTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, color: 'var(--text)', fontSize: 13 },
+  cockpitTaskStatus: { flexShrink: 0, color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
+  cockpitTaskClient: { color: 'var(--text-sub)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  cockpitChips: { display: 'flex', gap: 5, flexWrap: 'wrap' },
+  cockpitChip: { borderRadius: 999, padding: '2px 7px', background: 'rgba(245,158,11,0.13)', color: 'var(--warning)', fontSize: 10, fontWeight: 800 },
+  cockpitTaskBtn: { justifySelf: 'start', marginTop: 2, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 850 },
+  teamLine: { minHeight: 38, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', gap: 8, alignItems: 'center', borderTop: '1px solid var(--border)', padding: '7px 0' },
+  teamName: { minWidth: 0, color: 'var(--text)', fontSize: 12, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  teamMeta: { color: 'var(--text-sub)', fontSize: 11, whiteSpace: 'nowrap' },
+  gpsPill: { minWidth: 58, textAlign: 'center', borderRadius: 999, padding: '3px 7px', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap' },
+  cockpitSecondaryBtn: { marginTop: 10, width: '100%', minHeight: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },

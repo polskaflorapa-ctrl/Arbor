@@ -104,6 +104,83 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ops/kierownik-today' && method === 'get') {
+    const date = getRequestDate(config);
+    const tasks = (getMockData('/tasks') || []).filter((task) => {
+      const planned = String(task.data_planowana || '').slice(0, 10);
+      return !planned || planned === date;
+    });
+    const teams = getMockData('/ekipy') || [];
+    const openTasks = tasks.filter((task) => !['Zakonczone', 'Anulowane'].includes(task.status));
+    const risky = openTasks
+      .map((task) => {
+        const blockers = [];
+        if (!task.ekipa_id) blockers.push('Brak ekipy');
+        if (!task.klient_telefon) blockers.push('Brak telefonu');
+        if (!task.pin_lat || !task.pin_lng) blockers.push('Brak pinezki GPS');
+        if (!task.czas_planowany_godziny && !task.czas_obslugi_min) blockers.push('Brak czasu pracy');
+        return { task, blockers };
+      })
+      .filter((row) => row.blockers.length > 0);
+    const blockerCounts = risky.reduce((acc, row) => {
+      row.blockers.forEach((label) => {
+        acc[label] = (acc[label] || 0) + 1;
+      });
+      return acc;
+    }, {});
+    return {
+      data: {
+        date,
+        oddzial_id: config?.params?.oddzial_id || null,
+        summary: {
+          tasks_total: tasks.length,
+          open: openTasks.length,
+          done: tasks.filter((task) => task.status === 'Zakonczone').length,
+          in_progress: tasks.filter((task) => task.status === 'W_Realizacji').length,
+          ready_for_dispatch: Math.max(0, openTasks.length - risky.length),
+          blocked: risky.length,
+          unassigned: openTasks.filter((task) => !task.ekipa_id).length,
+          open_issues: 0,
+          unread_notifications: 0,
+          active_teams: teams.length,
+          assigned_teams: new Set(openTasks.map((task) => task.ekipa_id).filter(Boolean)).size,
+          gps_online: 0,
+          gps_attention: 0,
+        },
+        blockers: Object.entries(blockerCounts).map(([label, count]) => ({
+          key: label.toLowerCase().replace(/\s+/g, '_'),
+          label,
+          count,
+          action: 'Otworz zlecenia',
+          tone: label.includes('ekipy') || label.includes('GPS') ? 'danger' : 'warning',
+          path: '/zlecenia',
+        })),
+        tasks: risky.slice(0, 8).map(({ task, blockers }) => ({
+          id: task.id,
+          numer: task.numer || `ZLE-${String(task.id).padStart(4, '0')}`,
+          klient_nazwa: task.klient_nazwa,
+          status: task.status,
+          blocker_labels: blockers,
+          action_path: `/zlecenia/${task.id}`,
+        })),
+        teams: teams.slice(0, 8).map((team) => ({
+          id: team.id,
+          nazwa: team.nazwa,
+          tasks_total: openTasks.filter((task) => String(task.ekipa_id) === String(team.id)).length,
+          in_progress: openTasks.filter((task) => String(task.ekipa_id) === String(team.id) && task.status === 'W_Realizacji').length,
+          gps_status: 'missing',
+          gps_age_min: null,
+        })),
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/ekipy/attendance' && method === 'get') {
     const date = getRequestDate(config);
     const teams = getMockData('/ekipy') || [];
