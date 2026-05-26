@@ -4518,6 +4518,7 @@ export default function Zlecenia() {
         setFormRepairFocus(null);
         setWybraneZlecenie(savedTask);
         setTryb('szczegoly');
+        navigate(`/zlecenia/${savedTask.id}`, { replace: true });
         await Promise.all([
           loadTaskPhotos(savedTask.id, { silent: true }),
           loadTaskProblems(savedTask.id, { silent: true }),

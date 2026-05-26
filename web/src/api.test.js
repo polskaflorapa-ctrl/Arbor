@@ -111,6 +111,28 @@ describe('api test-mode mocks', () => {
     });
   });
 
+  it('serves the manager cockpit mock from task and team fixtures', async () => {
+    const response = await api.get('/api/ops/kierownik-today?date=2026-05-25', { dedupe: false });
+
+    expect(response.status).toBe(200);
+    expect(response.data.summary.tasks_total).toBeGreaterThan(0);
+    expect(response.data.summary.open).toBeGreaterThan(0);
+    expect(response.data.blockers.length).toBeGreaterThan(0);
+    expect(response.data.tasks[0]).toEqual(expect.objectContaining({
+      id: expect.any(Number),
+      action_path: expect.stringMatching(/^\/zlecenia\/\d+/),
+    }));
+  });
+
+  it('serves mock photos consistently with task photo counters', async () => {
+    const emptyPhotos = await api.get('/api/tasks/101/zdjecia', { dedupe: false });
+    expect(emptyPhotos.data).toEqual([]);
+
+    const filledPhotos = await api.get('/api/tasks/103/zdjecia', { dedupe: false });
+    expect(filledPhotos.data).toHaveLength(5);
+    expect(filledPhotos.data.map((photo) => photo.typ)).toEqual(['wycena', 'wycena', 'szkic', 'szkic', 'dojazd']);
+  });
+
   it('serves task status PUT mocks and updates derived stats', async () => {
     const saved = await api.put('/api/tasks/1/status', { status: 'Zakonczone' });
 

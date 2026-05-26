@@ -556,13 +556,31 @@ function mockPhotoSvg(label, color) {
 export function getMockTaskPhotos(taskId) {
   const id = Number(taskId);
   const now = Date.now();
-  const rows = [
+  const templateRows = [
     ['wycena', 'Wycena', 'Widok drzewa i zakresu prac', 'wycena,teren', '#22c55e'],
     ['szkic', 'Szkic', 'Szkic ciecia narysowany przez wyceniajacego', 'szkic,zakres', '#38bdf8'],
     ['dojazd', 'Dojazd', 'Brama i dojazd dla ekipy', 'dojazd,posesja', '#f59e0b'],
     ['przed', 'Przed', 'Stan przed rozpoczeciem pracy', 'przed,zakres', '#84cc16'],
     ['po', 'Po', 'Efekt po wykonaniu pracy', 'po,odbior', '#10b981'],
   ];
+  const base = getMockTaskBase(id);
+  const hasExplicitPhotoTotal = base.photo_total !== undefined && base.photo_total !== null && base.photo_total !== '';
+  const total = hasExplicitPhotoTotal ? Math.max(0, Number(base.photo_total) || 0) : templateRows.length;
+  if (total <= 0) return [];
+
+  const rows = [];
+  const addRows = (type, count) => {
+    const template = templateRows.find(([typ]) => typ === type);
+    const safeCount = Math.max(0, Number(count) || 0);
+    for (let i = 0; template && i < safeCount && rows.length < total; i += 1) rows.push(template);
+  };
+  addRows('wycena', base.photo_wycena);
+  addRows('szkic', base.photo_szkic);
+  addRows('dojazd', base.photo_dojazd);
+  for (const template of templateRows) {
+    if (rows.length >= total) break;
+    if (!rows.includes(template)) rows.push(template);
+  }
   return rows.map(([typ, label, opis, tagi, color], index) => ({
     id: id * 100 + index + 1,
     task_id: id,

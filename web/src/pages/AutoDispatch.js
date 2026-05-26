@@ -22,6 +22,27 @@ function routeDateFromSearch(search) {
   return ISO_DATE_RE.test(value) ? value : '';
 }
 
+function advisorRefreshFromSearch(search) {
+  return new URLSearchParams(search || '').get('refresh') === 'advisor';
+}
+
+function autoDispatchReturnPath(date) {
+  const params = new URLSearchParams({
+    date,
+    refresh: 'advisor',
+    repaired: '1',
+  });
+  return `/auto-dispatch?${params.toString()}`;
+}
+
+function stripAdvisorRefresh(pathname, search) {
+  const params = new URLSearchParams(search || '');
+  params.delete('refresh');
+  params.delete('repaired');
+  const nextSearch = params.toString();
+  return `${pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+}
+
 function fmt(min) {
   if (min == null) return '—';
   const h = Math.floor(min / 60), m = min % 60;
@@ -204,7 +225,7 @@ async function copyTextToClipboard(text) {
 }
 
 function Stat({ label, value, tone }) {
-  const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--bg-card)';
+  const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--surface-glass)';
   const fg = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ca8a04' : tone === 'bad' ? '#dc2626' : 'var(--text)';
   return (
     <div style={{ ...s.statCard, background: bg }}>
@@ -307,6 +328,7 @@ export default function AutoDispatch() {
   const loadAdvisor = useCallback(async () => {
     setAdvisorLoading(true);
     setAdvisorError('');
+    setSuccess('');
     setBriefCopied(false);
     setBriefCopyText('');
     setRiskFilter('all');
@@ -315,12 +337,34 @@ export default function AutoDispatch() {
       const brief = await fetchAdvisorBrief();
       setAdvisor(brief);
       setPreflightHold(null);
+      return true;
     } catch (e) {
       setAdvisorError(e.response?.data?.error || e.message);
+      return false;
     } finally {
       setAdvisorLoading(false);
     }
   }, [fetchAdvisorBrief]);
+
+  useEffect(() => {
+    if (!advisorRefreshFromSearch(location.search)) return undefined;
+    const routeDate = routeDateFromSearch(location.search);
+    if (routeDate && routeDate !== date) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      const refreshed = await loadAdvisor();
+      if (cancelled) return;
+      if (refreshed) {
+        setSuccess('Poprawka zapisana. Odprawa odswiezona.');
+        navigate(stripAdvisorRefresh(location.pathname, location.search), { replace: true });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [date, loadAdvisor, location.pathname, location.search, navigate]);
 
   const copyAdvisorBrief = useCallback(async () => {
     if (!advisor) return;
@@ -352,7 +396,7 @@ export default function AutoDispatch() {
   }, [navigate]);
 
   const repairRiskTask = useCallback((task) => {
-    const path = taskRepairPath(task, `/auto-dispatch?date=${encodeURIComponent(date)}`);
+    const path = taskRepairPath(task, autoDispatchReturnPath(date));
     if (path) navigate(path);
   }, [date, navigate]);
 
@@ -705,40 +749,40 @@ export default function AutoDispatch() {
 }
 
 const s = {
-  shell:    { display: 'flex', minHeight: '100vh', background: 'var(--bg-deep)' },
+  shell:    { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
   main:     { flex: 1, padding: '20px 24px 32px', overflowX: 'hidden', minWidth: 0 },
   topbar:   { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 },
   title:    { fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 },
   sub:      { fontSize: 13, color: 'var(--text-sub)', marginTop: 4 },
-  backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
-  controls: { display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 20, padding: '16px 18px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' },
+  backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
+  controls: { display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 20, padding: '16px 18px', background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
   controlGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
   label:    { fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase' },
-  dateInput:{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14 },
+  dateInput:{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14 },
   btnRow:   { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' },
-  previewBtn:{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  previewBtn:{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
   aiBtn:    { padding: '10px 18px', borderRadius: 8, border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
-  saveBtn:  { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
-  applyBtn: { padding: '10px 18px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+  saveBtn:  { padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+  applyBtn: { padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
   successBox:{ padding: '12px 16px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', marginBottom: 16, fontSize: 14, fontWeight: 600 },
   preflightBox:{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '12px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', marginBottom: 16 },
   preflightText:{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, lineHeight: 1.4 },
   preflightBypassBtn:{ flexShrink: 0, padding: '8px 12px', borderRadius: 7, border: '1px solid #f97316', background: '#fff', color: '#c2410c', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
-  advisorPanel:{ marginBottom: 20, padding: '16px 18px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' },
+  advisorPanel:{ marginBottom: 20, padding: '16px 18px', background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
   advisorHeader:{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
   advisorEyebrow:{ fontSize: 11, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 0 },
   advisorTitle:{ margin: '3px 0 0', fontSize: 17, lineHeight: 1.35, color: 'var(--text)' },
   advisorActions:{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 },
   copyBriefBtn:{ padding: '6px 9px', borderRadius: 7, border: '1px solid #2563eb', background: '#fff', color: '#1d4ed8', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
-  advisorSource:{ flexShrink: 0, padding: '4px 8px', borderRadius: 6, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
+  advisorSource:{ flexShrink: 0, padding: '4px 8px', borderRadius: 6, background: 'var(--surface-field)', border: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 11, fontWeight: 700 },
   manualBrief:{ width: '100%', minHeight: 130, boxSizing: 'border-box', resize: 'vertical', padding: 10, borderRadius: 8, border: '1px solid #f97316', background: '#fff7ed', color: '#7c2d12', fontSize: 12, lineHeight: 1.45, marginBottom: 14, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
   advisorMetrics:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10, marginBottom: 14 },
   advisorGrid:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 18, alignItems: 'start' },
   advisorColumn:{ minWidth: 0 },
   sectionTitleRow:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
   riskFilters:{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
-  riskFilterBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 10, fontWeight: 800 },
+  riskFilterBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 10, fontWeight: 800 },
   riskFilterBtnActive:{ border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8' },
   issueSummary:{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '8px 0 4px', borderTop: '1px solid var(--border-light, var(--border))' },
   issueSummaryLabel:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase' },
@@ -772,7 +816,7 @@ const s = {
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
   routesCol:{ display: 'flex', flexDirection: 'column', gap: 10 },
   sectionTitle:{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
-  routeCard:{ background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' },
+  routeCard:{ background: 'var(--surface-glass)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
   routeHeader:{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left' },
   teamDot:  { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
   teamName: { flex: 1, fontSize: 15 },
@@ -788,7 +832,7 @@ const s = {
   lateBadge:{ fontSize: 10, background: '#fee2e2', color: '#dc2626', borderRadius: 4, padding: '1px 5px', fontWeight: 700 },
   returnRow:{ padding: '8px 16px', fontSize: 12, color: 'var(--text-sub)', fontStyle: 'italic' },
   unassignedCol:{ display: 'flex', flexDirection: 'column', gap: 8 },
-  unassignedCard:{ padding: '12px 14px', borderRadius: 10, background: 'var(--bg-card)', border: '1px solid #fca5a5' },
+  unassignedCard:{ padding: '12px 14px', borderRadius: 8, background: 'var(--surface-field)', border: '1px solid #fca5a5' },
   unassignedAddr:{ fontSize: 12, color: 'var(--text-sub)', margin: '4px 0' },
   reasonBadge:{ fontSize: 10, background: '#fee2e2', color: '#dc2626', borderRadius: 4, padding: '2px 6px', display: 'inline-block', fontWeight: 600 },
   empty:    { textAlign: 'center', padding: '60px 20px', color: 'var(--text-sub)' },

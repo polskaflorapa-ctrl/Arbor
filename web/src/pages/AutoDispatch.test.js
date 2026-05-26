@@ -136,8 +136,54 @@ test('loads and renders AI dispatch advisor brief', async () => {
   expect(routeProbe).toHaveTextContent('step=client');
   expect(routeProbe).toHaveTextContent('field=klient_telefon');
   expect(routeProbe).toHaveTextContent('issue=client_phone');
-  expect(routeProbe).toHaveTextContent('returnTo=%2Fauto-dispatch%3Fdate%3D2026-05-25');
+  expect(routeProbe).toHaveTextContent('returnTo=%2Fauto-dispatch%3Fdate%3D2026-05-25%26refresh%3Dadvisor%26repaired%3D1');
   expect(routeProbe).toHaveTextContent('returnLabel=AI+Dyspozytor');
+}, 10000);
+
+test('auto-refreshes advisor after returning from a repair', async () => {
+  api.get.mockResolvedValue({
+    data: {
+      source: 'rules',
+      summary: 'Po poprawce zostala jedna uwaga.',
+      metrics: {
+        ready_for_dispatch: 4,
+        tasks_total: 5,
+        blocked: 0,
+        warnings: 1,
+        avg_quality: 91,
+        total_value: 18400,
+      },
+      recommendations: [
+        { priority: 'medium', title: 'Sprawdz pinezke GPS', suggested_action: 'Otworz ostatnia uwage.' },
+      ],
+      top_tasks: [
+        {
+          task_id: 103,
+          task_numer: 'TEST-103',
+          client: 'Osiedle Lesne Tarasy',
+          status: 'Do_Zatwierdzenia',
+          quality_score: 84,
+          issues: [
+            { key: 'gps', severity: 'warning', label: 'Brak pinezki GPS', action: 'Dodaj pinezke lokalizacji.' },
+          ],
+        },
+      ],
+    },
+  });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25&refresh=advisor&repaired=1');
+
+  expect(await screen.findByText('Po poprawce zostala jedna uwaga.')).toBeInTheDocument();
+  expect(screen.getByText('Poprawka zapisana. Odprawa odswiezona.')).toBeInTheDocument();
+  expect(screen.getByText('TEST-103')).toBeInTheDocument();
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      '/ai/dispatch-brief',
+      expect.objectContaining({
+        params: expect.objectContaining({ date: '2026-05-25', oddzial_id: 7 }),
+      })
+    );
+  });
 }, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {
