@@ -40,7 +40,7 @@ const S = {
     cursor: 'pointer',
     fontWeight: 800,
   },
-  select: { padding: 8, borderRadius: 8, border: '1px solid var(--border)', minWidth: 220, background: 'var(--input-bg)' },
+  select: { padding: 8, borderRadius: 8, border: '1px solid var(--border)', minWidth: 220, background: 'var(--surface-field)', color: 'var(--text)' },
   err: { color: 'var(--danger)', marginTop: 8, fontWeight: 700 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 12 },
   empty: { padding: 18, borderRadius: 8, border: '1px dashed var(--glass-border)', background: 'rgba(255,255,255,0.72)', color: 'var(--text-muted)', fontWeight: 650 },

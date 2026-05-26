@@ -488,7 +488,7 @@ export default function CrmPipeline() {
               padding: 16,
               display: 'grid',
               gap: 12,
-              background: 'var(--bg-card)',
+              background: 'var(--surface-glass)',
               border: '1px solid var(--border)',
               boxShadow: 'var(--shadow-lg)',
             }}
@@ -561,7 +561,7 @@ export default function CrmPipeline() {
               flexDirection: 'column',
               padding: 14,
               gap: 12,
-              background: 'var(--bg-card)',
+              background: 'var(--surface-glass)',
               border: '1px solid var(--border)',
             }}
           >

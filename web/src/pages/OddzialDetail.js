@@ -337,7 +337,7 @@ export default function OddzialDetail() {
   if (!oddzial) return <div style={{ padding: 40, textAlign: 'center' }}>Nie znaleziono oddziału</div>;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
       <div style={{ flex: 1, padding: 28, overflowX: 'hidden', position: 'relative' }}>
 
@@ -355,7 +355,7 @@ export default function OddzialDetail() {
           borderRadius: 8, padding: '24px 28px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           flexWrap: 'wrap', gap: 16,
-          border: '1px solid var(--border2)', boxShadow: 'var(--shadow-md)',
+          border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)',
           animation: 'fadeIn 0.4s ease forwards',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -366,7 +366,7 @@ export default function OddzialDetail() {
                 📍 {oddzial.miasto}{oddzial.adres ? ` · ${oddzial.adres}` : ''}
               </p>
               {oddzial.kierownik_imie && (
-                <p style={{ color: 'var(--border2)', margin: '4px 0 0 0', fontSize: 12 }}>
+                <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', fontSize: 12 }}>
                   👔 {oddzial.kierownik_imie} {oddzial.kierownik_nazwisko}
                 </p>
               )}
@@ -425,7 +425,7 @@ export default function OddzialDetail() {
         />
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, alignItems: 'center', borderBottom: '2px solid var(--border2)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20, alignItems: 'center', borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
           {[
             { key: 'zlecenia', label: `📋 Zlecenia (${zlecenia.length})` },
             { key: 'ekipy', label: `👷 Ekipy (${ekipy.length})` },
@@ -881,7 +881,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                backgroundColor: enabled ? 'var(--bg-card)' : 'rgba(248,113,113,0.06)',
+                backgroundColor: enabled ? 'var(--surface-field)' : 'rgba(248,113,113,0.06)',
               }}
             >
               <span style={{ fontSize: 13, color: 'var(--text-sub)', fontFamily: 'monospace' }}>
@@ -902,7 +902,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
                   style={{
                     width: 36, height: 20, borderRadius: 10, cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
                     backgroundColor: enabled ? 'var(--accent)' : '#9CA3AF',
-                    border: '1px solid var(--border2)',
+                    border: '1px solid var(--border)',
                     outline: 'none',
                   }}
                 >

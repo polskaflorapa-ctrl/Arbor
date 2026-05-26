@@ -5,6 +5,7 @@
 
 const TEST_MODE_STORAGE_KEY = 'arbor-test-mode';
 const MOCK_TASK_OVERRIDES_KEY = 'arbor-test-mode-task-overrides';
+const MOCK_TASK_PHOTOS_KEY = 'arbor-test-mode-task-photos';
 
 // Testowi użytkownicy o różnych rolach
 export const TEST_USERS = {
@@ -234,6 +235,12 @@ export const MOCK_DATA = {
       heading: 90,
       recorded_at: new Date().toISOString(),
       provider: 'mobile',
+      gps_source_kind: 'telefon',
+      user_name: 'Test Brygadzista',
+      accuracy_m: 18,
+      battery_pct: 74,
+      platform: 'android',
+      activity: 'foreground',
       user_id: 9003,
       user_rola: 'Brygadzista',
     },
@@ -251,6 +258,12 @@ export const MOCK_DATA = {
       heading: 15,
       recorded_at: new Date(Date.now() - 8 * 60000).toISOString(),
       provider: 'mobile',
+      gps_source_kind: 'telefon',
+      user_name: 'Test Specjalista Wyceny',
+      accuracy_m: 11,
+      battery_pct: 62,
+      platform: 'ios',
+      activity: 'foreground',
       user_id: 9004,
       user_rola: 'Wyceniający',
     },
@@ -268,6 +281,12 @@ export const MOCK_DATA = {
       heading: 220,
       recorded_at: new Date(Date.now() - 25 * 60000).toISOString(),
       provider: 'juwentus',
+      gps_source_kind: 'auto',
+      user_name: null,
+      accuracy_m: null,
+      battery_pct: null,
+      platform: null,
+      activity: null,
       user_id: null,
       user_rola: null,
     },
@@ -288,6 +307,8 @@ export const MOCK_DATA = {
 const mockFinishedTaskIds = new Set();
 const mockTaskOverrides = new Map();
 let mockTaskOverridesStorageCache = null;
+const mockTaskPhotos = new Map();
+let mockTaskPhotosStorageCache = null;
 
 function hydrateMockTaskOverrides() {
   const raw = localStorage.getItem(MOCK_TASK_OVERRIDES_KEY) || '';
@@ -309,6 +330,31 @@ function persistMockTaskOverrides() {
     const payload = Object.fromEntries(mockTaskOverrides.entries());
     mockTaskOverridesStorageCache = JSON.stringify(payload);
     localStorage.setItem(MOCK_TASK_OVERRIDES_KEY, mockTaskOverridesStorageCache);
+  } catch {
+    // Local persistence is best-effort in test mode.
+  }
+}
+
+function hydrateMockTaskPhotos() {
+  const raw = localStorage.getItem(MOCK_TASK_PHOTOS_KEY) || '';
+  if (raw === mockTaskPhotosStorageCache) return;
+  mockTaskPhotosStorageCache = raw;
+  mockTaskPhotos.clear();
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    Object.entries(parsed || {}).forEach(([id, value]) => {
+      mockTaskPhotos.set(Number(id), Array.isArray(value) ? value : []);
+    });
+  } catch {
+    // Ignore malformed persisted test data.
+  }
+}
+
+function persistMockTaskPhotos() {
+  try {
+    const payload = Object.fromEntries(mockTaskPhotos.entries());
+    mockTaskPhotosStorageCache = JSON.stringify(payload);
+    localStorage.setItem(MOCK_TASK_PHOTOS_KEY, mockTaskPhotosStorageCache);
   } catch {
     // Local persistence is best-effort in test mode.
   }
@@ -362,6 +408,32 @@ export function mockUpdateTaskInTestMode(taskId, patch = {}) {
   return getMockTaskDetail(id);
 }
 
+function updateMockTaskPhotoCounters(taskId, photos = []) {
+  hydrateMockTaskOverrides();
+  const id = Number(taskId);
+  const counts = photos.reduce(
+    (acc, photo) => {
+      const type = normalizeMockPhotoType(photo?.typ || photo?.type);
+      acc.total += 1;
+      if (type === 'wycena') acc.wycena += 1;
+      if (type === 'szkic') acc.szkic += 1;
+      if (type === 'dojazd') acc.dojazd += 1;
+      return acc;
+    },
+    { total: 0, wycena: 0, szkic: 0, dojazd: 0 }
+  );
+  const current = mockTaskOverrides.get(id) || {};
+  mockTaskOverrides.set(id, {
+    ...current,
+    id,
+    photo_total: counts.total,
+    photo_wycena: counts.wycena,
+    photo_szkic: counts.szkic,
+    photo_dojazd: counts.dojazd,
+  });
+  persistMockTaskOverrides();
+}
+
 /** Szczegół wyceny terenowej (`quotations`) — panel wysyłki F1.11 w trybie testowym. */
 export function getMockQuotationDetail(quotationId) {
   const id = Number(quotationId);
@@ -413,8 +485,11 @@ export function toggleTestMode(enabled) {
   if (!enabled) {
     mockFinishedTaskIds.clear();
     mockTaskOverrides.clear();
+    mockTaskPhotos.clear();
     mockTaskOverridesStorageCache = '';
+    mockTaskPhotosStorageCache = '';
     localStorage.removeItem(MOCK_TASK_OVERRIDES_KEY);
+    localStorage.removeItem(MOCK_TASK_PHOTOS_KEY);
   }
 }
 
@@ -553,16 +628,78 @@ function mockPhotoSvg(label, color) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function getMockTaskPhotos(taskId) {
+function normalizeMockPhotoType(value) {
+  const normalized = String(value || 'wycena')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized.includes('szkic')) return 'szkic';
+  if (normalized.includes('dojazd')) return 'dojazd';
+  if (normalized.includes('przed')) return 'przed';
+  if (normalized === 'po' || normalized.includes('po ')) return 'po';
+  return 'wycena';
+}
+
+function mockPhotoTypeMeta(type) {
+  const meta = {
+    wycena: ['Wycena', '#22c55e'],
+    szkic: ['Szkic', '#38bdf8'],
+    dojazd: ['Dojazd', '#f59e0b'],
+    przed: ['Przed', '#84cc16'],
+    po: ['Po', '#10b981'],
+  };
+  return meta[type] || meta.wycena;
+}
+
+function normalizeMockPhotoTags(value, type) {
+  if (Array.isArray(value)) return value.map((tag) => String(tag).trim()).filter(Boolean);
+  return String(value || type)
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function getMockPayloadValue(payload, key) {
+  if (!payload) return undefined;
+  if (typeof payload.get === 'function') {
+    try {
+      const value = payload.get(key);
+      if (value !== null && value !== undefined) return value;
+    } catch {
+      // Fall through to object access.
+    }
+  }
+  return payload[key];
+}
+
+function buildGeneratedMockTaskPhotos(taskId) {
   const id = Number(taskId);
   const now = Date.now();
-  const rows = [
+  const templateRows = [
     ['wycena', 'Wycena', 'Widok drzewa i zakresu prac', 'wycena,teren', '#22c55e'],
     ['szkic', 'Szkic', 'Szkic ciecia narysowany przez wyceniajacego', 'szkic,zakres', '#38bdf8'],
     ['dojazd', 'Dojazd', 'Brama i dojazd dla ekipy', 'dojazd,posesja', '#f59e0b'],
     ['przed', 'Przed', 'Stan przed rozpoczeciem pracy', 'przed,zakres', '#84cc16'],
     ['po', 'Po', 'Efekt po wykonaniu pracy', 'po,odbior', '#10b981'],
   ];
+  const base = getMockTaskBase(id);
+  const hasExplicitPhotoTotal = base.photo_total !== undefined && base.photo_total !== null && base.photo_total !== '';
+  const total = hasExplicitPhotoTotal ? Math.max(0, Number(base.photo_total) || 0) : templateRows.length;
+  if (total <= 0) return [];
+
+  const rows = [];
+  const addRows = (type, count) => {
+    const template = templateRows.find(([typ]) => typ === type);
+    const safeCount = Math.max(0, Number(count) || 0);
+    for (let i = 0; template && i < safeCount && rows.length < total; i += 1) rows.push(template);
+  };
+  addRows('wycena', base.photo_wycena);
+  addRows('szkic', base.photo_szkic);
+  addRows('dojazd', base.photo_dojazd);
+  for (const template of templateRows) {
+    if (rows.length >= total) break;
+    if (!rows.includes(template)) rows.push(template);
+  }
   return rows.map(([typ, label, opis, tagi, color], index) => ({
     id: id * 100 + index + 1,
     task_id: id,
@@ -575,6 +712,51 @@ export function getMockTaskPhotos(taskId) {
     data_dodania: new Date(now - (rows.length - index) * 900000).toISOString(),
     created_at: new Date(now - (rows.length - index) * 900000).toISOString(),
   }));
+}
+
+export function getMockTaskPhotos(taskId) {
+  const id = Number(taskId);
+  hydrateMockTaskPhotos();
+  if (mockTaskPhotos.has(id)) return mockTaskPhotos.get(id) || [];
+  return buildGeneratedMockTaskPhotos(id);
+}
+
+export function mockAddTaskPhotoInTestMode(taskId, payload = {}) {
+  const id = Number(taskId);
+  const current = getMockTaskPhotos(id);
+  const type = normalizeMockPhotoType(getMockPayloadValue(payload, 'typ'));
+  const [label, color] = mockPhotoTypeMeta(type);
+  const now = new Date().toISOString();
+  const file = getMockPayloadValue(payload, 'zdjecie') || getMockPayloadValue(payload, 'file');
+  const maxId = current.reduce((acc, photo) => Math.max(acc, Number(photo.id) || 0), id * 100);
+  const photo = {
+    id: maxId + 1,
+    task_id: id,
+    typ: type,
+    opis: String(getMockPayloadValue(payload, 'opis') || `Zdjecie ${label.toLowerCase()} dodane w trybie testowym`),
+    tagi: normalizeMockPhotoTags(getMockPayloadValue(payload, 'tagi'), type),
+    autor: 'Tryb testowy',
+    nazwa_pliku: file?.name || `${type}-${maxId + 1}.jpg`,
+    sciezka: mockPhotoSvg(label, color),
+    url: mockPhotoSvg(label, color),
+    data_dodania: now,
+    created_at: now,
+  };
+  const next = [...current, photo];
+  mockTaskPhotos.set(id, next);
+  persistMockTaskPhotos();
+  updateMockTaskPhotoCounters(id, next);
+  return photo;
+}
+
+export function mockDeleteTaskPhotoInTestMode(taskId, photoId) {
+  const id = Number(taskId);
+  const current = getMockTaskPhotos(id);
+  const next = current.filter((photo) => String(photo.id) !== String(photoId));
+  mockTaskPhotos.set(id, next);
+  persistMockTaskPhotos();
+  updateMockTaskPhotoCounters(id, next);
+  return { deleted: next.length !== current.length, photos: next };
 }
 
 export function getMockTaskProblems(taskId) {
@@ -684,6 +866,7 @@ export function getMockData(endpoint) {
   };
   const digestDate = new Date().toISOString().slice(0, 10);
   const mapping = {
+    '/tasks': visibleTasks,
     '/zlecenia': visibleTasks,
     '/tasks/wszystkie': visibleTasks,
     '/tasks/stats': taskStats,

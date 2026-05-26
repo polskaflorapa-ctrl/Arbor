@@ -15,6 +15,8 @@ import {
   getMockTaskLogi,
   getMockTaskPhotos,
   getMockTaskProblems,
+  mockAddTaskPhotoInTestMode,
+  mockDeleteTaskPhotoInTestMode,
   mockMarkTaskFinishedInTestMode,
   mockUpdateTaskInTestMode,
   getMockQuotationDetail,
@@ -28,6 +30,7 @@ const HAS_VALID_API_FALLBACK_BASE =
   Boolean(API_URL_WITHOUT_API_SUFFIX) &&
   API_URL_WITHOUT_API_SUFFIX !== API_URL;
 const isUnsafeFallbackBase = API_URL_WITHOUT_API_SUFFIX === '/' || API_URL_WITHOUT_API_SUFFIX === '.';
+const MOCK_OPS_EVENTS_KEY = 'arbor-test-mode-ops-action-events';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -78,6 +81,41 @@ function getRequestDate(config) {
   }
 }
 
+function getMockOpsEvents() {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_OPS_EVENTS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMockOpsEvents(events) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(MOCK_OPS_EVENTS_KEY, JSON.stringify(events.slice(-200)));
+}
+
+function addMockOpsEvent(event) {
+  const events = getMockOpsEvents();
+  const next = {
+    id: Date.now(),
+    created_at: new Date().toISOString(),
+    ...event,
+  };
+  events.push(next);
+  saveMockOpsEvents(events);
+  return next;
+}
+
+function countBy(rows, key) {
+  return rows.reduce((acc, row) => {
+    const value = row?.[key];
+    if (value) acc[value] = (acc[value] || 0) + 1;
+    return acc;
+  }, {});
+}
+
 function getTestUserForLogin(login) {
   const normalized = String(login || '').trim().toLowerCase();
   if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
@@ -96,6 +134,310 @@ function getTestModeMockResponse(config) {
     const user = getTestUserForLogin(body.login);
     return {
       data: { token: TEST_TOKEN, user },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/kierownik-today' && method === 'get') {
+    const date = getRequestDate(config);
+    const tasks = (getMockData('/tasks/wszystkie') || []).filter((task) => {
+      const planned = String(task.data_planowana || '').slice(0, 10);
+      return !planned || planned === date;
+    });
+    const teams = getMockData('/ekipy') || [];
+    const openTasks = tasks.filter((task) => !['Zakonczone', 'Anulowane'].includes(task.status));
+    const risky = openTasks
+      .map((task) => {
+        const blockers = [];
+        if (!task.ekipa_id) blockers.push('Brak ekipy');
+        if (!task.klient_telefon) blockers.push('Brak telefonu');
+        if (!task.pin_lat || !task.pin_lng) blockers.push('Brak pinezki GPS');
+        if (!task.czas_planowany_godziny && !task.czas_obslugi_min) blockers.push('Brak czasu pracy');
+        return { task, blockers };
+      })
+      .filter((row) => row.blockers.length > 0);
+    const blockerCounts = risky.reduce((acc, row) => {
+      row.blockers.forEach((label) => {
+        acc[label] = (acc[label] || 0) + 1;
+      });
+      return acc;
+    }, {});
+    return {
+      data: {
+        date,
+        oddzial_id: config?.params?.oddzial_id || null,
+        summary: {
+          tasks_total: tasks.length,
+          open: openTasks.length,
+          done: tasks.filter((task) => task.status === 'Zakonczone').length,
+          in_progress: tasks.filter((task) => task.status === 'W_Realizacji').length,
+          ready_for_dispatch: Math.max(0, openTasks.length - risky.length),
+          blocked: risky.length,
+          unassigned: openTasks.filter((task) => !task.ekipa_id).length,
+          open_issues: 0,
+          unread_notifications: 0,
+          active_teams: teams.length,
+          assigned_teams: new Set(openTasks.map((task) => task.ekipa_id).filter(Boolean)).size,
+          gps_online: 0,
+          gps_attention: 0,
+        },
+        blockers: Object.entries(blockerCounts).map(([label, count]) => ({
+          key: label.toLowerCase().replace(/\s+/g, '_'),
+          label,
+          count,
+          action: 'Otworz zlecenia',
+          tone: label.includes('ekipy') || label.includes('GPS') ? 'danger' : 'warning',
+          path: '/zlecenia',
+        })),
+        tasks: risky.slice(0, 8).map(({ task, blockers }) => ({
+          id: task.id,
+          numer: task.numer || `ZLE-${String(task.id).padStart(4, '0')}`,
+          klient_nazwa: task.klient_nazwa,
+          status: task.status,
+          blocker_labels: blockers,
+          action_path: `/zlecenia/${task.id}`,
+        })),
+        teams: teams.slice(0, 8).map((team) => ({
+          id: team.id,
+          nazwa: team.nazwa,
+          tasks_total: openTasks.filter((task) => String(task.ekipa_id) === String(team.id)).length,
+          in_progress: openTasks.filter((task) => String(task.ekipa_id) === String(team.id) && task.status === 'W_Realizacji').length,
+          gps_status: 'missing',
+          gps_age_min: null,
+        })),
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/plan-vs-real' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const sourceTasks = (getMockData('/tasks/wszystkie') || []).filter((task) => {
+      const planned = String(task.data_planowana || '').slice(0, 10);
+      if (planned && planned !== date) return false;
+      return !oddzialId || String(task.oddzial_id || '') === String(oddzialId);
+    });
+    const closedStatuses = ['Zakonczone', 'Anulowane'];
+    const rows = sourceTasks.map((task) => {
+      const plannedMinutes = Math.max(0, Math.round(Number(task.czas_obslugi_min || 0) || Number(task.czas_planowany_godziny || 0) * 60));
+      const hasStarted = task.status === 'W_Realizacji' || task.status === 'Zakonczone';
+      const hasFinished = task.status === 'Zakonczone';
+      const realMinutes = hasFinished
+        ? Math.max(0, plannedMinutes - 10)
+        : hasStarted
+          ? plannedMinutes + 45
+          : 0;
+      let issue = null;
+      if (plannedMinutes <= 0) issue = { key: 'missing_duration', label: 'Brak czasu planu', tone: 'warning', rank: 2 };
+      else if (hasStarted && realMinutes > plannedMinutes + 30) issue = { key: 'overrun', label: 'Przekroczenie planu', tone: 'danger', rank: 0 };
+      else if (hasStarted && !hasFinished && !closedStatuses.includes(task.status)) issue = { key: 'missing_finish', label: 'Brak zamkniecia', tone: 'warning', rank: 1 };
+      else if (!hasStarted && !closedStatuses.includes(task.status)) issue = { key: 'not_started', label: 'Nie wystartowalo', tone: 'warning', rank: 3 };
+      return {
+        id: task.id,
+        numer: task.numer || `ZLE-${String(task.id).padStart(4, '0')}`,
+        klient_nazwa: task.klient_nazwa,
+        status: task.status,
+        ekipa_id: task.ekipa_id,
+        ekipa_nazwa: task.ekipa_nazwa,
+        oddzial_id: task.oddzial_id,
+        oddzial_nazwa: task.oddzial_nazwa,
+        planned_minutes: plannedMinutes,
+        real_minutes: realMinutes,
+        delta_minutes: realMinutes - plannedMinutes,
+        has_started: hasStarted,
+        has_finished: hasFinished,
+        logs_total: hasStarted ? 1 : 0,
+        wartosc_planowana: Number(task.wartosc_planowana || task.budzet || 0),
+        wartosc_rzeczywista: Number(task.wartosc_rzeczywista || 0),
+        ...(issue ? {
+          issue_key: issue.key,
+          issue_label: issue.label,
+          tone: issue.tone,
+          issue_rank: issue.rank,
+          action_path: `/zlecenia/${task.id}`,
+        } : {}),
+      };
+    });
+    const finished = rows.filter((task) => task.status === 'Zakonczone' || task.has_finished);
+    const plannedMinutes = rows.reduce((sum, task) => sum + task.planned_minutes, 0);
+    const realMinutes = rows.reduce((sum, task) => sum + task.real_minutes, 0);
+    const issueCount = (key) => rows.filter((task) => task.issue_key === key).length;
+    return {
+      data: {
+        date,
+        oddzial_id: oddzialId,
+        summary: {
+          planned_tasks: rows.length,
+          started_tasks: rows.filter((task) => task.has_started).length,
+          finished_tasks: finished.length,
+          not_started_tasks: issueCount('not_started'),
+          overrun_tasks: issueCount('overrun'),
+          missing_finish_tasks: issueCount('missing_finish'),
+          missing_duration_tasks: issueCount('missing_duration'),
+          planned_minutes: plannedMinutes,
+          real_minutes: realMinutes,
+          delta_minutes: realMinutes - plannedMinutes,
+          value_planned: rows.reduce((sum, task) => sum + task.wartosc_planowana, 0),
+          value_done: finished.reduce((sum, task) => sum + (task.wartosc_rzeczywista || task.wartosc_planowana), 0),
+        },
+        issues: ['overrun', 'missing_finish', 'missing_duration', 'not_started']
+          .map((key) => ({ key, count: issueCount(key) }))
+          .filter((item) => item.count > 0),
+        tasks: rows
+          .filter((task) => task.issue_key || Math.abs(task.delta_minutes) >= 30)
+          .sort((a, b) => (a.issue_rank ?? 9) - (b.issue_rank ?? 9) || Math.abs(b.delta_minutes) - Math.abs(a.delta_minutes))
+          .slice(0, 8),
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/action-insights' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const range = config?.params?.range === 'today' ? 'today' : 'week';
+    const fromDate = new Date(`${date}T00:00:00.000Z`);
+    if (range === 'week') fromDate.setUTCDate(fromDate.getUTCDate() - 6);
+    const toDate = new Date(`${date}T00:00:00.000Z`);
+    toDate.setUTCDate(toDate.getUTCDate() + 1);
+    const events = getMockOpsEvents().filter((event) => {
+      const created = new Date(event.created_at || 0);
+      if (created < fromDate || created >= toDate) return false;
+      return !oddzialId || String(event.oddzial_id || '') === String(oddzialId);
+    });
+    const reasonLabels = {
+      dojazd: 'Dojazd',
+      zakres: 'Wiekszy zakres',
+      sprzet: 'Sprzet',
+      klient: 'Klient',
+      pogoda: 'Pogoda',
+      inne: 'Inne',
+    };
+    const issueLabels = {
+      missing_duration: 'Brak czasu planu',
+      not_started: 'Nie wystartowalo',
+      overrun: 'Przekroczenie planu',
+      missing_finish: 'Brak zamkniecia',
+      under_plan: 'Ponizej planu',
+    };
+    const actionLabels = {
+      set_duration: 'Ustawienie czasu',
+      mark_reason: 'Powod odchylenia',
+      remind_team: 'Przypomnienie ekipy',
+    };
+    const reasonCounts = countBy(events, 'reason_code');
+    const issueCounts = countBy(events, 'issue_key');
+    const actionCounts = countBy(events, 'action_type');
+    const deltaValues = events.map((event) => Number(event.delta_minutes)).filter(Number.isFinite);
+    return {
+      data: {
+        date,
+        range,
+        oddzial_id: oddzialId,
+        summary: {
+          total_events: events.length,
+          affected_tasks: new Set(events.map((event) => event.task_id).filter(Boolean)).size,
+          reasons_total: events.filter((event) => event.reason_code).length,
+          reminders: actionCounts.remind_team || 0,
+          duration_updates: actionCounts.set_duration || 0,
+          avg_delta_minutes: deltaValues.length ? Math.round(deltaValues.reduce((sum, value) => sum + value, 0) / deltaValues.length) : 0,
+          top_reason: null,
+        },
+        reasons: Object.entries(reasonCounts)
+          .map(([reason_code, count]) => ({
+            reason_code,
+            label: reasonLabels[reason_code] || reason_code,
+            count,
+            share: events.length ? Math.round((count / events.length) * 100) : 0,
+            avg_delta_minutes: 0,
+          }))
+          .sort((a, b) => b.count - a.count),
+        issues: Object.entries(issueCounts)
+          .map(([issue_key, count]) => ({ issue_key, label: issueLabels[issue_key] || issue_key, count }))
+          .sort((a, b) => b.count - a.count),
+        actions: Object.entries(actionCounts)
+          .map(([action_type, count]) => ({ action_type, label: actionLabels[action_type] || action_type, count }))
+          .sort((a, b) => b.count - a.count),
+        recent: events.slice(-8).reverse().map((event) => ({
+          ...event,
+          action_label: actionLabels[event.action_type] || event.action_type,
+          issue_label: issueLabels[event.issue_key] || event.issue_key,
+          reason_label: reasonLabels[event.reason_code] || event.reason_code,
+        })),
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mPlanRealAction = path.match(/^\/ops\/plan-vs-real\/tasks\/(\d+)\/action$/);
+  if (mPlanRealAction && method === 'post') {
+    const body = parseJsonData(config.data);
+    const taskId = mPlanRealAction[1];
+    const current = getMockTaskDetail(taskId);
+    const noteLine = `PLAN VS REAL / ${body.action || 'action'} / ${new Date().toISOString()}`;
+    const nextNotes = [current?.notatki_wewnetrzne, noteLine, body.note].filter(Boolean).join('\n\n');
+    let patch = { notatki_wewnetrzne: nextNotes };
+    let message = 'Akcja zapisana';
+    let notificationCount = 0;
+    if (body.action === 'set_duration') {
+      const minutes = Math.max(15, Math.round(Number(body.planned_minutes || Number(body.planned_hours || 0) * 60 || 120)));
+      patch = {
+        ...patch,
+        czas_planowany_godziny: Math.round((minutes / 60) * 100) / 100,
+        czas_obslugi_min: minutes,
+      };
+      message = 'Czas planu zapisany';
+    } else if (body.action === 'mark_reason') {
+      patch = {
+        ...patch,
+        plan_real_reason_code: body.reason_code || 'inne',
+      };
+      message = 'Powod zapisany';
+    } else if (body.action === 'remind_team') {
+      message = 'Przypomnienie wyslane';
+      notificationCount = current?.ekipa_id ? 1 : 0;
+    }
+    const event = addMockOpsEvent({
+      task_id: Number(taskId),
+      oddzial_id: current?.oddzial_id || null,
+      action_type: body.action,
+      issue_key: body.issue_key || (body.action === 'set_duration' ? 'missing_duration' : body.action === 'remind_team' ? 'not_started' : 'overrun'),
+      reason_code: body.reason_code || null,
+      delta_minutes: Number.isFinite(Number(body.delta_minutes)) ? Math.round(Number(body.delta_minutes)) : null,
+      planned_minutes: Number.isFinite(Number(patch.czas_obslugi_min || body.planned_minutes)) ? Math.round(Number(patch.czas_obslugi_min || body.planned_minutes)) : null,
+      real_minutes: Number.isFinite(Number(body.real_minutes)) ? Math.round(Number(body.real_minutes)) : null,
+      numer: current?.numer || `ZLE-${String(taskId).padStart(4, '0')}`,
+      klient_nazwa: current?.klient_nazwa,
+      notification_count: notificationCount,
+    });
+    return {
+      data: {
+        message,
+        action: body.action,
+        task: mockUpdateTaskInTestMode(taskId, patch),
+        event,
+        notification_count: notificationCount,
+      },
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -193,6 +535,31 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  const mTasksOfficePlan = path.match(/^\/tasks\/(\d+)\/office-plan$/);
+  if (mTasksOfficePlan && method === 'put') {
+    const body = parseJsonData(config.data);
+    const teams = getMockData('/ekipy') || [];
+    const plannedTeam = teams.find((team) => String(team.id) === String(body.ekipa_id));
+    const data = mockUpdateTaskInTestMode(mTasksOfficePlan[1], {
+      data_planowana: body.data_planowana,
+      godzina_rozpoczecia: body.godzina_rozpoczecia,
+      czas_planowany_godziny: body.czas_planowany_godziny,
+      ekipa_id: body.ekipa_id,
+      ekipa_nazwa: plannedTeam?.nazwa || (body.ekipa_id ? `Ekipa #${body.ekipa_id}` : ''),
+      sprzet_ids: body.sprzet_ids || [],
+      sprzet_notatka: body.sprzet_notatka || '',
+      status: 'Zaplanowane',
+    });
+    return {
+      data,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   const mTasksLogi = path.match(/^\/tasks\/(\d+)\/logi$/);
   if (mTasksLogi && method === 'get') {
     return {
@@ -209,6 +576,28 @@ function getTestModeMockResponse(config) {
   if (mTasksPhotos && method === 'get') {
     return {
       data: getMockTaskPhotos(mTasksPhotos[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mTasksPhotos && method === 'post') {
+    return {
+      data: mockAddTaskPhotoInTestMode(mTasksPhotos[1], config.data),
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksPhotoId = path.match(/^\/tasks\/(\d+)\/zdjecia\/([^/]+)$/);
+  if (mTasksPhotoId && method === 'delete') {
+    return {
+      data: mockDeleteTaskPhotoInTestMode(mTasksPhotoId[1], mTasksPhotoId[2]),
       status: 200,
       statusText: 'OK',
       headers: {},

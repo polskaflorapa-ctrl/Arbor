@@ -272,7 +272,7 @@ test('requires manager override before saving a plan for an absent team', async 
       '/tasks/42/office-plan',
       expect.objectContaining({
         ekipa_id: '3',
-        sprzet_notatka: expect.stringContaining('UWAGA: kierownik potwierdzil plan mimo statusu ekipy: Nieobecna - Auto w serwisie.'),
+        absence_override: true,
       }),
       expect.any(Object)
     );
@@ -315,7 +315,7 @@ test('requires confirmation before dragging a task onto an absent team', async (
           data_planowana: TEST_DATE,
           godzina_rozpoczecia: '08:00',
           ekipa_id: 3,
-          sprzet_notatka: expect.stringContaining('UWAGA: kierownik potwierdzil plan mimo statusu ekipy: Nieobecna - Auto w serwisie.'),
+          absence_override: true,
         }),
         expect.any(Object)
       );

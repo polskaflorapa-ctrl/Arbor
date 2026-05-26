@@ -864,6 +864,7 @@ const taskUpdateSchema = z.object({
   kierownik_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']).optional(),
+  absence_override: z.boolean().optional(),
   wywoz: z.boolean().optional(),
   usuwanie_pni: z.boolean().optional(),
   czas_realizacji_godz: z.union([z.number(), z.string()]).optional().nullable(),
@@ -888,10 +889,12 @@ const taskUpdateSchema = z.object({
 const taskPlanPatchSchema = z.object({
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  absence_override: z.boolean().optional(),
 });
 
 const taskAssignSchema = z.object({
   ekipa_id: z.union([z.number().int().positive(), z.string().trim().min(1)]),
+  absence_override: z.boolean().optional(),
 });
 
 const taskStatusSchema = z.object({
@@ -2118,11 +2121,27 @@ router.patch(
       }
       const hasTeamBody = Object.prototype.hasOwnProperty.call(req.body, 'ekipa_id');
       const teamId = hasTeamBody ? toNum(req.body.ekipa_id) : (row.ekipa_id != null ? Number(row.ekipa_id) : null);
+      let teamAttendance = null;
       if (teamId) {
         const planDay = String(req.body.data_planowana).slice(0, 10);
         if (row.oddzial_id) {
           const teamCheck = await assertTeamAvailableForBranch(pool, teamId, row.oddzial_id, planDay);
           if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+        }
+        teamAttendance = await getTeamAttendanceForPlan(teamId, req.body.data_planowana);
+        if (teamAttendance?.present === false && req.body.absence_override !== true) {
+          return res.status(409).json({
+            error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+            code: 'TEAM_ABSENT',
+            attendance: {
+              teamId: teamAttendance.teamId,
+              teamName: teamAttendance.teamName,
+              dateYmd: teamAttendance.day,
+              present: false,
+              note: teamAttendance.note,
+              actor: teamAttendance.actor,
+            },
+          });
         }
         const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
         const d = new Date(req.body.data_planowana);
@@ -2136,11 +2155,32 @@ router.patch(
           });
         }
       }
-      await pool.query(`UPDATE tasks SET data_planowana = $1::timestamptz, ekipa_id = $2, updated_at = NOW() WHERE id = $3`, [
-        req.body.data_planowana,
-        teamId,
-        taskId,
-      ]);
+      const absenceNote = teamAttendance?.present === false && req.body.absence_override === true
+        ? [
+          'WYJATEK PLANOWANIA EKIPY',
+          `Kierownik potwierdzil przesuniecie mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`,
+          `Data zlecenia: ${String(req.body.data_planowana || '').slice(0, 10) || '-'}`,
+          `Ekipa: ${teamAttendance.teamName} (#${teamAttendance.teamId})`,
+          `Operator: ${req.user.login || req.user.id || '-'}`,
+        ].join('\n')
+        : null;
+      await pool.query(
+        `UPDATE tasks
+            SET data_planowana = $1::timestamptz,
+                ekipa_id = $2,
+                notatki_wewnetrzne = CASE
+                  WHEN $4::text IS NULL THEN notatki_wewnetrzne
+                  ELSE CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $4::text)
+                END,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [
+          req.body.data_planowana,
+          teamId,
+          taskId,
+          absenceNote,
+        ]
+      );
       const oldDay = row.data_planowana ? String(row.data_planowana).slice(0, 10) : '';
       const nextDay = String(req.body.data_planowana || '').slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(nextDay)) {
@@ -2655,7 +2695,8 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       notatki_klienta, oddzial_id, ekipa_id, kierownik_id, wyceniajacy_id,
       status, wywoz, usuwanie_pni, czas_realizacji_godz, rebak, pila_wysiegniku,
       nozyce_dlugie, kosiarka, podkaszarka, lopata, mulczer, ilosc_osob,
-      arborysta, wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno
+      arborysta, wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno,
+      absence_override
     } = req.body;
 
     const curR = await pool.query(
@@ -2666,6 +2707,9 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
     const cur = curR.rows[0];
     const hasBody = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
     const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
+    const nextPlannedDateTime = hasBody('data_planowana') || hasBody('godzina_rozpoczecia')
+      ? plannedDateTime
+      : cur.data_planowana;
     const nextOddzialId = isDyrektorOrAdmin(req.user)
       ? (hasBody('oddzial_id') ? toNum(oddzial_id) : cur.oddzial_id)
       : (cur.oddzial_id || req.user.oddzial_id);
@@ -2698,7 +2742,7 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
         budzet: hasBody('budzet') ? toNum(budzet) : (workflowCurrent?.budzet ?? cur.budzet),
         czas_planowany_godziny: hasBody('czas_planowany_godziny') ? toNum(czas_planowany_godziny) : (workflowCurrent?.czas_planowany_godziny ?? cur.czas_planowany_godziny),
         czas_realizacji_godz: hasBody('czas_realizacji_godz') ? toNum(czas_realizacji_godz) : (workflowCurrent?.czas_realizacji_godz ?? cur.czas_realizacji_godz),
-        data_planowana: hasBody('data_planowana') || hasBody('godzina_rozpoczecia') ? plannedDateTime : (workflowCurrent?.data_planowana ?? cur.data_planowana),
+        data_planowana: nextPlannedDateTime,
         godzina_rozpoczecia: hasBody('godzina_rozpoczecia') ? toStr(godzina_rozpoczecia) : (workflowCurrent?.godzina_rozpoczecia ?? cur.godzina_rozpoczecia),
         ekipa_id: nextTeamId,
         wyceniajacy_id: nextEstimatorId,
@@ -2720,17 +2764,32 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
     }
     if (nextTeamId && nextOddzialId) {
-      const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, plannedDateTime);
+      const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, nextPlannedDateTime);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
     if (nextEstimatorId && nextOddzialId) {
-      const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, plannedDateTime);
+      const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, nextPlannedDateTime);
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
     }
+    const teamAttendance = nextTeamId ? await getTeamAttendanceForPlan(Number(nextTeamId), nextPlannedDateTime) : null;
+    if (teamAttendance?.present === false && absence_override !== true) {
+      return res.status(409).json({
+        error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+        code: 'TEAM_ABSENT',
+        attendance: {
+          teamId: teamAttendance.teamId,
+          teamName: teamAttendance.teamName,
+          dateYmd: teamAttendance.day,
+          present: false,
+          note: teamAttendance.note,
+          actor: teamAttendance.actor,
+        },
+      });
+    }
     if (nextTeamId && hasExplicitPlannedHour(data_planowana, godzina_rozpoczecia)) {
-      const planDay = String(plannedDateTime).slice(0, 10);
+      const planDay = String(nextPlannedDateTime).slice(0, 10);
       const busyRanges = await getTeamBusyRanges(pool, Number(nextTeamId), planDay, null, Number(req.params.id));
-      const d = new Date(plannedDateTime);
+      const d = new Date(nextPlannedDateTime);
       if (!Number.isNaN(d.getTime())) {
         const startMin = d.getHours() * 60 + d.getMinutes();
         const durMin = Math.max(15, Math.round(Number(czas_planowany_godziny || 2) * 60));
@@ -2762,6 +2821,18 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
     const nk = hasBody('notatki_klienta')
       ? toStr(notatki_klienta)
       : cur.notatki_klienta;
+    const absenceNote = teamAttendance?.present === false && absence_override === true
+      ? [
+        'WYJATEK PLANOWANIA EKIPY',
+        `Kierownik potwierdzil aktualizacje zlecenia mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`,
+        `Data zlecenia: ${String(nextPlannedDateTime || '').slice(0, 10) || '-'}`,
+        `Ekipa: ${teamAttendance.teamName} (#${teamAttendance.teamId})`,
+        `Operator: ${req.user.login || req.user.id || '-'}`,
+      ].join('\n')
+      : '';
+    const internalNotes = absenceNote
+      ? [String(keepStr('notatki_wewnetrzne', notatki_wewnetrzne) || '').trim(), absenceNote].filter(Boolean).join('\n\n').slice(0, 12000)
+      : keepStr('notatki_wewnetrzne', notatki_wewnetrzne);
 
     const update = await pool.query(
       `UPDATE tasks SET
@@ -2788,9 +2859,9 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
         priorytet,
         toNum(wartosc_planowana),
         toNum(czas_planowany_godziny),
-        plannedDateTime,
+        nextPlannedDateTime,
         toStr(godzina_rozpoczecia),
-        keepStr('notatki_wewnetrzne', notatki_wewnetrzne),
+        internalNotes,
         keepStr('notatki', notatki),
         wr,
         op,
@@ -3074,9 +3145,9 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
     if (!canManageTaskBackoffice(req.user)) {
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
-    const { ekipa_id } = req.body;
+    const { ekipa_id, absence_override } = req.body;
     const taskR = await pool.query(
-      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status FROM tasks WHERE id = $1',
+      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status, notatki_wewnetrzne FROM tasks WHERE id = $1',
       [req.params.id]
     );
     if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -3087,6 +3158,21 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
     if (task.oddzial_id) {
       const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, task.oddzial_id, task.data_planowana);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
+    const teamAttendance = await getTeamAttendanceForPlan(Number(ekipa_id), task.data_planowana);
+    if (teamAttendance?.present === false && absence_override !== true) {
+      return res.status(409).json({
+        error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+        code: 'TEAM_ABSENT',
+        attendance: {
+          teamId: teamAttendance.teamId,
+          teamName: teamAttendance.teamName,
+          dateYmd: teamAttendance.day,
+          present: false,
+          note: teamAttendance.note,
+          actor: teamAttendance.actor,
+        },
+      });
     }
     if (task.data_planowana) {
       const planDay = String(task.data_planowana).slice(0, 10);
@@ -3113,14 +3199,27 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
         nextAssignedStatus = 'Zaplanowane';
       }
     }
+    const absenceNote = teamAttendance?.present === false && absence_override === true
+      ? [
+        'WYJATEK PLANOWANIA EKIPY',
+        `Kierownik potwierdzil przypisanie mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`,
+        `Data zlecenia: ${String(task.data_planowana || '').slice(0, 10) || '-'}`,
+        `Ekipa: ${teamAttendance.teamName} (#${teamAttendance.teamId})`,
+        `Operator: ${req.user.login || req.user.id || '-'}`,
+      ].join('\n')
+      : '';
+    const nextNotes = absenceNote
+      ? [String(task.notatki_wewnetrzne || '').trim(), absenceNote].filter(Boolean).join('\n\n').slice(0, 12000)
+      : null;
     const update = await pool.query(
       `UPDATE tasks
        SET ekipa_id = $1,
            status = $3,
+           notatki_wewnetrzne = COALESCE($4::text, notatki_wewnetrzne),
            updated_at = NOW()
        WHERE id = $2
        RETURNING id, status`,
-      [toNum(ekipa_id), req.params.id, nextAssignedStatus]
+      [toNum(ekipa_id), req.params.id, nextAssignedStatus, nextNotes]
     );
     const workflowRow = await fetchTaskWorkflowRow(req.params.id)
       .catch(() => update.rows[0] || { id: req.params.id, status: task.status });

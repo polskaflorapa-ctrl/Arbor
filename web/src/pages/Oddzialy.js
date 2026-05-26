@@ -275,7 +275,7 @@ export default function Oddzialy() {
         />
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border2)' }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
           {[
             { key: 'oddzialy', label: t('pages.oddzialy.tabBranches', { count: oddzialy.length }) },
             { key: 'delegacje', label: t('pages.oddzialy.tabDelegations', { count: delegacje.length }) },
@@ -467,7 +467,7 @@ export default function Oddzialy() {
                   </div>
                 </div>
                 <button
-                  style={{ width: '100%', padding: '8px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}
+                  style={{ width: '100%', padding: '8px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}
                   onClick={() => navigate(`/oddzialy/${o.id}`)}>
                   {t('pages.oddzialy.seeDetails')}
                 </button>
@@ -480,7 +480,7 @@ export default function Oddzialy() {
         {activeTab === 'delegacje' && (
           <div style={S.delegacjeWrap}>
             {delegacje.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border2)' }}>
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
                   <DriveEtaOutlined sx={{ fontSize: 48, opacity: 0.45 }} />
                 </div>
@@ -558,14 +558,14 @@ function Field({ label, children }) {
 const S = {
   headerBtn: (bg, color = '#fff') => ({ padding: '10px 18px', backgroundColor: bg, color, border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold' }),
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  editBtn: { padding: '4px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
-  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
   delegacjeWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   delegacjeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
@@ -589,5 +589,5 @@ const S = {
   delegacjaDateLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0 },
   delegacjaDateValue: { fontSize: 12, color: 'var(--text)', fontWeight: 700, marginTop: 2 },
   delegacjaActionRow: { display: 'flex', justifyContent: 'flex-end', marginTop: 4 },
-  delegacjaSelect: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 12, cursor: 'pointer', minWidth: 140 },
+  delegacjaSelect: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', minWidth: 140 },
 };

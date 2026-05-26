@@ -159,7 +159,7 @@ const getLiveTeamLocations = async ({ oddzialId = null, includeWithoutTeam = tru
   const vehicleResult = await pool.query(
     `WITH latest AS (
       SELECT DISTINCT ON (plate_number)
-        plate_number, lat, lng, speed_kmh, heading, recorded_at
+        plate_number, lat, lng, speed_kmh, heading, recorded_at, source_payload
       FROM gps_vehicle_positions
       WHERE provider = 'juwentus'
       ORDER BY plate_number, recorded_at DESC
@@ -170,6 +170,7 @@ const getLiveTeamLocations = async ({ oddzialId = null, includeWithoutTeam = tru
       t.oddzial_id,
       u.id AS wyceniajacy_id,
       (u.imie || ' ' || u.nazwisko) AS wyceniajacy_nazwa,
+      NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), '') AS user_name,
       v.id AS vehicle_id,
       v.nr_rejestracyjny,
       l.lat,
@@ -178,6 +179,11 @@ const getLiveTeamLocations = async ({ oddzialId = null, includeWithoutTeam = tru
       l.heading,
       l.recorded_at,
       'juwentus' AS provider,
+      'auto' AS gps_source_kind,
+      l.source_payload->>'accuracy_m' AS accuracy_m,
+      l.source_payload->>'battery_pct' AS battery_pct,
+      l.source_payload->>'platform' AS platform,
+      l.source_payload->>'activity' AS activity,
       NULL::integer AS user_id,
       NULL::varchar AS user_rola
     FROM latest l
@@ -217,6 +223,7 @@ const getLiveTeamLocations = async ({ oddzialId = null, includeWithoutTeam = tru
       COALESCE(t.oddzial_id, u.oddzial_id) AS oddzial_id,
       CASE WHEN LOWER(u.rola) LIKE 'wyceniaj%' THEN u.id ELSE NULL END AS wyceniajacy_id,
       CASE WHEN LOWER(u.rola) LIKE 'wyceniaj%' THEN (u.imie || ' ' || u.nazwisko) ELSE NULL END AS wyceniajacy_nazwa,
+      NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), '') AS user_name,
       NULL::integer AS vehicle_id,
       CASE WHEN LOWER(u.rola) LIKE 'wyceniaj%' THEN 'MOBILE_WYCENA' ELSE 'MOBILE_EKIPA' END AS nr_rejestracyjny,
       l.lat,
@@ -225,6 +232,11 @@ const getLiveTeamLocations = async ({ oddzialId = null, includeWithoutTeam = tru
       l.heading,
       l.recorded_at,
       'mobile' AS provider,
+      'telefon' AS gps_source_kind,
+      l.source_payload->>'accuracy_m' AS accuracy_m,
+      l.source_payload->>'battery_pct' AS battery_pct,
+      l.source_payload->>'platform' AS platform,
+      l.source_payload->>'activity' AS activity,
       u.id AS user_id,
       u.rola AS user_rola
     FROM latest l

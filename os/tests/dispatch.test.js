@@ -39,6 +39,7 @@ jest.mock('../src/services/vrp', () => ({
 const pool = require('../src/config/database');
 const { createApp } = require('../src/app');
 const { env } = require('../src/config/env');
+const { solve } = require('../src/services/vrp');
 
 const app = createApp();
 
@@ -109,6 +110,54 @@ describe('POST /api/dispatch/plan', () => {
     expect(res.body).toHaveProperty('date', '2025-06-15');
   });
 
+  it('excludes absent teams from solver input', async () => {
+    solve.mockClear();
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM tasks t')) {
+        return {
+          rows: [{
+            id: 101,
+            numer: 'ARB-101',
+            adres: 'Lesna 1',
+            miasto: 'Krakow',
+            czas_planowany_godziny: 2,
+            ekipa_id: null,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('FROM teams e')) {
+        return {
+          rows: [
+            { id: 10, nazwa: 'Ekipa nieobecna', oddzial_id: 3, aktywny: true, attendance_present: false, attendance_note: 'Auto w serwisie' },
+            { id: 11, nazwa: 'Ekipa gotowa', oddzial_id: 3, aktywny: true, attendance_present: true, attendance_note: '' },
+          ],
+          rowCount: 2,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .send({ date: '2025-06-15' })
+      .set('Authorization', `Bearer ${kierownikToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('FROM teams e'))).toBe(true);
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('tm.aktywny'))).toBe(false);
+    expect(solve).toHaveBeenCalledWith(expect.objectContaining({
+      teams: [expect.objectContaining({ id: 11, nazwa: 'Ekipa gotowa' })],
+    }));
+    expect(solve.mock.calls[0][0].teams.some((team) => Number(team.id) === 10)).toBe(false);
+    expect(res.body.team_availability.absent).toEqual([
+      expect.objectContaining({ team_id: 10, team_name: 'Ekipa nieobecna', note: 'Auto w serwisie' }),
+    ]);
+  });
+
   it('200 for Dyrektor — no branch scoping', async () => {
     setupMockClient();
     const res = await request(app)
@@ -146,11 +195,16 @@ describe('POST /api/dispatch/plan/save', () => {
 
   it('200 for Kierownik — saves plan to DB', async () => {
     const mockClient = setupMockClient();
-    // INSERT dispatch_plans returns an id
-    mockClient.query
-      .mockResolvedValueOnce({ rows: [] })                                   // fetchTasksForDate
-      .mockResolvedValueOnce({ rows: [] })                                   // fetchTeamsForDispatch
-      .mockResolvedValueOnce({ rows: [{ id: 42, created_at: '2025-06-15T03:00:00Z' }] }); // INSERT
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM tasks t')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM teams e')) return { rows: [], rowCount: 0 };
+      if (s.includes('INSERT INTO dispatch_plans')) {
+        return { rows: [{ id: 42, created_at: '2025-06-15T03:00:00Z' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
 
     const res = await request(app)
       .post(PATH)
@@ -193,18 +247,57 @@ describe('POST /api/dispatch/apply/:id', () => {
       routes: [{ team_id: 10, stops: [{ task_id: 101 }] }],
       unassigned: [],
     };
-    mockClient.query
-      .mockResolvedValueOnce({ rows: [{ id: 1, plan_json: planJson, oddzial_id: 3, data: '2025-06-15' }] }) // SELECT plan
-      .mockResolvedValueOnce({ rows: [] })  // BEGIN
-      .mockResolvedValueOnce({ rows: [] })  // UPDATE task
-      .mockResolvedValueOnce({ rows: [] })  // UPDATE dispatch_plans
-      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT * FROM dispatch_plans')) {
+        return { rows: [{ id: 1, plan_json: planJson, oddzial_id: 3, data: '2025-06-15' }], rowCount: 1 };
+      }
+      if (s.includes('JOIN team_attendance')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
 
     const res = await request(app)
       .post('/api/dispatch/apply/1')
       .set('Authorization', `Bearer ${kierownikToken(3)}`);
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('message');
+    expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE tasks SET ekipa_id = $1'), [10, 101]);
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('409 when applying a saved plan with an absent team', async () => {
+    const mockClient = setupMockClient();
+    const planJson = {
+      routes: [{ team_id: 10, stops: [{ task_id: 101 }] }],
+      unassigned: [],
+    };
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT * FROM dispatch_plans')) {
+        return { rows: [{ id: 1, plan_json: planJson, oddzial_id: 3, data: '2025-06-15' }], rowCount: 1 };
+      }
+      if (s.includes('JOIN team_attendance')) {
+        return {
+          rows: [{ team_id: 10, team_name: 'Ekipa A', note: 'Urlop', actor_name: 'Anna' }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/dispatch/apply/1')
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_ABSENT');
+    expect(res.body.attendance.absent).toEqual([
+      expect.objectContaining({ team_id: 10, team_name: 'Ekipa A', note: 'Urlop' }),
+    ]);
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
     expect(mockClient.release).toHaveBeenCalled();
   });
 });

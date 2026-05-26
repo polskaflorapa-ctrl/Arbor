@@ -69,8 +69,8 @@ export default function CityInput({
                 border: '1px solid var(--border)',
                 borderRadius: 999,
                 padding: '2px 8px',
-                background: 'var(--bg-deep)',
-                color: 'var(--text-sub)',
+                background: 'var(--surface-field)',
+                color: 'var(--accent)',
                 fontSize: 11,
                 cursor: 'pointer',
               }}>

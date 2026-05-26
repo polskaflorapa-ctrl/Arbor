@@ -293,7 +293,7 @@ const S = {
   branchSelectCompact: { flex: '1 1 100%', width: '100%', minWidth: 0 },
   yearInput: { width: 92, minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--glass-border)', background: '#fff', color: 'var(--text)', fontSize: 13, boxShadow: 'var(--shadow-sm)' },
   yearInputCompact: { flex: '0 1 92px' },
-  iconBtn: { width: 38, height: 38, borderRadius: 8, border: '1px solid var(--border2)', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 38, height: 38, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   winnerGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginBottom: 16 },
   singleColumnGrid: { gridTemplateColumns: 'minmax(0, 1fr)' },
   winnerCard: {
@@ -306,7 +306,7 @@ const S = {
     padding: 16,
     boxShadow: 'var(--shadow-sm)',
   },
-  winnerIcon: { width: 40, height: 40, borderRadius: 8, background: 'rgba(155,217,87,0.12)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border2)' },
+  winnerIcon: { width: 40, height: 40, borderRadius: 8, background: 'rgba(155,217,87,0.12)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' },
   cardLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
   cardTitle: { marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--text)', overflowWrap: 'anywhere' },
   cardSub: { marginTop: 3, fontSize: 12, color: 'var(--text-sub)' },

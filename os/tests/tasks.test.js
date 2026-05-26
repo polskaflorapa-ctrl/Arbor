@@ -788,7 +788,7 @@ describe('Tasks routes', () => {
       const s = String(sql);
       if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
       if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
-      if (s.includes('SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status FROM tasks')) {
+      if (s.includes('SELECT id, oddzial_id, data_planowana') && s.includes('notatki_wewnetrzne FROM tasks')) {
         return {
           rows: [{
             id: 12,
@@ -796,6 +796,7 @@ describe('Tasks routes', () => {
             data_planowana: '2026-06-01T08:00:00.000Z',
             czas_planowany_godziny: 3,
             status: 'Do_Zatwierdzenia',
+            notatki_wewnetrzne: '',
           }],
         };
       }
@@ -845,6 +846,231 @@ describe('Tasks routes', () => {
     expect(res.body.workflow_ready_for_next).toBe(true);
     expect(res.body.workflow_next_status).toBe('W_Realizacji');
     expect(res.body.workflow_missing_labels).not.toContain('ekipa');
+  });
+
+  it('PUT /tasks/:id/przypisz allows an absent crew with manager override', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status, notatki_wewnetrzne FROM tasks')) {
+        return {
+          rows: [{
+            id: 12,
+            oddzial_id: 5,
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            czas_planowany_godziny: 3,
+            status: 'Do_Zatwierdzenia',
+            notatki_wewnetrzne: 'Dotychczasowe notatki',
+          }],
+        };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Auto w serwisie',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('FROM wyceny') && s.includes('status_akceptacji')) return { rows: [] };
+      if (s.includes('UPDATE tasks') && s.includes('RETURNING id, status')) {
+        return { rows: [{ id: 12, status: 'Zaplanowane' }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            klient_nazwa: 'A',
+            klient_telefon: '+48123123123',
+            adres: 'Testowa 1',
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            opis_pracy: 'Przycinka korony',
+            notatki_wewnetrzne: 'Ryzyka: brak szczegolnych',
+            wartosc_planowana: 1500,
+            czas_planowany_godziny: 3,
+            ekipa_id: 9,
+            ekipa_nazwa: 'Ekipa A',
+            photo_total: 3,
+            photo_wycena: 1,
+            photo_szkic: 1,
+            photo_dojazd: 1,
+            equipment_reserved_count: 1,
+            equipment_reserved_names: 'Rebak',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/przypisz')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ekipa_id: 9, absence_override: true });
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('notatki_wewnetrzne = COALESCE');
+    });
+    const savedNotes = String(updateCall?.[1]?.[3] || '');
+    expect(savedNotes).toContain('Dotychczasowe notatki');
+    expect(savedNotes).toContain('Kierownik potwierdzil przypisanie mimo nieobecnosci ekipy: Auto w serwisie');
+  });
+
+  it('PUT /tasks/:id blocks absent crew assignment through generic update without override', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5, login: 'admin' },
+      env.JWT_SECRET
+    );
+    const body = {
+      klient_nazwa: 'A',
+      klient_telefon: '+48123123123',
+      klient_email: '',
+      adres: 'Testowa 1',
+      miasto: 'Krakow',
+      typ_uslugi: 'Pielęgnacja',
+      priorytet: 'Normalny',
+      wartosc_planowana: 1500,
+      czas_planowany_godziny: 3,
+      data_planowana: '2026-06-01T08:00:00.000Z',
+      godzina_rozpoczecia: '08:00',
+      notatki_wewnetrzne: 'Dotychczasowe notatki',
+      notatki: '',
+      opis: 'Przycinka korony',
+      opis_pracy: 'Przycinka korony',
+      notatki_klienta: '',
+      oddzial_id: null,
+      ekipa_id: 9,
+      status: 'Zaplanowane',
+    };
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('ALTER TABLE') || s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT * FROM tasks WHERE id = $1')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            oddzial_id: null,
+            ekipa_id: null,
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            notatki_wewnetrzne: 'Dotychczasowe notatki',
+          }],
+        };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Urlop brygadzisty',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_ABSENT');
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks SET'))).toBe(false);
+  });
+
+  it('PUT /tasks/:id allows absent crew through generic update with override and records note', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5, login: 'admin' },
+      env.JWT_SECRET
+    );
+    const body = {
+      klient_nazwa: 'A',
+      klient_telefon: '+48123123123',
+      klient_email: '',
+      adres: 'Testowa 1',
+      miasto: 'Krakow',
+      typ_uslugi: 'Pielęgnacja',
+      priorytet: 'Normalny',
+      wartosc_planowana: 1500,
+      czas_planowany_godziny: 3,
+      data_planowana: '2026-06-01T08:00:00.000Z',
+      godzina_rozpoczecia: '08:00',
+      notatki_wewnetrzne: 'Dotychczasowe notatki',
+      notatki: '',
+      opis: 'Przycinka korony',
+      opis_pracy: 'Przycinka korony',
+      notatki_klienta: '',
+      oddzial_id: null,
+      ekipa_id: 9,
+      status: 'Zaplanowane',
+      absence_override: true,
+    };
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('ALTER TABLE') || s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT * FROM tasks WHERE id = $1')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            oddzial_id: null,
+            ekipa_id: null,
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            notatki_wewnetrzne: 'Dotychczasowe notatki',
+          }],
+        };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Urlop brygadzisty',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('UPDATE tasks SET')) {
+        return { rows: [{ id: 12, status: 'Zaplanowane', ...body }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return { rows: [{ id: 12, status: 'Zaplanowane', ...body }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE tasks SET'));
+    const savedNotes = String(updateCall?.[1]?.[11] || '');
+    expect(savedNotes).toContain('Dotychczasowe notatki');
+    expect(savedNotes).toContain('Kierownik potwierdzil aktualizacje zlecenia mimo nieobecnosci ekipy: Urlop brygadzisty');
+    expect(savedNotes).toContain('Operator: admin');
   });
 
   it('PUT /tasks/:id/status returns decorated execution workflow', async () => {
@@ -1324,14 +1550,18 @@ describe('Tasks routes', () => {
 
   it('updates planned datetime and team via PATCH /tasks/:id/plan for kierownik', async () => {
     const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
-    pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-      .mockResolvedValueOnce({
-        rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }],
-      })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return { rows: [{ team_id: 9, team_name: 'Ekipa A', present: true }] };
+      }
+      return { rows: [] };
+    });
 
     const res = await request(app)
       .patch('/api/tasks/1/plan')
@@ -1340,14 +1570,123 @@ describe('Tasks routes', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/^Plan zaktualizowany/);
-    expect(pool.query).toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE tasks SET data_planowana = $1::timestamptz, ekipa_id = $2'),
-      ['2026-05-10T09:00:00.000Z', 9, 1]
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('data_planowana = $1::timestamptz');
+    });
+    expect(updateCall?.[1]).toEqual(['2026-05-10T09:00:00.000Z', 9, 1, null]);
+    pool.query.mockReset();
+  });
+
+  it('blocks PATCH /tasks/:id/plan for absent crew without manager override', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
     );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            ekipa_id: null,
+            oddzial_id: null,
+            czas_planowany_godziny: 2,
+            data_planowana: null,
+          }],
+        };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Urlop brygadzisty',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .patch('/api/tasks/12/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-06-01T08:00:00.000Z', ekipa_id: 9 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_ABSENT');
+    expect(res.body.attendance).toMatchObject({
+      teamId: '9',
+      teamName: 'Ekipa A',
+      present: false,
+      note: 'Urlop brygadzisty',
+    });
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
+    pool.query.mockReset();
+  });
+
+  it('allows PATCH /tasks/:id/plan for absent crew with manager override and records note', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            ekipa_id: null,
+            oddzial_id: null,
+            czas_planowany_godziny: 2,
+            data_planowana: '2026-05-31T08:00:00.000Z',
+          }],
+        };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Urlop brygadzisty',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) return { rows: [] };
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .patch('/api/tasks/12/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-06-01T08:00:00.000Z', ekipa_id: 9, absence_override: true });
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('notatki_wewnetrzne = CASE');
+    });
+    const savedNotes = String(updateCall?.[1]?.[3] || '');
+    expect(savedNotes).toContain('WYJATEK PLANOWANIA EKIPY');
+    expect(savedNotes).toContain('Kierownik potwierdzil przesuniecie mimo nieobecnosci ekipy: Urlop brygadzisty');
+    expect(savedNotes).toContain('Operator: anna');
+    pool.query.mockReset();
   });
 
   it('promotes task to Zaplanowane when PATCH /tasks/:id/plan completes office package', async () => {
     const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    let workflowFetches = 0;
     const plannedRow = {
       id: 1,
       status: 'Do_Zatwierdzenia',
@@ -1368,18 +1707,22 @@ describe('Tasks routes', () => {
       equipment_reserved_count: 1,
       equipment_reserved_names: 'Rebak',
     };
-    pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-      .mockResolvedValueOnce({
-        rows: [{ id: 1, status: 'Do_Zatwierdzenia', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }],
-      })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [plannedRow] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ ...plannedRow, status: 'Zaplanowane' }] });
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Do_Zatwierdzenia', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return { rows: [{ team_id: 9, team_name: 'Ekipa A', present: true }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        workflowFetches += 1;
+        return { rows: [workflowFetches === 1 ? plannedRow : { ...plannedRow, status: 'Zaplanowane' }] };
+      }
+      return { rows: [] };
+    });
 
     const res = await request(app)
       .patch('/api/tasks/1/plan')
@@ -1395,13 +1738,19 @@ describe('Tasks routes', () => {
       expect.stringContaining("UPDATE tasks SET status = 'Zaplanowane'"),
       [1]
     );
+    pool.query.mockReset();
   });
 
   it('blocks PATCH /tasks/:id/plan when task is finished', async () => {
     const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
-    pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-      .mockResolvedValueOnce({ rows: [{ id: 1, status: 'Zakonczone' }] });
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Zakonczone' }] };
+      }
+      return { rows: [] };
+    });
 
     const res = await request(app)
       .patch('/api/tasks/1/plan')
@@ -1414,15 +1763,21 @@ describe('Tasks routes', () => {
 
   it('returns 409 when PATCH /tasks/:id/plan conflicts with another task on the same team', async () => {
     const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
-    pool.query
-      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-      .mockResolvedValueOnce({
-        rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: 5, czas_planowany_godziny: 2 }],
-      })
-      .mockResolvedValueOnce({
-        rows: [{ data_planowana: '2026-05-10T09:00:00.000Z', czas_h: 2 }],
-      })
-      .mockResolvedValueOnce({ rows: [] });
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: 5, oddzial_id: null, czas_planowany_godziny: 2 }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return { rows: [{ team_id: 5, team_name: 'Ekipa A', present: true }] };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) {
+        return { rows: [{ data_planowana: '2026-05-10T09:00:00.000Z', czas_h: 2 }] };
+      }
+      return { rows: [] };
+    });
 
     const res = await request(app)
       .patch('/api/tasks/1/plan')
@@ -1432,7 +1787,8 @@ describe('Tasks routes', () => {
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('TASK_PLAN_CONFLICT');
     expect(res.body.error).toMatch(/Konflikt terminu/i);
-    expect(pool.query).toHaveBeenCalledTimes(4);
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
+    pool.query.mockReset();
   });
 
   it('GET /tasks/:id/client-signature returns saved signature data', async () => {

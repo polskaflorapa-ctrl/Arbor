@@ -18,7 +18,10 @@ const STALE_MINUTES = 20;
 const CLOSED_STATUSES = new Set(['Zakonczone', 'Anulowane', 'Rozliczone']);
 const ACTIVE_PLAN_STATUSES = new Set(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji']);
 const DAY_START_MINUTES = 8 * 60;
-const DAY_END_MINUTES = 18 * 60;
+const STANDARD_DAY_END_MINUTES = 18 * 60;
+const DAY_END_MINUTES = 22 * 60;
+const STANDARD_WORKDAY_LABEL = '08:00-18:00';
+const PLANNING_DAY_LABEL = '08:00-22:00';
 
 function toNumber(value) {
   const next = Number(value);
@@ -335,7 +338,7 @@ function quickTeamConflicts(tasks, task, plan) {
   const day = String(plan?.data_planowana || '');
   if (!teamId || !day) return { conflicts: [], outsideWorkday: false };
   const range = planRangeMinutes(plan, task);
-  const outsideWorkday = range.start < DAY_START_MINUTES || range.end > DAY_END_MINUTES;
+  const outsideWorkday = range.start < DAY_START_MINUTES || range.end > STANDARD_DAY_END_MINUTES;
   const conflicts = (tasks || [])
     .filter((row) => String(row?.id || '') !== String(task?.id || ''))
     .filter((row) => String(row?.ekipa_id || '') === teamId)
@@ -392,24 +395,53 @@ function getFreshness(row) {
 }
 
 function sourceLabel(row) {
-  if (row.provider === 'mobile') return 'Mobilka';
-  if (row.provider === 'juwentus') return 'Juwentus';
+  if (row.provider === 'mobile') return 'Telefon';
+  if (row.provider === 'juwentus') return 'GPS auta';
   return row.provider || 'GPS';
+}
+
+function gpsSenderLabel(row) {
+  if (!row) return 'brak';
+  if (row.provider === 'mobile') {
+    return row.user_name || row.wyceniajacy_nazwa || `Uzytkownik #${row.user_id || '-'}`;
+  }
+  const plate = row.nr_rejestracyjny ? `Auto ${row.nr_rejestracyjny}` : 'Auto';
+  return row.user_name ? `${plate} / ${row.user_name}` : plate;
+}
+
+function gpsAccuracyLabel(row) {
+  const accuracy = toNumber(row?.accuracy_m);
+  if (accuracy == null) return 'brak';
+  return `~${Math.round(accuracy)} m`;
+}
+
+function gpsBatteryLabel(row) {
+  const battery = toNumber(row?.battery_pct);
+  if (battery == null) return 'brak';
+  return `${Math.round(battery)}%`;
+}
+
+function gpsPlatformLabel(row) {
+  const platform = String(row?.platform || '').trim();
+  const activity = String(row?.activity || '').trim();
+  return [platform, activity].filter(Boolean).join(' / ') || 'brak';
 }
 
 function subjectLabel(row) {
   if (row.provider === 'mobile') {
     if (String(row.user_rola || '').toLowerCase().startsWith('wyceniaj')) {
-      return row.wyceniajacy_nazwa || `Wyceniający #${row.user_id}`;
+      return row.user_name || row.wyceniajacy_nazwa || `Wyceniajacy #${row.user_id}`;
     }
-    return row.ekipa_nazwa || `Użytkownik #${row.user_id}`;
+    return row.user_name || row.ekipa_nazwa || `Uzytkownik #${row.user_id}`;
   }
   return row.ekipa_nazwa || row.nr_rejestracyjny || 'Pojazd';
 }
 
 function roleLabel(row) {
-  if (row.provider === 'mobile') return row.user_rola || 'Pracownik terenowy';
-  if (row.wyceniajacy_nazwa) return 'Pojazd + wyceniający';
+  if (row.provider === 'mobile') {
+    return [row.user_rola || 'Pracownik terenowy', row.ekipa_nazwa].filter(Boolean).join(' / ');
+  }
+  if (row.wyceniajacy_nazwa) return 'Pojazd + wyceniajacy';
   return 'Pojazd / ekipa';
 }
 
@@ -502,6 +534,8 @@ function normalizeRows(raw) {
       lng: toNumber(row.lng),
       speed_kmh: toNumber(row.speed_kmh),
       heading: toNumber(row.heading),
+      accuracy_m: toNumber(row.accuracy_m),
+      battery_pct: toNumber(row.battery_pct),
     }))
     .filter((row) => row.lat != null && row.lng != null);
 }
@@ -889,7 +923,7 @@ export default function MapaLive() {
     if (quickPlan.ekipa_id) {
       const firstSlot = quickPlanSlotSuggestions[0];
       if (!firstSlot) {
-        setQuickPlanErr('Brak wolnego slotu dla tej ekipy w godzinach 08:00-18:00.');
+        setQuickPlanErr(`Brak wolnego slotu dla tej ekipy w godzinach ${PLANNING_DAY_LABEL}.`);
         return;
       }
       const equipmentIds = quickEquipmentConflicts(quickPlanReservations, quickPlanTask, {
@@ -924,7 +958,7 @@ export default function MapaLive() {
       return;
     }
 
-    setQuickPlanErr('Nie znalazlem wolnej ekipy w godzinach 08:00-18:00 dla tej daty.');
+    setQuickPlanErr(`Nie znalazlem wolnej ekipy w godzinach ${PLANNING_DAY_LABEL} dla tej daty.`);
   }, [
     equipmentItems,
     quickPlan,
@@ -1018,8 +1052,8 @@ export default function MapaLive() {
             <label style={S.label}>Źródło</label>
             <select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)} style={S.select}>
               <option value="">Wszystkie źródła</option>
-              <option value="mobile">Mobilka</option>
-              <option value="juwentus">Juwentus</option>
+              <option value="mobile">Telefon</option>
+              <option value="juwentus">GPS auta</option>
             </select>
           </div>
           <div style={S.lastSync}>
@@ -1312,7 +1346,7 @@ export default function MapaLive() {
                       ))}
                     </div>
                   ) : (
-                    <div style={S.quickSlotEmpty}>Brak wolnego slotu dla tej ekipy w godzinach 08:00-18:00.</div>
+                    <div style={S.quickSlotEmpty}>Brak wolnego slotu dla tej ekipy w godzinach {PLANNING_DAY_LABEL}.</div>
                   )}
                 </div>
               ) : null}
@@ -1321,7 +1355,7 @@ export default function MapaLive() {
                 <div style={S.quickTimelinePanel}>
                   <div style={S.quickTimelineHead}>
                     <strong>Oś dnia ekipy</strong>
-                    <span>08:00-18:00</span>
+                    <span>{PLANNING_DAY_LABEL}</span>
                   </div>
                   <div style={S.quickTimelineTrack}>
                     {quickPlanTimeline.hours.map((hour, index) => (
@@ -1368,7 +1402,7 @@ export default function MapaLive() {
               ) : null}
               {quickPlanReservationsErr ? <div style={S.quickPlanWarn}>{quickPlanReservationsErr}</div> : null}
               {quickPlanTeamConflicts.outsideWorkday ? (
-                <div style={S.quickPlanWarn}>Wybrany czas wychodzi poza standardowe godziny pracy 08:00-18:00.</div>
+                <div style={S.quickPlanWarn}>Wybrany czas wychodzi poza standardowe godziny pracy {STANDARD_WORKDAY_LABEL}. Zapis jest dozwolony, bo ekipy czasem koncza pozniej.</div>
               ) : null}
               {quickPlanTeamConflicts.conflicts.length ? (
                 <div style={S.quickPlanError}>
@@ -1496,7 +1530,7 @@ export default function MapaLive() {
                     target="_blank"
                     rel="noreferrer"
                     style={{ ...S.radarPoint, ...pos, borderColor: fresh.color, color: fresh.color }}
-                    title={`${subjectLabel(row)} - ${formatAge(row.recorded_at)}`}
+                    title={`${subjectLabel(row)} - ${sourceLabel(row)} - ${formatAge(row.recorded_at)}`}
                   >
                     {index + 1}
                   </a>
@@ -1532,9 +1566,13 @@ export default function MapaLive() {
                       </span>
                     </div>
                     <div style={S.detailsGrid}>
-                      <Metric label="Źródło" value={sourceLabel(row)} />
+                      <Metric label="Zrodlo" value={sourceLabel(row)} />
+                      <Metric label="Wyslal" value={gpsSenderLabel(row)} />
                       <Metric label="Sync" value={formatAge(row.recorded_at)} />
-                      <Metric label="Prędkość" value={row.speed_kmh != null ? `${Math.round(row.speed_kmh)} km/h` : 'brak'} />
+                      <Metric label="Dokladnosc" value={gpsAccuracyLabel(row)} />
+                      <Metric label="Bateria" value={gpsBatteryLabel(row)} />
+                      <Metric label="Predkosc" value={row.speed_kmh != null ? `${Math.round(row.speed_kmh)} km/h` : 'brak'} />
+                      <Metric label="Urzadzenie" value={gpsPlatformLabel(row)} />
                       <Metric label="GPS" value={`${row.lat.toFixed(5)}, ${row.lng.toFixed(5)}`} />
                     </div>
                     <div style={S.cardActions}>
@@ -1648,7 +1686,9 @@ function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
         <Metric label="Check-in" value={taskArrivalLabel(task)} />
         <Metric label="Zdjecia" value={`${photos.total} / pakiet ${photos.label}`} />
         <Metric label="Problemy" value={issues.open ? `${issues.open} otwarte` : 'brak'} />
-        <Metric label="Zrodlo" value={live ? sourceLabel(live) : 'brak'} />
+        <Metric label="GPS z" value={live ? sourceLabel(live) : 'brak'} />
+        <Metric label="Wyslal" value={live ? gpsSenderLabel(live) : 'brak'} />
+        <Metric label="Bateria GPS" value={live ? gpsBatteryLabel(live) : 'brak'} />
       </div>
 
       <div style={S.cardActions}>
@@ -1719,14 +1759,18 @@ const S = {
   },
   hero: {
     ...glass,
+    position: 'relative',
+    overflow: 'hidden',
     borderRadius: 8,
-    padding: 18,
+    padding: 20,
     display: 'flex',
     alignItems: 'center',
     gap: 16,
     flexWrap: 'wrap',
     marginBottom: 14,
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.94), rgba(230,247,238,0.9))',
+    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
+    border: '1px solid rgba(15,95,58,0.18)',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.18)',
   },
   heroCopy: {
     flex: '1 1 360px',
@@ -1735,45 +1779,48 @@ const S = {
   heroIcon: {
     width: 54,
     height: 54,
-    borderRadius: 14,
+    borderRadius: 8,
     display: 'grid',
     placeItems: 'center',
-    background: 'rgba(20,131,79,0.1)',
-    color: '#14834F',
-    border: '1px solid rgba(20,131,79,0.2)',
+    background: 'rgba(255,255,255,0.12)',
+    color: '#DFF7E8',
+    border: '1px solid rgba(255,255,255,0.22)',
   },
   eyebrow: {
-    color: '#14834F',
+    color: '#86EFAC',
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    fontWeight: 800,
+    letterSpacing: 0,
+    fontWeight: 950,
   },
   title: {
     margin: '4px 0',
-    color: 'var(--text)',
+    color: '#FFFFFF',
     fontSize: 26,
     lineHeight: 1.15,
+    fontWeight: 950,
   },
   subtitle: {
     margin: 0,
-    color: 'var(--text-muted)',
+    color: 'rgba(240,253,244,0.78)',
     fontSize: 13,
     maxWidth: 820,
     lineHeight: 1.45,
+    fontWeight: 700,
   },
   refreshBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    border: '1px solid rgba(20,131,79,0.26)',
-    background: '#14834F',
-    color: '#fff',
-    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.28)',
+    background: '#FFFFFF',
+    color: '#0F5F3A',
+    borderRadius: 8,
     padding: '11px 14px',
-    fontWeight: 800,
+    fontWeight: 950,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+    boxShadow: '0 16px 34px rgba(0,0,0,0.14)',
   },
   error: {
     display: 'flex',
@@ -1789,7 +1836,7 @@ const S = {
   },
   toolbar: {
     ...glass,
-    borderRadius: 14,
+    borderRadius: 8,
     padding: 14,
     display: 'flex',
     alignItems: 'center',
@@ -1807,14 +1854,14 @@ const S = {
     color: 'var(--text-muted)',
     fontSize: 10,
     textTransform: 'uppercase',
-    letterSpacing: '0.1em',
-    fontWeight: 800,
+    letterSpacing: 0,
+    fontWeight: 950,
   },
   select: {
     background: '#fff',
     color: 'var(--text)',
     border: '1px solid rgba(20,131,79,0.16)',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: '10px 12px',
     outline: 'none',
     boxShadow: '0 10px 24px rgba(15,95,58,0.06)',
@@ -1824,7 +1871,7 @@ const S = {
     color: 'var(--text-muted)',
     fontSize: 13,
     border: '1px solid rgba(20,131,79,0.14)',
-    borderRadius: 999,
+    borderRadius: 8,
     background: 'rgba(240,247,242,0.78)',
     padding: '8px 10px',
   },
@@ -1838,24 +1885,27 @@ const S = {
     ...glass,
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 8,
+    padding: '14px 14px 14px 17px',
     minHeight: 118,
+    background: '#FFFFFF',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 12px 26px rgba(15,95,58,0.06)',
   },
   kpiGlow: {
     position: 'absolute',
     left: 0,
-    right: 0,
     top: 0,
-    height: 4,
-    opacity: 0.78,
+    bottom: 0,
+    width: 5,
+    opacity: 0.82,
   },
   kpiLabel: {
     color: 'var(--text-muted)',
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    fontWeight: 800,
+    letterSpacing: 0,
+    fontWeight: 950,
   },
   kpiValue: {
     marginTop: 8,
@@ -1870,7 +1920,7 @@ const S = {
     marginBottom: 14,
   },
   officeLiveStamp: {
-    borderRadius: 999,
+    borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.18)',
     background: 'rgba(240,247,242,0.9)',
     color: '#14834F',
@@ -1885,7 +1935,7 @@ const S = {
     gap: 10,
   },
   officeLiveColumn: {
-    borderRadius: 14,
+    borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.14)',
     background: 'rgba(255,255,255,0.76)',
     padding: 12,
@@ -1913,7 +1963,7 @@ const S = {
   officeLiveCount: {
     minWidth: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.14)',
     display: 'inline-grid',
     placeItems: 'center',
@@ -1934,7 +1984,7 @@ const S = {
     border: '1px solid rgba(20,131,79,0.12)',
     background: 'rgba(246,251,247,0.78)',
     color: 'var(--text)',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 10,
     textAlign: 'left',
     cursor: 'pointer',
@@ -2012,7 +2062,7 @@ const S = {
   planningCard: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 14,
+    borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.12)',
     background: 'rgba(255,255,255,0.82)',
     padding: 13,
@@ -2032,7 +2082,7 @@ const S = {
     marginBottom: 10,
   },
   missingPill: {
-    borderRadius: 999,
+    borderRadius: 8,
     border: '1px solid rgba(183,121,31,0.24)',
     background: 'rgba(255,251,235,0.86)',
     color: '#B7791F',
@@ -2041,7 +2091,7 @@ const S = {
     fontWeight: 900,
   },
   quickPlanPanel: {
-    borderRadius: 14,
+    borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.18)',
     background: 'rgba(240,247,242,0.72)',
     padding: 12,
@@ -2051,7 +2101,7 @@ const S = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 12,
+    borderRadius: 8,
     border: '1px solid rgba(20,131,79,0.14)',
     background: 'rgba(255,255,255,0.82)',
     padding: '10px 12px',
@@ -2084,7 +2134,7 @@ const S = {
     background: '#fff',
     color: 'var(--text)',
     border: '1px solid rgba(20,131,79,0.16)',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: '10px 12px',
     outline: 'none',
     minHeight: 40,

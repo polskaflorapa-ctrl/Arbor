@@ -136,7 +136,7 @@ export default function PhotoAnnotator({ file, onClose, onSave }) {
           <input type="range" min={2} max={24} value={lineWidth} onChange={(e) => setLineWidth(Number(e.target.value))} />
           <button type="button" style={btnGhost} onClick={clearDrawing}>Wyczyść rysunek</button>
         </div>
-        <div style={{ overflow: 'auto', maxHeight: '55vh', border: '1px solid var(--border)', borderRadius: 10 }}>
+        <div style={{ overflow: 'auto', maxHeight: '55vh', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)' }}>
           <canvas
             ref={canvasRef}
             style={{ display: 'block', maxWidth: '100%', touchAction: 'none', cursor: 'crosshair' }}
@@ -159,22 +159,23 @@ export default function PhotoAnnotator({ file, onClose, onSave }) {
 }
 
 const overlay = {
-  position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)',
+  position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(6,16,11,0.72)',
   display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
 };
 const box = {
-  background: 'var(--bg-card)', borderRadius: 16, border: '1px solid var(--border)',
+  background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)',
   maxWidth: 960, width: '100%', padding: 20, maxHeight: '92vh', overflow: 'auto',
+  boxShadow: 'var(--shadow-md)',
 };
 const head = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 };
 const btnX = { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14 };
 const toolbar = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 };
 const btnGhost = {
   padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
-  background: 'var(--bg-deep)', color: 'var(--text)', cursor: 'pointer', fontSize: 13,
+  background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13,
 };
 const btnPrimary = {
-  padding: '8px 18px', borderRadius: 8, border: 'none',
-  background: '#34D399', color: '#052E16', fontWeight: 700, cursor: 'pointer', fontSize: 13,
+  padding: '8px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)',
+  background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer', fontSize: 13,
 };
 const foot = { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 };

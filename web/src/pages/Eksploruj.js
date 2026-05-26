@@ -161,8 +161,8 @@ export default function Eksploruj() {
                 width: '100%',
                 padding: '10px 12px 10px 38px',
                 borderRadius: 10,
-                border: '1px solid var(--border2)',
-                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface-field)',
                 color: 'var(--text)',
                 fontSize: 14,
                 outline: 'none',
@@ -214,11 +214,11 @@ export default function Eksploruj() {
                       alignItems: 'flex-start',
                       gap: 6,
                       padding: '14px 16px',
-                      borderRadius: 12,
-                      border: `1px solid ${isHov ? 'var(--accent)' : 'var(--border2)'}`,
+                      borderRadius: 8,
+                      border: `1px solid ${isHov ? 'var(--accent)' : 'var(--glass-border)'}`,
                       background: isHov
-                        ? 'linear-gradient(135deg, var(--accent-surface), var(--bg-card))'
-                        : 'linear-gradient(180deg, var(--glass-bg-strong), var(--glass-bg))',
+                        ? 'linear-gradient(135deg, var(--accent-surface), var(--surface-glass))'
+                        : 'var(--surface-glass)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',

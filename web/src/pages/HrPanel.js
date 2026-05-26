@@ -354,19 +354,19 @@ export default function HrPanel() {
 }
 
 const s = {
-  shell:      { display: 'flex', minHeight: '100vh', background: 'var(--bg-deep)' },
+  shell:      { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
   main:       { flex: 1, padding: '20px 24px 40px', overflowX: 'hidden', minWidth: 0 },
   topbar:     { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 },
   title:      { fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 },
   sub:        { fontSize: 13, color: 'var(--text-sub)', marginTop: 4 },
-  monthInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14 },
-  addBtn:     { padding: '9px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
-  backBtn:    { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
+  monthInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14 },
+  addBtn:     { padding: '9px 16px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+  backBtn:    { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
   errorBox:   { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
   tabs:       { display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' },
-  tab:        { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
+  tab:        { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
   tabActive:  { background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 700 },
-  card:       { background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px' },
+  card:       { background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: '16px 18px', boxShadow: 'var(--shadow-md)' },
   cardTitle:  { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 },
   loading:    { textAlign: 'center', padding: 40, color: 'var(--text-sub)' },
   empty:      { textAlign: 'center', padding: '40px 20px', color: 'var(--text-sub)' },
@@ -390,14 +390,14 @@ const s = {
 
 const m = {
   overlay:   { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modal:     { background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' },
+  modal:     { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-md)', overflow: 'hidden' },
   header:    { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' },
   closeBtn:  { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--text-sub)' },
   err:       { margin: '12px 20px 0', padding: '10px 14px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', fontSize: 13 },
   body:      { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 },
   label:     { fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 4, display: 'block' },
-  input:     { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
+  input:     { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
   footer:    { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 20px', borderTop: '1px solid var(--border)' },
-  cancelBtn: { padding: '9px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
+  cancelBtn: { padding: '9px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
   saveBtn:   { padding: '9px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
 };

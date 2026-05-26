@@ -24,6 +24,33 @@ function canDispatch(user) {
   return isDyrektorOrAdmin(user) || isKierownik(user);
 }
 
+let teamAttendanceTablesReady = false;
+async function ensureTeamAttendanceTables(client) {
+  if (teamAttendanceTablesReady) return;
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS team_attendance (
+      id SERIAL PRIMARY KEY,
+      date_ymd DATE NOT NULL,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      present BOOLEAN NOT NULL DEFAULT true,
+      note TEXT,
+      actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_name VARCHAR(160),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await client.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_team_attendance_day_team ON team_attendance(date_ymd, team_id)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_team_attendance_date ON team_attendance(date_ymd)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_team_attendance_team ON team_attendance(team_id)');
+  teamAttendanceTablesReady = true;
+}
+
+function toDateYmd(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  return String(value || '').slice(0, 10);
+}
+
 async function fetchTasksForDate(client, date, oddzialId) {
   const params = [date];
   let where = `t.data_planowana::date = $1
@@ -34,6 +61,7 @@ async function fetchTasksForDate(client, date, oddzialId) {
   }
   const r = await client.query(
     `SELECT t.id, t.numer, t.adres, t.miasto,
+            t.klient_nazwa, t.klient_telefon,
             t.pin_lat, t.pin_lng,
             t.priorytet, t.status,
             t.czas_planowany_godziny,
@@ -57,9 +85,10 @@ async function fetchTasksForDate(client, date, oddzialId) {
   }));
 }
 
-async function fetchTeamsForDispatch(client, oddzialId) {
-  const params = [];
-  let where = 'e.aktywna = true';
+async function fetchTeamsForDispatch(client, oddzialId, date) {
+  await ensureTeamAttendanceTables(client);
+  const params = [date];
+  let where = 'COALESCE(e.aktywny, true) = true';
   if (oddzialId) {
     params.push(oddzialId);
     where += ` AND e.oddzial_id = $${params.length}`;
@@ -67,6 +96,9 @@ async function fetchTeamsForDispatch(client, oddzialId) {
   const r = await client.query(
     `SELECT e.id, e.nazwa, e.oddzial_id,
             e.depot_lat, e.depot_lng, e.max_godzin_dzien,
+            a.present AS attendance_present,
+            a.note AS attendance_note,
+            a.actor_name AS attendance_actor,
             COALESCE(
               (SELECT array_agg(DISTINCT ei.typ)
                FROM equipment_items ei
@@ -74,21 +106,57 @@ async function fetchTeamsForDispatch(client, oddzialId) {
               '{}'
             ) AS sprzet_typy,
             COALESCE(
-              (SELECT array_agg(DISTINCT uc.kompetencja)
+              (SELECT array_agg(DISTINCT uc.nazwa)
                FROM user_competencies uc
                JOIN team_members tm ON tm.user_id = uc.user_id
-               WHERE tm.ekipa_id = e.id AND tm.aktywny = true),
+               WHERE tm.team_id = e.id),
               '{}'
-            ) AS kompetencje
-     FROM ekipy e
+             ) AS kompetencje
+     FROM teams e
+     LEFT JOIN team_attendance a ON a.team_id = e.id AND a.date_ymd = $1::date
      WHERE ${where}
      ORDER BY e.nazwa`,
     params
   );
-  return r.rows.map(row => ({
+  const allTeams = r.rows.map(row => ({
     ...row,
     depot_lat: row.depot_lat != null ? Number(row.depot_lat) : null,
     depot_lng: row.depot_lng != null ? Number(row.depot_lng) : null,
+    attendance: {
+      present: row.attendance_present === null || row.attendance_present === undefined ? true : row.attendance_present === true,
+      note: row.attendance_note || '',
+      actor: row.attendance_actor || '',
+    },
+  }));
+  return {
+    teams: allTeams.filter(team => team.attendance.present !== false),
+    absentTeams: allTeams.filter(team => team.attendance.present === false),
+  };
+}
+
+async function findAbsentTeamsForPlan(client, teamIds, date) {
+  const ids = [...new Set((teamIds || []).map(Number).filter(Boolean))];
+  const day = toDateYmd(date);
+  if (!ids.length || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return [];
+  await ensureTeamAttendanceTables(client);
+  const r = await client.query(
+    `SELECT e.id AS team_id,
+            e.nazwa AS team_name,
+            a.note,
+            a.actor_name
+       FROM teams e
+       JOIN team_attendance a ON a.team_id = e.id AND a.date_ymd = $2::date
+      WHERE e.id = ANY($1::int[])
+        AND a.present = false
+      ORDER BY e.nazwa`,
+    [ids, day]
+  );
+  return r.rows.map(row => ({
+    team_id: Number(row.team_id),
+    team_name: row.team_name || `Ekipa #${row.team_id}`,
+    date_ymd: day,
+    note: row.note || '',
+    actor: row.actor_name || '',
   }));
 }
 
@@ -106,13 +174,25 @@ router.post('/plan', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const [tasks, teams] = await Promise.all([
-      fetchTasksForDate(client, date, branchId),
-      fetchTeamsForDispatch(client, branchId),
-    ]);
+    const tasks = await fetchTasksForDate(client, date, branchId);
+    const { teams, absentTeams } = await fetchTeamsForDispatch(client, branchId, date);
 
     const result = solve({ tasks, teams, date, oddzial_id: branchId });
-    res.json({ ...result, date, oddzial_id: branchId });
+    res.json({
+      ...result,
+      date,
+      oddzial_id: branchId,
+      team_availability: {
+        total: teams.length + absentTeams.length,
+        available: teams.length,
+        absent: absentTeams.map(team => ({
+          team_id: Number(team.id),
+          team_name: team.nazwa,
+          note: team.attendance.note,
+          actor: team.attendance.actor,
+        })),
+      },
+    });
   } catch (err) {
     logger.error('dispatch plan error', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: 'Błąd solvera: ' + err.message });
@@ -135,12 +215,20 @@ router.post('/plan/save', async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const [tasks, teams] = await Promise.all([
-      fetchTasksForDate(client, date, branchId),
-      fetchTeamsForDispatch(client, branchId),
-    ]);
+    const tasks = await fetchTasksForDate(client, date, branchId);
+    const { teams, absentTeams } = await fetchTeamsForDispatch(client, branchId, date);
 
     const result = solve({ tasks, teams, date, oddzial_id: branchId });
+    result.team_availability = {
+      total: teams.length + absentTeams.length,
+      available: teams.length,
+      absent: absentTeams.map(team => ({
+        team_id: Number(team.id),
+        team_name: team.nazwa,
+        note: team.attendance.note,
+        actor: team.attendance.actor,
+      })),
+    };
 
     const saved = await client.query(
       `INSERT INTO dispatch_plans (data, oddzial_id, created_by, solver_ms, plan_json)
@@ -179,12 +267,27 @@ router.post('/apply/:id', async (req, res) => {
     );
     if (!planR.rows.length) return res.status(404).json({ error: 'Plan nie istnieje' });
 
-    const plan = planR.rows[0].plan_json;
+    const plan = typeof planR.rows[0].plan_json === 'string'
+      ? JSON.parse(planR.rows[0].plan_json)
+      : planR.rows[0].plan_json;
     const branchId = planR.rows[0].oddzial_id;
 
     // Guard: non-directors only see their own branch
     if (!isDyrektorOrAdmin(req.user) && branchId && branchId !== req.user.oddzial_id) {
       return res.status(403).json({ error: 'Brak uprawnień do tego planu' });
+    }
+
+    const routeTeamIds = (plan.routes || []).map(route => route.team_id);
+    const absentTeams = await findAbsentTeamsForPlan(client, routeTeamIds, planR.rows[0].data);
+    if (absentTeams.length) {
+      return res.status(409).json({
+        error: 'Nie mozna zastosowac planu: co najmniej jedna ekipa jest oznaczona jako nieobecna.',
+        code: 'TEAM_ABSENT',
+        attendance: {
+          dateYmd: absentTeams[0].date_ymd,
+          absent: absentTeams,
+        },
+      });
     }
 
     await client.query('BEGIN');

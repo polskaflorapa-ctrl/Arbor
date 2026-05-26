@@ -6,11 +6,12 @@ import { getApiErrorMessage } from '../utils/apiError';
 
 const s = {
   card: {
-    backgroundColor: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 8,
     padding: '16px 18px',
     marginBottom: 16,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+    boxShadow: 'var(--shadow-md)',
   },
   title: { fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginBottom: 12 },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
@@ -19,9 +20,9 @@ const s = {
   gray: { color: 'var(--text-muted)', fontSize: 13, margin: 0 },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginTop: 12 },
   label: { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 },
-  input: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg)' },
+  input: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  btnPrimary: { padding: '8px 16px', borderRadius: 8, border: 'none', backgroundColor: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 },
+  btnPrimary: { padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer', fontSize: 13 },
   err: { color: 'var(--danger)', fontSize: 13, marginTop: 8 },
 };
 

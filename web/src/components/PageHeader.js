@@ -57,7 +57,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             }
           : {
               paddingBottom: 16,
-              borderBottom: '1px solid var(--border2)',
+              borderBottom: '1px solid var(--glass-border)',
             }),
       }}
     >
@@ -84,7 +84,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               padding: '6px 10px',
               borderRadius: 6,
               border: '1px solid var(--border)',
-              background: isHero ? 'var(--bg-card)' : 'linear-gradient(135deg, var(--bg-card2), var(--bg-card))',
+              background: 'var(--surface-field)',
               color: 'var(--text-sub)',
               cursor: 'pointer',
               fontSize: 13,
@@ -103,7 +103,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
               width: 44,
               height: 44,
               borderRadius: 8,
-              background: 'linear-gradient(135deg, var(--logo-tint-bg), var(--bg-card2))',
+              background: 'var(--surface-field)',
               border: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
@@ -117,6 +117,20 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
           </div>
         ) : null}
         <div style={{ minWidth: 0, flex: '1 1 0', maxWidth: '100%' }}>
+          {isHero ? (
+            <div
+              style={{
+                marginBottom: 6,
+                color: 'var(--accent)',
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: 0,
+                textTransform: 'uppercase',
+              }}
+            >
+              ARBOR Operations
+            </div>
+          ) : null}
           <h1
             style={{
               margin: 0,

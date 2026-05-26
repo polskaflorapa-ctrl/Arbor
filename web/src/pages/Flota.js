@@ -243,21 +243,21 @@ export default function Flota() {
         />
 
         {/* KPI */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 0, marginBottom: 24, border: '1px solid #e6e9ef', borderRadius: 4, overflow: 'hidden', background: '#ffffff' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 0, marginBottom: 24, border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
           {kpiItems.map((k, i, arr) => (
             <div key={k.key} style={{
-              background: '#ffffff', padding: '14px 16px',
+              background: 'var(--surface-field)', padding: '14px 16px',
               borderLeft: `3px solid ${k.color}`,
-              borderRight: i < arr.length - 1 ? '1px solid #e6e9ef' : 'none',
+              borderRight: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
             }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#323338' }}>{k.value}</div>
-              <div style={{ fontSize: 11, color: '#676879', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{k.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{k.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0, fontWeight: 600 }}>{k.label}</div>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border2)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
           {tabDefs.map((tab) => (
             <button key={tab.key}
               type="button"
@@ -359,18 +359,18 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filtrPojazdy.length === 0 ? (
             <EmptyBox icon={<DirectionsCarOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyVehicles')} sub={canEdit ? t('pages.flota.emptyVehiclesHint') : ''} />
           ) : (
-            <div style={{ border: '1px solid #e6e9ef', borderRadius: 4, overflow: 'hidden', background: '#ffffff' }}>
+            <div style={{ border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
               {filtrPojazdy.map((p, i, arr) => (
                 <div key={p.id} style={{
-                  background: '#ffffff', padding: '14px 20px',
-                  borderLeft: `4px solid ${STATUS_KOLOR[p.status] || '#e6e9ef'}`,
-                  borderBottom: i < arr.length - 1 ? '1px solid #e6e9ef' : 'none',
+                  background: 'var(--surface-field)', padding: '14px 20px',
+                  borderLeft: `4px solid ${STATUS_KOLOR[p.status] || 'var(--border)'}`,
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
                   display: 'flex', alignItems: 'center', gap: 16,
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#323338' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
                         <DirectionsCarOutlined sx={{ fontSize: 22, flexShrink: 0 }} />
                         {p.marka} {p.model}
                       </div>
@@ -379,7 +379,7 @@ export default function Flota() {
                     <select
                       value={p.status || 'Dostępny'}
                       onChange={e => zmienStatus('pojazdy', p.id, e.target.value)}
-                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--bg-card)', color: STATUS_KOLOR[p.status] || 'var(--text-muted)', fontWeight: '600' }}>
+                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: STATUS_KOLOR[p.status] || 'var(--text-muted)', fontWeight: '600' }}>
                       {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
                   </div>
@@ -421,18 +421,18 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filtrSprzet.length === 0 ? (
             <EmptyBox icon={<BuildOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyEquipment')} sub={canEdit ? t('pages.flota.emptyEquipmentHint') : ''} />
           ) : (
-            <div style={{ border: '1px solid #e6e9ef', borderRadius: 4, overflow: 'hidden', background: '#ffffff' }}>
+            <div style={{ border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
               {filtrSprzet.map((s, i, arr) => (
                 <div key={s.id} style={{
-                  background: '#ffffff', padding: '14px 20px',
-                  borderLeft: `4px solid ${STATUS_KOLOR[s.status] || '#e6e9ef'}`,
-                  borderBottom: i < arr.length - 1 ? '1px solid #e6e9ef' : 'none',
+                  background: 'var(--surface-field)', padding: '14px 20px',
+                  borderLeft: `4px solid ${STATUS_KOLOR[s.status] || 'var(--border)'}`,
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
                   display: 'flex', alignItems: 'center', gap: 16,
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#323338' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
                         <HandymanOutlined sx={{ fontSize: 20, flexShrink: 0 }} />
                         {s.nazwa}
                       </div>
@@ -441,7 +441,7 @@ export default function Flota() {
                     <select
                       value={s.status || 'Dostępny'}
                       onChange={e => zmienStatus('sprzet', s.id, e.target.value)}
-                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--bg-card)', color: STATUS_KOLOR[s.status] || 'var(--text-muted)', fontWeight: '600' }}>
+                      style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: STATUS_KOLOR[s.status] || 'var(--text-muted)', fontWeight: '600' }}>
                       {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
                   </div>
@@ -558,9 +558,9 @@ const S = {
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 8 },
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
-  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
   repairsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },

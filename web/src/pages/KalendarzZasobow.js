@@ -673,18 +673,18 @@ function NowaRezerwacjaModal({ sprzet, ekipy, defaultSprzet, defaultDate, onSave
 
 const mStyles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  panel:   { background: 'var(--bg-card)', borderRadius: 12, padding: 24, minWidth: 360, maxWidth: 460, width: '90vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' },
+  panel:   { background: 'var(--surface-glass)', borderRadius: 12, padding: 24, minWidth: 360, maxWidth: 460, width: '90vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' },
   label:   { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4, marginTop: 12 },
-  select:  { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14 },
-  input:   { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
-  textarea: { width: '100%', minHeight: 84, resize: 'vertical', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
+  select:  { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14 },
+  input:   { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
+  textarea: { width: '100%', minHeight: 84, resize: 'vertical', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
   modalHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   subtle: { marginTop: 4, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
   statusPill: { padding: '4px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', color: 'var(--accent)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   fieldPackagePanel: {
     border: '1px solid rgba(34,197,94,0.28)',
     borderRadius: 8,
-    background: 'linear-gradient(145deg, rgba(34,197,94,0.1), var(--bg-card2))',
+    background: 'linear-gradient(145deg, rgba(34,197,94,0.1), var(--surface-field))',
     padding: 12,
     marginBottom: 12,
     display: 'grid',
@@ -739,7 +739,7 @@ const mStyles = {
   fieldPackageCheck: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: '7px 8px',
     display: 'grid',
     gap: 3,
@@ -813,7 +813,7 @@ const mStyles = {
     color: 'var(--text)',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     overflow: 'hidden',
     minWidth: 0,
   },
@@ -822,7 +822,7 @@ const mStyles = {
     height: 92,
     objectFit: 'cover',
     display: 'block',
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
   },
   fieldPhotoType: {
     padding: '0 8px 8px',
@@ -861,10 +861,10 @@ const mStyles = {
   multiSelect: { minHeight: 112, lineHeight: 1.35 },
   equipmentHint: { marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35, fontWeight: 700 },
   equipmentActions: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },
-  tinyBtn: { padding: '5px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
+  tinyBtn: { padding: '5px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
   actionsRow: { display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end', flexWrap: 'wrap' },
   btnCancel: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
-  btnGhost: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  btnGhost: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
   btnSave:   { padding: '8px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
   btnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
 };
@@ -2113,9 +2113,7 @@ export default function KalendarzZasobow() {
       setTaskPlanErr('Ekipa jest nieobecna. Potwierdz wyjatek kierownika albo wybierz inna ekipe.');
       return;
     }
-    const absenceNote = selectedAttendance?.present === false
-      ? `UWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(selectedAttendance)}.`
-      : '';
+    const absenceOverride = selectedAttendance?.present === false && form.absence_override === true;
     setSaving(true);
     setTaskPlanErr('');
     try {
@@ -2126,7 +2124,8 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: form.czas_planowany_godziny,
         ekipa_id: form.ekipa_id,
         sprzet_ids: form.sprzet_ids || [],
-        sprzet_notatka: [form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.', absenceNote].filter(Boolean).join('\n'),
+        sprzet_notatka: form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.',
+        absence_override: absenceOverride,
       }, { headers: authHeaders(token) });
       showMsg(`Zapisano plan zlecenia #${task.id}.`);
       setModalTaskPlan(null);
@@ -2166,6 +2165,7 @@ export default function KalendarzZasobow() {
     const nextHours = taskHours(task);
     if (String(task.ekipa_id || '') === String(teamId) && taskDate(task) === dayISO && taskTime(task) === nextTime) return;
     const targetAttendance = attendanceByTeam.get(String(teamId));
+    let absenceOverride = false;
     if (targetAttendance?.present === false) {
       const targetTeam = teamsByIdForPlanning.get(String(teamId));
       const confirmed = typeof window !== 'undefined' && window.confirm
@@ -2175,6 +2175,7 @@ export default function KalendarzZasobow() {
         showMsg('Planowanie przerwane: ekipa jest nieobecna.', 'err');
         return;
       }
+      absenceOverride = true;
     }
 
     setSaving(true);
@@ -2187,9 +2188,8 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: nextHours,
         ekipa_id: teamId,
         sprzet_ids: existingEquipmentIds,
-        sprzet_notatka: targetAttendance?.present === false
-          ? `Przesunieto w harmonogramie ekip.\nUWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(targetAttendance)}.`
-          : 'Przesunieto w harmonogramie ekip.',
+        sprzet_notatka: 'Przesunieto w harmonogramie ekip.',
+        absence_override: absenceOverride,
       }, { headers: authHeaders(token) });
       showMsg(`Zlecenie #${task.id} zaplanowane: ${dayISO} ${nextTime}.`);
       await Promise.all([loadAll(), loadRezerwacje()]);
@@ -2366,7 +2366,7 @@ export default function KalendarzZasobow() {
           cursor: canEdit && !isAnulowana ? 'grab' : 'pointer',
           userSelect: 'none',
           zIndex: 2,
-          boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         {barLabel}
@@ -2406,20 +2406,20 @@ export default function KalendarzZasobow() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
-              style={{ ...st.viewBtn, background: activeTab === 'teams' ? 'var(--accent)' : 'var(--bg-card2)', color: activeTab === 'teams' ? 'var(--on-accent)' : 'var(--text)' }}
+              style={{ ...st.viewBtn, background: activeTab === 'teams' ? 'var(--accent)' : 'var(--surface-field)', color: activeTab === 'teams' ? 'var(--on-accent)' : 'var(--text)' }}
               onClick={() => setActiveTab('teams')}>Ekipy</button>
             {activeTab === 'teams' && (
               <>
                 <button
-                  style={{ ...st.viewBtn, background: teamViewMode === 'day' ? 'var(--accent)' : 'var(--bg-card2)', color: teamViewMode === 'day' ? 'var(--on-accent)' : 'var(--text)' }}
+                  style={{ ...st.viewBtn, background: teamViewMode === 'day' ? 'var(--accent)' : 'var(--surface-field)', color: teamViewMode === 'day' ? 'var(--on-accent)' : 'var(--text)' }}
                   onClick={() => setTeamViewMode('day')}>Dzien</button>
                 <button
-                  style={{ ...st.viewBtn, background: teamViewMode === 'range' ? 'var(--accent)' : 'var(--bg-card2)', color: teamViewMode === 'range' ? 'var(--on-accent)' : 'var(--text)' }}
+                  style={{ ...st.viewBtn, background: teamViewMode === 'range' ? 'var(--accent)' : 'var(--surface-field)', color: teamViewMode === 'range' ? 'var(--on-accent)' : 'var(--text)' }}
                   onClick={() => setTeamViewMode('range')}>Zakres</button>
               </>
             )}
             <button
-              style={{ ...st.viewBtn, background: activeTab === 'equipment' ? 'var(--accent)' : 'var(--bg-card2)', color: activeTab === 'equipment' ? 'var(--on-accent)' : 'var(--text)' }}
+              style={{ ...st.viewBtn, background: activeTab === 'equipment' ? 'var(--accent)' : 'var(--surface-field)', color: activeTab === 'equipment' ? 'var(--on-accent)' : 'var(--text)' }}
               onClick={() => setActiveTab('equipment')}>Sprzet</button>
             <select
               style={st.branchSelect}
@@ -2435,10 +2435,10 @@ export default function KalendarzZasobow() {
             {(!isTeamDayView) && (
               <>
                 <button
-                  style={{ ...st.viewBtn, background: rangeLen === 14 ? 'var(--accent)' : 'var(--bg-card2)', color: rangeLen === 14 ? 'var(--on-accent)' : 'var(--text)' }}
+                  style={{ ...st.viewBtn, background: rangeLen === 14 ? 'var(--accent)' : 'var(--surface-field)', color: rangeLen === 14 ? 'var(--on-accent)' : 'var(--text)' }}
                   onClick={() => setRangeLen(14)}>2 tygodnie</button>
                 <button
-                  style={{ ...st.viewBtn, background: rangeLen === 28 ? 'var(--accent)' : 'var(--bg-card2)', color: rangeLen === 28 ? 'var(--on-accent)' : 'var(--text)' }}
+                  style={{ ...st.viewBtn, background: rangeLen === 28 ? 'var(--accent)' : 'var(--surface-field)', color: rangeLen === 28 ? 'var(--on-accent)' : 'var(--text)' }}
                   onClick={() => setRangeLen(28)}>4 tygodnie</button>
               </>
             )}
@@ -2630,7 +2630,7 @@ export default function KalendarzZasobow() {
                   </div>
                 )}
 
-                <div style={{ display: teamViewMode === 'day' ? 'none' : 'flex', position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: teamViewMode === 'day' ? 'none' : 'flex', position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-glass)', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ width: TEAM_LABEL_W, minWidth: TEAM_LABEL_W, height: HEADER_H, display: 'flex', alignItems: 'center', paddingLeft: 16, fontWeight: 700, fontSize: 13, borderRight: '1px solid var(--border)', color: 'var(--text-muted)', flexShrink: 0 }}>
                     Ekipa / dzien
                   </div>
@@ -2644,7 +2644,7 @@ export default function KalendarzZasobow() {
                         width: TEAM_COL_W, minWidth: TEAM_COL_W, height: HEADER_H,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         borderLeft: firstOfMonth ? '2px solid var(--accent)' : '1px solid var(--border)',
-                        background: isToday ? 'var(--accent-surface)' : isWeekend ? 'var(--bg-card2)' : 'var(--bg-card)',
+                        background: isToday ? 'var(--accent-surface)' : isWeekend ? 'var(--surface-field)' : 'var(--surface-glass)',
                         fontSize: 11, flexShrink: 0,
                       }}>
                         {(i === 0 || firstOfMonth) && (
@@ -2858,7 +2858,7 @@ export default function KalendarzZasobow() {
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
-                              ? 'var(--bg-card2)'
+                              ? 'var(--surface-field)'
                               : 'transparent',
                             padding: 8,
                             boxSizing: 'border-box',
@@ -2880,7 +2880,7 @@ export default function KalendarzZasobow() {
               <>
 
             {/* nagłówek dat */}
-            <div style={{ display: 'flex', position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-glass)', borderBottom: '1px solid var(--border)' }}>
               {/* lewa kolumna — sprzęt */}
               <div style={{ width: LABEL_W, minWidth: LABEL_W, height: HEADER_H, display: 'flex', alignItems: 'center', paddingLeft: 16, fontWeight: 700, fontSize: 13, borderRight: '1px solid var(--border)', color: 'var(--text-muted)', flexShrink: 0 }}>
                 Sprzęt / Zasób
@@ -2896,7 +2896,7 @@ export default function KalendarzZasobow() {
                     width: COL_W, minWidth: COL_W, height: HEADER_H,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     borderLeft: firstOfMonth ? '2px solid var(--accent)' : '1px solid var(--border)',
-                    background: isToday ? 'var(--accent-surface)' : isWeekend ? 'var(--bg-card2)' : 'var(--bg-card)',
+                    background: isToday ? 'var(--accent-surface)' : isWeekend ? 'var(--surface-field)' : 'var(--surface-glass)',
                     fontSize: 11, flexShrink: 0,
                   }}>
                     {(i === 0 || firstOfMonth) && (
@@ -2980,7 +2980,7 @@ export default function KalendarzZasobow() {
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
-                              ? 'var(--bg-card2)'
+                              ? 'var(--surface-field)'
                               : 'transparent',
                             cursor: canEdit ? 'pointer' : 'default',
                             zIndex: 1,
@@ -3055,7 +3055,7 @@ export default function KalendarzZasobow() {
 const st = {
   pageHeader: {
     display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px',
-    borderBottom: '1px solid var(--border)', background: 'var(--bg-card)',
+    borderBottom: '1px solid var(--border)', background: 'var(--surface-glass)',
     flexWrap: 'wrap',
   },
   pageTitle: {
@@ -3064,13 +3064,13 @@ const st = {
   },
   navBtn: {
     width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8,
-    background: 'var(--bg-card2)', cursor: 'pointer', fontSize: 18,
+    background: 'var(--surface-field)', cursor: 'pointer', fontSize: 18,
     color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     lineHeight: 1,
   },
   todayBtn: {
     padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 8,
-    background: 'var(--bg-card2)', cursor: 'pointer', fontSize: 13,
+    background: 'var(--surface-field)', cursor: 'pointer', fontSize: 13,
     color: 'var(--text)', fontWeight: 500,
   },
   periodLabel: {
@@ -3086,7 +3086,7 @@ const st = {
     padding: '5px 10px',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     fontSize: 13,
     fontWeight: 600,
@@ -3097,7 +3097,7 @@ const st = {
   legend: {
     display: 'flex', alignItems: 'center', gap: 16,
     padding: '8px 24px', borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-card)', fontSize: 12,
+    background: 'var(--surface-glass)', fontSize: 12,
   },
   legendItem: {
     display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)',
@@ -3134,7 +3134,7 @@ const st = {
     minHeight: 46,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '7px 9px',
     display: 'flex',
@@ -3212,7 +3212,7 @@ const st = {
   opsAlert: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '9px 10px',
     display: 'grid',
@@ -3274,7 +3274,7 @@ const st = {
   },
   queuePanel: {
     borderBottom: '1px solid var(--border)',
-    background: 'linear-gradient(135deg, rgba(34,197,94,0.08), var(--bg-card))',
+    background: 'linear-gradient(135deg, rgba(34,197,94,0.08), var(--surface-glass))',
     padding: '12px 16px',
   },
   queueHead: {
@@ -3312,7 +3312,7 @@ const st = {
     minHeight: 31,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '5px 8px',
     display: 'inline-flex',
@@ -3397,7 +3397,7 @@ const st = {
     minWidth: 0,
     border: '1px solid var(--border)',
     borderRadius: 7,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '6px 8px',
     fontSize: 11,
@@ -3426,11 +3426,11 @@ const st = {
     minHeight: 54,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '7px 8px',
     marginBottom: 6,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+    boxShadow: 'var(--shadow-sm)',
     cursor: 'grab',
     userSelect: 'none',
     boxSizing: 'border-box',
@@ -3520,7 +3520,7 @@ const st = {
     position: 'sticky',
     top: 0,
     zIndex: 12,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     borderBottom: '1px solid var(--border)',
   },
   dayTimeHeader: {
@@ -3551,7 +3551,7 @@ const st = {
   },
   dayTeamHeaderAbsent: {
     borderRight: '1px solid rgba(239,68,68,0.42)',
-    background: 'linear-gradient(135deg, rgba(239,68,68,0.14), var(--bg-card))',
+    background: 'linear-gradient(135deg, rgba(239,68,68,0.14), var(--surface-glass))',
     boxShadow: 'inset 0 -2px 0 rgba(239,68,68,0.65)',
   },
   dayTeamHeaderTop: {
@@ -3610,11 +3610,11 @@ const st = {
     color: '#ef4444',
   },
   focusedTeamHeader: {
-    background: 'linear-gradient(135deg, rgba(34,197,94,0.18), var(--bg-card))',
+    background: 'linear-gradient(135deg, rgba(34,197,94,0.18), var(--surface-glass))',
     boxShadow: 'inset 0 -2px 0 rgba(34,197,94,0.72)',
   },
   focusedTeamColumn: {
-    background: 'linear-gradient(180deg, rgba(34,197,94,0.08), var(--bg-card))',
+    background: 'linear-gradient(180deg, rgba(34,197,94,0.08), var(--surface-glass))',
   },
   absentTeamRangeRow: {
     boxShadow: 'inset 3px 0 0 #ef4444',
@@ -3640,7 +3640,7 @@ const st = {
     minWidth: DAY_TIME_LABEL_W,
     position: 'relative',
     borderRight: '1px solid var(--border)',
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
   },
   dayHourMark: {
     position: 'absolute',
@@ -3655,11 +3655,11 @@ const st = {
     minWidth: DAY_TEAM_COL_W,
     position: 'relative',
     borderRight: '1px solid var(--border)',
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     overflow: 'hidden',
   },
   dayTeamColumnAbsent: {
-    background: 'linear-gradient(180deg, rgba(239,68,68,0.09), var(--bg-card))',
+    background: 'linear-gradient(180deg, rgba(239,68,68,0.09), var(--surface-glass))',
   },
   dayHourSlot: {
     position: 'absolute',
@@ -3675,7 +3675,7 @@ const st = {
     zIndex: 2,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
     color: 'var(--text)',
     padding: '7px 8px',
@@ -3685,7 +3685,7 @@ const st = {
   },
   dayTaskBlockConflict: {
     border: '1px solid rgba(239,68,68,0.72)',
-    background: 'linear-gradient(135deg, rgba(239,68,68,0.16), var(--bg-card2))',
+    background: 'linear-gradient(135deg, rgba(239,68,68,0.16), var(--surface-field))',
     boxShadow: '0 0 0 2px rgba(239,68,68,0.16), 0 2px 8px rgba(0,0,0,0.22)',
   },
   dayTaskTime: {

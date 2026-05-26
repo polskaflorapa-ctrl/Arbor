@@ -750,10 +750,10 @@ const WORKFLOW_PRESETS = {
 function Toggle({ value, onChange, disabled }) {
   return (
     <button type="button" disabled={disabled} onClick={() => !disabled && onChange(!value)}
-      style={{ width: 52, height: 28, borderRadius: 14, border: value ? 'none' : '1px solid var(--border2)', cursor: disabled ? 'default' : 'pointer',
-        backgroundColor: value ? '#34D399' : 'var(--bg-deep)', position: 'relative', transition: 'background 0.2s',
+      style={{ width: 52, height: 28, borderRadius: 14, border: value ? 'none' : '1px solid var(--border)', cursor: disabled ? 'default' : 'pointer',
+        backgroundColor: value ? '#34D399' : 'var(--surface-field)', position: 'relative', transition: 'background 0.2s',
         flexShrink: 0, opacity: disabled ? 0.6 : 1 }}>
-      <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--bg-card)', position: 'absolute',
+      <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--surface-glass)', position: 'absolute',
         top: 3, left: value ? 27 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
     </button>
   );
@@ -4518,6 +4518,7 @@ export default function Zlecenia() {
         setFormRepairFocus(null);
         setWybraneZlecenie(savedTask);
         setTryb('szczegoly');
+        navigate(`/zlecenia/${savedTask.id}`, { replace: true });
         await Promise.all([
           loadTaskPhotos(savedTask.id, { silent: true }),
           loadTaskProblems(savedTask.id, { silent: true }),
@@ -5691,6 +5692,7 @@ export default function Zlecenia() {
     { label: 'Do zatwierdzenia', value: visibleOfficeApproval, detail: 'biuro tylko akceptuje', tone: visibleOfficeApproval ? 'blue' : 'green', filterKey: 'officeApproval' },
     { label: 'Dzisiaj', value: visibleToday, detail: `${visibleReadyClose} do zamknięcia`, tone: 'blue', filterKey: 'today' },
   ];
+  const zleceniaDailyCards = zleceniaOpsCards.slice(0, 8);
   const closureAudit = buildClosureAuditSummary(closureDecisionEvents, zlecenia);
   const effectiveClosureIssueKey = closureAudit.topIssues.some((issue) => issue.key === activeClosureIssueKey)
     ? activeClosureIssueKey
@@ -6432,7 +6434,7 @@ export default function Zlecenia() {
         {tryb === 'lista' && (
           <>
             <PageHeader
-              variant="plain"
+              variant="hero"
               title={t('pages.zlecenia.title')}
               subtitle={t('pages.zlecenia.subtitle')}
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
@@ -6513,6 +6515,31 @@ export default function Zlecenia() {
                   })}
                 </div>
               </div>
+            </div>
+            <div className="zlecenia-daily-grid" style={s.dailyOpsGrid}>
+              {zleceniaDailyCards.map((card) => (
+                <button
+                  key={card.label}
+                  type="button"
+                  onClick={() => {
+                    if (card.filterKey) {
+                      setSmartFilter(smartFilter === card.filterKey ? '' : card.filterKey);
+                      setSelectedTaskIds([]);
+                    }
+                  }}
+                  style={{
+                    ...s.dailyOpsCard,
+                    ...(s[`dailyOpsCard_${card.tone}`] || {}),
+                    ...(card.filterKey && smartFilter === card.filterKey ? s.dailyOpsCardActive : {}),
+                    cursor: card.filterKey ? 'pointer' : 'default',
+                  }}
+                >
+                  <span style={s.dailyOpsAccent} />
+                  <span style={s.dailyOpsLabel}>{card.label}</span>
+                  <strong style={s.dailyOpsValue}>{card.value}</strong>
+                  <small style={s.dailyOpsDetail}>{card.detail}</small>
+                </button>
+              ))}
             </div>
             <div style={s.commandPanel}>
               <div style={s.commandHeader}>
@@ -7663,7 +7690,7 @@ export default function Zlecenia() {
               }
             />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginBottom: 10 }}>
-              <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 12, padding: '10px 12px', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', boxShadow: 'var(--shadow-md)' }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Kanban control</div>
                 <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Przeciągaj zlecenia między kolumnami i zarządzaj automatyzacjami workflow.</div>
               </div>
@@ -8627,12 +8654,12 @@ export default function Zlecenia() {
             <div style={s.card}>
               <div style={s.cardTitle}>Specyfikacja pracy</div>
               {wybraneZlecenie.opis_pracy && (
-                <div style={{ marginBottom: 16, padding: '12px 14px', backgroundColor: 'var(--bg-card)', borderRadius: 8, fontSize: 14 }}>
+                <div style={{ marginBottom: 16, padding: '12px 14px', backgroundColor: 'var(--surface-glass)', borderRadius: 8, fontSize: 14 }}>
                   <strong>1. Opis pracy:</strong> {wybraneZlecenie.opis_pracy}
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-                <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 10, padding: 14 }}>
+                <div style={{ backgroundColor: 'var(--surface-glass)', borderRadius: 10, padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
                     <RouteOutlined style={{ fontSize: 16 }} aria-hidden />
                     Logistyka
@@ -8656,7 +8683,7 @@ export default function Zlecenia() {
                     </div>
                   )}
                 </div>
-                <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 10, padding: 14 }}>
+                <div style={{ backgroundColor: 'var(--surface-glass)', borderRadius: 10, padding: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>Sprzęt</div>
                   {[['6. Rębak', wybraneZlecenie.rebak], ['7. Piła na wysięgniku', wybraneZlecenie.pila_wysiegniku],
                     ['8. Nożyce długie', wybraneZlecenie.nozyce_dlugie], ['16. Arborysta', wybraneZlecenie.arborysta],
@@ -8668,7 +8695,7 @@ export default function Zlecenia() {
                     </div>
                   ))}
                 </div>
-                <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: 10, padding: 14 }}>
+                <div style={{ backgroundColor: 'var(--surface-glass)', borderRadius: 10, padding: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>Finanse</div>
                   {[['11. Budżet', formatCurrency(wybraneZlecenie.budzet)],
                     ['12. Rabat', wybraneZlecenie.rabat ? wybraneZlecenie.rabat + '%' : null],
@@ -8682,14 +8709,14 @@ export default function Zlecenia() {
                     </div>
                   ) : null)}
                   {wybraneZlecenie.wynik && (
-                    <div style={{ marginTop: 10, padding: '8px 10px', backgroundColor: 'var(--bg-deep)', borderRadius: 6, fontSize: 13 }}>
+                    <div style={{ marginTop: 10, padding: '8px 10px', backgroundColor: 'var(--surface-field)', borderRadius: 6, fontSize: 13 }}>
                       <strong>10. Wynik:</strong> {wybraneZlecenie.wynik}
                     </div>
                   )}
                 </div>
               </div>
               {wybraneZlecenie.notatki && (
-                <div style={{ marginTop: 16, padding: '12px 14px', backgroundColor: 'var(--bg-deep)', borderRadius: 8, fontSize: 14, borderLeft: '3px solid #F9A825' }}>
+                <div style={{ marginTop: 16, padding: '12px 14px', backgroundColor: 'var(--surface-field)', borderRadius: 8, fontSize: 14, borderLeft: '3px solid #F9A825' }}>
                   <strong>Notatki:</strong> {wybraneZlecenie.notatki}
                 </div>
               )}
@@ -9150,25 +9177,25 @@ const s = {
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
-  backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   filtryRow: {
     display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center',
     background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
     padding: '12px 14px', borderRadius: 8, border: '1px solid var(--glass-border)',
     boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap'
   },
-  searchInput: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1, backgroundColor: 'var(--input-bg)' },
-  filtrInput: { padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--input-bg)', color: 'var(--text)' },
+  searchInput: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1, backgroundColor: 'var(--surface-field)' },
+  filtrInput: { padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '8px 13px', backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 800 },
-  countBadge: { fontSize: 12, color: 'var(--accent)', marginLeft: 'auto', whiteSpace: 'nowrap', border: '1px solid var(--border2)', borderRadius: 8, padding: '6px 9px', backgroundColor: 'var(--accent-surface)', fontWeight: 900 },
+  countBadge: { fontSize: 12, color: 'var(--accent)', marginLeft: 'auto', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 9px', backgroundColor: 'var(--accent-surface)', fontWeight: 900 },
   decisionBand: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
     gap: 12,
     alignItems: 'stretch',
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, var(--bg-card), var(--accent-surface))',
+    background: 'linear-gradient(135deg, var(--surface-glass), var(--accent-surface))',
     padding: 14,
     marginBottom: 12,
     boxShadow: 'var(--shadow-sm)',
@@ -9179,12 +9206,12 @@ const s = {
   },
   decisionBand_warning: {
     border: '1px solid rgba(199,119,0,0.34)',
-    background: 'linear-gradient(135deg, rgba(251,191,36,0.12), var(--bg-card))',
+    background: 'linear-gradient(135deg, rgba(251,191,36,0.12), var(--surface-glass))',
     boxShadow: 'inset 4px 0 0 var(--warning), var(--shadow-sm)',
   },
   decisionBand_danger: {
     border: '1px solid rgba(220,38,38,0.32)',
-    background: 'linear-gradient(135deg, rgba(248,113,113,0.11), var(--bg-card))',
+    background: 'linear-gradient(135deg, rgba(248,113,113,0.11), var(--surface-glass))',
     boxShadow: 'inset 4px 0 0 var(--danger), var(--shadow-sm)',
   },
   decisionLead: {
@@ -9312,10 +9339,10 @@ const s = {
     fontVariantNumeric: 'tabular-nums',
   },
   commandPanel: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, var(--bg-card), var(--bg-card2))',
-    backgroundImage: 'linear-gradient(135deg, var(--bg-card), var(--bg-card2)), repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 22px)',
+    background: 'linear-gradient(135deg, var(--surface-glass), var(--surface-field))',
+    backgroundImage: 'linear-gradient(135deg, var(--surface-glass), var(--surface-field)), repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 22px)',
     padding: 16,
     marginBottom: 12,
     boxShadow: 'var(--shadow-md)',
@@ -9356,7 +9383,7 @@ const s = {
     padding: '10px 11px',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'linear-gradient(180deg, var(--bg-deep), rgba(255,255,255,0.015))',
+    background: 'linear-gradient(180deg, var(--surface-field), rgba(255,255,255,0.015))',
     color: 'var(--text-muted)',
     fontSize: 12,
     fontWeight: 700,
@@ -9677,7 +9704,7 @@ const s = {
     alignItems: 'center',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     padding: 10,
   },
   quickCallSchedulePanel_success: {
@@ -9901,6 +9928,67 @@ const s = {
     fontSize: 12,
     fontWeight: 850,
   },
+  dailyOpsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 170px), 1fr))',
+    gap: 10,
+    marginBottom: 12,
+  },
+  dailyOpsCard: {
+    position: 'relative',
+    minHeight: 104,
+    border: '1px solid var(--glass-border)',
+    borderLeft: '5px solid var(--accent)',
+    borderRadius: 8,
+    background: 'linear-gradient(180deg, #ffffff, rgba(246,251,247,0.9))',
+    color: 'var(--text)',
+    padding: '12px 12px 11px 14px',
+    display: 'grid',
+    alignContent: 'space-between',
+    gap: 5,
+    textAlign: 'left',
+    boxShadow: 'var(--shadow-sm)',
+    fontFamily: 'inherit',
+    overflow: 'hidden',
+  },
+  dailyOpsCard_green: { borderLeftColor: 'var(--accent)' },
+  dailyOpsCard_blue: { borderLeftColor: 'var(--info)' },
+  dailyOpsCard_warning: { borderLeftColor: 'var(--warning)' },
+  dailyOpsCard_danger: { borderLeftColor: 'var(--danger)' },
+  dailyOpsCardActive: {
+    borderColor: 'rgba(15,107,63,0.42)',
+    boxShadow: '0 0 0 3px rgba(15,107,63,0.12), var(--shadow-md)',
+    background: 'linear-gradient(180deg, var(--accent-surface), #ffffff)',
+  },
+  dailyOpsAccent: {
+    position: 'absolute',
+    inset: 'auto 10px 10px auto',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    background: 'rgba(15,107,63,0.07)',
+  },
+  dailyOpsLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    lineHeight: 1.1,
+    textTransform: 'uppercase',
+  },
+  dailyOpsValue: {
+    color: 'var(--text)',
+    fontSize: 24,
+    lineHeight: 1,
+    fontWeight: 950,
+    fontVariantNumeric: 'tabular-nums',
+    overflowWrap: 'anywhere',
+  },
+  dailyOpsDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.25,
+    fontWeight: 800,
+  },
   opsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
@@ -9911,7 +9999,7 @@ const s = {
     minHeight: 92,
     border: '1px solid var(--glass-border)',
     borderRadius: 8,
-    background: 'linear-gradient(150deg, var(--glass-bg-strong), var(--glass-bg))',
+    background: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '10px 11px',
     textAlign: 'left',
@@ -9980,7 +10068,7 @@ const s = {
   dispatchReadinessItem: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '8px 9px',
     cursor: 'pointer',
@@ -10064,7 +10152,7 @@ const s = {
     minWidth: 28,
     height: 28,
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     border: '1px solid var(--border)',
     display: 'inline-flex',
     alignItems: 'center',
@@ -10084,7 +10172,7 @@ const s = {
   commandTab: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     padding: '9px 10px',
     cursor: 'pointer',
@@ -10140,7 +10228,7 @@ const s = {
     alignItems: 'flex-start',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     padding: '7px 9px',
     cursor: 'pointer',
@@ -10167,7 +10255,7 @@ const s = {
     alignItems: 'center',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '8px 9px',
     cursor: 'pointer',
@@ -10180,8 +10268,8 @@ const s = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--border)',
     color: 'var(--accent)',
     fontSize: 13,
     fontWeight: 900,
@@ -10208,16 +10296,16 @@ const s = {
     flexWrap: 'wrap',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: '8px 10px',
     color: 'var(--text-muted)',
     fontSize: 12,
     fontWeight: 700,
   },
   manifestBtn: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--accent)',
     padding: '6px 10px',
     cursor: 'pointer',
@@ -10242,7 +10330,7 @@ const s = {
     borderRadius: 8,
     padding: '5px 10px',
     border: '1px solid var(--border)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-muted)',
     display: 'inline-flex',
     alignItems: 'center',
@@ -10274,7 +10362,7 @@ const s = {
   businessKpi: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '9px 10px',
     minHeight: 82,
@@ -10288,7 +10376,7 @@ const s = {
   businessKpiStatic: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '9px 10px',
     minHeight: 82,
@@ -10335,8 +10423,8 @@ const s = {
     fontWeight: 800,
   },
   businessSignalActive: {
-    border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)',
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     cursor: 'pointer',
   },
@@ -10359,7 +10447,7 @@ const s = {
     alignItems: 'center',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '8px 9px',
     cursor: 'pointer',
@@ -10437,7 +10525,7 @@ const s = {
   closureAuditKpi: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '9px 10px',
     minHeight: 78,
@@ -10455,7 +10543,7 @@ const s = {
   closureAuditBox: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: 10,
     minWidth: 0,
   },
@@ -10509,8 +10597,8 @@ const s = {
     width: 26,
     height: 26,
     borderRadius: 8,
-    border: '1px solid var(--border2)',
-    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    background: 'var(--surface-glass)',
     color: 'var(--accent)',
     display: 'inline-flex',
     alignItems: 'center',
@@ -10528,7 +10616,7 @@ const s = {
   closureRepairPanel: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: 10,
     marginBottom: 8,
   },
@@ -10546,9 +10634,9 @@ const s = {
     lineHeight: 1.25,
   },
   closureRepairClear: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card2)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--accent)',
     padding: '6px 9px',
     cursor: 'pointer',
@@ -10566,7 +10654,7 @@ const s = {
     alignItems: 'center',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     padding: '8px 9px',
     minWidth: 0,
   },
@@ -10605,9 +10693,9 @@ const s = {
     justifyContent: 'flex-end',
   },
   closureRepairBtn: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--accent)',
     padding: '6px 8px',
     cursor: 'pointer',
@@ -10635,7 +10723,7 @@ const s = {
   closureAuditRecent: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: 10,
   },
   closureAuditEvent: {
@@ -10646,7 +10734,7 @@ const s = {
     alignItems: 'center',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '8px 9px',
     marginTop: 6,
@@ -10720,16 +10808,16 @@ const s = {
     fontVariantNumeric: 'tabular-nums',
   },
   card: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    borderRadius: 8, padding: 20, border: '1px solid var(--border2)',
+    background: 'var(--surface-glass)',
+    borderRadius: 8, padding: 20, border: '1px solid var(--border)',
     boxShadow: 'var(--shadow-sm)', marginBottom: 16
   },
   cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 0 },
   formWizardPanel: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     boxShadow: 'var(--shadow-sm)',
     padding: 14,
     marginBottom: 14,
@@ -10763,7 +10851,7 @@ const s = {
     padding: '0 10px',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--accent)',
     fontSize: 12,
     fontWeight: 900,
@@ -10778,7 +10866,7 @@ const s = {
     minHeight: 58,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-sub)',
     padding: '8px 9px',
     display: 'flex',
@@ -10803,7 +10891,7 @@ const s = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--accent)',
     fontSize: 12,
     fontWeight: 900,
@@ -10822,7 +10910,7 @@ const s = {
     padding: 12,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
   },
   formFlowHeader: {
     display: 'flex',
@@ -10844,7 +10932,7 @@ const s = {
     minHeight: 66,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text-muted)',
     padding: '9px 10px',
     display: 'flex',
@@ -10887,7 +10975,7 @@ const s = {
     marginTop: 12,
     border: '1px solid rgba(249,168,37,0.36)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, rgba(249,168,37,0.12), var(--bg-deep))',
+    background: 'linear-gradient(135deg, rgba(249,168,37,0.12), var(--surface-field))',
     padding: 12,
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) auto',
@@ -10923,7 +11011,7 @@ const s = {
   formRepairCloseBtn: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text-sub)',
     padding: '8px 10px',
     fontSize: 11,
@@ -10946,7 +11034,7 @@ const s = {
   inspectionPresetPanel: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: 10,
     marginBottom: 10,
   },
@@ -10968,9 +11056,9 @@ const s = {
     marginBottom: 8,
   },
   inspectionChip: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text-sub)',
     minHeight: 36,
     padding: '7px 10px',
@@ -11004,9 +11092,9 @@ const s = {
     marginBottom: 16,
   },
   formSummaryCard: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     padding: 14,
     minHeight: 130,
     display: 'flex',
@@ -11024,7 +11112,7 @@ const s = {
   formSummaryCheck: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: '6px 8px',
     fontSize: 11,
     fontWeight: 800,
@@ -11065,7 +11153,7 @@ const s = {
     height: 30,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--accent)',
     display: 'inline-flex',
     alignItems: 'center',
@@ -11077,7 +11165,7 @@ const s = {
   taskPhotosRepairBanner: {
     border: '1px solid rgba(249,168,37,0.36)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, rgba(249,168,37,0.12), var(--bg-deep))',
+    background: 'linear-gradient(135deg, rgba(249,168,37,0.12), var(--surface-field))',
     padding: 12,
     marginBottom: 10,
     display: 'grid',
@@ -11131,7 +11219,7 @@ const s = {
     whiteSpace: 'nowrap',
   },
   taskPhotosBtnSecondary: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'var(--surface-field)',
     color: 'var(--text-sub)',
@@ -11279,9 +11367,9 @@ const s = {
   inputDanger: { border: '1px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.14)' },
   komunikat: { padding: '12px 16px', borderRadius: 10, marginBottom: 16, fontSize: 14, fontWeight: '500' },
   copyFallback: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     boxShadow: 'var(--shadow-sm)',
     padding: 12,
     marginBottom: 12,
@@ -11313,7 +11401,7 @@ const s = {
     resize: 'vertical',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text)',
     padding: 10,
     fontSize: 12,
@@ -11329,14 +11417,14 @@ const s = {
     padding: '10px 12px',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     flexWrap: 'wrap',
   },
   bulkInfo: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
   bulkBtn: {
     padding: '6px 10px',
     border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--accent)',
     borderRadius: 8,
     cursor: 'pointer',
@@ -11383,7 +11471,7 @@ const s = {
     marginBottom: 12,
   },
   kpiItem: {
-    background: 'linear-gradient(180deg, var(--bg-card), var(--bg-card2))',
+    background: 'linear-gradient(180deg, var(--surface-glass), var(--surface-field))',
     borderRadius: 8,
     border: '1px solid var(--glass-border)',
     borderTop: '3px solid var(--accent)',
@@ -11442,7 +11530,7 @@ const s = {
   },
   workflowPresetBtn: {
     border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-sub)',
     borderRadius: 8,
     fontSize: 12,
@@ -11557,11 +11645,11 @@ const s = {
     fontWeight: 700,
   },
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modal: { backgroundColor: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border2)', padding: 32, maxWidth: 420, width: '90%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' },
+  modal: { backgroundColor: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--border)', padding: 32, maxWidth: 420, width: '90%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' },
   closeGuardModal: {
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     borderRadius: 8,
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     padding: 18,
     maxWidth: 680,
     width: 'min(92vw, 680px)',
@@ -12111,7 +12199,7 @@ const s = {
     marginTop: 12,
     border: '1px solid rgba(52,211,153,0.3)',
     borderRadius: 8,
-    background: 'linear-gradient(145deg, rgba(52,211,153,0.12), var(--bg-card))',
+    background: 'linear-gradient(145deg, rgba(52,211,153,0.12), var(--surface-glass))',
     padding: 12,
     boxShadow: 'var(--shadow-md)',
     backdropFilter: 'blur(20px)',
@@ -12166,7 +12254,7 @@ const s = {
     alignItems: 'center',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: 8,
     minWidth: 0,
   },
@@ -12267,7 +12355,7 @@ const s = {
     minHeight: 36,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '7px 10px',
     cursor: 'pointer',
@@ -12344,7 +12432,7 @@ const s = {
   officeHandoffCard: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text)',
     padding: '9px 10px',
     minHeight: 92,
@@ -12435,7 +12523,7 @@ const s = {
   officePlanReadinessItem: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: '8px 9px',
     minHeight: 82,
     display: 'flex',
@@ -12451,7 +12539,7 @@ const s = {
     gap: 12,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     padding: 12,
     marginBottom: 12,
   },
@@ -12516,9 +12604,9 @@ const s = {
     cursor: 'pointer',
   },
   officePlanAssistantBtnSecondary: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '7px 10px',
     fontSize: 12,
@@ -12532,7 +12620,7 @@ const s = {
     gap: 10,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     padding: 12,
     marginBottom: 12,
   },
@@ -12701,7 +12789,7 @@ const s = {
   detailOwnerActionBox: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     padding: 11,
     display: 'flex',
     flexDirection: 'column',
@@ -12736,7 +12824,7 @@ const s = {
   detailOwnerSecondaryBtn: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text-sub)',
     padding: '7px 10px',
     cursor: 'pointer',
@@ -12809,7 +12897,7 @@ const s = {
     width: 24,
     height: 24,
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     border: '1px solid var(--border)',
     color: 'var(--accent)',
     display: 'inline-flex',
@@ -12946,7 +13034,7 @@ const s = {
     width: 26,
     height: 26,
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     border: '1px solid var(--border)',
     color: 'var(--accent)',
     display: 'inline-flex',
@@ -13105,7 +13193,7 @@ const s = {
   crewPackageItem: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     padding: '7px 8px',
     minHeight: 76,
     display: 'flex',
@@ -13144,7 +13232,7 @@ const s = {
   crewBriefSide: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: 10,
     display: 'flex',
     flexDirection: 'column',
@@ -13186,9 +13274,9 @@ const s = {
     fontWeight: 900,
   },
   crewActionBtnSecondary: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '8px 10px',
     cursor: 'pointer',
@@ -13206,7 +13294,7 @@ const s = {
     width: '100%',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '7px 9px',
     fontSize: 12,
@@ -13218,7 +13306,7 @@ const s = {
     resize: 'vertical',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '8px 9px',
     fontSize: 12,
@@ -13283,7 +13371,7 @@ const s = {
     backdropFilter: 'blur(20px)',
     border: '1px solid var(--border)',
     minHeight: 92,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     textDecoration: 'none',
   },
   crewPhotoThumb: {
@@ -13399,7 +13487,7 @@ const s = {
   detailDecisionHero: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -13428,7 +13516,7 @@ const s = {
   detailPriceBox: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -13468,9 +13556,9 @@ const s = {
   },
   detailPriceEditBtn: {
     alignSelf: 'flex-start',
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--accent)',
     padding: '6px 10px',
     cursor: 'pointer',
@@ -13486,7 +13574,7 @@ const s = {
   detailDecisionMetric: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: '8px 10px',
     display: 'flex',
     justifyContent: 'space-between',
@@ -13504,7 +13592,7 @@ const s = {
   detailChecklistItem: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: '8px 9px',
     minHeight: 74,
     display: 'flex',
@@ -13531,7 +13619,7 @@ const s = {
     marginTop: 10,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: 10,
   },
   closureDecisionHeader: {
@@ -13551,8 +13639,8 @@ const s = {
     minWidth: 26,
     height: 26,
     borderRadius: 8,
-    border: '1px solid var(--border2)',
-    backgroundColor: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--accent)',
     display: 'inline-flex',
     alignItems: 'center',
@@ -13605,7 +13693,7 @@ const s = {
   closureDecisionChip: {
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text-sub)',
     padding: '3px 6px',
     fontSize: 10,
@@ -13652,7 +13740,7 @@ const s = {
     minHeight: 34,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-sub)',
     padding: '7px 9px',
     cursor: 'pointer',
@@ -13675,7 +13763,7 @@ const s = {
     resize: 'vertical',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text)',
     padding: 10,
     fontSize: 13,
@@ -13687,7 +13775,7 @@ const s = {
     marginTop: 10,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: 10,
   },
   contactFollowupHeader: {
@@ -13713,9 +13801,9 @@ const s = {
     flexWrap: 'wrap',
   },
   followupBtn: {
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--accent)',
     padding: '6px 9px',
     cursor: 'pointer',
@@ -13736,7 +13824,7 @@ const s = {
     minHeight: 34,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: '6px 8px',
     fontSize: 12,
@@ -13772,7 +13860,7 @@ const s = {
     alignItems: 'start',
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     padding: '8px 9px',
   },
   contactHistoryBody: {
@@ -14128,7 +14216,7 @@ const s = {
   },
   fieldOpsBtn: {
     minHeight: 32,
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
     backgroundColor: 'rgba(20,131,79,0.08)',
     color: 'var(--accent)',

@@ -152,6 +152,41 @@ test('returns to dispatcher after saving a routed repair link', async () => {
   expect(await screen.findByText('Powrot do AI Dyspozytora', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
 }, 15000);
 
+test('returns to a clean task card after saving a routed repair link', async () => {
+  mockZleceniaApi();
+  api.put.mockResolvedValue({
+    data: {
+      ...TASK,
+      klient_telefon: '+48 600 700 800',
+    },
+  });
+
+  renderRoute('/zlecenia/42?mode=edit&step=client&field=klient_telefon&repairLabel=Brak%20telefonu&repairDetail=Dodaj%20numer%20telefonu%20klienta.');
+
+  expect(await screen.findByText('Tryb naprawy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  const returnButton = screen.getByRole('button', {
+    name: (name) => name.includes('Zapisz') && name.includes('karty'),
+  });
+  expect(returnButton).toBeInTheDocument();
+
+  fireEvent.change(screen.getByPlaceholderText('+48 000 000 000'), {
+    target: { value: '+48 600 700 800' },
+  });
+  fireEvent.click(returnButton);
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/tasks/42',
+      expect.objectContaining({ klient_telefon: '+48 600 700 800' }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  await waitFor(() => {
+    expect(document.body.textContent).toContain('Zlecenie #42');
+    expect(document.body.textContent).not.toContain('Tryb naprawy');
+  }, SLOW_FORM_RENDER);
+}, 15000);
+
 test('opens routed office planning focus links in task details', async () => {
   mockZleceniaApi();
 

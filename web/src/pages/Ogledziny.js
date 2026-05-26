@@ -607,12 +607,12 @@ export default function Ogledziny() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div style={{ width: 360, borderRight: '1px solid var(--border2)', display: 'flex', flexDirection: 'column', background: 'linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card2) 100%)' }}>
+        <div style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: 'var(--surface-glass)' }}>
 
           {/* Nagłówek */}
           <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid var(--border)' }}>
@@ -630,7 +630,7 @@ export default function Ogledziny() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 }}>
               {statusSummary.map((s) => (
-                <div key={s.key} style={{ background: 'var(--bg-deep)', border: '1px solid var(--border2)', borderRadius: 8, padding: '6px 8px' }}>
+                <div key={s.key} style={{ background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px' }}>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
                   <div style={{ marginTop: 2, fontSize: 16, color: s.color, fontWeight: 800 }}>{s.count}</div>
                 </div>
@@ -639,7 +639,7 @@ export default function Ogledziny() {
 
             {/* Filtry statusów */}
             {fieldLiveRows.length > 0 ? (
-              <div style={{ marginBottom: 10, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ marginBottom: 10, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Live teren</strong>
                   <span style={{ fontSize: 11, color: fieldDelayRows.length ? UI_COLORS.warning : 'var(--text-muted)', fontWeight: 700 }}>
@@ -748,7 +748,7 @@ export default function Ogledziny() {
               </select>
             </div>
             {showZoneDictionary && (
-              <div style={{ marginTop: 8, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Domyślne strefy klientów</strong>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -847,7 +847,7 @@ export default function Ogledziny() {
               </div>
             ) : null}
             {topRisks.length > 0 ? (
-              <div style={{ marginTop: 8, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
                 <strong style={{ fontSize: 12, color: 'var(--text)' }}>Top ryzyka opóźnienia</strong>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {topRisks.map(({ o, etaMinutes, risk }, idx) => (
@@ -877,7 +877,7 @@ export default function Ogledziny() {
               </div>
             ) : null}
             {withoutGpsRows.length > 0 ? (
-              <div style={{ marginTop: 8, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ marginTop: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
                 <strong style={{ fontSize: 12, color: 'var(--text)' }}>Przypisane bez GPS</strong>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 140, overflowY: 'auto' }}>
                   {withoutGpsRows.slice(0, 6).map(({ o }) => (
@@ -907,14 +907,14 @@ export default function Ogledziny() {
               </div>
             ) : null}
             {livePoints.length > 0 && (
-              <div style={{ marginTop: 10, background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ marginTop: 10, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Mapa live ekip (GPS)</strong>
                   <button type="button" style={{ ...btn.secondary, fontSize: 11, padding: '4px 8px' }} onClick={() => loadLiveLocations(true)}>
                     Odśwież GPS
                   </button>
                 </div>
-                <div style={{ position: 'relative', height: 160, borderRadius: 8, background: 'linear-gradient(180deg,#0f172a,#111827)', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', height: 160, borderRadius: 8, background: 'linear-gradient(180deg, rgba(20,91,54,0.08), rgba(20,91,54,0.18))', overflow: 'hidden' }}>
                   {livePoints.map((point) => {
                     const pos = pointToXY(point);
                     const gps = gpsState(point);
@@ -1034,7 +1034,7 @@ export default function Ogledziny() {
                           fontSize: 10,
                           borderRadius: 6,
                           border: '1px solid var(--border)',
-                          background: 'var(--bg-deep)',
+                          background: 'var(--surface-field)',
                           color: 'var(--text-sub)',
                           padding: '2px 6px',
                         }}
@@ -1055,7 +1055,7 @@ export default function Ogledziny() {
                           fontSize: 10,
                           borderRadius: 6,
                           border: '1px solid var(--border)',
-                          background: 'var(--bg-deep)',
+                          background: 'var(--surface-field)',
                           color: 'var(--text-sub)',
                           padding: '2px 6px',
                           cursor: 'pointer',
@@ -1158,7 +1158,7 @@ export default function Ogledziny() {
         </div>
 
         {/* ── PRAWA KOLUMNA: szczegóły ── */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
           {!selected ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ opacity: 0.3, marginBottom: 16 }}>
@@ -1303,7 +1303,7 @@ export default function Ogledziny() {
                           <div key={row.label} style={{
                             border: '1px solid var(--border)',
                             borderRadius: 10,
-                            background: 'var(--bg-deep)',
+                            background: 'var(--surface-field)',
                             padding: '9px 10px',
                           }}>
                             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -1392,14 +1392,14 @@ export default function Ogledziny() {
                           {isVideo ? (
                             <video
                               controls
-                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-deep)' }}
+                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' }}
                               src={url}
                             />
                           ) : (
                             <img
                               src={url}
                               alt=""
-                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-deep)' }}
+                              style={{ width: '100%', height: 130, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' }}
                             />
                           )}
                           <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
@@ -1435,7 +1435,7 @@ export default function Ogledziny() {
                     onClick={() => setNewStatus(s)}
                     style={{
                       padding: '10px 14px', borderRadius: 10, border: `2px solid ${newStatus === s ? sc(s) : 'var(--border)'}`,
-                      background: newStatus === s ? sc(s) + '18' : 'var(--bg-deep)',
+                      background: newStatus === s ? sc(s) + '18' : 'var(--surface-field)',
                       color: newStatus === s ? sc(s) : 'var(--text-sub)',
                       fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',
                     }}
@@ -1472,8 +1472,8 @@ function Chip({ children, active, onClick, color }) {
     <button
       onClick={onClick}
       style={{
-        padding: '5px 12px', borderRadius: 9, border: `1px solid ${active ? color : 'var(--border2)'}`,
-        background: active ? color + '20' : 'var(--bg-deep)',
+        padding: '5px 12px', borderRadius: 8, border: `1px solid ${active ? color : 'var(--border)'}`,
+        background: active ? color + '20' : 'var(--surface-field)',
         color: active ? color : 'var(--text-muted)',
         fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
       }}
@@ -1485,7 +1485,7 @@ function Chip({ children, active, onClick, color }) {
 
 function Card({ title, children }) {
   return (
-    <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', padding: 16 }}>
+    <div style={{ background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', padding: 16 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
@@ -1515,59 +1515,60 @@ function FormField({ label, children, style }) {
 const btn = {
   primary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10,
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
     fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border2)',
-    borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    background: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)',
+    borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   secondaryGhost: {
-    padding: '9px 18px', background: 'transparent', color: 'var(--text-sub)',
-    border: '1px solid var(--border2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    padding: '9px 18px', background: 'var(--surface-field)', color: 'var(--text-sub)',
+    border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
   },
   danger: {
     padding: '7px 13px', background: 'rgba(255,127,169,0.14)', color: 'var(--danger)',
-    border: '1px solid rgba(255,127,169,0.3)', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    border: '1px solid rgba(255,127,169,0.3)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
 };
 
 const inp = {
   base: {
-    width: '100%', padding: '9px 11px', background: 'var(--input-bg)',
-    border: '1px solid var(--input-border)', borderRadius: 9,
+    width: '100%', padding: '9px 11px', background: 'var(--surface-field)',
+    border: '1px solid var(--border)', borderRadius: 8,
     color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   },
 };
 
 const sec = {
   wrap: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    borderRadius: 14,
+    background: 'var(--surface-glass)',
+    borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--border)',
+    borderColor: 'var(--glass-border)',
     padding: 16,
     marginBottom: 16,
+    boxShadow: 'var(--shadow-md)',
   },
   header: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
   title: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
   row: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-    background: 'var(--bg-deep)', borderRadius: 10, border: '1px solid var(--border)',
+    background: 'var(--surface-field)', borderRadius: 8, border: '1px solid var(--border)',
   },
 };
 
 const modal = {
   overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex',
+    position: 'fixed', inset: 0, background: 'rgba(6,16,11,0.68)', display: 'flex',
     alignItems: 'center', justifyContent: 'center', zIndex: 500,
   },
   box: {
-    width: '90%', maxWidth: 600, background: 'var(--bg-card)',
-    borderRadius: 18, border: '1px solid var(--border2)',
-    boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column',
+    width: '90%', maxWidth: 600, background: 'var(--surface-glass)',
+    borderRadius: 8, border: '1px solid var(--glass-border)',
+    boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column',
     maxHeight: '90vh',
   },
   header: {

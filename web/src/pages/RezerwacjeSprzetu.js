@@ -413,7 +413,7 @@ export default function RezerwacjeSprzetu() {
               sx={{
                 border: '1px solid var(--border)',
                 borderRadius: 2,
-                bgcolor: label === 'Kolizje' && value ? 'rgba(239,68,68,0.1)' : 'var(--bg-card)',
+                bgcolor: label === 'Kolizje' && value ? 'rgba(239,68,68,0.1)' : 'var(--surface-glass)',
                 p: 1.5,
               }}
             >
@@ -429,7 +429,7 @@ export default function RezerwacjeSprzetu() {
           direction={{ xs: 'column', md: 'row' }}
           spacing={1}
           alignItems={{ xs: 'stretch', md: 'center' }}
-          sx={{ mb: 2, p: 1.5, border: '1px solid var(--border)', borderRadius: 2, bgcolor: 'var(--bg-card)' }}
+          sx={{ mb: 2, p: 1.5, border: '1px solid var(--border)', borderRadius: 2, bgcolor: 'var(--surface-glass)' }}
         >
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Status</InputLabel>

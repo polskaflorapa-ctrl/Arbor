@@ -493,13 +493,14 @@ const S = {
 
   // Sidebar
   sidebar: {
-    width: 280, minWidth: 240, background: 'var(--bg-card)',
-    borderRadius: 14, border: '1px solid var(--border)',
+    width: 280, minWidth: 240, background: 'var(--surface-glass)',
+    borderRadius: 8, border: '1px solid var(--glass-border)',
     overflow: 'hidden', flexShrink: 0,
+    boxShadow: 'var(--shadow-md)',
   },
   sidebarHeader: {
     padding: '14px 16px', borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
   },
   sidebarTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 1 },
   roleRow: {
@@ -527,8 +528,9 @@ const S = {
 
   // Editor
   editor: {
-    flex: 1, background: 'var(--bg-card)', borderRadius: 14,
-    border: '1px solid var(--border)', padding: 24, minHeight: 500,
+    flex: 1, background: 'var(--surface-glass)', borderRadius: 8,
+    border: '1px solid var(--glass-border)', padding: 24, minHeight: 500,
+    boxShadow: 'var(--shadow-md)',
   },
   emptyEditor: { height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400 },
   editorHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
@@ -538,7 +540,7 @@ const S = {
   formGroup: { flex: 1, minWidth: 140, marginBottom: 14 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6 },
   input: {
-    width: '100%', background: 'var(--bg-deep)', border: '1px solid var(--border)',
+    width: '100%', background: 'var(--surface-field)', border: '1px solid var(--border)',
     borderRadius: 8, color: 'var(--text)', padding: '9px 12px', fontSize: 14,
     boxSizing: 'border-box',
   },
@@ -551,7 +553,7 @@ const S = {
   },
   permsSectionTitle: { fontSize: 15, fontWeight: 700, color: 'var(--text)' },
   btnSmall: {
-    background: 'var(--bg-deep)', border: '1px solid var(--border)', borderRadius: 6,
+    background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 6,
     color: 'var(--text-sub)', fontSize: 12, padding: '5px 10px', cursor: 'pointer',
   },
   permsGrid: {
@@ -560,7 +562,7 @@ const S = {
     gap: 12,
   },
   permGroup: {
-    background: 'var(--bg-deep)', borderRadius: 10, padding: 12,
+    background: 'var(--surface-field)', borderRadius: 8, padding: 12,
     border: '1px solid var(--border)',
   },
   permGroupHeader: {
@@ -577,7 +579,7 @@ const S = {
   permOn: { display: 'inline-flex', alignItems: 'center' },
 
   summaryBox: {
-    marginTop: 20, background: 'var(--bg-deep)', borderRadius: 10,
+    marginTop: 20, background: 'var(--surface-field)', borderRadius: 8,
     padding: 14, border: '1px solid var(--border)',
   },
   summaryTag: {
@@ -592,12 +594,12 @@ const S = {
 
   actions: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 },
   btnCancel: {
-    background: 'var(--bg-deep)', border: '1px solid var(--border)',
-    color: 'var(--text-sub)', borderRadius: 10, padding: '10px 20px',
+    background: 'var(--surface-field)', border: '1px solid var(--border)',
+    color: 'var(--text-sub)', borderRadius: 8, padding: '10px 20px',
     cursor: 'pointer', fontSize: 14,
   },
   btnSave: {
-    background: '#34D399', color: '#052E16', border: 'none', borderRadius: 10,
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
     padding: '10px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer',
   },
   center: { display: 'flex', justifyContent: 'center', padding: 24, color: '#64748B' },
