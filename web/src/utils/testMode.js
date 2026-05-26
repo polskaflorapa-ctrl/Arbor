@@ -702,6 +702,7 @@ export function getMockData(endpoint) {
   };
   const digestDate = new Date().toISOString().slice(0, 10);
   const mapping = {
+    '/tasks': visibleTasks,
     '/zlecenia': visibleTasks,
     '/tasks/wszystkie': visibleTasks,
     '/tasks/stats': taskStats,

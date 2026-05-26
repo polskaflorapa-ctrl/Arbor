@@ -467,13 +467,16 @@ export default function Harmonogram() {
     async (taskId, dayDate, hour, teamId = null) => {
       setPlanErr('');
       setPlanMsg('');
-      try {
+      const savePlan = async (overrideAbsent = false) => {
         const token = getStoredToken();
         const h = authHeaders(token);
         const iso = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), hour, 0, 0, 0).toISOString();
         const payload = { data_planowana: iso };
         if (teamId != null) payload.ekipa_id = teamId;
-        const res = await api.patch(`/tasks/${taskId}/plan`, payload, { headers: h });
+        if (overrideAbsent) payload.absence_override = true;
+        return api.patch(`/tasks/${taskId}/plan`, payload, { headers: h });
+      };
+      const applyResponse = async (res, overrideAbsent = false) => {
         const data = res.data || {};
         const missingLabels = Array.isArray(data.office_plan_missing_labels)
           ? data.office_plan_missing_labels.map((label) => String(label || '').trim()).filter(Boolean)
@@ -483,10 +486,37 @@ export default function Harmonogram() {
         } else if (missingLabels.length) {
           setPlanErr(data.message || `Plan zapisany, ale brakuje: ${missingLabels.join(', ')}.`);
         } else {
-          setPlanMsg(data.message || (teamId != null ? 'Ekipa i termin zaktualizowane.' : 'Termin zaktualizowany.'));
+          setPlanMsg(
+            data.message
+            || (overrideAbsent
+              ? 'Termin zapisany z potwierdzeniem nieobecnej ekipy.'
+              : (teamId != null ? 'Ekipa i termin zaktualizowane.' : 'Termin zaktualizowany.'))
+          );
         }
         await loadData();
+      };
+      try {
+        await applyResponse(await savePlan(false), false);
       } catch (err) {
+        const payload = err?.response?.data || {};
+        if (payload.code === 'TEAM_ABSENT') {
+          const attendance = payload.attendance || {};
+          const reason = attendance.note ? ` Powod: ${attendance.note}.` : '';
+          const confirmed = typeof window !== 'undefined' && window.confirm
+            ? window.confirm(`${attendance.teamName || 'Wybrana ekipa'} jest oznaczona jako nieobecna.${reason} Czy kierownik potwierdza planowanie mimo braku gotowosci?`)
+            : false;
+          if (!confirmed) {
+            setPlanErr('Planowanie przerwane: ekipa jest nieobecna.');
+            return;
+          }
+          try {
+            await applyResponse(await savePlan(true), true);
+            return;
+          } catch (overrideErr) {
+            setPlanErr(getApiErrorMessage(overrideErr));
+            return;
+          }
+        }
         setPlanErr(getApiErrorMessage(err));
       }
     },

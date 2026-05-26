@@ -888,6 +888,7 @@ const taskUpdateSchema = z.object({
 const taskPlanPatchSchema = z.object({
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
+  absence_override: z.boolean().optional(),
 });
 
 const taskAssignSchema = z.object({
@@ -2119,11 +2120,27 @@ router.patch(
       }
       const hasTeamBody = Object.prototype.hasOwnProperty.call(req.body, 'ekipa_id');
       const teamId = hasTeamBody ? toNum(req.body.ekipa_id) : (row.ekipa_id != null ? Number(row.ekipa_id) : null);
+      let teamAttendance = null;
       if (teamId) {
         const planDay = String(req.body.data_planowana).slice(0, 10);
         if (row.oddzial_id) {
           const teamCheck = await assertTeamAvailableForBranch(pool, teamId, row.oddzial_id, planDay);
           if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+        }
+        teamAttendance = await getTeamAttendanceForPlan(teamId, req.body.data_planowana);
+        if (teamAttendance?.present === false && req.body.absence_override !== true) {
+          return res.status(409).json({
+            error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+            code: 'TEAM_ABSENT',
+            attendance: {
+              teamId: teamAttendance.teamId,
+              teamName: teamAttendance.teamName,
+              dateYmd: teamAttendance.day,
+              present: false,
+              note: teamAttendance.note,
+              actor: teamAttendance.actor,
+            },
+          });
         }
         const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
         const d = new Date(req.body.data_planowana);
@@ -2137,11 +2154,32 @@ router.patch(
           });
         }
       }
-      await pool.query(`UPDATE tasks SET data_planowana = $1::timestamptz, ekipa_id = $2, updated_at = NOW() WHERE id = $3`, [
-        req.body.data_planowana,
-        teamId,
-        taskId,
-      ]);
+      const absenceNote = teamAttendance?.present === false && req.body.absence_override === true
+        ? [
+          'WYJATEK PLANOWANIA EKIPY',
+          `Kierownik potwierdzil przesuniecie mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`,
+          `Data zlecenia: ${String(req.body.data_planowana || '').slice(0, 10) || '-'}`,
+          `Ekipa: ${teamAttendance.teamName} (#${teamAttendance.teamId})`,
+          `Operator: ${req.user.login || req.user.id || '-'}`,
+        ].join('\n')
+        : null;
+      await pool.query(
+        `UPDATE tasks
+            SET data_planowana = $1::timestamptz,
+                ekipa_id = $2,
+                notatki_wewnetrzne = CASE
+                  WHEN $4::text IS NULL THEN notatki_wewnetrzne
+                  ELSE CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $4::text)
+                END,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [
+          req.body.data_planowana,
+          teamId,
+          taskId,
+          absenceNote,
+        ]
+      );
       const oldDay = row.data_planowana ? String(row.data_planowana).slice(0, 10) : '';
       const nextDay = String(req.body.data_planowana || '').slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(nextDay)) {
