@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -30,6 +30,11 @@ function todayYmd() {
   return new Date().toISOString().split('T')[0];
 }
 
+function dateFromSearch(search) {
+  const date = new URLSearchParams(search || '').get('date') || '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '';
+}
+
 function readLog() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -56,14 +61,35 @@ function upsertEntry(log, entry) {
   return [entry, ...filtered].slice(0, MAX_ENTRIES);
 }
 
+function normalizeAttendanceItem(item, fallbackDate) {
+  const teamId = item?.teamId ?? item?.team_id;
+  return {
+    id: String(item?.id || `${teamId}_${fallbackDate}`),
+    dateYmd: item?.dateYmd || item?.date_ymd || fallbackDate,
+    teamId: String(teamId || ''),
+    teamName: item?.teamName || item?.team_name || item?.nazwa || `Ekipa #${teamId}`,
+    present: item?.present !== false,
+    note: item?.note || '',
+    actor: item?.actor || item?.actor_name || '',
+    at: item?.at || item?.updated_at || item?.created_at || new Date().toISOString(),
+  };
+}
+
+function mergeAttendanceForDate(log, dateYmd, entries) {
+  const otherDates = log.filter((entry) => entry.dateYmd !== dateYmd);
+  return [...entries, ...otherDates].slice(0, MAX_ENTRIES);
+}
+
 export default function PotwierdzeniaEkip() {
   const { t } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const { message: msg, showMessage: showMsg } = useTimedMessage();
 
-  const [selectedDate, setSelectedDate] = useState(todayYmd);
+  const [selectedDate, setSelectedDate] = useState(() => dateFromSearch(location.search) || todayYmd());
   const [ekipy, setEkipy] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [attendanceSource, setAttendanceSource] = useState('local');
   const [log, setLog] = useState([]);
   const [actor, setActor] = useState('');
 
@@ -88,6 +114,23 @@ export default function PotwierdzeniaEkip() {
     }
   }, [navigate, showMsg, t]);
 
+  const loadAttendance = useCallback(async (dateYmd) => {
+    const token = getStoredToken();
+    if (!token) { navigate('/'); return; }
+    try {
+      const res = await api.get(`/ekipy/attendance?date=${encodeURIComponent(dateYmd)}`, { headers: authHeaders(token) });
+      const items = Array.isArray(res.data?.items) ? res.data.items.map((item) => normalizeAttendanceItem(item, dateYmd)) : [];
+      const nextLog = mergeAttendanceForDate(readLog(), dateYmd, items);
+      writeLog(nextLog);
+      setLog(nextLog);
+      setAttendanceSource('api');
+    } catch {
+      setLog(readLog());
+      setAttendanceSource('local');
+      showMsg(errorMessage('Nie udalo sie pobrac potwierdzen z serwera. Pokazuje lokalna kopie.'));
+    }
+  }, [navigate, showMsg]);
+
   useEffect(() => {
     const token = getStoredToken();
     if (!token) { navigate('/'); return; }
@@ -100,7 +143,27 @@ export default function PotwierdzeniaEkip() {
     loadEkipy();
   }, [navigate, loadEkipy]);
 
-  function handleToggle(ekipa) {
+  useEffect(() => {
+    loadAttendance(selectedDate);
+  }, [loadAttendance, selectedDate]);
+
+  useEffect(() => {
+    const routeDate = dateFromSearch(location.search);
+    if (routeDate && routeDate !== selectedDate) setSelectedDate(routeDate);
+  }, [location.search, selectedDate]);
+
+  async function saveAttendanceRemote(ekipa, entry) {
+    const token = getStoredToken();
+    if (!token) throw new Error('No token');
+    const res = await api.put(`/ekipy/${ekipa.id}/attendance`, {
+      dateYmd: entry.dateYmd,
+      present: entry.present,
+      note: entry.note || '',
+    }, { headers: authHeaders(token) });
+    return normalizeAttendanceItem(res.data?.item || entry, entry.dateYmd);
+  }
+
+  async function handleToggle(ekipa) {
     const existing = getTeamEntry(ekipa.id);
     const wasPresent = existing ? existing.present : true;
     const newEntry = {
@@ -113,12 +176,20 @@ export default function PotwierdzeniaEkip() {
       actor,
       at: new Date().toISOString(),
     };
-    const newLog = upsertEntry(log, newEntry);
+    let savedEntry = newEntry;
+    try {
+      savedEntry = await saveAttendanceRemote(ekipa, newEntry);
+      setAttendanceSource('api');
+    } catch {
+      setAttendanceSource('local');
+      showMsg(errorMessage('Serwer niedostepny. Zapisano lokalnie na tym urzadzeniu.'));
+    }
+    const newLog = upsertEntry(log, savedEntry);
     writeLog(newLog);
     setLog(newLog);
   }
 
-  function handleNoteSave(ekipa, note) {
+  async function handleNoteSave(ekipa, note) {
     const existing = getTeamEntry(ekipa.id);
     const newEntry = {
       id: `${ekipa.id}_${selectedDate}_${Date.now()}`,
@@ -130,7 +201,15 @@ export default function PotwierdzeniaEkip() {
       actor,
       at: new Date().toISOString(),
     };
-    const newLog = upsertEntry(log, newEntry);
+    let savedEntry = newEntry;
+    try {
+      savedEntry = await saveAttendanceRemote(ekipa, newEntry);
+      setAttendanceSource('api');
+    } catch {
+      setAttendanceSource('local');
+      showMsg(errorMessage('Serwer niedostepny. Notatke zapisano lokalnie.'));
+    }
+    const newLog = upsertEntry(log, savedEntry);
     writeLog(newLog);
     setLog(newLog);
   }
@@ -170,7 +249,7 @@ export default function PotwierdzeniaEkip() {
             sx={{ minWidth: 180 }}
           />
           <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-            {t('pages.crewAtt.hint')}
+            {t('pages.crewAtt.hint')} {attendanceSource === 'api' ? 'Dane zapisuja sie w ARBOR-OS.' : 'Tryb lokalny: polaczenie z serwerem jest ograniczone.'}
           </Typography>
         </Stack>
 

@@ -4,6 +4,7 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -544,19 +545,15 @@ export default function Telefonia() {
         : Math.ceil(smsChars / smsConcatLimit);
   const smsEstimatedCost = (smsSegments * SMS_PRICE_PLN).toFixed(2);
 
-  const statusBadgeStyle = (status) => {
-    const st = String(status || '');
-    if (st === 'wyslano_demo') return { bg: 'rgba(16,185,129,0.18)', fg: '#10b981' };
-    if (st === 'brak_numeru') return { bg: 'rgba(248,113,113,0.18)', fg: '#f87171' };
-    if (st === 'dostarczono' || st === 'Dostarczony') return { bg: 'rgba(34,197,94,0.18)', fg: '#22c55e' };
-    if (st === 'blad' || st === 'Błąd') return { bg: 'rgba(239,68,68,0.2)', fg: '#ef4444' };
-    if (st === 'Niedostarczony') return { bg: 'rgba(249,115,22,0.2)', fg: '#ea580c' };
-    if (st === 'Wyslany') return { bg: 'rgba(59,130,246,0.18)', fg: '#3b82f6' };
-    if (st === 'w_kolejce') return { bg: 'rgba(250,204,21,0.18)', fg: '#f59e0b' };
-    return { bg: 'rgba(148,163,184,0.18)', fg: 'var(--text-sub)' };
-  };
-
   const STATUS_CHOICES = ['wyslano_demo', 'w_kolejce', 'dostarczono', 'blad', 'brak_numeru', 'anulowano'];
+  const openCallbacks = callbacks.filter((x) => x.status === 'open');
+  const smsStatusTone = (status) => {
+    const st = String(status || '').toLowerCase();
+    if (st.includes('blad') || st.includes('błąd') || st.includes('brak') || st.includes('anul')) return 'danger';
+    if (st.includes('kolej') || st.includes('niedostar')) return 'warning';
+    if (st.includes('dostar') || st.includes('wyslano') || st.includes('wyslany')) return 'success';
+    return 'info';
+  };
 
   const updateSmsStatus = async (id, status) => {
     setUpdatingStatusId(id);
@@ -787,134 +784,102 @@ export default function Telefonia() {
               </form>
             </div>
 
-            <div style={s.sectionTitle}>Kolejka oddzwonień (otwarte)</div>
-            {callbacks.filter((x) => x.status === 'open').length === 0 ? (
-              <div style={s.emptyMuted}>Brak otwartych zadań.</div>
+            <div className="modern-data-panel-title">Kolejka oddzwonien (otwarte)</div>
+            {openCallbacks.length === 0 ? (
+              <div className="modern-data-empty">Brak otwartych zadan.</div>
             ) : (
-              <div style={{ overflowX: 'auto', marginBottom: 16 }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      <th style={s.th}>Oddział</th>
-                      <th style={s.th}>Telefon</th>
-                      <th style={s.th}>Zlecenie</th>
-                      <th style={s.th}>Kontakt</th>
-                      <th style={s.th}>Termin</th>
-                      <th style={s.th}>Priorytet</th>
-                      <th style={s.th}>Akcje</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {callbacks
-                      .filter((x) => x.status === 'open')
-                      .map((x) => (
-                        <tr key={x.id}>
-                          <td style={s.td}>{oddzialLabel(x.oddzial_id)}</td>
-                          <td style={s.td}>
-                            {x.phone}
-                            {telHref(x.phone) ? (
-                              <>
-                                {' '}
-                                <a href={telHref(x.phone)} style={s.telLinkSmall}>
-                                  Zadzwoń
-                                </a>
-                              </>
-                            ) : null}
-                          </td>
-                          <td style={s.td}>
-                            {x.task_id ? (
-                              <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
-                                #{x.task_id}
-                              </button>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td style={s.td}>{x.lead_name || '—'}</td>
-                          <td style={s.td}>
-                            {x.due_at ? new Date(x.due_at).toLocaleDateString('pl-PL') : '—'}
-                          </td>
-                          <td style={s.td}>{x.priority || 'normal'}</td>
-                          <td style={s.td}>
-                            <div style={s.actions}>
-                              <button
-                                type="button"
-                                style={s.rowBtn}
-                                disabled={updatingCbId === x.id}
-                                onClick={() => patchCallback(x.id, 'done')}
-                              >
-                                Gotowe
-                              </button>
-                              <button
-                                type="button"
-                                style={s.rowBtn}
-                                disabled={updatingCbId === x.id}
-                                onClick={() => patchCallback(x.id, 'cancelled')}
-                              >
-                                Anuluj
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack" style={{ marginBottom: 16 }}>
+                {openCallbacks.map((x) => (
+                  <ModernDataRow
+                    key={x.id}
+                    idLabel="Callback ID"
+                    idValue={`CB-${x.id}`}
+                    title={x.lead_name || x.phone || 'Kontakt bez nazwy'}
+                    subtitle={oddzialLabel(x.oddzial_id)}
+                    tone={x.priority === 'high' ? 'warning' : 'info'}
+                    status={x.priority || 'normal'}
+                    statusValue={x.priority || 'normal'}
+                    statusState={x.priority === 'high' ? 'warning' : 'info'}
+                    metrics={[
+                      { label: 'Telefon', value: x.phone },
+                      { label: 'Termin', value: x.due_at ? new Date(x.due_at).toLocaleDateString('pl-PL') : 'brak' },
+                      { label: 'Zlecenie', value: x.task_id ? `#${x.task_id}` : 'brak', tone: x.task_id ? 'info' : undefined },
+                    ]}
+                    actions={
+                      <>
+                        {telHref(x.phone) ? (
+                          <a href={telHref(x.phone)} style={s.rowBtn}>
+                            Zadzwon
+                          </a>
+                        ) : null}
+                        {x.task_id ? (
+                          <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
+                            #{x.task_id}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          style={s.rowBtn}
+                          disabled={updatingCbId === x.id}
+                          onClick={() => patchCallback(x.id, 'done')}
+                        >
+                          Gotowe
+                        </button>
+                        <button
+                          type="button"
+                          style={s.rowBtn}
+                          disabled={updatingCbId === x.id}
+                          onClick={() => patchCallback(x.id, 'cancelled')}
+                        >
+                          Anuluj
+                        </button>
+                      </>
+                    }
+                  />
+                ))}
               </div>
             )}
 
-            <div style={s.sectionTitle}>Ostatnie połączenia (log)</div>
+            <div className="modern-data-panel-title">Ostatnie polaczenia (log)</div>
             {callRows.length === 0 ? (
-              <div style={s.emptyMuted}>Brak wpisów — zarejestruj pierwsze połączenie powyżej.</div>
+              <div className="modern-data-empty">Brak wpisow - zarejestruj pierwsze polaczenie powyzej.</div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      <th style={s.th}>Data</th>
-                      <th style={s.th}>Oddział</th>
-                      <th style={s.th}>Numer</th>
-                      <th style={s.th}>Zlecenie</th>
-                      <th style={s.th}>Typ</th>
-                      <th style={s.th}>Status</th>
-                      <th style={s.th}>Czas (s)</th>
-                      <th style={s.th}>Kontakt</th>
-                      <th style={s.th}>Notatka</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {callRows.slice(0, 80).map((x) => (
-                      <tr key={x.id}>
-                        <td style={s.td}>{x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : '—'}</td>
-                        <td style={s.td}>{oddzialLabel(x.oddzial_id)}</td>
-                        <td style={s.td}>
-                          {x.phone}
-                          {telHref(x.phone) ? (
-                            <>
-                              {' '}
-                              <a href={telHref(x.phone)} style={s.telLinkSmall}>
-                                tel
-                              </a>
-                            </>
-                          ) : null}
-                        </td>
-                        <td style={s.td}>
-                          {x.task_id ? (
-                            <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
-                              #{x.task_id}
-                            </button>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td style={s.td}>{x.call_type || '—'}</td>
-                        <td style={s.td}>{x.status || '—'}</td>
-                        <td style={s.td}>{x.duration_sec != null ? x.duration_sec : '—'}</td>
-                        <td style={s.td}>{x.lead_name || '—'}</td>
-                        <td style={s.td}>{x.notes || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {callRows.slice(0, 80).map((x) => (
+                  <ModernDataRow
+                    key={x.id}
+                    idLabel="Call ID"
+                    idValue={`CALL-${x.id}`}
+                    title={x.phone || 'Numer nieznany'}
+                    subtitle={oddzialLabel(x.oddzial_id)}
+                    tone={String(x.status || '').toLowerCase().includes('miss') ? 'warning' : 'info'}
+                    status={x.status || 'log'}
+                    statusValue={x.status || 'log'}
+                    statusState={String(x.status || '').toLowerCase().includes('miss') ? 'warning' : 'info'}
+                    metrics={[
+                      { label: 'Data', value: x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : 'brak' },
+                      { label: 'Typ', value: x.call_type || 'brak' },
+                      { label: 'Czas', value: x.duration_sec != null ? `${x.duration_sec}s` : 'brak', tone: x.duration_sec ? 'success' : undefined },
+                      { label: 'Kontakt', value: x.lead_name || 'brak', mono: false },
+                      { label: 'Zlecenie', value: x.task_id ? `#${x.task_id}` : 'brak', tone: x.task_id ? 'info' : undefined },
+                      { label: 'Notatka', value: x.notes || 'brak', mono: false },
+                    ]}
+                    actions={
+                      <>
+                        {telHref(x.phone) ? (
+                          <a href={telHref(x.phone)} style={s.rowBtn}>
+                            Tel
+                          </a>
+                        ) : null}
+                        {x.task_id ? (
+                          <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
+                            #{x.task_id}
+                          </button>
+                        ) : null}
+                      </>
+                    }
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -1036,77 +1001,53 @@ export default function Telefonia() {
           ) : null}
 
           {loading ? (
-            <div style={s.empty}>Ladowanie historii SMS...</div>
+            <div className="modern-data-empty">Ladowanie historii SMS...</div>
           ) : filtered.length === 0 ? (
-            <div style={s.empty}>Brak wpisow w historii SMS.</div>
+            <div className="modern-data-empty">Brak wpisow w historii SMS.</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    <th style={s.th}>Data</th>
-                    <th style={s.th}>Zlecenie</th>
-                    <th style={s.th}>Klient</th>
-                    <th style={s.th}>Telefon</th>
-                    <th style={s.th}>Typ</th>
-                    <th style={s.th}>Status</th>
-                    <th style={s.th}>Status (edycja)</th>
-                    <th style={s.th}>Wyslal</th>
-                    <th style={s.th}>Ost. zmiana</th>
-                    <th style={s.th}>Akcje</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paged.map((x) => (
-                    <tr key={x.id}>
-                      <td style={s.td}>{x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : '-'}</td>
-                      <td style={s.td}>#{x.task_id || '-'}</td>
-                      <td style={s.td}>{x.recipient_name || '-'}</td>
-                      <td style={s.td}>
-                        {x.recipient_phone ? (
-                          <>
-                            {x.recipient_phone}
-                            {telHref(x.recipient_phone) ? (
-                              <>
-                                {' '}
-                                <a href={telHref(x.recipient_phone)} style={s.telLinkSmall}>
-                                  Zadzwoń
-                                </a>
-                              </>
-                            ) : null}
-                          </>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                      <td style={s.td}>{x.typ || '-'}</td>
-                      <td style={s.td}>
-                        <span
-                          style={{
-                            ...s.badge,
-                            background: statusBadgeStyle(x.status).bg,
-                            color: statusBadgeStyle(x.status).fg,
-                          }}
+            <>
+              <div className="modern-data-stack">
+                {paged.map((x) => (
+                  <ModernDataRow
+                    key={x.id}
+                    idLabel="SMS ID"
+                    idValue={`SMS-${x.id}`}
+                    title={x.recipient_name || x.recipient_phone || 'Odbiorca bez nazwy'}
+                    subtitle={x.recipient_phone || 'brak telefonu'}
+                    tone={smsStatusTone(x.status)}
+                    status={x.status || 'brak'}
+                    statusValue={x.status || 'brak'}
+                    statusState={smsStatusTone(x.status)}
+                    metrics={[
+                      { label: 'Data', value: x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : 'brak' },
+                      { label: 'Zlecenie', value: x.task_id ? `#${x.task_id}` : 'brak', tone: x.task_id ? 'info' : undefined },
+                      { label: 'Typ', value: x.typ || 'manual' },
+                      { label: 'Wyslal', value: x.created_by_name || 'system', mono: false },
+                      { label: 'Ost. zmiana', value: x.updated_at ? new Date(x.updated_at).toLocaleString('pl-PL') : 'brak' },
+                      { label: 'Audit', value: x.updated_by_name || x.sid || 'brak', mono: false, tone: x.error ? 'danger' : undefined },
+                    ]}
+                    actions={
+                      <>
+                        {telHref(x.recipient_phone) ? (
+                          <a href={telHref(x.recipient_phone)} style={s.rowBtn}>
+                            Zadzwon
+                          </a>
+                        ) : null}
+                        {x.task_id ? (
+                          <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>
+                            Otworz
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          style={s.rowBtn}
+                          disabled={!x.task_id || sendingId === x.id}
+                          onClick={() => resendSms(x)}
                         >
-                          {x.status || '-'}
-                        </span>
-                        {x.error ? (
-                          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)', maxWidth: 280 }}>
-                            {String(x.error)}
-                          </div>
-                        ) : null}
-                        {x.sid ? (
-                          <div
-                            style={{ marginTop: 4, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}
-                            title={String(x.sid)}
-                          >
-                            SID: {String(x.sid).length > 16 ? `${String(x.sid).slice(0, 16)}…` : String(x.sid)}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td style={s.td}>
+                          {sendingId === x.id ? 'Wysylanie...' : 'Ponow SMS'}
+                        </button>
                         {x._fromOsApi ? (
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)' }} title="ARBOR-OS: status dostawy ustawia Twilio (webhook)">
+                          <span style={s.twilioLock} title="ARBOR-OS: status dostawy ustawia Twilio (webhook)">
                             Twilio
                           </span>
                         ) : (
@@ -1123,46 +1064,12 @@ export default function Telefonia() {
                             ))}
                           </select>
                         )}
-                      </td>
-                      <td style={s.td}>{x.created_by_name || '-'}</td>
-                      <td style={s.td}>
-                        {x.updated_at ? (
-                          <div>
-                            <div style={s.auditDate}>
-                              {new Date(x.updated_at).toLocaleString('pl-PL')}
-                            </div>
-                            <div style={s.auditBy}>
-                              {x.updated_by_name || '-'}
-                            </div>
-                          </div>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                      <td style={s.td}>
-                        <div style={s.actions}>
-                          <button
-                            type="button"
-                            style={s.rowBtn}
-                            disabled={!x.task_id}
-                            onClick={() => navigate(`/zlecenia/${x.task_id}`)}
-                          >
-                            Otworz
-                          </button>
-                          <button
-                            type="button"
-                            style={s.rowBtn}
-                            disabled={!x.task_id || sendingId === x.id}
-                            onClick={() => resendSms(x)}
-                          >
-                            {sendingId === x.id ? 'Wysylanie...' : 'Ponow SMS'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        {x.error ? <span style={s.errorChip}>{String(x.error)}</span> : null}
+                      </>
+                    }
+                  />
+                ))}
+              </div>
               <div style={s.pagination}>
                 <button
                   type="button"
@@ -1184,7 +1091,7 @@ export default function Telefonia() {
                   Nastepna
                 </button>
               </div>
-            </div>
+            </>
           )}
         </div>
         )}
@@ -1210,7 +1117,7 @@ const s = {
     padding: 14,
   },
   manualBox: {
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     border: '1px solid var(--border)',
     borderRadius: 10,
     padding: 12,
@@ -1286,7 +1193,7 @@ const s = {
     marginBottom: 12,
   },
   kpiCard: {
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     border: '1px solid var(--border)',
     borderRadius: 10,
     padding: '10px 12px',
@@ -1383,11 +1290,12 @@ const s = {
   rowBtn: {
     padding: '5px 8px',
     border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     borderRadius: 8,
     fontSize: 12,
     cursor: 'pointer',
+    textDecoration: 'none',
   },
   rowSelect: {
     minWidth: 130,
@@ -1397,6 +1305,33 @@ const s = {
     background: 'var(--input-bg)',
     color: 'var(--text-sub)',
     fontSize: 12,
+  },
+  twilioLock: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 34,
+    padding: '5px 9px',
+    borderRadius: 8,
+    border: '1px solid rgba(20, 131, 79, 0.22)',
+    background: 'rgba(20, 131, 79, 0.08)',
+    color: 'var(--accent)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: 0.6,
+  },
+  errorChip: {
+    display: 'inline-flex',
+    maxWidth: 260,
+    minHeight: 34,
+    alignItems: 'center',
+    padding: '5px 9px',
+    borderRadius: 8,
+    border: '1px solid rgba(255, 61, 113, 0.28)',
+    background: 'rgba(255, 61, 113, 0.1)',
+    color: 'var(--danger)',
+    fontSize: 11,
+    fontWeight: 700,
   },
   pagination: {
     display: 'flex',
@@ -1409,7 +1344,7 @@ const s = {
     padding: '6px 10px',
     borderRadius: 8,
     border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     cursor: 'pointer',
     fontSize: 12,
@@ -1445,7 +1380,7 @@ const s = {
     padding: '8px 14px',
     borderRadius: 10,
     border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     cursor: 'pointer',
     fontSize: 13,
@@ -1474,7 +1409,7 @@ const s = {
     marginBottom: 16,
   },
   callForm: {
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     border: '1px solid var(--border)',
     borderRadius: 10,
     padding: 12,

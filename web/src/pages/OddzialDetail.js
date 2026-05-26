@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
@@ -11,9 +12,10 @@ import useAsyncLoad from '../hooks/useAsyncLoad';
 import { addTeamMember, removeTeamMember } from '../utils/teamMembersApi';
 import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
-import { TASK_STATUS, getTaskStatusColor, normalizeTaskStatus } from '../utils/taskWorkflow';
+import { TASK_STATUS, normalizeTaskStatus } from '../utils/taskWorkflow';
 
 const FEATURES = [
   '/dashboard', '/misja-dnia', '/nowe-zlecenie', '/harmonogram',
@@ -349,8 +351,8 @@ export default function OddzialDetail() {
 
         {/* Hero */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--sidebar), var(--bg-card2))',
-          borderRadius: 20, padding: '24px 28px', marginBottom: 20,
+          background: 'linear-gradient(135deg, #0f5f3a, #28b66c)',
+          borderRadius: 8, padding: '24px 28px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           flexWrap: 'wrap', gap: 16,
           border: '1px solid var(--border2)', boxShadow: 'var(--shadow-md)',
@@ -389,14 +391,14 @@ export default function OddzialDetail() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
             { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-            { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: '#81C784', bg: '#0F172A' },
+            { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: 'var(--accent)', bg: 'var(--accent-surface)' },
             { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#F9A825', bg: '#FFF8E1' },
             { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
           ].map(k => (
             <div key={k.label} style={{
-              background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, padding: '14px 16px',
+              background: 'var(--surface-glass)', borderRadius: 8, padding: '14px 16px',
               borderTop: `3px solid ${k.color}`,
-              border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)',
+              border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)',
               animation: 'bounceIn 0.4s ease forwards', opacity: 0,
             }}>
               <div style={{ fontSize: 26, fontWeight: 'bold', color: k.color }}>{k.value}</div>
@@ -405,11 +407,11 @@ export default function OddzialDetail() {
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1.3fr .7fr', gap: 12, marginBottom: 16 }}>
-          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum oddziału</div>
             <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Nowe: <strong style={{ color: 'var(--text)' }}>{statsByStatus(TASK_STATUS.NOWE)}</strong> · W realizacji: <strong style={{ color: 'var(--text)' }}>{statsByStatus(TASK_STATUS.W_REALIZACJI)}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{pracownicy.length}</strong></div>
           </div>
-          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Szybkie akcje</div>
             <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button style={S.addBtn} onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
@@ -463,50 +465,39 @@ export default function OddzialDetail() {
 
         {/* ===== ZLECENIA ===== */}
         {activeTab === 'zlecenia' && (
-          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ background: 'var(--surface-glass)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
             {zlecenia.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
                 <p>Brak zleceń w tym oddziale</p>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {['ID', 'Klient', 'Adres', 'Ekipa', 'Data', 'Status', 'Wartość', ''].map(h => (
-                      <th key={h} style={{ padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {zlecenia.map((z, i) => (
-                    <tr key={z.id}
-                      style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)', cursor: 'pointer', transition: 'background 0.15s' }}
-                      onClick={() => navigate(`/zlecenia/${z.id}`)}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0F172A'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)'}>
-                      <td style={S.td}><span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: '600' }}>#{z.id}</span></td>
-                      <td style={{ ...S.td, fontWeight: '600' }}>{z.klient_nazwa}</td>
-                      <td style={S.td}>{z.adres}</td>
-                      <td style={S.td}>{z.ekipa_nazwa || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Brak</span>}</td>
-                      <td style={S.td}>{z.data_planowana?.split('T')[0] || '-'}</td>
-                      <td style={S.td}>
-                        <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: getTaskStatusColor(z.status) }}>
-                          {z.status}
-                        </span>
-                      </td>
-                      <td style={{ ...S.td, fontWeight: '600', color: 'var(--accent)' }}>
-                        {z.wartosc_planowana ? `${parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN` : '-'}
-                      </td>
-                      <td style={S.td}>
-                        <button style={S.detailBtn} onClick={e => { e.stopPropagation(); navigate(`/zlecenia/${z.id}`); }}>
-                          Otwórz →
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="modern-data-stack" style={{ padding: 14 }}>
+                {zlecenia.map((z) => (
+                  <ModernDataRow
+                    key={z.id}
+                    idLabel="Order ID"
+                    idValue={`#${z.id}`}
+                    title={z.klient_nazwa}
+                    subtitle={z.adres || 'Brak adresu'}
+                    tone={normalizeTaskStatus(z.status) === TASK_STATUS.ZAKONCZONE ? 'success' : 'info'}
+                    status={z.status}
+                    statusValue={z.status}
+                    statusState={normalizeTaskStatus(z.status) === TASK_STATUS.ZAKONCZONE ? 'success' : 'info'}
+                    onClick={() => navigate(`/zlecenia/${z.id}`)}
+                    metrics={[
+                      { label: 'Ekipa', value: z.ekipa_nazwa || 'Brak', mono: false },
+                      { label: 'Data', value: z.data_planowana?.split('T')[0] || '-' },
+                      { label: 'Wartość', value: z.wartosc_planowana ? `${parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN` : '-', tone: 'success' },
+                    ]}
+                    actions={
+                      <button style={S.detailBtn} onClick={e => { e.stopPropagation(); navigate(`/zlecenia/${z.id}`); }}>
+                        Otwórz
+                      </button>
+                    }
+                  />
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -542,7 +533,7 @@ export default function OddzialDetail() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 20, alignItems: 'start' }}>
               <div>
                 {ekipy.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 16 }}>
+                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
                     <div style={{ fontSize: 48, marginBottom: 12 }}>👷</div>
                     <p>Brak ekip w tym oddziale</p>
                   </div>
@@ -550,8 +541,8 @@ export default function OddzialDetail() {
                   <div key={e.id}
                     onClick={() => { setSelectedEkipa(e); loadEkipaDetail(e.id); setShowAddCzlonek(false); }}
                     style={{
-                      background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14, padding: 16, marginBottom: 10,
-                      boxShadow: selectedEkipa?.id === e.id ? '0 4px 16px rgba(165,107,255,0.25)' : 'var(--shadow-sm)',
+                      background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 10,
+                      boxShadow: selectedEkipa?.id === e.id ? '0 4px 16px rgba(20,131,79,0.18)' : 'var(--shadow-md)',
                       borderLeft: `4px solid ${selectedEkipa?.id === e.id ? 'var(--accent)' : 'var(--border)'}`,
                       cursor: 'pointer', transition: 'all 0.2s',
                       animation: `slideIn 0.3s ease ${i * 0.06}s forwards`, opacity: 0,
@@ -564,7 +555,7 @@ export default function OddzialDetail() {
                         {e.brygadzista_imie && (
                           <div style={{ fontSize: 12, color: 'var(--text-sub)', display: 'flex', alignItems: 'center', gap: 6 }}>
                             👷 {e.brygadzista_imie} {e.brygadzista_nazwisko}
-                            {e.procent_wynagrodzenia && <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>{e.procent_wynagrodzenia}%</span>}
+                            {e.procent_wynagrodzenia && <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '1px 8px', borderRadius: 8, fontSize: 11, fontWeight: 'bold' }}>{e.procent_wynagrodzenia}%</span>}
                           </div>
                         )}
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>👷 {e.liczba_czlonkow || 0} pomocników</div>
@@ -581,7 +572,7 @@ export default function OddzialDetail() {
               </div>
 
               {selectedEkipa && ekipaDetail ? (
-                <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 24, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', animation: 'fadeIn 0.3s ease forwards' }}>
+                <div style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 24, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', animation: 'fadeIn 0.3s ease forwards' }}>
                   <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
                     <h3 style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)', margin: 0 }}>{ekipaDetail.nazwa}</h3>
                   </div>
@@ -620,7 +611,7 @@ export default function OddzialDetail() {
                             <span style={{ fontWeight: 'bold', color: 'var(--accent)' }}>%</span>
                             <button onClick={() => zmienProcent(ekipaDetail.brygadzista_id, brygadzistaProcent)}
                               disabled={rateSaving}
-                              style={{ padding: '5px 10px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', opacity: rateSaving ? 0.7 : 1 }}>
+                              style={{ padding: '5px 10px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', opacity: rateSaving ? 0.7 : 1 }}>
                               {rateSaving ? '⏳' : 'Zapisz'}
                             </button>
                           </div>
@@ -643,12 +634,12 @@ export default function OddzialDetail() {
                     </div>
 
                     {showAddCzlonek && (
-                      <form onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 12, border: '1px solid #DCEDC8' }}>
+                      <form onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, marginBottom: 12, border: '1px solid var(--border)' }}>
                         <Field label="Pracownik *">
                           <select style={S.input} value={formCzlonek.user_id} onChange={e => setFormCzlonek({ ...formCzlonek, user_id: e.target.value })} required>
                             <option value="">-- wybierz --</option>
                             {wolniPracownicyDoEkipy.map(u => (
-                              <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({u.rola})</option>
+                              <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})</option>
                             ))}
                           </select>
                         </Field>
@@ -671,15 +662,15 @@ export default function OddzialDetail() {
                     ) : ekipaDetail.czlonkowie.map((c, i) => (
                       <div key={c.id}
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 8, marginBottom: 4, transition: 'background 0.15s', animation: `slideIn 0.2s ease ${i * 0.05}s forwards`, opacity: 0 }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0F172A'}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-field)'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <div style={{ width: 36, height: 36, borderRadius: 18, background: 'linear-gradient(135deg, var(--border), var(--border2))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', flexShrink: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 18, background: 'var(--accent-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', flexShrink: 0 }}>
                           {c.imie?.[0]}{c.nazwisko?.[0]}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--text)' }}>{c.imie} {c.nazwisko}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
-                            <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{c.rola}</span>
+                            <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
                             <span>💰 {c.stawka_godzinowa || 0} PLN/h</span>
                           </div>
                         </div>
@@ -691,7 +682,7 @@ export default function OddzialDetail() {
                   {ekipaDetail.brygadzista_imie && <KalkulatorWynagrodzenia ekipa={ekipaDetail} />}
                 </div>
               ) : (
-                <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 60, textAlign: 'center', color: 'var(--text-muted)', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 60, textAlign: 'center', color: 'var(--text-muted)', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12, animation: 'treeSway 3s ease-in-out infinite' }}>🌳</div>
                   <p style={{ fontWeight: '600', color: 'var(--text-sub)' }}>Wybierz ekipę</p>
                   <p style={{ fontSize: 13 }}>Kliknij na ekipę aby zobaczyć szczegóły</p>
@@ -740,7 +731,7 @@ export default function OddzialDetail() {
                           <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                         </optgroup>
                         <optgroup label="Inne">
-                          <option value="Wyceniający">Wyceniający</option>
+                          <option value="Wyceniający">Specjalista ds. wyceny</option>
                           <option value="Magazynier">Magazynier</option>
                         </optgroup>
                       </select>
@@ -764,82 +755,62 @@ export default function OddzialDetail() {
               </div>
             )}
 
-            <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
               {pracownicy.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
                   <p>Brak pracowników w tym oddziale</p>
                 </div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Pracownik', 'Login', 'Rola', 'Telefon', 'Stawka/Procent', 'Status', 'Akcje'].map(h => (
-                        <th key={h} style={{ padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pracownicy.map((p, i) => (
-                      <tr key={p.id}
-                        style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onClick={() => navigate(`/uzytkownicy/${p.id}`)}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0F172A'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)'}>
-                        <td style={S.td}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: (ROLA_KOLOR[p.rola] || '#6B7280') + '22', color: ROLA_KOLOR[p.rola] || '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 'bold', flexShrink: 0 }}>
-                              {p.imie?.[0]}{p.nazwisko?.[0]}
-                            </div>
-                            <span style={{ fontWeight: '600' }}>{p.imie} {p.nazwisko}</span>
-                          </div>
-                        </td>
-                        <td style={{ ...S.td, color: 'var(--text-muted)' }}>@{p.login}</td>
-                        <td style={S.td}>
-                          <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: ROLA_KOLOR[p.rola] || '#6B7280' }}>{p.rola}</span>
-                        </td>
-                        <td style={S.td}>
-                          {p.telefon ? (
-                            telHref(p.telefon) ? (
-                              <a
-                                href={telHref(p.telefon)}
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}
-                              >
-                                {p.telefon}
-                              </a>
-                            ) : (
-                              p.telefon
-                            )
-                          ) : (
-                            '-'
+                <div className="modern-data-stack">
+                  {pracownicy.map((p) => (
+                    <ModernDataRow
+                      key={p.id}
+                      idLabel={getRoleDisplayName(p.rola)}
+                      idValue={`${p.imie} ${p.nazwisko}`}
+                      subtitle={`@${p.login}`}
+                      tone={p.aktywny ? 'success' : 'danger'}
+                      statusState={p.aktywny ? 'success' : 'danger'}
+                      statusValue={p.aktywny ? 'Aktywny' : 'Nieaktywny'}
+                      icon={
+                        <span style={{ fontSize: 13, fontWeight: 'bold', color: ROLA_KOLOR[p.rola] || '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          {p.imie?.[0]}{p.nazwisko?.[0]}
+                        </span>
+                      }
+                      metrics={[
+                        { label: 'Rola', value: getRoleDisplayName(p.rola), mono: false },
+                        {
+                          label: 'Telefon',
+                          value: p.telefon
+                            ? telHref(p.telefon)
+                              ? <a href={telHref(p.telefon)} onClick={e => e.stopPropagation()} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>{p.telefon}</a>
+                              : p.telefon
+                            : '—',
+                          mono: false,
+                        },
+                        {
+                          label: p.rola === 'Brygadzista' ? 'Procent' : 'Stawka',
+                          value: p.rola === 'Brygadzista' ? `${p.procent_wynagrodzenia || 15}%` : `${p.stawka_godzinowa || 0} PLN/h`,
+                          tone: 'success',
+                        },
+                      ]}
+                      onClick={() => navigate(`/uzytkownicy/${p.id}`)}
+                      actions={
+                        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                          <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>Profil</button>
+                          {isDyrektor && (
+                            <button
+                              style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#FFF8E1' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#F9A825' : 'var(--accent)' }}
+                              onClick={e => toggleAktywny(e, p.id, p.aktywny)}
+                            >
+                              {p.aktywny ? 'Zablokuj' : 'Aktywuj'}
+                            </button>
                           )}
-                        </td>
-                        <td style={{ ...S.td, fontWeight: '600', color: 'var(--accent)' }}>
-                          {p.rola === 'Brygadzista'
-                            ? <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 'bold' }}>{p.procent_wynagrodzenia || 15}%</span>
-                            : `${p.stawka_godzinowa || 0} PLN/h`}
-                        </td>
-                        <td style={S.td}>
-                          <span style={{ padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', backgroundColor: p.aktywny ? '#4CAF50' : '#EF5350' }}>
-                            {p.aktywny ? '✅ Aktywny' : '❌ Nieaktywny'}
-                          </span>
-                        </td>
-                        <td style={S.td} onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button style={S.editBtn} onClick={() => navigate(`/uzytkownicy/${p.id}`)}>✏️</button>
-                            {isDyrektor && (
-                              <button style={{ ...S.editBtn, backgroundColor: p.aktywny ? '#FFF8E1' : 'rgba(52,211,153,0.1)', color: p.aktywny ? '#F9A825' : 'var(--accent)' }}
-                                onClick={e => toggleAktywny(e, p.id, p.aktywny)}>
-                                {p.aktywny ? '🔴' : '🟢'}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      }
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </>
@@ -884,19 +855,19 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
   const overrideCount = Object.keys(oddzialOverrides).length;
 
   return (
-    <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 12, padding: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' }}>
+    <div style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, fontSize: 13, color: 'var(--text-muted)' }}>
           {t('pages.branchAdmin.hint', { defaultValue: 'Włącz lub wyłącz funkcje mobilne dla tego oddziału (zapisywane lokalnie).' })}
         </div>
         {overrideCount > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border2)' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 8, backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.22)' }}>
             {overrideCount} override{overrideCount !== 1 ? 's' : ''}
           </span>
         )}
         <button
           onClick={exportJson}
-          style={{ padding: '7px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '600' }}
+          style={{ padding: '7px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '600' }}
         >
           {t('pages.branchAdmin.export', { defaultValue: 'Eksportuj JSON' })}
         </button>
@@ -993,11 +964,11 @@ function KalkulatorWynagrodzenia({ ekipa }) {
           </div>
         ))}
       </div>
-      <button onClick={oblicz} style={{ width: '100%', padding: 10, backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold', marginBottom: 12 }}>
+      <button onClick={oblicz} style={{ width: '100%', padding: 10, background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold', marginBottom: 12 }}>
         🧮 Oblicz wynagrodzenie
       </button>
       {wynik && (
-        <div style={{ backgroundColor: 'var(--bg)', borderRadius: 10, padding: 14, border: '1px solid #DCEDC8' }}>
+        <div style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
           {[
             { l: 'Wartość netto', v: `${fmt(wynik.netto)} PLN` },
             { l: 'Koszt pomocników', v: `- ${fmt(wynik.kosztPom)} PLN`, c: '#EF5350' },
@@ -1028,17 +999,16 @@ function Field({ label, children }) {
 }
 
 const S = {
-  td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  addBtn: { padding: '8px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
-  addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
-  editBtn: { padding: '4px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  addBtn: { padding: '8px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  addSmallBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' },
+  editBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
-  formBox: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 24, marginBottom: 20, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', borderTop: '1px solid var(--border2)' },
+  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: '600' },
+  formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-card2)', color: 'var(--text)' },
+  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
-  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card2)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
 };

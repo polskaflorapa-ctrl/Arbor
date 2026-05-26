@@ -219,7 +219,7 @@ async function syncTaskToKommo(pool, taskRow, actor = null) {
       `UPDATE tasks SET kommo_last_sync_at = NOW(), kommo_last_sync_status = 'ok' WHERE id = $1`,
       [taskRow.id]
     );
-  } catch (err) {
+  } catch {
     await pool.query(
       `UPDATE tasks SET kommo_last_sync_at = NOW(), kommo_last_sync_status = 'error' WHERE id = $1`,
       [taskRow.id]

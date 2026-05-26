@@ -6,7 +6,7 @@ ARBOR-WEB — wdrożenie na istniejącej stronie / hostingu
 Panel: https://arbo-web.onrender.com/
 
 W Render → usługa **arbo-web** → **Environment** ustaw m.in.:
-  REACT_APP_API_URL = https://.../api
+  VITE_API_URL = https://.../api
 (adres backendu z końcówką `/api`). Po zmianie zmiennych: **Manual Deploy** (ew. wyczyść cache buildu).
 
 Repozytorium może zawierać plik **render.yaml** (Blueprint) — ten sam typ: static + `npm ci && npm run build` + katalog `build/`.
@@ -17,7 +17,7 @@ Uwaga: na planie **Free** usługa usypia się po bezczynności — pierwsze wej�
 
 1) CO WGrywasZ
 --------------
-To jest aplikacja React (CRA). Po `npm run build` cała zawartość katalogu `build/` to gotowa strona:
+To jest aplikacja React + Vite. Po `npm run build` cała zawartość katalogu `build/` to gotowa strona:
   - index.html
   - folder static/ (JS, CSS)
   - manifest.json, favicon itd.
@@ -27,11 +27,11 @@ Wgraj WSZYSTKO z `build/` na serwer (FTP, SFTP, menedżer plików w cPanel itd.)
 
 2) ADRES API (ważne)
 ---------------------
-Frontend woła backend przez `REACT_APP_API_URL` (patrz `src/api.js`).
+Frontend woła backend przez `VITE_API_URL` (patrz `src/api.js`).
 
 Przed buildem produkcyjnym:
   - skopiuj `.env.production.example` → `.env.production`
-  - ustaw prawdziwy `REACT_APP_API_URL=...`
+  - ustaw prawdziwy `VITE_API_URL=...`
   - uruchom: npm run build
 
 Bez tego panel może strzelać w zły adres lub w `/api` na tej samej domenie (musisz wtedy mieć proxy).
@@ -73,7 +73,7 @@ Uwaga: jeśli w `public_html` masz już inny `index.html`, zrób kopię zapasow�
 
 7) SZYBKI CHECKLISTA
 --------------------
-[ ] .env.production z poprawnym REACT_APP_API_URL
+[ ] .env.production z poprawnym VITE_API_URL
 [ ] npm run build
 [ ] Wgranie całej zawartości build/
 [ ] Test: logowanie, jedna zakładka z danymi z API

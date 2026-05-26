@@ -3,9 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getRolaColor } from '../theme';
 import { telHref } from '../utils/telLink';
 import PayrollRatesPanel from '../components/PayrollRatesPanel';
@@ -341,7 +343,7 @@ export default function Uzytkownicy() {
                 <option value="Kierownik">Kierownik</option>
                 <option value="Brygadzista">Brygadzista</option>
                 <option value="Specjalista">Specjalista</option>
-                <option value="Wyceniający">Wyceniający</option>
+                <option value="Wyceniający">Specjalista ds. wyceny</option>
                 <option value="Pomocnik">Pomocnik</option>
                 <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                 <option value="Magazynier">Magazynier</option>
@@ -406,7 +408,7 @@ export default function Uzytkownicy() {
                           </div>
                         </div>
                         <div style={s.userListMetaRow}>
-                          <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>{u.rola}</span>
+                          <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(u.rola) }}>{getRoleDisplayName(u.rola)}</span>
                           <span style={s.userListBranch}>{u.oddzial_nazwa || '—'}</span>
                         </div>
                         {mozePrzeniescUsera(u) && (
@@ -484,7 +486,7 @@ export default function Uzytkownicy() {
                     {wybranyUser.imie?.[0]}{wybranyUser.nazwisko?.[0]}
                   </div>
                   <span style={{ ...s.rolaBadge, backgroundColor: getRolaColor(wybranyUser.rola), fontSize: 13 }}>
-                    {wybranyUser.rola}
+                    {getRoleDisplayName(wybranyUser.rola)}
                   </span>
                 </div>
                 {[
@@ -678,50 +680,40 @@ export default function Uzytkownicy() {
               {kompetencje.length === 0 ? (
                 <p style={s.gray}>Brak zarejestrowanych kompetencji</p>
               ) : (
-                <div style={s.tableScroll}>
-                  <table style={s.table}>
-                    <thead>
-                      <tr>
-                        <th style={s.th}>Nazwa</th>
-                        <th style={s.th}>Typ</th>
-                        <th style={s.th}>Nr dokumentu</th>
-                        <th style={s.th}>Data uzyskania</th>
-                        <th style={s.th}>Ważność</th>
-                        {mozeEdytowac && <th style={s.th}></th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kompetencje.map((k, i) => {
-                        const waznosc = isWazna(k.data_waznosci);
-                        return (
-                          <tr key={k.id} style={{ backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-deep)' }}>
-                            <td style={{ ...s.td, fontWeight: '600' }}>{k.nazwa}</td>
-                            <td style={s.td}>{k.typ}</td>
-                            <td style={s.td}>{k.nr_dokumentu || '—'}</td>
-                            <td style={s.td}>{k.data_uzyskania ? k.data_uzyskania.split('T')[0] : '—'}</td>
-                            <td style={s.td}>
-                              {k.data_waznosci ? (
-                                <span style={{ ...s.waznosc, backgroundColor: waznosc === 'expired' ? 'rgba(248,113,113,0.12)' : waznosc === 'soon' ? 'rgba(251,191,36,0.12)' : 'var(--accent-surface)', color: waznosc === 'expired' ? 'var(--danger)' : waznosc === 'soon' ? 'var(--warning)' : 'var(--accent-dk)' }}>
-                                  {waznosc === 'expired' ? 'Wygasło: ' : waznosc === 'soon' ? 'Do odnowienia: ' : ''}
-                                  {k.data_waznosci.split('T')[0]}
-                                </span>
-                              ) : <span style={s.gray}>bezterminowo</span>}
-                            </td>
-                            {mozeEdytowac && (
-                              <td style={s.td}>
-                                <button style={{ ...s.actionIconBtn, ...s.actionIconBtnDanger }}
-                                  title="Usuń kompetencję"
-                                  aria-label="Usuń kompetencję"
-                                  onClick={() => usunKompetencje(k.id)}>
-                                  <DeleteOutline style={s.iconSm} />
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="modern-data-stack">
+                  {kompetencje.map((k) => {
+                    const waznosc = isWazna(k.data_waznosci);
+                    return (
+                      <ModernDataRow
+                        key={k.id}
+                        idLabel="Competency ID"
+                        idValue={`COMP-${k.id}`}
+                        title={k.nazwa}
+                        subtitle={k.nr_dokumentu || 'Brak numeru dokumentu'}
+                        tone={waznosc === 'expired' ? 'danger' : waznosc === 'soon' ? 'warning' : 'success'}
+                        status={waznosc === 'expired' ? 'WYGASŁO' : waznosc === 'soon' ? 'DO ODNOWIENIA' : 'AKTYWNA'}
+                        statusValue={waznosc}
+                        statusState={waznosc === 'expired' ? 'danger' : waznosc === 'soon' ? 'warning' : 'success'}
+                        metrics={[
+                          { label: 'Typ', value: k.typ, mono: false },
+                          { label: 'Data uzyskania', value: k.data_uzyskania ? k.data_uzyskania.split('T')[0] : 'brak' },
+                          { label: 'Ważność', value: k.data_waznosci ? k.data_waznosci.split('T')[0] : 'bezterminowo', tone: waznosc === 'expired' ? 'danger' : waznosc === 'soon' ? 'warning' : 'success' },
+                        ]}
+                        actions={
+                          mozeEdytowac ? (
+                            <button
+                              style={{ ...s.actionIconBtn, ...s.actionIconBtnDanger }}
+                              title="Usuń kompetencję"
+                              aria-label="Usuń kompetencję"
+                              onClick={() => usunKompetencje(k.id)}
+                            >
+                              <DeleteOutline style={s.iconSm} />
+                            </button>
+                          ) : null
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -785,7 +777,7 @@ export default function Uzytkownicy() {
                     {isDyrektor && <option value="Kierownik">Kierownik</option>}
                     <option value="Brygadzista">Brygadzista</option>
                     <option value="Specjalista">Specjalista</option>
-                    {isDyrektor && <option value="Wyceniający">Wyceniający</option>}
+                    {isDyrektor && <option value="Wyceniający">Specjalista ds. wyceny</option>}
                     <option value="Pomocnik">Pomocnik</option>
                     <option value="Pomocnik bez doświadczenia">Pomocnik bez doświadczenia</option>
                     <option value="Magazynier">Magazynier</option>
@@ -882,19 +874,19 @@ const s = {
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
   backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
-  filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '12px 16px', borderRadius: 12, boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap' },
+  filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', background: 'var(--surface-glass)', padding: '12px 16px', borderRadius: 8, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)', flexWrap: 'wrap' },
   searchInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1 },
-  filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
+  filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)' },
   clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12 },
   countBadge: { fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' },
-  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 16 },
+  card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)', marginBottom: 16 },
   listCardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   listCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: 14 },
   userListCard: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    border: '1px solid var(--border2)',
-    borderRadius: 14,
-    boxShadow: 'var(--shadow-sm)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    boxShadow: 'var(--shadow-md)',
     padding: 14,
     display: 'flex',
     flexDirection: 'column',
@@ -906,7 +898,7 @@ const s = {
   userListTop: { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'flex-start', gap: 10 },
   userListMetaRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   userListBranch: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
-  transferSelect: { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, backgroundColor: 'var(--bg-card)', color: 'var(--text)', width: '100%' },
+  transferSelect: { padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, backgroundColor: 'var(--surface-field)', color: 'var(--text)', width: '100%' },
   userListContact: { fontSize: 12, color: 'var(--text)', fontWeight: 500 },
   userListContactMuted: { fontSize: 12, color: 'var(--text-muted)' },
   userListBottom: { display: 'flex', justifyContent: 'flex-end' },
@@ -914,7 +906,7 @@ const s = {
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 0 },
   tableScroll: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 500 },
-  th: { padding: '11px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600' },
+  th: { padding: '11px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 13, fontWeight: '700' },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   avatarRow: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 },
   avatar: { width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 'bold', flexShrink: 0 },
@@ -934,7 +926,7 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 0,
-    backgroundColor: 'var(--bg-deep)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--accent)',
     border: '1px solid var(--logo-tint-border)',
     borderRadius: 8,
@@ -944,21 +936,21 @@ const s = {
   actionIconBtnDanger: { backgroundColor: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)' },
   actionIconBtnSuccess: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent-dk)', border: '1px solid var(--logo-tint-border)' },
   iconSm: { fontSize: 18, display: 'block' },
-  btnSm: { padding: '5px 9px', backgroundColor: 'var(--bg-deep)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  btnSm: { padding: '5px 9px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   btnSmGreen: { padding: '5px 12px', background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))', color: '#fff', border: '1px solid var(--accent-dk)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '700', boxShadow: 'var(--shadow-sm)' },
   btnPrimary: { padding: '10px 20px', background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))', color: '#fff', border: '1px solid var(--accent-dk)', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: '700', boxShadow: 'var(--shadow-sm)' },
-  btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
-  btnGray: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', fontSize: 14 },
+  btnSecondary: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  btnGray: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14 },
   detailRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--border)', gap: 12 },
   detailLabel: { fontSize: 13, color: 'var(--text-muted)', minWidth: 140 },
   detailValue: { fontSize: 13, color: 'var(--text)', fontWeight: '500', textAlign: 'right' },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 },
   formGroup: { display: 'flex', flexDirection: 'column', gap: 5 },
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)', outline: 'none' },
+  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', outline: 'none' },
   inlineForm: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 },
   eyeBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 },
-  kompForm: { backgroundColor: 'var(--bg-card)', borderRadius: 10, padding: 16, marginBottom: 16, border: '1px solid var(--border)' },
+  kompForm: { backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 16, marginBottom: 16, border: '1px solid var(--border)' },
   formButtons: { display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' },
   komunikat: { padding: '12px 16px', borderRadius: 10, borderWidth: 1, borderStyle: 'solid', marginBottom: 16, fontSize: 14, fontWeight: '500' },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', fontSize: 16 },

@@ -33,6 +33,7 @@ export default function AiChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [providerInfo, setProviderInfo] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -79,10 +80,13 @@ export default function AiChat() {
         { headers: authHeaders(token) }
       );
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      setProviderInfo(res.data.provider ? { provider: res.data.provider, model: res.data.model } : null);
       setApiKeyMissing(false);
     } catch (err) {
       const errMsg = err.response?.data?.error || 'Błąd połączenia z AI';
-      if (errMsg.includes('klucz API')) setApiKeyMissing(true);
+      if (err.response?.status === 503 || errMsg.includes('klucz API') || errMsg.includes('konfiguracji AI')) {
+        setApiKeyMissing(true);
+      }
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: `❌ ${errMsg}`,
@@ -98,11 +102,18 @@ export default function AiChat() {
   };
 
   const clearChat = () => {
+    setProviderInfo(null);
     setMessages([{
       role: 'assistant',
       content: '👋 Rozmowa wyczyszczona. Jak mogę pomóc?',
     }]);
   };
+
+  const providerLabel = providerInfo?.provider === 'huggingface'
+    ? 'Hugging Face'
+    : providerInfo?.provider === 'anthropic'
+      ? 'Claude AI'
+      : 'AI';
 
   return (
     <>
@@ -151,7 +162,7 @@ export default function AiChat() {
                 <div style={S.headerTitle}>Asystent ARBOR-OS</div>
                 <div style={S.headerSub}>
                   <span style={S.dot} />
-                  Claude AI · online
+                  {providerLabel} · online
                 </div>
               </div>
             </div>
@@ -165,7 +176,7 @@ export default function AiChat() {
           {/* Ostrzeżenie brak klucza */}
           {apiKeyMissing && (
             <div style={S.keyWarning}>
-              ⚠️ Brak klucza API. Dodaj <code>ANTHROPIC_API_KEY</code> w pliku <code>.env</code> i zrestartuj backend.
+              Brak konfiguracji AI. Dodaj <code>ANTHROPIC_API_KEY</code> albo <code>HF_TOKEN</code> w pliku <code>.env</code> i zrestartuj backend.
             </div>
           )}
 

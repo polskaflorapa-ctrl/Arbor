@@ -57,7 +57,7 @@ function checkPgDumpAvailable() {
     return true;
   } catch (error) {
     const message = `pg_dump not available (${error.message}). Install PostgreSQL client tools or set PG_DUMP_BIN.`;
-    if (strict || !dryRun) throw new Error(message);
+    if (strict || !dryRun) throw new Error(message, { cause: error });
     console.warn(`[backup] WARN ${message}`);
     return false;
   }

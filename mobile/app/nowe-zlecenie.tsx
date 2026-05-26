@@ -40,6 +40,7 @@ import {
   FIELD_PROTOCOL_RISK_OPTIONS,
   FIELD_PROTOCOL_WORK_OPTIONS,
   buildFieldProtocolSummary,
+  buildFieldProtocolTaskExtra,
   mergeUniqueProtocolValues,
   toggleProtocolValue,
   type FieldProtocolForm,
@@ -54,6 +55,85 @@ import { isPositiveNumber, isValidIsoDate, isValidPolishPhone, isValidTimeHHMM }
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
   return String(value || '');
+}
+
+const FIELD_DRAFT_SOURCE_COPY: Record<string, { note: string; header: string }> = {
+  'wyceny-terenowe': {
+    note: 'Źródło: lista oględzin terenowych',
+    header: 'Lista oględzin terenowych',
+  },
+  'wyceniajacy-hub': {
+    note: 'Źródło: centrum specjalisty ds. wyceny',
+    header: 'Centrum specjalisty ds. wyceny',
+  },
+  'wycena-kalendarz': {
+    note: 'Źródło: kalendarz wycen',
+    header: 'Kalendarz wycen',
+  },
+  'plan-ogledzin': {
+    note: 'Źródło: plan oględzin',
+    header: 'Plan oględzin',
+  },
+  ogledziny: {
+    note: 'Źródło: karta oględzin',
+    header: 'Karta oględzin',
+  },
+  'ogledziny-dokumentacja': {
+    note: 'Źródło: dokumentacja oględzin',
+    header: 'Dokumentacja oględzin',
+  },
+  harmonogram: {
+    note: 'Źródło: harmonogram ekip',
+    header: 'Harmonogram ekip',
+  },
+  wycena: {
+    note: 'Źródło: moduł wycen',
+    header: 'Moduł wycen',
+  },
+  zlecenia: {
+    note: 'Źródło: centrum zleceń',
+    header: 'Centrum zleceń',
+  },
+  'misja-dnia': {
+    note: 'Źródło: misja dnia',
+    header: 'Misja dnia',
+  },
+  'ogledziny-new': {
+    note: 'Źródło: moduł oględzin',
+    header: 'Moduł oględzin',
+  },
+  dashboard: {
+    note: 'Źródło: pulpit mobilny',
+    header: 'Pulpit mobilny',
+  },
+  'command-center': {
+    note: 'Źródło: Command Center',
+    header: 'Command Center',
+  },
+};
+
+function fieldDraftSourceCopy(source: string) {
+  if (!source) return { note: '', header: 'Nowe zgłoszenie' };
+  return FIELD_DRAFT_SOURCE_COPY[source] || {
+    note: `Źródło: ${source.replace(/-/g, ' ')}`,
+    header: source.replace(/-/g, ' '),
+  };
+}
+
+const FIELD_INTAKE_SOURCES = new Set([
+  'wyceny-terenowe',
+  'wyceniajacy-hub',
+  'wycena-kalendarz',
+  'plan-ogledzin',
+  'ogledziny',
+  'ogledziny-dokumentacja',
+  'ogledziny-new',
+  'next-ogledziny',
+  'wycena',
+]);
+
+function shouldStartInFieldMode(source: string, inspectionId?: string) {
+  return Boolean(String(inspectionId || '').trim()) || FIELD_INTAKE_SOURCES.has(String(source || '').trim());
 }
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -108,8 +188,29 @@ const FIELD_PRESETS: FieldPreset[] = FIELD_PROTOCOL_PRESETS.map((preset) => ({
   ...preset,
   ...(FIELD_PRESET_META[preset.key] || { icon: 'leaf-outline', typUslugi: TASK_SERVICE_TYPES[1] }),
 }));
-const FIELD_WORK_OPTIONS = FIELD_PROTOCOL_WORK_OPTIONS;
-const FIELD_EQUIPMENT_OPTIONS = FIELD_PROTOCOL_EQUIPMENT_OPTIONS;
+type FieldBooleanKey = 'haul' | 'stumpRemoval' | 'banner';
+const FIELD_WORK_OPTIONS = Array.from(new Set([
+  ...FIELD_PROTOCOL_WORK_OPTIONS,
+  'Wywoz',
+  'Formowanie',
+  'Pielegnacja zywoplotu',
+]));
+const FIELD_EQUIPMENT_OPTIONS = Array.from(new Set([
+  ...FIELD_PROTOCOL_EQUIPMENT_OPTIONS,
+  'Rebak',
+  'Wysiegnik / pila na wysiegniku',
+  'Dlugie nozyce',
+  'Kosiarka',
+  'Kosa reczna',
+  'Lopata',
+  'Mulczer',
+  'Arborysta',
+]));
+const FIELD_QUICK_TOGGLES: { key: FieldBooleanKey; label: string; icon: IoniconName }[] = [
+  { key: 'haul', label: 'Wywoz', icon: 'car-outline' },
+  { key: 'stumpRemoval', label: 'Usuwanie pni', icon: 'disc-outline' },
+  { key: 'banner', label: 'Baner', icon: 'flag-outline' },
+];
 const FIELD_RISK_OPTIONS = FIELD_PROTOCOL_RISK_OPTIONS;
 const FIELD_RESULT_OPTIONS = FIELD_PROTOCOL_RESULT_OPTIONS;
 const FIELD_PHOTO_TYPES: { key: FieldPhotoType; label: string; icon: IoniconName }[] = [
@@ -196,6 +297,15 @@ function teamLoadLabel(team: any) {
   return 'wolna';
 }
 
+function isClientAcceptedForPlanning(result: string) {
+  const normalized = String(result || '').trim();
+  return [
+    'Klient chce termin',
+    'Klient zaakceptowal - planuj termin',
+    'Klient zaakceptował - planuj termin',
+  ].includes(normalized);
+}
+
 export default function NoweZlecenieScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -212,6 +322,7 @@ export default function NoweZlecenieScreen() {
     godzina?: string;
     notatki?: string;
   }>();
+  const startsInFieldQuoteMode = shouldStartInFieldMode(paramString(params.source), paramString(params.inspectionId));
   const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [ekipy, setEkipy] = useState<any[]>([]);
   const [ekipyLoading, setEkipyLoading] = useState(false);
@@ -219,7 +330,7 @@ export default function NoweZlecenieScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldQuoteMode, setFieldQuoteMode] = useState(true);
+  const [fieldQuoteMode, setFieldQuoteMode] = useState(startsInFieldQuoteMode);
   const [prefillApplied, setPrefillApplied] = useState(false);
   const [fieldQuote, setFieldQuote] = useState<FieldProtocolForm>({ ...DEFAULT_FIELD_PROTOCOL });
   const [fieldPhotos, setFieldPhotos] = useState<FieldPhotoDraft[]>([]);
@@ -237,8 +348,18 @@ export default function NoweZlecenieScreen() {
   const drawPathRef = useRef('');
   const [form, setForm] = useState(createTaskFormDefaults({
     data_planowana: new Date().toISOString().split('T')[0],
-    status: TASK_STATUS.WYCENA_TERENOWA,
+    status: startsInFieldQuoteMode ? TASK_STATUS.WYCENA_TERENOWA : TASK_STATUS.NOWE,
+    ankieta_uproszczona: startsInFieldQuoteMode,
   }));
+  const switchIntakeMode = useCallback((nextFieldMode: boolean, haptic = true) => {
+    setFieldQuoteMode(nextFieldMode);
+    setForm((current) => ({
+      ...current,
+      status: nextFieldMode ? TASK_STATUS.WYCENA_TERENOWA : TASK_STATUS.NOWE,
+      ankieta_uproszczona: nextFieldMode,
+    }));
+    if (haptic) void triggerHaptic('light');
+  }, []);
 
   useEffect(() => {
     if (prefillApplied) return;
@@ -251,17 +372,11 @@ export default function NoweZlecenieScreen() {
     const inspectionId = paramString(params.inspectionId);
     const notatki = paramString(params.notatki);
     const source = paramString(params.source);
-    const sourceLabel = source === 'wycena-kalendarz'
-      ? 'Źródło: kalendarz wycen'
-      : source === 'wycena'
-        ? 'Źródło: moduł wycen'
-        : source === 'ogledziny-new'
-          ? 'Źródło: moduł oględzin'
-          : '';
+    const sourceLabel = fieldDraftSourceCopy(source).note;
     const hasPrefill = !!(klient || telefon || adres || miasto || inspectionId || data || godzina || source);
     if (!hasPrefill) return;
 
-    setFieldQuoteMode(true);
+    switchIntakeMode(shouldStartInFieldMode(source, inspectionId), false);
     setForm((current) => ({
       ...current,
       klient_nazwa: klient || current.klient_nazwa,
@@ -278,7 +393,7 @@ export default function NoweZlecenieScreen() {
       ].filter(Boolean).join('\n'),
     }));
     setPrefillApplied(true);
-  }, [params, prefillApplied]);
+  }, [params, prefillApplied, switchIntakeMode]);
 
   const loadBranchResources = useCallback(async (storedToken: string, oddzialId: string, dateValue?: string) => {
     if (!oddzialId) return;
@@ -410,21 +525,29 @@ export default function NoweZlecenieScreen() {
     { key: 'missing', label: 'Braki', value: String(missingRequiredPhotoTypes.length), icon: 'alert-circle-outline', ok: photoPackageReady },
   ];
   const latestPhotoForSketch = [...fieldPhotos].reverse().find((photo) => photo.typ !== 'szkic') || fieldPhotos[fieldPhotos.length - 1] || null;
+  const fieldRiskReady = fieldQuote.risks.length > 0 || !!fieldQuote.access.trim() || !!fieldQuote.notes.trim();
+  const fieldRiskSummary = fieldQuote.risks.length
+    ? fieldQuote.risks.join(', ')
+    : fieldRiskReady
+      ? 'opisane w uwagach'
+      : 'brak';
   const fieldQuoteProgress = [
     fieldQuote.work.length > 0,
     fieldQuote.equipment.length > 0,
     fieldQuote.people.trim().length > 0,
     fieldQuote.time.trim().length > 0,
     fieldQuote.budget.trim().length > 0,
+    fieldRiskReady,
     fieldQuote.result.trim().length > 0,
     photoPackageReady,
   ].filter(Boolean).length;
-  const fieldQuoteProgressLabel = `${fieldQuoteProgress}/7`;
+  const fieldQuoteProgressLabel = `${fieldQuoteProgress}/8`;
   const fieldReadyChecks = [
     { key: 'client', label: 'Klient', ok: !!form.klient_nazwa.trim(), icon: 'person-outline' as IoniconName },
     { key: 'address', label: 'Adres', ok: !!form.adres.trim() && !!form.miasto.trim(), icon: 'location-outline' as IoniconName },
     { key: 'scope', label: 'Zakres', ok: fieldQuote.work.length > 0, icon: 'list-outline' as IoniconName },
     { key: 'time', label: 'Czas', ok: !!fieldQuote.time.trim() || !!form.czas_planowany_godziny.trim(), icon: 'time-outline' as IoniconName },
+    { key: 'risk', label: 'BHP', ok: fieldRiskReady, icon: 'shield-checkmark-outline' as IoniconName },
     { key: 'photos', label: 'Zdjęcia', ok: photoPackageReady, icon: 'camera-outline' as IoniconName },
   ];
   const fieldReadyCount = fieldReadyChecks.filter((item) => item.ok).length;
@@ -457,18 +580,27 @@ export default function NoweZlecenieScreen() {
     : selectedTeamName
       ? `${selectedTeamName} wybrana ręcznie`
       : 'Biuro może dobrać ekipę później.';
-  const fieldPlannedValue = form.wartosc_planowana || fieldQuote.budget;
+  const fieldPlannedValue = form.wartosc_planowana || fieldQuote.acceptedPrice || fieldQuote.budget;
   const fieldPlannedTime = form.czas_planowany_godziny || fieldQuote.time;
-  const clientWantsTerm = fieldQuote.result === 'Klient chce termin';
+  const clientWantsTerm = isClientAcceptedForPlanning(fieldQuote.result);
   const officeHandoffChecks = [
-    { key: 'result', label: 'Decyzja', ok: !!fieldQuote.result.trim(), icon: 'flag-outline' as IoniconName },
+    { key: 'result', label: 'Akceptacja', ok: clientWantsTerm, icon: 'flag-outline' as IoniconName },
     { key: 'price', label: 'Cena', ok: !!fieldPlannedValue.trim(), icon: 'cash-outline' as IoniconName },
     { key: 'slot', label: 'Termin', ok: !!form.data_planowana.trim() && !!form.godzina_rozpoczecia.trim() && !!fieldPlannedTime.trim(), icon: 'calendar-outline' as IoniconName },
     { key: 'team', label: 'Ekipa', ok: !!form.ekipa_id.trim(), icon: 'people-outline' as IoniconName },
     { key: 'photos', label: 'Dowody', ok: photoPackageReady, icon: 'camera-outline' as IoniconName },
+    { key: 'risk', label: 'BHP', ok: fieldRiskReady, icon: 'shield-checkmark-outline' as IoniconName },
   ];
   const officeHandoffReadyCount = officeHandoffChecks.filter((check) => check.ok).length;
   const officeHandoffReady = officeHandoffReadyCount === officeHandoffChecks.length;
+  const fieldCreateStatus = fieldQuoteMode
+    ? (officeHandoffReady ? TASK_STATUS.DO_ZATWIERDZENIA : TASK_STATUS.WYCENA_TERENOWA)
+    : TASK_STATUS.NOWE;
+  const fieldCreateStatusLabel = fieldCreateStatus === TASK_STATUS.DO_ZATWIERDZENIA
+    ? 'Do zatwierdzenia w biurze'
+    : clientWantsTerm
+      ? 'Wycena terenowa - akceptacja jest, plan do dopięcia'
+      : 'Wycena terenowa - czeka na akceptację albo opracowanie';
   const quickSprintSteps = [
     {
       key: 'client',
@@ -499,20 +631,27 @@ export default function NoweZlecenieScreen() {
       icon: 'calculator-outline' as IoniconName,
     },
     {
+      key: 'risk',
+      label: 'Ryzyka / BHP',
+      detail: fieldRiskReady ? fieldRiskSummary : 'zaznacz ryzyko albo brak ryzyk',
+      ok: fieldRiskReady,
+      icon: 'shield-checkmark-outline' as IoniconName,
+    },
+    {
       key: 'handoff',
-      label: 'Decyzja',
-      detail: fieldQuote.result || 'wynik rozmowy',
-      ok: !!fieldQuote.result.trim(),
+      label: 'Akceptacja',
+      detail: clientWantsTerm ? 'klient chce termin' : fieldQuote.result || 'wynik rozmowy',
+      ok: clientWantsTerm,
       icon: 'flag-outline' as IoniconName,
     },
   ];
   const quickSprintReadyCount = quickSprintSteps.filter((step) => step.ok).length;
   const quickSprintNextStep = quickSprintSteps.find((step) => !step.ok);
   const officeHandoffTitle = officeHandoffReady
-    ? 'Gotowe do zatwierdzenia'
+    ? 'Gotowe do zatwierdzenia przez biuro'
     : clientWantsTerm
-      ? 'Klient chce termin - uzupełnij plan'
-      : 'Draft dla biura';
+      ? 'Klient zaakceptował - dopnij plan'
+      : 'Oględziny zapiszą się jako draft';
   const officeHandoffSub = [
     fieldQuote.result || 'Bez wyniku rozmowy',
     selectedTeamName || 'ekipa do wyboru',
@@ -521,11 +660,14 @@ export default function NoweZlecenieScreen() {
   const officeHandoffSummary = [
     'PRZEKAZANIE DO BIURA',
     `Gotowosc: ${officeHandoffReadyCount}/${officeHandoffChecks.length}`,
+    `Status po zapisie: ${fieldCreateStatusLabel}`,
+    `Akceptacja klienta: ${clientWantsTerm ? 'TAK - planowac termin' : 'NIE / do decyzji'}`,
     `Wynik rozmowy: ${fieldQuote.result || '-'}`,
     `Proponowana ekipa: ${selectedTeamName || '-'}`,
     `Proponowany termin: ${form.data_planowana || '-'} ${form.godzina_rozpoczecia || ''}`.trim(),
     `Szacowany czas: ${fieldPlannedTime ? `${fieldPlannedTime} h` : '-'}`,
     `Cena / budzet: ${fieldPlannedValue ? `${fieldPlannedValue} PLN` : '-'}`,
+    `Ryzyka / BHP: ${fieldRiskSummary}`,
     `Pakiet zdjęć: ${photoPackageLabel}`,
     clientWantsTerm ? 'Priorytet biura: klient jest gotowy na termin, sprawdzić kalendarz i potwierdzić.' : '',
   ].filter(Boolean).join('\n');
@@ -565,24 +707,22 @@ export default function NoweZlecenieScreen() {
       icon: 'people-outline' as IoniconName,
       ok: !!selectedTeamName,
     },
+    {
+      key: 'risk',
+      label: 'BHP',
+      value: fieldQuote.risks.length ? String(fieldQuote.risks.length) : '-',
+      sub: fieldRiskReady ? 'opisane' : 'brak',
+      icon: 'shield-checkmark-outline' as IoniconName,
+      ok: fieldRiskReady,
+    },
   ];
   const drawCanvasWidth = Math.max(280, Math.min(screenWidth - 24, 520));
   const drawCanvasHeight = Math.round(drawCanvasWidth * 1.16);
   const prefillInspectionId = paramString(params.inspectionId);
   const intakeSourceRaw = paramString(params.source);
   const intakeSourceLabel = prefillInspectionId
-    ? `Ogledziny #${prefillInspectionId}`
-    : intakeSourceRaw === 'wycena-kalendarz'
-      ? 'Kalendarz wycen'
-      : intakeSourceRaw === 'wycena'
-        ? 'Moduł wycen'
-        : intakeSourceRaw === 'ogledziny-new'
-          ? 'Moduł oględzin'
-        : intakeSourceRaw === 'wyceniajacy-hub'
-            ? 'Hub wyceniającego'
-            : intakeSourceRaw
-              ? intakeSourceRaw.replace(/-/g, ' ')
-              : 'Nowe zgłoszenie';
+    ? `Oględziny #${prefillInspectionId}`
+    : fieldDraftSourceCopy(intakeSourceRaw).header;
   const intakeModeLabel = fieldQuoteMode ? 'Tryb terenowy' : 'Tryb biurowy';
   const intakeChecks: { key: string; label: string; ok: boolean; icon: IoniconName }[] = [
     {
@@ -619,11 +759,86 @@ export default function NoweZlecenieScreen() {
     : fieldQuoteMode
       ? 'Pakiet terenowy gotowy do przekazania'
       : 'Formularz biurowy jest gotowy do zapisu';
-  const fieldSubmitTitle = officeHandoffReady ? 'Komplet do biura' : 'Draft terenowy';
+  const officeIntakeChecks: { key: string; label: string; detail: string; ok: boolean; icon: IoniconName }[] = [
+    {
+      key: 'client',
+      label: 'Klient',
+      detail: form.klient_nazwa.trim() ? form.klient_nazwa.trim() : 'wpisz imie, nazwisko albo firme',
+      ok: !!form.klient_nazwa.trim(),
+      icon: 'person-outline',
+    },
+    {
+      key: 'phone',
+      label: 'Telefon',
+      detail: form.klient_telefon.trim() ? form.klient_telefon.trim() : 'numer do oddzwonienia',
+      ok: !!form.klient_telefon.trim(),
+      icon: 'call-outline',
+    },
+    {
+      key: 'address',
+      label: 'Adres',
+      detail: form.adres.trim() && form.miasto.trim() ? [form.adres, form.miasto].filter(Boolean).join(', ') : 'adres ogledzin',
+      ok: !!form.adres.trim() && !!form.miasto.trim(),
+      icon: 'location-outline',
+    },
+    {
+      key: 'slot',
+      label: 'Termin',
+      detail: form.godzina_rozpoczecia.trim()
+        ? `${form.data_planowana || 'dzis'} ${form.godzina_rozpoczecia}`
+        : 'data i godzina ogledzin',
+      ok: !!form.data_planowana.trim() && !!form.godzina_rozpoczecia.trim(),
+      icon: 'calendar-outline',
+    },
+    {
+      key: 'service',
+      label: 'Zakres wstepny',
+      detail: form.typ_uslugi || 'typ uslugi',
+      ok: !!form.typ_uslugi.trim(),
+      icon: 'leaf-outline',
+    },
+  ];
+  const officeIntakeReadyCount = officeIntakeChecks.filter((check) => check.ok).length;
+  const officeIntakeNext = officeIntakeChecks.find((check) => !check.ok) || null;
+  const fieldSubmitTitle = officeHandoffReady ? 'Komplet do biura' : clientWantsTerm ? 'Draft z akceptacją' : 'Draft terenowy';
   const fieldSubmitSub = officeHandoffReady
     ? 'Zdjęcia, decyzja, cena, termin i ekipa są gotowe do zatwierdzenia.'
     : `Możesz zapisać draft teraz. Brakuje jeszcze: ${officeHandoffChecks.filter((check) => !check.ok).map((check) => check.label).join(', ') || 'nic'}.`;
-  const fieldPrimarySubmitLabel = officeHandoffReady ? 'Wyślij komplet do biura' : 'Zapisz draft terenowy';
+  const fieldPrimarySubmitLabel = officeHandoffReady
+    ? 'Wyślij komplet do biura'
+    : clientWantsTerm
+      ? 'Zapisz draft z akceptacją'
+      : 'Zapisz draft terenowy';
+  const fieldJourneySteps = [
+    {
+      key: 'phone',
+      title: 'Telefon',
+      detail: form.klient_nazwa.trim() && form.klient_telefon.trim() ? 'zgłoszenie przyjęte' : 'wpisz klienta i telefon',
+      ok: !!form.klient_nazwa.trim() && !!form.klient_telefon.trim(),
+      icon: 'call-outline' as IoniconName,
+    },
+    {
+      key: 'visit',
+      title: 'Oględziny',
+      detail: photoPackageReady && fieldQuote.work.length ? 'foto, szkic i zakres są' : photoPackageLabel,
+      ok: photoPackageReady && fieldQuote.work.length > 0,
+      icon: 'camera-outline' as IoniconName,
+    },
+    {
+      key: 'office',
+      title: 'Biuro',
+      detail: officeHandoffReady ? 'tylko zatwierdzić plan' : clientWantsTerm ? 'dopięcie ekipy i terminu' : 'czeka na akceptację',
+      ok: officeHandoffReady,
+      icon: 'business-outline' as IoniconName,
+    },
+    {
+      key: 'crew',
+      title: 'Ekipa',
+      detail: selectedTeamName ? selectedTeamName : 'biuro dobierze ekipę',
+      ok: officeHandoffReady && !!selectedTeamName,
+      icon: 'people-circle-outline' as IoniconName,
+    },
+  ];
 
   const drawPanResponder = useMemo(
     () => PanResponder.create({
@@ -1045,6 +1260,13 @@ export default function NoweZlecenieScreen() {
       notatki: item.notatki || '',
     });
 
+  const nextInspectionLabel = (item: NextInspectionCandidate) => {
+    const when = [datePart(item.data_planowana), timePart(item.data_planowana)].filter(Boolean).join(' ');
+    const client = item.klient_nazwa || `Ogledziny #${item.id}`;
+    const place = [item.adres, item.miasto].filter(Boolean).join(', ');
+    return [when, client, place].filter(Boolean).join(' - ');
+  };
+
   const loadNextInspectionCandidate = async (authToken: string) => {
     const currentId = prefillInspectionId ? String(prefillInspectionId) : '';
     try {
@@ -1078,30 +1300,46 @@ export default function NoweZlecenieScreen() {
     createdId?: string | number | null;
     nextInspection?: NextInspectionCandidate | null;
     afterCreate: 'back' | 'photos';
+    readyForOffice?: boolean;
+    photoResult?: { uploaded: number; queued: number; failed: number } | null;
   }) => {
     const buttons: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (args.nextInspection) {
       buttons.push({
-        text: 'Następna auto',
+        text: 'Nastepne ogledziny',
         onPress: () => router.replace(nextInspectionRoute(args.nextInspection!) as never),
       });
     }
-    buttons.push({
-      text: args.nextInspection ? 'Wybierz ręcznie' : 'Plan dnia',
-      onPress: () => router.replace({ pathname: '/plan-ogledzin' as never, params: { pickNext: '1' } } as never),
-    });
     if (args.createdId) {
       buttons.push({
         text: args.afterCreate === 'photos' ? 'Zdjęcia' : 'Karta zlecenia',
         onPress: () => router.replace(`/zlecenie/${args.createdId}${args.afterCreate === 'photos' ? '?tab=zdjecia' : ''}` as never),
       });
-    } else {
+    }
+    buttons.push({
+      text: args.nextInspection ? 'Plan dnia' : 'Plan ogledzin',
+      onPress: () => router.replace({ pathname: '/plan-ogledzin' as never, params: { pickNext: '1' } } as never),
+    });
+    if (!args.createdId && !args.nextInspection) {
       buttons.push({
         text: 'Zostań',
         style: 'cancel',
       });
     }
-    Alert.alert('Draft zapisany', args.message, buttons);
+    const statusLine = args.readyForOffice
+      ? 'Status: komplet do biura, mozna planowac ekipe.'
+      : 'Status: draft terenowy, biuro widzi co jeszcze trzeba domknac.';
+    const uploadLine = args.photoResult
+      ? `Zdjecia: ${args.photoResult.uploaded} wyslano, ${args.photoResult.queued} w kolejce, ${args.photoResult.failed} bledy.`
+      : '';
+    const nextLine = args.nextInspection
+      ? `Nastepne: ${nextInspectionLabel(args.nextInspection)}`
+      : 'Nastepne: wybierz kolejna wizyte z planu dnia.';
+    Alert.alert(
+      'Pakiet terenowy zapisany',
+      [statusLine, args.message, uploadLine, nextLine].filter(Boolean).join('\n'),
+      buttons.slice(0, 3),
+    );
   };
 
   const handleSubmit = async (
@@ -1110,7 +1348,7 @@ export default function NoweZlecenieScreen() {
   ) => {
     setError(null);
     const effectiveForm = options.forceNoTeam ? { ...form, ekipa_id: '' } : form;
-    const plannedValue = effectiveForm.wartosc_planowana || (fieldQuoteMode ? fieldQuote.budget : '');
+    const plannedValue = effectiveForm.wartosc_planowana || (fieldQuoteMode ? fieldQuote.acceptedPrice || fieldQuote.budget : '');
     const plannedTime = effectiveForm.czas_planowany_godziny || (fieldQuoteMode ? fieldQuote.time : '');
     if (!isTaskCreateFormValid(effectiveForm)) {
       Alert.alert(t('notif.alert.errorTitle'), t('newOrder.alert.required'));
@@ -1194,6 +1432,7 @@ export default function NoweZlecenieScreen() {
       fieldQuoteMode ? fieldPhotoSummary : '',
       effectiveForm.notatki_wewnetrzne.trim(),
     ].filter(Boolean).join('\n\n');
+    const fieldProtocolPayload = fieldQuoteMode ? buildFieldProtocolTaskExtra(fieldQuote) : {};
     const payload = buildTaskCreatePayload(
       {
         ...effectiveForm,
@@ -1203,8 +1442,9 @@ export default function NoweZlecenieScreen() {
       },
       user,
       {
-        initialStatus: fieldQuoteMode ? TASK_STATUS.DO_ZATWIERDZENIA : TASK_STATUS.WYCENA_TERENOWA,
+        initialStatus: fieldCreateStatus,
         extra: {
+          ...fieldProtocolPayload,
           wyceniajacy_id: fieldQuoteMode ? user?.id : effectiveForm.wyceniajacy_id || undefined,
           source_ogledziny_id: fieldQuoteMode && prefillInspectionId ? prefillInspectionId : undefined,
           ankieta_uproszczona: fieldQuoteMode,
@@ -1252,6 +1492,8 @@ export default function NoweZlecenieScreen() {
             createdId,
             nextInspection,
             afterCreate,
+            readyForOffice: officeHandoffReady,
+            photoResult,
           });
           return;
         }
@@ -1421,14 +1663,14 @@ export default function NoweZlecenieScreen() {
           <View style={S.modeSegment}>
             <TouchableOpacity
               style={[S.modeSegmentBtn, fieldQuoteMode && S.modeSegmentBtnActive]}
-              onPress={() => setFieldQuoteMode(true)}
+              onPress={() => switchIntakeMode(true)}
             >
               <Ionicons name="leaf-outline" size={16} color={fieldQuoteMode ? theme.accentText : theme.textMuted} />
               <Text style={[S.modeSegmentText, fieldQuoteMode && S.modeSegmentTextActive]}>Teren</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[S.modeSegmentBtn, !fieldQuoteMode && S.modeSegmentBtnActive]}
-              onPress={() => setFieldQuoteMode(false)}
+              onPress={() => switchIntakeMode(false)}
             >
               <Ionicons name="desktop-outline" size={16} color={!fieldQuoteMode ? theme.accentText : theme.textMuted} />
               <Text style={[S.modeSegmentText, !fieldQuoteMode && S.modeSegmentTextActive]}>Biuro</Text>
@@ -1436,17 +1678,100 @@ export default function NoweZlecenieScreen() {
           </View>
         </View>
 
+        {!fieldQuoteMode && (
+          <View style={S.officeIntakeCard}>
+            <View style={S.officeIntakeHead}>
+              <View style={S.officeIntakeIcon}>
+                <Ionicons name="call-outline" size={19} color={theme.accent} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={S.officeIntakeTitle}>Telefon od klienta</Text>
+                <Text style={S.officeIntakeSub}>
+                  To zapisze zgłoszenie jako etap Telefon. Specjalista dostanie potem oględziny w mobilce.
+                </Text>
+              </View>
+              <View style={S.officeIntakeScore}>
+                <Text style={S.officeIntakeScoreValue}>{officeIntakeReadyCount}/{officeIntakeChecks.length}</Text>
+                <Text style={S.officeIntakeScoreLabel}>start</Text>
+              </View>
+            </View>
+            <View style={S.officeIntakeGrid}>
+              {officeIntakeChecks.map((check) => (
+                <View key={check.key} style={[S.officeIntakeCheck, check.ok ? S.officeIntakeCheckOk : S.officeIntakeCheckWarn]}>
+                  <View style={S.officeIntakeCheckTop}>
+                    <Ionicons name={check.ok ? 'checkmark-circle' : check.icon} size={15} color={check.ok ? theme.success : theme.warning} />
+                    <Text style={[S.officeIntakeCheckLabel, { color: check.ok ? theme.success : theme.warning }]}>{check.label}</Text>
+                  </View>
+                  <Text style={S.officeIntakeCheckDetail} numberOfLines={1}>{check.detail}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={[S.officeIntakeNext, { borderColor: officeIntakeNext ? theme.warning + '66' : theme.success + '66', backgroundColor: officeIntakeNext ? theme.warningBg : theme.successBg }]}>
+              <Ionicons name={officeIntakeNext ? officeIntakeNext.icon : 'checkmark-done-outline'} size={16} color={officeIntakeNext ? theme.warning : theme.success} />
+              <Text style={[S.officeIntakeNextText, { color: officeIntakeNext ? theme.warning : theme.success }]} numberOfLines={2}>
+                {officeIntakeNext
+                  ? `Następny brak: ${officeIntakeNext.label.toLowerCase()}`
+                  : 'Zgłoszenie gotowe do zapisania i przekazania na oględziny.'}
+              </Text>
+            </View>
+            <View style={S.officeIntakeActions}>
+              <TouchableOpacity
+                style={[S.officeIntakePrimary, saving && { opacity: 0.62 }]}
+                onPress={() => void handleSubmit('back')}
+                disabled={saving}
+              >
+                <Ionicons name="save-outline" size={16} color={theme.accentText} />
+                <Text style={S.officeIntakePrimaryText}>{saving ? 'Zapisuję...' : 'Zapisz zgłoszenie'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={S.officeIntakeSecondary} onPress={() => switchIntakeMode(true)}>
+                <Ionicons name="leaf-outline" size={16} color={theme.accent} />
+                <Text style={S.officeIntakeSecondaryText}>Tryb terenowy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {fieldQuoteMode && (
+          <View style={S.journeyPanel}>
+            <View style={S.journeyHead}>
+              <View style={S.journeyIcon}>
+                <Ionicons name="trail-sign-outline" size={18} color={theme.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.journeyTitle}>Jedna ścieżka zlecenia</Text>
+                <Text style={S.journeySub}>Od telefonu do ekipy, bez osobnych formularzy i przepisywania danych.</Text>
+              </View>
+            </View>
+            <View style={S.journeySteps}>
+              {fieldJourneySteps.map((step, index) => (
+                <View key={step.key} style={[S.journeyStep, step.ok ? S.journeyStepOk : S.journeyStepPending]}>
+                  <View style={[S.journeyStepNumber, { backgroundColor: step.ok ? theme.success : theme.warning }]}>
+                    <Text style={S.journeyStepNumberText}>{index + 1}</Text>
+                  </View>
+                  <View style={S.journeyStepIcon}>
+                    <Ionicons name={step.ok ? 'checkmark-circle' : step.icon} size={17} color={step.ok ? theme.success : theme.warning} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={S.journeyStepTitle}>{step.title}</Text>
+                    <Text style={S.journeyStepDetail} numberOfLines={2}>{step.detail}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={S.legacyModeSection}>
           <View style={S.sectionTitleRow}>
             <Ionicons name="flash-outline" size={15} color={theme.accent} />
             <Text style={S.sectionTitle}>Tryb terenowy</Text>
           </View>
           <Text style={S.helperText}>
-            Wyceniający tworzy szybki draft u klienta, dodaje zdjęcia i szkic zakresu. Biuro później dopina cenę, ekipę i kalendarz.
+            Specjalista ds. wyceny tworzy szybki draft u klienta, dodaje zdjęcia i szkic zakresu. Biuro później dopina cenę, ekipę i kalendarz.
           </Text>
           <TouchableOpacity
             style={[S.modeSwitch, fieldQuoteMode && S.modeSwitchActive]}
-            onPress={() => setFieldQuoteMode(v => !v)}
+            onPress={() => switchIntakeMode(!fieldQuoteMode)}
           >
             <View style={[S.modeIcon, { backgroundColor: fieldQuoteMode ? theme.accent + '22' : theme.bg }]}>
               <Ionicons
@@ -1754,6 +2079,34 @@ export default function NoweZlecenieScreen() {
               })}
             </View>
 
+            <Text style={S.fieldGroupTitle}>Decyzje terenowe</Text>
+            <View style={S.checkGrid}>
+              {FIELD_QUICK_TOGGLES.map((option) => {
+                const active = Boolean(fieldQuote[option.key]);
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[S.checkChip, active && S.checkChipActive]}
+                    onPress={() => setFieldQuote((prev) => ({ ...prev, [option.key]: !prev[option.key] }))}
+                  >
+                    <Ionicons name={active ? 'checkmark-circle' : option.icon} size={16} color={active ? theme.accent : theme.textMuted} />
+                    <Text style={[S.checkText, active && { color: theme.accent }]}>{option.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Field label="Szczegoly pracy / instrukcja dla ekipy" theme={theme}>
+              <TextInput
+                style={[S.input, { minHeight: 72, textAlignVertical: 'top' }]}
+                value={fieldQuote.workDetails}
+                onChangeText={(v) => setFieldQuote((prev) => ({ ...prev, workDetails: v }))}
+                placeholder="np. z obu stron, sciagnac bluszcz, przyciac do linii ze zdjecia"
+                placeholderTextColor={theme.inputPlaceholder}
+                multiline
+              />
+            </Field>
+
             <Text style={S.fieldGroupTitle}>Sprzęt i zasoby</Text>
             <View style={S.checkGrid}>
               {FIELD_EQUIPMENT_OPTIONS.map((option) => {
@@ -1827,18 +2180,93 @@ export default function NoweZlecenieScreen() {
               </View>
             </View>
 
+            <View style={S.quickGrid}>
+              <View style={S.quickField}>
+                <Text style={S.fieldGroupTitle}>Minimalna cena</Text>
+                <TextInput
+                  style={S.input}
+                  value={fieldQuote.minPrice}
+                  onChangeText={(v) => setFieldQuote((prev) => ({ ...prev, minPrice: v }))}
+                  keyboardType="numeric"
+                  placeholder="np. 2200"
+                  placeholderTextColor={theme.inputPlaceholder}
+                />
+              </View>
+              <View style={S.quickField}>
+                <Text style={S.fieldGroupTitle}>Cena klienta</Text>
+                <TextInput
+                  style={S.input}
+                  value={fieldQuote.acceptedPrice}
+                  onChangeText={(v) => {
+                    setFieldQuote((prev) => ({ ...prev, acceptedPrice: v }));
+                    setForm((current) => ({ ...current, wartosc_planowana: v || fieldQuote.budget }));
+                  }}
+                  keyboardType="numeric"
+                  placeholder="np. 2600"
+                  placeholderTextColor={theme.inputPlaceholder}
+                />
+              </View>
+            </View>
+
+            <View style={S.quickGrid}>
+              <View style={S.quickField}>
+                <Text style={S.fieldGroupTitle}>Zrebki</Text>
+                <TextInput
+                  style={S.input}
+                  value={fieldQuote.chips}
+                  onChangeText={(v) => setFieldQuote((prev) => ({ ...prev, chips: v }))}
+                  keyboardType="numeric"
+                  placeholder="np. 3"
+                  placeholderTextColor={theme.inputPlaceholder}
+                />
+              </View>
+              <View style={S.quickField}>
+                <Text style={S.fieldGroupTitle}>Drewno</Text>
+                <TextInput
+                  style={S.input}
+                  value={fieldQuote.wood}
+                  onChangeText={(v) => setFieldQuote((prev) => ({ ...prev, wood: v }))}
+                  placeholder="np. zostaje / wywoz"
+                  placeholderTextColor={theme.inputPlaceholder}
+                />
+              </View>
+            </View>
+
+            <Field label="Arborysta / kto potrzebny" theme={theme}>
+              <TextInput
+                style={S.input}
+                value={fieldQuote.arborist}
+                onChangeText={(v) => setFieldQuote((prev) => ({ ...prev, arborist: v }))}
+                placeholder="np. Nazar, Wszyscy, nie"
+                placeholderTextColor={theme.inputPlaceholder}
+              />
+            </Field>
+
             <Text style={S.fieldGroupTitle}>Ryzyka / sprawdzić</Text>
+            <View style={[S.riskReadinessBox, { borderColor: fieldRiskReady ? theme.success + '66' : theme.warning + '66', backgroundColor: fieldRiskReady ? theme.successBg : theme.warningBg }]}>
+              <Ionicons name={fieldRiskReady ? 'shield-checkmark-outline' : 'alert-circle-outline'} size={17} color={fieldRiskReady ? theme.success : theme.warning} />
+              <View style={{ flex: 1 }}>
+                <Text style={[S.riskReadinessTitle, { color: fieldRiskReady ? theme.success : theme.warning }]}>
+                  {fieldRiskReady ? 'BHP opisane dla biura i ekipy' : 'Zaznacz ryzyka albo brak ryzyk'}
+                </Text>
+                <Text style={S.riskReadinessSub} numberOfLines={2}>
+                  {fieldRiskReady ? fieldRiskSummary : 'To chroni firme przed sporem i daje brygadzie instrukcje przed wyjazdem.'}
+                </Text>
+              </View>
+            </View>
             <View style={S.checkGrid}>
               {FIELD_RISK_OPTIONS.map((option) => {
                 const active = fieldQuote.risks.includes(option);
+                const noRiskOption = option.toLowerCase().startsWith('brak');
+                const activeRiskColor = noRiskOption ? theme.success : theme.warning;
                 return (
                   <TouchableOpacity
                     key={option}
-                    style={[S.checkChip, active && S.riskChipActive]}
+                    style={[S.checkChip, active && (noRiskOption ? S.noRiskChipActive : S.riskChipActive)]}
                     onPress={() => setFieldQuote((prev) => ({ ...prev, risks: toggleProtocolValue(prev.risks, option) }))}
                   >
-                    <Ionicons name={active ? 'warning' : 'ellipse-outline'} size={16} color={active ? theme.warning : theme.textMuted} />
-                    <Text style={[S.checkText, active && { color: theme.warning }]}>{option}</Text>
+                    <Ionicons name={active ? (noRiskOption ? 'checkmark-circle' : 'warning') : 'ellipse-outline'} size={16} color={active ? activeRiskColor : theme.textMuted} />
+                    <Text style={[S.checkText, active && { color: activeRiskColor }]}>{option}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -1876,7 +2304,7 @@ export default function NoweZlecenieScreen() {
                 multiline
               />
             </Field>
-            <Field label="Dodatkowe notatki wyceniającego" theme={theme}>
+            <Field label="Dodatkowe notatki specjalisty ds. wyceny" theme={theme}>
               <TextInput
                 style={[S.input, { minHeight: 72, textAlignVertical: 'top' }]}
                 value={fieldQuote.notes}
@@ -2824,6 +3252,194 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   modeSegmentText: { color: t.textMuted, fontSize: 13, fontWeight: '900' },
   modeSegmentTextActive: { color: t.accentText },
+  officeIntakeCard: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: t.accent + '3f',
+    backgroundColor: t.cardBg,
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+    ...shadowStyle(t, {
+      color: '#0f2a1d',
+      opacity: 0.07,
+      radius: 14,
+      offsetY: 8,
+      elevation: 1,
+    }),
+  },
+  officeIntakeHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  officeIntakeIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    backgroundColor: t.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  officeIntakeTitle: { color: t.text, fontSize: 16, fontWeight: '900' },
+  officeIntakeSub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  officeIntakeScore: {
+    minWidth: 56,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.accentLight,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    alignItems: 'center',
+  },
+  officeIntakeScoreValue: {
+    color: t.accent,
+    fontSize: 14,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  officeIntakeScoreLabel: { color: t.textMuted, fontSize: 8.5, fontWeight: '900', textTransform: 'uppercase' },
+  officeIntakeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  officeIntakeCheck: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minHeight: 58,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  officeIntakeCheckOk: { borderColor: t.success + '55', backgroundColor: t.successBg },
+  officeIntakeCheckWarn: { borderColor: t.warning + '55', backgroundColor: t.warningBg },
+  officeIntakeCheckTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  officeIntakeCheckLabel: { fontSize: 11.5, fontWeight: '900' },
+  officeIntakeCheckDetail: { color: t.textMuted, fontSize: 10.5, fontWeight: '800' },
+  officeIntakeNext: {
+    minHeight: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  officeIntakeNextText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '900' },
+  officeIntakeActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  officeIntakePrimary: {
+    flex: 1.2,
+    minWidth: 164,
+    minHeight: 46,
+    borderRadius: 13,
+    backgroundColor: t.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+  },
+  officeIntakePrimaryText: { color: t.accentText, fontSize: 13, fontWeight: '900' },
+  officeIntakeSecondary: {
+    flex: 1,
+    minWidth: 132,
+    minHeight: 46,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: t.accent + '66',
+    backgroundColor: t.accentLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+  },
+  officeIntakeSecondaryText: { color: t.accent, fontSize: 13, fontWeight: '900' },
+  journeyPanel: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: t.accent + '35',
+    backgroundColor: t.surface,
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+  },
+  journeyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  journeyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: t.accentLight,
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  journeyTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
+  journeySub: { color: t.textMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  journeySteps: { gap: 8 },
+  journeyStep: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  journeyStepOk: {
+    borderColor: t.success + '44',
+    backgroundColor: t.successBg,
+  },
+  journeyStepPending: {
+    borderColor: t.warning + '44',
+    backgroundColor: t.warningBg,
+  },
+  journeyStepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  journeyStepNumberText: {
+    color: t.accentText,
+    fontSize: 11,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  journeyStepIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: t.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  journeyStepTitle: { color: t.text, fontSize: 13, fontWeight: '900' },
+  journeyStepDetail: { color: t.textMuted, fontSize: 11, lineHeight: 15, marginTop: 1 },
   legacyModeSection: { display: 'none' },
   fieldHero: {
     marginHorizontal: 12,
@@ -3396,6 +4012,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   checkChipActive: { borderColor: t.accent, backgroundColor: t.accentLight },
   riskChipActive: { borderColor: t.warning, backgroundColor: t.warningBg },
+  noRiskChipActive: { borderColor: t.success, backgroundColor: t.successBg },
+  riskReadinessBox: {
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    marginBottom: 9,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  riskReadinessTitle: { fontSize: 12, fontWeight: '900' },
+  riskReadinessSub: { color: t.textSub, fontSize: 11, lineHeight: 15, marginTop: 2, fontWeight: '700' },
   checkText: { color: t.textMuted, fontSize: 12, fontWeight: '700' },
   quickGrid: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   quickField: { flex: 1 },

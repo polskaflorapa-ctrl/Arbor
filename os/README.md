@@ -2,6 +2,16 @@
 
 Backend API for ARBOR-OS.
 
+## Source Of Truth
+
+`os/` is the production backend for ARBOR. It owns API behavior, database
+migrations, authorization, integrations, and production smoke checks.
+
+`web/server/` is allowed only as a local demo/mock server. If a feature is
+needed by real web or mobile users, implement and verify it here first.
+
+See `../docs/ADR-0001-backend-source-of-truth.md`.
+
 ## Quick Start
 
 1. Install dependencies:
@@ -29,13 +39,15 @@ With server running (smoke scripts default to `http://127.0.0.1:3000`; override 
   - `npm run smoke:user`
 - Run authenticated smoke checks (`login -> authorized endpoint -> validation contract`):
   - `npm run smoke:auth`
-  - verifies: login, tasks stats access, permissions consistency (`/me` vs `/permissions`), payroll blocks on `/api/rozliczenia` and `/api/ekipy/rozliczenie` (`403` + `requestId`), validation contract (`400`)
+  - verifies: login, tasks stats access, permissions consistency (`/me` vs `/permissions`), payroll policy contract on legacy/team settlement endpoints, validation contract (`400`)
 - Run basic health smoke script (PowerShell; uses `127.0.0.1` to avoid Windows localhost/IPv6 quirks):
   - `npm run smoke:basic`
 - Run PowerShell smoke with login-enabled checks:
   - `npm run smoke:basic:auth`
 - Run full smoke sequence in one command:
   - `npm run smoke:full`
+- Run operational backbone smoke (`auth -> create smoke task -> field package/photos/problems -> office plan/conflict -> F0.3/payroll`; optional finish with `SMOKE_OPERATIONAL_FINISH=1`):
+  - `npm run smoke:operational`
 
 Smoke user credentials used by scripts:
 

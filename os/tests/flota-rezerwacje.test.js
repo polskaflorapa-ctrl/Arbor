@@ -174,6 +174,38 @@ describe('Flota rezerwacje sprzetu', () => {
     expect(insertSql).toContain('INSERT INTO equipment_reservations');
   });
 
+  it('POST can link reservation with task context', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 55, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ id: 77 }] });
+    const res = await request(app)
+      .post('/api/flota/rezerwacje')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        sprzet_id: 1,
+        ekipa_id: 3,
+        data_od: '2026-06-10',
+        data_do: '2026-06-10',
+        status: 'Zarezerwowane',
+        task_id: 55,
+        notatki: 'Plan zlecenia #55',
+      });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: 77 });
+    expect(pool.query).toHaveBeenCalledWith('SELECT id, oddzial_id FROM tasks WHERE id = $1', [55]);
+    const insertCall = pool.query.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO equipment_reservations') && String(sql).includes('task_id, notatki')
+    );
+    expect(insertCall).toBeTruthy();
+    expect(insertCall[1].slice(-2)).toEqual([55, 'Plan zlecenia #55']);
+  });
+
   it('POST returns 404 when table missing', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 1, oddzial_id: 1 }] })

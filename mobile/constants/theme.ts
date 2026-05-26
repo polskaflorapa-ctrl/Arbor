@@ -182,39 +182,103 @@ const ARBOR_FOREST_NIGHT = {
   chartCyan: '#5EEAD4',
 } as const satisfies Omit<Theme, 'name'>;
 
+const DEEP_SPACE_TECH = {
+  bg: '#060913',
+  surface: 'rgba(18,24,41,0.92)',
+  surface2: 'rgba(13,18,30,0.88)',
+  surface3: '#121829',
+  border: 'rgba(255,255,255,0.05)',
+  text: '#F1F5F9',
+  textSub: '#CBD5E1',
+  textMuted: '#64748B',
+  accent: '#00E5FF',
+  accentDark: '#00A6D6',
+  accentLight: 'rgba(0,229,255,0.12)',
+  accentText: '#060913',
+  success: '#00E676',
+  successBg: 'rgba(0,230,118,0.1)',
+  warning: '#FF9100',
+  warningBg: 'rgba(255,145,0,0.1)',
+  danger: '#FF3D71',
+  dangerBg: 'rgba(255,61,113,0.1)',
+  info: '#00E5FF',
+  infoBg: 'rgba(0,229,255,0.1)',
+  headerBg: '#060913',
+  headerText: '#F1F5F9',
+  headerSub: '#64748B',
+  navBg: '#060913',
+  navActive: '#00E5FF',
+  navInactive: '#64748B',
+  navBorder: 'rgba(255,255,255,0.05)',
+  cardBg: 'rgba(18,24,41,0.92)',
+  cardBorder: 'rgba(255,255,255,0.05)',
+  inputBg: 'rgba(13,18,30,0.8)',
+  inputBorder: 'rgba(255,255,255,0.05)',
+  inputText: '#F1F5F9',
+  inputPlaceholder: '#64748B',
+  ...SHAPE,
+  radiusSm: 10,
+  radiusMd: 12,
+  radiusLg: 16,
+  radiusXl: 20,
+  shadowColor: '#000000',
+  shadowOpacity: 0.42,
+  shadowRadius: 22,
+  shadowOffsetY: 9,
+  cardElevation: 5,
+  chartSecondary: '#00E676',
+  chartCyan: '#00E5FF',
+} as const satisfies Omit<Theme, 'name'>;
+
+const DEEP_SPACE_EMERALD = {
+  ...DEEP_SPACE_TECH,
+  accent: '#00E676',
+  accentDark: '#00A86B',
+  accentLight: 'rgba(0,230,118,0.12)',
+  navActive: '#00E676',
+} as const satisfies Omit<Theme, 'name'>;
+
+const DEEP_SPACE_PULSAR = {
+  ...DEEP_SPACE_TECH,
+  accent: '#00E5FF',
+  accentDark: '#00A6D6',
+  accentLight: 'rgba(0,229,255,0.12)',
+  navActive: '#00E5FF',
+} as const satisfies Omit<Theme, 'name'>;
+
 /** Role colors shared by badges, profile cards and employee lists. */
 export function getRolaColor(rola: string): string {
   const map: Record<string, string> = {
-    Dyrektor: '#166534',
-    Administrator: '#0F766E',
-    Kierownik: '#2F8A3B',
-    Brygadzista: '#15803D',
-    Specjalista: '#4D7C0F',
+    Dyrektor: '#00E676',
+    Administrator: '#00E5FF',
+    Kierownik: '#00E5FF',
+    Brygadzista: '#00E676',
+    Specjalista: '#22D3EE',
     'Wyceniający': '#B45309',
-    Pomocnik: '#647567',
+    Pomocnik: '#64748B',
     'Pomocnik bez doświadczenia': '#7A847B',
-    Magazynier: '#A16207',
+    Magazynier: '#FF9100',
   };
-  return map[rola] || '#647567';
+  return map[rola] || '#64748B';
 }
 
 export const themes: Record<ThemeName, Theme> = {
   dark: {
     name: 'dark',
-    ...ARBOR_FOREST_NIGHT,
+    ...DEEP_SPACE_TECH,
   },
   light: {
     name: 'light',
-    ...ARBOR_LIGHT_OFFICE,
+    ...DEEP_SPACE_EMERALD,
   },
   green: {
     name: 'green',
-    ...ARBOR_WHITE_GREEN,
+    ...DEEP_SPACE_PULSAR,
   },
 };
 
 export const THEME_LABELS: Record<ThemeName, string> = {
-  dark: 'Forest night',
-  light: 'Jasny biurowy',
-  green: 'Arbor biało-zielony',
+  dark: 'Deep Space Tech',
+  light: 'Laser Emerald',
+  green: 'Pulsar Blue',
 };

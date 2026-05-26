@@ -51,7 +51,7 @@ async function zadarmaRequest(method, path, params = {}) {
 
   const response = await fetch(url, init);
   const text = await response.text();
-  let data = {};
+  let data;
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
@@ -82,7 +82,7 @@ function verifyWebhookSignature(body = {}, signatureHeader) {
   const signature = String(signatureHeader || body.signature || '').trim();
   if (!signature) return false;
   const event = String(body.event || '').trim();
-  let source = '';
+  let source;
   if (event === 'NOTIFY_RECORD') {
     source = `${body.pbx_call_id || ''}${body.call_id_with_rec || ''}`;
   } else if (event === 'NOTIFY_OUT_START' || event === 'NOTIFY_OUT_END') {
@@ -100,9 +100,59 @@ function verifyWebhookSignature(body = {}, signatureHeader) {
   }
 }
 
+/**
+ * Wysyła SMS przez Zadarma.
+ * POST /v1/sms/send/
+ * Docs: https://zadarma.com/pl/support/api/#API_sms_send
+ *
+ * Parametry API:
+ *   number    – numer docelowy (format międzynarodowy)
+ *   message   – treść SMS
+ *   sender_id – (opcjonalny) identyfikator nadawcy
+ *
+ * Odpowiedź: { status, message_id, cost, currency }
+ *
+ * @param {object} opts
+ * @param {string} opts.to   - numer docelowy (E.164, np. +48600123456)
+ * @param {string} opts.body - treść SMS (max 640 znaków)
+ * @returns {Promise<{ ok: boolean, message_id?: string, error?: string }>}
+ */
+async function sendSms({ to, body }) {
+  const number = normalizePhone(to);
+  if (!number) return { ok: false, error: `Nieprawidłowy numer telefonu: ${to}` };
+
+  const params = {
+    message: String(body || '').slice(0, 640),
+    number,
+  };
+  // sender_id — identyfikator nadawcy widoczny u odbiorcy (max 11 znaków alfanum.)
+  if (env.ZADARMA_CALLER_ID) params.sender_id = env.ZADARMA_CALLER_ID;
+
+  try {
+    const data = await zadarmaRequest('POST', '/v1/sms/send/', params);
+    return { ok: true, message_id: String(data.message_id || ''), cost: data.cost, currency: data.currency };
+  } catch (e) {
+    if (e.code === 'ZADARMA_NOT_CONFIGURED') return { ok: false, error: e.message };
+    return { ok: false, error: e.message || 'Błąd Zadarma SMS' };
+  }
+}
+
+function normalizePhone(raw) {
+  const d = String(raw || '').replace(/[\s\-()]/g, '');
+  if (!d) return null;
+  if (/^\+\d{7,15}$/.test(d)) return d;           // już E.164
+  const stripped = d.replace(/^00/, '');
+  if (/^48\d{9}$/.test(stripped)) return `+${stripped}`;  // 48...
+  if (/^\d{9}$/.test(stripped)) return `+48${stripped}`;  // PL local
+  return null;
+}
+
 module.exports = {
   getWebrtcKey,
   isZadarmaConfigured,
+  normalizePhone,
   requestCallback,
+  sendSms,
   verifyWebhookSignature,
+  zadarmaRequest,
 };

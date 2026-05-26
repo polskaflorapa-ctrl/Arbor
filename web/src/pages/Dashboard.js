@@ -4,13 +4,14 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import OpsRadar from '../components/OpsRadar';
+import TelemetryStatus from '../components/TelemetryStatus';
 import { getRolaColor } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import {
   CREW_REQUIRED_TASK_STATUSES,
-  getTaskStatusBadgeBg,
   getTaskStatusColor,
   isTaskClosed,
   isTaskDone,
@@ -19,10 +20,6 @@ import {
 
 function taskDateKey(task) {
   return String(task?.data_planowana || task?.data_wykonania || '').slice(0, 10);
-}
-
-function moneyShort(value) {
-  return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN`;
 }
 
 function moneyCompact(value) {
@@ -63,9 +60,44 @@ function teamDisplayName(task) {
   return 'Nieprzypisana';
 }
 
+function normalizeRole(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function canViewTeamRanking(user) {
+  const role = normalizeRole(user?.rola);
+  return ['prezes', 'dyrektor', 'administrator', 'kierownik'].includes(role) ||
+    (role.includes('dyrektor') && role.includes('sprzed'));
+}
+
+function currentRankingParams() {
+  const now = new Date();
+  return { rok: now.getFullYear(), miesiac: now.getMonth() + 1 };
+}
+
+function teamRankingScope(row, fallback = '') {
+  const home = row?.ekipa_oddzial_nazwa || '';
+  const target = row?.oddzial_nazwa || '';
+  if ((Number(row?.delegowane_zadania) || 0) > 0 && home && target && home !== target) {
+    return `${home} -> ${target}`;
+  }
+  return target || home || fallback || 'Oddzial';
+}
+
+function pickDashboardWeek(ranking) {
+  const weeks = ranking?.weeks || [];
+  if (!weeks.length) return null;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  return weeks.find((week) => week.start <= today && week.end >= today) || weeks.find((week) => week.winner) || weeks[0];
+}
+
 function dashboardTaskKey(task, index, scope) {
   const stableId = task?.id ?? task?.numer ?? task?.kod ?? task?.uuid;
-  return stableId ? `${scope}-${stableId}` : `${scope}-row-${index}`;
+  return stableId ? `${scope}-${stableId}-${index}` : `${scope}-row-${index}`;
 }
 
 function AnimatedNumber({ value, duration = 900 }) {
@@ -108,6 +140,7 @@ const QL_ICONS = {
   '/misja-dnia': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
   '/autoplan-dnia': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 3v18M3 12h18"/><path d="m7 12 2 2 4-4 4 4"/></svg>,
   '/kpi-tydzien': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 3v18h18"/><path d="m7 13 3 3 7-7"/></svg>,
+  '/ranking-brygad': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="5"/><path d="M8.5 12.5 7 22l5-3 5 3-1.5-9.5"/><path d="M9.5 8 11 9.5 14.5 6"/></svg>,
   '/flota':         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
   '/harmonogram':   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   '/oddzialy':      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -154,6 +187,7 @@ function webQuickCategory(path) {
   if (path === '/ksiegowosc' || path === '/wynagrodzenie-wyceniajacych') return 'finance';
   if (
     path === '/raporty' ||
+    path === '/ranking-brygad' ||
     path.startsWith('/raporty/') ||
     ['/raport-dzienny', '/raporty-mobilne', '/misja-dnia', '/autoplan-dnia', '/kpi-tydzien'].includes(path)
   )
@@ -169,7 +203,7 @@ const INSET_LIST = {
     borderRadius: 8,
     overflow: 'hidden',
     border: '1px solid var(--border2)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
   },
   hairline: {
     height: 1,
@@ -235,9 +269,9 @@ const INSET_LIST = {
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({ nowe: 0, w_realizacji: 0, zakonczone: 0 });
   const [allTasks, setAllTasks] = useState([]);
   const [ostatnie, setOstatnie] = useState([]);
+  const [teamRankingApi, setTeamRankingApi] = useState(null);
   const [payrollClose, setPayrollClose] = useState({
     export_allowed: true,
     pending_count: 0,
@@ -262,14 +296,19 @@ export default function Dashboard() {
       setError('');
       const token = getStoredToken();
       const h = authHeaders(token);
-      const [sRes, zRes] = await Promise.all([
-        api.get('/tasks/stats', { headers: h }),
+      const actor = readStoredUser();
+      const rankingParams = currentRankingParams();
+      const rankingReq = canViewTeamRanking(actor)
+        ? api.get('/ekipy/ranking', { headers: h, params: rankingParams, dedupe: false }).catch(() => ({ data: null }))
+        : Promise.resolve({ data: null });
+      const [zRes, rRes] = await Promise.all([
         api.get('/tasks/wszystkie', { headers: h }),
+        rankingReq,
       ]);
       const taskRows = Array.isArray(zRes.data) ? zRes.data : [];
-      setStats(sRes.data);
       setAllTasks(taskRows);
       setOstatnie(taskRows.slice(0, 8));
+      setTeamRankingApi(rRes.data || null);
       try {
         const month = new Date().toISOString().slice(0, 7);
         const pRes = await api.get('/payroll/month-close-status', {
@@ -301,6 +340,11 @@ export default function Dashboard() {
     navigate('/zlecenia');
   }, [navigate]);
 
+  const openTaskDetail = useCallback((taskId) => {
+    if (!taskId) return;
+    navigate(`/zlecenia/${taskId}`);
+  }, [navigate]);
+
   const runDashboardSearch = useCallback((event) => {
     event.preventDefault();
     const query = searchQuery.trim();
@@ -309,12 +353,7 @@ export default function Dashboard() {
   }, [navigate, searchQuery]);
 
   const isBrygadzista = user?.rola === 'Brygadzista';
-  const isSpecjalista = user?.rola === 'Specjalista';
   const isWyceniajacy = user?.rola === 'Wyceniający';
-  const isMagazynier  = user?.rola === 'Magazynier';
-  const isPomocnik    = user?.rola === 'Pomocnik' || user?.rola === 'Pomocnik bez doświadczenia';
-  const isWorker      = isBrygadzista || isSpecjalista || isPomocnik || isMagazynier;
-  const canSeePayroll = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
   const sumaWartosci = allTasks.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
   const todayIso = new Date().toISOString().slice(0, 10);
   const openTasks = allTasks.filter((z) => !isTaskClosed(z.status));
@@ -396,58 +435,8 @@ export default function Dashboard() {
     },
   ];
 
-  const executiveSignals = [
-    {
-      label: 'Pieniadze w systemie',
-      value: moneyShort(sumaWartosci),
-      sub: `Otwarte: ${openTasks.length} | w realizacji: ${activeTasks.length}`,
-      path: '/raporty/analityka',
-      tone: 'green',
-    },
-    {
-      label: 'Ryzyko operacyjne',
-      value: overdueTasks.length + unassignedTasks.length,
-      sub: `Po terminie: ${overdueTasks.length} | bez ekipy: ${unassignedTasks.length}`,
-      filterKey: overdueTasks.length > 0 ? 'overdue' : 'unassigned',
-      tone: overdueTasks.length > 0 ? 'danger' : 'amber',
-    },
-    {
-      label: 'Plan na dzis',
-      value: todayTasks.length,
-      sub: activeTasks.length > 0 ? `${activeTasks.length} zlecen w realizacji` : 'Sprawdz harmonogram ekip',
-      path: '/harmonogram',
-      tone: 'blue',
-    },
-    {
-      label: 'Zamkniecie miesiaca',
-      value: payrollClose.export_allowed ? 'OK' : payrollClose.pending_count,
-      sub: payrollClose.export_allowed ? 'Raporty gotowe do eksportu' : `Brakuje raportow dnia: ${payrollClose.pending_count}`,
-      path: '/rozliczenia-ekip',
-      tone: payrollClose.export_allowed ? 'green' : 'danger',
-    },
-  ];
-
-  const kpiData = [
-    { label: 'Nowe zlecenia', sub: 'Oczekują na przypisanie', value: stats.nowe || 0, icon: 'nowe', path: '/zlecenia' },
-    { label: 'W realizacji', sub: 'Ekipy aktualnie w terenie', value: stats.w_realizacji || 0, icon: 'realizacja', path: '/zlecenia' },
-    { label: 'Zakończone', sub: 'Zrealizowane zlecenia', value: stats.zakonczone || 0, icon: 'zakonczone', path: '/zlecenia' },
-    ...(!isWorker && !isWyceniajacy
-      ? [{ label: 'Wartość zleceń', sub: 'Łącznie w systemie', value: sumaWartosci, icon: 'wartosc', suffix: ' PLN', path: '/zlecenia' }]
-      : []),
-    ...(canSeePayroll
-      ? [{
-          label: payrollClose.export_allowed ? 'Payroll: eksport OK' : 'Payroll: eksport zablokowany',
-          sub: payrollClose.export_allowed
-            ? 'Miesiąc gotowy do eksportu'
-            : `Brakuje raportów dnia: ${payrollClose.pending_count}`,
-          value: payrollClose.pending_count,
-          icon: payrollClose.export_allowed ? 'zakonczone' : 'realizacja',
-          path: '/rozliczenia-ekip',
-        }]
-      : []),
-  ];
-
   const quickLinks = useMemo(() => [
+    { label: 'Ranking brygad', sub: 'Liderzy tygodnia i miesiaca', path: '/ranking-brygad', color: '#A3E635', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Nowe zlecenie',  sub: 'Utwórz zlecenie',       path: '/nowe-zlecenie', color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Planowanie',     sub: 'Przypisz ekipy',         path: '/kierownik',     color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
     { label: 'Ekipy',          sub: 'Zarządzaj ekipami',      path: '/ekipy',         color: 'var(--accent)', roles: ['Dyrektor','Administrator','Kierownik'] },
@@ -461,11 +450,11 @@ export default function Dashboard() {
     { label: 'Magazyn',        sub: 'Stan lokalny (jak w aplikacji mobilnej)', path: '/magazyn', color: '#A3E635', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Rezerwacje sprzętu', sub: 'Kalendarz rezerwacji', path: '/rezerwacje-sprzetu', color: '#22D3EE', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Magazynier'] },
     { label: 'Harmonogram',    sub: 'Kalendarz zleceń',       path: '/harmonogram',       color: '#60A5FA', roles: ['Dyrektor','Administrator','Kierownik','Brygadzista','Specjalista','Magazynier'] },
-    { label: 'Hub wyceniającego', sub: 'KPI oględzin i skróty (jak w mobile)', path: '/wyceniajacy-hub', color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
+    { label: 'Centrum specjalisty ds. wyceny', sub: 'KPI oględzin i skróty (jak w mobile)', path: '/wyceniajacy-hub', color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Wyceny',         sub: 'Kalendarz, oględziny, zatwierdzanie', path: '/wycena-kalendarz',  color: 'var(--accent)', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Blokady kalendarza', sub: 'Daty bez nowych wycen (też mobilka)', path: '/blokady-kalendarza', color: '#F87171', roles: ['Wyceniający','Specjalista','Kierownik','Dyrektor','Administrator'] },
     { label: 'Zatwierdzanie wycen', sub: 'Akceptacja i odrzucenie', path: '/zatwierdz-wyceny', color: '#34D399', roles: ['Kierownik','Administrator','Dyrektor','Specjalista'] },
-    { label: 'Rozliczenie wyc.', sub: 'Stawka + % realizacji', path: '/wynagrodzenie-wyceniajacych', color: '#34D399', roles: ['Wyceniający','Kierownik','Dyrektor','Administrator'] },
+    { label: 'Rozliczenie wyceny', sub: 'Stawka + % realizacji', path: '/wynagrodzenie-wyceniajacych', color: '#34D399', roles: ['Wyceniający','Kierownik','Dyrektor','Administrator'] },
     { label: 'Oddziały',       sub: 'Zarządzanie',            path: '/oddzialy',          color: '#60A5FA', roles: ['Dyrektor','Administrator'] },
     { label: 'Użytkownicy',    sub: 'Konta i uprawnienia',    path: '/uzytkownicy',       color: '#F87171', roles: ['Dyrektor','Administrator'] },
     { label: 'Role',           sub: 'Uprawnienia pracowników',path: '/zarzadzaj-rolami',  color: '#F59E0B', roles: ['Dyrektor','Administrator'] },
@@ -519,21 +508,40 @@ export default function Dashboard() {
 
   const statusLabel = (value) => String(value || 'Nowe').replace('_', ' ');
 
-  const teamRanking = useMemo(() => {
+  const apiTeamRanking = useMemo(() => {
+    const rows = teamRankingApi?.month?.ranking || [];
+    return rows.slice(0, 5).map((row) => ({
+      key: `api-${row.ekipa_id}`,
+      name: row.ekipa_nazwa || `Ekipa #${row.ekipa_id}`,
+      branch: teamRankingScope(row, branchLabel),
+      works: Number(row.zadania || 0),
+      revenue: Number(row.wartosc || 0),
+      effectiveness: Number(row.skutecznosc || 0),
+      score: Number(row.score || 0),
+      delegations: Number(row.delegowane_zadania || 0),
+    }));
+  }, [branchLabel, teamRankingApi]);
+
+  const fallbackTeamRanking = useMemo(() => {
     const map = new Map();
     for (const z of ostatnie) {
       const name = z.ekipa_nazwa || z.ekipa || 'Bez przypisanej ekipy';
-      const prev = map.get(name) || { name, count: 0, value: 0, branch: z.miasto || z.oddzial_nazwa || '' };
+      const prev = map.get(name) || { name, count: 0, value: 0, works: 0, revenue: 0, branch: z.miasto || z.oddzial_nazwa || '', effectiveness: 0 };
       prev.count += 1;
       prev.value += Number(z.wartosc_rzeczywista || z.wartosc_planowana || 0);
+      prev.works += 1;
+      prev.revenue += Number(z.wartosc_rzeczywista || z.wartosc_planowana || 0);
+      prev.effectiveness = 0;
       if (!prev.branch) prev.branch = z.miasto || z.oddzial_nazwa || '';
       map.set(name, prev);
     }
     return Array.from(map.entries())
       .map(([key, team]) => ({ ...team, key }))
-      .sort((a, b) => b.value - a.value || b.count - a.count)
+      .sort((a, b) => b.revenue - a.revenue || b.works - a.works)
       .slice(0, 5);
   }, [ostatnie]);
+  const teamRanking = apiTeamRanking.length ? apiTeamRanking : fallbackTeamRanking;
+  const activeRankingWeek = useMemo(() => pickDashboardWeek(teamRankingApi), [teamRankingApi]);
 
   const scheduleItems = useMemo(() => [...ostatnie]
     .sort((a, b) => new Date(a.data_planowana || a.data_zaplanowana || 0) - new Date(b.data_planowana || b.data_zaplanowana || 0))
@@ -617,7 +625,7 @@ export default function Dashboard() {
             <div style={d.heroGreeting}>Dzień dobry, {user?.imie}</div>
             <div style={d.heroDate}>{dzisiaj}</div>
             <div style={{ ...d.rolaBadge, background: rolaColor + '22', color: rolaColor }}>
-              {user?.rola}{user?.oddzial_nazwa ? ` · ${user.oddzial_nazwa}` : ''}
+              {getRoleDisplayName(user?.rola)}{user?.oddzial_nazwa ? ` · ${user.oddzial_nazwa}` : ''}
             </div>
           </div>
           <div style={{ ...d.topActions, ...(isCompact ? d.topActionsCompact : {}) }}>
@@ -668,7 +676,6 @@ export default function Dashboard() {
               <div style={d.tableHead}>
                 <span>ID</span>
                 <span>Klient</span>
-                <span>Lokalizacja</span>
                 <span>Status</span>
                 <span>Termin</span>
                 <span>Wartość</span>
@@ -682,11 +689,8 @@ export default function Dashboard() {
                   <button key={dashboardTaskKey(task, index, 'recent-table')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.tableRow}>
                     <span style={d.tableId}>{formatOrderId(task)}</span>
                     <span style={d.tableStrong}>{task.klient_nazwa || 'Brak klienta'}</span>
-                    <span>{getTaskLocation(task)}</span>
                     <span>
-                      <span style={{ ...d.statusBadge, background: getTaskStatusBadgeBg(task.status), color: getTaskStatusColor(task.status, 'var(--text-sub)') }}>
-                        {statusLabel(task.status)}
-                      </span>
+                      <TelemetryStatus value={task.status} label={statusLabel(task.status)} />
                     </span>
                     <span>{formatTaskDate(task)}</span>
                     <span style={d.tableValue}>{task.wartosc_planowana ? moneyCompact(task.wartosc_planowana) : '-'}</span>
@@ -702,13 +706,18 @@ export default function Dashboard() {
                 <h2 style={d.panelTitle}>Ranking załóg</h2>
                 <p style={d.panelSub}>Miesiąc: {monthLabel}</p>
               </div>
-              <button type="button" onClick={() => navigate('/kpi-tydzien')} style={d.linkBtn}>Raport</button>
+              <button type="button" onClick={() => navigate('/ranking-brygad')} style={d.linkBtn}>Ranking</button>
             </div>
             <div style={d.rankingList}>
+              {activeRankingWeek?.winner && (
+                <button type="button" onClick={() => navigate('/ranking-brygad')} style={d.rankingLeader}>
+                  Tydzien: {activeRankingWeek.winner.ekipa_nazwa} | {Number(activeRankingWeek.winner.score || 0).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} pkt
+                </button>
+              )}
               {teamRanking.length === 0 ? (
                 <div style={d.tableEmpty}>Brak danych załóg.</div>
               ) : teamRanking.map((team, index) => (
-                <button key={team.key} type="button" onClick={() => navigate('/kpi-tydzien')} style={d.rankingRow}>
+                <button key={team.key} type="button" onClick={() => navigate('/ranking-brygad')} style={d.rankingRow}>
                   <span style={{ ...d.placeBadge, ...(index < 3 ? d[`placeBadge_${index}`] : {}) }}>{index + 1}</span>
                   <span style={d.teamLeaf} aria-hidden>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -720,9 +729,9 @@ export default function Dashboard() {
                   </span>
                   <span style={d.rankingName}>
                     <strong>{team.name}</strong>
-                    <small>{team.branch || branchLabel}</small>
+                    <small>{team.branch || branchLabel}{team.delegations ? ` | delegacje: ${team.delegations}` : ''}</small>
                   </span>
-                  <span style={d.rankingMetric}>{team.works}</span>
+                  <span style={d.rankingMetric}>{team.score ? `${team.score} pkt` : team.works}</span>
                   <span style={d.rankingMetric}>{moneyCompact(team.revenue)}</span>
                   <span style={d.rankingMetric}>{team.effectiveness}%</span>
                 </button>
@@ -829,84 +838,11 @@ export default function Dashboard() {
         </section>
 
         {!isWyceniajacy && (
-          <div style={d.kpiSection}>
-            <div style={d.insetGroup}>
-              {kpiData.map((k, i) => (
-                <Fragment key={k.label}>
-                  {i > 0 ? <div style={d.insetHairline} /> : null}
-                  <button
-                    type="button"
-                    disabled={!k.path}
-                    onClick={() => k.path && navigate(k.path)}
-                    onMouseEnter={() => k.path && setHovered(`kpi${i}`)}
-                    onMouseLeave={() => setHovered(null)}
-                    style={{
-                      ...d.insetRow,
-                      cursor: k.path ? 'pointer' : 'default',
-                      opacity: k.path ? 1 : 0.92,
-                      background: hovered === `kpi${i}` && k.path ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
-                    }}
-                  >
-                    <span style={d.insetIconTile}>{KPI_ICONS[k.icon]}</span>
-                    <span style={d.insetRowTexts}>
-                      <span style={d.insetRowTitle}>{k.label}</span>
-                      <span style={d.insetRowSub}>{k.sub}</span>
-                    </span>
-                    <span style={d.kpiValue}>
-                      <AnimatedNumber value={k.value} />
-                      {k.suffix || ''}
-                    </span>
-                  </button>
-                </Fragment>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {canSeePayroll && (
-          <section style={d.executivePanel}>
-            <div style={d.executiveHead}>
-              <div>
-                <div style={d.executiveEyebrow}>Panel prezesa</div>
-                <h2 style={d.executiveTitle}>Najwazniejsze decyzje bez szukania po menu</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/raporty')}
-                style={d.executiveAction}
-              >
-                Centrum raportow
-                {QL_CHEVRON}
-              </button>
-            </div>
-            <div style={d.executiveGrid}>
-              {executiveSignals.map((signal, i) => (
-                <button
-                  key={signal.label}
-                  type="button"
-                  onClick={() => signal.filterKey ? openSmartTaskFilter(signal.filterKey) : navigate(signal.path)}
-                  onMouseEnter={() => setHovered(`exec-${i}`)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    ...d.executiveTile,
-                    ...(d[`executiveTile_${signal.tone}`] || d.executiveTile_green),
-                    background: hovered === `exec-${i}` ? 'var(--bg-card2)' : 'var(--bg-deep)',
-                  }}
-                >
-                  <span style={d.executiveTileLabel}>{signal.label}</span>
-                  <strong style={d.executiveTileValue}>{signal.value}</strong>
-                  <span style={d.executiveTileSub}>{signal.sub}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {!isWyceniajacy && (
           <OpsRadar
             tasks={allTasks}
             payrollClose={payrollClose}
             onOpenFilter={openSmartTaskFilter}
+            onOpenTask={openTaskDetail}
           />
         )}
 
@@ -997,7 +933,7 @@ export default function Dashboard() {
                   onMouseEnter={() => setHovered(`z${z.id}`)}
                   onMouseLeave={() => setHovered(null)}
                   style={{ ...d.zRow, borderLeftColor: getTaskStatusColor(z.status, '#334155'),
-                    background: hovered === `z${z.id}` ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
+                    background: hovered === `z${z.id}` ? 'rgba(20,131,79,0.06)' : 'transparent' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={d.zKlient}>{z.klient_nazwa}</div>
                     <div style={d.zMeta}>
@@ -1006,9 +942,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ ...d.statusBadge, background: getTaskStatusBadgeBg(z.status), color: getTaskStatusColor(z.status, '#94A3B8') }}>
-                      {z.status?.replace('_', ' ')}
-                    </span>
+                    <TelemetryStatus value={z.status} label={z.status?.replace('_', ' ')} />
                     {!isBrygadzista && z.wartosc_planowana && (
                       <div style={d.zWartosc}>{parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN</div>
                     )}
@@ -1073,40 +1007,40 @@ const d = {
   root: {
     display: 'flex',
     minHeight: '100vh',
-    background: 'linear-gradient(145deg, var(--bg-deep) 0%, var(--bg) 48%, var(--bg-edge) 100%)',
+    background: '#f5f6f8',
   },
   content: { flex: 1, padding: '18px clamp(16px, 2.4vw, 28px) 28px', overflowX: 'hidden', minWidth: 0, position: 'relative' },
   errorBanner: {
     padding: '10px 14px',
-    borderRadius: 8,
-    border: '1px solid #EF9A9A',
-    background: '#FFEBEE',
-    color: '#C62828',
+    borderRadius: 12,
+    border: '1px solid rgba(255,61,113,0.28)',
+    background: 'rgba(255,61,113,0.1)',
+    color: 'var(--danger)',
     marginBottom: 16,
     fontSize: 14,
     fontWeight: 600,
   },
   topbar: {
-    minHeight: 66,
+    minHeight: 56,
     display: 'grid',
     gridTemplateColumns: 'minmax(220px, 1fr) minmax(280px, 520px) auto',
     alignItems: 'center',
     gap: 16,
     marginBottom: 14,
-    padding: '12px 14px',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 10,
-    background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
-    boxShadow: 'var(--shadow-sm)',
+    padding: '10px 14px',
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    background: '#ffffff',
+    boxShadow: 'none',
   },
   topbarTitleWrap: { display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 },
   menuBtn: {
     width: 36,
     height: 36,
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    background: 'var(--bg-card)',
-    color: 'var(--text)',
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    background: '#ffffff',
+    color: '#323338',
     display: 'inline-flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -1122,23 +1056,23 @@ const d = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    minHeight: 40,
-    border: '1px solid var(--glass-border)',
-    borderRadius: 8,
-    background: 'var(--bg-card)',
+    minHeight: 36,
+    border: '1px solid rgba(15,95,58,0.12)',
+    borderRadius: 14,
+    background: 'rgba(255,255,255,0.92)',
     color: 'var(--text-muted)',
     padding: '0 10px',
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px rgba(16,34,24,0.05)',
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
     border: 'none',
     background: 'transparent',
-    color: 'var(--text)',
+    color: '#323338',
     outline: 'none',
     fontSize: 13,
-    fontWeight: 700,
+    fontWeight: 500,
   },
   searchShortcut: {
     border: '1px solid var(--border)',
@@ -1151,12 +1085,12 @@ const d = {
   topbarMeta: { display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' },
   iconStatusBtn: {
     position: 'relative',
-    width: 38,
-    height: 38,
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    background: 'var(--bg-card)',
-    color: 'var(--text)',
+    width: 36,
+    height: 36,
+    border: '1px solid rgba(15,95,58,0.12)',
+    borderRadius: 12,
+    background: '#ffffff',
+    color: '#0b3d27',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1201,11 +1135,11 @@ const d = {
     cursor: 'pointer',
     boxShadow: 'var(--shadow-sm)',
   },
-  kpiCard_green: { border: '1px solid rgba(120,242,173,0.24)' },
-  kpiCard_lime: { border: '1px solid rgba(163,230,53,0.24)' },
-  kpiCard_blue: { border: '1px solid rgba(91,192,235,0.24)' },
-  kpiCard_amber: { border: '1px solid rgba(242,184,75,0.28)' },
-  kpiCard_danger: { border: '1px solid rgba(248,113,113,0.3)' },
+  kpiCard_green: { borderLeftColor: '#00c875' },
+  kpiCard_lime:  { borderLeftColor: '#00c875' },
+  kpiCard_blue:  { borderLeftColor: '#579bfc' },
+  kpiCard_amber: { borderLeftColor: '#fdab3d' },
+  kpiCard_danger:{ borderLeftColor: '#e2445c' },
   kpiIconLegacy: {
     width: 42,
     height: 42,
@@ -1220,7 +1154,7 @@ const d = {
   kpiCardText: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 },
   kpiCardLabelLegacy: { fontSize: 11, color: 'var(--text-sub)', fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.2 },
   kpiCardValueLegacy: { fontSize: 24, color: 'var(--text)', fontWeight: 950, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
-  kpiCardSub: { fontSize: 12, color: 'var(--accent)', fontWeight: 800, lineHeight: 1.25 },
+  kpiCardSub: { fontSize: 12, color: '#676879', fontWeight: 600, lineHeight: 1.25 },
   referenceGrid: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1.05fr) minmax(360px, .95fr)',
@@ -1241,10 +1175,10 @@ const d = {
     overflow: 'hidden',
   },
   panelWide: {
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(15,95,58,0.12)',
     borderRadius: 8,
-    background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
-    boxShadow: 'var(--shadow-sm)',
+    background: '#ffffff',
+    boxShadow: '0 12px 32px rgba(16,34,24,0.08)',
     overflow: 'hidden',
   },
   panelHeaderLegacy: {
@@ -1260,18 +1194,19 @@ const d = {
   linkBtn: {
     border: 'none',
     background: 'transparent',
-    color: 'var(--accent)',
+    color: '#579bfc',
     fontSize: 12,
-    fontWeight: 900,
+    fontWeight: 600,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+    fontFamily: 'inherit',
   },
   tableShell: { padding: '0 14px 14px', overflowX: 'auto' },
   tableHeadLegacy: {
     display: 'grid',
     gridTemplateColumns: '110px minmax(190px, 1.3fr) minmax(110px, .8fr) 110px 100px 100px',
     gap: 12,
-    minWidth: 760,
+    minWidth: 0,
     padding: '12px 0 9px',
     color: 'var(--text-muted)',
     fontSize: 10,
@@ -1301,31 +1236,50 @@ const d = {
   tableValue: { color: 'var(--text)', fontWeight: 900, textAlign: 'right' },
   tableEmpty: { padding: 18, color: 'var(--text-muted)', fontSize: 13, fontWeight: 750 },
   rankingList: { padding: '8px 12px 12px' },
+  rankingLeader: {
+    width: '100%',
+    marginBottom: 8,
+    padding: '8px 10px',
+    borderRadius: 4,
+    border: '1px solid #e6e9ef',
+    borderLeft: '3px solid #00c875',
+    background: '#ffffff',
+    color: '#323338',
+    textAlign: 'left',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
   rankingRow: {
     display: 'grid',
     gridTemplateColumns: '34px 34px minmax(120px, 1fr) 44px 86px 52px',
     alignItems: 'center',
     gap: 8,
     width: '100%',
-    minHeight: 50,
+    minHeight: 46,
     border: 'none',
-    borderBottom: '1px solid var(--border)',
-    background: 'transparent',
-    color: 'var(--text-sub)',
+    borderBottom: '1px solid #e6e9ef',
+    borderRadius: 0,
+    background: '#ffffff',
+    color: '#323338',
     cursor: 'pointer',
     textAlign: 'left',
+    fontFamily: 'inherit',
   },
   placeBadge: {
-    width: 25,
-    height: 25,
+    width: 24,
+    height: 24,
     borderRadius: '50%',
-    border: '1px solid var(--border2)',
-    color: 'var(--text-muted)',
+    border: '1px solid #e6e9ef',
+    color: '#676879',
+    background: '#f5f6f8',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: 11,
-    fontWeight: 950,
+    fontWeight: 700,
+    flexShrink: 0,
   },
   placeBadge_0: { color: '#f2b84b', border: '1px solid #f2b84b' },
   placeBadge_1: { color: '#cbd5e1', border: '1px solid #cbd5e1' },
@@ -1341,25 +1295,28 @@ const d = {
     justifyContent: 'center',
   },
   rankingName: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
-  rankingMetric: { color: 'var(--text)', fontSize: 12, fontWeight: 850, textAlign: 'right' },
+  rankingMetric: { color: '#323338', fontSize: 12, fontWeight: 700, textAlign: 'right' },
   scheduleList: { padding: '8px 12px 12px' },
   scheduleRow: {
     display: 'grid',
-    gridTemplateColumns: '58px 1fr 24px',
+    gridTemplateColumns: '52px 1fr 20px',
     alignItems: 'center',
     gap: 10,
     width: '100%',
-    minHeight: 47,
+    minHeight: 44,
     border: 'none',
-    borderBottom: '1px solid var(--border)',
-    background: 'transparent',
-    color: 'var(--text-sub)',
+    borderBottom: '1px solid #e6e9ef',
+    borderRadius: 0,
+    background: '#ffffff',
+    color: '#323338',
     cursor: 'pointer',
     textAlign: 'left',
+    padding: '0 12px',
+    fontFamily: 'inherit',
   },
-  scheduleTime: { color: 'var(--accent)', fontWeight: 950, fontSize: 12, fontVariantNumeric: 'tabular-nums' },
+  scheduleTime: { color: '#676879', fontWeight: 600, fontSize: 11, fontVariantNumeric: 'tabular-nums' },
   scheduleMain: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
-  scheduleArrow: { color: 'var(--text-muted)', display: 'inline-flex', justifyContent: 'flex-end' },
+  scheduleArrow: { color: '#b3b7cb', display: 'inline-flex', justifyContent: 'flex-end' },
   alertListLegacy: { padding: '8px 12px 12px' },
   alertRowLegacy: {
     display: 'grid',
@@ -1375,55 +1332,57 @@ const d = {
     cursor: 'pointer',
     textAlign: 'left',
   },
-  alertIcon: { width: 18, height: 18, borderRadius: 6, border: '1px solid var(--border2)', background: 'var(--accent-surface)' },
-  alertIcon_danger: { border: '1px solid rgba(248,113,113,0.45)', background: 'var(--danger-surface)' },
-  alertIcon_warning: { border: '1px solid rgba(242,184,75,0.45)', background: 'var(--warning-surface)' },
-  alertIcon_info: { border: '1px solid rgba(91,192,235,0.45)', background: 'rgba(91,192,235,0.13)' },
-  alertIcon_success: { border: '1px solid rgba(52,211,153,0.45)', background: 'var(--success-surface)' },
-  alertText: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+  alertIcon: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: '#579bfc' },
+  alertIcon_danger:  { background: '#e2445c' },
+  alertIcon_warning: { background: '#fdab3d' },
+  alertIcon_info:    { background: '#579bfc' },
+  alertIcon_success: { background: '#00c875' },
+  alertText: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 },
   metricList: { padding: '12px 14px 10px', display: 'flex', flexDirection: 'column', gap: 12 },
   metricRow: { display: 'flex', flexDirection: 'column', gap: 6 },
-  metricTop: { display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--text-sub)', fontSize: 12, fontWeight: 850 },
-  progressTrack: { height: 6, borderRadius: 8, overflow: 'hidden', background: 'rgba(148,163,184,0.18)' },
-  progressFillLegacy: { display: 'block', height: '100%', borderRadius: 8, background: 'var(--accent-gradient)' },
-  metricMeta: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 750 },
+  metricTop: { display: 'flex', justifyContent: 'space-between', gap: 10, color: '#323338', fontSize: 12, fontWeight: 600 },
+  progressTrack: { height: 6, borderRadius: 8, overflow: 'hidden', background: '#e6e9ef' },
+  progressFillLegacy: { display: 'block', height: '100%', borderRadius: 8, background: '#579bfc' },
+  metricMeta: { color: '#676879', fontSize: 11, fontWeight: 500 },
   reportShortcuts: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, padding: '0 14px 14px' },
   reportBtn: {
-    minHeight: 32,
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    background: 'var(--surface-field)',
-    color: 'var(--text-sub)',
+    minHeight: 30,
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    background: '#f5f6f8',
+    color: '#676879',
     fontSize: 11,
-    fontWeight: 850,
+    fontWeight: 600,
     cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   shortcutPanel: {
-    border: '1px solid var(--glass-border)',
-    borderRadius: 8,
-    background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
-    boxShadow: 'var(--shadow-sm)',
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    background: '#ffffff',
+    boxShadow: 'none',
     marginBottom: 14,
     overflow: 'hidden',
   },
-  shortcutGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))', gap: 10, padding: 14 },
-  shortcutGroup: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 10, minWidth: 0 },
-  shortcutGroupTitle: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 950, textTransform: 'uppercase', marginBottom: 8 },
+  shortcutGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 0, padding: 0, borderTop: '1px solid #e6e9ef' },
+  shortcutGroup: { border: 'none', borderRight: '1px solid #e6e9ef', background: '#ffffff', padding: '12px 14px', minWidth: 0 },
+  shortcutGroupTitle: { color: '#676879', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 },
   shortcutRow: {
     width: '100%',
-    minHeight: 30,
+    minHeight: 28,
     display: 'flex',
     alignItems: 'center',
     gap: 8,
     border: 'none',
     background: 'transparent',
-    color: 'var(--text-sub)',
+    color: '#323338',
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 600,
     textAlign: 'left',
     cursor: 'pointer',
+    fontFamily: 'inherit',
   },
-  shortcutDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
+  shortcutDot: { display: 'none' },
 
   // Hero
   hero: {
@@ -1439,7 +1398,7 @@ const d = {
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: 18,
-    borderRadius: 16,
+    borderRadius: 8,
     width: '100%',
     maxWidth: '100%',
     boxSizing: 'border-box',
@@ -1469,26 +1428,6 @@ const d = {
     maxWidth: '100%',
   },
 
-  kpiSection: { display: 'none', marginBottom: 24 },
-  kpiValue: {
-    flexShrink: 0,
-    minWidth: 56,
-    textAlign: 'right',
-    fontSize: 20,
-    fontWeight: 650,
-    letterSpacing: 0,
-    fontVariantNumeric: 'tabular-nums',
-    color: 'var(--text)',
-  },
-  kpiValueCompact: {
-    width: 'calc(100% - 42px)',
-    minWidth: 'calc(100% - 42px)',
-    marginLeft: 42,
-    textAlign: 'left',
-    fontSize: 18,
-    maxWidth: '100%',
-    whiteSpace: 'normal',
-  },
   insetGroup: INSET_LIST.group,
   insetGroupLift: { ...INSET_LIST.group, marginTop: 12 },
   insetHairline: INSET_LIST.hairline,
@@ -1512,7 +1451,7 @@ const d = {
     justifyContent: 'space-between',
     minHeight: 48,
     padding: '11px 14px',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
   },
   pipeLabel: { fontSize: 15, fontWeight: 500, color: 'var(--text-sub)' },
   pipeValue: {
@@ -1521,95 +1460,6 @@ const d = {
     letterSpacing: 0,
     fontVariantNumeric: 'tabular-nums',
     color: 'var(--text)',
-  },
-  executivePanel: {
-    display: 'none',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    padding: 18,
-    marginBottom: 20,
-    boxShadow: 'var(--shadow-sm)',
-  },
-  executiveHead: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-    marginBottom: 14,
-  },
-  executiveEyebrow: {
-    fontSize: 11,
-    fontWeight: 800,
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: 0,
-  },
-  executiveTitle: {
-    margin: '4px 0 0',
-    fontSize: 19,
-    lineHeight: 1.25,
-    fontWeight: 800,
-    color: 'var(--text)',
-    letterSpacing: 0,
-  },
-  executiveAction: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    background: 'var(--bg-deep)',
-    color: 'var(--text)',
-    padding: '9px 12px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  executiveGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-    gap: 10,
-  },
-  executiveTile: {
-    minHeight: 118,
-    border: '1px solid var(--border)',
-    borderTop: '3px solid var(--accent)',
-    borderRadius: 8,
-    color: 'var(--text)',
-    padding: '12px 13px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    display: 'grid',
-    alignContent: 'space-between',
-    gap: 8,
-    transition: 'background 0.12s ease, transform 0.12s ease',
-    fontFamily: 'inherit',
-  },
-  executiveTile_green: { borderTop: '3px solid #34D399' },
-  executiveTile_blue: { borderTop: '3px solid #60A5FA' },
-  executiveTile_amber: { borderTop: '3px solid #FBBF24' },
-  executiveTile_danger: { borderTop: '3px solid #F87171' },
-  executiveTileLabel: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: 'var(--text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: 0,
-  },
-  executiveTileValue: {
-    fontSize: 24,
-    lineHeight: 1,
-    fontWeight: 850,
-    color: 'var(--text)',
-    fontVariantNumeric: 'tabular-nums',
-  },
-  executiveTileSub: {
-    fontSize: 12,
-    lineHeight: 1.4,
-    fontWeight: 550,
-    color: 'var(--text-sub)',
   },
   commandGrid: { display: 'none', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
   commandCard: {
@@ -1675,14 +1525,16 @@ const d = {
     justifyContent: 'center',
     gap: 8,
     padding: '0 16px',
-    borderRadius: 8,
-    border: '1px solid rgba(155,217,87,0.45)',
-    background: 'linear-gradient(180deg, var(--accent), var(--accent-dk))',
+    borderRadius: 12,
+    border: '1px solid rgba(20,131,79,0.24)',
+    background: 'var(--accent-gradient)',
     color: 'var(--on-accent)',
     fontSize: 14,
     fontWeight: 800,
     cursor: 'pointer',
-    boxShadow: '0 14px 32px rgba(155,217,87,0.16)',
+    boxShadow: 'none',
+    letterSpacing: 0,
+    textTransform: 'none',
   },
   secondaryAction: {
     minHeight: 42,
@@ -1691,10 +1543,10 @@ const d = {
     justifyContent: 'center',
     gap: 8,
     padding: '0 14px',
-    borderRadius: 8,
-    border: '1px solid var(--border2)',
-    background: 'rgba(10, 20, 12, 0.72)',
-    color: 'var(--text-sub)',
+    borderRadius: 12,
+    border: '1px solid rgba(20,131,79,0.24)',
+    background: 'rgba(20,131,79,0.08)',
+    color: 'var(--accent)',
     fontSize: 13,
     fontWeight: 750,
     cursor: 'pointer',
@@ -1702,50 +1554,59 @@ const d = {
   kpiGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-    gap: 12,
+    gap: 0,
     marginBottom: 14,
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    overflow: 'hidden',
+    background: '#ffffff',
   },
   kpiGridNarrow: { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' },
   kpiGridCompact: { gridTemplateColumns: 'minmax(0, 1fr)' },
   kpiCard: {
-    minHeight: 104,
+    minHeight: 80,
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 8,
-    border: '1px solid rgba(191,225,146,0.16)',
-    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(20,34,24,0.94), rgba(10,18,12,0.94))',
-    color: 'var(--text)',
+    gap: 10,
+    padding: '12px 16px',
+    borderRadius: 0,
+    border: 'none',
+    borderBottom: '1px solid #e6e9ef',
+    borderLeft: '3px solid transparent',
+    background: '#ffffff',
+    color: '#323338',
     cursor: 'pointer',
     textAlign: 'left',
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: 'none',
+    width: '100%',
   },
-  kpiCardHover: { transform: 'translateY(-1px)', borderColor: 'var(--border2)' },
+  kpiCardHover: { background: '#f5f6f8' },
   kpiIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 6,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    borderWidth: 1,
-    borderStyle: 'solid',
+    border: 'none',
+    background: '#f5f6f8',
+    color: '#676879',
   },
   kpiCardBody: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-  kpiCardLabel: { fontSize: 11, fontWeight: 800, color: 'var(--text-sub)', textTransform: 'uppercase' },
-  kpiCardValue: { marginTop: 6, fontSize: 24, fontWeight: 850, color: 'var(--text)', lineHeight: 1.05 },
-  kpiCardTrend: { marginTop: 7, fontSize: 12, fontWeight: 600, color: 'var(--accent)' },
+  kpiCardLabel: { fontSize: 11, fontWeight: 700, color: '#676879', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  kpiCardValue: { marginTop: 6, fontSize: 22, fontWeight: 700, color: '#323338', lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
+  kpiCardTrend: { marginTop: 6, fontSize: 12, fontWeight: 600, color: '#676879' },
   boardGrid: { display: 'grid', gridTemplateColumns: '1.14fr .86fr', gap: 12, marginBottom: 12 },
   lowerGrid: { display: 'grid', gridTemplateColumns: '1.1fr .85fr .9fr', gap: 12, marginBottom: 12 },
   panel: {
     minWidth: 0,
-    borderRadius: 8,
-    border: '1px solid rgba(191,225,146,0.18)',
-    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(9,17,12,0.95))',
-    boxShadow: 'var(--shadow-sm)',
+    borderRadius: 4,
+    border: '1px solid #e6e9ef',
+    background: '#ffffff',
+    boxShadow: 'none',
     overflow: 'hidden',
+    backdropFilter: 'none',
   },
   panelHeader: {
     display: 'flex',
@@ -1753,41 +1614,58 @@ const d = {
     justifyContent: 'space-between',
     gap: 12,
     padding: '14px 14px 12px',
-    borderBottom: '1px solid rgba(191,225,146,0.12)',
+    borderBottom: '1px solid #e6e9ef',
   },
-  panelTitle: { fontSize: 15, fontWeight: 850, color: 'var(--text)' },
-  panelSub: { marginTop: 4, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' },
+  panelTitle: { fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700, color: '#323338', textTransform: 'uppercase', letterSpacing: '0.08em' },
+  panelSub: { marginTop: 4, fontSize: 12, fontWeight: 500, color: '#676879' },
   panelLink: {
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    background: 'rgba(155,217,87,0.1)',
-    color: 'var(--accent)',
-    minHeight: 32,
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    background: '#f5f6f8',
+    color: '#676879',
+    minHeight: 28,
     padding: '0 10px',
-    fontSize: 12,
-    fontWeight: 800,
+    fontSize: 11,
+    fontWeight: 600,
     cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   table: { overflowX: 'hidden' },
   tableRow: {
     width: '100%',
     minWidth: 0,
     display: 'grid',
-    gridTemplateColumns: '44px minmax(116px,1.35fr) 84px 96px 58px 86px',
+    gridTemplateColumns: '64px minmax(86px,1fr) 94px 76px 68px',
     gap: 8,
     alignItems: 'center',
-    padding: '11px 12px',
+    padding: '10px 10px 10px 12px',
     border: 'none',
-    borderBottom: '1px solid rgba(191,225,146,0.1)',
-    background: 'transparent',
-    color: 'var(--text-sub)',
+    borderLeft: '3px solid transparent',
+    borderBottom: '1px solid rgba(15,95,58,0.1)',
+    background: '#ffffff',
+    color: 'var(--text)',
     textAlign: 'left',
     font: 'inherit',
-    fontSize: 11,
+    fontSize: 12,
     cursor: 'pointer',
   },
-  tableHead: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 850, textTransform: 'uppercase', cursor: 'default' },
-  tableCode: { color: 'var(--text-muted)', fontWeight: 750 },
+  tableHead: {
+    display: 'grid',
+    gridTemplateColumns: '64px minmax(86px,1fr) 94px 76px 68px',
+    gap: 8,
+    minWidth: 0,
+    padding: '8px 10px 8px 12px',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-display)',
+    fontSize: 10,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    borderBottom: '1px solid rgba(15,95,58,0.1)',
+    background: 'rgba(20,91,54,0.045)',
+    cursor: 'default',
+  },
+  tableCode: { color: 'var(--text-muted)', fontWeight: 750, fontFamily: 'var(--font-mono)' },
   tableStrong: { color: 'var(--text)', fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   tableMoney: { color: 'var(--text)', fontWeight: 800, textAlign: 'right', whiteSpace: 'nowrap' },
   rankList: { padding: '4px 12px 12px' },
@@ -1799,9 +1677,9 @@ const d = {
     alignItems: 'center',
     padding: '10px 0',
     border: 'none',
-    borderBottom: '1px solid rgba(191,225,146,0.1)',
+    borderBottom: '1px solid #e6e9ef',
     background: 'transparent',
-    color: 'var(--text-sub)',
+    color: '#323338',
     textAlign: 'left',
     cursor: 'pointer',
   },
@@ -1809,7 +1687,7 @@ const d = {
   rankPlaceLead: { color: '#eab308', borderColor: 'rgba(234,179,8,0.5)', background: 'rgba(234,179,8,0.12)' },
   rankLeaf: { color: 'var(--accent)', display: 'grid', placeItems: 'center' },
   rankName: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-  rankMetric: { fontSize: 12, fontWeight: 800, color: 'var(--text)' },
+  rankMetric: { fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' },
   timeline: { padding: '6px 14px 14px' },
   timelineRow: {
     width: '100%',
@@ -1819,7 +1697,7 @@ const d = {
     alignItems: 'center',
     minHeight: 38,
     border: 'none',
-    borderBottom: '1px solid rgba(191,225,146,0.1)',
+    borderBottom: '1px solid var(--border)',
     background: 'transparent',
     color: 'var(--text-sub)',
     textAlign: 'left',
@@ -1827,25 +1705,30 @@ const d = {
     font: 'inherit',
     fontSize: 12,
   },
-  timelineDate: { color: 'var(--info)', fontWeight: 800 },
+  timelineDate: { color: 'var(--info)', fontFamily: 'var(--font-mono)', fontWeight: 800 },
   timelineName: { color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   timelineBranch: { textAlign: 'right', color: 'var(--text-muted)' },
   emptyLine: { padding: '14px 0', color: 'var(--text-muted)', fontSize: 13 },
-  alertList: { padding: '8px 14px 14px' },
-  alertRow: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 0', borderBottom: '1px solid rgba(191,225,146,0.1)' },
-  alertDot: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0, marginTop: 5 },
-  alertWarn: { background: 'var(--warning)' },
-  alertOk: { background: 'var(--success)' },
-  alertInfo: { background: 'var(--info)' },
+  alertList: { padding: '0' },
+  alertRow: {
+    display: 'flex', gap: 12, alignItems: 'center', padding: '12px 14px',
+    borderBottom: '1px solid #e6e9ef', background: '#ffffff', color: '#323338',
+    borderRadius: 0, border: 'none', borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: '#e6e9ef',
+    width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+  },
+  alertDot: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
+  alertWarn: { background: '#fdab3d' },
+  alertOk: { background: '#00c875' },
+  alertInfo: { background: '#579bfc' },
   opsList: { padding: '10px 14px 14px' },
   opsRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 44px', gap: 10, alignItems: 'center', marginBottom: 12, color: 'var(--text-sub)', fontSize: 12 },
   progress: { gridColumn: '1 / -1', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  progressFill: { display: 'block', height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, var(--accent-dk), var(--accent))' },
+  progressFill: { display: 'block', height: '100%', borderRadius: 999, background: '#579bfc' },
   quickPanel: {
     borderRadius: 8,
-    border: '1px solid rgba(191,225,146,0.16)',
-    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.9), rgba(9,17,12,0.94))',
-    boxShadow: 'var(--shadow-sm)',
+    border: '1px solid var(--glass-border)',
+    background: 'var(--surface-glass)',
+    boxShadow: 'var(--shadow-md)',
     paddingBottom: 14,
   },
   quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8, padding: '0 14px' },
@@ -1855,9 +1738,9 @@ const d = {
     gap: 10,
     minHeight: 58,
     padding: '10px 12px',
-    borderRadius: 8,
-    border: '1px solid rgba(191,225,146,0.12)',
-    background: 'rgba(5,10,7,0.64)',
+    borderRadius: 12,
+    border: '1px solid var(--border)',
+    background: '#fff',
     color: 'var(--text)',
     textAlign: 'left',
     cursor: 'pointer',

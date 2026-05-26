@@ -15,6 +15,7 @@ import useAsyncLoad from '../hooks/useAsyncLoad';
 import { addTeamMember, removeTeamMember } from '../utils/teamMembersApi';
 import { devWarn } from '../utils/devLog';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 
@@ -308,14 +309,17 @@ export default function Ekipy() {
           }
         />
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12, marginBottom: 16 }}>
-          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum ekip</div>
             <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Ekipy: <strong style={{ color: 'var(--text)' }}>{filtrowaneEkipy.length}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{uzytkownicy.length}</strong> · Oddziały: <strong style={{ color: 'var(--text)' }}>{oddzialy.length}</strong></div>
           </div>
-          <div style={{ background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Akcja</div>
             <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
               Dodaj nową ekipę
+            </button>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--bg-card2)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
+              Ranking brygad
             </button>
           </div>
         </div>
@@ -323,10 +327,10 @@ export default function Ekipy() {
         {/* Formularz */}
         {showForm && canEdit && (
           <div style={{
-            background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, padding: 24, marginBottom: 20,
-            boxShadow: 'var(--shadow-sm)',
+            background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20,
+            boxShadow: 'var(--shadow-md)',
             animation: 'slideIn 0.3s ease forwards',
-            borderTop: '1px solid var(--border2)', border: '1px solid var(--border2)',
+            border: '1px solid var(--glass-border)',
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 }}>
               {editEkipa ? t('pages.ekipy.formEditTitle') : t('pages.ekipy.formNewTitle')}
@@ -394,7 +398,7 @@ export default function Ekipy() {
                 <p>Ładowanie ekip...</p>
               </div>
             ) : filtrowaneEkipy.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', border: '1px solid var(--border2)', borderRadius: 16 }}>
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>
                   <GroupsOutlined style={{ fontSize: 48 }} aria-hidden />
                 </div>
@@ -408,8 +412,8 @@ export default function Ekipy() {
                 onMouseEnter={() => setHoveredEkipa(e.id)}
                 onMouseLeave={() => setHoveredEkipa(null)}
                 style={{
-                  background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 14, padding: 16, marginBottom: 10,
-                  boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#22C55E')}33` : 'var(--shadow-sm)',
+                  background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 10,
+                  boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#22C55E')}33` : 'var(--shadow-md)',
                   borderLeft: `4px solid ${e.kolor || (selectedEkipa?.id === e.id ? 'var(--accent)' : '#334155')}`,
                   cursor: 'pointer',
                   transform: hoveredEkipa === e.id ? 'translateX(4px)' : 'none',
@@ -439,8 +443,8 @@ export default function Ekipy() {
                         title={t('common.edit')}
                         aria-label={t('common.edit')}
                         onMouseEnter={e2 => e2.currentTarget.style.backgroundColor = 'var(--border2)'}
-                        onMouseLeave={e2 => e2.currentTarget.style.backgroundColor = 'rgba(52,211,153,0.1)'}
-                        style={{ padding: '6px 10px', backgroundColor: 'var(--bg-deep)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--accent)', transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center' }}
+                        onMouseLeave={e2 => e2.currentTarget.style.backgroundColor = 'var(--surface-field)'}
+                        style={{ padding: '6px 10px', backgroundColor: 'var(--surface-field)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--accent)', transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center' }}
                         onClick={() => handleEdit(e)}
                       >
                         <EditOutlined style={{ fontSize: 18 }} />
@@ -466,7 +470,7 @@ export default function Ekipy() {
                     <span style={{ backgroundColor: '#66BB6A', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
                     {e.brygadzista_imie} {e.brygadzista_nazwisko}
                     {e.procent_wynagrodzenia && (
-                      <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 'bold' }}>
+                      <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 8, fontSize: 12, fontWeight: 'bold' }}>
                         {e.procent_wynagrodzenia}%
                       </span>
                     )}
@@ -480,8 +484,8 @@ export default function Ekipy() {
           {/* Szczegóły */}
           {selectedEkipa && ekipaDetail ? (
             <div style={{
-              background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 24,
-              boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border2)',
+              background: 'var(--surface-glass)', borderRadius: 8, padding: 24,
+              boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)',
               animation: 'fadeIn 0.3s ease forwards',
             }}>
               <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
@@ -542,7 +546,7 @@ export default function Ekipy() {
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--accent-dk)'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent)'}
                           disabled={rateSaving}
-                          style={{ padding: '6px 12px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', transition: 'all 0.2s', opacity: rateSaving ? 0.7 : 1 }}>
+                          style={{ padding: '6px 12px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: rateSaving ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 'bold', transition: 'all 0.2s', opacity: rateSaving ? 0.7 : 1 }}>
                           {rateSaving ? '⏳' : 'Zapisz'}
                         </button>
                       </div>
@@ -561,19 +565,19 @@ export default function Ekipy() {
                     <button
                       onClick={() => setShowAddCzlonek(!showAddCzlonek)}
                         disabled={memberSaving}
-                      style={{ padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}>
+                      style={{ padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600' }}>
                       {showAddCzlonek ? '✕ Anuluj' : '+ Dodaj'}
                     </button>
                   )}
                 </div>
 
                 {showAddCzlonek && (
-                  <form onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid #DCEDC8' }}>
+                  <form onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid var(--border)' }}>
                     <Field label="Pracownik *">
                       <select style={S.input} value={formCzlonek.user_id} onChange={e => setFormCzlonek({ ...formCzlonek, user_id: e.target.value })} required>
                         <option value="">-- wybierz pracownika --</option>
                         {dostepniPracownicy.map(u => (
-                          <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({u.rola}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>
+                          <option key={u.id} value={u.id}>👤 {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>
                         ))}
                       </select>
                     </Field>
@@ -605,15 +609,15 @@ export default function Ekipy() {
                     key={c.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '10px 8px', borderRadius: 10, marginBottom: 4,
+                      padding: '10px 8px', borderRadius: 8, marginBottom: 4,
                       transition: 'background 0.15s',
                       animation: `slideIn 0.2s ease ${i * 0.05}s forwards`, opacity: 0,
                     }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#0F172A'}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-field)'}
                     onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                     <div style={{
                       width: 38, height: 38, borderRadius: 19,
-                      background: 'linear-gradient(135deg, var(--border), var(--border2))',
+                        background: 'var(--accent-surface)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 13, fontWeight: 'bold', color: 'var(--accent)', flexShrink: 0,
                     }}>
@@ -622,7 +626,7 @@ export default function Ekipy() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: '600', color: 'var(--text)' }}>{c.imie} {c.nazwisko}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2 }}>
-                        <span style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{c.rola}</span>
+                        <span style={{ backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '1px 6px', borderRadius: 4 }}>{getRoleDisplayName(c.rola)}</span>
                         <span>{t('pages.ekipy.hourlyRate', { rate: c.stawka_godzinowa || 0 })}</span>
                       </div>
                     </div>
@@ -647,9 +651,9 @@ export default function Ekipy() {
             </div>
           ) : (
             <div style={{
-              background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 60,
+              background: 'var(--surface-glass)', borderRadius: 8, padding: 60,
               textAlign: 'center', color: 'var(--text-muted)',
-              boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border2)',
+              boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)',
               animation: 'fadeIn 0.4s ease forwards',
             }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--text-muted)', opacity: 0.45 }}>
@@ -721,11 +725,11 @@ function KalkulatorWynagrodzenia({ ekipa }) {
         onClick={oblicz}
         onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--accent-dk)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--accent)'; e.currentTarget.style.transform = 'none'; }}
-        style={{ width: '100%', padding: 10, backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', marginBottom: 14, transition: 'all 0.2s' }}>
+        style={{ width: '100%', padding: 10, background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', marginBottom: 14, transition: 'all 0.2s' }}>
         Oblicz wynagrodzenie
       </button>
       {wynik && (
-        <div style={{ backgroundColor: 'var(--bg)', borderRadius: 12, padding: 16, border: '1px solid #DCEDC8' }}>
+        <div style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 16, border: '1px solid var(--border)' }}>
           {[
             { label: 'Wartość netto', value: `${fmt(wynik.netto)} PLN` },
             { label: 'Koszt pomocników', value: `- ${fmt(wynik.kosztPom)} PLN`, color: '#EF5350' },

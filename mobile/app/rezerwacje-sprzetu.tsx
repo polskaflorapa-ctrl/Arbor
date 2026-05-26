@@ -56,6 +56,43 @@ const STATUS_TRANSITIONS: Record<RezerwacjaStatus, RezerwacjaStatus[]> = {
 };
 const CONFLICT_FILTER_KEY = 'fleet_reservation_conflict_filter_v1';
 
+type ReservationRouteParams = {
+  prefData?: string | string[];
+  date?: string | string[];
+  prefZlecenie?: string | string[];
+  task?: string | string[];
+  zlecenie?: string | string[];
+  prefSprzet?: string | string[];
+  equipment?: string | string[];
+  sprzet?: string | string[];
+  prefEkipa?: string | string[];
+  team?: string | string[];
+  ekipa?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? '' : value ?? '';
+}
+
+function onlyDigits(value: string): string {
+  return value.replace(/[^\d]/g, '');
+}
+
+function toPositiveNumber(value: string): number | null {
+  const n = Number(onlyDigits(value));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function rowTaskId(row: SprzetRezerwacjaRow): string {
+  return row.task_id != null ? String(row.task_id) : '';
+}
+
+function taskReservationLabel(row: SprzetRezerwacjaRow): string {
+  const id = rowTaskId(row);
+  if (!id) return '';
+  return `#${id}${row.task_klient_nazwa ? ` ${row.task_klient_nazwa}` : ''}`;
+}
+
 function monthRange(y: number, m0: number): { from: string; to: string } {
   const pad = (n: number) => String(n).padStart(2, '0');
   const from = `${y}-${pad(m0 + 1)}-01`;
@@ -89,8 +126,11 @@ function isPastYmdDate(value: string): boolean {
 }
 
 export default function RezerwacjeSprzetuScreen() {
-  const params = useLocalSearchParams<{ prefData?: string | string[]; prefZlecenie?: string | string[] }>();
-  const prefDataRaw = Array.isArray(params.prefData) ? params.prefData[0] : params.prefData;
+  const params = useLocalSearchParams<ReservationRouteParams>();
+  const prefDataRaw = firstParam(params.prefData) || firstParam(params.date);
+  const prefTaskRaw = onlyDigits(firstParam(params.prefZlecenie) || firstParam(params.task) || firstParam(params.zlecenie));
+  const prefSprzetRaw = (firstParam(params.prefSprzet) || firstParam(params.equipment) || firstParam(params.sprzet)).split(',')[0] || '';
+  const prefEkipaRaw = firstParam(params.prefEkipa) || firstParam(params.team) || firstParam(params.ekipa);
   const { theme } = useTheme();
   const { t, language } = useLanguage();
   const guard = useOddzialFeatureGuard('/rezerwacje-sprzetu');
@@ -104,6 +144,8 @@ export default function RezerwacjeSprzetuScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [apiListingDown, setApiListingDown] = useState(false);
   const [showOnlyConflicts, setShowOnlyConflicts] = useState(false);
+  const [taskFilterId, setTaskFilterId] = useState('');
+  const [showOnlyTask, setShowOnlyTask] = useState(false);
 
   const [sprzetList, setSprzetList] = useState<{ id: number; nazwa: string; typ?: string }[]>([]);
   const [ekipyList, setEkipyList] = useState<{ id: number; nazwa: string }[]>([]);
@@ -114,6 +156,7 @@ export default function RezerwacjeSprzetuScreen() {
   const [formEkipaId, setFormEkipaId] = useState<number | null>(null);
   const [formCalyDzien, setFormCalyDzien] = useState(true);
   const [formStatus, setFormStatus] = useState<RezerwacjaStatus>('Zarezerwowane');
+  const [formTaskId, setFormTaskId] = useState('');
   const listRef = useRef<ScrollView | null>(null);
   const rowOffsetsRef = useRef<Record<string, number>>({});
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
@@ -188,6 +231,18 @@ export default function RezerwacjeSprzetuScreen() {
   }, [prefDataRaw]);
 
   useEffect(() => {
+    if (prefTaskRaw) {
+      setTaskFilterId(prefTaskRaw);
+      setShowOnlyTask(true);
+      setFormTaskId(prefTaskRaw);
+    }
+    const sprzetId = toPositiveNumber(prefSprzetRaw);
+    if (sprzetId) setFormSprzetId(sprzetId);
+    const ekipaId = toPositiveNumber(prefEkipaRaw);
+    if (ekipaId) setFormEkipaId(ekipaId);
+  }, [prefEkipaRaw, prefSprzetRaw, prefTaskRaw]);
+
+  useEffect(() => {
     void (async () => {
       try {
         const saved = await AsyncStorage.getItem(CONFLICT_FILTER_KEY);
@@ -247,15 +302,22 @@ export default function RezerwacjeSprzetuScreen() {
     [rows, conflictKeySet],
   );
   const visibleRows = useMemo(() => {
-    if (!showOnlyConflicts) {
-      return [...rows].sort((a, b) => {
-        const aConflict = conflictKeySet.has(`${String(a.sprzet_id)}|${a.data}`) ? 1 : 0;
-        const bConflict = conflictKeySet.has(`${String(b.sprzet_id)}|${b.data}`) ? 1 : 0;
-        return bConflict - aConflict;
-      });
-    }
-    return rows.filter((r) => conflictKeySet.has(`${String(r.sprzet_id)}|${r.data}`));
-  }, [rows, showOnlyConflicts, conflictKeySet]);
+    const focusedTask = taskFilterId.trim();
+    const list = rows.filter((r) => {
+      if (showOnlyTask && focusedTask && rowTaskId(r) !== focusedTask) return false;
+      if (showOnlyConflicts && !conflictKeySet.has(`${String(r.sprzet_id)}|${r.data}`)) return false;
+      return true;
+    });
+    return [...list].sort((a, b) => {
+      const aFocused = focusedTask && rowTaskId(a) === focusedTask ? 1 : 0;
+      const bFocused = focusedTask && rowTaskId(b) === focusedTask ? 1 : 0;
+      if (aFocused !== bFocused) return bFocused - aFocused;
+      const aConflict = conflictKeySet.has(`${String(a.sprzet_id)}|${a.data}`) ? 1 : 0;
+      const bConflict = conflictKeySet.has(`${String(b.sprzet_id)}|${b.data}`) ? 1 : 0;
+      if (aConflict !== bConflict) return bConflict - aConflict;
+      return a.data.localeCompare(b.data) || String(a.sprzet_nazwa).localeCompare(String(b.sprzet_nazwa));
+    });
+  }, [rows, showOnlyConflicts, showOnlyTask, taskFilterId, conflictKeySet]);
   const firstConflictIndex = useMemo(
     () => visibleRows.findIndex((r) => conflictKeySet.has(`${String(r.sprzet_id)}|${r.data}`)),
     [visibleRows, conflictKeySet],
@@ -298,6 +360,7 @@ export default function RezerwacjeSprzetuScreen() {
   const openNewReservationModal = () => {
     if (sprzetList.length > 0) setFormSprzetId((prev) => prev ?? sprzetList[0].id);
     if (ekipyList.length > 0) setFormEkipaId((prev) => prev ?? ekipyList[0].id);
+    if (taskFilterId && !formTaskId) setFormTaskId(taskFilterId);
     setModalOpen(true);
   };
 
@@ -369,6 +432,7 @@ export default function RezerwacjeSprzetuScreen() {
     }
     const sprzet = sprzetList.find((x) => x.id === formSprzetId);
     const ekipa = ekipyList.find((x) => x.id === formEkipaId);
+    const taskId = toPositiveNumber(formTaskId);
     const body = {
       sprzet_id: formSprzetId,
       ekipa_id: formEkipaId,
@@ -376,6 +440,7 @@ export default function RezerwacjeSprzetuScreen() {
       data_do: formDate,
       caly_dzien: formCalyDzien,
       status: formStatus,
+      ...(taskId ? { task_id: taskId, notatki: `Plan zlecenia #${taskId}` } : {}),
     };
     const res = await postRezerwacjaApi(token, body);
     if (res.ok) {
@@ -409,6 +474,8 @@ export default function RezerwacjeSprzetuScreen() {
       data: formDate,
       caly_dzien: formCalyDzien,
       status: formStatus,
+      task_id: taskId,
+      notatki: taskId ? `Plan zlecenia #${taskId}` : null,
       localOnly: true,
     });
     await enqueueOfflineRequest({
@@ -433,7 +500,7 @@ export default function RezerwacjeSprzetuScreen() {
     }
     setExportingMonth(true);
     try {
-      const header = 'id,data,sprzet_id,sprzet,ekipa_id,ekipa,status,localOnly';
+      const header = 'id,data,sprzet_id,sprzet,ekipa_id,ekipa,status,task_id,localOnly';
       const lines = rows.map((r) =>
         [
           String(r.id).replace(/,/g, ' '),
@@ -443,6 +510,7 @@ export default function RezerwacjeSprzetuScreen() {
           String(r.ekipa_id),
           String(r.ekipa_nazwa ?? '').replace(/,/g, ' '),
           r.status,
+          rowTaskId(r),
           r.localOnly ? '1' : '0',
         ].join(','),
       );
@@ -587,6 +655,49 @@ export default function RezerwacjeSprzetuScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        {taskFilterId ? (
+          <View style={S.taskContextBox}>
+            <View style={S.taskContextHead}>
+              <View style={[S.taskContextIcon, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}>
+                <Ionicons name="briefcase-outline" size={16} color={theme.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.taskContextTitle}>Zlecenie #{taskFilterId}</Text>
+                <Text style={S.taskContextSub}>
+                  Rezerwacje sprzetu przypiete do konkretnej pracy.
+                </Text>
+              </View>
+            </View>
+            <View style={S.taskContextActions}>
+              <TouchableOpacity
+                style={[S.taskContextBtn, showOnlyTask && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                onPress={() => setShowOnlyTask((value) => !value)}
+              >
+                <Text style={[S.taskContextBtnText, showOnlyTask && { color: theme.accentText }]}>
+                  {showOnlyTask ? 'Tylko to zlecenie' : 'Wszystkie'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={S.taskContextBtn}
+                onPress={() => router.push(`/zlecenie/${taskFilterId}` as never)}
+              >
+                <Ionicons name="open-outline" size={13} color={theme.accent} />
+                <Text style={[S.taskContextBtnText, { color: theme.accent }]}>Karta</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={S.taskContextBtn}
+                onPress={() => {
+                  setTaskFilterId('');
+                  setShowOnlyTask(false);
+                  setFormTaskId('');
+                }}
+              >
+                <Ionicons name="close-outline" size={13} color={theme.textMuted} />
+                <Text style={S.taskContextBtnText}>Wyczysc</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
         <View style={S.flowBox}>
           <Text style={S.flowTitle}>{t('fleetReserve.flowTitle')}</Text>
           <View style={S.flowRow}>
@@ -627,6 +738,7 @@ export default function RezerwacjeSprzetuScreen() {
               style={[
                 S.card,
                 row.localOnly && { borderLeftColor: theme.warning },
+                taskFilterId && rowTaskId(row) === taskFilterId && { borderLeftColor: theme.info, backgroundColor: theme.surface2 },
                 isHighlighted && {
                   borderColor: theme.accent,
                   borderWidth: 2,
@@ -657,6 +769,19 @@ export default function RezerwacjeSprzetuScreen() {
                 <Ionicons name="people-outline" size={14} color={theme.textMuted} />
                 <Text style={S.metaTxt}>{row.ekipa_nazwa}</Text>
               </View>
+              {rowTaskId(row) ? (
+                <TouchableOpacity
+                  style={S.taskMetaRow}
+                  onPress={() => router.push(`/zlecenie/${rowTaskId(row)}` as never)}
+                >
+                  <Ionicons name="briefcase-outline" size={14} color={theme.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.taskMetaText}>{taskReservationLabel(row)}</Text>
+                    {row.task_adres ? <Text style={S.taskMetaSub} numberOfLines={1}>{row.task_adres}</Text> : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              ) : null}
               <View style={S.metaRow}>
                 <Ionicons name="calendar-outline" size={14} color={theme.textMuted} />
                 <Text style={S.metaTxt}>
@@ -718,6 +843,16 @@ export default function RezerwacjeSprzetuScreen() {
                   value={formDate}
                   onChangeText={setFormDate}
                   placeholder="YYYY-MM-DD"
+                  placeholderTextColor={theme.textMuted}
+                />
+
+                <Text style={S.fieldLbl}>Zlecenie (opcjonalnie)</Text>
+                <TextInput
+                  style={S.input}
+                  value={formTaskId}
+                  onChangeText={(value) => setFormTaskId(onlyDigits(value))}
+                  placeholder="ID zlecenia"
+                  keyboardType="number-pad"
                   placeholderTextColor={theme.textMuted}
                 />
 
@@ -988,6 +1123,40 @@ function makeStyles(theme: Theme) {
       fontWeight: '800',
       color: theme.textMuted,
     },
+    taskContextBox: {
+      marginHorizontal: 16,
+      marginBottom: 10,
+      padding: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.accent,
+      backgroundColor: theme.cardBg,
+      gap: 10,
+    },
+    taskContextHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    taskContextIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    taskContextTitle: { color: theme.text, fontSize: 14, fontWeight: '900' },
+    taskContextSub: { color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+    taskContextActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    taskContextBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
+    },
+    taskContextBtnText: { color: theme.textMuted, fontSize: 12, fontWeight: '900' },
     modalInfoBox: {
       marginHorizontal: 16,
       marginBottom: 10,
@@ -1047,6 +1216,20 @@ function makeStyles(theme: Theme) {
     pillTxt: { fontSize: 11, fontWeight: '900', color: theme.accentText },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
     metaTxt: { fontSize: 14, color: theme.textSub, fontWeight: '700' },
+    taskMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface2,
+      marginBottom: 6,
+    },
+    taskMetaText: { color: theme.accent, fontSize: 13, fontWeight: '900' },
+    taskMetaSub: { color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 1 },
     statusHint: { fontSize: 12, color: theme.textMuted, marginTop: 8, marginBottom: 6, fontWeight: '700' },
     statusRow: { flexDirection: 'row', gap: 6, paddingBottom: 4 },
     statusWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },

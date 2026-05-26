@@ -30,6 +30,7 @@ import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
 import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 import api from '../api';
 import CityInput from '../components/CityInput';
+import ModernDataRow from '../components/ModernDataRow';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import TaskCommandCenter from '../components/TaskCommandCenter';
@@ -38,20 +39,94 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 import { TASK_STATUSES, getTaskStatusColor, isTaskDone, taskMutationPayload } from '../utils/taskWorkflow';
 
 const BASE = '';
+const GPS_ONLINE_MINUTES = 5;
+const GPS_STALE_MINUTES = 20;
 
 /** Zgodnie z os/taskSettlement — FINISH_PHOTO_MIN */
 const MIN_FINISH_TYP_PHOTOS = 2;
+const PHOTO_EVIDENCE_TYPES = [
+  { key: 'wycena', label: 'Wycena', hint: 'Widok drzewa i zakresu', requiredForField: true },
+  { key: 'szkic', label: 'Szkic', hint: 'Rysunek ciecia / zakres', requiredForField: true },
+  { key: 'dojazd', label: 'Dojazd', hint: 'Brama, posesja, dostep', requiredForField: true },
+  { key: 'checkin', label: 'Check-in', hint: 'Potwierdzenie miejsca', requiredForField: false },
+  { key: 'przed', label: 'Przed', hint: 'Stan przed praca', requiredForField: false },
+  { key: 'po', label: 'Po', hint: 'Efekt po pracy', requiredForField: false },
+  { key: 'inne', label: 'Inne', hint: 'Dodatkowy dowod', requiredForField: false },
+];
 
 function photoTypMatches(typ, allowed) {
   const t = String(typ ?? '')
     .trim()
     .toLowerCase();
   return allowed.some((a) => a.toLowerCase() === t);
+}
+
+function photoEvidenceKey(typ) {
+  const t = String(typ ?? '')
+    .trim()
+    .toLowerCase();
+  if (['wycena', 'estimate', 'oględziny', 'ogledziny'].includes(t)) return 'wycena';
+  if (['szkic', 'sketch', 'rysunek'].includes(t)) return 'szkic';
+  if (['dojazd', 'posesja', 'dojazd_posesja', 'access'].includes(t)) return 'dojazd';
+  if (['checkin', 'check-in', 'check_in'].includes(t)) return 'checkin';
+  if (['przed', 'before'].includes(t)) return 'przed';
+  if (['po', 'after'].includes(t)) return 'po';
+  return 'inne';
+}
+
+function isCheckinWorkLog(row) {
+  const status = String(row?.status ?? row ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return status === 'check_in' || status === 'checkin';
+}
+
+function finiteCoord(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function mapsUrl(lat, lng) {
+  const latN = finiteCoord(lat);
+  const lngN = finiteCoord(lng);
+  if (latN == null || lngN == null) return '';
+  return `https://maps.google.com/?q=${latN},${lngN}`;
+}
+
+function gpsAgeMinutes(row) {
+  const raw = row?.recorded_at || row?.last_seen_at || row?.timestamp;
+  if (!raw) return null;
+  const ts = new Date(raw).getTime();
+  if (!Number.isFinite(ts)) return null;
+  return Math.max(0, Math.round((Date.now() - ts) / 60000));
+}
+
+function gpsStatus(row) {
+  const age = gpsAgeMinutes(row);
+  if (age == null) {
+    return { key: 'missing', label: 'GPS brak', meta: 'brak sygnalu', color: 'var(--text-muted)', bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.28)' };
+  }
+  if (age <= GPS_ONLINE_MINUTES) {
+    return { key: 'online', label: 'GPS online', meta: age <= 0 ? 'teraz' : `${age} min temu`, color: 'var(--success)', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.32)' };
+  }
+  if (age <= GPS_STALE_MINUTES) {
+    return { key: 'stale', label: 'GPS opozniony', meta: `${age} min temu`, color: 'var(--warning)', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.34)' };
+  }
+  return { key: 'offline', label: 'GPS offline', meta: `${age} min temu`, color: 'var(--danger)', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.34)' };
+}
+
+function gpsSourceLabel(row) {
+  if (!row) return 'brak';
+  if (row.provider === 'mobile') return 'mobilka';
+  if (row.provider === 'juwentus') return 'Juwentus';
+  return row.provider || 'GPS';
 }
 
 const PRIORYTET_KOLOR = {
@@ -107,6 +182,7 @@ export default function ZlecenieDetail() {
   const documentInputRef = useRef();
   const [zlecenie, setZlecenie] = useState(null);
   const [workLogs, setWorkLogs] = useState([]);
+  const [liveLocation, setLiveLocation] = useState(null);
   const [issues, setIssues] = useState([]);
   const [zdjecia, setZdjecia] = useState([]);
   const [wideo, setWideo] = useState([]);
@@ -121,10 +197,11 @@ export default function ZlecenieDetail() {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [typZdjecia, setTypZdjecia] = useState('Przed');
+  const [typZdjecia, setTypZdjecia] = useState('przed');
   const [uploadPhotoOpis, setUploadPhotoOpis] = useState('');
   const [uploadPhotoTagi, setUploadPhotoTagi] = useState('');
   const [mediaTypeFilter, setMediaTypeFilter] = useState('all');
+  const [mediaEvidenceFilter, setMediaEvidenceFilter] = useState('all');
   const [mediaSort, setMediaSort] = useState('newest');
   const [mediaSearch, setMediaSearch] = useState('');
   const [mediaTagsInput, setMediaTagsInput] = useState('');
@@ -184,7 +261,7 @@ export default function ZlecenieDetail() {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
-      const [zRes, wRes, iRes, pRes, vRes, dRes, wfRes, docsRes, intRes] = await Promise.all([
+      const [zRes, wRes, iRes, pRes, vRes, dRes, wfRes, docsRes, intRes, liveRes] = await Promise.all([
         api.get(`/tasks/${id}`, { headers: h }),
         api.get(`/tasks/${id}/logi`, { headers: h }).catch(() => ({ data: [] })),
         api.get(`/tasks/${id}/problemy`, { headers: h }).catch(() => ({ data: [] })),
@@ -194,9 +271,16 @@ export default function ZlecenieDetail() {
         api.get(`/tasks/${id}/workflow`, { headers: h }).catch(() => ({ data: { checklist: [], reminders: [], events: [], sla: { checklist_done: 0, checklist_total: 0, reminders_overdue: 0 } } })),
         api.get(`/tasks/${id}/dokumenty`, { headers: h }).catch(() => ({ data: [] })),
         api.get(`/tasks/${id}/integrations`, { headers: h }).catch(() => ({ data: { settings: { sms: true, email: true, push: true, auto_on_status: true, auto_on_reminder: true }, logs: [] } })),
+        api.get('/ekipy/live-locations', { headers: h, dedupe: false }).catch(() => ({ data: { items: [] } })),
       ]);
-      setZlecenie(zRes.data);
-      setEditForm(zRes.data);
+      const taskData = zRes.data;
+      const liveRows = Array.isArray(liveRes.data) ? liveRes.data : liveRes.data?.items || [];
+      const taskLive = liveRows.find((row) => taskData?.ekipa_id && String(row?.ekipa_id || '') === String(taskData.ekipa_id))
+        || liveRows.find((row) => taskData?.wyceniajacy_id && String(row?.wyceniajacy_id || row?.user_id || '') === String(taskData.wyceniajacy_id))
+        || null;
+      setZlecenie(taskData);
+      setEditForm(taskData);
+      setLiveLocation(taskLive);
       setWorkLogs(wRes.data);
       setIssues(iRes.data);
       setZdjecia(Array.isArray(pRes.data) ? pRes.data : []);
@@ -211,6 +295,7 @@ export default function ZlecenieDetail() {
       setIntegrationLogs(Array.isArray(intRes.data?.logs) ? intRes.data.logs : []);
     } catch (err) {
       console.error('Błąd ładowania:', err);
+      setLiveLocation(null);
       showMsg(errorMessage('Błąd ładowania danych'));
     } finally {
       setLoading(false);
@@ -632,13 +717,32 @@ export default function ZlecenieDetail() {
   const marza = wartosc - kosztRobocizny;
   const marzaProcent = wartosc > 0 ? ((marza / wartosc) * 100).toFixed(1) : 0;
 
-  const zdjeciaPrzed = zdjecia.filter(z => z.typ === 'Przed' || z.typ === 'przed');
-  const zdjeciaPo = zdjecia.filter(z => z.typ === 'Po' || z.typ === 'po');
-  const zdjeciaInne = zdjecia.filter(z => !['Przed', 'przed', 'Po', 'po'].includes(z.typ));
   const mediaSearchNorm = mediaSearch.trim().toLowerCase();
   const mediaSortFactor = mediaSort === 'oldest' ? 1 : -1;
+  const photoEvidenceCounts = useMemo(() => {
+    const counts = Object.fromEntries(PHOTO_EVIDENCE_TYPES.map((type) => [type.key, 0]));
+    for (const photo of zdjecia) {
+      const key = photoEvidenceKey(photo?.typ);
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [zdjecia]);
+  const photoEvidenceRequiredTypes = useMemo(() => (
+    PHOTO_EVIDENCE_TYPES.filter((type) => {
+      if (type.requiredForField) return true;
+      if (type.key === 'przed') return !!zlecenie?.finish_requirements?.require_przed_photo || zlecenie?.status === 'W_Realizacji';
+      if (type.key === 'po') return !!zlecenie?.finish_requirements?.require_po_photo || zlecenie?.status === 'W_Realizacji';
+      return false;
+    })
+  ), [zlecenie?.finish_requirements?.require_po_photo, zlecenie?.finish_requirements?.require_przed_photo, zlecenie?.status]);
+  const photoEvidenceMissingTypes = photoEvidenceRequiredTypes.filter((type) => !photoEvidenceCounts[type.key]);
+  const photoEvidenceReadyCount = photoEvidenceRequiredTypes.length - photoEvidenceMissingTypes.length;
+  const photoEvidencePct = photoEvidenceRequiredTypes.length
+    ? Math.round((photoEvidenceReadyCount / photoEvidenceRequiredTypes.length) * 100)
+    : 100;
   const filteredPhotos = zdjecia
     .filter((x) => mediaTypeFilter === 'all' || mediaTypeFilter === 'photos')
+    .filter((x) => mediaEvidenceFilter === 'all' || photoEvidenceKey(x?.typ) === mediaEvidenceFilter)
     .filter((x) => {
       if (!mediaSearchNorm) return true;
       const pool = [x.typ, x.autor, x.opis, ...(x.tagi || [])].filter(Boolean).join(' ').toLowerCase();
@@ -655,6 +759,14 @@ export default function ZlecenieDetail() {
     })
     .slice()
     .sort((a, b) => (new Date(a.created_at || a.data_dodania).getTime() - new Date(b.created_at || b.data_dodania).getTime()) * mediaSortFactor);
+  const filteredPhotoIds = new Set(filteredPhotos.map((photo) => String(photo.id)));
+  const photoEvidenceSections = PHOTO_EVIDENCE_TYPES
+    .map((type) => ({
+      ...type,
+      photos: zdjecia.filter((photo) => photoEvidenceKey(photo?.typ) === type.key && filteredPhotoIds.has(String(photo.id))),
+      total: photoEvidenceCounts[type.key] || 0,
+    }))
+    .filter((section) => section.photos.length > 0);
   const equipmentReservations = useMemo(
     () => Array.isArray(zlecenie?.equipment_reservations) ? zlecenie.equipment_reservations : [],
     [zlecenie]
@@ -663,6 +775,22 @@ export default function ZlecenieDetail() {
     () => equipmentReservations.filter(isActiveEquipmentReservation),
     [equipmentReservations]
   );
+  const latestCheckin = useMemo(() => {
+    const rows = workLogs
+      .filter(isCheckinWorkLog)
+      .slice()
+      .sort((a, b) => new Date(b.start_time || b.created_at || 0).getTime() - new Date(a.start_time || a.created_at || 0).getTime());
+    return rows[0] || null;
+  }, [workLogs]);
+  const checkinPhoto = useMemo(
+    () => zdjecia.find((photo) => photoTypMatches(photo?.typ, ['checkin'])) || null,
+    [zdjecia]
+  );
+  const latestCheckinMapUrl = latestCheckin
+    ? mapsUrl(latestCheckin.start_lat ?? latestCheckin.end_lat, latestCheckin.start_lng ?? latestCheckin.end_lng)
+    : '';
+  const liveStatus = gpsStatus(liveLocation);
+  const liveMapUrl = liveLocation ? mapsUrl(liveLocation.lat, liveLocation.lng) : '';
 
   const finishRequirements = useMemo(() => {
     const raw = zlecenie?.finish_requirements;
@@ -997,6 +1125,73 @@ export default function ZlecenieDetail() {
           onFinish={openFinishModal}
           formatCurrency={formatCurrency}
         />
+
+        <div style={{
+          ...styles.presenceCard,
+          borderColor: latestCheckin ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.34)'
+        }}>
+          <div style={styles.presenceHead}>
+            <div style={styles.presenceTitleWrap}>
+              <span style={{
+                ...styles.presenceIcon,
+                color: latestCheckin ? 'var(--success)' : 'var(--warning)',
+                backgroundColor: latestCheckin ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)'
+              }}>
+                <PlaceOutlined sx={{ fontSize: 20 }} />
+              </span>
+              <div>
+                <div style={styles.presenceTitle}>Dojazd / GPS ekipy</div>
+                <div style={styles.presenceSub}>
+                  {zlecenie.ekipa_nazwa || zlecenie.wyceniajacy_nazwa || 'Brak przypisanej ekipy'}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              ...styles.presencePill,
+              color: latestCheckin ? 'var(--success)' : 'var(--warning)',
+              backgroundColor: latestCheckin ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+              borderColor: latestCheckin ? 'rgba(34,197,94,0.35)' : 'rgba(245,158,11,0.34)'
+            }}>
+              {latestCheckin ? 'DOJECHALI' : checkinPhoto ? 'CHECK-IN FOTO' : 'CZEKA NA CHECK-IN'}
+            </span>
+          </div>
+
+          <div style={styles.presenceGrid}>
+            <div style={styles.presenceMetric}>
+              <span>Check-in GPS</span>
+              <strong>{latestCheckin ? formatDateTime(latestCheckin.start_time) : checkinPhoto ? 'jest zdjecie check-in' : 'brak'}</strong>
+            </div>
+            <div style={styles.presenceMetric}>
+              <span>Ostatni sygnal live</span>
+              <strong style={{ color: liveStatus.color }}>{liveStatus.label} / {liveStatus.meta}</strong>
+            </div>
+            <div style={styles.presenceMetric}>
+              <span>Zrodlo pozycji</span>
+              <strong>{gpsSourceLabel(liveLocation)}</strong>
+            </div>
+            <div style={styles.presenceMetric}>
+              <span>Koordynaty</span>
+              <strong>
+                {latestCheckin?.start_lat
+                  ? `${Number(latestCheckin.start_lat).toFixed(5)}, ${Number(latestCheckin.start_lng).toFixed(5)}`
+                  : liveLocation?.lat
+                    ? `${Number(liveLocation.lat).toFixed(5)}, ${Number(liveLocation.lng).toFixed(5)}`
+                    : '-'}
+              </strong>
+            </div>
+          </div>
+
+          <div style={styles.presenceActions}>
+            {latestCheckinMapUrl ? (
+              <a href={latestCheckinMapUrl} target="_blank" rel="noreferrer" style={styles.mapBtn}>Mapa check-in</a>
+            ) : null}
+            {liveMapUrl ? (
+              <a href={liveMapUrl} target="_blank" rel="noreferrer" style={styles.mapBtn}>Mapa live</a>
+            ) : null}
+            <button type="button" style={styles.uploadBtn} onClick={() => setActiveTab('czas')}>Rejestr czasu</button>
+            {canEdit ? <button type="button" style={styles.uploadBtn} onClick={() => navigate('/mapa-live')}>Mapa wszystkich ekip</button> : null}
+          </div>
+        </div>
 
         {isEkipa && zlecenie?.status === 'W_Realizacji' && (
           <div style={{ ...styles.card, borderLeft: '4px solid var(--accent)' }}>
@@ -1566,45 +1761,50 @@ export default function ZlecenieDetail() {
             {workLogs.length === 0 ? (
               <div style={styles.empty}>Brak zarejestrowanego czasu. Brygadzista rejestruje przez aplikację mobilną.</div>
             ) : (
-              <div style={styles.tableScroll}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Pracownik</th>
-                      <th style={styles.th}>Start</th>
-                      <th style={styles.th}>Stop</th>
-                      <th style={styles.th}>Czas</th>
-                      <th style={styles.th}>GPS start</th>
-                      <th style={styles.th}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workLogs.map((w, i) => (
-                      <tr key={w.id} style={{backgroundColor: i%2===0?'var(--bg-card)':'var(--bg-deep)'}}>
-                        <td style={{...styles.td, fontWeight:'600'}}>{w.pracownik || '-'}</td>
-                        <td style={styles.td}>{formatDateTime(w.start_time)}</td>
-                        <td style={styles.td}>{formatDateTime(w.end_time)}</td>
-                        <td style={{...styles.td, fontWeight:'600', color:'var(--accent)'}}>{formatMinutes(w.duration_hours * 60 || w.czas_pracy_minuty)}</td>
-                        <td style={styles.td}>
-                          {w.start_lat
-                            ? <a href={`https://maps.google.com/?q=${w.start_lat},${w.start_lng}`} target="_blank" rel="noreferrer" style={styles.mapLink}>📍 GPS</a>
-                            : '-'}
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{ ...styles.badge, backgroundColor: w.status === 'Zakończony' ? '#166534' : '#b45309', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            {w.status === 'Zakończony' ? <CheckCircleOutline sx={{ fontSize: 14 }} /> : <HourglassEmptyOutlined sx={{ fontSize: 14 }} />}
-                            {w.status === 'Zakończony' ? 'Zakończony' : 'W trakcie'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    <tr style={{backgroundColor:'var(--accent-surface)'}}>
-                      <td style={{...styles.td, fontWeight:'bold'}} colSpan={3}>ŁĄCZNIE</td>
-                      <td style={{...styles.td, fontWeight:'bold', color:'var(--accent)', fontSize:16}}>{formatMinutes(lacznie)}</td>
-                      <td colSpan={2}></td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {workLogs.map((w) => {
+                  const isCheckin = isCheckinWorkLog(w);
+                  const rowMapUrl = mapsUrl(w.start_lat, w.start_lng);
+                  return (
+                    <ModernDataRow
+                      key={w.id}
+                      idLabel={isCheckin ? 'Check-in' : 'Work Log'}
+                      idValue={isCheckin ? `ARRIVE-${w.id}` : `TIME-${w.id}`}
+                      title={w.pracownik || 'Pracownik'}
+                      subtitle={w.start_lat ? `${w.start_lat}, ${w.start_lng}` : 'GPS start: brak'}
+                      tone={isCheckin || w.status === 'Zakończony' ? 'success' : 'warning'}
+                      status={isCheckin ? 'Dojechali' : w.status === 'Zakończony' ? 'Zakończony' : 'W trakcie'}
+                      statusValue={w.status}
+                      statusState={isCheckin || w.status === 'Zakończony' ? 'success' : 'warning'}
+                      metrics={[
+                        { label: isCheckin ? 'Dojazd' : 'Start', value: formatDateTime(w.start_time) },
+                        { label: 'Stop', value: isCheckin ? 'punkt GPS' : formatDateTime(w.end_time) },
+                        { label: 'Czas', value: isCheckin ? '0 min' : formatMinutes(w.duration_hours * 60 || w.czas_pracy_minuty), tone: 'success' },
+                      ]}
+                      actions={
+                        rowMapUrl ? (
+                          <a href={rowMapUrl} target="_blank" rel="noreferrer" style={styles.mapLink}>
+                            GPS
+                          </a>
+                        ) : null
+                      }
+                    />
+                  );
+                })}
+                <ModernDataRow
+                  idLabel="Summary"
+                  idValue="TOTAL"
+                  title="Łącznie"
+                  subtitle="Suma zarejestrowanego czasu pracy"
+                  tone="success"
+                  status="TOTAL"
+                  statusValue="success"
+                  statusState="success"
+                  metrics={[
+                    { label: 'Czas razem', value: formatMinutes(lacznie), tone: 'success' },
+                    { label: 'Wpisy', value: workLogs.length },
+                  ]}
+                />
               </div>
             )}
           </div>
@@ -1659,8 +1859,12 @@ export default function ZlecenieDetail() {
                   <option value="oldest">Najstarsze</option>
                 </select>
                 <select style={styles.filtrSelect} value={typZdjecia} onChange={e => setTypZdjecia(e.target.value)}>
-                  <option value="Przed">Przed pracą</option>
-                  <option value="Po">Po pracy</option>
+                  <option value="wycena">Wycena / zakres</option>
+                  <option value="szkic">Szkic zakresu</option>
+                  <option value="dojazd">Dojazd / posesja</option>
+                  <option value="checkin">Check-in</option>
+                  <option value="przed">Przed praca</option>
+                  <option value="po">Po pracy</option>
                   <option value="inne">Inne</option>
                 </select>
                 <input
@@ -1707,6 +1911,68 @@ export default function ZlecenieDetail() {
                   onChange={e => uploadWideo(e.target.files[0])} />
               </div>
             </div>
+            <div style={{
+              ...styles.evidenceWebCard,
+              borderColor: photoEvidenceMissingTypes.length ? 'rgba(245,158,11,0.34)' : 'rgba(34,197,94,0.32)'
+            }}>
+              <div style={styles.evidenceWebHead}>
+                <div>
+                  <div style={styles.evidenceWebTitle}>Pakiet dowodowy z terenu</div>
+                  <div style={styles.evidenceWebSub}>
+                    Te same kategorie co w mobilce: wycena, szkic, dojazd, check-in, przed i po.
+                  </div>
+                </div>
+                <span style={{
+                  ...styles.evidenceWebScore,
+                  color: photoEvidenceMissingTypes.length ? 'var(--warning)' : 'var(--success)',
+                  borderColor: photoEvidenceMissingTypes.length ? 'rgba(245,158,11,0.34)' : 'rgba(34,197,94,0.32)',
+                  backgroundColor: photoEvidenceMissingTypes.length ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)'
+                }}>
+                  {photoEvidenceReadyCount}/{photoEvidenceRequiredTypes.length || 0} / {photoEvidencePct}%
+                </span>
+              </div>
+              <div style={styles.evidenceWebGrid}>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.evidenceWebChip,
+                    ...(mediaEvidenceFilter === 'all' ? styles.evidenceWebChipActive : {})
+                  }}
+                  onClick={() => setMediaEvidenceFilter('all')}
+                >
+                  Wszystkie <strong>{zdjecia.length}</strong>
+                </button>
+                {PHOTO_EVIDENCE_TYPES.map((type) => {
+                  const required = photoEvidenceRequiredTypes.some((row) => row.key === type.key);
+                  const missing = required && !photoEvidenceCounts[type.key];
+                  const active = mediaEvidenceFilter === type.key;
+                  return (
+                    <button
+                      type="button"
+                      key={type.key}
+                      style={{
+                        ...styles.evidenceWebChip,
+                        ...(active ? styles.evidenceWebChipActive : {}),
+                        ...(missing ? styles.evidenceWebChipMissing : {}),
+                      }}
+                      onClick={() => {
+                        setMediaTypeFilter('photos');
+                        setMediaEvidenceFilter(type.key);
+                      }}
+                    >
+                      {type.label} <strong>{photoEvidenceCounts[type.key] || 0}</strong>
+                    </button>
+                  );
+                })}
+              </div>
+              {photoEvidenceMissingTypes.length ? (
+                <div style={styles.evidenceWebMissing}>
+                  Brakuje: {photoEvidenceMissingTypes.map((type) => type.label).join(', ')}
+                </div>
+              ) : (
+                <div style={styles.evidenceWebOk}>Pakiet zdjec wyglada kompletnie dla biura i ekipy.</div>
+              )}
+            </div>
             {filteredPhotos.length === 0 && filteredVideos.length === 0 ? (
               <div style={styles.emptyBig}>
                 <div style={{ ...styles.emptyIcon, display: 'flex', justifyContent: 'center' }}>
@@ -1717,10 +1983,18 @@ export default function ZlecenieDetail() {
               </div>
             ) : (
               <>
-                {zdjeciaPrzed.length > 0 && <PhotoSection title={`Przed pracą (${zdjeciaPrzed.length})`} photos={zdjeciaPrzed.filter((x) => filteredPhotos.some((f) => f.id === x.id))} base={BASE} formatDateTime={formatDateTime} onSelect={(p) => { setSelectedPhoto(p); refreshMediaEditor(p); }} onDelete={deletePhoto} />}
-                {zdjeciaPo.length > 0 && <PhotoSection title={`Po pracy (${zdjeciaPo.length})`} photos={zdjeciaPo.filter((x) => filteredPhotos.some((f) => f.id === x.id))} base={BASE} formatDateTime={formatDateTime} onSelect={(p) => { setSelectedPhoto(p); refreshMediaEditor(p); }} onDelete={deletePhoto} />}
-                {zdjeciaInne.length > 0 && <PhotoSection title={`Inne (${zdjeciaInne.length})`} photos={zdjeciaInne.filter((x) => filteredPhotos.some((f) => f.id === x.id))} base={BASE} formatDateTime={formatDateTime} onSelect={(p) => { setSelectedPhoto(p); refreshMediaEditor(p); }} onDelete={deletePhoto} />}
-                {filteredVideos.length > 0 && <VideoSection title={`Filmy (${filteredVideos.length})`} videos={filteredVideos} base={BASE} formatDateTime={formatDateTime} onSelect={(v) => { setSelectedVideo(v); refreshMediaEditor(v); }} onDelete={deleteVideo} />}
+                {photoEvidenceSections.map((section) => (
+                  <PhotoSection
+                    key={section.key}
+                    title={`${section.label} (${section.photos.length}/${section.total})`}
+                    subtitle={section.hint}
+                    photos={section.photos}
+                    base={BASE}
+                    formatDateTime={formatDateTime}
+                    onSelect={(p) => { setSelectedPhoto(p); refreshMediaEditor(p); }}
+                    onDelete={deletePhoto}
+                  />
+                ))}                {filteredVideos.length > 0 && <VideoSection title={`Filmy (${filteredVideos.length})`} videos={filteredVideos} base={BASE} formatDateTime={formatDateTime} onSelect={(v) => { setSelectedVideo(v); refreshMediaEditor(v); }} onDelete={deleteVideo} />}
               </>
             )}
           </div>
@@ -1760,7 +2034,7 @@ export default function ZlecenieDetail() {
                           </span>
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{d.rola}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{getRoleDisplayName(d.rola)}</div>
                       {d.stawka_typ === 'procent' ? (
                         <div style={{ fontSize: 13, color: 'var(--text-sub)' }}>
                           {d.stawka_wartosc}% × {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(d.wartosc_zlecenia)}
@@ -1970,10 +2244,11 @@ export default function ZlecenieDetail() {
   );
 }
 
-function PhotoSection({ title, photos, base, formatDateTime, onSelect, onDelete }) {
+function PhotoSection({ title, subtitle, photos, base, formatDateTime, onSelect, onDelete }) {
   return (
     <div style={{marginBottom: 24}}>
       <div style={styles.photoSectionTitle}>{title}</div>
+      {subtitle ? <div style={styles.photoSectionSub}>{subtitle}</div> : null}
       <div style={styles.photoGrid}>
         {photos.map(p => (
           <div key={p.id} style={styles.photoCard} onClick={() => onSelect(p)}>
@@ -2107,6 +2382,16 @@ const styles = {
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
   card: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: 20, boxShadow: 'var(--shadow-sm)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  presenceCard: { backgroundColor: 'var(--bg-card)', borderRadius: 14, padding: 18, boxShadow: 'var(--shadow-sm)', marginBottom: 20, border: '1px solid var(--border)' },
+  presenceHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 },
+  presenceTitleWrap: { display: 'flex', alignItems: 'center', gap: 12 },
+  presenceIcon: { width: 42, height: 42, borderRadius: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  presenceTitle: { fontSize: 16, fontWeight: 800, color: 'var(--text)' },
+  presenceSub: { fontSize: 12, color: 'var(--text-muted)', marginTop: 2 },
+  presencePill: { border: '1px solid var(--border)', borderRadius: 999, padding: '6px 10px', fontSize: 11, fontWeight: 800, letterSpacing: 0.5 },
+  presenceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 },
+  presenceMetric: { backgroundColor: 'var(--bg-deep)', borderRadius: 10, padding: '10px 12px', minWidth: 0 },
+  presenceActions: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   equipmentList: { display: 'grid', gap: 10 },
   equipmentCard: { border: '1px solid var(--border)', borderRadius: 10, padding: 12, backgroundColor: 'var(--bg-deep)' },
   equipmentTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, fontSize: 14, color: 'var(--text)', flexWrap: 'wrap' },
@@ -2125,6 +2410,17 @@ const styles = {
   smsInfo: { fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, padding: '6px 10px', backgroundColor: 'var(--bg-deep)', borderRadius: 6 },
   smsBtn: { display: 'block', width: '100%', padding: '10px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', marginBottom: 8, textAlign: 'left', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border2)', transform: 'translateX(4px)' } },
   noPhone: { textAlign: 'center', padding: '12px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', borderRadius: 8 },
+  evidenceWebCard: { border: '1px solid var(--border)', borderRadius: 14, backgroundColor: 'var(--bg-deep)', padding: 14, marginBottom: 16 },
+  evidenceWebHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 },
+  evidenceWebTitle: { fontSize: 15, fontWeight: 900, color: 'var(--text)' },
+  evidenceWebSub: { fontSize: 12, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.35 },
+  evidenceWebScore: { border: '1px solid var(--border)', borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
+  evidenceWebGrid: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  evidenceWebChip: { border: '1px solid var(--border)', borderRadius: 999, backgroundColor: 'var(--bg-card)', color: 'var(--text-sub)', padding: '7px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 },
+  evidenceWebChipActive: { color: 'var(--accent)', borderColor: 'var(--accent)', backgroundColor: 'rgba(34,197,94,0.12)' },
+  evidenceWebChipMissing: { color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.4)', backgroundColor: 'rgba(245,158,11,0.12)' },
+  evidenceWebMissing: { marginTop: 10, color: 'var(--warning)', fontSize: 12, fontWeight: 800 },
+  evidenceWebOk: { marginTop: 10, color: 'var(--success)', fontSize: 12, fontWeight: 800 },
   empty: { textAlign: 'center', color: 'var(--text-muted)', padding: 24, fontSize: 14 },
   emptyBig: { textAlign: 'center', color: 'var(--text-muted)', padding: 48, fontSize: 14 },
   emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 },
@@ -2144,6 +2440,7 @@ const styles = {
   filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--bg-card)' },
   uploadBtn: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)' } },
   photoSectionTitle: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 12, display: 'inline-block', backgroundColor: 'var(--bg-deep)', padding: '4px 12px', borderRadius: 6 },
+  photoSectionSub: { fontSize: 12, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 },
   photoCard: { borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', backgroundColor: 'var(--bg-card)', transition: 'all 0.2s', '&:hover': { transform: 'scale(1.02)' } },
   photoImg: { width: '100%', height: 140, objectFit: 'cover', display: 'block' },

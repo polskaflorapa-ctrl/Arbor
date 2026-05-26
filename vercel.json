@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "framework": "create-react-app",
+  "framework": "vite",
   "installCommand": "npm ci",
   "buildCommand": "npm run build -w arbor-web",
   "outputDirectory": "web/build",

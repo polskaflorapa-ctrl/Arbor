@@ -23,8 +23,6 @@ describe('GET /api/sms/historia', () => {
 
   function mockHistoriaPipeline({ total = 0, rows = [] } = {}) {
     pool.query
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ rows: [{ c: total }] })
       .mockResolvedValueOnce({ rows });
   }
@@ -52,9 +50,9 @@ describe('GET /api/sms/historia', () => {
       offset: 0,
     });
 
-    expect(pool.query).toHaveBeenCalledTimes(4);
-    const countCall = pool.query.mock.calls[2];
-    const selectCall = pool.query.mock.calls[3];
+    expect(pool.query).toHaveBeenCalledTimes(2);
+    const countCall = pool.query.mock.calls[0];
+    const selectCall = pool.query.mock.calls[1];
 
     expect(countCall[0]).toContain('SELECT COUNT(*)::int AS c');
     expect(countCall[0]).toContain("h.status = $1");
@@ -80,7 +78,7 @@ describe('GET /api/sms/historia', () => {
       .set('Authorization', `Bearer ${tokenForUser({ id: 1, rola: 'Dyrektor' })}`);
 
     expect(res.status).toBe(200);
-    const countSql = pool.query.mock.calls[2][0];
+    const countSql = pool.query.mock.calls[0][0];
     expect(countSql).not.toContain('h.status =');
   });
 
@@ -92,7 +90,7 @@ describe('GET /api/sms/historia', () => {
       .set('Authorization', `Bearer ${tokenForUser({ id: 1, rola: 'Dyrektor' })}`);
 
     expect(res.status).toBe(200);
-    const countSql = pool.query.mock.calls[2][0];
+    const countSql = pool.query.mock.calls[0][0];
     expect(countSql).not.toContain('h.created_at::date');
   });
 
@@ -104,8 +102,8 @@ describe('GET /api/sms/historia', () => {
       .set('Authorization', `Bearer ${tokenForUser({ id: 2, rola: 'Kierownik', oddzial_id: 7 })}`);
 
     expect(res.status).toBe(200);
-    const countSql = pool.query.mock.calls[2][0];
-    const countParams = pool.query.mock.calls[2][1];
+    const countSql = pool.query.mock.calls[0][0];
+    const countParams = pool.query.mock.calls[0][1];
     expect(countSql).toContain('t.oddzial_id = $1');
     expect(countParams[0]).toBe(7);
   });
@@ -118,8 +116,8 @@ describe('GET /api/sms/historia', () => {
       .set('Authorization', `Bearer ${tokenForUser({ id: 99, rola: 'Brygadzista' })}`);
 
     expect(res.status).toBe(200);
-    const countSql = pool.query.mock.calls[2][0];
-    const countParams = pool.query.mock.calls[2][1];
+    const countSql = pool.query.mock.calls[0][0];
+    const countParams = pool.query.mock.calls[0][1];
     expect(countSql).toContain('t.brygadzista_id = $1');
     expect(countParams[0]).toBe(99);
   });

@@ -23,19 +23,50 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE: z.string().optional(),
+  /** Zadarma VoIP + SMS — klucz i sekret z panelu zadarma.com */
+  ZADARMA_API_KEY: z.string().optional(),
+  ZADARMA_API_SECRET: z.string().optional(),
+  /** Zadarma: nadawca SMS (nazwa lub numer, max 11 znaków alfanum) — opcjonalny */
+  ZADARMA_CALLER_ID: z.string().max(11).optional(),
+  /** Dev/test: pomiń walidację podpisu Zadarma na webhookach */
+  ZADARMA_SKIP_SIGNATURE_VALIDATION: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((s) => s === 'true' || s === '1'),
   /** Publiczny URL aplikacji (HTTPS), bez końcowego slasha — Twilio pobiera TwiML z /api/telefon/twiml/dial. Na Render: fallback z RENDER_EXTERNAL_URL. */
   PUBLIC_BASE_URL: z.preprocess((v) => {
     const manual = v != null && String(v).trim() !== '' ? String(v).trim().replace(/\/+$/, '') : '';
     if (manual) return manual;
     const render = process.env.RENDER_EXTERNAL_URL;
     if (render != null && String(render).trim() !== '') return String(render).trim().replace(/\/+$/, '');
+    const koyeb = process.env.KOYEB_PUBLIC_DOMAIN;
+    if (koyeb != null && String(koyeb).trim() !== '') {
+      const domain = String(koyeb).trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      return `https://${domain}`;
+    }
     return undefined;
   }, z.string().optional()),
   SMTP_HOST: z.string().default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  AI_PROVIDER: z
+    .preprocess((v) => String(v || 'auto').trim().toLowerCase(), z.enum(['auto', 'anthropic', 'huggingface']))
+    .default('auto'),
   ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
+  HF_TOKEN: z.preprocess(
+    (v) => v || process.env.HUGGING_FACE_HUB_TOKEN || process.env.HUGGINGFACE_API_TOKEN,
+    z.string().optional()
+  ),
+  HF_CHAT_MODEL: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional())
+    .default('openai/gpt-oss-20b:fastest'),
+  HF_VISION_MODEL: z
+    .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
+  HF_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   /** Transkrypcja nagrań (OpenAI Whisper) — opcjonalnie; bez klucza status `needs_transcription` */
   OPENAI_API_KEY: z.string().optional(),
   /** Dev/test: pomiń walidację podpisu Twilio na webhookach (nie używaj w produkcji) */

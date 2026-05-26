@@ -1227,9 +1227,11 @@ paths:
               $ref: '#/components/schemas/AiChatRequest'
       responses:
         "200":
-          description: `{ reply }`
+          description: `{ reply, provider, model }`
         "400":
           description: Walidacja — `code: VALIDATION_FAILED`
+        "503":
+          description: Brak konfiguracji AI (`ANTHROPIC_API_KEY` albo `HF_TOKEN`)
   /db-test:
     get:
       summary: Test połączenia z bazą (bez tokenu)

@@ -17,6 +17,10 @@ export type SprzetRezerwacjaRow = {
   data: string;
   caly_dzien: boolean;
   status: RezerwacjaStatus;
+  task_id?: number | string | null;
+  task_klient_nazwa?: string | null;
+  task_adres?: string | null;
+  notatki?: string | null;
   /** Zapisane tylko w telefonie (backend niedostępny lub 404). */
   localOnly?: boolean;
 };
@@ -45,6 +49,10 @@ export function normalizeApiRezerwacja(x: Record<string, unknown>): SprzetRezerw
     data,
     caly_dzien: x.caly_dzien !== false && x.pelny_dzien !== false,
     status: normalizeStatus(x.status),
+    task_id: (x.task_id ?? x.zlecenie_id ?? null) as string | number | null,
+    task_klient_nazwa: x.task_klient_nazwa != null ? String(x.task_klient_nazwa) : null,
+    task_adres: x.task_adres != null ? String(x.task_adres) : null,
+    notatki: x.notatki != null ? String(x.notatki) : null,
     localOnly: false,
   };
 }
@@ -128,6 +136,8 @@ export type PostRezerwacjaBody = {
   data_do: string;
   caly_dzien: boolean;
   status: RezerwacjaStatus;
+  task_id?: number | string | null;
+  notatki?: string | null;
 };
 
 export async function postRezerwacjaApi(

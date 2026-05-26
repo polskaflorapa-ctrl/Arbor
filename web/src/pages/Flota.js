@@ -151,8 +151,10 @@ export default function Flota() {
   const isExpired = (d) => d && new Date(d) < new Date();
 
   const STATUS_KOLOR = {
-    'Dostępny': '#166534', 'W użyciu': '#b45309',
-    'W naprawie': 'var(--danger)', 'Niedostępny': 'var(--text-muted)'
+    'Dostępny':    '#00c875',
+    'W użyciu':    '#fdab3d',
+    'W naprawie':  '#e2445c',
+    'Niedostępny': '#676879',
   };
 
   const fleetStatusLabel = (status) => t(`fleetStatus.${status}`, { defaultValue: status });
@@ -166,10 +168,10 @@ export default function Flota() {
   const filtrSprzet = sprzet.filter(s => !filtrOddzial || s.oddzial_id?.toString() === filtrOddzial);
 
   const kpiItems = useMemo(() => ([
-    { key: 'veh', label: t('pages.flota.kpiVehicles'), value: filtrPojazdy.length, color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-    { key: 'eq', label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length, color: 'var(--accent)', bg: 'var(--bg-deep)' },
-    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => x.status === 'Dostępny').length, color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
-    { key: 'rep', label: t('pages.flota.kpiInRepair'), value: naprawy.length, color: 'var(--danger)', bg: 'rgba(248,113,113,0.12)' },
+    { key: 'veh',   label: t('pages.flota.kpiVehicles'),  value: filtrPojazdy.length, color: '#579bfc' },
+    { key: 'eq',    label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length,  color: '#579bfc' },
+    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => x.status === 'Dostępny').length, color: '#00c875' },
+    { key: 'rep',   label: t('pages.flota.kpiInRepair'),  value: naprawy.length,       color: '#e2445c' },
   ]), [t, filtrPojazdy, filtrSprzet, naprawy.length]);
 
   const tabDefs = useMemo(() => ([
@@ -241,16 +243,15 @@ export default function Flota() {
         />
 
         {/* KPI */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
-          {kpiItems.map((k, i) => (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 0, marginBottom: 24, border: '1px solid #e6e9ef', borderRadius: 4, overflow: 'hidden', background: '#ffffff' }}>
+          {kpiItems.map((k, i, arr) => (
             <div key={k.key} style={{
-              backgroundColor: 'var(--bg-card)', borderRadius: 14, padding: '16px 18px',
-              borderTop: `4px solid ${k.color}`,
-              boxShadow: 'var(--shadow-sm)',
-              animation: `bounceIn 0.4s ease ${i * 0.1}s forwards`, opacity: 0,
+              background: '#ffffff', padding: '14px 16px',
+              borderLeft: `3px solid ${k.color}`,
+              borderRight: i < arr.length - 1 ? '1px solid #e6e9ef' : 'none',
             }}>
-              <div style={{ fontSize: 26, fontWeight: 'bold', color: k.color }}>{k.value}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{k.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#323338' }}>{k.value}</div>
+              <div style={{ fontSize: 11, color: '#676879', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{k.label}</div>
             </div>
           ))}
         </div>
@@ -358,17 +359,18 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filtrPojazdy.length === 0 ? (
             <EmptyBox icon={<DirectionsCarOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyVehicles')} sub={canEdit ? t('pages.flota.emptyVehiclesHint') : ''} />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-              {filtrPojazdy.map((p, i) => (
+            <div style={{ border: '1px solid #e6e9ef', borderRadius: 4, overflow: 'hidden', background: '#ffffff' }}>
+              {filtrPojazdy.map((p, i, arr) => (
                 <div key={p.id} style={{
-                  backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20,
-                  boxShadow: 'var(--shadow-sm)',
-                  borderTop: `4px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`,
-                  animation: `bounceIn 0.4s ease ${i * 0.06}s forwards`, opacity: 0,
+                  background: '#ffffff', padding: '14px 20px',
+                  borderLeft: `4px solid ${STATUS_KOLOR[p.status] || '#e6e9ef'}`,
+                  borderBottom: i < arr.length - 1 ? '1px solid #e6e9ef' : 'none',
+                  display: 'flex', alignItems: 'center', gap: 16,
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 'bold', color: 'var(--accent)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#323338' }}>
                         <DirectionsCarOutlined sx={{ fontSize: 22, flexShrink: 0 }} />
                         {p.marka} {p.model}
                       </div>
@@ -407,6 +409,7 @@ export default function Flota() {
                       </div>
                     )}
                   </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -418,17 +421,18 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filtrSprzet.length === 0 ? (
             <EmptyBox icon={<BuildOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyEquipment')} sub={canEdit ? t('pages.flota.emptyEquipmentHint') : ''} />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-              {filtrSprzet.map((s, i) => (
+            <div style={{ border: '1px solid #e6e9ef', borderRadius: 4, overflow: 'hidden', background: '#ffffff' }}>
+              {filtrSprzet.map((s, i, arr) => (
                 <div key={s.id} style={{
-                  backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20,
-                  boxShadow: 'var(--shadow-sm)',
-                  borderTop: `4px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`,
-                  animation: `bounceIn 0.4s ease ${i * 0.06}s forwards`, opacity: 0,
+                  background: '#ffffff', padding: '14px 20px',
+                  borderLeft: `4px solid ${STATUS_KOLOR[s.status] || '#e6e9ef'}`,
+                  borderBottom: i < arr.length - 1 ? '1px solid #e6e9ef' : 'none',
+                  display: 'flex', alignItems: 'center', gap: 16,
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 'bold', color: 'var(--accent)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 600, color: '#323338' }}>
                         <HandymanOutlined sx={{ fontSize: 20, flexShrink: 0 }} />
                         {s.nazwa}
                       </div>
@@ -458,6 +462,7 @@ export default function Flota() {
                         {t('pages.flota.motohourRate', { value: s.koszt_motogodziny })}
                       </div>
                     )}
+                  </div>
                   </div>
                 </div>
               ))}
@@ -531,7 +536,7 @@ function LoadingBox({ text }) {
 
 function EmptyBox({ icon, text, sub }) {
   return (
-    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)', borderRadius: 16 }}>
+    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>{icon}</div>
       <p style={{ fontWeight: '600', color: 'var(--text-sub)' }}>{text}</p>
       {sub && <p style={{ fontSize: 13 }}>{sub}</p>}
@@ -550,31 +555,31 @@ function Field({ label, children }) {
 
 const S = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
-  formBox: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '4px solid var(--accent)' },
+  formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
   repairsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border2)', borderRadius: 999, padding: '4px 8px', background: 'var(--bg-deep)' },
+  repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 8px', background: 'var(--surface-field)' },
   repairsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
   repairCard: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    border: '1px solid var(--border2)',
-    borderRadius: 14,
-    boxShadow: 'var(--shadow-sm)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    boxShadow: 'var(--shadow-md)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
   },
   repairTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  repairType: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700 },
+  repairType: { backgroundColor: 'var(--accent-surface)', color: 'var(--accent)', padding: '3px 9px', borderRadius: 8, fontSize: 11, fontWeight: 700 },
   repairStatus: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 700 },
   repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
-  repairLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700 },
+  repairLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0, fontWeight: 700 },
   repairValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
 };

@@ -198,11 +198,11 @@ const ACTIONS: CommandAction[] = [
   },
   {
     id: 'estimator-finance',
-    label: 'Wynagrodzenie wyceniającego',
+    label: 'Wynagrodzenie specjalisty ds. wyceny',
     path: '/wyceniajacy-finanse',
     icon: 'cash-outline',
     category: 'finance',
-    keywords: ['wynagrodzenie', 'wyceniający', 'finanse'],
+    keywords: ['wynagrodzenie', 'wyceniający', 'specjalista wyceny', 'finanse'],
     roles: ['Wyceniający'],
   },
   {

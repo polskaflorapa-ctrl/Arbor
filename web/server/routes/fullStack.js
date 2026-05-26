@@ -408,6 +408,60 @@ module.exports = function registerFullStack(router) {
     });
   });
 
+  router.get('/ai/dispatch-brief', requireAuth, (req, res) => {
+    const tasks = readOnly((s) => visibleTasks(s, req.user).map((z) => enrichRow(s, z))).slice(0, 8);
+    const blocked = tasks.filter((z) => !z.klient_telefon || !z.adres || !z.wartosc_planowana).length;
+    const warnings = tasks.filter((z) => !z.pin_lat || !z.pin_lng).length;
+    const totalValue = tasks.reduce((sum, z) => sum + Number(z.wartosc_planowana || z.kwota || 0), 0);
+
+    res.json({
+      source: 'rules',
+      date: String(req.query.date || new Date().toISOString().slice(0, 10)),
+      summary: blocked
+        ? `Lokalny demo-brief: popraw ${blocked} zlecen przed solverem.`
+        : 'Lokalny demo-brief: dane wygladaja gotowo do solvera.',
+      metrics: {
+        tasks_total: tasks.length,
+        ready_for_dispatch: Math.max(0, tasks.length - blocked),
+        blocked,
+        warnings,
+        overdue: 0,
+        unassigned: tasks.filter((z) => !z.ekipa_id).length,
+        missing_gps: warnings,
+        low_margin: 0,
+        teams_available: 2,
+        total_value: totalValue,
+        avg_quality: blocked ? 74 : 92,
+      },
+      recommendations: [
+        {
+          priority: blocked ? 'high' : 'low',
+          title: blocked ? 'Napraw braki przed solverem' : 'Uruchom podglad planu',
+          rationale: blocked
+            ? 'Czesc zlecen w lokalnym demo nie ma kompletu danych operacyjnych.'
+            : 'Nie widac krytycznych brakow w lokalnym demo.',
+          suggested_action: blocked
+            ? 'Uzupelnij telefon, adres albo wartosc przy ryzykownych pozycjach.'
+            : 'Sprawdz trasy i ograniczenia czasowe ekip.',
+          risk: blocked ? 'high' : 'low',
+        },
+      ],
+      top_tasks: tasks.slice(0, 5).map((z) => ({
+        task_id: z.id,
+        task_numer: z.numer || `#${z.id}`,
+        client: z.klient_nazwa || z.klient || null,
+        status: z.status || 'Nowe',
+        quality_score: (!z.klient_telefon || !z.adres || !z.wartosc_planowana) ? 58 : 88,
+        issues: [
+          !z.klient_telefon && { key: 'client_phone', severity: 'critical', label: 'Brak telefonu', action: 'Dodaj numer telefonu klienta.' },
+          !z.adres && { key: 'address', severity: 'critical', label: 'Brak adresu', action: 'Uzupelnij adres wykonania.' },
+          !z.wartosc_planowana && { key: 'price', severity: 'critical', label: 'Brak ceny', action: 'Uzupelnij wartosc planowana.' },
+          (!z.pin_lat || !z.pin_lng) && { key: 'gps', severity: 'warning', label: 'Brak pinezki GPS', action: 'Dodaj pinezke lokalizacji.' },
+        ].filter(Boolean),
+      })),
+    });
+  });
+
   router.get('/tasks/moje', requireAuth, (req, res) => {
     const list = readOnly((s) => mojeTasks(s, req.user).map((z) => enrichRow(s, z)));
     res.json(list);

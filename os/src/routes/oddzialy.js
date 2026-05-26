@@ -152,6 +152,12 @@ router.get('/delegacje/wszystkie', authMiddleware, validateQuery(delegacjeListQu
   try {
     await ensureDelegationResourceSchema(pool);
     const { limit, offset } = req.query;
+    const params = [];
+    let whereSql = '';
+    if (!canSeeAllOddzialy(req.user)) {
+      params.push(req.user.oddzial_id);
+      whereSql = `WHERE (d.oddzial_z = $${params.length} OR d.oddzial_do = $${params.length})`;
+    }
     const selectList = `${delegationSelectList} ORDER BY d.data_od DESC`;
     if (limit != null) {
       const lim = Number(limit);

@@ -91,6 +91,25 @@ describe('Tasks routes', () => {
     );
   });
 
+  it('filters task list by planned date range', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Dyrektor', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValue({ rows: [] });
+
+    const res = await request(app)
+      .get('/api/tasks/wszystkie?from=2026-06-01&to=2026-06-30')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('t.data_planowana::date >= $1::date'),
+      ['2026-06-01', '2026-06-30']
+    );
+    expect(pool.query.mock.calls[0][0]).toContain('t.data_planowana::date <= $2::date');
+  });
+
   it('rejects invalid payload for creating task', async () => {
     const token = jwt.sign(
       { id: 1, rola: 'Administrator', oddzial_id: 5 },
@@ -147,6 +166,9 @@ describe('Tasks routes', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(42);
+    expect(res.body.status).toBe('Nowe');
+    expect(res.body.workflow_stage).toBe('intake');
+    expect(res.body.workflow_next_status).toBe('Wycena_Terenowa');
     const insertCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO tasks'));
     expect(insertCall?.[1]).toContain('2026-05-10 09:30:00');
   });
@@ -220,6 +242,102 @@ describe('Tasks routes', () => {
     expect(res.body.error).toBe('Nieprawidlowe dane wejsciowe');
     expect(res.body.code).toBe('VALIDATION_FAILED');
     expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it('lists closure decision events without routing closure-events as a task id', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('FROM task_closure_decision_events e')) {
+        return {
+          rows: [{
+            id: 7,
+            task_id: 12,
+            action: 'blocked_attempt',
+            severity: 'danger',
+            status_before: 'Zaplanowane',
+            status_after: '',
+            blockers: [{ key: 'clientPhone', label: 'Brak telefonu' }],
+            warnings: [],
+            risk_score: 40,
+            quality_score: 60,
+            value: '1500.00',
+            note: 'Test',
+            created_at: '2026-05-20T08:00:00.000Z',
+            created_by: 1,
+            actor: 'Anna Kowalska',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/closure-events')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.events['12'][0].action).toBe('blocked_attempt');
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM task_closure_decision_events e'),
+      []
+    );
+  });
+
+  it('records closure decision events for a task', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const s = String(sql);
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('INSERT INTO task_closure_decision_events')) {
+        return {
+          rows: [{
+            id: 8,
+            task_id: Number(params[0]),
+            action: params[1],
+            severity: params[2],
+            status_before: params[3],
+            status_after: params[4],
+            blockers: JSON.parse(params[5]),
+            warnings: JSON.parse(params[6]),
+            risk_score: params[7],
+            quality_score: params[8],
+            value: params[9],
+            note: params[10],
+            created_by: params[11],
+            created_at: '2026-05-20T08:00:00.000Z',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/tasks/12/closure-events')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        action: 'blocked_attempt',
+        severity: 'danger',
+        status_before: 'Zaplanowane',
+        blockers: [{ key: 'clientPhone', label: 'Brak telefonu' }],
+        risk_score: 40,
+        quality_score: 60,
+        value: 1500,
+        note: 'Test',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(8);
+    expect(res.body.task_id).toBe(12);
+    expect(res.body.blockers[0].key).toBe('clientPhone');
   });
 
   it('rejects stop without work_log_id', async () => {
@@ -299,6 +417,61 @@ describe('Tasks routes', () => {
     expect(res.body.items[0].workflow_missing_labels).toContain('telefon klienta');
   });
 
+  it('decorates task lists with central office and crew readiness', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 44,
+        status: 'Zaplanowane',
+        klient_nazwa: 'Klient Test',
+        klient_telefon: '+48123123123',
+        adres: 'Lesna 10',
+        miasto: 'Krakow',
+        data_planowana: '2026-06-01T08:00:00.000Z',
+        opis_pracy: 'Zakres prac: przycinka korony',
+        notatki_wewnetrzne: 'Ryzyka: brak szczegolnych ryzyk',
+        wartosc_planowana: 2500,
+        czas_planowany_godziny: 4,
+        ekipa_id: 7,
+        ekipa_nazwa: 'Ekipa Zielona',
+        photo_wycena: 1,
+        photo_szkic: 1,
+        photo_dojazd: 1,
+        equipment_reserved_count: 1,
+        equipment_reserved_names: 'Rebak',
+      }],
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/wszystkie')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      expect.objectContaining({
+        id: 44,
+        office_plan_ready: true,
+        office_plan_ready_count: 6,
+        office_plan_total_count: 6,
+        office_plan_missing_labels: [],
+        crew_execution_ready: true,
+        crew_execution_ready_count: 8,
+        crew_execution_total_count: 8,
+        crew_execution_missing_labels: [],
+      }),
+    ]);
+    expect(res.body[0].office_plan_checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'photos', ready: true }),
+        expect.objectContaining({ key: 'money_time', ready: true }),
+        expect.objectContaining({ key: 'equipment', ready: true }),
+      ])
+    );
+  });
+
   it('GET /tasks/moje returns field evidence photo counters for crew', async () => {
     const token = jwt.sign(
       { id: 2, rola: 'Brygadzista', oddzial_id: 5 },
@@ -312,6 +485,8 @@ describe('Tasks routes', () => {
         photo_wycena: 1,
         photo_szkic: 1,
         photo_dojazd: 1,
+        problem_total: 2,
+        problem_open: 1,
       }],
     });
 
@@ -328,6 +503,8 @@ describe('Tasks routes', () => {
         photo_wycena: 1,
         photo_szkic: 1,
         photo_dojazd: 1,
+        problem_total: 2,
+        problem_open: 1,
         workflow_stage: 'intake',
       }),
     ]);
@@ -340,6 +517,8 @@ describe('Tasks routes', () => {
     expect(sql).toContain('photo_szkic');
     expect(sql).toContain('photo_dojazd');
     expect(sql).toContain('FROM photos p');
+    expect(sql).toContain('COALESCE(ia.problem_open, 0)::int AS problem_open');
+    expect(sql).toContain('FROM issues');
   });
 
   it('PUT /tasks/:id/field-package returns decorated workflow with fresh photo counters', async () => {
@@ -429,6 +608,7 @@ describe('Tasks routes', () => {
             adres: 'Testowa 1',
             data_planowana: '2026-06-01T08:00:00.000Z',
             opis_pracy: 'Przycinka korony',
+            notatki_wewnetrzne: 'Ryzyka: brak szczegolnych. Sprzet: bez dodatkowego sprzetu.',
             wartosc_planowana: 1500,
             czas_planowany_godziny: 3,
             ekipa_id: 9,
@@ -451,6 +631,7 @@ describe('Tasks routes', () => {
         godzina_rozpoczecia: '08:00',
         czas_planowany_godziny: 3,
         ekipa_id: 9,
+        sprzet_notatka: 'bez dodatkowego sprzetu',
       });
 
     expect(res.status).toBe(200);
@@ -459,6 +640,143 @@ describe('Tasks routes', () => {
     expect(res.body.workflow_ready_for_next).toBe(true);
     expect(res.body.workflow_next_status).toBe('W_Realizacji');
     expect(res.body.workflow_missing_labels).not.toContain('ekipa');
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('notatki_wewnetrzne = $4');
+    });
+    const savedNotes = String(updateCall?.[1]?.[3] || '');
+    expect(savedNotes).toContain('PLAN BIURA / PAKIET DLA EKIPY');
+    expect(savedNotes).toContain('Klient: A');
+    expect(savedNotes).toContain('Zakres z terenu: Przycinka korony');
+    expect(savedNotes).toContain('Ekipa: Ekipa A (#9)');
+    expect(savedNotes).toContain('Sprzet: bez dodatkowego sprzetu');
+  });
+
+  it('PUT /tasks/:id/office-plan blocks an absent crew without manager override', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', oddzial_id: 5, notatki_wewnetrzne: '' }] };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Auto w serwisie',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '08:00',
+        czas_planowany_godziny: 3,
+        ekipa_id: 9,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_ABSENT');
+    expect(res.body.attendance).toMatchObject({
+      teamId: '9',
+      teamName: 'Ekipa A',
+      present: false,
+      note: 'Auto w serwisie',
+    });
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
+  });
+
+  it('PUT /tasks/:id/office-plan allows absent crew with override and records note', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', oddzial_id: 5, notatki_wewnetrzne: '' }] };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return {
+          rows: [{
+            team_id: 9,
+            team_name: 'Ekipa A',
+            present: false,
+            note: 'Auto w serwisie',
+            actor_name: 'Anna Planer',
+          }],
+        };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      if (s.includes('FROM wyceny') && s.includes('status_akceptacji')) return { rows: [] };
+      if (s.includes('UPDATE tasks') && s.includes('RETURNING id, status')) {
+        return { rows: [{ id: 12, status: 'Zaplanowane' }] };
+      }
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Zaplanowane',
+            klient_nazwa: 'A',
+            klient_telefon: '+48123123123',
+            adres: 'Testowa 1',
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            opis_pracy: 'Przycinka korony',
+            notatki_wewnetrzne: 'Ryzyka: brak szczegolnych.',
+            wartosc_planowana: 1500,
+            czas_planowany_godziny: 3,
+            ekipa_id: 9,
+            ekipa_nazwa: 'Ekipa A',
+            photo_total: 3,
+            photo_wycena: 1,
+            photo_szkic: 1,
+            photo_dojazd: 1,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '08:00',
+        czas_planowany_godziny: 3,
+        ekipa_id: 9,
+        sprzet_notatka: 'bez dodatkowego sprzetu',
+        absence_override: true,
+      });
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('notatki_wewnetrzne = $4');
+    });
+    const savedNotes = String(updateCall?.[1]?.[3] || '');
+    expect(savedNotes).toContain('Kierownik potwierdzil plan mimo nieobecnosci ekipy: Auto w serwisie');
   });
 
   it('PUT /tasks/:id/przypisz returns decorated crew-ready workflow', async () => {
@@ -499,6 +817,7 @@ describe('Tasks routes', () => {
             adres: 'Testowa 1',
             data_planowana: '2026-06-01T08:00:00.000Z',
             opis_pracy: 'Przycinka korony',
+            notatki_wewnetrzne: 'Ryzyka: brak szczegolnych',
             wartosc_planowana: 1500,
             czas_planowany_godziny: 3,
             ekipa_id: 9,
@@ -507,6 +826,8 @@ describe('Tasks routes', () => {
             photo_wycena: 1,
             photo_szkic: 1,
             photo_dojazd: 1,
+            equipment_reserved_count: 1,
+            equipment_reserved_names: 'Rebak',
           }],
         };
       }
@@ -547,6 +868,7 @@ describe('Tasks routes', () => {
             adres: 'Testowa 1',
             data_planowana: '2026-06-01T08:00:00.000Z',
             opis_pracy: 'Przycinka korony',
+            notatki_wewnetrzne: 'Ryzyka: brak szczegolnych',
             wartosc_planowana: 1500,
             czas_planowany_godziny: 3,
             ekipa_id: 9,
@@ -555,6 +877,8 @@ describe('Tasks routes', () => {
             photo_wycena: 1,
             photo_szkic: 1,
             photo_dojazd: 1,
+            equipment_reserved_count: 1,
+            equipment_reserved_names: 'Rebak',
           }],
         };
       }
@@ -591,6 +915,69 @@ describe('Tasks routes', () => {
     expect(release).toHaveBeenCalled();
   });
 
+  it('PUT /tasks/:id/status blocks next stage when field package is incomplete', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5, login: 'admin' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('COALESCE(ps.photo_total, 0)::int AS photo_total')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Wycena_Terenowa',
+            klient_nazwa: 'A',
+            klient_telefon: '+48123123123',
+            adres: 'Testowa 1',
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            opis_pracy: '',
+            wartosc_planowana: null,
+            czas_planowany_godziny: null,
+            photo_total: 0,
+            photo_wycena: 0,
+            photo_szkic: 0,
+            photo_dojazd: 0,
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('SELECT status, oddzial_id FROM tasks')) {
+        return { rows: [{ status: 'Wycena_Terenowa', oddzial_id: 5 }] };
+      }
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    const release = jest.fn();
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .put('/api/tasks/12/status')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ status: 'Do_Zatwierdzenia' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TASK_WORKFLOW_BLOCKED');
+    expect(res.body.missing_labels).toEqual(expect.arrayContaining([
+      'opis / zakres prac',
+      'zdjecie ogolne / wycena',
+      'szkic zakresu',
+      'cena / budzet',
+      'czas pracy',
+    ]));
+    expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(clientQuery).not.toHaveBeenCalledWith(
+      'UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2',
+      expect.any(Array)
+    );
+    expect(release).toHaveBeenCalled();
+  });
+
   it('POST /tasks/:id/start returns 400 for brygadzista without checklist', async () => {
     const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
@@ -600,6 +987,34 @@ describe('Tasks routes', () => {
       .send({ lat: 52.1, lng: 21.0 });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('POST /tasks/:id/checkin stores zero-minute GPS marker for brygadzista', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO work_logs')) return { rows: [{ id: 701 }] };
+      if (s.includes('COMMIT')) return {};
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/1/checkin')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 52.1, lng: 21.0 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ message: 'Check-in zapisany', checkin_id: 701 });
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO work_logs'),
+      [1, 2, 52.1, 21.0]
+    );
+    expect(release).toHaveBeenCalled();
   });
 
   it('POST /tasks/:id/start returns 200 for brygadzista with GPS and checklist', async () => {
@@ -904,7 +1319,82 @@ describe('Tasks routes', () => {
       .send({ data_planowana: '2026-05-10T09:00:00.000Z' });
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toBe('Plan zaktualizowany');
+    expect(res.body.message).toMatch(/^Plan zaktualizowany/);
+  });
+
+  it('updates planned datetime and team via PATCH /tasks/:id/plan for kierownik', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T09:00:00.000Z', ekipa_id: 9 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/^Plan zaktualizowany/);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE tasks SET data_planowana = $1::timestamptz, ekipa_id = $2'),
+      ['2026-05-10T09:00:00.000Z', 9, 1]
+    );
+  });
+
+  it('promotes task to Zaplanowane when PATCH /tasks/:id/plan completes office package', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    const plannedRow = {
+      id: 1,
+      status: 'Do_Zatwierdzenia',
+      klient_nazwa: 'Jan Nowak',
+      klient_telefon: '500000000',
+      adres: 'Lesna 1',
+      miasto: 'Krakow',
+      opis_pracy: 'Przycinka koron',
+      wartosc_planowana: 1200,
+      czas_planowany_godziny: 2,
+      data_planowana: '2026-05-10T09:00:00.000Z',
+      ekipa_id: 9,
+      ekipa_nazwa: 'Ekipa A',
+      photo_total: 3,
+      photo_wycena: 1,
+      photo_szkic: 1,
+      photo_dojazd: 1,
+      equipment_reserved_count: 1,
+      equipment_reserved_names: 'Rebak',
+    };
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, status: 'Do_Zatwierdzenia', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [plannedRow] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ ...plannedRow, status: 'Zaplanowane' }] });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T09:00:00.000Z', ekipa_id: 9 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.plan_promoted).toBe(true);
+    expect(res.body.status).toBe('Zaplanowane');
+    expect(res.body.office_plan_ready).toBe(true);
+    expect(res.body.message).toMatch(/gotowe dla ekipy/i);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE tasks SET status = 'Zaplanowane'"),
+      [1]
+    );
   });
 
   it('blocks PATCH /tasks/:id/plan when task is finished', async () => {

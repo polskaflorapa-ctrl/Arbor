@@ -19,6 +19,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 
@@ -313,7 +314,7 @@ export default function Oddzialy() {
                 <Field label="Kierownik">
                   <select style={S.input} value={form.kierownik_id} onChange={e => setForm({ ...form, kierownik_id: e.target.value })}>
                     <option value="">-- brak --</option>
-                    {kierownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({u.rola})</option>)}
+                    {kierownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})</option>)}
                   </select>
                 </Field>
               </div>
@@ -334,7 +335,7 @@ export default function Oddzialy() {
                 <Field label="Typ zasobu *">
                   <select style={S.input} value={formDelegacja.zasob_typ} onChange={e => handleDelegacjaType(e.target.value)} required>
                     <option value="ekipa">Ekipa</option>
-                    <option value="wyceniajacy">Wyceniajacy</option>
+                    <option value="wyceniajacy">Specjalista ds. wyceny</option>
                   </select>
                 </Field>
                 {formDelegacja.zasob_typ === 'ekipa' && (
@@ -346,7 +347,7 @@ export default function Oddzialy() {
                 </Field>
                 )}
                 {formDelegacja.zasob_typ === 'wyceniajacy' && (
-                  <Field label="Wyceniajacy *">
+                  <Field label="Specjalista ds. wyceny *">
                     <select style={S.input} value={formDelegacja.user_id} onChange={e => handleDelegacjaResource(e.target.value)} required>
                       <option value="">-- wybierz --</option>
                       {wyceniajacy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({oddzialName(u.oddzial_id)})</option>)}
@@ -387,7 +388,7 @@ export default function Oddzialy() {
                 <Field label="Pracownik *">
                   <select style={S.input} value={formPrzenies.user_id} onChange={e => setFormPrzenies({ ...formPrzenies, user_id: e.target.value })} required>
                     <option value="">-- wybierz --</option>
-                    {uzytkownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({u.rola}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>)}
+                    {uzytkownicy.map(u => <option key={u.id} value={u.id}>{u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)}) — {oddzialy.find(o => o.id === u.oddzial_id)?.nazwa || 'brak'}</option>)}
                   </select>
                 </Field>
                 <Field label="Do oddziału *">
@@ -417,14 +418,14 @@ export default function Oddzialy() {
               </div>
             ) : oddzialy.map((o, i) => (
               <div key={o.id} style={{
-                backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                borderTop: '4px solid var(--accent)',
+                background: 'var(--surface-glass)', borderRadius: 8, padding: 20,
+                boxShadow: 'var(--shadow-md)',
+                border: '1px solid var(--glass-border)',
                 animation: `bounceIn 0.4s ease ${i * 0.06}s forwards`, opacity: 0,
                 transition: 'transform 0.2s, box-shadow 0.2s',
               }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(56,142,60,0.18)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}>
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <BusinessOutlined sx={{ fontSize: 36, color: 'var(--accent)', opacity: 0.85 }} />
                   {isDyrektor && (
@@ -493,7 +494,7 @@ export default function Oddzialy() {
                       <strong style={{ fontSize: 14, color: 'var(--text)' }}>
                         {d.zasob_nazwa || d.ekipa_nazwa || d.user_nazwa || '-'}
                         <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                          {d.zasob_typ === 'wyceniajacy' ? 'Wyceniajacy' : 'Ekipa'}
+                          {d.zasob_typ === 'wyceniajacy' ? 'Specjalista ds. wyceny' : 'Ekipa'}
                         </span>
                       </strong>
                       <span style={{ ...S.delegacjaStatus, backgroundColor: STATUS_DELEGACJI_KOLOR[d.status] || '#6B7280' }}>
@@ -559,20 +560,20 @@ const S = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   editBtn: { padding: '4px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
-  formBox: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', borderTop: '4px solid var(--accent)' },
+  formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
   delegacjeWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   delegacjeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },
   delegacjaCard: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    border: '1px solid var(--border2)',
-    borderRadius: 14,
-    boxShadow: 'var(--shadow-sm)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    boxShadow: 'var(--shadow-md)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -581,11 +582,11 @@ const S = {
   delegacjaTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   delegacjaStatus: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 700 },
   delegacjaMetaRow: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' },
-  delegacjaMetaLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 700 },
+  delegacjaMetaLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0, fontWeight: 700 },
   delegacjaMetaValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
   delegacjaDates: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 2 },
-  delegacjaDateBox: { background: 'var(--bg-deep)', border: '1px solid var(--border2)', borderRadius: 10, padding: '8px 10px' },
-  delegacjaDateLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.04em' },
+  delegacjaDateBox: { background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px' },
+  delegacjaDateLabel: { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0 },
   delegacjaDateValue: { fontSize: 12, color: 'var(--text)', fontWeight: 700, marginTop: 2 },
   delegacjaActionRow: { display: 'flex', justifyContent: 'flex-end', marginTop: 4 },
   delegacjaSelect: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 12, cursor: 'pointer', minWidth: 140 },

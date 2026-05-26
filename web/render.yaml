@@ -9,7 +9,7 @@ services:
     staticPublishPath: ./build
     autoDeployTrigger: commit
     envVars:
-      - key: REACT_APP_API_URL
+      - key: VITE_API_URL
         sync: false
     routes:
       - type: rewrite

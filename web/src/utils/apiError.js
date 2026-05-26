@@ -1,16 +1,23 @@
 export function getApiErrorMessage(error, fallback = 'Wystąpił błąd. Spróbuj ponownie.') {
+  const data = error?.response?.data || {};
+  const missingLabels = Array.isArray(data?.missing_labels)
+    ? data.missing_labels.map((label) => String(label || '').trim()).filter(Boolean)
+    : [];
+  if (data?.code === 'TASK_WORKFLOW_BLOCKED' && missingLabels.length) {
+    const base = data.error || 'Nie mozna przejsc dalej bez wymaganych danych.';
+    return `${base} Brakuje: ${missingLabels.join(', ')}.`;
+  }
   const details =
-    error?.response?.data?.details ||
-    error?.response?.data?.detail ||
-    error?.response?.data?.message;
+    data?.details ||
+    data?.detail ||
+    data?.message;
   const normalizedDetails = Array.isArray(details) ? details.join(', ') : details;
 
   return (
     error?.userMessage ||
     normalizedDetails ||
-    error?.response?.data?.error ||
+    data?.error ||
     error?.message ||
     fallback
   );
 }
-

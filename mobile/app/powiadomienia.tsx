@@ -23,6 +23,7 @@ import { supportsQuotationsModule } from '../utils/api-capabilities';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { triggerHaptic } from '../utils/haptics';
+import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 import { registerExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
@@ -622,7 +623,7 @@ export default function Powiadomienia() {
               <TouchableOpacity key={k.id} style={[S.selectItem, selectedKierownik === k.id.toString() && { backgroundColor: theme.accent + '18' }]}
                 onPress={() => setSelectedKierownik(k.id.toString())}>
                 <Text style={[S.selectText, selectedKierownik === k.id.toString() && { color: theme.accent }]}>
-                  {k.imie} {k.nazwisko} · {k.rola}
+                  {k.imie} {k.nazwisko} · {getRoleDisplayName(k.rola)}
                 </Text>
               </TouchableOpacity>
             ))}

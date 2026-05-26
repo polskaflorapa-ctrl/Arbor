@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import ModernDataRow from '../components/ModernDataRow';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -20,23 +22,6 @@ function todayYM() {
 }
 
 const ABSENCE_TYPS = ['Urlop', 'Choroba', 'L4', 'Opieka', 'Nieobecność nieusprawiedliwiona', 'Inne'];
-
-// ─── Absence badge ────────────────────────────────────────────────────────────
-
-function AbsBadge({ status }) {
-  const cfg = {
-    Oczekuje:    { bg: '#fef9c3', color: '#ca8a04' },
-    Zatwierdzona:{ bg: '#dcfce7', color: '#16a34a' },
-    Odrzucona:   { bg: '#fee2e2', color: '#dc2626' },
-  };
-  const c = cfg[status] || { bg: 'var(--bg)', color: 'var(--text-sub)' };
-  return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
-                   background: c.bg, color: c.color }}>
-      {status}
-    </span>
-  );
-}
 
 // ─── Add absence modal ────────────────────────────────────────────────────────
 
@@ -80,7 +65,7 @@ function AddAbsenceModal({ onClose, onSaved }) {
           <label style={m.label}>{t('hrPanel.modal.employee')}</label>
           <select value={form.user_id} onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))} style={m.input}>
             <option value="">{t('hrPanel.modal.employeePh')}</option>
-            {employees.map(e => <option key={e.id} value={e.id}>{e.employee_name} ({e.rola})</option>)}
+            {employees.map(e => <option key={e.id} value={e.id}>{e.employee_name} ({getRoleDisplayName(e.rola)})</option>)}
           </select>
 
           <label style={m.label}>{t('hrPanel.modal.typ')}</label>
@@ -226,47 +211,31 @@ export default function HrPanel() {
         {tab === 'timesheet' && !loading && (
           <div style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.timesheet.title')} — {month}</div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    {[
-                      t('hrPanel.col.employee'),
-                      t('hrPanel.col.role'),
-                      t('hrPanel.col.branch'),
-                      t('hrPanel.col.hoursConf'),
-                      t('hrPanel.col.hoursPend'),
-                      t('hrPanel.col.days'),
-                      t('hrPanel.col.tasks'),
-                    ].map(h => (
-                      <th key={h} style={s.th}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {timesheet.map(row => (
-                    <tr key={row.user_id} style={s.tr}>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{row.employee_name}</td>
-                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.rola}</td>
-                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.oddzial_nazwa}</td>
-                      <td style={{ ...s.tdNum, color: '#16a34a', fontWeight: 700 }}>
-                        {fmt(row.hours_confirmed, ' h')}
-                      </td>
-                      <td style={{ ...s.tdNum, color: row.hours_pending > 0 ? '#ca8a04' : 'var(--text-sub)' }}>
-                        {fmt(row.hours_pending, ' h')}
-                      </td>
-                      <td style={s.tdNum}>{fmt(row.days_worked)}</td>
-                      <td style={s.tdNum}>{fmt(row.tasks_covered)}</td>
-                    </tr>
-                  ))}
-                  {timesheet.length === 0 && (
-                    <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: 'var(--text-sub)', padding: 32 }}>
-                      {t('hrPanel.timesheet.noData')} {month}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {timesheet.length === 0 ? (
+              <div className="modern-data-empty">{t('hrPanel.timesheet.noData')} {month}</div>
+            ) : (
+              <div className="modern-data-stack">
+                {timesheet.map(row => (
+                  <ModernDataRow
+                    key={row.user_id}
+                    idLabel="Employee ID"
+                    idValue={`USR-${row.user_id}`}
+                    title={row.employee_name}
+                    subtitle={`${getRoleDisplayName(row.rola)} · ${row.oddzial_nazwa || 'brak oddziału'}`}
+                    tone={Number(row.hours_pending) > 0 ? 'warning' : 'success'}
+                    status={Number(row.hours_pending) > 0 ? 'PENDING HOURS' : 'CONFIRMED'}
+                    statusValue={Number(row.hours_pending) > 0 ? 'warning' : 'success'}
+                    statusState={Number(row.hours_pending) > 0 ? 'warning' : 'success'}
+                    metrics={[
+                      { label: 'Godz. potwierdzone', value: fmt(row.hours_confirmed, ' h'), tone: 'success' },
+                      { label: 'Godz. oczekujące', value: fmt(row.hours_pending, ' h'), tone: Number(row.hours_pending) > 0 ? 'warning' : undefined },
+                      { label: 'Dni', value: fmt(row.days_worked) },
+                      { label: 'Zlecenia', value: fmt(row.tasks_covered) },
+                    ]}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -274,55 +243,38 @@ export default function HrPanel() {
         {tab === 'absences' && !loading && (
           <div style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.absences.title')} — {month}</div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    {[
-                      t('hrPanel.col.employee'),
-                      t('hrPanel.col.typ'),
-                      t('hrPanel.col.dateFrom'),
-                      t('hrPanel.col.dateTo'),
-                      t('hrPanel.col.reason'),
-                      t('hrPanel.col.status'),
-                      t('hrPanel.col.actions'),
-                    ].map(h => (
-                      <th key={h} style={s.th}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {absences.map(row => (
-                    <tr key={row.id} style={s.tr}>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{row.employee_name}</td>
-                      <td style={s.td}>{row.typ}</td>
-                      <td style={s.td}>{fmtDate(row.data_od)}</td>
-                      <td style={s.td}>{fmtDate(row.data_do)}</td>
-                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)', maxWidth: 160,
-                                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.powod || '—'}
-                      </td>
-                      <td style={s.td}><AbsBadge status={row.status} /></td>
-                      <td style={s.td}>
-                        {row.status === 'Oczekuje' && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button type="button" style={s.approveBtn}
-                              onClick={() => updateAbsenceStatus(row.id, 'Zatwierdzona')}>✔</button>
-                            <button type="button" style={s.rejectBtn}
-                              onClick={() => updateAbsenceStatus(row.id, 'Odrzucona')}>✕</button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {absences.length === 0 && (
-                    <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: 'var(--text-sub)', padding: 32 }}>
-                      {t('hrPanel.absences.noData')} {month}
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {absences.length === 0 ? (
+              <div className="modern-data-empty">{t('hrPanel.absences.noData')} {month}</div>
+            ) : (
+              <div className="modern-data-stack">
+                {absences.map(row => (
+                  <ModernDataRow
+                    key={row.id}
+                    idLabel="Absence ID"
+                    idValue={`ABS-${row.id}`}
+                    title={row.employee_name}
+                    subtitle={row.powod || 'Brak powodu'}
+                    tone={row.status === 'Zatwierdzona' ? 'success' : row.status === 'Odrzucona' ? 'danger' : 'warning'}
+                    status={row.status}
+                    statusValue={row.status}
+                    statusState={row.status === 'Zatwierdzona' ? 'success' : row.status === 'Odrzucona' ? 'danger' : 'warning'}
+                    metrics={[
+                      { label: 'Typ', value: row.typ, mono: false },
+                      { label: 'Od', value: fmtDate(row.data_od) },
+                      { label: 'Do', value: fmtDate(row.data_do) },
+                    ]}
+                    actions={
+                      row.status === 'Oczekuje' ? (
+                        <>
+                          <button type="button" style={s.approveBtn} onClick={() => updateAbsenceStatus(row.id, 'Zatwierdzona')}>OK</button>
+                          <button type="button" style={s.rejectBtn} onClick={() => updateAbsenceStatus(row.id, 'Odrzucona')}>X</button>
+                        </>
+                      ) : null
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -336,41 +288,26 @@ export default function HrPanel() {
                 <p>{t('hrPanel.competency.noData')}</p>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      {[
-                        t('hrPanel.col.employee'),
-                        t('hrPanel.col.role'),
-                        t('hrPanel.col.branch'),
-                        t('hrPanel.col.competency'),
-                        t('hrPanel.col.typ'),
-                        t('hrPanel.col.docNo'),
-                        t('hrPanel.col.expires'),
-                        t('hrPanel.col.daysLeft'),
-                      ].map(h => (
-                        <th key={h} style={s.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {competency.map(row => (
-                      <tr key={row.id} style={{ ...s.tr, background: row.expired ? '#fff1f2' : row.days_left <= 14 ? '#fffbeb' : 'transparent' }}>
-                        <td style={{ ...s.td, fontWeight: 600 }}>{row.employee_name}</td>
-                        <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.rola}</td>
-                        <td style={{ ...s.td, fontSize: 12, color: 'var(--text-sub)' }}>{row.oddzial_nazwa}</td>
-                        <td style={s.td}>{row.competency_name}</td>
-                        <td style={{ ...s.td, fontSize: 12 }}>{row.typ}</td>
-                        <td style={{ ...s.td, fontSize: 12 }}>{row.nr_dokumentu || '—'}</td>
-                        <td style={s.td}>{fmtDate(row.data_waznosci)}</td>
-                        <td style={{ ...s.tdNum, color: row.expired ? '#dc2626' : row.days_left <= 14 ? '#ca8a04' : '#16a34a', fontWeight: 700 }}>
-                          {row.expired ? 'Wygasłe' : `${row.days_left}d`}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="modern-data-stack">
+                {competency.map(row => (
+                  <ModernDataRow
+                    key={row.id}
+                    idLabel="Competency ID"
+                    idValue={`COMP-${row.id}`}
+                    title={row.employee_name}
+                    subtitle={`${getRoleDisplayName(row.rola)} · ${row.oddzial_nazwa || 'brak oddziału'}`}
+                    tone={row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success'}
+                    status={row.expired ? 'Wygasłe' : `${row.days_left}d`}
+                    statusValue={row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success'}
+                    statusState={row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success'}
+                    metrics={[
+                      { label: 'Kompetencja', value: row.competency_name, mono: false },
+                      { label: 'Typ', value: row.typ, mono: false },
+                      { label: 'Nr dokumentu', value: row.nr_dokumentu || 'brak' },
+                      { label: 'Ważność', value: fmtDate(row.data_waznosci), tone: row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success' },
+                    ]}
+                  />
+                ))}
               </div>
             )}
           </div>

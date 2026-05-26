@@ -2,11 +2,15 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
-const { env } = require('../config/env');
+const { authMiddleware, isDyrektorOrAdmin, isKierownik, scopedOddzialId } = require('../middleware/auth');
 const { validateBody } = require('../middleware/validate');
 const { z } = require('zod');
-const Anthropic = require('@anthropic-ai/sdk');
+const {
+  generateAiText,
+  getAiConfigurationStatus,
+  isAiAuthError,
+} = require('../services/aiProviders');
+const { buildDispatchAdvisor } = require('../services/aiDispatchAdvisor');
 
 const aiChatSchema = z.object({
   messages: z.array(z.object({
@@ -27,7 +31,11 @@ const aiTodayPlanSchema = z.object({
   horizon_days: z.coerce.number().int().min(1).max(14).optional().default(3),
 });
 
-const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+const aiDispatchBriefQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  horizon_days: z.coerce.number().int().min(1).max(14).optional().default(1),
+  oddzial_id: z.coerce.number().int().positive().optional(),
+});
 
 const SYSTEM_PROMPT = `Jesteś asystentem AI wbudowanym w system ARBOR-OS — oprogramowanie do zarządzania firmą arborystyczną (wycinka i pielęgnacja drzew, frezowanie pni, usługi alpinistyczne).
 
@@ -41,6 +49,61 @@ Twoje zadania:
 - Nie wymyślaj danych których nie masz — mów "sprawdź w systemie" jeśli nie masz danych
 
 Format odpowiedzi: krótkie akapity, używaj list tylko gdy naprawdę potrzeba.`;
+
+const sendAiError = (req, res, error, fallbackKey) => {
+  if (error?.configuration) {
+    return res.status(503).json({ error: req.t('errors.ai.providerNotConfigured') });
+  }
+  if (isAiAuthError(error)) {
+    const key = error.provider === 'huggingface'
+      ? 'errors.ai.huggingFaceKeyInvalid'
+      : 'errors.ai.anthropicKeyInvalid';
+    return res.status(500).json({ error: req.t(key) });
+  }
+  return res.status(500).json({ error: error.message || req.t(fallbackKey) });
+};
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const canUseDispatchAdvisor = (user) => isDyrektorOrAdmin(user) || isKierownik(user);
+
+const parseJsonFromText = (text) => {
+  const match = String(text || '').match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return null;
+  }
+};
+
+const buildDispatchAiPrompt = (advisor) => `Jestes AI Dyspozytorem ARBOR-OS.
+Dane regułowe dla dnia ${advisor.date}:
+${JSON.stringify({
+  metrics: advisor.metrics,
+  recommendations: advisor.recommendations,
+  top_tasks: advisor.top_tasks.map((task) => ({
+    task_id: task.task_id,
+    task_numer: task.task_numer,
+    client: task.client,
+    status: task.status,
+    quality_score: task.quality_score,
+    issues: task.issues.slice(0, 4).map((issue) => ({
+      severity: issue.severity,
+      label: issue.label,
+      action: issue.action,
+    })),
+  })),
+})}
+
+Zwroc tylko JSON:
+{
+  "summary": "jedno zdanie po polsku",
+  "recommendations": [
+    {"priority":"high|medium|low","title":"...","rationale":"...","suggested_action":"...","risk":"high|medium|low"}
+  ]
+}
+Maksymalnie 5 rekomendacji. Nie wymyslaj danych, ktorych nie ma w JSON.`;
 
 // ── POST /api/ai/chat ───────────────────────────────────────────────────────
 router.post('/chat', authMiddleware, validateBody(aiChatSchema), async (req, res) => {
@@ -68,24 +131,22 @@ router.post('/chat', authMiddleware, validateBody(aiChatSchema), async (req, res
 
     const systemWithContext = SYSTEM_PROMPT + dbContext;
 
-    // Konwertuj wiadomości do formatu Anthropic
+    // Konwertuj wiadomosci do wspolnego formatu providerow.
     const anthropicMessages = messages.map(m => ({
       role: m.role === 'user' ? 'user' : 'assistant',
       content: m.content,
     }));
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
+    const aiResult = await generateAiText({
       system: systemWithContext,
       messages: anthropicMessages,
+      maxTokens: 1024,
     });
 
-    res.json({ reply: response.content[0].text });
+    res.json({ reply: aiResult.text, provider: aiResult.provider, model: aiResult.model });
   } catch (e) {
     logger.error('AI chat error', { message: e.message, requestId: req.requestId });
-    if (e.status === 401) return res.status(500).json({ error: req.t('errors.ai.anthropicKeyInvalid') });
-    res.status(500).json({ error: e.message || req.t('errors.ai.genericAi') });
+    return sendAiError(req, res, e, 'errors.ai.genericAi');
   }
 });
 
@@ -117,39 +178,48 @@ Odpowiedz po polsku, konkretnie i zwięźle. Format JSON:
   "zalecenia": "krótkie uwagi"
 }`;
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 800,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: imageBase64,
-            },
+    const anthropicMessages = [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mediaType,
+            data: imageBase64,
           },
-          { type: 'text', text: prompt },
-        ],
-      }],
+        },
+        { type: 'text', text: prompt },
+      ],
+    }];
+    const huggingFaceMessages = [{
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: `data:${mediaType};base64,${imageBase64}` } },
+      ],
+    }];
+
+    const aiResult = await generateAiText({
+      messages: anthropicMessages,
+      huggingFaceMessages,
+      maxTokens: 800,
+      requiresVision: true,
     });
 
-    const text = response.content[0].text;
+    const text = aiResult.text;
 
     // Spróbuj sparsować JSON z odpowiedzi
     let parsed = null;
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-  } catch { /* zostaw parsed = null */ }
+    } catch { /* zostaw parsed = null */ }
 
-    res.json({ raw: text, parsed });
+    res.json({ raw: text, parsed, provider: aiResult.provider, model: aiResult.model });
   } catch (e) {
     logger.error('AI photo error', { message: e.message, requestId: req.requestId });
-    if (e.status === 401) return res.status(500).json({ error: req.t('errors.ai.anthropicKeyInvalid') });
-    res.status(500).json({ error: e.message || req.t('errors.ai.imageAnalysisFailed') });
+    return sendAiError(req, res, e, 'errors.ai.imageAnalysisFailed');
   }
 });
 
@@ -207,7 +277,7 @@ router.post('/today-plan', authMiddleware, validateBody(aiTodayPlanSchema), asyn
       },
     ];
 
-    if (!env.ANTHROPIC_API_KEY) {
+    if (!getAiConfigurationStatus().textAvailable) {
       return res.json({
         source: 'rules',
         horizon_days: horizon,
@@ -227,33 +297,162 @@ Zwroc JSON:
 {"recommendations":[{"priority":"high|medium|low","title":"...","rationale":"...","suggested_action":"...","risk":"high|medium|low"}]}
 Maksymalnie 5 rekomendacji, konkretnie, po polsku.`;
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 900,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const raw = response.content?.[0]?.text || '';
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    let parsed = null;
-    if (jsonMatch) {
-      try {
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch {
-        parsed = null;
+    try {
+      const aiResult = await generateAiText({
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 900,
+      });
+      const raw = aiResult.text || '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      let parsed = null;
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          parsed = null;
+        }
       }
-    }
 
-    res.json({
-      source: 'ai',
-      horizon_days: horizon,
-      tasks_considered: todayRes.rows.length,
-      overdue: overdueRes.rows,
-      recommendations: parsed?.recommendations || deterministicPlan,
-      raw,
-    });
+      return res.json({
+        source: 'ai',
+        provider: aiResult.provider,
+        model: aiResult.model,
+        horizon_days: horizon,
+        tasks_considered: todayRes.rows.length,
+        overdue: overdueRes.rows,
+        recommendations: parsed?.recommendations || deterministicPlan,
+        raw,
+      });
+    } catch (aiError) {
+      logger.warn('AI today-plan provider failed; using rules', {
+        message: aiError.message,
+        provider: aiError.provider,
+        requestId: req.requestId,
+      });
+      return res.json({
+        source: 'rules',
+        provider_error: true,
+        horizon_days: horizon,
+        tasks_considered: todayRes.rows.length,
+        overdue: overdueRes.rows,
+        recommendations: deterministicPlan,
+      });
+    }
   } catch (e) {
     logger.error('AI today-plan error', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: e.message || req.t('errors.ai.genericAi') });
+  }
+});
+
+router.get('/dispatch-brief', authMiddleware, async (req, res) => {
+  if (!canUseDispatchAdvisor(req.user)) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
+
+  const parsed = aiDispatchBriefQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: req.t('errors.validation.invalidInput'),
+      code: 'VALIDATION_FAILED',
+      details: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
+      requestId: req.requestId,
+    });
+  }
+
+  try {
+    const date = parsed.data.date || todayIso();
+    const horizon = parsed.data.horizon_days;
+    const branchId = scopedOddzialId(req.user, parsed.data.oddzial_id ?? null);
+    const params = [date, horizon];
+    const where = [
+      "t.status NOT IN ('Zakonczone','Anulowane')",
+      `(t.data_planowana::date BETWEEN $1::date AND ($1::date + ($2::int - 1))
+        OR t.data_planowana IS NULL)`,
+    ];
+    if (branchId) {
+      params.push(branchId);
+      where.push(`t.oddzial_id = $${params.length}`);
+    }
+
+    const tasksSql = `
+      SELECT
+        t.id, t.numer, t.klient_nazwa, t.klient_telefon, t.adres, t.miasto,
+        t.status, t.priorytet, t.data_planowana, t.ekipa_id, e.nazwa AS ekipa_nazwa,
+        t.wartosc_planowana, t.budzet, t.czas_planowany_godziny, t.czas_realizacji_godz,
+        t.czas_obslugi_min, t.typ_uslugi, t.opis, t.opis_pracy, t.wynik, t.notatki_wewnetrzne,
+        t.pin_lat, t.pin_lng, t.wymagany_sprzet_typ,
+        t.rebak, t.pila_wysiegniku, t.nozyce_dlugie, t.kosiarka, t.podkaszarka,
+        t.lopata, t.mulczer, t.arborysta,
+        COALESCE(ps.photo_total, 0)::int AS photo_total,
+        COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count
+      FROM tasks t
+      LEFT JOIN ekipy e ON e.id = t.ekipa_id
+      LEFT JOIN (
+        SELECT task_id, COUNT(*)::int AS photo_total
+        FROM photos
+        GROUP BY task_id
+      ) ps ON ps.task_id = t.id
+      LEFT JOIN (
+        SELECT task_id, COUNT(*) FILTER (WHERE LOWER(COALESCE(status, '')) NOT LIKE 'anul%')::int AS equipment_reserved_count
+        FROM equipment_reservations
+        WHERE task_id IS NOT NULL
+        GROUP BY task_id
+      ) er ON er.task_id = t.id
+      WHERE ${where.join(' AND ')}
+      ORDER BY
+        CASE WHEN t.priorytet = 'Pilny' THEN 0 ELSE 1 END,
+        t.data_planowana ASC NULLS LAST,
+        t.id DESC
+      LIMIT 80`;
+
+    const teamsParams = branchId ? [branchId] : [];
+    const teamsWhere = branchId ? 'WHERE aktywna = true AND oddzial_id = $1' : 'WHERE aktywna = true';
+    const [tasksRes, teamsRes] = await Promise.all([
+      pool.query(tasksSql, params),
+      pool.query(`SELECT COUNT(*)::int AS teams_count FROM ekipy ${teamsWhere}`, teamsParams),
+    ]);
+
+    const advisor = buildDispatchAdvisor({
+      tasks: tasksRes.rows,
+      teamsCount: teamsRes.rows[0]?.teams_count || 0,
+      date,
+      today: todayIso(),
+    });
+
+    if (!getAiConfigurationStatus().textAvailable) {
+      return res.json(advisor);
+    }
+
+    try {
+      const aiResult = await generateAiText({
+        messages: [{ role: 'user', content: buildDispatchAiPrompt(advisor) }],
+        maxTokens: 900,
+      });
+      const aiParsed = parseJsonFromText(aiResult.text);
+      return res.json({
+        ...advisor,
+        source: 'ai',
+        provider: aiResult.provider,
+        model: aiResult.model,
+        summary: aiParsed?.summary || null,
+        recommendations: Array.isArray(aiParsed?.recommendations) && aiParsed.recommendations.length
+          ? aiParsed.recommendations.slice(0, 5)
+          : advisor.recommendations,
+      });
+    } catch (aiError) {
+      logger.warn('AI dispatch-brief provider failed; using rules', {
+        message: aiError.message,
+        provider: aiError.provider,
+        requestId: req.requestId,
+      });
+      return res.json({ ...advisor, provider_error: true });
+    }
+  } catch (e) {
+    logger.error('AI dispatch-brief error', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message || req.t('errors.ai.genericAi') });
   }
 });
 

@@ -163,7 +163,7 @@ function getAssignmentLabel(item, live) {
   if (live?.ekipa_nazwa) return live.ekipa_nazwa;
   if (item?.brygadzista_nazwa) return item.brygadzista_nazwa;
   if (item?.wyceniajacy_nazwa) return item.wyceniajacy_nazwa;
-  if (item?.wyceniajacy_id) return `Wyceniający #${item.wyceniajacy_id}`;
+  if (item?.wyceniajacy_id) return `Specjalista ds. wyceny #${item.wyceniajacy_id}`;
   if (item?.ekipa_id) return `Ekipa #${item.ekipa_id}`;
   return 'Nieprzypisane';
 }
@@ -215,6 +215,7 @@ const FIELD_PROTOCOL_LABELS = {
   'Wynik rozmowy': 'Wynik',
   'Dostęp / parking / uwagi posesji': 'Dostęp',
   'Dodatkowe notatki wyceniającego': 'Notatki',
+  'Dodatkowe notatki specjalisty ds. wyceny': 'Notatki',
 };
 
 function parseFieldProtocol(text) {
@@ -842,7 +843,7 @@ export default function Ogledziny() {
             ) : null}
             {withoutGpsRows.length > 0 ? (
               <div style={{ marginTop: 8, fontSize: 11, color: 'var(--warning)', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 8, padding: '6px 8px' }}>
-                Bez GPS: {withoutGpsRows.length} przypisanych pozycji (np. wyceniający bez lokalizatora).
+                Bez GPS: {withoutGpsRows.length} przypisanych pozycji (np. specjalista ds. wyceny bez lokalizatora).
               </div>
             ) : null}
             {topRisks.length > 0 ? (

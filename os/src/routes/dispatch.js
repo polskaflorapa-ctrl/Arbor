@@ -214,7 +214,11 @@ router.post('/apply/:id', async (req, res) => {
 
     res.json({ message: `Plan zastosowany — ${applied} zleceń przypisanych` });
   } catch (err) {
-    try { await client.query('ROLLBACK'); } catch {}
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      logger.warn('dispatch apply rollback failed', { message: rollbackError.message });
+    }
     logger.error('dispatch apply error', { message: err.message });
     res.status(500).json({ error: err.message });
   } finally {

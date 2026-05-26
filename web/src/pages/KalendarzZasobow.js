@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -22,6 +22,17 @@ const TASK_STATUS_COLOR = {
   Anulowane: '#94a3b8',
 };
 const ACTIVE_TASK_STATUSES = new Set(['Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji']);
+const CLOSED_TASK_STATUSES = new Set(['Zakonczone', 'Anulowane']);
+const PLANNING_QUEUE_FILTERS = [
+  { key: 'all', label: 'Wszystkie' },
+  { key: 'ready', label: 'Gotowe' },
+  { key: 'missing', label: 'Z brakami' },
+  { key: 'photos', label: 'Bez zdjec' },
+  { key: 'risk', label: 'Bez BHP' },
+  { key: 'price', label: 'Bez ceny' },
+  { key: 'equipment', label: 'Bez sprzetu' },
+  { key: 'teamTime', label: 'Bez ekipy/terminu' },
+];
 
 // ─── stałe ────────────────────────────────────────────────────────────────────
 const ROW_H = 48;           // px — wysokość wiersza zasobu
@@ -41,6 +52,15 @@ const STATUS_COLOR = {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const toISO = (d) => d.toISOString().split('T')[0];
+
+function dateFromRouteSearch(search) {
+  const value = new URLSearchParams(search || '').get('date') || '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '';
+}
+
+function anchorFromISODate(value) {
+  return value ? new Date(`${value}T12:00:00`) : null;
+}
 
 function addDays(d, n) {
   const r = new Date(d);
@@ -122,8 +142,100 @@ function teamBranchId(team) {
   return team?.dostepny_w_oddziale_id || team?.oddzial_id || team?.oddzial_macierzysty_id || '';
 }
 
+function teamHomeBranchId(team) {
+  return team?.oddzial_macierzysty_id || team?.oddzial_id || '';
+}
+
+function isTeamDelegatedToView(team) {
+  const home = String(teamHomeBranchId(team) || '');
+  const available = String(teamBranchId(team) || '');
+  return Boolean(team?.delegowany || (home && available && home !== available));
+}
+
+function teamBranchLabel(team) {
+  return team?.dostepny_w_oddziale_nazwa || team?.oddzial_nazwa || 'Oddzial';
+}
+
+function teamDelegationLabel(team) {
+  const from = team?.delegacja_oddzial_z_nazwa || team?.oddzial_macierzysty_nazwa || team?.oddzial_nazwa || 'Oddzial macierzysty';
+  const to = team?.dostepny_w_oddziale_nazwa || 'oddzial docelowy';
+  return `${from} -> ${to}`;
+}
+
+function mergeTeamRows(base = [], extra = []) {
+  const map = new Map();
+  const keyFor = (team) => `${team?.id || ''}|${teamBranchId(team) || ''}|${team?.delegacja_id || 'native'}`;
+  for (const team of base || []) {
+    if (!team?.id) continue;
+    map.set(keyFor(team), team);
+  }
+  for (const team of extra || []) {
+    if (!team?.id) continue;
+    map.set(keyFor(team), team);
+  }
+  return [...map.values()];
+}
+
+function normalizeAttendanceItem(item, fallbackDate) {
+  const teamId = item?.teamId ?? item?.team_id;
+  return {
+    id: String(item?.id || `${teamId || ''}_${fallbackDate}`),
+    dateYmd: String(item?.dateYmd || item?.date_ymd || fallbackDate),
+    teamId: String(teamId || ''),
+    teamName: item?.teamName || item?.team_name || item?.nazwa || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
+    present: item?.present !== false,
+    note: String(item?.note || ''),
+    actor: String(item?.actor || item?.actor_name || ''),
+    at: String(item?.at || item?.updated_at || item?.created_at || ''),
+  };
+}
+
+function attendanceLine(entry) {
+  if (!entry) return '';
+  if (entry.present !== false) return 'Obecna';
+  return entry.note ? `Nieobecna - ${entry.note}` : 'Nieobecna';
+}
+
 function taskClientLabel(task) {
   return task?.klient_nazwa || task?.adres || `Zlecenie #${task?.id}`;
+}
+
+function taskAssetUrl(pathMaybe) {
+  if (!pathMaybe) return '';
+  const value = String(pathMaybe);
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  return value.startsWith('/') ? value : `/${value}`;
+}
+
+function extractTaskNoteLine(task, label) {
+  const raw = String(task?.notatki_wewnetrzne || task?.notatki || '');
+  const wanted = `${String(label || '').toLowerCase()}:`;
+  const line = raw
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .find((item) => item.toLowerCase().startsWith(wanted));
+  return line ? line.slice(String(label).length + 1).trim() : '';
+}
+
+function taskWorkBrief(task) {
+  return task?.opis_pracy || task?.opis || extractTaskNoteLine(task, 'Zakres prac') || task?.wynik || '';
+}
+
+function taskRiskBrief(task) {
+  return task?.ryzyka || extractTaskNoteLine(task, 'Ryzyka') || '';
+}
+
+function taskFieldEquipment(task) {
+  return task?.sprzet_notatka || extractTaskNoteLine(task, 'Sprzet / uwagi') || extractTaskNoteLine(task, 'Sprzet') || '';
+}
+
+function taskFieldSettlement(task) {
+  return extractTaskNoteLine(task, 'Warunki rozliczenia') || extractTaskNoteLine(task, 'Budzet klienta') || '';
+}
+
+function taskClientAccepted(task) {
+  const raw = extractTaskNoteLine(task, 'Klient zaakceptowal') || extractTaskNoteLine(task, 'Klient zaakceptował');
+  return /^tak|yes|true|1$/i.test(String(raw || '').trim());
 }
 
 function equipmentBranchId(item) {
@@ -152,6 +264,178 @@ function taskReservationEquipmentIds(rezerwacje, taskId) {
     .filter(activeReservation)
     .map((rez) => String(rez.sprzet_id))
     .filter(Boolean))];
+}
+
+function taskEquipmentLabel(rezerwacje, task) {
+  const reserved = taskReservationEquipmentIds(rezerwacje, task?.id);
+  const note = taskFieldEquipment(task);
+  if (reserved.length) return `${reserved.length} sprz.`;
+  if (note) return 'uwagi sprz.';
+  return 'sprz. -';
+}
+
+function compactText(value, fallback = '-') {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text || fallback;
+}
+
+function taskAddressLabel(task) {
+  return [task?.adres, task?.miasto]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function taskPhoneNumber(task) {
+  return String(task?.klient_telefon || task?.telefon || '').trim();
+}
+
+function taskMapSearchLink(task) {
+  const address = taskAddressLabel(task);
+  return address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : '';
+}
+
+function taskEndTime(task) {
+  return minutesToTime(taskRangeMinutes(task).end);
+}
+
+function taskValueLabel(task) {
+  const value = Number(task?.wartosc_planowana || task?.budzet || task?.wartosc_zaproponowana || task?.wartosc_szacowana || 0) || 0;
+  return value ? `${value.toLocaleString('pl-PL')} PLN` : 'brak ceny';
+}
+
+function taskReservationEquipmentRows(rezerwacje, task, day) {
+  return (rezerwacje || [])
+    .filter(activeReservation)
+    .filter((rez) => String(rez?.task_id || '') === String(task?.id || ''))
+    .filter((rez) => !day || reservationOverlapsDay(rez, day));
+}
+
+function reservationEquipmentName(rez, equipmentById) {
+  const item = equipmentById?.get?.(String(rez?.sprzet_id || ''));
+  return compactText(item?.nazwa || rez?.sprzet_nazwa || (rez?.sprzet_id ? `Sprzet #${rez.sprzet_id}` : ''), '');
+}
+
+function taskBriefEquipmentLabel(rezerwacje, task, day, equipmentById) {
+  const rows = taskReservationEquipmentRows(rezerwacje, task, day);
+  const names = rows
+    .map((rez) => reservationEquipmentName(rez, equipmentById))
+    .filter(Boolean);
+  const note = compactText(taskFieldEquipment(task), '');
+  const uniqueNames = [...new Set(names)];
+  if (note && uniqueNames.length) return `${uniqueNames.join(', ')} | ${note}`;
+  if (note) return note;
+  if (uniqueNames.length) return uniqueNames.join(', ');
+  return 'brak rezerwacji';
+}
+
+function buildTaskDayBriefLine(task, index, rezerwacje, day, equipmentById, teamsById) {
+  const range = taskRangeMinutes(task);
+  const team = teamsById?.get?.(String(task?.ekipa_id || ''));
+  const risk = compactText(taskRiskBrief(task), 'brak wpisu BHP');
+  const settlement = compactText(taskFieldSettlement(task), taskValueLabel(task));
+  const phone = taskPhoneNumber(task);
+  const mapLink = taskMapSearchLink(task);
+  return [
+    `${index + 1}. #${task?.id || '-'} | ${minutesToTime(range.start)}-${taskEndTime(task)} | ${taskClientLabel(task)}`,
+    `Adres: ${compactText(taskAddressLabel(task), 'brak adresu')}`,
+    `Ekipa: ${team?.nazwa || task?.ekipa_nazwa || (task?.ekipa_id ? `#${task.ekipa_id}` : 'brak')}`,
+    `Zakres: ${compactText(taskWorkBrief(task), 'brak opisu')}`,
+    `BHP / ryzyka: ${risk}`,
+    `Sprzet: ${taskBriefEquipmentLabel(rezerwacje, task, day, equipmentById)}`,
+    `Czas: ${taskHours(task)} h | Cena: ${settlement} | Foto: ${taskPhotoTotal(task)}`,
+    `Akceptacja klienta: ${taskClientAccepted(task) ? 'tak' : 'do potwierdzenia'}`,
+    phone ? `Telefon: ${phone}` : '',
+    mapLink ? `Mapa: ${mapLink}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function buildDayBrief({
+  dayISO,
+  dayLabel,
+  scheduledTasks,
+  visibleTeams,
+  attendanceByTeam,
+  rezerwacje,
+  equipmentById,
+  teamsById,
+  branchOptions,
+  selectedBranchId,
+  dayOpsSummary,
+  delegationSummary,
+}) {
+  const branchName = selectedBranchId
+    ? branchOptions.find((branch) => String(branch.id) === String(selectedBranchId))?.nazwa || `Oddzial #${selectedBranchId}`
+    : 'wszystkie oddzialy';
+  const visibleTeamIds = new Set((visibleTeams || []).map((team) => String(team.id)));
+  const dayTasks = (scheduledTasks || [])
+    .filter((task) => taskDate(task) === dayISO)
+    .filter((task) => !visibleTeamIds.size || visibleTeamIds.has(String(task?.ekipa_id || '')))
+    .slice()
+    .sort((a, b) => {
+      const teamA = String(a?.ekipa_id || '');
+      const teamB = String(b?.ekipa_id || '');
+      return teamA.localeCompare(teamB) || taskTime(a).localeCompare(taskTime(b)) || String(a.id).localeCompare(String(b.id));
+    });
+
+  const header = [
+    'ARBOR-OS | Odprawa dnia',
+    `Data: ${dayISO} (${dayLabel})`,
+    `Oddzial: ${branchName}`,
+    `Zlecenia: ${dayOpsSummary.tasks} | Rezerwacje sprzetu: ${dayOpsSummary.equipment} | Kolizje: ${dayOpsSummary.teamConflicts + dayOpsSummary.equipmentConflicts}`,
+    `Braki: zdjecia ${dayOpsSummary.noPhotos}, opis ${dayOpsSummary.noBrief}, sprzet ${dayOpsSummary.noEquipment}`,
+    `Nieobecne ekipy: ${dayOpsSummary.absentTeams || 0}`,
+    `Delegacje: ${delegationSummary.delegated.length}`,
+  ];
+  const absentTeamNotes = (visibleTeams || [])
+    .map((team) => {
+      const attendance = attendanceByTeam?.get?.(String(team.id));
+      if (attendance?.present !== false) return '';
+      return `${team.nazwa || `Ekipa #${team.id}`}${attendance.note ? ` - ${attendance.note}` : ''}`;
+    })
+    .filter(Boolean);
+  const headerRows = absentTeamNotes.length ? [...header, `Nieobecne: ${absentTeamNotes.join('; ')}`] : header;
+
+  if (!dayTasks.length) {
+    return `${headerRows.join('\n')}\n\nBrak zaplanowanych zlecen na ten dzien.`;
+  }
+
+  const teamOrder = new Map((visibleTeams || []).map((team, index) => [String(team.id), index]));
+  const grouped = new Map();
+  for (const task of dayTasks) {
+    const key = String(task?.ekipa_id || 'bez-ekipy');
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(task);
+  }
+
+  const teamSections = [...grouped.entries()]
+    .sort(([a], [b]) => (teamOrder.get(a) ?? 9999) - (teamOrder.get(b) ?? 9999) || a.localeCompare(b))
+    .map(([teamId, rows]) => {
+      const team = teamsById?.get?.(teamId);
+      const title = team?.nazwa || rows[0]?.ekipa_nazwa || (teamId === 'bez-ekipy' ? 'Bez ekipy' : `Ekipa #${teamId}`);
+      const delegation = team && isTeamDelegatedToView(team) ? ` (${teamDelegationLabel(team)})` : '';
+      const attendanceStatus = attendanceLine(attendanceByTeam?.get?.(teamId));
+      return [
+        `\n=== ${title}${delegation} ===`,
+        attendanceStatus ? `Status ekipy: ${attendanceStatus}` : '',
+        ...rows.map((task, index) => buildTaskDayBriefLine(task, index, rezerwacje, dayISO, equipmentById, teamsById)),
+      ].filter(Boolean).join('\n\n');
+    });
+
+  return `${headerRows.join('\n')}\n${teamSections.join('\n')}`;
+}
+
+function dayReservationConflicts(rezerwacje, day, visibleEquipmentIds = null) {
+  const byEquipment = new Map();
+  for (const rez of rezerwacje || []) {
+    if (!activeReservation(rez) || !reservationOverlapsDay(rez, day)) continue;
+    const equipmentId = String(rez?.sprzet_id || '');
+    if (!equipmentId) continue;
+    if (visibleEquipmentIds && !visibleEquipmentIds.has(equipmentId)) continue;
+    if (!byEquipment.has(equipmentId)) byEquipment.set(equipmentId, []);
+    byEquipment.get(equipmentId).push(rez);
+  }
+  return [...byEquipment.values()].filter((rows) => rows.length > 1);
 }
 
 function buildSlotSuggestions(tasks, task, form) {
@@ -221,6 +505,94 @@ function buildPlanWarnings(tasks, task, form) {
   return { conflicts, outsideWorkday };
 }
 
+function taskPhotoTotal(task) {
+  return Number(task?.photo_total || task?.photos_count || task?.zdjecia_count || 0) || 0;
+}
+
+function taskFieldEvidenceTotal(task) {
+  return (
+    Number(task?.photo_wycena || task?.photos_wycena || 0) +
+    Number(task?.photo_szkic || task?.photos_szkic || 0) +
+    Number(task?.photo_dojazd || task?.photos_dojazd || 0)
+  ) || 0;
+}
+
+function normalizePlanningMissingKey(keyOrLabel) {
+  const key = String(keyOrLabel || '').toLowerCase();
+  if (key.includes('photo') || key.includes('zdj') || key.includes('dowod')) return 'photos';
+  if (key.includes('scope') || key.includes('brief') || key.includes('zakres')) return 'brief';
+  if (key.includes('risk') || key.includes('bhp')) return 'risk';
+  if (key.includes('money') || key.includes('price') || key.includes('cena')) return 'price';
+  if (key.includes('equipment') || key.includes('sprzet')) return 'equipment';
+  if (key.includes('team') || key.includes('ekipa') || key.includes('slot') || key.includes('date') || key.includes('termin') || key.includes('time') || key.includes('czas')) return 'teamTime';
+  return 'teamTime';
+}
+
+function getOfficePlanChecksFromApi(task) {
+  const rows = Array.isArray(task?.office_plan_checks) ? task.office_plan_checks : [];
+  return rows
+    .map((row) => {
+      const label = String(row?.label || row?.key || '').trim();
+      if (!label) return null;
+      const ready = row?.ready === true || row?.ok === true;
+      return {
+        key: normalizePlanningMissingKey(row?.key || label),
+        label,
+        ready,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildPlanningQueueRow(task) {
+  const photoTotal = taskPhotoTotal(task);
+  const fieldEvidence = taskFieldEvidenceTotal(task);
+  const apiChecks = getOfficePlanChecksFromApi(task);
+  const missing = apiChecks.length ? apiChecks.filter((item) => !item.ready) : [
+    photoTotal > 0 ? null : { key: 'photos', label: 'zdjecia' },
+    fieldEvidence > 0 ? null : { key: 'photos', label: 'szkic' },
+    taskWorkBrief(task) ? null : { key: 'brief', label: 'zakres' },
+    taskRiskBrief(task) ? null : { key: 'risk', label: 'BHP' },
+    task?.wartosc_planowana || task?.budzet ? null : { key: 'price', label: 'cena' },
+    task?.czas_planowany_godziny || task?.czas_realizacji_godz ? null : { key: 'teamTime', label: 'czas' },
+    task?.data_planowana ? null : { key: 'teamTime', label: 'data' },
+    task?.ekipa_id ? null : { key: 'teamTime', label: 'ekipa' },
+  ].filter(Boolean);
+  return {
+    task,
+    photoTotal,
+    fieldEvidence,
+    missing,
+    ready: typeof task?.office_plan_ready === 'boolean' ? task.office_plan_ready : missing.length === 0,
+    value: Number(task?.wartosc_planowana || task?.budzet || 0) || 0,
+  };
+}
+
+function getPlanningQueueFocus(row) {
+  const keys = new Set((row?.missing || []).map((item) => item.key));
+  if (keys.has('photos')) return 'photos';
+  if (keys.has('brief') || keys.has('risk')) return 'crewBrief';
+  if (keys.has('equipment')) return 'equipment';
+  if (keys.has('price')) return 'decision';
+  return 'officePlan';
+}
+
+function isPlanningQueuePlanAction(row) {
+  const keys = new Set((row?.missing || []).map((item) => item.key));
+  const hasFieldOrOfficeMissing = ['photos', 'brief', 'risk', 'price', 'equipment'].some((key) => keys.has(key));
+  return Boolean(row?.ready || !hasFieldOrOfficeMissing);
+}
+
+function getPlanningQueueRepairLabel(row) {
+  const keys = new Set((row?.missing || []).map((item) => item.key));
+  if (keys.has('photos')) return 'Dodaj zdjecia';
+  if (keys.has('brief') || keys.has('risk')) return 'Pakiet terenowy';
+  if (keys.has('equipment')) return 'Sprzet';
+  if (keys.has('price')) return 'Cena/decyzja';
+  if (isPlanningQueuePlanAction(row)) return 'Planuj';
+  return 'Napraw braki';
+}
+
 function canSeeAllBranches(user) {
   return ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
 }
@@ -260,7 +632,11 @@ function NowaRezerwacjaModal({ sprzet, ekipy, defaultSprzet, defaultDate, onSave
         <label style={mStyles.label}>Ekipa</label>
         <select style={mStyles.select} value={form.ekipa_id} onChange={e => set('ekipa_id', e.target.value)}>
           <option value="">— wybierz —</option>
-          {ekipy.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
+          {ekipy.map(e => (
+            <option key={`${e.id}-${teamBranchId(e)}-${e.delegacja_id || 'native'}`} value={e.id}>
+              {e.nazwa}{isTeamDelegatedToView(e) ? ` (${teamDelegationLabel(e)})` : ''}
+            </option>
+          ))}
         </select>
 
         <div style={{ display: 'flex', gap: 12 }}>
@@ -305,6 +681,171 @@ const mStyles = {
   modalHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   subtle: { marginTop: 4, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.35 },
   statusPill: { padding: '4px 8px', borderRadius: 999, background: 'rgba(34,197,94,0.14)', color: 'var(--accent)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  fieldPackagePanel: {
+    border: '1px solid rgba(34,197,94,0.28)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(34,197,94,0.1), var(--bg-card2))',
+    padding: 12,
+    marginBottom: 12,
+    display: 'grid',
+    gap: 10,
+  },
+  fieldPackageHead: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  fieldPackageEyebrow: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  fieldPackageTitle: {
+    display: 'block',
+    marginTop: 2,
+    color: 'var(--text)',
+    fontSize: 15,
+    lineHeight: 1.25,
+    fontWeight: 900,
+  },
+  fieldPackagePill: {
+    borderRadius: 999,
+    padding: '5px 8px',
+    fontSize: 11,
+    lineHeight: 1,
+    fontWeight: 900,
+    border: '1px solid var(--border)',
+    whiteSpace: 'nowrap',
+  },
+  fieldPackagePillOk: {
+    color: '#16a34a',
+    border: '1px solid rgba(34,197,94,0.36)',
+    background: 'rgba(34,197,94,0.12)',
+  },
+  fieldPackagePillWarn: {
+    color: '#b45309',
+    border: '1px solid rgba(245,158,11,0.36)',
+    background: 'rgba(245,158,11,0.12)',
+  },
+  fieldPackageChecks: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(104px, 1fr))',
+    gap: 7,
+  },
+  fieldPackageCheck: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    padding: '7px 8px',
+    display: 'grid',
+    gap: 3,
+    minWidth: 0,
+  },
+  fieldPackageCheckOk: {
+    border: '1px solid rgba(34,197,94,0.28)',
+    background: 'rgba(34,197,94,0.08)',
+  },
+  fieldPackageCheckWarn: {
+    border: '1px solid rgba(245,158,11,0.32)',
+    background: 'rgba(245,158,11,0.08)',
+  },
+  fieldPackageCheckStatus: {
+    color: 'var(--text-muted)',
+    fontSize: 9.5,
+    lineHeight: 1,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+  },
+  fieldPackageCheckLabel: {
+    color: 'var(--text)',
+    fontSize: 12,
+    lineHeight: 1.15,
+    fontWeight: 900,
+  },
+  fieldPackageCheckDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 10.5,
+    lineHeight: 1.25,
+    fontWeight: 700,
+    overflowWrap: 'anywhere',
+  },
+  fieldPackageBriefGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 8,
+  },
+  fieldPackageTextBlock: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.08)',
+    padding: '8px 9px',
+    minWidth: 0,
+  },
+  fieldPackageTextLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    lineHeight: 1.1,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+  },
+  fieldPackageTextBody: {
+    margin: '5px 0 0',
+    color: 'var(--text)',
+    fontSize: 12,
+    lineHeight: 1.35,
+    fontWeight: 700,
+    overflowWrap: 'anywhere',
+    whiteSpace: 'pre-wrap',
+  },
+  fieldPhotoStrip: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(124px, 1fr))',
+    gap: 8,
+  },
+  fieldPhotoCard: {
+    display: 'grid',
+    gap: 5,
+    textDecoration: 'none',
+    color: 'var(--text)',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-deep)',
+    overflow: 'hidden',
+    minWidth: 0,
+  },
+  fieldPhotoImg: {
+    width: '100%',
+    height: 92,
+    objectFit: 'cover',
+    display: 'block',
+    background: 'var(--bg-card2)',
+  },
+  fieldPhotoType: {
+    padding: '0 8px 8px',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.2,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  fieldPhotoEmpty: {
+    gridColumn: '1 / -1',
+    border: '1px dashed var(--border)',
+    borderRadius: 8,
+    color: 'var(--text-muted)',
+    background: 'rgba(0,0,0,0.08)',
+    padding: 10,
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.35,
+  },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 },
   slotPanel: { marginTop: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'rgba(34,197,94,0.06)' },
   slotHead: { display: 'flex', justifyContent: 'space-between', gap: 10, color: 'var(--text)', fontSize: 12, marginBottom: 8, flexWrap: 'wrap' },
@@ -312,6 +853,8 @@ const mStyles = {
   slotBtn: { border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: 'var(--text)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, fontSize: 12, fontWeight: 800 },
   slotEmpty: { color: 'var(--text-muted)', fontSize: 12, fontWeight: 700 },
   planWarning: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: '#92400e', fontSize: 12, fontWeight: 700, lineHeight: 1.45 },
+  absenceGuard: { marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.34)', color: '#991b1b', fontSize: 12, fontWeight: 800, lineHeight: 1.45, display: 'grid', gap: 7 },
+  absenceConfirm: { display: 'flex', alignItems: 'flex-start', gap: 8, color: '#7f1d1d', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   warningList: { margin: '6px 0 0', paddingLeft: 18 },
   errorBox: { marginTop: 10, padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.32)', color: '#ef4444', fontSize: 12, fontWeight: 700 },
   linkedTaskBox: { marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.24)', lineHeight: 1.55 },
@@ -323,6 +866,7 @@ const mStyles = {
   btnCancel: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 14 },
   btnGhost: { padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
   btnSave:   { padding: '8px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  btnDisabled: { opacity: 0.55, cursor: 'not-allowed' },
 };
 
 // ─── podgląd/edycja istniejącej rezerwacji ────────────────────────────────────
@@ -365,26 +909,90 @@ function RezerwacjaDetailModal({ rez, ekipy, onStatusChange, onOpenTask, onClose
 }
 
 // ─── główny komponent ────────────────────────────────────────────────────────
-function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose, onOpenTask, saving, error }) {
+function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, attendanceByTeam, onSave, onClose, onOpenTask, saving, error }) {
   const existingEquipmentIds = useMemo(
     () => taskReservationEquipmentIds(rezerwacje, task?.id),
     [rezerwacje, task?.id],
   );
+  const fieldEquipmentNote = taskFieldEquipment(task);
   const [form, setForm] = useState({
     data_planowana: taskDate(task) || toISO(new Date()),
     godzina_rozpoczecia: taskTime(task),
     czas_planowany_godziny: String(taskHours(task)),
     ekipa_id: task.ekipa_id ? String(task.ekipa_id) : '',
-    sprzet_notatka: '',
+    sprzet_notatka: fieldEquipmentNote,
     sprzet_ids: existingEquipmentIds,
   });
+  const [taskPhotos, setTaskPhotos] = useState([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [photosError, setPhotosError] = useState('');
+  const [absenceOverride, setAbsenceOverride] = useState(false);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setEquipment = (selectedOptions) => {
     const ids = Array.from(selectedOptions || []).map((option) => option.value).filter(Boolean);
     set('sprzet_ids', ids);
   };
+  useEffect(() => {
+    let ignore = false;
+    async function loadTaskPhotos() {
+      if (!task?.id) return;
+      setPhotosLoading(true);
+      setPhotosError('');
+      try {
+        const token = getStoredToken();
+        const { data } = await api.get(`/tasks/${task.id}/zdjecia`, { headers: authHeaders(token), dedupe: false });
+        if (!ignore) setTaskPhotos(Array.isArray(data) ? data : []);
+      } catch {
+        if (!ignore) {
+          setTaskPhotos([]);
+          setPhotosError('Nie udalo sie pobrac zdjec z pakietu terenowego.');
+        }
+      } finally {
+        if (!ignore) setPhotosLoading(false);
+      }
+    }
+    loadTaskPhotos();
+    return () => {
+      ignore = true;
+    };
+  }, [task?.id]);
   const { ekipa_id, data_planowana, godzina_rozpoczecia, czas_planowany_godziny } = form;
+  const fieldBrief = taskWorkBrief(task);
+  const fieldRisk = taskRiskBrief(task);
+  const fieldSettlement = taskFieldSettlement(task);
+  const acceptedByClient = taskClientAccepted(task);
+  const photoTotal = taskPhotos.length || Number(task?.photo_total || task?.photos_count || 0) || 0;
+  const fieldEvidenceCount = taskPhotos.filter((photo) => {
+    const type = String(photo?.typ || '').toLowerCase();
+    return ['wycena', 'szkic', 'sketch', 'przed', 'checkin', 'dojazd', 'posesja', 'dojazd_posesja'].includes(type);
+  }).length || Number(task?.photo_wycena || 0) + Number(task?.photo_szkic || 0) + Number(task?.photo_dojazd || 0);
+  const packageChecks = [
+    { key: 'photos', label: 'Zdjecia', ok: photoTotal > 0, detail: photoTotal ? `${photoTotal} razem, ${fieldEvidenceCount || 0} z terenu` : 'brak zdjec/szkicu' },
+    { key: 'brief', label: 'Zakres', ok: Boolean(fieldBrief), detail: fieldBrief ? 'jest opis dla brygady' : 'brak opisu prac' },
+    { key: 'time', label: 'Czas', ok: Number(czas_planowany_godziny) > 0, detail: Number(czas_planowany_godziny) > 0 ? `${czas_planowany_godziny} h` : 'brak czasu' },
+    { key: 'budget', label: 'Budzet', ok: Boolean(task?.wartosc_planowana || task?.budzet), detail: task?.wartosc_planowana ? `${Number(task.wartosc_planowana).toLocaleString('pl-PL')} PLN` : 'brak ceny' },
+    { key: 'risk', label: 'BHP', ok: Boolean(fieldRisk), detail: fieldRisk ? 'ryzyka wpisane' : 'brak ryzyk' },
+    { key: 'accepted', label: 'Klient', ok: acceptedByClient || task.status !== 'Do_Zatwierdzenia', detail: acceptedByClient ? 'akceptacja w terenie' : 'sprawdz akceptacje' },
+  ];
+  const packageReadyCount = packageChecks.filter((item) => item.ok).length;
+  const packageReady = packageReadyCount === packageChecks.length;
+  const selectedTeam = useMemo(
+    () => (teams || []).find((team) => String(team.id) === String(ekipa_id)),
+    [ekipa_id, teams],
+  );
+  const selectedAttendance = attendanceByTeam?.get?.(String(ekipa_id));
+  const selectedTeamAbsent = selectedAttendance?.present === false;
+  useEffect(() => {
+    setAbsenceOverride(false);
+  }, [data_planowana, ekipa_id]);
+  const previewPhotos = taskPhotos
+    .filter((photo) => photo?.sciezka || photo?.url)
+    .filter((photo) => ['wycena', 'szkic', 'sketch', 'przed', 'checkin', 'dojazd', 'posesja', 'dojazd_posesja'].includes(String(photo?.typ || '').toLowerCase()))
+    .concat(taskPhotos
+      .filter((photo) => photo?.sciezka || photo?.url)
+      .filter((photo) => !['wycena', 'szkic', 'sketch', 'przed', 'checkin', 'dojazd', 'posesja', 'dojazd_posesja'].includes(String(photo?.typ || '').toLowerCase())))
+    .slice(0, 4);
   const equipmentOptions = useMemo(() => {
     const selected = new Set((form.sprzet_ids || []).map(String));
     const taskBranch = taskBranchId(task);
@@ -431,7 +1039,7 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
 
   return (
     <div style={mStyles.overlay} onClick={onClose}>
-      <div style={{ ...mStyles.panel, maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ ...mStyles.panel, maxWidth: 780 }} onClick={(e) => e.stopPropagation()}>
         <div style={mStyles.modalHead}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16 }}>Plan zlecenia #{task.id}</h3>
@@ -439,6 +1047,74 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
           </div>
           <span style={mStyles.statusPill}>{task.status || 'Nowe'}</span>
         </div>
+
+        <section style={mStyles.fieldPackagePanel}>
+          <div style={mStyles.fieldPackageHead}>
+            <div>
+              <div style={mStyles.fieldPackageEyebrow}>Pakiet z terenu</div>
+              <strong style={mStyles.fieldPackageTitle}>
+                {packageReady ? 'Gotowe do planowania ekipy' : `Gotowosc ${packageReadyCount}/${packageChecks.length}`}
+              </strong>
+            </div>
+            <span style={{ ...mStyles.fieldPackagePill, ...(packageReady ? mStyles.fieldPackagePillOk : mStyles.fieldPackagePillWarn) }}>
+              {packageReady ? 'komplet' : 'sprawdz braki'}
+            </span>
+          </div>
+
+          <div style={mStyles.fieldPackageChecks}>
+            {packageChecks.map((item) => (
+              <div
+                key={item.key}
+                style={{
+                  ...mStyles.fieldPackageCheck,
+                  ...(item.ok ? mStyles.fieldPackageCheckOk : mStyles.fieldPackageCheckWarn),
+                }}
+              >
+                <span style={mStyles.fieldPackageCheckStatus}>{item.ok ? 'OK' : 'Brak'}</span>
+                <strong style={mStyles.fieldPackageCheckLabel}>{item.label}</strong>
+                <small style={mStyles.fieldPackageCheckDetail}>{item.detail}</small>
+              </div>
+            ))}
+          </div>
+
+          <div style={mStyles.fieldPackageBriefGrid}>
+            <div style={mStyles.fieldPackageTextBlock}>
+              <span style={mStyles.fieldPackageTextLabel}>Zakres dla brygady</span>
+              <p style={mStyles.fieldPackageTextBody}>{fieldBrief || 'Brak opisu prac. Otworz pelne zlecenie albo uzupelnij pakiet przed planowaniem.'}</p>
+            </div>
+            <div style={mStyles.fieldPackageTextBlock}>
+              <span style={mStyles.fieldPackageTextLabel}>Ryzyka / BHP</span>
+              <p style={mStyles.fieldPackageTextBody}>{fieldRisk || 'Brak wpisanych ryzyk. Kierownik powinien sprawdzic dojazd, linie, ogrodzenia i strefe pracy.'}</p>
+            </div>
+            <div style={mStyles.fieldPackageTextBlock}>
+              <span style={mStyles.fieldPackageTextLabel}>Warunki klienta</span>
+              <p style={mStyles.fieldPackageTextBody}>{fieldSettlement || (acceptedByClient ? 'Klient zaakceptowal zakres i budzet w terenie.' : 'Brak warunkow rozliczenia z pakietu terenowego.')}</p>
+            </div>
+          </div>
+
+          <div style={mStyles.fieldPhotoStrip}>
+            {photosLoading ? (
+              <div style={mStyles.fieldPhotoEmpty}>Ladowanie zdjec...</div>
+            ) : photosError ? (
+              <div style={mStyles.fieldPhotoEmpty}>{photosError}</div>
+            ) : previewPhotos.length ? (
+              previewPhotos.map((photo) => (
+                <a
+                  key={photo.id || photo.sciezka || photo.url}
+                  href={taskAssetUrl(photo.sciezka || photo.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={mStyles.fieldPhotoCard}
+                >
+                  <img src={taskAssetUrl(photo.sciezka || photo.url)} alt={photo.opis || photo.typ || 'Zdjecie z terenu'} style={mStyles.fieldPhotoImg} />
+                  <span style={mStyles.fieldPhotoType}>{photo.typ || 'Zdjecie'}</span>
+                </a>
+              ))
+            ) : (
+              <div style={mStyles.fieldPhotoEmpty}>Brak zdjec z wyceny. To ryzyko sporu z klientem i blednej odprawy ekipy.</div>
+            )}
+          </div>
+        </section>
 
         <div style={mStyles.formGrid}>
           <div>
@@ -463,6 +1139,24 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
             </select>
           </div>
         </div>
+
+        {selectedTeamAbsent && (
+          <div style={mStyles.absenceGuard}>
+            <strong>Ekipa jest nieobecna</strong>
+            <span>
+              {selectedTeam?.nazwa || `Ekipa #${ekipa_id}`} ma status: {attendanceLine(selectedAttendance)}.
+              Zapis planu wymaga swiadomego potwierdzenia kierownika.
+            </span>
+            <label style={mStyles.absenceConfirm}>
+              <input
+                type="checkbox"
+                checked={absenceOverride}
+                onChange={(event) => setAbsenceOverride(event.target.checked)}
+              />
+              Potwierdzam decyzje kierownika i plan mimo braku gotowosci ekipy.
+            </label>
+          </div>
+        )}
 
         <label style={mStyles.label}>Sprzet do zlecenia</label>
         <select
@@ -575,7 +1269,14 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
         <div style={mStyles.actionsRow}>
           <button style={mStyles.btnCancel} onClick={onClose}>Zamknij</button>
           <button style={mStyles.btnGhost} onClick={onOpenTask}>Pelne zlecenie</button>
-          <button style={mStyles.btnSave} disabled={saving} onClick={() => onSave(task, form)}>
+          <button
+            style={{
+              ...mStyles.btnSave,
+              ...((selectedTeamAbsent && !absenceOverride) ? mStyles.btnDisabled : {}),
+            }}
+            disabled={saving || (selectedTeamAbsent && !absenceOverride)}
+            onClick={() => onSave(task, { ...form, absence_override: selectedTeamAbsent ? absenceOverride : false })}
+          >
             {saving ? 'Zapisuje...' : 'Zapisz plan'}
           </button>
         </div>
@@ -586,18 +1287,24 @@ function TaskPlanModal({ task, teams, tasks, sprzet, rezerwacje, onSave, onClose
 
 export default function KalendarzZasobow() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialRouteDate = dateFromRouteSearch(location.search);
   const [currentUser, setCurrentUser] = useState(null);
   const [sprzet, setSprzet]   = useState([]);   // lista equipment_items
   const [ekipy, setEkipy]     = useState([]);
+  const [branchTeams, setBranchTeams] = useState([]);
   const [tasks, setTasks]     = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
   const [rezerwacje, setRezerwacje] = useState([]);
+  const [attendanceRows, setAttendanceRows] = useState([]);
+  const [attendanceError, setAttendanceError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('teams');
   const [teamViewMode, setTeamViewMode] = useState('day');
+  const [planningQueueFilter, setPlanningQueueFilter] = useState('all');
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [rangeLen, setRangeLen] = useState(14);  // 14 lub 28 dni
-  const [anchor, setAnchor]   = useState(new Date());
+  const [anchor, setAnchor]   = useState(() => anchorFromISODate(initialRouteDate) || new Date());
   const [msg, setMsg]         = useState('');
   const [msgType, setMsgType] = useState('ok');
   const [modalNew, setModalNew]  = useState(null);   // { sprzetId, date }
@@ -606,6 +1313,7 @@ export default function KalendarzZasobow() {
   const [saving, setSaving]  = useState(false);
   const [modalErr, setModalErr]  = useState('');
   const [taskPlanErr, setTaskPlanErr] = useState('');
+  const deepLinkHandledRef = useRef('');
 
   // drag & drop state (ref — nie triggeruje re-renderu)
   const drag = useRef(null);
@@ -651,6 +1359,15 @@ export default function KalendarzZasobow() {
   }, [anchor]);
 
   const todayISO = toISO(new Date());
+  const deepLinkParams = useMemo(() => new URLSearchParams(location.search || ''), [location.search]);
+  const focusedTeamId = deepLinkParams.get('team') || '';
+  const focusedDate = deepLinkParams.get('date') || '';
+  const focusedEquipmentIds = useMemo(() => new Set(
+    String(deepLinkParams.get('equipment') || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  ), [deepLinkParams]);
 
   // ─── ładowanie danych ─────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
@@ -700,11 +1417,66 @@ export default function KalendarzZasobow() {
   }, [loadRezerwacje]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadAttendance = async () => {
+      const token = getStoredToken();
+      if (!token) return;
+      const query = new URLSearchParams({ date: dayISO });
+      if (selectedBranchId) query.set('oddzial_id', selectedBranchId);
+      try {
+        const res = await api.get(`/ekipy/attendance?${query.toString()}`, {
+          headers: authHeaders(token),
+        });
+        const items = Array.isArray(res.data?.items)
+          ? res.data.items.map((item) => normalizeAttendanceItem(item, dayISO))
+          : [];
+        if (!cancelled) {
+          setAttendanceRows(items);
+          setAttendanceError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setAttendanceRows([]);
+          setAttendanceError(true);
+        }
+      }
+    };
+    loadAttendance();
+    return () => {
+      cancelled = true;
+    };
+  }, [dayISO, selectedBranchId]);
+
+  useEffect(() => {
     if (!currentUser) return;
     if (!userCanSeeAllBranches && currentUser.oddzial_id) {
       setSelectedBranchId(String(currentUser.oddzial_id));
     }
   }, [currentUser, userCanSeeAllBranches]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadBranchTeams = async () => {
+      if (!selectedBranchId) {
+        setBranchTeams([]);
+        return;
+      }
+      const token = getStoredToken();
+      if (!token) return;
+      try {
+        const res = await api.get(`/ekipy?oddzial_id=${encodeURIComponent(selectedBranchId)}&include_delegacje=1&date=${encodeURIComponent(dayISO)}`, {
+          headers: authHeaders(token),
+        });
+        if (!cancelled) setBranchTeams(Array.isArray(res.data) ? res.data : res.data?.ekipy || res.data?.items || []);
+      } catch {
+        if (!cancelled) setBranchTeams([]);
+      }
+    };
+    loadBranchTeams();
+    return () => {
+      cancelled = true;
+    };
+  }, [dayISO, selectedBranchId]);
 
   // ─── mapa: sprzetId → lista rezerwacji w zakresie ─────────────────────────
   const rezBySprzet = useMemo(() => {
@@ -716,42 +1488,62 @@ export default function KalendarzZasobow() {
     return map;
   }, [rezerwacje]);
 
+  const teamsForPlanning = useMemo(() => {
+    return selectedBranchId ? mergeTeamRows(ekipy, branchTeams) : ekipy;
+  }, [branchTeams, ekipy, selectedBranchId]);
+
   const branchOptions = useMemo(() => {
     const byId = new Map();
     for (const oddzial of oddzialy) {
       if (oddzial?.id == null) continue;
       byId.set(String(oddzial.id), oddzial.nazwa || `Oddzial #${oddzial.id}`);
     }
-    for (const team of ekipy) {
+    for (const team of teamsForPlanning) {
       const id = teamBranchId(team);
-      if (id) byId.set(String(id), team.dostepny_w_oddziale_nazwa || team.oddzial_nazwa || byId.get(String(id)) || `Oddzial #${id}`);
+      if (id) byId.set(String(id), teamBranchLabel(team) || byId.get(String(id)) || `Oddzial #${id}`);
     }
     for (const task of tasks) {
       const id = taskBranchId(task);
       if (id && !byId.has(String(id))) byId.set(String(id), task.oddzial_nazwa || `Oddzial #${id}`);
     }
     return Array.from(byId.entries()).map(([id, nazwa]) => ({ id, nazwa }));
-  }, [ekipy, oddzialy, tasks]);
+  }, [oddzialy, tasks, teamsForPlanning]);
 
   const visibleTeams = useMemo(() => {
-    return ekipy.filter((team) => !selectedBranchId || String(teamBranchId(team)) === String(selectedBranchId));
-  }, [ekipy, selectedBranchId]);
+    return teamsForPlanning.filter((team) => !selectedBranchId || String(teamBranchId(team)) === String(selectedBranchId));
+  }, [selectedBranchId, teamsForPlanning]);
+
+  const attendanceByTeam = useMemo(() => {
+    const map = new Map();
+    for (const item of attendanceRows || []) {
+      if (item?.teamId) map.set(String(item.teamId), item);
+    }
+    return map;
+  }, [attendanceRows]);
 
   const visibleSprzet = useMemo(() => {
     return sprzet.filter((item) => !selectedBranchId || equipmentBranchId(item) === String(selectedBranchId));
   }, [selectedBranchId, sprzet]);
 
+  const equipmentById = useMemo(() => {
+    const map = new Map();
+    for (const item of sprzet || []) {
+      map.set(String(item.id), item);
+    }
+    return map;
+  }, [sprzet]);
+
   const plannerTeams = useMemo(() => {
-    if (!modalTaskPlan) return visibleTeams.length ? visibleTeams : ekipy;
+    if (!modalTaskPlan) return visibleTeams.length ? visibleTeams : teamsForPlanning;
     const taskBranch = taskBranchId(modalTaskPlan);
     const currentTeamId = modalTaskPlan.ekipa_id ? String(modalTaskPlan.ekipa_id) : '';
-    const scoped = ekipy.filter((team) => (
+    const scoped = teamsForPlanning.filter((team) => (
       !taskBranch ||
       String(teamBranchId(team)) === String(taskBranch) ||
       String(team.id) === currentTeamId
     ));
-    return scoped.length ? scoped : ekipy;
-  }, [ekipy, modalTaskPlan, visibleTeams]);
+    return scoped.length ? scoped : teamsForPlanning;
+  }, [modalTaskPlan, teamsForPlanning, visibleTeams]);
 
   const scheduledTasks = useMemo(() => {
     const firstISO = toISO(days[0]);
@@ -764,15 +1556,38 @@ export default function KalendarzZasobow() {
       .sort((a, b) => `${taskDate(a)} ${taskTime(a)}`.localeCompare(`${taskDate(b)} ${taskTime(b)}`));
   }, [days, selectedBranchId, tasks]);
 
-  const planningQueue = useMemo(() => {
+  const planningQueueRows = useMemo(() => {
     return tasks
       .filter((task) => task?.typ !== 'wycena')
+      .filter((task) => !CLOSED_TASK_STATUSES.has(task.status))
       .filter((task) => task.status === 'Do_Zatwierdzenia' || !task.ekipa_id || !task.data_planowana)
       .filter((task) => !selectedBranchId || String(taskBranchId(task)) === String(selectedBranchId))
       .slice()
       .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
-      .slice(0, 12);
+      .map(buildPlanningQueueRow);
   }, [selectedBranchId, tasks]);
+  const planningQueueStats = useMemo(() => {
+    const countByProblem = (problemKey) => planningQueueRows.filter((row) => row.missing.some((item) => item.key === problemKey)).length;
+    return {
+      all: planningQueueRows.length,
+      ready: planningQueueRows.filter((row) => row.ready).length,
+      missing: planningQueueRows.filter((row) => !row.ready).length,
+      photos: countByProblem('photos'),
+      risk: countByProblem('risk'),
+      price: countByProblem('price'),
+      equipment: countByProblem('equipment'),
+      teamTime: countByProblem('teamTime'),
+    };
+  }, [planningQueueRows]);
+  const filteredPlanningQueue = useMemo(() => {
+    const rows = planningQueueRows.filter((row) => {
+      if (planningQueueFilter === 'ready') return row.ready;
+      if (planningQueueFilter === 'missing') return !row.ready;
+      if (planningQueueFilter === 'all') return true;
+      return row.missing.some((item) => item.key === planningQueueFilter);
+    });
+    return rows.slice(0, 12);
+  }, [planningQueueFilter, planningQueueRows]);
 
   const tasksByTeamDay = useMemo(() => {
     const map = new Map();
@@ -838,6 +1653,171 @@ export default function KalendarzZasobow() {
     return map;
   }, [dayTasksByTeam, visibleTeams]);
 
+  const dayOpsSummary = useMemo(() => {
+    const visibleEquipmentIds = new Set((visibleSprzet || []).map((item) => String(item.id)));
+    const dayTasks = scheduledTasks.filter((task) => taskDate(task) === dayISO);
+    const equipmentRows = (rezerwacje || [])
+      .filter(activeReservation)
+      .filter((rez) => reservationOverlapsDay(rez, dayISO))
+      .filter((rez) => !visibleEquipmentIds.size || visibleEquipmentIds.has(String(rez.sprzet_id)));
+    const equipmentConflictGroups = dayReservationConflicts(rezerwacje, dayISO, visibleEquipmentIds.size ? visibleEquipmentIds : null);
+    const teamConflictCount = [...dayAnalysisByTeam.values()]
+      .reduce((sum, analysis) => sum + (analysis?.conflictIds?.size || 0), 0);
+    const absentTeams = visibleTeams.filter((team) => attendanceByTeam.get(String(team.id))?.present === false);
+    const absentTeamsWithTasks = absentTeams.filter((team) => (dayTasksByTeam.get(String(team.id)) || []).length > 0);
+    const noEquipment = dayTasks.filter((task) => !taskReservationEquipmentIds(rezerwacje, task.id).length && !taskFieldEquipment(task)).length;
+    const noPhotos = dayTasks.filter((task) => taskPhotoTotal(task) <= 0).length;
+    const noBrief = dayTasks.filter((task) => !taskWorkBrief(task)).length;
+    return {
+      tasks: dayTasks.length,
+      readyQueue: planningQueueStats.ready,
+      queueMissing: planningQueueStats.missing,
+      equipment: equipmentRows.length,
+      equipmentConflicts: equipmentConflictGroups.length,
+      teamConflicts: teamConflictCount,
+      noEquipment,
+      noPhotos,
+      noBrief,
+      absentTeams: absentTeams.length,
+      absentTeamsWithTasks: absentTeamsWithTasks.length,
+      attendanceError,
+    };
+  }, [attendanceByTeam, attendanceError, dayAnalysisByTeam, dayISO, dayTasksByTeam, planningQueueStats.missing, planningQueueStats.ready, rezerwacje, scheduledTasks, visibleSprzet, visibleTeams]);
+
+  const teamsByIdForPlanning = useMemo(() => {
+    const map = new Map();
+    for (const team of teamsForPlanning || []) {
+      if (team?.id) map.set(String(team.id), team);
+    }
+    return map;
+  }, [teamsForPlanning]);
+
+  const delegationSummary = useMemo(() => {
+    const delegated = visibleTeams.filter(isTeamDelegatedToView);
+    const dayTasks = scheduledTasks.filter((task) => taskDate(task) === dayISO);
+    const delegatedTasks = dayTasks.filter((task) => {
+      const team = teamsByIdForPlanning.get(String(task?.ekipa_id || ''));
+      if (!team) return false;
+      const taskBranch = String(taskBranchId(task) || '');
+      const homeBranch = String(teamHomeBranchId(team) || '');
+      return Boolean(taskBranch && homeBranch && taskBranch !== homeBranch);
+    });
+    return {
+      delegated,
+      nativeCount: Math.max(0, visibleTeams.length - delegated.length),
+      delegatedTasks,
+    };
+  }, [dayISO, scheduledTasks, teamsByIdForPlanning, visibleTeams]);
+
+  const dayOpsAlerts = useMemo(() => {
+    const alerts = [];
+    if (attendanceError) {
+      alerts.push({
+        key: 'attendance-load-error',
+        tone: 'warn',
+        kind: 'attendance',
+        category: 'Potwierdzenia ekip',
+        title: 'Brak aktualnej gotowosci',
+        detail: 'Nie udalo sie pobrac potwierdzen obecnosci ekip dla tego dnia.',
+        action: 'Sprawdz',
+      });
+    }
+    for (const team of visibleTeams) {
+      const attendance = attendanceByTeam.get(String(team.id));
+      const teamTasks = dayTasksByTeam.get(String(team.id)) || [];
+      if (attendance?.present === false) {
+        alerts.push({
+          key: `attendance-${team.id}`,
+          tone: teamTasks.length ? 'bad' : 'warn',
+          kind: 'attendance',
+          team,
+          category: 'Nieobecna ekipa',
+          title: team.nazwa || `Ekipa #${team.id}`,
+          detail: teamTasks.length
+            ? `${teamTasks.length} zlecen zaplanowanych mimo braku gotowosci${attendance.note ? ` - ${attendance.note}` : ''}.`
+            : (attendance.note || 'Ekipa oznaczona jako niedostepna na ten dzien.'),
+          action: teamTasks.length ? 'Przeplanuj' : 'Potwierdzenia',
+        });
+      }
+      const analysis = dayAnalysisByTeam.get(String(team.id));
+      const ranges = analysis?.ranges || [];
+      for (let i = 0; i < ranges.length; i += 1) {
+        for (let j = i + 1; j < ranges.length; j += 1) {
+          if (ranges[j].start >= ranges[i].end) break;
+          alerts.push({
+            key: `team-${team.id}-${ranges[i].task.id}-${ranges[j].task.id}`,
+            tone: 'bad',
+            kind: 'task',
+            task: ranges[i].task,
+            category: 'Kolizja ekipy',
+            title: team.nazwa || `Ekipa #${team.id}`,
+            detail: `#${ranges[i].task.id} ${minutesToTime(ranges[i].start)}-${minutesToTime(ranges[i].end)} nachodzi na #${ranges[j].task.id} ${minutesToTime(ranges[j].start)}-${minutesToTime(ranges[j].end)}.`,
+            action: 'Przeplanuj',
+          });
+        }
+      }
+    }
+
+    const visibleEquipmentIds = new Set((visibleSprzet || []).map((item) => String(item.id)));
+    for (const group of dayReservationConflicts(rezerwacje, dayISO, visibleEquipmentIds.size ? visibleEquipmentIds : null)) {
+      const first = group[0];
+      const item = equipmentById.get(String(first?.sprzet_id || ''));
+      alerts.push({
+        key: `equipment-${first?.sprzet_id}-${group.map((row) => row.id).join('-')}`,
+        tone: 'bad',
+        kind: 'equipment',
+        category: 'Kolizja sprzętu',
+        title: item?.nazwa || first?.sprzet_nazwa || `Sprzęt #${first?.sprzet_id || '-'}`,
+        detail: group
+          .map((row) => row.task_id ? `#${row.task_id} ${row.task_klient_nazwa || row.ekipa_nazwa || ''}`.trim() : (row.ekipa_nazwa || 'rezerwacja'))
+          .slice(0, 3)
+          .join(' / '),
+        action: 'Pokaż sprzęt',
+      });
+    }
+
+    const dayTasks = scheduledTasks.filter((task) => taskDate(task) === dayISO);
+    for (const task of dayTasks) {
+      const missing = [
+        taskPhotoTotal(task) > 0 ? null : 'zdjęcia',
+        taskWorkBrief(task) ? null : 'opis',
+        taskReservationEquipmentIds(rezerwacje, task.id).length || taskFieldEquipment(task) ? null : 'sprzęt',
+      ].filter(Boolean);
+      if (!missing.length) continue;
+      alerts.push({
+        key: `package-${task.id}`,
+        tone: 'warn',
+        kind: 'task',
+        task,
+        category: 'Pakiet brygady',
+        title: `#${task.id} ${taskClientLabel(task)}`,
+        detail: `Brakuje: ${missing.join(', ')}.`,
+        action: 'Uzupełnij',
+      });
+    }
+
+    for (const row of planningQueueRows.filter((item) => item.ready).slice(0, 4)) {
+      alerts.push({
+        key: `ready-${row.task.id}`,
+        tone: 'good',
+        kind: 'queue',
+        row,
+        task: row.task,
+        category: 'Gotowe do planu',
+        title: `#${row.task.id} ${taskClientLabel(row.task)}`,
+        detail: `${row.photoTotal} zdjęć, ${row.value ? `${row.value.toLocaleString('pl-PL')} PLN` : 'bez ceny'}, można przypisać termin i ekipę.`,
+        action: 'Planuj',
+      });
+    }
+
+    return alerts
+      .sort((a, b) => {
+        const order = { bad: 0, warn: 1, good: 2 };
+        return (order[a.tone] ?? 9) - (order[b.tone] ?? 9);
+      })
+      .slice(0, 10);
+  }, [attendanceByTeam, attendanceError, dayAnalysisByTeam, dayISO, dayTasksByTeam, equipmentById, planningQueueRows, rezerwacje, scheduledTasks, visibleSprzet, visibleTeams]);
+
   // ─── nawigacja ────────────────────────────────────────────────────────────
   const isTeamDayView = activeTab === 'teams' && teamViewMode === 'day';
   const prev = () => setAnchor(a => addDays(a, isTeamDayView ? -1 : -rangeLen));
@@ -845,10 +1825,126 @@ export default function KalendarzZasobow() {
   const goToday = () => setAnchor(new Date());
 
   // ─── flash message ────────────────────────────────────────────────────────
-  const showMsg = (txt, type = 'ok') => {
+  const showMsg = useCallback((txt, type = 'ok') => {
     setMsg(txt); setMsgType(type);
     setTimeout(() => setMsg(''), 3000);
-  };
+  }, []);
+
+  const copyTextToClipboard = useCallback(async (text, successMessage) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== 'undefined') {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'true');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } else {
+        throw new Error('Clipboard is not available');
+      }
+      showMsg(successMessage);
+    } catch {
+      showMsg('Nie udalo sie skopiowac odprawy.', 'err');
+    }
+  }, [showMsg]);
+
+  const copyDayBrief = useCallback(() => {
+    const brief = buildDayBrief({
+      dayISO,
+      dayLabel,
+      scheduledTasks,
+      visibleTeams,
+      attendanceByTeam,
+      rezerwacje,
+      equipmentById,
+      teamsById: teamsByIdForPlanning,
+      branchOptions,
+      selectedBranchId,
+      dayOpsSummary,
+      delegationSummary,
+    });
+    void copyTextToClipboard(brief, 'Odprawa dnia skopiowana.');
+  }, [
+    branchOptions,
+    copyTextToClipboard,
+    attendanceByTeam,
+    dayISO,
+    dayLabel,
+    dayOpsSummary,
+    delegationSummary,
+    equipmentById,
+    rezerwacje,
+    scheduledTasks,
+    selectedBranchId,
+    teamsByIdForPlanning,
+    visibleTeams,
+  ]);
+
+  const copyTeamBrief = useCallback((team) => {
+    const teamId = String(team?.id || '');
+    const teamTasks = scheduledTasks.filter((task) => taskDate(task) === dayISO && String(task?.ekipa_id || '') === teamId);
+    const teamTaskIds = new Set(teamTasks.map((task) => String(task.id)));
+    const equipmentRows = (rezerwacje || [])
+      .filter(activeReservation)
+      .filter((rez) => reservationOverlapsDay(rez, dayISO))
+      .filter((rez) => teamTaskIds.has(String(rez?.task_id || '')));
+    const analysis = dayAnalysisByTeam.get(teamId);
+    const teamAttendance = attendanceByTeam.get(teamId);
+    const teamSummary = {
+      tasks: teamTasks.length,
+      readyQueue: 0,
+      queueMissing: 0,
+      equipment: equipmentRows.length,
+      equipmentConflicts: 0,
+      teamConflicts: analysis?.conflictIds?.size || 0,
+      noEquipment: teamTasks.filter((task) => !taskReservationEquipmentIds(rezerwacje, task.id).length && !taskFieldEquipment(task)).length,
+      noPhotos: teamTasks.filter((task) => taskPhotoTotal(task) <= 0).length,
+      noBrief: teamTasks.filter((task) => !taskWorkBrief(task)).length,
+      absentTeams: teamAttendance?.present === false ? 1 : 0,
+      absentTeamsWithTasks: teamAttendance?.present === false && teamTasks.length ? 1 : 0,
+      attendanceError,
+    };
+    const teamName = team?.nazwa || (teamId ? `Ekipa #${teamId}` : 'Ekipa');
+    let brief = buildDayBrief({
+      dayISO,
+      dayLabel,
+      scheduledTasks: teamTasks,
+      visibleTeams: team ? [team] : [],
+      attendanceByTeam,
+      rezerwacje,
+      equipmentById,
+      teamsById: teamsByIdForPlanning,
+      branchOptions,
+      selectedBranchId,
+      dayOpsSummary: teamSummary,
+      delegationSummary: {
+        delegated: team && isTeamDelegatedToView(team) ? [team] : [],
+        delegatedTasks: [],
+      },
+    }).replace('ARBOR-OS | Odprawa dnia', 'ARBOR-OS | Odprawa ekipy');
+    if (!teamTasks.length) {
+      brief = `${brief}\n\n=== ${teamName} ===\nBrak zaplanowanych zlecen dla tej ekipy.`;
+    }
+    void copyTextToClipboard(brief, `Odprawa ekipy ${teamName} skopiowana.`);
+  }, [
+    attendanceByTeam,
+    attendanceError,
+    branchOptions,
+    copyTextToClipboard,
+    dayAnalysisByTeam,
+    dayISO,
+    dayLabel,
+    equipmentById,
+    rezerwacje,
+    scheduledTasks,
+    selectedBranchId,
+    teamsByIdForPlanning,
+  ]);
 
   // ─── tworzenie rezerwacji ─────────────────────────────────────────────────
   const handleNewSave = async (form) => {
@@ -948,9 +2044,62 @@ export default function KalendarzZasobow() {
     setModalTaskPlan(null);
   };
 
-  const openFullTask = (task) => {
+  useEffect(() => {
+    if (loading) return;
+    const params = deepLinkParams;
+    const focusedTaskId = params.get('task') || params.get('zlecenie');
+    const wantsPlanningQueue = params.get('queue') === 'planning';
+    const requestedTab = params.get('tab');
+    const requestedDate = params.get('date');
+    const requestedBranch = params.get('oddzial') || params.get('branch');
+    const shouldOpenModal = params.get('modal') !== '0';
+    if (!focusedTaskId && !wantsPlanningQueue && !requestedDate && !requestedTab) return;
+    if (deepLinkHandledRef.current === location.search) return;
+
+    setActiveTab(requestedTab === 'equipment' ? 'equipment' : 'teams');
+    setTeamViewMode(params.get('view') === 'range' ? 'range' : 'day');
+    if (requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      setAnchor(new Date(`${requestedDate}T12:00:00`));
+    }
+    if (userCanSeeAllBranches && requestedBranch) {
+      setSelectedBranchId(String(requestedBranch));
+    }
+
+    if (!focusedTaskId) {
+      deepLinkHandledRef.current = location.search;
+      return;
+    }
+
+    const task = tasks.find((row) => String(row?.id) === String(focusedTaskId));
+    if (!task) return;
+    const day = taskDate(task);
+    const branchId = taskBranchId(task);
+    if (day) {
+      setAnchor(new Date(`${day}T12:00:00`));
+    }
+    if (userCanSeeAllBranches && branchId) {
+      setSelectedBranchId(branchId);
+    }
+    if (shouldOpenModal && requestedTab !== 'equipment') {
+      setTaskPlanErr('');
+      setModalTaskPlan(task);
+    }
+    deepLinkHandledRef.current = location.search;
+  }, [deepLinkParams, loading, location.search, tasks, userCanSeeAllBranches]);
+
+  const openFullTask = (task, focus = '') => {
     if (!task?.id) return;
-    navigate(`/zlecenia?search=${task.id}`);
+    const suffix = focus ? `?focus=${encodeURIComponent(focus)}` : '';
+    navigate(`/zlecenia/${task.id}${suffix}`);
+  };
+
+  const openQueueRepair = (row) => {
+    if (!row?.task) return;
+    if (isPlanningQueuePlanAction(row)) {
+      openTaskPlan(row.task);
+      return;
+    }
+    openFullTask(row.task, getPlanningQueueFocus(row));
   };
 
   const handleTaskPlanSave = async (task, form) => {
@@ -959,6 +2108,14 @@ export default function KalendarzZasobow() {
       setTaskPlanErr('Uzupelnij date, godzine, czas pracy i ekipe.');
       return;
     }
+    const selectedAttendance = attendanceByTeam.get(String(form.ekipa_id));
+    if (selectedAttendance?.present === false && !form.absence_override) {
+      setTaskPlanErr('Ekipa jest nieobecna. Potwierdz wyjatek kierownika albo wybierz inna ekipe.');
+      return;
+    }
+    const absenceNote = selectedAttendance?.present === false
+      ? `UWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(selectedAttendance)}.`
+      : '';
     setSaving(true);
     setTaskPlanErr('');
     try {
@@ -969,7 +2126,7 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: form.czas_planowany_godziny,
         ekipa_id: form.ekipa_id,
         sprzet_ids: form.sprzet_ids || [],
-        sprzet_notatka: form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.',
+        sprzet_notatka: [form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.', absenceNote].filter(Boolean).join('\n'),
       }, { headers: authHeaders(token) });
       showMsg(`Zapisano plan zlecenia #${task.id}.`);
       setModalTaskPlan(null);
@@ -1008,6 +2165,17 @@ export default function KalendarzZasobow() {
     const nextTime = time || taskTime(task);
     const nextHours = taskHours(task);
     if (String(task.ekipa_id || '') === String(teamId) && taskDate(task) === dayISO && taskTime(task) === nextTime) return;
+    const targetAttendance = attendanceByTeam.get(String(teamId));
+    if (targetAttendance?.present === false) {
+      const targetTeam = teamsByIdForPlanning.get(String(teamId));
+      const confirmed = typeof window !== 'undefined' && window.confirm
+        ? window.confirm(`${targetTeam?.nazwa || `Ekipa #${teamId}`} jest oznaczona jako ${attendanceLine(targetAttendance)}. Czy kierownik potwierdza zaplanowanie mimo braku gotowosci?`)
+        : false;
+      if (!confirmed) {
+        showMsg('Planowanie przerwane: ekipa jest nieobecna.', 'err');
+        return;
+      }
+    }
 
     setSaving(true);
     try {
@@ -1019,7 +2187,9 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: nextHours,
         ekipa_id: teamId,
         sprzet_ids: existingEquipmentIds,
-        sprzet_notatka: 'Przesunieto w harmonogramie ekip.',
+        sprzet_notatka: targetAttendance?.present === false
+          ? `Przesunieto w harmonogramie ekip.\nUWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(targetAttendance)}.`
+          : 'Przesunieto w harmonogramie ekip.',
       }, { headers: authHeaders(token) });
       showMsg(`Zlecenie #${task.id} zaplanowane: ${dayISO} ${nextTime}.`);
       await Promise.all([loadAll(), loadRezerwacje()]);
@@ -1033,9 +2203,14 @@ export default function KalendarzZasobow() {
 
   const renderTaskCard = (task) => {
     const color = TASK_STATUS_COLOR[task.status] || '#64748b';
+    const photoTotal = taskPhotoTotal(task);
+    const hasBrief = Boolean(taskWorkBrief(task));
+    const equipmentLabel = taskEquipmentLabel(rezerwacje, task);
+    const hasEquipment = equipmentLabel !== 'sprz. -';
     return (
       <div
         key={task.id}
+        data-testid={`task-card-${task.id}`}
         draggable={canEdit}
         onDragStart={(e) => handleTaskDragStart(e, task)}
         onClick={(e) => { e.stopPropagation(); openTaskPlan(task); }}
@@ -1047,10 +2222,67 @@ export default function KalendarzZasobow() {
           <span style={{ ...st.taskStatus, background: color }}>{task.status}</span>
         </div>
         <div style={st.taskTitle}>{taskClientLabel(task)}</div>
+        <div style={st.taskBadges}>
+          <span style={{ ...st.taskBadge, ...(photoTotal ? st.taskBadgeOk : st.taskBadgeWarn) }}>
+            {photoTotal ? `${photoTotal} zdj.` : 'zdj. -'}
+          </span>
+          <span style={{ ...st.taskBadge, ...(hasEquipment ? st.taskBadgeOk : st.taskBadgeWarn) }}>
+            {equipmentLabel}
+          </span>
+          <span style={{ ...st.taskBadge, ...(hasBrief ? st.taskBadgeOk : st.taskBadgeWarn) }}>
+            {hasBrief ? 'opis' : 'opis -'}
+          </span>
+        </div>
         <div style={st.taskMeta}>{task.miasto || task.adres || 'Brak adresu'} · {taskHours(task)} h</div>
       </div>
     );
   };
+
+  const renderPlanningQueueCard = (row) => (
+    <div key={row.task.id} style={{ ...st.queueTaskWrap, ...(row.ready ? st.queueTaskWrapReady : {}) }}>
+      {renderTaskCard(row.task)}
+      <div style={st.queueTaskMeta}>
+        <span style={{ ...st.queueReadyPill, ...(row.ready ? st.queueReadyPillOk : st.queueReadyPillWarn) }}>
+          {row.ready ? 'Gotowe' : `${row.missing.length} brakow`}
+        </span>
+        <span>{row.photoTotal} zdj. / {row.fieldEvidence} teren</span>
+        {row.value ? <span>{row.value.toLocaleString('pl-PL')} PLN</span> : <span>bez ceny</span>}
+      </div>
+      {!row.ready && (
+        <div style={st.queueMissingList}>
+          {row.missing.slice(0, 5).map((item) => (
+            <span key={`${row.task.id}-${item.key}-${item.label}`} style={st.queueMissingPill}>{item.label}</span>
+          ))}
+        </div>
+      )}
+      <div style={st.queueActions}>
+        <button
+          type="button"
+          style={{
+            ...st.queueActionBtn,
+            ...(isPlanningQueuePlanAction(row) ? st.queueActionBtnPrimary : {}),
+          }}
+          onClick={() => openQueueRepair(row)}
+        >
+          {getPlanningQueueRepairLabel(row)}
+        </button>
+        <button
+          type="button"
+          style={st.queueActionBtn}
+          onClick={() => openTaskPlan(row.task)}
+        >
+          Plan
+        </button>
+        <button
+          type="button"
+          style={st.queueActionBtn}
+          onClick={() => openFullTask(row.task, getPlanningQueueFocus(row))}
+        >
+          Karta
+        </button>
+      </div>
+    </div>
+  );
 
   const renderDayTaskBlock = (task) => {
     const color = TASK_STATUS_COLOR[task.status] || '#64748b';
@@ -1063,6 +2295,7 @@ export default function KalendarzZasobow() {
     return (
       <div
         key={task.id}
+        data-testid={`day-task-${task.id}`}
         draggable={canEdit}
         onDragStart={(e) => handleTaskDragStart(e, task)}
         onClick={(e) => { e.stopPropagation(); openTaskPlan(task); }}
@@ -1232,18 +2465,167 @@ export default function KalendarzZasobow() {
         </div>
 
         {/* ── główna siatka ─────────────────────────────────────────────── */}
+        {activeTab === 'teams' && (
+          <div style={st.opsPanel}>
+            <div style={st.opsTitle}>
+              <strong>Dyspozytornia dnia</strong>
+              <span>{dayLabel}</span>
+            </div>
+            <div style={st.opsGrid}>
+              <div style={st.opsMetric}>
+                <span>Zlecenia</span>
+                <strong>{dayOpsSummary.tasks}</strong>
+              </div>
+              <div style={st.opsMetric}>
+                <span>Gotowe w kolejce</span>
+                <strong>{dayOpsSummary.readyQueue}</strong>
+              </div>
+              <div style={{ ...st.opsMetric, ...((dayOpsSummary.absentTeamsWithTasks || dayOpsSummary.absentTeams) ? st.opsMetricBad : {}) }}>
+                <span>Nieobecne</span>
+                <strong>{dayOpsSummary.absentTeams}</strong>
+              </div>
+              <div style={{ ...st.opsMetric, ...(dayOpsSummary.noPhotos ? st.opsMetricWarn : {}) }}>
+                <span>Bez zdjec</span>
+                <strong>{dayOpsSummary.noPhotos}</strong>
+              </div>
+              <div style={{ ...st.opsMetric, ...(dayOpsSummary.noBrief ? st.opsMetricWarn : {}) }}>
+                <span>Bez opisu</span>
+                <strong>{dayOpsSummary.noBrief}</strong>
+              </div>
+              <div style={{ ...st.opsMetric, ...(dayOpsSummary.noEquipment ? st.opsMetricWarn : {}) }}>
+                <span>Bez sprzetu</span>
+                <strong>{dayOpsSummary.noEquipment}</strong>
+              </div>
+              <div style={st.opsMetric}>
+                <span>Rezerwacje</span>
+                <strong>{dayOpsSummary.equipment}</strong>
+              </div>
+              <div style={{ ...st.opsMetric, ...(delegationSummary.delegated.length ? st.opsMetricInfo : {}) }}>
+                <span>Delegacje</span>
+                <strong>{delegationSummary.delegated.length}</strong>
+              </div>
+              <div style={{ ...st.opsMetric, ...((dayOpsSummary.teamConflicts || dayOpsSummary.equipmentConflicts) ? st.opsMetricBad : {}) }}>
+                <span>Kolizje</span>
+                <strong>{dayOpsSummary.teamConflicts + dayOpsSummary.equipmentConflicts}</strong>
+              </div>
+              <button type="button" style={st.opsAction} onClick={() => setPlanningQueueFilter('ready')}>
+                Pokaz gotowe
+              </button>
+              <button type="button" style={st.opsAction} onClick={() => setActiveTab('equipment')}>
+                Sprzet dnia
+              </button>
+              <button type="button" style={st.opsAction} onClick={() => navigate('/oddzialy')}>
+                Delegacje
+              </button>
+              <button type="button" style={st.opsAction} onClick={copyDayBrief}>
+                Kopiuj odprawe
+              </button>
+            </div>
+            {(selectedBranchId && delegationSummary.delegated.length > 0) && (
+              <div style={st.delegationStrip}>
+                <div style={st.delegationStripHead}>
+                  <strong>Aktywne delegacje w oddziale</strong>
+                  <span>{delegationSummary.delegatedTasks.length} zlecenia dzisiaj na ekipach delegowanych</span>
+                </div>
+                <div style={st.delegationChips}>
+                  {delegationSummary.delegated.slice(0, 6).map((team) => (
+                    <button
+                      key={`${team.id}-${teamBranchId(team)}-${team.delegacja_id || 'delegacja'}`}
+                      type="button"
+                      style={st.delegationChip}
+                      onClick={() => {
+                        setTeamViewMode('day');
+                        navigate(`/kalendarz-zasobow?team=${team.id}&date=${dayISO}`);
+                      }}
+                    >
+                      <strong>{team.nazwa}</strong>
+                      <span>{teamDelegationLabel(team)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {dayOpsAlerts.length ? (
+              <div style={st.opsAlerts}>
+                {dayOpsAlerts.map((alert) => (
+                  <button
+                    key={alert.key}
+                    type="button"
+                    style={{
+                      ...st.opsAlert,
+                      ...(alert.tone === 'bad' ? st.opsAlertBad : alert.tone === 'warn' ? st.opsAlertWarn : st.opsAlertGood),
+                    }}
+                    onClick={() => {
+                      if (alert.kind === 'equipment') {
+                        setActiveTab('equipment');
+                        return;
+                      }
+                      if (alert.kind === 'queue' && alert.row) {
+                        openQueueRepair(alert.row);
+                        return;
+                      }
+                      if (alert.kind === 'attendance') {
+                        navigate(`/potwierdzenia-ekip?date=${dayISO}`);
+                        return;
+                      }
+                      if (alert.task) {
+                        openTaskPlan(alert.task);
+                      }
+                    }}
+                  >
+                    <span style={st.opsAlertCategory}>{alert.category}</span>
+                    <strong style={st.opsAlertTitle}>{alert.title}</strong>
+                    <small style={st.opsAlertDetail}>{alert.detail}</small>
+                    <span style={st.opsAlertAction}>{alert.action}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={st.opsClear}>
+                Brak alertów dla tego dnia. Można planować kolejne zlecenia albo sprawdzić sprzęt.
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ flex: 1, overflow: 'auto' }}>
           <div style={{ minWidth: totalW }}>
             {activeTab === 'teams' ? (
               <>
-                {planningQueue.length > 0 && (
+                {planningQueueRows.length > 0 && (
                   <div style={st.queuePanel}>
                     <div style={st.queueHead}>
-                      <strong>Do zaplanowania</strong>
-                      <span>{planningQueue.length} pozycji czeka na ekipe lub termin</span>
+                      <div>
+                        <strong>Do zaplanowania</strong>
+                        <span>{planningQueueStats.all} pozycji w kolejce biura</span>
+                      </div>
+                      <div style={st.queueSummary}>
+                        <span style={st.queueSummaryOk}>{planningQueueStats.ready} gotowe</span>
+                        <span style={st.queueSummaryWarn}>{planningQueueStats.missing} z brakami</span>
+                      </div>
+                    </div>
+                    <div style={st.queueFilters}>
+                      {PLANNING_QUEUE_FILTERS.map((filter) => (
+                        <button
+                          key={filter.key}
+                          type="button"
+                          style={{
+                            ...st.queueFilterBtn,
+                            ...(planningQueueFilter === filter.key ? st.queueFilterBtnActive : {}),
+                          }}
+                          onClick={() => setPlanningQueueFilter(filter.key)}
+                        >
+                          <span>{filter.label}</span>
+                          <strong>{planningQueueStats[filter.key] || 0}</strong>
+                        </button>
+                      ))}
                     </div>
                     <div style={st.queueList}>
-                      {planningQueue.map((task) => renderTaskCard(task))}
+                      {filteredPlanningQueue.length ? (
+                        filteredPlanningQueue.map((row) => renderPlanningQueueCard(row))
+                      ) : (
+                        <div style={st.queueEmpty}>Brak pozycji w tym filtrze.</div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1294,23 +2676,43 @@ export default function KalendarzZasobow() {
                   <div style={st.dayPlanner}>
                     <div style={st.dayPlannerHeader}>
                       <div style={st.dayTimeHeader}>Godzina</div>
-                      {visibleTeams.map((team) => (
-                        <div key={team.id} style={st.dayTeamHeader}>
-                          {(() => {
-                            const analysis = dayAnalysisByTeam.get(String(team.id));
-                            const hasConflict = (analysis?.conflictIds?.size || 0) > 0;
-                            return (
-                              <>
-                                <strong>{team.nazwa}</strong>
-                                <span>{team.dostepny_w_oddziale_nazwa || team.oddzial_nazwa || 'Oddzial'}{team.delegowany ? ' · delegacja' : ''}</span>
-                                <span style={{ ...st.dayTeamHeaderMeta, ...(hasConflict ? st.dayTeamHeaderMetaConflict : {}) }}>
-                                  {durationLabel(analysis?.loadMinutes || 0)} pracy · {analysis?.gaps?.length || 0} luk{hasConflict ? ' · konflikt' : ''}
+                      {visibleTeams.map((team) => {
+                        const teamAttendance = attendanceByTeam.get(String(team.id));
+                        const isAbsent = teamAttendance?.present === false;
+                        const analysis = dayAnalysisByTeam.get(String(team.id));
+                        const hasConflict = (analysis?.conflictIds?.size || 0) > 0;
+                        return (
+                          <div
+                            key={team.id}
+                            style={{
+                              ...st.dayTeamHeader,
+                              ...(isAbsent ? st.dayTeamHeaderAbsent : {}),
+                              ...(focusedTeamId && String(team.id) === String(focusedTeamId) ? st.focusedTeamHeader : {}),
+                            }}
+                          >
+                                <span style={st.dayTeamHeaderTop}>
+                                  <strong style={st.dayTeamName}>{team.nazwa}</strong>
+                                  <button
+                                    type="button"
+                                    style={st.teamBriefBtn}
+                                    aria-label={`Kopiuj odprawe ekipy ${team.nazwa || team.id}`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      copyTeamBrief(team);
+                                    }}
+                                  >
+                                    Brief
+                                  </button>
                                 </span>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      ))}
+                            <span style={isAbsent ? st.teamAttendanceAbsent : undefined}>
+                              {isAbsent ? attendanceLine(teamAttendance) : `${teamBranchLabel(team)}${isTeamDelegatedToView(team) ? ' - delegacja' : ''}`}
+                            </span>
+                            <span style={{ ...st.dayTeamHeaderMeta, ...(hasConflict || isAbsent ? st.dayTeamHeaderMetaConflict : {}) }}>
+                              {durationLabel(analysis?.loadMinutes || 0)} pracy - {analysis?.gaps?.length || 0} luk{hasConflict ? ' - konflikt' : ''}{isAbsent ? ' - niedostepna' : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div style={st.dayPlannerBody}>
                       <div style={{ ...st.dayTimeRail, height: dayTimelineHeight }}>
@@ -1329,8 +2731,18 @@ export default function KalendarzZasobow() {
                       {visibleTeams.map((team) => {
                         const teamTasks = dayTasksByTeam.get(String(team.id)) || [];
                         const analysis = dayAnalysisByTeam.get(String(team.id));
+                        const isFocusedTeam = focusedTeamId && String(team.id) === String(focusedTeamId);
+                        const isAbsent = attendanceByTeam.get(String(team.id))?.present === false;
                         return (
-                          <div key={team.id} style={{ ...st.dayTeamColumn, height: dayTimelineHeight }}>
+                          <div
+                            key={team.id}
+                            style={{
+                              ...st.dayTeamColumn,
+                              ...(isAbsent ? st.dayTeamColumnAbsent : {}),
+                              ...(isFocusedTeam ? st.focusedTeamColumn : {}),
+                              height: dayTimelineHeight,
+                            }}
+                          >
                             {daySlots.map((hour) => {
                               const slotTime = hourLabel(hour);
                               const isDropHere =
@@ -1340,6 +2752,7 @@ export default function KalendarzZasobow() {
                               return (
                                 <div
                                   key={`${team.id}-${slotTime}`}
+                                  data-testid={`team-slot-${team.id}-${dayISO}-${slotTime}`}
                                   style={{
                                     ...st.dayHourSlot,
                                     top: (hour - DAY_START_HOUR) * DAY_HOUR_HEIGHT,
@@ -1366,15 +2779,29 @@ export default function KalendarzZasobow() {
                               );
                             })}
                             {teamTasks.length ? teamTasks.map(renderDayTaskBlock) : (
-                              <div style={st.dayEmptyColumn}>Brak zlecen w tym dniu</div>
+                              <div style={{ ...st.dayEmptyColumn, ...(isAbsent ? st.dayEmptyColumnAbsent : {}) }}>
+                                {isAbsent ? 'Ekipa nieobecna' : 'Brak zlecen w tym dniu'}
+                              </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ) : visibleTeams.map((team) => (
-                  <div key={team.id} style={{ display: 'flex', borderBottom: '1px solid var(--border)', minHeight: TEAM_ROW_H }}>
+                ) : visibleTeams.map((team) => {
+                  const teamAttendance = attendanceByTeam.get(String(team.id));
+                  const isAbsent = teamAttendance?.present === false;
+                  return (
+                  <div
+                    key={team.id}
+                    style={{
+                      display: 'flex',
+                      borderBottom: '1px solid var(--border)',
+                      minHeight: TEAM_ROW_H,
+                      ...(isAbsent ? st.absentTeamRangeRow : {}),
+                      ...(focusedTeamId && String(team.id) === String(focusedTeamId) ? st.focusedTeamRangeRow : {}),
+                    }}
+                  >
                     <div style={{
                       width: TEAM_LABEL_W, minWidth: TEAM_LABEL_W, minHeight: TEAM_ROW_H,
                       display: 'flex', flexDirection: 'column', justifyContent: 'center',
@@ -1382,9 +2809,22 @@ export default function KalendarzZasobow() {
                       borderRight: '1px solid var(--border)',
                       flexShrink: 0, overflow: 'hidden',
                     }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.nazwa}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                        {team.dostepny_w_oddziale_nazwa || team.oddzial_nazwa || 'Oddzial'}{team.delegowany ? ' · delegacja' : ''}
+                      <div style={st.rangeTeamTop}>
+                        <div style={st.rangeTeamName}>{team.nazwa}</div>
+                        <button
+                          type="button"
+                          style={st.teamBriefBtn}
+                          aria-label={`Kopiuj odprawe ekipy ${team.nazwa || team.id}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            copyTeamBrief(team);
+                          }}
+                        >
+                          Brief
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, ...(isAbsent ? st.teamAttendanceAbsent : {}) }}>
+                        {isAbsent ? attendanceLine(teamAttendance) : `${teamBranchLabel(team)}${isTeamDelegatedToView(team) ? ' - delegacja' : ''}`}
                       </div>
                     </div>
                     {days.map((d) => {
@@ -1393,10 +2833,17 @@ export default function KalendarzZasobow() {
                       const isToday = iso === todayISO;
                       const firstOfMonth = d.getDate() === 1;
                       const isDropHere = String(teamDropTarget?.teamId || '') === String(team.id) && teamDropTarget?.dayISO === iso;
+                      const isFocusedTeamDay =
+                        focusedTeamId &&
+                        focusedDate &&
+                        String(team.id) === String(focusedTeamId) &&
+                        iso === focusedDate;
+                      const isAbsentCell = isAbsent && iso === dayISO;
                       const cellTasks = tasksByTeamDay.get(`${team.id}|${iso}`) || [];
                       return (
                         <div
                           key={`${team.id}-${iso}`}
+                          data-testid={`team-day-${team.id}-${iso}`}
                           style={{
                             width: TEAM_COL_W,
                             minWidth: TEAM_COL_W,
@@ -1404,6 +2851,10 @@ export default function KalendarzZasobow() {
                             borderLeft: firstOfMonth ? '2px solid var(--accent)' : '1px solid var(--border)',
                             background: isDropHere
                               ? 'rgba(34,197,94,0.18)'
+                              : isFocusedTeamDay
+                              ? 'rgba(34,197,94,0.2)'
+                              : isAbsentCell
+                              ? 'rgba(239,68,68,0.1)'
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
@@ -1417,12 +2868,13 @@ export default function KalendarzZasobow() {
                           onDragLeave={handleTaskDragLeave}
                           onDrop={(e) => handleTaskDrop(e, team.id, iso)}
                         >
-                          {cellTasks.length ? cellTasks.map(renderTaskCard) : <div style={st.emptyTeamCell}>wolne</div>}
+                          {cellTasks.length ? cellTasks.map(renderTaskCard) : <div style={{ ...st.emptyTeamCell, ...(isAbsentCell ? st.emptyTeamCellAbsent : {}) }}>{isAbsentCell ? 'nieobecna' : 'wolne'}</div>}
                         </div>
                       );
                     })}
                   </div>
-                ))}
+                  );
+                })}
               </>
             ) : (
               <>
@@ -1475,9 +2927,18 @@ export default function KalendarzZasobow() {
 
             {visibleSprzet.map((s) => {
               const rowRez = rezBySprzet[s.id] || [];
+              const isFocusedEquipment = focusedEquipmentIds.has(String(s.id));
 
               return (
-                <div key={s.id} style={{ display: 'flex', borderBottom: '1px solid var(--border)', minHeight: ROW_H }}>
+                <div
+                  key={s.id}
+                  style={{
+                    display: 'flex',
+                    borderBottom: '1px solid var(--border)',
+                    minHeight: ROW_H,
+                    ...(isFocusedEquipment ? st.focusedEquipmentRow : {}),
+                  }}
+                >
                   {/* etykieta sprzętu */}
                   <div style={{
                     width: LABEL_W, minWidth: LABEL_W, height: ROW_H,
@@ -1485,6 +2946,7 @@ export default function KalendarzZasobow() {
                     paddingLeft: 16, paddingRight: 8,
                     borderRight: '1px solid var(--border)',
                     flexShrink: 0, overflow: 'hidden',
+                    ...(isFocusedEquipment ? st.focusedEquipmentLabel : {}),
                   }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nazwa}</div>
                     {s.typ && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.typ}</div>}
@@ -1498,6 +2960,7 @@ export default function KalendarzZasobow() {
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                       const isToday = iso === todayISO;
                       const isDropHere = dropTarget?.sprzetId === s.id && dropTarget?.dayISO === iso;
+                      const isFocusedEquipmentDay = isFocusedEquipment && focusedDate && iso === focusedDate;
                       const colIdx = diffDays(toISO(days[0]), iso);
                       const firstOfMonth = d.getDate() === 1;
                       return (
@@ -1512,6 +2975,8 @@ export default function KalendarzZasobow() {
                             borderLeft: firstOfMonth ? '2px solid var(--accent)' : '1px solid var(--border)',
                             background: isDropHere
                               ? 'rgba(59,130,246,0.25)'
+                              : isFocusedEquipmentDay
+                              ? 'rgba(59,130,246,0.2)'
                               : isToday
                               ? 'var(--accent-surface)'
                               : isWeekend
@@ -1544,7 +3009,7 @@ export default function KalendarzZasobow() {
       {modalNew && (
         <NowaRezerwacjaModal
           sprzet={visibleSprzet.length ? visibleSprzet : sprzet}
-          ekipy={ekipy}
+          ekipy={teamsForPlanning}
           defaultSprzet={modalNew.sprzetId}
           defaultDate={modalNew.date}
           onSave={handleNewSave}
@@ -1556,7 +3021,7 @@ export default function KalendarzZasobow() {
       {modalDet && (
         <RezerwacjaDetailModal
           rez={modalDet}
-          ekipy={ekipy}
+          ekipy={teamsForPlanning}
           onStatusChange={handleStatusChange}
           onOpenTask={() => {
             setModalDet(null);
@@ -1574,6 +3039,7 @@ export default function KalendarzZasobow() {
           tasks={tasks}
           sprzet={visibleSprzet.length ? visibleSprzet : sprzet}
           rezerwacje={rezerwacje}
+          attendanceByTeam={attendanceByTeam}
           onSave={handleTaskPlanSave}
           onClose={closeTaskPlan}
           onOpenTask={() => openFullTask(modalTaskPlan)}
@@ -1639,6 +3105,173 @@ const st = {
   legendDot: {
     width: 10, height: 10, borderRadius: 3, flexShrink: 0,
   },
+  opsPanel: {
+    borderBottom: '1px solid var(--border)',
+    background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(255,255,255,0.02))',
+    padding: '10px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  opsTitle: {
+    minWidth: 180,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    color: 'var(--text)',
+    fontSize: 13,
+  },
+  opsGrid: {
+    flex: 1,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))',
+    gap: 8,
+    alignItems: 'stretch',
+    minWidth: 260,
+  },
+  opsMetric: {
+    minHeight: 46,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    padding: '7px 9px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 2,
+    boxSizing: 'border-box',
+  },
+  opsMetricWarn: {
+    border: '1px solid rgba(245,158,11,0.45)',
+    background: 'rgba(245,158,11,0.1)',
+  },
+  opsMetricInfo: {
+    border: '1px solid rgba(14,165,233,0.45)',
+    background: 'rgba(14,165,233,0.1)',
+  },
+  opsMetricBad: {
+    border: '1px solid rgba(239,68,68,0.55)',
+    background: 'rgba(239,68,68,0.12)',
+  },
+  opsAction: {
+    minHeight: 46,
+    border: '1px solid rgba(34,197,94,0.38)',
+    borderRadius: 8,
+    background: 'rgba(34,197,94,0.13)',
+    color: 'var(--accent)',
+    padding: '8px 10px',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+  },
+  delegationStrip: {
+    width: '100%',
+    border: '1px solid rgba(14,165,233,0.28)',
+    borderRadius: 10,
+    background: 'rgba(14,165,233,0.08)',
+    padding: 10,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  delegationStripHead: {
+    minWidth: 210,
+    display: 'grid',
+    gap: 2,
+    color: 'var(--text)',
+    fontSize: 12,
+  },
+  delegationChips: {
+    flex: 1,
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  delegationChip: {
+    border: '1px solid rgba(14,165,233,0.32)',
+    borderRadius: 999,
+    background: 'rgba(255,255,255,0.04)',
+    color: 'var(--text)',
+    padding: '7px 10px',
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 850,
+  },
+  opsAlerts: {
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 8,
+  },
+  opsAlert: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    padding: '9px 10px',
+    display: 'grid',
+    gap: 3,
+    textAlign: 'left',
+    cursor: 'pointer',
+    minHeight: 92,
+  },
+  opsAlertBad: {
+    border: '1px solid rgba(239,68,68,0.46)',
+    background: 'rgba(239,68,68,0.1)',
+  },
+  opsAlertWarn: {
+    border: '1px solid rgba(245,158,11,0.42)',
+    background: 'rgba(245,158,11,0.1)',
+  },
+  opsAlertGood: {
+    border: '1px solid rgba(34,197,94,0.34)',
+    background: 'rgba(34,197,94,0.09)',
+  },
+  opsAlertCategory: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  opsAlertTitle: {
+    color: 'var(--text)',
+    fontSize: 12,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  opsAlertDetail: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.3,
+    fontWeight: 750,
+    overflowWrap: 'anywhere',
+  },
+  opsAlertAction: {
+    marginTop: 'auto',
+    color: 'var(--accent)',
+    fontSize: 11,
+    fontWeight: 950,
+  },
+  opsClear: {
+    width: '100%',
+    border: '1px dashed rgba(34,197,94,0.3)',
+    borderRadius: 8,
+    background: 'rgba(34,197,94,0.07)',
+    color: 'var(--text-muted)',
+    padding: '10px 12px',
+    fontSize: 12,
+    fontWeight: 850,
+  },
   queuePanel: {
     borderBottom: '1px solid var(--border)',
     background: 'linear-gradient(135deg, rgba(34,197,94,0.08), var(--bg-card))',
@@ -1647,16 +3280,147 @@ const st = {
   queueHead: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     marginBottom: 10,
     color: 'var(--text)',
     fontSize: 13,
+    flexWrap: 'wrap',
+  },
+  queueSummary: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+  queueSummaryOk: {
+    color: '#16a34a',
+  },
+  queueSummaryWarn: {
+    color: '#b45309',
+  },
+  queueFilters: {
+    display: 'flex',
+    gap: 7,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  queueFilterBtn: {
+    minHeight: 31,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--bg-card2)',
+    color: 'var(--text)',
+    padding: '5px 8px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 850,
+  },
+  queueFilterBtnActive: {
+    border: '1px solid rgba(34,197,94,0.42)',
+    background: 'rgba(34,197,94,0.14)',
+    color: 'var(--accent)',
   },
   queueList: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
     gap: 8,
+  },
+  queueTaskWrap: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.08)',
+    padding: 6,
+    minWidth: 0,
+  },
+  queueTaskWrapReady: {
+    border: '1px solid rgba(34,197,94,0.32)',
+    background: 'rgba(34,197,94,0.07)',
+  },
+  queueTaskMeta: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    color: 'var(--text-muted)',
+    fontSize: 10.5,
+    fontWeight: 800,
+    lineHeight: 1.2,
+  },
+  queueReadyPill: {
+    borderRadius: 999,
+    padding: '3px 6px',
+    border: '1px solid var(--border)',
+    fontSize: 10,
+    lineHeight: 1,
+    fontWeight: 950,
+  },
+  queueReadyPillOk: {
+    color: '#16a34a',
+    border: '1px solid rgba(34,197,94,0.35)',
+    background: 'rgba(34,197,94,0.12)',
+  },
+  queueReadyPillWarn: {
+    color: '#b45309',
+    border: '1px solid rgba(245,158,11,0.35)',
+    background: 'rgba(245,158,11,0.12)',
+  },
+  queueMissingList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 6,
+  },
+  queueMissingPill: {
+    borderRadius: 999,
+    padding: '3px 6px',
+    border: '1px solid rgba(245,158,11,0.32)',
+    background: 'rgba(245,158,11,0.1)',
+    color: '#b45309',
+    fontSize: 10,
+    lineHeight: 1,
+    fontWeight: 900,
+  },
+  queueActions: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto auto',
+    gap: 6,
+    marginTop: 8,
+  },
+  queueActionBtn: {
+    minWidth: 0,
+    border: '1px solid var(--border)',
+    borderRadius: 7,
+    background: 'var(--bg-card2)',
+    color: 'var(--text)',
+    padding: '6px 8px',
+    fontSize: 11,
+    lineHeight: 1,
+    fontWeight: 900,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  queueActionBtnPrimary: {
+    border: '1px solid rgba(34,197,94,0.42)',
+    background: 'rgba(34,197,94,0.14)',
+    color: 'var(--accent)',
+  },
+  queueEmpty: {
+    border: '1px dashed var(--border)',
+    borderRadius: 8,
+    color: 'var(--text-muted)',
+    background: 'rgba(0,0,0,0.08)',
+    padding: 14,
+    fontSize: 12,
+    fontWeight: 800,
   },
   taskCard: {
     minHeight: 54,
@@ -1706,6 +3470,30 @@ const st = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  taskBadges: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 5,
+  },
+  taskBadge: {
+    borderRadius: 999,
+    padding: '2px 5px',
+    fontSize: 9.5,
+    lineHeight: 1.1,
+    fontWeight: 900,
+    border: '1px solid var(--border)',
+  },
+  taskBadgeOk: {
+    color: '#15803d',
+    border: '1px solid rgba(34,197,94,0.35)',
+    background: 'rgba(34,197,94,0.11)',
+  },
+  taskBadgeWarn: {
+    color: '#b45309',
+    border: '1px solid rgba(245,158,11,0.35)',
+    background: 'rgba(245,158,11,0.12)',
+  },
   emptyTeamCell: {
     minHeight: 40,
     border: '1px dashed var(--border)',
@@ -1717,6 +3505,11 @@ const st = {
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.72,
+  },
+  emptyTeamCellAbsent: {
+    border: '1px dashed rgba(239,68,68,0.35)',
+    background: 'rgba(239,68,68,0.08)',
+    color: '#dc2626',
   },
   dayPlanner: {
     minWidth: '100%',
@@ -1756,6 +3549,56 @@ const st = {
     fontSize: 13,
     lineHeight: 1.25,
   },
+  dayTeamHeaderAbsent: {
+    borderRight: '1px solid rgba(239,68,68,0.42)',
+    background: 'linear-gradient(135deg, rgba(239,68,68,0.14), var(--bg-card))',
+    boxShadow: 'inset 0 -2px 0 rgba(239,68,68,0.65)',
+  },
+  dayTeamHeaderTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    minWidth: 0,
+  },
+  dayTeamName: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  rangeTeamTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    minWidth: 0,
+  },
+  rangeTeamName: {
+    minWidth: 0,
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 800,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  teamBriefBtn: {
+    flexShrink: 0,
+    border: '1px solid rgba(34,197,94,0.34)',
+    borderRadius: 7,
+    background: 'rgba(34,197,94,0.1)',
+    color: 'var(--accent)',
+    padding: '4px 7px',
+    fontSize: 10,
+    lineHeight: 1,
+    fontWeight: 900,
+    cursor: 'pointer',
+  },
+  teamAttendanceAbsent: {
+    color: '#dc2626',
+    fontWeight: 950,
+  },
   dayTeamHeaderMeta: {
     display: 'inline-flex',
     marginTop: 4,
@@ -1765,6 +3608,28 @@ const st = {
   },
   dayTeamHeaderMetaConflict: {
     color: '#ef4444',
+  },
+  focusedTeamHeader: {
+    background: 'linear-gradient(135deg, rgba(34,197,94,0.18), var(--bg-card))',
+    boxShadow: 'inset 0 -2px 0 rgba(34,197,94,0.72)',
+  },
+  focusedTeamColumn: {
+    background: 'linear-gradient(180deg, rgba(34,197,94,0.08), var(--bg-card))',
+  },
+  absentTeamRangeRow: {
+    boxShadow: 'inset 3px 0 0 #ef4444',
+    background: 'rgba(239,68,68,0.045)',
+  },
+  focusedTeamRangeRow: {
+    boxShadow: 'inset 3px 0 0 var(--accent)',
+    background: 'rgba(34,197,94,0.05)',
+  },
+  focusedEquipmentRow: {
+    boxShadow: 'inset 3px 0 0 #3b82f6',
+    background: 'rgba(59,130,246,0.05)',
+  },
+  focusedEquipmentLabel: {
+    background: 'linear-gradient(135deg, rgba(59,130,246,0.16), transparent)',
   },
   dayPlannerBody: {
     display: 'flex',
@@ -1792,6 +3657,9 @@ const st = {
     borderRight: '1px solid var(--border)',
     background: 'var(--bg-card)',
     overflow: 'hidden',
+  },
+  dayTeamColumnAbsent: {
+    background: 'linear-gradient(180deg, rgba(239,68,68,0.09), var(--bg-card))',
   },
   dayHourSlot: {
     position: 'absolute',
@@ -1858,6 +3726,11 @@ const st = {
     padding: 10,
     textAlign: 'center',
     opacity: 0.72,
+  },
+  dayEmptyColumnAbsent: {
+    border: '1px dashed rgba(239,68,68,0.35)',
+    background: 'rgba(239,68,68,0.08)',
+    color: '#dc2626',
   },
   dayGapBlock: {
     position: 'absolute',

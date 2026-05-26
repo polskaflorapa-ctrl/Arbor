@@ -3,7 +3,7 @@
  *
  * Uruchomienie:
  *   cd server && npm install && npm start
- * W drugim terminalu: npm start (CRA) — proxy /api → localhost:3001
+ * W drugim terminalu: npm start (Vite) — proxy /api → localhost:3001
  *
  * Loginy demo (hasło = login): admin, oleg, kierownik, specjalista
  */

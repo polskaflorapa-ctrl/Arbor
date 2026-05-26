@@ -31,4 +31,12 @@ describe('test mode role scoping', () => {
     expect(tasks.every((task) => task.oddzial_id === TEST_USERS.specjalistaWroclaw.oddzial_id)).toBe(true);
     expect(users.every((user) => user.oddzial_id === TEST_USERS.specjalistaWroclaw.oddzial_id)).toBe(true);
   });
+
+  it('serves a dispatch advisor brief for AutoDispatch demos', () => {
+    const brief = getMockData('/ai/dispatch-brief');
+
+    expect(brief.metrics.tasks_total).toBeGreaterThan(0);
+    expect(brief.recommendations[0].title).toMatch(/solverem/i);
+    expect(brief.top_tasks[0].issues.length).toBeGreaterThan(0);
+  });
 });

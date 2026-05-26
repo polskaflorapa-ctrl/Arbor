@@ -22,6 +22,7 @@ os/coverage/
 os/coverage_output.txt
 backups/
 os/backups/
+deploy-*.zip
 blobs/
 manifests/
 
@@ -41,15 +42,21 @@ deploy/*.env
 tmp_*.py
 
 # Codex / Claude agent runtime artifacts
+.netlify/
 .codex/
 .codex-*.log
 .codex-*.pid
 .claude/
+.playwright-cli/
 .codex-up.log
 .codex-up.err.log
 os-api-3001.log
 web-3002.log
+web-serve-*.log
+web-vite-*.log
 public-web-tunnel.log
+logs/
+.tmp-chrome-*/
 
 # IDE
 .idea/

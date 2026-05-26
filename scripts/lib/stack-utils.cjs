@@ -68,7 +68,7 @@ async function checkApiHealth(proxyTarget) {
       return { ok: false, status: response.status, note: `status ${response.status}`, payload: null };
     }
     const payload = JSON.parse(response.body);
-    const ok = payload?.ok === true;
+    const ok = payload?.ok === true || payload?.status === "ok" || payload?.status === "ready";
     return {
       ok,
       status: response.status,

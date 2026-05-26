@@ -13,11 +13,14 @@ import {
   TEST_TOKEN,
   getMockTaskDetail,
   getMockTaskLogi,
+  getMockTaskPhotos,
+  getMockTaskProblems,
   mockMarkTaskFinishedInTestMode,
+  mockUpdateTaskInTestMode,
   getMockQuotationDetail,
 } from './utils/testMode';
 
-/** CRA dev: REACT_APP_API_URL=/api + `src/setupProxy.js` (ARBOR_API_PROXY_TARGET) — omija CORS. */
+/** Vite dev: API_URL=/api + proxy z `vite.config.js` (ARBOR_API_PROXY_TARGET) omija CORS. */
 const API_URL = getReactApiBase();
 let isRedirectingToLogin = false;
 const API_URL_WITHOUT_API_SUFFIX = API_URL.replace(/\/api\/?$/, '');
@@ -39,7 +42,16 @@ const originalAdapter = axios.getAdapter
 
 function getRequestPath(url) {
   if (!url) return '';
-  return String(url).split('?')[0].replace(/\/+$|\/\?+$/g, '');
+  let path = String(url).split('?')[0].replace(/\/+$|\/\?+$/g, '');
+  try {
+    if (/^https?:\/\//i.test(path)) {
+      path = new URL(path).pathname.replace(/\/+$/g, '');
+    }
+  } catch {
+    // Keep the original path when URL parsing fails.
+  }
+  if (!path.startsWith('/')) path = `/${path}`;
+  return path.replace(/^\/api(?=\/|$)/, '') || '/';
 }
 
 function parseJsonData(data) {
@@ -52,6 +64,18 @@ function parseJsonData(data) {
     }
   }
   return data;
+}
+
+function getRequestDate(config) {
+  const fromParams = config?.params?.date;
+  if (fromParams) return String(fromParams);
+  try {
+    const raw = String(config?.url || '');
+    const query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+    return new URLSearchParams(query).get('date') || new Date().toISOString().slice(0, 10);
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
 }
 
 function getTestUserForLogin(login) {
@@ -80,10 +104,87 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ekipy/attendance' && method === 'get') {
+    const date = getRequestDate(config);
+    const teams = getMockData('/ekipy') || [];
+    const items = teams.map((team) => ({
+      id: `${team.id}_${date}`,
+      dateYmd: date,
+      teamId: String(team.id),
+      teamName: team.nazwa || `Ekipa #${team.id}`,
+      present: true,
+      note: '',
+      actor: 'Tryb testowy',
+      at: new Date().toISOString(),
+      oddzial_id: team.oddzial_id || null,
+    }));
+    return {
+      data: { date, items, summary: { total: items.length, confirmed: items.length, absent: 0 } },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTeamAttendance = path.match(/^\/ekipy\/(\d+)\/attendance$/);
+  if (mTeamAttendance && method === 'put') {
+    const body = parseJsonData(config.data);
+    const date = String(body.dateYmd || body.date || new Date().toISOString().slice(0, 10));
+    const teams = getMockData('/ekipy') || [];
+    const team = teams.find((item) => String(item.id) === String(mTeamAttendance[1])) || {};
+    return {
+      data: {
+        item: {
+          id: `${mTeamAttendance[1]}_${date}`,
+          dateYmd: date,
+          teamId: String(mTeamAttendance[1]),
+          teamName: team.nazwa || `Ekipa #${mTeamAttendance[1]}`,
+          present: body.present !== false,
+          note: body.note || '',
+          actor: 'Tryb testowy',
+          at: new Date().toISOString(),
+          oddzial_id: team.oddzial_id || null,
+        },
+        message: 'Potwierdzenie ekipy zapisane',
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   const mTasksId = path.match(/^\/tasks\/(\d+)$/);
   if (mTasksId && method === 'get') {
     return {
       data: getMockTaskDetail(mTasksId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mTasksId && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockUpdateTaskInTestMode(mTasksId[1], body),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksStatus = path.match(/^\/tasks\/(\d+)\/status$/);
+  if (mTasksStatus && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockUpdateTaskInTestMode(mTasksStatus[1], { status: body.status }),
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -96,6 +197,30 @@ function getTestModeMockResponse(config) {
   if (mTasksLogi && method === 'get') {
     return {
       data: getMockTaskLogi(mTasksLogi[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksPhotos = path.match(/^\/tasks\/(\d+)\/zdjecia$/);
+  if (mTasksPhotos && method === 'get') {
+    return {
+      data: getMockTaskPhotos(mTasksPhotos[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksProblems = path.match(/^\/tasks\/(\d+)\/problemy$/);
+  if (mTasksProblems && method === 'get') {
+    return {
+      data: getMockTaskProblems(mTasksProblems[1]),
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -299,7 +424,7 @@ api.interceptors.response.use(
       networkCooldownUntil = Date.now() + NETWORK_COOLDOWN_MS;
       error.userMessage =
         'Backend API nie odpowiada (brama/proxy). Uruchom API: w katalogu projektu `npm run server` lub `cd server && npm start` ' +
-        '(domyślnie http://localhost:3001). W dev CRA żądania `/api` idą tam przez `src/setupProxy.js` — ustaw `ARBOR_API_PROXY_TARGET` w `.env.local`, jeśli API jest na innym hoście/porcie.';
+        '(domyślnie http://localhost:3001). W dev Vite żądania `/api` idą przez proxy w `vite.config.js` — ustaw `ARBOR_API_PROXY_TARGET` w `.env.local`, jeśli API jest na innym hoście/porcie.';
     } else if (error.response?.status >= 500) {
       networkCooldownUntil = Date.now() + NETWORK_COOLDOWN_MS;
       error.userMessage = `Błąd serwera API (${requestDebug.method} ${requestDebug.fullUrl || requestDebug.urlPath}).`;

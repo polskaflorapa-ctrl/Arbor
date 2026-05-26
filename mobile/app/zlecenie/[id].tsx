@@ -31,9 +31,10 @@ import {
   queueRequestWithOfflineFallback,
   queueTaskPhotoOffline,
 } from '../../utils/offline-queue';
-import { subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
+import { emitTaskSync, subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession } from '../../utils/session';
+import { getTaskFieldExecutionSummary } from '../../utils/task-field-execution';
 import {
   TASK_STATUS,
   TASK_STATUSES,
@@ -144,6 +145,17 @@ function photoTypMatches(typ: unknown, allowed: string[]) {
   return allowed.includes(k);
 }
 
+function isCheckinWorkLog(log: unknown) {
+  const status = typeof log === 'object' && log !== null
+    ? (log as Record<string, unknown>).status
+    : log;
+  const key = String(status ?? '')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .trim();
+  return key === 'check_in' || key === 'checkin';
+}
+
 function absolutePhotoUrl(pathMaybe: unknown) {
   const raw = String(pathMaybe || '');
   if (!raw) return '';
@@ -158,8 +170,150 @@ function compactLines(value: unknown) {
     .filter(Boolean);
 }
 
+function extractNoteValue(value: unknown, prefixes: string[]) {
+  const lowerPrefixes = prefixes.map((prefix) => prefix.toLowerCase());
+  const line = compactLines(value).find((item) => {
+    const lower = item.toLowerCase();
+    return lowerPrefixes.some((prefix) => lower.startsWith(`${prefix}:`) || lower.startsWith(prefix));
+  });
+  if (!line) return '';
+  const valuePart = line.includes(':') ? line.split(':').slice(1).join(':') : line;
+  const clean = valuePart.trim();
+  return clean === '-' ? '' : clean;
+}
+
+function noteHasClientAccepted(value: unknown) {
+  const accepted = extractNoteValue(value, ['Klient zaakceptowal', 'Klient zaakceptował']);
+  return /^(tak|yes|true|1)$/i.test(accepted);
+}
+
 function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+type OfficePlanTeam = {
+  id: string | number;
+  nazwa: string;
+  oddzial_id?: string | number | null;
+  oddzial_nazwa?: string | null;
+  delegowany?: boolean;
+  natywny_oddzial?: boolean;
+  zajete_minuty?: string | number | null;
+  wolne_minuty?: string | number | null;
+};
+
+type OfficePlanEquipment = {
+  id: string | number;
+  nazwa: string;
+  typ?: string | null;
+  status?: string | null;
+  oddzial_id?: string | number | null;
+  ekipa_id?: string | number | null;
+};
+
+type OfficePlanForm = {
+  data: string;
+  godzina: string;
+  czas: string;
+  ekipaId: string;
+  sprzetIds: string[];
+  note: string;
+};
+
+type InspectionEstimator = {
+  id: string | number;
+  nazwa: string;
+  imie?: string | null;
+  nazwisko?: string | null;
+  rola?: string | null;
+  telefon?: string | null;
+  oddzial_id?: string | number | null;
+  oddzial_nazwa?: string | null;
+  delegowany?: boolean;
+  natywny_oddzial?: boolean;
+};
+
+type InspectionDispatchForm = {
+  estimatorId: string;
+  data: string;
+  godzina: string;
+  note: string;
+};
+
+function todayKey() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function ymdFromValue(value: unknown) {
+  const raw = String(value || '');
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function timeFromTask(task: any) {
+  const direct = String(task?.godzina_rozpoczecia || '').slice(0, 5);
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(direct)) return direct;
+  const raw = String(task?.data_planowana || '');
+  const fromDate = raw.includes('T') ? raw.split('T')[1]?.slice(0, 5) || '' : '';
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(fromDate) ? fromDate : '08:00';
+}
+
+function isYmd(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isHhMm(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function positiveNumber(value: unknown) {
+  const n = Number(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function equipmentIdFromReservation(row: any) {
+  return String(row?.sprzet_id ?? row?.sprzetId ?? row?.equipment_id ?? '').trim();
+}
+
+function createOfficePlanForm(task: any): OfficePlanForm {
+  const reserved = Array.isArray(task?.equipment_reservations)
+    ? task.equipment_reservations
+    : Array.isArray(task?.rezerwacje_sprzetu)
+      ? task.rezerwacje_sprzetu
+      : [];
+  return {
+    data: ymdFromValue(task?.data_planowana) || todayKey(),
+    godzina: timeFromTask(task),
+    czas: task?.czas_planowany_godziny != null && String(task.czas_planowany_godziny).trim()
+      ? String(task.czas_planowany_godziny)
+      : '2',
+    ekipaId: task?.ekipa_id != null ? String(task.ekipa_id) : '',
+    sprzetIds: uniqueStrings(reserved.map(equipmentIdFromReservation).filter(Boolean)),
+    note: '',
+  };
+}
+
+function isCrewRole(role: unknown) {
+  const value = String(role || '').toLowerCase();
+  return value === 'brygadzista' || value.includes('pomocnik');
+}
+
+function estimatorDisplayName(row: any) {
+  return String(
+    row?.nazwa ||
+    [row?.imie, row?.nazwisko].filter(Boolean).join(' ') ||
+    row?.login ||
+    `Specjalista #${row?.id || '-'}`,
+  ).trim();
 }
 
 type WorkflowMissingItem = {
@@ -190,6 +344,25 @@ function taskWorkflowMissingItems(task: any): WorkflowMissingItem[] {
     seen.add(key);
     return true;
   });
+}
+
+function formatApiWorkflowError(data: any, fallback = 'Nie udało się wykonać akcji.') {
+  const labels = Array.isArray(data?.missing_labels)
+    ? data.missing_labels.map((label: unknown) => String(label || '').trim()).filter(Boolean)
+    : [];
+  const base = String(data?.error || fallback).trim();
+  if (!labels.length) return base;
+  return `${base}\n\nBrakuje:\n- ${labels.join('\n- ')}`;
+}
+
+async function readApiErrorBody(res: Response) {
+  const text = await res.text().catch(() => '');
+  if (!text) return { data: {}, text: '' };
+  try {
+    return { data: JSON.parse(text), text };
+  } catch {
+    return { data: {}, text };
+  }
 }
 
 function workflowTargetFor(item?: WorkflowMissingItem) {
@@ -233,7 +406,12 @@ function orderPhotoTypeMeta(theme: Theme): Record<(typeof TYP_ZDJECIA_KEYS)[numb
 }
 
 export default function ZlecenieDetailScreen() {
-  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const { id, tab, fieldFocus: fieldFocusParam, photoFilter: photoFilterParam } = useLocalSearchParams<{
+    id: string;
+    tab?: string;
+    fieldFocus?: string;
+    photoFilter?: string;
+  }>();
   const { theme } = useTheme();
   const { t } = useLanguage();
   const guard = useOddzialFeatureGuard('/zlecenia');
@@ -318,6 +496,31 @@ export default function ZlecenieDetailScreen() {
   const [fieldSettlementDraft, setFieldSettlementDraft] = useState<string>(DEFAULT_FIELD_SETTLEMENT);
   const [fieldClientAccepted, setFieldClientAccepted] = useState(false);
   const [fieldPackageSaving, setFieldPackageSaving] = useState(false);
+  const [fieldPackageFocus, setFieldPackageFocus] = useState<string | null>(null);
+  const [officePlanOpen, setOfficePlanOpen] = useState(false);
+  const [officePlanSaving, setOfficePlanSaving] = useState(false);
+  const [officePlanRefsLoading, setOfficePlanRefsLoading] = useState(false);
+  const [officePlanError, setOfficePlanError] = useState<string | null>(null);
+  const [officePlanTeams, setOfficePlanTeams] = useState<OfficePlanTeam[]>([]);
+  const [officePlanEquipment, setOfficePlanEquipment] = useState<OfficePlanEquipment[]>([]);
+  const [inspectionEstimators, setInspectionEstimators] = useState<InspectionEstimator[]>([]);
+  const [inspectionEstimatorsLoading, setInspectionEstimatorsLoading] = useState(false);
+  const [inspectionDispatchSaving, setInspectionDispatchSaving] = useState(false);
+  const [inspectionDispatchError, setInspectionDispatchError] = useState<string | null>(null);
+  const [inspectionDispatchForm, setInspectionDispatchForm] = useState<InspectionDispatchForm>({
+    estimatorId: '',
+    data: todayKey(),
+    godzina: '09:00',
+    note: '',
+  });
+  const [officePlanForm, setOfficePlanForm] = useState<OfficePlanForm>({
+    data: todayKey(),
+    godzina: '08:00',
+    czas: '2',
+    ekipaId: '',
+    sprzetIds: [],
+    note: '',
+  });
   const scopeConfirmKey = useMemo(() => `arbor-task-scope-confirmed:${id}`, [id]);
   const safetyChecklistKey = useMemo(() => `arbor-task-safety-checklist:${id}`, [id]);
 
@@ -399,6 +602,284 @@ export default function ZlecenieDetailScreen() {
     }
   }, [id, token, t]);
 
+  const loadOfficePlanRefs = async (authToken?: string | null) => {
+    const auth = authToken ?? token;
+    if (!auth) {
+      router.replace('/login');
+      return;
+    }
+    setOfficePlanRefsLoading(true);
+    try {
+      const h = { Authorization: `Bearer ${auth}` };
+      const branchId = zlecenie?.oddzial_id != null ? String(zlecenie.oddzial_id) : '';
+      const equipmentUrl = branchId
+        ? `${API_URL}/flota/sprzet?oddzial_id=${encodeURIComponent(branchId)}`
+        : `${API_URL}/flota/sprzet`;
+      const [teamsRes, equipmentRes] = await Promise.all([
+        fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: h }),
+        fetch(equipmentUrl, { headers: h }),
+      ]);
+
+      if (teamsRes.ok) {
+        const data = await teamsRes.json().catch(() => []);
+        const rows = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        setOfficePlanTeams(rows.map((row: any) => ({
+          id: row.id,
+          nazwa: row.nazwa || `Ekipa #${row.id}`,
+          oddzial_id: row.oddzial_id,
+          oddzial_nazwa: row.oddzial_nazwa,
+          delegowany: Boolean(row.delegowany),
+          natywny_oddzial: Boolean(row.natywny_oddzial),
+          zajete_minuty: row.zajete_minuty,
+          wolne_minuty: row.wolne_minuty,
+        })));
+      }
+
+      if (equipmentRes.ok) {
+        const data = await equipmentRes.json().catch(() => []);
+        const rows = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        setOfficePlanEquipment(rows.map((row: any) => ({
+          id: row.id,
+          nazwa: row.nazwa || `Sprzet #${row.id}`,
+          typ: row.typ,
+          status: row.status,
+          oddzial_id: row.oddzial_id,
+          ekipa_id: row.ekipa_id,
+        })));
+      }
+    } catch {
+      setOfficePlanError('Nie udalo sie pobrac ekip albo sprzetu. Mozesz wpisac plan i sprobowac ponownie.');
+    } finally {
+      setOfficePlanRefsLoading(false);
+    }
+  };
+
+  const loadInspectionEstimators = useCallback(async (authToken?: string | null, dateValue?: string) => {
+    const auth = authToken ?? token;
+    if (!auth || !zlecenie?.id) return;
+    setInspectionEstimatorsLoading(true);
+    try {
+      const branchId = zlecenie?.oddzial_id != null ? String(zlecenie.oddzial_id) : '';
+      const query = new URLSearchParams({
+        rola: 'Wyceniajacy',
+        include_delegacje: '1',
+        date: dateValue || inspectionDispatchForm.data || ymdFromValue(zlecenie.data_planowana) || todayKey(),
+      });
+      if (branchId) query.set('oddzial_id', branchId);
+      const res = await fetch(`${API_URL}/uzytkownicy?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${auth}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => []);
+      const rows = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+      setInspectionEstimators(rows.map((row: any) => ({
+        id: row.id,
+        nazwa: estimatorDisplayName(row),
+        imie: row.imie,
+        nazwisko: row.nazwisko,
+        rola: row.rola,
+        telefon: row.telefon,
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        delegowany: Boolean(row.delegowany),
+        natywny_oddzial: Boolean(row.natywny_oddzial),
+      })));
+    } catch {
+      setInspectionDispatchError('Nie udalo sie pobrac listy specjalistow ds. wyceny.');
+    } finally {
+      setInspectionEstimatorsLoading(false);
+    }
+  }, [inspectionDispatchForm.data, token, zlecenie?.data_planowana, zlecenie?.id, zlecenie?.oddzial_id]);
+
+  const dispatchInspectionToEstimator = async () => {
+    if (!zlecenie || !token) {
+      router.replace('/login');
+      return;
+    }
+    const estimatorId = inspectionDispatchForm.estimatorId.trim();
+    if (!estimatorId) {
+      void triggerHaptic('warning');
+      setInspectionDispatchError('Wybierz specjaliste ds. wyceny.');
+      return;
+    }
+    if (!isYmd(inspectionDispatchForm.data)) {
+      void triggerHaptic('warning');
+      setInspectionDispatchError('Wpisz date ogledzin w formacie RRRR-MM-DD.');
+      return;
+    }
+    if (!isHhMm(inspectionDispatchForm.godzina)) {
+      void triggerHaptic('warning');
+      setInspectionDispatchError('Wpisz godzine ogledzin w formacie HH:MM.');
+      return;
+    }
+    if (!String(zlecenie.klient_nazwa || '').trim() || !String(zlecenie.klient_telefon || '').trim()) {
+      void triggerHaptic('warning');
+      setInspectionDispatchError('Uzupelnij klienta i telefon przed przekazaniem do terenu.');
+      return;
+    }
+    if (!String(zlecenie.adres || '').trim() || !String(zlecenie.miasto || '').trim()) {
+      void triggerHaptic('warning');
+      setInspectionDispatchError('Uzupelnij adres i miasto przed przekazaniem do terenu.');
+      return;
+    }
+
+    const selectedEstimator = inspectionEstimators.find((row) => String(row.id) === estimatorId);
+    const noteBlock = [
+      'PRZEKAZANIE NA OGLEDZINY',
+      `Specjalista ds. wyceny: ${selectedEstimator?.nazwa || `#${estimatorId}`}`,
+      `Termin ogledzin: ${inspectionDispatchForm.data} ${inspectionDispatchForm.godzina}`,
+      inspectionDispatchForm.note.trim() ? `Notatka biura: ${inspectionDispatchForm.note.trim()}` : '',
+    ].filter(Boolean).join('\n');
+    const nextNotes = [String(zlecenie.notatki_wewnetrzne || '').trim(), noteBlock]
+      .filter(Boolean)
+      .join('\n\n');
+
+    setInspectionDispatchSaving(true);
+    setInspectionDispatchError(null);
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          klient_nazwa: zlecenie.klient_nazwa,
+          klient_telefon: zlecenie.klient_telefon || null,
+          klient_email: zlecenie.klient_email || null,
+          adres: zlecenie.adres,
+          miasto: zlecenie.miasto,
+          typ_uslugi: zlecenie.typ_uslugi || 'Wycena',
+          priorytet: zlecenie.priorytet || 'Normalny',
+          wartosc_planowana: zlecenie.wartosc_planowana ?? null,
+          czas_planowany_godziny: zlecenie.czas_planowany_godziny ?? null,
+          data_planowana: inspectionDispatchForm.data,
+          godzina_rozpoczecia: inspectionDispatchForm.godzina,
+          opis: zlecenie.opis || zlecenie.opis_pracy || null,
+          opis_pracy: zlecenie.opis_pracy || zlecenie.opis || null,
+          notatki_wewnetrzne: nextNotes,
+          notatki: zlecenie.notatki || null,
+          oddzial_id: zlecenie.oddzial_id || user?.oddzial_id || null,
+          ekipa_id: zlecenie.ekipa_id || null,
+          kierownik_id: zlecenie.kierownik_id || null,
+          wyceniajacy_id: estimatorId,
+          status: TASK_STATUS.WYCENA_TERENOWA,
+          ankieta_uproszczona: true,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        void triggerHaptic('warning');
+        setInspectionDispatchError(formatApiWorkflowError(data, data?.error || `HTTP ${res.status}`));
+        return;
+      }
+      setZlecenie((prev: any) => mergeTaskMutationResponse(prev, data, {
+        id: Number(id),
+        status: TASK_STATUS.WYCENA_TERENOWA,
+        wyceniajacy_id: estimatorId,
+        wyceniajacy_nazwa: selectedEstimator?.nazwa,
+        data_planowana: `${inspectionDispatchForm.data}T${inspectionDispatchForm.godzina}:00`,
+        godzina_rozpoczecia: inspectionDispatchForm.godzina,
+        notatki_wewnetrzne: nextNotes,
+        ankieta_uproszczona: true,
+      }));
+      void triggerHaptic('success');
+      Alert.alert('Przekazano do terenu', 'Zgloszenie jest teraz w kolejce ogledzin specjalisty ds. wyceny.');
+      await loadAll();
+    } catch (err) {
+      void triggerHaptic('error');
+      setInspectionDispatchError(err instanceof Error ? err.message : 'Nie udalo sie przekazac zgloszenia.');
+    } finally {
+      setInspectionDispatchSaving(false);
+    }
+  };
+
+  const openOfficePlanSheet = async () => {
+    if (!zlecenie) return;
+    setOfficePlanForm(createOfficePlanForm(zlecenie));
+    setOfficePlanError(null);
+    setOfficePlanOpen(true);
+    void triggerHaptic('light');
+    await loadOfficePlanRefs();
+  };
+
+  const toggleOfficePlanEquipment = (equipmentId: string | number) => {
+    const key = String(equipmentId);
+    setOfficePlanForm((current) => ({
+      ...current,
+      sprzetIds: current.sprzetIds.includes(key)
+        ? current.sprzetIds.filter((item) => item !== key)
+        : [...current.sprzetIds, key],
+    }));
+    void triggerHaptic('light');
+  };
+
+  const submitOfficePlanFromTask = async () => {
+    if (!zlecenie) return;
+    if (!isYmd(officePlanForm.data)) {
+      void triggerHaptic('warning');
+      setOfficePlanError('Wpisz date pracy w formacie RRRR-MM-DD.');
+      return;
+    }
+    if (!isHhMm(officePlanForm.godzina)) {
+      void triggerHaptic('warning');
+      setOfficePlanError('Wpisz godzine startu w formacie HH:MM.');
+      return;
+    }
+    if (!officePlanForm.ekipaId) {
+      void triggerHaptic('warning');
+      setOfficePlanError('Wybierz ekipe do realizacji.');
+      return;
+    }
+    if (positiveNumber(officePlanForm.czas) <= 0) {
+      void triggerHaptic('warning');
+      setOfficePlanError('Wpisz dodatni czas pracy w godzinach.');
+      return;
+    }
+    if (!token) {
+      router.replace('/login');
+      return;
+    }
+    setOfficePlanSaving(true);
+    setOfficePlanError(null);
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}/office-plan`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data_planowana: officePlanForm.data,
+          godzina_rozpoczecia: officePlanForm.godzina,
+          czas_planowany_godziny: officePlanForm.czas.replace(',', '.'),
+          ekipa_id: officePlanForm.ekipaId,
+          sprzet_ids: officePlanForm.sprzetIds,
+          sprzet_notatka: officePlanForm.note.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        void triggerHaptic('warning');
+        setOfficePlanError(formatApiWorkflowError(data, `Nie zapisano planu. HTTP ${res.status}`));
+        return;
+      }
+      const selectedTeam = officePlanTeams.find((team) => String(team.id) === String(officePlanForm.ekipaId));
+      setZlecenie((prev: any) => mergeTaskMutationResponse(prev, data, {
+        id: Number(id),
+        status: TASK_STATUS.ZAPLANOWANE,
+        data_planowana: `${officePlanForm.data}T${officePlanForm.godzina}:00`,
+        godzina_rozpoczecia: officePlanForm.godzina,
+        czas_planowany_godziny: officePlanForm.czas.replace(',', '.'),
+        ekipa_id: officePlanForm.ekipaId,
+        ekipa_nazwa: selectedTeam?.nazwa,
+      }));
+      setOfficePlanOpen(false);
+      void triggerHaptic('success');
+      await loadAll();
+      Alert.alert('Plan zapisany', data?.message || 'Zlecenie jest zaplanowane dla ekipy.');
+    } catch (err) {
+      void triggerHaptic('error');
+      setOfficePlanError(err instanceof Error ? err.message : 'Nie zapisano planu.');
+    } finally {
+      setOfficePlanSaving(false);
+    }
+  };
+
   const init = useCallback(async () => {
     const { user: storedUser, token: storedToken } = await getStoredSession();
     if (storedUser) setUser(storedUser);
@@ -414,21 +895,41 @@ export default function ZlecenieDetailScreen() {
 
   useEffect(() => {
     if (!zlecenie?.id) return;
+    const noteSource = zlecenie.notatki_wewnetrzne || zlecenie.notatki || '';
     setFieldScopeDraft(String(zlecenie.opis || zlecenie.opis_pracy || '').trim());
     setFieldTimeDraft(zlecenie.czas_planowany_godziny != null ? String(zlecenie.czas_planowany_godziny) : '');
     setFieldBudgetDraft(zlecenie.wartosc_planowana != null ? String(zlecenie.wartosc_planowana) : '');
-    setFieldRiskDraft('');
+    setFieldRiskDraft(extractNoteValue(noteSource, ['Ryzyka', 'Ryzyka / uwagi BHP']));
     setFieldScopePresetKeys([]);
     setFieldEquipmentKeys([]);
-    setFieldSettlementDraft(DEFAULT_FIELD_SETTLEMENT);
-    setFieldClientAccepted(false);
+    setFieldSettlementDraft(extractNoteValue(noteSource, ['Warunki rozliczenia']) || DEFAULT_FIELD_SETTLEMENT);
+    setFieldClientAccepted(noteHasClientAccepted(noteSource));
   }, [
     zlecenie?.czas_planowany_godziny,
     zlecenie?.id,
+    zlecenie?.notatki,
+    zlecenie?.notatki_wewnetrzne,
     zlecenie?.opis,
     zlecenie?.opis_pracy,
     zlecenie?.wartosc_planowana,
   ]);
+
+  useEffect(() => {
+    if (!zlecenie?.id) return;
+    setInspectionDispatchForm((current) => ({
+      estimatorId: zlecenie.wyceniajacy_id != null ? String(zlecenie.wyceniajacy_id) : current.estimatorId,
+      data: ymdFromValue(zlecenie.data_planowana) || current.data || todayKey(),
+      godzina: timeFromTask(zlecenie) || current.godzina || '09:00',
+      note: current.note,
+    }));
+  }, [zlecenie]);
+
+  useEffect(() => {
+    const role = String(user?.rola || '');
+    const canDispatch = ['Specjalista', 'Kierownik', 'Dyrektor', 'Administrator'].includes(role);
+    if (!token || !zlecenie?.id || zlecenie.status !== TASK_STATUS.NOWE || !canDispatch) return;
+    void loadInspectionEstimators(token, inspectionDispatchForm.data);
+  }, [inspectionDispatchForm.data, loadInspectionEstimators, token, user?.rola, zlecenie?.id, zlecenie?.status]);
 
   useEffect(() => {
     let alive = true;
@@ -462,6 +963,26 @@ export default function ZlecenieDetailScreen() {
       setActiveTab(tab);
     }
   }, [tab]);
+
+  useEffect(() => {
+    const filter = String(photoFilterParam || '');
+    if (filter === 'all' || TYP_ZDJECIA_KEYS.includes(filter as PhotoTypeKey)) {
+      setPhotoFilter(filter as PhotoFilterKey);
+      setActiveTab('zdjecia');
+    }
+  }, [photoFilterParam]);
+
+  useEffect(() => {
+    const focus = String(fieldFocusParam || '');
+    const allowed = ['scope', 'time', 'budget', 'risk', 'settlement', 'client', 'photos'];
+    if (!allowed.includes(focus)) return;
+    if (focus === 'photos') {
+      setActiveTab('zdjecia');
+      return;
+    }
+    setFieldPackageFocus(focus);
+    setActiveTab('info');
+  }, [fieldFocusParam]);
 
   useEffect(() => {
     const unsubscribe = subscribeOfflineFlushDone((d) => {
@@ -504,6 +1025,7 @@ export default function ZlecenieDetailScreen() {
               setZlecenie((prev: any) => mergeTaskMutationResponse(prev, data, { id: Number(id), status: nowyStatus }));
               void triggerHaptic('success');
               await loadAll();
+              emitTaskSync({ taskId: id, reason: 'status' });
               Alert.alert(t('common.ok'), t('order.statusChanged'));
             }
             else if (res.status >= 500) {
@@ -518,8 +1040,11 @@ export default function ZlecenieDetailScreen() {
               Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStatusQueued'));
             } else {
               void triggerHaptic('warning');
-              const msg = await res.text().catch(() => '');
-              Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 200) || `HTTP ${res.status}`);
+              const { data, text } = await readApiErrorBody(res);
+              Alert.alert(
+                t('notif.alert.errorTitle'),
+                formatApiWorkflowError(data, text.slice(0, 200) || `HTTP ${res.status}`),
+              );
             }
           } catch {
             void triggerHaptic('warning');
@@ -572,6 +1097,7 @@ export default function ZlecenieDetailScreen() {
       }
       if (!fieldTimeDraft.trim()) missing.push('czas pracy');
       if (!fieldBudgetDraft.trim()) missing.push('budżet');
+      if (!fieldRiskDraft.trim()) missing.push('ryzyka / BHP');
       if (!fieldSettlementDraft.trim()) missing.push('warunki rozliczenia');
       if (!fieldClientAccepted) missing.push('akceptacja klienta');
       if (missing.length) {
@@ -617,6 +1143,7 @@ export default function ZlecenieDetailScreen() {
         setZlecenie((prev: any) => mergeTaskMutationResponse(prev, data, { id: Number(id) }));
         void triggerHaptic('success');
         await loadAll();
+        emitTaskSync({ taskId: id, reason: 'field-package' });
         Alert.alert('Gotowe', sendToOffice ? 'Pakiet wrócił do biura do planowania.' : 'Pakiet terenowy zapisany.');
       } else if (res.status >= 500) {
         const queued = await queueRequestWithOfflineFallback({
@@ -631,8 +1158,11 @@ export default function ZlecenieDetailScreen() {
         Alert.alert(t('notif.alert.offlineTitle'), 'Pakiet terenowy zapisano lokalnie. Wyśle się po odzyskaniu połączenia.');
       } else {
         void triggerHaptic('warning');
-        const msg = await res.text().catch(() => '');
-        Alert.alert(t('notif.alert.errorTitle'), msg.slice(0, 300) || `HTTP ${res.status}`);
+        const { data, text } = await readApiErrorBody(res);
+        Alert.alert(
+          t('notif.alert.errorTitle'),
+          formatApiWorkflowError(data, text.slice(0, 300) || `HTTP ${res.status}`),
+        );
       }
     } catch {
       const queued = await queueRequestWithOfflineFallback({
@@ -651,7 +1181,19 @@ export default function ZlecenieDetailScreen() {
   };
 
   const rozpocznij = async () => {
-    const isTeam = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
+    const isTeam = isCrewRole(user?.rola);
+    if (isTeam && !crewExecutionReady) {
+      void triggerHaptic('warning');
+      Alert.alert(
+        'Pakiet brygady niekompletny',
+        `Nie startuj pracy, dopoki brakuje:\n- ${crewExecutionMissing.join('\n- ')}`,
+        [
+          { text: 'OK', style: 'cancel' },
+          { text: 'Otworz odprawe', onPress: () => setActiveTab('info' as const) },
+        ],
+      );
+      return;
+    }
     if (isTeam && !scopeConfirmed) {
       void triggerHaptic('warning');
       Alert.alert(
@@ -667,6 +1209,20 @@ export default function ZlecenieDetailScreen() {
     if (isTeam && !safetyReady) {
       void triggerHaptic('warning');
       Alert.alert('BHP przed startem', 'Uzupelnij checkliste BHP przed rozpoczeciem pracy.');
+      return;
+    }
+    if (isTeam && beforePhotosCount <= 0) {
+      void triggerHaptic('warning');
+      Alert.alert('Zdjecie przed startem', 'Najpierw zrob zdjecie stanu przed praca. To jest dowod dla biura i zabezpieczenie przed sporem z klientem.', [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Zrob zdjecie przed',
+          onPress: () => {
+            setActiveTab('zdjecia');
+            void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+          },
+        },
+      ]);
       return;
     }
     const idempotencyKey = createOfflineRequestId(`task-${id}-start`);
@@ -706,7 +1262,12 @@ export default function ZlecenieDetailScreen() {
         },
         body: JSON.stringify(startBody),
       });
-      if (res.ok) { void triggerHaptic('success'); await loadAll(); Alert.alert(t('common.ok'), t('order.startedTitle')); }
+      if (res.ok) {
+        void triggerHaptic('success');
+        await loadAll();
+        emitTaskSync({ taskId: id, reason: 'start' });
+        Alert.alert(t('common.ok'), t('order.startedTitle'));
+      }
       else if (res.status >= 500) {
         void triggerHaptic('warning');
         const queued = await queueRequestWithOfflineFallback({
@@ -724,7 +1285,7 @@ export default function ZlecenieDetailScreen() {
       }
     } catch {
       void triggerHaptic('warning');
-      const isTeam = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
+      const isTeam = isCrewRole(user?.rola);
       if (isTeam && startBody.lat == null) {
         const coords = await pobierzLokalizacje().catch(() => null);
         const bhp_checklista = safetyChecklistRows.map((row) => ({
@@ -921,6 +1482,7 @@ export default function ZlecenieDetailScreen() {
         setFinishIssuesReviewed(false);
         setFinishClientAccepted(false);
         await loadAll();
+        emitTaskSync({ taskId: id, reason: 'finish' });
         Alert.alert(t('common.ok'), t('order.finishedTitle'));
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
@@ -1180,6 +1742,7 @@ export default function ZlecenieDetailScreen() {
         });
         if (res.ok) {
           await loadAll();
+          emitTaskSync({ taskId: id, reason: 'photo' });
           setPhotoOpisDraft('');
           setPhotoTagiDraft('');
           setZdjecieModal(false);
@@ -1251,15 +1814,69 @@ export default function ZlecenieDetailScreen() {
     }
   };
 
-  const checkin = async () => {
-    Alert.alert(
-      'Check-in u klienta',
-      'Zrób zdjęcie potwierdzające przybycie na miejsce.',
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        { text: 'Zrób zdjęcie', onPress: () => zrobZdjecie('checkin') },
-      ]
-    );
+  const checkinGps = async () => {
+    const idempotencyKey = createOfflineRequestId(`task-${id}-checkin`);
+    let checkinBody: Record<string, unknown> = {};
+    setChangingStatus(true);
+    try {
+      if (!token) { router.replace('/login'); return; }
+      const coords = await pobierzLokalizacje();
+      if (!coords) {
+        void triggerHaptic('warning');
+        Alert.alert('GPS wymagany', 'Nie udalo sie pobrac lokalizacji. Wlacz GPS i sprobuj ponownie.');
+        return;
+      }
+      checkinBody = {
+        lat: coords.lat,
+        lng: coords.lng,
+        note: 'Brygada potwierdzila przyjazd do klienta.',
+      };
+      const res = await fetch(`${API_URL}/tasks/${id}/checkin`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(checkinBody),
+      });
+      if (res.ok) {
+        void triggerHaptic('success');
+        await loadAll();
+        emitTaskSync({ taskId: id, reason: 'checkin' });
+        Alert.alert('Dojechalismy', 'GPS przyjazdu zapisany. Biuro widzi, ze ekipa jest na miejscu.');
+      } else if (res.status >= 500) {
+        void triggerHaptic('warning');
+        const queued = await queueRequestWithOfflineFallback({
+          id: idempotencyKey,
+          url: `${API_URL}/tasks/${id}/checkin`,
+          method: 'POST',
+          body: checkinBody,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), 'Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
+      } else {
+        void triggerHaptic('warning');
+        const { data, text } = await readApiErrorBody(res);
+        Alert.alert(t('notif.alert.errorTitle'), formatApiWorkflowError(data, text.slice(0, 200) || `HTTP ${res.status}`));
+      }
+    } catch {
+      void triggerHaptic('warning');
+      if (checkinBody.lat != null && checkinBody.lng != null) {
+        const queued = await queueRequestWithOfflineFallback({
+          id: idempotencyKey,
+          url: `${API_URL}/tasks/${id}/checkin`,
+          method: 'POST',
+          body: checkinBody,
+        });
+        setOfflineQueueCount(queued);
+        Alert.alert(t('notif.alert.offlineTitle'), 'Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
+      } else {
+        Alert.alert(t('notif.alert.errorTitle'), 'Nie udalo sie zapisac check-in GPS.');
+      }
+    } finally {
+      setChangingStatus(false);
+    }
   };
 
   const zglosProblem = async () => {
@@ -1312,6 +1929,11 @@ export default function ZlecenieDetailScreen() {
       setProblemForm({ typ: 'usterka', opis: '' });
       Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
     }
+  };
+  const zrobZdjecieProblemu = () => {
+    const opis = problemForm.opis.trim() || `Problem: ${problemForm.typ}`;
+    void triggerHaptic('light');
+    void zrobZdjecie('inne', opis, `problem,${problemForm.typ}`);
   };
 
   const saveClientSignature = async (payload: { signer_name: string; signature_data_url: string; note?: string }) => {
@@ -1385,7 +2007,7 @@ export default function ZlecenieDetailScreen() {
   };
 
   const isBrygadzista = user?.rola === 'Brygadzista';
-  const isEkipa = user?.rola === 'Brygadzista' || user?.rola === 'Pomocnik';
+  const isEkipa = isCrewRole(user?.rola);
   const finishPhotoBlocked =
     !!isEkipa &&
     zlecenie?.status === 'W_Realizacji' &&
@@ -1429,18 +2051,40 @@ export default function ZlecenieDetailScreen() {
   const isAssignedEstimator =
     (user?.rola === 'Wyceniający' || user?.rola === 'Wyceniajacy') &&
     Number(zlecenie.wyceniajacy_id) === Number(user?.id);
-  const isFieldDraft =
-    zlecenie.status === TASK_STATUS.WYCENA_TERENOWA ||
+  const hasFieldPackageMarker =
     zlecenie.ankieta_uproszczona === true ||
     String(zlecenie.notatki_wewnetrzne || '').includes('TRYB TERENOWY');
+  const isFieldDraft = zlecenie.status === TASK_STATUS.WYCENA_TERENOWA;
+  const isOfficeApprovalTask = zlecenie.status === TASK_STATUS.DO_ZATWIERDZENIA;
+  const isFieldOfficeTask = isFieldDraft || isOfficeApprovalTask;
   const showFieldPackageCard = isAssignedEstimator && zlecenie.status === TASK_STATUS.WYCENA_TERENOWA;
-  const hasCheckin = zdjecia.some((z: any) => z.typ === 'checkin');
+  const hasPhotoCheckin = zdjecia.some((z: any) => z.typ === 'checkin');
+  const hasGpsCheckin = logi.some((log: any) => isCheckinWorkLog(log));
+  const hasCheckin = hasPhotoCheckin || hasGpsCheckin;
   const fieldWycenaPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['wycena', 'przed', 'checkin'])).length;
   const fieldSketchPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['szkic', 'sketch'])).length;
   const fieldAccessPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['dojazd', 'posesja', 'dojazd_posesja'])).length;
   const beforePhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['przed', 'before', 'checkin'])).length;
   const afterPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['po', 'after'])).length;
   const unresolvedIssuesCount = problemy.filter((p: any) => p.status !== 'Rozwiązany').length;
+  const lastCheckinLog = logi.find((log: any) => isCheckinWorkLog(log));
+  const fieldSignalSummary = getTaskFieldExecutionSummary({
+    ...zlecenie,
+    photo_wycena: fieldWycenaPhotosCount,
+    photo_szkic: fieldSketchPhotosCount,
+    photo_dojazd: fieldAccessPhotosCount,
+    last_checkin_at: zlecenie.last_checkin_at || lastCheckinLog?.created_at || null,
+    active_work_count: zlecenie.active_work_count,
+    active_work_started_at: zlecenie.active_work_started_at || zlecenie.started_at || null,
+    last_work_finished_at: zlecenie.last_work_finished_at || zlecenie.data_zakonczenia || null,
+  });
+  const fieldSignalTone = fieldSignalSummary.tone === 'success'
+    ? theme.success
+    : fieldSignalSummary.tone === 'warning'
+      ? theme.warning
+      : fieldSignalSummary.tone === 'danger'
+        ? theme.danger
+        : theme.textMuted;
   const pendingExtraWorkCount = (Array.isArray(zlecenie.extra_work) ? zlecenie.extra_work : []).filter((ew: any) =>
     ['OczekujeWyceny', 'Wycenione'].includes(String(ew?.status || '')),
   ).length;
@@ -1527,6 +2171,7 @@ export default function ZlecenieDetailScreen() {
   const internalNoteLines = compactLines(zlecenie.notatki_wewnetrzne || zlecenie.notatki || zlecenie.opis_pracy || '');
   const officeHandoffMarkerIndex = internalNoteLines.findIndex((line) => line.toUpperCase() === 'PRZEKAZANIE DO BIURA');
   const fieldProtocolMarkerIndex = internalNoteLines.findIndex((line) => line === 'FORMULARZ WYCENY TERENOWEJ');
+  const officePlanMarkerIndex = internalNoteLines.findIndex((line) => line.toUpperCase().startsWith('PLAN BIURA'));
   const officeHandoffEndIndex = fieldProtocolMarkerIndex > officeHandoffMarkerIndex
     ? fieldProtocolMarkerIndex
     : officeHandoffMarkerIndex + 9;
@@ -1535,16 +2180,34 @@ export default function ZlecenieDetailScreen() {
         .slice(officeHandoffMarkerIndex + 1, officeHandoffEndIndex)
         .filter((line) => line && line !== 'FORMULARZ WYCENY TERENOWEJ')
     : [];
+  const officePlanLines = officePlanMarkerIndex >= 0
+    ? internalNoteLines
+        .slice(officePlanMarkerIndex + 1)
+        .filter((line) => line && !line.toUpperCase().startsWith('PLAN BIURA'))
+    : [];
   const fieldBriefLines = internalNoteLines.filter((line) =>
     !line.toUpperCase().startsWith('TRYB TERENOWY') &&
+    !line.toUpperCase().startsWith('PLAN BIURA') &&
     line !== 'PRZEKAZANIE DO BIURA' &&
     line !== 'FORMULARZ WYCENY TERENOWEJ',
-  ).filter((line) => !officeHandoffLines.includes(line));
-  const scopeLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('zakres prac'));
-  const riskLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('ryzyka'));
+  ).filter((line) => !officeHandoffLines.includes(line) && !officePlanLines.includes(line));
+  const crewPackageNoteLines = [...officePlanLines, ...fieldBriefLines];
+  const findCrewPackageLine = (prefixes: string[]) => {
+    const normalized = prefixes.map((prefix) => prefix.toLowerCase());
+    return crewPackageNoteLines.find((line) => {
+      const lower = line.toLowerCase();
+      return normalized.some((prefix) => lower.startsWith(`${prefix}:`) || lower.startsWith(prefix));
+    });
+  };
+  const scopeLine = findCrewPackageLine(['Zakres z terenu', 'Zakres prac', 'Zakres']);
+  const riskLine = findCrewPackageLine(['Ryzyka', 'BHP / ryzyka', 'Ryzyka / uwagi BHP']);
   const accessLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('dostęp') || line.toLowerCase().startsWith('dostep'));
   const equipmentLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('sprzęt') || line.toLowerCase().startsWith('sprzet'));
   const equipmentFromBrief = equipmentLine?.split(':').slice(1).join(':').split(',').map((item) => item.trim()).filter((item) => item && item !== '-') || [];
+  const officeEquipmentLine = findCrewPackageLine(['Sprzet', 'SprzÄ™t']);
+  const settlementLine = findCrewPackageLine(['Warunki rozliczenia']);
+  const budgetLine = findCrewPackageLine(['Budzet/wartosc', 'Budzet', 'Wartosc']);
+  const equipmentFromOfficePlan = officeEquipmentLine?.split(':').slice(1).join(':').split(/[,|]/).map((item) => item.trim()).filter((item) => item && item !== '-' && item.toLowerCase() !== 'brak') || [];
   const equipmentFromTask = [
     zlecenie.rebak ? 'Rębak' : '',
     zlecenie.pila_wysiegniku ? 'Piła wysięgniku' : '',
@@ -1555,7 +2218,7 @@ export default function ZlecenieDetailScreen() {
     zlecenie.mulczer ? 'Mulczer' : '',
     zlecenie.arborysta ? 'Arborysta' : '',
   ];
-  const taskEquipmentList = uniqueStrings([...equipmentFromTask, ...equipmentFromBrief]);
+  const taskEquipmentList = uniqueStrings([...equipmentFromTask, ...equipmentFromBrief, ...equipmentFromOfficePlan]);
   const briefingPhotos = zdjecia
     .filter((photo: any) => photoTypMatches(photo?.typ, ['wycena', 'szkic', 'dojazd', 'przed', 'checkin']))
     .slice(0, 4);
@@ -1665,10 +2328,145 @@ export default function ZlecenieDetailScreen() {
     },
   ];
   const crewBriefReadyCount = crewBriefChecks.filter((row) => row.done).length;
+  const crewExecutionAddress = [zlecenie.adres, zlecenie.miasto].filter(Boolean).join(', ');
+  const crewExecutionDate = zlecenie.data_planowana ? String(zlecenie.data_planowana).slice(0, 10) : '';
+  const crewExecutionTime = zlecenie.godzina_rozpoczecia || (String(zlecenie.data_planowana || '').includes('T')
+    ? String(zlecenie.data_planowana).split('T')[1]?.slice(0, 5)
+    : '');
+  const crewExecutionPhone = String(zlecenie.klient_telefon || zlecenie.telefon || '').trim();
+  const crewCalendarTimeLabel = [crewExecutionDate || '', crewExecutionTime || ''].filter(Boolean).join(' ') || 'Brak terminu';
+  const crewCalendarTitle = crewExecutionAddress || zlecenie.klient_nazwa || 'Karta pracy';
+  const openCrewPhone = () => {
+    const phone = crewExecutionPhone.replace(/\s+/g, '');
+    if (phone) void Linking.openURL(`tel:${phone}`);
+  };
+  const crewExecutionFacts = [
+    {
+      key: 'slot',
+      label: 'Termin',
+      value: [crewExecutionDate || 'brak daty', crewExecutionTime].filter(Boolean).join(' '),
+      ok: Boolean(crewExecutionDate || crewExecutionTime),
+      icon: 'calendar-outline' as IoniconName,
+    },
+    {
+      key: 'address',
+      label: 'Adres',
+      value: crewExecutionAddress || 'brak adresu',
+      ok: Boolean(crewExecutionAddress),
+      icon: 'location-outline' as IoniconName,
+    },
+    {
+      key: 'time',
+      label: 'Czas',
+      value: zlecenie.czas_planowany_godziny ? `${zlecenie.czas_planowany_godziny} h` : 'brak czasu',
+      ok: Boolean(zlecenie.czas_planowany_godziny),
+      icon: 'time-outline' as IoniconName,
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzet',
+      value: taskEquipmentList.length ? `${taskEquipmentList.length} pozycji` : 'brak sprzetu',
+      ok: taskEquipmentList.length > 0,
+      icon: 'construct-outline' as IoniconName,
+    },
+  ];
+  const crewPackageChecks = [
+    {
+      key: 'slot',
+      label: 'Termin',
+      done: Boolean(crewExecutionDate && crewExecutionTime),
+      required: true,
+      hint: crewExecutionDate && crewExecutionTime ? `${crewExecutionDate} ${crewExecutionTime}` : 'Brak daty albo godziny startu.',
+      icon: 'calendar-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'address',
+      label: 'Adres',
+      done: Boolean(crewExecutionAddress),
+      required: true,
+      hint: crewExecutionAddress || 'Brak adresu do mapy.',
+      icon: 'location-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'contact',
+      label: 'Telefon',
+      done: Boolean(zlecenie.klient_telefon),
+      required: true,
+      hint: zlecenie.klient_telefon || 'Brak telefonu klienta.',
+      icon: 'call-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'team',
+      label: 'Ekipa',
+      done: Boolean(zlecenie.ekipa_id || zlecenie.ekipa_nazwa),
+      required: true,
+      hint: zlecenie.ekipa_nazwa || (zlecenie.ekipa_id ? `Ekipa #${zlecenie.ekipa_id}` : 'Brak przypisanej brygady.'),
+      icon: 'people-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'scope',
+      label: 'Zakres',
+      done: Boolean(scopeLine || zlecenie.opis || zlecenie.opis_pracy || zlecenie.typ_uslugi),
+      required: true,
+      hint: scopeLine || zlecenie.opis || zlecenie.opis_pracy || zlecenie.typ_uslugi || 'Brak zakresu pracy dla brygady.',
+      icon: 'list-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'photos',
+      label: 'Zdjecia',
+      done: briefingPhotos.length > 0,
+      required: true,
+      hint: briefingPhotos.length ? `${briefingPhotos.length} dowodow dla ekipy.` : 'Brak zdjec z wyceny / szkicu.',
+      icon: 'images-outline' as IoniconName,
+      onPress: () => setActiveTab('zdjecia' as const),
+    },
+    {
+      key: 'safety',
+      label: 'BHP',
+      done: safetyReady,
+      required: true,
+      hint: safetyReady ? 'Checklist BHP potwierdzona.' : `${safetyDoneCount}/${safetyChecklistRows.length} punktow BHP.`,
+      icon: 'shield-checkmark-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzet',
+      done: taskEquipmentList.length > 0,
+      required: false,
+      hint: taskEquipmentList.length ? taskEquipmentList.join(', ') : 'Sprzet nie zostal doprecyzowany.',
+      icon: 'construct-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+    {
+      key: 'risk',
+      label: 'Ryzyka',
+      done: Boolean(riskLine),
+      required: false,
+      hint: riskLine || 'Brak opisanych ryzyk terenowych.',
+      icon: 'alert-circle-outline' as IoniconName,
+      onPress: () => setActiveTab('info' as const),
+    },
+  ];
+  const crewPackageReadyCount = crewPackageChecks.filter((row) => row.done).length;
+  const crewPackageScore = Math.round((crewPackageReadyCount / crewPackageChecks.length) * 100);
+  const crewPackageRequiredMissing = crewPackageChecks.filter((row) => row.required && !row.done);
+  const crewPackageWarningMissing = crewPackageChecks.filter((row) => !row.required && !row.done);
+  const crewPackageLeadMissing = crewPackageRequiredMissing[0] || crewPackageWarningMissing[0] || null;
+  const crewExecutionMissing = crewPackageRequiredMissing.map((row) => row.label);
+  const crewExecutionReady = crewPackageRequiredMissing.length === 0;
   const confirmScopeBriefing = async () => {
-    if (!safetyReady) {
+    if (!crewExecutionReady) {
       void triggerHaptic('warning');
-      Alert.alert('BHP przed startem', 'Zaznacz wszystkie punkty BHP, zanim potwierdzisz odprawe ekipy.');
+      Alert.alert(
+        'Pakiet brygady niekompletny',
+        `Nie potwierdzaj odprawy, dopoki brakuje:\n- ${crewExecutionMissing.join('\n- ')}`,
+      );
       return;
     }
     await AsyncStorage.setItem(scopeConfirmKey, '1');
@@ -1698,15 +2496,255 @@ export default function ZlecenieDetailScreen() {
       hint: `${fieldAccessPhotosCount} szt.`,
       type: 'dojazd',
     },
-  ];
+  ] satisfies { key: string; label: string; done: boolean; hint: string; type: PhotoTypeKey }[];
   const fieldDraftPhotosReady = fieldDraftPhotoChecklist.every((row) => row.done);
   const fieldPackageReadyForOffice =
     fieldDraftPhotosReady &&
     Boolean(fieldScopeDraft.trim()) &&
     Boolean(fieldTimeDraft.trim()) &&
     Boolean(fieldBudgetDraft.trim()) &&
+    Boolean(fieldRiskDraft.trim()) &&
     Boolean(fieldSettlementDraft.trim()) &&
     fieldClientAccepted;
+  const fieldPackageChecklist = [
+    {
+      key: 'photos',
+      label: 'zdjęcia, szkic i dojazd',
+      done: fieldDraftPhotosReady,
+    },
+    {
+      key: 'scope',
+      label: 'zakres prac',
+      done: Boolean(fieldScopeDraft.trim()),
+    },
+    {
+      key: 'time',
+      label: 'czas pracy',
+      done: Boolean(fieldTimeDraft.trim()),
+    },
+    {
+      key: 'budget',
+      label: 'budżet',
+      done: Boolean(fieldBudgetDraft.trim()),
+    },
+    {
+      key: 'risk',
+      label: 'ryzyka / BHP',
+      done: Boolean(fieldRiskDraft.trim()),
+    },
+    {
+      key: 'settlement',
+      label: 'warunki rozliczenia',
+      done: Boolean(fieldSettlementDraft.trim()),
+    },
+    {
+      key: 'client',
+      label: 'akceptacja klienta',
+      done: fieldClientAccepted,
+    },
+  ];
+  const fieldPackageReadyCount = fieldPackageChecklist.filter((row) => row.done).length;
+  const fieldPackageMissingLabels = fieldPackageChecklist
+    .filter((row) => !row.done)
+    .map((row) => row.label);
+  const fieldPackageNextMissing = fieldPackageChecklist.find((row) => !row.done) || null;
+  const fieldPackageProgressPct = Math.round((fieldPackageReadyCount / Math.max(1, fieldPackageChecklist.length)) * 100);
+  const fieldPackageOfficePreview = [
+    fieldScopeDraft.trim() ? `Zakres: ${fieldScopeDraft.trim()}` : '',
+    fieldTimeDraft.trim() ? `Czas: ${fieldTimeDraft.trim()} h` : '',
+    fieldBudgetDraft.trim() ? `Budzet: ${fieldBudgetDraft.trim()} PLN` : '',
+    fieldEquipmentKeys.length
+      ? `Sprzet: ${TASK_EQUIPMENT_OPTIONS.filter((preset) => fieldEquipmentKeys.includes(preset.key)).map((preset) => preset.label).join(', ')}`
+      : '',
+    fieldRiskDraft.trim() ? `Ryzyka: ${compactLines(fieldRiskDraft).slice(0, 2).join(' / ')}` : '',
+    fieldSettlementDraft.trim(),
+    fieldClientAccepted ? 'Klient zaakceptowal zakres i budzet.' : '',
+  ].filter(Boolean);
+  const runFieldPhotoChecklistAction = (row: { done: boolean; type: PhotoTypeKey; label: string }) => {
+    setPhotoFilter(row.type);
+    if (row.done) {
+      setActiveTab('zdjecia');
+      void triggerHaptic('light');
+      return;
+    }
+    if (row.type === 'szkic') {
+      Alert.alert('Szkic zakresu', 'Zrob zdjecie szkicu albo od razu narysuj zakres na fotografii.', [
+        { text: 'Galeria', onPress: () => setActiveTab('zdjecia') },
+        { text: 'Zrob foto', onPress: () => { void zrobZdjecie(row.type, row.label, 'szkic,zakres'); } },
+        { text: 'Rysuj', onPress: () => { void zrobZdjecieZRysunkiem(); } },
+      ]);
+      return;
+    }
+    void zrobZdjecie(row.type, row.label, `${row.type},teren`);
+  };
+  const runFieldPackageNextMissing = () => {
+    if (!fieldPackageNextMissing) {
+      void saveFieldPackage(true);
+      return;
+    }
+    setFieldPackageFocus(fieldPackageNextMissing.key);
+    void triggerHaptic('light');
+    if (fieldPackageNextMissing.key === 'photos') {
+      const missingPhoto = fieldDraftPhotoChecklist.find((row) => !row.done);
+      if (missingPhoto) runFieldPhotoChecklistAction(missingPhoto);
+      return;
+    }
+    if (fieldPackageNextMissing.key === 'settlement' && !fieldSettlementDraft.trim()) {
+      setFieldSettlementDraft(DEFAULT_FIELD_SETTLEMENT);
+    }
+  };
+  const fieldPackageFactsReady = [
+    Boolean(fieldScopeDraft.trim()),
+    Boolean(fieldTimeDraft.trim()),
+    Boolean(fieldBudgetDraft.trim()),
+  ].filter(Boolean).length;
+  const fieldPackageOpsReady = [
+    Boolean(fieldRiskDraft.trim()),
+    Boolean(fieldSettlementDraft.trim()),
+  ].filter(Boolean).length;
+  const fieldPackageStageCards = [
+    {
+      key: 'photos',
+      label: 'Dowody',
+      value: `${fieldDraftPhotoChecklist.filter((row) => row.done).length}/${fieldDraftPhotoChecklist.length}`,
+      hint: 'foto, szkic, dojazd',
+      done: fieldDraftPhotosReady,
+      icon: 'camera-outline' as IoniconName,
+      onPress: () => {
+        const missingPhoto = fieldDraftPhotoChecklist.find((row) => !row.done);
+        if (missingPhoto) runFieldPhotoChecklistAction(missingPhoto);
+        else setActiveTab('zdjecia');
+      },
+    },
+    {
+      key: 'facts',
+      label: 'Ustalenia',
+      value: `${fieldPackageFactsReady}/3`,
+      hint: 'zakres, czas, budzet',
+      done: fieldPackageFactsReady === 3,
+      icon: 'clipboard-outline' as IoniconName,
+      onPress: () => {
+        const missingKey = !fieldScopeDraft.trim() ? 'scope' : !fieldTimeDraft.trim() ? 'time' : !fieldBudgetDraft.trim() ? 'budget' : null;
+        setFieldPackageFocus(missingKey);
+        void triggerHaptic('light');
+      },
+    },
+    {
+      key: 'ops',
+      label: 'BHP',
+      value: `${fieldPackageOpsReady}/2`,
+      hint: fieldEquipmentKeys.length ? `${fieldEquipmentKeys.length} sprzet` : 'ryzyka i rozliczenie',
+      done: fieldPackageOpsReady === 2,
+      icon: 'shield-checkmark-outline' as IoniconName,
+      onPress: () => {
+        setFieldPackageFocus(!fieldRiskDraft.trim() ? 'risk' : !fieldSettlementDraft.trim() ? 'settlement' : null);
+        if (!fieldSettlementDraft.trim()) setFieldSettlementDraft(DEFAULT_FIELD_SETTLEMENT);
+        void triggerHaptic('light');
+      },
+    },
+    {
+      key: 'client',
+      label: 'Klient',
+      value: fieldClientAccepted ? 'OK' : 'brak',
+      hint: 'akceptacja zakresu',
+      done: fieldClientAccepted,
+      icon: 'person-circle-outline' as IoniconName,
+      onPress: () => {
+        setFieldPackageFocus('client');
+        void triggerHaptic('light');
+      },
+    },
+  ];
+  const fieldPackageCurrentStage = fieldPackageStageCards.find((card) => !card.done) || null;
+  const fieldCockpitBudgetReady = Boolean(fieldBudgetDraft.trim()) && Boolean(fieldTimeDraft.trim());
+  const fieldCockpitBudgetValue = fieldCockpitBudgetReady
+    ? `${fieldBudgetDraft.trim()} PLN`
+    : fieldBudgetDraft.trim() || fieldTimeDraft.trim()
+      ? 'częściowo'
+      : 'brak';
+  const fieldCockpitSteps: {
+    key: string;
+    label: string;
+    value: string;
+    done: boolean;
+    icon: IoniconName;
+    onPress: () => void;
+  }[] = [
+    {
+      key: 'photos',
+      label: 'Zdjęcia',
+      value: `${fieldDraftPhotoChecklist.filter((row) => row.done).length}/${fieldDraftPhotoChecklist.length}`,
+      done: fieldDraftPhotosReady,
+      icon: 'camera-outline',
+      onPress: () => {
+        const missingPhoto = fieldDraftPhotoChecklist.find((row) => !row.done);
+        if (missingPhoto) runFieldPhotoChecklistAction(missingPhoto);
+        else {
+          setPhotoFilter('all');
+          setActiveTab('zdjecia');
+          void triggerHaptic('light');
+        }
+      },
+    },
+    {
+      key: 'scope',
+      label: 'Zakres',
+      value: fieldScopeDraft.trim() ? 'OK' : 'brak',
+      done: Boolean(fieldScopeDraft.trim()),
+      icon: 'list-outline',
+      onPress: () => {
+        setFieldPackageFocus('scope');
+        setActiveTab('info');
+        void triggerHaptic('light');
+      },
+    },
+    {
+      key: 'budget',
+      label: 'Cena / czas',
+      value: fieldCockpitBudgetValue,
+      done: fieldCockpitBudgetReady,
+      icon: 'calculator-outline',
+      onPress: () => {
+        setFieldPackageFocus(!fieldTimeDraft.trim() ? 'time' : 'budget');
+        setActiveTab('info');
+        void triggerHaptic('light');
+      },
+    },
+    {
+      key: 'risk',
+      label: 'BHP',
+      value: fieldRiskDraft.trim() ? 'OK' : 'brak',
+      done: Boolean(fieldRiskDraft.trim()),
+      icon: 'shield-checkmark-outline',
+      onPress: () => {
+        setFieldPackageFocus('risk');
+        setActiveTab('info');
+        void triggerHaptic('light');
+      },
+    },
+    {
+      key: 'client',
+      label: 'Klient',
+      value: fieldClientAccepted ? 'akceptuje' : 'decyzja?',
+      done: fieldClientAccepted,
+      icon: 'person-circle-outline',
+      onPress: () => {
+        setFieldPackageFocus('client');
+        setActiveTab('info');
+        void triggerHaptic('light');
+      },
+    },
+  ];
+  const fieldCockpitReadyCount = fieldCockpitSteps.filter((step) => step.done).length;
+  const fieldCockpitNext = fieldCockpitSteps.find((step) => !step.done) || null;
+  const fieldCockpitTone = fieldPackageReadyForOffice ? theme.success : theme.warning;
+  const runFieldCockpitPrimary = () => {
+    if (fieldCockpitNext) {
+      fieldCockpitNext.onPress();
+      return;
+    }
+    void saveFieldPackage(true);
+  };
   const evidenceQuickCards: {
     type: PhotoTypeKey;
     label: string;
@@ -1929,6 +2967,282 @@ export default function ZlecenieDetailScreen() {
     Boolean(zlecenie.ekipa_id) &&
     Boolean(zlecenie.czas_planowany_godziny) &&
     Boolean(zlecenie.wartosc_planowana);
+  const isOfficeWorker = ['Specjalista', 'Kierownik', 'Dyrektor', 'Administrator'].includes(String(user?.rola || ''));
+  const canUseFieldSignals = isEkipa || isAssignedEstimator;
+  const fieldSignalVisible = fieldSignalSummary.relevant || canUseFieldSignals || isOfficeWorker;
+  const fieldSignalCards = [
+    {
+      key: 'checkin',
+      label: 'Check-in',
+      value: hasCheckin ? 'OK' : 'brak',
+      done: hasCheckin,
+      icon: 'location-outline' as IoniconName,
+      tone: hasCheckin ? theme.success : theme.danger,
+      onPress: canUseFieldSignals ? checkinGps : () => setActiveTab('logi'),
+    },
+    {
+      key: 'work',
+      label: 'Praca',
+      value: fieldSignalSummary.label,
+      done: ['active', 'finished', 'arrived'].includes(fieldSignalSummary.key),
+      icon: 'pulse-outline' as IoniconName,
+      tone: fieldSignalTone,
+      onPress: () => setActiveTab('logi'),
+    },
+    {
+      key: 'photos',
+      label: 'Dowody',
+      value: fieldSignalSummary.missingPhotoLabels.length ? `brak ${fieldSignalSummary.missingPhotoLabels.length}` : 'OK',
+      done: fieldSignalSummary.missingPhotoLabels.length === 0,
+      icon: 'images-outline' as IoniconName,
+      tone: fieldSignalSummary.missingPhotoLabels.length ? theme.warning : theme.success,
+      onPress: () => setActiveTab('zdjecia'),
+    },
+    {
+      key: 'issues',
+      label: 'Problemy',
+      value: String(unresolvedIssuesCount),
+      done: unresolvedIssuesCount === 0,
+      icon: 'warning-outline' as IoniconName,
+      tone: unresolvedIssuesCount ? theme.danger : theme.success,
+      onPress: () => {
+        if (unresolvedIssuesCount) setActiveTab('problemy');
+        else setProblemModal(true);
+      },
+    },
+  ];
+  const fieldSignalActions = [
+    {
+      key: 'checkin',
+      label: hasCheckin ? 'GPS OK' : 'Check-in',
+      icon: hasCheckin ? 'location' : 'location-outline' as IoniconName,
+      color: hasCheckin ? theme.success : theme.info,
+      onPress: checkinGps,
+      disabled: changingStatus || hasCheckin,
+      visible: canUseFieldSignals && [TASK_STATUS.ZAPLANOWANE, TASK_STATUS.W_REALIZACJI, TASK_STATUS.WYCENA_TERENOWA].includes(zlecenie.status as any),
+    },
+    {
+      key: 'start',
+      label: 'Start',
+      icon: 'play-circle-outline' as IoniconName,
+      color: theme.success,
+      onPress: rozpocznij,
+      disabled: changingStatus,
+      visible: isEkipa && zlecenie.status === TASK_STATUS.ZAPLANOWANE,
+    },
+    {
+      key: 'photo',
+      label: 'Foto',
+      icon: 'camera-outline' as IoniconName,
+      color: theme.accent,
+      onPress: () => {
+        setPhotoFilter('all');
+        setActiveTab('zdjecia');
+        setZdjecieModal(true);
+      },
+      disabled: false,
+      visible: canUseFieldSignals,
+    },
+    {
+      key: 'problem',
+      label: 'Problem',
+      icon: 'warning-outline' as IoniconName,
+      color: theme.warning,
+      onPress: () => setProblemModal(true),
+      disabled: false,
+      visible: canUseFieldSignals,
+    },
+    {
+      key: 'finish',
+      label: 'Zamknij',
+      icon: 'flag-outline' as IoniconName,
+      color: finishPhotoBlocked ? theme.warning : theme.danger,
+      onPress: zakoncz,
+      disabled: changingStatus,
+      visible: isEkipa && zlecenie.status === TASK_STATUS.W_REALIZACJI,
+    },
+  ].filter((action) => action.visible);
+  const showInspectionDispatchCard = isOfficeWorker && zlecenie.status === TASK_STATUS.NOWE;
+  const inspectionDispatchSelectedEstimator = inspectionEstimators.find((row) => String(row.id) === inspectionDispatchForm.estimatorId);
+  const inspectionDispatchChecks = [
+    {
+      key: 'client',
+      label: 'Klient',
+      done: Boolean(String(zlecenie.klient_nazwa || '').trim() && String(zlecenie.klient_telefon || '').trim()),
+      value: String(zlecenie.klient_nazwa || 'brak').trim() || 'brak',
+      icon: 'person-outline' as IoniconName,
+    },
+    {
+      key: 'address',
+      label: 'Adres',
+      done: Boolean(String(zlecenie.adres || '').trim() && String(zlecenie.miasto || '').trim()),
+      value: [zlecenie.adres, zlecenie.miasto].filter(Boolean).join(', ') || 'brak',
+      icon: 'location-outline' as IoniconName,
+    },
+    {
+      key: 'estimator',
+      label: 'Specjalista',
+      done: Boolean(inspectionDispatchForm.estimatorId),
+      value: inspectionDispatchSelectedEstimator?.nazwa || 'wybierz',
+      icon: 'person-add-outline' as IoniconName,
+    },
+    {
+      key: 'slot',
+      label: 'Termin',
+      done: isYmd(inspectionDispatchForm.data) && isHhMm(inspectionDispatchForm.godzina),
+      value: `${inspectionDispatchForm.data || 'data'} ${inspectionDispatchForm.godzina || 'godz.'}`,
+      icon: 'calendar-outline' as IoniconName,
+    },
+  ];
+  const inspectionDispatchReadyCount = inspectionDispatchChecks.filter((row) => row.done).length;
+  const inspectionDispatchReady = inspectionDispatchReadyCount === inspectionDispatchChecks.length;
+  const inspectionDispatchColor = inspectionDispatchReady ? theme.success : theme.warning;
+  const officeValueAmount = Number(zlecenie.wartosc_planowana ?? zlecenie.budzet ?? 0);
+  const officeHoursAmount = Number(zlecenie.czas_planowany_godziny ?? zlecenie.czas_realizacji_godz ?? 0);
+  const officeValueReady = Number.isFinite(officeValueAmount) && officeValueAmount > 0;
+  const officeHoursReady = Number.isFinite(officeHoursAmount) && officeHoursAmount > 0;
+  const officeScopeReady = Boolean(scopeLine || zlecenie.opis || zlecenie.opis_pracy || zlecenie.typ_uslugi);
+  const officeTeamReady = Boolean(zlecenie.ekipa_id || zlecenie.ekipa_nazwa);
+  const officePlanDate = zlecenie.data_planowana ? String(zlecenie.data_planowana).slice(0, 10) : '';
+  const officePlanTime = zlecenie.godzina_rozpoczecia || (String(zlecenie.data_planowana || '').includes('T')
+    ? String(zlecenie.data_planowana).split('T')[1]?.slice(0, 5)
+    : '');
+  const officeSlotReady = Boolean(officePlanDate && officePlanTime && officeHoursReady);
+  const officePlanReady = officeTeamReady && officeSlotReady;
+  const taskReservedEquipment = Array.isArray(zlecenie.equipment_reservations)
+    ? zlecenie.equipment_reservations
+    : Array.isArray(zlecenie.rezerwacje_sprzetu)
+      ? zlecenie.rezerwacje_sprzetu
+      : [];
+  const taskReservedEquipmentNames = uniqueStrings(taskReservedEquipment.map((row: any) => {
+    const equipmentId = equipmentIdFromReservation(row);
+    return String(row?.sprzet_nazwa || row?.nazwa_sprzetu || (equipmentId ? `Sprzet #${equipmentId}` : '')).trim();
+  }));
+  const taskReservedEquipmentIds = uniqueStrings(taskReservedEquipment.map(equipmentIdFromReservation).filter(Boolean));
+  const officeEquipmentReady = taskReservedEquipmentNames.length > 0;
+  const officeBriefingReady = officeScopeReady && fieldDraftPhotosReady && officeTeamReady;
+  const officeReservationRouteParams: Record<string, string> = {
+    prefData: officePlanDate || officePlanForm.data || '',
+    prefZlecenie: String(id),
+  };
+  const officeReservationTeamId = String(zlecenie.ekipa_id || officePlanForm.ekipaId || '').trim();
+  const officeReservationEquipmentId = taskReservedEquipmentIds[0] || officePlanForm.sprzetIds[0] || '';
+  if (officeReservationTeamId) officeReservationRouteParams.prefEkipa = officeReservationTeamId;
+  if (officeReservationEquipmentId) officeReservationRouteParams.prefSprzet = officeReservationEquipmentId;
+  const officeScheduleRouteParams: Record<string, string> = {
+    prefData: officeReservationRouteParams.prefData,
+    prefZlecenie: String(id),
+  };
+  if (officeReservationTeamId) officeScheduleRouteParams.prefEkipa = officeReservationTeamId;
+  const officePlanBranchId = String(zlecenie.oddzial_id || '');
+  const officePlanVisibleTeams = officePlanTeams
+    .filter((team) => (
+      !officePlanBranchId ||
+      !team.oddzial_id ||
+      String(team.oddzial_id) === officePlanBranchId ||
+      team.delegowany ||
+      team.natywny_oddzial
+    ))
+    .sort((a, b) => {
+      const aNative = officePlanBranchId && String(a.oddzial_id || '') === officePlanBranchId ? 1 : 0;
+      const bNative = officePlanBranchId && String(b.oddzial_id || '') === officePlanBranchId ? 1 : 0;
+      if (aNative !== bNative) return bNative - aNative;
+      return String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl');
+    });
+  const officePlanVisibleEquipment = officePlanEquipment
+    .filter((item) => !String(item.status || '').toLowerCase().startsWith('wycof'))
+    .sort((a, b) => {
+      const aSelected = officePlanForm.sprzetIds.includes(String(a.id)) ? 1 : 0;
+      const bSelected = officePlanForm.sprzetIds.includes(String(b.id)) ? 1 : 0;
+      if (aSelected !== bSelected) return bSelected - aSelected;
+      return String(a.nazwa || '').localeCompare(String(b.nazwa || ''), 'pl');
+    });
+  const officePlanSummaryChecks = [
+    { key: 'photos', label: 'Zdjecia', done: fieldDraftPhotosReady, value: fieldDraftPhotosReady ? `${evidenceReadyCount}/${evidenceTotalRequired}` : `${evidenceMissingCards.length} braki` },
+    { key: 'briefing', label: 'Odprawa', done: officeBriefingReady, value: officeBriefingReady ? 'dla ekipy' : 'brak' },
+    { key: 'slot', label: 'Termin', done: officeSlotReady, value: officeSlotReady ? `${officePlanDate} ${officePlanTime}` : 'brak' },
+    { key: 'team', label: 'Ekipa', done: officeTeamReady, value: zlecenie.ekipa_nazwa || (zlecenie.ekipa_id ? `#${zlecenie.ekipa_id}` : 'brak') },
+    { key: 'equipment', label: 'Sprzet', done: officeEquipmentReady, value: officeEquipmentReady ? `${taskReservedEquipmentNames.length} rez.` : 'brak' },
+  ];
+  const officePlanSummaryReadyCount = officePlanSummaryChecks.filter((item) => item.done).length;
+  const showOperationalPlanCard = isOfficeWorker || isEkipa || officePlanReady || officeEquipmentReady;
+  const officeCommandChecks: {
+    key: string;
+    label: string;
+    value: string;
+    hint: string;
+    done: boolean;
+    icon: IoniconName;
+    color: string;
+    onPress: () => void;
+  }[] = [
+    {
+      key: 'evidence',
+      label: 'Dowody',
+      value: `${evidenceReadyCount}/${evidenceTotalRequired}`,
+      hint: fieldDraftPhotosReady ? 'foto + szkic + dojazd' : 'uzupełnij zdjęcia',
+      done: fieldDraftPhotosReady,
+      icon: 'images-outline',
+      color: fieldDraftPhotosReady ? theme.success : theme.warning,
+      onPress: () => {
+        setPhotoFilter(evidenceMissingCards[0]?.type || 'all');
+        setActiveTab('zdjecia');
+      },
+    },
+    {
+      key: 'scope',
+      label: 'Zakres',
+      value: officeScopeReady ? 'OK' : 'brak',
+      hint: officeScopeReady ? 'instrukcja dla ekipy' : 'opis prac',
+      done: officeScopeReady,
+      icon: 'list-outline',
+      color: officeScopeReady ? theme.success : theme.warning,
+      onPress: () => setActiveTab('info'),
+    },
+    {
+      key: 'pricing',
+      label: 'Cena / czas',
+      value: officeValueReady ? `${officeValueAmount.toLocaleString('pl-PL')} PLN` : 'brak',
+      hint: officeHoursReady ? `${officeHoursAmount} h pracy` : 'brak czasu',
+      done: officeValueReady && officeHoursReady,
+      icon: 'cash-outline',
+      color: officeValueReady && officeHoursReady ? theme.success : theme.warning,
+      onPress: () => setActiveTab('info'),
+    },
+    {
+      key: 'plan',
+      label: 'Ekipa / termin',
+      value: officeTeamReady ? (zlecenie.ekipa_nazwa || `#${zlecenie.ekipa_id}`) : 'brak',
+      hint: officeSlotReady ? `${officePlanDate} ${officePlanTime}` : 'brak terminu',
+      done: officePlanReady,
+      icon: 'calendar-number-outline',
+      color: officePlanReady ? theme.success : theme.warning,
+      onPress: () => { void openOfficePlanSheet(); },
+    },
+    {
+      key: 'equipment',
+      label: 'Sprzet',
+      value: officeEquipmentReady ? `${taskReservedEquipmentNames.length} rez.` : 'brak',
+      hint: officeEquipmentReady ? taskReservedEquipmentNames.slice(0, 2).join(', ') : 'zarezerwuj pod ekipe',
+      done: officeEquipmentReady,
+      icon: 'cube-outline',
+      color: officeEquipmentReady ? theme.success : theme.warning,
+      onPress: () => { void openOfficePlanSheet(); },
+    },
+  ];
+  const officeCommandReadyCount = officeCommandChecks.filter((row) => row.done).length;
+  const officeCommandPercent = Math.round((officeCommandReadyCount / officeCommandChecks.length) * 100);
+  const officeCommandNext = officeCommandChecks.find((row) => !row.done) || null;
+  const officeCommandReady = officeCommandReadyCount === officeCommandChecks.length;
+  const officeCommandColor = officeCommandReady ? theme.success : theme.warning;
+  const officeCommandVisible = isOfficeWorker && isFieldOfficeTask;
+  const runOfficeCommandPrimary = () => {
+    if (officeCommandNext) {
+      officeCommandNext.onPress();
+      return;
+    }
+    void openOfficePlanSheet();
+  };
   const workflowStep = getTaskWorkflowStep(zlecenie.status);
   const workflowMissingItems = taskWorkflowMissingItems(zlecenie);
   const workflowRequiredMissing = workflowMissingItems.filter((item) => item.required !== false);
@@ -2075,19 +3389,45 @@ export default function ZlecenieDetailScreen() {
   const copyCrewBrief = async () => {
     const plannedDate = zlecenie.data_planowana ? String(zlecenie.data_planowana).slice(0, 10) : 'brak terminu';
     const plannedTime = zlecenie.godzina_rozpoczecia || (String(zlecenie.data_planowana || '').includes('T') ? String(zlecenie.data_planowana).split('T')[1]?.slice(0, 5) : '');
+    const mapUrl = crewExecutionAddress
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(crewExecutionAddress)}`
+      : '';
+    const photoLines = briefingPhotos.slice(0, 6).map((photo: any, index: number) => {
+      const url = absolutePhotoUrl(photo.url || photo.sciezka);
+      const label = PHOTO_TYPE_LABELS[String(photo.typ || 'inne') as PhotoTypeKey] || String(photo.typ || 'Zdjecie');
+      const note = photo.opis ? ` - ${photo.opis}` : '';
+      return `${index + 1}. ${label}${note}${url ? ` | ${url}` : ''}`;
+    });
+    const safetyMissingLines = safetyChecklistRows
+      .filter((row) => !row.done)
+      .map((row) => `${row.label}: ${row.hint}`);
+    const packageMissingLines = crewPackageRequiredMissing
+      .map((row) => `${row.label}: ${row.hint}`);
     const brief = [
+      `ARBOR-OS | ODPRAWA BRYGADY | Zlecenie #${id}`,
+      `Gotowosc pakietu: ${crewPackageScore}%`,
+      packageMissingLines.length ? `Blokady:\n- ${packageMissingLines.join('\n- ')}` : 'Blokady: brak',
+      '',
       `Zlecenie #${id}: ${zlecenie.klient_nazwa || '-'}`,
       `Telefon: ${zlecenie.klient_telefon || '-'}`,
       `Adres: ${[zlecenie.adres, zlecenie.miasto].filter(Boolean).join(', ') || '-'}`,
+      mapUrl ? `Mapa: ${mapUrl}` : null,
       `Termin: ${[plannedDate, plannedTime, zlecenie.czas_planowany_godziny ? `${zlecenie.czas_planowany_godziny} h` : ''].filter(Boolean).join(' | ')}`,
       `Ekipa: ${zlecenie.ekipa_nazwa || '-'}`,
+      officePlanLines.length ? 'Pakiet biura: gotowy' : null,
       scopeLine || zlecenie.opis || zlecenie.opis_pracy ? `Zakres: ${scopeLine || zlecenie.opis || zlecenie.opis_pracy}` : null,
       accessLine ? `Dostep: ${accessLine}` : null,
       riskLine ? `Ryzyka: ${riskLine}` : null,
+      settlementLine ? `Rozliczenie: ${settlementLine}` : null,
+      budgetLine ? `Budzet: ${budgetLine}` : null,
       taskEquipmentList.length ? `Sprzet: ${taskEquipmentList.join(', ')}` : null,
       `Zdjecia: wycena ${fieldWycenaPhotosCount}, szkic ${fieldSketchPhotosCount}, dojazd ${fieldAccessPhotosCount}`,
+      photoLines.length ? `Zdjecia dla ekipy:\n${photoLines.join('\n')}` : 'Zdjecia dla ekipy: brak',
       `BHP: ${safetyDoneCount}/${safetyChecklistRows.length}`,
+      safetyMissingLines.length ? `Braki BHP:\n- ${safetyMissingLines.join('\n- ')}` : 'BHP: bez brakow',
       `Problemy otwarte: ${unresolvedIssuesCount}`,
+      '',
+      'Instrukcja: brygada przed startem potwierdza zakres, zdjecia, dojazd i BHP. Zmiane zakresu zglasza w aplikacji przed wykonaniem.',
     ].filter(Boolean).join('\n');
     await Clipboard.setStringAsync(brief);
     void triggerHaptic('success');
@@ -2104,13 +3444,25 @@ export default function ZlecenieDetailScreen() {
           onPress: confirmScopeBriefing,
         };
       }
-      if (!hasCheckin) {
+      if (!hasCheckin && (zlecenie.status === 'Zaplanowane' || zlecenie.status === 'W_Realizacji')) {
         return {
           icon: 'location-outline' as IoniconName,
-          title: 'Sugerowany krok: Check-in',
-          detail: 'Potwierdź przybycie na miejsce zdjęciem GPS.',
-          cta: 'Zrób check-in',
-          onPress: checkin,
+          title: 'Sugerowany krok: Dojazd GPS',
+          detail: 'Potwierdz przyjazd jednym kliknieciem. Zdjecia dodasz jako osobny dowod.',
+          cta: 'Dojechalem GPS',
+          onPress: checkinGps,
+        };
+      }
+      if (zlecenie.status === 'Zaplanowane' && beforePhotosCount === 0) {
+        return {
+          icon: 'camera-outline' as IoniconName,
+          title: 'Sugerowany krok: Zdjecie przed',
+          detail: 'Zabezpiecz stan miejsca i zakres przed rozpoczeciem pracy.',
+          cta: 'Zrob zdjecie przed',
+          onPress: () => {
+            setActiveTab('zdjecia');
+            void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+          },
         };
       }
       if (zlecenie.status === 'Zaplanowane') {
@@ -2151,6 +3503,29 @@ export default function ZlecenieDetailScreen() {
         onPress: () => router.push('/raport-dzienny'),
       };
     }
+    if (showFieldPackageCard) {
+      if (fieldPackageNextMissing) {
+        const isPhotoMissing = fieldPackageNextMissing.key === 'photos';
+        return {
+          icon: isPhotoMissing ? 'camera-outline' as IoniconName : 'create-outline' as IoniconName,
+          title: `Sugerowany krok: ${fieldPackageNextMissing.label}`,
+          detail: isPhotoMissing
+            ? 'Zrob wymagane zdjecie, szkic albo dojazd, zeby biuro i ekipa mialy dowody.'
+            : 'Uzupelnij brak w pakiecie terenowym bez opuszczania tej karty.',
+          cta: isPhotoMissing ? 'Zrob dowod' : 'Uzupelnij',
+          onPress: runFieldPackageNextMissing,
+        };
+      }
+      return {
+        icon: 'send-outline' as IoniconName,
+        title: 'Sugerowany krok: Wyslij pakiet do biura',
+        detail: 'Zakres, czas, budzet, ryzyka i dowody sa gotowe. Biuro moze planowac ekipe.',
+        cta: fieldPackageSaving ? 'Wysylam...' : 'Wyslij do biura',
+        onPress: () => {
+          void saveFieldPackage(true);
+        },
+      };
+    }
     if (workflowFirstMissing) {
       return {
         icon: workflowPrimaryTarget === 'photos' ? 'camera-outline' as IoniconName : 'create-outline' as IoniconName,
@@ -2173,7 +3548,7 @@ export default function ZlecenieDetailScreen() {
       if (zlecenie.status === 'Nowe') {
         return {
           icon: 'calendar-outline' as IoniconName,
-          title: 'Sugerowany krok: Wyślij do wyceniającego',
+          title: 'Sugerowany krok: Wyślij do specjalisty ds. wyceny',
           detail: 'Klient ma termin oględzin, teren może zebrać zdjęcia, zakres i cenę.',
           cta: 'Ustaw: Oględziny',
           onPress: () => zmienStatus('Wycena_Terenowa'),
@@ -2192,9 +3567,9 @@ export default function ZlecenieDetailScreen() {
         return {
           icon: 'checkmark-circle-outline' as IoniconName,
           title: 'Sugerowany krok: Plan ekipy',
-          detail: 'Biuro dopina ekipę, datę i odprawę dla brygady.',
-          cta: 'Ustaw: Zaplanowane',
-          onPress: () => zmienStatus('Zaplanowane'),
+          detail: 'Biuro dopina ekipę, datę, sprzęt i odprawę bez omijania kontroli konfliktów.',
+          cta: 'Otwórz plan biura',
+          onPress: () => router.push('/wyceny-do-biura' as never),
         };
       }
       if (zlecenie.status === 'Zaplanowane') {
@@ -2252,10 +3627,22 @@ export default function ZlecenieDetailScreen() {
     if (!hasCheckin && (zlecenie.status === 'Zaplanowane' || zlecenie.status === 'W_Realizacji')) {
       return {
         icon: 'location-outline' as IoniconName,
-        label: 'Check-in GPS',
-        hint: 'Potwierdz obecnosc ekipy na miejscu.',
+        label: 'Dojechalem GPS',
+        hint: 'Jedno klikniecie bez zdjecia.',
         color: theme.info,
-        onPress: checkin,
+        onPress: checkinGps,
+      };
+    }
+    if (zlecenie.status === 'Zaplanowane' && beforePhotosCount === 0) {
+      return {
+        icon: 'camera-outline' as IoniconName,
+        label: 'Zdjecie przed',
+        hint: 'Dowod stanu przed startem pracy.',
+        color: theme.warning,
+        onPress: () => {
+          setActiveTab('zdjecia');
+          void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+        },
       };
     }
     if (zlecenie.status === 'Zaplanowane') {
@@ -2342,12 +3729,13 @@ export default function ZlecenieDetailScreen() {
     {
       key: 'checkin',
       icon: hasCheckin ? 'location' : 'location-outline' as IoniconName,
-      label: hasCheckin ? 'Check-in OK' : 'Check-in',
-      hint: hasCheckin ? 'Miejsce potwierdzone' : 'GPS + zdjęcie',
+      label: hasCheckin ? 'Dojazd OK' : 'Dojechalem',
+      hint: hasCheckin ? 'Miejsce potwierdzone' : 'GPS zapisany',
       color: hasCheckin ? theme.success : theme.info,
       backgroundColor: hasCheckin ? theme.successBg : theme.infoBg,
       borderColor: hasCheckin ? theme.success : theme.info,
-      onPress: checkin,
+      onPress: checkinGps,
+      disabled: hasCheckin || changingStatus,
     },
     zlecenie.status === 'Zaplanowane' ? {
       key: 'start',
@@ -2450,12 +3838,26 @@ export default function ZlecenieDetailScreen() {
       key: 'checkin',
       icon: 'location-outline' as IoniconName,
       title: 'Check-in GPS',
-      hint: 'Potwierdzenie obecnosci ekipy na miejscu pracy.',
+      hint: 'Potwierdzenie GPS obecnosci ekipy na miejscu pracy.',
       done: hasCheckin,
       active: scopeConfirmed && !hasCheckin && (zlecenie.status === 'Zaplanowane' || zlecenie.status === 'W_Realizacji'),
       blocked: !scopeConfirmed && !hasCheckin && (zlecenie.status === 'Zaplanowane' || zlecenie.status === 'W_Realizacji'),
-      action: checkin,
+      action: checkinGps,
       value: hasCheckin ? 'OK' : '-',
+    },
+    {
+      key: 'before',
+      icon: 'camera-outline' as IoniconName,
+      title: 'Zdjecie przed',
+      hint: 'Dowod stanu miejsca przed startem pracy.',
+      done: beforePhotosCount > 0,
+      active: zlecenie.status === 'Zaplanowane' && scopeConfirmed && hasCheckin && beforePhotosCount === 0,
+      blocked: zlecenie.status === 'Zaplanowane' && (!scopeConfirmed || !hasCheckin),
+      action: () => {
+        setActiveTab('zdjecia');
+        void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+      },
+      value: String(beforePhotosCount),
     },
     {
       key: 'start',
@@ -2463,8 +3865,8 @@ export default function ZlecenieDetailScreen() {
       title: 'Start pracy',
       hint: 'Rozpoczecie realizacji i liczenia czasu pracy.',
       done: zlecenie.status === 'W_Realizacji' || isTaskDone(zlecenie.status),
-      active: zlecenie.status === 'Zaplanowane' && scopeConfirmed && hasCheckin,
-      blocked: zlecenie.status === 'Zaplanowane' && (!scopeConfirmed || !hasCheckin),
+      active: zlecenie.status === 'Zaplanowane' && scopeConfirmed && hasCheckin && beforePhotosCount > 0,
+      blocked: zlecenie.status === 'Zaplanowane' && (!scopeConfirmed || !hasCheckin || beforePhotosCount === 0),
       action: rozpocznij,
       value: zlecenie.status === 'Zaplanowane' ? 'Start' : 'OK',
     },
@@ -2472,15 +3874,15 @@ export default function ZlecenieDetailScreen() {
       key: 'evidence',
       icon: 'images-outline' as IoniconName,
       title: 'Dowody pracy',
-      hint: 'Zdjecia przed, po i problemy widoczne dla biura.',
-      done: beforePhotosCount > 0 && afterPhotosCount > 0 && unresolvedIssuesCount === 0,
-      active: zlecenie.status === 'W_Realizacji' && (beforePhotosCount === 0 || afterPhotosCount === 0),
+      hint: 'Zdjecie po pracy i problemy widoczne dla biura.',
+      done: afterPhotosCount > 0 && unresolvedIssuesCount === 0,
+      active: zlecenie.status === 'W_Realizacji' && afterPhotosCount === 0,
       blocked: zlecenie.status === 'W_Realizacji' && unresolvedIssuesCount > 0,
       action: () => {
         setActiveTab('zdjecia');
         setZdjecieModal(true);
       },
-      value: `${beforePhotosCount}/${afterPhotosCount}`,
+      value: String(afterPhotosCount),
     },
     {
       key: 'finish',
@@ -2494,10 +3896,71 @@ export default function ZlecenieDetailScreen() {
       value: `${finishReadyCount}/${finishChecklist.length}`,
     },
   ];
+  const crewGuideSteps = [
+    {
+      key: 'brief',
+      label: 'Odprawa',
+      done: scopeConfirmed,
+      blocked: false,
+      icon: 'shield-checkmark-outline' as IoniconName,
+      onPress: confirmScopeBriefing,
+    },
+    {
+      key: 'gps',
+      label: 'GPS',
+      done: hasCheckin,
+      blocked: !scopeConfirmed,
+      icon: 'location-outline' as IoniconName,
+      onPress: checkinGps,
+    },
+    {
+      key: 'before',
+      label: 'Przed',
+      done: beforePhotosCount > 0,
+      blocked: !scopeConfirmed || !hasCheckin,
+      icon: 'camera-outline' as IoniconName,
+      onPress: () => {
+        setActiveTab('zdjecia');
+        void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+      },
+    },
+    {
+      key: 'start',
+      label: 'Start',
+      done: zlecenie.status === 'W_Realizacji' || isTaskDone(zlecenie.status),
+      blocked: !crewExecutionReady || beforePhotosCount <= 0,
+      icon: 'play-circle-outline' as IoniconName,
+      onPress: rozpocznij,
+    },
+    {
+      key: 'after',
+      label: 'Po',
+      done: afterPhotosCount > 0,
+      blocked: zlecenie.status !== 'W_Realizacji' && !isTaskDone(zlecenie.status),
+      icon: 'checkmark-circle-outline' as IoniconName,
+      onPress: () => {
+        setActiveTab('zdjecia');
+        void zrobZdjecie('po', 'Zdjecie po zakonczeniu pracy', 'po,odbior');
+      },
+    },
+    {
+      key: 'finish',
+      label: 'Odbior',
+      done: isTaskDone(zlecenie.status),
+      blocked: zlecenie.status !== 'W_Realizacji' && !isTaskDone(zlecenie.status),
+      icon: 'flag-outline' as IoniconName,
+      onPress: zakoncz,
+    },
+  ];
+  const crewGuideDoneCount = crewGuideSteps.filter((step) => step.done).length;
+  const crewGuideNext = crewGuideSteps.find((step) => !step.done && !step.blocked) ||
+    crewGuideSteps.find((step) => !step.done) ||
+    null;
+  const crewGuidePercent = Math.round((crewGuideDoneCount / Math.max(1, crewGuideSteps.length)) * 100);
   const taskHeroAddress = [zlecenie.adres, zlecenie.miasto].filter(Boolean).join(', ');
   const taskHeroDate = zlecenie.data_planowana ? String(zlecenie.data_planowana).split('T')[0] : 'Bez terminu';
   const taskHeroAmount = Number.parseFloat(String(zlecenie.wartosc_planowana || '').replace(',', '.'));
-  const taskHeroValue = !isBrygadzista && Number.isFinite(taskHeroAmount)
+  const taskHeroValue = !isEkipa && Number.isFinite(taskHeroAmount)
     ? `${taskHeroAmount.toLocaleString('pl-PL')} PLN`
     : `${totalGodziny.toFixed(1)} h`;
   const taskHeroStats = [
@@ -2568,6 +4031,7 @@ export default function ZlecenieDetailScreen() {
     label: string;
     onPress: () => void;
   }[];
+  const taskHeroCtaBusy = changingStatus || (showFieldPackageCard && fieldPackageSaving);
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -2767,18 +4231,21 @@ export default function ZlecenieDetailScreen() {
         </View>
 
         <View style={S.taskHeroNext}>
+          <View style={S.taskHeroNextIcon}>
+            <Ionicons name={suggestedAction.icon} size={18} color={theme.accent} />
+          </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={S.taskHeroNextLabel}>Następny krok</Text>
             <Text style={S.taskHeroNextTitle} numberOfLines={1}>{suggestedAction.title.replace('Sugerowany krok: ', '')}</Text>
             <Text style={S.taskHeroNextDetail} numberOfLines={2}>{suggestedAction.detail}</Text>
           </View>
           <TouchableOpacity
-            style={[S.taskHeroCta, changingStatus && S.taskHeroCtaDisabled]}
+            style={[S.taskHeroCta, taskHeroCtaBusy && S.taskHeroCtaDisabled]}
             onPress={() => {
               void triggerHaptic('light');
               suggestedAction.onPress();
             }}
-            disabled={changingStatus}
+            disabled={taskHeroCtaBusy}
           >
             <Text style={S.taskHeroCtaText}>{suggestedAction.cta}</Text>
             <Ionicons name="chevron-forward" size={14} color={theme.accentText} />
@@ -2793,21 +4260,332 @@ export default function ZlecenieDetailScreen() {
             </TouchableOpacity>
           ))}
           <View style={S.taskHeroValuePill}>
-            <Text style={S.taskHeroValueLabel}>{isBrygadzista ? 'Czas' : 'Wartość'}</Text>
+            <Text style={S.taskHeroValueLabel}>{isEkipa ? 'Czas' : 'Wartość'}</Text>
             <Text style={S.taskHeroValue}>{taskHeroValue}</Text>
           </View>
         </View>
       </View>
 
+      {fieldSignalVisible ? (
+        <View style={[S.fieldSignalCard, { backgroundColor: theme.cardBg, borderColor: fieldSignalTone }]}>
+          <View style={S.fieldSignalHead}>
+            <View style={[S.fieldSignalIcon, { backgroundColor: fieldSignalTone + '18', borderColor: fieldSignalTone }]}>
+              <Ionicons name="radio-outline" size={20} color={fieldSignalTone} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[S.fieldSignalTitle, { color: theme.text }]}>Sygnaly do biura</Text>
+              <Text style={[S.fieldSignalSub, { color: theme.textMuted }]} numberOfLines={2}>
+                {fieldSignalSummary.detail}
+              </Text>
+            </View>
+            <View style={[S.fieldSignalBadge, { backgroundColor: fieldSignalTone + '12', borderColor: fieldSignalTone }]}>
+              <Text style={[S.fieldSignalBadgeText, { color: fieldSignalTone }]} numberOfLines={1}>
+                {fieldSignalSummary.label}
+              </Text>
+            </View>
+          </View>
+
+          <View style={S.fieldSignalGrid}>
+            {fieldSignalCards.map((item) => (
+              <TouchableOpacity
+                key={item.key}
+                style={[
+                  S.fieldSignalTile,
+                  {
+                    backgroundColor: item.done ? item.tone + '10' : theme.surface2,
+                    borderColor: item.done ? item.tone : theme.border,
+                  },
+                ]}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  item.onPress();
+                }}
+              >
+                <View style={S.fieldSignalTileTop}>
+                  <Text style={[S.fieldSignalTileLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                  <Ionicons name={item.done ? 'checkmark-circle' : item.icon} size={15} color={item.done ? theme.success : item.tone} />
+                </View>
+                <Text style={[S.fieldSignalTileValue, { color: item.done ? item.tone : theme.text }]} numberOfLines={1}>
+                  {item.value}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {fieldSignalActions.length ? (
+            <View style={S.fieldSignalActions}>
+              {fieldSignalActions.map((action) => (
+                <TouchableOpacity
+                  key={action.key}
+                  style={[
+                    S.fieldSignalAction,
+                    {
+                      backgroundColor: action.color + '12',
+                      borderColor: action.color + '80',
+                      opacity: action.disabled ? 0.55 : 1,
+                    },
+                  ]}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    action.onPress();
+                  }}
+                  disabled={action.disabled}
+                >
+                  <Ionicons name={action.icon} size={15} color={action.color} />
+                  <Text style={[S.fieldSignalActionText, { color: action.color }]} numberOfLines={1}>
+                    {action.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {showInspectionDispatchCard ? (
+        <View style={[S.inspectionDispatchCard, { backgroundColor: theme.cardBg, borderColor: inspectionDispatchColor }]}>
+          <View style={S.inspectionDispatchHead}>
+            <View style={[S.inspectionDispatchIcon, { backgroundColor: inspectionDispatchColor + '18', borderColor: inspectionDispatchColor }]}>
+              <Ionicons name="trail-sign-outline" size={20} color={inspectionDispatchColor} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[S.inspectionDispatchTitle, { color: theme.text }]}>Przekaż na oględziny</Text>
+              <Text style={[S.inspectionDispatchSub, { color: theme.textMuted }]} numberOfLines={2}>
+                Zgłoszenie przejdzie z etapu Telefon do kolejki terenowej specjalisty ds. wyceny.
+              </Text>
+            </View>
+            <View style={[S.inspectionDispatchScore, { backgroundColor: theme.cardBg, borderColor: inspectionDispatchColor }]}>
+              <Text style={[S.inspectionDispatchScoreValue, { color: inspectionDispatchColor }]}>
+                {inspectionDispatchReadyCount}/{inspectionDispatchChecks.length}
+              </Text>
+              <Text style={[S.inspectionDispatchScoreLabel, { color: theme.textMuted }]}>start</Text>
+            </View>
+          </View>
+
+          {inspectionDispatchError ? (
+            <View style={[S.inspectionDispatchError, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+              <Ionicons name="alert-circle-outline" size={15} color={theme.warning} />
+              <Text style={[S.inspectionDispatchErrorText, { color: theme.warning }]}>{inspectionDispatchError}</Text>
+            </View>
+          ) : null}
+
+          <View style={S.inspectionDispatchChecks}>
+            {inspectionDispatchChecks.map((check) => (
+              <View
+                key={check.key}
+                style={[
+                  S.inspectionDispatchCheck,
+                  {
+                    backgroundColor: check.done ? theme.successBg : theme.warningBg,
+                    borderColor: check.done ? theme.success : theme.warning,
+                  },
+                ]}
+              >
+                <Ionicons name={check.done ? 'checkmark-circle' : check.icon} size={14} color={check.done ? theme.success : theme.warning} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[S.inspectionDispatchCheckLabel, { color: check.done ? theme.success : theme.warning }]}>{check.label}</Text>
+                  <Text style={[S.inspectionDispatchCheckValue, { color: theme.textMuted }]} numberOfLines={1}>{check.value}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={S.inspectionDispatchInputs}>
+            <View style={S.inspectionDispatchInputBox}>
+              <Text style={[S.inspectionDispatchInputLabel, { color: theme.textMuted }]}>Data oględzin</Text>
+              <TextInput
+                style={[S.inspectionDispatchInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+                value={inspectionDispatchForm.data}
+                onChangeText={(value) => setInspectionDispatchForm((current) => ({ ...current, data: value.trim() }))}
+                placeholder="RRRR-MM-DD"
+                placeholderTextColor={theme.inputPlaceholder}
+              />
+            </View>
+            <View style={S.inspectionDispatchInputBox}>
+              <Text style={[S.inspectionDispatchInputLabel, { color: theme.textMuted }]}>Godzina</Text>
+              <TextInput
+                style={[S.inspectionDispatchInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+                value={inspectionDispatchForm.godzina}
+                onChangeText={(value) => setInspectionDispatchForm((current) => ({ ...current, godzina: value.trim() }))}
+                placeholder="09:00"
+                placeholderTextColor={theme.inputPlaceholder}
+              />
+            </View>
+          </View>
+
+          <View style={S.inspectionDispatchEstimatorHead}>
+            <Text style={[S.inspectionDispatchSectionTitle, { color: theme.text }]}>Specjalista ds. wyceny</Text>
+            <TouchableOpacity
+              style={[S.inspectionDispatchReload, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => { void loadInspectionEstimators(undefined, inspectionDispatchForm.data); }}
+              disabled={inspectionEstimatorsLoading}
+            >
+              <Ionicons name={inspectionEstimatorsLoading ? 'hourglass-outline' : 'refresh-outline'} size={13} color={theme.accent} />
+              <Text style={[S.inspectionDispatchReloadText, { color: theme.accent }]}>
+                {inspectionEstimatorsLoading ? 'Ładuję' : 'Odśwież'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.inspectionDispatchEstimatorList}>
+            {inspectionEstimators.length ? inspectionEstimators.map((estimator) => {
+              const selected = String(estimator.id) === inspectionDispatchForm.estimatorId;
+              const delegated = estimator.delegowany && !estimator.natywny_oddzial;
+              return (
+                <TouchableOpacity
+                  key={String(estimator.id)}
+                  style={[
+                    S.inspectionDispatchEstimatorChip,
+                    {
+                      backgroundColor: selected ? theme.accentLight : theme.surface2,
+                      borderColor: selected ? theme.accent : delegated ? theme.info : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    setInspectionDispatchForm((current) => ({ ...current, estimatorId: String(estimator.id) }));
+                    setInspectionDispatchError(null);
+                    void triggerHaptic('light');
+                  }}
+                >
+                  <Ionicons name={selected ? 'checkmark-circle' : delegated ? 'swap-horizontal-outline' : 'person-outline'} size={15} color={selected ? theme.accent : delegated ? theme.info : theme.textMuted} />
+                  <View style={{ minWidth: 0 }}>
+                    <Text style={[S.inspectionDispatchEstimatorName, { color: selected ? theme.accent : theme.text }]} numberOfLines={1}>
+                      {estimator.nazwa}
+                    </Text>
+                    <Text style={[S.inspectionDispatchEstimatorMeta, { color: theme.textMuted }]} numberOfLines={1}>
+                      {delegated ? 'delegacja' : estimator.oddzial_nazwa || 'oddział'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }) : (
+              <View style={[S.inspectionDispatchEmpty, { borderColor: theme.border, backgroundColor: theme.surface2 }]}>
+                <Text style={[S.inspectionDispatchEmptyText, { color: theme.textMuted }]}>
+                  Brak listy specjalistów. Odśwież albo sprawdź oddział.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <View style={S.inspectionDispatchInputBoxWide}>
+            <Text style={[S.inspectionDispatchInputLabel, { color: theme.textMuted }]}>Notatka dla terenu</Text>
+            <TextInput
+              style={[S.inspectionDispatchNote, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+              value={inspectionDispatchForm.note}
+              onChangeText={(value) => setInspectionDispatchForm((current) => ({ ...current, note: value }))}
+              placeholder="np. klient prosi o telefon 15 min przed przyjazdem"
+              placeholderTextColor={theme.inputPlaceholder}
+              multiline
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[S.inspectionDispatchPrimary, { backgroundColor: inspectionDispatchColor, opacity: inspectionDispatchSaving ? 0.65 : 1 }]}
+            onPress={dispatchInspectionToEstimator}
+            disabled={inspectionDispatchSaving}
+          >
+            <Ionicons name="send-outline" size={16} color={theme.accentText} />
+            <Text style={[S.inspectionDispatchPrimaryText, { color: theme.accentText }]}>
+              {inspectionDispatchSaving ? 'Przekazuję...' : 'Przekaż na oględziny'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {showFieldPackageCard ? (
+        <View style={[S.fieldCockpitCard, { backgroundColor: fieldPackageReadyForOffice ? theme.successBg : theme.cardBg, borderColor: fieldCockpitTone }]}>
+          <View style={S.fieldCockpitHead}>
+            <View style={[S.fieldCockpitIcon, { backgroundColor: fieldCockpitTone + '18', borderColor: fieldCockpitTone }]}>
+              <Ionicons
+                name={fieldPackageReadyForOffice ? 'checkmark-done-outline' : 'clipboard-outline'}
+                size={20}
+                color={fieldCockpitTone}
+              />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[S.fieldCockpitTitle, { color: theme.text }]}>Formularz terenowy</Text>
+              <Text style={[S.fieldCockpitSub, { color: theme.textMuted }]} numberOfLines={2}>
+                {fieldPackageReadyForOffice
+                  ? 'Komplet gotowy do biura: zdjęcia, zakres, cena, BHP i akceptacja.'
+                  : fieldCockpitNext
+                    ? `Następny krok: ${fieldCockpitNext.label}.`
+                    : 'Uzupełnij pakiet i wyślij go do biura.'}
+              </Text>
+            </View>
+            <View style={[S.fieldCockpitScore, { backgroundColor: theme.cardBg, borderColor: fieldCockpitTone }]}>
+              <Text style={[S.fieldCockpitScoreValue, { color: fieldCockpitTone }]}>
+                {fieldCockpitReadyCount}/{fieldCockpitSteps.length}
+              </Text>
+              <Text style={[S.fieldCockpitScoreLabel, { color: theme.textMuted }]}>gotowe</Text>
+            </View>
+          </View>
+
+          <View style={S.fieldCockpitGrid}>
+            {fieldCockpitSteps.map((step) => (
+              <TouchableOpacity
+                key={step.key}
+                style={[
+                  S.fieldCockpitStep,
+                  {
+                    backgroundColor: step.done ? theme.successBg : theme.surface2,
+                    borderColor: step.done ? theme.success : theme.border,
+                  },
+                ]}
+                onPress={step.onPress}
+              >
+                <View style={[S.fieldCockpitStepIcon, { backgroundColor: theme.cardBg, borderColor: step.done ? theme.success : theme.warning }]}>
+                  <Ionicons
+                    name={step.done ? 'checkmark-circle' : step.icon}
+                    size={15}
+                    color={step.done ? theme.success : theme.warning}
+                  />
+                </View>
+                <Text style={[S.fieldCockpitStepLabel, { color: theme.text }]} numberOfLines={1}>{step.label}</Text>
+                <Text style={[S.fieldCockpitStepValue, { color: step.done ? theme.success : theme.textMuted }]} numberOfLines={1}>
+                  {step.value}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={S.fieldCockpitActions}>
+            <TouchableOpacity
+              style={[S.fieldCockpitSecondary, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => {
+                setPhotoFilter('all');
+                setActiveTab('zdjecia');
+                void triggerHaptic('light');
+              }}
+            >
+              <Ionicons name="images-outline" size={15} color={theme.accent} />
+              <Text style={[S.fieldCockpitSecondaryText, { color: theme.text }]}>Otwórz zdjęcia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.fieldCockpitPrimary, { backgroundColor: fieldCockpitTone, opacity: fieldPackageSaving ? 0.65 : 1 }]}
+              onPress={runFieldCockpitPrimary}
+              disabled={fieldPackageSaving}
+            >
+              <Text style={[S.fieldCockpitPrimaryText, { color: theme.accentText }]} numberOfLines={1}>
+                {fieldPackageSaving
+                  ? 'Zapisuję...'
+                  : fieldCockpitNext
+                    ? `Uzupełnij: ${fieldCockpitNext.label}`
+                    : 'Wyślij do biura'}
+              </Text>
+              <Ionicons name={fieldCockpitNext ? 'arrow-forward' : 'send-outline'} size={14} color={theme.accentText} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {user && isFeatureEnabledForOddzial(user.oddzial_id, '/rezerwacje-sprzetu') ? (
         <TouchableOpacity
           style={S.linkRow}
           onPress={() => {
-            const raw = zlecenie?.data_planowana;
-            const d = typeof raw === 'string' ? raw.split('T')[0] : '';
             router.push({
               pathname: '/rezerwacje-sprzetu',
-              params: { prefData: d || '', prefZlecenie: String(id) },
+              params: officeReservationRouteParams,
             } as never);
           }}
         >
@@ -2861,7 +4639,7 @@ export default function ZlecenieDetailScreen() {
         </View>
       </View>
 
-      {isFieldDraft && officeHandoffLines.length ? (
+      {isFieldOfficeTask && hasFieldPackageMarker && officeHandoffLines.length ? (
         <View style={[S.officeHandoffCard, { backgroundColor: officeHandoffReady ? theme.successBg : theme.warningBg, borderColor: officeHandoffReady ? theme.success : theme.warning }]}>
           <View style={S.officeHandoffHead}>
             <View style={[S.officeHandoffIcon, { backgroundColor: theme.cardBg, borderColor: officeHandoffReady ? theme.success : theme.warning }]}>
@@ -2890,6 +4668,195 @@ export default function ZlecenieDetailScreen() {
         </View>
       ) : null}
 
+      {officeCommandVisible ? (
+        <View style={[S.officeCommandCard, { backgroundColor: officeCommandReady ? theme.successBg : theme.cardBg, borderColor: officeCommandColor }]}>
+          <View style={S.officeCommandHead}>
+            <View style={[S.officeCommandIcon, { backgroundColor: officeCommandColor + '18', borderColor: officeCommandColor }]}>
+              <Ionicons name={officeCommandReady ? 'checkmark-done-outline' : 'file-tray-full-outline'} size={19} color={officeCommandColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.officeCommandTitle, { color: officeCommandReady ? theme.success : theme.text }]}>
+                {officeCommandReady ? 'Gotowe do planowania' : isOfficeApprovalTask ? 'Plan biura' : 'Centrum biura'}
+              </Text>
+              <Text style={[S.officeCommandSub, { color: theme.textMuted }]}>
+                Dowody z terenu, cena, czas, ekipa i termin w jednym miejscu.
+              </Text>
+            </View>
+            <View style={[S.officeCommandScore, { backgroundColor: theme.cardBg, borderColor: officeCommandColor }]}>
+              <Text style={[S.officeCommandScoreValue, { color: officeCommandColor }]}>{officeCommandReadyCount}/{officeCommandChecks.length}</Text>
+              <Text style={[S.officeCommandScoreLabel, { color: theme.textMuted }]}>gotowe</Text>
+            </View>
+          </View>
+
+          <View style={[S.officeCommandProgressTrack, { backgroundColor: theme.surface2 }]}>
+            <View style={[S.officeCommandProgressFill, { width: `${officeCommandPercent}%`, backgroundColor: officeCommandColor }]} />
+          </View>
+
+          <View style={S.officeCommandGrid}>
+            {officeCommandChecks.map((check) => (
+              <TouchableOpacity
+                key={check.key}
+                style={[S.officeCommandCheck, { backgroundColor: check.done ? theme.successBg : theme.warningBg, borderColor: check.done ? theme.success : theme.warning }]}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  check.onPress();
+                }}
+              >
+                <View style={S.officeCommandCheckTop}>
+                  <Ionicons name={check.done ? 'checkmark-circle' : check.icon} size={16} color={check.color} />
+                  <Text style={[S.officeCommandCheckValue, { color: check.color }]} numberOfLines={1}>{check.value}</Text>
+                </View>
+                <Text style={[S.officeCommandCheckLabel, { color: theme.text }]} numberOfLines={1}>{check.label}</Text>
+                <Text style={[S.officeCommandCheckHint, { color: theme.textMuted }]} numberOfLines={1}>{check.hint}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={[S.officeCommandNext, { backgroundColor: officeCommandColor + '12', borderColor: officeCommandColor }]}>
+            <Ionicons name={officeCommandReady ? 'calendar-outline' : 'alert-circle-outline'} size={16} color={officeCommandColor} />
+            <Text style={[S.officeCommandNextText, { color: officeCommandColor }]} numberOfLines={2}>
+              {officeCommandNext
+                ? `Następny krok: ${officeCommandNext.label.toLowerCase()}`
+                : 'Pakiet biura kompletny. Otwórz kolejkę i zapisz ekipę, termin oraz sprzęt.'}
+            </Text>
+            <TouchableOpacity style={[S.officeCommandNextBtn, { backgroundColor: officeCommandColor, borderColor: officeCommandColor }]} onPress={runOfficeCommandPrimary}>
+              <Text style={S.officeCommandNextBtnText}>{officeCommandNext ? 'Otwórz' : 'Do planu'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={S.officeCommandActions}>
+            <TouchableOpacity style={[S.officeCommandActionBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]} onPress={() => setActiveTab('zdjecia')}>
+              <Ionicons name="images-outline" size={15} color={theme.accent} />
+              <Text style={[S.officeCommandActionText, { color: theme.accent }]}>Zdjęcia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[S.officeCommandActionBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]} onPress={() => router.push('/wyceny-do-biura' as never)}>
+              <Ionicons name="file-tray-full-outline" size={15} color={theme.warning} />
+              <Text style={[S.officeCommandActionText, { color: theme.warning }]}>Do opracowania</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.officeCommandActionBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => router.push({ pathname: '/harmonogram', params: officeScheduleRouteParams } as never)}
+            >
+              <Ionicons name="calendar-outline" size={15} color={theme.success} />
+              <Text style={[S.officeCommandActionText, { color: theme.success }]}>Harmonogram</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.officeCommandActionBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => {
+                router.push({
+                  pathname: '/rezerwacje-sprzetu',
+                  params: officeReservationRouteParams,
+                } as never);
+              }}
+            >
+              <Ionicons name="construct-outline" size={15} color={theme.info} />
+              <Text style={[S.officeCommandActionText, { color: theme.info }]}>Sprzęt</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
+      {showOperationalPlanCard ? (
+        <View style={[S.operationalPlanCard, { backgroundColor: officePlanSummaryReadyCount === officePlanSummaryChecks.length ? theme.successBg : theme.cardBg, borderColor: officePlanSummaryReadyCount === officePlanSummaryChecks.length ? theme.success : theme.cardBorder }]}>
+          <View style={S.operationalPlanHead}>
+            <View style={[S.operationalPlanIcon, { borderColor: theme.accent, backgroundColor: theme.accentLight }]}>
+              <Ionicons name="map-outline" size={18} color={theme.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[S.operationalPlanTitle, { color: theme.text }]}>Plan operacyjny</Text>
+              <Text style={[S.operationalPlanSub, { color: theme.textMuted }]}>
+                Zdjecia, odprawa, termin, ekipa i sprzet w jednej karcie zlecenia.
+              </Text>
+            </View>
+            <View style={[S.operationalPlanScore, { borderColor: officePlanSummaryReadyCount === officePlanSummaryChecks.length ? theme.success : theme.warning, backgroundColor: theme.cardBg }]}>
+              <Text style={[S.operationalPlanScoreValue, { color: officePlanSummaryReadyCount === officePlanSummaryChecks.length ? theme.success : theme.warning }]}>
+                {officePlanSummaryReadyCount}/{officePlanSummaryChecks.length}
+              </Text>
+              <Text style={[S.operationalPlanScoreLabel, { color: theme.textMuted }]}>plan</Text>
+            </View>
+          </View>
+
+          <View style={S.operationalPlanGrid}>
+            {officePlanSummaryChecks.map((item) => (
+              <View
+                key={item.key}
+                style={[
+                  S.operationalPlanTile,
+                  { borderColor: item.done ? theme.success : theme.warning, backgroundColor: item.done ? theme.successBg : theme.warningBg },
+                ]}
+              >
+                <Ionicons name={item.done ? 'checkmark-circle' : 'alert-circle-outline'} size={15} color={item.done ? theme.success : theme.warning} />
+                <Text style={[S.operationalPlanTileLabel, { color: theme.textMuted }]}>{item.label}</Text>
+                <Text style={[S.operationalPlanTileValue, { color: theme.text }]} numberOfLines={1}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+
+          {taskReservedEquipmentNames.length ? (
+            <View style={[S.operationalEquipmentBox, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+              <View style={S.operationalEquipmentHead}>
+                <Ionicons name="cube-outline" size={15} color={theme.info} />
+                <Text style={[S.operationalEquipmentTitle, { color: theme.text }]}>Sprzet zarezerwowany</Text>
+              </View>
+              {taskReservedEquipmentNames.slice(0, 4).map((name) => (
+                <Text key={name} style={[S.operationalEquipmentName, { color: theme.textSub }]} numberOfLines={1}>• {name}</Text>
+              ))}
+              {taskReservedEquipmentNames.length > 4 ? (
+                <Text style={[S.operationalEquipmentMore, { color: theme.textMuted }]}>+{taskReservedEquipmentNames.length - 4} kolejne pozycje</Text>
+              ) : null}
+            </View>
+          ) : (
+            <View style={[S.operationalPlanWarning, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+              <Ionicons name="alert-circle-outline" size={15} color={theme.warning} />
+              <Text style={[S.operationalPlanWarningText, { color: theme.warning }]}>
+                Brak rezerwacji sprzetu w karcie. Biuro powinno zdecydowac, co jedzie z ekipa.
+              </Text>
+            </View>
+          )}
+
+          <View style={S.operationalPlanActions}>
+            {isOfficeWorker ? (
+              <TouchableOpacity
+                style={[S.operationalPlanAction, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}
+                onPress={() => { void openOfficePlanSheet(); }}
+              >
+                <Ionicons name="create-outline" size={15} color={theme.accent} />
+                <Text style={[S.operationalPlanActionText, { color: theme.accent }]}>Edytuj plan</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity
+              style={[S.operationalPlanAction, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => router.push({ pathname: '/harmonogram', params: officeScheduleRouteParams } as never)}
+            >
+              <Ionicons name="calendar-outline" size={15} color={theme.success} />
+              <Text style={[S.operationalPlanActionText, { color: theme.success }]}>Harmonogram</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.operationalPlanAction, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => {
+                setPhotoFilter('all');
+                setActiveTab('zdjecia');
+              }}
+            >
+              <Ionicons name="images-outline" size={15} color={theme.accent} />
+              <Text style={[S.operationalPlanActionText, { color: theme.accent }]}>Zdjecia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.operationalPlanAction, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+              onPress={() => {
+                router.push({
+                  pathname: '/rezerwacje-sprzetu',
+                  params: officeReservationRouteParams,
+                } as never);
+              }}
+            >
+              <Ionicons name="cube-outline" size={15} color={theme.info} />
+              <Text style={[S.operationalPlanActionText, { color: theme.info }]}>Sprzet</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {showFieldPackageCard ? (
         <View style={[S.fieldPackageCard, { backgroundColor: fieldPackageReadyForOffice ? theme.successBg : theme.cardBg, borderColor: fieldPackageReadyForOffice ? theme.success : theme.cardBorder }]}>
           <View style={S.fieldPackageHead}>
@@ -2904,16 +4871,68 @@ export default function ZlecenieDetailScreen() {
             </View>
           </View>
 
+          <View style={[S.fieldPackageFlow, { backgroundColor: theme.surface2, borderColor: fieldPackageReadyForOffice ? theme.success : theme.border }]}>
+            <View style={S.fieldPackageFlowHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={[S.fieldPackageFlowTitle, { color: fieldPackageReadyForOffice ? theme.success : theme.text }]}>
+                  {fieldPackageReadyForOffice ? 'Sciezka ogledzin zamknieta' : 'Szybka sciezka w terenie'}
+                </Text>
+                <Text style={[S.fieldPackageFlowSub, { color: theme.textMuted }]}>
+                  {fieldPackageCurrentStage
+                    ? `Teraz: ${fieldPackageCurrentStage.label.toLowerCase()} - ${fieldPackageCurrentStage.hint}.`
+                    : 'Mozesz wyslac komplet do biura.'}
+                </Text>
+              </View>
+              <View style={[S.fieldPackageFlowScore, { backgroundColor: theme.cardBg, borderColor: fieldPackageReadyForOffice ? theme.success : theme.warning }]}>
+                <Text style={[S.fieldPackageFlowScoreValue, { color: fieldPackageReadyForOffice ? theme.success : theme.warning }]}>
+                  {fieldPackageReadyCount}/{fieldPackageChecklist.length}
+                </Text>
+                <Text style={[S.fieldPackageFlowScoreLabel, { color: theme.textMuted }]}>pakiet</Text>
+              </View>
+            </View>
+            <View style={S.fieldPackageFlowGrid}>
+              {fieldPackageStageCards.map((card) => (
+                <TouchableOpacity
+                  key={card.key}
+                  style={[
+                    S.fieldPackageFlowCard,
+                    {
+                      backgroundColor: card.done ? theme.successBg : theme.cardBg,
+                      borderColor: card.done ? theme.success : fieldPackageCurrentStage?.key === card.key ? theme.warning : theme.border,
+                    },
+                  ]}
+                  onPress={card.onPress}
+                >
+                  <View style={[S.fieldPackageFlowIcon, { backgroundColor: card.done ? theme.successBg : theme.warningBg, borderColor: card.done ? theme.success : theme.warning }]}>
+                    <Ionicons name={card.done ? 'checkmark-circle' : card.icon} size={15} color={card.done ? theme.success : theme.warning} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[S.fieldPackageFlowCardTitle, { color: theme.text }]} numberOfLines={1}>{card.label}</Text>
+                    <Text style={[S.fieldPackageFlowCardHint, { color: theme.textMuted }]} numberOfLines={1}>{card.hint}</Text>
+                  </View>
+                  <Text style={[S.fieldPackageFlowCardValue, { color: card.done ? theme.success : theme.warning }]}>{card.value}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {fieldPackageCurrentStage ? (
+              <TouchableOpacity
+                style={[S.fieldPackageFlowNext, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}
+                onPress={fieldPackageCurrentStage.onPress}
+              >
+                <Ionicons name="arrow-forward-circle-outline" size={16} color={theme.warning} />
+                <Text style={[S.fieldPackageFlowNextText, { color: theme.warning }]} numberOfLines={1}>
+                  Nastepny ruch: {fieldPackageCurrentStage.label}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
           <View style={S.fieldPackageChecks}>
             {fieldDraftPhotoChecklist.map((row) => (
               <TouchableOpacity
                 key={row.key}
                 style={[S.fieldPackageCheck, { backgroundColor: row.done ? theme.successBg : theme.warningBg, borderColor: row.done ? theme.success : theme.warning }]}
-                onPress={() => {
-                  setPhotoFilter(row.type as PhotoFilterKey);
-                  setActiveTab('zdjecia');
-                  void triggerHaptic('light');
-                }}
+                onPress={() => runFieldPhotoChecklistAction(row)}
               >
                 <Ionicons name={row.done ? 'checkmark-circle' : 'camera-outline'} size={16} color={row.done ? theme.success : theme.warning} />
                 <View style={{ flex: 1 }}>
@@ -2922,6 +4941,53 @@ export default function ZlecenieDetailScreen() {
                 </View>
               </TouchableOpacity>
             ))}
+          </View>
+
+          <View style={[S.fieldPackageReadiness, { backgroundColor: fieldPackageReadyForOffice ? theme.successBg : theme.warningBg, borderColor: fieldPackageReadyForOffice ? theme.success : theme.warning }]}>
+            <View style={S.fieldPackageReadinessHead}>
+              <Ionicons name={fieldPackageReadyForOffice ? 'checkmark-done-outline' : 'alert-circle-outline'} size={18} color={fieldPackageReadyForOffice ? theme.success : theme.warning} />
+              <View style={{ flex: 1 }}>
+                <Text style={[S.fieldPackageReadinessTitle, { color: fieldPackageReadyForOffice ? theme.success : theme.warning }]}>
+                  {fieldPackageReadyForOffice ? 'Pakiet gotowy do biura' : `Gotowość ${fieldPackageReadyCount}/${fieldPackageChecklist.length}`}
+                </Text>
+                <Text style={[S.fieldPackageReadinessSub, { color: theme.textSub }]}>
+                  {fieldPackageReadyForOffice
+                    ? 'Biuro dostanie kompletny zakres, budżet, ryzyka i dowody zdjęciowe.'
+                    : 'Uzupełnij brakujące punkty przed wysłaniem do planowania.'}
+                </Text>
+              </View>
+            </View>
+            <View style={[S.fieldPackageProgressTrack, { backgroundColor: theme.cardBg }]}>
+              <View
+                style={[
+                  S.fieldPackageProgressFill,
+                  {
+                    width: `${fieldPackageProgressPct}%`,
+                    backgroundColor: fieldPackageReadyForOffice ? theme.success : theme.warning,
+                  },
+                ]}
+              />
+            </View>
+            {fieldPackageMissingLabels.length ? (
+              <View style={S.fieldPackageMissingRow}>
+                {fieldPackageMissingLabels.map((label) => (
+                  <View key={label} style={[S.fieldPackageMissingPill, { backgroundColor: theme.cardBg, borderColor: theme.warning }]}>
+                    <Text style={[S.fieldPackageMissingText, { color: theme.warning }]}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {fieldPackageNextMissing ? (
+              <TouchableOpacity
+                style={[S.fieldPackageNextBtn, { backgroundColor: theme.cardBg, borderColor: theme.warning }]}
+                onPress={runFieldPackageNextMissing}
+              >
+                <Ionicons name="arrow-forward-circle-outline" size={15} color={theme.warning} />
+                <Text style={[S.fieldPackageNextText, { color: theme.warning }]} numberOfLines={1}>
+                  Uzupelnij teraz: {fieldPackageNextMissing.label}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Typ prac</Text>
@@ -2948,33 +5014,64 @@ export default function ZlecenieDetailScreen() {
 
           <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Zakres prac dla ekipy</Text>
           <TextInput
-            style={[S.fieldPackageInput, S.fieldPackageTextarea, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+            style={[
+              S.fieldPackageInput,
+              S.fieldPackageTextarea,
+              {
+                color: theme.text,
+                borderColor: fieldPackageFocus === 'scope' ? theme.warning : theme.border,
+                backgroundColor: fieldPackageFocus === 'scope' ? theme.warningBg : theme.surface2,
+              },
+            ]}
             placeholder="np. przyciąć koronę od strony ogrodzenia, usunąć suche gałęzie, zabezpieczyć rabatę"
             placeholderTextColor={theme.textMuted}
             value={fieldScopeDraft}
-            onChangeText={setFieldScopeDraft}
+            onChangeText={(value) => {
+              setFieldScopeDraft(value);
+              if (value.trim()) setFieldPackageFocus(null);
+            }}
             multiline
           />
           <View style={S.fieldPackageTwoCol}>
             <View style={{ flex: 1 }}>
               <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Czas pracy</Text>
               <TextInput
-                style={[S.fieldPackageInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+                style={[
+                  S.fieldPackageInput,
+                  {
+                    color: theme.text,
+                    borderColor: fieldPackageFocus === 'time' ? theme.warning : theme.border,
+                    backgroundColor: fieldPackageFocus === 'time' ? theme.warningBg : theme.surface2,
+                  },
+                ]}
                 placeholder="np. 3"
                 placeholderTextColor={theme.textMuted}
                 value={fieldTimeDraft}
-                onChangeText={setFieldTimeDraft}
+                onChangeText={(value) => {
+                  setFieldTimeDraft(value);
+                  if (value.trim()) setFieldPackageFocus(null);
+                }}
                 keyboardType="decimal-pad"
               />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[S.fieldPackageLabel, { color: theme.textSub }]}>Budżet PLN</Text>
               <TextInput
-                style={[S.fieldPackageInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+                style={[
+                  S.fieldPackageInput,
+                  {
+                    color: theme.text,
+                    borderColor: fieldPackageFocus === 'budget' ? theme.warning : theme.border,
+                    backgroundColor: fieldPackageFocus === 'budget' ? theme.warningBg : theme.surface2,
+                  },
+                ]}
                 placeholder="np. 2500"
                 placeholderTextColor={theme.textMuted}
                 value={fieldBudgetDraft}
-                onChangeText={setFieldBudgetDraft}
+                onChangeText={(value) => {
+                  setFieldBudgetDraft(value);
+                  if (value.trim()) setFieldPackageFocus(null);
+                }}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -3016,6 +5113,7 @@ export default function ZlecenieDetailScreen() {
                   ]}
                   onPress={() => {
                     setFieldSettlementDraft(preset.note);
+                    setFieldPackageFocus(null);
                     void triggerHaptic('light');
                   }}
                 >
@@ -3037,21 +5135,51 @@ export default function ZlecenieDetailScreen() {
             ))}
           </View>
           <TextInput
-            style={[S.fieldPackageInput, S.fieldPackageTextareaSmall, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface2 }]}
+            style={[
+              S.fieldPackageInput,
+              S.fieldPackageTextareaSmall,
+              {
+                color: theme.text,
+                borderColor: fieldPackageFocus === 'risk' ? theme.warning : theme.border,
+                backgroundColor: fieldPackageFocus === 'risk' ? theme.warningBg : theme.surface2,
+              },
+            ]}
             placeholder="np. linia nad ogrodzeniem, wąski dojazd, auto klienta do przestawienia"
             placeholderTextColor={theme.textMuted}
             value={fieldRiskDraft}
-            onChangeText={setFieldRiskDraft}
+            onChangeText={(value) => {
+              setFieldRiskDraft(value);
+              if (value.trim()) setFieldPackageFocus(null);
+            }}
             multiline
           />
           <Text style={[S.fieldPackageSettlementText, { color: theme.textMuted }]}>{fieldSettlementDraft}</Text>
-          <View style={[S.fieldPackageAcceptRow, { backgroundColor: theme.surface2, borderColor: fieldClientAccepted ? theme.success : theme.border }]}>
+          <View style={[S.fieldPackageAcceptRow, { backgroundColor: fieldPackageFocus === 'client' ? theme.warningBg : theme.surface2, borderColor: fieldPackageFocus === 'client' ? theme.warning : fieldClientAccepted ? theme.success : theme.border }]}>
             <View style={{ flex: 1 }}>
               <Text style={[S.fieldPackageAcceptTitle, { color: theme.text }]}>Klient akceptuje zakres i budżet</Text>
               <Text style={[S.fieldPackageAcceptSub, { color: theme.textMuted }]}>Bez tego nie oddajemy zlecenia do biura jako gotowego do planowania.</Text>
             </View>
-            <Switch value={fieldClientAccepted} onValueChange={setFieldClientAccepted} />
+            <Switch
+              value={fieldClientAccepted}
+              onValueChange={(value) => {
+                setFieldClientAccepted(value);
+                if (value) setFieldPackageFocus(null);
+              }}
+            />
           </View>
+          {fieldPackageOfficePreview.length ? (
+            <View style={[S.fieldPackagePreview, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+              <View style={S.fieldPackagePreviewHead}>
+                <Ionicons name="document-text-outline" size={15} color={theme.accent} />
+                <Text style={[S.fieldPackagePreviewTitle, { color: theme.text }]}>Podglad dla biura</Text>
+              </View>
+              {fieldPackageOfficePreview.slice(0, 6).map((line) => (
+                <Text key={line} style={[S.fieldPackagePreviewLine, { color: theme.textSub }]} numberOfLines={2}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ) : null}
           <View style={S.fieldPackageActions}>
             <TouchableOpacity
               style={[S.fieldPackageBtnSecondary, { borderColor: theme.border, backgroundColor: theme.surface2 }]}
@@ -3061,11 +5189,18 @@ export default function ZlecenieDetailScreen() {
               <Text style={[S.fieldPackageBtnSecondaryText, { color: theme.textSub }]}>Zapisz draft</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[S.fieldPackageBtnPrimary, { backgroundColor: fieldPackageReadyForOffice ? theme.success : theme.accent, opacity: fieldPackageSaving ? 0.65 : 1 }]}
+              style={[S.fieldPackageBtnPrimary, { backgroundColor: fieldPackageReadyForOffice ? theme.success : theme.warning, opacity: fieldPackageSaving ? 0.65 : 1 }]}
               disabled={fieldPackageSaving}
               onPress={() => void saveFieldPackage(true)}
             >
-              <Text style={S.fieldPackageBtnPrimaryText}>{fieldPackageSaving ? 'Zapisuję...' : 'Klient akceptuje - do biura'}</Text>
+              <Ionicons name={fieldPackageReadyForOffice ? 'send-outline' : 'alert-circle-outline'} size={15} color={theme.accentText} />
+              <Text style={S.fieldPackageBtnPrimaryText}>
+                {fieldPackageSaving
+                  ? 'Wysyłam...'
+                  : fieldPackageReadyForOffice
+                    ? 'Wyślij pakiet do biura'
+                    : 'Uzupełnij pakiet do biura'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -3084,15 +5219,195 @@ export default function ZlecenieDetailScreen() {
                 Zakres, zdjęcia, szkic i BHP muszą być jasne zanim brygada zacznie pracę.
               </Text>
             </View>
-            <View style={[S.crewBriefScore, { backgroundColor: theme.cardBg, borderColor: scopeConfirmed ? theme.success : theme.border }]}>
-              <Text style={[S.crewBriefScoreValue, { color: scopeConfirmed ? theme.success : theme.accent }]}>{crewBriefReadyCount}/{crewBriefChecks.length}</Text>
-              <Text style={[S.crewBriefScoreLabel, { color: theme.textMuted }]}>punkty</Text>
+            <View style={[S.crewBriefScore, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
+              <Text style={[S.crewBriefScoreValue, { color: crewExecutionReady ? theme.success : theme.warning }]}>{crewPackageScore}%</Text>
+              <Text style={[S.crewBriefScoreLabel, { color: theme.textMuted }]}>pakiet</Text>
             </View>
           </View>
 
+          <View style={[S.crewCalendarCard, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
+            <View style={S.crewCalendarHead}>
+              <View style={[S.crewCalendarDateBox, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}>
+                <Text style={[S.crewCalendarMonth, { color: theme.accent }]}>
+                  {crewExecutionDate ? crewExecutionDate.slice(5, 7) : '--'}
+                </Text>
+                <Text style={[S.crewCalendarDay, { color: theme.text }]}>
+                  {crewExecutionDate ? crewExecutionDate.slice(8, 10) : '--'}
+                </Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[S.crewCalendarEyebrow, { color: theme.textMuted }]}>Karta pracy z harmonogramu</Text>
+                <Text style={[S.crewCalendarTitle, { color: theme.text }]} numberOfLines={2}>
+                  {crewCalendarTitle}
+                </Text>
+                <Text style={[S.crewCalendarSub, { color: theme.textSub }]} numberOfLines={2}>
+                  {crewCalendarTimeLabel} · {zlecenie.ekipa_nazwa || 'Ekipa do potwierdzenia'} · {zlecenie.klient_nazwa || 'Klient'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={S.crewCalendarFacts}>
+              <View style={[S.crewCalendarFact, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+                <Text style={[S.crewCalendarFactLabel, { color: theme.textMuted }]}>Kontakt</Text>
+                <Text style={[S.crewCalendarFactValue, { color: theme.text }]} numberOfLines={1}>
+                  {crewExecutionPhone || 'brak telefonu'}
+                </Text>
+              </View>
+              <View style={[S.crewCalendarFact, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+                <Text style={[S.crewCalendarFactLabel, { color: theme.textMuted }]}>Dowody</Text>
+                <Text style={[S.crewCalendarFactValue, { color: theme.text }]} numberOfLines={1}>
+                  {briefingPhotos.length} foto / {taskEquipmentList.length || 0} sprzet
+                </Text>
+              </View>
+            </View>
+
+            <View style={S.crewCalendarActions}>
+              <TouchableOpacity
+                style={[S.crewCalendarAction, { backgroundColor: theme.surface2, borderColor: crewExecutionAddress ? theme.info : theme.border, opacity: crewExecutionAddress ? 1 : 0.55 }]}
+                disabled={!crewExecutionAddress}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  void openAddressInMaps(zlecenie.adres || '', zlecenie.miasto || '');
+                }}
+              >
+                <Ionicons name="map-outline" size={15} color={crewExecutionAddress ? theme.info : theme.textMuted} />
+                <Text style={[S.crewCalendarActionText, { color: crewExecutionAddress ? theme.info : theme.textMuted }]}>Mapa</Text>
+              </TouchableOpacity>
+              {crewExecutionPhone ? (
+                <TouchableOpacity
+                  style={[S.crewCalendarAction, { backgroundColor: theme.surface2, borderColor: theme.success }]}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    openCrewPhone();
+                  }}
+                >
+                  <Ionicons name="call-outline" size={15} color={theme.success} />
+                  <Text style={[S.crewCalendarActionText, { color: theme.success }]}>Telefon</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[S.crewCalendarAction, { backgroundColor: theme.surface2, borderColor: theme.accent }]}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  setActiveTab('zdjecia');
+                }}
+              >
+                <Ionicons name="images-outline" size={15} color={theme.accent} />
+                <Text style={[S.crewCalendarActionText, { color: theme.accent }]}>Zdjecia</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.crewCalendarAction, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  setActiveTab('info');
+                }}
+              >
+                <Ionicons name="list-outline" size={15} color={theme.textSub} />
+                <Text style={[S.crewCalendarActionText, { color: theme.textSub }]}>Zakres</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={[S.crewExecutionCard, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
+            <View style={S.crewExecutionHead}>
+              <View style={[S.crewExecutionIcon, { backgroundColor: crewExecutionReady ? theme.successBg : theme.warningBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
+                <Ionicons name={crewExecutionReady ? 'checkmark-circle' : 'clipboard-outline'} size={18} color={crewExecutionReady ? theme.success : theme.warning} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[S.crewExecutionTitle, { color: theme.text }]}>Karta wykonania</Text>
+                <Text style={[S.crewExecutionSub, { color: theme.textMuted }]}>
+                  Najwazniejsze dane dla brygady przed startem pracy.
+                </Text>
+              </View>
+              <View style={[S.crewExecutionBadge, { borderColor: crewExecutionReady ? theme.success : theme.warning, backgroundColor: crewExecutionReady ? theme.successBg : theme.warningBg }]}>
+                <Text style={[S.crewExecutionBadgeText, { color: crewExecutionReady ? theme.success : theme.warning }]}>
+                  {crewPackageReadyCount}/{crewPackageChecks.length}
+                </Text>
+              </View>
+            </View>
+
+            <View style={S.crewExecutionFacts}>
+              {crewExecutionFacts.map((fact) => (
+                <View
+                  key={fact.key}
+                  style={[
+                    S.crewExecutionFact,
+                    {
+                      backgroundColor: fact.ok ? theme.successBg : theme.warningBg,
+                      borderColor: fact.ok ? theme.success : theme.warning,
+                    },
+                  ]}
+                >
+                  <Ionicons name={fact.ok ? 'checkmark-circle' : fact.icon} size={15} color={fact.ok ? theme.success : theme.warning} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[S.crewExecutionFactLabel, { color: theme.textMuted }]} numberOfLines={1}>{fact.label}</Text>
+                    <Text style={[S.crewExecutionFactValue, { color: theme.text }]} numberOfLines={1}>{fact.value}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <View style={[S.crewExecutionNotice, { backgroundColor: crewExecutionReady ? theme.successBg : theme.warningBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
+              <Ionicons name={crewExecutionReady ? 'shield-checkmark-outline' : 'alert-circle-outline'} size={16} color={crewExecutionReady ? theme.success : theme.warning} />
+              <Text style={[S.crewExecutionNoticeText, { color: crewExecutionReady ? theme.success : theme.warning }]} numberOfLines={2}>
+                {crewExecutionReady
+                  ? 'Pakiet gotowy: brygada ma kontakt, adres, zakres, zdjecia i BHP.'
+                  : `Brakuje: ${crewExecutionMissing.slice(0, 4).join(', ')}`}
+              </Text>
+            </View>
+
+            <View style={S.crewPackageGrid}>
+              {crewPackageChecks.map((check) => (
+                <TouchableOpacity
+                  key={check.key}
+                  style={[
+                    S.crewPackageItem,
+                    {
+                      backgroundColor: check.done ? theme.successBg : check.required ? theme.warningBg : theme.surface2,
+                      borderColor: check.done ? theme.success : check.required ? theme.warning : theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    check.onPress();
+                  }}
+                >
+                  <View style={S.crewPackageItemTop}>
+                    <Ionicons
+                      name={check.done ? 'checkmark-circle' : check.icon}
+                      size={16}
+                      color={check.done ? theme.success : check.required ? theme.warning : theme.textMuted}
+                    />
+                    <Text style={[S.crewPackageItemState, { color: check.done ? theme.success : check.required ? theme.warning : theme.textMuted }]}>
+                      {check.done ? 'OK' : check.required ? 'BRAK' : 'UWAGA'}
+                    </Text>
+                  </View>
+                  <Text style={[S.crewPackageItemTitle, { color: theme.text }]} numberOfLines={1}>{check.label}</Text>
+                  <Text style={[S.crewPackageItemHint, { color: theme.textMuted }]} numberOfLines={2}>{check.hint}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {crewPackageLeadMissing ? (
+              <TouchableOpacity
+                style={[S.crewPackageFixBtn, { backgroundColor: theme.surface2, borderColor: crewPackageLeadMissing.required ? theme.warning : theme.border }]}
+                onPress={() => {
+                  void triggerHaptic('light');
+                  crewPackageLeadMissing.onPress();
+                }}
+              >
+                <Ionicons name={crewPackageLeadMissing.icon} size={16} color={crewPackageLeadMissing.required ? theme.warning : theme.textMuted} />
+                <Text style={[S.crewPackageFixText, { color: theme.text }]}>
+                  {crewPackageLeadMissing.required ? 'Napraw blokade: ' : 'Doprecyzuj: '}
+                  {crewPackageLeadMissing.label}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
           <View style={S.crewBriefQuickActions}>
-            {zlecenie.klient_telefon ? (
-              <TouchableOpacity style={[S.crewBriefActionBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => Linking.openURL(`tel:${zlecenie.klient_telefon}`)}>
+            {crewExecutionPhone ? (
+              <TouchableOpacity style={[S.crewBriefActionBtn, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={openCrewPhone}>
                 <Ionicons name="call-outline" size={15} color={theme.success} />
                 <Text style={[S.crewBriefActionText, { color: theme.success }]}>Telefon</Text>
               </TouchableOpacity>
@@ -3140,8 +5455,10 @@ export default function ZlecenieDetailScreen() {
           </View>
 
           <View style={[S.crewScopeBox, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-            <Text style={[S.crewScopeTitle, { color: theme.text }]}>Zakres z wyceny</Text>
-            {[scopeLine, accessLine, riskLine].filter(Boolean).slice(0, 4).map((line) => (
+            <Text style={[S.crewScopeTitle, { color: theme.text }]}>
+              {officePlanLines.length ? 'Pakiet biura dla ekipy' : 'Zakres z wyceny'}
+            </Text>
+            {[scopeLine, accessLine, riskLine, settlementLine, budgetLine].filter(Boolean).slice(0, 5).map((line) => (
               <Text key={line} style={[S.crewScopeLine, { color: theme.textSub }]} selectable>
                 {line}
               </Text>
@@ -3279,6 +5596,67 @@ export default function ZlecenieDetailScreen() {
             </TouchableOpacity>
           </View>
 
+          <View style={[S.crewGuidePanel, { backgroundColor: theme.surface2, borderColor: crewGuideNext?.blocked ? theme.warning : theme.border }]}>
+            <View style={S.crewGuideTop}>
+              <View style={{ flex: 1 }}>
+                <Text style={[S.crewGuideLabel, { color: theme.textMuted }]}>Tryb prowadzenia</Text>
+                <Text style={[S.crewGuideTitle, { color: theme.text }]} numberOfLines={1}>
+                  {crewGuideNext ? `Teraz: ${crewGuideNext.label}` : 'Praca domknieta'}
+                </Text>
+              </View>
+              <Text style={[S.crewGuideScore, { color: crewGuidePercent === 100 ? theme.success : theme.accent }]}>
+                {crewGuideDoneCount}/{crewGuideSteps.length}
+              </Text>
+            </View>
+            <View style={[S.crewGuideTrack, { backgroundColor: theme.cardBg }]}>
+              <View
+                style={[
+                  S.crewGuideFill,
+                  {
+                    width: `${crewGuidePercent}%`,
+                    backgroundColor: crewGuidePercent === 100 ? theme.success : theme.accent,
+                  },
+                ]}
+              />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.crewGuideSteps}>
+              {crewGuideSteps.map((step, index) => {
+                const isCurrent = crewGuideNext?.key === step.key;
+                const tone = step.done ? theme.success : isCurrent ? theme.accent : step.blocked ? theme.warning : theme.textMuted;
+                return (
+                  <TouchableOpacity
+                    key={step.key}
+                    style={[
+                      S.crewGuideStep,
+                      {
+                        backgroundColor: step.done ? theme.successBg : isCurrent ? theme.accentLight : theme.cardBg,
+                        borderColor: tone,
+                        opacity: step.blocked && !isCurrent ? 0.62 : 1,
+                      },
+                    ]}
+                    disabled={step.done || (step.blocked && !isCurrent)}
+                    onPress={() => {
+                      void triggerHaptic('light');
+                      step.onPress();
+                    }}
+                  >
+                    <View style={[S.crewGuideStepIndex, { backgroundColor: tone + '18', borderColor: tone }]}>
+                      {step.done ? (
+                        <Ionicons name="checkmark" size={12} color={theme.success} />
+                      ) : (
+                        <Text style={[S.crewGuideStepIndexText, { color: tone }]}>{index + 1}</Text>
+                      )}
+                    </View>
+                    <Ionicons name={step.done ? 'checkmark-circle' : step.icon} size={14} color={tone} />
+                    <Text style={[S.crewGuideStepText, { color: tone }]} numberOfLines={1}>
+                      {step.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
           <View style={S.crewCommandProgressGrid}>
             {crewProgressItems.map((item) => (
               <TouchableOpacity
@@ -3395,7 +5773,7 @@ export default function ZlecenieDetailScreen() {
           <Text style={{ color: theme.text, fontWeight: '700', marginBottom: 6 }}>Praca dodatkowa</Text>
           <TextInput
             style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText, marginBottom: 8 }]}
-            placeholder="Opis pracy do wyceny przez wyceniającego..."
+            placeholder="Opis pracy do wyceny przez specjalistę ds. wyceny..."
             placeholderTextColor={theme.inputPlaceholder}
             value={extraOpis}
             onChangeText={setExtraOpis}
@@ -4304,6 +6682,190 @@ export default function ZlecenieDetailScreen() {
       </ScrollView>
 
       {/* ── MODAL: WYBÓR TYPU ZDJĘCIA ── */}
+      <Modal visible={officePlanOpen} animationType="slide" transparent onRequestClose={() => setOfficePlanOpen(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={S.planModalOverlay}>
+            <View style={[S.planModalBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+              <View style={S.planModalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.planModalTitle, { color: theme.text }]}>Plan biura</Text>
+                  <Text style={[S.planModalSub, { color: theme.textMuted }]}>
+                    Zapisuje termin, ekipe i rezerwacje sprzetu bez wychodzenia z karty.
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setOfficePlanOpen(false)} disabled={officePlanSaving}>
+                  <PlatinumIconBadge icon="close" color={theme.textMuted} size={12} style={{ width: 28, height: 28, borderRadius: 9 }} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={S.planModalScroll} contentContainerStyle={S.planModalContent} keyboardShouldPersistTaps="handled">
+                {officePlanError ? (
+                  <View style={[S.planErrorBox, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+                    <Ionicons name="alert-circle-outline" size={15} color={theme.warning} />
+                    <Text style={[S.planErrorText, { color: theme.warning }]}>{officePlanError}</Text>
+                  </View>
+                ) : null}
+
+                <View style={S.planInputGrid}>
+                  <View style={S.planInputCell}>
+                    <Text style={[S.planInputLabel, { color: theme.textSub }]}>Data</Text>
+                    <TextInput
+                      value={officePlanForm.data}
+                      onChangeText={(value) => setOfficePlanForm((current) => ({ ...current, data: value.trim() }))}
+                      placeholder="2026-05-21"
+                      placeholderTextColor={theme.inputPlaceholder}
+                      style={[S.planInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                    />
+                  </View>
+                  <View style={S.planInputCell}>
+                    <Text style={[S.planInputLabel, { color: theme.textSub }]}>Godzina</Text>
+                    <TextInput
+                      value={officePlanForm.godzina}
+                      onChangeText={(value) => setOfficePlanForm((current) => ({ ...current, godzina: value.trim() }))}
+                      placeholder="08:00"
+                      placeholderTextColor={theme.inputPlaceholder}
+                      style={[S.planInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                    />
+                  </View>
+                  <View style={S.planInputCell}>
+                    <Text style={[S.planInputLabel, { color: theme.textSub }]}>Czas</Text>
+                    <TextInput
+                      value={officePlanForm.czas}
+                      onChangeText={(value) => setOfficePlanForm((current) => ({ ...current, czas: value.replace(',', '.') }))}
+                      placeholder="2"
+                      placeholderTextColor={theme.inputPlaceholder}
+                      keyboardType="decimal-pad"
+                      style={[S.planInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                    />
+                  </View>
+                </View>
+
+                <View style={S.planSection}>
+                  <View style={S.planSectionHead}>
+                    <Text style={[S.planInputLabel, { color: theme.textSub }]}>Ekipa</Text>
+                    {officePlanRefsLoading ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+                  </View>
+                  <View style={S.planTeamGrid}>
+                    {officePlanVisibleTeams.map((team) => {
+                      const active = String(team.id) === String(officePlanForm.ekipaId);
+                      const loadText = team.wolne_minuty != null
+                        ? `wolne ${team.wolne_minuty} min`
+                        : team.zajete_minuty != null
+                          ? `zajete ${team.zajete_minuty} min`
+                          : team.delegowany
+                            ? 'delegacja'
+                            : team.oddzial_nazwa || 'ekipa';
+                      return (
+                        <TouchableOpacity
+                          key={String(team.id)}
+                          style={[
+                            S.planTeamChip,
+                            { backgroundColor: active ? theme.accentLight : theme.surface2, borderColor: active ? theme.accent : theme.border },
+                          ]}
+                          onPress={() => {
+                            setOfficePlanForm((current) => ({ ...current, ekipaId: String(team.id) }));
+                            void triggerHaptic('light');
+                          }}
+                        >
+                          <Ionicons name={active ? 'checkmark-circle' : 'people-outline'} size={15} color={active ? theme.accent : theme.textMuted} />
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={[S.planTeamName, { color: active ? theme.accent : theme.text }]} numberOfLines={1}>{team.nazwa}</Text>
+                            <Text style={[S.planTeamMeta, { color: theme.textMuted }]} numberOfLines={1}>{loadText}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {!officePlanRefsLoading && officePlanVisibleTeams.length === 0 ? (
+                      <View style={[S.planEmptyBox, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+                        <Text style={[S.planEmptyText, { color: theme.warning }]}>Brak ekip dla tego oddzialu. Dodaj delegacje albo sprawdz konfiguracje ekip.</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+
+                <View style={S.planSection}>
+                  <View style={S.planSectionHead}>
+                    <Text style={[S.planInputLabel, { color: theme.textSub }]}>
+                      Sprzet ({officePlanForm.sprzetIds.length})
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOfficePlanForm((current) => ({ ...current, sprzetIds: [] }));
+                        void triggerHaptic('light');
+                      }}
+                    >
+                      <Text style={[S.planClearText, { color: theme.textMuted }]}>wyczysc</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={S.planEquipmentGrid}>
+                    {officePlanVisibleEquipment.slice(0, 28).map((item) => {
+                      const active = officePlanForm.sprzetIds.includes(String(item.id));
+                      return (
+                        <TouchableOpacity
+                          key={String(item.id)}
+                          style={[
+                            S.planEquipmentChip,
+                            { backgroundColor: active ? theme.infoBg : theme.surface2, borderColor: active ? theme.info : theme.border },
+                          ]}
+                          onPress={() => toggleOfficePlanEquipment(item.id)}
+                        >
+                          <Ionicons name={active ? 'checkmark-circle' : 'cube-outline'} size={14} color={active ? theme.info : theme.textMuted} />
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={[S.planEquipmentName, { color: active ? theme.info : theme.text }]} numberOfLines={1}>{item.nazwa}</Text>
+                            <Text style={[S.planEquipmentMeta, { color: theme.textMuted }]} numberOfLines={1}>
+                              {[item.typ, item.status].filter(Boolean).join(' · ') || 'sprzet'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {!officePlanRefsLoading && officePlanVisibleEquipment.length === 0 ? (
+                      <View style={[S.planEmptyBox, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+                        <Text style={[S.planEmptyText, { color: theme.textMuted }]}>Brak sprzetu do wyboru. Mozesz zapisac sam termin i ekipe.</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+
+                <View style={S.planSection}>
+                  <Text style={[S.planInputLabel, { color: theme.textSub }]}>Uwagi dla magazynu / brygady</Text>
+                  <TextInput
+                    value={officePlanForm.note}
+                    onChangeText={(value) => setOfficePlanForm((current) => ({ ...current, note: value }))}
+                    placeholder="Np. rebak, zwyzka, ograniczony wjazd, odpady do wywozu..."
+                    placeholderTextColor={theme.inputPlaceholder}
+                    multiline
+                    style={[S.planInput, S.planNoteInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                  />
+                </View>
+              </ScrollView>
+
+              <View style={S.planModalActions}>
+                <TouchableOpacity
+                  style={[S.planCancelBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+                  onPress={() => setOfficePlanOpen(false)}
+                  disabled={officePlanSaving}
+                >
+                  <Text style={[S.planCancelText, { color: theme.textSub }]}>Anuluj</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.planSubmitBtn, { backgroundColor: theme.accent, borderColor: theme.accentDark, opacity: officePlanSaving ? 0.7 : 1 }]}
+                  onPress={() => { void submitOfficePlanFromTask(); }}
+                  disabled={officePlanSaving}
+                >
+                  {officePlanSaving ? (
+                    <ActivityIndicator size="small" color={theme.accentText} />
+                  ) : (
+                    <Ionicons name="checkmark-done-outline" size={16} color={theme.accentText} />
+                  )}
+                  <Text style={[S.planSubmitText, { color: theme.accentText }]}>Zapisz plan</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <Modal visible={zdjecieModal} animationType="slide" transparent>
         <View style={S.overlay}>
           <View style={[S.modalBox, { backgroundColor: theme.surface }]}>
@@ -4731,6 +7293,23 @@ export default function ZlecenieDetailScreen() {
               multiline
               numberOfLines={4}
             />
+            <TouchableOpacity
+              style={[S.problemPhotoBtn, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}
+              onPress={zrobZdjecieProblemu}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color={theme.warning} />
+              ) : (
+                <Ionicons name="camera-outline" size={16} color={theme.warning} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={[S.problemPhotoTitle, { color: theme.warning }]}>Dodaj zdjecie problemu</Text>
+                <Text style={[S.problemPhotoSub, { color: theme.textMuted }]} numberOfLines={1}>
+                  Zapisze foto jako dowod z GPS i tagiem problemu.
+                </Text>
+              </View>
+            </TouchableOpacity>
             <View style={S.modalBtns}>
               <TouchableOpacity
                 style={[S.cancelBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
@@ -5257,6 +7836,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.accentLight,
     padding: 11,
   },
+  taskHeroNextIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: t.accent + '55',
+    backgroundColor: t.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   taskHeroNextLabel: {
     color: t.accentDark,
     fontSize: 10,
@@ -5344,6 +7933,245 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
+  inspectionDispatchCard: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.14,
+      radius: t.shadowRadius * 0.42,
+      offsetY: 2,
+      elevation: t.cardElevation,
+    }),
+  },
+  inspectionDispatchHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  inspectionDispatchIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inspectionDispatchTitle: { fontSize: 15, fontWeight: '900' },
+  inspectionDispatchSub: { fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 2 },
+  inspectionDispatchScore: {
+    minWidth: 60,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  inspectionDispatchScoreValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  inspectionDispatchScoreLabel: { fontSize: 8.5, fontWeight: '900', textTransform: 'uppercase' },
+  inspectionDispatchError: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  inspectionDispatchErrorText: { flex: 1, fontSize: 11.5, lineHeight: 16, fontWeight: '900' },
+  inspectionDispatchChecks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  inspectionDispatchCheck: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minHeight: 56,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  inspectionDispatchCheckLabel: { fontSize: 10.5, fontWeight: '900', textTransform: 'uppercase' },
+  inspectionDispatchCheckValue: { fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  inspectionDispatchInputs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  inspectionDispatchInputBox: { flex: 1, gap: 5 },
+  inspectionDispatchInputBoxWide: { gap: 5 },
+  inspectionDispatchInputLabel: { fontSize: 10.5, fontWeight: '900', textTransform: 'uppercase' },
+  inspectionDispatchInput: {
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  inspectionDispatchEstimatorHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  inspectionDispatchSectionTitle: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+  inspectionDispatchReload: {
+    minHeight: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  inspectionDispatchReloadText: { fontSize: 10.5, fontWeight: '900' },
+  inspectionDispatchEstimatorList: { gap: 8, paddingRight: 4 },
+  inspectionDispatchEstimatorChip: {
+    minWidth: 150,
+    maxWidth: 210,
+    minHeight: 50,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  inspectionDispatchEstimatorName: { fontSize: 12, fontWeight: '900' },
+  inspectionDispatchEstimatorMeta: { fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  inspectionDispatchEmpty: {
+    minWidth: 230,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  inspectionDispatchEmptyText: { fontSize: 11.5, lineHeight: 16, fontWeight: '800' },
+  inspectionDispatchNote: {
+    minHeight: 72,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlignVertical: 'top',
+  },
+  inspectionDispatchPrimary: {
+    minHeight: 44,
+    borderRadius: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  inspectionDispatchPrimaryText: { fontSize: 13, fontWeight: '900' },
+  fieldCockpitCard: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.14,
+      radius: t.shadowRadius * 0.42,
+      offsetY: 2,
+      elevation: t.cardElevation,
+    }),
+  },
+  fieldCockpitHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fieldCockpitIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldCockpitTitle: { fontSize: 15, fontWeight: '900' },
+  fieldCockpitSub: { fontSize: 11.5, lineHeight: 16, fontWeight: '700', marginTop: 2 },
+  fieldCockpitScore: {
+    minWidth: 60,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  fieldCockpitScoreValue: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  fieldCockpitScoreLabel: { fontSize: 8.5, fontWeight: '900', textTransform: 'uppercase' },
+  fieldCockpitGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fieldCockpitStep: {
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 92,
+    minHeight: 76,
+    borderRadius: 13,
+    borderWidth: 1,
+    padding: 9,
+    gap: 5,
+  },
+  fieldCockpitStepIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldCockpitStepLabel: { fontSize: 11.5, fontWeight: '900' },
+  fieldCockpitStepValue: { fontSize: 10.5, fontWeight: '900' },
+  fieldCockpitActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fieldCockpitSecondary: {
+    minHeight: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  fieldCockpitSecondaryText: { fontSize: 12, fontWeight: '900' },
+  fieldCockpitPrimary: {
+    flex: 1,
+    minWidth: 160,
+    minHeight: 42,
+    borderRadius: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  fieldCockpitPrimaryText: { flexShrink: 1, fontSize: 12, fontWeight: '900', textAlign: 'center' },
   workflowCard: {
     marginHorizontal: 14,
     marginTop: 10,
@@ -5420,6 +8248,202 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 8,
   },
   workflowBtnText: { color: t.accentText, fontSize: 12, fontWeight: '800' },
+  officeCommandCard: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+  },
+  officeCommandHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  officeCommandIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  officeCommandTitle: { fontSize: 15, fontWeight: '900' },
+  officeCommandSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  officeCommandScore: {
+    minWidth: 58,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  officeCommandScoreValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  officeCommandScoreLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  officeCommandProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  officeCommandProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  officeCommandGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  officeCommandCheck: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minHeight: 74,
+    borderRadius: 13,
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
+  },
+  officeCommandCheckTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  officeCommandCheckValue: { flex: 1, textAlign: 'right', fontSize: 12, fontWeight: '900' },
+  officeCommandCheckLabel: { fontSize: 12, fontWeight: '900' },
+  officeCommandCheckHint: { fontSize: 10.5, fontWeight: '700' },
+  officeCommandNext: {
+    borderWidth: 1,
+    borderRadius: 13,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  officeCommandNextText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '900' },
+  officeCommandNextBtn: {
+    minHeight: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  officeCommandNextBtnText: { color: t.accentText, fontSize: 11.5, fontWeight: '900' },
+  officeCommandActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  officeCommandActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  officeCommandActionText: { fontSize: 12, fontWeight: '900' },
+  operationalPlanCard: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+  },
+  operationalPlanHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  operationalPlanIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operationalPlanTitle: { fontSize: 15, fontWeight: '900' },
+  operationalPlanSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  operationalPlanScore: {
+    minWidth: 58,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  operationalPlanScoreValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  operationalPlanScoreLabel: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
+  operationalPlanGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  operationalPlanTile: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 88,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    gap: 3,
+  },
+  operationalPlanTileLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  operationalPlanTileValue: { fontSize: 12, fontWeight: '900' },
+  operationalEquipmentBox: {
+    borderRadius: 13,
+    borderWidth: 1,
+    padding: 10,
+    gap: 5,
+  },
+  operationalEquipmentHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 2,
+  },
+  operationalEquipmentTitle: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+  operationalEquipmentName: { fontSize: 11.5, fontWeight: '800' },
+  operationalEquipmentMore: { fontSize: 11, fontWeight: '800' },
+  operationalPlanWarning: {
+    borderRadius: 13,
+    borderWidth: 1,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  operationalPlanWarningText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '900' },
+  operationalPlanActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  operationalPlanAction: {
+    minHeight: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  operationalPlanActionText: { fontSize: 12, fontWeight: '900' },
   officeHandoffCard: {
     marginHorizontal: 14,
     marginBottom: 10,
@@ -5487,6 +8511,58 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldPackageTitle: { fontSize: 15, fontWeight: '900' },
   fieldPackageSub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  fieldPackageFlow: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 11,
+    gap: 10,
+  },
+  fieldPackageFlowHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  fieldPackageFlowTitle: { fontSize: 13.5, fontWeight: '900' },
+  fieldPackageFlowSub: { fontSize: 11.5, lineHeight: 16, marginTop: 2, fontWeight: '700' },
+  fieldPackageFlowScore: {
+    minWidth: 58,
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  fieldPackageFlowScoreValue: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  fieldPackageFlowScoreLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  fieldPackageFlowGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  fieldPackageFlowCard: {
+    width: '48.5%',
+    minHeight: 62,
+    borderWidth: 1,
+    borderRadius: 13,
+    padding: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  fieldPackageFlowIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldPackageFlowCardTitle: { fontSize: 11.5, fontWeight: '900' },
+  fieldPackageFlowCardHint: { fontSize: 10, marginTop: 1, fontWeight: '700' },
+  fieldPackageFlowCardValue: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  fieldPackageFlowNext: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  fieldPackageFlowNextText: { flex: 1, fontSize: 12, fontWeight: '900' },
   fieldPackageChecks: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -5505,6 +8581,50 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldPackageCheckLabel: { fontSize: 11.5, fontWeight: '900' },
   fieldPackageCheckHint: { fontSize: 10.5, marginTop: 2, fontWeight: '700' },
+  fieldPackageReadiness: {
+    borderWidth: 1,
+    borderRadius: 13,
+    padding: 10,
+    gap: 8,
+  },
+  fieldPackageReadinessHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  fieldPackageReadinessTitle: { fontSize: 13, fontWeight: '900' },
+  fieldPackageReadinessSub: { fontSize: 11.5, lineHeight: 16, marginTop: 2, fontWeight: '700' },
+  fieldPackageProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  fieldPackageProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  fieldPackageMissingRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  fieldPackageMissingPill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  fieldPackageMissingText: { fontSize: 10.5, fontWeight: '900' },
+  fieldPackageNextBtn: {
+    minHeight: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  fieldPackageNextText: { flex: 1, fontSize: 11.5, fontWeight: '900' },
   fieldPackageLabel: { fontSize: 12, fontWeight: '900', marginTop: 2 },
   fieldPackageChipRow: {
     flexDirection: 'row',
@@ -5545,6 +8665,20 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldPackageAcceptTitle: { fontSize: 13, fontWeight: '900' },
   fieldPackageAcceptSub: { fontSize: 11, lineHeight: 15, marginTop: 2 },
+  fieldPackagePreview: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    gap: 5,
+  },
+  fieldPackagePreviewHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  fieldPackagePreviewTitle: { fontSize: 12.5, fontWeight: '900' },
+  fieldPackagePreviewLine: { fontSize: 11.5, lineHeight: 16, fontWeight: '700' },
   fieldPackageActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   fieldPackageBtnSecondary: {
     flexGrow: 1,
@@ -5562,6 +8696,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
     paddingHorizontal: 12,
   },
   fieldPackageBtnPrimaryText: { color: t.accentText, fontSize: 12, fontWeight: '900' },
@@ -5602,6 +8738,64 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   crewBriefScoreLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  crewCalendarCard: {
+    borderWidth: 1,
+    borderRadius: 15,
+    padding: 11,
+    gap: 10,
+  },
+  crewCalendarHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  crewCalendarDateBox: {
+    width: 52,
+    minHeight: 58,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+  },
+  crewCalendarMonth: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  crewCalendarDay: { fontSize: 21, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  crewCalendarEyebrow: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  crewCalendarTitle: { fontSize: 15, fontWeight: '900', lineHeight: 19, marginTop: 2 },
+  crewCalendarSub: { fontSize: 11.5, lineHeight: 16, marginTop: 3, fontWeight: '700' },
+  crewCalendarFacts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  crewCalendarFact: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  crewCalendarFactLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  crewCalendarFactValue: { fontSize: 12, fontWeight: '900', marginTop: 2 },
+  crewCalendarActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  crewCalendarAction: {
+    flexGrow: 1,
+    minHeight: 40,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  crewCalendarActionText: { fontSize: 12, fontWeight: '900' },
   crewBriefQuickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   crewBriefActionBtn: {
     flexDirection: 'row',
@@ -5613,6 +8807,108 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 8,
   },
   crewBriefActionText: { fontSize: 12, fontWeight: '900' },
+  crewExecutionCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 11,
+    gap: 10,
+  },
+  crewExecutionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  crewExecutionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crewExecutionTitle: { fontSize: 13, fontWeight: '900' },
+  crewExecutionSub: { fontSize: 11, lineHeight: 15, marginTop: 1 },
+  crewExecutionBadge: {
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  crewExecutionBadgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  crewExecutionFacts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  crewExecutionFact: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 128,
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  crewExecutionFactLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  crewExecutionFactValue: { fontSize: 11.5, fontWeight: '900', marginTop: 1 },
+  crewExecutionNotice: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  crewExecutionNoticeText: { flex: 1, fontSize: 11.5, lineHeight: 16, fontWeight: '900' },
+  crewPackageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  crewPackageItem: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 132,
+    minHeight: 86,
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 4,
+  },
+  crewPackageItemTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  crewPackageItemState: {
+    fontSize: 9,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  crewPackageItemTitle: { fontSize: 12, fontWeight: '900' },
+  crewPackageItemHint: { fontSize: 10.5, lineHeight: 14, fontWeight: '700' },
+  crewPackageFixBtn: {
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  crewPackageFixText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '900' },
   crewProofGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -5715,6 +9011,84 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 10,
   },
   scopeConfirmText: { fontSize: 13, fontWeight: '900' },
+  fieldSignalCard: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 11,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.1,
+      radius: t.shadowRadius * 0.32,
+      offsetY: 1,
+      elevation: Math.max(1, t.cardElevation - 1),
+    }),
+  },
+  fieldSignalHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fieldSignalIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldSignalTitle: { fontSize: 15, fontWeight: '900' },
+  fieldSignalSub: { fontSize: 11.5, lineHeight: 16, marginTop: 2 },
+  fieldSignalBadge: {
+    maxWidth: 118,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  fieldSignalBadgeText: { fontSize: 10.5, fontWeight: '900', textTransform: 'uppercase' },
+  fieldSignalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fieldSignalTile: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minHeight: 64,
+    borderWidth: 1,
+    borderRadius: 13,
+    padding: 10,
+    gap: 5,
+  },
+  fieldSignalTileTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  fieldSignalTileLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  fieldSignalTileValue: { fontSize: 13, fontWeight: '900' },
+  fieldSignalActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fieldSignalAction: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minHeight: 42,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  fieldSignalActionText: { fontSize: 12, fontWeight: '900' },
   crewCommandCard: {
     marginHorizontal: 14,
     marginBottom: 10,
@@ -5744,6 +9118,54 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   crewCommandTitle: { fontSize: 15, fontWeight: '900' },
   crewCommandSub: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  crewGuidePanel: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 10,
+    gap: 9,
+  },
+  crewGuideTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  crewGuideLabel: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  crewGuideTitle: { fontSize: 13, fontWeight: '900', marginTop: 1 },
+  crewGuideScore: { fontSize: 14, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  crewGuideTrack: {
+    height: 7,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  crewGuideFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  crewGuideSteps: {
+    gap: 7,
+    paddingRight: 2,
+  },
+  crewGuideStep: {
+    minWidth: 84,
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  crewGuideStepIndex: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crewGuideStepIndexText: { fontSize: 10, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  crewGuideStepText: { flexShrink: 1, fontSize: 10.5, fontWeight: '900' },
   crewPrimaryBtn: {
     minHeight: 42,
     borderRadius: 12,
@@ -6019,6 +9441,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   problemBadgeTxt: { fontSize: 11, fontWeight: '600' },
   problemOpis: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
   problemMeta: { fontSize: 11 },
+  problemPhotoBtn: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  problemPhotoTitle: { fontSize: 12.5, fontWeight: '900' },
+  problemPhotoSub: { fontSize: 10.5, lineHeight: 14, marginTop: 1 },
 
   // Zdjęcia
   grupaTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, marginTop: 4 },
@@ -6527,6 +9962,145 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   finishSwitchHint: { fontSize: 11, lineHeight: 15, marginTop: 2 },
   gpsInfo: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, padding: 10, marginBottom: 10 },
   gpsTxt: { fontSize: 12 },
+  planModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5,8,15,0.88)',
+    justifyContent: 'flex-end',
+  },
+  planModalBox: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    padding: 18,
+    paddingBottom: 28,
+    maxHeight: '92%',
+  },
+  planModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  planModalTitle: { fontSize: 18, fontWeight: '900' },
+  planModalSub: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+  planModalScroll: { maxHeight: 560 },
+  planModalContent: { gap: 12, paddingBottom: 8 },
+  planErrorBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planErrorText: { flex: 1, fontSize: 12, lineHeight: 16, fontWeight: '900' },
+  planInputGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  planInputCell: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 92,
+    gap: 5,
+  },
+  planInputLabel: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  planInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    minHeight: 42,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  planSection: {
+    gap: 8,
+  },
+  planSectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  planTeamGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  planTeamChip: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 132,
+    minHeight: 52,
+    borderRadius: 13,
+    borderWidth: 1,
+    padding: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planTeamName: { fontSize: 12.5, fontWeight: '900' },
+  planTeamMeta: { fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  planEmptyBox: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+  },
+  planEmptyText: { fontSize: 12, lineHeight: 16, fontWeight: '800' },
+  planClearText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  planEquipmentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  planEquipmentChip: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 132,
+    minHeight: 52,
+    borderRadius: 13,
+    borderWidth: 1,
+    padding: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planEquipmentName: { fontSize: 12, fontWeight: '900' },
+  planEquipmentMeta: { fontSize: 10.5, fontWeight: '800', marginTop: 1 },
+  planNoteInput: {
+    minHeight: 82,
+    textAlignVertical: 'top',
+  },
+  planModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 12,
+  },
+  planCancelBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  planCancelText: { fontSize: 13, fontWeight: '900' },
+  planSubmitBtn: {
+    flex: 1.4,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+  },
+  planSubmitText: { fontSize: 13, fontWeight: '900' },
 
   // Empty
   empty: { alignItems: 'center', paddingTop: 48, gap: 10 },

@@ -27,6 +27,9 @@ import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
+import { buildNewOrderRoute } from '../utils/new-order-route';
+import { getRoleDisplayName } from '../utils/role-display';
+import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { TASK_STATUS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
 // ─── Typy ikon Ionicons ────────────────────────────────────────────────────────
@@ -75,6 +78,8 @@ const ARBOR_UI = {
   text: '#102116',
   muted: '#647567',
   warning: '#B45309',
+  danger: '#DC2626',
+  dangerSoft: '#FEE2E2',
 };
 
 interface QuickAction {
@@ -95,40 +100,49 @@ interface WorkflowStep {
 }
 
 type QuickCategoryId =
-  | 'operations'
-  | 'quotes'
-  | 'fleetMagazyn'
-  | 'reports'
-  | 'finance'
-  | 'administration'
-  | 'account';
+  | 'start'
+  | 'sales'
+  | 'planning'
+  | 'execution'
+  | 'company'
+  | 'reports';
 type QuickFilterKey = 'focus' | 'all' | QuickCategoryId;
 
 const QUICK_CATEGORY_ORDER: QuickCategoryId[] = [
-  'operations',
-  'quotes',
-  'fleetMagazyn',
+  'start',
+  'sales',
+  'planning',
+  'execution',
+  'company',
   'reports',
-  'finance',
-  'administration',
-  'account',
 ];
 
-function quickCategoryForAction(path: string, label: string): QuickCategoryId {
-  if (path === '/profil' || path === '/powiadomienia' || path === '/api-diagnostyka') return 'account';
-  if (['/uzytkownicy-mobile', '/oddzialy-mobile', '/oddzial-funkcje-admin', '/crm-mobile', '/crm-pipeline-mobile', '/klienci-mobile', '/telefonia-mobile'].includes(path)) return 'administration';
-  if (path === '/wyceniajacy-finanse' || (path === '/rozliczenia' && label.includes('godzin'))) return 'finance';
-  if (path === '/rozliczenia') return 'finance';
-  if (['/raporty-mobilne', '/kpi-tydzien', '/raport-dzienny'].includes(path)) return 'reports';
-  if (['/flota-mobile', '/rezerwacje-sprzetu', '/magazyn-mobile'].includes(path)) return 'fleetMagazyn';
-  if (['/wycena-kalendarz', '/wyceny-terenowe', '/wyceny-do-biura', '/zatwierdz-wyceny', '/ogledziny', '/plan-ogledzin', '/wyceniajacy-hub'].includes(path)) return 'quotes';
-  return 'operations';
+function quickCategoryForAction(path: string, _label: string): QuickCategoryId {
+  if (['/task-command-center', '/profil', '/powiadomienia', '/api-diagnostyka'].includes(path)) return 'start';
+  if ([
+    '/crm-mobile',
+    '/crm-pipeline-mobile',
+    '/klienci-mobile',
+    '/telefonia-mobile',
+    '/wyceniajacy-hub',
+    '/wycena-kalendarz',
+    '/wyceny-terenowe',
+    '/wyceny-do-biura',
+    '/zatwierdz-wyceny',
+    '/ogledziny',
+    '/plan-ogledzin',
+  ].includes(path)) return 'sales';
+  if (['/nowe-zlecenie', '/zlecenia', '/harmonogram', '/autoplan-dnia', '/blokady-kalendarza'].includes(path)) return 'planning';
+  if (['/misja-dnia', '/raport-dzienny', '/potwierdzenia-ekip', '/flota-mobile', '/rezerwacje-sprzetu', '/magazyn-mobile'].includes(path)) return 'execution';
+  if (['/uzytkownicy-mobile', '/oddzialy-mobile', '/oddzial-funkcje-admin', '/rozliczenia', '/wyceniajacy-finanse'].includes(path)) return 'company';
+  if (['/raporty-mobilne', '/kpi-tydzien'].includes(path)) return 'reports';
+  return 'planning';
 }
 
 function dashboardFocusHint(path: string) {
   const hints: Record<string, string> = {
     '/nowe-zlecenie': 'Szybkie przyjecie zlecenia, zdjecia i formularz terenowy.',
-    '/plan-ogledzin': 'Lista wizyt wyceniajacego na dzisiaj.',
+    '/plan-ogledzin': 'Lista wizyt specjalisty ds. wyceny na dzisiaj.',
     '/wyceny-terenowe': 'Wyceny u klienta, zdjecia i szkic.',
     '/wyceny-do-biura': 'Pakiety z terenu do domkniecia przez biuro.',
     '/harmonogram': 'Plan ekip, terminy i kolejnosc prac.',
@@ -139,6 +153,55 @@ function dashboardFocusHint(path: string) {
     '/rezerwacje-sprzetu': 'Dostepnosc sprzetu pod prace.',
   };
   return hints[path] || 'Otworz modul i kontynuuj prace.';
+}
+
+function dashboardRoleText(role: unknown) {
+  return String(role || '').toLowerCase();
+}
+
+function isEstimatorRoleValue(role: unknown) {
+  return dashboardRoleText(role).includes('wyceniaj');
+}
+
+function filterDashboardOrdersForUser(tasks: any[], user: any) {
+  if (!isEstimatorRoleValue(user?.rola)) return tasks;
+  return tasks.filter((task) => String(task?.wyceniajacy_id || '') === String(user?.id || ''));
+}
+
+function dashboardNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function dashboardOpenProblemCount(task: any) {
+  const direct = dashboardNumber(
+    task?.problem_open ??
+    task?.issues_open ??
+    task?.unresolved_issues_count ??
+    task?.open_problems_count ??
+    task?.problemy_otwarte,
+  );
+  if (direct > 0) return direct;
+  const rows = Array.isArray(task?.problemy)
+    ? task.problemy
+    : Array.isArray(task?.issues)
+      ? task.issues
+      : [];
+  return rows.filter((row: any) => {
+    const status = String(row?.status || row?.state || '').toLowerCase();
+    return !status || (!status.includes('rozw') && !status.includes('closed') && !status.includes('done'));
+  }).length;
+}
+
+function dashboardTaskNeedsSignal(task: any) {
+  if (isTaskClosed(task?.status)) return false;
+  const status = normalizeTaskStatus(task?.status);
+  const field = getTaskFieldExecutionSummary(task);
+  const crewStage = status === TASK_STATUS.ZAPLANOWANE || status === TASK_STATUS.W_REALIZACJI;
+  const fieldStage = status === TASK_STATUS.WYCENA_TERENOWA || status === TASK_STATUS.DO_ZATWIERDZENIA;
+  const missingCheckin = field.key === 'missing';
+  const missingPhotos = field.relevant && field.missingPhotoLabels.length > 0 && (crewStage || fieldStage);
+  return missingCheckin || missingPhotos || dashboardOpenProblemCount(task) > 0;
 }
 
 export default function DashboardScreen() {
@@ -163,17 +226,17 @@ export default function DashboardScreen() {
       setUser(u);
       const h = { Authorization: `Bearer ${token}` };
 
-      // Wyceniający nie ma dostępu do zleceń — skip fetching
-      if (u.rola === 'Wyceniający') { setLoadError(null); return; }
-
       const endpoint = (u.rola === 'Brygadzista' || u.rola === 'Pomocnik')
         ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
+      const shouldLoadStats = !isEstimatorRoleValue(u.rola);
 
       const [zRes, sRes] = await Promise.all([
         fetchJsonWithStatus(endpoint, h),
-        fetchJsonWithStatus(`${API_URL}/tasks/stats`, h),
+        shouldLoadStats
+          ? fetchJsonWithStatus(`${API_URL}/tasks/stats`, h)
+          : Promise.resolve({ ok: true, status: 200, data: stats }),
       ]);
-      const nextOrders = zRes.ok ? readArrayPayload(zRes.data) : zlecenia;
+      const nextOrders = zRes.ok ? filterDashboardOrdersForUser(readArrayPayload(zRes.data), u) : zlecenia;
       const nextStats = sRes.ok && sRes.data && typeof sRes.data === 'object' ? sRes.data : stats;
       // Najpierw twarde błędy HTTP — wcześniej szły bezgłośnie.
       if (!zRes.ok && !sRes.ok) {
@@ -248,10 +311,11 @@ export default function DashboardScreen() {
       ...(meta ? { meta } : {}),
     });
     setRecentContexts(next);
-    router.push(path as any);
+    router.push((path === '/nowe-zlecenie' ? buildNewOrderRoute({ source: 'dashboard' }) : path) as any);
   };
 
   const rola = user?.rola || '';
+  const rolaLabel = getRoleDisplayName(rola, 'Operator');
   const isDyrektor   = rola === 'Dyrektor' || rola === 'Administrator';
   const isKierownik  = rola === 'Kierownik';
   const isBrygadzista= rola === 'Brygadzista';
@@ -260,11 +324,13 @@ export default function DashboardScreen() {
   const isPomocnik   = rola === 'Pomocnik';
   const isPomBez     = rola === 'Pomocnik bez doświadczenia';
   const isMagazynier = rola === 'Magazynier';
+  const isCrew = isBrygadzista || isPomocnik || isPomBez;
+  const dashboardOrders = useMemo(() => filterDashboardOrdersForUser(zlecenia, user), [zlecenia, user]);
 
   const delayedCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return zlecenia.filter((z) => {
+    return dashboardOrders.filter((z) => {
       if (!z.data_planowana) return false;
       const raw = typeof z.data_planowana === 'string' ? z.data_planowana.split('T')[0] : '';
       const d = new Date(raw);
@@ -274,14 +340,16 @@ export default function DashboardScreen() {
       const st = z.status || '';
       return !isTaskClosed(st);
     }).length;
-  }, [zlecenia]);
+  }, [dashboardOrders]);
+  const signalCount = useMemo(() => dashboardOrders.filter(dashboardTaskNeedsSignal).length, [dashboardOrders]);
+  const riskCount = Math.max(delayedCount, signalCount);
   const activeCount = Number(stats.w_realizacji || 0) + Number(stats.zaplanowane || 0);
-  const totalCount = zlecenia.length || Number(stats.nowe || 0) + Number(stats.w_realizacji || 0) + Number(stats.zakonczone || 0);
-  const taskStatusCounts = useMemo(() => zlecenia.reduce<Record<string, number>>((acc, task) => {
+  const totalCount = dashboardOrders.length || Number(stats.nowe || 0) + Number(stats.w_realizacji || 0) + Number(stats.zakonczone || 0);
+  const taskStatusCounts = useMemo(() => dashboardOrders.reduce<Record<string, number>>((acc, task) => {
     const status = normalizeTaskStatus(task?.status);
     if (status) acc[status] = (acc[status] || 0) + 1;
     return acc;
-  }, {}), [zlecenia]);
+  }, {}), [dashboardOrders]);
   const statNumber = (keys: string[]) => keys.reduce((best, key) => {
     const value = Number(stats?.[key]);
     return Math.max(best, Number.isFinite(value) ? value : 0);
@@ -304,12 +372,38 @@ export default function DashboardScreen() {
   const workflowActiveStep = workflowSteps.find((step) => step.key !== 'zamkniecie' && step.value > 0) || workflowSteps[0];
   const workflowTotal = workflowSteps.reduce((sum, step) => sum + (step.key === 'ekipa' ? 0 : step.value), 0) + plannedCount + inProgressCount;
   const workflowDoneLabel = `${doneCount}/${Math.max(totalCount, workflowTotal, doneCount)}`;
+  const dashboardSignal = useMemo(() => {
+    const active = zlecenia.filter((task) => !isTaskClosed(task?.status));
+    const rows = active
+      .map((task) => {
+        const field = getTaskFieldExecutionSummary(task);
+        const problems = dashboardOpenProblemCount(task);
+        const needs = dashboardTaskNeedsSignal(task);
+        const priority = problems > 0 ? 0 : field.key === 'missing' ? 1 : field.missingPhotoLabels.length > 0 ? 2 : 3;
+        return { task, field, problems, needs, priority };
+      })
+      .filter((row) => row.needs)
+      .sort((a, b) => a.priority - b.priority);
+    const checkin = rows.filter((row) => row.field.key === 'missing').length;
+    const photos = rows.filter((row) => row.field.missingPhotoLabels.length > 0).length;
+    const problems = rows.reduce((sum, row) => sum + row.problems, 0);
+    const next = rows[0] || null;
+    return {
+      total: rows.length,
+      checkin,
+      photos,
+      problems,
+      next,
+      color: rows.length ? ARBOR_UI.danger : ARBOR_UI.leaf,
+      background: rows.length ? ARBOR_UI.dangerSoft : ARBOR_UI.leafSoft,
+    };
+  }, [zlecenia]);
   const roleBrief = isWyceniajacy
-    ? { title: 'Tryb wyceniajacego', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
+    ? { title: 'Tryb specjalisty ds. wyceny', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
     : isSpecjalista
       ? { title: 'Tryb biura', text: 'Dopnij pakiety z terenu, telefon do klienta i gotowy termin dla ekipy.', action: 'Do opracowania', icon: 'file-tray-full-outline' as IoniconName, path: '/wyceny-do-biura' }
-      : isBrygadzista
-        ? { title: 'Tryb brygady', text: 'Najpierw dzisiejsza trasa, potem dowody i raport po pracy.', action: 'Moje zlecenia', icon: 'navigate-outline' as IoniconName, path: '/zlecenia' }
+      : isCrew
+        ? { title: 'Tryb ekipy', text: 'Najpierw dzisiejsza trasa, potem dowody i raport po pracy.', action: 'Tryb Dzisiaj', icon: 'navigate-outline' as IoniconName, path: '/misja-dnia' }
         : isMagazynier
           ? { title: 'Tryb magazynu', text: 'Sprzet, rezerwacje i wydania pod dzisiejsze ekipy.', action: 'Rezerwacje', icon: 'cube-outline' as IoniconName, path: '/rezerwacje-sprzetu' }
           : { title: 'Tryb dyspozytorni', text: 'Kontroluj przeplyw od telefonu do ekipy i zamkniecia raportu.', action: 'Harmonogram', icon: 'calendar-outline' as IoniconName, path: '/harmonogram' };
@@ -421,8 +515,8 @@ export default function DashboardScreen() {
   })();
   const focusActionPaths = isWyceniajacy
     ? ['/nowe-zlecenie', '/plan-ogledzin', '/wyceny-terenowe', '/wyceniajacy-hub']
-    : isBrygadzista
-      ? ['/zlecenia', '/raport-dzienny', '/rozliczenia', '/ogledziny']
+    : isCrew
+      ? ['/misja-dnia', '/zlecenia', '/raport-dzienny', '/rozliczenia']
       : isMagazynier
         ? ['/rezerwacje-sprzetu', '/magazyn-mobile', '/flota-mobile', '/harmonogram']
         : isSpecjalista
@@ -438,7 +532,7 @@ export default function DashboardScreen() {
     QUICK_CATEGORY_ORDER.forEach((c) => byCat.set(c, []));
     for (const a of quickActionsFiltered) {
       const cat = quickCategoryForAction(a.path, a.label);
-      const bucket = byCat.get(cat) ?? byCat.get('operations')!;
+      const bucket = byCat.get(cat) ?? byCat.get('planning')!;
       bucket.push(a);
     }
     return QUICK_CATEGORY_ORDER.map((key) => ({
@@ -546,7 +640,7 @@ export default function DashboardScreen() {
           <Text style={S.date}>{dzisiajLocalized || dzisiaj}</Text>
           <View style={[S.rolaBadge, { backgroundColor: (rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent) + '33' }]}>
             <Text style={[S.rolaText, { color: rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent }]}>
-              {user?.rola}
+              {rolaLabel}
             </Text>
           </View>
           <Text style={S.oddzialText}>{oddzialConfig.name}</Text>
@@ -616,7 +710,7 @@ export default function DashboardScreen() {
             <View style={S.opsHeroText}>
               <Text style={S.opsEyebrow}>ARBOR-OS MOBILE</Text>
               <Text style={S.opsTitle}>Centrum operacji terenowych</Text>
-              <Text style={S.opsSubtitle}>{oddzialConfig.name} / {user?.rola || 'Operator'}</Text>
+              <Text style={S.opsSubtitle}>{oddzialConfig.name} / {rolaLabel}</Text>
             </View>
           </View>
           <View style={S.opsHeroMetrics}>
@@ -625,9 +719,9 @@ export default function DashboardScreen() {
               <Text style={S.opsMetricLabel}>Aktywne</Text>
             </View>
             <View style={S.opsMetricDivider} />
-            <View style={S.opsMetric}>
-              <Text style={S.opsMetricValue}>{delayedCount}</Text>
-              <Text style={S.opsMetricLabel}>Ryzyka</Text>
+            <View style={[S.opsMetric, riskCount > 0 && { backgroundColor: ARBOR_UI.dangerSoft, borderRadius: 10 }]}>
+              <Text style={[S.opsMetricValue, riskCount > 0 && { color: ARBOR_UI.danger }]}>{riskCount}</Text>
+              <Text style={S.opsMetricLabel}>{signalCount > delayedCount ? 'Sygnały' : 'Ryzyka'}</Text>
             </View>
             <View style={S.opsMetricDivider} />
             <View style={S.opsMetric}>
@@ -636,6 +730,55 @@ export default function DashboardScreen() {
             </View>
           </View>
         </View>
+
+        {(zlecenia.length > 0 || isCrew || isWyceniajacy) ? (
+          <TouchableOpacity
+            style={[
+              S.signalCard,
+              {
+                borderColor: dashboardSignal.color + '55',
+                backgroundColor: dashboardSignal.background,
+              },
+            ]}
+            onPress={() => {
+              void openWithContext(
+                dashboardSignal.total ? '/zlecenia?mode=needsSignal' : '/zlecenia',
+                dashboardSignal.total ? 'Brak sygnalu' : 'Sygnaly terenowe',
+                'dashboard-field-signal',
+              );
+            }}
+          >
+            <View style={[S.signalIcon, { borderColor: dashboardSignal.color + '55', backgroundColor: ARBOR_UI.paper }]}>
+              <Ionicons name={dashboardSignal.total ? 'radio-outline' : 'checkmark-done-outline'} size={20} color={dashboardSignal.color} />
+            </View>
+            <View style={S.signalBody}>
+              <View style={S.signalTop}>
+                <Text style={[S.signalTitle, { color: dashboardSignal.color }]}>
+                  {dashboardSignal.total ? 'Brak sygnalu z terenu' : 'Sygnaly terenowe OK'}
+                </Text>
+                <Text style={[S.signalCount, { color: dashboardSignal.color }]}>{dashboardSignal.total}</Text>
+              </View>
+              <Text style={S.signalSub} numberOfLines={2}>
+                {dashboardSignal.next
+                  ? `${dashboardSignal.next.task?.klient_nazwa || `Zlecenie #${dashboardSignal.next.task?.id}`}: ${dashboardSignal.next.problems > 0 ? `${dashboardSignal.next.problems} problem` : dashboardSignal.next.field.detail}`
+                  : 'Nie ma blokad check-in, zdjec ani otwartych problemow.'}
+              </Text>
+              <View style={S.signalPills}>
+                {[
+                  { key: 'checkin', label: 'Check-in', value: dashboardSignal.checkin },
+                  { key: 'photos', label: 'Foto', value: dashboardSignal.photos },
+                  { key: 'problems', label: 'Problemy', value: dashboardSignal.problems },
+                ].map((item) => (
+                  <View key={item.key} style={[S.signalPill, { borderColor: dashboardSignal.color + '40', backgroundColor: ARBOR_UI.paper }]}>
+                    <Text style={[S.signalPillValue, { color: dashboardSignal.color }]}>{item.value}</Text>
+                    <Text style={S.signalPillLabel}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={dashboardSignal.color} />
+          </TouchableOpacity>
+        ) : null}
 
         <View style={S.workflowCard}>
           <View style={S.workflowHead}>
@@ -757,7 +900,7 @@ export default function DashboardScreen() {
             { label: t('dashboard.stats.new'), value: stats.nowe || 0, color: ARBOR_UI.leaf, icon: 'flash-outline' as IoniconName },
             { label: t('dashboard.stats.progress'), value: stats.w_realizacji || 0, color: ARBOR_UI.warning, icon: 'sync-outline' as IoniconName },
             { label: t('dashboard.stats.done'), value: stats.zakonczone || 0, color: ARBOR_UI.forest, icon: 'checkmark-circle-outline' as IoniconName },
-            { label: t('dashboard.stats.total'), value: zlecenia.length, color: ARBOR_UI.moss, icon: 'list-outline' as IoniconName },
+            { label: t('dashboard.stats.total'), value: dashboardOrders.length, color: ARBOR_UI.moss, icon: 'list-outline' as IoniconName },
           ].map((s, i) => (
             <PlatinumAppear key={i} delayMs={40 * i} style={S.statWrap}>
               <View style={[S.statCard, { borderTopColor: s.color }]}>
@@ -824,7 +967,7 @@ export default function DashboardScreen() {
           <View style={S.quickAccessHead}>
             <View style={{ flex: 1 }}>
               <Text style={S.sectionTitle}>{t('dashboard.quickAccess')}</Text>
-              <Text style={S.quickAccessSub}>Filtruj moduly wedlug pracy, zamiast szukac w calej liscie.</Text>
+              <Text style={S.quickAccessSub}>Moduly sa ulozone wedlug procesu: sprzedaz, planowanie, wykonanie i firma.</Text>
             </View>
             <View style={S.quickAccessCount}>
               <Text style={S.quickAccessCountText}>{visibleQuickSections.reduce((sum, section) => sum + section.actions.length, 0)}</Text>
@@ -883,7 +1026,7 @@ export default function DashboardScreen() {
         {!isWyceniajacy && <PlatinumCard style={[S.section, elevationCard(theme)]} glow>
           <View style={S.sectionHeader}>
             <Text style={S.sectionTitle}>
-              {isPomocnik || isBrygadzista ? t('dashboard.myTasks') : t('dashboard.latestTasks')}
+              {isCrew ? t('dashboard.myTasks') : t('dashboard.latestTasks')}
             </Text>
             <TouchableOpacity onPress={() => { void openWithContext('/zlecenia', t('dashboard.orders'), 'dashboard-latest-orders'); }} style={S.seeAllBtn}>
               <Text style={S.seeAll}>{t('dashboard.seeAll')}</Text>
@@ -891,18 +1034,18 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {zlecenia.length === 0 ? (
+          {dashboardOrders.length === 0 ? (
             <View style={S.empty}>
               <PlatinumIconBadge icon="clipboard-outline" color={theme.textMuted} size={28} style={S.emptyIconBadge} />
               <Text style={S.emptyTitle}>{t('dashboard.emptyOrders')}</Text>
               <Text style={S.emptySub}>
-                {isPomocnik || isBrygadzista
+                {isCrew
                   ? t('dashboard.emptyOrdersSubBrygadzista')
                   : t('dashboard.emptyOrdersSubDefault')}
               </Text>
             </View>
           ) : (
-            zlecenia.slice(0, 5).map((z, i) => (
+            dashboardOrders.slice(0, 5).map((z, i) => (
               <PlatinumAppear key={z.id} delayMs={35 * i}>
                 <PlatinumPressable
                   style={S.card}
@@ -968,8 +1111,10 @@ export default function DashboardScreen() {
           { icon: 'home', path: '/dashboard', labelKey: 'dashboard.nav.start' },
           ...(isWyceniajacy
             ? [{ icon: 'calculator-outline' as IoniconName, path: '/wycena', labelKey: 'dashboard.nav.quotes' }]
+            : isCrew
+              ? [{ icon: 'navigate-circle-outline' as IoniconName, path: '/misja-dnia', labelKey: 'dashboard.todayMode' }]
             : [{ icon: 'clipboard-outline' as IoniconName, path: '/zlecenia', labelKey: 'dashboard.nav.orders' }]),
-          ...(isBrygadzista || isDyrektor || isKierownik
+          ...(isCrew || isDyrektor || isKierownik
             ? [{ icon: 'wallet-outline' as IoniconName, path: '/rozliczenia', labelKey: 'dashboard.nav.finance' }]
             : []),
           { icon: 'notifications-outline', path: '/powiadomienia', labelKey: 'dashboard.nav.alerts' },
@@ -1131,6 +1276,54 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   opsMetricValue: { color: ARBOR_UI.forest, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
   opsMetricLabel: { color: ARBOR_UI.muted, fontSize: 11, fontWeight: '800' },
   opsMetricDivider: { width: 1, backgroundColor: ARBOR_UI.line },
+  signalCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    ...shadowStyle(t, { color: '#14532D', opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+  },
+  signalIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signalBody: { flex: 1, gap: 7 },
+  signalTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  signalTitle: { flex: 1, fontSize: 14, fontWeight: '900' },
+  signalCount: {
+    minWidth: 28,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  signalSub: { color: ARBOR_UI.muted, fontSize: 11.5, lineHeight: 16, fontWeight: '800' },
+  signalPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  signalPill: {
+    minHeight: 26,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  signalPillValue: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  signalPillLabel: { color: ARBOR_UI.muted, fontSize: 10, fontWeight: '900' },
   workflowCard: {
     marginHorizontal: 16,
     marginTop: 12,

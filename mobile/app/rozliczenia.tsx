@@ -22,19 +22,27 @@ function hourStatusLabel(status: string, tr: (key: string) => string) {
   return r === k ? status : r;
 }
 
+const toDateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export default function RozliczeniaScreen() {
   const { theme } = useTheme();
   const { t, language } = useLanguage();
   const numberLocale = language === 'uk' ? 'uk-UA' : language === 'ru' ? 'ru-RU' : 'pl-PL';
   const guard = useOddzialFeatureGuard('/rozliczenia');
   const { task_id } = useLocalSearchParams();
+  const hasTaskContext = Array.isArray(task_id) ? task_id.length > 0 : Boolean(task_id);
   const [user, setUser] = useState<any>(null);
   const [task, setTask] = useState<any>(null);
   const [pomocnicy, setPomocnicy] = useState<any[]>([]);
   const [rozliczenie, setRozliczenie] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'godziny' | 'kalkulator' | 'dzien'>('godziny');
+  const [activeTab, setActiveTab] = useState<'godziny' | 'kalkulator' | 'dzien'>(hasTaskContext ? 'godziny' : 'dzien');
   const [podsumowanieDnia, setPodsumowanieDnia] = useState<any>(null);
   const [msg, setMsg] = useState('');
 
@@ -95,7 +103,7 @@ export default function RozliczeniaScreen() {
 
       // Podsumowanie dnia
       if (u?.id) {
-        const dzisiaj = new Date().toISOString().split('T')[0];
+        const dzisiaj = toDateKey();
         const dRes = await fetch(`${API_URL}/rozliczenia/dzien/${u.id}?data=${dzisiaj}`, { headers: h });
         if (dRes.ok) setPodsumowanieDnia(await dRes.json());
       }
@@ -116,6 +124,10 @@ export default function RozliczeniaScreen() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    if (!hasTaskContext && activeTab !== 'dzien') setActiveTab('dzien');
+  }, [activeTab, hasTaskContext]);
 
   useEffect(() => {
     const unsubscribe = subscribeOfflineFlushDone((d) => {
@@ -139,7 +151,7 @@ export default function RozliczeniaScreen() {
   const zapiszGodziny = async () => {
     if (!task_id) return;
     setSaving(true);
-  const dzisiaj = new Date().toISOString().split('T')[0];
+  const dzisiaj = toDateKey();
     try {
       if (!token) { router.replace('/login'); return; }
       const h = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -264,6 +276,21 @@ export default function RozliczeniaScreen() {
   const fmt = (n: any) => parseFloat(n || 0).toLocaleString(numberLocale, { minimumFractionDigits: 2 });
 
   const S = makeStyles(theme);
+  const tabs = hasTaskContext
+    ? [
+        { key: 'godziny' as const, icon: 'time-outline' as const, label: t('settlements.tab.hours') },
+        { key: 'kalkulator' as const, icon: 'calculator-outline' as const, label: t('settlements.tab.calc') },
+        { key: 'dzien' as const, icon: 'bar-chart-outline' as const, label: t('settlements.tab.day') },
+      ]
+    : [
+        { key: 'dzien' as const, icon: 'bar-chart-outline' as const, label: t('settlements.tab.day') },
+      ];
+  const daySummary = podsumowanieDnia ?? {
+    data: toDateKey(),
+    podsumowanie: { liczba_zlecen: 0, koszt_pomocnikow: 0, wynagrodzenie_brygadzisty: 0 },
+    zlecenia: [],
+    pomocnicy_godziny: [],
+  };
 
   if (guard.ready && !guard.allowed) {
     return <View style={[S.container, { backgroundColor: theme.bg }]} />;
@@ -296,11 +323,7 @@ export default function RozliczeniaScreen() {
 
       {/* Tabs */}
       <View style={[S.tabs, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        {[
-          { key: 'godziny' as const, icon: 'time-outline' as const, label: t('settlements.tab.hours') },
-          { key: 'kalkulator' as const, icon: 'calculator-outline' as const, label: t('settlements.tab.calc') },
-          { key: 'dzien' as const, icon: 'bar-chart-outline' as const, label: t('settlements.tab.day') },
-        ].map((tab) => (
+        {tabs.map((tab) => (
           <TouchableOpacity key={tab.key}
             style={[S.tab, activeTab === tab.key && { borderBottomColor: theme.accent }]}
             onPress={() => setActiveTab(tab.key as any)}>
@@ -523,7 +546,7 @@ export default function RozliczeniaScreen() {
         )}
 
         {/* ===== PODSUMOWANIE DNIA ===== */}
-        {activeTab === 'dzien' && podsumowanieDnia && (
+        {activeTab === 'dzien' && (
           <>
             {mySettlementOverview ? (
               <View style={S.section}>
@@ -570,7 +593,7 @@ export default function RozliczeniaScreen() {
                 ) : null}
                 {mySettlementOverview.estimator_month || mySettlementOverview.estimator_stats ? (
                   <View style={{ marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: theme.surface2 }}>
-                    <Text style={[S.sectionTitle, { fontSize: 13, marginBottom: 6 }]}>Mój miesiąc (wyceniający)</Text>
+                    <Text style={[S.sectionTitle, { fontSize: 13, marginBottom: 6 }]}>Mój miesiąc (specjalista ds. wyceny)</Text>
                     <Text style={{ color: theme.textSub, fontSize: 12 }}>
                       Podstawa: {fmt(mySettlementOverview.estimator_month?.commission_base || 0)} PLN
                       {' · '}
@@ -589,18 +612,18 @@ export default function RozliczeniaScreen() {
             ) : null}
 
             <View style={S.section}>
-              <Text style={S.sectionTitle}>{t('settlements.daySummaryTitle', { date: podsumowanieDnia.data })}</Text>
+              <Text style={S.sectionTitle}>{t('settlements.daySummaryTitle', { date: daySummary.data })}</Text>
 
               <View style={S.kpiRow}>
                 <View style={[S.kpi, { borderTopColor: theme.success }]}>
                   <Text style={[S.kpiNum, { color: theme.success }]}>
-                    {podsumowanieDnia.podsumowanie.liczba_zlecen}
+                    {daySummary.podsumowanie.liczba_zlecen}
                   </Text>
                   <Text style={S.kpiLabel}>{t('settlements.kpiOrders')}</Text>
                 </View>
                 <View style={[S.kpi, { borderTopColor: theme.danger }]}>
                   <Text style={[S.kpiNum, { color: theme.danger }]}>
-                    {fmt(podsumowanieDnia.podsumowanie.koszt_pomocnikow)} PLN
+                    {fmt(daySummary.podsumowanie.koszt_pomocnikow)} PLN
                   </Text>
                   <Text style={S.kpiLabel}>Koszt pomocników</Text>
                 </View>
@@ -609,7 +632,7 @@ export default function RozliczeniaScreen() {
               <View style={S.zarobek}>
                 <Text style={S.zarobeklabel}>{t('settlements.earnedToday')}</Text>
                 <Text style={S.zarobekValue}>
-                  {fmt(podsumowanieDnia.podsumowanie.wynagrodzenie_brygadzisty)} PLN
+                  {fmt(daySummary.podsumowanie.wynagrodzenie_brygadzisty)} PLN
                 </Text>
               </View>
             </View>
@@ -617,9 +640,9 @@ export default function RozliczeniaScreen() {
             {/* Zlecenia dnia */}
             <View style={S.section}>
               <Text style={S.sectionTitle}>{t('settlements.dayOrdersTitle')}</Text>
-              {podsumowanieDnia.zlecenia.length === 0 ? (
+              {daySummary.zlecenia.length === 0 ? (
                 <Text style={S.emptyText}>{t('settlements.emptyToday')}</Text>
-              ) : podsumowanieDnia.zlecenia.map((z: any) => (
+              ) : daySummary.zlecenia.map((z: any) => (
                 <View key={z.id} style={S.zlecenieCard}>
                   <View style={S.zlecenieTop}>
                     <Text style={S.zlecenieKlient}>{z.klient_nazwa}</Text>
@@ -640,10 +663,10 @@ export default function RozliczeniaScreen() {
             </View>
 
             {/* Godziny pomocników dnia */}
-            {podsumowanieDnia.pomocnicy_godziny.length > 0 && (
+            {daySummary.pomocnicy_godziny.length > 0 && (
               <View style={S.section}>
                 <Text style={S.sectionTitle}>{t('settlements.sectionToday')}</Text>
-                {podsumowanieDnia.pomocnicy_godziny.map((p: any) => (
+                {daySummary.pomocnicy_godziny.map((p: any) => (
                   <View key={p.id} style={S.savedRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={S.savedNazwa}>{p.imie} {p.nazwisko}</Text>

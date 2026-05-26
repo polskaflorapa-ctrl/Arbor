@@ -47,12 +47,12 @@ const GROUPS = [
     label: 'Sprzedaż i wyceny',
     emoji: '🌿',
     tiles: [
-      { path: '/wyceniajacy-hub',    label: 'Hub wyceniającego',    emoji: '🧑‍💼', desc: 'Centralny panel wyceniającego', roles: SALES },
+      { path: '/wyceniajacy-hub',    label: 'Centrum specjalisty ds. wyceny',    emoji: '🧑‍💼', desc: 'Centralny panel specjalisty ds. wyceny', roles: SALES },
       { path: '/wycena-kalendarz',   label: 'Kalendarz wycen',      emoji: '🗓️',  desc: 'Planowanie wycen w kalendarzu', roles: SALES },
       { path: '/wyceny-terenowe',    label: 'Wyceny terenowe',      emoji: '🔍', desc: 'Lista wycen M1 u klienta',      roles: SALES },
       { path: '/ogledziny',          label: 'Oględziny',            emoji: '🏡', desc: 'Wizje lokalne nieruchomości',   roles: SALES },
       { path: '/zatwierdz-wyceny',   label: 'Zatwierdź wyceny',     emoji: '✔️', desc: 'Przegląd i zatwierdzanie',     roles: MGMT },
-      { path: '/blokady-kalendarza', label: 'Blokady kalendarza',   emoji: '🚫', desc: 'Dni wolne wyceniających',       roles: SALES },
+      { path: '/blokady-kalendarza', label: 'Blokady kalendarza',   emoji: '🚫', desc: 'Dni wolne specjalistów ds. wyceny',       roles: SALES },
       { path: '/klienci',            label: 'Klienci',              emoji: '👥', desc: 'Baza klientów',                 roles: MGMT },
       { path: '/crm',                label: 'CRM',                  emoji: '💼', desc: 'Pipeline sprzedażowy',          roles: MGMT },
     ],
@@ -74,7 +74,7 @@ const GROUPS = [
     tiles: [
       { path: '/rozliczenia-ekip',            label: 'Rozliczenia ekip',       emoji: '💵', desc: 'Eksport kadrowy M11',            roles: MGMT },
       { path: '/rozliczenia-polowe',          label: 'Rozliczenia polowe',     emoji: '⏱', desc: 'Godziny pomocników, kalkulator',  roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista'] },
-      { path: '/wynagrodzenie-wyceniajacych', label: 'Prowizje wyceniających', emoji: '💹', desc: 'Kalkulacja wynagrodzeń',         roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający'] },
+      { path: '/wynagrodzenie-wyceniajacych', label: 'Prowizje specjalistów ds. wyceny', emoji: '💹', desc: 'Kalkulacja wynagrodzeń',         roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający'] },
       { path: '/ksiegowosc',                 label: 'Księgowość',             emoji: '🧾', desc: 'Faktury i dokumenty finansowe',   roles: MGMT },
     ],
   },

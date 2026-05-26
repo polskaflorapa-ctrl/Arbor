@@ -1,12 +1,45 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware, isDyrektor, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
+const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authMiddleware);
 
 const CRM_STAGES = ['Lead', 'Oględziny', 'Do zatwierdzenia', 'Plan ekipy', 'W realizacji', 'Wygrane', 'Przegrane'];
+
+CRM_STAGES.push('Techniczny');
+const CRM_PIPELINE_ORDER = [...CRM_STAGES, 'Inne'];
+const CRM_CLOSE_REASONS = [
+  'Rezygnacja klienta',
+  'Drogo',
+  'Znaleźli szybszy termin oględzin',
+  'Znaleźli szybszą realizację',
+  'Znaleźli taniej',
+  'Pomyłka',
+  'Praca innego miasta',
+  'Nie odbiera',
+  'Dubl',
+  'Nie pracujemy w tym rejonie',
+  'Nie wykonujemy podobnych prac',
+  'Informacja dla znajomych',
+  'Kontakt w sprawie oferty pracy',
+];
+const CRM_TECHNICAL_CLOSE_REASONS = new Set([
+  'Pomyłka',
+  'Praca innego miasta',
+  'Dubl',
+  'Nie pracujemy w tym rejonie',
+  'Nie wykonujemy podobnych prac',
+  'Informacja dla znajomych',
+  'Kontakt w sprawie oferty pracy',
+]);
+
+function canAccessOddzial(user, oddzialId) {
+  if (isDyrektorOrAdmin(user) || isSalesDirector(user)) return true;
+  if (oddzialId == null) return false;
+  return String(user?.oddzial_id || '') === String(oddzialId);
+}
 
 function toInt(v) {
   if (v === '' || v === undefined || v === null) return null;

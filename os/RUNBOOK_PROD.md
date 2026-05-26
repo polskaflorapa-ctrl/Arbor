@@ -22,8 +22,10 @@ Expected: all checks marked `OK`.
 ## Daily Operations
 - Trigger daily automations:
   - `POST /api/automations/run-daily` with admin bearer token
-  - schedule at 07:00 local time
-- GitHub Actions (repo secrets `PROD_URL`, `ADMIN_TOKEN`): workflow `.github/workflows/daily-automations.yml` (cron UTC + ręcznie *Run workflow*). Lokalnie: `npm run automations:daily -- https://<prod-url> <ADMIN_TOKEN>`.
+  - schedule at 06:30 Europe/Warsaw
+- GitHub Actions (repo secrets `PROD_URL`, `ADMIN_TOKEN`): workflow `.github/workflows/daily-automations.yml` (UTC cron + manual *Run workflow*). Local run: `npm run automations:daily -- https://<prod-url> <ADMIN_TOKEN>`.
+- Workflow uses two UTC cron slots with a Warsaw-time guard, so it stays at 06:30 across DST changes.
+- Optional e-mail copy of the operational digest: set `OPERATIONAL_DIGEST_EMAIL=1` on the backend service.
 - Review dashboard KPI and AI plan in `/app`.
 - Review audit logs in `Audyt` panel.
 

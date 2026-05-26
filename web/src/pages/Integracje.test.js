@@ -2,16 +2,22 @@ import '../i18n';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { vi } from 'vitest';
 import Integracje from './Integracje';
 import api from '../api';
 
-jest.mock('../api', () => ({
+vi.mock('../components/Sidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+vi.mock('../api', () => ({
   __esModule: true,
   default: {
-    get: jest.fn(),
-    post: jest.fn(),
-    patch: jest.fn(),
-    put: jest.fn(),
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    put: vi.fn(),
   },
   API: '/api',
 }));
@@ -94,7 +100,7 @@ beforeEach(() => {
 
 afterEach(() => {
   localStorage.clear();
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('Integracje (integration-style)', () => {

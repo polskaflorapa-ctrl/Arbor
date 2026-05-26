@@ -90,6 +90,21 @@
     "hr": "HR — Кадри"
   },
   "pages": {
+    "crewAtt": {
+      "title": "Підтвердження бригад",
+      "subtitle": "Щоденна готовність бригад перед плануванням робіт.",
+      "hint": "Дані синхронізуються з ARBOR-OS, а при проблемі з мережею залишається локальна копія.",
+      "date": "День",
+      "total": "Бригади",
+      "confirmed": "Готові",
+      "absent": "Відсутні",
+      "present": "Присутня",
+      "note": "Примітки",
+      "notePh": "Необов'язково: причина, авто, відпустка, делегація",
+      "loading": "Завантаження бригад...",
+      "noTeams": "Немає бригад з API",
+      "errorLoad": "Не вдалося завантажити бригади"
+    },
     "warehouse": {
       "title": "Склад",
       "subtitle": "Обладнання облікової системи OS (дані з сервера).",
@@ -728,7 +743,7 @@
     "kommoTitle": "Kommo (зовнішній CRM)",
     "kommoBody": "Воронку, ліди та автоматизацію продажів можна вести в Kommo. ARBOR з'єднується із зовнішнім CRM через інтеграції (вебхуки) — згідно з налаштуванням на сервері.",
     "openKommo": "Відкрити Kommo",
-    "kommoEnvHint": "Щоб показати кнопку Kommo, задайте REACT_APP_KOMMO_APP_URL=https://ваш-піддомен.kommo.com у середовищі фронту.",
+    "kommoEnvHint": "Щоб показати кнопку Kommo, задайте VITE_KOMMO_APP_URL=https://ваш-піддомен.kommo.com у середовищі фронту.",
     "kommoOwnSetupHint": "Підключення власної Kommo (webhook, ID полів, тест): web/docs/kommo-wlasna-instancja.md",
     "releaseChecklistHint": "План продукту (CRM + інше): web/docs/cmr-crm-jesien-checklist.md",
     "dashboard": {

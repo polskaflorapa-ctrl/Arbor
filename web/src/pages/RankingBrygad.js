@@ -9,6 +9,7 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import ModernDataRow from '../components/ModernDataRow';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -19,14 +20,25 @@ const MONTHS = [
 ];
 
 const SALES_DIRECTOR_ROLES = new Set([
+  'Dyrektor Sprzedaży',
   'Dyrektor Sprzedazy',
-  'Dyrektor SprzedaĹĽy',
+  'Dyrektor działu sprzedaży',
   'Dyrektor dzialu sprzedaz',
-  'Dyrektor dziaĹ‚u sprzedaĹĽ',
+  'Dyrektor dzialu sprzedazy',
 ]);
 
+function normalizeRole(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 function canSeeAllBranches(user) {
-  return ['Prezes', 'Dyrektor'].includes(user?.rola) || SALES_DIRECTOR_ROLES.has(user?.rola);
+  const role = normalizeRole(user?.rola);
+  return ['prezes', 'dyrektor', 'administrator'].includes(role) ||
+    SALES_DIRECTOR_ROLES.has(user?.rola) ||
+    (role.includes('dyrektor') && role.includes('sprzed'));
 }
 
 function formatCurrency(value) {
@@ -35,6 +47,31 @@ function formatCurrency(value) {
 
 function formatScore(value) {
   return Number(value || 0).toLocaleString('pl-PL', { maximumFractionDigits: 1 });
+}
+
+function teamScopeLabel(row) {
+  const home = row?.ekipa_oddzial_nazwa || '';
+  const target = row?.oddzial_nazwa || '';
+  if ((row?.delegowane_zadania || 0) > 0 && home && target && home !== target) {
+    return `${home} -> ${target}`;
+  }
+  return target || home || 'Brak oddzialu';
+}
+
+function delegationNote(row) {
+  const count = Number(row?.delegowane_zadania || 0);
+  if (!count) return '';
+  return `${count} zlecen delegowanych`;
+}
+
+function pickActiveWeek(ranking, year, month, now) {
+  const weeks = ranking?.weeks || [];
+  if (!weeks.length) return null;
+  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (Number(year) === now.getFullYear() && Number(month) === now.getMonth() + 1) {
+    return weeks.find((week) => week.start <= current && week.end >= current) || weeks.find((week) => week.winner) || weeks[0];
+  }
+  return [...weeks].reverse().find((week) => week.winner) || weeks[0];
 }
 
 function WinnerCard({ title, subtitle, winner, Icon }) {
@@ -50,6 +87,7 @@ function WinnerCard({ title, subtitle, winner, Icon }) {
             <span>{formatScore(winner.score)} pkt</span>
             <span>{winner.zakonczone}/{winner.zadania} zakonczone</span>
             <span>{formatCurrency(winner.wartosc)}</span>
+            {delegationNote(winner) && <span style={S.delegationText}>{delegationNote(winner)}</span>}
           </div>
         )}
       </div>
@@ -62,33 +100,27 @@ function RankingTable({ rows }) {
     return <div style={S.empty}>Brak zlecen z przypisana ekipa w tym okresie.</div>;
   }
   return (
-    <div style={S.tableWrap}>
-      <table style={S.table}>
-        <thead>
-          <tr>
-            <th style={S.th}>Miejsce</th>
-            <th style={S.th}>Ekipa</th>
-            <th style={S.th}>Oddzial</th>
-            <th style={S.th}>Punkty</th>
-            <th style={S.th}>Zlecenia</th>
-            <th style={S.th}>Skutecznosc</th>
-            <th style={S.th}>Wartosc</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.ekipa_id} style={S.tr}>
-              <td style={S.td}><strong>#{row.miejsce}</strong></td>
-              <td style={S.td}>{row.ekipa_nazwa}</td>
-              <td style={S.tdMuted}>{row.oddzial_nazwa || '-'}</td>
-              <td style={S.td}>{formatScore(row.score)}</td>
-              <td style={S.td}>{row.zakonczone}/{row.zadania}</td>
-              <td style={S.td}>{row.skutecznosc}%</td>
-              <td style={S.td}>{formatCurrency(row.wartosc)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="modern-data-stack">
+      {rows.map((row) => (
+        <ModernDataRow
+          key={row.ekipa_id}
+          idLabel="Ranking"
+          idValue={`#${row.miejsce}`}
+          title={row.ekipa_nazwa}
+          subtitle={teamScopeLabel(row)}
+          tone={row.delegowany ? 'warning' : row.miejsce <= 3 ? 'success' : 'info'}
+          status={row.delegowany ? 'DELEGACJA' : row.miejsce <= 3 ? 'TOP TEAM' : 'TRACKED'}
+          statusValue={row.delegowany ? 'warning' : row.miejsce <= 3 ? 'success' : 'info'}
+          statusState={row.delegowany ? 'warning' : row.miejsce <= 3 ? 'success' : 'info'}
+          metrics={[
+            { label: 'Punkty', value: formatScore(row.score), tone: row.miejsce <= 3 ? 'success' : undefined },
+            { label: 'Zlecenia', value: `${row.zakonczone}/${row.zadania}` },
+            { label: 'Skutecznosc', value: `${row.skutecznosc}%`, tone: Number(row.skutecznosc) >= 80 ? 'success' : 'warning' },
+            { label: 'Wartosc', value: formatCurrency(row.wartosc), tone: 'info' },
+            { label: 'Delegacje', value: row.delegowane_zadania || 0, tone: row.delegowane_zadania ? 'warning' : undefined },
+          ]}
+        />
+      ))}
     </div>
   );
 }
@@ -150,6 +182,8 @@ export default function RankingBrygad() {
 
   const globalView = canSeeAllBranches(currentUser);
   const monthlyRows = ranking?.month?.ranking || [];
+  const activeWeek = useMemo(() => pickActiveWeek(ranking, rok, miesiac, now), [miesiac, now, ranking, rok]);
+  const delegatedTasks = monthlyRows.reduce((sum, row) => sum + Number(row.delegowane_zadania || 0), 0);
   const compact = viewportWidth < 720;
 
   return (
@@ -187,9 +221,25 @@ export default function RankingBrygad() {
         ) : (
           <>
             <section style={{ ...S.winnerGrid, ...(compact ? S.singleColumnGrid : null) }}>
+              <WinnerCard title="Najlepsza ekipa tygodnia" subtitle={activeWeek?.label || ''} winner={activeWeek?.winner} Icon={CalendarMonthOutlined} />
               <WinnerCard title="Najlepsza ekipa miesiaca" subtitle={ranking?.month?.label || ''} winner={ranking?.month?.winner} Icon={EmojiEventsOutlined} />
               <WinnerCard title="Najlepsza ekipa polrocza" subtitle={ranking?.halfYear?.label || ''} winner={ranking?.halfYear?.winner} Icon={TrendingUpOutlined} />
               <WinnerCard title="Najlepsza ekipa roku" subtitle={ranking?.year?.label || ''} winner={ranking?.year?.winner} Icon={GroupsOutlined} />
+            </section>
+
+            <section style={S.summaryBar}>
+              <div>
+                <span style={S.summaryLabel}>Zakres</span>
+                <strong>{ranking?.scope?.oddzial_nazwa || 'Wszystkie oddzialy'}</strong>
+              </div>
+              <div>
+                <span style={S.summaryLabel}>Ekipy w rankingu</span>
+                <strong>{monthlyRows.length}</strong>
+              </div>
+              <div>
+                <span style={S.summaryLabel}>Zlecenia delegowane</span>
+                <strong>{delegatedTasks}</strong>
+              </div>
             </section>
 
             <section style={S.section}>
@@ -206,6 +256,7 @@ export default function RankingBrygad() {
                       <div style={S.metricLine}>
                         <span>{formatScore(week.winner.score)} pkt</span>
                         <span>{formatCurrency(week.winner.wartosc)}</span>
+                        {delegationNote(week.winner) && <span style={S.delegationText}>{delegationNote(week.winner)}</span>}
                       </div>
                     )}
                   </div>
@@ -231,16 +282,16 @@ const S = {
   shell: {
     display: 'flex',
     minHeight: '100vh',
-    background: 'var(--forest-pattern), linear-gradient(180deg, rgba(20,53,31,0.28) 0%, var(--bg-deep) 100%)',
+    background: 'transparent',
   },
   main: { flex: 1, padding: 28, minWidth: 0, overflowX: 'hidden' },
   mainCompact: { padding: '16px 12px 24px', width: 'calc(100vw - 68px)', maxWidth: 'calc(100vw - 68px)', boxSizing: 'border-box' },
   actions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
   actionsCompact: { width: '100%', justifyContent: 'flex-start' },
-  select: { minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border2)', background: 'rgba(5,10,7,0.7)', color: 'var(--text)', fontSize: 13 },
+  select: { minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--glass-border)', background: '#fff', color: 'var(--text)', fontSize: 13, boxShadow: 'var(--shadow-sm)' },
   selectCompact: { flex: '0 1 132px', minWidth: 0, maxWidth: 150 },
   branchSelectCompact: { flex: '1 1 100%', width: '100%', minWidth: 0 },
-  yearInput: { width: 92, minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border2)', background: 'rgba(5,10,7,0.7)', color: 'var(--text)', fontSize: 13 },
+  yearInput: { width: 92, minHeight: 38, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--glass-border)', background: '#fff', color: 'var(--text)', fontSize: 13, boxShadow: 'var(--shadow-sm)' },
   yearInputCompact: { flex: '0 1 92px' },
   iconBtn: { width: 38, height: 38, borderRadius: 8, border: '1px solid var(--border2)', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   winnerGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginBottom: 16 },
@@ -249,8 +300,8 @@ const S = {
     display: 'flex',
     gap: 12,
     alignItems: 'flex-start',
-    background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(9,17,12,0.95))',
-    border: '1px solid rgba(191,225,146,0.18)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 8,
     padding: 16,
     boxShadow: 'var(--shadow-sm)',
@@ -260,17 +311,38 @@ const S = {
   cardTitle: { marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--text)', overflowWrap: 'anywhere' },
   cardSub: { marginTop: 3, fontSize: 12, color: 'var(--text-sub)' },
   metricLine: { marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-sub)' },
+  delegationText: { color: '#f59e0b', fontWeight: 800 },
+  summaryBar: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 10,
+    marginBottom: 16,
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    padding: 14,
+    boxShadow: 'var(--shadow-sm)',
+  },
+  summaryLabel: {
+    display: 'block',
+    marginBottom: 4,
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 900,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
   section: { marginTop: 16 },
   sectionTitle: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--text)', fontWeight: 800, fontSize: 16 },
   sectionTitleCompact: { alignItems: 'flex-start', flexWrap: 'wrap', lineHeight: 1.25 },
   weekGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 },
-  weekCard: { background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(9,17,12,0.95))', border: '1px solid rgba(191,225,146,0.18)', borderRadius: 8, padding: 14, boxShadow: 'var(--shadow-sm)' },
+  weekCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 14, boxShadow: 'var(--shadow-sm)' },
   weekWinner: { marginTop: 6, color: 'var(--text)', fontWeight: 800, fontSize: 15, overflowWrap: 'anywhere' },
-  tableWrap: { overflowX: 'auto', border: '1px solid rgba(191,225,146,0.18)', borderRadius: 8, background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(9,17,12,0.95))', boxShadow: 'var(--shadow-sm)' },
+  tableWrap: { overflowX: 'auto', border: '1px solid var(--glass-border)', borderRadius: 8, background: 'var(--surface-glass)', boxShadow: 'var(--shadow-sm)' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 720 },
-  th: { textAlign: 'left', padding: '10px 12px', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '1px solid rgba(191,225,146,0.14)' },
-  tr: { borderBottom: '1px solid rgba(191,225,146,0.1)' },
+  th: { textAlign: 'left', padding: '10px 12px', fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)' },
+  tr: { borderBottom: '1px solid var(--border)' },
   td: { padding: '12px', fontSize: 13, color: 'var(--text)' },
   tdMuted: { padding: '12px', fontSize: 13, color: 'var(--text-sub)' },
-  empty: { background: 'var(--forest-pattern), linear-gradient(155deg, rgba(18,32,22,0.94), rgba(9,17,12,0.95))', border: '1px solid rgba(191,225,146,0.18)', borderRadius: 8, padding: 24, color: 'var(--text-sub)', textAlign: 'center' },
+  empty: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, color: 'var(--text-sub)', textAlign: 'center' },
 };

@@ -1,17 +1,13 @@
-const logger = require('../config/logger');
-const { env } = require('../config/env');
-const pool = require('../config/database');
-const { getTwilioSmsStatusCallbackUrl } = require('./twilioStatusCallback');
+/**
+ * twilioSms.js — zachowany dla wstecznej zgodności.
+ * Wywołania są przekierowywane do smsGateway, który obsługuje
+ * zarówno Zadarma (priorytet) jak i Twilio (fallback).
+ */
+const { sendSmsGateway } = require('./smsGateway');
 
-function getClient() {
-  const accountSid = env.TWILIO_ACCOUNT_SID;
-  const authToken = env.TWILIO_AUTH_TOKEN;
-  if (!accountSid || !authToken) return null;
-  return require('twilio')(accountSid, authToken);
-}
-
+// Re-exported for backward compatibility — internal implementation lives in smsGateway
 function normalizePlPhone(raw) {
-  const d = String(raw || '').replace(/\s/g, '');
+  const d = String(raw || '').replace(/[\s-]/g, '');
   if (!d) return null;
   if (d.startsWith('+')) return d;
   const n = d.replace(/^\+?48/, '');
@@ -20,47 +16,11 @@ function normalizePlPhone(raw) {
 }
 
 /**
- * Wysyłka SMS (Twilio); brak konfiguracji = cichy no-op.
+ * Wysyłka SMS; brak konfiguracji = cichy no-op.
  * @returns {Promise<{ ok: boolean, sid?: string, error?: string }>}
  */
 async function sendSmsOptional({ to, body, taskId }) {
-  const client = getClient();
-  const fromNumber = env.TWILIO_PHONE;
-  const tel = normalizePlPhone(to);
-  if (!client || !fromNumber || !tel || !body) {
-    return { ok: false, error: 'SMS nieskonfigurowany lub brak numeru' };
-  }
-  try {
-    const statusCb = getTwilioSmsStatusCallbackUrl();
-    const message = await client.messages.create({
-      body: String(body).slice(0, 1500),
-      from: fromNumber,
-      to: tel,
-      ...(statusCb ? { statusCallback: statusCb } : {}),
-    });
-    try {
-      await pool.query(
-        `INSERT INTO sms_history (task_id, telefon, tresc, status, sid, created_at)
-         VALUES ($1, $2, $3, 'Wyslany', $4, NOW())`,
-        [taskId || null, tel, body, message.sid]
-      );
-    } catch (e) {
-      logger.warn('twilioSms.history', { message: e.message });
-    }
-    return { ok: true, sid: message.sid };
-  } catch (e) {
-    logger.error('twilioSms.send', { message: e.message });
-    try {
-      await pool.query(
-        `INSERT INTO sms_history (task_id, telefon, tresc, status, error, created_at)
-         VALUES ($1, $2, $3, 'Błąd', $4, NOW())`,
-        [taskId || null, tel, body, e.message]
-      );
-    } catch {
-      /* ignore */
-    }
-    return { ok: false, error: e.message };
-  }
+  return sendSmsGateway({ to, body, taskId });
 }
 
 module.exports = { sendSmsOptional, normalizePlPhone };

@@ -1,5 +1,9 @@
 import { useMemo } from 'react';
-import { isTaskClosed, isTaskInProgress } from '../utils/taskWorkflow';
+import {
+  CREW_REQUIRED_TASK_STATUSES,
+  isTaskClosed,
+  isTaskInProgress,
+} from '../utils/taskWorkflow';
 
 function isoDay(value) {
   return value ? String(value).slice(0, 10) : '';
@@ -12,15 +16,91 @@ function isOverdue(task, today) {
 
 function money(value) {
   const n = Number(value) || 0;
-  return n.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' PLN';
+  return `${n.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN`;
 }
 
-export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter }) {
+function dateLabel(value) {
+  const day = isoDay(value);
+  if (!day) return 'bez terminu';
+  const d = new Date(day);
+  if (Number.isNaN(d.getTime())) return day;
+  return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+}
+
+function taskName(task) {
+  const id = task?.id ? `#${task.id}` : 'Zlecenie';
+  return `${id} ${task?.klient_nazwa || task?.nazwa || 'bez klienta'}`;
+}
+
+function needsCrew(task) {
+  return CREW_REQUIRED_TASK_STATUSES.has(task?.status);
+}
+
+function decisionForTask(task, today) {
+  const day = isoDay(task.data_planowana || task.data_wykonania);
+  const value = Number(task.wartosc_planowana || task.wartosc_rzeczywista) || 0;
+  const team = task.ekipa_nazwa || (task.ekipa_id ? `Ekipa #${task.ekipa_id}` : 'bez ekipy');
+  const meta = `${dateLabel(day)} | ${value ? money(value) : 'bez kwoty'} | ${team}`;
+
+  if (isOverdue(task, today)) {
+    return {
+      filterKey: 'overdue',
+      priority: 100,
+      tone: 'danger',
+      label: taskName(task),
+      reason: 'Termin po czasie - ustal nowy plan albo potwierdz status.',
+      meta,
+    };
+  }
+  if (needsCrew(task) && !task.ekipa_id) {
+    return {
+      filterKey: 'unassigned',
+      priority: 85,
+      tone: 'warning',
+      label: taskName(task),
+      reason: 'Brak ekipy blokuje wykonanie.',
+      meta,
+    };
+  }
+  if (task.priorytet === 'Pilny') {
+    return {
+      filterKey: 'urgent',
+      priority: 70,
+      tone: 'warning',
+      label: taskName(task),
+      reason: 'Pilny priorytet do ręcznego sprawdzenia.',
+      meta,
+    };
+  }
+  if (!day) {
+    return {
+      filterKey: 'noDate',
+      priority: 60,
+      tone: 'neutral',
+      label: taskName(task),
+      reason: 'Bez terminu nie wejdzie do planu dnia.',
+      meta,
+    };
+  }
+  if (day === today) {
+    return {
+      filterKey: 'today',
+      priority: 45,
+      tone: 'info',
+      label: taskName(task),
+      reason: 'Dzisiaj w planie - sprawdź gotowość przed startem.',
+      meta,
+    };
+  }
+  return null;
+}
+
+export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpenTask }) {
   const model = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const open = tasks.filter((task) => !isTaskClosed(task.status));
     const overdue = open.filter((task) => isOverdue(task, today));
-    const unassigned = open.filter((task) => !task.ekipa_id);
+    const unassigned = open.filter((task) => needsCrew(task) && !task.ekipa_id);
     const urgent = open.filter((task) => task.priorytet === 'Pilny');
     const todayTasks = open.filter((task) => isoDay(task.data_planowana || task.data_wykonania) === today);
     const noDate = open.filter((task) => !isoDay(task.data_planowana || task.data_wykonania));
@@ -76,8 +156,22 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter }) {
     ].sort((a, b) => b.count - a.count);
 
     const lead = alerts.find((alert) => alert.count > 0);
-    return { score, alerts, lead, openCount: open.length, activeCount: active.length };
+    const decisions = open
+      .map((task) => ({ task, decision: decisionForTask(task, today) }))
+      .filter((row) => row.decision)
+      .sort((a, b) => b.decision.priority - a.decision.priority)
+      .slice(0, 3);
+
+    return { score, alerts, lead, decisions, openCount: open.length, activeCount: active.length };
   }, [tasks, payrollClose]);
+
+  const openDecision = (row) => {
+    if (row?.task?.id && onOpenTask) {
+      onOpenTask(row.task.id);
+      return;
+    }
+    onOpenFilter?.(row?.decision?.filterKey);
+  };
 
   return (
     <section style={s.panel}>
@@ -102,7 +196,7 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter }) {
           </div>
         </div>
         <div style={s.meta}>
-          Otwarte: <strong>{model.openCount}</strong> · W realizacji: <strong>{model.activeCount}</strong>
+          Otwarte: <strong>{model.openCount}</strong> | W realizacji: <strong>{model.activeCount}</strong>
         </div>
       </div>
 
@@ -122,98 +216,133 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter }) {
           </button>
         ))}
       </div>
+
+      <div style={s.decisionBlock}>
+        <div style={s.decisionHead}>Następne decyzje</div>
+        {model.decisions.length === 0 ? (
+          <div style={s.emptyRow}>Nie ma zleceń wymagających natychmiastowej reakcji.</div>
+        ) : (
+          model.decisions.map((row) => (
+            <button
+              key={`${row.decision.filterKey}-${row.task.id || row.decision.label}`}
+              type="button"
+              onClick={() => openDecision(row)}
+              style={s.decisionRow}
+            >
+              <span style={{ ...s.decisionMarker, ...(markerTone[row.decision.tone] || markerTone.neutral) }} />
+              <span style={s.decisionText}>
+                <strong style={s.decisionTitle}>{row.decision.label}</strong>
+                <small style={s.decisionReason}>{row.decision.reason}</small>
+                <span style={s.decisionMeta}>{row.decision.meta}</span>
+              </span>
+            </button>
+          ))
+        )}
+      </div>
     </section>
   );
 }
 
 const toneStyle = {
-  danger: { border: '1px solid rgba(248,113,113,0.36)' },
-  warning: { border: '1px solid rgba(251,191,36,0.34)' },
-  info: { border: '1px solid rgba(56,189,248,0.32)' },
-  neutral: { border: '1px solid var(--border)' },
+  danger: { borderLeftColor: '#e2445c' },
+  warning: { borderLeftColor: '#fdab3d' },
+  info: { borderLeftColor: '#579bfc' },
+  neutral: { borderLeftColor: '#c5c7d0' },
+};
+
+const markerTone = {
+  danger: { background: '#e2445c' },
+  warning: { background: '#fdab3d' },
+  info: { background: '#579bfc' },
+  neutral: { background: '#c5c7d0' },
 };
 
 const s = {
   panel: {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)',
-    borderRadius: 8,
-    padding: 18,
-    marginBottom: 20,
-    boxShadow: 'var(--shadow-sm)',
+    background: '#ffffff',
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    padding: 0,
+    marginBottom: 14,
+    boxShadow: 'none',
+    overflow: 'hidden',
   },
   header: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 16,
-    marginBottom: 14,
+    padding: '14px 16px 12px',
+    borderBottom: '1px solid #e6e9ef',
   },
   eyebrow: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 700,
-    color: 'var(--text-muted)',
+    color: '#676879',
     textTransform: 'uppercase',
-    letterSpacing: 0,
+    letterSpacing: '0.08em',
   },
   title: {
     margin: '4px 0 0',
-    fontSize: 20,
+    fontSize: 15,
     lineHeight: 1.25,
-    fontWeight: 750,
-    color: 'var(--text)',
+    fontWeight: 700,
+    color: '#323338',
     letterSpacing: 0,
   },
   scoreBox: {
-    minWidth: 78,
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    padding: '8px 10px',
+    minWidth: 64,
+    border: '1px solid #e6e9ef',
+    borderRadius: 4,
+    padding: '6px 10px',
     textAlign: 'right',
-    background: 'var(--bg-deep)',
+    background: '#f5f6f8',
   },
   score: {
     display: 'block',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 800,
-    color: 'var(--accent)',
+    color: '#323338',
     lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
   },
   scoreLabel: {
     display: 'block',
     marginTop: 3,
-    fontSize: 11,
-    color: 'var(--text-muted)',
+    fontSize: 10,
+    color: '#676879',
     textTransform: 'uppercase',
+    letterSpacing: '0.06em',
   },
   leadRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    padding: '10px 12px',
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    background: 'var(--bg-deep)',
-    marginBottom: 12,
+    padding: '10px 16px',
+    borderBottom: '1px solid #e6e9ef',
+    background: '#f5f6f8',
   },
-  leadLabel: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' },
-  leadText: { marginTop: 3, fontSize: 14, color: 'var(--text)', fontWeight: 650 },
-  meta: { fontSize: 12, color: 'var(--text-sub)', whiteSpace: 'nowrap' },
+  leadLabel: { fontSize: 10, color: '#676879', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  leadText: { marginTop: 3, fontSize: 13, color: '#323338', fontWeight: 600 },
+  meta: { fontSize: 11, color: '#676879', whiteSpace: 'nowrap' },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-    gap: 10,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+    gap: 0,
   },
   tile: {
-    minHeight: 78,
-    padding: '10px 12px',
+    minHeight: 72,
+    padding: '10px 14px',
     textAlign: 'left',
-    background: 'var(--bg-deep)',
-    color: 'var(--text)',
-    border: '1px solid var(--border)',
-    borderRadius: 8,
+    background: '#ffffff',
+    color: '#323338',
+    border: 'none',
+    borderLeft: '3px solid #e6e9ef',
+    borderRight: '1px solid #e6e9ef',
+    borderBottom: 'none',
     cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   tileTop: {
     display: 'flex',
@@ -221,7 +350,44 @@ const s = {
     gap: 10,
     alignItems: 'center',
   },
-  tileLabel: { fontSize: 13, fontWeight: 700 },
-  tileCount: { fontSize: 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
-  tileDetail: { display: 'block', marginTop: 6, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.35 },
+  tileLabel: { fontSize: 11, fontWeight: 700, color: '#676879', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  tileCount: { fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: '#323338' },
+  tileDetail: { display: 'block', marginTop: 4, fontSize: 11, color: '#676879', lineHeight: 1.35 },
+  decisionBlock: {
+    borderTop: '1px solid #e6e9ef',
+  },
+  decisionHead: {
+    padding: '10px 14px 8px',
+    fontSize: 10,
+    color: '#676879',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+  },
+  decisionRow: {
+    width: '100%',
+    minHeight: 58,
+    display: 'grid',
+    gridTemplateColumns: '3px minmax(0, 1fr)',
+    gap: 11,
+    padding: '10px 14px',
+    border: 'none',
+    borderTop: '1px solid #e6e9ef',
+    background: '#ffffff',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  decisionMarker: { width: 3, borderRadius: 999 },
+  decisionText: { display: 'grid', gap: 3, minWidth: 0 },
+  decisionTitle: { fontSize: 13, color: '#323338', lineHeight: 1.25 },
+  decisionReason: { fontSize: 12, color: '#323338', lineHeight: 1.35 },
+  decisionMeta: { fontSize: 11, color: '#676879', lineHeight: 1.35 },
+  emptyRow: {
+    padding: '12px 14px 14px',
+    borderTop: '1px solid #e6e9ef',
+    color: '#676879',
+    fontSize: 12,
+    fontWeight: 500,
+  },
 };

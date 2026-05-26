@@ -7,6 +7,7 @@ import { API_URL } from '../constants/api';
 
 const TEST_MODE_STORAGE_KEY = 'arbor-mobile-test-mode';
 const TEST_USER_STORAGE_KEY = 'arbor-mobile-test-user';
+const mockTaskCheckins = new Map<string, { lat?: unknown; lng?: unknown; recorded_at: string }>();
 
 // Testowi użytkownicy o różnych rolach
 export const TEST_USERS_MOBILE = {
@@ -38,7 +39,7 @@ export const TEST_USERS_MOBILE = {
   wyceniajacy: {
     id: 9004,
     imie: 'Test',
-    nazwisko: 'Wyceniający',
+    nazwisko: 'Specjalista Wyceny',
     email: 'wyceniajacy@test.local',
     rola: 'Wyceniający',
     oddzial_id: 1,
@@ -47,6 +48,29 @@ export const TEST_USERS_MOBILE = {
 
 // Token testowy
 export const TEST_TOKEN_MOBILE = 'test_token_mobile_' + Math.random().toString(36).substr(2, 9);
+
+function mockTaskMissingLabels(task: any) {
+  const missing: string[] = [];
+  if (Number(task?.photo_wycena || 0) <= 0) missing.push('zdjęcie ogólne / wycena');
+  if (Number(task?.photo_szkic || 0) <= 0) missing.push('szkic zakresu');
+  if (Number(task?.photo_dojazd || 0) <= 0) missing.push('dojazd / posesja');
+  if (Number(task?.wartosc_planowana || task?.budzet || 0) <= 0) missing.push('cena / budżet');
+  if (Number(task?.czas_planowany_godziny || 0) <= 0) missing.push('czas pracy');
+  if (!task?.ekipa_id && !task?.ekipa_nazwa) missing.push('ekipa');
+  return missing;
+}
+
+function decorateMockFieldDraft(task: any) {
+  const missing = mockTaskMissingLabels(task);
+  return {
+    ...task,
+    missing_items: missing,
+    workflow_missing_labels: missing,
+    workflow_ready_for_next: missing.length === 0,
+    workflow_next_action: missing.length ? `Uzupełnij: ${missing[0]}` : 'Przejdź do: Ekipa gotowa',
+    workflow_stage_label: 'Biuro planuje',
+  };
+}
 
 // Makiety danych dla API
 export const MOCK_DATA_MOBILE = {
@@ -64,6 +88,15 @@ export const MOCK_DATA_MOBILE = {
       ekipa_id: 5,
       opis: 'Testowe zlecenie 1',
       created_at: new Date().toISOString(),
+      photo_total: 3,
+      photo_wycena: 1,
+      photo_szkic: 1,
+      photo_dojazd: 1,
+      work_logs_total: 1,
+      active_work_count: 0,
+      last_checkin_at: null,
+      active_work_started_at: null,
+      last_work_finished_at: null,
     },
     {
       id: 2,
@@ -78,6 +111,15 @@ export const MOCK_DATA_MOBILE = {
       ekipa_id: 5,
       opis: 'Testowe zlecenie 2',
       created_at: new Date(Date.now() - 172800000).toISOString(),
+      photo_total: 2,
+      photo_wycena: 1,
+      photo_szkic: 1,
+      photo_dojazd: 0,
+      work_logs_total: 2,
+      active_work_count: 1,
+      last_checkin_at: new Date(Date.now() - 90 * 60000).toISOString(),
+      active_work_started_at: new Date(Date.now() - 80 * 60000).toISOString(),
+      last_work_finished_at: null,
     },
   ],
   dashboard: {
@@ -94,11 +136,14 @@ export const MOCK_DATA_MOBILE = {
       adres: 'ul. Testowa 1',
       miasto: 'Krakow',
       typ_uslugi: 'Inspekcja',
-      status: 'Nowe',
+      status: 'Wycena_Terenowa',
       data_planowana: new Date().toISOString(),
       brygadzista_id: 9003,
       ekipa_id: 5,
       ekipa_nazwa: 'Ekipa A',
+      wyceniajacy_id: 9004,
+      wyceniajacy_nazwa: 'Test Specjalista Wyceny',
+      klient_telefon: '500000101',
       ankieta_uproszczona: true,
       czas_planowany_godziny: 3,
       wartosc_planowana: 2450,
@@ -116,6 +161,11 @@ export const MOCK_DATA_MOBILE = {
       photo_wycena: 1,
       photo_szkic: 1,
       photo_dojazd: 1,
+      work_logs_total: 2,
+      active_work_count: 1,
+      last_checkin_at: new Date(Date.now() - 74 * 60000).toISOString(),
+      active_work_started_at: new Date(Date.now() - 68 * 60000).toISOString(),
+      last_work_finished_at: null,
     },
     {
       id: 2,
@@ -123,11 +173,14 @@ export const MOCK_DATA_MOBILE = {
       adres: 'ul. Testowa 2',
       miasto: 'Krakow',
       typ_uslugi: 'Konsultacja',
-      status: 'W_Realizacji',
+      status: 'Wycena_Terenowa',
       data_planowana: new Date(Date.now() - 86400000).toISOString(),
       brygadzista_id: 9003,
       ekipa_id: 5,
       ekipa_nazwa: 'Ekipa A',
+      wyceniajacy_id: 9004,
+      wyceniajacy_nazwa: 'Test Specjalista Wyceny',
+      klient_telefon: '500000102',
       ankieta_uproszczona: true,
       czas_planowany_godziny: 2,
       notatki_wewnetrzne: [
@@ -142,6 +195,11 @@ export const MOCK_DATA_MOBILE = {
       photo_wycena: 1,
       photo_szkic: 0,
       photo_dojazd: 0,
+      work_logs_total: 1,
+      active_work_count: 0,
+      last_checkin_at: new Date(Date.now() - 48 * 60000).toISOString(),
+      active_work_started_at: null,
+      last_work_finished_at: null,
     },
   ],
   taskPhotos: {
@@ -447,6 +505,21 @@ export async function getMockDataForMobileFetch(url: string | undefined, method 
     return { ok: true };
   }
 
+  if (verb === 'POST' && path === '/api/mobile/me/location') {
+    return {
+      ok: true,
+      provider: 'mobile',
+      recorded_at: new Date().toISOString(),
+    };
+  }
+
+  if (path === '/api/tasks/field-drafts') {
+    const items = MOCK_DATA_MOBILE.tasks
+      .filter((task) => task.ankieta_uproszczona === true)
+      .map(decorateMockFieldDraft);
+    return { items, total: items.length, limit: items.length, offset: 0 };
+  }
+
   if (path === '/api/tasks/wszystkie' || path === '/api/tasks/moje') {
     return MOCK_DATA_MOBILE.tasks;
   }
@@ -547,8 +620,36 @@ export async function getMockDataForMobileFetch(url: string | undefined, method 
     return [];
   }
 
+  if (verb === 'POST' && /^\/api\/tasks\/\d+\/checkin$/.test(path)) {
+    const taskId = getIdFromPath(path, /^\/api\/tasks\/(\d+)\/checkin$/) || '1';
+    const parsedBody = safeParseJson(body) || {};
+    mockTaskCheckins.set(taskId, {
+      lat: parsedBody.lat,
+      lng: parsedBody.lng,
+      recorded_at: new Date().toISOString(),
+    });
+    return { message: 'Check-in zapisany', checkin_id: Number(taskId) * 1000 + 7 };
+  }
+
   if (/^\/api\/tasks\/\d+\/logi$/.test(path)) {
-    return [];
+    const taskId = getIdFromPath(path, /^\/api\/tasks\/(\d+)\/logi$/) || '';
+    const checkin = mockTaskCheckins.get(taskId);
+    if (!checkin) return [];
+    return [
+      {
+        id: Number(taskId) * 1000 + 7,
+        task_id: Number(taskId),
+        pracownik: 'Test Brygadzista',
+        status: 'Check_In',
+        start_time: checkin.recorded_at,
+        end_time: checkin.recorded_at,
+        start_lat: checkin.lat,
+        start_lng: checkin.lng,
+        end_lat: checkin.lat,
+        end_lng: checkin.lng,
+        duration_hours: 0,
+      },
+    ];
   }
 
   if (/^\/api\/tasks\/\d+\/zdjecia$/.test(path)) {

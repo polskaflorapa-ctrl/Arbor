@@ -18,7 +18,7 @@ async function main() {
 
   console.info("[up] Arbor bring-up");
   console.info(`[up] web:3000 ${webOpen ? "OPEN" : "CLOSED"}`);
-  console.info(`[up] web:3002 ${webFallbackOpen ? "OPEN" : "CLOSED"} (CRA fallback)`);
+  console.info(`[up] web:3002 ${webFallbackOpen ? "OPEN" : "CLOSED"} (Vite dev fallback)`);
   console.info(`[up] api:3001 ${apiOpen ? "OPEN" : "CLOSED"}`);
   console.info(`[up] api health via proxy target (${proxyTarget}): ${apiHealthy ? "OK" : "FAIL"} (${health.note})`);
 

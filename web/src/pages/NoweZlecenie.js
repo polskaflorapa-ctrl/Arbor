@@ -7,6 +7,7 @@ import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 import {
@@ -155,10 +156,10 @@ export default function NoweZlecenie() {
 
         {/* ── Nagłówek ─────────────────────────────────────────── */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
-          borderRadius: 10, padding: '20px 22px', marginBottom: 20,
+          background: 'var(--surface-glass)',
+          borderRadius: 8, padding: '20px 22px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          boxShadow: 'var(--shadow-sm)',
+          boxShadow: 'var(--shadow-md)',
           animation: 'fadeInUp 0.4s ease',
           border: '1px solid var(--border)',
         }}>
@@ -182,12 +183,12 @@ export default function NoweZlecenie() {
             onClick={() => navigate(-1)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
-              backgroundColor: 'var(--bg-card)', color: 'var(--text-sub)',
+              padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
+              backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)',
               cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
             }}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--accent-surface)'; e.currentTarget.style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--surface-field)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
           >
             {IKONY.back} {t('common.back')}
           </button>
@@ -314,14 +315,14 @@ export default function NoweZlecenie() {
                     </div>
                   )}
                 </Field>
-                <Field label="Wyceniający (kalendarz)" icon={IKONY.estimator}>
+                <Field label="Specjalista ds. wyceny (kalendarz)" icon={IKONY.estimator}>
                   <select style={S.input} value={form.wyceniajacy_id} onChange={setField('wyceniajacy_id')}>
-                    <option value="">-- wybierz wyceniającego --</option>
+                    <option value="">-- wybierz specjalistę ds. wyceny --</option>
                     {estimators
                       .filter((u) => !form.oddzial_id || Number(u.oddzial_id) === Number(form.oddzial_id))
                       .map((u) => (
                         <option key={u.id} value={u.id}>
-                          {u.imie} {u.nazwisko} ({u.rola})
+                          {u.imie} {u.nazwisko} ({getRoleDisplayName(u.rola)})
                         </option>
                       ))}
                   </select>
@@ -345,7 +346,7 @@ export default function NoweZlecenie() {
                           title={e.nazwa}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 5,
-                            padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                            padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
                             border: `1px solid ${form.ekipa_id === String(e.id) ? (e.kolor || 'var(--accent)') : 'var(--border)'}`,
                             backgroundColor: form.ekipa_id === String(e.id) ? (e.kolor || 'var(--accent)') + '22' : 'transparent',
                             transition: 'all 0.15s',
@@ -376,11 +377,11 @@ export default function NoweZlecenie() {
               onClick={() => navigate(-1)}
               style={{
                 padding: '11px 24px',
-                borderRadius: 10,
+                borderRadius: 8,
                 borderWidth: 1,
                 borderStyle: 'solid',
                 borderColor: 'var(--border)',
-                backgroundColor: 'var(--bg-card)',
+                backgroundColor: 'var(--surface-field)',
                 color: 'var(--text-sub)',
                 cursor: 'pointer',
                 fontSize: 14,
@@ -396,11 +397,11 @@ export default function NoweZlecenie() {
               type="submit"
               disabled={loading || !isFormValid}
               style={{
-                padding: '11px 32px', borderRadius: 10, border: 'none',
-                background: loading ? 'var(--bg-deep)' : 'linear-gradient(135deg, var(--accent), var(--accent-dk))',
+                padding: '11px 32px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)',
+                background: loading ? 'var(--surface-field)' : 'var(--accent-gradient)',
                 color: 'var(--on-accent)', cursor: loading ? 'wait' : 'pointer',
                 fontSize: 14, fontWeight: 800, transition: 'all 0.2s',
-                boxShadow: loading ? 'none' : '0 4px 16px rgba(52,211,153,0.35)',
+                boxShadow: loading ? 'none' : 'var(--shadow-sm)',
                 display: 'flex', alignItems: 'center', gap: 8,
               }}
               onMouseEnter={e => { if (!loading) e.currentTarget.style.transform = 'translateY(-2px)'; }}
@@ -426,17 +427,17 @@ export default function NoweZlecenie() {
 function Section({ title, icon, accent = 'var(--accent)', children }) {
   return (
     <div style={{
-      backgroundColor: 'var(--bg-card)', borderRadius: 16,
+      background: 'var(--surface-glass)', borderRadius: 8,
       border: '1px solid var(--border)',
       overflow: 'hidden',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+      boxShadow: 'var(--shadow-md)',
       animation: 'fadeInUp 0.3s ease',
     }}>
       <div style={{
         padding: '14px 20px',
         borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 10,
-        background: `linear-gradient(90deg, ${accent}18, transparent)`,
+        background: 'var(--surface-field)',
       }}>
         <span style={{ color: accent, display: 'flex' }}>{icon}</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: accent }}>{title}</span>

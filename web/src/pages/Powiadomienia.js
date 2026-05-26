@@ -10,6 +10,7 @@ import DoneAllOutlined from '@mui/icons-material/DoneAllOutlined';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
 
@@ -227,7 +228,7 @@ export default function Powiadomienia() {
                   <select style={styles.input} value={form.to_user_id} onChange={e => setForm({...form, to_user_id: e.target.value})} required>
                     <option value="">{t('pages.powiadomienia.recipientPlaceholder')}</option>
                     {kierownicy.map(k => (
-                      <option key={k.id} value={k.id}>{k.imie} {k.nazwisko} ({k.rola})</option>
+                      <option key={k.id} value={k.id}>{k.imie} {k.nazwisko} ({getRoleDisplayName(k.rola)})</option>
                     ))}
                   </select>
                 </div>
@@ -346,14 +347,14 @@ const styles = {
   title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
-  readAllBtn: { padding: '8px 16px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border2)' } },
-  addBtn: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)', transform: 'translateY(-1px)' } },
-  formBox: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' },
+  readAllBtn: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border2)' } },
+  addBtn: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
+  formBox: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)' },
   formTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--border)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 8 },
   label: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  input: { padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'all 0.2s', '&:focus': { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px rgba(46,125,50,0.1)' } },
+  input: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'all 0.2s', '&:focus': { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px rgba(46,125,50,0.1)' } },
   hint: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
   typyGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 },
   typCard: {
@@ -367,9 +368,9 @@ const styles = {
     '&:hover': { transform: 'translateX(4px)' },
   },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 },
-  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--bg-card)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, transition: 'all 0.2s', '&:hover': { backgroundColor: '#D1D5DB' } },
-  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)', transform: 'translateY(-1px)' } },
-  card: { backgroundColor: 'var(--bg-card)', borderRadius: 16, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14, transition: 'all 0.2s' },
+  submitBtn: { padding: '10px 24px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
+  card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 },
   unreadBadge: { backgroundColor: '#F9A825', color: '#fff', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: '600' },
@@ -377,7 +378,7 @@ const styles = {
   empty: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 },
   emptySub: { fontSize: 12, marginTop: 4, opacity: 0.7 },
-  notifItem: { display: 'flex', gap: 12, padding: '16px', borderRadius: 12, marginBottom: 12, border: '1px solid var(--border)', transition: 'all 0.2s', '&:hover': { transform: 'translateX(4px)', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' } },
+  notifItem: { display: 'flex', gap: 12, padding: '16px', borderRadius: 8, marginBottom: 12, border: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.72)', transition: 'all 0.2s', '&:hover': { boxShadow: 'var(--shadow-sm)' } },
   notifIcon: { fontSize: 28, flexShrink: 0 },
   notifContent: { flex: 1 },
   notifHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 6 },

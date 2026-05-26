@@ -12,6 +12,7 @@ import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -156,7 +157,7 @@ export default function UzytkownicyScreen() {
             ]}
             onPress={() => setFiltrRola(r)}>
             <Text style={[S.filtrText, filtrRola === r && S.filtrTextActive]}>
-              {r || 'Wszyscy'}
+              {r ? getRoleDisplayName(r) : 'Wszyscy'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -188,6 +189,7 @@ export default function UzytkownicyScreen() {
           </View>
         ) : filtered.map(u => {
           const rolaColor = rolaKolorMap[u.rola as keyof typeof rolaKolorMap] || theme.textMuted;
+          const rolaLabel = getRoleDisplayName(u.rola);
           const initials = `${u.imie?.[0] || ''}${u.nazwisko?.[0] || ''}` || 'AR';
           return (
           <View key={u.id} style={[S.card, !u.aktywny && S.cardInactive, { borderLeftColor: rolaColor }]}>
@@ -210,7 +212,7 @@ export default function UzytkownicyScreen() {
               </View>
               <View style={S.cardRow}>
                 <View style={[S.rolaBadge, { backgroundColor: rolaColor }]}>
-                  <Text style={S.rolaText}>{u.rola}</Text>
+                  <Text style={S.rolaText}>{rolaLabel}</Text>
                 </View>
                 <View style={S.metaPill}>
                   <Ionicons name="business-outline" size={12} color={theme.textMuted} />

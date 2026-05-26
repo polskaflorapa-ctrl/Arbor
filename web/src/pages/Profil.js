@@ -5,6 +5,7 @@ import api from '../api';
 import Sidebar from '../components/Sidebar';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { readStoredUser } from '../utils/readStoredUser';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
 import { useTheme, THEMES } from '../ThemeContext';
 import { getRolaColor } from '../theme';
@@ -438,7 +439,7 @@ function buildEmployeeDocumentSummary(documents, fieldWorker) {
 
 function buildEmployeeTerms(user, card) {
   return [
-    { label: 'Stanowisko', value: card?.stanowisko || user?.stanowisko || user?.rola || 'brak' },
+    { label: 'Stanowisko', value: card?.stanowisko || user?.stanowisko || getRoleDisplayName(user?.rola, 'brak') },
     { label: 'Oddział', value: user?.oddzial_nazwa || (user?.oddzial_id ? `Oddział #${user.oddzial_id}` : 'brak') },
     { label: 'Data zatrudnienia', value: formatDateOnly(user?.data_zatrudnienia) },
     { label: 'Status konta', value: user?.aktywny === false ? 'Nieaktywny' : 'Aktywny' },
@@ -468,7 +469,7 @@ function buildEmployeeCompleteness(user, card, fieldWorker, documents = EMPTY_DO
     {
       label: 'Stanowisko i oddział',
       done: Boolean((user?.stanowisko || card?.stanowisko || user?.rola) && (user?.oddzial_id || user?.oddzial_nazwa)),
-      detail: `${card?.stanowisko || user?.stanowisko || user?.rola || 'brak'} · ${user?.oddzial_nazwa || user?.oddzial_id || 'brak oddziału'}`,
+      detail: `${card?.stanowisko || user?.stanowisko || getRoleDisplayName(user?.rola, 'brak')} · ${user?.oddzial_nazwa || user?.oddzial_id || 'brak oddziału'}`,
     },
     {
       label: 'Warunki rozliczenia',
@@ -1447,7 +1448,7 @@ export default function Profil() {
             <div style={S.eyebrow}>Centrum operatora</div>
             <h1 style={S.title}>{operatorName}</h1>
             <div style={S.subtitle}>
-              {user?.stanowisko || user?.rola || 'Stanowisko'} · {user?.oddzial_nazwa || `Oddział #${user?.oddzial_id || 'brak'}`}
+              {user?.stanowisko || getRoleDisplayName(user?.rola, 'Stanowisko')} · {user?.oddzial_nazwa || `Oddział #${user?.oddzial_id || 'brak'}`}
             </div>
             {canAssignTasks ? (
               <label style={S.profileSwitch}>
@@ -1460,7 +1461,7 @@ export default function Profil() {
                 >
                   {assignableUsers.map((row) => (
                     <option key={row.id} value={row.id}>
-                      {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({row.rola})
+                      {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({getRoleDisplayName(row.rola)})
                     </option>
                   ))}
                 </select>
@@ -1468,7 +1469,7 @@ export default function Profil() {
             ) : null}
           </div>
           <div style={S.badgeRow}>
-            {user?.rola ? <span style={{ ...S.badge, ...S.roleBadge }}>{user.rola}</span> : null}
+            {user?.rola ? <span style={{ ...S.badge, ...S.roleBadge }}>{getRoleDisplayName(user.rola)}</span> : null}
             <span style={{ ...S.badge, ...(ops.apiOk ? S.okBadge : ops.apiOk === false ? S.warnBadge : {}) }}>
               API {ops.apiOk ? 'online' : ops.apiOk === false ? 'offline' : 'sprawdzam'}
             </span>
@@ -1565,7 +1566,7 @@ export default function Profil() {
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Pracownik 360</div>
-                  <div style={S.panelTitle}>Warunki i kompletnoĹ›Ä‡ akt</div>
+                  <div style={S.panelTitle}>Warunki i kompletność akt</div>
                 </div>
                 <span style={{ ...S.badge, ...(employeeCompleteness.score >= 80 ? S.okBadge : S.warnBadge) }}>
                   {employeeCompleteness.score}%
@@ -1580,10 +1581,10 @@ export default function Profil() {
                 ))}
               </div>
               <div style={S.completenessHead}>
-                <span style={S.identityLabel}>KompletnoĹ›Ä‡ dokumentĂłw</span>
+                <span style={S.identityLabel}>Kompletność dokumentów</span>
                 <strong style={S.identityValue}>{employeeCompleteness.doneCount}/{employeeCompleteness.total}</strong>
               </div>
-              <div style={S.progressTrack} aria-label="KompletnoĹ›Ä‡ akt pracownika">
+              <div style={S.progressTrack} aria-label="Kompletność akt pracownika">
                 <div style={{ ...S.progressFill, width: `${employeeCompleteness.score}%` }} />
               </div>
               <div style={S.completenessList}>
@@ -1803,7 +1804,7 @@ export default function Profil() {
                     <option value="">Wybierz pracownika</option>
                     {assignableUsers.map((row) => (
                       <option key={row.id} value={row.id}>
-                        {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({row.rola})
+                        {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({getRoleDisplayName(row.rola)})
                       </option>
                     ))}
                   </select>
@@ -1932,7 +1933,7 @@ export default function Profil() {
                       <option value="">Wybierz osobę</option>
                       {assignableUsers.map((row) => (
                         <option key={row.id} value={row.id}>
-                          {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({row.rola})
+                          {[row.imie, row.nazwisko].filter(Boolean).join(' ') || row.login} ({getRoleDisplayName(row.rola)})
                         </option>
                       ))}
                     </select>

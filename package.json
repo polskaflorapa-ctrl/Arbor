@@ -32,12 +32,15 @@
     "status:json:strict": "node ./scripts/status.cjs --json --strict",
     "ci:check": "node ./scripts/ci-check.cjs",
     "verify:mobile": "npm run typecheck -w arbor-mobile && npm run lint -w arbor-mobile",
-    "verify:web:test": "npm test -w arbor-web -- --watchAll=false",
+    "verify:web:test": "npm test -w arbor-web",
     "verify:web": "npm run build -w arbor-web",
     "verify:os": "npm run lint -w arbor-os",
+    "verify:os:test": "npm test -w arbor-os",
+    "verify:os:full": "npm run verify:os && npm run verify:os:test",
     "verify:static": "npm run verify:mobile && npm run verify:web:test && npm run verify:web && npm run verify:os",
     "verify:static:parallel": "concurrently -n mobile,web,os -c auto \"npm run verify:mobile\" \"npm run verify:web:test && npm run verify:web\" \"npm run verify:os\"",
     "check": "npm run verify:static",
+    "check:full": "npm run verify:mobile && npm run verify:web:test && npm run verify:web && npm run verify:os:full",
     "check:parallel": "npm run verify:static:parallel",
     "check:mobile": "npm run verify:mobile",
     "check:web": "npm run verify:web:test && npm run verify:web",
@@ -45,6 +48,8 @@
     "doctor": "node ./scripts/doctor.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
+    "deploy:netlify:check": "node ./scripts/deploy-netlify-check.cjs",
+    "deploy:koyeb:check": "node ./scripts/deploy-koyeb-check.cjs",
     "deploy:free:check": "node ./scripts/deploy-free-preflight.cjs",
     "deploy:demo:check": "node ./scripts/demo-deploy-check.cjs",
     "deploy:pages:cloudflare": "node ./scripts/deploy-cloudflare-pages.cjs",
@@ -53,6 +58,7 @@
     "deploy:prod:bootstrap": "node ./scripts/run-production-bootstrap.cjs",
     "start:api:prod": "node ./scripts/start-api-with-migrations.cjs",
     "seed:president-demo": "npm run seed:president-demo -w arbor-os",
+    "smoke:operational": "npm run smoke:operational -w arbor-os",
     "backup:db": "npm run backup:db -w arbor-os",
     "backup:db:check": "npm run backup:db:check -w arbor-os",
     "restore:db": "npm run restore:db -w arbor-os --",
@@ -64,6 +70,7 @@
     "restart:force": "node ./scripts/restart-force.cjs"
   },
   "devDependencies": {
+    "@types/react": "19.2.14",
     "concurrently": "^9.2.1",
     "react-native": "0.81.5"
   },
@@ -74,5 +81,9 @@
     "@expo/vector-icons": {
       "react-native": "0.81.5"
     }
+  },
+  "dependencies": {
+    "@netlify/database": "^1.0.0",
+    "serverless-http": "^4.0.0"
   }
 }

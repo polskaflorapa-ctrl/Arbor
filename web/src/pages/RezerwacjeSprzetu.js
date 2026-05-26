@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -34,6 +34,63 @@ import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 
+const ACTIVE_STATUSES = new Set(['Zarezerwowane', 'Wydane']);
+
+function todayYmd() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function isYmd(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function rowStart(row) {
+  return String(row?.data_od || row?.data || '').slice(0, 10);
+}
+
+function rowEnd(row) {
+  return String(row?.data_do || row?.data_od || row?.data || '').slice(0, 10);
+}
+
+function rowsOverlap(a, b) {
+  const aStart = rowStart(a);
+  const aEnd = rowEnd(a);
+  const bStart = rowStart(b);
+  const bEnd = rowEnd(b);
+  return aStart && aEnd && bStart && bEnd && aStart <= bEnd && aEnd >= bStart;
+}
+
+function isActiveReservation(row) {
+  return ACTIVE_STATUSES.has(row?.status);
+}
+
+function reservationTaskLabel(row) {
+  if (!row?.task_id) return 'Bez zlecenia';
+  return `#${row.task_id}${row.task_klient_nazwa ? ` ${row.task_klient_nazwa}` : ''}`;
+}
+
+function buildConflictIds(rows) {
+  const ids = new Set();
+  const active = (rows || []).filter(isActiveReservation);
+  for (let i = 0; i < active.length; i += 1) {
+    for (let j = i + 1; j < active.length; j += 1) {
+      if (String(active[i].sprzet_id || '') !== String(active[j].sprzet_id || '')) continue;
+      if (!rowsOverlap(active[i], active[j])) continue;
+      ids.add(String(active[i].id));
+      ids.add(String(active[j].id));
+    }
+  }
+  return ids;
+}
+
+function selectParam(params, ...keys) {
+  for (const key of keys) {
+    const value = params.get(key);
+    if (value) return value;
+  }
+  return '';
+}
+
 const STATUSES = ['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane'];
 
 function monthRange(y, m0) {
@@ -47,6 +104,7 @@ function monthRange(y, m0) {
 export default function RezerwacjeSprzetu() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { message: msg, showMessage: showMsg } = useTimedMessage();
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [viewMonth0, setViewMonth0] = useState(() => new Date().getMonth());
@@ -56,15 +114,25 @@ export default function RezerwacjeSprzetu() {
   const [ekipy, setEkipy] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [equipmentFilter, setEquipmentFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [taskFilter, setTaskFilter] = useState('');
   const [form, setForm] = useState({
-    data: new Date().toISOString().split('T')[0],
+    data: todayYmd(),
     sprzet_id: '',
     ekipa_id: '',
+    task_id: '',
     caly_dzien: true,
     status: 'Zarezerwowane',
   });
 
   const { from, to } = useMemo(() => monthRange(viewYear, viewMonth0), [viewYear, viewMonth0]);
+  const queryParams = useMemo(() => new URLSearchParams(location.search || ''), [location.search]);
+  const queryDate = selectParam(queryParams, 'date', 'prefData');
+  const queryTask = selectParam(queryParams, 'task', 'prefZlecenie');
+  const queryTeam = selectParam(queryParams, 'team', 'ekipa');
+  const queryEquipment = selectParam(queryParams, 'equipment', 'sprzet').split(',')[0] || '';
 
   const monthLabel = useMemo(() => {
     const d = new Date(viewYear, viewMonth0, 1);
@@ -83,7 +151,7 @@ export default function RezerwacjeSprzetu() {
     ]);
     const sData = Array.isArray(sRes.data) ? sRes.data : sRes.data?.items || [];
     setSprzet(sData);
-    setEkipy(Array.isArray(eRes.data) ? eRes.data : []);
+    setEkipy(Array.isArray(eRes.data) ? eRes.data : eRes.data?.ekipy || []);
   }, []);
 
   const loadReservations = useCallback(async () => {
@@ -122,6 +190,31 @@ export default function RezerwacjeSprzetu() {
     loadReservations();
   }, [loadReservations]);
 
+  useEffect(() => {
+    if (isYmd(queryDate)) {
+      const [year, month] = queryDate.split('-').map(Number);
+      setViewYear(year);
+      setViewMonth0(month - 1);
+      setForm((prev) => ({ ...prev, data: queryDate }));
+    }
+    if (queryEquipment) {
+      setEquipmentFilter(String(queryEquipment));
+      setForm((prev) => ({ ...prev, sprzet_id: String(queryEquipment) }));
+    }
+    if (queryTeam) {
+      setTeamFilter(String(queryTeam));
+      setForm((prev) => ({ ...prev, ekipa_id: String(queryTeam) }));
+    }
+    if (queryTask) {
+      setTaskFilter(String(queryTask));
+      setStatusFilter('all');
+      setForm((prev) => ({ ...prev, task_id: String(queryTask) }));
+    }
+    if (queryParams.get('open') === '1') {
+      setModalOpen(true);
+    }
+  }, [queryDate, queryEquipment, queryParams, queryTask, queryTeam]);
+
   const prevMonth = () => {
     if (viewMonth0 === 0) {
       setViewMonth0(11);
@@ -146,6 +239,68 @@ export default function RezerwacjeSprzetu() {
     return map[s] || s;
   };
 
+  const conflictIds = useMemo(() => buildConflictIds(rows), [rows]);
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (statusFilter === 'active' && !isActiveReservation(row)) return false;
+      if (statusFilter !== 'active' && statusFilter !== 'all' && row.status !== statusFilter) return false;
+      if (equipmentFilter && String(row.sprzet_id || '') !== String(equipmentFilter)) return false;
+      if (teamFilter && String(row.ekipa_id || '') !== String(teamFilter)) return false;
+      if (taskFilter && String(row.task_id || '') !== String(taskFilter)) return false;
+      return true;
+    });
+  }, [equipmentFilter, rows, statusFilter, taskFilter, teamFilter]);
+
+  const summary = useMemo(() => {
+    const active = rows.filter(isActiveReservation);
+    const issued = rows.filter((row) => row.status === 'Wydane');
+    const linkedTasks = new Set(rows.map((row) => row.task_id).filter(Boolean));
+    return {
+      total: rows.length,
+      active: active.length,
+      issued: issued.length,
+      linkedTasks: linkedTasks.size,
+      conflicts: conflictIds.size,
+      visible: filteredRows.length,
+    };
+  }, [conflictIds.size, filteredRows.length, rows]);
+
+  const openNewReservation = (patch = {}) => {
+    setForm((prev) => ({
+      ...prev,
+      data: patch.data || prev.data || todayYmd(),
+      sprzet_id: patch.sprzet_id || prev.sprzet_id || '',
+      ekipa_id: patch.ekipa_id || prev.ekipa_id || '',
+      task_id: patch.task_id || prev.task_id || taskFilter || '',
+      status: patch.status || prev.status || 'Zarezerwowane',
+    }));
+    setModalOpen(true);
+  };
+
+  const clearFilters = () => {
+    setStatusFilter('active');
+    setEquipmentFilter('');
+    setTeamFilter('');
+    setTaskFilter('');
+  };
+
+  const openCalendarForRow = (row) => {
+    const params = new URLSearchParams();
+    params.set('tab', 'equipment');
+    params.set('modal', '0');
+    const date = rowStart(row);
+    if (row.task_id) params.set('task', String(row.task_id));
+    if (date) params.set('date', date);
+    if (row.ekipa_id) params.set('team', String(row.ekipa_id));
+    if (row.sprzet_id) params.set('equipment', String(row.sprzet_id));
+    navigate(`/kalendarz-zasobow?${params.toString()}`);
+  };
+
+  const openTaskForRow = (row) => {
+    if (!row?.task_id) return;
+    navigate(`/zlecenia/${row.task_id}?focus=officePlan`);
+  };
+
   const changeStatus = async (id, status) => {
     try {
       const token = getStoredToken();
@@ -168,6 +323,7 @@ export default function RezerwacjeSprzetu() {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
+      const taskId = Number(form.task_id);
       await api.post(
         '/flota/rezerwacje',
         {
@@ -177,6 +333,9 @@ export default function RezerwacjeSprzetu() {
           data_do: form.data,
           caly_dzien: form.caly_dzien,
           status: form.status,
+          ...(Number.isFinite(taskId) && taskId > 0
+            ? { task_id: taskId, notatki: `Plan zlecenia #${taskId}` }
+            : {}),
         },
         { headers: h },
       );
@@ -202,7 +361,23 @@ export default function RezerwacjeSprzetu() {
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
       <Sidebar />
       <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
-        <PageHeader title={t('pages.equipmentReservations.title')} subtitle={t('pages.equipmentReservations.subtitle')} />
+        <PageHeader
+          title={t('pages.equipmentReservations.title')}
+          subtitle={t('pages.equipmentReservations.subtitle')}
+          actions={(
+            <>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(`/kalendarz-zasobow?tab=equipment&date=${encodeURIComponent(form.data || todayYmd())}&modal=0`)}
+              >
+                Kalendarz zasobow
+              </Button>
+              <Button variant="contained" startIcon={<Add />} onClick={() => openNewReservation()}>
+                {t('pages.equipmentReservations.add')}
+              </Button>
+            </>
+          )}
+        />
         <StatusMessage message={msg} />
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <Button size="small" onClick={prevMonth} startIcon={<ChevronLeft />}>
@@ -213,45 +388,156 @@ export default function RezerwacjeSprzetu() {
             {t('pages.equipmentReservations.nextMonth')}
           </Button>
           <Box sx={{ flex: 1 }} />
-          <Button variant="contained" startIcon={<Add />} onClick={() => setModalOpen(true)}>
-            {t('pages.equipmentReservations.add')}
-          </Button>
+          <Typography sx={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 700 }}>
+            Widoczne: {summary.visible}/{summary.total}
+          </Typography>
         </Stack>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 1.5,
+            mb: 2,
+          }}
+        >
+          {[
+            ['Rezerwacje', summary.total],
+            ['Aktywne', summary.active],
+            ['Wydane', summary.issued],
+            ['Ze zleceniem', summary.linkedTasks],
+            ['Kolizje', summary.conflicts],
+          ].map(([label, value]) => (
+            <Box
+              key={label}
+              sx={{
+                border: '1px solid var(--border)',
+                borderRadius: 2,
+                bgcolor: label === 'Kolizje' && value ? 'rgba(239,68,68,0.1)' : 'var(--bg-card)',
+                p: 1.5,
+              }}
+            >
+              <Typography sx={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 800 }}>{label}</Typography>
+              <Typography sx={{ color: label === 'Kolizje' && value ? '#dc2626' : 'var(--text)', fontSize: 24, fontWeight: 900 }}>
+                {value}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', md: 'center' }}
+          sx={{ mb: 2, p: 1.5, border: '1px solid var(--border)', borderRadius: 2, bgcolor: 'var(--bg-card)' }}
+        >
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Status</InputLabel>
+            <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <MenuItem value="active">Aktywne</MenuItem>
+              <MenuItem value="all">Wszystkie</MenuItem>
+              {STATUSES.map((s) => (
+                <MenuItem key={s} value={s}>{statusLabel(s)}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 190 }}>
+            <InputLabel>Sprzet</InputLabel>
+            <Select label="Sprzet" value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)}>
+              <MenuItem value="">Wszystkie</MenuItem>
+              {sprzet.map((s) => (
+                <MenuItem key={s.id} value={String(s.id)}>{s.nazwa || `#${s.id}`}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 190 }}>
+            <InputLabel>Ekipa</InputLabel>
+            <Select label="Ekipa" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
+              <MenuItem value="">Wszystkie</MenuItem>
+              {ekipy.map((e) => (
+                <MenuItem key={e.id} value={String(e.id)}>{e.nazwa || `#${e.id}`}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            size="small"
+            label="Zlecenie"
+            value={taskFilter}
+            onChange={(e) => setTaskFilter(e.target.value.replace(/[^\d]/g, ''))}
+            placeholder="ID"
+            sx={{ maxWidth: 130 }}
+          />
+          <Button onClick={clearFilters}>Wyczysc</Button>
+        </Stack>
+
         {loading ? (
           <Typography>{t('pages.equipmentReservations.loading')}</Typography>
-        ) : rows.length === 0 ? (
+        ) : filteredRows.length === 0 ? (
           <Typography color="text.secondary">{t('pages.equipmentReservations.empty')}</Typography>
         ) : (
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>{t('pages.equipmentReservations.thDate')}</TableCell>
+                <TableCell>Okres</TableCell>
                 <TableCell>{t('pages.equipmentReservations.thEquipment')}</TableCell>
                 <TableCell>{t('pages.equipmentReservations.thTeam')}</TableCell>
+                <TableCell>Zlecenie</TableCell>
                 <TableCell>{t('pages.equipmentReservations.thStatus')}</TableCell>
                 <TableCell>{t('pages.equipmentReservations.thActions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{(r.data_od || r.data || '').toString().split('T')[0]}</TableCell>
+              {filteredRows.map((r) => (
+                <TableRow
+                  key={r.id}
+                  sx={{
+                    bgcolor: conflictIds.has(String(r.id)) ? 'rgba(239,68,68,0.08)' : undefined,
+                    '& td': { borderColor: conflictIds.has(String(r.id)) ? 'rgba(239,68,68,0.22)' : undefined },
+                  }}
+                >
+                  <TableCell>
+                    <Typography sx={{ fontSize: 13, fontWeight: 800 }}>{rowStart(r) || '-'}</Typography>
+                    {rowEnd(r) && rowEnd(r) !== rowStart(r) ? (
+                      <Typography sx={{ fontSize: 12, color: 'var(--text-muted)' }}>do {rowEnd(r)}</Typography>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{r.sprzet_nazwa || r.nazwa_sprzetu || '—'}</TableCell>
                   <TableCell>{r.ekipa_nazwa || r.nazwa_ekipy || '—'}</TableCell>
-                  <TableCell>{statusLabel(r.status)}</TableCell>
                   <TableCell>
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                      <Select
-                        value={r.status}
-                        onChange={(e) => changeStatus(r.id, e.target.value)}
-                      >
-                        {STATUSES.map((s) => (
-                          <MenuItem key={s} value={s}>
-                            {statusLabel(s)}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    {r.task_id ? (
+                      <Button size="small" onClick={() => openTaskForRow(r)}>
+                        {reservationTaskLabel(r)}
+                      </Button>
+                    ) : (
+                      <Typography sx={{ fontSize: 13, color: 'var(--text-muted)' }}>Bez zlecenia</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Stack spacing={0.5}>
+                      <span>{statusLabel(r.status)}</span>
+                      {conflictIds.has(String(r.id)) ? (
+                        <Typography sx={{ color: '#dc2626', fontSize: 12, fontWeight: 900 }}>Kolizja</Typography>
+                      ) : null}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                        <Select
+                          value={r.status}
+                          onChange={(e) => changeStatus(r.id, e.target.value)}
+                        >
+                          {STATUSES.map((s) => (
+                            <MenuItem key={s} value={s}>
+                              {statusLabel(s)}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Button size="small" variant="outlined" onClick={() => openCalendarForRow(r)}>
+                        Kalendarz
+                      </Button>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
@@ -270,6 +556,13 @@ export default function RezerwacjeSprzetu() {
                   InputLabelProps={{ shrink: true }}
                   value={form.data}
                   onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))}
+                  fullWidth
+                />
+                <TextField
+                  label="Zlecenie (opcjonalnie)"
+                  value={form.task_id}
+                  onChange={(e) => setForm((f) => ({ ...f, task_id: e.target.value.replace(/[^\d]/g, '') }))}
+                  placeholder="ID zlecenia"
                   fullWidth
                 />
                 <FormControl fullWidth>

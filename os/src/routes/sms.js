@@ -7,7 +7,7 @@ const { validateBody, validateParams, validateQuery } = require('../middleware/v
 const { z } = require('zod');
 
 const { formatSmsPlanParts } = require('../services/smsTemplates');
-const { getTwilioSmsStatusCallbackUrl } = require('../services/twilioStatusCallback');
+const { sendSmsGateway, activeSmsProvider } = require('../services/smsGateway');
 
 const router = express.Router();
 
@@ -53,43 +53,18 @@ function parseHistoriaDate(s) {
   return t;
 }
 
-const getSmsClient = () => {
-  const accountSid = env.TWILIO_ACCOUNT_SID;
-  const authToken = env.TWILIO_AUTH_TOKEN;
-  if (!accountSid || !authToken) {
-    logger.error('Brak konfiguracji Twilio w zmiennych srodowiskowych');
-    return null;
-  }
-  const twilio = require('twilio');
-  return twilio(accountSid, authToken);
-};
-
-const logSmsHistory = async (task_id, telefon, tresc, status, sid = null, error = null) => {
+// Thin wrapper — historia jest zapisywana przez smsGateway
+const _logSmsHistory = async (task_id, telefon, tresc, status, sid = null, error = null) => {
   try {
     await pool.query(
       `INSERT INTO sms_history (task_id, telefon, tresc, status, sid, error, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT DO NOTHING`,
       [task_id, telefon, tresc, status, sid, error]
     );
   } catch (err) {
-    logger.error('Blad zapisu historii SMS', { message: err.message });
+    logger.warn('sms.logHistory', { message: err.message });
   }
-};
-
-const ensureTableExists = async () => {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sms_history (
-      id SERIAL PRIMARY KEY,
-      task_id INTEGER REFERENCES tasks(id),
-      telefon VARCHAR(20) NOT NULL,
-      tresc TEXT NOT NULL,
-      status VARCHAR(50) DEFAULT 'Wyslany',
-      sid VARCHAR(100),
-      error TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
-  await pool.query(`ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS sid VARCHAR(100)`);
 };
 
 const SZABLONY = {
@@ -114,33 +89,19 @@ const SZABLONY = {
 
 // POST /api/sms/wyslij
 router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req, res) => {
-  try {
-    await ensureTableExists();
-    const { telefon, tresc, task_id } = req.body;
-    const client = getSmsClient();
-    if (!client) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
-    const fromNumber = env.TWILIO_PHONE;
-    if (!fromNumber) return res.status(500).json({ error: req.t('errors.sms.twilioFromMissing') });
-    const statusCb = getTwilioSmsStatusCallbackUrl();
-    const message = await client.messages.create({
-      body: tresc,
-      from: fromNumber,
-      to: telefon,
-      ...(statusCb ? { statusCallback: statusCb } : {}),
-    });
-    await logSmsHistory(task_id || null, telefon, tresc, 'Wyslany', message.sid);
-    res.json({ success: true, message: 'SMS wysłany', sid: message.sid });
-  } catch (err) {
-    logger.error('Blad SMS /wyslij', { message: err.message, requestId: req.requestId });
-    await logSmsHistory(req.body.task_id || null, req.body.telefon, req.body.tresc, 'Błąd', null, err.message);
-    res.status(500).json({ error: err.message });
+  const { telefon, tresc, task_id } = req.body;
+  const result = await sendSmsGateway({ to: telefon, body: tresc, taskId: task_id });
+  if (!result.ok) {
+    logger.error('Blad SMS /wyslij', { error: result.error, requestId: req.requestId });
+    return res.status(500).json({ error: result.error });
   }
+  res.json({ success: true, message: 'SMS wysłany', provider: result.provider, sid: result.sid || result.id });
 });
 
 // POST /api/sms/zlecenie/:id
 router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchema), validateBody(smsZlecenieBodySchema), async (req, res) => {
   try {
-    await ensureTableExists();
+    // ensureTableExists removed — handled by smsGateway on first send
     const { typ, powod } = req.body;
     const { id } = req.params;
     const zRes = await pool.query(
@@ -157,24 +118,16 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
     if (typ === 'problem' && powod) tresc = SZABLONY[typ](z, powod);
     else if (['przypomnienie', 'potwierdzenie', 'zaplanowane'].includes(typ)) tresc = SZABLONY[typ](z, data);
     else tresc = SZABLONY[typ](z);
-    const client = getSmsClient();
-    if (!client) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
-    const fromNumber = env.TWILIO_PHONE;
-    if (!fromNumber) return res.status(500).json({ error: req.t('errors.sms.twilioFromMissing') });
-    const statusCb = getTwilioSmsStatusCallbackUrl();
-    const message = await client.messages.create({
-      body: tresc,
-      from: fromNumber,
-      to: z.klient_telefon,
-      ...(statusCb ? { statusCallback: statusCb } : {}),
-    });
-    await logSmsHistory(id, z.klient_telefon, tresc, 'Wyslany', message.sid);
+    const result = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: id });
+    if (!result.ok) {
+      logger.error('Blad SMS /zlecenie/:id', { error: result.error, requestId: req.requestId });
+      return res.status(500).json({ error: result.error });
+    }
     const statusMap = { w_drodze: 'W_drodze', na_miejscu: 'W_Realizacji', zakonczone: 'Zakonczone', anulowane: 'Anulowane' };
     if (statusMap[typ]) await pool.query('UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2', [statusMap[typ], id]);
-    res.json({ success: true, message: 'SMS wysłany', sid: message.sid, typ, telefon: z.klient_telefon });
+    res.json({ success: true, message: 'SMS wysłany', provider: result.provider, sid: result.sid || result.id, typ, telefon: z.klient_telefon });
   } catch (err) {
     logger.error('Blad SMS /zlecenie/:id', { message: err.message, requestId: req.requestId });
-    await logSmsHistory(req.params.id, null, null, 'Błąd', null, err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -182,7 +135,7 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
 // GET /api/sms/historia
 router.get('/historia/zlecenie/:taskId', authMiddleware, validateParams(smsHistoriaTaskParamsSchema), async (req, res) => {
   try {
-    await ensureTableExists();
+    // ensureTableExists removed — handled by smsGateway on first send
     const result = await pool.query(
       `SELECT * FROM sms_history WHERE task_id = $1 ORDER BY created_at DESC`,
       [req.params.taskId]
@@ -196,7 +149,7 @@ router.get('/historia/zlecenie/:taskId', authMiddleware, validateParams(smsHisto
 
 router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), async (req, res) => {
   try {
-    await ensureTableExists();
+    // ensureTableExists removed — handled by smsGateway on first send
     const { limit, offset } = req.query;
     const qRaw = req.query.q != null ? String(req.query.q).trim().slice(0, 200) : '';
     const statusF = req.query.status != null ? String(req.query.status).trim().slice(0, 80) : '';
@@ -266,7 +219,7 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
 // POST /api/sms/wyslij-do-wszystkich
 router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema), async (req, res) => {
   try {
-    await ensureTableExists();
+    // ensureTableExists removed — handled by smsGateway on first send
     if (!['Prezes', 'Dyrektor', 'Kierownik'].includes(req.user.rola)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     const { typ, data } = req.body;
     const targetDate = data || new Date().toISOString().split('T')[0];
@@ -277,31 +230,18 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
     const result = await pool.query(query, params);
     const zlecenia = result.rows;
     if (zlecenia.length === 0) return res.json({ success: true, message: 'Brak zleceń do wysłania SMS', wyslane: 0 });
-    const client = getSmsClient();
-    if (!client) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
-    const fromNumber = env.TWILIO_PHONE;
+    if (!activeSmsProvider()) return res.status(500).json({ error: req.t('errors.sms.twilioNotConfigured') });
     let wyslane = 0;
     const bledy = [];
     for (const z of zlecenia) {
-      try {
-        const dataFormat = new Date(z.data_planowana).toLocaleDateString('pl-PL');
-        let tresc = ['przypomnienie', 'potwierdzenie', 'zaplanowane'].includes(typ)
-          ? SZABLONY[typ](z, dataFormat)
-          : (SZABLONY[typ] ? SZABLONY[typ](z) : `Informacja od ARBOR: zlecenie ${z.typ_uslugi} pod adresem ${z.adres}.`);
-        const statusCb = getTwilioSmsStatusCallbackUrl();
-        const message = await client.messages.create({
-          body: tresc,
-          from: fromNumber,
-          to: z.klient_telefon,
-          ...(statusCb ? { statusCallback: statusCb } : {}),
-        });
-        await logSmsHistory(z.id, z.klient_telefon, tresc, 'Wyslany', message.sid);
-        wyslane++;
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (err) {
-        bledy.push({ telefon: z.klient_telefon, error: err.message });
-        await logSmsHistory(z.id, z.klient_telefon, null, 'Błąd', null, err.message);
-      }
+      const dataFormat = new Date(z.data_planowana).toLocaleDateString('pl-PL');
+      const tresc = ['przypomnienie', 'potwierdzenie', 'zaplanowane'].includes(typ)
+        ? SZABLONY[typ](z, dataFormat)
+        : (SZABLONY[typ] ? SZABLONY[typ](z) : `Informacja od ARBOR: zlecenie ${z.typ_uslugi} pod adresem ${z.adres}.`);
+      const r = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: z.id });
+      if (r.ok) { wyslane++; } else { bledy.push({ telefon: z.klient_telefon, error: r.error }); }
+      // throttle — Zadarma ma limit ~10 SMS/s, Twilio podobnie
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     res.json({ success: true, message: `Wysłano ${wyslane} SMS z ${zlecenia.length}`, wyslane, bledy });
   } catch (err) {
@@ -312,18 +252,31 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
 
 // GET /api/sms/test
 router.get('/test', authMiddleware, async (req, res) => {
+  const provider = activeSmsProvider();
+  if (!provider) {
+    return res.json({
+      success: false,
+      message: 'Brak konfiguracji SMS. Ustaw ZADARMA_API_KEY + ZADARMA_API_SECRET lub TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN.',
+      zadarma: { key: !!env.ZADARMA_API_KEY, secret: !!env.ZADARMA_API_SECRET },
+      twilio: { sid: !!env.TWILIO_ACCOUNT_SID, token: !!env.TWILIO_AUTH_TOKEN, phone: !!env.TWILIO_PHONE },
+    });
+  }
+  if (provider === 'zadarma') {
+    try {
+      const { zadarmaRequest } = require('../services/zadarma');
+      const info = await zadarmaRequest('GET', '/v1/info/', {});
+      return res.json({ success: true, provider: 'zadarma', message: 'Zadarma skonfigurowana poprawnie', info });
+    } catch (e) {
+      return res.json({ success: false, provider: 'zadarma', message: e.message });
+    }
+  }
+  // Twilio
   try {
-    const accountSid = env.TWILIO_ACCOUNT_SID;
-    const authToken = env.TWILIO_AUTH_TOKEN;
-    const fromNumber = env.TWILIO_PHONE;
-    const configOk = !!(accountSid && authToken && fromNumber);
-    if (!configOk) return res.json({ success: false, message: 'Brak konfiguracji Twilio', accountSid: !!accountSid, authToken: !!authToken, fromNumber: !!fromNumber });
-    const client = getSmsClient();
-    if (!client) return res.json({ success: false, message: 'Nie można utworzyć klienta Twilio' });
-    const account = await client.api.accounts(accountSid).fetch();
-    res.json({ success: true, message: 'Konfiguracja Twilio poprawna', account_friendly_name: account.friendlyName, account_status: account.status, from_number: fromNumber });
+    const client = require('twilio')(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
+    const account = await client.api.accounts(env.TWILIO_ACCOUNT_SID).fetch();
+    res.json({ success: true, provider: 'twilio', message: 'Konfiguracja Twilio poprawna', account_friendly_name: account.friendlyName, account_status: account.status, from_number: env.TWILIO_PHONE });
   } catch (err) {
-    res.json({ success: false, message: err.message, code: err.code });
+    res.json({ success: false, provider: 'twilio', message: err.message, code: err.code });
   }
 });
 

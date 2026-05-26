@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
+import ModernDataRow from '../components/ModernDataRow';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 
@@ -438,36 +439,26 @@ export default function RozliczeniaFieldEntry() {
                 <h3 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
                   📋 Zapisane godziny
                 </h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: 12 }}>
-                      <th style={th}>Pracownik</th>
-                      <th style={th}>Godziny</th>
-                      <th style={th}>Stawka</th>
-                      <th style={th}>Koszt</th>
-                      <th style={th}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {taskData.pomocnicy.map((p) => (
-                      <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={td}>{p.imie} {p.nazwisko}</td>
-                        <td style={td}>{p.godziny} h</td>
-                        <td style={td}>{p.stawka_godzinowa} PLN/h</td>
-                        <td style={{ ...td, fontWeight: 700 }}>{fmt(p.koszt)} PLN</td>
-                        <td style={td}>
-                          <span style={{
-                            padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                            background: (STATUS_COLOR[p.status] || '#888') + '22',
-                            color: STATUS_COLOR[p.status] || '#888',
-                          }}>
-                            {p.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="modern-data-stack">
+                  {taskData.pomocnicy.map((p) => (
+                    <ModernDataRow
+                      key={p.id}
+                      idLabel="Worker Cost"
+                      idValue={`HELP-${p.id}`}
+                      title={`${p.imie} ${p.nazwisko}`}
+                      subtitle={`Status: ${p.status || 'brak'}`}
+                      tone={p.status === 'Potwierdzone' ? 'success' : p.status === 'Odrzucone' ? 'danger' : 'warning'}
+                      status={p.status || 'Oczekuje'}
+                      statusValue={p.status}
+                      statusState={p.status === 'Potwierdzone' ? 'success' : p.status === 'Odrzucone' ? 'danger' : 'warning'}
+                      metrics={[
+                        { label: 'Godziny', value: `${p.godziny} h`, tone: 'info' },
+                        { label: 'Stawka', value: `${p.stawka_godzinowa} PLN/h` },
+                        { label: 'Koszt', value: `${fmt(p.koszt)} PLN`, tone: 'warning' },
+                      ]}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -668,36 +659,26 @@ export default function RozliczeniaFieldEntry() {
                 {dayData.pomocnicy_godziny.length > 0 && (
                   <div>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: '0 0 10px' }}>Godziny pomocników dnia</h3>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 600 }}>
-                          <th style={th}>Pracownik</th>
-                          <th style={th}>Zlecenie</th>
-                          <th style={th}>Godziny</th>
-                          <th style={th}>Koszt</th>
-                          <th style={th}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dayData.pomocnicy_godziny.map((p) => (
-                          <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={td}>{p.imie} {p.nazwisko}</td>
-                            <td style={{ ...td, color: 'var(--text-muted)', fontSize: 11 }}>{p.klient_nazwa}</td>
-                            <td style={td}>{p.godziny} h × {p.stawka_godzinowa} PLN</td>
-                            <td style={{ ...td, fontWeight: 700 }}>{fmt(p.koszt)} PLN</td>
-                            <td style={td}>
-                              <span style={{
-                                padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                                background: (STATUS_COLOR[p.status] || '#888') + '22',
-                                color: STATUS_COLOR[p.status] || '#888',
-                              }}>
-                                {p.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="modern-data-stack">
+                      {dayData.pomocnicy_godziny.map((p) => (
+                        <ModernDataRow
+                          key={p.id}
+                          idLabel="Day Worker"
+                          idValue={`DAY-${p.id}`}
+                          title={`${p.imie} ${p.nazwisko}`}
+                          subtitle={p.klient_nazwa || 'Zlecenie bez klienta'}
+                          tone={p.status === 'Potwierdzone' ? 'success' : p.status === 'Odrzucone' ? 'danger' : 'warning'}
+                          status={p.status || 'Oczekuje'}
+                          statusValue={p.status}
+                          statusState={p.status === 'Potwierdzone' ? 'success' : p.status === 'Odrzucone' ? 'danger' : 'warning'}
+                          metrics={[
+                            { label: 'Godziny', value: `${p.godziny} h` },
+                            { label: 'Stawka', value: `${p.stawka_godzinowa} PLN` },
+                            { label: 'Koszt', value: `${fmt(p.koszt)} PLN`, tone: 'warning' },
+                          ]}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -743,14 +724,4 @@ const primaryBtn = {
 const actionBtn = {
   flex: 1, padding: '8px 12px', borderRadius: 8,
   fontWeight: 600, fontSize: 13, cursor: 'pointer',
-};
-
-const th = {
-  padding: '6px 10px', textAlign: 'left',
-  borderBottom: '1px solid var(--border)',
-};
-
-const td = {
-  padding: '9px 10px',
-  color: 'var(--text)',
 };

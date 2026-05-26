@@ -21,6 +21,7 @@ import {
   getCurrentTestRoleMobile,
   TEST_USERS_MOBILE,
 } from '../utils/testMode';
+import { getRoleDisplayName } from '../utils/role-display';
 
 export default function TestModeScreen() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function TestModeScreen() {
         if (result) {
           await toggleTestModeMobile(true);
           setTestModeEnabled(true);
-          Alert.alert('✓ Tryb testowy włączony', `Zalogowano jako: ${result.user.rola}`);
+          Alert.alert('✓ Tryb testowy włączony', `Zalogowano jako: ${getRoleDisplayName(result.user.rola)}`);
           setTimeout(() => router.replace('/'), 1000);
         }
       } else {
@@ -72,7 +73,7 @@ export default function TestModeScreen() {
         if (result) {
           Alert.alert(
             '✓ Zmieniono rolę',
-            `Teraz jesteś: ${result.user.rola}`,
+            `Teraz jesteś: ${getRoleDisplayName(result.user.rola)}`,
             [{ text: 'OK', onPress: () => setTimeout(() => router.replace('/'), 500) }]
           );
         }
@@ -141,7 +142,7 @@ export default function TestModeScreen() {
                   },
                 ]}
               >
-                {user.rola}
+                {getRoleDisplayName(user.rola)}
               </Text>
               <Text
                 style={[
