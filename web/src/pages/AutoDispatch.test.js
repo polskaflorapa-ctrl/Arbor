@@ -117,6 +117,11 @@ test('loads and renders AI dispatch advisor brief', async () => {
 
   expect(await screen.findByText('Najpierw popraw dwa krytyczne braki.')).toBeInTheDocument();
   expect(screen.getByText('Napraw blokady przed solverem')).toBeInTheDocument();
+  expect(screen.getByText('Odprawa AI')).toBeInTheDocument();
+  expect(screen.getByText('Gotowa')).toBeInTheDocument();
+  expect(screen.getByText('Blokady danych')).toBeInTheDocument();
+  expect(screen.getByText('2 do naprawy')).toBeInTheDocument();
+  expect(screen.getByText('Po naprawach')).toBeInTheDocument();
   expect(screen.getByText('Nastepna blokada')).toBeInTheDocument();
   expect(screen.getByText('ZL/42: Brak telefonu')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Napraw blokade' })).toBeInTheDocument();
@@ -229,6 +234,7 @@ test('shows a solver-ready next action when the advisor has no blockers', async 
   expect(await screen.findByText('Wszystko gotowe do planowania.')).toBeInTheDocument();
   expect(screen.getByText('Plan gotowy do solvera')).toBeInTheDocument();
   expect(screen.getByText('Brak blokad i uwag w odprawie dnia.')).toBeInTheDocument();
+  expect(screen.getByText('Gotowy do generowania')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: 'Generuj podglad planu' }));
 
@@ -240,7 +246,41 @@ test('shows a solver-ready next action when the advisor has no blockers', async 
     );
   });
   expect(await screen.findByText('100%')).toBeInTheDocument();
+  expect(screen.getByText('5 / 5 przypisane')).toBeInTheDocument();
+  expect(screen.getByText('Zapisz, gdy plan pasuje')).toBeInTheDocument();
 }, 10000);
+
+test('shows absent team availability returned by dispatch preview', async () => {
+  api.post.mockResolvedValueOnce({
+    data: {
+      routes: [],
+      team_availability: {
+        total: 3,
+        available: 2,
+        absent: [
+          { team_id: 10, team_name: 'Brygada Alfa', note: 'Auto w serwisie' },
+        ],
+      },
+      stats: {
+        coverage_pct: 100,
+        tasks_assigned: 4,
+        tasks_total: 4,
+        teams_used: 2,
+        tasks_unassigned: 0,
+        solver_ms: 21,
+      },
+    },
+  });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
+
+  await userEvent.click(screen.getByRole('button', { name: /Podgląd planu/i }));
+
+  expect(await screen.findByText('Nieobecne ekipy: 1')).toBeInTheDocument();
+  expect(screen.getByText('2/3 dostepne')).toBeInTheDocument();
+  expect(screen.getByText('Brygada Alfa')).toBeInTheDocument();
+  expect(screen.getByText('Auto w serwisie')).toBeInTheDocument();
+});
 
 test('falls back when Clipboard API is blocked', async () => {
   writeTextMock.mockRejectedValueOnce(new Error('Clipboard blocked'));
@@ -492,3 +532,59 @@ test('allows saving after the dispatcher preflight is bypassed', async () => {
   });
   expect(await screen.findByText(/Plan zapisany/)).toBeInTheDocument();
 });
+
+test('marks the dispatch progress as applied after applying a saved plan', async () => {
+  api.get.mockResolvedValueOnce({
+    data: {
+      source: 'rules',
+      date: '2026-05-25',
+      metrics: {
+        ready_for_dispatch: 3,
+        tasks_total: 3,
+        blocked: 0,
+        warnings: 0,
+        avg_quality: 97,
+        total_value: 9000,
+      },
+      recommendations: [],
+      top_tasks: [],
+    },
+  });
+  api.post
+    .mockResolvedValueOnce({
+      data: {
+        id: 91,
+        routes: [],
+        stats: {
+          coverage_pct: 100,
+          tasks_assigned: 3,
+          tasks_total: 3,
+          teams_used: 1,
+          tasks_unassigned: 0,
+          solver_ms: 9,
+        },
+      },
+    })
+    .mockResolvedValueOnce({
+      data: { message: 'Plan zastosowany!' },
+    });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
+
+  await userEvent.click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
+
+  expect(await screen.findByText(/Plan zapisany/)).toBeInTheDocument();
+  expect(screen.getByText('Gotowy do zastosowania')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: /Zastosuj/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenLastCalledWith(
+      '/dispatch/apply/91',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Plan zastosowany!')).toBeInTheDocument();
+  expect(screen.getByText('Zastosowany')).toBeInTheDocument();
+}, 10000);

@@ -864,6 +864,7 @@ const taskUpdateSchema = z.object({
   kierownik_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   wyceniajacy_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   status: z.enum(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone', 'Anulowane']).optional(),
+  absence_override: z.boolean().optional(),
   wywoz: z.boolean().optional(),
   usuwanie_pni: z.boolean().optional(),
   czas_realizacji_godz: z.union([z.number(), z.string()]).optional().nullable(),
@@ -2694,7 +2695,8 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       notatki_klienta, oddzial_id, ekipa_id, kierownik_id, wyceniajacy_id,
       status, wywoz, usuwanie_pni, czas_realizacji_godz, rebak, pila_wysiegniku,
       nozyce_dlugie, kosiarka, podkaszarka, lopata, mulczer, ilosc_osob,
-      arborysta, wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno
+      arborysta, wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno,
+      absence_override
     } = req.body;
 
     const curR = await pool.query(
@@ -2705,6 +2707,9 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
     const cur = curR.rows[0];
     const hasBody = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
     const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
+    const nextPlannedDateTime = hasBody('data_planowana') || hasBody('godzina_rozpoczecia')
+      ? plannedDateTime
+      : cur.data_planowana;
     const nextOddzialId = isDyrektorOrAdmin(req.user)
       ? (hasBody('oddzial_id') ? toNum(oddzial_id) : cur.oddzial_id)
       : (cur.oddzial_id || req.user.oddzial_id);
@@ -2737,7 +2742,7 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
         budzet: hasBody('budzet') ? toNum(budzet) : (workflowCurrent?.budzet ?? cur.budzet),
         czas_planowany_godziny: hasBody('czas_planowany_godziny') ? toNum(czas_planowany_godziny) : (workflowCurrent?.czas_planowany_godziny ?? cur.czas_planowany_godziny),
         czas_realizacji_godz: hasBody('czas_realizacji_godz') ? toNum(czas_realizacji_godz) : (workflowCurrent?.czas_realizacji_godz ?? cur.czas_realizacji_godz),
-        data_planowana: hasBody('data_planowana') || hasBody('godzina_rozpoczecia') ? plannedDateTime : (workflowCurrent?.data_planowana ?? cur.data_planowana),
+        data_planowana: nextPlannedDateTime,
         godzina_rozpoczecia: hasBody('godzina_rozpoczecia') ? toStr(godzina_rozpoczecia) : (workflowCurrent?.godzina_rozpoczecia ?? cur.godzina_rozpoczecia),
         ekipa_id: nextTeamId,
         wyceniajacy_id: nextEstimatorId,
@@ -2759,17 +2764,32 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
     }
     if (nextTeamId && nextOddzialId) {
-      const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, plannedDateTime);
+      const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, nextPlannedDateTime);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
     if (nextEstimatorId && nextOddzialId) {
-      const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, plannedDateTime);
+      const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, nextPlannedDateTime);
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
     }
+    const teamAttendance = nextTeamId ? await getTeamAttendanceForPlan(Number(nextTeamId), nextPlannedDateTime) : null;
+    if (teamAttendance?.present === false && absence_override !== true) {
+      return res.status(409).json({
+        error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+        code: 'TEAM_ABSENT',
+        attendance: {
+          teamId: teamAttendance.teamId,
+          teamName: teamAttendance.teamName,
+          dateYmd: teamAttendance.day,
+          present: false,
+          note: teamAttendance.note,
+          actor: teamAttendance.actor,
+        },
+      });
+    }
     if (nextTeamId && hasExplicitPlannedHour(data_planowana, godzina_rozpoczecia)) {
-      const planDay = String(plannedDateTime).slice(0, 10);
+      const planDay = String(nextPlannedDateTime).slice(0, 10);
       const busyRanges = await getTeamBusyRanges(pool, Number(nextTeamId), planDay, null, Number(req.params.id));
-      const d = new Date(plannedDateTime);
+      const d = new Date(nextPlannedDateTime);
       if (!Number.isNaN(d.getTime())) {
         const startMin = d.getHours() * 60 + d.getMinutes();
         const durMin = Math.max(15, Math.round(Number(czas_planowany_godziny || 2) * 60));
@@ -2801,6 +2821,18 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
     const nk = hasBody('notatki_klienta')
       ? toStr(notatki_klienta)
       : cur.notatki_klienta;
+    const absenceNote = teamAttendance?.present === false && absence_override === true
+      ? [
+        'WYJATEK PLANOWANIA EKIPY',
+        `Kierownik potwierdzil aktualizacje zlecenia mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`,
+        `Data zlecenia: ${String(nextPlannedDateTime || '').slice(0, 10) || '-'}`,
+        `Ekipa: ${teamAttendance.teamName} (#${teamAttendance.teamId})`,
+        `Operator: ${req.user.login || req.user.id || '-'}`,
+      ].join('\n')
+      : '';
+    const internalNotes = absenceNote
+      ? [String(keepStr('notatki_wewnetrzne', notatki_wewnetrzne) || '').trim(), absenceNote].filter(Boolean).join('\n\n').slice(0, 12000)
+      : keepStr('notatki_wewnetrzne', notatki_wewnetrzne);
 
     const update = await pool.query(
       `UPDATE tasks SET
@@ -2827,9 +2859,9 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
         priorytet,
         toNum(wartosc_planowana),
         toNum(czas_planowany_godziny),
-        plannedDateTime,
+        nextPlannedDateTime,
         toStr(godzina_rozpoczecia),
-        keepStr('notatki_wewnetrzne', notatki_wewnetrzne),
+        internalNotes,
         keepStr('notatki', notatki),
         wr,
         op,

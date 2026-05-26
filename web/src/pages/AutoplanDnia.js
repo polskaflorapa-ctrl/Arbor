@@ -237,9 +237,13 @@ export default function AutoplanDnia() {
     const appliedSnapshot = [];
     const headers = authHeaders(token);
     for (const row of actionable) {
-      const body = { ekipa_id: Number(row.suggestedTeamId), status: 'Zaplanowane' };
+      const buildBody = (overrideAbsent = false) => ({
+        ekipa_id: Number(row.suggestedTeamId),
+        ...(overrideAbsent ? { absence_override: true } : {}),
+      });
+      const applyAssignment = (overrideAbsent = false) => api.put(`/tasks/${row.taskId}/przypisz`, buildBody(overrideAbsent), { headers });
       try {
-        const res = await api.put(`/tasks/${row.taskId}`, body, { headers });
+        const res = await applyAssignment(false);
         if (res.status >= 200 && res.status < 300) {
           ok += 1;
           appliedSnapshot.push({
@@ -250,7 +254,29 @@ export default function AutoplanDnia() {
         } else {
           queued += 1;
         }
-      } catch {
+      } catch (err) {
+        const payload = err?.response?.data || {};
+        if (payload.code === 'TEAM_ABSENT') {
+          const attendance = payload.attendance || {};
+          const reason = attendance.note ? ` Powod: ${attendance.note}.` : '';
+          const confirmed = window.confirm(`${attendance.teamName || 'Wybrana ekipa'} jest oznaczona jako nieobecna.${reason} Czy kierownik potwierdza planowanie z autoplanu mimo braku gotowosci?`);
+          if (confirmed) {
+            try {
+              const res = await applyAssignment(true);
+              if (res.status >= 200 && res.status < 300) {
+                ok += 1;
+                appliedSnapshot.push({
+                  taskId: row.taskId,
+                  prevTeamId: row.currentTeamId,
+                  prevStatus: row.currentStatus,
+                });
+                continue;
+              }
+            } catch {
+              // Zostaje w kolejce do ręcznego sprawdzenia niżej.
+            }
+          }
+        }
         queued += 1;
       }
     }

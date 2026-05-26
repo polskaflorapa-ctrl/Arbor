@@ -15,6 +15,8 @@ import {
   getMockTaskLogi,
   getMockTaskPhotos,
   getMockTaskProblems,
+  mockAddTaskPhotoInTestMode,
+  mockDeleteTaskPhotoInTestMode,
   mockMarkTaskFinishedInTestMode,
   mockUpdateTaskInTestMode,
   getMockQuotationDetail,
@@ -181,6 +183,137 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ops/plan-vs-real' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const sourceTasks = (getMockData('/tasks/wszystkie') || []).filter((task) => {
+      const planned = String(task.data_planowana || '').slice(0, 10);
+      if (planned && planned !== date) return false;
+      return !oddzialId || String(task.oddzial_id || '') === String(oddzialId);
+    });
+    const closedStatuses = ['Zakonczone', 'Anulowane'];
+    const rows = sourceTasks.map((task) => {
+      const plannedMinutes = Math.max(0, Math.round(Number(task.czas_obslugi_min || 0) || Number(task.czas_planowany_godziny || 0) * 60));
+      const hasStarted = task.status === 'W_Realizacji' || task.status === 'Zakonczone';
+      const hasFinished = task.status === 'Zakonczone';
+      const realMinutes = hasFinished
+        ? Math.max(0, plannedMinutes - 10)
+        : hasStarted
+          ? plannedMinutes + 45
+          : 0;
+      let issue = null;
+      if (plannedMinutes <= 0) issue = { key: 'missing_duration', label: 'Brak czasu planu', tone: 'warning', rank: 2 };
+      else if (hasStarted && realMinutes > plannedMinutes + 30) issue = { key: 'overrun', label: 'Przekroczenie planu', tone: 'danger', rank: 0 };
+      else if (hasStarted && !hasFinished && !closedStatuses.includes(task.status)) issue = { key: 'missing_finish', label: 'Brak zamkniecia', tone: 'warning', rank: 1 };
+      else if (!hasStarted && !closedStatuses.includes(task.status)) issue = { key: 'not_started', label: 'Nie wystartowalo', tone: 'warning', rank: 3 };
+      return {
+        id: task.id,
+        numer: task.numer || `ZLE-${String(task.id).padStart(4, '0')}`,
+        klient_nazwa: task.klient_nazwa,
+        status: task.status,
+        ekipa_id: task.ekipa_id,
+        ekipa_nazwa: task.ekipa_nazwa,
+        oddzial_id: task.oddzial_id,
+        oddzial_nazwa: task.oddzial_nazwa,
+        planned_minutes: plannedMinutes,
+        real_minutes: realMinutes,
+        delta_minutes: realMinutes - plannedMinutes,
+        has_started: hasStarted,
+        has_finished: hasFinished,
+        logs_total: hasStarted ? 1 : 0,
+        wartosc_planowana: Number(task.wartosc_planowana || task.budzet || 0),
+        wartosc_rzeczywista: Number(task.wartosc_rzeczywista || 0),
+        ...(issue ? {
+          issue_key: issue.key,
+          issue_label: issue.label,
+          tone: issue.tone,
+          issue_rank: issue.rank,
+          action_path: `/zlecenia/${task.id}`,
+        } : {}),
+      };
+    });
+    const finished = rows.filter((task) => task.status === 'Zakonczone' || task.has_finished);
+    const plannedMinutes = rows.reduce((sum, task) => sum + task.planned_minutes, 0);
+    const realMinutes = rows.reduce((sum, task) => sum + task.real_minutes, 0);
+    const issueCount = (key) => rows.filter((task) => task.issue_key === key).length;
+    return {
+      data: {
+        date,
+        oddzial_id: oddzialId,
+        summary: {
+          planned_tasks: rows.length,
+          started_tasks: rows.filter((task) => task.has_started).length,
+          finished_tasks: finished.length,
+          not_started_tasks: issueCount('not_started'),
+          overrun_tasks: issueCount('overrun'),
+          missing_finish_tasks: issueCount('missing_finish'),
+          missing_duration_tasks: issueCount('missing_duration'),
+          planned_minutes: plannedMinutes,
+          real_minutes: realMinutes,
+          delta_minutes: realMinutes - plannedMinutes,
+          value_planned: rows.reduce((sum, task) => sum + task.wartosc_planowana, 0),
+          value_done: finished.reduce((sum, task) => sum + (task.wartosc_rzeczywista || task.wartosc_planowana), 0),
+        },
+        issues: ['overrun', 'missing_finish', 'missing_duration', 'not_started']
+          .map((key) => ({ key, count: issueCount(key) }))
+          .filter((item) => item.count > 0),
+        tasks: rows
+          .filter((task) => task.issue_key || Math.abs(task.delta_minutes) >= 30)
+          .sort((a, b) => (a.issue_rank ?? 9) - (b.issue_rank ?? 9) || Math.abs(b.delta_minutes) - Math.abs(a.delta_minutes))
+          .slice(0, 8),
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mPlanRealAction = path.match(/^\/ops\/plan-vs-real\/tasks\/(\d+)\/action$/);
+  if (mPlanRealAction && method === 'post') {
+    const body = parseJsonData(config.data);
+    const taskId = mPlanRealAction[1];
+    const current = getMockTaskDetail(taskId);
+    const noteLine = `PLAN VS REAL / ${body.action || 'action'} / ${new Date().toISOString()}`;
+    const nextNotes = [current?.notatki_wewnetrzne, noteLine, body.note].filter(Boolean).join('\n\n');
+    let patch = { notatki_wewnetrzne: nextNotes };
+    let message = 'Akcja zapisana';
+    let notificationCount = 0;
+    if (body.action === 'set_duration') {
+      const minutes = Math.max(15, Math.round(Number(body.planned_minutes || Number(body.planned_hours || 0) * 60 || 120)));
+      patch = {
+        ...patch,
+        czas_planowany_godziny: Math.round((minutes / 60) * 100) / 100,
+        czas_obslugi_min: minutes,
+      };
+      message = 'Czas planu zapisany';
+    } else if (body.action === 'mark_reason') {
+      patch = {
+        ...patch,
+        plan_real_reason_code: body.reason_code || 'inne',
+      };
+      message = 'Powod zapisany';
+    } else if (body.action === 'remind_team') {
+      message = 'Przypomnienie wyslane';
+      notificationCount = current?.ekipa_id ? 1 : 0;
+    }
+    return {
+      data: {
+        message,
+        action: body.action,
+        task: mockUpdateTaskInTestMode(taskId, patch),
+        notification_count: notificationCount,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/ekipy/attendance' && method === 'get') {
     const date = getRequestDate(config);
     const teams = getMockData('/ekipy') || [];
@@ -270,6 +403,31 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  const mTasksOfficePlan = path.match(/^\/tasks\/(\d+)\/office-plan$/);
+  if (mTasksOfficePlan && method === 'put') {
+    const body = parseJsonData(config.data);
+    const teams = getMockData('/ekipy') || [];
+    const plannedTeam = teams.find((team) => String(team.id) === String(body.ekipa_id));
+    const data = mockUpdateTaskInTestMode(mTasksOfficePlan[1], {
+      data_planowana: body.data_planowana,
+      godzina_rozpoczecia: body.godzina_rozpoczecia,
+      czas_planowany_godziny: body.czas_planowany_godziny,
+      ekipa_id: body.ekipa_id,
+      ekipa_nazwa: plannedTeam?.nazwa || (body.ekipa_id ? `Ekipa #${body.ekipa_id}` : ''),
+      sprzet_ids: body.sprzet_ids || [],
+      sprzet_notatka: body.sprzet_notatka || '',
+      status: 'Zaplanowane',
+    });
+    return {
+      data,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   const mTasksLogi = path.match(/^\/tasks\/(\d+)\/logi$/);
   if (mTasksLogi && method === 'get') {
     return {
@@ -286,6 +444,28 @@ function getTestModeMockResponse(config) {
   if (mTasksPhotos && method === 'get') {
     return {
       data: getMockTaskPhotos(mTasksPhotos[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mTasksPhotos && method === 'post') {
+    return {
+      data: mockAddTaskPhotoInTestMode(mTasksPhotos[1], config.data),
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksPhotoId = path.match(/^\/tasks\/(\d+)\/zdjecia\/([^/]+)$/);
+  if (mTasksPhotoId && method === 'delete') {
+    return {
+      data: mockDeleteTaskPhotoInTestMode(mTasksPhotoId[1], mTasksPhotoId[2]),
       status: 200,
       statusText: 'OK',
       headers: {},

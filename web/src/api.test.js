@@ -133,6 +133,90 @@ describe('api test-mode mocks', () => {
     expect(filledPhotos.data.map((photo) => photo.typ)).toEqual(['wycena', 'wycena', 'szkic', 'szkic', 'dojazd']);
   });
 
+  it('persists uploaded task photos and updates task photo counters', async () => {
+    const formData = new FormData();
+    formData.append('zdjecie', new Blob(['demo'], { type: 'image/jpeg' }), 'wycena.jpg');
+    formData.append('typ', 'Wycena');
+    formData.append('opis', 'Widok drzewa przed wycena');
+    formData.append('tagi', 'wycena,teren');
+
+    const saved = await api.post('/api/tasks/101/zdjecia', formData);
+
+    expect(saved.status).toBe(201);
+    expect(saved.data).toMatchObject({
+      task_id: 101,
+      typ: 'wycena',
+      opis: 'Widok drzewa przed wycena',
+      tagi: ['wycena', 'teren'],
+    });
+
+    const photos = await api.get('/api/tasks/101/zdjecia', { dedupe: false });
+    expect(photos.data).toHaveLength(1);
+    expect(photos.data[0]).toMatchObject({ id: saved.data.id, typ: 'wycena' });
+
+    const detail = await api.get('/api/tasks/101', { dedupe: false });
+    expect(detail.data).toMatchObject({
+      id: 101,
+      photo_total: 1,
+      photo_wycena: 1,
+      photo_szkic: 0,
+      photo_dojazd: 0,
+    });
+
+    const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
+    expect(list.data.find((task) => task.id === 101)).toMatchObject({
+      photo_total: 1,
+      photo_wycena: 1,
+    });
+
+    await api.delete(`/api/tasks/101/zdjecia/${saved.data.id}`);
+
+    const emptyAgain = await api.get('/api/tasks/101/zdjecia', { dedupe: false });
+    expect(emptyAgain.data).toEqual([]);
+
+    const detailAfterDelete = await api.get('/api/tasks/101', { dedupe: false });
+    expect(detailAfterDelete.data).toMatchObject({
+      photo_total: 0,
+      photo_wycena: 0,
+    });
+  });
+
+  it('persists office plan mocks and marks the task as planned', async () => {
+    const saved = await api.put('/api/tasks/101/office-plan', {
+      data_planowana: '2026-05-28',
+      godzina_rozpoczecia: '10:30',
+      czas_planowany_godziny: '3',
+      ekipa_id: '5',
+      sprzet_notatka: 'Rębak i zestaw arborystyczny',
+    });
+
+    expect(saved.status).toBe(200);
+    expect(saved.data).toMatchObject({
+      id: 101,
+      status: 'Zaplanowane',
+      data_planowana: '2026-05-28',
+      godzina_rozpoczecia: '10:30',
+      czas_planowany_godziny: '3',
+      ekipa_id: '5',
+      ekipa_nazwa: 'Ekipa A',
+      sprzet_notatka: 'Rębak i zestaw arborystyczny',
+    });
+
+    const detail = await api.get('/api/tasks/101', { dedupe: false });
+    expect(detail.data).toMatchObject({
+      status: 'Zaplanowane',
+      ekipa_id: '5',
+      ekipa_nazwa: 'Ekipa A',
+    });
+
+    const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
+    expect(list.data.find((task) => task.id === 101)).toMatchObject({
+      status: 'Zaplanowane',
+      ekipa_id: '5',
+      ekipa_nazwa: 'Ekipa A',
+    });
+  });
+
   it('serves task status PUT mocks and updates derived stats', async () => {
     const saved = await api.put('/api/tasks/1/status', { status: 'Zakonczone' });
 

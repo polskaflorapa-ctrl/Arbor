@@ -12,6 +12,7 @@ import MyLocationOutlined from '@mui/icons-material/MyLocationOutlined';
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined';
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
 import ReportProblemOutlined from '@mui/icons-material/ReportProblemOutlined';
+import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
 import Sidebar from '../components/Sidebar';
@@ -40,7 +41,7 @@ function cockpitTone(tone) {
   if (tone === 'danger') return { color: 'var(--danger)', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.24)' };
   if (tone === 'warning') return { color: 'var(--warning)', bg: 'rgba(245,158,11,0.13)', border: 'rgba(245,158,11,0.26)' };
   if (tone === 'ok') return { color: 'var(--success)', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.24)' };
-  return { color: 'var(--accent)', bg: 'var(--accent-surface)', border: 'var(--border2)' };
+  return { color: 'var(--accent)', bg: 'var(--accent-surface)', border: 'var(--border)' };
 }
 
 function gpsLabel(status, ageMin) {
@@ -49,6 +50,26 @@ function gpsLabel(status, ageMin) {
   if (status === 'offline') return ageMin == null ? 'offline' : `${ageMin} min`;
   return 'brak';
 }
+
+function formatMinutes(value) {
+  const total = Math.round(Number(value || 0));
+  const sign = total < 0 ? '-' : '';
+  const abs = Math.abs(total);
+  const hours = Math.floor(abs / 60);
+  const minutes = abs % 60;
+  if (!hours) return `${sign}${minutes} min`;
+  if (!minutes) return `${sign}${hours} h`;
+  return `${sign}${hours} h ${minutes} min`;
+}
+
+const PLAN_REASON_OPTIONS = [
+  { value: 'zakres', label: 'Wiekszy zakres' },
+  { value: 'dojazd', label: 'Dojazd' },
+  { value: 'sprzet', label: 'Sprzet' },
+  { value: 'klient', label: 'Klient' },
+  { value: 'pogoda', label: 'Pogoda' },
+  { value: 'inne', label: 'Inne' },
+];
 
 function CockpitMetric({ label, value, detail, tone = 'info' }) {
   const t = cockpitTone(tone);
@@ -78,6 +99,9 @@ export default function Kierownik() {
   const [cockpit, setCockpit] = useState(null);
   const [cockpitLoading, setCockpitLoading] = useState(false);
   const [cockpitError, setCockpitError] = useState('');
+  const [planReal, setPlanReal] = useState(null);
+  const [planActionDrafts, setPlanActionDrafts] = useState({});
+  const [planActionSaving, setPlanActionSaving] = useState('');
   const navigate = useNavigate();
 
   const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u?.rola);
@@ -116,12 +140,20 @@ export default function Kierownik() {
       if (['Prezes', 'Dyrektor'].includes(u?.rola) && oddzialId) {
         params.oddzial_id = oddzialId;
       }
-      const { data } = await api.get('/ops/kierownik-today', {
-        params,
-        headers: authHeaders(token),
-        dedupe: false,
-      });
-      setCockpit(data);
+      const [cockpitResponse, planRealResponse] = await Promise.all([
+        api.get('/ops/kierownik-today', {
+          params,
+          headers: authHeaders(token),
+          dedupe: false,
+        }),
+        api.get('/ops/plan-vs-real', {
+          params,
+          headers: authHeaders(token),
+          dedupe: false,
+        }),
+      ]);
+      setCockpit(cockpitResponse.data);
+      setPlanReal(planRealResponse.data);
     } catch (err) {
       setCockpitError(getApiErrorMessage(err, 'Nie udalo sie wczytac cockpit kierownika.'));
     } finally {
@@ -202,6 +234,56 @@ export default function Kierownik() {
     }
   };
 
+  const updatePlanActionDraft = useCallback((taskId, patch) => {
+    setPlanActionDrafts((prev) => ({
+      ...prev,
+      [taskId]: { ...(prev[taskId] || {}), ...patch },
+    }));
+  }, []);
+
+  const runPlanAction = useCallback(async (task, action) => {
+    const draft = planActionDrafts[task.id] || {};
+    const payload = { action };
+    if (action === 'set_duration') {
+      const plannedHours = Number(draft.hours || (task.planned_minutes ? task.planned_minutes / 60 : 2));
+      if (!Number.isFinite(plannedHours) || plannedHours <= 0) {
+        showMsg(errorMessage('Podaj poprawny czas planu.'));
+        return;
+      }
+      payload.planned_hours = plannedHours;
+      payload.note = draft.note || '';
+    } else if (action === 'mark_reason') {
+      payload.reason_code = draft.reason_code || 'zakres';
+      payload.note = draft.note || '';
+    } else if (action === 'remind_team') {
+      payload.note = draft.note || '';
+    }
+
+    const key = `${task.id}:${action}`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post(`/ops/plan-vs-real/tasks/${task.id}/action`, payload, {
+        headers: authHeaders(token),
+      });
+      showMsg(successMessage(data?.message || 'Akcja zapisana.'));
+      setPlanActionDrafts((prev) => {
+        const next = { ...prev };
+        delete next[task.id];
+        return next;
+      });
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await Promise.all([
+        loadCockpit(user, cockpitDate, oddzialForCockpit),
+        loadData(user),
+      ]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac akcji.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, planActionDrafts, showMsg, user]);
+
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
     if (filtrStatus && z.status !== filtrStatus) return false;
@@ -239,6 +321,10 @@ export default function Kierownik() {
   const cockpitBlockers = cockpit?.blockers || [];
   const cockpitTasks = cockpit?.tasks || [];
   const cockpitTeams = cockpit?.teams || [];
+  const planRealSummary = planReal?.summary || {};
+  const planRealTasks = planReal?.tasks || [];
+  const planRealDelta = Number(planRealSummary.delta_minutes || 0);
+  const planRealDeltaTone = planRealDelta > 30 ? 'danger' : planRealDelta < -30 ? 'warning' : 'ok';
 
   return (
     <div className="app-shell" style={styles.container}>
@@ -329,6 +415,133 @@ export default function Kierownik() {
               detail={`${cockpitSummary.gps_attention ?? 0} do sprawdzenia`}
               tone={(cockpitSummary.gps_attention ?? 0) > 0 ? 'warning' : 'ok'}
             />
+          </div>
+
+          <div style={styles.planRealBand}>
+            <div style={styles.planRealHeader}>
+              <div style={styles.cockpitSectionTitle}>
+                <TrendingUpOutlined sx={{ fontSize: 18 }} />
+                Plan vs real
+              </div>
+              <span style={styles.planRealDate}>{planReal?.date || cockpitDate}</span>
+            </div>
+            <div style={styles.planRealMetrics}>
+              <CockpitMetric
+                label="Czas"
+                value={cockpitLoading ? '...' : `${formatMinutes(planRealSummary.planned_minutes)} / ${formatMinutes(planRealSummary.real_minutes)}`}
+                detail={`${planRealSummary.started_tasks ?? 0}/${planRealSummary.planned_tasks ?? 0} wystartowalo`}
+              />
+              <CockpitMetric
+                label="Odchylka"
+                value={cockpitLoading ? '...' : formatMinutes(planRealDelta)}
+                detail={`${planRealSummary.overrun_tasks ?? 0} przekroczen`}
+                tone={planRealDeltaTone}
+              />
+              <CockpitMetric
+                label="Do reakcji"
+                value={cockpitLoading ? '...' : (planRealTasks.length || 0)}
+                detail={`${planRealSummary.not_started_tasks ?? 0} bez startu, ${planRealSummary.missing_finish_tasks ?? 0} bez zamkniecia, ${planRealSummary.missing_duration_tasks ?? 0} bez czasu`}
+                tone={(planRealTasks.length || 0) > 0 ? 'warning' : 'ok'}
+              />
+            </div>
+            {planRealTasks.length === 0 ? (
+              <div style={styles.planRealEmpty}>Plan trzyma sie bez istotnych odchylen.</div>
+            ) : (
+              <div style={styles.planRealList}>
+                {planRealTasks.map((task) => {
+                  const tone = cockpitTone(task.tone || (task.delta_minutes > 30 ? 'danger' : 'warning'));
+                  const draft = planActionDrafts[task.id] || {};
+                  const savingDuration = planActionSaving === `${task.id}:set_duration`;
+                  const savingReason = planActionSaving === `${task.id}:mark_reason`;
+                  const savingReminder = planActionSaving === `${task.id}:remind_team`;
+                  return (
+                    <div
+                      key={task.id}
+                      style={styles.planRealRow}
+                    >
+                      <span style={{ ...styles.planRealDelta, color: tone.color, background: tone.bg }}>
+                        {formatMinutes(task.delta_minutes)}
+                      </span>
+                      <span style={styles.planRealBody}>
+                        <strong>{task.numer}</strong>
+                        <small>{task.klient_nazwa || 'Bez klienta'}{task.ekipa_nazwa ? ` / ${task.ekipa_nazwa}` : ''}</small>
+                      </span>
+                      <span style={{ ...styles.planRealIssue, color: tone.color, borderColor: tone.border }}>
+                        {task.issue_label || 'Odchylenie'}
+                      </span>
+                      <span style={styles.planActionControls}>
+                        {task.issue_key === 'missing_duration' ? (
+                          <>
+                            <input
+                              type="number"
+                              min="0.25"
+                              max="12"
+                              step="0.25"
+                              value={draft.hours ?? (task.planned_minutes ? String(Math.round((task.planned_minutes / 60) * 100) / 100) : '2')}
+                              onChange={(e) => updatePlanActionDraft(task.id, { hours: e.target.value })}
+                              style={styles.planActionNumber}
+                            />
+                            <button
+                              type="button"
+                              style={styles.planActionBtn}
+                              onClick={() => runPlanAction(task, 'set_duration')}
+                              disabled={Boolean(planActionSaving)}
+                            >
+                              {savingDuration ? 'Zapisuje' : 'Zapisz czas'}
+                            </button>
+                          </>
+                        ) : null}
+                        {task.issue_key === 'not_started' ? (
+                          <button
+                            type="button"
+                            style={styles.planActionBtn}
+                            onClick={() => runPlanAction(task, 'remind_team')}
+                            disabled={Boolean(planActionSaving)}
+                          >
+                            {savingReminder ? 'Wysylam' : 'Przypomnij'}
+                          </button>
+                        ) : null}
+                        {['overrun', 'missing_finish', 'under_plan'].includes(task.issue_key) ? (
+                          <>
+                            <select
+                              value={draft.reason_code || 'zakres'}
+                              onChange={(e) => updatePlanActionDraft(task.id, { reason_code: e.target.value })}
+                              style={styles.planActionSelect}
+                            >
+                              {PLAN_REASON_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              value={draft.note || ''}
+                              onChange={(e) => updatePlanActionDraft(task.id, { note: e.target.value })}
+                              placeholder="notatka"
+                              style={styles.planActionNote}
+                            />
+                            <button
+                              type="button"
+                              style={styles.planActionBtn}
+                              onClick={() => runPlanAction(task, 'mark_reason')}
+                              disabled={Boolean(planActionSaving)}
+                            >
+                              {savingReason ? 'Zapisuje' : 'Zapisz powod'}
+                            </button>
+                          </>
+                        ) : null}
+                        <button
+                          type="button"
+                          style={styles.planActionGhost}
+                          onClick={() => navigate(task.action_path || `/zlecenia/${task.id}`)}
+                        >
+                          Otworz
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div style={styles.cockpitGrid}>
@@ -585,10 +798,26 @@ const styles = {
   },
   cockpitError: { marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.22)', fontSize: 13 },
   cockpitMetrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 },
-  cockpitMetric: { minHeight: 82, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4, border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px' },
+  cockpitMetric: { minHeight: 82, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4, border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface-glass)' },
   cockpitMetricLabel: { color: 'var(--text-sub)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
   cockpitMetricValue: { fontSize: 24, lineHeight: 1, fontWeight: 900 },
   cockpitMetricDetail: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 650 },
+  planRealBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
+  planRealHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  planRealDate: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 800 },
+  planRealMetrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 8 },
+  planRealList: { display: 'grid', gap: 0, borderTop: '1px solid var(--border)' },
+  planRealRow: { width: '100%', minHeight: 48, display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', border: 0, borderBottom: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', textAlign: 'left', flexWrap: 'wrap' },
+  planRealDelta: { minWidth: 58, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' },
+  planRealBody: { minWidth: 130, flex: '1 1 180px', display: 'grid', gap: 2, fontSize: 12 },
+  planRealIssue: { border: '1px solid var(--border)', borderRadius: 8, padding: '3px 7px', fontSize: 10, fontWeight: 900, whiteSpace: 'nowrap' },
+  planActionControls: { marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' },
+  planActionNumber: { width: 72, minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
+  planActionSelect: { minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 700 },
+  planActionNote: { width: 130, minHeight: 30, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12 },
+  planActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-surface)', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
+  planActionGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  planRealEmpty: { padding: '10px 0 2px', color: 'var(--text-muted)', fontSize: 12 },
   cockpitGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12, alignItems: 'start' },
   cockpitColumn: { minWidth: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12 },
   cockpitSectionTitle: { display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, color: 'var(--text)', fontSize: 13, fontWeight: 850 },

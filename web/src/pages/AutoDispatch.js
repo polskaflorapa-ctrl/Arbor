@@ -292,6 +292,7 @@ export default function AutoDispatch() {
   const [loading, setLoading]       = useState(false);
   const [applying, setApplying]     = useState(false);
   const [savedPlanId, setSavedPlanId] = useState(null);
+  const [planApplied, setPlanApplied] = useState(false);
   const [error, setError]           = useState('');
   const [success, setSuccess]       = useState('');
   const [expandedTeam, setExpandedTeam] = useState(null);
@@ -311,6 +312,9 @@ export default function AutoDispatch() {
     setAdvisor(null);
     setAdvisorError('');
     setPreflightHold(null);
+    setPlan(null);
+    setSavedPlanId(null);
+    setPlanApplied(false);
     setBriefCopied(false);
     setBriefCopyText('');
     setRiskFilter('all');
@@ -328,6 +332,7 @@ export default function AutoDispatch() {
 
   const runSolver = useCallback(async (save = false, options = {}) => {
     setLoading(true); setError(''); setSuccess(''); setPlan(null); setSavedPlanId(null);
+    setPlanApplied(false);
     try {
       if (save && !options.skipPreflight) {
         const brief = advisor?.date === date ? advisor : await fetchAdvisorBrief();
@@ -366,8 +371,23 @@ export default function AutoDispatch() {
       const token = getStoredToken();
       const res = await api.post(`/dispatch/apply/${savedPlanId}`, {}, { headers: authHeaders(token) });
       setSuccess(res.data.message || 'Plan zastosowany!');
+      setPlanApplied(true);
     } catch (e) {
-      setError(e.response?.data?.error || e.message);
+      const payload = e.response?.data || {};
+      if (payload.code === 'TEAM_ABSENT' && Array.isArray(payload.attendance?.absent)) {
+        const absent = payload.attendance.absent;
+        setPlan(prev => ({
+          ...(prev || {}),
+          team_availability: {
+            ...(prev?.team_availability || {}),
+            absent,
+          },
+        }));
+        const names = absent.map(team => team.team_name || `Ekipa #${team.team_id}`).filter(Boolean).join(', ');
+        setError(`${payload.error || e.message}${names ? ` Nieobecne: ${names}.` : ''}`);
+        return;
+      }
+      setError(payload.error || e.message);
     } finally { setApplying(false); }
   }, [savedPlanId]);
 
@@ -487,6 +507,49 @@ export default function AutoDispatch() {
   }, [loadAdvisor, nextDispatchAction, repairRiskTask, runSolver]);
 
   const stats = plan?.stats;
+  const workflowSteps = useMemo(() => {
+    const advisorLoaded = Boolean(advisor);
+    const blocked = Number(preflightHold?.blocked ?? advisor?.metrics?.blocked ?? 0);
+    const warnings = Number(advisor?.metrics?.warnings ?? preflightHold?.warnings ?? 0);
+    const hasPlan = Boolean(plan);
+    const hasSavedPlan = Boolean(savedPlanId);
+    const assigned = Number(stats?.tasks_assigned ?? 0);
+    const total = Number(stats?.tasks_total ?? 0);
+
+    return [
+      {
+        key: 'brief',
+        label: 'Odprawa AI',
+        detail: advisorLoaded ? 'Gotowa' : 'Uruchom AI Dyspozytora',
+        status: advisorLoaded ? 'done' : 'active',
+      },
+      {
+        key: 'quality',
+        label: 'Blokady danych',
+        detail: advisorLoaded || preflightHold
+          ? (blocked > 0 ? `${blocked} do naprawy` : (warnings > 0 ? `${warnings} uwag do kontroli` : 'Brak krytycznych'))
+          : 'Czeka na odprawe',
+        status: blocked > 0 ? 'blocked' : (advisorLoaded ? 'done' : 'pending'),
+      },
+      {
+        key: 'solver',
+        label: 'Podglad solvera',
+        detail: hasPlan ? `${assigned} / ${total || assigned} przypisane` : (advisorLoaded && blocked === 0 ? 'Gotowy do generowania' : 'Po naprawach'),
+        status: hasPlan ? 'done' : (advisorLoaded && blocked === 0 ? 'active' : 'pending'),
+      },
+      {
+        key: 'release',
+        label: 'Zapis i zastosowanie',
+        detail: planApplied ? 'Zastosowany' : (hasSavedPlan ? 'Gotowy do zastosowania' : (hasPlan ? 'Zapisz, gdy plan pasuje' : 'Po podgladzie')),
+        status: planApplied ? 'done' : (hasSavedPlan || hasPlan ? 'active' : 'pending'),
+      },
+    ];
+  }, [advisor, plan, planApplied, preflightHold, savedPlanId, stats]);
+
+  const availability = plan?.team_availability || null;
+  const absentTeams = Array.isArray(availability?.absent) ? availability.absent : [];
+  const availabilityTotal = Number(availability?.total ?? 0);
+  const availabilityAvailable = Number(availability?.available ?? Math.max(0, availabilityTotal - absentTeams.length));
 
   return (
     <div style={s.shell}>
@@ -508,7 +571,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setBriefCopied(false); setBriefCopyText(''); setRiskFilter('all'); setRiskIssueFilter(''); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setPlan(null); setSavedPlanId(null); setPlanApplied(false); setBriefCopied(false); setBriefCopyText(''); setRiskFilter('all'); setRiskIssueFilter(''); }}
               style={s.dateInput}
             />
           </div>
@@ -529,6 +592,43 @@ export default function AutoDispatch() {
             )}
           </div>
         </div>
+
+        <section style={s.workflowStrip} aria-label="Postep dyspozycji dnia">
+          {workflowSteps.map((step, idx) => (
+            <div
+              key={step.key}
+              style={{
+                ...s.workflowStep,
+                ...(step.status === 'done'
+                  ? s.workflowStepDone
+                  : step.status === 'blocked'
+                    ? s.workflowStepBlocked
+                    : step.status === 'active'
+                      ? s.workflowStepActive
+                      : s.workflowStepPending),
+              }}
+            >
+              <span
+                style={{
+                  ...s.workflowStepIndex,
+                  ...(step.status === 'done'
+                    ? s.workflowStepIndexDone
+                    : step.status === 'blocked'
+                      ? s.workflowStepIndexBlocked
+                      : step.status === 'active'
+                        ? s.workflowStepIndexActive
+                        : s.workflowStepIndexPending),
+                }}
+              >
+                {idx + 1}
+              </span>
+              <span style={s.workflowStepText}>
+                <strong>{step.label}</strong>
+                <span style={s.workflowStepDetail}>{step.detail}</span>
+              </span>
+            </div>
+          ))}
+        </section>
 
         {error   && <div style={s.errorBox}>{error}</div>}
         {success && <div style={s.successBox}>{success}</div>}
@@ -779,6 +879,34 @@ export default function AutoDispatch() {
           </div>
         )}
 
+        {availability && (
+          <section style={absentTeams.length ? { ...s.availabilityPanel, ...s.availabilityPanelWarn } : s.availabilityPanel}>
+            <div style={s.availabilityHeader}>
+              <div style={s.availabilityTitleWrap}>
+                <span style={s.availabilityEyebrow}>Gotowosc ekip</span>
+                <strong style={s.availabilityTitle}>
+                  {absentTeams.length ? `Nieobecne ekipy: ${absentTeams.length}` : 'Wszystkie ekipy dostepne'}
+                </strong>
+              </div>
+              <span style={absentTeams.length ? { ...s.availabilityCounter, ...s.availabilityCounterWarn } : s.availabilityCounter}>
+                {availabilityAvailable}/{availabilityTotal || availabilityAvailable} dostepne
+              </span>
+            </div>
+            {absentTeams.length ? (
+              <div style={s.absentTeamList}>
+                {absentTeams.map(team => (
+                  <div key={`${team.team_id || team.team_name}`} style={s.absentTeamItem}>
+                    <strong>{team.team_name || `Ekipa #${team.team_id}`}</strong>
+                    <span>{team.note || 'Oznaczona jako nieobecna na ten dzien.'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={s.availabilityNote}>Solver moze korzystac ze wszystkich aktywnych ekip dla wybranego dnia.</p>
+            )}
+          </section>
+        )}
+
         {plan && (
           <div style={s.content}>
             {/* Routes */}
@@ -874,6 +1002,19 @@ const s = {
   aiBtn:    { padding: '10px 18px', borderRadius: 8, border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   saveBtn:  { padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   applyBtn: { padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
+  workflowStrip:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, margin: '-8px 0 16px', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' },
+  workflowStep:{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, padding: '7px 8px', borderRadius: 7, border: '1px solid transparent' },
+  workflowStepDone:{ background: '#f0fdf4', borderColor: '#bbf7d0' },
+  workflowStepActive:{ background: '#eff6ff', borderColor: '#bfdbfe' },
+  workflowStepBlocked:{ background: '#fff1f2', borderColor: '#fecaca' },
+  workflowStepPending:{ background: '#f8fafc', borderColor: '#e2e8f0' },
+  workflowStepIndex:{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900 },
+  workflowStepIndexDone:{ background: '#16a34a', color: '#fff' },
+  workflowStepIndexActive:{ background: '#2563eb', color: '#fff' },
+  workflowStepIndexBlocked:{ background: '#dc2626', color: '#fff' },
+  workflowStepIndexPending:{ background: '#e2e8f0', color: '#64748b' },
+  workflowStepText:{ minWidth: 0, display: 'grid', gap: 1, color: 'var(--text)', fontSize: 12, lineHeight: 1.25 },
+  workflowStepDetail:{ color: 'var(--text-sub)', overflowWrap: 'anywhere' },
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
   successBox:{ padding: '12px 16px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', marginBottom: 16, fontSize: 14, fontWeight: 600 },
   preflightBox:{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '12px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', marginBottom: 16 },
@@ -935,6 +1076,17 @@ const s = {
   statCard: { flex: 1, minWidth: 100, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' },
   statValue:{ fontSize: 22, fontWeight: 800 },
   statLabel:{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 4 },
+  availabilityPanel:{ marginBottom: 20, padding: '13px 14px', borderRadius: 10, border: '1px solid #bbf7d0', background: '#f0fdf4', boxShadow: 'var(--shadow-sm)' },
+  availabilityPanelWarn:{ borderColor: '#fdba74', background: '#fff7ed' },
+  availabilityHeader:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  availabilityTitleWrap:{ display: 'grid', gap: 2, minWidth: 0 },
+  availabilityEyebrow:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  availabilityTitle:{ color: 'var(--text)', fontSize: 14, lineHeight: 1.25 },
+  availabilityCounter:{ flexShrink: 0, padding: '5px 9px', borderRadius: 8, border: '1px solid #86efac', background: '#fff', color: '#047857', fontSize: 12, fontWeight: 900 },
+  availabilityCounterWarn:{ borderColor: '#fdba74', color: '#c2410c' },
+  availabilityNote:{ margin: '8px 0 0', color: 'var(--text-sub)', fontSize: 12 },
+  absentTeamList:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 8, marginTop: 10 },
+  absentTeamItem:{ display: 'grid', gap: 3, padding: '9px 10px', borderRadius: 8, border: '1px solid #fed7aa', background: '#fff', color: '#7c2d12', fontSize: 12 },
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
   routesCol:{ display: 'flex', flexDirection: 'column', gap: 10 },
   sectionTitle:{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
