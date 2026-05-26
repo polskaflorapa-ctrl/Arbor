@@ -94,7 +94,7 @@ function DrillModal({ title, tasks, loading, onClose }) {
 
 const dm = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  panel:   { background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 860, boxShadow: '0 8px 40px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  panel:   { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, width: '100%', maxWidth: 860, boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   header:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border)' },
   title:   { fontSize: 16, fontWeight: 700, color: 'var(--text)' },
   close:   { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-sub)' },
@@ -102,7 +102,7 @@ const dm = {
   tr:      { borderBottom: '1px solid var(--border-light, var(--border))', transition: 'background 0.15s' },
   td:      { padding: '9px 10px', color: 'var(--text)', verticalAlign: 'middle' },
   badge:   { display: 'inline-block', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#fff', fontWeight: 600 },
-  csvBtn:  { padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg-card2)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 },
+  csvBtn:  { padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 },
 };
 
 // ─── Inline SVG bar chart ────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ function DonutChart({ data, valueKey, labelKey, size = 160 }) {
             />
           );
         })}
-        <circle cx={cx} cy={cy} r={r * 0.55} fill="var(--bg-card)" />
+        <circle cx={cx} cy={cy} r={r * 0.55} fill="var(--surface-field)" />
         <text x={cx} y={cy + 4} textAnchor="middle" fontSize={10} fill="var(--text)" fontWeight="700">
           {data.length} typy
         </text>
@@ -200,7 +200,7 @@ function DonutChart({ data, valueKey, labelKey, size = 160 }) {
 
 function KpiCard({ label, value, sub, tone, deltaPct }) {
   const { t } = useTranslation();
-  const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--bg-card)';
+  const bg = tone === 'ok' ? '#dcfce7' : tone === 'warn' ? '#fef9c3' : tone === 'bad' ? '#fee2e2' : 'var(--surface-glass)';
   const fg = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ca8a04' : tone === 'bad' ? '#dc2626' : 'var(--text)';
   const d = delta(deltaPct);
   return (
@@ -656,27 +656,27 @@ export default function BiDashboard() {
 }
 
 const s = {
-  shell:    { display: 'flex', minHeight: '100vh', background: 'var(--bg-deep)' },
+  shell:    { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
   main:     { flex: 1, padding: '20px 24px 40px', overflowX: 'hidden', minWidth: 0 },
   topbar:   { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 },
   title:    { fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 },
   sub:      { fontSize: 13, color: 'var(--text-sub)', marginTop: 4 },
   periodRow:{ display: 'flex', gap: 4 },
-  periodBtn:{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 13 },
+  periodBtn:{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 13 },
   periodBtnActive: { background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 700 },
-  refreshBtn:{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontSize: 16 },
-  backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
+  refreshBtn:{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 16 },
+  backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
   errorBox: { padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#dc2626', marginBottom: 16, fontSize: 14 },
   tabs:     { display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' },
-  tab:      { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
+  tab:      { padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14, fontWeight: 500 },
   tabActive:{ background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 700 },
   content:  { display: 'flex', flexDirection: 'column', gap: 16 },
   kpiRow:   { display: 'flex', gap: 12, flexWrap: 'wrap' },
-  kpiCard:  { flex: 1, minWidth: 130, padding: '14px 16px', borderRadius: 12, border: '1px solid var(--border)' },
+  kpiCard:  { flex: 1, minWidth: 130, padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border)' },
   kpiValue: { fontSize: 24, fontWeight: 800, marginBottom: 2 },
   kpiLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 6 },
   kpiSub:   { fontSize: 11, color: 'var(--text-muted, var(--text-sub))', marginTop: 2 },
-  card:     { background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)', padding: '16px 18px' },
+  card:     { background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: '16px 18px', boxShadow: 'var(--shadow-md)' },
   cardTitle:{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 },
   twoCol:   { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   table:    { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
@@ -698,9 +698,9 @@ const ch = {
 
 const al = {
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', marginBottom: 6 },
-  input: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
+  input: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' },
   btn:   { padding: '10px 20px', border: 'none', borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent, #fff)', cursor: 'pointer', fontSize: 14, fontWeight: 700, width: '100%' },
-  stat:  { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 20px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-card2)', minWidth: 100 },
+  stat:  { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', minWidth: 100 },
   statN: { fontSize: 24, fontWeight: 800, color: 'var(--text)' },
   statL: { fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 4 },
 };

@@ -123,9 +123,9 @@ export default function AiChat() {
         style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9000,
           width: 56, height: 56, borderRadius: '50%',
-          background: open ? 'var(--bg-card)' : 'linear-gradient(145deg, #059669 0%, #34d399 100%)',
-          border: open ? '2px solid #34d399' : 'none',
-          cursor: 'pointer', boxShadow: open ? '0 8px 28px rgba(0,0,0,0.45)' : '0 8px 28px rgba(5,150,105,0.35)',
+          background: open ? 'var(--surface-glass)' : 'var(--accent-gradient)',
+          border: open ? '1px solid var(--glass-border)' : '1px solid rgba(20,131,79,0.22)',
+          cursor: 'pointer', boxShadow: open ? 'var(--shadow-md)' : '0 8px 28px rgba(5,150,105,0.22)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.2s', color: open ? 'var(--text)' : '#fff',
         }}
@@ -297,16 +297,16 @@ const S = {
   panel: {
     position: 'fixed', bottom: 92, right: 24, zIndex: 8999,
     width: 380, height: 520,
-    backgroundColor: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 8, boxShadow: 'var(--shadow-lg)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8, boxShadow: 'var(--shadow-md)',
     display: 'flex', flexDirection: 'column', overflow: 'hidden',
     animation: 'slideUp 0.2s ease',
   },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '14px 16px', borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-card2)',
+    background: 'var(--surface-field)',
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   avatarAi: {
@@ -324,7 +324,7 @@ const S = {
   },
   keyWarning: {
     margin: '8px 12px 0', padding: '8px 12px', borderRadius: 8,
-    backgroundColor: '#451A03', color: '#FCD34D', fontSize: 12, lineHeight: 1.5,
+    backgroundColor: 'rgba(245,158,11,0.14)', color: '#92400E', border: '1px solid rgba(245,158,11,0.24)', fontSize: 12, lineHeight: 1.5,
   },
   messages: {
     flex: 1, overflowY: 'auto', padding: '12px 14px',
@@ -336,13 +336,13 @@ const S = {
     border: '1px solid transparent',
   },
   bubbleUser: {
-    backgroundColor: '#34D399', color: '#052E16',
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)',
     borderRadius: '8px 8px 4px 8px', fontWeight: 500,
   },
   bubbleAi: {
-    backgroundColor: 'var(--bg-deep, #0F172A)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text, #E2E8F0)',
-    border: '1px solid var(--border, #1E3A5F)',
+    border: '1px solid var(--border)',
     borderRadius: '8px 8px 8px 4px',
   },
   aiBubbleIcon: {
@@ -354,25 +354,25 @@ const S = {
     display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 12px 10px',
   },
   suggBtn: {
-    background: 'var(--bg-deep, #0F172A)', border: '1px solid var(--border, #1E3A5F)',
+    background: 'var(--surface-field)', border: '1px solid var(--border)',
     borderRadius: 8, color: 'var(--text-sub, #94A3B8)', fontSize: 11,
     padding: '5px 10px', cursor: 'pointer', transition: 'all 0.15s',
   },
   inputRow: {
     display: 'flex', gap: 8, padding: '10px 12px',
     borderTop: '1px solid var(--border, #1E3A5F)',
-    background: 'var(--bg-card, #1E293B)',
+    background: 'var(--surface-glass)',
   },
   input: {
-    flex: 1, backgroundColor: 'var(--bg-deep, #0F172A)',
-    border: '1px solid var(--border, #1E3A5F)', borderRadius: 8,
+    flex: 1, backgroundColor: 'var(--surface-field)',
+    border: '1px solid var(--border)', borderRadius: 8,
     color: 'var(--text, #E2E8F0)', fontSize: 13, padding: '9px 12px',
     resize: 'none', outline: 'none', fontFamily: 'inherit', lineHeight: 1.4,
   },
   sendBtn: {
     width: 38, height: 38, borderRadius: 8, flexShrink: 0,
-    background: '#34D399', border: 'none', cursor: 'pointer',
-    color: '#052E16', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'var(--accent-gradient)', border: '1px solid rgba(20,131,79,0.22)', cursor: 'pointer',
+    color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'opacity 0.15s',
   },
 };

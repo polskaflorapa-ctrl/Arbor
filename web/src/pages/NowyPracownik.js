@@ -219,15 +219,15 @@ const styles = {
   container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
   main: { flex: 1, padding: '20px', maxWidth: 900, margin: '0 auto', width: '100%' },
   topBar: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' },
-  backBtn: { padding: '8px 16px', backgroundColor: 'var(--bg-card)', border: 'none', borderRadius: 8, cursor: 'pointer' },
+  backBtn: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontWeight: 600 },
   title: { fontSize: 24, fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
-  section: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: 20, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  section: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, marginBottom: 16, boxShadow: 'var(--shadow-md)' },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
-  input: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', width: '100%' },
-  textarea: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14, outline: 'none', width: '100%', resize: 'vertical', fontFamily: 'inherit' },
+  input: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  textarea: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 },
-  cancelBtn: { padding: '10px 24px', backgroundColor: 'var(--bg-card)', border: 'none', borderRadius: 8, cursor: 'pointer' },
-  submitBtn: { padding: '10px 28px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }
+  cancelBtn: { padding: '10px 24px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' },
+  submitBtn: { padding: '10px 28px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }
 };

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 
 const baseBtn = {
   border: '1px solid var(--border)',
-  background: 'var(--bg-deep)',
+  background: 'var(--surface-field)',
   color: 'var(--text-muted)',
   borderRadius: 8,
   padding: '5px 10px',

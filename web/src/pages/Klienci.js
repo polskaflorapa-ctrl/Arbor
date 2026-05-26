@@ -185,7 +185,7 @@ export default function Klienci() {
       <main className="clients-main" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div style={{ width: 340, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)' }}>
+        <div style={{ width: 340, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: 'var(--surface-glass)' }}>
           {/* Nagłówek */}
           <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -393,7 +393,7 @@ export default function Klienci() {
                       overflow: 'auto',
                       maxHeight: 240,
                       padding: 12,
-                      background: 'var(--bg-deep)',
+                      background: 'var(--surface-field)',
                       borderRadius: 8,
                       border: '1px solid var(--border)',
                     }}
@@ -538,7 +538,7 @@ export default function Klienci() {
 // ─── Pomocnicze komponenty ────────────────────────────────────────────────────
 function Card({ title, children }) {
   return (
-    <div style={{ background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)', padding: 16 }}>
+    <div style={{ background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: 16, boxShadow: 'var(--shadow-md)' }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
@@ -568,40 +568,40 @@ function FormField({ label, children, style }) {
 const btn = {
   primary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-    background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', borderRadius: 9,
+    background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8,
     fontSize: 13, fontWeight: 700, cursor: 'pointer',
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: 'var(--bg-deep)', color: 'var(--text-sub)', border: '1px solid var(--border)',
-    borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    background: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)',
+    borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   secondaryGhost: {
-    padding: '9px 18px', background: 'transparent', color: 'var(--text-sub)',
-    border: '1px solid var(--border)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    padding: '9px 18px', background: 'var(--surface-field)', color: 'var(--text-sub)',
+    border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
   },
   danger: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
     background: 'rgba(248,113,113,0.12)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.3)',
-    borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
 };
 
 const inp = {
   base: {
-    width: '100%', padding: '9px 11px', background: 'var(--input-bg)',
-    border: '1px solid var(--input-border)', borderRadius: 9,
+    width: '100%', padding: '9px 11px', background: 'var(--surface-field)',
+    border: '1px solid var(--border)', borderRadius: 8,
     color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   },
 };
 
 const sec = {
-  wrap: { background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)', padding: 16, marginBottom: 16 },
+  wrap: { background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: 16, marginBottom: 16, boxShadow: 'var(--shadow-md)' },
   header: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
   title: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
   row: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-    background: 'var(--bg-deep)', borderRadius: 10, border: '1px solid var(--border)',
+    background: 'var(--surface-field)', borderRadius: 8, border: '1px solid var(--border)',
     transition: 'background 0.15s',
   },
 };
@@ -612,13 +612,13 @@ const badge = {
 
 const modal = {
   overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex',
+    position: 'fixed', inset: 0, background: 'rgba(6,16,11,0.68)', display: 'flex',
     alignItems: 'center', justifyContent: 'center', zIndex: 500,
   },
   box: {
-    width: '90%', maxWidth: 600, background: 'var(--bg-card)',
-    borderRadius: 18, border: '1px solid var(--border)',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column',
+    width: '90%', maxWidth: 600, background: 'var(--surface-glass)',
+    borderRadius: 8, border: '1px solid var(--glass-border)',
+    boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column',
     maxHeight: '90vh',
   },
   header: {
