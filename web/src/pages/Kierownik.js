@@ -252,7 +252,7 @@ export default function Kierownik() {
           actions={
             <>
               <StatusMessage message={msg} />
-              <button type="button" style={{ ...styles.addBtn, background: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', marginRight: 8 }} onClick={() => navigate('/auto-dispatch')}>
+              <button type="button" style={{ ...styles.addBtn, background: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', marginRight: 8 }} onClick={() => navigate('/auto-dispatch')}>
                 🗺️ Auto-Dispatch
               </button>
               <button type="button" style={styles.addBtn} onClick={() => navigate('/nowe-zlecenie')}>
@@ -612,26 +612,26 @@ const styles = {
   title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
-  addBtn: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)', transform: 'translateY(-1px)' } },
+  addBtn: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s' },
   oddzialyRow: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
-  oddzialCard: { backgroundColor: 'var(--bg-card)', borderRadius: 12, padding: '12px 16px', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', minWidth: 140, transition: 'all 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } },
+  oddzialCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 16px', cursor: 'pointer', boxShadow: 'var(--shadow-md)', minWidth: 140, transition: 'all 0.2s' },
   oddzialNazwa: { fontSize: 13, fontWeight: '600', color: 'var(--text)', marginBottom: 6 },
   oddzialStats: { display: 'flex', gap: 8, fontSize: 11, flexWrap: 'wrap' },
   oddzialTotal: { fontSize: 10, color: 'var(--text-muted)', marginTop: 6 },
-  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap', backgroundColor: 'var(--bg-card)', padding: '12px 16px', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', padding: '12px 16px', borderRadius: 8, boxShadow: 'var(--shadow-md)' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--bg-card)' },
+  filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   filtrCount: { marginLeft: 'auto', fontSize: 13, color: 'var(--accent)', fontWeight: '600' },
-  tableWrap: { backgroundColor: 'var(--bg-card)', borderRadius: 12, overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  tableWrap: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'auto', boxShadow: 'var(--shadow-md)' },
   cardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   cardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 },
   taskCard: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    border: '1px solid var(--border2)',
-    borderRadius: 14,
-    boxShadow: 'var(--shadow-sm)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    boxShadow: 'var(--shadow-md)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -643,14 +643,14 @@ const styles = {
   taskDate: { fontSize: 12, color: 'var(--text-sub)', fontWeight: 600 },
   taskActions: { display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center', marginTop: 4 },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 900 },
-  th: { padding: '12px 14px', backgroundColor: 'var(--bg-deep)', color: '#fff', textAlign: 'left', fontSize: 13, fontWeight: '600', position: 'sticky', top: 0 },
+  th: { padding: '12px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--text-muted)', textAlign: 'left', fontSize: 13, fontWeight: '700', position: 'sticky', top: 0 },
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' },
-  idBadge: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
+  idBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 13, fontWeight: '600' },
   klientNazwa: { fontWeight: '600', color: 'var(--text)' },
   klientTel: { fontSize: 11, color: 'var(--accent)', marginTop: 2 },
   miasto: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 },
-  badge: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
-  oddzialBadge: { backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', padding: '2px 8px', borderRadius: 6, fontSize: 12 },
+  badge: { padding: '3px 10px', borderRadius: 999, color: '#fff', fontSize: 11, fontWeight: '600', display: 'inline-block' },
+  oddzialBadge: { backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6, fontSize: 12 },
   priorytetBadge: (priorytet) => ({
     display: 'inline-block',
     fontSize: 10,
@@ -660,8 +660,8 @@ const styles = {
     backgroundColor: priorytet === 'Pilny' ? '#FFEBEE' : priorytet === 'Wysoki' ? '#FFF8E1' : 'rgba(52,211,153,0.1)',
     color: priorytet === 'Pilny' ? '#EF5350' : priorytet === 'Wysoki' ? '#F9A825' : 'var(--accent)'
   }),
-  select: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--bg-card)', minWidth: 130 },
-  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--bg-deep)', color: '#fff' } },
+  select: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)', minWidth: 130 },
+  detailBtn: { padding: '5px 12px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: '600', transition: 'all 0.2s' },
   loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)' },
   emptyIcon: { fontSize: 48, marginBottom: 12, opacity: 0.5 }
 };

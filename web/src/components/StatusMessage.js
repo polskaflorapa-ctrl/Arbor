@@ -17,9 +17,9 @@ const PALETTE = {
     border: '1px solid rgba(255, 127, 169, 0.42)',
   },
   neutral: {
-    backgroundColor: 'var(--bg-card2)',
+    backgroundColor: 'var(--surface-field)',
     color: 'var(--text-sub)',
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
   },
 };
 
