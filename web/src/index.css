@@ -3312,3 +3312,16 @@ body.theme-dark .arbor-sidebar {
   --ios-inset-bg: transparent !important;
   color: #f4fff8 !important;
 }
+
+#root [style*='border-radius: 10px'],
+#root [style*='border-radius: 12px'],
+#root [style*='border-radius: 14px'],
+#root [style*='border-radius: 16px'],
+#root [style*='border-radius: 18px'],
+#root [style*='border-radius: 20px'],
+#root [style*='border-radius: 22px'],
+#root [style*='border-radius: 24px'],
+#root [style*='border-radius: 28px'],
+#root [style*='border-radius: 32px'] {
+  border-radius: 8px !important;
+}
