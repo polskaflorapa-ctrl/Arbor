@@ -333,14 +333,34 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
              ${branchSql}
          ),
          latest_vehicle_gps AS (
-           SELECT DISTINCT ON (v.ekipa_id)
-                  v.ekipa_id, g.recorded_at
+           SELECT v.ekipa_id, MAX(g.recorded_at) AS recorded_at
            FROM vehicles v
            JOIN gps_vehicle_positions g
              ON REPLACE(REPLACE(UPPER(v.nr_rejestracyjny), ' ', ''), '-', '') =
                 REPLACE(REPLACE(UPPER(g.plate_number), ' ', ''), '-', '')
            WHERE v.ekipa_id IS NOT NULL
-           ORDER BY v.ekipa_id, g.recorded_at DESC
+           GROUP BY v.ekipa_id
+         ),
+         latest_mobile_gps AS (
+           SELECT COALESCE(u.ekipa_id, tm_by_lead.id) AS ekipa_id,
+                  MAX(g.recorded_at) AS recorded_at
+           FROM gps_vehicle_positions g
+           JOIN users u ON u.id::text = g.external_id
+           LEFT JOIN teams tm_by_lead ON tm_by_lead.brygadzista_id = u.id
+           WHERE g.provider = 'mobile'
+             AND COALESCE(u.aktywny, true) = true
+             AND (u.rola IN ('Brygadzista', 'Pomocnik') OR LOWER(u.rola) LIKE 'wyceniaj%')
+             AND COALESCE(u.ekipa_id, tm_by_lead.id) IS NOT NULL
+           GROUP BY COALESCE(u.ekipa_id, tm_by_lead.id)
+         ),
+         latest_team_gps AS (
+           SELECT ekipa_id, MAX(recorded_at) AS recorded_at
+           FROM (
+             SELECT ekipa_id, recorded_at FROM latest_vehicle_gps
+             UNION ALL
+             SELECT ekipa_id, recorded_at FROM latest_mobile_gps
+           ) gps_sources
+           GROUP BY ekipa_id
          )
          SELECT tm.id, tm.nazwa, tm.oddzial_id,
                 COUNT(tt.id)::int AS tasks_total,
@@ -349,7 +369,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
                 lvg.recorded_at AS last_gps_at
          FROM teams tm
          LEFT JOIN today_tasks tt ON tt.ekipa_id = tm.id
-         LEFT JOIN latest_vehicle_gps lvg ON lvg.ekipa_id = tm.id
+         LEFT JOIN latest_team_gps lvg ON lvg.ekipa_id = tm.id
          WHERE tm.aktywny IS NOT FALSE
            ${teamBranchSql}
          GROUP BY tm.id, tm.nazwa, tm.oddzial_id, lvg.recorded_at

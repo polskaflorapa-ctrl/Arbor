@@ -87,6 +87,8 @@ describe('GET /api/ops/kierownik-today', () => {
       if (text.includes('FROM teams tm')) {
         expect(params).toEqual(['2026-05-26', 7]);
         expect(text).toContain('tm.oddzial_id = $2');
+        expect(text).toContain("g.provider = 'mobile'");
+        expect(text).toContain('LEFT JOIN latest_team_gps lvg');
         return {
           rows: [
             {

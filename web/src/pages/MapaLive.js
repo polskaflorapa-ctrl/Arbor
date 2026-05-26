@@ -18,7 +18,10 @@ const STALE_MINUTES = 20;
 const CLOSED_STATUSES = new Set(['Zakonczone', 'Anulowane', 'Rozliczone']);
 const ACTIVE_PLAN_STATUSES = new Set(['Nowe', 'Wycena_Terenowa', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji']);
 const DAY_START_MINUTES = 8 * 60;
-const DAY_END_MINUTES = 18 * 60;
+const STANDARD_DAY_END_MINUTES = 18 * 60;
+const DAY_END_MINUTES = 22 * 60;
+const STANDARD_WORKDAY_LABEL = '08:00-18:00';
+const PLANNING_DAY_LABEL = '08:00-22:00';
 
 function toNumber(value) {
   const next = Number(value);
@@ -335,7 +338,7 @@ function quickTeamConflicts(tasks, task, plan) {
   const day = String(plan?.data_planowana || '');
   if (!teamId || !day) return { conflicts: [], outsideWorkday: false };
   const range = planRangeMinutes(plan, task);
-  const outsideWorkday = range.start < DAY_START_MINUTES || range.end > DAY_END_MINUTES;
+  const outsideWorkday = range.start < DAY_START_MINUTES || range.end > STANDARD_DAY_END_MINUTES;
   const conflicts = (tasks || [])
     .filter((row) => String(row?.id || '') !== String(task?.id || ''))
     .filter((row) => String(row?.ekipa_id || '') === teamId)
@@ -889,7 +892,7 @@ export default function MapaLive() {
     if (quickPlan.ekipa_id) {
       const firstSlot = quickPlanSlotSuggestions[0];
       if (!firstSlot) {
-        setQuickPlanErr('Brak wolnego slotu dla tej ekipy w godzinach 08:00-18:00.');
+        setQuickPlanErr(`Brak wolnego slotu dla tej ekipy w godzinach ${PLANNING_DAY_LABEL}.`);
         return;
       }
       const equipmentIds = quickEquipmentConflicts(quickPlanReservations, quickPlanTask, {
@@ -924,7 +927,7 @@ export default function MapaLive() {
       return;
     }
 
-    setQuickPlanErr('Nie znalazlem wolnej ekipy w godzinach 08:00-18:00 dla tej daty.');
+    setQuickPlanErr(`Nie znalazlem wolnej ekipy w godzinach ${PLANNING_DAY_LABEL} dla tej daty.`);
   }, [
     equipmentItems,
     quickPlan,
@@ -1312,7 +1315,7 @@ export default function MapaLive() {
                       ))}
                     </div>
                   ) : (
-                    <div style={S.quickSlotEmpty}>Brak wolnego slotu dla tej ekipy w godzinach 08:00-18:00.</div>
+                    <div style={S.quickSlotEmpty}>Brak wolnego slotu dla tej ekipy w godzinach {PLANNING_DAY_LABEL}.</div>
                   )}
                 </div>
               ) : null}
@@ -1321,7 +1324,7 @@ export default function MapaLive() {
                 <div style={S.quickTimelinePanel}>
                   <div style={S.quickTimelineHead}>
                     <strong>Oś dnia ekipy</strong>
-                    <span>08:00-18:00</span>
+                    <span>{PLANNING_DAY_LABEL}</span>
                   </div>
                   <div style={S.quickTimelineTrack}>
                     {quickPlanTimeline.hours.map((hour, index) => (
@@ -1368,7 +1371,7 @@ export default function MapaLive() {
               ) : null}
               {quickPlanReservationsErr ? <div style={S.quickPlanWarn}>{quickPlanReservationsErr}</div> : null}
               {quickPlanTeamConflicts.outsideWorkday ? (
-                <div style={S.quickPlanWarn}>Wybrany czas wychodzi poza standardowe godziny pracy 08:00-18:00.</div>
+                <div style={S.quickPlanWarn}>Wybrany czas wychodzi poza standardowe godziny pracy {STANDARD_WORKDAY_LABEL}. Zapis jest dozwolony, bo ekipy czasem koncza pozniej.</div>
               ) : null}
               {quickPlanTeamConflicts.conflicts.length ? (
                 <div style={S.quickPlanError}>
