@@ -282,6 +282,88 @@ test('shows absent team availability returned by dispatch preview', async () => 
   expect(screen.getByText('Auto w serwisie')).toBeInTheDocument();
 });
 
+test('copies day and team handoff briefs from the generated plan', async () => {
+  api.post.mockResolvedValueOnce({
+    data: {
+      routes: [
+        {
+          team_id: 10,
+          team_name: 'Brygada Alfa',
+          total_min: 150,
+          distance_km: 22,
+          end_time: '11:30',
+          return_travel_min: 18,
+          stops: [
+            {
+              task_id: 101,
+              task_numer: 'ZL/101',
+              client: 'Anna Nowak',
+              client_phone: '+48500111222',
+              adres: 'Lesna 1',
+              eta: '08:00',
+              okno_od: '08:00',
+              okno_do: '10:00',
+              travel_min: 15,
+              service_min: 60,
+              time_window_ok: true,
+              lat: 52.1,
+              lng: 21.1,
+            },
+            {
+              task_id: 102,
+              task_numer: 'ZL/102',
+              client: 'Brak Kontaktu',
+              client_phone: '',
+              adres: 'Polna 2',
+              eta: '10:20',
+              travel_min: 25,
+              service_min: 45,
+              time_window_ok: false,
+              lat: null,
+              lng: null,
+            },
+          ],
+        },
+      ],
+      unassigned: [],
+      stats: {
+        coverage_pct: 100,
+        tasks_assigned: 2,
+        tasks_total: 2,
+        teams_used: 1,
+        tasks_unassigned: 0,
+        solver_ms: 21,
+      },
+    },
+  });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
+
+  await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
+
+  expect(await screen.findByText('Odprawy dla ekip')).toBeInTheDocument();
+  expect(screen.getByText('Skopiuj plan dnia albo odprawe konkretnej ekipy.')).toBeInTheDocument();
+
+  expect(screen.getByText(/Anna Nowak/)).toBeInTheDocument();
+  expect(screen.getByText('Tel. +48500111222')).toBeInTheDocument();
+  expect(screen.getByText('Brak telefonu')).toBeInTheDocument();
+  expect(screen.getByText('Brak pinezki GPS')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj plan dnia' }));
+  await waitFor(() => {
+    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('Plan dnia - 2026-05-25'));
+  });
+  expect(writeTextMock.mock.calls.at(-1)[0]).toContain('Brygada Alfa');
+  expect(writeTextMock.mock.calls.at(-1)[0]).toContain('ZL/102 - Brak Kontaktu');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Kopiuj odprawe ekipy Brygada Alfa' }));
+  await waitFor(() => {
+    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('Odprawa ekipy - Brygada Alfa'));
+  });
+  expect(writeTextMock.mock.calls.at(-1)[0]).toContain('tel: brak telefonu');
+  expect(writeTextMock.mock.calls.at(-1)[0]).toContain('uwagi: brak telefonu, brak pinezki gps, ryzyko okna czasowego');
+}, 10000);
+
 test('falls back when Clipboard API is blocked', async () => {
   writeTextMock.mockRejectedValueOnce(new Error('Clipboard blocked'));
   const originalExecCommand = document.execCommand;
@@ -587,4 +669,5 @@ test('marks the dispatch progress as applied after applying a saved plan', async
   });
   expect(await screen.findByText('Plan zastosowany!')).toBeInTheDocument();
   expect(screen.getByText('Zastosowany')).toBeInTheDocument();
+  expect(screen.getByText('Plan gotowy do wyslania ekipom.')).toBeInTheDocument();
 }, 10000);

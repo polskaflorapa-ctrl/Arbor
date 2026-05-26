@@ -176,6 +176,8 @@ function buildSchedule(tasks, depotLat, depotLng, startMin) {
     stops.push({
       task_id:    task.id,
       task_numer: task.numer || `ZLE-${String(task.id).padStart(4,'0')}`,
+      client:     task.klient_nazwa || task.client || '',
+      client_phone: task.klient_telefon || task.client_phone || '',
       adres:      task.adres || task.miasto || '',
       lat:        task.pin_lat,
       lng:        task.pin_lng,

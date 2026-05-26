@@ -5692,6 +5692,7 @@ export default function Zlecenia() {
     { label: 'Do zatwierdzenia', value: visibleOfficeApproval, detail: 'biuro tylko akceptuje', tone: visibleOfficeApproval ? 'blue' : 'green', filterKey: 'officeApproval' },
     { label: 'Dzisiaj', value: visibleToday, detail: `${visibleReadyClose} do zamknięcia`, tone: 'blue', filterKey: 'today' },
   ];
+  const zleceniaDailyCards = zleceniaOpsCards.slice(0, 8);
   const closureAudit = buildClosureAuditSummary(closureDecisionEvents, zlecenia);
   const effectiveClosureIssueKey = closureAudit.topIssues.some((issue) => issue.key === activeClosureIssueKey)
     ? activeClosureIssueKey
@@ -6433,7 +6434,7 @@ export default function Zlecenia() {
         {tryb === 'lista' && (
           <>
             <PageHeader
-              variant="plain"
+              variant="hero"
               title={t('pages.zlecenia.title')}
               subtitle={t('pages.zlecenia.subtitle')}
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
@@ -6514,6 +6515,31 @@ export default function Zlecenia() {
                   })}
                 </div>
               </div>
+            </div>
+            <div className="zlecenia-daily-grid" style={s.dailyOpsGrid}>
+              {zleceniaDailyCards.map((card) => (
+                <button
+                  key={card.label}
+                  type="button"
+                  onClick={() => {
+                    if (card.filterKey) {
+                      setSmartFilter(smartFilter === card.filterKey ? '' : card.filterKey);
+                      setSelectedTaskIds([]);
+                    }
+                  }}
+                  style={{
+                    ...s.dailyOpsCard,
+                    ...(s[`dailyOpsCard_${card.tone}`] || {}),
+                    ...(card.filterKey && smartFilter === card.filterKey ? s.dailyOpsCardActive : {}),
+                    cursor: card.filterKey ? 'pointer' : 'default',
+                  }}
+                >
+                  <span style={s.dailyOpsAccent} />
+                  <span style={s.dailyOpsLabel}>{card.label}</span>
+                  <strong style={s.dailyOpsValue}>{card.value}</strong>
+                  <small style={s.dailyOpsDetail}>{card.detail}</small>
+                </button>
+              ))}
             </div>
             <div style={s.commandPanel}>
               <div style={s.commandHeader}>
@@ -9901,6 +9927,67 @@ const s = {
     marginBottom: 12,
     fontSize: 12,
     fontWeight: 850,
+  },
+  dailyOpsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 170px), 1fr))',
+    gap: 10,
+    marginBottom: 12,
+  },
+  dailyOpsCard: {
+    position: 'relative',
+    minHeight: 104,
+    border: '1px solid var(--glass-border)',
+    borderLeft: '5px solid var(--accent)',
+    borderRadius: 8,
+    background: 'linear-gradient(180deg, #ffffff, rgba(246,251,247,0.9))',
+    color: 'var(--text)',
+    padding: '12px 12px 11px 14px',
+    display: 'grid',
+    alignContent: 'space-between',
+    gap: 5,
+    textAlign: 'left',
+    boxShadow: 'var(--shadow-sm)',
+    fontFamily: 'inherit',
+    overflow: 'hidden',
+  },
+  dailyOpsCard_green: { borderLeftColor: 'var(--accent)' },
+  dailyOpsCard_blue: { borderLeftColor: 'var(--info)' },
+  dailyOpsCard_warning: { borderLeftColor: 'var(--warning)' },
+  dailyOpsCard_danger: { borderLeftColor: 'var(--danger)' },
+  dailyOpsCardActive: {
+    borderColor: 'rgba(15,107,63,0.42)',
+    boxShadow: '0 0 0 3px rgba(15,107,63,0.12), var(--shadow-md)',
+    background: 'linear-gradient(180deg, var(--accent-surface), #ffffff)',
+  },
+  dailyOpsAccent: {
+    position: 'absolute',
+    inset: 'auto 10px 10px auto',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    background: 'rgba(15,107,63,0.07)',
+  },
+  dailyOpsLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    lineHeight: 1.1,
+    textTransform: 'uppercase',
+  },
+  dailyOpsValue: {
+    color: 'var(--text)',
+    fontSize: 24,
+    lineHeight: 1,
+    fontWeight: 950,
+    fontVariantNumeric: 'tabular-nums',
+    overflowWrap: 'anywhere',
+  },
+  dailyOpsDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.25,
+    fontWeight: 800,
   },
   opsGrid: {
     display: 'grid',

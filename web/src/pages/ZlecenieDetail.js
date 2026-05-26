@@ -124,9 +124,29 @@ function gpsStatus(row) {
 
 function gpsSourceLabel(row) {
   if (!row) return 'brak';
-  if (row.provider === 'mobile') return 'mobilka';
-  if (row.provider === 'juwentus') return 'Juwentus';
+  if (row.provider === 'mobile') return 'telefon';
+  if (row.provider === 'juwentus') return 'GPS auta';
   return row.provider || 'GPS';
+}
+
+function gpsSenderLabel(row) {
+  if (!row) return 'brak';
+  if (row.provider === 'mobile') {
+    return row.user_name || row.wyceniajacy_nazwa || `Uzytkownik #${row.user_id || '-'}`;
+  }
+  const plate = row.nr_rejestracyjny ? `Auto ${row.nr_rejestracyjny}` : 'Auto';
+  return row.user_name ? `${plate} / ${row.user_name}` : plate;
+}
+
+function gpsAccuracyLabel(row) {
+  const value = Number(row?.accuracy_m);
+  return Number.isFinite(value) ? `~${Math.round(value)} m` : 'brak';
+}
+
+function gpsPlatformLabel(row) {
+  const platform = String(row?.platform || '').trim();
+  const activity = String(row?.activity || '').trim();
+  return [platform, activity].filter(Boolean).join(' / ') || 'brak';
 }
 
 const PRIORYTET_KOLOR = {
@@ -1166,8 +1186,20 @@ export default function ZlecenieDetail() {
               <strong style={{ color: liveStatus.color }}>{liveStatus.label} / {liveStatus.meta}</strong>
             </div>
             <div style={styles.presenceMetric}>
-              <span>Zrodlo pozycji</span>
+              <span>GPS z</span>
               <strong>{gpsSourceLabel(liveLocation)}</strong>
+            </div>
+            <div style={styles.presenceMetric}>
+              <span>Wyslal sygnal</span>
+              <strong>{gpsSenderLabel(liveLocation)}</strong>
+            </div>
+            <div style={styles.presenceMetric}>
+              <span>Dokladnosc</span>
+              <strong>{gpsAccuracyLabel(liveLocation)}</strong>
+            </div>
+            <div style={styles.presenceMetric}>
+              <span>Urzadzenie</span>
+              <strong>{gpsPlatformLabel(liveLocation)}</strong>
             </div>
             <div style={styles.presenceMetric}>
               <span>Koordynaty</span>

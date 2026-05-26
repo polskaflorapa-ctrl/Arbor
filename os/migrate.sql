@@ -1405,6 +1405,25 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_entity      ON audit_log (entity_type, 
 CREATE INDEX IF NOT EXISTS idx_audit_log_user        ON audit_log (user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action      ON audit_log (action);
 
+CREATE TABLE IF NOT EXISTS ops_action_events (
+  id              SERIAL PRIMARY KEY,
+  task_id         INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  oddzial_id      INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  actor_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action_type     VARCHAR(50) NOT NULL,
+  issue_key       VARCHAR(50),
+  reason_code     VARCHAR(50),
+  delta_minutes   INTEGER,
+  planned_minutes INTEGER,
+  real_minutes    INTEGER,
+  note            TEXT,
+  metadata        JSONB DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ops_action_events_created ON ops_action_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ops_action_events_branch_created ON ops_action_events(oddzial_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ops_action_events_task ON ops_action_events(task_id);
+
 -- ─── EPIC 1.1 — VRP dispatch fields ─────────────────────────────────────────
 -- Tasks: time windows, service time, required resources
 ALTER TABLE tasks

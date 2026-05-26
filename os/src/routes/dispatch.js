@@ -61,6 +61,7 @@ async function fetchTasksForDate(client, date, oddzialId) {
   }
   const r = await client.query(
     `SELECT t.id, t.numer, t.adres, t.miasto,
+            t.klient_nazwa, t.klient_telefon,
             t.pin_lat, t.pin_lng,
             t.priorytet, t.status,
             t.czas_planowany_godziny,

@@ -30,6 +30,7 @@ const HAS_VALID_API_FALLBACK_BASE =
   Boolean(API_URL_WITHOUT_API_SUFFIX) &&
   API_URL_WITHOUT_API_SUFFIX !== API_URL;
 const isUnsafeFallbackBase = API_URL_WITHOUT_API_SUFFIX === '/' || API_URL_WITHOUT_API_SUFFIX === '.';
+const MOCK_OPS_EVENTS_KEY = 'arbor-test-mode-ops-action-events';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -78,6 +79,41 @@ function getRequestDate(config) {
   } catch {
     return new Date().toISOString().slice(0, 10);
   }
+}
+
+function getMockOpsEvents() {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_OPS_EVENTS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMockOpsEvents(events) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(MOCK_OPS_EVENTS_KEY, JSON.stringify(events.slice(-200)));
+}
+
+function addMockOpsEvent(event) {
+  const events = getMockOpsEvents();
+  const next = {
+    id: Date.now(),
+    created_at: new Date().toISOString(),
+    ...event,
+  };
+  events.push(next);
+  saveMockOpsEvents(events);
+  return next;
+}
+
+function countBy(rows, key) {
+  return rows.reduce((acc, row) => {
+    const value = row?.[key];
+    if (value) acc[value] = (acc[value] || 0) + 1;
+    return acc;
+  }, {});
 }
 
 function getTestUserForLogin(login) {
@@ -271,6 +307,88 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ops/action-insights' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const range = config?.params?.range === 'today' ? 'today' : 'week';
+    const fromDate = new Date(`${date}T00:00:00.000Z`);
+    if (range === 'week') fromDate.setUTCDate(fromDate.getUTCDate() - 6);
+    const toDate = new Date(`${date}T00:00:00.000Z`);
+    toDate.setUTCDate(toDate.getUTCDate() + 1);
+    const events = getMockOpsEvents().filter((event) => {
+      const created = new Date(event.created_at || 0);
+      if (created < fromDate || created >= toDate) return false;
+      return !oddzialId || String(event.oddzial_id || '') === String(oddzialId);
+    });
+    const reasonLabels = {
+      dojazd: 'Dojazd',
+      zakres: 'Wiekszy zakres',
+      sprzet: 'Sprzet',
+      klient: 'Klient',
+      pogoda: 'Pogoda',
+      inne: 'Inne',
+    };
+    const issueLabels = {
+      missing_duration: 'Brak czasu planu',
+      not_started: 'Nie wystartowalo',
+      overrun: 'Przekroczenie planu',
+      missing_finish: 'Brak zamkniecia',
+      under_plan: 'Ponizej planu',
+    };
+    const actionLabels = {
+      set_duration: 'Ustawienie czasu',
+      mark_reason: 'Powod odchylenia',
+      remind_team: 'Przypomnienie ekipy',
+    };
+    const reasonCounts = countBy(events, 'reason_code');
+    const issueCounts = countBy(events, 'issue_key');
+    const actionCounts = countBy(events, 'action_type');
+    const deltaValues = events.map((event) => Number(event.delta_minutes)).filter(Number.isFinite);
+    return {
+      data: {
+        date,
+        range,
+        oddzial_id: oddzialId,
+        summary: {
+          total_events: events.length,
+          affected_tasks: new Set(events.map((event) => event.task_id).filter(Boolean)).size,
+          reasons_total: events.filter((event) => event.reason_code).length,
+          reminders: actionCounts.remind_team || 0,
+          duration_updates: actionCounts.set_duration || 0,
+          avg_delta_minutes: deltaValues.length ? Math.round(deltaValues.reduce((sum, value) => sum + value, 0) / deltaValues.length) : 0,
+          top_reason: null,
+        },
+        reasons: Object.entries(reasonCounts)
+          .map(([reason_code, count]) => ({
+            reason_code,
+            label: reasonLabels[reason_code] || reason_code,
+            count,
+            share: events.length ? Math.round((count / events.length) * 100) : 0,
+            avg_delta_minutes: 0,
+          }))
+          .sort((a, b) => b.count - a.count),
+        issues: Object.entries(issueCounts)
+          .map(([issue_key, count]) => ({ issue_key, label: issueLabels[issue_key] || issue_key, count }))
+          .sort((a, b) => b.count - a.count),
+        actions: Object.entries(actionCounts)
+          .map(([action_type, count]) => ({ action_type, label: actionLabels[action_type] || action_type, count }))
+          .sort((a, b) => b.count - a.count),
+        recent: events.slice(-8).reverse().map((event) => ({
+          ...event,
+          action_label: actionLabels[event.action_type] || event.action_type,
+          issue_label: issueLabels[event.issue_key] || event.issue_key,
+          reason_label: reasonLabels[event.reason_code] || event.reason_code,
+        })),
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   const mPlanRealAction = path.match(/^\/ops\/plan-vs-real\/tasks\/(\d+)\/action$/);
   if (mPlanRealAction && method === 'post') {
     const body = parseJsonData(config.data);
@@ -299,11 +417,25 @@ function getTestModeMockResponse(config) {
       message = 'Przypomnienie wyslane';
       notificationCount = current?.ekipa_id ? 1 : 0;
     }
+    const event = addMockOpsEvent({
+      task_id: Number(taskId),
+      oddzial_id: current?.oddzial_id || null,
+      action_type: body.action,
+      issue_key: body.issue_key || (body.action === 'set_duration' ? 'missing_duration' : body.action === 'remind_team' ? 'not_started' : 'overrun'),
+      reason_code: body.reason_code || null,
+      delta_minutes: Number.isFinite(Number(body.delta_minutes)) ? Math.round(Number(body.delta_minutes)) : null,
+      planned_minutes: Number.isFinite(Number(patch.czas_obslugi_min || body.planned_minutes)) ? Math.round(Number(patch.czas_obslugi_min || body.planned_minutes)) : null,
+      real_minutes: Number.isFinite(Number(body.real_minutes)) ? Math.round(Number(body.real_minutes)) : null,
+      numer: current?.numer || `ZLE-${String(taskId).padStart(4, '0')}`,
+      klient_nazwa: current?.klient_nazwa,
+      notification_count: notificationCount,
+    });
     return {
       data: {
         message,
         action: body.action,
         task: mockUpdateTaskInTestMode(taskId, patch),
+        event,
         notification_count: notificationCount,
       },
       status: 200,

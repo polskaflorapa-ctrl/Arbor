@@ -241,6 +241,103 @@ function formatAdvisorBrief(advisor) {
   return lines.join('\n');
 }
 
+function stopClientName(stop = {}) {
+  return stop.client || stop.klient_nazwa || stop.client_name || '';
+}
+
+function stopClientPhone(stop = {}) {
+  return stop.client_phone || stop.klient_telefon || stop.phone || stop.telefon || '';
+}
+
+function stopHasPhoneSignal(stop = {}) {
+  return ['client_phone', 'klient_telefon', 'phone', 'telefon']
+    .some(key => Object.prototype.hasOwnProperty.call(stop, key));
+}
+
+function dispatchStopWarnings(stop = {}) {
+  const warnings = [];
+  if (stopHasPhoneSignal(stop) && !stopClientPhone(stop)) {
+    warnings.push({ key: 'phone', label: 'Brak telefonu' });
+  }
+  if (stop.lat == null || stop.lng == null) {
+    warnings.push({ key: 'gps', label: 'Brak pinezki GPS' });
+  }
+  if (stop.time_window_ok === false) {
+    warnings.push({ key: 'window', label: 'Ryzyko okna czasowego' });
+  }
+  return warnings;
+}
+
+function stopWindowText(stop = {}) {
+  return stop.okno_od ? `okno ${stop.okno_od}-${stop.okno_do || '?'}` : '';
+}
+
+function formatDispatchStop(stop = {}, index = 0) {
+  const taskLabel = stop.task_numer || (stop.task_id ? `#${stop.task_id}` : 'Zlecenie');
+  const client = stopClientName(stop) || 'Bez klienta';
+  const phone = stopClientPhone(stop) || 'brak telefonu';
+  const address = stop.adres || 'bez adresu';
+  const timing = [
+    `ETA ${stop.eta || '--:--'}`,
+    stopWindowText(stop),
+    `dojazd ${stop.travel_min ?? '?'} min`,
+    `praca ${stop.service_min ?? '?'} min`,
+  ].filter(Boolean).join(' | ');
+  const warnings = dispatchStopWarnings(stop).map(item => item.label.toLowerCase());
+  return `${index + 1}. ${taskLabel} - ${client} - ${address} | tel: ${phone} | ${timing}${warnings.length ? ` | uwagi: ${warnings.join(', ')}` : ''}`;
+}
+
+function formatRouteBrief(route = {}, date = '') {
+  const lines = [
+    `Odprawa ekipy - ${route.team_name || `Ekipa #${route.team_id || ''}`.trim()}`,
+    `Data: ${route.date || date || '-'}`,
+    `Zlecenia: ${(route.stops || []).length} | Czas: ${fmt(route.total_min)} | Dystans: ~${route.distance_km ?? 0} km`,
+    route.end_time ? `Powrot do bazy: ${route.end_time} (+${route.return_travel_min ?? '?'} min)` : null,
+    '',
+    'Trasa:',
+  ].filter(Boolean);
+
+  (route.stops || []).forEach((stop, index) => {
+    lines.push(formatDispatchStop(stop, index));
+  });
+
+  return lines.join('\n');
+}
+
+function formatDayDispatchBrief(plan = {}, date = '') {
+  const stats = plan.stats || {};
+  const routes = plan.routes || [];
+  const lines = [
+    `Plan dnia - ${plan.date || date || '-'}`,
+    `Przypisane: ${stats.tasks_assigned ?? 0}/${stats.tasks_total ?? 0} | Ekipy: ${stats.teams_used ?? routes.length} | Pokrycie: ${stats.coverage_pct ?? 0}%`,
+  ];
+
+  if (planAppliedStatus(plan)) {
+    lines.push('Status: plan zastosowany i gotowy do wyslania ekipom');
+  }
+
+  lines.push('', 'Ekipy:');
+  routes.forEach((route, index) => {
+    lines.push(`${index + 1}. ${route.team_name || `Ekipa #${route.team_id || ''}`.trim()}: ${(route.stops || []).length} zlec, ${fmt(route.total_min)}, koniec ${route.end_time || '-'}`);
+    (route.stops || []).forEach((stop, stopIndex) => {
+      lines.push(`   ${formatDispatchStop(stop, stopIndex)}`);
+    });
+  });
+
+  if ((plan.unassigned || []).length) {
+    lines.push('', 'Nieprzypisane:');
+    plan.unassigned.forEach(item => {
+      lines.push(`- ${item.task_numer || `#${item.task_id}`} ${item.adres || ''} (${REASON_LABEL[item.reason] || item.reason || 'bez powodu'})`);
+    });
+  }
+
+  return lines.join('\n');
+}
+
+function planAppliedStatus(plan) {
+  return plan?.status === 'applied';
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -302,6 +399,8 @@ export default function AutoDispatch() {
   const [preflightHold, setPreflightHold] = useState(null);
   const [briefCopied, setBriefCopied] = useState(false);
   const [briefCopyText, setBriefCopyText] = useState('');
+  const [dispatchBriefCopied, setDispatchBriefCopied] = useState('');
+  const [dispatchBriefText, setDispatchBriefText] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
   const [riskIssueFilter, setRiskIssueFilter] = useState('');
 
@@ -317,6 +416,8 @@ export default function AutoDispatch() {
     setPlanApplied(false);
     setBriefCopied(false);
     setBriefCopyText('');
+    setDispatchBriefCopied('');
+    setDispatchBriefText('');
     setRiskFilter('all');
     setRiskIssueFilter('');
   }, [date, location.search]);
@@ -333,6 +434,8 @@ export default function AutoDispatch() {
   const runSolver = useCallback(async (save = false, options = {}) => {
     setLoading(true); setError(''); setSuccess(''); setPlan(null); setSavedPlanId(null);
     setPlanApplied(false);
+    setDispatchBriefCopied('');
+    setDispatchBriefText('');
     try {
       if (save && !options.skipPreflight) {
         const brief = advisor?.date === date ? advisor : await fetchAdvisorBrief();
@@ -446,6 +549,29 @@ export default function AutoDispatch() {
       setAdvisorError('Automatyczne kopiowanie jest zablokowane. Pakiet odprawy jest zaznaczony ponizej.');
     }
   }, [advisor]);
+
+  const copyDispatchBrief = useCallback(async (text, copiedKey) => {
+    if (!text) return;
+    try {
+      await copyTextToClipboard(text);
+      setDispatchBriefCopied(copiedKey);
+      setDispatchBriefText('');
+      setError('');
+    } catch (e) {
+      setDispatchBriefCopied('');
+      setDispatchBriefText(text);
+      setError('Automatyczne kopiowanie odprawy jest zablokowane. Tekst jest zaznaczony ponizej.');
+    }
+  }, []);
+
+  const copyDayBrief = useCallback(() => {
+    if (!plan) return;
+    copyDispatchBrief(formatDayDispatchBrief(planApplied ? { ...plan, status: 'applied' } : plan, date), 'day');
+  }, [copyDispatchBrief, date, plan, planApplied]);
+
+  const copyRouteBrief = useCallback((route) => {
+    copyDispatchBrief(formatRouteBrief(route, date), `route-${route?.team_id || route?.team_name || 'team'}`);
+  }, [copyDispatchBrief, date]);
 
   const selectRiskFilter = useCallback((filterKey) => {
     setRiskFilter(filterKey);
@@ -571,7 +697,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setPlan(null); setSavedPlanId(null); setPlanApplied(false); setBriefCopied(false); setBriefCopyText(''); setRiskFilter('all'); setRiskIssueFilter(''); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setPlan(null); setSavedPlanId(null); setPlanApplied(false); setBriefCopied(false); setBriefCopyText(''); setDispatchBriefCopied(''); setDispatchBriefText(''); setRiskFilter('all'); setRiskIssueFilter(''); }}
               style={s.dateInput}
             />
           </div>
@@ -908,6 +1034,35 @@ export default function AutoDispatch() {
         )}
 
         {plan && (
+          <section style={planApplied ? { ...s.handoffPanel, ...s.handoffPanelReady } : s.handoffPanel}>
+            <div style={s.handoffHeader}>
+              <div style={s.handoffTitleWrap}>
+                <span style={s.handoffEyebrow}>Odprawy dla ekip</span>
+                <strong style={s.handoffTitle}>
+                  {planApplied ? 'Plan gotowy do wyslania ekipom.' : 'Skopiuj plan dnia albo odprawe konkretnej ekipy.'}
+                </strong>
+                <span style={s.handoffDetail}>
+                  {(plan.routes || []).length} ekip · {stats?.tasks_assigned ?? 0}/{stats?.tasks_total ?? 0} zlecen · {stats?.coverage_pct ?? 0}% pokrycia
+                </span>
+              </div>
+              <button type="button" onClick={copyDayBrief} style={s.copyDayBriefBtn}>
+                {dispatchBriefCopied === 'day' ? 'Skopiowano plan dnia' : 'Kopiuj plan dnia'}
+              </button>
+            </div>
+            {dispatchBriefText && (
+              <textarea
+                aria-label="Pakiet odpraw dla ekip do recznego skopiowania"
+                value={dispatchBriefText}
+                readOnly
+                autoFocus
+                onFocus={e => e.target.select()}
+                style={s.manualDispatchBrief}
+              />
+            )}
+          </section>
+        )}
+
+        {plan && (
           <div style={s.content}>
             {/* Routes */}
             <div style={s.routesCol}>
@@ -917,6 +1072,7 @@ export default function AutoDispatch() {
                 const open = expandedTeam === route.team_id;
                 return (
                   <div key={route.team_id} style={{ ...s.routeCard, borderLeft: `4px solid ${color}` }}>
+                    <div style={s.routeHeaderRow}>
                     <button
                       type="button"
                       style={s.routeHeader}
@@ -927,27 +1083,22 @@ export default function AutoDispatch() {
                       <span style={s.routeMeta}>{route.stops.length} zlec · {fmt(route.total_min)} · ~{route.distance_km} km</span>
                       <span style={s.chevron}>{open ? '▲' : '▼'}</span>
                     </button>
+                      <button
+                        type="button"
+                        onClick={() => copyRouteBrief(route)}
+                        aria-label={`Kopiuj odprawe ekipy ${route.team_name || route.team_id || ''}`.trim()}
+                        style={s.routeBriefBtn}
+                      >
+                        {dispatchBriefCopied === `route-${route.team_id || route.team_name || 'team'}`
+                          ? 'Skopiowano'
+                          : 'Kopiuj odprawe ekipy'}
+                      </button>
+                    </div>
 
                     {open && (
                       <div style={s.stopList}>
                         {route.stops.map((stop, si) => (
-                          <div key={stop.task_id} style={s.stopRow}>
-                            <span style={s.stopNum}>{si + 1}</span>
-                            <div style={s.stopBody}>
-                              <div style={s.stopTitle}>
-                                <strong>{stop.task_numer}</strong>
-                                {!stop.time_window_ok && (
-                                  <span style={s.lateBadge}>⚠ {t('autoDispatch.timeWindowWarn')}</span>
-                                )}
-                              </div>
-                              <div style={s.stopMeta}>{stop.adres}</div>
-                              <div style={s.stopTimes}>
-                                {t('autoDispatch.eta')}: <strong>{stop.eta}</strong>
-                                {stop.okno_od && ` · ${t('autoDispatch.window')}: ${stop.okno_od}–${stop.okno_do || '?'}`}
-                                {` · ${t('autoDispatch.drive')}: ${stop.travel_min}m · ${t('autoDispatch.service')}: ${stop.service_min}m`}
-                              </div>
-                            </div>
-                          </div>
+                          <DispatchStopRow key={stop.task_id} stop={stop} index={si} t={t} />
                         ))}
                         <div style={s.returnRow}>
                           🏠 {t('autoDispatch.returnToBase')} — {route.end_time} (+{route.return_travel_min} min)
@@ -982,6 +1133,40 @@ export default function AutoDispatch() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function DispatchStopRow({ stop, index, t }) {
+  const stopWarnings = dispatchStopWarnings(stop);
+  const client = stopClientName(stop);
+  const phone = stopClientPhone(stop);
+
+  return (
+    <div style={s.stopRow}>
+      <span style={s.stopNum}>{index + 1}</span>
+      <div style={s.stopBody}>
+        <div style={s.stopTitle}>
+          <strong>{stop.task_numer}</strong>
+          {!stop.time_window_ok && (
+            <span style={s.lateBadge}>! {t('autoDispatch.timeWindowWarn')}</span>
+          )}
+        </div>
+        <div style={s.stopMeta}>{client ? `${client} | ` : ''}{stop.adres}</div>
+        {phone && <div style={s.stopContact}>Tel. {phone}</div>}
+        <div style={s.stopTimes}>
+          {t('autoDispatch.eta')}: <strong>{stop.eta}</strong>
+          {stop.okno_od && ` | ${t('autoDispatch.window')}: ${stop.okno_od}-${stop.okno_do || '?'}`}
+          {` | ${t('autoDispatch.drive')}: ${stop.travel_min}m | ${t('autoDispatch.service')}: ${stop.service_min}m`}
+        </div>
+        {stopWarnings.length > 0 && (
+          <div style={s.stopWarnings}>
+            {stopWarnings.map(item => (
+              <span key={`${stop.task_id}-${item.key}`} style={s.stopWarningPill}>{item.label}</span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1087,22 +1272,37 @@ const s = {
   availabilityNote:{ margin: '8px 0 0', color: 'var(--text-sub)', fontSize: 12 },
   absentTeamList:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 8, marginTop: 10 },
   absentTeamItem:{ display: 'grid', gap: 3, padding: '9px 10px', borderRadius: 8, border: '1px solid #fed7aa', background: '#fff', color: '#7c2d12', fontSize: 12 },
+  handoffPanel:{ marginBottom: 18, padding: '13px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-sm)' },
+  handoffPanelReady:{ borderColor: '#86efac', background: '#f0fdf4' },
+  handoffHeader:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  handoffTitleWrap:{ display: 'grid', gap: 2, minWidth: 0 },
+  handoffEyebrow:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  handoffTitle:{ color: 'var(--text)', fontSize: 14, lineHeight: 1.25 },
+  handoffDetail:{ color: 'var(--text-sub)', fontSize: 12 },
+  copyDayBriefBtn:{ flexShrink: 0, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
+  manualDispatchBrief:{ width: '100%', minHeight: 96, marginTop: 10, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', color: 'var(--text)', padding: 10, fontSize: 12, lineHeight: 1.45, resize: 'vertical' },
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
   routesCol:{ display: 'flex', flexDirection: 'column', gap: 10 },
   sectionTitle:{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
   routeCard:{ background: 'var(--surface-glass)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
-  routeHeader:{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left' },
+  routeHeaderRow:{ display: 'flex', alignItems: 'stretch', gap: 8, padding: '0 8px 0 0' },
+  routeHeader:{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left' },
   teamDot:  { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
   teamName: { flex: 1, fontSize: 15 },
   routeMeta:{ fontSize: 12, color: 'var(--text-sub)' },
   chevron:  { fontSize: 12, color: 'var(--text-sub)' },
   stopList: { borderTop: '1px solid var(--border)', padding: '8px 0' },
+  routeBriefRow:{ display: 'flex', justifyContent: 'flex-end', padding: '0 16px 8px' },
+  routeBriefBtn:{ border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '7px 10px', fontSize: 12, fontWeight: 850, cursor: 'pointer' },
   stopRow:  { display: 'flex', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-light, var(--border))' },
   stopNum:  { width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 },
   stopBody: { flex: 1, minWidth: 0 },
   stopTitle:{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 },
   stopMeta: { fontSize: 12, color: 'var(--text-sub)', marginBottom: 2 },
+  stopContact:{ fontSize: 11, color: 'var(--text)', fontWeight: 800, marginBottom: 2 },
   stopTimes:{ fontSize: 11, color: 'var(--text-muted, var(--text-sub))' },
+  stopWarnings:{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 5 },
+  stopWarningPill:{ borderRadius: 8, padding: '2px 7px', background: '#fff1f2', color: '#be123c', border: '1px solid #fecaca', fontSize: 10, fontWeight: 900 },
   lateBadge:{ fontSize: 10, background: '#fee2e2', color: '#dc2626', borderRadius: 4, padding: '1px 5px', fontWeight: 700 },
   returnRow:{ padding: '8px 16px', fontSize: 12, color: 'var(--text-sub)', fontStyle: 'italic' },
   unassignedCol:{ display: 'flex', flexDirection: 'column', gap: 8 },

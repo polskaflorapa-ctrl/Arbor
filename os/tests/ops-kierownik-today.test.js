@@ -280,6 +280,16 @@ describe('POST /api/ops/plan-vs-real/tasks/:taskId/action', () => {
           }],
         };
       }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[0]).toBe(55);
+        expect(params[1]).toBe(7);
+        expect(params[2]).toBe(1);
+        expect(params[3]).toBe('set_duration');
+        expect(params[4]).toBe('missing_duration');
+        expect(params[7]).toBe(90);
+        expect(params[9]).toBe('Dwa drzewa i dojazd');
+        return { rows: [{ id: 501, task_id: 55, action_type: 'set_duration', issue_key: 'missing_duration' }] };
+      }
       return { rows: [] };
     });
 
@@ -331,6 +341,14 @@ describe('POST /api/ops/plan-vs-real/tasks/:taskId/action', () => {
           ],
         };
       }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[0]).toBe(77);
+        expect(params[1]).toBe(7);
+        expect(params[3]).toBe('remind_team');
+        expect(params[4]).toBe('not_started');
+        expect(JSON.parse(params[10]).notification_count).toBe(2);
+        return { rows: [{ id: 777, task_id: 77, action_type: 'remind_team', issue_key: 'not_started' }] };
+      }
       return { rows: [] };
     });
 
@@ -345,14 +363,20 @@ describe('POST /api/ops/plan-vs-real/tasks/:taskId/action', () => {
   });
 
   it('blocks manager action on a task from another branch', async () => {
-    pool.query.mockResolvedValueOnce({
-      rows: [{
-        id: 88,
-        numer: 'ARB-88',
-        status: 'Zaplanowane',
-        oddzial_id: 4,
-        ekipa_id: 5,
-      }],
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('FROM tasks t') && text.includes('WHERE t.id = $1')) {
+        return {
+          rows: [{
+            id: 88,
+            numer: 'ARB-88',
+            status: 'Zaplanowane',
+            oddzial_id: 4,
+            ekipa_id: 5,
+          }],
+        };
+      }
+      return { rows: [] };
     });
 
     const res = await request(app)
@@ -361,7 +385,90 @@ describe('POST /api/ops/plan-vs-real/tasks/:taskId/action', () => {
       .send({ action: 'set_duration', planned_minutes: 60 });
 
     expect(res.status).toBe(403);
-    expect(pool.query).toHaveBeenCalledTimes(1);
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('SET czas_planowany_godziny'))).toBe(false);
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO ops_action_events'))).toBe(false);
+  });
+});
+
+describe('GET /api/ops/action-insights', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+  });
+
+  it('aggregates action memory for the manager branch', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('FROM ops_action_events e')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        expect(text).toContain('e.oddzial_id = $2');
+        return {
+          rows: [
+            {
+              id: 1,
+              task_id: 10,
+              oddzial_id: 7,
+              action_type: 'mark_reason',
+              issue_key: 'overrun',
+              reason_code: 'dojazd',
+              delta_minutes: 45,
+              planned_minutes: 120,
+              real_minutes: 165,
+              numer: 'ARB-10',
+              klient_nazwa: 'Klient A',
+              actor_name: 'Test Kierownik',
+              created_at: '2026-05-26T09:00:00.000Z',
+            },
+            {
+              id: 2,
+              task_id: 11,
+              oddzial_id: 7,
+              action_type: 'remind_team',
+              issue_key: 'not_started',
+              reason_code: null,
+              delta_minutes: -60,
+              planned_minutes: 60,
+              real_minutes: 0,
+              numer: 'ARB-11',
+              klient_nazwa: 'Klient B',
+              actor_name: 'Test Kierownik',
+              created_at: '2026-05-26T10:00:00.000Z',
+            },
+            {
+              id: 3,
+              task_id: 12,
+              oddzial_id: 7,
+              action_type: 'mark_reason',
+              issue_key: 'overrun',
+              reason_code: 'dojazd',
+              delta_minutes: 30,
+              planned_minutes: 90,
+              real_minutes: 120,
+              numer: 'ARB-12',
+              klient_nazwa: 'Klient C',
+              actor_name: 'Test Kierownik',
+              created_at: '2026-05-26T11:00:00.000Z',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-insights?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.oddzial_id).toBe(7);
+    expect(res.body.summary).toMatchObject({
+      total_events: 3,
+      affected_tasks: 3,
+      reasons_total: 2,
+      reminders: 1,
+      avg_delta_minutes: 5,
+    });
+    expect(res.body.reasons[0]).toMatchObject({ reason_code: 'dojazd', label: 'Dojazd', count: 2 });
+    expect(res.body.issues.map((item) => item.issue_key)).toEqual(expect.arrayContaining(['overrun', 'not_started']));
   });
 });
 

@@ -5,7 +5,6 @@ import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import OpsRadar from '../components/OpsRadar';
 import TelemetryStatus from '../components/TelemetryStatus';
-import { getRolaColor } from '../theme';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName } from '../utils/roleDisplay';
@@ -370,7 +369,6 @@ export default function Dashboard() {
     return acc;
   }, {});
   const dzisiaj = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
-  const rolaColor = getRolaColor(user?.rola);
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthTasks = allTasks.filter((z) => String(z.data_planowana || z.data_wykonania || z.created_at || '').startsWith(currentMonth));
   const monthRevenue = monthTasks.reduce((s, z) => s + (Number(z.wartosc_planowana) || 0), 0);
@@ -624,11 +622,15 @@ export default function Dashboard() {
           <div style={d.heroLeft}>
             <div style={d.heroGreeting}>Dzień dobry, {user?.imie}</div>
             <div style={d.heroDate}>{dzisiaj}</div>
-            <div style={{ ...d.rolaBadge, background: rolaColor + '22', color: rolaColor }}>
+            <div style={d.rolaBadge}>
               {getRoleDisplayName(user?.rola)}{user?.oddzial_nazwa ? ` · ${user.oddzial_nazwa}` : ''}
             </div>
           </div>
           <div style={{ ...d.topActions, ...(isCompact ? d.topActionsCompact : {}) }}>
+            <button type="button" onClick={() => navigate('/nowe-zlecenie')} style={d.primaryAction}>
+              {QL_ICONS['/nowe-zlecenie']}
+              Nowe zlecenie
+            </button>
             <button type="button" onClick={() => navigate('/misja-dnia')} style={d.secondaryAction}>
               {QL_ICONS['/misja-dnia']}
               Misja dnia
@@ -1021,26 +1023,26 @@ const d = {
     fontWeight: 600,
   },
   topbar: {
-    minHeight: 56,
+    minHeight: 68,
     display: 'grid',
     gridTemplateColumns: 'minmax(220px, 1fr) minmax(280px, 520px) auto',
     alignItems: 'center',
     gap: 16,
-    marginBottom: 14,
-    padding: '10px 14px',
-    border: '1px solid #e6e9ef',
-    borderRadius: 4,
+    marginBottom: 16,
+    padding: '14px 16px',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
     background: '#ffffff',
-    boxShadow: 'none',
+    boxShadow: 'var(--shadow-sm)',
   },
   topbarTitleWrap: { display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 },
   menuBtn: {
     width: 36,
     height: 36,
-    border: '1px solid #e6e9ef',
-    borderRadius: 4,
-    background: '#ffffff',
-    color: '#323338',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'var(--surface-field)',
+    color: 'var(--accent)',
     display: 'inline-flex',
     flexDirection: 'column',
     justifyContent: 'center',
@@ -1057,12 +1059,12 @@ const d = {
     alignItems: 'center',
     gap: 10,
     minHeight: 36,
-    border: '1px solid rgba(15,95,58,0.12)',
-    borderRadius: 14,
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
     background: 'rgba(255,255,255,0.92)',
     color: 'var(--text-muted)',
     padding: '0 10px',
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px rgba(16,34,24,0.05)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9)',
   },
   searchInput: {
     flex: 1,
@@ -1087,10 +1089,10 @@ const d = {
     position: 'relative',
     width: 36,
     height: 36,
-    border: '1px solid rgba(15,95,58,0.12)',
-    borderRadius: 12,
-    background: '#ffffff',
-    color: '#0b3d27',
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: 'var(--surface-field)',
+    color: 'var(--accent)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1112,8 +1114,8 @@ const d = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weatherBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
-  dateBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
+  weatherBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850, border: '1px solid var(--glass-border)', borderRadius: 8, padding: '7px 10px', background: 'var(--surface-field)' },
+  dateBox: { display: 'flex', flexDirection: 'column', gap: 1, color: 'var(--text)', fontSize: 12, fontWeight: 850, border: '1px solid var(--glass-border)', borderRadius: 8, padding: '7px 10px', background: 'var(--surface-field)' },
   kpiGridLegacy: {
     display: 'grid',
     gridTemplateColumns: 'repeat(6, minmax(145px, 1fr))',
@@ -1386,11 +1388,11 @@ const d = {
 
   // Hero
   hero: {
-    display: 'none',
-    position: 'relative', borderRadius: 8, padding: '24px 28px', marginBottom: 22,
+    display: 'flex',
+    position: 'relative', borderRadius: 8, padding: '26px 28px', marginBottom: 18,
     justifyContent: 'space-between', alignItems: 'center',
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--border)', overflow: 'hidden',
+    background: 'linear-gradient(135deg, #07301f 0%, #0f6b3f 58%, #2fbe72 100%)',
+    border: '1px solid rgba(255,255,255,0.24)', overflow: 'hidden',
     boxShadow: 'var(--shadow-md)',
   },
   heroCompact: {
@@ -1404,16 +1406,16 @@ const d = {
     boxSizing: 'border-box',
   },
   heroBg: {
-    display: 'none', position: 'absolute', top: -60, right: -60, width: 200, height: 200,
-    borderRadius: '50%', background: 'transparent',
+    display: 'block', position: 'absolute', top: -94, right: -72, width: 300, height: 300,
+    borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.22), transparent 66%)',
     pointerEvents: 'none',
   },
   heroLeft: { position: 'relative' },
   heroLeftCompact: { minWidth: 0 },
-  heroGreeting: { fontSize: 26, fontWeight: 800, color: 'var(--text)', marginBottom: 4 },
+  heroGreeting: { fontSize: 30, fontWeight: 950, color: '#ffffff', marginBottom: 4 },
   heroGreetingCompact: { fontSize: 24, lineHeight: 1.18 },
-  heroDate: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'capitalize' },
-  rolaBadge: { display: 'inline-block', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700 },
+  heroDate: { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginBottom: 12, textTransform: 'capitalize', fontWeight: 750 },
+  rolaBadge: { display: 'inline-block', borderRadius: 999, padding: '5px 11px', fontSize: 12, fontWeight: 850, background: 'rgba(255,255,255,0.16)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.2)' },
   heroBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
     background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 6,
@@ -1525,10 +1527,10 @@ const d = {
     justifyContent: 'center',
     gap: 8,
     padding: '0 16px',
-    borderRadius: 12,
-    border: '1px solid rgba(20,131,79,0.24)',
-    background: 'var(--accent-gradient)',
-    color: 'var(--on-accent)',
+    borderRadius: 8,
+    border: '1px solid rgba(255,255,255,0.28)',
+    background: '#ffffff',
+    color: '#0f6b3f',
     fontSize: 14,
     fontWeight: 800,
     cursor: 'pointer',
@@ -1543,10 +1545,10 @@ const d = {
     justifyContent: 'center',
     gap: 8,
     padding: '0 14px',
-    borderRadius: 12,
-    border: '1px solid rgba(20,131,79,0.24)',
-    background: 'rgba(20,131,79,0.08)',
-    color: 'var(--accent)',
+    borderRadius: 8,
+    border: '1px solid rgba(255,255,255,0.26)',
+    background: 'rgba(255,255,255,0.12)',
+    color: '#ffffff',
     fontSize: 13,
     fontWeight: 750,
     cursor: 'pointer',
@@ -1554,48 +1556,47 @@ const d = {
   kpiGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-    gap: 0,
-    marginBottom: 14,
-    border: '1px solid #e6e9ef',
-    borderRadius: 4,
-    overflow: 'hidden',
-    background: '#ffffff',
+    gap: 10,
+    marginBottom: 16,
+    border: 'none',
+    borderRadius: 0,
+    overflow: 'visible',
+    background: 'transparent',
   },
   kpiGridNarrow: { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' },
   kpiGridCompact: { gridTemplateColumns: 'minmax(0, 1fr)' },
   kpiCard: {
-    minHeight: 80,
+    minHeight: 112,
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '12px 16px',
-    borderRadius: 0,
-    border: 'none',
-    borderBottom: '1px solid #e6e9ef',
-    borderLeft: '3px solid transparent',
+    padding: '14px 16px',
+    borderRadius: 8,
+    border: '1px solid var(--glass-border)',
+    borderLeft: '5px solid var(--accent)',
     background: '#ffffff',
     color: '#323338',
     cursor: 'pointer',
     textAlign: 'left',
-    boxShadow: 'none',
+    boxShadow: 'var(--shadow-sm)',
     width: '100%',
   },
   kpiCardHover: { background: '#f5f6f8' },
   kpiIcon: {
     width: 36,
     height: 36,
-    borderRadius: 6,
+    borderRadius: 8,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    border: 'none',
-    background: '#f5f6f8',
-    color: '#676879',
+    border: '1px solid rgba(15,95,58,0.12)',
+    background: 'var(--accent-surface)',
+    color: 'var(--accent)',
   },
   kpiCardBody: { display: 'flex', flexDirection: 'column', minWidth: 0 },
-  kpiCardLabel: { fontSize: 11, fontWeight: 700, color: '#676879', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  kpiCardValue: { marginTop: 6, fontSize: 22, fontWeight: 700, color: '#323338', lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
+  kpiCardLabel: { fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0 },
+  kpiCardValue: { marginTop: 6, fontSize: 26, fontWeight: 950, color: '#0b3825', lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' },
   kpiCardTrend: { marginTop: 6, fontSize: 12, fontWeight: 600, color: '#676879' },
   boardGrid: { display: 'grid', gridTemplateColumns: '1.14fr .86fr', gap: 12, marginBottom: 12 },
   lowerGrid: { display: 'grid', gridTemplateColumns: '1.1fr .85fr .9fr', gap: 12, marginBottom: 12 },

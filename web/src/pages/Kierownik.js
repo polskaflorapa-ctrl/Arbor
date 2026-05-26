@@ -100,6 +100,7 @@ export default function Kierownik() {
   const [cockpitLoading, setCockpitLoading] = useState(false);
   const [cockpitError, setCockpitError] = useState('');
   const [planReal, setPlanReal] = useState(null);
+  const [actionInsights, setActionInsights] = useState(null);
   const [planActionDrafts, setPlanActionDrafts] = useState({});
   const [planActionSaving, setPlanActionSaving] = useState('');
   const navigate = useNavigate();
@@ -140,7 +141,7 @@ export default function Kierownik() {
       if (['Prezes', 'Dyrektor'].includes(u?.rola) && oddzialId) {
         params.oddzial_id = oddzialId;
       }
-      const [cockpitResponse, planRealResponse] = await Promise.all([
+      const [cockpitResponse, planRealResponse, insightsResponse] = await Promise.all([
         api.get('/ops/kierownik-today', {
           params,
           headers: authHeaders(token),
@@ -151,9 +152,15 @@ export default function Kierownik() {
           headers: authHeaders(token),
           dedupe: false,
         }),
+        api.get('/ops/action-insights', {
+          params: { ...params, range: 'week' },
+          headers: authHeaders(token),
+          dedupe: false,
+        }),
       ]);
       setCockpit(cockpitResponse.data);
       setPlanReal(planRealResponse.data);
+      setActionInsights(insightsResponse.data);
     } catch (err) {
       setCockpitError(getApiErrorMessage(err, 'Nie udalo sie wczytac cockpit kierownika.'));
     } finally {
@@ -243,7 +250,13 @@ export default function Kierownik() {
 
   const runPlanAction = useCallback(async (task, action) => {
     const draft = planActionDrafts[task.id] || {};
-    const payload = { action };
+    const payload = {
+      action,
+      issue_key: task.issue_key || null,
+      delta_minutes: task.delta_minutes,
+      planned_minutes: task.planned_minutes,
+      real_minutes: task.real_minutes,
+    };
     if (action === 'set_duration') {
       const plannedHours = Number(draft.hours || (task.planned_minutes ? task.planned_minutes / 60 : 2));
       if (!Number.isFinite(plannedHours) || plannedHours <= 0) {
@@ -251,6 +264,7 @@ export default function Kierownik() {
         return;
       }
       payload.planned_hours = plannedHours;
+      payload.previous_planned_minutes = task.planned_minutes || 0;
       payload.note = draft.note || '';
     } else if (action === 'mark_reason') {
       payload.reason_code = draft.reason_code || 'zakres';
@@ -325,13 +339,17 @@ export default function Kierownik() {
   const planRealTasks = planReal?.tasks || [];
   const planRealDelta = Number(planRealSummary.delta_minutes || 0);
   const planRealDeltaTone = planRealDelta > 30 ? 'danger' : planRealDelta < -30 ? 'warning' : 'ok';
+  const actionInsightSummary = actionInsights?.summary || {};
+  const actionInsightReasons = actionInsights?.reasons || [];
+  const actionInsightIssues = actionInsights?.issues || [];
+  const actionInsightRecent = actionInsights?.recent || [];
 
   return (
     <div className="app-shell" style={styles.container}>
       <Sidebar />
       <main className="app-main" style={styles.main}>
         <PageHeader
-          variant="plain"
+          variant="hero"
           title={t('pages.kierownik.title')}
           subtitle={t('pages.kierownik.subtitle')}
           icon={<MapOutlined style={{ fontSize: 26 }} />}
@@ -339,7 +357,8 @@ export default function Kierownik() {
             <>
               <StatusMessage message={msg} />
               <button type="button" style={{ ...styles.addBtn, background: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', marginRight: 8 }} onClick={() => navigate('/auto-dispatch')}>
-                🗺️ Auto-Dispatch
+                <BoltOutlined style={{ fontSize: 17 }} />
+                Auto-Dispatch
               </button>
               <button type="button" style={styles.addBtn} onClick={() => navigate('/nowe-zlecenie')}>
                 + {t('common.newOrder')}
@@ -540,6 +559,49 @@ export default function Kierownik() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          <div style={styles.actionInsightsBand}>
+            <div style={styles.actionInsightsHeader}>
+              <div style={styles.cockpitSectionTitle}>
+                <ReportProblemOutlined sx={{ fontSize: 18 }} />
+                Co rozwala dzien
+              </div>
+              <span style={styles.planRealDate}>ostatnie 7 dni</span>
+            </div>
+            <div style={styles.actionInsightsSummary}>
+              <span><strong>{actionInsightSummary.total_events ?? 0}</strong> decyzji</span>
+              <span><strong>{actionInsightSummary.affected_tasks ?? 0}</strong> zlecen</span>
+              <span><strong>{actionInsightSummary.reminders ?? 0}</strong> przypomnien</span>
+              <span><strong>{formatMinutes(actionInsightSummary.avg_delta_minutes)}</strong> sr. odchylka</span>
+            </div>
+            {actionInsightReasons.length === 0 && actionInsightIssues.length === 0 ? (
+              <div style={styles.actionInsightsEmpty}>Brak zapisanych powodow. Gdy kierownik oznaczy przyczyne odchylenia, ranking pojawi sie tutaj.</div>
+            ) : (
+              <div style={styles.actionInsightsGrid}>
+                <div style={styles.actionInsightsReasons}>
+                  {actionInsightReasons.slice(0, 4).map((reason) => (
+                    <div key={reason.reason_code} style={styles.reasonRow}>
+                      <span style={styles.reasonLabel}>{reason.label}</span>
+                      <span style={styles.reasonTrack}>
+                        <span style={{ ...styles.reasonFill, width: `${Math.max(8, Math.min(100, reason.share || 0))}%` }} />
+                      </span>
+                      <strong style={styles.reasonCount}>{reason.count}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div style={styles.issuePills}>
+                  {actionInsightIssues.slice(0, 4).map((issue) => (
+                    <span key={issue.issue_key} style={styles.issuePill}>{issue.label}: {issue.count}</span>
+                  ))}
+                  {actionInsightRecent[0] ? (
+                    <span style={styles.issuePillMuted}>
+                      Ostatnio: {actionInsightRecent[0].numer} / {actionInsightRecent[0].action_label}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             )}
           </div>
@@ -818,6 +880,20 @@ const styles = {
   planActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-surface)', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
   planActionGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   planRealEmpty: { padding: '10px 0 2px', color: 'var(--text-muted)', fontSize: 12 },
+  actionInsightsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
+  actionInsightsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  actionInsightsSummary: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, marginBottom: 8 },
+  actionInsightsEmpty: { color: 'var(--text-muted)', fontSize: 12, padding: '6px 0 2px' },
+  actionInsightsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12, alignItems: 'start' },
+  actionInsightsReasons: { display: 'grid', gap: 6 },
+  reasonRow: { display: 'grid', gridTemplateColumns: '120px minmax(80px, 1fr) auto', alignItems: 'center', gap: 8, fontSize: 12 },
+  reasonLabel: { color: 'var(--text)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  reasonTrack: { height: 8, borderRadius: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', overflow: 'hidden' },
+  reasonFill: { display: 'block', height: '100%', borderRadius: 8, background: 'var(--accent)' },
+  reasonCount: { color: 'var(--accent)', fontSize: 12 },
+  issuePills: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  issuePill: { borderRadius: 8, padding: '4px 8px', background: 'rgba(245,158,11,0.13)', color: 'var(--warning)', fontSize: 11, fontWeight: 850 },
+  issuePillMuted: { borderRadius: 8, padding: '4px 8px', background: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 750 },
   cockpitGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12, alignItems: 'start' },
   cockpitColumn: { minWidth: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12 },
   cockpitSectionTitle: { display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, color: 'var(--text)', fontSize: 13, fontWeight: 850 },
@@ -841,7 +917,7 @@ const styles = {
   title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
-  addBtn: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s' },
+  addBtn: { minHeight: 38, padding: '9px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 900, transition: 'all 0.2s', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 },
   oddzialyRow: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
   oddzialCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 16px', cursor: 'pointer', boxShadow: 'var(--shadow-md)', minWidth: 140, transition: 'all 0.2s' },
   oddzialNazwa: { fontSize: 13, fontWeight: '600', color: 'var(--text)', marginBottom: 6 },

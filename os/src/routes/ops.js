@@ -26,6 +26,20 @@ const PLAN_REAL_REASON_LABELS = {
   pogoda: 'Pogoda',
   inne: 'Inne',
 };
+const PLAN_REAL_ISSUE_LABELS = {
+  missing_duration: 'Brak czasu planu',
+  not_started: 'Nie wystartowalo',
+  overrun: 'Przekroczenie planu',
+  missing_finish: 'Brak zamkniecia',
+  under_plan: 'Ponizej planu',
+};
+const OPS_ACTION_LABELS = {
+  set_duration: 'Ustawienie czasu',
+  mark_reason: 'Powod odchylenia',
+  remind_team: 'Przypomnienie ekipy',
+};
+
+let opsActionEventsReady = false;
 
 const BLOCKER_META = {
   team: {
@@ -203,6 +217,71 @@ function planRealNote({ title, lines = [], user }) {
     `Kierownik: ${managerActor(user)}`,
     `Data wpisu: ${new Date().toISOString()}`,
   ].join('\n');
+}
+
+function eventNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n) : null;
+}
+
+async function ensureOpsActionEventsTable() {
+  if (opsActionEventsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ops_action_events (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      oddzial_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+      actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      action_type VARCHAR(50) NOT NULL,
+      issue_key VARCHAR(50),
+      reason_code VARCHAR(50),
+      delta_minutes INTEGER,
+      planned_minutes INTEGER,
+      real_minutes INTEGER,
+      note TEXT,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ops_action_events_created ON ops_action_events(created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ops_action_events_branch_created ON ops_action_events(oddzial_id, created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ops_action_events_task ON ops_action_events(task_id)');
+  opsActionEventsReady = true;
+}
+
+async function recordOpsActionEvent({
+  task,
+  user,
+  actionType,
+  issueKey,
+  reasonCode = null,
+  deltaMinutes = null,
+  plannedMinutes = null,
+  realMinutes = null,
+  note = '',
+  metadata = {},
+}) {
+  const { rows } = await pool.query(
+    `INSERT INTO ops_action_events (
+       task_id, oddzial_id, actor_id, action_type, issue_key, reason_code,
+       delta_minutes, planned_minutes, real_minutes, note, metadata
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11::jsonb)
+     RETURNING id, task_id, action_type, issue_key, reason_code, created_at`,
+    [
+      task?.id || null,
+      task?.oddzial_id || null,
+      user?.id || null,
+      actionType,
+      issueKey || null,
+      reasonCode || null,
+      eventNumber(deltaMinutes),
+      eventNumber(plannedMinutes),
+      eventNumber(realMinutes),
+      cleanText(note, 1200),
+      JSON.stringify(metadata || {}),
+    ]
+  );
+  return rows[0] || null;
 }
 
 function buildPlanRealTaskPath(task, date) {
@@ -651,6 +730,135 @@ router.get('/plan-vs-real', authMiddleware, requireRole(...MANAGER_ROLES), async
   }
 });
 
+router.get('/action-insights', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const date = parseDateParam(req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+
+  const range = req.query.range === 'today' ? 'today' : 'week';
+  const requestedOddzial = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  const fromSql = range === 'today' ? '$1::date' : "($1::date - INTERVAL '6 days')";
+  const branchSql = oddzialId != null ? 'AND e.oddzial_id = $2' : '';
+  const params = oddzialId != null ? [date, oddzialId] : [date];
+
+  try {
+    await ensureOpsActionEventsTable();
+    const { rows } = await pool.query(
+      `SELECT e.id, e.task_id, e.oddzial_id, e.actor_id, e.action_type,
+              e.issue_key, e.reason_code, e.delta_minutes, e.planned_minutes,
+              e.real_minutes, e.note, e.metadata, e.created_at,
+              t.numer, t.klient_nazwa,
+              NULLIF(TRIM(CONCAT(COALESCE(u.imie, ''), ' ', COALESCE(u.nazwisko, ''))), '') AS actor_name
+       FROM ops_action_events e
+       LEFT JOIN tasks t ON t.id = e.task_id
+       LEFT JOIN users u ON u.id = e.actor_id
+       WHERE e.created_at >= ${fromSql}
+         AND e.created_at < ($1::date + INTERVAL '1 day')
+         ${branchSql}
+       ORDER BY e.created_at DESC
+       LIMIT 500`,
+      params
+    );
+
+    const total = rows.length;
+    const reasonCounts = new Map();
+    const issueCounts = new Map();
+    const actionCounts = new Map();
+    const reasonDelta = new Map();
+    const affectedTasks = new Set();
+    let deltaSum = 0;
+    let deltaCount = 0;
+
+    for (const row of rows) {
+      if (row.task_id) affectedTasks.add(Number(row.task_id));
+      if (row.action_type) bumpBlocker(actionCounts, row.action_type);
+      if (row.issue_key) bumpBlocker(issueCounts, row.issue_key);
+      if (row.reason_code) {
+        bumpBlocker(reasonCounts, row.reason_code);
+        const delta = eventNumber(row.delta_minutes);
+        if (delta != null) {
+          reasonDelta.set(row.reason_code, (reasonDelta.get(row.reason_code) || 0) + delta);
+        }
+      }
+      const delta = eventNumber(row.delta_minutes);
+      if (delta != null) {
+        deltaSum += delta;
+        deltaCount += 1;
+      }
+    }
+
+    const reasons = Array.from(reasonCounts.entries())
+      .map(([reason_code, count]) => ({
+        reason_code,
+        label: PLAN_REAL_REASON_LABELS[reason_code] || reason_code,
+        count,
+        share: total > 0 ? Math.round((count / total) * 100) : 0,
+        avg_delta_minutes: count > 0 ? Math.round((reasonDelta.get(reason_code) || 0) / count) : 0,
+      }))
+      .sort((a, b) => b.count - a.count || Math.abs(b.avg_delta_minutes) - Math.abs(a.avg_delta_minutes));
+
+    const issues = Array.from(issueCounts.entries())
+      .map(([issue_key, count]) => ({
+        issue_key,
+        label: PLAN_REAL_ISSUE_LABELS[issue_key] || issue_key,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const actions = Array.from(actionCounts.entries())
+      .map(([action_type, count]) => ({
+        action_type,
+        label: OPS_ACTION_LABELS[action_type] || action_type,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    res.json({
+      date,
+      range,
+      oddzial_id: oddzialId,
+      summary: {
+        total_events: total,
+        affected_tasks: affectedTasks.size,
+        reasons_total: rows.filter((row) => row.reason_code).length,
+        reminders: Number(actionCounts.get('remind_team') || 0),
+        duration_updates: Number(actionCounts.get('set_duration') || 0),
+        avg_delta_minutes: deltaCount > 0 ? Math.round(deltaSum / deltaCount) : 0,
+        top_reason: reasons[0] || null,
+      },
+      reasons,
+      issues,
+      actions,
+      recent: rows.slice(0, 8).map((row) => ({
+        id: row.id,
+        task_id: row.task_id,
+        numer: row.numer || (row.task_id ? `#${row.task_id}` : '-'),
+        klient_nazwa: row.klient_nazwa,
+        action_type: row.action_type,
+        action_label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+        issue_key: row.issue_key,
+        issue_label: PLAN_REAL_ISSUE_LABELS[row.issue_key] || row.issue_key,
+        reason_code: row.reason_code,
+        reason_label: PLAN_REAL_REASON_LABELS[row.reason_code] || row.reason_code,
+        delta_minutes: eventNumber(row.delta_minutes),
+        actor_name: row.actor_name,
+        created_at: row.created_at,
+      })),
+      generated_at: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops action-insights', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
 router.post('/plan-vs-real/tasks/:taskId/action', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
   const taskId = Number(req.params.taskId);
   if (!Number.isInteger(taskId) || taskId <= 0) {
@@ -664,6 +872,7 @@ router.post('/plan-vs-real/tasks/:taskId/action', authMiddleware, requireRole(..
   }
 
   try {
+    await ensureOpsActionEventsTable();
     const taskResult = await pool.query(
       `SELECT t.id, t.numer, t.klient_nazwa, t.status, t.oddzial_id, t.ekipa_id,
               t.data_planowana, t.notatki_wewnetrzne,
@@ -716,10 +925,25 @@ router.post('/plan-vs-real/tasks/:taskId/action', authMiddleware, requireRole(..
         entity_id: taskId,
         details: { planned_minutes: plannedMinutes },
       });
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: action,
+        issueKey: cleanText(req.body?.issue_key, 50) || 'missing_duration',
+        deltaMinutes: req.body?.delta_minutes,
+        plannedMinutes,
+        realMinutes: req.body?.real_minutes,
+        note: cleanText(req.body?.note, 600),
+        metadata: {
+          previous_planned_minutes: eventNumber(req.body?.previous_planned_minutes),
+          task_numer: task.numer || null,
+        },
+      });
       return res.json({
         message: 'Czas planu zapisany',
         action,
         task: update.rows[0],
+        event,
         notification_count: 0,
       });
     }
@@ -751,11 +975,27 @@ router.post('/plan-vs-real/tasks/:taskId/action', authMiddleware, requireRole(..
         entity_id: taskId,
         details: { reason_code: reasonCode },
       });
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: action,
+        issueKey: cleanText(req.body?.issue_key, 50) || 'overrun',
+        reasonCode,
+        deltaMinutes: req.body?.delta_minutes,
+        plannedMinutes: req.body?.planned_minutes,
+        realMinutes: req.body?.real_minutes,
+        note: noteText,
+        metadata: {
+          reason_label: reasonLabel,
+          task_numer: task.numer || null,
+        },
+      });
       return res.json({
         message: 'Powod zapisany',
         action,
         reason_code: reasonCode,
         task: update.rows[0],
+        event,
         notification_count: 0,
       });
     }
@@ -828,11 +1068,28 @@ router.post('/plan-vs-real/tasks/:taskId/action', authMiddleware, requireRole(..
       entity_id: taskId,
       details: { team_id: task.ekipa_id, recipients: recipientIds },
     });
+    const event = await recordOpsActionEvent({
+      task,
+      user: req.user,
+      actionType: action,
+      issueKey: cleanText(req.body?.issue_key, 50) || 'not_started',
+      deltaMinutes: req.body?.delta_minutes,
+      plannedMinutes: req.body?.planned_minutes,
+      realMinutes: req.body?.real_minutes,
+      note: noteText,
+      metadata: {
+        team_id: task.ekipa_id,
+        recipients: recipientIds,
+        notification_count: notificationRows.length,
+        task_numer: task.numer || null,
+      },
+    });
 
     return res.json({
       message: recipientIds.length > 0 ? 'Przypomnienie wyslane' : 'Notatka zapisana, brak odbiorcow w ekipie',
       action,
       task: update.rows[0],
+      event,
       notification_count: notificationRows.length,
     });
   } catch (e) {
