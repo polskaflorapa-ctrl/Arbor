@@ -262,7 +262,7 @@ export default function Ekipy() {
               <StatusMessage message={msg} style={{ animation: 'bounceIn 0.3s ease forwards' }} />
               {isDyrektor && (
                 <select
-                  style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--bg-card2)', color: 'var(--text)', fontSize: 13, outline: 'none' }}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 13, outline: 'none' }}
                   value={filtrOddzial}
                   onChange={(e) => setFiltrOddzial(e.target.value)}
                 >
@@ -292,9 +292,9 @@ export default function Ekipy() {
                   }}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: 'var(--bg-card2)',
+                    backgroundColor: 'var(--surface-field)',
                     color: 'var(--accent)',
-                    border: '1px solid var(--border2)',
+                    border: '1px solid var(--border)',
                     borderRadius: 10,
                     cursor: 'pointer',
                     fontSize: 14,
@@ -315,10 +315,10 @@ export default function Ekipy() {
           </div>
           <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Akcja</div>
-            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--accent)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
               Dodaj nową ekipę
             </button>
-            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--bg-card2)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
+            <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/ranking-brygad')}>
               Ranking brygad
             </button>
           </div>
@@ -442,7 +442,7 @@ export default function Ekipy() {
                         type="button"
                         title={t('common.edit')}
                         aria-label={t('common.edit')}
-                        onMouseEnter={e2 => e2.currentTarget.style.backgroundColor = 'var(--border2)'}
+                        onMouseEnter={e2 => e2.currentTarget.style.backgroundColor = 'var(--surface-field)'}
                         onMouseLeave={e2 => e2.currentTarget.style.backgroundColor = 'var(--surface-field)'}
                         style={{ padding: '6px 10px', backgroundColor: 'var(--surface-field)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--accent)', transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center' }}
                         onClick={() => handleEdit(e)}
@@ -762,7 +762,7 @@ function Field({ label, children }) {
 }
 
 const S = {
-  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border2)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-card2)', color: 'var(--text)' },
-  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--bg-card2)', color: 'var(--text)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  submitBtn: { padding: '9px 18px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
+  cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
+  submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
 };

@@ -873,7 +873,7 @@ const s = {
   headerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 14 },
-  backBtn: { padding: '6px 14px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
+  backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--logo-tint-border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   filtryRow: { display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', background: 'var(--surface-glass)', padding: '12px 16px', borderRadius: 8, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)', flexWrap: 'wrap' },
   searchInput: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1 },
   filtrInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)' },

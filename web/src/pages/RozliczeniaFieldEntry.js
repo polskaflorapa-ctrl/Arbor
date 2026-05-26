@@ -255,7 +255,7 @@ export default function RozliczeniaFieldEntry() {
             placeholder="np. 123"
             style={{
               width: 120, padding: '8px 12px', borderRadius: 8,
-              border: '1px solid var(--border2)', background: 'var(--bg-card)',
+              border: '1px solid var(--border)', background: 'var(--surface-glass)',
               color: 'var(--text)', fontSize: 14, outline: 'none',
             }}
           />
@@ -316,7 +316,7 @@ export default function RozliczeniaFieldEntry() {
 
             {formGodziny.map((p, idx) => (
               <div key={p.pomocnik_id} style={{
-                background: 'var(--bg-card)', border: '1px solid var(--border2)',
+                background: 'var(--surface-glass)', border: '1px solid var(--border)',
                 borderLeft: '3px solid var(--accent)',
                 borderRadius: 10, padding: 16, marginBottom: 12,
               }}>
@@ -500,8 +500,8 @@ export default function RozliczeniaFieldEntry() {
                     onClick={() => setVatStawka(v)}
                     style={{
                       padding: '8px 20px', borderRadius: 8, fontWeight: 700, fontSize: 14,
-                      border: `1px solid ${vatStawka === v ? 'var(--accent)' : 'var(--border2)'}`,
-                      background: vatStawka === v ? 'var(--accent-surface)' : 'var(--bg-card)',
+                      border: `1px solid ${vatStawka === v ? 'var(--accent)' : 'var(--border)'}`,
+                      background: vatStawka === v ? 'var(--accent-surface)' : 'var(--surface-glass)',
                       color: vatStawka === v ? 'var(--accent)' : 'var(--text-muted)',
                       cursor: 'pointer',
                     }}
@@ -514,7 +514,7 @@ export default function RozliczeniaFieldEntry() {
 
             {/* Podgląd pomocników */}
             {taskData?.pomocnicy?.length > 0 && (
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border2)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+              <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 10 }}>Koszty pomocników</div>
                 {taskData.pomocnicy.map((p) => (
                   <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, paddingBottom: 6, marginBottom: 6, borderBottom: '1px solid var(--border)' }}>
@@ -541,7 +541,7 @@ export default function RozliczeniaFieldEntry() {
 
             {/* Wynik */}
             {wynik && (
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border2)', borderRadius: 12, padding: 20 }}>
+              <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 14 }}>Wynik rozliczenia</div>
                 {[
                   { label: 'Wartość brutto', value: `${fmt(wynik.wartosc_brutto)} PLN` },
@@ -598,7 +598,7 @@ export default function RozliczeniaFieldEntry() {
                   { label: 'Godz./miesiąc', value: `${parseFloat(overview.hours_month || 0).toFixed(1)} h`, color: '#fbbf24' },
                 ].map((k) => (
                   <div key={k.label} style={{
-                    background: 'var(--bg-card)', border: '1px solid var(--border2)',
+                    background: 'var(--surface-glass)', border: '1px solid var(--border)',
                     borderTop: `3px solid ${k.color}`,
                     borderRadius: 10, padding: '12px 14px',
                   }}>
@@ -629,7 +629,7 @@ export default function RozliczeniaFieldEntry() {
                     {dayData.zlecenia.map((z) => (
                       <div
                         key={z.id}
-                        style={{ background: 'var(--bg-card)', border: '1px solid var(--border2)', borderRadius: 10, padding: 14, marginBottom: 10, cursor: 'pointer' }}
+                        style={{ background: 'var(--surface-glass)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 10, cursor: 'pointer' }}
                         onClick={() => navigate(`/zlecenia/${z.id}`)}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -705,8 +705,8 @@ export default function RozliczeniaFieldEntry() {
 
 // ─── Style stałe ──────────────────────────────────────────────────────────────
 const inputStyle = {
-  padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border2)',
-  background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14,
+  padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)',
+  background: 'var(--surface-glass)', color: 'var(--text)', fontSize: 14,
   outline: 'none', width: '100%', boxSizing: 'border-box',
 };
 

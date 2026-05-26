@@ -464,7 +464,7 @@ export default function PayrollM11() {
                   borderRadius: 10,
                   padding: 12,
                   marginBottom: 12,
-                  background: 'var(--bg-deep)',
+                  background: 'var(--surface-field)',
                 }}
               >
                 <div style={{ fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>
@@ -602,7 +602,7 @@ function formatLogWhen(iso) {
 }
 
 const card = {
-  background: 'var(--bg-card)',
+  background: 'var(--surface-glass)',
   border: '1px solid var(--border)',
   borderRadius: 14,
   padding: 20,
@@ -614,7 +614,7 @@ const inp = {
   padding: '10px 12px',
   borderRadius: 8,
   border: '1px solid var(--border)',
-  background: 'var(--bg-deep)',
+  background: 'var(--surface-field)',
   color: 'var(--text)',
   fontSize: 14,
   maxWidth: 220,
@@ -632,7 +632,7 @@ const btnSec = {
   padding: '10px 18px',
   borderRadius: 10,
   border: '1px solid var(--border)',
-  background: 'var(--bg-deep)',
+  background: 'var(--surface-field)',
   color: 'var(--text)',
   fontWeight: 600,
   cursor: 'pointer',

@@ -57,7 +57,7 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
             }
           : {
               paddingBottom: 16,
-              borderBottom: '1px solid var(--border2)',
+              borderBottom: '1px solid var(--glass-border)',
             }),
       }}
     >
@@ -117,6 +117,20 @@ export default function PageHeader({ variant = 'plain', title, subtitle, icon, a
           </div>
         ) : null}
         <div style={{ minWidth: 0, flex: '1 1 0', maxWidth: '100%' }}>
+          {isHero ? (
+            <div
+              style={{
+                marginBottom: 6,
+                color: 'var(--accent)',
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: 0,
+                textTransform: 'uppercase',
+              }}
+            >
+              ARBOR Operations
+            </div>
+          ) : null}
           <h1
             style={{
               margin: 0,

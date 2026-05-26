@@ -202,13 +202,13 @@ const INSET_LIST = {
   group: {
     borderRadius: 8,
     overflow: 'hidden',
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     background: 'var(--surface-field)',
   },
   hairline: {
     height: 1,
     marginLeft: 56,
-    background: 'var(--border2)',
+    background: 'var(--border)',
   },
   row: {
     display: 'flex',
@@ -234,8 +234,8 @@ const INSET_LIST = {
     justifyContent: 'center',
     flexShrink: 0,
     color: 'var(--text-sub)',
-    background: 'var(--bg-card2)',
-    border: '1px solid var(--border2)',
+    background: 'var(--surface-field)',
+    border: '1px solid var(--border)',
   },
   rowTexts: {
     flex: 1,
@@ -865,7 +865,7 @@ export default function Dashboard() {
                     onMouseLeave={() => setHovered(null)}
                     style={{
                       ...d.insetRow,
-                      background: hovered === `cmd${i}` ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
+                      background: hovered === `cmd${i}` ? 'rgba(255,255,255,0.06)' : 'var(--surface-field)',
                     }}
                   >
                     <span style={d.insetIconTile}>{CMD_ICONS[row.icon]}</span>
@@ -974,7 +974,7 @@ export default function Dashboard() {
                           onMouseLeave={() => setHovered(null)}
                           style={{
                             ...d.insetRow,
-                            background: hovered === `ql-${sec.key}-${i}` ? 'rgba(255,255,255,0.06)' : 'var(--bg-deep)',
+                            background: hovered === `ql-${sec.key}-${i}` ? 'rgba(255,255,255,0.06)' : 'var(--surface-field)',
                           }}
                         >
                           <span style={d.insetIconTile}>
@@ -1124,7 +1124,7 @@ const d = {
     minHeight: 104,
     border: '1px solid var(--glass-border)',
     borderRadius: 8,
-    background: 'linear-gradient(150deg, var(--bg-card), var(--bg-card2))',
+    background: 'var(--surface-glass)',
     color: 'var(--text)',
     padding: 14,
     display: 'grid',
@@ -1170,7 +1170,7 @@ const d = {
   panelLegacy: {
     border: '1px solid var(--glass-border)',
     borderRadius: 8,
-    background: 'linear-gradient(145deg, var(--bg-card), var(--bg-card2))',
+    background: 'linear-gradient(145deg, var(--surface-glass), var(--surface-field))',
     boxShadow: 'var(--shadow-sm)',
     overflow: 'hidden',
   },
@@ -1389,8 +1389,8 @@ const d = {
     display: 'none',
     position: 'relative', borderRadius: 8, padding: '24px 28px', marginBottom: 22,
     justifyContent: 'space-between', alignItems: 'center',
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)', overflow: 'hidden',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--border)', overflow: 'hidden',
     boxShadow: 'var(--shadow-md)',
   },
   heroCompact: {
@@ -1416,7 +1416,7 @@ const d = {
   rolaBadge: { display: 'inline-block', borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 700 },
   heroBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
-    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 6,
+    background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 6,
     fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s',
     position: 'relative', flexShrink: 0, boxShadow: 'var(--shadow-sm)',
   },
@@ -1443,7 +1443,7 @@ const d = {
     height: 1,
     marginLeft: 14,
     marginRight: 14,
-    background: 'var(--border2)',
+    background: 'var(--border)',
   },
   pipeRow: {
     display: 'flex',
@@ -1463,8 +1463,8 @@ const d = {
   },
   commandGrid: { display: 'none', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
   commandCard: {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border2)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
     padding: 18,
     boxShadow: 'var(--shadow-sm)',
@@ -1475,8 +1475,8 @@ const d = {
   // Main grid
   mainGrid: { display: 'none', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
   card: {
-    background: 'var(--bg-card)',
-    borderRadius: 8, padding: 18, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)'
+    background: 'var(--surface-glass)',
+    borderRadius: 8, padding: 18, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)'
   },
   cardCompact: { padding: 16, borderRadius: 14, maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -1485,7 +1485,7 @@ const d = {
   seeAll: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 },
 
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0' },
-  spinner: { width: 28, height: 28, border: '2px solid var(--border2)', borderTop: '2px solid #34D399', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
+  spinner: { width: 28, height: 28, border: '2px solid var(--border)', borderTop: '2px solid #34D399', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
 
   // Zlecenia
   zRow: {
@@ -1745,7 +1745,7 @@ const d = {
     textAlign: 'left',
     cursor: 'pointer',
   },
-  quickIcon: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', color: 'var(--accent)', border: '1px solid var(--border2)', flexShrink: 0 },
+  quickIcon: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', color: 'var(--accent)', border: '1px solid var(--border)', flexShrink: 0 },
   quickSectionWrapFirst: { marginTop: 8 },
   quickSectionWrap: { marginTop: 20 },
   quickSection: { marginTop: 16 },

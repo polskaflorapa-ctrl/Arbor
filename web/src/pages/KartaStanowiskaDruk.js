@@ -299,9 +299,9 @@ const S = {
   },
   secondaryBtn: {
     minHeight: 40,
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--glass-border)',
     borderRadius: 8,
-    background: 'var(--bg-card)',
+    background: 'var(--surface-glass)',
     color: 'var(--text-sub)',
     padding: '8px 12px',
     cursor: 'pointer',

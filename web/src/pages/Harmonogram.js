@@ -920,7 +920,7 @@ export default function Harmonogram() {
           const ds = toISODate(d);
           const isToday = ds === dzisiaj;
           return (
-            <div key={ds} style={{...styles.dayColHeader, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
+            <div key={ds} style={{...styles.dayColHeader, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--surface-field)'}}>
               <div style={{...styles.dayColDow, color: isToday ? 'var(--accent)' : 'var(--text-muted)'}}>
                 {DNI_KROTKO[d.getDay() === 0 ? 6 : d.getDay() - 1]}
               </div>
@@ -959,7 +959,7 @@ export default function Harmonogram() {
             const nowTop = (nowDecimal - DAY_START_HOUR) * HOUR_SLOT_HEIGHT;
 
             return (
-              <div key={ds} style={{...styles.dayCol, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)'}}>
+              <div key={ds} style={{...styles.dayCol, backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--surface-field)'}}>
                 {GODZINY.map((h) => (
                   <div
                     key={h}
@@ -1094,7 +1094,7 @@ export default function Harmonogram() {
           return (
             <div key={ds} style={{
               ...styles.miesiacCell,
-              backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--bg-card2)',
+              backgroundColor: isToday ? 'var(--accent-surface)' : 'var(--surface-field)',
               border: isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
             }} onClick={() => { setCurrentDate(data); setWidok('dzien'); }}>
               <div style={{...styles.miesiacNum, color: isToday ? 'var(--accent)' : 'var(--text)', fontWeight: isToday ? 'bold' : 'normal'}}>
@@ -1681,7 +1681,7 @@ const styles = {
     height: 36,
     padding: 0,
     backgroundColor: 'var(--surface-field)',
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 8,
     cursor: 'pointer',
     color: 'var(--accent)',
@@ -1690,8 +1690,8 @@ const styles = {
     justifyContent: 'center',
   },
   headerRight: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
-  filtrSelect: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--input-bg)', color: 'var(--text)', minHeight: 36 },
-  widokBtns: { display: 'flex', border: '1px solid var(--border2)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-field)' },
+  filtrSelect: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)', minHeight: 36 },
+  widokBtns: { display: 'flex', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-field)' },
   widokBtn: { padding: '8px 13px', border: 'none', borderRight: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 13, fontWeight: 800, color: 'var(--text-muted)', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' },
   widokBtnActive: { background: 'var(--accent-gradient)', color: 'var(--on-accent)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16)' },
   addBtn: {
@@ -1718,12 +1718,12 @@ const styles = {
   dispatchTitle: { margin: '2px 0 3px', color: 'var(--text)', fontSize: 18, fontWeight: 950, lineHeight: 1.15 },
   dispatchSubtitle: { margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, maxWidth: 720, lineHeight: 1.45 },
   dispatchHeadActions: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' },
-  dispatchLinkBtn: { minHeight: 34, border: '1px solid var(--border2)', borderRadius: 8, background: 'var(--surface-field)', color: 'var(--accent)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
+  dispatchLinkBtn: { minHeight: 34, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', color: 'var(--accent)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
   dispatchKpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 },
   dispatchKpi: { minHeight: 62, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' },
   dispatchKpiWarn: { borderColor: 'rgba(245,158,11,0.42)', background: 'rgba(245,158,11,0.09)' },
   dispatchKpiDanger: { borderColor: 'rgba(239,68,68,0.46)', background: 'rgba(239,68,68,0.1)' },
-  dispatchSlotBoard: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card2)', marginBottom: 12, overflowX: 'auto', boxShadow: 'var(--shadow-sm)' },
+  dispatchSlotBoard: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', marginBottom: 12, overflowX: 'auto', boxShadow: 'var(--shadow-sm)' },
   dispatchSlotHeader: { display: 'grid', gridTemplateColumns: '180px minmax(780px, 1fr)', borderBottom: '1px solid var(--border)', minWidth: 960 },
   dispatchSlotHeaderTeam: { padding: '10px 12px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
   dispatchSlotHours: { display: 'grid', gridTemplateColumns: `repeat(${GODZINY.length}, minmax(72px, 1fr))` },
@@ -1742,7 +1742,7 @@ const styles = {
   dispatchSlotMore: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, padding: '0 4px' },
   dispatchGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 12, alignItems: 'stretch' },
   dispatchTeamsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, alignContent: 'start' },
-  dispatchTeamCard: { textAlign: 'left', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card2)', color: 'var(--text)', padding: 12, cursor: 'pointer', boxShadow: 'var(--shadow-sm)', minHeight: 126 },
+  dispatchTeamCard: { textAlign: 'left', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', color: 'var(--text)', padding: 12, cursor: 'pointer', boxShadow: 'var(--shadow-sm)', minHeight: 126 },
   dispatchTeamCardDrop: { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px rgba(34,197,94,0.22), var(--shadow-md)', transform: 'translateY(-1px)' },
   dispatchTeamTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
   dispatchTeamDot: { width: 12, height: 12, borderRadius: '50%', flex: '0 0 auto' },
@@ -1755,7 +1755,7 @@ const styles = {
   dispatchBadgeOk: { color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)', background: 'rgba(34,197,94,0.12)' },
   dispatchBadgeWarn: { color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.36)', background: 'rgba(245,158,11,0.12)' },
   dispatchBadgeDanger: { color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.38)', background: 'rgba(239,68,68,0.12)' },
-  dispatchQueue: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card2)', padding: 12, minWidth: 0 },
+  dispatchQueue: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', padding: 12, minWidth: 0 },
   dispatchQueueHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, color: 'var(--text)', fontSize: 13, fontWeight: 950 },
   dispatchQueueList: { display: 'grid', gap: 8, maxHeight: 310, overflowY: 'auto', paddingRight: 2 },
   dispatchQueueItem: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', color: 'var(--text)', padding: 10, textAlign: 'left', cursor: 'pointer', display: 'grid', gap: 4, fontSize: 12 },
@@ -1771,7 +1771,7 @@ const styles = {
   quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, marginBottom: 10 },
   quickField: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '9px 10px', display: 'grid', gap: 3 },
   quickFieldMeta: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 800, lineHeight: 1.25 },
-  quickTelemetryPanel: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-card2)', padding: 12, marginBottom: 10, boxShadow: 'var(--shadow-sm)' },
+  quickTelemetryPanel: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', padding: 12, marginBottom: 10, boxShadow: 'var(--shadow-sm)' },
   quickTelemetryHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' },
   quickTelemetryEyebrow: { display: 'block', color: 'var(--text-muted)', fontSize: 10, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
   quickTelemetryTitle: { display: 'block', color: 'var(--text)', fontSize: 13, fontWeight: 950, marginTop: 2 },
@@ -1781,7 +1781,7 @@ const styles = {
   quickPhotoChip: { display: 'inline-flex', alignItems: 'center', minHeight: 22, border: '1px solid var(--border)', borderRadius: 999, padding: '3px 8px', fontSize: 10, fontWeight: 950, background: 'var(--surface-field)' },
   quickPhotoChipReady: { color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)', background: 'rgba(34,197,94,0.11)' },
   quickPhotoChipMissing: { color: 'var(--text-muted)', borderColor: 'rgba(148,163,184,0.22)', background: 'rgba(148,163,184,0.09)' },
-  quickBrief: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-card2)', padding: '10px 12px', marginBottom: 10 },
+  quickBrief: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '10px 12px', marginBottom: 10 },
   quickMissingWrap: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   quickActions: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
   quickWarnText: { color: 'var(--warning)' },
@@ -1790,8 +1790,8 @@ const styles = {
   quickActionDisabled: { opacity: 0.55, cursor: 'not-allowed', filter: 'grayscale(0.2)' },
   calBody: { display: 'flex', flexDirection: 'column', minHeight: 520, height: '100%' },
   timeGrid: { display: 'grid' },
-  timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border2)', borderRight: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--bg-card2), var(--bg-card))' },
-  dayColHeader: { position: 'sticky', top: 0, zIndex: 20, height: DAY_HEADER_HEIGHT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border2)', borderRight: '1px solid var(--border)' },
+  timeCorner: { position: 'sticky', top: 0, zIndex: 30, height: DAY_HEADER_HEIGHT, borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--surface-field), var(--surface-glass))' },
+  dayColHeader: { position: 'sticky', top: 0, zIndex: 20, height: DAY_HEADER_HEIGHT, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' },
   dayColDow: { fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
   dayColNum: { width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, marginTop: 4 },
   scrollArea: { overflowY: 'auto', flex: 1 },

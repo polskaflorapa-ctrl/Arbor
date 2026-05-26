@@ -318,7 +318,7 @@ export default function WynagrodzenieWyceniajacych() {
               </p>
             ) : (
               <>
-                <div style={{ background: 'var(--bg-deep)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
+                <div style={{ background: 'var(--surface-field)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>{contract.displayName}</div>
                   <div style={{ color: 'var(--text-muted)' }}>
                     Stawka dzienna: <strong>{fmtPln(contract.dailyBasePln)}</strong>
@@ -417,9 +417,10 @@ export default function WynagrodzenieWyceniajacych() {
 }
 
 const card = {
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border)',
-  borderRadius: 14,
+  background: 'var(--surface-glass)',
+  border: '1px solid var(--glass-border)',
+  borderRadius: 8,
+  boxShadow: 'var(--shadow-md)',
   padding: 20,
   maxWidth: 640,
 };
@@ -429,16 +430,16 @@ const inp = {
   padding: '10px 12px',
   borderRadius: 8,
   border: '1px solid var(--border)',
-  background: 'var(--bg-deep)',
+  background: 'var(--surface-field)',
   color: 'var(--text)',
   fontSize: 14,
 };
 const btnPri = {
   padding: '10px 18px',
-  borderRadius: 10,
-  border: 'none',
-  background: 'var(--accent)',
-  color: '#052E16',
+  borderRadius: 8,
+  border: '1px solid rgba(20,131,79,0.24)',
+  background: 'var(--accent-gradient)',
+  color: 'var(--on-accent)',
   fontWeight: 700,
   cursor: 'pointer',
 };

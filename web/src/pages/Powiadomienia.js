@@ -201,7 +201,7 @@ export default function Powiadomienia() {
                         style={{
                           ...styles.typCard,
                           borderColor: form.typ === typRow.value ? typRow.color : 'var(--border)',
-                          backgroundColor: form.typ === typRow.value ? typRow.bg : 'var(--bg-card)'
+                          backgroundColor: form.typ === typRow.value ? typRow.bg : 'var(--surface-glass)'
                         }}
                         onClick={() => setForm({...form, typ: typRow.value})}
                       >
@@ -278,7 +278,7 @@ export default function Powiadomienia() {
                     key={n.id}
                     style={{
                       ...styles.notifItem,
-                      backgroundColor: n.status === 'Nowe' ? 'var(--bg)' : 'var(--bg-card)',
+                      backgroundColor: n.status === 'Nowe' ? 'var(--bg)' : 'var(--surface-glass)',
                       borderLeft: `4px solid ${typInfo.color}`
                     }}
                   >
@@ -347,7 +347,7 @@ const styles = {
   title: { fontSize: 'clamp(24px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
   sub: { color: 'var(--text-muted)', marginTop: 4, fontSize: 'clamp(12px, 3vw, 14px)' },
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
-  readAllBtn: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border2)' } },
+  readAllBtn: { padding: '8px 16px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
   addBtn: { padding: '10px 20px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
   formBox: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)' },
   formTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--border)' },
@@ -385,11 +385,11 @@ const styles = {
   notifOd: { fontSize: 13, fontWeight: '600', color: 'var(--text)' },
   notifStatus: { fontSize: 11, fontWeight: '600' },
   notifTyp: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
-  notifTresc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic', backgroundColor: 'var(--bg-card)', padding: '8px 12px', borderRadius: 8 },
-  notifTask: { fontSize: 12, color: 'var(--accent)', cursor: 'pointer', marginBottom: 8, display: 'inline-block', backgroundColor: 'var(--bg-deep)', padding: '4px 10px', borderRadius: 6, '&:hover': { textDecoration: 'underline' } },
+  notifTresc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic', backgroundColor: 'var(--surface-glass)', padding: '8px 12px', borderRadius: 8 },
+  notifTask: { fontSize: 12, color: 'var(--accent)', cursor: 'pointer', marginBottom: 8, display: 'inline-block', backgroundColor: 'var(--surface-field)', padding: '4px 10px', borderRadius: 6, '&:hover': { textDecoration: 'underline' } },
   notifFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 8 },
   notifTime: { fontSize: 11, color: 'var(--text-muted)' },
   notifActions: { display: 'flex', gap: 8 },
-  readBtn: { padding: '4px 10px', backgroundColor: 'var(--bg-deep)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border2)' } },
+  readBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: '#FFCDD2' } }
 };

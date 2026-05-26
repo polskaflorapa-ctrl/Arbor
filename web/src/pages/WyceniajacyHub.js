@@ -151,7 +151,7 @@ export default function WyceniajacyHub() {
       padding: '14px 10px',
       borderRadius: 12,
       border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
-      background: 'var(--bg-deep)',
+      background: 'var(--surface-field)',
       cursor: 'pointer',
       fontFamily: 'inherit',
       fontSize: 12,

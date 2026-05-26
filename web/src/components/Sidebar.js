@@ -482,7 +482,7 @@ export default function Sidebar() {
                           >
                             <span
                               className="ios-icon-tile"
-                              style={active ? { color: 'var(--accent)', border: '1px solid var(--border2)' } : undefined}
+                              style={active ? { color: 'var(--accent)', border: '1px solid var(--border)' } : undefined}
                             >
                               {ICONS[link.icon]}
                             </span>
@@ -597,7 +597,7 @@ export default function Sidebar() {
                 >
                   <span
                     className="ios-icon-tile"
-                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent)', border: '1px solid var(--border2)' } : {}) }}
+                    style={{ position: 'relative', ...(showNotif ? { color: 'var(--accent)', border: '1px solid var(--border)' } : {}) }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {ICONS.bell}

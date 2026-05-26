@@ -453,7 +453,7 @@ function Field({ label, icon, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        <span style={{ color: 'var(--border2)', display: 'flex' }}>{icon}</span>
+        <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>
         {label}
       </label>
       {children}
@@ -472,7 +472,7 @@ const S = {
     padding: '8px 12px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     fontSize: 12,
     fontWeight: 700,

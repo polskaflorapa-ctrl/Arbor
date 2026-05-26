@@ -213,7 +213,7 @@ export default function ZatwierdzWyceny() {
       gap: 6,
       flexWrap: 'wrap',
       padding: '12px 16px',
-      borderBottom: '1px solid var(--border2)',
+      borderBottom: '1px solid var(--glass-border)',
       background: 'var(--surface-field)',
     },
     tab: {

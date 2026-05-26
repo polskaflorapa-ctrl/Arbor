@@ -575,7 +575,7 @@ export default function WycenaKalendarz() {
                     padding: '10px 12px',
                     borderRadius: 10,
                     border: '1px solid var(--border)',
-                    background: 'var(--bg-deep)',
+                    background: 'var(--surface-field)',
                     marginBottom: 8,
                     fontSize: 13,
                     cursor: 'pointer',
@@ -684,7 +684,7 @@ export default function WycenaKalendarz() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {WYCENA_STATUSES.filter(s => s !== w.status).map(s => (
                             <button key={s} type="button"
-                              style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                              style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
                               onClick={(e) => { e.stopPropagation(); zmienStatusWyceny(w.id, s); }}>
                               {STATUS_WYCENY_LABEL[s]}
                             </button>
@@ -838,7 +838,7 @@ const S = {
     padding: '6px 12px',
     borderRadius: 8,
     border: '1px solid var(--border)',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
     fontSize: 12,
     fontWeight: 600,
@@ -854,12 +854,12 @@ const S = {
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  addBtn: { padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
   linkBtn: {
     padding: '8px 12px',
-    background: 'var(--bg-deep)',
+    background: 'var(--surface-field)',
     color: 'var(--text-sub)',
-    border: '1px solid var(--border2)',
+    border: '1px solid var(--border)',
     borderRadius: 10,
     fontSize: 13,
     fontWeight: 600,
@@ -877,8 +877,8 @@ const S = {
     zIndex: 1,
   },
   kpiCard: {
-    background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)',
-    border: '1px solid var(--border2)',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--border)',
     borderRadius: 14,
     padding: '10px 12px',
     boxShadow: 'var(--shadow-sm)',
@@ -890,7 +890,7 @@ const S = {
 
   calBox: { flex: '1 1 320px', maxWidth: 420, minWidth: 0, background: 'var(--surface-glass)', borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border2)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   monthTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)' },
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 },
   dayHead: { textAlign: 'center', fontSize: 11, fontWeight: '600', color: 'var(--text-muted)', padding: '6px 0' },
@@ -912,12 +912,12 @@ const S = {
   dayPanel: { flex: '2 1 320px', minWidth: 0, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
-  dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--bg-card2)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border2)' },
+  dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--surface-field)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' },
 
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 18, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)' },
-  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer' },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
+  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer' },
 
-  wycenaCard: { background: 'linear-gradient(150deg, var(--bg-card) 0%, var(--bg-card2) 100%)', borderRadius: 16, padding: 16, marginBottom: 12, border: '1px solid var(--border2)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
+  wycenaCard: { background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
   wycenaTop: { display: 'flex', gap: 12, justifyContent: 'space-between' },
   wycenaKlient: { fontSize: 15, fontWeight: '600', color: 'var(--text)', marginBottom: 4 },
   wycenaSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
@@ -927,7 +927,7 @@ const S = {
   detailRow: { display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 },
   detailLabel: { color: 'var(--text-muted)', minWidth: 100 },
   detailVal: { color: 'var(--text)', flex: 1 },
-  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', fontSize: 13 },
+  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', fontSize: 13 },
 
   // Modal
   overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
@@ -937,7 +937,7 @@ const S = {
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },
 
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  formSection: { backgroundColor: 'var(--bg-deep)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--border)' },
+  formSection: { backgroundColor: 'var(--surface-field)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--border)' },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
@@ -963,6 +963,6 @@ const S = {
   },
 
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
-  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14 },
-  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border2)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14 },
+  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 };

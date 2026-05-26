@@ -218,7 +218,7 @@ export default function WycenaRysuj() {
             alignItems: 'center',
             gap: 12,
             padding: '12px 16px',
-            borderBottom: '1px solid var(--border2)',
+            borderBottom: '1px solid var(--border)',
             flexWrap: 'wrap',
           }}
         >
@@ -229,8 +229,8 @@ export default function WycenaRysuj() {
               width: 40,
               height: 40,
               borderRadius: 10,
-              border: '1px solid var(--border2)',
-              background: 'var(--bg-deep)',
+              border: '1px solid var(--border)',
+              background: 'var(--surface-field)',
               cursor: 'pointer',
             }}
           >
@@ -273,7 +273,7 @@ export default function WycenaRysuj() {
                   height: 28,
                   borderRadius: '50%',
                   background: c,
-                  border: color === c && !eraser ? '2px solid var(--accent)' : '1px solid var(--border2)',
+                  border: color === c && !eraser ? '2px solid var(--accent)' : '1px solid var(--border)',
                   cursor: 'pointer',
                 }}
                 title={c}
@@ -296,8 +296,8 @@ export default function WycenaRysuj() {
               style={{
                 padding: '6px 12px',
                 borderRadius: 8,
-                border: '1px solid var(--border2)',
-                background: eraser ? 'var(--accent)' : 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                background: eraser ? 'var(--accent)' : 'var(--surface-field)',
                 color: eraser ? 'var(--on-accent)' : 'var(--text)',
                 cursor: 'pointer',
               }}
@@ -310,8 +310,8 @@ export default function WycenaRysuj() {
               style={{
                 padding: '6px 12px',
                 borderRadius: 8,
-                border: '1px solid var(--border2)',
-                background: 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface-field)',
                 cursor: 'pointer',
               }}
             >
@@ -324,7 +324,7 @@ export default function WycenaRysuj() {
               style={{
                 padding: '8px 16px',
                 borderRadius: 10,
-                border: '1px solid var(--border2)',
+                border: '1px solid var(--border)',
                 background: 'var(--accent)',
                 color: 'var(--on-accent)',
                 fontWeight: 700,
@@ -336,7 +336,7 @@ export default function WycenaRysuj() {
             </button>
           </div>
 
-          <div style={{ overflow: 'auto', border: '1px solid var(--border2)', borderRadius: 12, background: '#111' }}>
+          <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 12, background: '#111' }}>
             <canvas
               ref={canvasRef}
               style={{ display: 'block', width: '100%', height: 'auto', maxHeight: '70vh', touchAction: 'none' }}
