@@ -892,6 +892,7 @@ const taskPlanPatchSchema = z.object({
 
 const taskAssignSchema = z.object({
   ekipa_id: z.union([z.number().int().positive(), z.string().trim().min(1)]),
+  absence_override: z.boolean().optional(),
 });
 
 const taskStatusSchema = z.object({
@@ -3074,9 +3075,9 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
     if (!canManageTaskBackoffice(req.user)) {
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
-    const { ekipa_id } = req.body;
+    const { ekipa_id, absence_override } = req.body;
     const taskR = await pool.query(
-      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status FROM tasks WHERE id = $1',
+      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status, notatki_wewnetrzne FROM tasks WHERE id = $1',
       [req.params.id]
     );
     if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -3087,6 +3088,21 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
     if (task.oddzial_id) {
       const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, task.oddzial_id, task.data_planowana);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
+    }
+    const teamAttendance = await getTeamAttendanceForPlan(Number(ekipa_id), task.data_planowana);
+    if (teamAttendance?.present === false && absence_override !== true) {
+      return res.status(409).json({
+        error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
+        code: 'TEAM_ABSENT',
+        attendance: {
+          teamId: teamAttendance.teamId,
+          teamName: teamAttendance.teamName,
+          dateYmd: teamAttendance.day,
+          present: false,
+          note: teamAttendance.note,
+          actor: teamAttendance.actor,
+        },
+      });
     }
     if (task.data_planowana) {
       const planDay = String(task.data_planowana).slice(0, 10);
@@ -3113,14 +3129,27 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
         nextAssignedStatus = 'Zaplanowane';
       }
     }
+    const absenceNote = teamAttendance?.present === false && absence_override === true
+      ? [
+        'WYJATEK PLANOWANIA EKIPY',
+        `Kierownik potwierdzil przypisanie mimo nieobecnosci ekipy${teamAttendance.note ? `: ${teamAttendance.note}` : '.'}`,
+        `Data zlecenia: ${String(task.data_planowana || '').slice(0, 10) || '-'}`,
+        `Ekipa: ${teamAttendance.teamName} (#${teamAttendance.teamId})`,
+        `Operator: ${req.user.login || req.user.id || '-'}`,
+      ].join('\n')
+      : '';
+    const nextNotes = absenceNote
+      ? [String(task.notatki_wewnetrzne || '').trim(), absenceNote].filter(Boolean).join('\n\n').slice(0, 12000)
+      : null;
     const update = await pool.query(
       `UPDATE tasks
        SET ekipa_id = $1,
            status = $3,
+           notatki_wewnetrzne = COALESCE($4::text, notatki_wewnetrzne),
            updated_at = NOW()
        WHERE id = $2
        RETURNING id, status`,
-      [toNum(ekipa_id), req.params.id, nextAssignedStatus]
+      [toNum(ekipa_id), req.params.id, nextAssignedStatus, nextNotes]
     );
     const workflowRow = await fetchTaskWorkflowRow(req.params.id)
       .catch(() => update.rows[0] || { id: req.params.id, status: task.status });
