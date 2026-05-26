@@ -2113,9 +2113,7 @@ export default function KalendarzZasobow() {
       setTaskPlanErr('Ekipa jest nieobecna. Potwierdz wyjatek kierownika albo wybierz inna ekipe.');
       return;
     }
-    const absenceNote = selectedAttendance?.present === false
-      ? `UWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(selectedAttendance)}.`
-      : '';
+    const absenceOverride = selectedAttendance?.present === false && form.absence_override === true;
     setSaving(true);
     setTaskPlanErr('');
     try {
@@ -2126,7 +2124,8 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: form.czas_planowany_godziny,
         ekipa_id: form.ekipa_id,
         sprzet_ids: form.sprzet_ids || [],
-        sprzet_notatka: [form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.', absenceNote].filter(Boolean).join('\n'),
+        sprzet_notatka: form.sprzet_notatka || 'Zmieniono w panelu harmonogramu.',
+        absence_override: absenceOverride,
       }, { headers: authHeaders(token) });
       showMsg(`Zapisano plan zlecenia #${task.id}.`);
       setModalTaskPlan(null);
@@ -2166,6 +2165,7 @@ export default function KalendarzZasobow() {
     const nextHours = taskHours(task);
     if (String(task.ekipa_id || '') === String(teamId) && taskDate(task) === dayISO && taskTime(task) === nextTime) return;
     const targetAttendance = attendanceByTeam.get(String(teamId));
+    let absenceOverride = false;
     if (targetAttendance?.present === false) {
       const targetTeam = teamsByIdForPlanning.get(String(teamId));
       const confirmed = typeof window !== 'undefined' && window.confirm
@@ -2175,6 +2175,7 @@ export default function KalendarzZasobow() {
         showMsg('Planowanie przerwane: ekipa jest nieobecna.', 'err');
         return;
       }
+      absenceOverride = true;
     }
 
     setSaving(true);
@@ -2187,9 +2188,8 @@ export default function KalendarzZasobow() {
         czas_planowany_godziny: nextHours,
         ekipa_id: teamId,
         sprzet_ids: existingEquipmentIds,
-        sprzet_notatka: targetAttendance?.present === false
-          ? `Przesunieto w harmonogramie ekip.\nUWAGA: kierownik potwierdzil plan mimo statusu ekipy: ${attendanceLine(targetAttendance)}.`
-          : 'Przesunieto w harmonogramie ekip.',
+        sprzet_notatka: 'Przesunieto w harmonogramie ekip.',
+        absence_override: absenceOverride,
       }, { headers: authHeaders(token) });
       showMsg(`Zlecenie #${task.id} zaplanowane: ${dayISO} ${nextTime}.`);
       await Promise.all([loadAll(), loadRezerwacje()]);
