@@ -106,7 +106,7 @@ function getTestModeMockResponse(config) {
 
   if (path === '/ops/kierownik-today' && method === 'get') {
     const date = getRequestDate(config);
-    const tasks = (getMockData('/tasks') || []).filter((task) => {
+    const tasks = (getMockData('/tasks/wszystkie') || []).filter((task) => {
       const planned = String(task.data_planowana || '').slice(0, 10);
       return !planned || planned === date;
     });
