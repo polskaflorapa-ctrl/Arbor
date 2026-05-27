@@ -1,6 +1,7 @@
 import { useState, useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
+import { clearAuthSession } from '../utils/authSession';
 import { getStoredToken } from '../utils/storedToken';
 import { useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -39,20 +40,22 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', { login, haslo });
       const tok = res.data?.token;
-      if (tok != null && tok !== '') {
+      const user = res.data?.user;
+      const hasToken = tok != null && tok !== '';
+
+      if (!hasToken || !user) {
+        clearAuthSession();
+        setError(t('login.invalidCredentials'));
+        setHaslo('');
+        return;
+      } else {
         localStorage.setItem('token', String(tok));
-      } else {
-        localStorage.removeItem('token');
-      }
-      if (res.data.user) {
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-      } else {
-        localStorage.removeItem('user');
-      }
-      if (res.data.user?.permissions) {
-        localStorage.setItem('permissions', JSON.stringify(res.data.user.permissions));
-      } else {
-        localStorage.removeItem('permissions');
+        localStorage.setItem('user', JSON.stringify(user));
+        if (user.permissions) {
+          localStorage.setItem('permissions', JSON.stringify(user.permissions));
+        } else {
+          localStorage.removeItem('permissions');
+        }
       }
       if (rememberMe) localStorage.setItem('remembered_login', login);
       else localStorage.removeItem('remembered_login');

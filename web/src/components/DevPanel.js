@@ -5,6 +5,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getReactApiBase } from '../utils/apiBase';
+import { clearAuthSession } from '../utils/authSession';
 import { isTestModeEnabled, toggleTestMode, TEST_USERS } from '../utils/testMode';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
@@ -161,13 +162,14 @@ export function DevPanel() {
     setTestModeEnabled(newState);
     if (newState) {
       const user = TEST_USERS[selectedUser];
+      clearAuthSession();
       localStorage.setItem('token', 'test_token_' + Date.now());
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.removeItem('permissions');
       alert(`✓ Tryb testowy włączony\nRola: ${getRoleDisplayName(user.rola)}`);
       window.location.reload();
     } else {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearAuthSession();
       alert('✗ Tryb testowy wyłączony');
       window.location.reload();
     }

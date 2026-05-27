@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { getReactApiBase } from '../utils/apiBase';
+import { resetAuthSession } from '../utils/authSession';
 import { getStoredToken } from '../utils/storedToken';
 
 const BASE_URL = getReactApiBase();
@@ -31,11 +32,22 @@ export function useSSE(onEvent) {
   const attemptsRef = useRef(0);
   const timerRef   = useRef(null);
   const onEventRef = useRef(onEvent);
+  const authCheckRef = useRef(null);
+  const mountedRef = useRef(false);
 
   // Keep ref current without re-triggering effect
   useEffect(() => { onEventRef.current = onEvent; }, [onEvent]);
 
+  const validateSession = useCallback(async (token) => {
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    return response.status;
+  }, []);
+
   const connect = useCallback(() => {
+    if (!mountedRef.current) return;
     const token = getStoredToken();
     if (!token) return; // not logged in
     if (typeof EventSource === 'undefined') return; // SSE not supported
@@ -59,19 +71,40 @@ export function useSSE(onEvent) {
     es.onerror = () => {
       es.close();
       esRef.current = null;
-      // Reconnect with backoff
-      const delay = backoff(attemptsRef.current);
-      attemptsRef.current++;
-      timerRef.current = setTimeout(connect, delay);
+      const latestToken = getStoredToken();
+      if (!latestToken || latestToken !== token) return;
+      if (authCheckRef.current) return;
+
+      authCheckRef.current = (async () => {
+        try {
+          const status = await validateSession(latestToken);
+          if (status === 401) {
+            resetAuthSession();
+            return;
+          }
+        } catch {
+          // Network or proxy failures should not force a logout.
+        } finally {
+          authCheckRef.current = null;
+        }
+        if (!mountedRef.current) return;
+        clearTimeout(timerRef.current);
+        const delay = backoff(attemptsRef.current);
+        attemptsRef.current++;
+        timerRef.current = setTimeout(connect, delay);
+      })();
     };
-  }, []); // stable — no deps that change
+  }, [validateSession]); // stable — no deps that change
 
   useEffect(() => {
+    mountedRef.current = true;
     connect();
     return () => {
+      mountedRef.current = false;
       esRef.current?.close();
       esRef.current = null;
       clearTimeout(timerRef.current);
+      authCheckRef.current = null;
     };
   }, [connect]);
 }

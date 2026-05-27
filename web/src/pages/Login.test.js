@@ -93,6 +93,33 @@ test('restores remembered login without requiring a token', () => {
   expect(screen.queryByText('Dashboard gotowy')).not.toBeInTheDocument();
 });
 
+test('clears stale auth entries when login response is missing token or user', async () => {
+  localStorage.setItem('user', JSON.stringify({ id: 99, rola: 'Dyrektor' }));
+  localStorage.setItem('permissions', JSON.stringify({ canViewFinance: true }));
+  api.post.mockResolvedValue({ data: { token: '', user: null } });
+
+  const { container } = renderLogin();
+  const { loginInput, passwordInput, submitButton } = getLoginFields(container);
+
+  await userEvent.type(loginInput, 'demo_dyrektor');
+  await userEvent.type(passwordInput, 'Demo123!ARBOR');
+  await userEvent.click(submitButton);
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith('/auth/login', {
+      login: 'demo_dyrektor',
+      haslo: 'Demo123!ARBOR',
+    });
+  });
+
+  expect(localStorage.getItem('token')).toBeNull();
+  expect(localStorage.getItem('user')).toBeNull();
+  expect(localStorage.getItem('permissions')).toBeNull();
+  expect(passwordInput).toHaveValue('');
+  expect(screen.queryByText('Dashboard gotowy')).not.toBeInTheDocument();
+  expect(await screen.findByText('Nieprawidłowy login lub hasło')).toBeInTheDocument();
+});
+
 test('shows a login error and clears the password after failed auth', async () => {
   api.post.mockRejectedValue({
     response: { data: { error: 'Nieprawidlowe dane logowania' } },
