@@ -1076,6 +1076,124 @@ paths:
           description: Przyjęto (obróbka w tle)
         "403":
           description: Niepoprawny podpis Twilio
+  /telephony/calls:
+    get:
+      summary: Lista logow rozmow telefonicznych
+      description: |
+        Zwraca reczne logi rozmow oraz rozmowy systemowe z Twilio w jednym widoku.
+        Dyrektor / Administrator / Kierownik widza calosc lub wybrany `oddzial_id`; pozostale role sa ograniczone do swojego oddzialu.
+        Bez `limit` odpowiedzia jest tablica; z `limit` odpowiedz ma postac `{ items, total, limit, offset }`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, maxLength: 40 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica `TelephonyCallLog` albo `TelephonyCallLogPage`
+        "400":
+          description: Walidacja - `code: VALIDATION_FAILED`
+        "401":
+          description: Brak tokenu
+    post:
+      summary: Reczne dodanie logu rozmowy
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelephonyCallCreate'
+      responses:
+        "201":
+          description: Utworzony `TelephonyCallLog`
+        "400":
+          description: Walidacja - `code: VALIDATION_FAILED`
+        "401":
+          description: Brak tokenu
+        "403":
+          description: Uzytkownik oddzialowy probuje zapisac rozmowe do innego oddzialu
+  /telephony/callbacks:
+    get:
+      summary: Lista zadan callback queue
+      description: |
+        Callback queue do oddzwaniania klientom. Dyrektor / Administrator / Kierownik widza calosc lub wybrany oddzial; pozostale role tylko wlasny oddzial.
+        Bez `limit` odpowiedzia jest tablica; z `limit` odpowiedz ma postac `{ items, total, limit, offset }`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: oddzial_id
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, maxLength: 32 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: Tablica `TelephonyCallback` albo `TelephonyCallbackPage`
+        "400":
+          description: Walidacja - `code: VALIDATION_FAILED`
+        "401":
+          description: Brak tokenu
+    post:
+      summary: Dodanie zadania do callback queue
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelephonyCallbackCreate'
+      responses:
+        "201":
+          description: Utworzony `TelephonyCallback` ze statusem `open`
+        "400":
+          description: Walidacja - `code: VALIDATION_FAILED`
+        "401":
+          description: Brak tokenu
+        "403":
+          description: Uzytkownik oddzialowy probuje zapisac callback do innego oddzialu
+  /telephony/callbacks/{id}/status:
+    patch:
+      summary: Zmiana statusu callbacku
+      description: Status `done` lub `cancelled` ustawia `closed_at`; powrot na `open` / `in_progress` czysci `closed_at`.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelephonyCallbackStatusBody'
+      responses:
+        "200":
+          description: Zaktualizowany `TelephonyCallback`
+        "400":
+          description: Walidacja - `code: VALIDATION_FAILED`
+        "401":
+          description: Brak tokenu
+        "403":
+          description: Uzytkownik oddzialowy probuje zmienic callback z innego oddzialu
+        "404":
+          description: Callback nie znaleziony
   /sms/webhooks/status:
     post:
       summary: Webhook Twilio — status dostarczenia SMS (application/x-www-form-urlencoded)
@@ -2925,6 +3043,88 @@ components:
           type: string
           description: Numer klienta (np. 791234567 lub +48791234567)
         task_id: { type: integer, nullable: true }
+    TelephonyCallCreate:
+      type: object
+      required: [oddzial_id, phone]
+      properties:
+        oddzial_id: { oneOf: [{ type: integer }, { type: string }] }
+        phone: { type: string, minLength: 3, maxLength: 64 }
+        call_type: { type: string, enum: [inbound, outbound], default: outbound }
+        status: { type: string, maxLength: 40, default: answered }
+        duration_sec: { oneOf: [{ type: integer, minimum: 0 }, { type: string }], nullable: true }
+        task_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+        lead_name: { type: string, maxLength: 255, nullable: true }
+        notes: { type: string, maxLength: 2000, nullable: true }
+    TelephonyCallLog:
+      type: object
+      properties:
+        id: { type: integer }
+        oddzial_id: { type: integer, nullable: true }
+        phone: { type: string }
+        call_type: { type: string, enum: [inbound, outbound] }
+        status: { type: string }
+        duration_sec: { type: integer }
+        task_id: { type: integer, nullable: true }
+        lead_name: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        created_by: { type: integer, nullable: true }
+        created_at: { type: string, format: date-time }
+        source: { type: string, enum: [manual, system], nullable: true }
+    TelephonyCallLogPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelephonyCallLog'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    TelephonyCallbackCreate:
+      type: object
+      required: [oddzial_id, phone]
+      properties:
+        oddzial_id: { oneOf: [{ type: integer }, { type: string }] }
+        phone: { type: string, minLength: 3, maxLength: 64 }
+        task_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+        lead_name: { type: string, maxLength: 255, nullable: true }
+        priority: { type: string, enum: [low, normal, high], default: normal }
+        due_at: { type: string, nullable: true, description: "ISO date/time accepted by PostgreSQL timestamptz" }
+        notes: { type: string, maxLength: 2000, nullable: true }
+        assigned_user_id: { oneOf: [{ type: integer }, { type: string }], nullable: true }
+    TelephonyCallback:
+      type: object
+      properties:
+        id: { type: integer }
+        oddzial_id: { type: integer }
+        phone: { type: string }
+        task_id: { type: integer, nullable: true }
+        lead_name: { type: string, nullable: true }
+        priority: { type: string, enum: [low, normal, high] }
+        due_at: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [open, in_progress, done, cancelled] }
+        notes: { type: string, nullable: true }
+        assigned_user_id: { type: integer, nullable: true }
+        created_by: { type: integer, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_by: { type: integer, nullable: true }
+        updated_at: { type: string, format: date-time }
+        closed_at: { type: string, format: date-time, nullable: true }
+    TelephonyCallbackPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelephonyCallback'
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    TelephonyCallbackStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [open, in_progress, done, cancelled] }
     InvoiceStatusBody:
       type: object
       required: [status]
