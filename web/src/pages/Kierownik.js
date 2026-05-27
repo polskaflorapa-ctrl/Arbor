@@ -91,6 +91,31 @@ function recommendationPreviewMeta(task) {
   return task?.ekipa_nazwa || 'Otworz';
 }
 
+function recommendationSort(a, b) {
+  return Number(a?.rank || 999) - Number(b?.rank || 999);
+}
+
+function withRecommendationVisibility(state, recommendation, hidden) {
+  if (!state || !recommendation?.id) return state;
+  const id = recommendation.id;
+  const active = (state.recommendations || []).filter((item) => item.id !== id);
+  const hiddenItems = (state.hidden_recommendations || []).filter((item) => item.id !== id);
+  const nextActive = hidden ? active : [recommendation, ...active].sort(recommendationSort);
+  const nextHidden = hidden ? [recommendation, ...hiddenItems].sort(recommendationSort) : hiddenItems;
+  return {
+    ...state,
+    recommendations: nextActive,
+    hidden_recommendations: nextHidden,
+    summary: {
+      ...(state.summary || {}),
+      total: nextActive.length,
+      high: nextActive.filter((item) => item.priority === 'high').length,
+      actionable: nextActive.filter((item) => item.action_kind && item.action_kind !== 'none').length,
+      hidden_today: nextHidden.length,
+    },
+  };
+}
+
 function CockpitMetric({ label, value, detail, tone = 'info' }) {
   const t = cockpitTone(tone);
   return (
@@ -428,6 +453,7 @@ export default function Kierownik() {
     setPlanActionSaving(key);
     try {
       const result = await recordRecommendationDecision(recommendation, 'dismissed');
+      setActionRecommendations((current) => withRecommendationVisibility(current, recommendation, true));
       showMsg(successMessage('Rekomendacja ukryta na dzis.'));
       await loadCockpit(user, cockpitDate, result?.oddzialForCockpit);
     } catch (err) {
@@ -443,6 +469,7 @@ export default function Kierownik() {
     setPlanActionSaving(key);
     try {
       const result = await recordRecommendationDecision(recommendation, 'accepted');
+      setActionRecommendations((current) => withRecommendationVisibility(current, recommendation, false));
       showMsg(successMessage('Rekomendacja przywrocona.'));
       await loadCockpit(user, cockpitDate, result?.oddzialForCockpit);
     } catch (err) {
