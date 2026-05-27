@@ -68,6 +68,12 @@ function setupGetMocks() {
     if (path === '/uzytkownicy') {
       return Promise.resolve({ data: [] });
     }
+    if (path === '/crm/integrations/apps') {
+      return Promise.resolve({ data: [] });
+    }
+    if (path === '/crm/integrations/events') {
+      return Promise.resolve({ data: [] });
+    }
     return Promise.reject(new Error(`unmocked GET ${url}`));
   });
 }
@@ -162,6 +168,22 @@ describe('Integracje (integration-style)', () => {
     expect(auto).not.toBeChecked();
     await userEvent.click(auto);
     expect(auto).toBeChecked();
+  });
+
+  test('creates a CRM integration app from the integrations panel', async () => {
+    api.post.mockResolvedValueOnce({ data: { token: 'tok_123' } });
+    renderIntegracje();
+
+    await screen.findByText('CRM API / widgety');
+    await userEvent.click(screen.getByRole('button', { name: /Dodaj CRM app/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/crm/integrations/apps',
+        expect.objectContaining({ name: 'Landing widget', type: 'widget' }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
   });
 
   test('redirects away when JWT is missing (guest)', async () => {

@@ -896,6 +896,35 @@ CREATE TABLE IF NOT EXISTS crm_workflow_rules (
 CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_oddzial ON crm_workflow_rules(oddzial_id, active);
 CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_trigger ON crm_workflow_rules(trigger_type, active);
 
+CREATE TABLE IF NOT EXISTS crm_integration_apps (
+  id            SERIAL PRIMARY KEY,
+  oddzial_id    INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+  name          VARCHAR(160) NOT NULL,
+  type          VARCHAR(32) NOT NULL DEFAULT 'webhook',
+  token         VARCHAR(96) NOT NULL UNIQUE,
+  active        BOOLEAN NOT NULL DEFAULT true,
+  config        JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_integration_apps_oddzial ON crm_integration_apps(oddzial_id, active);
+
+CREATE TABLE IF NOT EXISTS crm_integration_events (
+  id              SERIAL PRIMARY KEY,
+  app_id          INTEGER REFERENCES crm_integration_apps(id) ON DELETE SET NULL,
+  event_type      VARCHAR(80) NOT NULL,
+  status          VARCHAR(32) NOT NULL,
+  lead_id         INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+  external_id     VARCHAR(255),
+  payload         JSONB NOT NULL DEFAULT '{}'::jsonb,
+  error           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_integration_events_app_created ON crm_integration_events(app_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crm_integration_events_external ON crm_integration_events(external_id);
+
 -- ─── Wyceny terenowe (Wyceniający) — quotations / items / approvals / photos ─
 CREATE TABLE IF NOT EXISTS quotations (
   id                      SERIAL PRIMARY KEY,

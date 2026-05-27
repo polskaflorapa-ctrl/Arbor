@@ -36,6 +36,9 @@ export default function Integracje() {
   const [securityForm, setSecurityForm] = useState({ users: [], channels: [] });
   const [historyFilters, setHistoryFilters] = useState({ actor: '', action: '' });
   const [rollbackConfirmId, setRollbackConfirmId] = useState(null);
+  const [crmApps, setCrmApps] = useState([]);
+  const [crmEvents, setCrmEvents] = useState([]);
+  const [crmAppForm, setCrmAppForm] = useState({ name: 'Landing widget', type: 'widget', oddzial_id: '' });
 
   const loadData = useCallback(async () => {
     try {
@@ -62,6 +65,10 @@ export default function Integracje() {
         api.get('/integrations/security', { headers }).catch(() => ({ data: { denylist: { users: [], channels: [] }, denylist_history: [] } })),
         api.get('/uzytkownicy', { headers }).catch(() => ({ data: [] })),
       ]);
+      const [crmAppsRes, crmEventsRes] = await Promise.all([
+        api.get('/crm/integrations/apps', { headers }).catch(() => ({ data: [] })),
+        api.get('/crm/integrations/events', { headers }).catch(() => ({ data: [] })),
+      ]);
       setStats(sRes.data || EMPTY_STATS);
       const items = Array.isArray(lRes.data?.items) ? lRes.data.items : [];
       setLogs(items);
@@ -74,6 +81,8 @@ export default function Integracje() {
         users: Array.isArray(secRes.data?.denylist?.users) ? secRes.data.denylist.users : [],
         channels: Array.isArray(secRes.data?.denylist?.channels) ? secRes.data.denylist.channels : [],
       });
+      setCrmApps(Array.isArray(crmAppsRes.data) ? crmAppsRes.data : []);
+      setCrmEvents(Array.isArray(crmEventsRes.data) ? crmEventsRes.data : []);
       setSelectedLogIds([]);
     } catch (err) {
       showMessage(errorMessage('Błąd ładowania integracji'));
@@ -169,6 +178,23 @@ export default function Integracje() {
       loadData();
     } catch (err) {
       showMessage(errorMessage('Brak uprawnień lub błąd zapisu denylisty.'));
+    }
+  };
+
+  const createCrmApp = async () => {
+    try {
+      const token = getStoredToken();
+      const body = {
+        name: crmAppForm.name,
+        type: crmAppForm.type,
+        oddzial_id: crmAppForm.oddzial_id ? Number(crmAppForm.oddzial_id) : undefined,
+        config: { source: crmAppForm.name },
+      };
+      const res = await api.post('/crm/integrations/apps', body, { headers: authHeaders(token) });
+      showMessage(successMessage(`Utworzono integrację CRM. Token: ${res.data?.token || ''}`));
+      loadData();
+    } catch (err) {
+      showMessage(errorMessage('Nie udało się utworzyć integracji CRM.'));
     }
   };
 
@@ -286,6 +312,59 @@ export default function Integracje() {
               <div style={styles.metricLabel}>{m.label}</div>
             </div>
           ))}
+        </div>
+
+        <div style={styles.tableWrap}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 800 }}>CRM API / widgety</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Publiczne webhooki do tworzenia leadów i wiadomości z landingów, formularzy lub własnych widgetów.</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                style={styles.input}
+                placeholder="Nazwa aplikacji"
+                value={crmAppForm.name}
+                onChange={(e) => setCrmAppForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <select style={styles.input} value={crmAppForm.type} onChange={(e) => setCrmAppForm((prev) => ({ ...prev, type: e.target.value }))}>
+                <option value="widget">Widget</option>
+                <option value="webhook">Webhook</option>
+                <option value="api">API</option>
+              </select>
+              <input
+                style={styles.input}
+                placeholder="Oddział ID"
+                value={crmAppForm.oddzial_id}
+                onChange={(e) => setCrmAppForm((prev) => ({ ...prev, oddzial_id: e.target.value }))}
+              />
+              <button type="button" style={styles.btn} onClick={createCrmApp}>Dodaj CRM app</button>
+            </div>
+          </div>
+          <div style={styles.grid2}>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Aplikacje</div>
+              {crmApps.length === 0 ? <div style={styles.empty}>Brak aplikacji CRM.</div> : crmApps.map((app) => (
+                <ModernDataRow
+                  key={app.id}
+                  title={app.name}
+                  subtitle={`${app.type} · ${app.active ? 'aktywna' : 'pauza'} · ${app.webhook_path}`}
+                  meta={`oddział ${app.oddzial_id || 'global'}`}
+                />
+              ))}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Ostatnie eventy</div>
+              {crmEvents.length === 0 ? <div style={styles.empty}>Brak eventów CRM.</div> : crmEvents.slice(0, 6).map((event) => (
+                <ModernDataRow
+                  key={event.id}
+                  title={`${event.event_type} · ${event.status}`}
+                  subtitle={event.app_name || `app #${event.app_id || '-'}`}
+                  meta={event.lead_id ? `lead #${event.lead_id}` : ''}
+                />
+              ))}
+            </div>
+          </div>
         </div>
         <div style={{ marginBottom: 10, color: retryLocked ? '#EF5350' : 'var(--text-muted)', fontSize: 12 }}>
           {retryLocked ? `Retry cooldown: ${Math.ceil(cooldownMsLeft / 1000)}s` : 'Retry gotowe'}
@@ -590,6 +669,7 @@ const styles = {
   input: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btn: { padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 700 },
   tableWrap: { background: 'var(--surface-glass)', borderRadius: 8, padding: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', marginBottom: 12 },
+  grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { textAlign: 'left', fontSize: 12, padding: 8, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' },
   td: { fontSize: 13, padding: 8, borderBottom: '1px solid var(--border)' },

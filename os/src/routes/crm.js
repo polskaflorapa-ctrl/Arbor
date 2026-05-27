@@ -3,6 +3,7 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
 const { createWorkflowRule, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
+const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = require('../services/crmIntegrations');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -642,6 +643,49 @@ router.post('/workflows/run', async (req, res) => {
   } catch (err) {
     logger.error('crm.workflows.run', { message: err.message });
     res.status(500).json({ error: 'Uruchomienie automatyzacji CRM nie powiodlo sie' });
+  }
+});
+
+router.get('/integrations/apps', async (req, res) => {
+  try {
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    const includeInactive = String(req.query.include_inactive || '').toLowerCase() === 'true';
+    const apps = await listIntegrationApps({ oddzialId, includeInactive });
+    res.json(apps);
+  } catch (err) {
+    logger.error('crm.integrations.apps.list', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu aplikacji integracyjnych CRM' });
+  }
+});
+
+router.post('/integrations/apps', async (req, res) => {
+  const b = req.body || {};
+  const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
+  if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
+  if (!canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  try {
+    const app = await createIntegrationApp({
+      oddzialId,
+      name: b.name,
+      type: b.type,
+      config: b.config,
+      userId: req.user.id,
+    });
+    res.status(201).json(app);
+  } catch (err) {
+    logger.error('crm.integrations.apps.create', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie utworzyc aplikacji integracyjnej CRM' });
+  }
+});
+
+router.get('/integrations/events', async (req, res) => {
+  try {
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    const events = await listIntegrationEvents({ oddzialId, limit: toInt(req.query.limit) || 100 });
+    res.json(events);
+  } catch (err) {
+    logger.error('crm.integrations.events.list', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu zdarzen integracji CRM' });
   }
 });
 
