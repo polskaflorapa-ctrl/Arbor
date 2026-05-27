@@ -297,3 +297,50 @@ test('saves callback queue entry with numeric branch payload', async () => {
     );
   });
 });
+
+test('updates open callback status to done', async () => {
+  api.get.mockImplementation(async (path) => {
+    if (path === '/tasks/wszystkie') {
+      return { data: [] };
+    }
+    if (path === '/oddzialy') {
+      return { data: [{ id: 1, nazwa: 'Oddzial Warszawa' }] };
+    }
+    if (path === '/ekipy' || path === '/ogledziny' || path === '/wyceny' || path === '/telephony/calls') {
+      return { data: [] };
+    }
+    if (path === '/telephony/callbacks') {
+      return {
+        data: [{
+          id: 44,
+          oddzial_id: 1,
+          phone: '+48123456789',
+          lead_name: 'Callback Lead',
+          priority: 'high',
+          due_at: '2026-05-28T09:30:00.000Z',
+          status: 'open',
+        }],
+      };
+    }
+    if (String(path).startsWith('/oddzialy/cele?') || String(path).startsWith('/oddzialy/sprzedaz?')) {
+      return { data: [] };
+    }
+    return { data: [] };
+  });
+
+  renderPage();
+
+  expect(await screen.findByRole('heading', { name: 'Raporty i analizy' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /sprzeda/i }));
+  expect(await screen.findByText('Callback Lead')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Oznacz jako DONE' }));
+
+  await waitFor(() => {
+    expect(api.patch).toHaveBeenCalledWith(
+      '/telephony/callbacks/44/status',
+      { status: 'done' },
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
