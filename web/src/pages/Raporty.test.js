@@ -272,12 +272,15 @@ test('saves callback queue entry with numeric branch payload', async () => {
   const phoneInput = scoped.getByPlaceholderText('Telefon (+48...)');
   const leadInput = scoped.getByPlaceholderText('Lead / klient');
   const dueAtInput = callbackCard.querySelector('input[type="datetime-local"]');
+  expect(dueAtInput).not.toBeNull();
 
   await userEvent.selectOptions(oddzialSelect, '1');
   await userEvent.type(phoneInput, '+48999111222');
   await userEvent.type(leadInput, 'Maria Nowak');
   await userEvent.selectOptions(prioritySelect, 'high');
+  fireEvent.input(dueAtInput, { target: { value: '2026-05-28T09:30' } });
   fireEvent.change(dueAtInput, { target: { value: '2026-05-28T09:30' } });
+  expect(dueAtInput).toHaveValue('2026-05-28T09:30');
   await userEvent.click(saveButton);
 
   await waitFor(() => {
