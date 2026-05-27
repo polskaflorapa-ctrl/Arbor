@@ -6,6 +6,7 @@ import StatusMessage from '../components/StatusMessage';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
+import { readStoredUser } from '../utils/readStoredUser';
 import {
   CRM_CLOSE_REASONS,
   CRM_LEAD_STAGES,
@@ -46,6 +47,15 @@ const EMPTY_ACTIVITY = {
   durationSec: '',
 };
 
+const EMPTY_MESSAGE = {
+  channel: 'whatsapp',
+  direction: 'inbound',
+  sender_handle: '',
+  recipient_handle: '',
+  subject: '',
+  body: '',
+};
+
 export default function CrmPipeline() {
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -64,7 +74,12 @@ export default function CrmPipeline() {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activityForm, setActivityForm] = useState(EMPTY_ACTIVITY);
   const [savingActivity, setSavingActivity] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messageForm, setMessageForm] = useState(EMPTY_MESSAGE);
+  const [savingMessage, setSavingMessage] = useState(false);
 
+  const currentUser = useMemo(() => readStoredUser(), []);
   const requestHeaders = useMemo(() => authHeaders(getStoredToken()), []);
   const lng = (i18n.language || 'pl').split('-')[0];
 
@@ -97,6 +112,22 @@ export default function CrmPipeline() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const defaultBranchId = currentUser?.oddzial_id
+      ? String(currentUser.oddzial_id)
+      : (oddzialy.length === 1 ? String(oddzialy[0]?.id || '') : '');
+    const defaultOwnerId = currentUser?.id ? String(currentUser.id) : '';
+    if (!defaultBranchId && !defaultOwnerId) return;
+    setForm((prev) => {
+      if (prev.oddzial_id || prev.owner_user_id) return prev;
+      return {
+        ...prev,
+        oddzial_id: defaultBranchId || prev.oddzial_id,
+        owner_user_id: defaultOwnerId || prev.owner_user_id,
+      };
+    });
+  }, [currentUser?.id, currentUser?.oddzial_id, oddzialy]);
+
   const selectedLead = useMemo(
     () => (selectedLeadId ? leads.find((l) => Number(l.id) === Number(selectedLeadId)) : null),
     [leads, selectedLeadId]
@@ -126,10 +157,35 @@ export default function CrmPipeline() {
     [requestHeaders, t]
   );
 
+  const loadMessages = useCallback(
+    async (leadId) => {
+      if (!leadId) {
+        setMessages([]);
+        return;
+      }
+      try {
+        setMessagesLoading(true);
+        const res = await api.get(`/crm/leads/${leadId}/messages`, { headers: requestHeaders });
+        setMessages(Array.isArray(res.data) ? res.data : []);
+      } catch (e) {
+        setMsg(getApiErrorMessage(e, t('crm.pipeline.errors.messagesLoad', { defaultValue: 'Nie udało się pobrać rozmów leada.' })));
+        setMessages([]);
+      } finally {
+        setMessagesLoading(false);
+      }
+    },
+    [requestHeaders, t]
+  );
+
   useEffect(() => {
-    if (selectedLeadId) loadActivities(selectedLeadId);
-    else setActivities([]);
-  }, [selectedLeadId, loadActivities]);
+    if (selectedLeadId) {
+      loadActivities(selectedLeadId);
+      loadMessages(selectedLeadId);
+    } else {
+      setActivities([]);
+      setMessages([]);
+    }
+  }, [selectedLeadId, loadActivities, loadMessages]);
 
   useEffect(() => {
     if (!selectedLeadId) return undefined;
@@ -243,6 +299,31 @@ export default function CrmPipeline() {
     }
   };
 
+  const submitMessage = async () => {
+    if (!selectedLeadId || !messageForm.body.trim()) return;
+    try {
+      setSavingMessage(true);
+      await api.post(
+        `/crm/leads/${selectedLeadId}/messages`,
+        {
+          ...messageForm,
+          body: messageForm.body.trim(),
+          sender_handle: messageForm.sender_handle.trim() || null,
+          recipient_handle: messageForm.recipient_handle.trim() || null,
+          subject: messageForm.subject.trim() || null,
+        },
+        { headers: requestHeaders }
+      );
+      setMessageForm((prev) => ({ ...EMPTY_MESSAGE, channel: prev.channel, direction: prev.direction }));
+      await loadMessages(selectedLeadId);
+      await loadData();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.errors.messagesAdd', { defaultValue: 'Nie udało się zapisać wiadomości.' })));
+    } finally {
+      setSavingMessage(false);
+    }
+  };
+
   const completeActivity = async (activityId) => {
     if (!selectedLeadId) return;
     try {
@@ -275,6 +356,22 @@ export default function CrmPipeline() {
     if (type === 'call') return t('crm.pipeline.activities.typeCall', { defaultValue: 'Telefon' });
     if (type === 'task') return t('crm.pipeline.activities.typeTask', { defaultValue: 'Zadanie / follow-up' });
     return t('crm.pipeline.activities.typeNote', { defaultValue: 'Notatka' });
+  };
+
+  const messageChannelLabel = (channel) => {
+    const labels = {
+      whatsapp: 'WhatsApp',
+      instagram: 'Instagram',
+      facebook: 'Facebook',
+      messenger: 'Messenger',
+      telegram: 'Telegram',
+      email: 'E-mail',
+      sms: 'SMS',
+      phone: 'Telefon',
+      webchat: 'Webchat',
+      other: 'Inne',
+    };
+    return labels[channel] || labels.other;
   };
 
   return (
@@ -579,6 +676,93 @@ export default function CrmPipeline() {
               <button type="button" className="ios-btn" onClick={() => setSelectedLeadId(null)}>
                 {t('crm.pipeline.activities.close', { defaultValue: 'Zamknij' })}
               </button>
+            </div>
+
+            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {t('crm.pipeline.messages.title', { defaultValue: 'Unified Inbox' })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {t('crm.pipeline.messages.subtitle', { defaultValue: 'WhatsApp, social, e-mail, SMS i webchat w jednej historii.' })}
+                  </div>
+                </div>
+                {messagesLoading ? <span className="muted" style={{ fontSize: 12 }}>{t('common.loading', { defaultValue: 'Ładowanie...' })}</span> : null}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <select
+                  className="ios-field"
+                  value={messageForm.channel}
+                  onChange={(e) => setMessageForm((prev) => ({ ...prev, channel: e.target.value }))}
+                >
+                  {['whatsapp', 'instagram', 'facebook', 'messenger', 'telegram', 'email', 'sms', 'phone', 'webchat', 'other'].map((channel) => (
+                    <option key={channel} value={channel}>{messageChannelLabel(channel)}</option>
+                  ))}
+                </select>
+                <select
+                  className="ios-field"
+                  value={messageForm.direction}
+                  onChange={(e) => setMessageForm((prev) => ({ ...prev, direction: e.target.value }))}
+                >
+                  <option value="inbound">{t('crm.pipeline.messages.inbound', { defaultValue: 'Przychodząca' })}</option>
+                  <option value="outbound">{t('crm.pipeline.messages.outbound', { defaultValue: 'Wychodząca' })}</option>
+                </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <input
+                  className="ios-field"
+                  value={messageForm.sender_handle}
+                  onChange={(e) => setMessageForm((prev) => ({ ...prev, sender_handle: e.target.value }))}
+                  placeholder={t('crm.pipeline.messages.sender', { defaultValue: 'Nadawca / handle' })}
+                />
+                <input
+                  className="ios-field"
+                  value={messageForm.recipient_handle}
+                  onChange={(e) => setMessageForm((prev) => ({ ...prev, recipient_handle: e.target.value }))}
+                  placeholder={t('crm.pipeline.messages.recipient', { defaultValue: 'Odbiorca / handle' })}
+                />
+              </div>
+              {messageForm.channel === 'email' ? (
+                <input
+                  className="ios-field"
+                  value={messageForm.subject}
+                  onChange={(e) => setMessageForm((prev) => ({ ...prev, subject: e.target.value }))}
+                  placeholder={t('crm.pipeline.messages.subject', { defaultValue: 'Temat e-maila' })}
+                />
+              ) : null}
+              <textarea
+                className="ios-field"
+                rows={3}
+                value={messageForm.body}
+                onChange={(e) => setMessageForm((prev) => ({ ...prev, body: e.target.value }))}
+                placeholder={t('crm.pipeline.messages.body', { defaultValue: 'Treść wiadomości...' })}
+              />
+              <button type="button" className="ios-btn ios-btn-primary" disabled={savingMessage || !messageForm.body.trim()} onClick={submitMessage}>
+                {t('crm.pipeline.messages.add', { defaultValue: 'Zapisz wiadomość' })}
+              </button>
+              <div className="ios-inset-list" style={{ maxHeight: 260, overflow: 'auto' }}>
+                {messages.map((message) => (
+                  <div key={message.id} className="ios-inset-row" style={{ display: 'grid', gap: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, fontSize: 12 }}>
+                        {messageChannelLabel(message.channel)} / {message.direction === 'outbound'
+                          ? t('crm.pipeline.messages.outboundShort', { defaultValue: 'wychodząca' })
+                          : t('crm.pipeline.messages.inboundShort', { defaultValue: 'przychodząca' })}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatActivityWhen(message.created_at, lng)}</span>
+                    </div>
+                    {message.subject ? <div style={{ fontSize: 12, fontWeight: 700 }}>{message.subject}</div> : null}
+                    <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.body}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {[message.sender_handle, message.recipient_handle, message.status].filter(Boolean).join(' -> ') || '—'}
+                    </div>
+                  </div>
+                ))}
+                {!messagesLoading && messages.length === 0 ? (
+                  <div className="ios-inset-row muted">{t('crm.pipeline.messages.empty', { defaultValue: 'Brak wiadomości w tej rozmowie.' })}</div>
+                ) : null}
+              </div>
             </div>
 
             <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>

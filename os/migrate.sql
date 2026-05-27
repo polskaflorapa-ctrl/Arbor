@@ -854,6 +854,31 @@ CREATE TABLE IF NOT EXISTS crm_lead_activities (
 );
 CREATE INDEX IF NOT EXISTS idx_crm_lead_activities_lead ON crm_lead_activities(lead_id);
 
+CREATE TABLE IF NOT EXISTS crm_lead_messages (
+  id                  SERIAL PRIMARY KEY,
+  lead_id             INTEGER NOT NULL REFERENCES crm_leads(id) ON DELETE CASCADE,
+  channel             VARCHAR(32) NOT NULL,
+  direction           VARCHAR(16) NOT NULL DEFAULT 'inbound',
+  sender_name         VARCHAR(200),
+  sender_handle       VARCHAR(255),
+  recipient_handle    VARCHAR(255),
+  subject             VARCHAR(255),
+  body                TEXT NOT NULL,
+  status              VARCHAR(32) NOT NULL DEFAULT 'received',
+  external_message_id VARCHAR(255),
+  external_thread_id  VARCHAR(255),
+  template_key        VARCHAR(100),
+  dynamic_fields      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
+  delivered_at        TIMESTAMPTZ,
+  read_at             TIMESTAMPTZ,
+  created_by          INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_lead ON crm_lead_messages(lead_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_channel ON crm_lead_messages(channel, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_external ON crm_lead_messages(external_message_id);
+
 -- ─── Wyceny terenowe (Wyceniający) — quotations / items / approvals / photos ─
 CREATE TABLE IF NOT EXISTS quotations (
   id                      SERIAL PRIMARY KEY,

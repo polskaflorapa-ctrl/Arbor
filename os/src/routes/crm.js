@@ -518,6 +518,58 @@ function normActType(t) {
   return ACT_TYPES.includes(v) ? v : 'note';
 }
 
+const MESSAGE_CHANNELS = ['whatsapp', 'instagram', 'facebook', 'messenger', 'telegram', 'email', 'sms', 'phone', 'webchat', 'other'];
+const MESSAGE_DIRECTIONS = ['inbound', 'outbound'];
+const MESSAGE_STATUSES = ['received', 'queued', 'sent', 'delivered', 'read', 'failed'];
+
+function normMessageChannel(channel) {
+  const value = String(channel || '').trim().toLowerCase();
+  return MESSAGE_CHANNELS.includes(value) ? value : 'other';
+}
+
+function normMessageDirection(direction) {
+  const value = String(direction || '').trim().toLowerCase();
+  return MESSAGE_DIRECTIONS.includes(value) ? value : 'inbound';
+}
+
+function normMessageStatus(status, direction) {
+  const value = String(status || '').trim().toLowerCase();
+  if (MESSAGE_STATUSES.includes(value)) return value;
+  return normMessageDirection(direction) === 'outbound' ? 'sent' : 'received';
+}
+
+function safeJsonObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value;
+}
+
+function mapMessageRow(row) {
+  return {
+    id: row.id,
+    lead_id: row.lead_id,
+    channel: normMessageChannel(row.channel),
+    direction: normMessageDirection(row.direction),
+    sender_name: row.sender_name,
+    sender_handle: row.sender_handle,
+    recipient_handle: row.recipient_handle,
+    subject: row.subject,
+    body: row.body,
+    status: normMessageStatus(row.status, row.direction),
+    external_message_id: row.external_message_id,
+    external_thread_id: row.external_thread_id,
+    template_key: row.template_key,
+    dynamic_fields: row.dynamic_fields || {},
+    metadata: row.metadata || {},
+    delivered_at: row.delivered_at,
+    read_at: row.read_at,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    author_name: row.imie
+      ? `${row.imie || ''} ${row.nazwisko || ''}`.trim() || row.login
+      : null,
+  };
+}
+
 router.get('/leads/:id/activities', async (req, res) => {
   const leadId = toInt(req.params.id);
   if (!leadId) return res.status(400).json({ error: 'Nieprawidłowe id leada' });
@@ -629,6 +681,94 @@ router.patch('/leads/:leadId/activities/:activityId', async (req, res) => {
   } catch (err) {
     logger.error('crm.activities.patch', { message: err.message });
     res.status(500).json({ error: 'Aktualizacja aktywności nie powiodła się' });
+  }
+});
+
+router.get('/leads/:id/messages', async (req, res) => {
+  const leadId = toInt(req.params.id);
+  if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+
+    const params = [leadId];
+    let where = 'WHERE m.lead_id = $1';
+    const channel = String(req.query.channel || '').trim().toLowerCase();
+    if (channel && MESSAGE_CHANNELS.includes(channel)) {
+      params.push(channel);
+      where += ` AND m.channel = $${params.length}`;
+    }
+    const { rows } = await pool.query(
+      `SELECT m.*, u.imie, u.nazwisko, u.login
+       FROM crm_lead_messages m
+       LEFT JOIN users u ON u.id = m.created_by
+       ${where}
+       ORDER BY m.created_at DESC
+       LIMIT 200`,
+      params
+    );
+    res.json(rows.map(mapMessageRow));
+  } catch (err) {
+    logger.error('crm.messages.get', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu wiadomosci CRM' });
+  }
+});
+
+router.post('/leads/:id/messages', async (req, res) => {
+  const leadId = toInt(req.params.id);
+  if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  const b = req.body || {};
+  const body = String(b.body || b.text || b.tresc || '').trim();
+  if (!body) return res.status(400).json({ error: 'Pole body jest wymagane' });
+
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+
+    const direction = normMessageDirection(b.direction);
+    const channel = normMessageChannel(b.channel);
+    const status = normMessageStatus(b.status, direction);
+    const now = new Date().toISOString();
+    const { rows } = await pool.query(
+      `INSERT INTO crm_lead_messages (
+        lead_id, channel, direction, sender_name, sender_handle, recipient_handle, subject, body, status,
+        external_message_id, external_thread_id, template_key, dynamic_fields, metadata,
+        delivered_at, read_at, created_by, created_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb,$15,$16,$17,$18)
+      RETURNING *`,
+      [
+        leadId,
+        channel,
+        direction,
+        String(b.sender_name || '').trim() || null,
+        String(b.sender_handle || '').trim() || null,
+        String(b.recipient_handle || '').trim() || null,
+        String(b.subject || '').trim() || null,
+        body,
+        status,
+        String(b.external_message_id || '').trim() || null,
+        String(b.external_thread_id || '').trim() || null,
+        String(b.template_key || '').trim() || null,
+        JSON.stringify(safeJsonObject(b.dynamic_fields)),
+        JSON.stringify(safeJsonObject(b.metadata)),
+        b.delivered_at || null,
+        b.read_at || null,
+        req.user.id,
+        now,
+      ]
+    );
+    await pool.query('UPDATE crm_leads SET updated_at = $1, updated_by = $2 WHERE id = $3', [now, req.user.id, leadId]);
+    const user = (await pool.query('SELECT imie, nazwisko, login FROM users WHERE id = $1', [req.user.id])).rows[0];
+    res.status(201).json(mapMessageRow({ ...rows[0], ...(user || {}) }));
+  } catch (err) {
+    logger.error('crm.messages.post', { message: err.message });
+    res.status(500).json({ error: 'Zapis wiadomosci CRM nie powiodl sie' });
   }
 });
 
