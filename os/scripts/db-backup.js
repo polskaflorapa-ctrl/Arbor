@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const { resolvePostgresBinary } = require('./db-connection');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 
@@ -25,7 +26,7 @@ function backupFilePath() {
 }
 
 function pgDumpBin() {
-  return process.env.PG_DUMP_BIN || 'pg_dump';
+  return resolvePostgresBinary('pg_dump', 'PG_DUMP_BIN');
 }
 
 function redact(value) {
@@ -67,7 +68,7 @@ function connectionArgs() {
   const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl) return { args: [databaseUrl], env: {} };
 
-  const dbName = process.env.DB_NAME || 'arbor_dev';
+  const dbName = process.env.DB_NAME || 'arbor_os';
   return {
     args: [
       '-h',
@@ -118,7 +119,7 @@ function main() {
   const dir = backupDir();
   const databaseUrl = process.env.DATABASE_URL;
   console.log(`[backup] target_dir=${dir}`);
-  console.log(`[backup] database=${databaseUrl ? redact(databaseUrl) : process.env.DB_NAME || 'arbor_dev'}`);
+  console.log(`[backup] database=${databaseUrl ? redact(databaseUrl) : process.env.DB_NAME || 'arbor_os'}`);
 
   const toolOk = checkPgDumpAvailable();
   if (dryRun) {

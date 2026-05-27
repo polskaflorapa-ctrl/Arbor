@@ -29,6 +29,10 @@ test("getSmokeCredentials uses smoke defaults and env overrides", () => {
     ciCheck.getSmokeCredentials({ SMOKE_LOGIN: "ops_bot", SMOKE_PASSWORD: "secret" }),
     { login: "ops_bot", haslo: "secret" }
   );
+  assert.deepEqual(
+    ciCheck.getSmokeCredentials({}, { note: "arbor-api-local", payload: { service: "arbor-api-local" } }),
+    { login: "oleg", haslo: "oleg" }
+  );
 });
 
 test("smokeLogin posts credentials and accepts token responses", async () => {
@@ -69,6 +73,26 @@ test("smokeLogin allows smoke credentials from environment", async () => {
   assert.deepEqual(capturedPayload, { login: "custom_smoke", haslo: "Custom123!" });
 });
 
+test("smokeLogin switches to local demo credentials for arbor-api-local", async () => {
+  let capturedPayload = null;
+
+  await ciCheck.smokeLogin(
+    "https://api.example.test",
+    {
+      async httpPostJson(_url, payload) {
+        capturedPayload = payload;
+        return {
+          status: 200,
+          body: JSON.stringify({ token: "demo-token" }),
+        };
+      },
+    },
+    { note: "arbor-api-local", payload: { service: "arbor-api-local" } }
+  );
+
+  assert.deepEqual(capturedPayload, { login: "oleg", haslo: "oleg" });
+});
+
 test("smokeLogin surfaces missing token payloads", async () => {
   await assert.rejects(
     () =>
@@ -99,8 +123,8 @@ test("main runs status, health, and smoke login in order", async () => {
       calls.push(["checkApiHealth", proxyTarget]);
       return { ok: true, status: 200, note: "ready", body: "" };
     },
-    async smokeLogin(proxyTarget) {
-      calls.push(["smokeLogin", proxyTarget]);
+    async smokeLogin(proxyTarget, _deps, health) {
+      calls.push(["smokeLogin", proxyTarget, health.note]);
     },
   });
 
@@ -109,7 +133,7 @@ test("main runs status, health, and smoke login in order", async () => {
     ["runStep", "npm", "run health"],
     ["getProxyTarget"],
     ["checkApiHealth", "http://127.0.0.1:3001"],
-    ["smokeLogin", "http://127.0.0.1:3001"],
+    ["smokeLogin", "http://127.0.0.1:3001", "ready"],
   ]);
 });
 

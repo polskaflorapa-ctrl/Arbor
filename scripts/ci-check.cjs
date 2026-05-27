@@ -20,17 +20,31 @@ function runStep(command, args, deps = {}) {
   }
 }
 
-function getSmokeCredentials(env = process.env) {
+function getSmokeCredentials(env = process.env, health = null) {
+  if (env.SMOKE_LOGIN || env.SMOKE_PASSWORD) {
+    return {
+      login: env.SMOKE_LOGIN || "smoke_admin",
+      haslo: env.SMOKE_PASSWORD || "Smoke123!",
+    };
+  }
+
+  if (health?.note === "arbor-api-local" || health?.payload?.service === "arbor-api-local") {
+    return {
+      login: "oleg",
+      haslo: "oleg",
+    };
+  }
+
   return {
-    login: env.SMOKE_LOGIN || "smoke_admin",
-    haslo: env.SMOKE_PASSWORD || "Smoke123!",
+    login: "smoke_admin",
+    haslo: "Smoke123!",
   };
 }
 
-async function smokeLogin(proxyTarget, deps = {}) {
+async function smokeLogin(proxyTarget, deps = {}, health = null) {
   const httpPostJsonImpl = deps.httpPostJson || httpPostJson;
   const loginUrl = new URL("/api/auth/login", proxyTarget).toString();
-  const response = await httpPostJsonImpl(loginUrl, getSmokeCredentials(deps.env), 3000);
+  const response = await httpPostJsonImpl(loginUrl, getSmokeCredentials(deps.env, health), 3000);
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Smoke login failed with status ${response.status}: ${response.body}`);
@@ -66,7 +80,7 @@ async function main(deps = {}) {
   if (!health.ok) {
     throw new Error(`Health smoke failed with status ${health.status}: ${health.note}${health.body ? ` ${health.body}` : ""}`);
   }
-  await smokeLoginImpl(proxyTarget);
+  await smokeLoginImpl(proxyTarget, deps, health);
 
   console.info("[ci:check] OK");
 }

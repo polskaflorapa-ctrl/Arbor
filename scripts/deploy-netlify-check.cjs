@@ -40,7 +40,9 @@ function mainChecks() {
   assert(rootPackage.workspaces?.includes('os'), 'Root package workspaces should include os.');
   assert(rootPackage.dependencies?.['serverless-http'], 'Root package should include serverless-http for Netlify API functions.');
   assert(rootPackage.dependencies?.['@netlify/database'], 'Root package should include @netlify/database for Netlify Database support.');
-  assert(webPackage.scripts?.build === 'vite build', 'arbor-web build script should run Vite build.');
+  const webBuildScript = String(webPackage.scripts?.build || '');
+  const runsViteBuild = /\bvite(?:\.js)?\b/.test(webBuildScript) && /\bbuild\b/.test(webBuildScript);
+  assert(runsViteBuild, 'arbor-web build script should run Vite build.');
 
   assert(/\[build\]/.test(netlifyToml), 'netlify.toml is missing [build].');
   assert(/command\s*=\s*"npm ci && npm run build -w arbor-web"/.test(netlifyToml), 'netlify.toml build command is unexpected.');

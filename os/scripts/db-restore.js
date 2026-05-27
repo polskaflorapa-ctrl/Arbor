@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const { resolvePostgresBinary } = require('./db-connection');
 
 require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
 
@@ -19,7 +20,7 @@ function argValue(name) {
 }
 
 function pgRestoreBin() {
-  return process.env.PG_RESTORE_BIN || 'pg_restore';
+  return resolvePostgresBinary('pg_restore', 'PG_RESTORE_BIN');
 }
 
 function run(command, commandArgs, options = {}) {
@@ -82,7 +83,7 @@ function targetDatabaseArg() {
       '--username',
       process.env.DB_USER || 'postgres',
       '--dbname',
-      process.env.DB_NAME || 'arbor_dev',
+      process.env.DB_NAME || 'arbor_os',
     ],
     env: { PGPASSWORD: process.env.DB_PASSWORD || 'postgres' },
   };

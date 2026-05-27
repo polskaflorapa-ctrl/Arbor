@@ -4,10 +4,27 @@ function read(file) {
   return fs.readFileSync(file, 'utf8');
 }
 
-function parseYaml(file) {
+let yamlParser = null;
+function getYamlParser() {
+  if (yamlParser) return yamlParser;
   try {
     const YAML = require('yaml');
-    return YAML.parse(read(file));
+    yamlParser = (content) => YAML.parse(content);
+    return yamlParser;
+  } catch {}
+
+  try {
+    const jsYaml = require('js-yaml');
+    yamlParser = (content) => jsYaml.load(content);
+    return yamlParser;
+  } catch (error) {
+    throw new Error(`YAML parser not available. Install 'yaml' or 'js-yaml' (${error.message})`);
+  }
+}
+
+function parseYaml(file) {
+  try {
+    return getYamlParser()(read(file));
   } catch (error) {
     throw new Error(`${file}: YAML parse failed: ${error.message}`);
   }
