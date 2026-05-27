@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -185,10 +185,10 @@ test('saves branch sales inputs with numeric payload', async () => {
   expect(await screen.findByRole('heading', { name: 'Raporty i analizy' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: /sprzeda/i }));
 
-  await waitFor(() => {
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(5);
-  });
-  const [callsTotalInput, callsAnsweredInput, callsMissedInput, leadsNewInput, meetingsBookedInput] = screen.getAllByRole('spinbutton');
+  const saveButton = await screen.findByRole('button', { name: 'Zapisz dane sprzedaży' });
+  const salesCard = saveButton.closest('div');
+  const scoped = within(salesCard);
+  const [callsTotalInput, callsAnsweredInput, callsMissedInput, leadsNewInput, meetingsBookedInput] = scoped.getAllByRole('spinbutton');
 
   await userEvent.clear(callsTotalInput);
   await userEvent.type(callsTotalInput, '18');
@@ -200,7 +200,7 @@ test('saves branch sales inputs with numeric payload', async () => {
   await userEvent.type(leadsNewInput, '9');
   await userEvent.clear(meetingsBookedInput);
   await userEvent.type(meetingsBookedInput, '4');
-  await userEvent.click(screen.getByRole('button', { name: 'Zapisz dane sprzedaży' }));
+  await userEvent.click(saveButton);
 
   await waitFor(() => {
     expect(api.post).toHaveBeenCalledWith(
@@ -214,6 +214,81 @@ test('saves branch sales inputs with numeric payload', async () => {
         calls_missed: 5,
         leads_new: 9,
         meetings_booked: 4,
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+test('saves call log with numeric branch and duration payload', async () => {
+  renderPage();
+
+  expect(await screen.findByRole('heading', { name: 'Raporty i analizy' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /sprzeda/i }));
+
+  const saveButton = await screen.findByRole('button', { name: /Zapisz po/i });
+  const callCard = saveButton.closest('div');
+  const scoped = within(callCard);
+  const selects = scoped.getAllByRole('combobox');
+  const [oddzialSelect, callTypeSelect, statusSelect] = selects;
+  const durationInput = scoped.getByRole('spinbutton');
+  const phoneInput = scoped.getByPlaceholderText('Telefon (+48...)');
+  const leadInput = scoped.getByPlaceholderText('Lead / klient');
+
+  await userEvent.selectOptions(oddzialSelect, '1');
+  await userEvent.type(phoneInput, '+48123123123');
+  await userEvent.selectOptions(callTypeSelect, 'inbound');
+  await userEvent.selectOptions(statusSelect, 'answered');
+  await userEvent.type(durationInput, '125');
+  await userEvent.type(leadInput, 'Jan Kowalski');
+  await userEvent.click(saveButton);
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/telephony/calls',
+      expect.objectContaining({
+        oddzial_id: 1,
+        phone: '+48123123123',
+        call_type: 'inbound',
+        status: 'answered',
+        duration_sec: 125,
+        lead_name: 'Jan Kowalski',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+test('saves callback queue entry with numeric branch payload', async () => {
+  renderPage();
+
+  expect(await screen.findByRole('heading', { name: 'Raporty i analizy' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /sprzeda/i }));
+
+  const saveButton = await screen.findByRole('button', { name: /callback queue/i });
+  const callbackCard = saveButton.closest('div');
+  const scoped = within(callbackCard);
+  const [oddzialSelect, prioritySelect] = scoped.getAllByRole('combobox');
+  const phoneInput = scoped.getByPlaceholderText('Telefon (+48...)');
+  const leadInput = scoped.getByPlaceholderText('Lead / klient');
+  const dueAtInput = scoped.getByDisplayValue('');
+
+  await userEvent.selectOptions(oddzialSelect, '1');
+  await userEvent.type(phoneInput, '+48999111222');
+  await userEvent.type(leadInput, 'Maria Nowak');
+  await userEvent.selectOptions(prioritySelect, 'high');
+  await userEvent.type(dueAtInput, '2026-05-28T09:30');
+  await userEvent.click(saveButton);
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/telephony/callbacks',
+      expect.objectContaining({
+        oddzial_id: 1,
+        phone: '+48999111222',
+        lead_name: 'Maria Nowak',
+        priority: 'high',
+        due_at: '2026-05-28T09:30',
       }),
       expect.objectContaining({ headers: expect.any(Object) })
     );
