@@ -11,16 +11,29 @@ function envWithoutLegacyNpmDevdir() {
 }
 
 const eslintName = process.platform === 'win32' ? 'eslint.cmd' : 'eslint';
-const eslintCandidates = [
+const eslintBinCandidates = [
   join(__dirname, '..', 'node_modules', '.bin', eslintName),
   join(__dirname, '..', '..', 'node_modules', '.bin', eslintName),
 ];
-const eslintBin = eslintCandidates.find((candidate) => existsSync(candidate)) || eslintCandidates[0];
+const eslintJsCandidates = [
+  join(__dirname, '..', 'node_modules', 'eslint', 'bin', 'eslint.js'),
+  join(__dirname, '..', '..', 'node_modules', 'eslint', 'bin', 'eslint.js'),
+];
+const eslintBin = eslintBinCandidates.find((candidate) => existsSync(candidate));
+const eslintJs = eslintJsCandidates.find((candidate) => existsSync(candidate));
 
-const result = spawnSync(eslintBin, ['app', '--ext', 'ts,tsx'], {
+const command = eslintBin ? eslintBin : process.execPath;
+const args = eslintBin ? ['app', '--ext', 'ts,tsx'] : eslintJs ? [eslintJs, 'app', '--ext', 'ts,tsx'] : null;
+
+if (!args) {
+  console.error('Could not locate ESLint binary or eslint/bin/eslint.js in mobile or repo root node_modules.');
+  process.exit(1);
+}
+
+const result = spawnSync(command, args, {
   stdio: 'inherit',
   env: envWithoutLegacyNpmDevdir(),
-  shell: process.platform === 'win32',
+  shell: Boolean(eslintBin && process.platform === 'win32'),
 });
 
 process.exit(result.status ?? 1);

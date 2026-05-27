@@ -3615,6 +3615,15 @@ export default function ZlecenieDetailScreen() {
   })();
   const crewPrimaryAction = (() => {
     if (!isEkipa) return null;
+    if (!crewExecutionReady && crewPackageLeadMissing) {
+      return {
+        icon: crewPackageLeadMissing.icon,
+        label: crewPackageLeadMissing.required ? 'Napraw pakiet' : 'Doprecyzuj pakiet',
+        hint: `${crewPackageLeadMissing.label}: ${crewPackageLeadMissing.hint}`,
+        color: crewPackageLeadMissing.required ? theme.warning : theme.textMuted,
+        onPress: crewPackageLeadMissing.onPress,
+      };
+    }
     if (!scopeConfirmed && (zlecenie.status === 'Zaplanowane' || zlecenie.status === 'W_Realizacji')) {
       return {
         icon: 'shield-checkmark-outline' as IoniconName,
@@ -3716,6 +3725,37 @@ export default function ZlecenieDetailScreen() {
       value: String(afterPhotosCount),
       done: afterPhotosCount > 0,
       icon: 'checkmark-circle-outline' as IoniconName,
+    },
+    {
+      key: 'issues',
+      label: 'Problemy',
+      value: String(unresolvedIssuesCount),
+      done: unresolvedIssuesCount === 0,
+      icon: 'warning-outline' as IoniconName,
+    },
+  ];
+  const crewPhotoEvidenceReady = beforePhotosCount > 0 && (zlecenie.status !== 'W_Realizacji' || afterPhotosCount > 0);
+  const crewMissionStats = [
+    {
+      key: 'package',
+      label: 'Pakiet',
+      value: `${crewPackageReadyCount}/${crewPackageChecks.length}`,
+      done: crewExecutionReady,
+      icon: 'briefcase-outline' as IoniconName,
+    },
+    {
+      key: 'gps',
+      label: 'GPS',
+      value: hasCheckin ? 'OK' : '-',
+      done: hasCheckin,
+      icon: 'location-outline' as IoniconName,
+    },
+    {
+      key: 'photos',
+      label: 'Foto',
+      value: `${beforePhotosCount}/${afterPhotosCount}`,
+      done: crewPhotoEvidenceReady,
+      icon: 'images-outline' as IoniconName,
     },
     {
       key: 'issues',
@@ -5224,6 +5264,75 @@ export default function ZlecenieDetailScreen() {
               <Text style={[S.crewBriefScoreLabel, { color: theme.textMuted }]}>pakiet</Text>
             </View>
           </View>
+
+          {crewPrimaryAction ? (
+            <View style={[S.crewMissionCard, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.accent : theme.warning }]}>
+              <View style={S.crewMissionTop}>
+                <View style={[S.crewMissionIcon, { backgroundColor: crewPrimaryAction.color + '1A', borderColor: crewPrimaryAction.color }]}>
+                  <Ionicons name={crewPrimaryAction.icon} size={20} color={crewPrimaryAction.color} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[S.crewMissionEyebrow, { color: crewPrimaryAction.color }]}>Teraz dla brygady</Text>
+                  <Text style={[S.crewMissionTitle, { color: theme.text }]} numberOfLines={1}>
+                    {crewPrimaryAction.label}
+                  </Text>
+                  <Text style={[S.crewMissionHint, { color: theme.textMuted }]} numberOfLines={2}>
+                    {crewPrimaryAction.hint}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[S.crewMissionButton, { backgroundColor: crewPrimaryAction.color, borderColor: crewPrimaryAction.color, opacity: changingStatus ? 0.65 : 1 }]}
+                  disabled={changingStatus}
+                  onPress={() => {
+                    void triggerHaptic('light');
+                    crewPrimaryAction.onPress();
+                  }}
+                >
+                  {changingStatus ? (
+                    <ActivityIndicator size="small" color={theme.accentText} />
+                  ) : (
+                    <>
+                      <Text style={[S.crewMissionButtonText, { color: theme.accentText }]} numberOfLines={1}>
+                        Wykonaj
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={theme.accentText} />
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={S.crewMissionStats}>
+                {crewMissionStats.map((stat) => (
+                  <TouchableOpacity
+                    key={stat.key}
+                    style={[S.crewMissionStat, { backgroundColor: stat.done ? theme.successBg : theme.surface2, borderColor: stat.done ? theme.success : theme.border }]}
+                    onPress={() => {
+                      void triggerHaptic('light');
+                      if (stat.key === 'package') {
+                        crewPackageLeadMissing?.onPress();
+                      } else if (stat.key === 'gps' && !hasCheckin) {
+                        void checkinGps();
+                      } else if (stat.key === 'photos') {
+                        setActiveTab('zdjecia');
+                      } else if (stat.key === 'issues') {
+                        setActiveTab('problemy');
+                      }
+                    }}
+                  >
+                    <View style={S.crewMissionStatTop}>
+                      <Ionicons name={stat.done ? 'checkmark-circle' : stat.icon} size={14} color={stat.done ? theme.success : theme.textMuted} />
+                      <Text style={[S.crewMissionStatValue, { color: stat.done ? theme.success : theme.text }]} numberOfLines={1}>
+                        {stat.value}
+                      </Text>
+                    </View>
+                    <Text style={[S.crewMissionStatLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                      {stat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           <View style={[S.crewCalendarCard, { backgroundColor: theme.cardBg, borderColor: crewExecutionReady ? theme.success : theme.warning }]}>
             <View style={S.crewCalendarHead}>
@@ -8738,6 +8847,72 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   crewBriefScoreLabel: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  crewMissionCard: {
+    borderWidth: 1,
+    borderRadius: 15,
+    padding: 11,
+    gap: 10,
+  },
+  crewMissionTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  crewMissionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crewMissionEyebrow: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  crewMissionTitle: { fontSize: 15, fontWeight: '900', marginTop: 1 },
+  crewMissionHint: { fontSize: 11.5, lineHeight: 16, marginTop: 2, fontWeight: '700' },
+  crewMissionButton: {
+    minWidth: 92,
+    minHeight: 40,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  crewMissionButtonText: { fontSize: 12, fontWeight: '900' },
+  crewMissionStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  crewMissionStat: {
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 70,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    gap: 3,
+  },
+  crewMissionStatTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  crewMissionStatValue: {
+    fontSize: 12,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  crewMissionStatLabel: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
   crewCalendarCard: {
     borderWidth: 1,
     borderRadius: 15,
