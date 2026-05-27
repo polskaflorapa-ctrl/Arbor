@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const net = require("node:net");
 const http = require("node:http");
+const https = require("node:https");
 const { execSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -46,37 +47,99 @@ function isPortOpen(port, host = "127.0.0.1", timeoutMs = 700) {
   });
 }
 
-function httpGet(url, timeoutMs = 2500) {
+function getHttpTransport(parsedUrl) {
+  if (parsedUrl.protocol === "https:") return https;
+  if (parsedUrl.protocol === "http:") return http;
+  throw new Error(`Unsupported protocol: ${parsedUrl.protocol}`);
+}
+
+function httpRequest(url, options = {}) {
+  const {
+    method = "GET",
+    timeoutMs = 2500,
+    headers = {},
+    body = null,
+  } = options;
+
   return new Promise((resolve, reject) => {
-    const req = http.get(url, { timeout: timeoutMs }, (res) => {
-      let body = "";
+    const parsed = new URL(url);
+    const transport = getHttpTransport(parsed);
+    const requestHeaders = { ...headers };
+    if (body != null && requestHeaders["Content-Length"] == null) {
+      requestHeaders["Content-Length"] = Buffer.byteLength(body);
+    }
+    const req = transport.request(parsed, { method, timeout: timeoutMs, headers: requestHeaders }, (res) => {
+      let responseBody = "";
       res.on("data", (chunk) => {
-        body += chunk;
+        responseBody += chunk;
       });
-      res.on("end", () => resolve({ status: res.statusCode || 0, body }));
+      res.on("end", () => resolve({ status: res.statusCode || 0, body: responseBody, headers: res.headers }));
     });
     req.on("error", reject);
     req.on("timeout", () => req.destroy(new Error("Request timeout")));
+    if (body != null) {
+      req.write(body);
+    }
+    req.end();
   });
+}
+
+function httpGet(url, timeoutMs = 2500) {
+  return httpRequest(url, { timeoutMs });
+}
+
+function httpPostJson(url, payload, timeoutMs = 3000) {
+  return httpRequest(url, {
+    method: "POST",
+    timeoutMs,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+function parseJsonSafe(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 async function checkApiHealth(proxyTarget) {
   const healthUrl = new URL("/api/health", proxyTarget).toString();
   try {
     const response = await httpGet(healthUrl);
+    const payload = parseJsonSafe(response.body);
     if (response.status < 200 || response.status >= 300) {
-      return { ok: false, status: response.status, note: `status ${response.status}`, payload: null };
+      return {
+        ok: false,
+        status: response.status,
+        note: `status ${response.status}`,
+        payload,
+        body: response.body,
+      };
     }
-    const payload = JSON.parse(response.body);
+    if (!payload) {
+      return {
+        ok: false,
+        status: response.status,
+        note: "invalid json",
+        payload: null,
+        body: response.body,
+      };
+    }
     const ok = payload?.ok === true || payload?.status === "ok" || payload?.status === "ready";
     return {
       ok,
       status: response.status,
       note: ok ? payload?.service || "unknown-service" : "unexpected payload",
       payload,
+      body: response.body,
     };
   } catch (error) {
-    return { ok: false, status: 0, note: error.message, payload: null };
+    return { ok: false, status: 0, note: error.message, payload: null, body: "" };
   }
 }
 
@@ -125,7 +188,9 @@ function killPortListeners(ports, tag = "stack") {
 module.exports = {
   getProxyTarget,
   isPortOpen,
+  httpRequest,
   httpGet,
+  httpPostJson,
   checkApiHealth,
   getPidsByPortWindows,
   killPortListeners,

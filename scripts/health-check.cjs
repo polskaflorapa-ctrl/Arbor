@@ -1,4 +1,4 @@
-const { getProxyTarget, httpGet } = require("./lib/stack-utils.cjs");
+const { checkApiHealth, getProxyTarget } = require("./lib/stack-utils.cjs");
 
 async function main() {
   const target = getProxyTarget();
@@ -7,23 +7,13 @@ async function main() {
   console.info(`[health] proxy target: ${target}`);
   console.info(`[health] checking: ${healthUrl}`);
 
-  const response = await httpGet(healthUrl);
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`Health check failed with status ${response.status}: ${response.body}`);
+  const result = await checkApiHealth(target);
+  if (!result.ok) {
+    const detail = result.payload ? JSON.stringify(result.payload) : result.body || result.note;
+    throw new Error(`Health check failed with status ${result.status}: ${detail}`);
   }
 
-  let parsed;
-  try {
-    parsed = JSON.parse(response.body);
-  } catch {
-    throw new Error(`Invalid JSON from health endpoint: ${response.body}`);
-  }
-
-  if (!parsed || parsed.ok !== true) {
-    throw new Error(`Unexpected health payload: ${response.body}`);
-  }
-
-  console.info(`[health] OK (${parsed.service || "unknown-service"})`);
+  console.info(`[health] OK (${result.note})`);
 }
 
 main().catch((error) => {
