@@ -4,7 +4,7 @@ const http = require("node:http");
 const https = require("node:https");
 const { EventEmitter } = require("node:events");
 
-const { httpGet, checkApiHealth } = require("./lib/stack-utils.cjs");
+const { httpGet, httpPostJson, checkApiHealth } = require("./lib/stack-utils.cjs");
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -87,6 +87,33 @@ test("checkApiHealth accepts ready payloads", async () => {
     assert.equal(result.ok, true);
     assert.equal(result.note, "api-ready");
     assert.deepEqual(result.payload, { status: "ready", service: "api-ready" });
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("httpPostJson sends JSON bodies", async () => {
+  const server = http.createServer((req, res) => {
+    assert.equal(req.method, "POST");
+    assert.equal(req.headers["content-type"], "application/json");
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ received: JSON.parse(body) }));
+    });
+  });
+
+  const address = await listen(server);
+  try {
+    const response = await httpPostJson(`http://127.0.0.1:${address.port}/api/auth/login`, {
+      login: "oleg",
+      haslo: "oleg",
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(JSON.parse(response.body), { received: { login: "oleg", haslo: "oleg" } });
   } finally {
     await closeServer(server);
   }
