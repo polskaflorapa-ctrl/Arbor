@@ -398,7 +398,11 @@ describe('GET /api/ops/action-insights', () => {
   it('aggregates action memory for the manager branch', async () => {
     pool.query.mockImplementation(async (sql, params = []) => {
       const text = String(sql);
-      if (text.includes('FROM ops_action_events e')) {
+      if (
+        text.includes('FROM ops_action_events e')
+        && text.includes('LEFT JOIN tasks t ON t.id = e.task_id')
+        && text.includes('LIMIT 500')
+      ) {
         expect(params).toEqual(['2026-05-26', 7]);
         expect(text).toContain('e.oddzial_id = $2');
         return {
@@ -450,6 +454,11 @@ describe('GET /api/ops/action-insights', () => {
             },
           ],
         };
+      }
+      if (text.includes("e.action_type = 'recommendation_feedback'")) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        expect(text).toContain('e.oddzial_id = $2');
+        return { rows: [] };
       }
       return { rows: [] };
     });
@@ -660,6 +669,17 @@ describe('GET /api/ops/action-recommendations', () => {
       suggested_minutes: 120,
       task_count: 3,
     });
+    expect(byId.set_missing_duration.task_preview).toHaveLength(3);
+    expect(byId.set_missing_duration.task_preview[0]).toMatchObject({
+      id: 31,
+      numer: 'ARB-31',
+      klient_nazwa: 'Bez czasu A',
+      ekipa_nazwa: 'Ekipa A',
+      issue_key: 'missing_duration',
+      issue_label: 'Brak czasu planu',
+      planned_minutes: 0,
+    });
+    expect(byId.set_missing_duration.task_preview[0].target_path).toContain('/zlecenia/31?');
     expect(byId.remind_not_started).toMatchObject({
       action_kind: 'remind_team_batch',
       primary_label: 'Przypomnij',
@@ -670,6 +690,285 @@ describe('GET /api/ops/action-recommendations', () => {
       rationale: '4 wpisow w ostatnich dniach, srednia odchylka 30 min.',
       target_path: '/mapa-live',
     });
+  });
+
+  it('recommends fixing contact data and open issue blockers', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('WITH planned AS') && text.includes('open_issues')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [
+            {
+              id: 51,
+              numer: 'ARB-51',
+              klient_nazwa: 'Brak kontaktu',
+              klient_telefon: '',
+              adres: '',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              ekipa_id: null,
+              oddzial_id: 7,
+              pin_lat: 50.1,
+              pin_lng: 19.9,
+              czas_planowany_godziny: 1,
+              czas_obslugi_min: 60,
+              ekipa_nazwa: null,
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 60,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+            {
+              id: 52,
+              numer: 'ARB-52',
+              klient_nazwa: 'Problem przed startem',
+              klient_telefon: '+48123456789',
+              adres: 'Krakow 52',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Wysoki',
+              data_planowana: '2026-05-26T09:00:00.000Z',
+              ekipa_id: null,
+              oddzial_id: 7,
+              pin_lat: 50.2,
+              pin_lng: 19.8,
+              czas_planowany_godziny: 1,
+              czas_obslugi_min: 60,
+              ekipa_nazwa: null,
+              oddzial_nazwa: 'Krakow',
+              open_issues: 2,
+              planned_minutes: 60,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM ops_action_events e') && text.includes('GROUP BY e.action_type')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'recommendation_feedback'")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-recommendations?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(res.body.recommendations.map((item) => [item.id, item]));
+    expect(byId.fix_contact_blockers).toMatchObject({
+      priority: 'medium',
+      action_kind: 'open_tasks',
+      primary_label: 'Napraw dane',
+      task_ids: [51],
+      title: '1 zlecen z brakami kontaktowymi',
+    });
+    expect(byId.fix_contact_blockers.target_path).toContain('field=klient_telefon');
+    expect(byId.fix_contact_blockers.task_preview[0]).toMatchObject({
+      id: 51,
+      numer: 'ARB-51',
+      blockers: ['phone', 'address'],
+    });
+    expect(byId.fix_contact_blockers.task_preview[0].target_path).toContain('field=klient_telefon');
+    expect(byId.resolve_open_issues).toMatchObject({
+      priority: 'medium',
+      action_kind: 'open_tasks',
+      primary_label: 'Zamknij problemy',
+      task_ids: [52],
+      title: '2 otwartych problemow blokuje dzien',
+    });
+    expect(byId.resolve_open_issues.target_path).toContain('tab=problemy');
+    expect(byId.resolve_open_issues.task_preview[0]).toMatchObject({
+      id: 52,
+      numer: 'ARB-52',
+      blockers: ['issue'],
+    });
+  });
+
+  it('hides recommendations dismissed for the selected day', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('WITH planned AS') && text.includes('open_issues')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [
+            {
+              id: 41,
+              numer: 'ARB-41',
+              klient_nazwa: 'Bez czasu',
+              klient_telefon: '+48111111111',
+              adres: 'Krakow 1',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              ekipa_id: 5,
+              oddzial_id: 7,
+              pin_lat: 50.1,
+              pin_lng: 19.9,
+              czas_planowany_godziny: null,
+              czas_obslugi_min: null,
+              ekipa_nazwa: 'Ekipa A',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 0,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM ops_action_events e') && text.includes('GROUP BY e.action_type')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'recommendation_feedback'")) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        expect(text).toContain('DISTINCT ON');
+        return {
+          rows: [
+            {
+              recommendation_id: 'set_missing_duration',
+              decision: 'dismissed',
+              created_at: '2026-05-26T09:00:00.000Z',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-recommendations?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.hidden_today).toBe(1);
+    expect(res.body.recommendations.map((item) => item.id)).not.toContain('set_missing_duration');
+    expect(res.body.hidden_recommendations).toHaveLength(1);
+    expect(res.body.hidden_recommendations[0]).toMatchObject({
+      id: 'set_missing_duration',
+      title: '1 zlecen bez czasu planu',
+    });
+    expect(res.body.hidden_recommendations[0].task_preview[0]).toMatchObject({
+      id: 41,
+      numer: 'ARB-41',
+      issue_label: 'Brak czasu planu',
+    });
+  });
+
+  it('keeps a recommendation visible when the latest feedback accepts it', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('WITH planned AS') && text.includes('open_issues')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [
+            {
+              id: 42,
+              numer: 'ARB-42',
+              klient_nazwa: 'Bez czasu po akceptacji',
+              klient_telefon: '+48111111111',
+              adres: 'Krakow 2',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              ekipa_id: 5,
+              oddzial_id: 7,
+              pin_lat: 50.1,
+              pin_lng: 19.9,
+              czas_planowany_godziny: null,
+              czas_obslugi_min: null,
+              ekipa_nazwa: 'Ekipa A',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 0,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM ops_action_events e') && text.includes('GROUP BY e.action_type')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'recommendation_feedback'")) {
+        return {
+          rows: [
+            {
+              recommendation_id: 'set_missing_duration',
+              decision: 'dismissed',
+              created_at: '2026-05-26T09:00:00.000Z',
+            },
+            {
+              recommendation_id: 'set_missing_duration',
+              decision: 'accepted',
+              created_at: '2026-05-26T10:00:00.000Z',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-recommendations?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.hidden_today).toBe(0);
+    expect(res.body.recommendations.map((item) => item.id)).toContain('set_missing_duration');
+    expect(res.body.hidden_recommendations).toEqual([]);
+  });
+
+  it('records recommendation feedback in the action memory', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[0]).toBeNull();
+        expect(params[1]).toBe(7);
+        expect(params[2]).toBe(1);
+        expect(params[3]).toBe('recommendation_feedback');
+        expect(params[9]).toBe('Nie dzis');
+        expect(JSON.parse(params[10])).toMatchObject({
+          recommendation_id: 'set_missing_duration',
+          decision: 'dismissed',
+          date: '2026-05-26',
+        });
+        return {
+          rows: [{ id: 901, task_id: null, action_type: 'recommendation_feedback', created_at: '2026-05-26T12:00:00.000Z' }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/action-recommendations/set_missing_duration/feedback')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ date: '2026-05-26', decision: 'dismissed', note: 'Nie dzis' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.feedback).toMatchObject({
+      recommendation_id: 'set_missing_duration',
+      decision: 'dismissed',
+      oddzial_id: 7,
+    });
+    expect(res.body.message).toBe('Rekomendacja ukryta na dzis');
   });
 });
 

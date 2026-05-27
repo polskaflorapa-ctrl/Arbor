@@ -103,12 +103,24 @@ function isDashboardOperationalTask(task) {
   const id = Number(task?.id);
   const client = String(task?.klient_nazwa || '').trim().toLowerCase();
   const description = String(task?.opis || task?.opis_pracy || '').trim().toLowerCase();
+  const searchable = [
+    task?.numer,
+    task?.kod,
+    task?.klient_nazwa,
+    task?.opis,
+    task?.opis_pracy,
+    task?.notatki_wewnetrzne,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
   const isLegacyTestFixture =
     Number.isFinite(id) &&
     id < 100 &&
     client.startsWith('test klient') &&
     description.startsWith('testowe zlecenie');
-  return !isLegacyTestFixture;
+  const isSmokeFixture = /\bsmoke\b/.test(searchable);
+  return !isLegacyTestFixture && !isSmokeFixture;
 }
 
 function AnimatedNumber({ value, duration = 900 }) {
@@ -557,23 +569,15 @@ export default function Dashboard() {
     .sort((a, b) => new Date(a.data_planowana || a.data_zaplanowana || 0) - new Date(b.data_planowana || b.data_zaplanowana || 0))
     .slice(0, 6), [ostatnie]);
 
-  const alertItems = [
-    {
-      title: payrollClose.export_allowed ? 'Payroll gotowy do eksportu' : 'Payroll wymaga raportów',
-      sub: payrollClose.export_allowed ? 'Miesiąc można zamykać bez blokad.' : `Brakuje raportów dnia: ${payrollClose.pending_count}`,
-      tone: payrollClose.export_allowed ? 'ok' : 'warn',
-    },
-    {
-      title: `${statusCounts.Nowe || 0} nowych zleceń`,
-      sub: 'Tematy czekające na przypisanie lub pierwszą decyzję.',
-      tone: (statusCounts.Nowe || 0) > 0 ? 'info' : 'ok',
-    },
-    {
-      title: `${statusCounts.W_Realizacji || 0} prac w terenie`,
-      sub: 'Aktywne zlecenia do pilnowania operacyjnego.',
-      tone: 'field',
-    },
-  ];
+  const systemAlertItems = payrollClose.export_allowed
+    ? []
+    : [
+        {
+          title: 'Payroll wymaga raportów',
+          sub: `Brakuje raportów dnia: ${payrollClose.pending_count}`,
+          tone: 'warn',
+        },
+      ];
 
   return (
     <div className="app-shell dashboard-shell" style={d.root}>
@@ -611,7 +615,7 @@ export default function Dashboard() {
           </form>
           <div style={d.topbarMeta}>
             <button type="button" onClick={() => navigate('/powiadomienia')} style={d.iconStatusBtn} aria-label="Powiadomienia">
-              <span style={d.statusDot}>{alertItems.length}</span>
+              <span style={d.statusDot}>{systemAlertItems.length}</span>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
                 <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
@@ -676,6 +680,16 @@ export default function Dashboard() {
             </button>
           ))}
         </section>
+
+        {!isWyceniajacy && (
+          <OpsRadar
+            tasks={allTasks}
+            payrollClose={payrollClose}
+            onOpenFilter={openSmartTaskFilter}
+            onOpenTask={openTaskDetail}
+            onOpenPath={(path) => navigate(path)}
+          />
+        )}
 
         <section className="dashboard-content-grid" style={d.referenceGrid}>
           <div style={d.panelWide}>
@@ -782,21 +796,25 @@ export default function Dashboard() {
           <div style={d.panel}>
             <div style={d.panelHeader}>
               <div>
-                <h2 style={d.panelTitle}>Alerty i powiadomienia</h2>
-                <p style={d.panelSub}>Najważniejsze sygnały operacyjne.</p>
+                <h2 style={d.panelTitle}>Powiadomienia systemowe</h2>
+                <p style={d.panelSub}>Komunikaty spoza radaru decyzji.</p>
               </div>
             </div>
             <div style={d.alertList}>
-              {alertItems.slice(0, 5).map((alert, index) => (
-                <button key={`${alert.title}-${index}`} type="button" onClick={() => navigate('/powiadomienia')} style={d.alertRow}>
-                  <span style={{ ...d.alertIcon, ...(d[`alertIcon_${alert.tone}`] || {}) }} />
-                  <span style={d.alertText}>
-                    <strong>{alert.title}</strong>
-                    <small>{alert.sub}</small>
-                  </span>
-                  <span style={d.scheduleArrow}>{QL_CHEVRON}</span>
-                </button>
-              ))}
+              {systemAlertItems.length === 0 ? (
+                <div style={d.alertEmpty}>Brak dodatkowych alarmów systemowych.</div>
+              ) : (
+                systemAlertItems.map((alert, index) => (
+                  <button key={`${alert.title}-${index}`} type="button" onClick={() => navigate('/powiadomienia')} style={d.alertRow}>
+                    <span style={{ ...d.alertIcon, ...(d[`alertIcon_${alert.tone}`] || {}) }} />
+                    <span style={d.alertText}>
+                      <strong>{alert.title}</strong>
+                      <small>{alert.sub}</small>
+                    </span>
+                    <span style={d.scheduleArrow}>{QL_CHEVRON}</span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -850,15 +868,6 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
-
-        {!isWyceniajacy && (
-          <OpsRadar
-            tasks={allTasks}
-            payrollClose={payrollClose}
-            onOpenFilter={openSmartTaskFilter}
-            onOpenTask={openTaskDetail}
-          />
-        )}
 
         <div style={d.commandGrid}>
           <div style={d.commandCard}>
@@ -1352,6 +1361,7 @@ const d = {
   alertIcon_info:    { background: '#579bfc' },
   alertIcon_success: { background: '#00c875' },
   alertText: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 },
+  alertEmpty: { padding: '18px 14px', color: '#676879', fontSize: 12, fontWeight: 600 },
   metricList: { padding: '12px 14px 10px', display: 'flex', flexDirection: 'column', gap: 12 },
   metricRow: { display: 'flex', flexDirection: 'column', gap: 6 },
   metricTop: { display: 'flex', justifyContent: 'space-between', gap: 10, color: '#323338', fontSize: 12, fontWeight: 600 },

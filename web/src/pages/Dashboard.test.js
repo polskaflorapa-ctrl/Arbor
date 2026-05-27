@@ -73,6 +73,15 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
             wartosc_planowana: 999,
           },
           {
+            id: 66,
+            numer: 'ZLE-0066',
+            klient_nazwa: 'SMOKE klient operacyjny 1779434036264',
+            opis: 'Automatyczny rekord smoke testu',
+            status: 'Nowe',
+            data_planowana: `${currentMonth}-09T08:00:00.000Z`,
+            wartosc_planowana: 1500,
+          },
+          {
             id: 1234,
             numer: 'ARB-1234',
             klient_nazwa: 'Realny Klient',
@@ -97,5 +106,8 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
 
   expect(await screen.findAllByText('Realny Klient')).not.toHaveLength(0);
   await waitFor(() => expect(screen.queryByText('Test Klient Demo')).not.toBeInTheDocument());
+  expect(screen.queryByText(/SMOKE klient operacyjny/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/nowych zleceń/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/prac w terenie/i)).not.toBeInTheDocument();
   expect(screen.getByTestId('ops-radar')).toHaveTextContent('1');
 });

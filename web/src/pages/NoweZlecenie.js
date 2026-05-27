@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
@@ -52,6 +52,7 @@ export default function NoweZlecenie() {
     : sourceParam === 'ogledziny'
       ? 'Zrodlo: modul ogledzin'
       : '';
+  const previousSourceLabelRef = useRef(sourceLabel);
   const [oddzialy, setOddzialy] = useState([]);
   const [ekipy, setEkipy] = useState([]);
   const [estimators, setEstimators] = useState([]);
@@ -112,6 +113,23 @@ export default function NoweZlecenie() {
   }, [klientIdParam, navigate]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const previousSourceLabel = previousSourceLabelRef.current;
+    if (previousSourceLabel === sourceLabel) return;
+    setForm((currentForm) => {
+      const currentNotes = String(currentForm.notatki_wewnetrzne || '');
+      if (currentNotes && currentNotes !== previousSourceLabel) {
+        previousSourceLabelRef.current = sourceLabel;
+        return currentForm;
+      }
+      previousSourceLabelRef.current = sourceLabel;
+      return {
+        ...currentForm,
+        notatki_wewnetrzne: sourceLabel,
+      };
+    });
+  }, [sourceLabel]);
 
   const isDyrektor = ['Prezes', 'Dyrektor'].includes(user?.rola);
   const ekipyFiltered = form.oddzial_id
@@ -186,7 +204,7 @@ export default function NoweZlecenie() {
   return (
     <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <main className="app-main" style={{ flex: 1, padding: '24px 28px', maxWidth: 980, margin: '0 auto', width: '100%' }}>
+      <main className="app-main" style={{ flex: 1, padding: '28px', maxWidth: 1220, margin: '0 auto', width: '100%' }}>
 
         {/* ── Nagłówek ─────────────────────────────────────────── */}
         <PageHeader
@@ -195,6 +213,7 @@ export default function NoweZlecenie() {
           title={t('pages.noweZlecenie.title')}
           subtitle="Klient, miejsce, ogladziny i przekazanie widac od razu przed zapisem."
           icon={IKONY.plus}
+          actions={sourceLabel ? <span style={S.sourceBadge}>{sourceLabel}</span> : null}
         />
 
         <div className="zlecenia-form-readiness" style={S.readinessGrid}>
@@ -208,7 +227,7 @@ export default function NoweZlecenie() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 20 }}>
 
             {/* ── LEWA KOLUMNA ─────────────────────────────── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -234,7 +253,7 @@ export default function NoweZlecenie() {
                     extraCities={oddzialy.map((o) => o.miasto)}
                   />
                 </Field>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10 }}>
                   <Field label="Pinezka LAT" icon={IKONY.map}>
                     <input style={S.input} value={form.pin_lat} onChange={setField('pin_lat')} placeholder="np. 50.0617" />
                   </Field>
@@ -247,6 +266,7 @@ export default function NoweZlecenie() {
               {/* Notatki */}
               <Section title="Notatki wewnętrzne" icon={IKONY.note} accent="#1d4ed8">
                 <textarea
+                  aria-label="Notatki wewnetrzne"
                   style={{ ...S.input, resize: 'vertical', minHeight: 90, fontFamily: 'inherit', lineHeight: 1.5 }}
                   value={form.notatki_wewnetrzne}
                   onChange={setField('notatki_wewnetrzne')}
@@ -280,7 +300,7 @@ export default function NoweZlecenie() {
                     </button>
                   </div>
                 </Field>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: 14 }}>
                   <Field label="Typ usługi" icon={IKONY.tree}>
                     <select style={S.input} value={form.typ_uslugi} onChange={setField('typ_uslugi')}>
                       {TASK_SERVICE_TYPES.map((type) => (
@@ -320,11 +340,11 @@ export default function NoweZlecenie() {
                   {isDyrektor ? (
                     <select style={S.input} value={form.oddzial_id} onChange={e => setForm({ ...form, oddzial_id: e.target.value, ekipa_id: '' })} required>
                       <option value="">-- wybierz oddział --</option>
-                      {oddzialy.map(o => <option key={o.id} value={o.id}>🏢 {o.nazwa}</option>)}
+                      {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                     </select>
                   ) : (
                     <div style={{ ...S.input, color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      🏢 {oddzialy.find(o => o.id === parseInt(form.oddzial_id))?.nazwa || '—'}
+                      {oddzialy.find(o => o.id === parseInt(form.oddzial_id))?.nazwa || '-'}
                     </div>
                   )}
                 </Field>
@@ -384,23 +404,11 @@ export default function NoweZlecenie() {
           <StatusMessage message={success} style={{ marginTop: 16 }} />
 
           {/* ── Przyciski ────────────────────────────────────── */}
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20, paddingBottom: 20 }}>
+          <div style={S.actionBar}>
             <button
               type="button"
               onClick={() => navigate(-1)}
-              style={{
-                padding: '11px 24px',
-                borderRadius: 8,
-                borderWidth: 1,
-                borderStyle: 'solid',
-                borderColor: 'var(--border)',
-                backgroundColor: 'var(--surface-field)',
-                color: 'var(--text-sub)',
-                cursor: 'pointer',
-                fontSize: 14,
-                fontWeight: 600,
-                transition: 'all 0.15s',
-              }}
+              style={S.ghostBtn}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
             >
@@ -410,14 +418,13 @@ export default function NoweZlecenie() {
               type="submit"
               disabled={loading || !isFormValid}
               style={{
-                padding: '11px 32px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)',
-                background: loading ? 'var(--surface-field)' : 'var(--accent-gradient)',
-                color: 'var(--on-accent)', cursor: loading ? 'wait' : 'pointer',
-                fontSize: 14, fontWeight: 800, transition: 'all 0.2s',
+                ...S.primaryBtn,
+                ...(isFormValid ? {} : S.primaryBtnDisabled),
+                background: loading ? '#eaf3ec' : 'var(--accent-gradient)',
+                color: 'var(--on-accent)', cursor: loading ? 'wait' : isFormValid ? 'pointer' : 'not-allowed',
                 boxShadow: loading ? 'none' : 'var(--shadow-sm)',
-                display: 'flex', alignItems: 'center', gap: 8,
               }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseEnter={e => { if (!loading && isFormValid) e.currentTarget.style.transform = 'translateY(-2px)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
             >
               {loading ? (
@@ -440,22 +447,23 @@ export default function NoweZlecenie() {
 function Section({ title, icon, accent = 'var(--accent)', children }) {
   return (
     <div style={{
-      background: 'var(--surface-glass)', borderRadius: 8,
-      border: '1px solid var(--border)',
+      background: '#ffffff',
+      borderRadius: 8,
+      border: '1px solid var(--glass-border)',
       overflow: 'hidden',
       boxShadow: 'var(--shadow-md)',
-      animation: 'fadeInUp 0.3s ease',
     }}>
       <div style={{
-        padding: '14px 20px',
-        borderBottom: '1px solid var(--border)',
+        padding: '14px 18px',
+        borderBottom: '1px solid rgba(15,107,63,0.12)',
         display: 'flex', alignItems: 'center', gap: 10,
-        background: 'var(--surface-field)',
+        background: 'linear-gradient(135deg, rgba(240,247,242,0.96), #ffffff)',
+        boxShadow: `inset 5px 0 0 ${accent}`,
       }}>
         <span style={{ color: accent, display: 'flex' }}>{icon}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: accent }}>{title}</span>
+        <span style={{ fontSize: 13, fontWeight: 950, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: 0 }}>{title}</span>
       </div>
-      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {children}
       </div>
     </div>
@@ -465,7 +473,7 @@ function Section({ title, icon, accent = 'var(--accent)', children }) {
 function Field({ label, icon, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <label style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5, textTransform: 'uppercase', letterSpacing: 0 }}>
         <span style={{ color: 'var(--text-muted)', display: 'flex' }}>{icon}</span>
         {label}
       </label>
@@ -475,6 +483,19 @@ function Field({ label, icon, children }) {
 }
 
 const S = {
+  sourceBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: 34,
+    padding: '7px 12px',
+    borderRadius: 8,
+    border: '1px solid rgba(255,255,255,0.22)',
+    background: 'rgba(255,255,255,0.12)',
+    color: '#f0fdf4',
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: 'nowrap',
+  },
   readinessGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 185px), 1fr))',
@@ -519,24 +540,76 @@ const S = {
     overflowWrap: 'anywhere',
   },
   input: {
-    padding: '10px 12px', borderRadius: 8, fontSize: 14,
-    border: '1px solid var(--border)', outline: 'none',
-    width: '100%', boxSizing: 'border-box',
-    transition: 'border-color 0.15s',
+    minHeight: 42,
+    padding: '10px 12px',
+    borderRadius: 8,
+    fontSize: 14,
+    border: '1px solid rgba(15,107,63,0.18)',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+    background: '#ffffff',
+    color: 'var(--text)',
+    boxShadow: 'inset 0 1px 0 rgba(15,107,63,0.05)',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
   },
   toggleBtn: {
+    minHeight: 38,
     padding: '8px 12px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,107,63,0.16)',
+    background: '#ffffff',
     color: 'var(--text-sub)',
     fontSize: 12,
-    fontWeight: 700,
+    fontWeight: 850,
     cursor: 'pointer',
   },
   toggleBtnActive: {
     border: '1px solid var(--accent)',
     background: 'var(--accent-surface)',
     color: 'var(--accent-dk)',
+  },
+  actionBar: {
+    display: 'flex',
+    gap: 12,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 20,
+    padding: '16px',
+    borderRadius: 8,
+    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  ghostBtn: {
+    minHeight: 42,
+    padding: '10px 18px',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--border)',
+    backgroundColor: '#ffffff',
+    color: 'var(--text-sub)',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 850,
+    transition: 'all 0.15s',
+  },
+  primaryBtn: {
+    minHeight: 42,
+    padding: '10px 24px',
+    borderRadius: 8,
+    border: '1px solid rgba(20,131,79,0.22)',
+    fontSize: 14,
+    fontWeight: 900,
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.56,
+    boxShadow: 'none',
   },
 };

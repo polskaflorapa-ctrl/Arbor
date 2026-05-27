@@ -35,6 +35,7 @@ const HAS_VALID_API_FALLBACK_BASE =
   API_URL_WITHOUT_API_SUFFIX !== API_URL;
 const isUnsafeFallbackBase = API_URL_WITHOUT_API_SUFFIX === '/' || API_URL_WITHOUT_API_SUFFIX === '.';
 const MOCK_OPS_EVENTS_KEY = 'arbor-test-mode-ops-action-events';
+const MOCK_ROUTE_BRIEF_STATUSES_KEY = 'arbor-test-mode-route-brief-statuses';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -123,6 +124,30 @@ function addMockOpsEvent(event) {
   return next;
 }
 
+function getMockRouteBriefStatuses() {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_ROUTE_BRIEF_STATUSES_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMockRouteBriefStatus(status) {
+  if (typeof localStorage === 'undefined') return status;
+  const nextStatus = {
+    ...status,
+    date: status.date || new Date().toISOString().slice(0, 10),
+    team_id: Number(status.team_id || 0) || status.team_id,
+  };
+  const existing = getMockRouteBriefStatuses()
+    .filter((item) => !(String(item.date) === String(nextStatus.date) && String(item.team_id) === String(nextStatus.team_id)));
+  existing.push(nextStatus);
+  localStorage.setItem(MOCK_ROUTE_BRIEF_STATUSES_KEY, JSON.stringify(existing.slice(-100)));
+  return nextStatus;
+}
+
 function countBy(rows, key) {
   return rows.reduce((acc, row) => {
     const value = row?.[key];
@@ -138,6 +163,40 @@ function mockFormatMinutes(value) {
   if (!hours) return `${minutes} min`;
   if (!minutes) return `${hours} h`;
   return `${hours} h ${minutes} min`;
+}
+
+function mockRecommendationTaskPreview(tasks = [], limit = 3) {
+  const issueLabels = {
+    missing_duration: 'Brak czasu planu',
+    not_started: 'Brak startu',
+    overrun: 'Przekroczenie planu',
+    missing_finish: 'Brak zamkniecia pracy',
+  };
+  return tasks
+    .filter(Boolean)
+    .slice(0, limit)
+    .map((task) => {
+      const blockers = [];
+      if (!task.ekipa_id) blockers.push('team');
+      if (!task.pin_lat || !task.pin_lng) blockers.push('gps');
+      if (!task.klient_telefon) blockers.push('phone');
+      if (!task.adres) blockers.push('address');
+      if (!task.czas_planowany_godziny && !task.czas_obslugi_min) blockers.push('duration');
+      if (Number(task.open_issues || 0) > 0) blockers.push('issue');
+      return {
+        id: task.id,
+        numer: task.numer || `ZLE-${String(task.id).padStart(4, '0')}`,
+        klient_nazwa: task.klient_nazwa || null,
+        ekipa_nazwa: task.ekipa_nazwa || null,
+        issue_key: task.issue_key || null,
+        issue_label: issueLabels[task.issue_key] || null,
+        blockers,
+        planned_minutes: Math.max(0, Math.round(Number(task.planned_minutes || 0))),
+        real_minutes: Math.max(0, Math.round(Number(task.real_minutes || 0))),
+        delta_minutes: Math.round(Number(task.delta_minutes || 0)),
+        target_path: `/zlecenia/${task.id}`,
+      };
+    });
 }
 
 function mockMinutesToClock(value) {
@@ -539,8 +598,25 @@ function getTestModeMockResponse(config) {
     const missingDuration = activeRows.filter((task) => task.issue_key === 'missing_duration');
     const notStarted = activeRows.filter((task) => task.issue_key === 'not_started' && task.ekipa_id);
     const dispatchBlockers = activeRows.filter((task) => !task.ekipa_id || !task.pin_lat || !task.pin_lng);
+    const contactBlockers = activeRows.filter((task) => !task.klient_telefon || !task.adres);
+    const issueBlockers = activeRows.filter((task) => Number(task.open_issues || 0) > 0);
     const overrunRows = activeRows.filter((task) => task.issue_key === 'overrun' || task.issue_key === 'missing_finish');
     const events = getMockOpsEvents();
+    const latestFeedbackToday = new Map();
+    events
+      .filter((event) => {
+        const eventDate = String(event.created_at || '').slice(0, 10);
+        return event.action_type === 'recommendation_feedback'
+          && eventDate === date;
+      })
+      .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
+      .forEach((event) => {
+        const id = event?.metadata?.recommendation_id || event?.recommendation_id;
+        if (id) latestFeedbackToday.set(id, event?.metadata?.decision || event?.decision);
+      });
+    const hiddenToday = new Set([...latestFeedbackToday.entries()]
+      .filter(([, decision]) => ['dismissed', 'snoozed'].includes(decision))
+      .map(([id]) => id));
     const reasonLabels = {
       dojazd: 'Dojazd',
       zakres: 'Wiekszy zakres',
@@ -569,6 +645,7 @@ function getTestModeMockResponse(config) {
         suggested_minutes: suggestedMinutes,
         task_count: missingDuration.length,
         task_ids: missingDuration.slice(0, 8).map((task) => task.id),
+        task_preview: mockRecommendationTaskPreview(missingDuration),
         target_path: `/zlecenia/${missingDuration[0]?.id || ''}`,
         impact_label: `${mockFormatMinutes(suggestedMinutes * missingDuration.length)} planu do uzupelnienia`,
       });
@@ -588,6 +665,7 @@ function getTestModeMockResponse(config) {
         secondary_label: 'Otworz',
         task_count: notStarted.length,
         task_ids: notStarted.slice(0, 8).map((task) => task.id),
+        task_preview: mockRecommendationTaskPreview(notStarted),
         target_path: `/zlecenia/${notStarted[0]?.id || ''}`,
         impact_label: `${notStarted.length} ekip do potwierdzenia`,
       });
@@ -607,8 +685,52 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: dispatchBlockers.length,
         task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
+        task_preview: mockRecommendationTaskPreview(dispatchBlockers),
         target_path: `/zlecenia/${dispatchBlockers[0]?.id || ''}`,
         impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
+      });
+    }
+    if (contactBlockers.length > 0) {
+      const missingPhones = contactBlockers.filter((task) => !task.klient_telefon).length;
+      const missingAddresses = contactBlockers.filter((task) => !task.adres).length;
+      recommendations.push({
+        id: 'fix_contact_blockers',
+        rank: recommendations.length + 1,
+        priority: contactBlockers.length >= 3 ? 'high' : 'medium',
+        tone: 'warning',
+        score: 74 + contactBlockers.length * 6,
+        title: `${contactBlockers.length} zlecen z brakami kontaktowymi`,
+        rationale: `${missingPhones} bez telefonu, ${missingAddresses} bez adresu. To spowalnia potwierdzenia i przygotowanie ekip.`,
+        suggested_action: 'Otworz pierwsze zlecenie i uzupelnij dane klienta przed wysylka.',
+        action_kind: 'open_tasks',
+        primary_label: 'Napraw dane',
+        secondary_label: '',
+        task_count: contactBlockers.length,
+        task_ids: contactBlockers.slice(0, 8).map((task) => task.id),
+        task_preview: mockRecommendationTaskPreview(contactBlockers),
+        target_path: `/zlecenia/${contactBlockers[0]?.id || ''}`,
+        impact_label: `${contactBlockers.length} zlecen wymaga danych`,
+      });
+    }
+    if (issueBlockers.length > 0) {
+      const openIssues = issueBlockers.reduce((sum, task) => sum + Number(task.open_issues || 0), 0);
+      recommendations.push({
+        id: 'resolve_open_issues',
+        rank: recommendations.length + 1,
+        priority: openIssues >= 3 ? 'high' : 'medium',
+        tone: 'danger',
+        score: 72 + Math.min(30, openIssues * 5),
+        title: `${openIssues} otwartych problemow blokuje dzien`,
+        rationale: `${issueBlockers.length} zlecen ma nierozwiazane problemy przed realizacja.`,
+        suggested_action: 'Otworz zakladke problemow i domknij decyzje przed startem ekipy.',
+        action_kind: 'open_tasks',
+        primary_label: 'Zamknij problemy',
+        secondary_label: '',
+        task_count: issueBlockers.length,
+        task_ids: issueBlockers.slice(0, 8).map((task) => task.id),
+        task_preview: mockRecommendationTaskPreview(issueBlockers),
+        target_path: `/zlecenia/${issueBlockers[0]?.id || ''}`,
+        impact_label: `${openIssues} problemow do decyzji`,
       });
     }
     if (overrunRows.length > 0) {
@@ -627,6 +749,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: overrunRows.length,
         task_ids: overrunRows.slice(0, 8).map((task) => task.id),
+        task_preview: mockRecommendationTaskPreview(overrunRows),
         target_path: `/zlecenia/${overrunRows[0]?.id || ''}`,
         impact_label: `${mockFormatMinutes(totalDelta)} nad planem`,
       });
@@ -648,15 +771,20 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: topReason[1],
         task_ids: [],
+        task_preview: [],
         target_path: topReason[0] === 'dojazd' ? '/mapa-live' : `/kierownik?date=${date}`,
         impact_label: `${topReason[1]} podobnych decyzji`,
       });
     }
-    const sorted = recommendations
+    const rankedRecommendations = recommendations
       .sort((a, b) => b.score - a.score)
+      .map((item, index) => ({ ...item, rank: index + 1 }));
+    const hiddenRecommendations = rankedRecommendations.filter((item) => hiddenToday.has(item.id));
+    const sorted = rankedRecommendations
+      .filter((item) => !hiddenToday.has(item.id))
       .slice(0, 5)
       .map((item, index) => ({ ...item, rank: index + 1 }));
-    if (sorted.length === 0) {
+    if (sorted.length === 0 && recommendations.length === 0) {
       sorted.push({
         id: 'steady_day',
         rank: 1,
@@ -671,6 +799,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: 0,
         task_ids: [],
+        task_preview: [],
         target_path: `/kierownik?date=${date}`,
         impact_label: 'plan stabilny',
       });
@@ -685,9 +814,50 @@ function getTestModeMockResponse(config) {
           actionable: sorted.filter((item) => item.action_kind && item.action_kind !== 'none').length,
           plan_tasks: rows.length,
           memory_rows: events.length,
+          hidden_today: hiddenRecommendations.length,
         },
         recommendations: sorted,
+        hidden_recommendations: hiddenRecommendations,
         generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mRecommendationFeedback = path.match(/^\/ops\/action-recommendations\/([^/]+)\/feedback$/);
+  if (mRecommendationFeedback && method === 'post') {
+    const body = parseJsonData(config.data);
+    const date = String(body.date || getRequestDate(config));
+    const decision = ['accepted', 'dismissed', 'snoozed'].includes(body.decision) ? body.decision : 'dismissed';
+    const event = addMockOpsEvent({
+      task_id: null,
+      oddzial_id: body.oddzial_id || null,
+      action_type: 'recommendation_feedback',
+      note: body.note || '',
+      recommendation_id: decodeURIComponent(mRecommendationFeedback[1]),
+      decision,
+      metadata: {
+        recommendation_id: decodeURIComponent(mRecommendationFeedback[1]),
+        decision,
+        date,
+        target_path: body.target_path || null,
+        task_ids: Array.isArray(body.task_ids) ? body.task_ids : [],
+      },
+    });
+    return {
+      data: {
+        message: decision === 'dismissed' ? 'Rekomendacja ukryta na dzis' : 'Decyzja zapisana',
+        feedback: {
+          recommendation_id: decodeURIComponent(mRecommendationFeedback[1]),
+          decision,
+          date,
+          oddzial_id: body.oddzial_id || null,
+        },
+        event,
       },
       status: 200,
       statusText: 'OK',
@@ -729,6 +899,7 @@ function getTestModeMockResponse(config) {
       set_duration: 'Ustawienie czasu',
       mark_reason: 'Powod odchylenia',
       remind_team: 'Przypomnienie ekipy',
+      recommendation_feedback: 'Feedback rekomendacji',
     };
     const reasonCounts = countBy(events, 'reason_code');
     const issueCounts = countBy(events, 'issue_key');
@@ -763,12 +934,16 @@ function getTestModeMockResponse(config) {
         actions: Object.entries(actionCounts)
           .map(([action_type, count]) => ({ action_type, label: actionLabels[action_type] || action_type, count }))
           .sort((a, b) => b.count - a.count),
-        recent: events.slice(-8).reverse().map((event) => ({
-          ...event,
-          action_label: actionLabels[event.action_type] || event.action_type,
-          issue_label: issueLabels[event.issue_key] || event.issue_key,
-          reason_label: reasonLabels[event.reason_code] || event.reason_code,
-        })),
+        recent: events
+          .filter((event) => event.action_type !== 'recommendation_feedback')
+          .slice(-8)
+          .reverse()
+          .map((event) => ({
+            ...event,
+            action_label: actionLabels[event.action_type] || event.action_type,
+            issue_label: issueLabels[event.issue_key] || event.issue_key,
+            reason_label: reasonLabels[event.reason_code] || event.reason_code,
+          })),
         generated_at: new Date().toISOString(),
       },
       status: 200,
@@ -841,37 +1016,37 @@ function getTestModeMockResponse(config) {
     const teamId = body.team_id || null;
     const teams = getMockData('/ekipy') || [];
     const team = teams.find((item) => String(item.id) === String(teamId));
+    const now = new Date().toISOString();
+    const briefId = Date.now();
+    const notificationId = briefId + 1;
+    const recipient = {
+      user_id: team?.brygadzista_id || 1,
+      name: team?.brygadzista || 'Brygadzista',
+      notification_id: notificationId,
+      status: 'Nowe',
+      confirmed_at: null,
+    };
+    const status = saveMockRouteBriefStatus({
+      brief_id: briefId,
+      date: body.date || getRequestDate(config),
+      team_id: teamId,
+      team_name: team?.nazwa || body.team_name || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
+      sent_at: now,
+      sent_to: 1,
+      confirmed: 0,
+      pending: 1,
+      recipients: [recipient],
+    });
     return {
       data: {
         message: 'Odprawa wyslana do ekipy',
-        brief_id: Date.now(),
+        brief_id: briefId,
         team_id: teamId,
-        team_name: team?.nazwa || body.team_name || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
+        team_name: status.team_name,
         notification_count: 1,
         recipients: [team?.brygadzista_id || 1],
-        recipient_details: [{
-          user_id: team?.brygadzista_id || 1,
-          name: team?.brygadzista || 'Brygadzista',
-          notification_id: Date.now(),
-          status: 'Nowe',
-          confirmed_at: null,
-        }],
-        status: {
-          brief_id: Date.now(),
-          team_id: teamId,
-          team_name: team?.nazwa || body.team_name || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
-          sent_at: new Date().toISOString(),
-          sent_to: 1,
-          confirmed: 0,
-          pending: 1,
-          recipients: [{
-            user_id: team?.brygadzista_id || 1,
-            name: team?.brygadzista || 'Brygadzista',
-            notification_id: Date.now(),
-            status: 'Nowe',
-            confirmed_at: null,
-          }],
-        },
+        recipient_details: [recipient],
+        status,
       },
       status: 200,
       statusText: 'OK',
@@ -942,11 +1117,25 @@ function getTestModeMockResponse(config) {
 
   if (path === '/dispatch/route-brief/status' && method === 'get') {
     const date = getRequestDate(config);
+    const teamIds = String(getRequestParam(config, 'team_ids') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const teamIdSet = new Set(teamIds);
+    const items = getMockRouteBriefStatuses()
+      .filter((item) => String(item.date) === String(date))
+      .filter((item) => !teamIdSet.size || teamIdSet.has(String(item.team_id)));
+    const summary = items.reduce((acc, item) => ({
+      teams_sent: acc.teams_sent + 1,
+      sent_to: acc.sent_to + Number(item.sent_to || 0),
+      confirmed: acc.confirmed + Number(item.confirmed || 0),
+      pending: acc.pending + Number(item.pending || 0),
+    }), { teams_sent: 0, sent_to: 0, confirmed: 0, pending: 0 });
     return {
       data: {
         date,
-        items: [],
-        summary: { teams_sent: 0, sent_to: 0, confirmed: 0, pending: 0 },
+        items,
+        summary,
       },
       status: 200,
       statusText: 'OK',

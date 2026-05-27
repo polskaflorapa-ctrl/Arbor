@@ -245,6 +245,43 @@ describe('api test-mode mocks', () => {
     });
   });
 
+  it('persists route brief confirmation mocks across status reads', async () => {
+    const sent = await api.post('/api/dispatch/route-brief/send', {
+      date: '2026-05-25',
+      oddzial_id: 2,
+      team_id: 5,
+      team_name: 'Ekipa A',
+      task_ids: [101],
+      brief: 'Odprawa ekipy - Ekipa A',
+    });
+
+    expect(sent.status).toBe(200);
+    expect(sent.data.status).toMatchObject({
+      team_id: 5,
+      sent_to: 1,
+      confirmed: 0,
+      pending: 1,
+    });
+
+    const status = await api.get('/api/dispatch/route-brief/status', {
+      params: { date: '2026-05-25', team_ids: '5' },
+      dedupe: false,
+    });
+
+    expect(status.data.summary).toMatchObject({
+      teams_sent: 1,
+      sent_to: 1,
+      confirmed: 0,
+      pending: 1,
+    });
+    expect(status.data.items[0]).toMatchObject({
+      team_id: 5,
+      team_name: 'Ekipa A',
+      sent_to: 1,
+      pending: 1,
+    });
+  });
+
   it('serves mock photos consistently with task photo counters', async () => {
     const emptyPhotos = await api.get('/api/tasks/101/zdjecia', { dedupe: false });
     expect(emptyPhotos.data).toEqual([]);

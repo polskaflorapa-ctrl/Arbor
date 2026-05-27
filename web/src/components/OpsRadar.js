@@ -95,7 +95,7 @@ function decisionForTask(task, today) {
   return null;
 }
 
-export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpenTask }) {
+export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpenTask, onOpenPath }) {
   const model = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const open = tasks.filter((task) => !isTaskClosed(task.status));
@@ -162,7 +162,9 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
       .sort((a, b) => b.decision.priority - a.decision.priority)
       .slice(0, 3);
 
-    return { score, alerts, lead, decisions, openCount: open.length, activeCount: active.length };
+    const isClear = open.length === 0 && alerts.every((alert) => alert.count === 0) && payrollPending === 0;
+
+    return { score, alerts, lead, decisions, openCount: open.length, activeCount: active.length, isClear };
   }, [tasks, payrollClose]);
 
   const openDecision = (row) => {
@@ -172,6 +174,12 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
     }
     onOpenFilter?.(row?.decision?.filterKey);
   };
+
+  const leadText = model.isClear
+    ? 'Dzień zamknięty operacyjnie'
+    : model.lead
+      ? `${model.lead.label}: ${model.lead.count} do obsłużenia`
+      : 'Brak pilnych blokad w bieżących danych';
 
   return (
     <section style={s.panel}>
@@ -189,56 +197,72 @@ export default function OpsRadar({ tasks = [], payrollClose, onOpenFilter, onOpe
       <div style={s.leadRow}>
         <div>
           <div style={s.leadLabel}>Najbliższy ruch</div>
-          <div style={s.leadText}>
-            {model.lead
-              ? `${model.lead.label}: ${model.lead.count} do obsłużenia`
-              : 'Brak pilnych blokad w bieżących danych'}
-          </div>
+          <div style={s.leadText}>{leadText}</div>
         </div>
         <div style={s.meta}>
           Otwarte: <strong>{model.openCount}</strong> | W realizacji: <strong>{model.activeCount}</strong>
         </div>
       </div>
 
-      <div style={s.grid}>
-        {model.alerts.map((alert) => (
-          <button
-            key={alert.key}
-            type="button"
-            onClick={() => onOpenFilter?.(alert.key)}
-            style={{ ...s.tile, ...(toneStyle[alert.tone] || toneStyle.neutral) }}
-          >
-            <span style={s.tileTop}>
-              <span style={s.tileLabel}>{alert.label}</span>
-              <span style={s.tileCount}>{alert.count}</span>
-            </span>
-            <span style={s.tileDetail}>{alert.detail}</span>
-          </button>
-        ))}
-      </div>
-
-      <div style={s.decisionBlock}>
-        <div style={s.decisionHead}>Następne decyzje</div>
-        {model.decisions.length === 0 ? (
-          <div style={s.emptyRow}>Nie ma zleceń wymagających natychmiastowej reakcji.</div>
-        ) : (
-          model.decisions.map((row) => (
-            <button
-              key={`${row.decision.filterKey}-${row.task.id || row.decision.label}`}
-              type="button"
-              onClick={() => openDecision(row)}
-              style={s.decisionRow}
-            >
-              <span style={{ ...s.decisionMarker, ...(markerTone[row.decision.tone] || markerTone.neutral) }} />
-              <span style={s.decisionText}>
-                <strong style={s.decisionTitle}>{row.decision.label}</strong>
-                <small style={s.decisionReason}>{row.decision.reason}</small>
-                <span style={s.decisionMeta}>{row.decision.meta}</span>
-              </span>
+      {model.isClear ? (
+        <div style={s.clearState}>
+          <div style={s.clearBadge}>Gotowe</div>
+          <strong style={s.clearTitle}>Wszystkie aktywne zlecenia są domknięte</strong>
+          <span style={s.clearText}>
+            Radar nie widzi zaległych terminów, ekip bez pracy ani pilnych decyzji. Najbliższy ruch to przyjęcie nowego zgłoszenia albo raport dnia.
+          </span>
+          <div style={s.clearActions}>
+            <button type="button" style={s.clearPrimaryBtn} onClick={() => onOpenFilter?.('')}>
+              Lista zleceń
             </button>
-          ))
-        )}
-      </div>
+            <button type="button" style={s.clearSecondaryBtn} onClick={() => onOpenPath?.('/raport-dzienny')}>
+              Raport dzienny
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={s.grid}>
+            {model.alerts.map((alert) => (
+              <button
+                key={alert.key}
+                type="button"
+                onClick={() => onOpenFilter?.(alert.key)}
+                style={{ ...s.tile, ...(toneStyle[alert.tone] || toneStyle.neutral) }}
+              >
+                <span style={s.tileTop}>
+                  <span style={s.tileLabel}>{alert.label}</span>
+                  <span style={s.tileCount}>{alert.count}</span>
+                </span>
+                <span style={s.tileDetail}>{alert.detail}</span>
+              </button>
+            ))}
+          </div>
+
+          <div style={s.decisionBlock}>
+            <div style={s.decisionHead}>Następne decyzje</div>
+            {model.decisions.length === 0 ? (
+              <div style={s.emptyRow}>Nie ma zleceń wymagających natychmiastowej reakcji.</div>
+            ) : (
+              model.decisions.map((row) => (
+                <button
+                  key={`${row.decision.filterKey}-${row.task.id || row.decision.label}`}
+                  type="button"
+                  onClick={() => openDecision(row)}
+                  style={s.decisionRow}
+                >
+                  <span style={{ ...s.decisionMarker, ...(markerTone[row.decision.tone] || markerTone.neutral) }} />
+                  <span style={s.decisionText}>
+                    <strong style={s.decisionTitle}>{row.decision.label}</strong>
+                    <small style={s.decisionReason}>{row.decision.reason}</small>
+                    <span style={s.decisionMeta}>{row.decision.meta}</span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -389,5 +413,62 @@ const s = {
     color: '#676879',
     fontSize: 12,
     fontWeight: 500,
+  },
+  clearState: {
+    padding: '18px 18px 20px',
+    borderTop: '1px solid #e6e9ef',
+    background: '#f4fbf6',
+    display: 'grid',
+    gap: 8,
+  },
+  clearBadge: {
+    width: 'fit-content',
+    padding: '4px 9px',
+    borderRadius: 999,
+    background: '#dcfce7',
+    color: '#166534',
+    fontSize: 10,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+  },
+  clearTitle: {
+    color: '#0f3d2e',
+    fontSize: 16,
+    lineHeight: 1.25,
+  },
+  clearText: {
+    color: '#35564a',
+    fontSize: 13,
+    lineHeight: 1.45,
+    maxWidth: 680,
+  },
+  clearActions: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  clearPrimaryBtn: {
+    border: '1px solid #146b43',
+    background: '#146b43',
+    color: '#ffffff',
+    borderRadius: 4,
+    padding: '8px 12px',
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  clearSecondaryBtn: {
+    border: '1px solid #b8d9c5',
+    background: '#ffffff',
+    color: '#146b43',
+    borderRadius: 4,
+    padding: '8px 12px',
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
 };

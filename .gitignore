@@ -57,6 +57,8 @@ web-vite-*.log
 public-web-tunnel.log
 logs/
 output/
+.codex-logs/
+artifacts/
 .tmp-chrome-*/
 
 # IDE

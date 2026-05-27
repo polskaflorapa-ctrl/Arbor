@@ -3746,8 +3746,7 @@ button.btn-primary,
   color: #ffffff !important;
 }
 
-.zlecenia-detail-hero [style*='Paszport operacyjny'],
-.zlecenia-detail-hero [style*='detailOpsEyebrow'] {
+.zlecenia-detail-hero-eyebrow {
   color: #86efac !important;
 }
 
@@ -3755,4 +3754,8 @@ button.btn-primary,
   background: #ffffff !important;
   border-radius: 8px !important;
   box-shadow: var(--shadow-sm) !important;
+}
+
+.clients-client-hero h1 {
+  color: #ffffff !important;
 }

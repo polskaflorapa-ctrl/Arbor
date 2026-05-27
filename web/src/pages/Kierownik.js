@@ -71,6 +71,26 @@ const PLAN_REASON_OPTIONS = [
   { value: 'inne', label: 'Inne' },
 ];
 
+const RECOMMENDATION_BLOCKER_LABELS = {
+  team: 'brak ekipy',
+  gps: 'brak GPS',
+  phone: 'brak tel.',
+  address: 'brak adresu',
+  duration: 'brak czasu',
+  issue: 'problem',
+};
+
+function recommendationPreviewMeta(task) {
+  const blockers = (task?.blockers || [])
+    .map((key) => RECOMMENDATION_BLOCKER_LABELS[key] || key)
+    .filter(Boolean);
+  if (blockers.length > 0) return blockers.slice(0, 2).join(', ');
+  if (task?.issue_label) return task.issue_label;
+  const delta = Number(task?.delta_minutes || 0);
+  if (Math.abs(delta) > 0) return formatMinutes(delta);
+  return task?.ekipa_nazwa || 'Otworz';
+}
+
 function CockpitMetric({ label, value, detail, tone = 'info' }) {
   const t = cockpitTone(tone);
   return (
@@ -367,6 +387,58 @@ export default function Kierownik() {
     }
   }, [cockpitDate, filtrOddzial, loadCockpit, loadData, navigate, planReal, showMsg, user]);
 
+  const dismissRecommendation = useCallback(async (recommendation) => {
+    if (!recommendation?.id) return;
+    const key = `recommendation-hide:${recommendation.id}`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/feedback`, {
+        date: cockpitDate,
+        decision: 'dismissed',
+        oddzial_id: oddzialForCockpit || null,
+        target_path: recommendation.target_path || '',
+        task_ids: recommendation.task_ids || [],
+        note: recommendation.title || '',
+      }, {
+        headers: authHeaders(token),
+      });
+      showMsg(successMessage('Rekomendacja ukryta na dzis.'));
+      await loadCockpit(user, cockpitDate, oddzialForCockpit);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie ukryc rekomendacji.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, showMsg, user]);
+
+  const restoreRecommendation = useCallback(async (recommendation) => {
+    if (!recommendation?.id) return;
+    const key = `recommendation-restore:${recommendation.id}`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/feedback`, {
+        date: cockpitDate,
+        decision: 'accepted',
+        oddzial_id: oddzialForCockpit || null,
+        target_path: recommendation.target_path || '',
+        task_ids: recommendation.task_ids || [],
+        note: recommendation.title || '',
+      }, {
+        headers: authHeaders(token),
+      });
+      showMsg(successMessage('Rekomendacja przywrocona.'));
+      await loadCockpit(user, cockpitDate, oddzialForCockpit);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie przywrocic rekomendacji.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, showMsg, user]);
+
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
     if (filtrStatus && z.status !== filtrStatus) return false;
@@ -414,6 +486,7 @@ export default function Kierownik() {
   const actionInsightRecent = actionInsights?.recent || [];
   const actionRecommendationSummary = actionRecommendations?.summary || {};
   const actionRecommendationItems = actionRecommendations?.recommendations || [];
+  const actionRecommendationHiddenItems = actionRecommendations?.hidden_recommendations || [];
 
   return (
     <div className="app-shell" style={styles.container}>
@@ -641,7 +714,7 @@ export default function Kierownik() {
                 Sugerowane ruchy
               </div>
               <span style={styles.planRealDate}>
-                {actionRecommendationSummary.high ?? 0} pilne / {actionRecommendationSummary.actionable ?? 0} wykonalne
+                {actionRecommendationSummary.high ?? 0} pilne / {actionRecommendationSummary.actionable ?? 0} wykonalne / {actionRecommendationSummary.hidden_today ?? 0} ukryte
               </span>
             </div>
             {actionRecommendationItems.length === 0 ? (
@@ -651,6 +724,8 @@ export default function Kierownik() {
                 {actionRecommendationItems.map((item) => {
                   const tone = cockpitTone(item.tone || (item.priority === 'high' ? 'danger' : 'info'));
                   const savingRecommendation = planActionSaving === `recommendation:${item.id}`;
+                  const hidingRecommendation = planActionSaving === `recommendation-hide:${item.id}`;
+                  const previewTasks = Array.isArray(item.task_preview) ? item.task_preview.slice(0, 3) : [];
                   return (
                     <div key={item.id} style={{ ...styles.recommendationCard, borderColor: tone.border }}>
                       <div style={styles.recommendationTop}>
@@ -663,6 +738,27 @@ export default function Kierownik() {
                         </span>
                       </div>
                       <div style={styles.recommendationActionText}>{item.suggested_action}</div>
+                      {previewTasks.length > 0 ? (
+                        <div style={styles.recommendationPreview}>
+                          <div style={styles.recommendationPreviewTitle}>Podglad zlecen</div>
+                          {previewTasks.map((task) => (
+                            <button
+                              key={`${item.id}-${task.id}`}
+                              type="button"
+                              style={styles.recommendationPreviewRow}
+                              onClick={() => navigate(task.target_path || `/zlecenia/${task.id}`)}
+                            >
+                              <span style={styles.recommendationPreviewBody}>
+                                <strong>{task.numer}</strong>
+                                <small>{task.klient_nazwa || 'Bez klienta'}{task.ekipa_nazwa ? ` / ${task.ekipa_nazwa}` : ''}</small>
+                              </span>
+                              <span style={{ ...styles.recommendationPreviewMeta, color: tone.color, borderColor: tone.border }}>
+                                {recommendationPreviewMeta(task)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                       <div style={styles.recommendationFooter}>
                         <span style={styles.recommendationImpact}>{item.impact_label}</span>
                         <span style={styles.recommendationButtons}>
@@ -686,6 +782,14 @@ export default function Kierownik() {
                               {item.secondary_label}
                             </button>
                           ) : null}
+                          <button
+                            type="button"
+                            style={styles.recommendationQuiet}
+                            onClick={() => dismissRecommendation(item)}
+                            disabled={Boolean(planActionSaving)}
+                          >
+                            {hidingRecommendation ? 'Ukrywam' : 'Pomin dzis'}
+                          </button>
                         </span>
                       </div>
                     </div>
@@ -693,6 +797,30 @@ export default function Kierownik() {
                 })}
               </div>
             )}
+            {actionRecommendationHiddenItems.length > 0 ? (
+              <div style={styles.hiddenRecommendations}>
+                <div style={styles.hiddenRecommendationsTitle}>Ukryte dzis</div>
+                {actionRecommendationHiddenItems.slice(0, 4).map((item) => {
+                  const restoringRecommendation = planActionSaving === `recommendation-restore:${item.id}`;
+                  return (
+                    <div key={`hidden-${item.id}`} style={styles.hiddenRecommendationRow}>
+                      <span style={styles.hiddenRecommendationBody}>
+                        <strong>{item.title}</strong>
+                        <small>{item.impact_label || item.suggested_action}</small>
+                      </span>
+                      <button
+                        type="button"
+                        style={styles.recommendationGhost}
+                        onClick={() => restoreRecommendation(item)}
+                        disabled={Boolean(planActionSaving)}
+                      >
+                        {restoringRecommendation ? 'Przywracam' : 'Przywroc'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <div style={styles.actionInsightsBand}>
@@ -1020,11 +1148,21 @@ const styles = {
   recommendationRank: { minWidth: 28, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 950, flexShrink: 0 },
   recommendationBody: { minWidth: 0, display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12 },
   recommendationActionText: { color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.35 },
+  recommendationPreview: { display: 'grid', gap: 4, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)' },
+  recommendationPreviewTitle: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0 },
+  recommendationPreviewRow: { width: '100%', minHeight: 34, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 0', border: 0, borderTop: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer' },
+  recommendationPreviewBody: { minWidth: 0, display: 'grid', gap: 1, fontSize: 11, overflow: 'hidden' },
+  recommendationPreviewMeta: { maxWidth: 120, padding: '2px 6px', borderRadius: 7, border: '1px solid var(--border)', fontSize: 10, fontWeight: 850, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 },
   recommendationFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   recommendationImpact: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 750 },
   recommendationButtons: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   recommendationPrimary: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
   recommendationGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  recommendationQuiet: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
+  hiddenRecommendations: { marginTop: 10, display: 'grid', gap: 6, paddingTop: 10, borderTop: '1px dashed var(--border)' },
+  hiddenRecommendationsTitle: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0 },
+  hiddenRecommendationRow: { minHeight: 38, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', color: 'var(--text-sub)' },
+  hiddenRecommendationBody: { minWidth: 0, display: 'grid', gap: 2, fontSize: 12 },
   actionInsightsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
   actionInsightsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   actionInsightsSummary: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, marginBottom: 8 },

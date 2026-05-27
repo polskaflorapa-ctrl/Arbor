@@ -37,6 +37,7 @@ const OPS_ACTION_LABELS = {
   set_duration: 'Ustawienie czasu',
   mark_reason: 'Powod odchylenia',
   remind_team: 'Przypomnienie ekipy',
+  recommendation_feedback: 'Feedback rekomendacji',
 };
 
 let opsActionEventsReady = false;
@@ -313,6 +314,50 @@ function buildRecommendationTaskPath(tasks, date) {
   return buildPlanRealTaskPath(task, date);
 }
 
+function recommendationTaskPreview(tasks = [], date, limit = 3) {
+  return tasks
+    .filter(Boolean)
+    .slice(0, limit)
+    .map((task) => {
+      const blockers = Array.isArray(task.blockers) ? task.blockers : [];
+      return {
+        id: task.id,
+        numer: task.numer || `ZLE-${String(task.id).padStart(4, '0')}`,
+        klient_nazwa: task.klient_nazwa || null,
+        ekipa_nazwa: task.ekipa_nazwa || null,
+        issue_key: task.issue_key || null,
+        issue_label: task.issue_label || (task.issue_key ? PLAN_REAL_ISSUE_LABELS[task.issue_key] || task.issue_key : null),
+        blockers,
+        planned_minutes: roundedMinutes(task.planned_minutes),
+        real_minutes: roundedMinutes(task.real_minutes),
+        delta_minutes: eventNumber(task.delta_minutes) || 0,
+        target_path: task.action_path || (blockers.length ? buildTaskPath({ ...task, blockers }, date) : buildPlanRealTaskPath(task, date)),
+      };
+    });
+}
+
+function taskBlockerSubset(task, allowedBlockers) {
+  const allowed = new Set(allowedBlockers || []);
+  return (task?.blockers || []).filter((key) => allowed.has(key));
+}
+
+function recommendationBlockerTaskPreview(tasks = [], date, allowedBlockers = []) {
+  return recommendationTaskPreview(
+    tasks.map((task) => ({
+      ...task,
+      blockers: taskBlockerSubset(task, allowedBlockers),
+      action_path: null,
+    })),
+    date
+  );
+}
+
+function recommendationBlockerTaskPath(tasks = [], date, allowedBlockers = []) {
+  const task = tasks.find(Boolean);
+  if (!task) return `/kierownik?date=${encodeURIComponent(date)}`;
+  return buildTaskPath({ ...task, blockers: taskBlockerSubset(task, allowedBlockers) }, date);
+}
+
 function classifyPlanRealTask(task) {
   if (task.planned_minutes <= 0) {
     return {
@@ -399,6 +444,8 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
   const notStarted = activeTasks.filter((task) => task.issue_key === 'not_started' && task.ekipa_id);
   const overrunTasks = activeTasks.filter((task) => task.issue_key === 'overrun' || task.issue_key === 'missing_finish');
   const dispatchBlockers = activeTasks.filter((task) => task.blockers?.includes('team') || task.blockers?.includes('gps'));
+  const contactBlockers = activeTasks.filter((task) => task.blockers?.includes('phone') || task.blockers?.includes('address'));
+  const issueBlockers = activeTasks.filter((task) => task.blockers?.includes('issue'));
   const topReason = topEventStat(eventStats, 'reason_code');
 
   const recommendations = [];
@@ -406,6 +453,7 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
     recommendations.push({
       oddzial_id: oddzialId,
       generated_for_date: date,
+      task_preview: [],
       ...item,
     });
   };
@@ -426,6 +474,7 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
       suggested_minutes: suggestedMinutes,
       task_count: missingDuration.length,
       task_ids: missingDuration.slice(0, 8).map((task) => task.id),
+      task_preview: recommendationTaskPreview(missingDuration, date),
       target_path: buildRecommendationTaskPath(missingDuration, date),
       impact_label: `${formatActionMinutes(suggestedMinutes * missingDuration.length)} planu do uzupelnienia`,
     });
@@ -445,6 +494,7 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
       secondary_label: 'Otworz',
       task_count: notStarted.length,
       task_ids: notStarted.slice(0, 8).map((task) => task.id),
+      task_preview: recommendationTaskPreview(notStarted, date),
       target_path: buildRecommendationTaskPath(notStarted, date),
       impact_label: `${notStarted.length} ekip do potwierdzenia`,
     });
@@ -466,8 +516,52 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
       secondary_label: '',
       task_count: dispatchBlockers.length,
       task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
+      task_preview: recommendationTaskPreview(dispatchBlockers, date),
       target_path: buildTaskPath({ ...dispatchBlockers[0], blockers: dispatchBlockers[0].blockers || [] }, date),
       impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
+    });
+  }
+
+  if (contactBlockers.length > 0) {
+    const missingPhones = contactBlockers.filter((task) => task.blockers?.includes('phone')).length;
+    const missingAddresses = contactBlockers.filter((task) => task.blockers?.includes('address')).length;
+    add({
+      id: 'fix_contact_blockers',
+      priority: contactBlockers.length >= 3 ? 'high' : 'medium',
+      tone: 'warning',
+      score: 74 + contactBlockers.length * 6,
+      title: `${contactBlockers.length} zlecen z brakami kontaktowymi`,
+      rationale: `${missingPhones} bez telefonu, ${missingAddresses} bez adresu. To spowalnia potwierdzenia i przygotowanie ekip.`,
+      suggested_action: 'Otworz pierwsze zlecenie i uzupelnij dane klienta przed wysylka.',
+      action_kind: 'open_tasks',
+      primary_label: 'Napraw dane',
+      secondary_label: '',
+      task_count: contactBlockers.length,
+      task_ids: contactBlockers.slice(0, 8).map((task) => task.id),
+      task_preview: recommendationBlockerTaskPreview(contactBlockers, date, ['phone', 'address']),
+      target_path: recommendationBlockerTaskPath(contactBlockers, date, ['phone', 'address']),
+      impact_label: `${contactBlockers.length} zlecen wymaga danych`,
+    });
+  }
+
+  if (issueBlockers.length > 0) {
+    const openIssues = issueBlockers.reduce((sum, task) => sum + Number(task.open_issues || 0), 0);
+    add({
+      id: 'resolve_open_issues',
+      priority: openIssues >= 3 ? 'high' : 'medium',
+      tone: 'danger',
+      score: 72 + Math.min(30, openIssues * 5),
+      title: `${openIssues} otwartych problemow blokuje dzien`,
+      rationale: `${issueBlockers.length} zlecen ma nierozwiazane problemy przed realizacja.`,
+      suggested_action: 'Otworz zakladke problemow i domknij decyzje przed startem ekipy.',
+      action_kind: 'open_tasks',
+      primary_label: 'Zamknij problemy',
+      secondary_label: '',
+      task_count: issueBlockers.length,
+      task_ids: issueBlockers.slice(0, 8).map((task) => task.id),
+      task_preview: recommendationBlockerTaskPreview(issueBlockers, date, ['issue']),
+      target_path: recommendationBlockerTaskPath(issueBlockers, date, ['issue']),
+      impact_label: `${openIssues} problemow do decyzji`,
     });
   }
 
@@ -486,6 +580,7 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
       secondary_label: '',
       task_count: overrunTasks.length,
       task_ids: overrunTasks.slice(0, 8).map((task) => task.id),
+      task_preview: recommendationTaskPreview(overrunTasks, date),
       target_path: buildRecommendationTaskPath(overrunTasks, date),
       impact_label: `${formatActionMinutes(totalDelta)} nad planem`,
     });
@@ -535,8 +630,26 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
 
   return recommendations
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
     .map((item, index) => ({ ...item, rank: index + 1 }));
+}
+
+function latestRecommendationFeedbackById(rows = []) {
+  const latest = new Map();
+  for (const row of rows || []) {
+    const recommendationId = cleanText(row?.recommendation_id, 120);
+    if (!recommendationId) continue;
+    const ts = new Date(row?.created_at || 0).getTime();
+    const createdAt = Number.isFinite(ts) ? ts : 0;
+    const current = latest.get(recommendationId);
+    if (!current || createdAt >= current.createdAt) {
+      latest.set(recommendationId, {
+        recommendation_id: recommendationId,
+        decision: cleanText(row?.decision, 30),
+        createdAt,
+      });
+    }
+  }
+  return latest;
 }
 
 router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
@@ -1025,21 +1138,24 @@ router.get('/action-insights', authMiddleware, requireRole(...MANAGER_ROLES), as
       reasons,
       issues,
       actions,
-      recent: rows.slice(0, 8).map((row) => ({
-        id: row.id,
-        task_id: row.task_id,
-        numer: row.numer || (row.task_id ? `#${row.task_id}` : '-'),
-        klient_nazwa: row.klient_nazwa,
-        action_type: row.action_type,
-        action_label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
-        issue_key: row.issue_key,
-        issue_label: PLAN_REAL_ISSUE_LABELS[row.issue_key] || row.issue_key,
-        reason_code: row.reason_code,
-        reason_label: PLAN_REAL_REASON_LABELS[row.reason_code] || row.reason_code,
-        delta_minutes: eventNumber(row.delta_minutes),
-        actor_name: row.actor_name,
-        created_at: row.created_at,
-      })),
+      recent: rows
+        .filter((row) => row.action_type !== 'recommendation_feedback')
+        .slice(0, 8)
+        .map((row) => ({
+          id: row.id,
+          task_id: row.task_id,
+          numer: row.numer || (row.task_id ? `#${row.task_id}` : '-'),
+          klient_nazwa: row.klient_nazwa,
+          action_type: row.action_type,
+          action_label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+          issue_key: row.issue_key,
+          issue_label: PLAN_REAL_ISSUE_LABELS[row.issue_key] || row.issue_key,
+          reason_code: row.reason_code,
+          reason_label: PLAN_REAL_REASON_LABELS[row.reason_code] || row.reason_code,
+          delta_minutes: eventNumber(row.delta_minutes),
+          actor_name: row.actor_name,
+          created_at: row.created_at,
+        })),
       generated_at: new Date().toISOString(),
       requestId: req.requestId,
     });
@@ -1067,7 +1183,7 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
 
   try {
     await ensureOpsActionEventsTable();
-    const [tasksResult, eventsResult] = await Promise.all([
+    const [tasksResult, eventsResult, feedbackResult] = await Promise.all([
       pool.query(
         `WITH planned AS (
            SELECT t.id, t.numer, t.klient_nazwa, t.klient_telefon, t.adres, t.miasto,
@@ -1145,6 +1261,20 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
          ORDER BY count DESC`,
         params
       ),
+      pool.query(
+        `SELECT DISTINCT ON (metadata->>'recommendation_id')
+                metadata->>'recommendation_id' AS recommendation_id,
+                metadata->>'decision' AS decision,
+                created_at
+         FROM ops_action_events e
+         WHERE e.created_at >= $1::date
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           AND e.action_type = 'recommendation_feedback'
+           AND NULLIF(metadata->>'recommendation_id', '') IS NOT NULL
+           ${eventBranchSql}
+         ORDER BY metadata->>'recommendation_id', e.created_at DESC`,
+        params
+      ),
     ]);
 
     const tasks = tasksResult.rows.map((row) => {
@@ -1194,12 +1324,23 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
       };
     });
 
-    const recommendations = buildOpsActionRecommendations({
+    const latestFeedback = latestRecommendationFeedbackById(feedbackResult.rows || []);
+    const hiddenRecommendationIds = new Set(Array.from(latestFeedback.values())
+      .filter((row) => ['dismissed', 'snoozed'].includes(row.decision))
+      .map((row) => row.recommendation_id)
+      .filter(Boolean));
+
+    const allRecommendations = buildOpsActionRecommendations({
       date,
       oddzialId,
       tasks,
       eventStats: eventsResult.rows || [],
     });
+    const recommendations = allRecommendations
+      .filter((item) => !hiddenRecommendationIds.has(item.id))
+      .slice(0, 5)
+      .map((item, index) => ({ ...item, rank: index + 1 }));
+    const hiddenRecommendations = allRecommendations.filter((item) => hiddenRecommendationIds.has(item.id));
 
     res.json({
       date,
@@ -1210,14 +1351,81 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
         actionable: recommendations.filter((item) => item.action_kind && item.action_kind !== 'none').length,
         plan_tasks: tasks.length,
         memory_rows: eventsResult.rows.length,
+        hidden_today: hiddenRecommendations.length,
       },
       recommendations,
+      hidden_recommendations: hiddenRecommendations,
       generated_at: new Date().toISOString(),
       requestId: req.requestId,
     });
   } catch (e) {
     logger.error('ops action-recommendations', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.post('/action-recommendations/:recommendationId/feedback', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const recommendationId = cleanText(req.params.recommendationId, 80);
+  if (!recommendationId) {
+    return res.status(400).json({ error: 'Nieprawidlowy identyfikator rekomendacji.' });
+  }
+
+  const date = parseDateParam(req.body?.date || req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+
+  const decision = cleanText(req.body?.decision, 30);
+  const allowedDecisions = new Set(['accepted', 'dismissed', 'snoozed']);
+  if (!allowedDecisions.has(decision)) {
+    return res.status(400).json({ error: 'Nieznana decyzja dla rekomendacji.' });
+  }
+
+  const requestedOddzial = req.body?.oddzial_id || req.query.oddzial_id ? Number(req.body?.oddzial_id || req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  try {
+    await ensureOpsActionEventsTable();
+    const event = await recordOpsActionEvent({
+      task: { oddzial_id: oddzialId },
+      user: req.user,
+      actionType: 'recommendation_feedback',
+      note: cleanText(req.body?.note, 600),
+      metadata: {
+        recommendation_id: recommendationId,
+        decision,
+        date,
+        target_path: cleanText(req.body?.target_path, 300) || null,
+        task_ids: Array.isArray(req.body?.task_ids)
+          ? req.body.task_ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 20)
+          : [],
+      },
+    });
+
+    await req.auditLog?.({
+      action: 'ops.action_recommendation.feedback',
+      entity: 'ops_recommendation',
+      entity_id: recommendationId,
+      details: { decision, date, oddzial_id: oddzialId },
+    });
+
+    return res.json({
+      message: decision === 'dismissed' ? 'Rekomendacja ukryta na dzis' : 'Decyzja zapisana',
+      feedback: {
+        recommendation_id: recommendationId,
+        decision,
+        date,
+        oddzial_id: oddzialId,
+      },
+      event,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops action-recommendation feedback', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });
 

@@ -1,6 +1,6 @@
 import '../i18n';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi } from 'vitest';
 import Zlecenia from './Zlecenia';
 import api from '../api';
@@ -109,10 +109,16 @@ function renderRoute(path) {
       <Routes>
         <Route path="/zlecenia/:id" element={<Zlecenia />} />
         <Route path="/auto-dispatch" element={<div>Powrot do AI Dyspozytora</div>} />
+        <Route path="/harmonogram" element={<LocationProbe label="Harmonogram fokus" />} />
         <Route path="/" element={<div>Login</div>} />
       </Routes>
     </MemoryRouter>
   );
+}
+
+function LocationProbe({ label }) {
+  const location = useLocation();
+  return <div data-testid="location-probe">{label}: {location.search}</div>;
 }
 
 beforeEach(() => {
@@ -271,4 +277,29 @@ test('shows routed task GPS history and refreshes the selected day', async () =>
       expect.objectContaining({ dedupe: false })
     );
   });
+}, 15000);
+
+test('opens crew schedule deep link from task planning handoff', async () => {
+  mockZleceniaApi({
+    task: {
+      ...TASK,
+      status: 'Do_Zatwierdzenia',
+      ekipa_id: 3,
+      ekipa_nazwa: 'Brygada Alfa',
+      data_planowana: '2026-05-26T08:00:00.000Z',
+    },
+  });
+
+  renderRoute('/zlecenia/42');
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith('/tasks/42', expect.any(Object));
+  });
+
+  fireEvent.click(await screen.findByRole('button', { name: /Otwórz harmonogram ekip/i }, SLOW_FORM_RENDER));
+
+  expect(await screen.findByTestId('location-probe')).toHaveTextContent('Harmonogram fokus');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('task=42');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('team=3');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('date=2026-05-26');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('oddzial=7');
 }, 15000);

@@ -185,9 +185,9 @@ export default function Klienci() {
       <main className="clients-main" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div style={{ width: 340, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: 'var(--surface-glass)' }}>
+        <div style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
           {/* Nagłówek */}
-          <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Klienci</h2>
@@ -228,7 +228,7 @@ export default function Klienci() {
                   padding: '12px 16px',
                   borderBottom: '1px solid var(--border)',
                   cursor: 'pointer',
-                  background: selected === k.id ? 'var(--accent-surface)' : 'transparent',
+                  background: selected === k.id ? 'var(--accent-surface)' : '#ffffff',
                   borderLeft: `3px solid ${selected === k.id ? 'var(--accent)' : 'transparent'}`,
                   transition: 'all 0.15s',
                 }}
@@ -273,7 +273,7 @@ export default function Klienci() {
         </div>
 
         {/* ── PRAWA KOLUMNA: szczegóły ── */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
           {!selected ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ opacity: 0.3, marginBottom: 16 }}>
@@ -287,21 +287,22 @@ export default function Klienci() {
               Ładowanie...
             </div>
           ) : detail && (
-            <div style={{ maxWidth: 860, margin: '0 auto', padding: 28 }}>
+            <div style={{ maxWidth: 1040, margin: '0 auto', padding: 28 }}>
 
               {/* Nagłówek szczegółów */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <div className="clients-client-hero" style={sec.clientHero}>
                 <div>
-                  <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
+                  <div style={sec.eyebrow}>Paszport klienta</div>
+                  <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.08, fontWeight: 950, color: '#ffffff' }}>
                     {detail.imie} {detail.nazwisko}
                   </h1>
-                  {detail.firma && <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--accent)' }}>{detail.firma}</p>}
-                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  {detail.firma && <p style={{ margin: '6px 0 0', fontSize: 14, color: '#bbf7d0', fontWeight: 850 }}>{detail.firma}</p>}
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(240,253,244,0.78)', fontWeight: 750 }}>
                     Klient od {fmt(detail.created_at)}
                     {detail.created_by_nazwa && ` · dodał ${detail.created_by_nazwa}`}
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => navigate(`/ogledziny?klient=${detail.id}`)}
                     style={btn.secondary}
@@ -323,7 +324,7 @@ export default function Klienci() {
               </div>
 
               {/* Karty z danymi */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 16, marginBottom: 24 }}>
                 <Card title="Kontakt">
                   <Row
                     label="Telefon"
@@ -481,14 +482,14 @@ export default function Klienci() {
               </button>
             </div>
             <div style={{ overflowY: 'auto', maxHeight: 'calc(85vh - 120px)', padding: '4px 0' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 24px 20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 12, padding: '0 24px 20px' }}>
                 <FormField label="Imię">
                   <input style={inp.base} value={form.imie} onChange={e => setForm(f => ({ ...f, imie: e.target.value }))} placeholder="Jan" />
                 </FormField>
                 <FormField label="Nazwisko">
                   <input style={inp.base} value={form.nazwisko} onChange={e => setForm(f => ({ ...f, nazwisko: e.target.value }))} placeholder="Kowalski" />
                 </FormField>
-                <FormField label="Firma" style={{ gridColumn: 'span 2' }}>
+                <FormField label="Firma" style={{ gridColumn: '1 / -1' }}>
                   <input style={inp.base} value={form.firma} onChange={e => setForm(f => ({ ...f, firma: e.target.value }))} placeholder="Nazwa firmy (opcjonalne)" />
                 </FormField>
                 <FormField label="Telefon *">
@@ -497,7 +498,7 @@ export default function Klienci() {
                 <FormField label="Email">
                   <input style={inp.base} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="jan@firma.pl" />
                 </FormField>
-                <FormField label="Adres" style={{ gridColumn: 'span 2' }}>
+                <FormField label="Adres" style={{ gridColumn: '1 / -1' }}>
                   <input style={inp.base} value={form.adres} onChange={e => setForm(f => ({ ...f, adres: e.target.value }))} placeholder="ul. Leśna 1" />
                 </FormField>
                 <FormField label="Miasto">
@@ -512,12 +513,12 @@ export default function Klienci() {
                 <FormField label="Kod pocztowy">
                   <input style={inp.base} value={form.kod_pocztowy} onChange={e => setForm(f => ({ ...f, kod_pocztowy: e.target.value }))} placeholder="00-000" />
                 </FormField>
-                <FormField label="Źródło kontaktu" style={{ gridColumn: 'span 2' }}>
+                <FormField label="Źródło kontaktu" style={{ gridColumn: '1 / -1' }}>
                   <select style={inp.base} value={form.zrodlo} onChange={e => setForm(f => ({ ...f, zrodlo: e.target.value }))}>
                     {ZRODLA.map(z => <option key={z} value={z}>{z}</option>)}
                   </select>
                 </FormField>
-                <FormField label="Notatki" style={{ gridColumn: 'span 2' }}>
+                <FormField label="Notatki" style={{ gridColumn: '1 / -1' }}>
                   <textarea style={{ ...inp.base, resize: 'vertical', minHeight: 80 }} value={form.notatki} onChange={e => setForm(f => ({ ...f, notatki: e.target.value }))} placeholder="Dodatkowe informacje o kliencie..." />
                 </FormField>
               </div>
@@ -538,8 +539,8 @@ export default function Klienci() {
 // ─── Pomocnicze komponenty ────────────────────────────────────────────────────
 function Card({ title, children }) {
   return (
-    <div style={{ background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: 16, boxShadow: 'var(--shadow-md)' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
+    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid var(--glass-border)', padding: 16, boxShadow: 'var(--shadow-md)' }}>
+      <div style={{ fontSize: 11, fontWeight: 950, color: 'var(--text-muted)', letterSpacing: 0, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
   );
@@ -558,7 +559,7 @@ function Row({ label, value }) {
 function FormField({ label, children, style }) {
   return (
     <div style={style}>
-      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0 }}>{label}</label>
       {children}
     </div>
   );
@@ -573,12 +574,12 @@ const btn = {
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid var(--border)',
-    borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    background: '#ffffff', color: 'var(--accent-dk)', border: '1px solid rgba(15,107,63,0.18)',
+    borderRadius: 8, fontSize: 12, fontWeight: 850, cursor: 'pointer',
   },
   secondaryGhost: {
-    padding: '9px 18px', background: 'var(--surface-field)', color: 'var(--text-sub)',
-    border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    padding: '9px 18px', background: '#ffffff', color: 'var(--text-sub)',
+    border: '1px solid rgba(15,107,63,0.18)', borderRadius: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer',
   },
   danger: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
@@ -589,19 +590,39 @@ const btn = {
 
 const inp = {
   base: {
-    width: '100%', padding: '9px 11px', background: 'var(--surface-field)',
-    border: '1px solid var(--border)', borderRadius: 8,
+    width: '100%', minHeight: 40, padding: '9px 11px', background: '#ffffff',
+    border: '1px solid rgba(15,107,63,0.18)', borderRadius: 8,
     color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   },
 };
 
 const sec = {
-  wrap: { background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: 16, marginBottom: 16, boxShadow: 'var(--shadow-md)' },
+  clientHero: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 18,
+    padding: 18,
+    borderRadius: 8,
+    border: '1px solid rgba(255,255,255,0.16)',
+    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+  },
+  eyebrow: {
+    color: '#86efac',
+    fontSize: 11,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  wrap: { background: '#ffffff', borderRadius: 8, border: '1px solid var(--glass-border)', padding: 16, marginBottom: 16, boxShadow: 'var(--shadow-md)' },
   header: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
   title: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
   row: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-    background: 'var(--surface-field)', borderRadius: 8, border: '1px solid var(--border)',
+    background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)',
     transition: 'background 0.15s',
   },
 };
@@ -616,7 +637,7 @@ const modal = {
     alignItems: 'center', justifyContent: 'center', zIndex: 500,
   },
   box: {
-    width: '90%', maxWidth: 600, background: 'var(--surface-glass)',
+    width: '90%', maxWidth: 640, background: '#ffffff',
     borderRadius: 8, border: '1px solid var(--glass-border)',
     boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column',
     maxHeight: '90vh',

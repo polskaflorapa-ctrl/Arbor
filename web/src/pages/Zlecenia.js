@@ -1450,6 +1450,7 @@ function OfficePlanningQueue({
   onCopy,
 }) {
   if (!rows?.length) return null;
+  const focusedCalendarTask = rows.length === 1 ? rows[0]?.task : null;
   return (
     <section className="zlecenia-office-planning-queue" style={styles.officePlanningQueue}>
       <div style={styles.officePlanningQueueHead}>
@@ -1510,7 +1511,7 @@ function OfficePlanningQueue({
         <button type="button" style={styles.bulkBtn} onClick={onApplyView}>
           Pokaż pełną kolejkę
         </button>
-        <button type="button" style={styles.bulkBtnSecondary} onClick={() => onOpenCalendar?.()}>
+        <button type="button" style={styles.bulkBtnSecondary} onClick={() => onOpenCalendar?.(focusedCalendarTask)}>
           Harmonogram ekip
         </button>
         <button type="button" style={styles.bulkBtnSecondary} onClick={onCopy}>
@@ -1636,7 +1637,12 @@ function OfficePlanHandoffCard({
         <button type="button" style={styles.bulkBtn} disabled={!canPlan} onClick={onPlan}>
           Otworz plan biura
         </button>
-        <button type="button" style={styles.bulkBtnSecondary} onClick={onCalendar}>
+        <button
+          type="button"
+          style={styles.bulkBtnSecondary}
+          aria-label={`Harmonogram ekip dla zlecenia #${task.id}`}
+          onClick={onCalendar}
+        >
           Harmonogram ekip
         </button>
         <button type="button" style={styles.bulkBtnSecondary} onClick={onCopy}>
@@ -6044,6 +6050,34 @@ export default function Zlecenia() {
 
     navigate(`/kalendarz-zasobow?${params.toString()}`);
   };
+
+  const openCrewScheduleForTask = (task = null) => {
+    const sourceTask = task || wybraneZlecenie || zlecenia.find((item) => String(item.id) === String(routeTaskId || ''));
+    const params = new URLSearchParams();
+    params.set('view', 'dzien');
+
+    const fallbackTaskId = sourceTask?.id || wybraneZlecenie?.id || routeTaskId || '';
+    if (fallbackTaskId) {
+      const isCurrentTask = String(fallbackTaskId) === String(wybraneZlecenie?.id || routeTaskId || '');
+      const plannedDate = String(
+        (isCurrentTask ? officePlan.data_planowana : '') ||
+        sourceTask?.data_planowana ||
+        sourceTask?.data_zaplanowana ||
+        wybraneZlecenie?.data_planowana ||
+        wybraneZlecenie?.data_zaplanowana ||
+        ''
+      ).slice(0, 10);
+      const teamId = (isCurrentTask ? officePlan.ekipa_id : '') || sourceTask?.ekipa_id || wybraneZlecenie?.ekipa_id || '';
+      const branchId = sourceTask?.oddzial_id || wybraneZlecenie?.oddzial_id || currentUser?.oddzial_id || '';
+
+      params.set('task', String(fallbackTaskId));
+      if (plannedDate) params.set('date', plannedDate);
+      if (teamId) params.set('team', String(teamId));
+      if (branchId) params.set('oddzial', String(branchId));
+    }
+
+    navigate(`/harmonogram?${params.toString()}`);
+  };
   const oddzialyOpcje = [
     ...new Set([
       ...zlecenia.map((z) => z.oddzial_id),
@@ -7092,7 +7126,7 @@ export default function Zlecenia() {
                     blocked={officePlanningBlocked}
                     value={officePlanningValue}
                     onPlan={openOfficePlanningTask}
-                    onOpenCalendar={openResourceCalendarForTask}
+                    onOpenCalendar={openCrewScheduleForTask}
                     onApplyView={() => applyOperationalView(officeApprovalView)}
                     onCopy={() => copyDispatchManifest(officePlanningRows.map((row) => row.task), 'pakietów do planowania')}
                   />
@@ -8105,7 +8139,7 @@ export default function Zlecenia() {
 
             <section className="zlecenia-detail-hero" style={s.detailHeroPanel}>
               <div style={s.detailHeroMain}>
-                <div style={s.detailOpsEyebrow}>Paszport operacyjny</div>
+                <div className="zlecenia-detail-hero-eyebrow" style={s.detailOpsEyebrow}>Paszport operacyjny</div>
                 <h2 style={s.detailHeroTitle}>
                   {wybraneZlecenie.klient_nazwa || `Zlecenie #${wybraneZlecenie.id}`}
                 </h2>
@@ -8222,7 +8256,7 @@ export default function Zlecenia() {
               riskLabel={getTaskCrewRisk(wybraneZlecenie)}
               canPlan={showOfficePlanPanel}
               onPlan={() => scrollToDetailSection('officePlan')}
-              onCalendar={() => openResourceCalendarForTask(wybraneZlecenie, { tab: 'teams', modal: '1' })}
+              onCalendar={() => openCrewScheduleForTask(wybraneZlecenie)}
               onCopy={() => copyOfficePlanHandoff(wybraneZlecenie)}
               onPhotos={() => scrollToDetailSection('photos')}
             />
@@ -8667,7 +8701,7 @@ export default function Zlecenia() {
                   <button
                     type="button"
                     style={s.bulkBtnSecondary}
-                    onClick={() => openResourceCalendarForTask(wybraneZlecenie, { tab: 'teams', modal: '1' })}
+                    onClick={() => openCrewScheduleForTask(wybraneZlecenie)}
                   >
                     Otwórz harmonogram ekip
                   </button>
