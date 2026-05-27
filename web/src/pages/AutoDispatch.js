@@ -461,6 +461,7 @@ export default function AutoDispatch() {
   const [dispatchBriefText, setDispatchBriefText] = useState('');
   const [dispatchBriefSending, setDispatchBriefSending] = useState('');
   const [dispatchBriefReminding, setDispatchBriefReminding] = useState('');
+  const [dispatchBriefRemindingAll, setDispatchBriefRemindingAll] = useState(false);
   const [dispatchBriefSendingAll, setDispatchBriefSendingAll] = useState(false);
   const [dispatchBriefSent, setDispatchBriefSent] = useState('');
   const [routeBriefStatuses, setRouteBriefStatuses] = useState({});
@@ -486,6 +487,7 @@ export default function AutoDispatch() {
     setDispatchBriefText('');
     setDispatchBriefSending('');
     setDispatchBriefReminding('');
+    setDispatchBriefRemindingAll(false);
     setDispatchBriefSendingAll(false);
     setDispatchBriefSent('');
     setRouteBriefStatuses({});
@@ -512,6 +514,7 @@ export default function AutoDispatch() {
     setDispatchBriefText('');
     setDispatchBriefSending('');
     setDispatchBriefReminding('');
+    setDispatchBriefRemindingAll(false);
     setDispatchBriefSendingAll(false);
     setDispatchBriefSent('');
     setRouteBriefStatuses({});
@@ -799,6 +802,60 @@ export default function AutoDispatch() {
     }
   }, [refreshRouteBriefStatuses, routeBriefStatuses]);
 
+  const remindAllRouteBriefPending = useCallback(async () => {
+    const routes = (plan?.routes || [])
+      .filter(route => route?.team_id && (route.stops || []).length)
+      .filter((route) => {
+        const status = routeBriefStatuses[routeBriefKey(route)];
+        return status?.brief_id && routeBriefPendingRecipients(status).length > 0;
+      });
+
+    if (!routes.length) {
+      setSuccess('Nie ma oczekujacych odbiorcow odpraw.');
+      return;
+    }
+
+    setDispatchBriefRemindingAll(true);
+    setError('');
+    setSuccess('');
+    const token = getStoredToken();
+    let remindedTeams = 0;
+    let remindedRecipients = 0;
+    const failed = [];
+
+    try {
+      for (const route of routes) {
+        const teamKey = routeBriefKey(route);
+        const routeStatus = routeBriefStatuses[teamKey];
+        const pendingRecipients = routeBriefPendingRecipients(routeStatus);
+        setDispatchBriefReminding(teamKey);
+        try {
+          const res = await api.post(
+            `/dispatch/route-brief/${routeStatus.brief_id}/remind`,
+            {},
+            { headers: authHeaders(token) }
+          );
+          remindedTeams += 1;
+          remindedRecipients += Number(res.data?.reminded ?? pendingRecipients.length);
+        } catch (e) {
+          failed.push(route.team_name || `Ekipa #${route.team_id}`);
+        }
+      }
+
+      await refreshRouteBriefStatuses({ quiet: true });
+    } finally {
+      setDispatchBriefReminding('');
+      setDispatchBriefRemindingAll(false);
+    }
+
+    if (failed.length) {
+      setError(`Nie wyslano przypomnien: ${failed.join(', ')}.`);
+    }
+    if (remindedTeams > 0) {
+      setSuccess(`Przypomnienia wyslane: ${remindedTeams}/${routes.length} ekip, ${remindedRecipients} odbiorcow.`);
+    }
+  }, [plan?.routes, refreshRouteBriefStatuses, routeBriefStatuses]);
+
   useEffect(() => {
     if (!plan?.routes?.length) return undefined;
     let cancelled = false;
@@ -873,6 +930,14 @@ export default function AutoDispatch() {
   const stats = plan?.stats;
   const dispatchableRoutes = (plan?.routes || []).filter(route => route?.team_id && (route.stops || []).length);
   const sentRoutesCount = dispatchableRoutes.filter(route => routeBriefStatuses[routeBriefKey(route)]?.sent_to).length;
+  const pendingRouteBriefRoutes = dispatchableRoutes.filter((route) => {
+    const status = routeBriefStatuses[routeBriefKey(route)];
+    return status?.brief_id && routeBriefPendingRecipients(status).length > 0;
+  });
+  const pendingRouteBriefRecipients = pendingRouteBriefRoutes.reduce((sum, route) => {
+    const status = routeBriefStatuses[routeBriefKey(route)];
+    return sum + routeBriefPendingRecipients(status).length;
+  }, 0);
   const workflowSteps = useMemo(() => {
     const advisorLoaded = Boolean(advisor);
     const blocked = Number(preflightHold?.blocked ?? advisor?.metrics?.blocked ?? 0);
@@ -1300,21 +1365,37 @@ export default function AutoDispatch() {
                 <button
                   type="button"
                   onClick={() => refreshRouteBriefStatuses()}
-                  disabled={dispatchBriefStatusLoading || dispatchableRoutes.length === 0}
+                  disabled={dispatchBriefStatusLoading || dispatchBriefRemindingAll || dispatchBriefSendingAll || dispatchableRoutes.length === 0}
                   style={{
                     ...s.refreshBriefStatusBtn,
-                    ...((dispatchBriefStatusLoading || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
+                    ...((dispatchBriefStatusLoading || dispatchBriefRemindingAll || dispatchBriefSendingAll || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
                   }}
                 >
                   {dispatchBriefStatusLoading ? 'Odswiezam...' : 'Odswiez odbior'}
                 </button>
                 <button
                   type="button"
+                  onClick={remindAllRouteBriefPending}
+                  disabled={dispatchBriefRemindingAll || dispatchBriefSendingAll || pendingRouteBriefRoutes.length === 0}
+                  aria-label={`Przypomnij wszystkim oczekujacym (${pendingRouteBriefRecipients})`}
+                  style={{
+                    ...s.remindAllBriefBtn,
+                    ...((dispatchBriefRemindingAll || dispatchBriefSendingAll || pendingRouteBriefRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
+                  }}
+                >
+                  {dispatchBriefRemindingAll
+                    ? 'Przypominam...'
+                    : pendingRouteBriefRecipients > 0
+                      ? `Przypomnij wszystkim (${pendingRouteBriefRecipients})`
+                      : 'Brak oczekujacych'}
+                </button>
+                <button
+                  type="button"
                   onClick={sendAllRouteBriefs}
-                  disabled={dispatchBriefSendingAll || dispatchableRoutes.length === 0}
+                  disabled={dispatchBriefSendingAll || dispatchBriefRemindingAll || dispatchableRoutes.length === 0}
                   style={{
                     ...s.sendAllBriefBtn,
-                    ...((dispatchBriefSendingAll || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
+                    ...((dispatchBriefSendingAll || dispatchBriefRemindingAll || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
                   }}
                 >
                   {dispatchBriefSendingAll
@@ -1351,8 +1432,8 @@ export default function AutoDispatch() {
                 const sendingRoute = dispatchBriefSending === routeKey;
                 const remindingRoute = dispatchBriefReminding === routeKey;
                 const pendingRecipients = routeBriefPendingRecipients(routeStatus);
-                const sendDisabled = dispatchBriefSendingAll || sendingRoute || !route.team_id || !(route.stops || []).length;
-                const remindDisabled = remindingRoute || dispatchBriefSendingAll || sendingRoute || !routeStatus?.brief_id || pendingRecipients.length === 0;
+                const sendDisabled = dispatchBriefSendingAll || dispatchBriefRemindingAll || sendingRoute || !route.team_id || !(route.stops || []).length;
+                const remindDisabled = remindingRoute || dispatchBriefRemindingAll || dispatchBriefSendingAll || sendingRoute || !routeStatus?.brief_id || pendingRecipients.length === 0;
                 return (
                   <div key={route.team_id} style={{ ...s.routeCard, borderLeft: `4px solid ${color}` }}>
                     <div style={s.routeHeaderRow}>
@@ -1639,6 +1720,7 @@ const s = {
   handoffActions:{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', flexShrink: 0 },
   copyDayBriefBtn:{ flexShrink: 0, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   refreshBriefStatusBtn:{ flexShrink: 0, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
+  remindAllBriefBtn:{ flexShrink: 0, border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   sendAllBriefBtn:{ flexShrink: 0, border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   manualDispatchBrief:{ width: '100%', minHeight: 96, marginTop: 10, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', color: 'var(--text)', padding: 10, fontSize: 12, lineHeight: 1.45, resize: 'vertical' },
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },

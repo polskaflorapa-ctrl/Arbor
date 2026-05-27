@@ -521,6 +521,125 @@ test('loads persisted route brief confirmation statuses for a generated plan', a
   expect(screen.getByRole('button', { name: 'Przypomnij oczekujacym Brygada Alfa' })).toBeInTheDocument();
 }, 10000);
 
+test('reminds all teams with pending route brief confirmations', async () => {
+  api.post
+    .mockResolvedValueOnce({
+      data: {
+        routes: [
+          {
+            team_id: 10,
+            team_name: 'Brygada Alfa',
+            total_min: 90,
+            distance_km: 12,
+            end_time: '09:30',
+            return_travel_min: 12,
+            stops: [
+              {
+                task_id: 101,
+                task_numer: 'ZL/101',
+                client: 'Anna Nowak',
+                adres: 'Lesna 1',
+                eta: '08:00',
+                travel_min: 12,
+                service_min: 60,
+              },
+            ],
+          },
+          {
+            team_id: 11,
+            team_name: 'Brygada Beta',
+            total_min: 80,
+            distance_km: 9,
+            end_time: '10:00',
+            return_travel_min: 10,
+            stops: [
+              {
+                task_id: 201,
+                task_numer: 'ZL/201',
+                client: 'Piotr Zielinski',
+                adres: 'Polna 2',
+                eta: '08:45',
+                travel_min: 10,
+                service_min: 55,
+              },
+            ],
+          },
+        ],
+        unassigned: [],
+        stats: {
+          coverage_pct: 100,
+          tasks_assigned: 2,
+          tasks_total: 2,
+          teams_used: 2,
+          tasks_unassigned: 0,
+          solver_ms: 19,
+        },
+      },
+    })
+    .mockResolvedValueOnce({
+      data: { message: 'Przypomnienie wyslane', brief_id: 77, reminded: 2 },
+    })
+    .mockResolvedValueOnce({
+      data: { message: 'Przypomnienie wyslane', brief_id: 88, reminded: 1 },
+    });
+  api.get.mockResolvedValue({
+    data: {
+      date: '2026-05-25',
+      items: [
+        {
+          brief_id: 77,
+          team_id: 10,
+          team_name: 'Brygada Alfa',
+          sent_to: 2,
+          confirmed: 0,
+          pending: 2,
+          recipients: [
+            { user_id: 21, name: 'Jan Brygadzista', status: 'Nowe' },
+            { user_id: 22, name: 'Anna Pomocnik', status: 'Nowe' },
+          ],
+        },
+        {
+          brief_id: 88,
+          team_id: 11,
+          team_name: 'Brygada Beta',
+          sent_to: 1,
+          confirmed: 0,
+          pending: 1,
+          recipients: [
+            { user_id: 23, name: 'Marek Monter', status: 'Nowe' },
+          ],
+        },
+      ],
+      summary: { teams_sent: 2, sent_to: 3, confirmed: 0, pending: 3 },
+    },
+  });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
+
+  await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
+
+  const remindAllButton = await screen.findByRole('button', {
+    name: 'Przypomnij wszystkim oczekujacym (3)',
+  });
+  expect(remindAllButton).toBeEnabled();
+
+  await userEvent.click(remindAllButton);
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/dispatch/route-brief/77/remind',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+    expect(api.post).toHaveBeenCalledWith(
+      '/dispatch/route-brief/88/remind',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Przypomnienia wyslane: 2/2 ekip, 3 odbiorcow.')).toBeInTheDocument();
+}, 10000);
+
 test('falls back when Clipboard API is blocked', async () => {
   writeTextMock.mockRejectedValueOnce(new Error('Clipboard blocked'));
   const originalExecCommand = document.execCommand;
