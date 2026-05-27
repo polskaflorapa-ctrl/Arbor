@@ -310,6 +310,7 @@ describe('POST /api/dispatch/route-brief/send', () => {
   afterEach(() => {
     pool.query.mockReset();
     pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    pool.connect.mockReset();
   });
 
   it('401 when no token', async () => {
@@ -339,7 +340,8 @@ describe('POST /api/dispatch/route-brief/send', () => {
   });
 
   it('403 when Kierownik sends a brief outside their branch', async () => {
-    pool.query.mockImplementation(async (sql) => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql) => {
       const s = String(sql);
       if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
       if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
@@ -354,12 +356,15 @@ describe('POST /api/dispatch/route-brief/send', () => {
       .set('Authorization', `Bearer ${kierownikToken(3)}`);
 
     expect(res.status).toBe(403);
-    expect(pool.query).toHaveBeenCalledWith('SELECT id, nazwa, oddzial_id FROM teams WHERE id = $1', [10]);
+    expect(mockClient.query).toHaveBeenCalledWith('SELECT id, nazwa, oddzial_id FROM teams WHERE id = $1', [10]);
+    expect(mockClient.release).toHaveBeenCalled();
   });
 
   it('200 creates notifications for team recipients', async () => {
-    pool.query.mockImplementation(async (sql, params) => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql, params) => {
       const s = String(sql);
+      if (s === 'BEGIN' || s === 'COMMIT') return { rows: [], rowCount: 0 };
       if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
         return { rows: [{ id: 10, nazwa: 'Brygada Alfa', oddzial_id: 3 }], rowCount: 1 };
       }
@@ -422,10 +427,56 @@ describe('POST /api/dispatch/route-brief/send', () => {
         pending: 2,
       }),
     }));
+    expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('rolls back notifications when route brief persistence fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql, params) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s === 'BEGIN' || s === 'ROLLBACK') return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
+        return { rows: [{ id: 10, nazwa: 'Brygada Alfa', oddzial_id: 3 }], rowCount: 1 };
+      }
+      if (s.includes('FROM team_members tm') && s.includes('JOIN users u')) {
+        return { rows: [{ user_id: 21, recipient_name: 'Jan Brygadzista' }], rowCount: 1 };
+      }
+      if (s.includes('INSERT INTO notifications')) {
+        return {
+          rows: [{ id: 1, to_user_id: 21, typ: 'Odprawa ekipy', tresc: params[1], status: 'Nowe' }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('INSERT INTO dispatch_route_briefs')) {
+        throw new Error('brief insert failed');
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    try {
+      const res = await request(app)
+        .post(PATH)
+        .send({ team_id: 10, date: '2025-06-15', task_ids: [101], brief: 'Odprawa ekipy' })
+        .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('brief insert failed');
+      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockClient.query).not.toHaveBeenCalledWith('COMMIT');
+      expect(mockClient.release).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('409 when a team has no active recipients', async () => {
-    pool.query.mockImplementation(async (sql) => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql) => {
       const s = String(sql);
       if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
       if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
@@ -442,6 +493,8 @@ describe('POST /api/dispatch/route-brief/send', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/odbiorcow/);
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.release).toHaveBeenCalled();
   });
 });
 

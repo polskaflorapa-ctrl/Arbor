@@ -398,9 +398,11 @@ router.post('/route-brief/send', async (req, res) => {
   if (!brief) return res.status(400).json({ error: 'Wymagane pole brief' });
   if (brief.length > 6000) return res.status(400).json({ error: 'Odprawa jest za dluga (max 6000 znakow)' });
 
+  const client = await pool.connect();
+  let transactionStarted = false;
   try {
-    await ensureDispatchRouteBriefTables(pool);
-    const teamResult = await pool.query(
+    await ensureDispatchRouteBriefTables(client);
+    const teamResult = await client.query(
       'SELECT id, nazwa, oddzial_id FROM teams WHERE id = $1',
       [teamId]
     );
@@ -410,7 +412,7 @@ router.post('/route-brief/send', async (req, res) => {
       return res.status(403).json({ error: 'Brak uprawnien do tej ekipy' });
     }
 
-    const recipientsResult = await pool.query(
+    const recipientsResult = await client.query(
       `SELECT DISTINCT recipients.user_id,
               COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), ''), u.login, 'User #' || u.id::text) AS recipient_name
        FROM (
@@ -439,7 +441,10 @@ router.post('/route-brief/send', async (req, res) => {
       return res.status(409).json({ error: 'Ekipa nie ma aktywnych odbiorcow odprawy' });
     }
 
-    const notificationsResult = await pool.query(
+    await client.query('BEGIN');
+    transactionStarted = true;
+
+    const notificationsResult = await client.query(
       `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
        SELECT $1, recipient_id, NULL, 'Odprawa ekipy', $2, 'Nowe'
        FROM UNNEST($3::int[]) AS recipient_id
@@ -451,7 +456,7 @@ router.post('/route-brief/send', async (req, res) => {
       .map((notification) => Number(notification.id))
       .filter((id) => Number.isInteger(id) && id > 0);
 
-    const briefResult = await pool.query(
+    const briefResult = await client.query(
       `INSERT INTO dispatch_route_briefs (date_ymd, team_id, oddzial_id, sent_by, brief, task_ids)
        VALUES ($1::date, $2, $3, $4, $5, $6::int[])
        RETURNING id, created_at`,
@@ -459,7 +464,7 @@ router.post('/route-brief/send', async (req, res) => {
     );
     const briefRecord = briefResult.rows[0] || {};
     if (briefRecord.id && recipientIds.length && notificationIds.length) {
-      await pool.query(
+      await client.query(
         `INSERT INTO dispatch_route_brief_recipients (brief_id, user_id, notification_id)
          SELECT $1, payload.user_id, payload.notification_id
          FROM UNNEST($2::int[], $3::int[]) AS payload(user_id, notification_id)
@@ -469,9 +474,8 @@ router.post('/route-brief/send', async (req, res) => {
       );
     }
 
-    notifications.forEach((notification) => {
-      pushToUser(notification.to_user_id, { event: 'notification', notification });
-    });
+    await client.query('COMMIT');
+    transactionStarted = false;
 
     await req.auditLog({
       action: 'dispatch.route_brief_sent',
@@ -504,6 +508,10 @@ router.post('/route-brief/send', async (req, res) => {
       })),
     };
 
+    notifications.forEach((notification) => {
+      pushToUser(notification.to_user_id, { event: 'notification', notification });
+    });
+
     res.json({
       message: 'Odprawa wyslana do ekipy',
       brief_id: briefRecord.id || null,
@@ -515,8 +523,17 @@ router.post('/route-brief/send', async (req, res) => {
       status,
     });
   } catch (err) {
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        logger.warn('dispatch route brief rollback failed', { message: rollbackError.message, requestId: req.requestId });
+      }
+    }
     logger.error('dispatch route brief send error', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
