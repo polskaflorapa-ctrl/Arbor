@@ -760,6 +760,72 @@ describe('POST /api/dispatch/route-brief/:briefId/confirm', () => {
     expect(res.body.error).toMatch(/Odprawa/);
   });
 
+  it('409 when route brief recipient has no notification to confirm', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) {
+        expect(params).toEqual([77, 3]);
+        return {
+          rows: [{
+            id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            team_name: 'Brygada Alfa',
+            user_id: 3,
+            notification_id: null,
+            status: null,
+            data_odczytu: null,
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${brygadzistaToken()}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/powiadomienia/i);
+  });
+
+  it('404 when referenced route brief notification no longer exists', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) {
+        expect(params).toEqual([77, 3]);
+        return {
+          rows: [{
+            id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            team_name: 'Brygada Alfa',
+            user_id: 3,
+            notification_id: 99,
+            status: 'Nowe',
+            data_odczytu: null,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('UPDATE notifications')) {
+        expect(params).toEqual([99, 3]);
+        return { rows: [], rowCount: 0 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${brygadzistaToken()}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/Powiadomienie/);
+  });
+
   it('200 confirms the route brief for a crew recipient', async () => {
     pool.query.mockImplementation(async (sql, params = []) => {
       const s = String(sql);
