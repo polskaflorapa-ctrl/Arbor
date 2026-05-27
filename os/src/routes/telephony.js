@@ -4,6 +4,7 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
+const { appendCrmMessageForContact } = require('../services/crmInbox');
 
 const router = express.Router();
 
@@ -73,6 +74,28 @@ const telephonyScopeSimple = (user, oddzialId, alias = 'c') => {
   }
   return { where: `WHERE ${alias}.oddzial_id = $1`, params: [user?.oddzial_id || -1] };
 };
+
+function callMessageBody(row) {
+  const duration = Number(row.duration_sec || 0);
+  const parts = [
+    `Call ${row.call_type || 'outbound'}: ${row.status || 'answered'}`,
+  ];
+  if (duration > 0) parts.push(`${duration}s`);
+  if (row.notes) parts.push(String(row.notes));
+  return parts.join('\n');
+}
+
+function callMessageStatus(row) {
+  if (row.status === 'missed' || row.status === 'failed') return 'failed';
+  return row.call_type === 'inbound' ? 'received' : 'sent';
+}
+
+function callbackMessageBody(row) {
+  const parts = [`Callback request (${row.priority || 'normal'})`];
+  if (row.due_at) parts.push(`Due: ${row.due_at}`);
+  if (row.notes) parts.push(String(row.notes));
+  return parts.join('\n');
+}
 
 let migrationReady = false;
 async function ensureTelephonyTables() {
@@ -209,6 +232,25 @@ router.post('/calls', authMiddleware, validateBody(callCreateSchema), async (req
         req.user.id,
       ],
     );
+    try {
+      const row = rows[0];
+      await appendCrmMessageForContact({
+        oddzialId: row.oddzial_id,
+        phone: row.phone,
+        channel: 'phone',
+        direction: row.call_type === 'inbound' ? 'inbound' : 'outbound',
+        senderName: row.call_type === 'inbound' ? row.lead_name : null,
+        senderHandle: row.call_type === 'inbound' ? row.phone : null,
+        recipientHandle: row.call_type === 'inbound' ? null : row.phone,
+        body: callMessageBody(row),
+        status: callMessageStatus(row),
+        externalMessageId: `telephony_call_${row.id}`,
+        metadata: { source: 'telephony.call_log', call_log_id: row.id, task_id: row.task_id || null },
+        createdBy: req.user.id,
+      });
+    } catch (crmErr) {
+      logger.warn('telephony.crmInbox.call', { message: crmErr.message });
+    }
     return res.status(201).json(rows[0]);
   } catch (err) {
     logger.error('telephony.calls.create', { message: err.message, requestId: req.requestId });
@@ -284,6 +326,24 @@ router.post('/callbacks', authMiddleware, validateBody(callbackCreateSchema), as
         req.user.id,
       ],
     );
+    try {
+      const row = rows[0];
+      await appendCrmMessageForContact({
+        oddzialId: row.oddzial_id,
+        phone: row.phone,
+        channel: 'phone',
+        direction: 'outbound',
+        recipientHandle: row.phone,
+        body: callbackMessageBody(row),
+        status: 'queued',
+        externalMessageId: `telephony_callback_${row.id}`,
+        templateKey: 'callback',
+        metadata: { source: 'telephony.callback', callback_id: row.id, task_id: row.task_id || null },
+        createdBy: req.user.id,
+      });
+    } catch (crmErr) {
+      logger.warn('telephony.crmInbox.callback', { message: crmErr.message });
+    }
     return res.status(201).json(rows[0]);
   } catch (err) {
     logger.error('telephony.callbacks.create', { message: err.message, requestId: req.requestId });

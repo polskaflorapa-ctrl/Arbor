@@ -8,6 +8,7 @@ const { z } = require('zod');
 
 const { formatSmsPlanParts } = require('../services/smsTemplates');
 const { sendSmsGateway, activeSmsProvider } = require('../services/smsGateway');
+const { appendCrmMessageForContact } = require('../services/crmInbox');
 
 const router = express.Router();
 
@@ -95,6 +96,29 @@ router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req
     logger.error('Blad SMS /wyslij', { error: result.error, requestId: req.requestId });
     return res.status(500).json({ error: result.error });
   }
+  if (task_id) {
+    try {
+      const taskResult = await pool.query('SELECT oddzial_id, klient_telefon, klient_email FROM tasks WHERE id = $1', [task_id]);
+      const task = taskResult.rows[0];
+      if (task) {
+        await appendCrmMessageForContact({
+          oddzialId: task.oddzial_id,
+          phone: task.klient_telefon || telefon,
+          email: task.klient_email,
+          channel: 'sms',
+          direction: 'outbound',
+          recipientHandle: telefon,
+          body: tresc,
+          status: result.sid || result.id ? 'sent' : 'queued',
+          externalMessageId: result.sid || result.id || null,
+          metadata: { task_id, provider: result.provider, source: 'sms.manual' },
+          createdBy: req.user.id,
+        });
+      }
+    } catch (crmErr) {
+      logger.warn('sms.crmInbox.manual', { message: crmErr.message, task_id });
+    }
+  }
   res.json({ success: true, message: 'SMS wysłany', provider: result.provider, sid: result.sid || result.id });
 });
 
@@ -122,6 +146,25 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
     if (!result.ok) {
       logger.error('Blad SMS /zlecenie/:id', { error: result.error, requestId: req.requestId });
       return res.status(500).json({ error: result.error });
+    }
+    try {
+      await appendCrmMessageForContact({
+        oddzialId: z.oddzial_id,
+        phone: z.klient_telefon,
+        email: z.klient_email,
+        channel: 'sms',
+        direction: 'outbound',
+        recipientHandle: z.klient_telefon,
+        body: tresc,
+        status: result.sid || result.id ? 'sent' : 'queued',
+        externalMessageId: result.sid || result.id || null,
+        templateKey: typ,
+        dynamicFields: { typ, powod: powod || null },
+        metadata: { task_id: id, provider: result.provider, source: 'sms.task' },
+        createdBy: req.user.id,
+      });
+    } catch (crmErr) {
+      logger.warn('sms.crmInbox.task', { message: crmErr.message, task_id: id });
     }
     const statusMap = { w_drodze: 'W_drodze', na_miejscu: 'W_Realizacji', zakonczone: 'Zakonczone', anulowane: 'Anulowane' };
     if (statusMap[typ]) await pool.query('UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2', [statusMap[typ], id]);

@@ -5,7 +5,12 @@ jest.mock('../src/config/database', () => ({
   query: jest.fn(),
 }));
 
+jest.mock('../src/services/crmInbox', () => ({
+  appendCrmMessageForContact: jest.fn(),
+}));
+
 const pool = require('../src/config/database');
+const { appendCrmMessageForContact } = require('../src/services/crmInbox');
 const telephonyRoutes = require('../src/routes/telephony');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
@@ -199,6 +204,18 @@ describe('Telephony routes', () => {
       'notatka',
       7,
     ]);
+    expect(appendCrmMessageForContact).toHaveBeenCalledWith(expect.objectContaining({
+      oddzialId: 3,
+      phone: '+48111222333',
+      channel: 'phone',
+      direction: 'inbound',
+      senderName: 'Jan Testowy',
+      senderHandle: '+48111222333',
+      body: expect.stringContaining('Call inbound: answered'),
+      status: 'received',
+      externalMessageId: 'telephony_call_11',
+      createdBy: 7,
+    }));
   });
 
   it('blocks branch users from creating calls for another branch', async () => {
@@ -251,6 +268,18 @@ describe('Telephony routes', () => {
       8,
       7,
     ]);
+    expect(appendCrmMessageForContact).toHaveBeenCalledWith(expect.objectContaining({
+      oddzialId: 2,
+      phone: '+48999111222',
+      channel: 'phone',
+      direction: 'outbound',
+      recipientHandle: '+48999111222',
+      body: expect.stringContaining('Callback request (high)'),
+      status: 'queued',
+      externalMessageId: 'telephony_callback_22',
+      templateKey: 'callback',
+      createdBy: 7,
+    }));
   });
 
   it('marks callback as done and closes it', async () => {
