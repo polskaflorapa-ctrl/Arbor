@@ -3994,26 +3994,39 @@ export default function Zlecenia() {
         'Dyrektor działu sprzedaż',
       ].includes(rola);
       const endpoint = canLoadAllTasks ? `/tasks/wszystkie` : `/tasks`;
-      const [zRes, eRes, uRes, branchesRes, equipmentRes, contactRes, closureRes] = await Promise.all([
+      const [zRes, eRes, uRes, branchesRes, equipmentRes, contactRes, closureRes] = await Promise.allSettled([
         api.get(endpoint, { headers: h }),
         api.get(`/ekipy`, { headers: h }),
         api.get(`/uzytkownicy`, { headers: h }),
-        api.get('/oddzialy', { headers: h }).catch(() => ({ data: [] })),
-        api.get('/flota/sprzet', { headers: h }).catch(() => ({ data: [] })),
-        api.get('/tasks/client-contacts', { headers: h }).catch(() => ({ data: null })),
-        api.get('/tasks/closure-events', { headers: h }).catch(() => ({ data: null })),
+        api.get('/oddzialy', { headers: h }),
+        api.get('/flota/sprzet', { headers: h }),
+        api.get('/tasks/client-contacts', { headers: h }),
+        api.get('/tasks/closure-events', { headers: h }),
       ]);
-      const taskRows = Array.isArray(zRes.data) ? zRes.data : [];
-      setZlecenia(taskRows);
-      setEkipy(Array.isArray(eRes.data) ? eRes.data : []);
-      setUzytkownicy(Array.isArray(uRes.data) ? uRes.data : []);
-      setOddzialy(Array.isArray(branchesRes.data) ? branchesRes.data : (branchesRes.data?.oddzialy || []));
-      setSprzetItems(Array.isArray(equipmentRes.data) ? equipmentRes.data : (equipmentRes.data?.items || []));
-      if (contactRes.data) {
-        setClientContacts(normalizeClientContactsPayload(contactRes.data));
+      if (zRes.status !== 'fulfilled') {
+        throw zRes.reason;
       }
-      if (closureRes.data) {
-        setClosureDecisionEvents(normalizeClosureDecisionPayload(closureRes.data));
+      const readSettledData = (result, fallback) => (
+        result.status === 'fulfilled' ? result.value?.data : fallback
+      );
+      const taskData = zRes.value?.data;
+      const taskRows = Array.isArray(taskData) ? taskData : [];
+      setZlecenia(taskRows);
+      const teamsData = readSettledData(eRes, []);
+      const usersData = readSettledData(uRes, []);
+      const branchesData = readSettledData(branchesRes, []);
+      const equipmentData = readSettledData(equipmentRes, []);
+      const contactData = readSettledData(contactRes, null);
+      const closureData = readSettledData(closureRes, null);
+      setEkipy(Array.isArray(teamsData) ? teamsData : []);
+      setUzytkownicy(Array.isArray(usersData) ? usersData : []);
+      setOddzialy(Array.isArray(branchesData) ? branchesData : (branchesData?.oddzialy || []));
+      setSprzetItems(Array.isArray(equipmentData) ? equipmentData : (equipmentData?.items || []));
+      if (contactData) {
+        setClientContacts(normalizeClientContactsPayload(contactData));
+      }
+      if (closureData) {
+        setClosureDecisionEvents(normalizeClosureDecisionPayload(closureData));
       }
       return taskRows;
     } catch (err) {

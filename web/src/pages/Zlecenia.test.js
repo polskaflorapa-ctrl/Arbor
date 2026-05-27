@@ -303,3 +303,29 @@ test('opens crew schedule deep link from task planning handoff', async () => {
   expect(screen.getByTestId('location-probe')).toHaveTextContent('date=2026-05-26');
   expect(screen.getByTestId('location-probe')).toHaveTextContent('oddzial=7');
 }, 15000);
+
+test('keeps task data visible when a secondary startup request fails', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/tasks/wszystkie') return Promise.resolve({ data: [TASK] });
+    if (url === '/tasks/42') return Promise.resolve({ data: TASK });
+    if (url === '/ekipy') return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa', oddzial_id: 7 }] });
+    if (url === '/uzytkownicy') {
+      return Promise.reject(Object.assign(new Error('boom'), {
+        response: { status: 500 },
+        config: { method: 'get', url: '/uzytkownicy' },
+      }));
+    }
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
+    if (url === '/flota/sprzet') return Promise.resolve({ data: [] });
+    if (url === '/tasks/client-contacts') return Promise.resolve({ data: null });
+    if (url === '/tasks/closure-events') return Promise.resolve({ data: null });
+    if (String(url).startsWith('/tasks/42/')) return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+
+  renderRoute('/zlecenia/42');
+
+  expect(await screen.findByText('Zlecenie #42', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  expect(screen.getAllByText('Jan Kowalski').length).toBeGreaterThan(0);
+  expect(document.body.textContent).not.toContain('Błąd serwera API');
+}, 15000);
