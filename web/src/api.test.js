@@ -207,6 +207,44 @@ describe('api test-mode mocks', () => {
     }));
   });
 
+  it('serves dispatch plan mocks for the local auto-dispatch demo', async () => {
+    const preview = await api.post('/api/dispatch/plan', {
+      date: '2026-05-25',
+      oddzial_id: 1,
+    });
+
+    expect(preview.status).toBe(200);
+    expect(preview.data.date).toBe('2026-05-25');
+    expect(preview.data.routes[0]).toMatchObject({
+      team_id: expect.any(Number),
+      team_name: expect.any(String),
+      stops: expect.any(Array),
+    });
+    expect(preview.data.routes[0].stops.length).toBeGreaterThan(0);
+    expect(preview.data.stats).toMatchObject({
+      coverage_pct: 100,
+      tasks_assigned: preview.data.routes[0].stops.length,
+      teams_used: 1,
+      tasks_unassigned: 0,
+    });
+
+    const saved = await api.post('/api/dispatch/plan/save', {
+      date: '2026-05-25',
+      oddzial_id: 1,
+    });
+
+    expect(saved.data).toMatchObject({
+      id: expect.any(Number),
+      status: 'draft',
+    });
+
+    const applied = await api.post(`/api/dispatch/apply/${saved.data.id}`);
+    expect(applied.data).toMatchObject({
+      id: saved.data.id,
+      status: 'applied',
+    });
+  });
+
   it('serves mock photos consistently with task photo counters', async () => {
     const emptyPhotos = await api.get('/api/tasks/101/zdjecia', { dedupe: false });
     expect(emptyPhotos.data).toEqual([]);

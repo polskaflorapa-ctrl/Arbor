@@ -140,6 +140,94 @@ function mockFormatMinutes(value) {
   return `${hours} h ${minutes} min`;
 }
 
+function mockMinutesToClock(value) {
+  const total = Math.max(0, Math.round(Number(value || 0)));
+  const hours = Math.floor(total / 60) % 24;
+  const minutes = total % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function buildMockDispatchPlan(config, saved = false) {
+  const body = parseJsonData(config.data);
+  const date = body.date || getRequestDate(config);
+  const teams = getMockData('/ekipy') || [];
+  const team = teams[0] || { id: 5, nazwa: 'Ekipa A', oddzial_id: body.oddzial_id || 2 };
+  const closedStatuses = ['Zakonczone', 'Zakończone', 'Anulowane'];
+  const allTasks = (getMockData('/tasks/wszystkie') || [])
+    .filter((task) => !closedStatuses.includes(String(task.status || '')));
+  const scopedTasks = body.oddzial_id
+    ? allTasks.filter((task) => String(task.oddzial_id || '') === String(body.oddzial_id))
+    : allTasks;
+  const selectedTasks = (scopedTasks.length ? scopedTasks : allTasks).slice(0, 3);
+  const sourceTasks = selectedTasks.length ? selectedTasks : [
+    {
+      id: 90001,
+      numer: 'DEMO-1',
+      klient_nazwa: 'Klient demo',
+      klient_telefon: '+48500111222',
+      adres: 'ul. Testowa 1',
+      miasto: 'Krakow',
+      czas_planowany_godziny: 1.5,
+      wartosc_planowana: 1200,
+      oddzial_id: body.oddzial_id || team.oddzial_id || null,
+    },
+  ];
+  const stops = sourceTasks.map((task, index) => {
+    const serviceMin = Math.max(30, Math.round(Number(task.czas_obslugi_min || 0) || Number(task.czas_planowany_godziny || 0) * 60 || (index === 0 ? 90 : 60)));
+    const etaMinutes = 8 * 60 + index * 95;
+    const hasPhone = Boolean(task.klient_telefon || task.telefon);
+    const hasCoords = task.pin_lat != null && task.pin_lng != null;
+    return {
+      task_id: Number(task.id),
+      task_numer: task.numer || `ZL/${task.id}`,
+      client: task.klient_nazwa || task.client || 'Klient testowy',
+      client_phone: hasPhone ? (task.klient_telefon || task.telefon) : (index === 1 ? '' : '+48500111222'),
+      adres: [task.adres, task.miasto].filter(Boolean).join(', ') || 'adres demo',
+      eta: mockMinutesToClock(etaMinutes),
+      okno_od: index === 0 ? '08:00' : null,
+      okno_do: index === 0 ? '10:00' : null,
+      travel_min: index === 0 ? 18 : 24 + index * 4,
+      service_min: serviceMin,
+      time_window_ok: index !== 1,
+      lat: hasCoords ? Number(task.pin_lat) : (index === 1 ? null : 50.0614 + index * 0.01),
+      lng: hasCoords ? Number(task.pin_lng) : (index === 1 ? null : 19.9366 + index * 0.01),
+      value: Number(task.wartosc_planowana || task.budzet || 0),
+      status: task.status || 'Nowe',
+    };
+  });
+  const routeMinutes = stops.reduce((sum, stop) => sum + Number(stop.travel_min || 0) + Number(stop.service_min || 0), 20);
+  const assignedCount = stops.length;
+  return {
+    ...(saved ? { id: Date.now(), status: 'draft' } : {}),
+    date,
+    generated_at: new Date().toISOString(),
+    routes: [{
+      date,
+      team_id: Number(team.id),
+      team_name: team.nazwa || `Ekipa #${team.id}`,
+      total_min: routeMinutes,
+      distance_km: Math.max(8, Math.round(stops.length * 11.5)),
+      end_time: mockMinutesToClock(8 * 60 + routeMinutes),
+      return_travel_min: 20,
+      stops,
+    }],
+    unassigned: [],
+    team_availability: {
+      total: teams.length || 1,
+      available: teams.length || 1,
+      absent: [],
+    },
+    stats: {
+      coverage_pct: 100,
+      tasks_assigned: assignedCount,
+      tasks_total: assignedCount,
+      teams_used: 1,
+      tasks_unassigned: 0,
+      solver_ms: 18,
+    },
+  };
+}
+
 function getTestUserForLogin(login) {
   const normalized = String(login || '').trim().toLowerCase();
   if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
@@ -784,6 +872,33 @@ function getTestModeMockResponse(config) {
             confirmed_at: null,
           }],
         },
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if ((path === '/dispatch/plan' || path === '/dispatch/plan/save') && method === 'post') {
+    return {
+      data: buildMockDispatchPlan(config, path.endsWith('/save')),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mDispatchApply = path.match(/^\/dispatch\/apply\/(\d+)$/);
+  if (mDispatchApply && method === 'post') {
+    return {
+      data: {
+        id: Number(mDispatchApply[1]),
+        status: 'applied',
+        message: 'Plan zastosowany w trybie testowym',
       },
       status: 200,
       statusText: 'OK',
