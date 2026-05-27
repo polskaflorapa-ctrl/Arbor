@@ -399,6 +399,95 @@ test('copies day and team handoff briefs from the generated plan', async () => {
   });
   expect(await screen.findByText('Wyslano odprawy: 1/1 ekip, 2 odbiorcow. Czekamy na potwierdzenia.')).toBeInTheDocument();
   expect(screen.getByText('Wyslano do 2 | czeka 2')).toBeInTheDocument();
+  expect(screen.getByText('Odbiorcy odprawy')).toBeInTheDocument();
+  expect(screen.getByText('Jan Brygadzista')).toBeInTheDocument();
+  expect(screen.getByText('Anna Pomocnik')).toBeInTheDocument();
+  expect(screen.getAllByText('Czeka')).toHaveLength(2);
+}, 10000);
+
+test('loads persisted route brief confirmation statuses for a generated plan', async () => {
+  api.post.mockResolvedValueOnce({
+    data: {
+      routes: [
+        {
+          team_id: 10,
+          team_name: 'Brygada Alfa',
+          total_min: 90,
+          distance_km: 12,
+          end_time: '09:30',
+          return_travel_min: 12,
+          stops: [
+            {
+              task_id: 101,
+              task_numer: 'ZL/101',
+              client: 'Anna Nowak',
+              client_phone: '+48500111222',
+              adres: 'Lesna 1',
+              eta: '08:00',
+              travel_min: 12,
+              service_min: 60,
+              time_window_ok: true,
+              lat: 52.1,
+              lng: 21.1,
+            },
+          ],
+        },
+      ],
+      unassigned: [],
+      stats: {
+        coverage_pct: 100,
+        tasks_assigned: 1,
+        tasks_total: 1,
+        teams_used: 1,
+        tasks_unassigned: 0,
+        solver_ms: 21,
+      },
+    },
+  });
+  api.get.mockResolvedValue({
+    data: {
+      date: '2026-05-25',
+      items: [
+        {
+          brief_id: 77,
+          team_id: 10,
+          team_name: 'Brygada Alfa',
+          sent_to: 2,
+          confirmed: 1,
+          pending: 1,
+          recipients: [
+            { user_id: 21, name: 'Jan Brygadzista', status: 'Przeczytane' },
+            { user_id: 22, name: 'Anna Pomocnik', status: 'Nowe' },
+          ],
+        },
+      ],
+      summary: { teams_sent: 1, sent_to: 2, confirmed: 1, pending: 1 },
+    },
+  });
+
+  renderAutoDispatch('/auto-dispatch?date=2026-05-25');
+
+  await userEvent.click(screen.getByRole('button', { name: /Podgl.d planu/i }));
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      '/dispatch/route-brief/status',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          date: '2026-05-25',
+          oddzial_id: 7,
+          team_ids: '10',
+        }),
+        headers: expect.any(Object),
+      })
+    );
+  });
+  expect(await screen.findByText('Potwierdzone 1/2 | czeka 1')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Odswiez odbior' })).toBeInTheDocument();
+  expect(screen.getByText('Jan Brygadzista')).toBeInTheDocument();
+  expect(screen.getByText('Anna Pomocnik')).toBeInTheDocument();
+  expect(screen.getByText('Potwierdzono')).toBeInTheDocument();
+  expect(screen.getByText('Czeka')).toBeInTheDocument();
 }, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {

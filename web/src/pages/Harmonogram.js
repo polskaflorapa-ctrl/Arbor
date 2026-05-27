@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -179,6 +179,35 @@ function visibleDateRange(date, view) {
   return { from: day, to: day };
 }
 
+function dateFromRouteParam(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, y, m, d] = match;
+    return new Date(Number(y), Number(m) - 1, Number(d));
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function routeDateFromSearch(search) {
+  return dateFromRouteParam(new URLSearchParams(search || '').get('date'));
+}
+
+function routeViewFromSearch(search) {
+  const view = String(new URLSearchParams(search || '').get('view') || '').trim();
+  return ['dzien', 'tydzien', 'miesiac'].includes(view) ? view : '';
+}
+
+function routeParam(search, key) {
+  return String(new URLSearchParams(search || '').get(key) || '').trim();
+}
+
+function routeHasParam(search, key) {
+  return new URLSearchParams(search || '').has(key);
+}
+
 function isActiveReservation(row) {
   const status = String(row?.status || '').toLowerCase();
   return !status.includes('anul') && !status.includes('zwr');
@@ -337,6 +366,120 @@ function taskBudgetLabel(task) {
   return Number.isFinite(value) && value > 0 ? `${value.toLocaleString('pl-PL')} zl` : '-';
 }
 
+function taskPhoneLabel(task) {
+  return String(task?.klient_telefon || task?.telefon || '').trim() || 'brak';
+}
+
+function taskMapsHref(task) {
+  const lat = Number(task?.pin_lat ?? task?.lat);
+  const lng = Number(task?.pin_lng ?? task?.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const address = taskAddressLabel(task);
+  return address && address !== '-'
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : '';
+}
+
+function taskCrewScope(task) {
+  return String(task?.opis_pracy || task?.opis || task?.wynik || task?.notatki_wewnetrzne || '').trim() || 'brak opisu';
+}
+
+function taskPlanLabel(task) {
+  return `${taskDayKey(task) || 'bez daty'} ${formatBlockTime(task)}`;
+}
+
+function buildTaskCrewBrief({
+  task,
+  photos = [],
+  photoEvidence = [],
+  readiness = null,
+  missingLabels = [],
+  telemetry = null,
+  gps = null,
+}) {
+  const mapUrl = taskMapsHref(task);
+  const evidenceLine = photoEvidence.length
+    ? photoEvidence.map((item) => `${item.label}: ${item.count || 0}`).join(', ')
+    : `${taskPhotoCount(task)} zdj.`;
+  const photoLines = photos.slice(0, 8).map((photo, index) => {
+    const label = PHOTO_EVIDENCE_TYPES.find((item) => item.key === photoEvidenceKey(photo?.typ))?.label || 'Zdjecie';
+    const url = String(photo?.sciezka || photo?.url || '').trim();
+    const desc = String(photo?.opis || photo?.description || '').trim();
+    return `${index + 1}. ${label}${desc ? ` - ${desc}` : ''}${url ? ` | ${url}` : ''}`;
+  });
+  const readinessText = readiness
+    ? `${readiness.readyCount}/${readiness.totalCount}${readiness.ready ? ' gotowe' : ' braki'}`
+    : 'brak danych';
+  const blockers = missingLabels.length ? missingLabels.join(', ') : 'brak';
+
+  return [
+    `ARBOR-OS | ODPRAWA EKIPY | Zlecenie #${task.id}`,
+    `Klient: ${task.klient_nazwa || 'brak'} | Telefon: ${taskPhoneLabel(task)}`,
+    `Adres: ${taskAddressLabel(task)}`,
+    mapUrl ? `Mapa: ${mapUrl}` : null,
+    `Termin: ${taskPlanLabel(task)} | Ekipa: ${task.ekipa_nazwa || (task.ekipa_id ? `#${task.ekipa_id}` : 'brak')}`,
+    `Status: ${task.status || 'brak'} | Budzet: ${taskBudgetLabel(task)} | Czas: ${formatMinutesAsHours(taskDurationMinutes(task))}`,
+    `Sprzet: ${taskEquipmentLabel(task)}`,
+    '',
+    `Zakres prac: ${taskCrewScope(task)}`,
+    `Pakiet: ${readinessText} | Blokery: ${blockers}`,
+    `Zdjecia: ${evidenceLine}`,
+    photoLines.length ? `Lista zdjec:\n${photoLines.join('\n')}` : 'Lista zdjec: brak zaladowanych miniaturek w harmonogramie',
+    '',
+    `GPS: ${gps?.label || 'brak'} / ${gps?.meta || 'brak sygnalu'}`,
+    `Teren: ${telemetry?.label || 'brak'} / ${telemetry?.detail || 'brak danych'}`,
+    '',
+    'Instrukcja: ekipa potwierdza dojazd, zakres, zdjecia i ryzyka w mobilce przed rozpoczeciem pracy.',
+  ].filter(Boolean).join('\n');
+}
+
+function buildDayCrewBrief({ dayLabel, dayISO, tasks = [], dispatchRows = [], liveByTeam = new Map() }) {
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aStart = taskStartMinutes(a);
+    const bStart = taskStartMinutes(b);
+    if (aStart !== bStart) return aStart - bStart;
+    return Number(a.id || 0) - Number(b.id || 0);
+  });
+  const value = sortedTasks.reduce((sum, task) => sum + (Number(task?.wartosc_planowana) || 0), 0);
+  const readyCount = sortedTasks.filter((task) => getCrewPackageReadiness(task).ready).length;
+  const teamLines = dispatchRows.map((row) => {
+    const live = liveByTeam.get(String(row.team?.id || ''));
+    const gps = gpsStatus(live);
+    const parts = [
+      `${row.team?.nazwa || 'Ekipa'}: ${row.tasks.length} prac`,
+      formatMinutesAsHours(row.loadMinutes),
+      `GPS ${gps.label}/${gps.meta}`,
+      row.conflictIds.size ? `konflikty ${row.conflictIds.size}` : null,
+      row.packageBlockedCount ? `braki ${row.packageBlockedCount}` : null,
+    ].filter(Boolean);
+    return `- ${parts.join(' | ')}`;
+  });
+  const taskLines = sortedTasks.map((task, index) => {
+    const readiness = getCrewPackageReadiness(task);
+    const missing = readiness.missingLabels.length ? ` | braki: ${readiness.missingLabels.join(', ')}` : '';
+    const mapUrl = taskMapsHref(task);
+    return [
+      `${index + 1}. ${formatBlockTime(task)} | ${task.klient_nazwa || `#${task.id}`} | ${task.ekipa_nazwa || 'bez ekipy'}`,
+      `   Adres: ${taskAddressLabel(task)} | Tel: ${taskPhoneLabel(task)}`,
+      `   Zakres: ${taskCrewScope(task)}`,
+      `   Budzet/czas/sprzet: ${taskBudgetLabel(task)} | ${formatMinutesAsHours(taskDurationMinutes(task))} | ${taskEquipmentLabel(task)}`,
+      `   Pakiet: ${readiness.readyCount}/${readiness.totalCount}${missing}`,
+      mapUrl ? `   Mapa: ${mapUrl}` : null,
+    ].filter(Boolean).join('\n');
+  });
+
+  return [
+    `ARBOR-OS | ODPRAWA DNIA | ${dayLabel} (${dayISO})`,
+    `Zlecenia: ${sortedTasks.length} | Pakiety gotowe: ${readyCount}/${sortedTasks.length} | Wartosc: ${value.toLocaleString('pl-PL')} zl`,
+    '',
+    'Ekipy:',
+    teamLines.length ? teamLines.join('\n') : '- brak ekip w widoku',
+    '',
+    'Zlecenia:',
+    taskLines.length ? taskLines.join('\n\n') : 'Brak zaplanowanych zlecen.',
+  ].join('\n');
+}
+
 function gpsAgeMinutes(row) {
   const raw = row?.recorded_at || row?.last_seen_at || row?.timestamp;
   if (!raw) return null;
@@ -395,26 +538,28 @@ function gpsSourceLabel(row) {
 }
 
 export default function Harmonogram() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const initialRouteDate = routeDateFromSearch(location.search);
   const [zlecenia, setZlecenia] = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
   const [ekipy, setEkipy] = useState([]);
   const [rezerwacje, setRezerwacje] = useState([]);
   const [liveLocations, setLiveLocations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtrOddzial, setFiltrOddzial] = useState('');
-  const [filtrEkipa, setFiltrEkipa] = useState('');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [widok, setWidok] = useState('tydzien');
+  const [filtrOddzial, setFiltrOddzial] = useState(() => routeParam(location.search, 'oddzial'));
+  const [filtrEkipa, setFiltrEkipa] = useState(() => routeParam(location.search, 'team'));
+  const [currentDate, setCurrentDate] = useState(() => initialRouteDate || new Date());
+  const [widok, setWidok] = useState(() => routeViewFromSearch(location.search) || 'tydzien');
   const [currentUser, setCurrentUser] = useState(null);
   const [planErr, setPlanErr] = useState('');
   const [planMsg, setPlanMsg] = useState('');
   const [dragOverTeamId, setDragOverTeamId] = useState('');
   const [dragOverSlotKey, setDragOverSlotKey] = useState('');
-  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState(() => routeParam(location.search, 'task'));
   const [selectedTaskLogi, setSelectedTaskLogi] = useState([]);
   const [selectedTaskPhotos, setSelectedTaskPhotos] = useState([]);
   const [selectedTaskTelemetryLoading, setSelectedTaskTelemetryLoading] = useState(false);
-  const navigate = useNavigate();
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
   const dateRange = useMemo(() => visibleDateRange(currentDate, widok), [currentDate, widok]);
   const rezerwacjeByTask = useMemo(() => {
@@ -537,6 +682,33 @@ export default function Harmonogram() {
     setPlanMsg('');
     setPlanErr('');
   }, [currentDate, widok]);
+
+  useEffect(() => {
+    const routeDate = routeDateFromSearch(location.search);
+    const routeView = routeViewFromSearch(location.search);
+    const routeOddzial = routeParam(location.search, 'oddzial');
+    const routeTeam = routeParam(location.search, 'team');
+    const routeTask = routeParam(location.search, 'task');
+    const hasRouteDate = routeHasParam(location.search, 'date');
+    const hasRouteView = routeHasParam(location.search, 'view');
+    const hasAnyRouteState =
+      hasRouteDate ||
+      hasRouteView ||
+      routeHasParam(location.search, 'oddzial') ||
+      routeHasParam(location.search, 'team') ||
+      routeHasParam(location.search, 'task');
+
+    if (hasRouteDate && routeDate) {
+      setCurrentDate((prev) => (toISODate(prev) === toISODate(routeDate) ? prev : routeDate));
+    } else if (!hasAnyRouteState) {
+      setCurrentDate(new Date());
+    }
+    if (hasRouteView) setWidok(routeView || 'tydzien');
+    else if (!hasAnyRouteState) setWidok('tydzien');
+    setFiltrOddzial(routeOddzial);
+    setFiltrEkipa(routeTeam);
+    setSelectedTaskId(routeTask);
+  }, [location.search]);
 
   const isKierownik = currentUser?.rola === 'Kierownik';
   const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
@@ -798,6 +970,71 @@ export default function Harmonogram() {
     }
     return stats;
   }, [dispatchRows, liveByTeam]);
+
+  const copyTextToClipboard = useCallback(async (text, successMessage) => {
+    setPlanErr('');
+    setPlanMsg('');
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== 'undefined') {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'true');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = typeof document.execCommand === 'function' && document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (!copied) {
+          throw new Error('Clipboard unavailable');
+        }
+      } else {
+        throw new Error('Clipboard unavailable');
+      }
+      setPlanMsg(successMessage);
+    } catch {
+      setPlanErr('Nie udalo sie skopiowac odprawy.');
+    }
+  }, []);
+
+  const copySelectedTaskBrief = useCallback(() => {
+    if (!selectedTask) {
+      setPlanErr('Najpierw wybierz zlecenie w harmonogramie.');
+      return;
+    }
+    const text = buildTaskCrewBrief({
+      task: selectedTask,
+      photos: selectedTaskPhotos,
+      photoEvidence: selectedPhotoEvidence,
+      readiness: selectedTaskReadiness,
+      missingLabels: selectedOfficeMissingLabels,
+      telemetry: selectedTaskWorkTelemetry,
+      gps: selectedTaskGpsStatus,
+    });
+    void copyTextToClipboard(text, `Odprawa zlecenia #${selectedTask.id} skopiowana.`);
+  }, [
+    copyTextToClipboard,
+    selectedOfficeMissingLabels,
+    selectedPhotoEvidence,
+    selectedTask,
+    selectedTaskGpsStatus,
+    selectedTaskPhotos,
+    selectedTaskReadiness,
+    selectedTaskWorkTelemetry,
+  ]);
+
+  const copySelectedDayBrief = useCallback(() => {
+    const text = buildDayCrewBrief({
+      dayLabel: selectedDayLabel,
+      dayISO: selectedDayISO,
+      tasks: selectedDayTasks,
+      dispatchRows,
+      liveByTeam,
+    });
+    void copyTextToClipboard(text, `Odprawa dnia ${selectedDayISO} skopiowana.`);
+  }, [copyTextToClipboard, dispatchRows, liveByTeam, selectedDayISO, selectedDayLabel, selectedDayTasks]);
 
   const confirmSelectedForCrew = useCallback(() => {
     if (!canEdit || !selectedTask?.id || !selectedTask?.ekipa_id) return;
@@ -1196,6 +1433,13 @@ export default function Harmonogram() {
                 <button
                   type="button"
                   style={styles.dispatchLinkBtn}
+                  onClick={copySelectedDayBrief}
+                >
+                  Kopiuj odprawe dnia
+                </button>
+                <button
+                  type="button"
+                  style={styles.dispatchLinkBtn}
                   onClick={() => navigate('/mapa-live')}
                 >
                   Mapa live
@@ -1579,6 +1823,9 @@ export default function Harmonogram() {
             </div>
 
             <div style={styles.quickActions}>
+              <button type="button" style={styles.dispatchLinkBtn} onClick={copySelectedTaskBrief}>
+                Kopiuj odprawe zlecenia
+              </button>
               <button
                 type="button"
                 style={{

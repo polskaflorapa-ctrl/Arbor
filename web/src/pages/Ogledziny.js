@@ -607,19 +607,20 @@ export default function Ogledziny() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh' }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: 'var(--surface-glass)' }}>
+        <div style={{ width: 390, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
 
           {/* Nagłówek */}
-          <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Oględziny</h2>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{trasaList.length} rekordów</p>
+                <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 950, textTransform: 'uppercase' }}>Field evidence</div>
+                <h2 style={{ margin: '2px 0 0', fontSize: 20, fontWeight: 950, color: 'var(--text)' }}>Oględziny</h2>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)', fontWeight: 750 }}>{trasaList.length} rekordów po filtrach</p>
               </div>
               {canPlan && (
                 <button onClick={openForm} style={btn.primary}>
@@ -628,10 +629,19 @@ export default function Ogledziny() {
                 </button>
               )}
             </div>
+            <div style={sec.commandGrid}>
+              {operationsCards.map((card) => (
+                <div key={card.key} style={{ ...sec.commandCard, ...(sec[`commandCard_${card.tone}`] || {}) }}>
+                  <span style={sec.commandLabel}>{card.label}</span>
+                  <strong style={sec.commandValue}>{card.value}</strong>
+                  <small style={sec.commandDetail}>{card.detail}</small>
+                </div>
+              ))}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 }}>
               {statusSummary.map((s) => (
-                <div key={s.key} style={{ background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px' }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
+                <div key={s.key} style={{ background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: '6px 8px', boxShadow: 'var(--shadow-xs)' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase' }}>{s.label}</div>
                   <div style={{ marginTop: 2, fontSize: 16, color: s.color, fontWeight: 800 }}>{s.count}</div>
                 </div>
               ))}
@@ -639,7 +649,7 @@ export default function Ogledziny() {
 
             {/* Filtry statusów */}
             {fieldLiveRows.length > 0 ? (
-              <div style={{ marginBottom: 10, background: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+              <div style={{ marginBottom: 10, background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 10, boxShadow: 'var(--shadow-sm)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <strong style={{ fontSize: 12, color: 'var(--text)' }}>Live teren</strong>
                   <span style={{ fontSize: 11, color: fieldDelayRows.length ? UI_COLORS.warning : 'var(--text-muted)', fontWeight: 700 }}>
@@ -982,7 +992,7 @@ export default function Ogledziny() {
                         const risk = computeDelayRisk({ item: o, live, etaMinutes: live ? computeEtaMinutes(live, o) : null });
                         if (risk.level === 'high') return 'rgba(248,113,113,0.07)';
                         if (risk.level === 'medium') return 'rgba(251,191,36,0.06)';
-                        return 'transparent';
+                        return '#ffffff';
                       })(),
                   borderLeft: `3px solid ${selected === o.id ? 'var(--accent)' : 'transparent'}`,
                   transition: 'all 0.15s',
@@ -1158,7 +1168,7 @@ export default function Ogledziny() {
         </div>
 
         {/* ── PRAWA KOLUMNA: szczegóły ── */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
           {!selected ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ opacity: 0.3, marginBottom: 16 }}>
@@ -1170,29 +1180,30 @@ export default function Ogledziny() {
           ) : detailLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>Ładowanie...</div>
           ) : detail && (
-            <div style={{ maxWidth: 820, margin: '0 auto', padding: 28 }}>
+            <div style={{ maxWidth: 1080, margin: '0 auto', padding: 28 }}>
 
               {/* Nagłówek */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <div style={sec.detailHero}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>
-                      Oględziny #{detail.id}
-                    </h1>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <span style={sec.heroEyebrow}>Paszport oględzin</span>
                     <span style={{
-                      fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 9,
-                      background: sc(detail.status) + '22', color: sc(detail.status),
+                      fontSize: 11, fontWeight: 900, padding: '4px 10px', borderRadius: 8,
+                      background: 'rgba(255,255,255,0.92)', color: sc(detail.status),
                     }}>
                       {STATUS_LABEL[detail.status] || detail.status}
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-sub)' }}>
+                  <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.08, fontWeight: 950, color: '#ffffff' }}>
+                      Oględziny #{detail.id}
+                  </h1>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, color: 'rgba(240,253,244,0.86)', fontWeight: 800 }}>
                     {detail.klient_nazwa?.trim()}
                     {detail.klient_telefon && (
                       <span style={{ marginLeft: 8 }}>
                         ·{' '}
                         {telHref(detail.klient_telefon) ? (
-                          <a href={telHref(detail.klient_telefon)} style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
+                          <a href={telHref(detail.klient_telefon)} style={{ color: '#bbf7d0', fontWeight: 900, textDecoration: 'none' }}>
                             {detail.klient_telefon}
                           </a>
                         ) : (
@@ -1201,7 +1212,7 @@ export default function Ogledziny() {
                       </span>
                     )}
                   </p>
-                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  <p style={{ margin: '5px 0 0', fontSize: 12, color: 'rgba(240,253,244,0.72)', fontWeight: 750 }}>
                     Dodał: {detail.created_by_nazwa} · {fmt(detail.created_at)}
                   </p>
                 </div>
@@ -1223,8 +1234,18 @@ export default function Ogledziny() {
                 </div>
               </div>
 
+              <div style={sec.detailStatsGrid}>
+                {detailHeroStats.map((item) => (
+                  <div key={item.label} style={{ ...sec.detailStatCard, ...(sec[`detailStatCard_${item.tone}`] || {}) }}>
+                    <span style={sec.detailStatLabel}>{item.label}</span>
+                    <strong style={sec.detailStatValue}>{item.value}</strong>
+                    <small style={sec.detailStatDetail}>{item.detail}</small>
+                  </div>
+                ))}
+              </div>
+
               {/* Karty */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 16, marginBottom: 20 }}>
                 <Card title="Termin i lokalizacja">
                   <Row label="Data" value={fmtDt(detail.data_planowana)} />
                   <Row label="Adres" value={detail.adres} />
@@ -1542,6 +1563,22 @@ const inp = {
 };
 
 const sec = {
+  commandGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 },
+  commandCard: { background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)', padding: '7px 8px', boxShadow: 'var(--shadow-xs)', display: 'grid', gap: 2 },
+  commandCard_good: { borderColor: 'rgba(20,131,79,0.22)' },
+  commandCard_warning: { borderColor: 'rgba(180,83,9,0.28)' },
+  commandCard_danger: { borderColor: 'rgba(220,38,38,0.28)' },
+  commandLabel: { fontSize: 10, color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  commandValue: { color: 'var(--text)', fontSize: 17, lineHeight: 1.05 },
+  commandDetail: { color: 'var(--text-sub)', fontSize: 10, lineHeight: 1.25 },
+  detailStatsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: 10, marginBottom: 20 },
+  detailStatCard: { background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 12, display: 'grid', gap: 4, boxShadow: 'var(--shadow-sm)' },
+  detailStatCard_warning: { borderColor: 'rgba(180,83,9,0.28)', background: 'rgba(255,251,235,0.82)' },
+  detailStatCard_danger: { borderColor: 'rgba(220,38,38,0.28)', background: 'rgba(254,242,242,0.82)' },
+  detailStatCard_good: { borderColor: 'rgba(20,131,79,0.2)' },
+  detailStatLabel: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  detailStatValue: { color: 'var(--text)', fontSize: 15, lineHeight: 1.2 },
+  detailStatDetail: { color: 'var(--text-sub)', fontSize: 11, lineHeight: 1.3 },
   wrap: {
     background: 'var(--surface-glass)',
     borderRadius: 8,

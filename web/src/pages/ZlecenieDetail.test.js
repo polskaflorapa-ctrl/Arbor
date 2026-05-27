@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -149,7 +149,9 @@ afterEach(() => {
 });
 
 test('loads task GPS history and refreshes it for a selected date', async () => {
-  renderDetail();
+  await act(async () => {
+    renderDetail();
+  });
 
   expect(await screen.findByText('Historia trasy dnia')).toBeInTheDocument();
   expect(await screen.findByText('2 pkt')).toBeInTheDocument();
@@ -167,9 +169,11 @@ test('loads task GPS history and refreshes it for a selected date', async () => 
     );
   });
 
-  await userEvent.clear(screen.getByLabelText('Data historii GPS'));
-  await userEvent.type(screen.getByLabelText('Data historii GPS'), '2026-05-27');
-  await userEvent.click(screen.getByRole('button', { name: 'Odswiez' }));
+  await act(async () => {
+    await userEvent.clear(screen.getByLabelText('Data historii GPS'));
+    await userEvent.type(screen.getByLabelText('Data historii GPS'), '2026-05-27');
+    await userEvent.click(screen.getByRole('button', { name: 'Odswiez' }));
+  });
 
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith(

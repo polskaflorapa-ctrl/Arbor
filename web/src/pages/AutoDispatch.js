@@ -359,6 +359,20 @@ function routeBriefStatusFromResponse(route = {}, data = {}) {
   };
 }
 
+function routeBriefStatusesFromItems(routes = [], items = []) {
+  const routesByTeamId = new Map(
+    (routes || [])
+      .filter(route => route?.team_id)
+      .map(route => [String(route.team_id), route])
+  );
+  return (items || []).reduce((acc, item) => {
+    if (!item?.team_id) return acc;
+    const route = routesByTeamId.get(String(item.team_id)) || item;
+    acc[routeBriefKey(route)] = routeBriefStatusFromResponse(route, { status: item });
+    return acc;
+  }, {});
+}
+
 function routeBriefStatusText(status = {}) {
   const sentTo = Number(status.sent_to || 0);
   if (!sentTo) return '';
@@ -367,6 +381,15 @@ function routeBriefStatusText(status = {}) {
   if (pending <= 0) return `Potwierdzone ${confirmed}/${sentTo}`;
   if (confirmed > 0) return `Potwierdzone ${confirmed}/${sentTo} | czeka ${pending}`;
   return `Wyslano do ${sentTo} | czeka ${pending}`;
+}
+
+function routeBriefRecipientName(recipient = {}) {
+  return recipient.name || recipient.recipient_name || recipient.login || (recipient.user_id ? `User #${recipient.user_id}` : 'Odbiorca');
+}
+
+function routeBriefRecipientConfirmed(recipient = {}) {
+  const status = String(recipient.status || '').toLowerCase();
+  return Boolean(recipient.confirmed_at) || (status && status !== 'nowe');
 }
 
 async function copyTextToClipboard(text) {
@@ -436,6 +459,9 @@ export default function AutoDispatch() {
   const [dispatchBriefSendingAll, setDispatchBriefSendingAll] = useState(false);
   const [dispatchBriefSent, setDispatchBriefSent] = useState('');
   const [routeBriefStatuses, setRouteBriefStatuses] = useState({});
+  const [dispatchBriefStatusLoading, setDispatchBriefStatusLoading] = useState(false);
+  const [dispatchBriefStatusError, setDispatchBriefStatusError] = useState('');
+  const [dispatchBriefStatusCheckedAt, setDispatchBriefStatusCheckedAt] = useState('');
   const [riskFilter, setRiskFilter] = useState('all');
   const [riskIssueFilter, setRiskIssueFilter] = useState('');
 
@@ -457,6 +483,9 @@ export default function AutoDispatch() {
     setDispatchBriefSendingAll(false);
     setDispatchBriefSent('');
     setRouteBriefStatuses({});
+    setDispatchBriefStatusLoading(false);
+    setDispatchBriefStatusError('');
+    setDispatchBriefStatusCheckedAt('');
     setRiskFilter('all');
     setRiskIssueFilter('');
   }, [date, location.search]);
@@ -479,6 +508,9 @@ export default function AutoDispatch() {
     setDispatchBriefSendingAll(false);
     setDispatchBriefSent('');
     setRouteBriefStatuses({});
+    setDispatchBriefStatusLoading(false);
+    setDispatchBriefStatusError('');
+    setDispatchBriefStatusCheckedAt('');
     try {
       if (save && !options.skipPreflight) {
         const brief = advisor?.date === date ? advisor : await fetchAdvisorBrief();
@@ -698,6 +730,47 @@ export default function AutoDispatch() {
       setSuccess(`Wyslano odprawy: ${sentTeams}/${routes.length} ekip, ${sentRecipients} odbiorcow. Czekamy na potwierdzenia.`);
     }
   }, [date, plan?.routes, user?.oddzial_id]);
+
+  const refreshRouteBriefStatuses = useCallback(async ({ quiet = false } = {}) => {
+    const routes = (plan?.routes || []).filter(route => route?.team_id);
+    if (!routes.length) return false;
+    setDispatchBriefStatusLoading(true);
+    if (!quiet) {
+      setDispatchBriefStatusError('');
+      setError('');
+    }
+    try {
+      const token = getStoredToken();
+      const teamIds = routes.map(route => route.team_id).join(',');
+      const res = await api.get('/dispatch/route-brief/status', {
+        params: { date, oddzial_id: user?.oddzial_id, team_ids: teamIds },
+        headers: authHeaders(token),
+      });
+      const statuses = routeBriefStatusesFromItems(routes, res.data?.items || []);
+      setRouteBriefStatuses(prev => (quiet ? { ...prev, ...statuses } : statuses));
+      setDispatchBriefStatusCheckedAt(new Date().toISOString());
+      return true;
+    } catch (e) {
+      if (!quiet) {
+        setDispatchBriefStatusError(e.response?.data?.error || e.message);
+      }
+      return false;
+    } finally {
+      setDispatchBriefStatusLoading(false);
+    }
+  }, [date, plan?.routes, user?.oddzial_id]);
+
+  useEffect(() => {
+    if (!plan?.routes?.length) return undefined;
+    let cancelled = false;
+    (async () => {
+      if (cancelled) return;
+      await refreshRouteBriefStatuses({ quiet: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [plan?.routes, refreshRouteBriefStatuses]);
 
   const selectRiskFilter = useCallback((filterKey) => {
     setRiskFilter(filterKey);
@@ -1172,10 +1245,29 @@ export default function AutoDispatch() {
                 <span style={s.handoffDetail}>
                   {(plan.routes || []).length} ekip · {stats?.tasks_assigned ?? 0}/{stats?.tasks_total ?? 0} zlecen · {stats?.coverage_pct ?? 0}% pokrycia
                 </span>
+                {dispatchBriefStatusCheckedAt && (
+                  <span style={s.handoffStatusMeta}>
+                    Status odbioru: {new Date(dispatchBriefStatusCheckedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+                {dispatchBriefStatusError && (
+                  <span style={s.handoffStatusError}>{dispatchBriefStatusError}</span>
+                )}
               </div>
               <div style={s.handoffActions}>
                 <button type="button" onClick={copyDayBrief} style={s.copyDayBriefBtn}>
                   {dispatchBriefCopied === 'day' ? 'Skopiowano plan dnia' : 'Kopiuj plan dnia'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => refreshRouteBriefStatuses()}
+                  disabled={dispatchBriefStatusLoading || dispatchableRoutes.length === 0}
+                  style={{
+                    ...s.refreshBriefStatusBtn,
+                    ...((dispatchBriefStatusLoading || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
+                  }}
+                >
+                  {dispatchBriefStatusLoading ? 'Odswiezam...' : 'Odswiez odbior'}
                 </button>
                 <button
                   type="button"
@@ -1272,6 +1364,33 @@ export default function AutoDispatch() {
                         </button>
                       </div>
                     </div>
+                    {routeStatus?.recipients?.length > 0 && (
+                      <div style={s.routeReceiptPanel}>
+                        <span style={s.routeReceiptTitle}>Odbiorcy odprawy</span>
+                        <div style={s.routeReceiptList}>
+                          {routeStatus.recipients.map((recipient, index) => {
+                            const confirmed = routeBriefRecipientConfirmed(recipient);
+                            const key =
+                              recipient.notification_id ||
+                              recipient.user_id ||
+                              `${routeBriefRecipientName(recipient)}-${index}`;
+                            return (
+                              <span
+                                key={key}
+                                style={{
+                                  ...s.routeReceiptItem,
+                                  ...(confirmed ? s.routeReceiptItemDone : {}),
+                                }}
+                              >
+                                <span style={confirmed ? s.routeReceiptDotDone : s.routeReceiptDot} />
+                                <span style={s.routeReceiptName}>{routeBriefRecipientName(recipient)}</span>
+                                <span style={s.routeReceiptState}>{confirmed ? 'Potwierdzono' : 'Czeka'}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {open && (
                       <div style={s.stopList}>
@@ -1457,8 +1576,11 @@ const s = {
   handoffEyebrow:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
   handoffTitle:{ color: 'var(--text)', fontSize: 14, lineHeight: 1.25 },
   handoffDetail:{ color: 'var(--text-sub)', fontSize: 12 },
+  handoffStatusMeta:{ color: '#047857', fontSize: 11, fontWeight: 850 },
+  handoffStatusError:{ color: '#b91c1c', fontSize: 11, fontWeight: 850 },
   handoffActions:{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', flexShrink: 0 },
   copyDayBriefBtn:{ flexShrink: 0, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
+  refreshBriefStatusBtn:{ flexShrink: 0, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   sendAllBriefBtn:{ flexShrink: 0, border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   manualDispatchBrief:{ width: '100%', minHeight: 96, marginTop: 10, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', color: 'var(--text)', padding: 10, fontSize: 12, lineHeight: 1.45, resize: 'vertical' },
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
@@ -1479,6 +1601,15 @@ const s = {
   routeBriefBtn:{ border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '7px 10px', fontSize: 12, fontWeight: 850, cursor: 'pointer' },
   routeSendBtn:{ border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857' },
   routeBriefBtnDisabled:{ opacity: 0.58, cursor: 'not-allowed' },
+  routeReceiptPanel:{ borderTop: '1px solid var(--border-light, var(--border))', padding: '8px 12px 10px 16px', display: 'grid', gap: 7, background: 'rgba(255,255,255,0.42)' },
+  routeReceiptTitle:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  routeReceiptList:{ display: 'flex', flexWrap: 'wrap', gap: 7 },
+  routeReceiptItem:{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '5px 7px', fontSize: 11, fontWeight: 850, lineHeight: 1.2 },
+  routeReceiptItemDone:{ borderColor: '#86efac', background: '#f0fdf4', color: '#047857' },
+  routeReceiptDot:{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 },
+  routeReceiptDotDone:{ width: 7, height: 7, borderRadius: '50%', background: '#16a34a', flexShrink: 0 },
+  routeReceiptName:{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  routeReceiptState:{ flexShrink: 0, color: 'inherit', opacity: 0.82 },
   stopRow:  { display: 'flex', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-light, var(--border))' },
   stopNum:  { width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 },
   stopBody: { flex: 1, minWidth: 0 },
