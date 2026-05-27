@@ -354,7 +354,27 @@ test('copies day and team handoff briefs from the generated plan', async () => {
           ],
         },
       },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        message: 'Przypomnienie wyslane',
+        brief_id: 77,
+        team_id: 10,
+        team_name: 'Brygada Alfa',
+        reminded: 2,
+        recipients: [
+          { user_id: 21, name: 'Jan Brygadzista', status: 'Nowe' },
+          { user_id: 22, name: 'Anna Pomocnik', status: 'Nowe' },
+        ],
+      },
     });
+  api.get.mockResolvedValue({
+    data: {
+      date: '2026-05-25',
+      items: [],
+      summary: { teams_sent: 0, sent_to: 0, confirmed: 0, pending: 0 },
+    },
+  });
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
@@ -403,6 +423,16 @@ test('copies day and team handoff briefs from the generated plan', async () => {
   expect(screen.getByText('Jan Brygadzista')).toBeInTheDocument();
   expect(screen.getByText('Anna Pomocnik')).toBeInTheDocument();
   expect(screen.getAllByText('Czeka')).toHaveLength(2);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Przypomnij oczekujacym Brygada Alfa' }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenLastCalledWith(
+      '/dispatch/route-brief/77/remind',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Przypomnienie wyslane: Brygada Alfa (2)')).toBeInTheDocument();
 }, 10000);
 
 test('loads persisted route brief confirmation statuses for a generated plan', async () => {
@@ -488,6 +518,7 @@ test('loads persisted route brief confirmation statuses for a generated plan', a
   expect(screen.getByText('Anna Pomocnik')).toBeInTheDocument();
   expect(screen.getByText('Potwierdzono')).toBeInTheDocument();
   expect(screen.getByText('Czeka')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Przypomnij oczekujacym Brygada Alfa' })).toBeInTheDocument();
 }, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {

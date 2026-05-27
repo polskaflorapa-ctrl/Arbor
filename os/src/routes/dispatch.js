@@ -633,6 +633,126 @@ router.get('/route-brief/status', async (req, res) => {
   }
 });
 
+// POST /api/dispatch/route-brief/:briefId/remind
+router.post('/route-brief/:briefId/remind', async (req, res) => {
+  if (!canDispatch(req.user)) {
+    return res.status(403).json({ error: 'Brak uprawnien do przypominania o odprawach ekip' });
+  }
+
+  const briefId = parsePositiveInt(req.params.briefId);
+  if (!briefId) return res.status(400).json({ error: 'Nieprawidlowy identyfikator odprawy' });
+
+  const client = await pool.connect();
+  let transactionStarted = false;
+  try {
+    await ensureDispatchRouteBriefTables(client);
+    const briefResult = await client.query(
+      `SELECT rb.id, rb.date_ymd::text AS date, rb.team_id, rb.oddzial_id, rb.brief,
+              e.nazwa AS team_name, e.oddzial_id AS team_oddzial_id
+       FROM dispatch_route_briefs rb
+       JOIN teams e ON e.id = rb.team_id
+       WHERE rb.id = $1`,
+      [briefId]
+    );
+    const brief = briefResult.rows[0];
+    if (!brief) return res.status(404).json({ error: 'Odprawa nie istnieje' });
+
+    const briefBranchId = brief.oddzial_id || brief.team_oddzial_id || null;
+    if (!isDyrektorOrAdmin(req.user) && briefBranchId && Number(briefBranchId) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak uprawnien do tej odprawy' });
+    }
+
+    const pendingResult = await client.query(
+      `SELECT drr.user_id,
+              drr.notification_id,
+              COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), ''), u.login, 'User #' || u.id::text) AS name
+       FROM dispatch_route_brief_recipients drr
+       JOIN users u ON u.id = drr.user_id
+       LEFT JOIN notifications n ON n.id = drr.notification_id
+       WHERE drr.brief_id = $1
+         AND COALESCE(n.status, 'Nowe') = 'Nowe'
+         AND COALESCE(u.aktywny, true) = true
+       ORDER BY u.nazwisko, u.imie, drr.user_id`,
+      [briefId]
+    );
+    const recipients = (pendingResult.rows || [])
+      .map((row) => ({
+        user_id: Number(row.user_id),
+        name: row.name || `User #${row.user_id}`,
+        notification_id: row.notification_id || null,
+      }))
+      .filter((row) => Number.isInteger(row.user_id) && row.user_id > 0);
+
+    if (!recipients.length) {
+      return res.json({
+        message: 'Wszyscy odbiorcy potwierdzili odprawe',
+        brief_id: briefId,
+        team_id: Number(brief.team_id),
+        reminded: 0,
+        recipients: [],
+      });
+    }
+
+    const recipientIds = recipients.map((recipient) => recipient.user_id);
+    const reminderText = [
+      `Przypomnienie: potwierdz odprawe ekipy ${brief.team_name || `#${brief.team_id}`}.`,
+      brief.date ? `Data: ${brief.date}.` : '',
+      String(brief.brief || '').slice(0, 900),
+    ].filter(Boolean).join('\n');
+
+    await client.query('BEGIN');
+    transactionStarted = true;
+    const reminderResult = await client.query(
+      `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
+       SELECT $1, recipient_id, NULL, 'Przypomnienie odprawy', $2, 'Nowe'
+       FROM UNNEST($3::int[]) AS recipient_id
+       RETURNING id, to_user_id, typ, tresc, task_id, status, data_utworzenia`,
+      [req.user.id, reminderText, recipientIds]
+    );
+    await client.query('COMMIT');
+    transactionStarted = false;
+
+    const notifications = reminderResult.rows || [];
+    await req.auditLog({
+      action: 'dispatch.route_brief_reminded',
+      entityType: 'dispatch_route_brief',
+      entityId: briefId,
+      metadata: {
+        date: brief.date || null,
+        team_id: Number(brief.team_id),
+        team_name: brief.team_name || null,
+        recipients: recipientIds,
+        notification_count: notifications.length,
+      },
+    });
+
+    notifications.forEach((notification) => {
+      pushToUser(notification.to_user_id, { event: 'notification', notification });
+    });
+
+    res.json({
+      message: 'Przypomnienie wyslane',
+      brief_id: briefId,
+      team_id: Number(brief.team_id),
+      team_name: brief.team_name || null,
+      reminded: notifications.length,
+      recipients,
+    });
+  } catch (err) {
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        logger.warn('dispatch route brief reminder rollback failed', { message: rollbackError.message, requestId: req.requestId });
+      }
+    }
+    logger.error('dispatch route brief reminder error', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 router.get('/plans', async (req, res) => {
   if (!canDispatch(req.user)) {
     return res.status(403).json({ error: 'Brak uprawnień' });

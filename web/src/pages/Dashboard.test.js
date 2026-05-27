@@ -58,7 +58,7 @@ afterEach(() => {
 });
 
 test('filters legacy test fixture tasks from dashboard metrics and lists', async () => {
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const notTodayIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   api.get.mockImplementation(async (path) => {
     if (path === '/tasks/wszystkie') {
       return {
@@ -69,7 +69,7 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
             klient_nazwa: 'Test Klient Demo',
             opis: 'Testowe zlecenie migracyjne',
             status: 'Nowe',
-            data_planowana: `${currentMonth}-10T08:00:00.000Z`,
+            data_planowana: `${notTodayIso}T08:00:00.000Z`,
             wartosc_planowana: 999,
           },
           {
@@ -78,7 +78,7 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
             klient_nazwa: 'SMOKE klient operacyjny 1779434036264',
             opis: 'Automatyczny rekord smoke testu',
             status: 'Nowe',
-            data_planowana: `${currentMonth}-09T08:00:00.000Z`,
+            data_planowana: `${notTodayIso}T08:00:00.000Z`,
             wartosc_planowana: 1500,
           },
           {
@@ -87,7 +87,7 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
             klient_nazwa: 'Realny Klient',
             opis: 'Pielegnacja drzew',
             status: 'Zaplanowane',
-            data_planowana: `${currentMonth}-11T09:00:00.000Z`,
+            data_planowana: `${notTodayIso}T09:00:00.000Z`,
             ekipa_id: 5,
             ekipa_nazwa: 'Brygada Alfa',
             wartosc_planowana: 1500,
@@ -111,5 +111,6 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
   expect(screen.queryByText(/prac w terenie/i)).not.toBeInTheDocument();
   expect(screen.queryByTestId('dashboard-system-alert-count')).not.toBeInTheDocument();
   expect(screen.getByText('Brak prac w planie dnia')).toBeInTheDocument();
+  expect(screen.getByText('Brak zaplanowanych prac na dziś.')).toBeInTheDocument();
   expect(screen.getByTestId('ops-radar')).toHaveTextContent('1');
 });

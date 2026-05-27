@@ -568,9 +568,9 @@ export default function Dashboard() {
   const teamRanking = apiTeamRanking.length ? apiTeamRanking : fallbackTeamRanking;
   const activeRankingWeek = useMemo(() => pickDashboardWeek(teamRankingApi), [teamRankingApi]);
 
-  const scheduleItems = useMemo(() => [...ostatnie]
+  const scheduleItems = [...todayTasks]
     .sort((a, b) => new Date(a.data_planowana || a.data_zaplanowana || 0) - new Date(b.data_planowana || b.data_zaplanowana || 0))
-    .slice(0, 6), [ostatnie]);
+    .slice(0, 6);
 
   const systemAlertItems = payrollClose.export_allowed
     ? []
