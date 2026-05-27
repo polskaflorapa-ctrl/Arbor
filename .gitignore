@@ -61,6 +61,7 @@ output/
 artifacts/
 .tmp-chrome-*/
 os/.codex-pgdata/
+test-results/
 
 # IDE
 .idea/

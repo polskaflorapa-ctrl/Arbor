@@ -5,6 +5,7 @@ const {
   authMiddleware,
   requireNieBrygadzista,
   isDyrektor,
+  isDyrektorOrAdmin,
   isSalesDirector,
   canTransferSpecialist,
 } = require('../middleware/auth');
@@ -13,7 +14,7 @@ const { getBranchResources, ensureDelegationResourceSchema, isEstimatorRole, toI
 const { z } = require('zod');
 
 const router = express.Router();
-const canSeeAllOddzialy = (user) => isDyrektor(user) || isSalesDirector(user);
+const canSeeAllOddzialy = (user) => isDyrektorOrAdmin(user) || isSalesDirector(user);
 
 const oddzialListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),

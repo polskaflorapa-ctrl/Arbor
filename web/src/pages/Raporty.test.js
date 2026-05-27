@@ -259,6 +259,25 @@ test('saves call log with numeric branch and duration payload', async () => {
   });
 });
 
+test('shows telephony controls for administrators', async () => {
+  localStorage.setItem('user', JSON.stringify({
+    id: 2,
+    imie: 'Smoke',
+    nazwisko: 'Admin',
+    rola: 'Administrator',
+    oddzial_id: null,
+  }));
+
+  renderPage();
+
+  expect(await screen.findByRole('heading', { name: 'Raporty i analizy' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /sprzeda/i }));
+
+  expect(await screen.findByText(/Call Center/i)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Zapisz po/i })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /callback queue/i })).toBeInTheDocument();
+});
+
 test('saves callback queue entry with numeric branch payload', async () => {
   renderPage();
 

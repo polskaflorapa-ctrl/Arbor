@@ -86,7 +86,7 @@ export default function Raporty() {
   const navigate = useNavigate();
  
   // POPRAWKA: obliczane na poziomie komponentu, dostępne w JSX
-  const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
+  const isDyrektor = ['Prezes', 'Dyrektor', 'Administrator'].includes(currentUser?.rola);
   const isKierownik = currentUser?.rola === 'Kierownik';
  
   // POPRAWKA: parsedUser przekazywany bezpośrednio do loadData

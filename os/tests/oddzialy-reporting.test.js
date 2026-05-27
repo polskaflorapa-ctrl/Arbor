@@ -13,6 +13,7 @@ const { env } = require('../src/config/env');
 describe('Oddzialy reporting routes', () => {
   const app = createTestApp('/api/oddzialy', oddzialyRoutes);
   const directorToken = jwt.sign({ id: 1, rola: 'Dyrektor', oddzial_id: 1 }, env.JWT_SECRET);
+  const adminToken = jwt.sign({ id: 3, rola: 'Administrator', oddzial_id: null }, env.JWT_SECRET);
   const managerToken = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 2 }, env.JWT_SECRET);
 
   beforeEach(() => {
@@ -45,6 +46,21 @@ describe('Oddzialy reporting routes', () => {
     const selectCall = pool.query.mock.calls[2];
     expect(selectCall[0]).toContain('FROM branch_goals');
     expect(selectCall[1]).toEqual([2026, 5]);
+  });
+
+  it('lets administrators list all branches without branch scope', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: 1, nazwa: 'Centrala' }],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .get('/api/oddzialy')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(pool.query).toHaveBeenCalledWith(expect.not.stringContaining('WHERE b.id = $1'), []);
   });
 
   it('scopes branch sales reads to the manager branch', async () => {
