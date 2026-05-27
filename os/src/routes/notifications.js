@@ -51,12 +51,19 @@ router.get('/', authMiddleware, validateQuery(notificationsListQuerySchema), asy
       FROM notifications n
       LEFT JOIN users u ON n.from_user_id = u.id
       LEFT JOIN tasks t ON n.task_id = t.id
+      LEFT JOIN dispatch_route_brief_recipients drr ON drr.notification_id = n.id
+      LEFT JOIN dispatch_route_briefs rb ON rb.id = drr.brief_id
+      LEFT JOIN teams route_team ON route_team.id = rb.team_id
       WHERE n.to_user_id = $1`;
     const orderBy = 'ORDER BY n.data_utworzenia DESC';
     const selectList = `
       SELECT n.*,
         u.imie || ' ' || u.nazwisko as od_kogo,
-        t.klient_nazwa, t.adres
+        t.klient_nazwa,
+        t.adres,
+        drr.brief_id AS dispatch_route_brief_id,
+        rb.team_id AS dispatch_route_team_id,
+        route_team.nazwa AS dispatch_route_team_name
       ${base}
       ${orderBy}`;
     const params = [req.user.id];
@@ -96,12 +103,32 @@ router.post('/', authMiddleware, validateBody(notificationCreateSchema), async (
 
 router.put('/odczytaj-wszystkie', authMiddleware, async (req, res) => {
   try {
-    await pool.query(
-      `UPDATE notifications SET status = 'Odczytane', data_odczytu = NOW()
-       WHERE to_user_id = $1 AND status = 'Nowe'`,
+    const result = await pool.query(
+      `WITH updated AS (
+         UPDATE notifications
+         SET status = 'Odczytane', data_odczytu = NOW()
+         WHERE to_user_id = $1
+           AND status = 'Nowe'
+           AND COALESCE(typ, '') <> 'Odprawa ekipy'
+         RETURNING id
+       ),
+       skipped AS (
+         SELECT COUNT(*)::int AS c
+         FROM notifications
+         WHERE to_user_id = $1
+           AND status = 'Nowe'
+           AND COALESCE(typ, '') = 'Odprawa ekipy'
+       )
+       SELECT (SELECT COUNT(*)::int FROM updated) AS updated,
+              skipped.c AS skipped_route_briefs
+       FROM skipped`,
       [req.user.id]
     );
-    res.json({ message: 'Wszystkie odczytane' });
+    res.json({
+      message: 'Wszystkie odczytane',
+      updated: Number(result.rows[0]?.updated || 0),
+      skipped_route_briefs: Number(result.rows[0]?.skipped_route_briefs || 0),
+    });
   } catch (err) {
     logger.error('Blad oznaczania wszystkich powiadomien', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
@@ -110,11 +137,32 @@ router.put('/odczytaj-wszystkie', authMiddleware, async (req, res) => {
 
 router.put('/:id/odczytaj', authMiddleware, validateParams(notificationIdParamsSchema), async (req, res) => {
   try {
-    await pool.query(
-      `UPDATE notifications SET status = 'Odczytane', data_odczytu = NOW()
-       WHERE id = $1 AND to_user_id = $2`,
+    const result = await pool.query(
+      `WITH target AS (
+         SELECT id, typ
+         FROM notifications
+         WHERE id = $1 AND to_user_id = $2
+       ),
+       updated AS (
+         UPDATE notifications
+         SET status = 'Odczytane', data_odczytu = NOW()
+         WHERE id = $1
+           AND to_user_id = $2
+           AND COALESCE(typ, '') <> 'Odprawa ekipy'
+         RETURNING id
+       )
+       SELECT
+         (SELECT id FROM updated) AS updated_id,
+         (SELECT typ FROM target) AS typ`,
       [req.params.id, req.user.id]
     );
+    const row = result.rows[0] || {};
+    if (!row.updated_id && row.typ === 'Odprawa ekipy') {
+      return res.status(409).json({
+        error: 'Odprawa wymaga osobnego potwierdzenia',
+        requires_route_brief_confirmation: true,
+      });
+    }
     res.json({ message: 'Odczytano' });
   } catch (err) {
     logger.error('Blad oznaczania powiadomienia jako odczytane', { message: err.message, requestId: req.requestId });
@@ -122,7 +170,29 @@ router.put('/:id/odczytaj', authMiddleware, validateParams(notificationIdParamsS
   }
 });
 
-// ─── GET /api/notifications/stream — SSE ─────────────────────────────────────
+// DELETE /api/notifications/:id
+
+router.delete('/:id', authMiddleware, validateParams(notificationIdParamsSchema), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM notifications
+       WHERE id = $1 AND to_user_id = $2
+       RETURNING id`,
+      [req.params.id, req.user.id]
+    );
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: req.t('errors.http.notFound') });
+    }
+
+    return res.json({ message: 'Powiadomienie usuniete', id: Number(req.params.id) });
+  } catch (err) {
+    logger.error('Blad usuwania powiadomienia', { message: err.message, requestId: req.requestId });
+    return res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+// GET /api/notifications/stream - SSE.
 // EventSource can't send Authorization headers, so we accept ?token= query param.
 // We validate the JWT manually here (same secret as authMiddleware).
 

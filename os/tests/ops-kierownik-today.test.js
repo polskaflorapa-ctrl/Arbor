@@ -1001,8 +1001,77 @@ describe('GET /api/ops/action-recommendations', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.summary.hidden_today).toBe(0);
+    expect(res.body.summary.accepted_today).toBe(0);
     expect(res.body.recommendations.map((item) => item.id)).toContain('set_missing_duration');
     expect(res.body.hidden_recommendations).toEqual([]);
+  });
+
+  it('marks a recommendation accepted today only when feedback source is action', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('WITH planned AS') && text.includes('open_issues')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [
+            {
+              id: 43,
+              numer: 'ARB-43',
+              klient_nazwa: 'Bez czasu zaakceptowane',
+              klient_telefon: '+48111111111',
+              adres: 'Krakow 3',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              ekipa_id: 5,
+              oddzial_id: 7,
+              pin_lat: 50.1,
+              pin_lng: 19.9,
+              czas_planowany_godziny: null,
+              czas_obslugi_min: null,
+              ekipa_nazwa: 'Ekipa A',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 0,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM ops_action_events e') && text.includes('GROUP BY e.action_type')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'recommendation_feedback'")) {
+        expect(text).toContain("metadata->>'source'");
+        return {
+          rows: [
+            {
+              recommendation_id: 'set_missing_duration',
+              decision: 'accepted',
+              source: 'action',
+              created_at: '2026-05-26T10:00:00.000Z',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-recommendations?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.accepted_today).toBe(1);
+    const accepted = res.body.recommendations.find((item) => item.id === 'set_missing_duration');
+    expect(accepted).toMatchObject({
+      accepted_today: true,
+      feedback_decision: 'accepted',
+      feedback_source: 'action',
+    });
   });
 
   it('records recommendation feedback in the action memory', async () => {
@@ -1017,6 +1086,7 @@ describe('GET /api/ops/action-recommendations', () => {
         expect(JSON.parse(params[10])).toMatchObject({
           recommendation_id: 'set_missing_duration',
           decision: 'dismissed',
+          source: 'hide',
           date: '2026-05-26',
         });
         return {
@@ -1035,6 +1105,7 @@ describe('GET /api/ops/action-recommendations', () => {
     expect(res.body.feedback).toMatchObject({
       recommendation_id: 'set_missing_duration',
       decision: 'dismissed',
+      source: 'hide',
       oddzial_id: 7,
     });
     expect(res.body.message).toBe('Rekomendacja ukryta na dzis');

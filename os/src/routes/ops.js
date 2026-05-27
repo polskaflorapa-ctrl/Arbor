@@ -647,6 +647,7 @@ function latestRecommendationFeedbackById(rows = []) {
       latest.set(recommendationId, {
         recommendation_id: recommendationId,
         decision: cleanText(row?.decision, 30),
+        source: cleanText(row?.source, 50),
         createdAt,
       });
     }
@@ -1267,6 +1268,7 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
         `SELECT DISTINCT ON (metadata->>'recommendation_id')
                 metadata->>'recommendation_id' AS recommendation_id,
                 metadata->>'decision' AS decision,
+                metadata->>'source' AS source,
                 created_at
          FROM ops_action_events e
          WHERE e.created_at >= $1::date
@@ -1337,6 +1339,15 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
       oddzialId,
       tasks,
       eventStats: eventsResult.rows || [],
+    }).map((item) => {
+      const feedback = latestFeedback.get(item.id);
+      const acceptedToday = feedback?.decision === 'accepted' && feedback?.source === 'action';
+      return {
+        ...item,
+        feedback_decision: feedback?.decision || null,
+        feedback_source: feedback?.source || null,
+        accepted_today: acceptedToday,
+      };
     });
     const recommendations = allRecommendations
       .filter((item) => !hiddenRecommendationIds.has(item.id))
@@ -1354,6 +1365,7 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
         plan_tasks: tasks.length,
         memory_rows: eventsResult.rows.length,
         hidden_today: hiddenRecommendations.length,
+        accepted_today: recommendations.filter((item) => item.accepted_today).length,
       },
       recommendations,
       hidden_recommendations: hiddenRecommendations,
@@ -1382,6 +1394,9 @@ router.post('/action-recommendations/:recommendationId/feedback', authMiddleware
   if (!allowedDecisions.has(decision)) {
     return res.status(400).json({ error: 'Nieznana decyzja dla rekomendacji.' });
   }
+  const source = cleanText(req.body?.source, 50) || (
+    decision === 'dismissed' ? 'hide' : decision === 'snoozed' ? 'snooze' : 'manual'
+  );
 
   const requestedOddzial = req.body?.oddzial_id || req.query.oddzial_id ? Number(req.body?.oddzial_id || req.query.oddzial_id) : null;
   const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
@@ -1399,6 +1414,7 @@ router.post('/action-recommendations/:recommendationId/feedback', authMiddleware
       metadata: {
         recommendation_id: recommendationId,
         decision,
+        source,
         date,
         target_path: cleanText(req.body?.target_path, 300) || null,
         task_ids: Array.isArray(req.body?.task_ids)
@@ -1411,7 +1427,7 @@ router.post('/action-recommendations/:recommendationId/feedback', authMiddleware
       action: 'ops.action_recommendation.feedback',
       entity: 'ops_recommendation',
       entity_id: recommendationId,
-      details: { decision, date, oddzial_id: oddzialId },
+      details: { decision, source, date, oddzial_id: oddzialId },
     });
 
     return res.json({
@@ -1419,6 +1435,7 @@ router.post('/action-recommendations/:recommendationId/feedback', authMiddleware
       feedback: {
         recommendation_id: recommendationId,
         decision,
+        source,
         date,
         oddzial_id: oddzialId,
       },

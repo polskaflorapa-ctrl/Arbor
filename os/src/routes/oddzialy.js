@@ -20,6 +20,27 @@ const oddzialListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
+const branchReportingQuerySchema = z.object({
+  rok: z.coerce.number().int().min(2000).max(2100),
+  miesiac: z.coerce.number().int().min(1).max(12),
+});
+
+const branchGoalBodySchema = branchReportingQuerySchema.extend({
+  oddzial_id: z.coerce.number().int().positive(),
+  plan_zlecen: z.coerce.number().min(0).default(0),
+  plan_obrotu: z.coerce.number().min(0).default(0),
+  plan_marzy: z.coerce.number().min(0).default(0),
+});
+
+const branchSalesBodySchema = branchReportingQuerySchema.extend({
+  oddzial_id: z.coerce.number().int().positive(),
+  calls_total: z.coerce.number().int().min(0).default(0),
+  calls_answered: z.coerce.number().int().min(0).default(0),
+  calls_missed: z.coerce.number().int().min(0).default(0),
+  leads_new: z.coerce.number().int().min(0).default(0),
+  meetings_booked: z.coerce.number().int().min(0).default(0),
+});
+
 const oddzialIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
@@ -105,6 +126,44 @@ const delegationSelectList = `
       LEFT JOIN branches bd ON d.oddzial_do = bd.id
       LEFT JOIN users u ON d.dodal_id = u.id`;
 
+async function ensureBranchReportingTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS branch_goals (
+      id SERIAL PRIMARY KEY,
+      oddzial_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      rok INTEGER NOT NULL,
+      miesiac INTEGER NOT NULL CHECK (miesiac BETWEEN 1 AND 12),
+      plan_zlecen INTEGER NOT NULL DEFAULT 0,
+      plan_obrotu NUMERIC(12,2) NOT NULL DEFAULT 0,
+      plan_marzy NUMERIC(8,2) NOT NULL DEFAULT 0,
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (oddzial_id, rok, miesiac)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS branch_sales_metrics (
+      id SERIAL PRIMARY KEY,
+      oddzial_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      rok INTEGER NOT NULL,
+      miesiac INTEGER NOT NULL CHECK (miesiac BETWEEN 1 AND 12),
+      calls_total INTEGER NOT NULL DEFAULT 0,
+      calls_answered INTEGER NOT NULL DEFAULT 0,
+      calls_missed INTEGER NOT NULL DEFAULT 0,
+      leads_new INTEGER NOT NULL DEFAULT 0,
+      meetings_booked INTEGER NOT NULL DEFAULT 0,
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (oddzial_id, rok, miesiac)
+    )
+  `);
+}
+
+function branchReportingScope(user, params) {
+  if (canSeeAllOddzialy(user)) return { where: '', params };
+  return { where: ` AND oddzial_id = $${params.length + 1}`, params: [...params, user.oddzial_id] };
+}
+
 // Lista oddziałów
 router.get('/', authMiddleware, validateQuery(oddzialListQuerySchema), async (req, res) => {
   try {
@@ -144,6 +203,102 @@ router.get('/', authMiddleware, validateQuery(oddzialListQuerySchema), async (re
     res.json(result.rows);
   } catch (err) {
     logger.error('Blad pobierania oddzialow', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/cele', authMiddleware, validateQuery(branchReportingQuerySchema), async (req, res) => {
+  try {
+    await ensureBranchReportingTables();
+    const rok = Number(req.query.rok);
+    const miesiac = Number(req.query.miesiac);
+    const scoped = branchReportingScope(req.user, [rok, miesiac]);
+    const { rows } = await pool.query(
+      `SELECT id, oddzial_id, rok, miesiac, plan_zlecen, plan_obrotu, plan_marzy, updated_at
+       FROM branch_goals
+       WHERE rok = $1 AND miesiac = $2${scoped.where}
+       ORDER BY oddzial_id`,
+      scoped.params
+    );
+    res.json(rows);
+  } catch (err) {
+    logger.error('Blad pobierania celow oddzialow', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/cele', authMiddleware, requireNieBrygadzista, validateBody(branchGoalBodySchema), async (req, res) => {
+  try {
+    if (!canSeeAllOddzialy(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    await ensureBranchReportingTables();
+    const { oddzial_id, rok, miesiac, plan_zlecen, plan_obrotu, plan_marzy } = req.body;
+    const { rows } = await pool.query(
+      `INSERT INTO branch_goals (
+         oddzial_id, rok, miesiac, plan_zlecen, plan_obrotu, plan_marzy, updated_by
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (oddzial_id, rok, miesiac)
+       DO UPDATE SET
+         plan_zlecen = EXCLUDED.plan_zlecen,
+         plan_obrotu = EXCLUDED.plan_obrotu,
+         plan_marzy = EXCLUDED.plan_marzy,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = NOW()
+       RETURNING id, oddzial_id, rok, miesiac, plan_zlecen, plan_obrotu, plan_marzy, updated_at`,
+      [oddzial_id, rok, miesiac, plan_zlecen, plan_obrotu, plan_marzy, req.user.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error('Blad zapisu celu oddzialu', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/sprzedaz', authMiddleware, validateQuery(branchReportingQuerySchema), async (req, res) => {
+  try {
+    await ensureBranchReportingTables();
+    const rok = Number(req.query.rok);
+    const miesiac = Number(req.query.miesiac);
+    const scoped = branchReportingScope(req.user, [rok, miesiac]);
+    const { rows } = await pool.query(
+      `SELECT id, oddzial_id, rok, miesiac, calls_total, calls_answered, calls_missed, leads_new, meetings_booked, updated_at
+       FROM branch_sales_metrics
+       WHERE rok = $1 AND miesiac = $2${scoped.where}
+       ORDER BY oddzial_id`,
+      scoped.params
+    );
+    res.json(rows);
+  } catch (err) {
+    logger.error('Blad pobierania sprzedazy oddzialow', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/sprzedaz', authMiddleware, requireNieBrygadzista, validateBody(branchSalesBodySchema), async (req, res) => {
+  try {
+    if (!canSeeAllOddzialy(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    await ensureBranchReportingTables();
+    const { oddzial_id, rok, miesiac, calls_total, calls_answered, calls_missed, leads_new, meetings_booked } = req.body;
+    const { rows } = await pool.query(
+      `INSERT INTO branch_sales_metrics (
+         oddzial_id, rok, miesiac, calls_total, calls_answered, calls_missed, leads_new, meetings_booked, updated_by
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (oddzial_id, rok, miesiac)
+       DO UPDATE SET
+         calls_total = EXCLUDED.calls_total,
+         calls_answered = EXCLUDED.calls_answered,
+         calls_missed = EXCLUDED.calls_missed,
+         leads_new = EXCLUDED.leads_new,
+         meetings_booked = EXCLUDED.meetings_booked,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = NOW()
+       RETURNING id, oddzial_id, rok, miesiac, calls_total, calls_answered, calls_missed, leads_new, meetings_booked, updated_at`,
+      [oddzial_id, rok, miesiac, calls_total, calls_answered, calls_missed, leads_new, meetings_booked, req.user.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    logger.error('Blad zapisu sprzedazy oddzialu', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

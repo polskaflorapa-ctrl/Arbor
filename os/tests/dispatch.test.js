@@ -732,6 +732,81 @@ describe('GET /api/dispatch/route-brief/status', () => {
   });
 });
 
+describe('POST /api/dispatch/route-brief/:briefId/confirm', () => {
+  const PATH = '/api/dispatch/route-brief/77/confirm';
+
+  afterEach(() => {
+    pool.query.mockReset();
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+  });
+
+  it('401 when no token', async () => {
+    expect((await request(app).post(PATH)).status).toBe(401);
+  });
+
+  it('404 when the current user is not a recipient', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${brygadzistaToken()}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/Odprawa/);
+  });
+
+  it('200 confirms the route brief for a crew recipient', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) {
+        expect(params).toEqual([77, 3]);
+        return {
+          rows: [{
+            id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            team_name: 'Brygada Alfa',
+            user_id: 3,
+            notification_id: 99,
+            status: 'Nowe',
+            data_odczytu: null,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('UPDATE notifications')) {
+        expect(params).toEqual([99, 3]);
+        return {
+          rows: [{ id: 99, status: 'Odczytane', data_odczytu: '2025-06-15T06:10:00Z' }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('INSERT INTO audit_log')) return { rows: [], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${brygadzistaToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      message: 'Odprawa potwierdzona',
+      brief_id: 77,
+      team_id: 10,
+      team_name: 'Brygada Alfa',
+      notification_id: 99,
+      status: 'Odczytane',
+    }));
+  });
+});
+
 describe('GET /api/dispatch/plans', () => {
   const PATH = '/api/dispatch/plans';
 

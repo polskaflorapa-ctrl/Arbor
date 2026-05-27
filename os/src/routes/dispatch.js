@@ -633,6 +633,75 @@ router.get('/route-brief/status', async (req, res) => {
   }
 });
 
+// POST /api/dispatch/route-brief/:briefId/confirm
+router.post('/route-brief/:briefId/confirm', async (req, res) => {
+  const briefId = parsePositiveInt(req.params.briefId);
+  if (!briefId) return res.status(400).json({ error: 'Nieprawidlowy identyfikator odprawy' });
+
+  try {
+    await ensureDispatchRouteBriefTables(pool);
+    const recipientResult = await pool.query(
+      `SELECT rb.id,
+              rb.date_ymd::text AS date,
+              rb.team_id,
+              e.nazwa AS team_name,
+              drr.user_id,
+              drr.notification_id,
+              n.status,
+              n.data_odczytu
+       FROM dispatch_route_briefs rb
+       JOIN dispatch_route_brief_recipients drr ON drr.brief_id = rb.id
+       JOIN teams e ON e.id = rb.team_id
+       LEFT JOIN notifications n ON n.id = drr.notification_id AND n.to_user_id = drr.user_id
+       WHERE rb.id = $1
+         AND drr.user_id = $2`,
+      [briefId, req.user.id]
+    );
+    const recipient = recipientResult.rows[0];
+    if (!recipient) return res.status(404).json({ error: 'Odprawa nie istnieje dla tego uzytkownika' });
+    if (!recipient.notification_id) {
+      return res.status(409).json({ error: 'Odprawa nie ma powiadomienia do potwierdzenia' });
+    }
+
+    const updateResult = await pool.query(
+      `UPDATE notifications
+       SET status = 'Odczytane',
+           data_odczytu = COALESCE(data_odczytu, NOW())
+       WHERE id = $1
+         AND to_user_id = $2
+       RETURNING id, status, data_odczytu`,
+      [recipient.notification_id, req.user.id]
+    );
+    const notification = updateResult.rows[0];
+    if (!notification) return res.status(404).json({ error: 'Powiadomienie odprawy nie istnieje' });
+
+    await req.auditLog({
+      action: 'dispatch.route_brief_confirmed',
+      entityType: 'dispatch_route_brief',
+      entityId: briefId,
+      metadata: {
+        date: recipient.date || null,
+        team_id: Number(recipient.team_id),
+        team_name: recipient.team_name || null,
+        notification_id: Number(recipient.notification_id),
+      },
+    });
+
+    res.json({
+      message: 'Odprawa potwierdzona',
+      brief_id: briefId,
+      team_id: Number(recipient.team_id),
+      team_name: recipient.team_name || null,
+      notification_id: Number(notification.id),
+      status: notification.status,
+      confirmed_at: notification.data_odczytu,
+    });
+  } catch (err) {
+    logger.error('dispatch route brief confirm error', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/dispatch/route-brief/:briefId/remind
 router.post('/route-brief/:briefId/remind', async (req, res) => {
   if (!canDispatch(req.user)) {
