@@ -7,6 +7,7 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
+import { clearAuthSession } from '../utils/authSession';
 import { useTheme, THEMES } from '../ThemeContext';
 import { getRolaColor } from '../theme';
 import { isTaskClosed } from '../utils/taskWorkflow';
@@ -806,7 +807,7 @@ export default function Profil() {
 
   const handleLogout = () => {
     if (window.confirm(t('profile.logoutConfirm'))) {
-      localStorage.clear();
+      clearAuthSession();
       navigate('/');
     }
   };

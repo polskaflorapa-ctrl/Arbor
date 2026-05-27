@@ -6,38 +6,39 @@
  *
  * Use readPermissions() anywhere, or the usePermissions() React hook.
  */
+import { hasAnyRole, roleMatches } from './roleDisplay';
 
 /**
  * Roles that can manage the whole organisation (no branch filter).
  */
-const DIRECTOR_ROLES = new Set(['Prezes', 'Dyrektor', 'Administrator']);
+const DIRECTOR_ROLES = ['Prezes', 'Dyrektor', 'Administrator'];
 
 /**
  * Roles with management capabilities within a branch.
  */
-const MANAGER_ROLES = new Set([...DIRECTOR_ROLES, 'Kierownik']);
+const MANAGER_ROLES = [...DIRECTOR_ROLES, 'Kierownik'];
 
 /**
  * All sales-director role string variants (Polish chars + ASCII fallbacks).
  */
-const SALES_DIRECTOR_ROLES = new Set([
+const SALES_DIRECTOR_ROLES = [
   'Dyrektor Sprzedazy',
   'Dyrektor Sprzedaży',
   'Dyrektor dzialu sprzedaz',
   'Dyrektor działu sprzedaż',
-]);
+];
 
 /** Returns true if role has director-level access. */
-export const isDyrektor = (rola) => DIRECTOR_ROLES.has(rola);
+export const isDyrektor = (rola) => hasAnyRole(rola, DIRECTOR_ROLES);
 
 /** Returns true if role has manager-or-above access. */
-export const isKierownik = (rola) => MANAGER_ROLES.has(rola);
+export const isKierownik = (rola) => hasAnyRole(rola, MANAGER_ROLES);
 
 /** Returns true for any sales-director variant. */
-export const isSalesDirector = (rola) => SALES_DIRECTOR_ROLES.has(rola);
+export const isSalesDirector = (rola) => hasAnyRole(rola, SALES_DIRECTOR_ROLES);
 
 /** Returns true for Brygadzista or Pomocnik (field worker). */
-export const isFieldWorker = (rola) => rola === 'Brygadzista' || rola === 'Pomocnik';
+export const isFieldWorker = (rola) => roleMatches(rola, 'Brygadzista') || roleMatches(rola, 'Pomocnik');
 
 /**
  * Read the permissions object stored in localStorage.
@@ -66,20 +67,21 @@ function buildFallbackPermissions() {
     const dir = isDyrektor(rola);
     const mgr = isKierownik(rola);
     const sales = isSalesDirector(rola);
+    const estimator = roleMatches(rola, 'Wyceniajacy');
     return {
       policyVersion: 0,
       taskScope: dir || sales ? 'all' : isFieldWorker(rola) ? 'assigned_team_only' : 'branch',
       canTransferSpecialists: dir || sales,
       canViewPayrollSettlements: mgr,
       canManagePayrollSettlements: dir,
-      canViewSettlementModule: mgr || rola === 'Wyceniający' || rola === 'Wyceniajacy',
+      canViewSettlementModule: mgr || estimator,
       canCreateTasks: mgr,
       canAssignTeams: mgr,
       canManageTeams: mgr,
       canViewAllBranches: dir,
       canManageUsers: dir,
       canManageRoles: dir,
-      canViewCrm: mgr || sales || rola === 'Wyceniający',
+      canViewCrm: mgr || sales || estimator,
       canApproveQuotations: dir || sales,
       canViewFinance: dir,
       canExportPayroll: dir,
@@ -90,7 +92,7 @@ function buildFallbackPermissions() {
 }
 
 /**
- * React hook — returns permissions object, re-reads from localStorage
+ * React hook: returns permissions object, re-reads from localStorage
  * on every render (cheap JSON parse, no network call).
  */
 export function usePermissions() {
