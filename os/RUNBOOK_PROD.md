@@ -35,6 +35,9 @@ Expected: all checks marked `OK`.
 - Enable metrics only when secured:
   - `METRICS_ENABLED=true`
   - protect `/api/metrics` with network/access policy.
+- Login rate limiting:
+  - keep `LOGIN_RATE_LIMIT_STORE=memory` for a single app instance
+  - for horizontal scaling, switch to `LOGIN_RATE_LIMIT_STORE=redis` and set `LOGIN_RATE_LIMIT_REDIS_URL`
 
 ## Incident Triage
 1. Check Render deploy logs for startup errors.

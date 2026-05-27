@@ -10,6 +10,9 @@
 - Set `DB_NAME=arbor_db`.
 - Ensure there are no duplicate `DATABASE_URL` or `DB_NAME` entries.
 - Keep `JWT_SECRET` configured.
+- Configure login rate-limit store:
+  - single instance: `LOGIN_RATE_LIMIT_STORE=memory`
+  - multi-instance/shared limits: `LOGIN_RATE_LIMIT_STORE=redis` and `LOGIN_RATE_LIMIT_REDIS_URL=<redis-url>`
 
 ## 3) Deploy
 - Run `Manual Deploy` -> `Deploy latest commit`.
@@ -28,3 +31,6 @@
   - `DB_NAME` value
 - If root shows not found, verify latest commit was deployed.
 - Enable metrics in Render (`METRICS_ENABLED=true`) only when `/api/metrics` is protected by network/access policy.
+- If login limits behave inconsistently across replicas, verify:
+  - `LOGIN_RATE_LIMIT_STORE=redis`
+  - reachable `LOGIN_RATE_LIMIT_REDIS_URL`
