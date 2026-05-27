@@ -345,6 +345,8 @@ function recommendationBlockerTaskPreview(tasks = [], date, allowedBlockers = []
   return recommendationTaskPreview(
     tasks.map((task) => ({
       ...task,
+      issue_key: null,
+      issue_label: null,
       blockers: taskBlockerSubset(task, allowedBlockers),
       action_path: null,
     })),
@@ -516,8 +518,8 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
       secondary_label: '',
       task_count: dispatchBlockers.length,
       task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
-      task_preview: recommendationTaskPreview(dispatchBlockers, date),
-      target_path: buildTaskPath({ ...dispatchBlockers[0], blockers: dispatchBlockers[0].blockers || [] }, date),
+      task_preview: recommendationBlockerTaskPreview(dispatchBlockers, date, ['team', 'gps']),
+      target_path: recommendationBlockerTaskPath(dispatchBlockers, date, ['team', 'gps']),
       impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
     });
   }

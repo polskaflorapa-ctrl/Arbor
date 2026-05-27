@@ -199,6 +199,16 @@ function mockRecommendationTaskPreview(tasks = [], limit = 3) {
     });
 }
 
+function mockRecommendationBlockerPreview(tasks = [], allowedBlockers = [], limit = 3) {
+  const allowed = new Set(allowedBlockers || []);
+  return mockRecommendationTaskPreview(tasks, limit).map((item) => ({
+    ...item,
+    issue_key: null,
+    issue_label: null,
+    blockers: item.blockers.filter((key) => allowed.has(key)),
+  }));
+}
+
 function mockMinutesToClock(value) {
   const total = Math.max(0, Math.round(Number(value || 0)));
   const hours = Math.floor(total / 60) % 24;
@@ -685,7 +695,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: dispatchBlockers.length,
         task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
-        task_preview: mockRecommendationTaskPreview(dispatchBlockers),
+        task_preview: mockRecommendationBlockerPreview(dispatchBlockers, ['team', 'gps']),
         target_path: `/zlecenia/${dispatchBlockers[0]?.id || ''}`,
         impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
       });
@@ -707,7 +717,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: contactBlockers.length,
         task_ids: contactBlockers.slice(0, 8).map((task) => task.id),
-        task_preview: mockRecommendationTaskPreview(contactBlockers),
+        task_preview: mockRecommendationBlockerPreview(contactBlockers, ['phone', 'address']),
         target_path: `/zlecenia/${contactBlockers[0]?.id || ''}`,
         impact_label: `${contactBlockers.length} zlecen wymaga danych`,
       });
@@ -728,7 +738,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: issueBlockers.length,
         task_ids: issueBlockers.slice(0, 8).map((task) => task.id),
-        task_preview: mockRecommendationTaskPreview(issueBlockers),
+        task_preview: mockRecommendationBlockerPreview(issueBlockers, ['issue']),
         target_path: `/zlecenia/${issueBlockers[0]?.id || ''}`,
         impact_label: `${openIssues} problemow do decyzji`,
       });

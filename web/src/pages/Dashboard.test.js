@@ -109,5 +109,7 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
   expect(screen.queryByText(/SMOKE klient operacyjny/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/nowych zleceń/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/prac w terenie/i)).not.toBeInTheDocument();
+  expect(screen.queryByTestId('dashboard-system-alert-count')).not.toBeInTheDocument();
+  expect(screen.getByText('Brak prac w planie dnia')).toBeInTheDocument();
   expect(screen.getByTestId('ops-radar')).toHaveTextContent('1');
 });

@@ -976,8 +976,16 @@ export default function Harmonogram() {
     setPlanMsg('');
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else if (typeof document !== 'undefined') {
+        try {
+          await navigator.clipboard.writeText(text);
+          setPlanMsg(successMessage);
+          return;
+        } catch {
+          // The modern Clipboard API can be blocked on localhost; keep the operator flow moving.
+        }
+      }
+
+      if (typeof document !== 'undefined') {
         const textarea = document.createElement('textarea');
         textarea.value = text;
         textarea.setAttribute('readonly', 'true');

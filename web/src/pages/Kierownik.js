@@ -81,11 +81,11 @@ const RECOMMENDATION_BLOCKER_LABELS = {
 };
 
 function recommendationPreviewMeta(task) {
+  if (task?.issue_label) return task.issue_label;
   const blockers = (task?.blockers || [])
     .map((key) => RECOMMENDATION_BLOCKER_LABELS[key] || key)
     .filter(Boolean);
   if (blockers.length > 0) return blockers.slice(0, 2).join(', ');
-  if (task?.issue_label) return task.issue_label;
   const delta = Number(task?.delta_minutes || 0);
   if (Math.abs(delta) > 0) return formatMinutes(delta);
   return task?.ekipa_nazwa || 'Otworz';
@@ -325,10 +325,36 @@ export default function Kierownik() {
     }
   }, [cockpitDate, filtrOddzial, loadCockpit, loadData, planActionDrafts, showMsg, user]);
 
+  const recordRecommendationDecision = useCallback(async (recommendation, decision, note = '') => {
+    if (!recommendation?.id) return null;
+    const token = getStoredToken();
+    const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+    const { data } = await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/feedback`, {
+      date: cockpitDate,
+      decision,
+      oddzial_id: oddzialForCockpit || null,
+      target_path: recommendation.target_path || '',
+      task_ids: recommendation.task_ids || [],
+      note: note || recommendation.title || '',
+    }, {
+      headers: authHeaders(token),
+    });
+    return { data, oddzialForCockpit };
+  }, [cockpitDate, filtrOddzial, user]);
+
   const runRecommendationAction = useCallback(async (recommendation) => {
     if (!recommendation || recommendation.action_kind === 'none') return;
+    const key = `recommendation:${recommendation.id}`;
     if (['open_map', 'open_tasks'].includes(recommendation.action_kind)) {
-      navigate(recommendation.target_path || '/kierownik');
+      setPlanActionSaving(key);
+      try {
+        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`);
+      } catch {
+        // Navigation should not be blocked by auxiliary feedback telemetry.
+      } finally {
+        setPlanActionSaving('');
+        navigate(recommendation.target_path || '/kierownik');
+      }
       return;
     }
 
@@ -336,11 +362,18 @@ export default function Kierownik() {
     const currentPlanTasks = planReal?.tasks || [];
     const matchingTasks = currentPlanTasks.filter((task) => candidateIds.has(Number(task.id))).slice(0, 6);
     if (matchingTasks.length === 0) {
-      navigate(recommendation.target_path || '/kierownik');
+      setPlanActionSaving(key);
+      try {
+        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`);
+      } catch {
+        // Navigation should not be blocked by auxiliary feedback telemetry.
+      } finally {
+        setPlanActionSaving('');
+        navigate(recommendation.target_path || '/kierownik');
+      }
       return;
     }
 
-    const key = `recommendation:${recommendation.id}`;
     setPlanActionSaving(key);
     try {
       const token = getStoredToken();
@@ -370,10 +403,12 @@ export default function Kierownik() {
           headers: authHeaders(token),
         })));
       } else {
+        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`);
         navigate(recommendation.target_path || '/kierownik');
         return;
       }
 
+      await recordRecommendationDecision(recommendation, 'accepted', `Wykonano: ${recommendation.title || ''}`);
       showMsg(successMessage(`Wykonano: ${recommendation.title}`));
       const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
       await Promise.all([
@@ -385,59 +420,37 @@ export default function Kierownik() {
     } finally {
       setPlanActionSaving('');
     }
-  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, navigate, planReal, showMsg, user]);
+  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, navigate, planReal, recordRecommendationDecision, showMsg, user]);
 
   const dismissRecommendation = useCallback(async (recommendation) => {
     if (!recommendation?.id) return;
     const key = `recommendation-hide:${recommendation.id}`;
     setPlanActionSaving(key);
     try {
-      const token = getStoredToken();
-      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
-      await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/feedback`, {
-        date: cockpitDate,
-        decision: 'dismissed',
-        oddzial_id: oddzialForCockpit || null,
-        target_path: recommendation.target_path || '',
-        task_ids: recommendation.task_ids || [],
-        note: recommendation.title || '',
-      }, {
-        headers: authHeaders(token),
-      });
+      const result = await recordRecommendationDecision(recommendation, 'dismissed');
       showMsg(successMessage('Rekomendacja ukryta na dzis.'));
-      await loadCockpit(user, cockpitDate, oddzialForCockpit);
+      await loadCockpit(user, cockpitDate, result?.oddzialForCockpit);
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie ukryc rekomendacji.')));
     } finally {
       setPlanActionSaving('');
     }
-  }, [cockpitDate, filtrOddzial, loadCockpit, showMsg, user]);
+  }, [cockpitDate, loadCockpit, recordRecommendationDecision, showMsg, user]);
 
   const restoreRecommendation = useCallback(async (recommendation) => {
     if (!recommendation?.id) return;
     const key = `recommendation-restore:${recommendation.id}`;
     setPlanActionSaving(key);
     try {
-      const token = getStoredToken();
-      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
-      await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/feedback`, {
-        date: cockpitDate,
-        decision: 'accepted',
-        oddzial_id: oddzialForCockpit || null,
-        target_path: recommendation.target_path || '',
-        task_ids: recommendation.task_ids || [],
-        note: recommendation.title || '',
-      }, {
-        headers: authHeaders(token),
-      });
+      const result = await recordRecommendationDecision(recommendation, 'accepted');
       showMsg(successMessage('Rekomendacja przywrocona.'));
-      await loadCockpit(user, cockpitDate, oddzialForCockpit);
+      await loadCockpit(user, cockpitDate, result?.oddzialForCockpit);
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie przywrocic rekomendacji.')));
     } finally {
       setPlanActionSaving('');
     }
-  }, [cockpitDate, filtrOddzial, loadCockpit, showMsg, user]);
+  }, [cockpitDate, loadCockpit, recordRecommendationDecision, showMsg, user]);
 
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;

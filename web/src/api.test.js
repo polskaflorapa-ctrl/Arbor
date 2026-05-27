@@ -207,6 +207,43 @@ describe('api test-mode mocks', () => {
     }));
   });
 
+  it('limits blocker previews in mock action recommendations to recommendation-specific blockers', async () => {
+    const response = await api.get('/api/ops/action-recommendations?date=2026-05-25', { dedupe: false });
+
+    expect(response.status).toBe(200);
+    const byId = Object.fromEntries(response.data.recommendations.map((item) => [item.id, item]));
+
+    if (byId.fix_dispatch_blockers) {
+      expect(byId.fix_dispatch_blockers.task_preview[0]).toEqual(
+        expect.objectContaining({
+          issue_key: null,
+          issue_label: null,
+        })
+      );
+      expect(byId.fix_dispatch_blockers.task_preview[0].blockers.every((key) => ['team', 'gps'].includes(key))).toBe(true);
+    }
+
+    if (byId.fix_contact_blockers) {
+      expect(byId.fix_contact_blockers.task_preview[0]).toEqual(
+        expect.objectContaining({
+          issue_key: null,
+          issue_label: null,
+        })
+      );
+      expect(byId.fix_contact_blockers.task_preview[0].blockers.every((key) => ['phone', 'address'].includes(key))).toBe(true);
+    }
+
+    if (byId.resolve_open_issues) {
+      expect(byId.resolve_open_issues.task_preview[0]).toEqual(
+        expect.objectContaining({
+          issue_key: null,
+          issue_label: null,
+          blockers: ['issue'],
+        })
+      );
+    }
+  });
+
   it('serves dispatch plan mocks for the local auto-dispatch demo', async () => {
     const preview = await api.post('/api/dispatch/plan', {
       date: '2026-05-25',
