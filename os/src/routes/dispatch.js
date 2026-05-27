@@ -14,6 +14,7 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isKierownik, scopedOddzialId } = require('../middleware/auth');
 const { solve } = require('../services/vrp');
+const { pushToUser } = require('./notifications');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -46,9 +47,55 @@ async function ensureTeamAttendanceTables(client) {
   teamAttendanceTablesReady = true;
 }
 
+let dispatchRouteBriefTablesReady = false;
+async function ensureDispatchRouteBriefTables(client) {
+  if (dispatchRouteBriefTablesReady) return;
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS dispatch_route_briefs (
+      id SERIAL PRIMARY KEY,
+      date_ymd DATE,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      oddzial_id INTEGER,
+      sent_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      brief TEXT NOT NULL,
+      task_ids INTEGER[] NOT NULL DEFAULT '{}'::integer[],
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS dispatch_route_brief_recipients (
+      id SERIAL PRIMARY KEY,
+      brief_id INTEGER NOT NULL REFERENCES dispatch_route_briefs(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      notification_id INTEGER REFERENCES notifications(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (brief_id, user_id)
+    )
+  `);
+  await client.query('CREATE INDEX IF NOT EXISTS idx_dispatch_route_briefs_day_team ON dispatch_route_briefs(date_ymd, team_id, created_at DESC)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_dispatch_route_briefs_branch_day ON dispatch_route_briefs(oddzial_id, date_ymd)');
+  await client.query('CREATE INDEX IF NOT EXISTS idx_dispatch_route_brief_recipients_brief ON dispatch_route_brief_recipients(brief_id)');
+  dispatchRouteBriefTablesReady = true;
+}
+
 function toDateYmd(value) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
   return String(value || '').slice(0, 10);
+}
+
+function parsePositiveInt(value) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function distinctPositiveInts(values) {
+  if (!Array.isArray(values)) return [];
+  return [...new Set(values.map(parsePositiveInt).filter(Boolean))];
+}
+
+function queryPositiveInts(value) {
+  if (Array.isArray(value)) return distinctPositiveInts(value);
+  return distinctPositiveInts(String(value || '').split(/[,\s]+/));
 }
 
 async function fetchTasksForDate(client, date, oddzialId) {
@@ -330,6 +377,244 @@ router.post('/apply/:id', async (req, res) => {
 });
 
 // ─── GET /api/dispatch/plans ─────────────────────────────────────────────────
+
+// POST /api/dispatch/route-brief/send
+router.post('/route-brief/send', async (req, res) => {
+  if (!canDispatch(req.user)) {
+    return res.status(403).json({ error: 'Brak uprawnien do wysylania odpraw ekip' });
+  }
+
+  const teamId = parsePositiveInt(req.body?.team_id);
+  const brief = String(req.body?.brief || '').trim();
+  const date = toDateYmd(req.body?.date);
+  const requestedBranchId = req.body?.oddzial_id != null ? parsePositiveInt(req.body.oddzial_id) : null;
+  const branchId = scopedOddzialId(req.user, requestedBranchId);
+  const taskIds = distinctPositiveInts(req.body?.task_ids).slice(0, 100);
+
+  if (!teamId) return res.status(400).json({ error: 'Wymagane pole team_id' });
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Pole date musi miec format YYYY-MM-DD' });
+  }
+  if (!brief) return res.status(400).json({ error: 'Wymagane pole brief' });
+  if (brief.length > 6000) return res.status(400).json({ error: 'Odprawa jest za dluga (max 6000 znakow)' });
+
+  try {
+    await ensureDispatchRouteBriefTables(pool);
+    const teamResult = await pool.query(
+      'SELECT id, nazwa, oddzial_id FROM teams WHERE id = $1',
+      [teamId]
+    );
+    const team = teamResult.rows[0];
+    if (!team) return res.status(404).json({ error: 'Ekipa nie istnieje' });
+    if (branchId && team.oddzial_id && Number(team.oddzial_id) !== Number(branchId)) {
+      return res.status(403).json({ error: 'Brak uprawnien do tej ekipy' });
+    }
+
+    const recipientsResult = await pool.query(
+      `SELECT DISTINCT recipients.user_id,
+              COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), ''), u.login, 'User #' || u.id::text) AS recipient_name
+       FROM (
+         SELECT e.brygadzista_id AS user_id
+         FROM teams e
+         WHERE e.id = $1 AND e.brygadzista_id IS NOT NULL
+         UNION
+         SELECT tm.user_id
+         FROM team_members tm
+         WHERE tm.team_id = $1
+       ) recipients
+       JOIN users u ON u.id = recipients.user_id
+       WHERE recipients.user_id IS NOT NULL
+         AND COALESCE(u.aktywny, true) = true`,
+      [teamId]
+    );
+    const recipientRows = recipientsResult.rows
+      .map((row) => ({
+        user_id: Number(row.user_id),
+        name: row.recipient_name || `User #${row.user_id}`,
+      }))
+      .filter((row) => Number.isInteger(row.user_id) && row.user_id > 0);
+    const recipientIds = recipientRows.map((row) => row.user_id);
+
+    if (!recipientIds.length) {
+      return res.status(409).json({ error: 'Ekipa nie ma aktywnych odbiorcow odprawy' });
+    }
+
+    const notificationsResult = await pool.query(
+      `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
+       SELECT $1, recipient_id, NULL, 'Odprawa ekipy', $2, 'Nowe'
+       FROM UNNEST($3::int[]) AS recipient_id
+       RETURNING id, to_user_id, typ, tresc, task_id, status, data_utworzenia`,
+      [req.user.id, brief, recipientIds]
+    );
+    const notifications = notificationsResult.rows || [];
+    const notificationIds = notifications
+      .map((notification) => Number(notification.id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    const briefResult = await pool.query(
+      `INSERT INTO dispatch_route_briefs (date_ymd, team_id, oddzial_id, sent_by, brief, task_ids)
+       VALUES ($1::date, $2, $3, $4, $5, $6::int[])
+       RETURNING id, created_at`,
+      [date || null, teamId, branchId || team.oddzial_id || null, req.user.id, brief, taskIds]
+    );
+    const briefRecord = briefResult.rows[0] || {};
+    if (briefRecord.id && recipientIds.length && notificationIds.length) {
+      await pool.query(
+        `INSERT INTO dispatch_route_brief_recipients (brief_id, user_id, notification_id)
+         SELECT $1, payload.user_id, payload.notification_id
+         FROM UNNEST($2::int[], $3::int[]) AS payload(user_id, notification_id)
+         ON CONFLICT (brief_id, user_id) DO UPDATE
+           SET notification_id = EXCLUDED.notification_id`,
+        [briefRecord.id, recipientIds, notificationIds]
+      );
+    }
+
+    notifications.forEach((notification) => {
+      pushToUser(notification.to_user_id, { event: 'notification', notification });
+    });
+
+    await req.auditLog({
+      action: 'dispatch.route_brief_sent',
+      entityType: 'team',
+      entityId: teamId,
+      metadata: {
+        date: date || null,
+        team_name: team.nazwa || req.body?.team_name || null,
+        task_ids: taskIds,
+        recipients: recipientIds,
+        brief_id: briefRecord.id || null,
+        notification_count: notifications.length,
+      },
+    });
+
+    const status = {
+      brief_id: briefRecord.id || null,
+      team_id: teamId,
+      team_name: team.nazwa || req.body?.team_name || null,
+      sent_at: briefRecord.created_at || new Date().toISOString(),
+      sent_to: notifications.length,
+      confirmed: 0,
+      pending: notifications.length,
+      recipients: recipientRows.map((recipient, index) => ({
+        user_id: recipient.user_id,
+        name: recipient.name,
+        notification_id: notificationIds[index] || null,
+        status: 'Nowe',
+        confirmed_at: null,
+      })),
+    };
+
+    res.json({
+      message: 'Odprawa wyslana do ekipy',
+      brief_id: briefRecord.id || null,
+      team_id: teamId,
+      team_name: team.nazwa || req.body?.team_name || null,
+      notification_count: notifications.length,
+      recipients: recipientIds,
+      recipient_details: status.recipients,
+      status,
+    });
+  } catch (err) {
+    logger.error('dispatch route brief send error', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/dispatch/route-brief/status?date=YYYY-MM-DD&team_ids=1,2
+router.get('/route-brief/status', async (req, res) => {
+  if (!canDispatch(req.user)) {
+    return res.status(403).json({ error: 'Brak uprawnien do podgladu odpraw ekip' });
+  }
+
+  const date = toDateYmd(req.query?.date);
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Parametr date musi miec format YYYY-MM-DD' });
+  }
+
+  const requestedBranchId = req.query?.oddzial_id != null ? parsePositiveInt(req.query.oddzial_id) : null;
+  const branchId = scopedOddzialId(req.user, requestedBranchId);
+  const teamIds = queryPositiveInts(req.query?.team_ids);
+
+  try {
+    await ensureDispatchRouteBriefTables(pool);
+    const params = [date];
+    const where = ['rb.date_ymd = $1::date'];
+    if (branchId) {
+      params.push(branchId);
+      where.push(`rb.oddzial_id = $${params.length}`);
+    }
+    if (teamIds.length) {
+      params.push(teamIds);
+      where.push(`rb.team_id = ANY($${params.length}::int[])`);
+    }
+
+    const result = await pool.query(
+      `WITH latest AS (
+         SELECT DISTINCT ON (rb.team_id) rb.*
+         FROM dispatch_route_briefs rb
+         WHERE ${where.join(' AND ')}
+         ORDER BY rb.team_id, rb.created_at DESC, rb.id DESC
+       )
+       SELECT latest.id AS brief_id,
+              latest.date_ymd::text AS date,
+              latest.team_id,
+              e.nazwa AS team_name,
+              latest.created_at AS sent_at,
+              latest.task_ids,
+              COUNT(drr.id)::int AS sent_to,
+              COUNT(drr.id) FILTER (WHERE COALESCE(n.status, 'Nowe') <> 'Nowe')::int AS confirmed,
+              COUNT(drr.id) FILTER (WHERE COALESCE(n.status, 'Nowe') = 'Nowe')::int AS pending,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'user_id', drr.user_id,
+                    'name', COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), ''), u.login, 'User #' || u.id::text),
+                    'notification_id', drr.notification_id,
+                    'status', COALESCE(n.status, 'Nowe'),
+                    'confirmed_at', n.data_odczytu
+                  )
+                  ORDER BY u.nazwisko, u.imie, drr.user_id
+                ) FILTER (WHERE drr.id IS NOT NULL),
+                '[]'::json
+              ) AS recipients
+       FROM latest
+       JOIN teams e ON e.id = latest.team_id
+       LEFT JOIN dispatch_route_brief_recipients drr ON drr.brief_id = latest.id
+       LEFT JOIN users u ON u.id = drr.user_id
+       LEFT JOIN notifications n ON n.id = drr.notification_id
+       GROUP BY latest.id, latest.date_ymd, latest.team_id, e.nazwa, latest.created_at, latest.task_ids
+       ORDER BY e.nazwa`,
+      params
+    );
+
+    const items = result.rows.map((row) => ({
+      brief_id: row.brief_id,
+      date: row.date,
+      team_id: Number(row.team_id),
+      team_name: row.team_name,
+      sent_at: row.sent_at,
+      task_ids: row.task_ids || [],
+      sent_to: Number(row.sent_to || 0),
+      confirmed: Number(row.confirmed || 0),
+      pending: Number(row.pending || 0),
+      recipients: Array.isArray(row.recipients) ? row.recipients : [],
+    }));
+
+    res.json({
+      date,
+      items,
+      summary: {
+        teams_sent: items.length,
+        sent_to: items.reduce((sum, item) => sum + item.sent_to, 0),
+        confirmed: items.reduce((sum, item) => sum + item.confirmed, 0),
+        pending: items.reduce((sum, item) => sum + item.pending, 0),
+      },
+    });
+  } catch (err) {
+    logger.error('dispatch route brief status error', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/plans', async (req, res) => {
   if (!canDispatch(req.user)) {

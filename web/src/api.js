@@ -19,6 +19,10 @@ import {
   mockDeleteTaskPhotoInTestMode,
   mockMarkTaskFinishedInTestMode,
   mockUpdateTaskInTestMode,
+  getMockClientContacts,
+  mockPatchClientContactInTestMode,
+  getMockClosureEvents,
+  mockAddClosureEventInTestMode,
   getMockQuotationDetail,
 } from './utils/testMode';
 
@@ -81,6 +85,17 @@ function getRequestDate(config) {
   }
 }
 
+function getRequestParam(config, key) {
+  if (config?.params?.[key] != null) return String(config.params[key]);
+  try {
+    const raw = String(config?.url || '');
+    const query = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+    return new URLSearchParams(query).get(key);
+  } catch {
+    return null;
+  }
+}
+
 function getMockOpsEvents() {
   if (typeof localStorage === 'undefined') return [];
   try {
@@ -116,6 +131,15 @@ function countBy(rows, key) {
   }, {});
 }
 
+function mockFormatMinutes(value) {
+  const total = Math.max(0, Math.round(Number(value || 0)));
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (!hours) return `${minutes} min`;
+  if (!minutes) return `${hours} h`;
+  return `${hours} h ${minutes} min`;
+}
+
 function getTestUserForLogin(login) {
   const normalized = String(login || '').trim().toLowerCase();
   if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
@@ -134,6 +158,89 @@ function getTestModeMockResponse(config) {
     const user = getTestUserForLogin(body.login);
     return {
       data: { token: TEST_TOKEN, user },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/notifications' && method === 'post') {
+    const body = parseJsonData(config.data);
+    return {
+      data: {
+        id: Date.now(),
+        ...body,
+        created_at: new Date().toISOString(),
+        read: false,
+      },
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/tasks/client-contacts' && method === 'get') {
+    return {
+      data: getMockClientContacts(),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/tasks/closure-events' && method === 'get') {
+    return {
+      data: getMockClosureEvents(),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTaskClientContact = path.match(/^\/tasks\/(\d+)\/client-contact$/);
+  if (mTaskClientContact && method === 'patch') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockPatchClientContactInTestMode(mTaskClientContact[1], body),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTaskClosureEvents = path.match(/^\/tasks\/(\d+)\/closure-events$/);
+  if (mTaskClosureEvents && method === 'post') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockAddClosureEventInTestMode(mTaskClosureEvents[1], body),
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTaskStatusSms = path.match(/^\/sms\/zlecenie\/(\d+)$/);
+  if (mTaskStatusSms && method === 'post') {
+    const body = parseJsonData(config.data);
+    return {
+      data: {
+        task_id: Number(mTaskStatusSms[1]),
+        typ: body.typ || 'status',
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+      },
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -307,6 +414,201 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ops/action-recommendations' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const sourceTasks = (getMockData('/tasks/wszystkie') || []).filter((task) => {
+      const planned = String(task.data_planowana || '').slice(0, 10);
+      if (planned && planned !== date) return false;
+      return !oddzialId || String(task.oddzial_id || '') === String(oddzialId);
+    });
+    const closedStatuses = ['Zakonczone', 'Anulowane'];
+    const rows = sourceTasks.map((task) => {
+      const plannedMinutes = Math.max(0, Math.round(Number(task.czas_obslugi_min || 0) || Number(task.czas_planowany_godziny || 0) * 60));
+      const hasStarted = task.status === 'W_Realizacji' || task.status === 'Zakonczone';
+      const hasFinished = task.status === 'Zakonczone';
+      const realMinutes = hasFinished
+        ? Math.max(0, plannedMinutes - 10)
+        : hasStarted
+          ? plannedMinutes + 45
+          : 0;
+      let issueKey = null;
+      if (plannedMinutes <= 0) issueKey = 'missing_duration';
+      else if (hasStarted && realMinutes > plannedMinutes + 30) issueKey = 'overrun';
+      else if (hasStarted && !hasFinished && !closedStatuses.includes(task.status)) issueKey = 'missing_finish';
+      else if (!hasStarted && !closedStatuses.includes(task.status)) issueKey = 'not_started';
+      return {
+        ...task,
+        planned_minutes: plannedMinutes,
+        real_minutes: realMinutes,
+        delta_minutes: realMinutes - plannedMinutes,
+        has_started: hasStarted,
+        has_finished: hasFinished,
+        issue_key: issueKey,
+      };
+    });
+    const activeRows = rows.filter((task) => !closedStatuses.includes(task.status));
+    const missingDuration = activeRows.filter((task) => task.issue_key === 'missing_duration');
+    const notStarted = activeRows.filter((task) => task.issue_key === 'not_started' && task.ekipa_id);
+    const dispatchBlockers = activeRows.filter((task) => !task.ekipa_id || !task.pin_lat || !task.pin_lng);
+    const overrunRows = activeRows.filter((task) => task.issue_key === 'overrun' || task.issue_key === 'missing_finish');
+    const events = getMockOpsEvents();
+    const reasonLabels = {
+      dojazd: 'Dojazd',
+      zakres: 'Wiekszy zakres',
+      sprzet: 'Sprzet',
+      klient: 'Klient',
+      pogoda: 'Pogoda',
+      inne: 'Inne',
+    };
+    const reasonCounts = countBy(events, 'reason_code');
+    const topReason = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0];
+    const recommendations = [];
+    if (missingDuration.length > 0) {
+      const suggestedMinutes = missingDuration.length >= 3 ? 120 : 90;
+      recommendations.push({
+        id: 'set_missing_duration',
+        rank: 1,
+        priority: missingDuration.length >= 3 ? 'high' : 'medium',
+        tone: 'warning',
+        score: 90 + missingDuration.length * 8,
+        title: `${missingDuration.length} zlecen bez czasu planu`,
+        rationale: 'Bez czasu planu solver, obciazenie ekip i plan vs real nie maja czego liczyc.',
+        suggested_action: `Ustaw ${mockFormatMinutes(suggestedMinutes)} jako czas startowy i popraw wyjatki pozniej.`,
+        action_kind: 'set_duration_batch',
+        primary_label: 'Zastosuj',
+        secondary_label: 'Otworz zlecenia',
+        suggested_minutes: suggestedMinutes,
+        task_count: missingDuration.length,
+        task_ids: missingDuration.slice(0, 8).map((task) => task.id),
+        target_path: `/zlecenia/${missingDuration[0]?.id || ''}`,
+        impact_label: `${mockFormatMinutes(suggestedMinutes * missingDuration.length)} planu do uzupelnienia`,
+      });
+    }
+    if (notStarted.length > 0) {
+      recommendations.push({
+        id: 'remind_not_started',
+        rank: recommendations.length + 1,
+        priority: notStarted.length >= 2 ? 'high' : 'medium',
+        tone: 'warning',
+        score: 84 + notStarted.length * 7,
+        title: `${notStarted.length} zlecen nie wystartowalo`,
+        rationale: 'Brak startu w logach zwykle oznacza opozniona ekipe albo zapomniany check-in.',
+        suggested_action: 'Wyslij krotkie przypomnienie do przypisanych ekip.',
+        action_kind: 'remind_team_batch',
+        primary_label: 'Przypomnij',
+        secondary_label: 'Otworz',
+        task_count: notStarted.length,
+        task_ids: notStarted.slice(0, 8).map((task) => task.id),
+        target_path: `/zlecenia/${notStarted[0]?.id || ''}`,
+        impact_label: `${notStarted.length} ekip do potwierdzenia`,
+      });
+    }
+    if (dispatchBlockers.length > 0) {
+      recommendations.push({
+        id: 'fix_dispatch_blockers',
+        rank: recommendations.length + 1,
+        priority: dispatchBlockers.length >= 3 ? 'high' : 'medium',
+        tone: 'danger',
+        score: 78 + dispatchBlockers.length * 6,
+        title: `${dispatchBlockers.length} blokad wysylki ekip`,
+        rationale: `${dispatchBlockers.filter((task) => !task.ekipa_id).length} bez ekipy, ${dispatchBlockers.filter((task) => !task.pin_lat || !task.pin_lng).length} bez pinezki GPS.`,
+        suggested_action: 'Otworz pierwsze zlecenie z blokada i napraw dane planowania.',
+        action_kind: 'open_tasks',
+        primary_label: 'Otworz zlecenia',
+        secondary_label: '',
+        task_count: dispatchBlockers.length,
+        task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
+        target_path: `/zlecenia/${dispatchBlockers[0]?.id || ''}`,
+        impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
+      });
+    }
+    if (overrunRows.length > 0) {
+      const totalDelta = overrunRows.reduce((sum, task) => sum + Math.max(0, Number(task.delta_minutes || 0)), 0);
+      recommendations.push({
+        id: 'explain_overruns',
+        rank: recommendations.length + 1,
+        priority: totalDelta >= 120 ? 'high' : 'medium',
+        tone: 'warning',
+        score: 70 + Math.min(30, Math.round(totalDelta / 10)),
+        title: `${overrunRows.length} odchylen wymaga decyzji`,
+        rationale: `Plan odbiega o ${mockFormatMinutes(totalDelta)}. Powod powinien trafic do pamieci operacyjnej.`,
+        suggested_action: 'Oznacz powod w Plan vs real albo otworz zlecenie do sprawdzenia.',
+        action_kind: 'open_tasks',
+        primary_label: 'Otworz',
+        secondary_label: '',
+        task_count: overrunRows.length,
+        task_ids: overrunRows.slice(0, 8).map((task) => task.id),
+        target_path: `/zlecenia/${overrunRows[0]?.id || ''}`,
+        impact_label: `${mockFormatMinutes(totalDelta)} nad planem`,
+      });
+    }
+    if (topReason) {
+      recommendations.push({
+        id: `reason_${topReason[0]}`,
+        rank: recommendations.length + 1,
+        priority: topReason[1] >= 3 ? 'medium' : 'low',
+        tone: 'info',
+        score: 58 + topReason[1] * 5,
+        title: `Najczestszy powod strat: ${reasonLabels[topReason[0]] || topReason[0]}`,
+        rationale: `${topReason[1]} wpisow w ostatnich dniach.`,
+        suggested_action: topReason[0] === 'dojazd'
+          ? 'Sprawdz pinezki GPS i kolejnosc tras przed wysylka ekip.'
+          : 'Ustal wspolna regule planowania dla tego powodu.',
+        action_kind: topReason[0] === 'dojazd' ? 'open_map' : 'open_tasks',
+        primary_label: topReason[0] === 'dojazd' ? 'Mapa live' : 'Otworz',
+        secondary_label: '',
+        task_count: topReason[1],
+        task_ids: [],
+        target_path: topReason[0] === 'dojazd' ? '/mapa-live' : `/kierownik?date=${date}`,
+        impact_label: `${topReason[1]} podobnych decyzji`,
+      });
+    }
+    const sorted = recommendations
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((item, index) => ({ ...item, rank: index + 1 }));
+    if (sorted.length === 0) {
+      sorted.push({
+        id: 'steady_day',
+        rank: 1,
+        priority: 'low',
+        tone: 'ok',
+        score: 1,
+        title: 'Brak pilnych ruchow operacyjnych',
+        rationale: 'Dzisiejszy plan nie pokazuje krytycznych odchylen ani powtarzalnych blokad.',
+        suggested_action: 'Monitoruj start ekip i wracaj do cockpit po pierwszych logach.',
+        action_kind: 'none',
+        primary_label: 'OK',
+        secondary_label: '',
+        task_count: 0,
+        task_ids: [],
+        target_path: `/kierownik?date=${date}`,
+        impact_label: 'plan stabilny',
+      });
+    }
+    return {
+      data: {
+        date,
+        oddzial_id: oddzialId,
+        summary: {
+          total: sorted.length,
+          high: sorted.filter((item) => item.priority === 'high').length,
+          actionable: sorted.filter((item) => item.action_kind && item.action_kind !== 'none').length,
+          plan_tasks: rows.length,
+          memory_rows: events.length,
+        },
+        recommendations: sorted,
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/ops/action-insights' && method === 'get') {
     const date = getRequestDate(config);
     const oddzialId = config?.params?.oddzial_id || null;
@@ -446,6 +748,99 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/dispatch/route-brief/send' && method === 'post') {
+    const body = parseJsonData(config.data);
+    const teamId = body.team_id || null;
+    const teams = getMockData('/ekipy') || [];
+    const team = teams.find((item) => String(item.id) === String(teamId));
+    return {
+      data: {
+        message: 'Odprawa wyslana do ekipy',
+        brief_id: Date.now(),
+        team_id: teamId,
+        team_name: team?.nazwa || body.team_name || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
+        notification_count: 1,
+        recipients: [team?.brygadzista_id || 1],
+        recipient_details: [{
+          user_id: team?.brygadzista_id || 1,
+          name: team?.brygadzista || 'Brygadzista',
+          notification_id: Date.now(),
+          status: 'Nowe',
+          confirmed_at: null,
+        }],
+        status: {
+          brief_id: Date.now(),
+          team_id: teamId,
+          team_name: team?.nazwa || body.team_name || (teamId ? `Ekipa #${teamId}` : 'Ekipa'),
+          sent_at: new Date().toISOString(),
+          sent_to: 1,
+          confirmed: 0,
+          pending: 1,
+          recipients: [{
+            user_id: team?.brygadzista_id || 1,
+            name: team?.brygadzista || 'Brygadzista',
+            notification_id: Date.now(),
+            status: 'Nowe',
+            confirmed_at: null,
+          }],
+        },
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ekipy/gps-history' && method === 'get') {
+    const date = getRequestDate(config);
+    const provider = getRequestParam(config, 'provider');
+    const teamId = getRequestParam(config, 'team_id');
+    const userId = getRequestParam(config, 'user_id');
+    const vehicleId = getRequestParam(config, 'vehicle_id');
+    const plateNumber = getRequestParam(config, 'plate_number');
+    const limit = Math.max(1, Math.min(1000, Number(getRequestParam(config, 'limit') || 240)));
+    const source = getMockData('/ekipy/live-locations')?.items || [];
+    const rows = source
+      .filter((row) => !provider || row.provider === provider)
+      .filter((row) => !teamId || String(row.ekipa_id || '') === String(teamId))
+      .filter((row) => !userId || String(row.user_id || '') === String(userId))
+      .filter((row) => !vehicleId || String(row.vehicle_id || '') === String(vehicleId))
+      .filter((row) => !plateNumber || String(row.nr_rejestracyjny || '').toUpperCase() === String(plateNumber).toUpperCase())
+      .flatMap((row) => [5, 24, 52, 94].map((minutesAgo, index) => ({
+        ...row,
+        recorded_at: new Date(Date.now() - minutesAgo * 60000).toISOString(),
+        speed_kmh: Math.max(0, Number(row.speed_kmh || 0) + index * 3 - 2),
+      })))
+      .sort((a, b) => new Date(a.recorded_at || 0) - new Date(b.recorded_at || 0))
+      .slice(-limit);
+    return {
+      data: { date, items: rows, count: rows.length },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/dispatch/route-brief/status' && method === 'get') {
+    const date = getRequestDate(config);
+    return {
+      data: {
+        date,
+        items: [],
+        summary: { teams_sent: 0, sent_to: 0, confirmed: 0, pending: 0 },
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/ekipy/attendance' && method === 'get') {
     const date = getRequestDate(config);
     const teams = getMockData('/ekipy') || [];
@@ -566,6 +961,22 @@ function getTestModeMockResponse(config) {
       data: getMockTaskLogi(mTasksLogi[1]),
       status: 200,
       statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mTasksLogi && method === 'post') {
+    const body = parseJsonData(config.data);
+    return {
+      data: {
+        id: Date.now(),
+        task_id: Number(mTasksLogi[1]),
+        ...body,
+        created_at: new Date().toISOString(),
+      },
+      status: 201,
+      statusText: 'Created',
       headers: {},
       config,
       request: {},

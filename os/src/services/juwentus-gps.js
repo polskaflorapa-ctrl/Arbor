@@ -3,6 +3,11 @@ const _logger = require('../config/logger');
 const { env } = require('../config/env');
 
 const normalizePlate = (value) => String(value || '').toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+const optionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const next = Number(value);
+  return Number.isFinite(next) ? next : null;
+};
 let gpsSchemaEnsured = false;
 
 const ensureGpsTables = async () => {
@@ -261,9 +266,134 @@ const getLiveTeamLocations = async ({ oddzialId = null, includeWithoutTeam = tru
   });
 };
 
+const getGpsHistory = async ({
+  date,
+  oddzialId = null,
+  teamId = null,
+  userId = null,
+  vehicleId = null,
+  plateNumber = null,
+  provider = null,
+  limit = 240,
+} = {}) => {
+  await ensureGpsTables();
+
+  const params = [date || new Date().toISOString().slice(0, 10)];
+  const where = [];
+  const scopedOddzialId = optionalNumber(oddzialId);
+  const scopedTeamId = optionalNumber(teamId);
+  const scopedUserId = optionalNumber(userId);
+  const scopedVehicleId = optionalNumber(vehicleId);
+  const addParam = (value) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+
+  if (scopedOddzialId != null) where.push(`oddzial_id = ${addParam(scopedOddzialId)}`);
+  if (scopedTeamId != null) where.push(`ekipa_id = ${addParam(scopedTeamId)}`);
+  if (scopedUserId != null) where.push(`user_id = ${addParam(scopedUserId)}`);
+  if (scopedVehicleId != null) where.push(`vehicle_id = ${addParam(scopedVehicleId)}`);
+  if (plateNumber) where.push(`plate_number_normalized = ${addParam(normalizePlate(plateNumber))}`);
+  if (provider) where.push(`provider = ${addParam(provider)}`);
+
+  const safeLimit = Math.max(1, Math.min(1000, Number(limit) || 240));
+  const limitParam = addParam(safeLimit);
+  const filterSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  const result = await pool.query(
+    `WITH vehicle_points AS (
+      SELECT
+        t.id AS ekipa_id,
+        t.nazwa AS ekipa_nazwa,
+        COALESCE(t.oddzial_id, u.oddzial_id) AS oddzial_id,
+        u.id AS wyceniajacy_id,
+        (u.imie || ' ' || u.nazwisko) AS wyceniajacy_nazwa,
+        NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), '') AS user_name,
+        v.id AS vehicle_id,
+        v.nr_rejestracyjny,
+        gp.plate_number AS plate_number_normalized,
+        gp.lat,
+        gp.lng,
+        gp.speed_kmh,
+        gp.heading,
+        gp.recorded_at,
+        'juwentus' AS provider,
+        'auto' AS gps_source_kind,
+        gp.source_payload->>'accuracy_m' AS accuracy_m,
+        gp.source_payload->>'battery_pct' AS battery_pct,
+        gp.source_payload->>'platform' AS platform,
+        gp.source_payload->>'activity' AS activity,
+        u.id AS user_id,
+        u.rola AS user_rola
+      FROM gps_vehicle_positions gp
+      LEFT JOIN vehicles v
+        ON REPLACE(REPLACE(UPPER(v.nr_rejestracyjny), ' ', ''), '-', '') = gp.plate_number
+      LEFT JOIN teams t ON t.id = v.ekipa_id
+      LEFT JOIN gps_user_vehicle_assignments guva
+        ON guva.active = true
+        AND REPLACE(REPLACE(UPPER(guva.plate_number), ' ', ''), '-', '') = gp.plate_number
+      LEFT JOIN users u ON u.id = guva.user_id
+      WHERE gp.provider = 'juwentus'
+        AND gp.recorded_at >= $1::date
+        AND gp.recorded_at < $1::date + INTERVAL '1 day'
+    ),
+    mobile_points AS (
+      SELECT
+        t.id AS ekipa_id,
+        t.nazwa AS ekipa_nazwa,
+        COALESCE(t.oddzial_id, u.oddzial_id) AS oddzial_id,
+        CASE WHEN LOWER(u.rola) LIKE 'wyceniaj%' THEN u.id ELSE NULL END AS wyceniajacy_id,
+        CASE WHEN LOWER(u.rola) LIKE 'wyceniaj%' THEN (u.imie || ' ' || u.nazwisko) ELSE NULL END AS wyceniajacy_nazwa,
+        NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), '') AS user_name,
+        NULL::integer AS vehicle_id,
+        CASE WHEN LOWER(u.rola) LIKE 'wyceniaj%' THEN 'MOBILE_WYCENA' ELSE 'MOBILE_EKIPA' END AS nr_rejestracyjny,
+        NULL::varchar AS plate_number_normalized,
+        gp.lat,
+        gp.lng,
+        gp.speed_kmh,
+        gp.heading,
+        gp.recorded_at,
+        'mobile' AS provider,
+        'telefon' AS gps_source_kind,
+        gp.source_payload->>'accuracy_m' AS accuracy_m,
+        gp.source_payload->>'battery_pct' AS battery_pct,
+        gp.source_payload->>'platform' AS platform,
+        gp.source_payload->>'activity' AS activity,
+        u.id AS user_id,
+        u.rola AS user_rola
+      FROM gps_vehicle_positions gp
+      JOIN users u ON u.id::text = gp.external_id
+      LEFT JOIN teams t ON t.id = u.ekipa_id OR t.brygadzista_id = u.id
+      WHERE gp.provider = 'mobile'
+        AND gp.recorded_at >= $1::date
+        AND gp.recorded_at < $1::date + INTERVAL '1 day'
+        AND COALESCE(u.aktywny, true) = true
+        AND (u.rola IN ('Brygadzista', 'Pomocnik') OR LOWER(u.rola) LIKE 'wyceniaj%')
+    ),
+    combined AS (
+      SELECT * FROM vehicle_points
+      UNION ALL
+      SELECT * FROM mobile_points
+    )
+    SELECT *
+    FROM (
+      SELECT *
+      FROM combined
+      ${filterSql}
+      ORDER BY recorded_at DESC
+      LIMIT ${limitParam}
+    ) latest_points
+    ORDER BY recorded_at ASC`,
+    params
+  );
+
+  return result.rows;
+};
+
 module.exports = {
   ensureGpsTables,
   syncJuwentusGps,
   getLiveTeamLocations,
+  getGpsHistory,
 };
 

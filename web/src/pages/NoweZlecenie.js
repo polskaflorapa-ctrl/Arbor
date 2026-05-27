@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
+import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
 import CityInput from '../components/CityInput';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -148,6 +149,39 @@ export default function NoweZlecenie() {
   const setField = (field) => (e) => setForm({ ...form, [field]: e.target.value });
   const todayDate = new Date().toISOString().split('T')[0];
   const priorKolor = TASK_PRIORITY_COLORS[form.priorytet] || '#1d4ed8';
+  const selectedEstimator = estimators.find((u) => String(u.id) === String(form.wyceniajacy_id));
+  const selectedTeam = ekipyFiltered.find((e) => String(e.id) === String(form.ekipa_id));
+  const pinReady = form.pin_lat && form.pin_lng;
+  const readinessCards = [
+    {
+      key: 'client',
+      label: 'Klient',
+      value: form.klient_nazwa ? 'Gotowe' : 'Brak danych',
+      detail: form.klient_telefon || 'telefon do uzupelnienia',
+      tone: form.klient_nazwa ? 'good' : 'danger',
+    },
+    {
+      key: 'place',
+      label: 'Miejsce',
+      value: form.adres && form.miasto ? 'Adres OK' : 'Brak adresu',
+      detail: pinReady ? 'pinezka ustawiona' : 'pinezka opcjonalna',
+      tone: form.adres && form.miasto ? 'good' : 'danger',
+    },
+    {
+      key: 'survey',
+      label: 'Oględziny',
+      value: form.data_planowana ? form.data_planowana : 'Bez terminu',
+      detail: selectedEstimator ? `${selectedEstimator.imie || ''} ${selectedEstimator.nazwisko || ''}`.trim() : 'wybierz specjaliste',
+      tone: form.data_planowana && form.wyceniajacy_id ? 'good' : 'warning',
+    },
+    {
+      key: 'handoff',
+      label: 'Przekazanie',
+      value: selectedTeam ? selectedTeam.nazwa : 'Bez ekipy',
+      detail: form.wartosc_planowana ? `${form.wartosc_planowana} PLN` : 'wycena pozniej',
+      tone: selectedTeam ? 'good' : 'warning',
+    },
+  ];
 
   return (
     <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
@@ -155,43 +189,22 @@ export default function NoweZlecenie() {
       <main className="app-main" style={{ flex: 1, padding: '24px 28px', maxWidth: 980, margin: '0 auto', width: '100%' }}>
 
         {/* ── Nagłówek ─────────────────────────────────────────── */}
-        <div style={{
-          background: 'var(--surface-glass)',
-          borderRadius: 8, padding: '20px 22px', marginBottom: 20,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          boxShadow: 'var(--shadow-md)',
-          animation: 'fadeInUp 0.4s ease',
-          border: '1px solid var(--border)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 14,
-              background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--accent)',
-            }}>
-              {IKONY.plus}
+        <PageHeader
+          variant="hero"
+          back={{ onClick: () => navigate(-1), label: t('common.back') }}
+          title={t('pages.noweZlecenie.title')}
+          subtitle="Klient, miejsce, ogladziny i przekazanie widac od razu przed zapisem."
+          icon={IKONY.plus}
+        />
+
+        <div className="zlecenia-form-readiness" style={S.readinessGrid}>
+          {readinessCards.map((card) => (
+            <div key={card.key} style={{ ...S.readinessCard, ...(S[`readinessCard_${card.tone}`] || {}) }}>
+              <span style={S.readinessLabel}>{card.label}</span>
+              <strong style={S.readinessValue}>{card.value}</strong>
+              <small style={S.readinessDetail}>{card.detail}</small>
             </div>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--text)' }}>{t('pages.noweZlecenie.title')}</h1>
-              <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-muted)', opacity: 1 }}>
-                {t('pages.noweZlecenie.subtitle')}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate(-1)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
-              backgroundColor: 'var(--surface-field)', color: 'var(--text-sub)',
-              cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--accent-surface)'; e.currentTarget.style.color = 'var(--accent)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--surface-field)'; e.currentTarget.style.color = 'var(--text-sub)'; }}
-          >
-            {IKONY.back} {t('common.back')}
-          </button>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -462,6 +475,49 @@ function Field({ label, icon, children }) {
 }
 
 const S = {
+  readinessGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 185px), 1fr))',
+    gap: 10,
+    marginBottom: 16,
+  },
+  readinessCard: {
+    minHeight: 88,
+    border: '1px solid var(--glass-border)',
+    borderLeft: '5px solid var(--accent)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: 'var(--shadow-sm)',
+    padding: '11px 12px',
+    display: 'grid',
+    alignContent: 'space-between',
+    gap: 5,
+    minWidth: 0,
+  },
+  readinessCard_good: { borderLeftColor: 'var(--accent)' },
+  readinessCard_warning: { borderLeftColor: 'var(--warning)', background: 'linear-gradient(180deg, #ffffff, rgba(255,251,235,0.78))' },
+  readinessCard_danger: { borderLeftColor: 'var(--danger)', background: 'linear-gradient(180deg, #ffffff, rgba(254,242,242,0.78))' },
+  readinessLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  readinessValue: {
+    color: 'var(--text)',
+    fontSize: 17,
+    lineHeight: 1.15,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  readinessDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.25,
+    fontWeight: 780,
+    overflowWrap: 'anywhere',
+  },
   input: {
     padding: '10px 12px', borderRadius: 8, fontSize: 14,
     border: '1px solid var(--border)', outline: 'none',

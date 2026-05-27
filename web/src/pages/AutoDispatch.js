@@ -338,6 +338,37 @@ function planAppliedStatus(plan) {
   return plan?.status === 'applied';
 }
 
+function routeBriefKey(route = {}) {
+  return `route-${route.team_id || route.team_name || 'team'}`;
+}
+
+function routeBriefStatusFromResponse(route = {}, data = {}) {
+  const raw = data.status || data;
+  const sentTo = Number(raw.sent_to ?? data.notification_count ?? 0) || 0;
+  const confirmed = Number(raw.confirmed ?? 0) || 0;
+  const pending = Number(raw.pending ?? Math.max(0, sentTo - confirmed)) || 0;
+  return {
+    brief_id: raw.brief_id ?? data.brief_id ?? null,
+    team_id: raw.team_id ?? data.team_id ?? route.team_id ?? null,
+    team_name: raw.team_name ?? data.team_name ?? route.team_name ?? '',
+    sent_at: raw.sent_at ?? new Date().toISOString(),
+    sent_to: sentTo,
+    confirmed,
+    pending,
+    recipients: Array.isArray(raw.recipients) ? raw.recipients : (Array.isArray(data.recipient_details) ? data.recipient_details : []),
+  };
+}
+
+function routeBriefStatusText(status = {}) {
+  const sentTo = Number(status.sent_to || 0);
+  if (!sentTo) return '';
+  const confirmed = Number(status.confirmed || 0);
+  const pending = Number(status.pending ?? Math.max(0, sentTo - confirmed));
+  if (pending <= 0) return `Potwierdzone ${confirmed}/${sentTo}`;
+  if (confirmed > 0) return `Potwierdzone ${confirmed}/${sentTo} | czeka ${pending}`;
+  return `Wyslano do ${sentTo} | czeka ${pending}`;
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -401,6 +432,10 @@ export default function AutoDispatch() {
   const [briefCopyText, setBriefCopyText] = useState('');
   const [dispatchBriefCopied, setDispatchBriefCopied] = useState('');
   const [dispatchBriefText, setDispatchBriefText] = useState('');
+  const [dispatchBriefSending, setDispatchBriefSending] = useState('');
+  const [dispatchBriefSendingAll, setDispatchBriefSendingAll] = useState(false);
+  const [dispatchBriefSent, setDispatchBriefSent] = useState('');
+  const [routeBriefStatuses, setRouteBriefStatuses] = useState({});
   const [riskFilter, setRiskFilter] = useState('all');
   const [riskIssueFilter, setRiskIssueFilter] = useState('');
 
@@ -418,6 +453,10 @@ export default function AutoDispatch() {
     setBriefCopyText('');
     setDispatchBriefCopied('');
     setDispatchBriefText('');
+    setDispatchBriefSending('');
+    setDispatchBriefSendingAll(false);
+    setDispatchBriefSent('');
+    setRouteBriefStatuses({});
     setRiskFilter('all');
     setRiskIssueFilter('');
   }, [date, location.search]);
@@ -436,6 +475,10 @@ export default function AutoDispatch() {
     setPlanApplied(false);
     setDispatchBriefCopied('');
     setDispatchBriefText('');
+    setDispatchBriefSending('');
+    setDispatchBriefSendingAll(false);
+    setDispatchBriefSent('');
+    setRouteBriefStatuses({});
     try {
       if (save && !options.skipPreflight) {
         const brief = advisor?.date === date ? advisor : await fetchAdvisorBrief();
@@ -570,8 +613,91 @@ export default function AutoDispatch() {
   }, [copyDispatchBrief, date, plan, planApplied]);
 
   const copyRouteBrief = useCallback((route) => {
-    copyDispatchBrief(formatRouteBrief(route, date), `route-${route?.team_id || route?.team_name || 'team'}`);
+    copyDispatchBrief(formatRouteBrief(route, date), routeBriefKey(route));
   }, [copyDispatchBrief, date]);
+
+  const sendRouteBrief = useCallback(async (route) => {
+    const teamKey = routeBriefKey(route);
+    if (!route?.team_id) {
+      setError('Nie mozna wyslac odprawy bez identyfikatora ekipy.');
+      return;
+    }
+    setDispatchBriefSending(teamKey);
+    setError('');
+    setSuccess('');
+    try {
+      const token = getStoredToken();
+      const brief = formatRouteBrief(route, date);
+      const taskIds = (route.stops || [])
+        .map(stop => Number(stop.task_id))
+        .filter(id => Number.isInteger(id) && id > 0);
+      const res = await api.post('/dispatch/route-brief/send', {
+        date,
+        oddzial_id: user?.oddzial_id,
+        team_id: route.team_id,
+        team_name: route.team_name,
+        task_ids: taskIds,
+        brief,
+      }, { headers: authHeaders(token) });
+      const status = routeBriefStatusFromResponse(route, res.data);
+      setRouteBriefStatuses(prev => ({ ...prev, [teamKey]: status }));
+      setDispatchBriefSent(teamKey);
+      setSuccess(`${res.data?.message || 'Odprawa wyslana'}: ${route.team_name || `Ekipa #${route.team_id}`} (${status.sent_to})`);
+    } catch (e) {
+      setDispatchBriefSent('');
+      setError(e.response?.data?.error || e.message);
+    } finally {
+      setDispatchBriefSending('');
+    }
+  }, [date, user?.oddzial_id]);
+
+  const sendAllRouteBriefs = useCallback(async () => {
+    const routes = (plan?.routes || []).filter(route => route?.team_id && (route.stops || []).length);
+    if (!routes.length) {
+      setError('Brak tras z ekipami do wyslania.');
+      return;
+    }
+    setDispatchBriefSendingAll(true);
+    setError('');
+    setSuccess('');
+    const token = getStoredToken();
+    let sentTeams = 0;
+    let sentRecipients = 0;
+    const failed = [];
+    for (const route of routes) {
+      const teamKey = routeBriefKey(route);
+      setDispatchBriefSending(teamKey);
+      try {
+        const brief = formatRouteBrief(route, date);
+        const taskIds = (route.stops || [])
+          .map(stop => Number(stop.task_id))
+          .filter(id => Number.isInteger(id) && id > 0);
+        const res = await api.post('/dispatch/route-brief/send', {
+          date,
+          oddzial_id: user?.oddzial_id,
+          team_id: route.team_id,
+          team_name: route.team_name,
+          task_ids: taskIds,
+          brief,
+        }, { headers: authHeaders(token) });
+        const status = routeBriefStatusFromResponse(route, res.data);
+        setRouteBriefStatuses(prev => ({ ...prev, [teamKey]: status }));
+        setDispatchBriefSent(teamKey);
+        sentTeams += 1;
+        sentRecipients += status.sent_to;
+      } catch (e) {
+        failed.push(route.team_name || `Ekipa #${route.team_id}`);
+      }
+    }
+    setDispatchBriefSending('');
+    setDispatchBriefSendingAll(false);
+    if (failed.length) {
+      setError(`Nie wyslano odpraw: ${failed.join(', ')}.`);
+    }
+    if (sentTeams > 0) {
+      setSuccess(`Wyslano odprawy: ${sentTeams}/${routes.length} ekip, ${sentRecipients} odbiorcow. Czekamy na potwierdzenia.`);
+    }
+  }, [date, plan?.routes, user?.oddzial_id]);
 
   const selectRiskFilter = useCallback((filterKey) => {
     setRiskFilter(filterKey);
@@ -633,6 +759,8 @@ export default function AutoDispatch() {
   }, [loadAdvisor, nextDispatchAction, repairRiskTask, runSolver]);
 
   const stats = plan?.stats;
+  const dispatchableRoutes = (plan?.routes || []).filter(route => route?.team_id && (route.stops || []).length);
+  const sentRoutesCount = dispatchableRoutes.filter(route => routeBriefStatuses[routeBriefKey(route)]?.sent_to).length;
   const workflowSteps = useMemo(() => {
     const advisorLoaded = Boolean(advisor);
     const blocked = Number(preflightHold?.blocked ?? advisor?.metrics?.blocked ?? 0);
@@ -697,7 +825,7 @@ export default function AutoDispatch() {
             <input
               type="date"
               value={date}
-              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setPlan(null); setSavedPlanId(null); setPlanApplied(false); setBriefCopied(false); setBriefCopyText(''); setDispatchBriefCopied(''); setDispatchBriefText(''); setRiskFilter('all'); setRiskIssueFilter(''); }}
+              onChange={e => { setDate(e.target.value); setAdvisor(null); setAdvisorError(''); setPreflightHold(null); setPlan(null); setSavedPlanId(null); setPlanApplied(false); setBriefCopied(false); setBriefCopyText(''); setDispatchBriefCopied(''); setDispatchBriefText(''); setDispatchBriefSending(''); setDispatchBriefSendingAll(false); setDispatchBriefSent(''); setRouteBriefStatuses({}); setRiskFilter('all'); setRiskIssueFilter(''); }}
               style={s.dateInput}
             />
           </div>
@@ -1045,9 +1173,26 @@ export default function AutoDispatch() {
                   {(plan.routes || []).length} ekip · {stats?.tasks_assigned ?? 0}/{stats?.tasks_total ?? 0} zlecen · {stats?.coverage_pct ?? 0}% pokrycia
                 </span>
               </div>
-              <button type="button" onClick={copyDayBrief} style={s.copyDayBriefBtn}>
-                {dispatchBriefCopied === 'day' ? 'Skopiowano plan dnia' : 'Kopiuj plan dnia'}
-              </button>
+              <div style={s.handoffActions}>
+                <button type="button" onClick={copyDayBrief} style={s.copyDayBriefBtn}>
+                  {dispatchBriefCopied === 'day' ? 'Skopiowano plan dnia' : 'Kopiuj plan dnia'}
+                </button>
+                <button
+                  type="button"
+                  onClick={sendAllRouteBriefs}
+                  disabled={dispatchBriefSendingAll || dispatchableRoutes.length === 0}
+                  style={{
+                    ...s.sendAllBriefBtn,
+                    ...((dispatchBriefSendingAll || dispatchableRoutes.length === 0) ? s.routeBriefBtnDisabled : {}),
+                  }}
+                >
+                  {dispatchBriefSendingAll
+                    ? 'Wysylanie odpraw...'
+                    : sentRoutesCount === dispatchableRoutes.length && dispatchableRoutes.length > 0
+                      ? 'Odprawy wyslane'
+                      : 'Wyslij odprawy do ekip'}
+                </button>
+              </div>
             </div>
             {dispatchBriefText && (
               <textarea
@@ -1070,6 +1215,10 @@ export default function AutoDispatch() {
               {(plan.routes || []).map((route, ri) => {
                 const color = TEAM_COLORS[ri % TEAM_COLORS.length];
                 const open = expandedTeam === route.team_id;
+                const routeKey = routeBriefKey(route);
+                const routeStatus = routeBriefStatuses[routeKey];
+                const sendingRoute = dispatchBriefSending === routeKey;
+                const sendDisabled = dispatchBriefSendingAll || sendingRoute || !route.team_id || !(route.stops || []).length;
                 return (
                   <div key={route.team_id} style={{ ...s.routeCard, borderLeft: `4px solid ${color}` }}>
                     <div style={s.routeHeaderRow}>
@@ -1083,16 +1232,45 @@ export default function AutoDispatch() {
                       <span style={s.routeMeta}>{route.stops.length} zlec · {fmt(route.total_min)} · ~{route.distance_km} km</span>
                       <span style={s.chevron}>{open ? '▲' : '▼'}</span>
                     </button>
-                      <button
-                        type="button"
-                        onClick={() => copyRouteBrief(route)}
-                        aria-label={`Kopiuj odprawe ekipy ${route.team_name || route.team_id || ''}`.trim()}
-                        style={s.routeBriefBtn}
-                      >
-                        {dispatchBriefCopied === `route-${route.team_id || route.team_name || 'team'}`
-                          ? 'Skopiowano'
-                          : 'Kopiuj odprawe ekipy'}
-                      </button>
+                      <div style={s.routeBriefActions}>
+                        {routeStatus && (
+                          <span
+                            style={{
+                              ...s.routeBriefStatus,
+                              ...(Number(routeStatus.pending || 0) <= 0 ? s.routeBriefStatusDone : {}),
+                            }}
+                          >
+                            {routeBriefStatusText(routeStatus)}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => copyRouteBrief(route)}
+                          aria-label={`Kopiuj odprawe ekipy ${route.team_name || route.team_id || ''}`.trim()}
+                          style={s.routeBriefBtn}
+                        >
+                          {dispatchBriefCopied === routeKey
+                            ? 'Skopiowano'
+                            : 'Kopiuj odprawe ekipy'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sendRouteBrief(route)}
+                          disabled={sendDisabled}
+                          aria-label={`Wyslij odprawe ekipy ${route.team_name || route.team_id || ''}`.trim()}
+                          style={{
+                            ...s.routeBriefBtn,
+                            ...s.routeSendBtn,
+                            ...(sendDisabled ? s.routeBriefBtnDisabled : {}),
+                          }}
+                        >
+                          {sendingRoute
+                            ? 'Wysylanie...'
+                            : dispatchBriefSent === routeKey
+                              ? 'Wyslano'
+                              : 'Wyslij odprawe'}
+                        </button>
+                      </div>
                     </div>
 
                     {open && (
@@ -1279,7 +1457,9 @@ const s = {
   handoffEyebrow:{ color: 'var(--text-sub)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
   handoffTitle:{ color: 'var(--text)', fontSize: 14, lineHeight: 1.25 },
   handoffDetail:{ color: 'var(--text-sub)', fontSize: 12 },
+  handoffActions:{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', flexShrink: 0 },
   copyDayBriefBtn:{ flexShrink: 0, border: '1px solid var(--accent)', background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
+  sendAllBriefBtn:{ flexShrink: 0, border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857', borderRadius: 8, padding: '9px 12px', fontSize: 12, fontWeight: 900, cursor: 'pointer' },
   manualDispatchBrief:{ width: '100%', minHeight: 96, marginTop: 10, borderRadius: 8, border: '1px solid var(--border)', background: '#fff', color: 'var(--text)', padding: 10, fontSize: 12, lineHeight: 1.45, resize: 'vertical' },
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
   routesCol:{ display: 'flex', flexDirection: 'column', gap: 10 },
@@ -1293,7 +1473,12 @@ const s = {
   chevron:  { fontSize: 12, color: 'var(--text-sub)' },
   stopList: { borderTop: '1px solid var(--border)', padding: '8px 0' },
   routeBriefRow:{ display: 'flex', justifyContent: 'flex-end', padding: '0 16px 8px' },
+  routeBriefActions:{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', justifyContent: 'flex-end', padding: '8px 0', flexShrink: 0 },
+  routeBriefStatus:{ border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 8, padding: '6px 8px', fontSize: 11, fontWeight: 900, lineHeight: 1.2 },
+  routeBriefStatusDone:{ borderColor: '#86efac', background: '#f0fdf4', color: '#047857' },
   routeBriefBtn:{ border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '7px 10px', fontSize: 12, fontWeight: 850, cursor: 'pointer' },
+  routeSendBtn:{ border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857' },
+  routeBriefBtnDisabled:{ opacity: 0.58, cursor: 'not-allowed' },
   stopRow:  { display: 'flex', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-light, var(--border))' },
   stopNum:  { width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 },
   stopBody: { flex: 1, minWidth: 0 },

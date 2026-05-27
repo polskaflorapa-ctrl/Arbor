@@ -472,6 +472,207 @@ describe('GET /api/ops/action-insights', () => {
   });
 });
 
+describe('GET /api/ops/action-recommendations', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+  });
+
+  it('builds actionable manager recommendations from plan and action memory', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('WITH planned AS') && text.includes('open_issues')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        expect(text).toContain('t.oddzial_id = $2');
+        return {
+          rows: [
+            {
+              id: 31,
+              numer: 'ARB-31',
+              klient_nazwa: 'Bez czasu A',
+              klient_telefon: '+48111111111',
+              adres: 'Krakow 1',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Pilny',
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              ekipa_id: 5,
+              oddzial_id: 7,
+              pin_lat: 50.1,
+              pin_lng: 19.9,
+              czas_planowany_godziny: null,
+              czas_obslugi_min: null,
+              ekipa_nazwa: 'Ekipa A',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 0,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+            {
+              id: 32,
+              numer: 'ARB-32',
+              klient_nazwa: 'Bez czasu B',
+              klient_telefon: '+48222222222',
+              adres: 'Krakow 2',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T09:00:00.000Z',
+              ekipa_id: 6,
+              oddzial_id: 7,
+              pin_lat: 50.2,
+              pin_lng: 19.8,
+              czas_planowany_godziny: null,
+              czas_obslugi_min: null,
+              ekipa_nazwa: 'Ekipa B',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 0,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+            {
+              id: 33,
+              numer: 'ARB-33',
+              klient_nazwa: 'Bez czasu C',
+              klient_telefon: '+48333333333',
+              adres: 'Krakow 3',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T10:00:00.000Z',
+              ekipa_id: 7,
+              oddzial_id: 7,
+              pin_lat: 50.3,
+              pin_lng: 19.7,
+              czas_planowany_godziny: null,
+              czas_obslugi_min: null,
+              ekipa_nazwa: 'Ekipa C',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 0,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+            {
+              id: 34,
+              numer: 'ARB-34',
+              klient_nazwa: 'Plan bez startu',
+              klient_telefon: '+48444444444',
+              adres: 'Krakow 4',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Normalny',
+              data_planowana: '2026-05-26T11:00:00.000Z',
+              ekipa_id: 8,
+              oddzial_id: 7,
+              pin_lat: 50.4,
+              pin_lng: 19.6,
+              czas_planowany_godziny: 1,
+              czas_obslugi_min: 60,
+              ekipa_nazwa: 'Ekipa D',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 60,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+            {
+              id: 35,
+              numer: 'ARB-35',
+              klient_nazwa: 'Przekroczony',
+              klient_telefon: '+48555555555',
+              adres: 'Krakow 5',
+              miasto: 'Krakow',
+              status: 'W_Realizacji',
+              priorytet: 'Pilny',
+              data_planowana: '2026-05-26T12:00:00.000Z',
+              ekipa_id: 9,
+              oddzial_id: 7,
+              pin_lat: 50.5,
+              pin_lng: 19.5,
+              czas_planowany_godziny: 2,
+              czas_obslugi_min: 120,
+              ekipa_nazwa: 'Ekipa E',
+              oddzial_nazwa: 'Krakow',
+              open_issues: 0,
+              planned_minutes: 120,
+              real_minutes: 190,
+              logs_total: 1,
+              has_started: true,
+              has_finished: false,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM ops_action_events e')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        expect(text).toContain('e.oddzial_id = $2');
+        return {
+          rows: [
+            {
+              action_type: 'mark_reason',
+              issue_key: 'overrun',
+              reason_code: 'dojazd',
+              count: 2,
+              avg_delta_minutes: 45,
+            },
+            {
+              action_type: 'mark_reason',
+              issue_key: 'missing_finish',
+              reason_code: 'dojazd',
+              count: 2,
+              avg_delta_minutes: 15,
+            },
+            {
+              action_type: 'mark_reason',
+              issue_key: 'overrun',
+              reason_code: 'klient',
+              count: 3,
+              avg_delta_minutes: 20,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-recommendations?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.oddzial_id).toBe(7);
+    expect(res.body.summary.actionable).toBeGreaterThan(0);
+    const byId = Object.fromEntries(res.body.recommendations.map((item) => [item.id, item]));
+    expect(byId.set_missing_duration).toMatchObject({
+      priority: 'high',
+      action_kind: 'set_duration_batch',
+      primary_label: 'Zastosuj',
+      suggested_minutes: 120,
+      task_count: 3,
+    });
+    expect(byId.remind_not_started).toMatchObject({
+      action_kind: 'remind_team_batch',
+      primary_label: 'Przypomnij',
+      task_ids: [34],
+    });
+    expect(byId.reason_dojazd).toMatchObject({
+      title: 'Najczestszy powod strat: Dojazd',
+      rationale: '4 wpisow w ostatnich dniach, srednia odchylka 30 min.',
+      target_path: '/mapa-live',
+    });
+  });
+});
+
 describe('GET /api/ops/plan-vs-real', () => {
   beforeEach(() => {
     pool.query.mockReset();

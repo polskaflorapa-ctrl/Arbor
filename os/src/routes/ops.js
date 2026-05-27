@@ -209,6 +209,12 @@ function formatActionMinutes(minutes) {
   return `${h} h ${m} min`;
 }
 
+function formatSignedActionMinutes(minutes) {
+  const total = eventNumber(minutes) || 0;
+  const sign = total < 0 ? '-' : '';
+  return `${sign}${formatActionMinutes(Math.abs(total))}`;
+}
+
 function planRealNote({ title, lines = [], user }) {
   return [
     'PLAN VS REAL',
@@ -300,6 +306,13 @@ function buildPlanRealTaskPath(task, date) {
   return `/zlecenia/${task.id}?${params.toString()}`;
 }
 
+function buildRecommendationTaskPath(tasks, date) {
+  const task = tasks.find(Boolean);
+  if (!task) return `/kierownik?date=${encodeURIComponent(date)}`;
+  if (task.action_path) return task.action_path;
+  return buildPlanRealTaskPath(task, date);
+}
+
 function classifyPlanRealTask(task) {
   if (task.planned_minutes <= 0) {
     return {
@@ -347,6 +360,183 @@ function classifyPlanRealTask(task) {
     };
   }
   return null;
+}
+
+function topEventStat(eventStats, field) {
+  const totals = new Map();
+  for (const row of eventStats || []) {
+    const key = row?.[field];
+    if (!key) continue;
+    const count = Math.max(0, Number(row.count || 0));
+    const current = totals.get(key) || {
+      [field]: key,
+      count: 0,
+      delta_sum: 0,
+      delta_weight: 0,
+    };
+    current.count += count;
+    const avgDelta = eventNumber(row.avg_delta_minutes);
+    if (avgDelta != null && count > 0) {
+      current.delta_sum += avgDelta * count;
+      current.delta_weight += count;
+    }
+    totals.set(key, current);
+  }
+
+  const top = Array.from(totals.values())
+    .sort((a, b) => Number(b.count || 0) - Number(a.count || 0))[0];
+  if (!top) return null;
+  return {
+    [field]: top[field],
+    count: top.count,
+    avg_delta_minutes: top.delta_weight > 0 ? Math.round(top.delta_sum / top.delta_weight) : null,
+  };
+}
+
+function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats = [] }) {
+  const activeTasks = tasks.filter((task) => !isTaskClosed(task.status));
+  const missingDuration = activeTasks.filter((task) => task.issue_key === 'missing_duration' || task.blockers?.includes('duration'));
+  const notStarted = activeTasks.filter((task) => task.issue_key === 'not_started' && task.ekipa_id);
+  const overrunTasks = activeTasks.filter((task) => task.issue_key === 'overrun' || task.issue_key === 'missing_finish');
+  const dispatchBlockers = activeTasks.filter((task) => task.blockers?.includes('team') || task.blockers?.includes('gps'));
+  const topReason = topEventStat(eventStats, 'reason_code');
+
+  const recommendations = [];
+  const add = (item) => {
+    recommendations.push({
+      oddzial_id: oddzialId,
+      generated_for_date: date,
+      ...item,
+    });
+  };
+
+  if (missingDuration.length > 0) {
+    const suggestedMinutes = missingDuration.length >= 3 ? 120 : 90;
+    add({
+      id: 'set_missing_duration',
+      priority: missingDuration.length >= 3 ? 'high' : 'medium',
+      tone: 'warning',
+      score: 90 + missingDuration.length * 8,
+      title: `${missingDuration.length} zlecen bez czasu planu`,
+      rationale: 'Bez czasu planu solver, obciazenie ekip i plan vs real nie maja czego liczyc.',
+      suggested_action: `Ustaw ${formatActionMinutes(suggestedMinutes)} jako czas startowy i popraw wyjatki pozniej.`,
+      action_kind: 'set_duration_batch',
+      primary_label: 'Zastosuj',
+      secondary_label: 'Otworz zlecenia',
+      suggested_minutes: suggestedMinutes,
+      task_count: missingDuration.length,
+      task_ids: missingDuration.slice(0, 8).map((task) => task.id),
+      target_path: buildRecommendationTaskPath(missingDuration, date),
+      impact_label: `${formatActionMinutes(suggestedMinutes * missingDuration.length)} planu do uzupelnienia`,
+    });
+  }
+
+  if (notStarted.length > 0) {
+    add({
+      id: 'remind_not_started',
+      priority: notStarted.length >= 2 ? 'high' : 'medium',
+      tone: 'warning',
+      score: 84 + notStarted.length * 7,
+      title: `${notStarted.length} zlecen nie wystartowalo`,
+      rationale: 'Brak startu w logach zwykle oznacza opozniona ekipe albo zapomniany check-in.',
+      suggested_action: 'Wyslij krotkie przypomnienie do przypisanych ekip.',
+      action_kind: 'remind_team_batch',
+      primary_label: 'Przypomnij',
+      secondary_label: 'Otworz',
+      task_count: notStarted.length,
+      task_ids: notStarted.slice(0, 8).map((task) => task.id),
+      target_path: buildRecommendationTaskPath(notStarted, date),
+      impact_label: `${notStarted.length} ekip do potwierdzenia`,
+    });
+  }
+
+  if (dispatchBlockers.length > 0) {
+    const missingTeams = dispatchBlockers.filter((task) => task.blockers?.includes('team')).length;
+    const missingGps = dispatchBlockers.filter((task) => task.blockers?.includes('gps')).length;
+    add({
+      id: 'fix_dispatch_blockers',
+      priority: dispatchBlockers.length >= 3 ? 'high' : 'medium',
+      tone: 'danger',
+      score: 78 + dispatchBlockers.length * 6,
+      title: `${dispatchBlockers.length} blokad wysylki ekip`,
+      rationale: `${missingTeams} bez ekipy, ${missingGps} bez pinezki GPS. To blokuje dobry plan dnia.`,
+      suggested_action: 'Otworz pierwsze zlecenie z blokada i napraw dane planowania.',
+      action_kind: 'open_tasks',
+      primary_label: 'Otworz zlecenia',
+      secondary_label: '',
+      task_count: dispatchBlockers.length,
+      task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
+      target_path: buildTaskPath({ ...dispatchBlockers[0], blockers: dispatchBlockers[0].blockers || [] }, date),
+      impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
+    });
+  }
+
+  if (overrunTasks.length > 0) {
+    const totalDelta = overrunTasks.reduce((sum, task) => sum + Math.max(0, Number(task.delta_minutes || 0)), 0);
+    add({
+      id: 'explain_overruns',
+      priority: totalDelta >= 120 ? 'high' : 'medium',
+      tone: 'warning',
+      score: 70 + Math.min(30, Math.round(totalDelta / 10)),
+      title: `${overrunTasks.length} odchylen wymaga decyzji`,
+      rationale: `Plan odbiega o ${formatActionMinutes(totalDelta)}. Powod powinien trafic do pamieci operacyjnej.`,
+      suggested_action: 'Oznacz powod w Plan vs real albo otworz zlecenie do sprawdzenia.',
+      action_kind: 'open_tasks',
+      primary_label: 'Otworz',
+      secondary_label: '',
+      task_count: overrunTasks.length,
+      task_ids: overrunTasks.slice(0, 8).map((task) => task.id),
+      target_path: buildRecommendationTaskPath(overrunTasks, date),
+      impact_label: `${formatActionMinutes(totalDelta)} nad planem`,
+    });
+  }
+
+  if (topReason) {
+    const reasonCode = topReason.reason_code;
+    const avgDelta = eventNumber(topReason.avg_delta_minutes) || 0;
+    add({
+      id: `reason_${reasonCode}`,
+      priority: Number(topReason.count || 0) >= 3 ? 'medium' : 'low',
+      tone: 'info',
+      score: 58 + Number(topReason.count || 0) * 5 + Math.min(20, Math.abs(avgDelta)),
+      title: `Najczestszy powod strat: ${PLAN_REAL_REASON_LABELS[reasonCode] || reasonCode}`,
+      rationale: `${topReason.count} wpisow w ostatnich dniach, srednia odchylka ${formatSignedActionMinutes(avgDelta)}.`,
+      suggested_action: reasonCode === 'dojazd'
+        ? 'Sprawdz pinezki GPS i kolejność tras przed wysylka ekip.'
+        : 'Ustal wspolna regule planowania dla tego powodu.',
+      action_kind: reasonCode === 'dojazd' ? 'open_map' : 'open_tasks',
+      primary_label: reasonCode === 'dojazd' ? 'Mapa live' : 'Otworz',
+      secondary_label: '',
+      task_count: Number(topReason.count || 0),
+      task_ids: [],
+      target_path: reasonCode === 'dojazd' ? '/mapa-live' : `/kierownik?date=${encodeURIComponent(date)}`,
+      impact_label: `${topReason.count} podobnych decyzji`,
+    });
+  }
+
+  if (recommendations.length === 0) {
+    add({
+      id: 'steady_day',
+      priority: 'low',
+      tone: 'ok',
+      score: 1,
+      title: 'Brak pilnych ruchow operacyjnych',
+      rationale: 'Dzisiejszy plan nie pokazuje krytycznych odchylen ani powtarzalnych blokad.',
+      suggested_action: 'Monitoruj start ekip i wracaj do cockpit po pierwszych logach.',
+      action_kind: 'none',
+      primary_label: 'OK',
+      secondary_label: '',
+      task_count: 0,
+      task_ids: [],
+      target_path: `/kierownik?date=${encodeURIComponent(date)}`,
+      impact_label: 'plan stabilny',
+    });
+  }
+
+  return recommendations
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((item, index) => ({ ...item, rank: index + 1 }));
 }
 
 router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
@@ -855,6 +1045,178 @@ router.get('/action-insights', authMiddleware, requireRole(...MANAGER_ROLES), as
     });
   } catch (e) {
     logger.error('ops action-insights', { message: e.message, requestId: req.requestId });
+    res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const date = parseDateParam(req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+
+  const requestedOddzial = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  const branchSql = oddzialId != null ? 'AND t.oddzial_id = $2' : '';
+  const eventBranchSql = oddzialId != null ? 'AND e.oddzial_id = $2' : '';
+  const params = oddzialId != null ? [date, oddzialId] : [date];
+
+  try {
+    await ensureOpsActionEventsTable();
+    const [tasksResult, eventsResult] = await Promise.all([
+      pool.query(
+        `WITH planned AS (
+           SELECT t.id, t.numer, t.klient_nazwa, t.klient_telefon, t.adres, t.miasto,
+                  t.status, t.priorytet, t.data_planowana, t.ekipa_id, t.oddzial_id,
+                  t.pin_lat, t.pin_lng, t.czas_planowany_godziny, t.czas_obslugi_min,
+                  t.wartosc_planowana, t.wartosc_rzeczywista,
+                  e.nazwa AS ekipa_nazwa,
+                  b.nazwa AS oddzial_nazwa,
+                  COALESCE(oi.open_issues, 0)::int AS open_issues,
+                  CASE
+                    WHEN COALESCE(t.czas_obslugi_min, 0) > 0 THEN t.czas_obslugi_min::numeric
+                    WHEN COALESCE(t.czas_planowany_godziny, 0) > 0 THEN ROUND(t.czas_planowany_godziny::numeric * 60)
+                    ELSE 0
+                  END AS planned_minutes
+           FROM tasks t
+           LEFT JOIN teams e ON e.id = t.ekipa_id
+           LEFT JOIN branches b ON b.id = t.oddzial_id
+           LEFT JOIN (
+             SELECT task_id, COUNT(*)::int AS open_issues
+             FROM issues
+             WHERE LOWER(COALESCE(status, '')) NOT LIKE 'rozwi%'
+               AND LOWER(COALESCE(status, '')) NOT LIKE 'zamk%'
+             GROUP BY task_id
+           ) oi ON oi.task_id = t.id
+           WHERE t.data_planowana::date = $1::date
+             ${branchSql}
+         ),
+         work_actual AS (
+           SELECT wl.task_id,
+                  COUNT(*) FILTER (WHERE wl.start_time IS NOT NULL)::int AS logs_total,
+                  BOOL_OR(wl.start_time IS NOT NULL) AS has_started,
+                  BOOL_OR(wl.end_time IS NOT NULL) AS has_finished,
+                  COALESCE(SUM(
+                    CASE
+                      WHEN COALESCE(wl.czas_pracy_minuty, 0) > 0 THEN wl.czas_pracy_minuty::numeric
+                      WHEN COALESCE(wl.duration_hours, 0) > 0 THEN wl.duration_hours::numeric * 60
+                      WHEN wl.start_time IS NOT NULL THEN
+                        GREATEST(
+                          0,
+                          EXTRACT(EPOCH FROM (
+                            COALESCE(wl.end_time, LEAST(NOW()::timestamp, ($1::date + INTERVAL '1 day')::timestamp)) - wl.start_time
+                          )) / 60.0
+                        )
+                      ELSE 0
+                    END
+                  ), 0)::numeric AS real_minutes
+           FROM work_logs wl
+           JOIN planned p ON p.id = wl.task_id
+           WHERE (wl.start_time AT TIME ZONE 'Europe/Warsaw')::date = $1::date
+              OR wl.start_time IS NULL
+           GROUP BY wl.task_id
+         )
+         SELECT p.*,
+                COALESCE(wa.logs_total, 0)::int AS logs_total,
+                COALESCE(wa.has_started, false) AS has_started,
+                COALESCE(wa.has_finished, false) AS has_finished,
+                COALESCE(wa.real_minutes, 0)::numeric AS real_minutes
+         FROM planned p
+         LEFT JOIN work_actual wa ON wa.task_id = p.id
+         ORDER BY
+           CASE p.priorytet WHEN 'Pilny' THEN 0 WHEN 'Wysoki' THEN 1 WHEN 'Normalny' THEN 2 ELSE 3 END,
+           p.data_planowana ASC NULLS LAST,
+           p.id ASC`,
+        params
+      ),
+      pool.query(
+        `SELECT e.action_type, e.issue_key, e.reason_code,
+                COUNT(*)::int AS count,
+                ROUND(AVG(e.delta_minutes))::int AS avg_delta_minutes
+         FROM ops_action_events e
+         WHERE e.created_at >= ($1::date - INTERVAL '6 days')
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           ${eventBranchSql}
+         GROUP BY e.action_type, e.issue_key, e.reason_code
+         ORDER BY count DESC`,
+        params
+      ),
+    ]);
+
+    const tasks = tasksResult.rows.map((row) => {
+      const plannedMinutes = roundedMinutes(row.planned_minutes);
+      const realMinutes = roundedMinutes(row.real_minutes);
+      const task = {
+        id: row.id,
+        numer: row.numer || `ZLE-${String(row.id).padStart(4, '0')}`,
+        klient_nazwa: row.klient_nazwa,
+        klient_telefon: row.klient_telefon,
+        adres: row.adres,
+        miasto: row.miasto,
+        status: row.status,
+        priorytet: row.priorytet,
+        data_planowana: row.data_planowana,
+        ekipa_id: row.ekipa_id,
+        ekipa_nazwa: row.ekipa_nazwa,
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        pin_lat: row.pin_lat,
+        pin_lng: row.pin_lng,
+        czas_planowany_godziny: row.czas_planowany_godziny,
+        czas_obslugi_min: row.czas_obslugi_min,
+        open_issues: Number(row.open_issues || 0),
+        planned_minutes: plannedMinutes,
+        real_minutes: realMinutes,
+        delta_minutes: realMinutes - plannedMinutes,
+        has_started: Boolean(row.has_started),
+        has_finished: Boolean(row.has_finished),
+        logs_total: Number(row.logs_total || 0),
+      };
+      const issue = classifyPlanRealTask(task);
+      const blockers = task.status === IN_PROGRESS_TASK_STATUS || isTaskClosed(task.status) ? [] : taskBlockers(task);
+      return {
+        ...task,
+        blockers,
+        ...(issue ? {
+          issue_key: issue.key,
+          issue_label: issue.label,
+          issue_action: issue.action,
+          tone: issue.tone,
+          issue_rank: issue.rank,
+          action_path: buildPlanRealTaskPath({ ...task, issue_key: issue.key }, date),
+        } : {
+          action_path: buildTaskPath({ ...task, blockers }, date),
+        }),
+      };
+    });
+
+    const recommendations = buildOpsActionRecommendations({
+      date,
+      oddzialId,
+      tasks,
+      eventStats: eventsResult.rows || [],
+    });
+
+    res.json({
+      date,
+      oddzial_id: oddzialId,
+      summary: {
+        total: recommendations.length,
+        high: recommendations.filter((item) => item.priority === 'high').length,
+        actionable: recommendations.filter((item) => item.action_kind && item.action_kind !== 'none').length,
+        plan_tasks: tasks.length,
+        memory_rows: eventsResult.rows.length,
+      },
+      recommendations,
+      generated_at: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops action-recommendations', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });

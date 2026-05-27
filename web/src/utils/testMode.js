@@ -6,6 +6,8 @@
 const TEST_MODE_STORAGE_KEY = 'arbor-test-mode';
 const MOCK_TASK_OVERRIDES_KEY = 'arbor-test-mode-task-overrides';
 const MOCK_TASK_PHOTOS_KEY = 'arbor-test-mode-task-photos';
+const MOCK_CLIENT_CONTACTS_KEY = 'arbor-test-mode-client-contacts';
+const MOCK_CLOSURE_EVENTS_KEY = 'arbor-test-mode-closure-events';
 
 // Testowi użytkownicy o różnych rolach
 export const TEST_USERS = {
@@ -309,6 +311,10 @@ const mockTaskOverrides = new Map();
 let mockTaskOverridesStorageCache = null;
 const mockTaskPhotos = new Map();
 let mockTaskPhotosStorageCache = null;
+const mockClientContacts = new Map();
+let mockClientContactsStorageCache = null;
+const mockClosureEvents = new Map();
+let mockClosureEventsStorageCache = null;
 
 function hydrateMockTaskOverrides() {
   const raw = localStorage.getItem(MOCK_TASK_OVERRIDES_KEY) || '';
@@ -360,6 +366,56 @@ function persistMockTaskPhotos() {
   }
 }
 
+function hydrateMockClientContacts() {
+  const raw = localStorage.getItem(MOCK_CLIENT_CONTACTS_KEY) || '';
+  if (raw === mockClientContactsStorageCache) return;
+  mockClientContactsStorageCache = raw;
+  mockClientContacts.clear();
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    Object.entries(parsed || {}).forEach(([id, value]) => {
+      mockClientContacts.set(Number(id), { ...(value || {}), task_id: Number(id) });
+    });
+  } catch {
+    // Ignore malformed persisted test data.
+  }
+}
+
+function persistMockClientContacts() {
+  try {
+    const payload = Object.fromEntries(mockClientContacts.entries());
+    mockClientContactsStorageCache = JSON.stringify(payload);
+    localStorage.setItem(MOCK_CLIENT_CONTACTS_KEY, mockClientContactsStorageCache);
+  } catch {
+    // Local persistence is best-effort in test mode.
+  }
+}
+
+function hydrateMockClosureEvents() {
+  const raw = localStorage.getItem(MOCK_CLOSURE_EVENTS_KEY) || '';
+  if (raw === mockClosureEventsStorageCache) return;
+  mockClosureEventsStorageCache = raw;
+  mockClosureEvents.clear();
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    Object.entries(parsed || {}).forEach(([id, value]) => {
+      mockClosureEvents.set(Number(id), Array.isArray(value) ? value : []);
+    });
+  } catch {
+    // Ignore malformed persisted test data.
+  }
+}
+
+function persistMockClosureEvents() {
+  try {
+    const payload = Object.fromEntries(mockClosureEvents.entries());
+    mockClosureEventsStorageCache = JSON.stringify(payload);
+    localStorage.setItem(MOCK_CLOSURE_EVENTS_KEY, mockClosureEventsStorageCache);
+  } catch {
+    // Local persistence is best-effort in test mode.
+  }
+}
+
 function getMockTasksWithOverrides() {
   hydrateMockTaskOverrides();
   const rows = MOCK_DATA.zlecenia.map((task) => ({
@@ -385,10 +441,25 @@ function getMockTaskBase(taskId) {
   if (hasBaseRow && !normalizedBase.wyceniajacy_id && !normalizedBase.wyceniajacy_nazwa) {
     normalizedBase.wyceniajacy_nazwa = '';
   }
-  return {
+  return withMockTaskStatusSignals({
     ...normalizedBase,
     ...(mockTaskOverrides.get(id) || {}),
-  };
+  });
+}
+
+function withMockTaskStatusSignals(task = {}) {
+  const status = String(task.status || '');
+  if (status === 'W_Realizacji' || status === 'W realizacji') {
+    const now = new Date().toISOString();
+    return {
+      ...task,
+      active_work_count: Number(task.active_work_count || 1),
+      work_logs_total: Math.max(1, Number(task.work_logs_total || 0)),
+      last_checkin_at: task.last_checkin_at || now,
+      active_work_started_at: task.active_work_started_at || task.last_checkin_at || now,
+    };
+  }
+  return task;
 }
 
 export function mockMarkTaskFinishedInTestMode(taskId) {
@@ -399,13 +470,94 @@ export function mockUpdateTaskInTestMode(taskId, patch = {}) {
   hydrateMockTaskOverrides();
   const id = Number(taskId);
   const current = mockTaskOverrides.get(id) || {};
-  const next = { ...current, ...patch, id };
+  const normalizedPatch = { ...patch };
+  const status = String(normalizedPatch.status || '');
+  if (status === 'W_Realizacji' || status === 'W realizacji') {
+    const now = new Date().toISOString();
+    normalizedPatch.active_work_count = Number(normalizedPatch.active_work_count || current.active_work_count || 1);
+    normalizedPatch.work_logs_total = Math.max(1, Number(normalizedPatch.work_logs_total || current.work_logs_total || 0));
+    normalizedPatch.last_checkin_at = normalizedPatch.last_checkin_at || current.last_checkin_at || now;
+    normalizedPatch.active_work_started_at = normalizedPatch.active_work_started_at || current.active_work_started_at || now;
+  }
+  if (status === 'Zaplanowane' || status === 'Do_Zatwierdzenia' || status === 'Wycena_Terenowa' || status === 'Nowe') {
+    normalizedPatch.active_work_count = 0;
+    normalizedPatch.active_work_started_at = null;
+  }
+  if (status === 'Zakonczone' || status === 'Zakończone') {
+    normalizedPatch.active_work_count = 0;
+    normalizedPatch.last_work_finished_at = normalizedPatch.last_work_finished_at || new Date().toISOString();
+  }
+  const next = { ...current, ...normalizedPatch, id };
   mockTaskOverrides.set(id, next);
   persistMockTaskOverrides();
   if (next.status === 'Zakonczone' || next.status === 'Zakończone') {
     mockMarkTaskFinishedInTestMode(id);
   }
   return getMockTaskDetail(id);
+}
+
+export function getMockClientContacts() {
+  hydrateMockClientContacts();
+  return { contacts: Object.fromEntries(mockClientContacts.entries()) };
+}
+
+export function mockPatchClientContactInTestMode(taskId, patch = {}) {
+  hydrateMockClientContacts();
+  const id = Number(taskId);
+  const current = mockClientContacts.get(id) || { task_id: id, history: [] };
+  const now = new Date().toISOString();
+  const dueAt = Object.prototype.hasOwnProperty.call(patch, 'due_at')
+    ? patch.due_at
+    : patch.dueAt;
+  const next = {
+    ...current,
+    task_id: id,
+    status: Object.prototype.hasOwnProperty.call(patch, 'status') ? (patch.status || '') : (current.status || ''),
+    note: Object.prototype.hasOwnProperty.call(patch, 'note') ? (patch.note || '') : (current.note || ''),
+    due_at: dueAt !== undefined ? dueAt || null : (current.due_at || current.dueAt || null),
+    updated_at: now,
+    actor: patch.actor || current.actor || 'Test Dyrektor',
+  };
+  next.dueAt = next.due_at;
+  next.updatedAt = next.updated_at;
+  next.history = [
+    {
+      id: `mock-contact-${id}-${Date.now()}`,
+      task_id: id,
+      status: next.status,
+      note: next.note,
+      due_at: next.due_at,
+      created_at: now,
+      actor: next.actor,
+    },
+    ...(Array.isArray(current.history) ? current.history : []),
+  ].slice(0, 20);
+  mockClientContacts.set(id, next);
+  persistMockClientContacts();
+  return next;
+}
+
+export function getMockClosureEvents() {
+  hydrateMockClosureEvents();
+  return { events: Object.fromEntries(mockClosureEvents.entries()) };
+}
+
+export function mockAddClosureEventInTestMode(taskId, payload = {}) {
+  hydrateMockClosureEvents();
+  const id = Number(taskId);
+  const now = new Date().toISOString();
+  const event = {
+    id: `mock-closure-${id}-${Date.now()}`,
+    task_id: id,
+    created_at: now,
+    actor: payload.actor || 'Test Dyrektor',
+    created_by: payload.created_by || 9001,
+    ...payload,
+  };
+  const current = mockClosureEvents.get(id) || [];
+  mockClosureEvents.set(id, [event, ...current].slice(0, 30));
+  persistMockClosureEvents();
+  return event;
 }
 
 function updateMockTaskPhotoCounters(taskId, photos = []) {
@@ -874,8 +1026,8 @@ export function getMockData(endpoint) {
     '/ekipy': MOCK_DATA.ekipy,
     '/flota/sprzet': [],
     '/flota/rezerwacje': [],
-    '/tasks/client-contacts': { contacts: {} },
-    '/tasks/closure-events': { events: {} },
+    '/tasks/client-contacts': getMockClientContacts(),
+    '/tasks/closure-events': getMockClosureEvents(),
     '/notifications': { notifications: [], unread_count: 0 },
     '/ekipy/ranking': {
       month: { ranking: rankingRows },

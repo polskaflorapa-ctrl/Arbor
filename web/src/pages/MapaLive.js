@@ -540,6 +540,29 @@ function normalizeRows(raw) {
     .filter((row) => row.lat != null && row.lng != null);
 }
 
+function historyParamsForRow(row) {
+  const params = new URLSearchParams({
+    date: todayIso(),
+    limit: '360',
+  });
+  if (row.provider) params.set('provider', row.provider);
+  if (row.ekipa_id) params.set('team_id', row.ekipa_id);
+  else if (row.user_id) params.set('user_id', row.user_id);
+  else if (row.vehicle_id) params.set('vehicle_id', row.vehicle_id);
+  else if (row.nr_rejestracyjny) params.set('plate_number', row.nr_rejestracyjny);
+  return params;
+}
+
+function historyRangeLabel(rows) {
+  if (!rows.length) return 'brak danych';
+  return `${formatClock(rows[0].recorded_at)} - ${formatClock(rows[rows.length - 1].recorded_at)}`;
+}
+
+function historyMaxSpeed(rows) {
+  const max = rows.reduce((acc, row) => Math.max(acc, toNumber(row.speed_kmh) || 0), 0);
+  return max ? `${Math.round(max)} km/h` : 'brak';
+}
+
 function pointPosition(row, bounds) {
   if (!bounds) return { left: '50%', top: '50%' };
   const latRange = Math.max(0.0001, bounds.maxLat - bounds.minLat);
@@ -572,6 +595,10 @@ export default function MapaLive() {
   const [quickPlanReservations, setQuickPlanReservations] = useState([]);
   const [quickPlanReservationsLoading, setQuickPlanReservationsLoading] = useState(false);
   const [quickPlanReservationsErr, setQuickPlanReservationsErr] = useState('');
+  const [historyTarget, setHistoryTarget] = useState(null);
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   const user = useMemo(() => getLocalStorageJson('user', {}), []);
   const canSeeAll = ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
@@ -775,6 +802,33 @@ export default function MapaLive() {
     const branch = branches.find((item) => String(item.id) === String(id));
     return branch?.nazwa || (id ? `Oddział #${id}` : 'Bez oddziału');
   }, [branches]);
+
+  const openGpsHistory = useCallback(async (row) => {
+    const token = getStoredToken();
+    if (!token) {
+      navigate('/');
+      return;
+    }
+    setHistoryTarget(row);
+    setHistoryRows([]);
+    setHistoryError('');
+    setHistoryLoading(true);
+    try {
+      const params = historyParamsForRow(row);
+      const { data } = await api.get(`/ekipy/gps-history?${params.toString()}`, {
+        headers: authHeaders(token),
+        dedupe: false,
+      });
+      const normalized = normalizeRows(data)
+        .sort((a, b) => new Date(a.recorded_at || 0) - new Date(b.recorded_at || 0));
+      setHistoryRows(normalized);
+    } catch (err) {
+      setHistoryRows([]);
+      setHistoryError(getApiErrorMessage(err, 'Nie udalo sie pobrac historii GPS.'));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [navigate]);
 
   const quickPlanTeams = useMemo(() => {
     const branchId = quickPlanTask?.oddzial_id || selectedBranch || '';
@@ -1587,6 +1641,9 @@ export default function MapaLive() {
                           Harmonogram
                         </button>
                       ) : null}
+                      <button type="button" style={S.secondaryBtn} onClick={() => openGpsHistory(row)}>
+                        Historia dnia
+                      </button>
                     </div>
                   </article>
                 );
@@ -1596,6 +1653,79 @@ export default function MapaLive() {
             </div>
           </div>
         </section>
+
+        {historyTarget ? (
+          <section style={S.historyPanel}>
+            <div style={S.panelHeader}>
+              <div>
+                <div style={S.panelTitle}>Historia GPS dnia</div>
+                <div style={S.panelSub}>
+                  {subjectLabel(historyTarget)} / {sourceLabel(historyTarget)} / {todayIso()}
+                </div>
+              </div>
+              <button
+                type="button"
+                style={S.secondaryBtn}
+                onClick={() => {
+                  setHistoryTarget(null);
+                  setHistoryRows([]);
+                  setHistoryError('');
+                }}
+              >
+                Zamknij
+              </button>
+            </div>
+
+            {historyError ? <div style={S.error}><WarningAmberOutlined style={{ fontSize: 18 }} />{historyError}</div> : null}
+
+            <div style={S.historySummary}>
+              <Metric label="Punktow" value={historyRows.length} />
+              <Metric label="Zakres" value={historyRangeLabel(historyRows)} />
+              <Metric label="Max predkosc" value={historyMaxSpeed(historyRows)} />
+              <Metric label="Wyslal" value={gpsSenderLabel(historyTarget)} />
+            </div>
+
+            {historyLoading ? (
+              <div style={S.emptyList}>Laduje trase z dzisiejszego dnia...</div>
+            ) : historyRows.length ? (
+              <>
+                <div style={S.historyRouteStrip}>
+                  {historyRows.slice(-36).map((point, index) => (
+                    <a
+                      key={`${point.provider}-${point.recorded_at}-${index}`}
+                      href={mapHref(point)}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        ...S.historyRouteDot,
+                        opacity: 0.35 + ((index + 1) / Math.min(36, historyRows.length)) * 0.65,
+                      }}
+                      title={`${formatClock(point.recorded_at)} / ${gpsAccuracyLabel(point)}`}
+                    />
+                  ))}
+                </div>
+                <div style={S.historyTimeline}>
+                  {historyRows.slice(-80).map((point, index) => (
+                    <div key={`${point.provider}-${point.recorded_at}-${index}`} style={S.historyPoint}>
+                      <span style={{ ...S.historyPointDot, background: point.provider === 'mobile' ? '#14834F' : '#0E7490' }} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={S.historyPointTitle}>{formatClock(point.recorded_at)} / {sourceLabel(point)}</div>
+                        <div style={S.historyPointMeta}>
+                          {gpsSenderLabel(point)} / {gpsAccuracyLabel(point)} / {point.speed_kmh != null ? `${Math.round(point.speed_kmh)} km/h` : 'predkosc brak'}
+                        </div>
+                      </div>
+                      <a href={mapHref(point)} target="_blank" rel="noreferrer" style={S.mapBtn}>
+                        Mapa
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={S.emptyList}>Brak punktow GPS dla tej osoby albo ekipy w dzisiejszym dniu.</div>
+            )}
+          </section>
+        ) : null}
       </main>
     </div>
   );
@@ -2588,6 +2718,7 @@ const S = {
     display: 'flex',
     gap: 8,
     marginTop: 12,
+    flexWrap: 'wrap',
   },
   mapBtn: {
     display: 'inline-flex',
@@ -2616,6 +2747,76 @@ const S = {
     fontWeight: 800,
     fontSize: 12,
     cursor: 'pointer',
+  },
+  historyPanel: {
+    ...glass,
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 14,
+  },
+  historySummary: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
+    gap: 10,
+    border: '1px solid rgba(20,131,79,0.12)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.82)',
+    padding: 12,
+    marginBottom: 12,
+  },
+  historyRouteStrip: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 36,
+    border: '1px solid rgba(20,131,79,0.12)',
+    borderRadius: 8,
+    background: 'linear-gradient(90deg, rgba(236,253,245,0.86), rgba(240,249,255,0.78))',
+    padding: '10px 12px',
+    overflowX: 'auto',
+    marginBottom: 10,
+  },
+  historyRouteDot: {
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    background: '#14834F',
+    border: '1px solid rgba(15,95,58,0.22)',
+    flex: '0 0 auto',
+  },
+  historyTimeline: {
+    display: 'grid',
+    gap: 8,
+    maxHeight: 360,
+    overflow: 'auto',
+    paddingRight: 2,
+  },
+  historyPoint: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    border: '1px solid rgba(20,131,79,0.12)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.84)',
+    padding: 10,
+    minWidth: 0,
+  },
+  historyPointDot: {
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    flex: '0 0 auto',
+  },
+  historyPointTitle: {
+    color: 'var(--text)',
+    fontSize: 13,
+    fontWeight: 900,
+  },
+  historyPointMeta: {
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    marginTop: 2,
+    overflowWrap: 'anywhere',
   },
   emptyList: {
     borderRadius: 14,
