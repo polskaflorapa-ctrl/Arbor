@@ -123,7 +123,7 @@ async function ensureTelephonyTables() {
 router.get('/calls', authMiddleware, validateQuery(callsListQuerySchema), async (req, res) => {
   try {
     await ensureTelephonyTables();
-    const oddzialId = req.query.oddzial_id || null;
+    const oddzialId = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
     const statusFilter = String(req.query.status || '').trim();
     const { where, params } = telephonyScope(req.user, oddzialId);
     const statusSql = statusFilter ? `${where ? `${where} AND` : 'WHERE'} x.status = $${params.length + 1}` : where;
@@ -219,7 +219,7 @@ router.post('/calls', authMiddleware, validateBody(callCreateSchema), async (req
 router.get('/callbacks', authMiddleware, validateQuery(callbacksListQuerySchema), async (req, res) => {
   try {
     await ensureTelephonyTables();
-    const oddzialId = req.query.oddzial_id || null;
+    const oddzialId = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
     const statusFilter = String(req.query.status || '').trim();
     const { where, params } = telephonyScopeSimple(req.user, oddzialId, 'c');
     const statusSql = statusFilter ? `${where ? `${where} AND` : 'WHERE'} c.status = $${params.length + 1}` : where;

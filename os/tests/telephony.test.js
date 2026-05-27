@@ -84,8 +84,71 @@ describe('Telephony routes', () => {
           rowCount: 1,
         };
       }
+      if (text.includes('FROM telephony_call_logs c') && text.includes('UNION ALL')) {
+        return {
+          rows: [
+            { id: 1, oddzial_id: 2, phone: '+48111111111', status: 'answered', created_at: '2026-05-27T10:00:00.000Z' },
+            { id: 2, oddzial_id: 2, phone: '+48222222222', status: 'missed', created_at: '2026-05-27T09:00:00.000Z' },
+            { id: 3, oddzial_id: 2, phone: '+48333333333', status: 'answered', created_at: '2026-05-27T08:00:00.000Z' },
+          ],
+          rowCount: 3,
+        };
+      }
+      if (text.includes('SELECT COUNT(*)::int AS c FROM telephony_callbacks')) {
+        return { rows: [{ c: 2 }], rowCount: 1 };
+      }
+      if (text.includes('FROM telephony_callbacks c') && text.includes('ORDER BY COALESCE')) {
+        return {
+          rows: [
+            { id: 44, oddzial_id: 2, phone: '+48123456789', status: 'open' },
+            { id: 45, oddzial_id: 2, phone: '+48987654321', status: 'open' },
+          ],
+          rowCount: 2,
+        };
+      }
       return { rows: [], rowCount: 0 };
     });
+  });
+
+  it('lists calls with manager branch and status filters before in-memory pagination', async () => {
+    const res = await request(app)
+      .get('/api/telephony/calls?oddzial_id=2&status=answered&limit=2&offset=1')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 3, limit: 2, offset: 1 });
+    expect(res.body.items).toHaveLength(2);
+
+    const selectCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM telephony_call_logs c'));
+    expect(selectCall[0]).toContain('WHERE x.oddzial_id = $1 AND x.status = $2');
+    expect(selectCall[1]).toEqual([2, 'answered']);
+  });
+
+  it('scopes call listing to branch users own branch', async () => {
+    const res = await request(app)
+      .get('/api/telephony/calls?status=missed')
+      .set('Authorization', `Bearer ${token({ rola: 'Brygadzista', oddzial_id: 5 })}`);
+
+    expect(res.status).toBe(200);
+    const selectCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM telephony_call_logs c'));
+    expect(selectCall[0]).toContain('WHERE x.oddzial_id = $1 AND x.status = $2');
+    expect(selectCall[1]).toEqual([5, 'missed']);
+  });
+
+  it('lists callbacks with paginated branch and status filters', async () => {
+    const res = await request(app)
+      .get('/api/telephony/callbacks?oddzial_id=2&status=open&limit=10&offset=0')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 2, limit: 10, offset: 0 });
+    expect(res.body.items).toHaveLength(2);
+
+    const countCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('COUNT(*)::int AS c FROM telephony_callbacks'));
+    const listCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('LIMIT $3 OFFSET $4'));
+    expect(countCall[0]).toContain('WHERE c.oddzial_id = $1 AND c.status = $2');
+    expect(countCall[1]).toEqual([2, 'open']);
+    expect(listCall[1]).toEqual([2, 'open', 10, 0]);
   });
 
   it('creates call logs with coerced numeric payload', async () => {
