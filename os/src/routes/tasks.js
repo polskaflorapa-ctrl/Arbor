@@ -62,6 +62,7 @@ let _taskOperationalCols = false;
 async function ensureTaskOperationalColumns() {
   if (_taskOperationalCols) return;
   const stmts = [
+    'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS numer VARCHAR(64)',
     'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS godzina_rozpoczecia TIME',
     'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS opis_pracy TEXT',
     'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notatki TEXT',

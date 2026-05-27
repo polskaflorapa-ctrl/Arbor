@@ -169,6 +169,7 @@ describe('Tasks routes', () => {
     expect(res.body.status).toBe('Nowe');
     expect(res.body.workflow_stage).toBe('intake');
     expect(res.body.workflow_next_status).toBe('Wycena_Terenowa');
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('ALTER TABLE tasks ADD COLUMN IF NOT EXISTS numer'))).toBe(true);
     const insertCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO tasks'));
     expect(insertCall?.[1]).toContain('2026-05-10 09:30:00');
   });
