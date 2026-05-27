@@ -68,6 +68,10 @@ const SALES   = [...MGMT, 'Dyrektor Sprzedazy', 'Dyrektor Sprzedaży', 'Dyrektor
 const WYCENY  = [...MGMT, 'Wyceniający', 'Wyceniajacy', 'Specjalista'];
 const FINANCE = ['Prezes', 'Dyrektor', 'Administrator'];
 
+function AuthenticatedRoute({ children }) {
+  return <ProtectedRoute>{children}</ProtectedRoute>;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -80,24 +84,24 @@ function App() {
           <Route path="/" element={<Login />} />
 
           {/* All authenticated users */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/eksploruj" element={<Eksploruj />} />
-          <Route path="/profil/:userId" element={<Profil />} />
-          <Route path="/profil" element={<Profil />} />
-          <Route path="/powiadomienia" element={<Powiadomienia />} />
-          <Route path="/zadania" element={<ZadaniaOperatora />} />
-          <Route path="/potwierdzenia-ekip" element={<PotwierdzeniaEkip />} />
-          <Route path="/zlecenia" element={<Zlecenia />} />
-          <Route path="/zlecenia/:id" element={<Zlecenia />} />
-          <Route path="/raporty" element={<RaportyCentrum />} />
-          <Route path="/raporty/analityka" element={<Raporty />} />
-          <Route path="/raporty/dzienny" element={<RaportDzienny />} />
-          <Route path="/raporty/mobilne" element={<RaportyMobilne />} />
-          <Route path="/raporty/kpi-tydzien" element={<KpiTydzien />} />
-          <Route path="/raporty/misja-dnia" element={<MisjaDnia />} />
-          <Route path="/raporty/autoplan" element={<AutoplanDnia />} />
-          <Route path="/misja-dnia" element={<MisjaDnia />} />
-          <Route path="/autoplan-dnia" element={<AutoplanDnia />} />
+          <Route path="/dashboard" element={<AuthenticatedRoute><Dashboard /></AuthenticatedRoute>} />
+          <Route path="/eksploruj" element={<AuthenticatedRoute><Eksploruj /></AuthenticatedRoute>} />
+          <Route path="/profil/:userId" element={<AuthenticatedRoute><Profil /></AuthenticatedRoute>} />
+          <Route path="/profil" element={<AuthenticatedRoute><Profil /></AuthenticatedRoute>} />
+          <Route path="/powiadomienia" element={<AuthenticatedRoute><Powiadomienia /></AuthenticatedRoute>} />
+          <Route path="/zadania" element={<AuthenticatedRoute><ZadaniaOperatora /></AuthenticatedRoute>} />
+          <Route path="/potwierdzenia-ekip" element={<AuthenticatedRoute><PotwierdzeniaEkip /></AuthenticatedRoute>} />
+          <Route path="/zlecenia" element={<AuthenticatedRoute><Zlecenia /></AuthenticatedRoute>} />
+          <Route path="/zlecenia/:id" element={<AuthenticatedRoute><Zlecenia /></AuthenticatedRoute>} />
+          <Route path="/raporty" element={<AuthenticatedRoute><RaportyCentrum /></AuthenticatedRoute>} />
+          <Route path="/raporty/analityka" element={<AuthenticatedRoute><Raporty /></AuthenticatedRoute>} />
+          <Route path="/raporty/dzienny" element={<AuthenticatedRoute><RaportDzienny /></AuthenticatedRoute>} />
+          <Route path="/raporty/mobilne" element={<AuthenticatedRoute><RaportyMobilne /></AuthenticatedRoute>} />
+          <Route path="/raporty/kpi-tydzien" element={<AuthenticatedRoute><KpiTydzien /></AuthenticatedRoute>} />
+          <Route path="/raporty/misja-dnia" element={<AuthenticatedRoute><MisjaDnia /></AuthenticatedRoute>} />
+          <Route path="/raporty/autoplan" element={<AuthenticatedRoute><AutoplanDnia /></AuthenticatedRoute>} />
+          <Route path="/misja-dnia" element={<AuthenticatedRoute><MisjaDnia /></AuthenticatedRoute>} />
+          <Route path="/autoplan-dnia" element={<AuthenticatedRoute><AutoplanDnia /></AuthenticatedRoute>} />
 
           {/* Redirects */}
           <Route path="/raport-dzienny" element={<Navigate to="/raporty/dzienny" replace />} />
@@ -105,14 +109,14 @@ function App() {
           <Route path="/kpi-tydzien" element={<Navigate to="/raporty/kpi-tydzien" replace />} />
 
           {/* Field + management */}
-          <Route path="/harmonogram" element={<Harmonogram />} />
-          <Route path="/wycena-rysuj" element={<WycenaRysuj />} />
-          <Route path="/ogledziny" element={<Ogledziny />} />
-          <Route path="/ogledziny-dokumentacja" element={<OgledzinyDokumentacja />} />
-          <Route path="/flota" element={<Flota />} />
-          <Route path="/magazyn" element={<MagazynWeb />} />
-          <Route path="/rezerwacje-sprzetu" element={<RezerwacjeSprzetu />} />
-          <Route path="/kalendarz-zasobow" element={<KalendarzZasobow />} />
+          <Route path="/harmonogram" element={<AuthenticatedRoute><Harmonogram /></AuthenticatedRoute>} />
+          <Route path="/wycena-rysuj" element={<AuthenticatedRoute><WycenaRysuj /></AuthenticatedRoute>} />
+          <Route path="/ogledziny" element={<AuthenticatedRoute><Ogledziny /></AuthenticatedRoute>} />
+          <Route path="/ogledziny-dokumentacja" element={<AuthenticatedRoute><OgledzinyDokumentacja /></AuthenticatedRoute>} />
+          <Route path="/flota" element={<AuthenticatedRoute><Flota /></AuthenticatedRoute>} />
+          <Route path="/magazyn" element={<AuthenticatedRoute><MagazynWeb /></AuthenticatedRoute>} />
+          <Route path="/rezerwacje-sprzetu" element={<AuthenticatedRoute><RezerwacjeSprzetu /></AuthenticatedRoute>} />
+          <Route path="/kalendarz-zasobow" element={<AuthenticatedRoute><KalendarzZasobow /></AuthenticatedRoute>} />
           <Route path="/mapa-live" element={
             <ProtectedRoute roles={MGMT}><MapaLive /></ProtectedRoute>
           } />

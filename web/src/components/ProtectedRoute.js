@@ -15,6 +15,7 @@
 import { Navigate } from 'react-router-dom';
 import { readPermissions } from '../utils/permissions';
 import { readStoredUser } from '../utils/readStoredUser';
+import { hasAnyRole } from '../utils/roleDisplay';
 import { getStoredToken } from '../utils/storedToken';
 
 /**
@@ -34,7 +35,7 @@ export default function ProtectedRoute({ children, require: permKey, roles, redi
 
   // Role-list check
   if (roles && roles.length > 0) {
-    if (!roles.includes(user.rola)) {
+    if (!hasAnyRole(user.rola, roles)) {
       return <Navigate to="/dashboard" replace />;
     }
   }

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { readStoredUser } from '../utils/readStoredUser';
+import { hasAnyRole } from '../utils/roleDisplay';
 
 // ─── Definicje modułów ────────────────────────────────────────────────────────
 const ALL_ROLES = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
@@ -111,7 +112,7 @@ export default function Eksploruj() {
     const q = search.trim().toLowerCase();
     return GROUPS.map((g) => {
       const tiles = g.tiles.filter((t) => {
-        if (!t.roles.includes(role) && role) return false;
+        if (!hasAnyRole(role, t.roles) && role) return false;
         if (!q) return true;
         return (
           t.label.toLowerCase().includes(q) ||
