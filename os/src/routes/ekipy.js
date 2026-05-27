@@ -566,16 +566,17 @@ router.get('/live-locations', authMiddleware, validateQuery(liveLocationsQuerySc
 router.get('/gps-history', authMiddleware, validateQuery(gpsHistoryQuerySchema), async (req, res) => {
   try {
     const date = req.query.date || todayKey();
+    const queryNumber = (value) => (value == null ? null : Number(value));
     const scopedOddzialId = isDyrektor(req.user) ? null : req.user.oddzial_id;
     const rows = await getGpsHistory({
       date,
       oddzialId: scopedOddzialId,
-      teamId: req.query.team_id || null,
-      userId: req.query.user_id || null,
-      vehicleId: req.query.vehicle_id || null,
+      teamId: queryNumber(req.query.team_id),
+      userId: queryNumber(req.query.user_id),
+      vehicleId: queryNumber(req.query.vehicle_id),
       plateNumber: req.query.plate_number || null,
       provider: req.query.provider || null,
-      limit: req.query.limit || 240,
+      limit: queryNumber(req.query.limit) || 240,
     });
     res.json({ date, items: rows, count: rows.length });
   } catch (err) {

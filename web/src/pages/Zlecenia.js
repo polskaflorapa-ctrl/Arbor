@@ -1954,7 +1954,13 @@ function getTaskCrewDescription(task) {
 }
 
 function getTaskCrewRisk(task) {
-  return task?.ryzyka || extractTaskNoteLine(task, 'Ryzyka') || '';
+  const explicitRisk = task?.ryzyka || extractTaskNoteLine(task, 'Ryzyka') || extractTaskNoteLine(task, 'Ryzyko');
+  if (explicitRisk) return explicitRisk;
+  const rawNotes = String(task?.notatki_wewnetrzne || task?.notatki || '');
+  return rawNotes
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .find((item) => /ryzyko|bhp|bezpiecz|dojazd|zgod|stref/i.test(item)) || '';
 }
 
 function getTaskCrewEquipmentNote(task) {
