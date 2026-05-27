@@ -1,7 +1,7 @@
 const pool = require('../config/database');
 const logger = require('../config/logger');
 
-const TRIGGERS = new Set(['no_response_after_hours']);
+const TRIGGERS = new Set(['no_response_after_hours', 'unassigned_leads']);
 const ACTIONS = new Set(['create_followup_task', 'move_stage', 'assign_round_robin']);
 
 function normalizeTriggerType(value) {
@@ -154,6 +154,35 @@ async function findNoResponseCandidates(rule) {
   return rows;
 }
 
+async function findUnassignedLeadCandidates(rule) {
+  const triggerConfig = safeObject(rule.trigger_config);
+  const stageFilter = Array.isArray(triggerConfig.stages) ? triggerConfig.stages.filter(Boolean) : [];
+  const params = [rule.oddzial_id, `%[workflow:${rule.id}]%`];
+  let stageSql = '';
+  if (stageFilter.length) {
+    params.push(stageFilter);
+    stageSql = `AND l.stage = ANY($${params.length})`;
+  }
+
+  const { rows } = await pool.query(
+    `SELECT l.*
+     FROM crm_leads l
+     WHERE l.oddzial_id = $1
+       AND l.owner_user_id IS NULL
+       AND l.stage NOT IN ('Wygrane', 'Przegrane', 'Techniczny')
+       ${stageSql}
+       AND NOT EXISTS (
+         SELECT 1 FROM crm_lead_activities a
+         WHERE a.lead_id = l.id
+           AND a.text LIKE $2
+       )
+     ORDER BY l.created_at ASC NULLS LAST, l.id ASC
+     LIMIT 100`,
+    params
+  );
+  return rows;
+}
+
 async function applyRuleAction(rule, lead, userId) {
   const actionConfig = safeObject(rule.action_config);
   const now = new Date().toISOString();
@@ -171,6 +200,11 @@ async function applyRuleAction(rule, lead, userId) {
     if (!assignees.length) return { lead_id: lead.id, action: 'assign_round_robin', skipped: true };
     const ownerId = assignees[Math.abs(Number(lead.id)) % assignees.length];
     await pool.query('UPDATE crm_leads SET owner_user_id = $1, updated_at = $2, updated_by = $3 WHERE id = $4', [ownerId, now, userId || null, lead.id]);
+    await pool.query(
+      `INSERT INTO crm_lead_activities (lead_id, type, text, created_by, created_at)
+       VALUES ($1,'note',$2,$3,$4)`,
+      [lead.id, `Round Robin: przypisano ownera #${ownerId} [workflow:${rule.id}]`, userId || null, now]
+    );
     return { lead_id: lead.id, action: 'assign_round_robin', owner_user_id: ownerId };
   }
 
@@ -203,11 +237,9 @@ async function runWorkflowRules({ oddzialId, ruleId = null, userId = null } = {}
   const results = [];
   for (const row of rows.map(mapRule)) {
     try {
-      if (row.trigger_type !== 'no_response_after_hours') {
-        results.push({ rule_id: row.id, matched: 0, actions: [] });
-        continue;
-      }
-      const candidates = await findNoResponseCandidates(row);
+      const candidates = row.trigger_type === 'unassigned_leads'
+        ? await findUnassignedLeadCandidates(row)
+        : await findNoResponseCandidates(row);
       const actions = [];
       for (const lead of candidates) {
         actions.push(await applyRuleAction(row, lead, userId));

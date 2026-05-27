@@ -173,3 +173,54 @@ test('lets a user create the default no-response workflow', async () => {
     );
   });
 });
+
+test('lets a user create a round-robin owner workflow', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/leads') return Promise.resolve({ data: [] });
+    if (url === '/crm/workflows') return Promise.resolve({ data: [] });
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
+    if (url === '/uzytkownicy') {
+      return Promise.resolve({
+        data: [
+          { id: 9001, imie: 'Smoke', nazwisko: 'Admin', oddzial_id: 7 },
+          { id: 9002, imie: 'CRM', nazwisko: 'Owner', oddzial_id: 7 },
+        ],
+      });
+    }
+    if (url === '/klienci') return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+  api.post.mockResolvedValueOnce({
+    data: {
+      id: 32,
+      oddzial_id: 7,
+      name: 'Round Robin leadow',
+      trigger_type: 'unassigned_leads',
+      action_type: 'assign_round_robin',
+      action_config: { user_ids: [9001, 9002] },
+      active: true,
+    },
+  });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Automatyzacje');
+  await userEvent.click(screen.getByRole('button', { name: /\+ round-robin/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/workflows',
+      expect.objectContaining({
+        oddzial_id: 7,
+        trigger_type: 'unassigned_leads',
+        action_type: 'assign_round_robin',
+        action_config: { user_ids: [9001, 9002] },
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});

@@ -160,6 +160,12 @@ export default function CrmPipeline() {
     () => (selectedLeadId ? leads.find((l) => Number(l.id) === Number(selectedLeadId)) : null),
     [leads, selectedLeadId]
   );
+  const roundRobinOwners = useMemo(() => {
+    const branchId = Number(workflowOddzialId || 0);
+    return owners
+      .filter((owner) => !branchId || !owner.oddzial_id || Number(owner.oddzial_id) === branchId)
+      .filter((owner) => Number(owner.id) > 0);
+  }, [owners, workflowOddzialId]);
   const closingLead = useMemo(
     () => (closeDialog?.leadId ? leads.find((l) => Number(l.id) === Number(closeDialog.leadId)) : null),
     [closeDialog?.leadId, leads]
@@ -416,6 +422,38 @@ export default function CrmPipeline() {
     }
   };
 
+  const createRoundRobinWorkflow = async () => {
+    if (!workflowOddzialId) {
+      setMsg(t('crm.pipeline.workflows.branchRequired', { defaultValue: 'Wybierz oddział dla automatyzacji.' }));
+      return;
+    }
+    const userIds = roundRobinOwners.map((owner) => Number(owner.id)).filter(Boolean);
+    if (userIds.length < 2) {
+      setMsg(t('crm.pipeline.workflows.roundRobinNeedUsers', { defaultValue: 'Round-robin wymaga co najmniej dwóch ownerów.' }));
+      return;
+    }
+    try {
+      setSavingWorkflow(true);
+      await api.post(
+        '/crm/workflows',
+        {
+          oddzial_id: Number(workflowOddzialId),
+          name: t('crm.pipeline.workflows.roundRobinName', { defaultValue: 'Round Robin leadów' }),
+          trigger_type: 'unassigned_leads',
+          trigger_config: { stages: ['Lead'] },
+          action_type: 'assign_round_robin',
+          action_config: { user_ids: userIds },
+        },
+        { headers: requestHeaders }
+      );
+      await loadWorkflows();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.workflows.createError', { defaultValue: 'Nie udało się zapisać automatyzacji.' })));
+    } finally {
+      setSavingWorkflow(false);
+    }
+  };
+
   const runWorkflows = async () => {
     if (!workflowOddzialId) return;
     try {
@@ -556,6 +594,14 @@ export default function CrmPipeline() {
                   onClick={createNoResponseWorkflow}
                 >
                   {t('crm.pipeline.workflows.addNoResponse', { defaultValue: '+ brak odpowiedzi 24h' })}
+                </button>
+                <button
+                  type="button"
+                  className="ios-btn"
+                  disabled={savingWorkflow || roundRobinOwners.length < 2 || workflows.some((rule) => rule.action_type === 'assign_round_robin')}
+                  onClick={createRoundRobinWorkflow}
+                >
+                  {t('crm.pipeline.workflows.addRoundRobin', { defaultValue: '+ round-robin' })}
                 </button>
                 <button type="button" className="ios-btn ios-btn-primary" disabled={savingWorkflow || workflows.length === 0} onClick={runWorkflows}>
                   {t('crm.pipeline.workflows.run', { defaultValue: 'Uruchom workflow' })}

@@ -60,16 +60,28 @@ describe('CRM workflow automations', () => {
       }
       if (text.includes('SELECT * FROM crm_workflow_rules WHERE') && text.includes('ORDER BY id ASC')) {
         return {
-          rows: [{
-            id: 31,
-            oddzial_id: 7,
-            name: 'Brak odpowiedzi 24h',
-            trigger_type: 'no_response_after_hours',
-            trigger_config: { hours: 24 },
-            action_type: 'create_followup_task',
-            action_config: { due_in_hours: 2, text: 'Oddzwon do klienta' },
-            active: true,
-          }],
+          rows: [
+            {
+              id: 31,
+              oddzial_id: 7,
+              name: 'Brak odpowiedzi 24h',
+              trigger_type: 'no_response_after_hours',
+              trigger_config: { hours: 24 },
+              action_type: 'create_followup_task',
+              action_config: { due_in_hours: 2, text: 'Oddzwon do klienta' },
+              active: true,
+            },
+            {
+              id: 32,
+              oddzial_id: 7,
+              name: 'Round Robin',
+              trigger_type: 'unassigned_leads',
+              trigger_config: { stages: ['Lead'] },
+              action_type: 'assign_round_robin',
+              action_config: { user_ids: [101, 102] },
+              active: true,
+            },
+          ],
           rowCount: 1,
         };
       }
@@ -85,8 +97,20 @@ describe('CRM workflow automations', () => {
           rowCount: 1,
         };
       }
+      if (text.includes('FROM crm_leads l') && text.includes('l.owner_user_id IS NULL')) {
+        return {
+          rows: [{
+            id: 52,
+            oddzial_id: 7,
+            title: 'Nowy lead bez ownera',
+            stage: 'Lead',
+          }],
+          rowCount: 1,
+        };
+      }
       if (text.includes('INSERT INTO crm_lead_activities')) return { rows: [], rowCount: 1 };
       if (text.includes('UPDATE crm_leads SET next_action_at')) return { rows: [], rowCount: 1 };
+      if (text.includes('UPDATE crm_leads SET owner_user_id')) return { rows: [], rowCount: 1 };
       return { rows: [], rowCount: 0 };
     });
   });
@@ -133,10 +157,13 @@ describe('CRM workflow automations', () => {
       .send({ oddzial_id: 7 });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(expect.objectContaining({ actions_count: 1 }));
+    expect(res.body).toEqual(expect.objectContaining({ actions_count: 2 }));
     const insertActivity = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO crm_lead_activities'));
     expect(insertActivity[1][0]).toBe(51);
     expect(insertActivity[1][1]).toContain('[workflow:31]');
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE crm_leads SET next_action_at'))).toBe(true);
+    const ownerUpdate = pool.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE crm_leads SET owner_user_id'));
+    expect(ownerUpdate[1][0]).toBe(101);
+    expect(ownerUpdate[1][3]).toBe(52);
   });
 });
