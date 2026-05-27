@@ -1993,6 +1993,91 @@ function getDirectionsHref(tasks) {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&waypoints=${encodeURIComponent(waypoints)}`;
 }
 
+function todayLocalDateKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function taskGpsHistoryDate(task) {
+  return taskDateOnly(task?.data_planowana) || taskDateOnly(task?.data_rozpoczecia) || todayLocalDateKey();
+}
+
+function buildTaskGpsHistoryParams(task, dateOverride) {
+  const params = new URLSearchParams({
+    date: dateOverride || taskGpsHistoryDate(task),
+    limit: '360',
+  });
+  if (task?.ekipa_id) params.set('team_id', task.ekipa_id);
+  else if (task?.wyceniajacy_id) params.set('user_id', task.wyceniajacy_id);
+  else if (task?.uzytkownik_id) params.set('user_id', task.uzytkownik_id);
+  else if (task?.vehicle_id) params.set('vehicle_id', task.vehicle_id);
+  else if (task?.pojazd_id) params.set('vehicle_id', task.pojazd_id);
+  else if (task?.nr_rejestracyjny) params.set('plate_number', task.nr_rejestracyjny);
+  else return null;
+  return params;
+}
+
+function gpsFiniteCoord(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function taskGpsMapUrl(lat, lng) {
+  const latN = gpsFiniteCoord(lat);
+  const lngN = gpsFiniteCoord(lng);
+  if (latN == null || lngN == null) return '';
+  return `https://maps.google.com/?q=${latN},${lngN}`;
+}
+
+function normalizeTaskGpsHistoryRows(raw) {
+  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+  return items
+    .map((row) => ({
+      ...row,
+      lat: gpsFiniteCoord(row.lat),
+      lng: gpsFiniteCoord(row.lng),
+      speed_kmh: Number.isFinite(Number(row.speed_kmh)) ? Number(row.speed_kmh) : null,
+      accuracy_m: Number.isFinite(Number(row.accuracy_m)) ? Number(row.accuracy_m) : null,
+    }))
+    .filter((row) => row.lat != null && row.lng != null)
+    .sort((a, b) => new Date(a.recorded_at || 0).getTime() - new Date(b.recorded_at || 0).getTime());
+}
+
+function taskGpsHistoryRangeLabel(rows) {
+  if (!rows.length) return 'brak danych';
+  const fmt = (value) => value ? new Date(value).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  return `${fmt(rows[0]?.recorded_at)} - ${fmt(rows[rows.length - 1]?.recorded_at)}`;
+}
+
+function taskGpsHistoryMaxSpeed(rows) {
+  const max = rows.reduce((acc, row) => Math.max(acc, Number(row.speed_kmh) || 0), 0);
+  return max ? `${Math.round(max)} km/h` : 'brak';
+}
+
+function taskGpsHistoryRouteUrl(rows) {
+  if (!rows.length) return '';
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  if (rows.length < 2) return taskGpsMapUrl(last.lat, last.lng);
+  return `https://www.google.com/maps/dir/?api=1&origin=${first.lat},${first.lng}&destination=${last.lat},${last.lng}`;
+}
+
+function taskGpsSourceLabel(row) {
+  if (!row) return 'brak';
+  if (row.provider === 'mobile') return 'telefon';
+  if (row.provider === 'juwentus') return 'GPS auta';
+  return row.provider || 'GPS';
+}
+
+function taskGpsPointLabel(row) {
+  const time = row?.recorded_at ? new Date(row.recorded_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const speed = Number.isFinite(Number(row?.speed_kmh)) ? `${Math.round(Number(row.speed_kmh))} km/h` : 'predkosc b.d.';
+  return `${time} / ${speed}`;
+}
+
 function getDayDistance(day, todayIso) {
   if (!day) return Number.POSITIVE_INFINITY;
   const target = new Date(`${day}T00:00:00`);
@@ -3570,6 +3655,10 @@ export default function Zlecenia() {
   const [taskPhotosById, setTaskPhotosById] = useState({});
   const [taskProblemsById, setTaskProblemsById] = useState({});
   const [taskPhotosLoading, setTaskPhotosLoading] = useState(false);
+  const [detailGpsHistory, setDetailGpsHistory] = useState([]);
+  const [detailGpsHistoryDate, setDetailGpsHistoryDate] = useState('');
+  const [detailGpsHistoryLoading, setDetailGpsHistoryLoading] = useState(false);
+  const [detailGpsHistoryError, setDetailGpsHistoryError] = useState('');
   const [uploadingTaskPhoto, setUploadingTaskPhoto] = useState(false);
   const [taskPhotoDraft, setTaskPhotoDraft] = useState({
     typ: 'Wycena',
@@ -3754,6 +3843,28 @@ export default function Zlecenia() {
         : getTaskReservedEquipmentIds(wybraneZlecenie),
     });
   }, [wybraneZlecenie]);
+
+  useEffect(() => {
+    if (tryb !== 'szczegoly' || !wybraneZlecenie?.id) {
+      setDetailGpsHistory([]);
+      setDetailGpsHistoryError('');
+      setDetailGpsHistoryLoading(false);
+      return;
+    }
+    const date = taskGpsHistoryDate(wybraneZlecenie);
+    void loadDetailGpsHistory(wybraneZlecenie, date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    tryb,
+    wybraneZlecenie?.id,
+    wybraneZlecenie?.ekipa_id,
+    wybraneZlecenie?.wyceniajacy_id,
+    wybraneZlecenie?.uzytkownik_id,
+    wybraneZlecenie?.vehicle_id,
+    wybraneZlecenie?.pojazd_id,
+    wybraneZlecenie?.nr_rejestracyjny,
+    wybraneZlecenie?.data_planowana,
+  ]);
 
   useEffect(() => {
     const branchId = String(
@@ -3975,6 +4086,39 @@ export default function Zlecenia() {
       return [];
     }
   };
+
+  async function loadDetailGpsHistory(taskArg = wybraneZlecenie, dateArg = detailGpsHistoryDate) {
+    const task = taskArg || {};
+    const date = dateArg || taskGpsHistoryDate(task);
+    const params = buildTaskGpsHistoryParams(task, date);
+    setDetailGpsHistoryDate(date);
+    if (!params) {
+      setDetailGpsHistory([]);
+      setDetailGpsHistoryError('Brak ekipy, uzytkownika albo pojazdu do historii GPS.');
+      setDetailGpsHistoryLoading(false);
+      return [];
+    }
+
+    setDetailGpsHistoryLoading(true);
+    setDetailGpsHistoryError('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/ekipy/gps-history?${params.toString()}`, {
+        headers: authHeaders(token),
+        dedupe: false,
+      });
+      const rows = normalizeTaskGpsHistoryRows(data);
+      setDetailGpsHistory(rows);
+      if (data?.date) setDetailGpsHistoryDate(data.date);
+      return rows;
+    } catch (err) {
+      setDetailGpsHistory([]);
+      setDetailGpsHistoryError(getApiErrorMessage(err, 'Nie udalo sie pobrac historii GPS dla zlecenia.'));
+      return [];
+    } finally {
+      setDetailGpsHistoryLoading(false);
+    }
+  }
 
   const reportCrewIssue = async () => {
     const taskId = wybraneZlecenie?.id;
@@ -6036,6 +6180,9 @@ export default function Zlecenia() {
   const formPreviewSafetyRequired = formPreviewSafety.filter((item) => item.required && !item.ok);
   const selectedTaskPhotos = wybraneZlecenie?.id ? (taskPhotosById[String(wybraneZlecenie.id)] || []) : [];
   const selectedTaskProblems = wybraneZlecenie?.id ? (taskProblemsById[String(wybraneZlecenie.id)] || []) : [];
+  const detailGpsHistoryPreview = detailGpsHistory.slice(-5).reverse();
+  const detailGpsHistoryMapUrl = taskGpsHistoryRouteUrl(detailGpsHistory);
+  const detailGpsHistoryLastPoint = detailGpsHistory[detailGpsHistory.length - 1] || null;
   const fieldPhotoCount = selectedTaskPhotos.filter(isFieldEvidencePhoto).length;
   const detailPlanTeamOptions = wybraneZlecenie
     ? ekipyPlanowania.filter((ekipa) => (
@@ -8111,6 +8258,115 @@ export default function Zlecenia() {
                   Brief
                 </button>
               </div>
+            </div>
+
+            <div data-detail-section="gpsHistory" style={s.detailGpsPanel}>
+              <div style={s.detailGpsHeader}>
+                <div>
+                  <div style={s.detailOpsEyebrow}>GPS ekipy</div>
+                  <div style={s.detailGpsTitle}>Historia GPS dnia</div>
+                  <p style={s.detailGpsSubtitle}>
+                    Punkty z telefonu lub auta przypisane do ekipy, uzytkownika albo pojazdu zlecenia.
+                  </p>
+                </div>
+                <div style={s.detailGpsControls}>
+                  <input
+                    aria-label="Data historii GPS"
+                    type="date"
+                    value={detailGpsHistoryDate}
+                    onChange={(event) => setDetailGpsHistoryDate(event.target.value)}
+                    style={s.detailGpsDateInput}
+                  />
+                  <button
+                    type="button"
+                    style={{ ...s.fieldOpsBtn, ...(detailGpsHistoryLoading ? s.fieldOpsBtnDisabled : {}) }}
+                    disabled={detailGpsHistoryLoading}
+                    onClick={() => loadDetailGpsHistory(wybraneZlecenie, detailGpsHistoryDate)}
+                  >
+                    {detailGpsHistoryLoading ? 'Laduje...' : 'Odswiez'}
+                  </button>
+                  {detailGpsHistoryMapUrl ? (
+                    <a href={detailGpsHistoryMapUrl} target="_blank" rel="noreferrer" style={s.fieldOpsBtn}>
+                      <RouteOutlined style={s.fieldOpsIcon} aria-hidden />
+                      Trasa GPS
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+
+              {detailGpsHistoryError ? (
+                <div style={s.detailGpsError}>{detailGpsHistoryError}</div>
+              ) : null}
+
+              <div style={s.detailGpsSummary}>
+                <div style={s.detailGpsMetric}>
+                  <span>Punkty</span>
+                  <strong>{detailGpsHistoryLoading ? '...' : `${detailGpsHistory.length} pkt`}</strong>
+                  <small>{taskGpsHistoryRangeLabel(detailGpsHistory)}</small>
+                </div>
+                <div style={s.detailGpsMetric}>
+                  <span>Max predkosc</span>
+                  <strong>{taskGpsHistoryMaxSpeed(detailGpsHistory)}</strong>
+                  <small>z danych GPS</small>
+                </div>
+                <div style={s.detailGpsMetric}>
+                  <span>Ostatni punkt</span>
+                  <strong>{detailGpsHistoryLastPoint ? taskGpsPointLabel(detailGpsHistoryLastPoint).split('/')[0].trim() : 'brak'}</strong>
+                  <small>{detailGpsHistoryLastPoint ? taskGpsSourceLabel(detailGpsHistoryLastPoint) : 'bez sygnalu'}</small>
+                </div>
+              </div>
+
+              {detailGpsHistory.length ? (
+                <div style={s.detailGpsRouteStrip}>
+                  {detailGpsHistory.slice(0, 24).map((point, index) => {
+                    const pointUrl = taskGpsMapUrl(point.lat, point.lng);
+                    return (
+                      <a
+                        key={`${point.recorded_at || index}-${point.lat}-${point.lng}`}
+                        href={pointUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Mapa GPS ${taskGpsPointLabel(point)}`}
+                        title={`${taskGpsPointLabel(point)} / ${taskGpsSourceLabel(point)}`}
+                        style={{
+                          ...s.detailGpsRouteDot,
+                          opacity: 0.35 + ((index + 1) / Math.max(1, Math.min(detailGpsHistory.length, 24))) * 0.65,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {detailGpsHistoryLoading ? (
+                <div style={s.detailGpsEmpty}>Laduje historie GPS...</div>
+              ) : detailGpsHistoryPreview.length ? (
+                <div style={s.detailGpsTimeline}>
+                  {detailGpsHistoryPreview.map((point, index) => {
+                    const pointUrl = taskGpsMapUrl(point.lat, point.lng);
+                    return (
+                      <div key={`${point.recorded_at || index}-${point.lat}-${point.lng}`} style={s.detailGpsPoint}>
+                        <span style={s.detailGpsPointDot} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={s.detailGpsPointTitle}>{taskGpsPointLabel(point)} / {taskGpsSourceLabel(point)}</div>
+                          <div style={s.detailGpsPointMeta}>
+                            {[point.user_name, point.nr_rejestracyjny, point.accuracy_m ? `~${Math.round(point.accuracy_m)} m` : ''].filter(Boolean).join(' | ') || 'punkt GPS'}
+                          </div>
+                        </div>
+                        {pointUrl ? (
+                          <a href={pointUrl} target="_blank" rel="noreferrer" style={s.detailGpsPointLink}>
+                            Mapa
+                          </a>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={s.detailGpsEmpty}>
+                  Brak punktow GPS dla dnia zlecenia. Jesli ekipa ma wlaczona mobilke, punkty pojawia sie automatycznie.
+                </div>
+              )}
             </div>
 
             <div data-detail-section="crewBrief">
@@ -11840,6 +12096,153 @@ const s = {
     display: 'flex',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  detailGpsPanel: {
+    border: '1px solid rgba(14,116,144,0.18)',
+    borderRadius: 8,
+    background: 'linear-gradient(145deg, rgba(14,116,144,0.08), var(--glass-bg-strong))',
+    padding: '12px 14px',
+    marginBottom: 12,
+    boxShadow: 'var(--shadow-md)',
+  },
+  detailGpsHeader: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+    gap: 12,
+    alignItems: 'start',
+    marginBottom: 10,
+  },
+  detailGpsTitle: {
+    marginTop: 3,
+    color: 'var(--text)',
+    fontSize: 17,
+    lineHeight: 1.2,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  detailGpsSubtitle: {
+    margin: '5px 0 0',
+    color: 'var(--text-muted)',
+    fontSize: 12,
+    lineHeight: 1.35,
+    fontWeight: 720,
+    maxWidth: 760,
+  },
+  detailGpsControls: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  detailGpsDateInput: {
+    minHeight: 34,
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.86)',
+    color: 'var(--text)',
+    padding: '7px 9px',
+    fontFamily: 'inherit',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  detailGpsError: {
+    border: '1px solid rgba(239,83,80,0.28)',
+    borderRadius: 8,
+    background: 'rgba(239,83,80,0.08)',
+    color: '#B71C1C',
+    padding: '8px 10px',
+    marginBottom: 9,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  detailGpsSummary: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(142px, 1fr))',
+    gap: 8,
+    marginBottom: 10,
+  },
+  detailGpsMetric: {
+    border: '1px solid rgba(14,116,144,0.16)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.72)',
+    padding: '9px 10px',
+    display: 'grid',
+    gap: 4,
+    minWidth: 0,
+  },
+  detailGpsRouteStrip: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 16,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  detailGpsRouteDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    background: '#0e7490',
+    boxShadow: '0 0 0 3px rgba(14,116,144,0.09)',
+    flex: '0 0 auto',
+  },
+  detailGpsTimeline: {
+    display: 'grid',
+    gap: 7,
+  },
+  detailGpsPoint: {
+    display: 'grid',
+    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+    gap: 9,
+    alignItems: 'center',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.74)',
+    padding: '8px 9px',
+    minWidth: 0,
+  },
+  detailGpsPointDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    background: '#0e7490',
+    boxShadow: '0 0 0 3px rgba(14,116,144,0.12)',
+  },
+  detailGpsPointTitle: {
+    color: 'var(--text)',
+    fontSize: 12,
+    lineHeight: 1.25,
+    fontWeight: 900,
+    overflowWrap: 'anywhere',
+  },
+  detailGpsPointMeta: {
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.25,
+    fontWeight: 700,
+    overflowWrap: 'anywhere',
+  },
+  detailGpsPointLink: {
+    border: '1px solid rgba(14,116,144,0.2)',
+    borderRadius: 8,
+    background: 'rgba(14,116,144,0.08)',
+    color: '#0e7490',
+    padding: '6px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+  },
+  detailGpsEmpty: {
+    border: '1px dashed rgba(14,116,144,0.24)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.54)',
+    color: 'var(--text-muted)',
+    padding: '10px 11px',
+    fontSize: 12,
+    lineHeight: 1.35,
+    fontWeight: 760,
   },
   detailHeroPanel: {
     display: 'grid',
