@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit');
+﻿const rateLimit = require('express-rate-limit');
 const { env } = require('../config/env');
 const { RATE_LIMIT_EXCEEDED, LOGIN_TOO_MANY_ATTEMPTS } = require('../constants/error-codes');
 
@@ -6,7 +6,7 @@ const windowMs = env.RATE_LIMIT_WINDOW_MS || 60_000;
 const max = env.RATE_LIMIT_MAX || 40;
 
 /**
- * Limit dla kosztownych tras (AI, SMS, PDF, telefon / Twilio Voice) — per IP.
+ * Limit dla kosztownych tras (AI, SMS, PDF, telefon / Twilio Voice) - per IP.
  */
 const costlyApiLimiter = rateLimit({
   windowMs,
@@ -22,24 +22,76 @@ const costlyApiLimiter = rateLimit({
   },
 });
 
+function resolveRedisStoreConstructor(redisStorePackage) {
+  let RedisStore =
+    redisStorePackage.RedisStore ||
+    redisStorePackage.default ||
+    redisStorePackage;
+
+  while (RedisStore && typeof RedisStore === 'object' && RedisStore.default) {
+    RedisStore = RedisStore.default;
+  }
+
+  if (typeof RedisStore !== 'function') {
+    throw new TypeError('RedisStore export is not a constructor');
+  }
+
+  return RedisStore;
+}
+
+function createLoginLimiterStore() {
+  if (env.LOGIN_RATE_LIMIT_STORE !== 'redis') {
+    return new rateLimit.MemoryStore();
+  }
+
+  if (!env.LOGIN_RATE_LIMIT_REDIS_URL) {
+    console.warn(
+      '[rate-limit] LOGIN_RATE_LIMIT_STORE=redis but LOGIN_RATE_LIMIT_REDIS_URL is missing. Falling back to in-memory store.'
+    );
+    return new rateLimit.MemoryStore();
+  }
+
+  try {
+    const { createClient } = require('redis');
+    const redisStorePackage = require('rate-limit-redis');
+    const RedisStore = resolveRedisStoreConstructor(redisStorePackage);
+    const client = createClient({ url: env.LOGIN_RATE_LIMIT_REDIS_URL });
+
+    let ready = Promise.resolve();
+    if (typeof client.connect === 'function' && !client.isOpen) {
+      ready = client.connect().catch((error) => {
+        const detail = error && error.message ? error.message : String(error);
+        console.warn(`[rate-limit] Failed to connect login limiter Redis client: ${detail}`);
+      });
+    }
+
+    return new RedisStore({
+      prefix: 'arbor:rl:login:',
+      sendCommand: async (...command) => {
+        await ready;
+        return client.sendCommand(command);
+      },
+    });
+  } catch (error) {
+    const detail = error && error.message ? error.message : String(error);
+    console.warn(`[rate-limit] Redis login limiter store unavailable: ${detail}. Falling back to in-memory store.`);
+    return new rateLimit.MemoryStore();
+  }
+}
+
 /**
- * Limit logowania — 10 prób / 15 min / IP. Standardowy mechanizm z express-rate-limit
- * (zamiast ręcznego Map() w pamięci) — działa z `app.set('trust proxy')`,
- * zwraca standardowe nagłówki RateLimit-* i Retry-After.
- *
- * Uwaga: store jest in-memory (jedna instancja). Dla skali poziomej podpiąć
- * `rate-limit-redis` przez ENV (TODO).
+ * Limit logowania - 10 prob / 15 min / IP.
  */
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 10;
-const loginLimiterStore = new rateLimit.MemoryStore();
+const loginLimiterStore = createLoginLimiterStore();
 const loginLimiter = rateLimit({
   windowMs: LOGIN_WINDOW_MS,
   max: LOGIN_MAX_ATTEMPTS,
   store: loginLimiterStore,
   standardHeaders: true,
   legacyHeaders: false,
-  // Tryb testowy — testy mogą wyłączyć limit przez ENV.
+  // Tryb testowy - testy moga wylaczyc limit przez ENV.
   skip: () => String(process.env.RATE_LIMIT_DISABLED || '').toLowerCase() === 'true',
   handler: (req, res) => {
     res.status(429).json({
@@ -51,15 +103,18 @@ const loginLimiter = rateLimit({
 });
 
 /**
- * Reset limitera dla testów. express-rate-limit v8 udostępnia `resetKey(key)`,
- * ale `resetAll()` wymaga dostępu do store. Najprostsze API: kasuje cały
- * domyślny MemoryStore przez przeładowanie limitera nie da się bez restartu modułu,
- * więc testy powinny ustawiać `RATE_LIMIT_DISABLED=true` w setupie.
- * Funkcja pozostawiona dla kompatybilności wstecznej z istniejącym kodem.
+ * Reset limitera dla testow.
+ * Przy RedisStore resetAll moze byc niedostepne, dlatego bezpieczny fallback.
  */
 const resetLoginLimiterForTests = () => {
   if (env.NODE_ENV !== 'test') return undefined;
+  if (typeof loginLimiterStore.resetAll !== 'function') return undefined;
   return loginLimiterStore.resetAll();
 };
 
-module.exports = { costlyApiLimiter, loginLimiter, resetLoginLimiterForTests };
+module.exports = {
+  costlyApiLimiter,
+  loginLimiter,
+  resetLoginLimiterForTests,
+  __createLoginLimiterStore: createLoginLimiterStore,
+};

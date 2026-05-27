@@ -28,7 +28,7 @@
   },
   "scripts": {
     "clean:cache": "node -e \"const fs=require('fs');['node_modules/.cache','node_modules/.vite','build'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true});}catch(e){}});\"",
-    "start": "node ./scripts/run-vite.cjs --host 0.0.0.0",
+    "start": "node ./scripts/run-vite.cjs dev --host 0.0.0.0",
     "preview": "npm run build && node ./scripts/run-vite.cjs preview --host 0.0.0.0 --port 4173",
     "build": "node ./scripts/run-vite.cjs build",
     "verify": "npm run build && npm test",
