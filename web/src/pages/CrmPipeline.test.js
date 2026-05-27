@@ -139,3 +139,37 @@ test('lets a user add a unified inbox message to a lead', async () => {
     );
   });
 });
+
+test('lets a user create the default no-response workflow', async () => {
+  api.post.mockResolvedValueOnce({
+    data: {
+      id: 31,
+      oddzial_id: 7,
+      name: 'Brak odpowiedzi 24h',
+      trigger_type: 'no_response_after_hours',
+      action_type: 'create_followup_task',
+      active: true,
+    },
+  });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Automatyzacje');
+  await userEvent.click(screen.getByRole('button', { name: /\+ brak odpowiedzi 24h/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/workflows',
+      expect.objectContaining({
+        oddzial_id: 7,
+        trigger_type: 'no_response_after_hours',
+        action_type: 'create_followup_task',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});

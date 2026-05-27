@@ -879,6 +879,23 @@ CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_lead ON crm_lead_messages(lead_
 CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_channel ON crm_lead_messages(channel, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_external ON crm_lead_messages(external_message_id);
 
+CREATE TABLE IF NOT EXISTS crm_workflow_rules (
+  id              SERIAL PRIMARY KEY,
+  oddzial_id      INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+  name            VARCHAR(160) NOT NULL,
+  trigger_type    VARCHAR(64) NOT NULL,
+  trigger_config  JSONB NOT NULL DEFAULT '{}'::jsonb,
+  action_type     VARCHAR(64) NOT NULL,
+  action_config   JSONB NOT NULL DEFAULT '{}'::jsonb,
+  active          BOOLEAN NOT NULL DEFAULT true,
+  created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_oddzial ON crm_workflow_rules(oddzial_id, active);
+CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_trigger ON crm_workflow_rules(trigger_type, active);
+
 -- ─── Wyceny terenowe (Wyceniający) — quotations / items / approvals / photos ─
 CREATE TABLE IF NOT EXISTS quotations (
   id                      SERIAL PRIMARY KEY,

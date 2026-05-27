@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
+const { createWorkflowRule, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -509,6 +510,59 @@ router.delete('/leads/:id', async (req, res) => {
   } catch (err) {
     logger.error('crm.leads.delete', { message: err.message });
     res.status(500).json({ error: 'Usunięcie nie powiodło się' });
+  }
+});
+
+router.get('/workflows', async (req, res) => {
+  try {
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    const includeInactive = String(req.query.include_inactive || '').toLowerCase() === 'true';
+    const rules = await listWorkflowRules({ oddzialId, includeInactive });
+    res.json(rules);
+  } catch (err) {
+    logger.error('crm.workflows.list', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu automatyzacji CRM' });
+  }
+});
+
+router.post('/workflows', async (req, res) => {
+  const b = req.body || {};
+  const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
+  if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  }
+  try {
+    const rule = await createWorkflowRule({
+      oddzialId,
+      name: b.name,
+      triggerType: b.trigger_type,
+      triggerConfig: b.trigger_config,
+      actionType: b.action_type,
+      actionConfig: b.action_config,
+      active: b.active !== false,
+      userId: req.user.id,
+    });
+    res.status(201).json(rule);
+  } catch (err) {
+    logger.error('crm.workflows.create', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie zapisac automatyzacji CRM' });
+  }
+});
+
+router.post('/workflows/run', async (req, res) => {
+  const b = req.body || {};
+  const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
+  if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
+  if (!canAccessOddzial(req.user, oddzialId)) {
+    return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  }
+  try {
+    const out = await runWorkflowRules({ oddzialId, ruleId: toInt(b.rule_id || req.query.rule_id), userId: req.user.id });
+    res.json(out);
+  } catch (err) {
+    logger.error('crm.workflows.run', { message: err.message });
+    res.status(500).json({ error: 'Uruchomienie automatyzacji CRM nie powiodlo sie' });
   }
 });
 

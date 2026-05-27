@@ -78,6 +78,9 @@ export default function CrmPipeline() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageForm, setMessageForm] = useState(EMPTY_MESSAGE);
   const [savingMessage, setSavingMessage] = useState(false);
+  const [workflows, setWorkflows] = useState([]);
+  const [workflowsLoading, setWorkflowsLoading] = useState(false);
+  const [savingWorkflow, setSavingWorkflow] = useState(false);
 
   const currentUser = useMemo(() => readStoredUser(), []);
   const requestHeaders = useMemo(() => authHeaders(getStoredToken()), []);
@@ -111,6 +114,31 @@ export default function CrmPipeline() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const workflowOddzialId = useMemo(
+    () => filter.oddzial_id || form.oddzial_id || (currentUser?.oddzial_id ? String(currentUser.oddzial_id) : '') || (oddzialy[0]?.id ? String(oddzialy[0].id) : ''),
+    [currentUser?.oddzial_id, filter.oddzial_id, form.oddzial_id, oddzialy]
+  );
+
+  const loadWorkflows = useCallback(async () => {
+    if (!workflowOddzialId) {
+      setWorkflows([]);
+      return;
+    }
+    try {
+      setWorkflowsLoading(true);
+      const res = await api.get('/crm/workflows', { headers: requestHeaders, params: { oddzial_id: workflowOddzialId } });
+      setWorkflows(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setWorkflows([]);
+    } finally {
+      setWorkflowsLoading(false);
+    }
+  }, [requestHeaders, workflowOddzialId]);
+
+  useEffect(() => {
+    loadWorkflows();
+  }, [loadWorkflows]);
 
   useEffect(() => {
     const defaultBranchId = currentUser?.oddzial_id
@@ -358,6 +386,51 @@ export default function CrmPipeline() {
     return t('crm.pipeline.activities.typeNote', { defaultValue: 'Notatka' });
   };
 
+  const createNoResponseWorkflow = async () => {
+    if (!workflowOddzialId) {
+      setMsg(t('crm.pipeline.workflows.branchRequired', { defaultValue: 'Wybierz oddział dla automatyzacji.' }));
+      return;
+    }
+    try {
+      setSavingWorkflow(true);
+      await api.post(
+        '/crm/workflows',
+        {
+          oddzial_id: Number(workflowOddzialId),
+          name: t('crm.pipeline.workflows.noResponseName', { defaultValue: 'Brak odpowiedzi 24h' }),
+          trigger_type: 'no_response_after_hours',
+          trigger_config: { hours: 24 },
+          action_type: 'create_followup_task',
+          action_config: {
+            due_in_hours: 2,
+            text: t('crm.pipeline.workflows.noResponseTask', { defaultValue: 'Follow-up: klient nie odpowiedział od 24h' }),
+          },
+        },
+        { headers: requestHeaders }
+      );
+      await loadWorkflows();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.workflows.createError', { defaultValue: 'Nie udało się zapisać automatyzacji.' })));
+    } finally {
+      setSavingWorkflow(false);
+    }
+  };
+
+  const runWorkflows = async () => {
+    if (!workflowOddzialId) return;
+    try {
+      setSavingWorkflow(true);
+      const res = await api.post('/crm/workflows/run', { oddzial_id: Number(workflowOddzialId) }, { headers: requestHeaders });
+      const count = Number(res.data?.actions_count || 0);
+      setMsg(t('crm.pipeline.workflows.runDone', { defaultValue: 'Automatyzacje wykonane: {{count}} akcji.', count }));
+      await Promise.all([loadData(), loadWorkflows()]);
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.workflows.runError', { defaultValue: 'Nie udało się uruchomić automatyzacji.' })));
+    } finally {
+      setSavingWorkflow(false);
+    }
+  };
+
   const messageChannelLabel = (channel) => {
     const labels = {
       whatsapp: 'WhatsApp',
@@ -464,6 +537,53 @@ export default function CrmPipeline() {
                 onChange={(e) => setFilter((prev) => ({ ...prev, q: e.target.value }))}
                 placeholder={t('crm.pipeline.filters.search', { defaultValue: 'Szukaj po kliencie, telefonie, źródle...' })}
               />
+            </div>
+          </section>
+
+          <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontWeight: 800 }}>{t('crm.pipeline.workflows.title', { defaultValue: 'Automatyzacje' })}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {t('crm.pipeline.workflows.subtitle', { defaultValue: 'Follow-upy i akcje workflow dla wybranego oddziału.' })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="ios-btn"
+                  disabled={savingWorkflow || workflows.some((rule) => rule.trigger_type === 'no_response_after_hours')}
+                  onClick={createNoResponseWorkflow}
+                >
+                  {t('crm.pipeline.workflows.addNoResponse', { defaultValue: '+ brak odpowiedzi 24h' })}
+                </button>
+                <button type="button" className="ios-btn ios-btn-primary" disabled={savingWorkflow || workflows.length === 0} onClick={runWorkflows}>
+                  {t('crm.pipeline.workflows.run', { defaultValue: 'Uruchom workflow' })}
+                </button>
+              </div>
+            </div>
+            <div className="ios-inset-list" style={{ marginTop: 10 }}>
+              {workflows.map((rule) => (
+                <div key={rule.id} className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{rule.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {rule.trigger_type} -> {rule.action_type}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 12, color: rule.active ? 'var(--success)' : 'var(--text-muted)', fontWeight: 700 }}>
+                    {rule.active ? t('crm.pipeline.workflows.active', { defaultValue: 'Aktywna' }) : t('crm.pipeline.workflows.inactive', { defaultValue: 'Pauza' })}
+                  </span>
+                </div>
+              ))}
+              {!workflowsLoading && workflows.length === 0 ? (
+                <div className="ios-inset-row muted">
+                  {t('crm.pipeline.workflows.empty', { defaultValue: 'Brak reguł workflow dla tego oddziału.' })}
+                </div>
+              ) : null}
+              {workflowsLoading ? (
+                <div className="ios-inset-row muted">{t('common.loading', { defaultValue: 'Ładowanie...' })}</div>
+              ) : null}
             </div>
           </section>
 
