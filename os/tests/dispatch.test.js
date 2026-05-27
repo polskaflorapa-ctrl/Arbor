@@ -498,6 +498,179 @@ describe('POST /api/dispatch/route-brief/send', () => {
   });
 });
 
+describe('POST /api/dispatch/route-brief/:briefId/remind', () => {
+  const PATH = '/api/dispatch/route-brief/77/remind';
+
+  afterEach(() => {
+    pool.query.mockReset();
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    pool.connect.mockReset();
+  });
+
+  it('401 when no token', async () => {
+    expect((await request(app).post(PATH)).status).toBe(401);
+  });
+
+  it('403 for Brygadzista', async () => {
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${brygadzistaToken()}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('404 when route brief does not exist', async () => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(404);
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('403 when Kierownik reminds outside their branch', async () => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) {
+        return {
+          rows: [{
+            id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            oddzial_id: 99,
+            team_oddzial_id: 99,
+            team_name: 'Brygada Obca',
+            brief: 'Odprawa',
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(403);
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('200 sends reminders only to pending recipients', async () => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql, params) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s === 'BEGIN' || s === 'COMMIT') return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) {
+        expect(params).toEqual([77]);
+        return {
+          rows: [{
+            id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            oddzial_id: 3,
+            team_oddzial_id: 3,
+            team_name: 'Brygada Alfa',
+            brief: 'Odprawa ekipy - Brygada Alfa',
+          }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('FROM dispatch_route_brief_recipients drr')) {
+        expect(params).toEqual([77]);
+        return {
+          rows: [
+            { user_id: 21, name: 'Jan Brygadzista', notification_id: 1 },
+            { user_id: 22, name: 'Anna Pomocnik', notification_id: 2 },
+          ],
+          rowCount: 2,
+        };
+      }
+      if (s.includes('INSERT INTO notifications')) {
+        expect(params).toEqual([1, expect.stringContaining('Przypomnienie'), [21, 22]]);
+        return {
+          rows: [
+            { id: 11, to_user_id: 21, typ: 'Przypomnienie odprawy', tresc: params[1], status: 'Nowe' },
+            { id: 12, to_user_id: 22, typ: 'Przypomnienie odprawy', tresc: params[1], status: 'Nowe' },
+          ],
+          rowCount: 2,
+        };
+      }
+      if (s.includes('INSERT INTO audit_log')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      message: 'Przypomnienie wyslane',
+      brief_id: 77,
+      team_id: 10,
+      team_name: 'Brygada Alfa',
+      reminded: 2,
+      recipients: [
+        expect.objectContaining({ user_id: 21, name: 'Jan Brygadzista' }),
+        expect.objectContaining({ user_id: 22, name: 'Anna Pomocnik' }),
+      ],
+    }));
+    expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('200 returns zero when everyone already confirmed', async () => {
+    const mockClient = setupMockClient();
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('FROM dispatch_route_briefs rb')) {
+        return {
+          rows: [{
+            id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            oddzial_id: 3,
+            team_oddzial_id: 3,
+            team_name: 'Brygada Alfa',
+            brief: 'Odprawa ekipy - Brygada Alfa',
+          }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('FROM dispatch_route_brief_recipients drr')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      message: 'Wszyscy odbiorcy potwierdzili odprawe',
+      reminded: 0,
+      recipients: [],
+    }));
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+});
+
 describe('GET /api/dispatch/route-brief/status', () => {
   const PATH = '/api/dispatch/route-brief/status';
 

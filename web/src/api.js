@@ -36,6 +36,8 @@ const HAS_VALID_API_FALLBACK_BASE =
 const isUnsafeFallbackBase = API_URL_WITHOUT_API_SUFFIX === '/' || API_URL_WITHOUT_API_SUFFIX === '.';
 const MOCK_OPS_EVENTS_KEY = 'arbor-test-mode-ops-action-events';
 const MOCK_ROUTE_BRIEF_STATUSES_KEY = 'arbor-test-mode-route-brief-statuses';
+const MOCK_OGLEDZINY_STATUS_OVERRIDES_KEY = 'arbor-test-mode-ogledziny-status-overrides';
+const MOCK_OGLEDZINY_DELETED_KEY = 'arbor-test-mode-ogledziny-deleted';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -148,6 +150,11 @@ function saveMockRouteBriefStatus(status) {
   return nextStatus;
 }
 
+function mockRouteBriefRecipientConfirmed(recipient = {}) {
+  const status = String(recipient.status || '').toLowerCase();
+  return Boolean(recipient.confirmed_at) || (status && status !== 'nowe');
+}
+
 function countBy(rows, key) {
   return rows.reduce((acc, row) => {
     const value = row?.[key];
@@ -197,6 +204,16 @@ function mockRecommendationTaskPreview(tasks = [], limit = 3) {
         target_path: `/zlecenia/${task.id}`,
       };
     });
+}
+
+function mockRecommendationBlockerPreview(tasks = [], allowedBlockers = [], limit = 3) {
+  const allowed = new Set(allowedBlockers || []);
+  return mockRecommendationTaskPreview(tasks, limit).map((item) => ({
+    ...item,
+    issue_key: null,
+    issue_label: null,
+    blockers: item.blockers.filter((key) => allowed.has(key)),
+  }));
 }
 
 function mockMinutesToClock(value) {
@@ -287,6 +304,177 @@ function buildMockDispatchPlan(config, saved = false) {
   };
 }
 
+function getMockOgledzinyStatusOverrides() {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_OGLEDZINY_STATUS_OVERRIDES_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMockOgledzinyStatusOverrides(overrides) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(MOCK_OGLEDZINY_STATUS_OVERRIDES_KEY, JSON.stringify(overrides || {}));
+}
+
+function getMockDeletedOgledzinyIds() {
+  if (typeof localStorage === 'undefined') return new Set();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_OGLEDZINY_DELETED_KEY) || '[]');
+    return new Set((Array.isArray(parsed) ? parsed : []).map((id) => String(id)));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveMockDeletedOgledzinyIds(ids) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(MOCK_OGLEDZINY_DELETED_KEY, JSON.stringify([...ids].map((id) => String(id))));
+}
+
+function mockOgledzinyStatusFromTask(task = {}) {
+  const status = String(task.status || '');
+  if (status === 'Anulowane') return 'Anulowane';
+  if (status === 'Zakonczone' || status === 'Do_Zatwierdzenia') return 'Zakonczone';
+  if (status === 'W_Realizacji' || status === 'W realizacji') return 'W_Trakcie';
+  return 'Zaplanowane';
+}
+
+function isMockOgledzinyCandidate(task = {}) {
+  const text = [
+    task.status,
+    task.opis_pracy,
+    task.opis,
+    task.notatki_wewnetrzne,
+    task.typ_uslugi,
+  ].join(' ').toLowerCase();
+  const normalizedText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return Boolean(
+    task.wyceniajacy_id ||
+    task.wycena_id ||
+    normalizedText.includes('wycena') ||
+    normalizedText.includes('ogledz')
+  );
+}
+
+function mockOgledzinyProtocol(task = {}) {
+  const service = task.typ_uslugi || 'Pielegnacja drzew';
+  const duration = task.czas_obslugi_min
+    ? `${Math.round(Number(task.czas_obslugi_min))} min`
+    : task.czas_planowany_godziny
+      ? `${task.czas_planowany_godziny} h`
+      : 'do potwierdzenia';
+  const budget = task.wartosc_planowana || task.budzet || 'do wyceny';
+  return [
+    'FORMULARZ WYCENY TERENOWEJ',
+    `Zakres prac: ${service}`,
+    'Sprzet / zasoby: zestaw arborystyczny, zabezpieczenie terenu',
+    'Ryzyka: do potwierdzenia na miejscu',
+    'Liczba osob: 2',
+    `Szacowany czas: ${duration}`,
+    `Budzet klienta / wycena: ${budget}`,
+    'Wynik rozmowy: do decyzji biura',
+    'Dostep / parking / uwagi posesji: sprawdzic dojazd i miejsce pod rebak',
+    'Dodatkowe notatki wyceniajacego: mock trybu testowego',
+  ].join('\n');
+}
+
+function buildMockOgledzinyRow(task = {}, index = 0, overrides = {}) {
+  const id = Number(task.ogledziny_id || task.id || 9000 + index + 1);
+  const plannedBase = task.data_planowana || task.data_zaplanowana;
+  const plannedDate = plannedBase || new Date(Date.now() + (index + 1) * 90 * 60000).toISOString();
+  const status = mockOgledzinyStatusFromTask(task);
+  const override = overrides[String(id)] || {};
+  const isDone = (override.status || status) === 'Zakonczone';
+  const hasLive = Boolean(task.wyceniajacy_id || index === 0);
+  const lat = Number(task.pin_lat || (index === 0 ? 50.06712 : 50.05266));
+  const lng = Number(task.pin_lng || (index === 0 ? 19.94504 : 19.93112));
+  return {
+    id,
+    task_id: Number(task.id || id),
+    klient_id: Number(task.klient_id || task.client_id || id),
+    klient_nazwa: task.klient_nazwa || task.client || '[Test] Klient ogledzin',
+    klient_telefon: task.klient_telefon || task.telefon || '+48500111222',
+    klient_email: task.klient_email || 'test@example.com',
+    klient_firma: task.klient_firma || null,
+    brygadzista_id: task.brygadzista_id || null,
+    brygadzista_nazwa: task.brygadzista_nazwa || task.ekipa_nazwa || '',
+    brygadzista_telefon: task.brygadzista_telefon || null,
+    wyceniajacy_id: task.wyceniajacy_id || 9004,
+    wyceniajacy_nazwa: task.wyceniajacy_nazwa || 'Test Specjalista Wyceny',
+    ekipa_id: task.ekipa_id || null,
+    data_planowana: plannedDate,
+    adres: task.adres || 'ul. Testowa 2',
+    miasto: task.miasto || 'Krakow',
+    status,
+    notatki: task.opis_pracy || task.opis || 'Testowe ogledziny terenowe w trybie mock.',
+    notatki_wyniki: isDone ? mockOgledzinyProtocol(task) : null,
+    wycena_id: task.wycena_id || (isDone ? 101 : null),
+    wartosc_szacowana: Number(task.wartosc_planowana || task.budzet || 0) || null,
+    wycena_status: isDone ? 'Do akceptacji' : null,
+    wycena_opis: isDone ? task.opis_pracy || task.opis || null : null,
+    created_by: 9002,
+    created_by_nazwa: 'Test Kierownik',
+    created_at: new Date(Date.now() - (index + 2) * 3600000).toISOString(),
+    updated_at: override.updated_at || null,
+    live_event_type: hasLive ? (isDone ? 'done' : index === 0 ? 'heartbeat' : 'note') : null,
+    live_recorded_at: hasLive ? new Date(Date.now() - (index + 1) * 8 * 60000).toISOString() : null,
+    live_lat: hasLive && Number.isFinite(lat) ? lat : null,
+    live_lng: hasLive && Number.isFinite(lng) ? lng : null,
+    live_eta_min: hasLive && !isDone ? 18 + index * 7 : null,
+    live_note: hasLive ? (isDone ? 'Wizyta zamknieta w terenie' : 'Sygnal z trybu testowego') : null,
+    ...override,
+  };
+}
+
+function buildMockOgledzinyList(config = {}) {
+  const status = getRequestParam(config, 'status');
+  const deletedIds = getMockDeletedOgledzinyIds();
+  const overrides = getMockOgledzinyStatusOverrides();
+  const tasks = getMockData('/tasks/wszystkie') || [];
+  const candidates = tasks.filter(isMockOgledzinyCandidate);
+  const source = (candidates.length ? candidates : tasks).slice(0, 8);
+  const rows = source
+    .map((task, index) => buildMockOgledzinyRow(task, index, overrides))
+    .filter((row) => !deletedIds.has(String(row.id)))
+    .filter((row) => !status || row.status === status)
+    .sort((a, b) => new Date(a.data_planowana || 0).getTime() - new Date(b.data_planowana || 0).getTime());
+  return rows;
+}
+
+function buildMockOgledzinyDetail(id) {
+  const row = buildMockOgledzinyList().find((item) => String(item.id) === String(id))
+    || buildMockOgledzinyRow(getMockTaskDetail(id), 0, getMockOgledzinyStatusOverrides());
+  return {
+    ...row,
+    zdjecia: getMockTaskPhotos(row.task_id || row.id),
+    media: [],
+  };
+}
+
+function mockUpdateOgledzinyStatus(id, body = {}) {
+  const overrides = getMockOgledzinyStatusOverrides();
+  const previous = overrides[String(id)] || {};
+  const next = {
+    ...previous,
+    status: body.status || previous.status || 'Zaplanowane',
+    notatki_wyniki: body.notatki_wyniki ?? previous.notatki_wyniki ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  overrides[String(id)] = next;
+  saveMockOgledzinyStatusOverrides(overrides);
+  return buildMockOgledzinyDetail(id);
+}
+
+function mockDeleteOgledziny(id) {
+  const deletedIds = getMockDeletedOgledzinyIds();
+  deletedIds.add(String(id));
+  saveMockDeletedOgledzinyIds(deletedIds);
+  return { deleted: true, id: Number(id) || id };
+}
+
 function getTestUserForLogin(login) {
   const normalized = String(login || '').trim().toLowerCase();
   if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
@@ -344,6 +532,52 @@ function getTestModeMockResponse(config) {
   if (path === '/tasks/closure-events' && method === 'get') {
     return {
       data: getMockClosureEvents(),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ogledziny' && method === 'get') {
+    return {
+      data: buildMockOgledzinyList(config),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mOgledzinyStatus = path.match(/^\/ogledziny\/(\d+)\/status$/);
+  if (mOgledzinyStatus && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: mockUpdateOgledzinyStatus(mOgledzinyStatus[1], body),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mOgledzinyId = path.match(/^\/ogledziny\/(\d+)$/);
+  if (mOgledzinyId && method === 'get') {
+    return {
+      data: buildMockOgledzinyDetail(mOgledzinyId[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mOgledzinyId && method === 'delete') {
+    return {
+      data: mockDeleteOgledziny(mOgledzinyId[1]),
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -685,7 +919,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: dispatchBlockers.length,
         task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
-        task_preview: mockRecommendationTaskPreview(dispatchBlockers),
+        task_preview: mockRecommendationBlockerPreview(dispatchBlockers, ['team', 'gps']),
         target_path: `/zlecenia/${dispatchBlockers[0]?.id || ''}`,
         impact_label: `${dispatchBlockers.length} zlecen blokuje dispatch`,
       });
@@ -707,7 +941,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: contactBlockers.length,
         task_ids: contactBlockers.slice(0, 8).map((task) => task.id),
-        task_preview: mockRecommendationTaskPreview(contactBlockers),
+        task_preview: mockRecommendationBlockerPreview(contactBlockers, ['phone', 'address']),
         target_path: `/zlecenia/${contactBlockers[0]?.id || ''}`,
         impact_label: `${contactBlockers.length} zlecen wymaga danych`,
       });
@@ -728,7 +962,7 @@ function getTestModeMockResponse(config) {
         secondary_label: '',
         task_count: issueBlockers.length,
         task_ids: issueBlockers.slice(0, 8).map((task) => task.id),
-        task_preview: mockRecommendationTaskPreview(issueBlockers),
+        task_preview: mockRecommendationBlockerPreview(issueBlockers, ['issue']),
         target_path: `/zlecenia/${issueBlockers[0]?.id || ''}`,
         impact_label: `${openIssues} problemow do decyzji`,
       });
@@ -1047,6 +1281,59 @@ function getTestModeMockResponse(config) {
         recipients: [team?.brygadzista_id || 1],
         recipient_details: [recipient],
         status,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mRouteBriefReminder = path.match(/^\/dispatch\/route-brief\/(\d+)\/remind$/);
+  if (mRouteBriefReminder && method === 'post') {
+    const briefId = Number(mRouteBriefReminder[1]);
+    const now = new Date().toISOString();
+    const status = getMockRouteBriefStatuses()
+      .find((item) => String(item.brief_id) === String(briefId));
+    if (!status) {
+      return {
+        data: { error: 'Odprawa nie istnieje' },
+        status: 404,
+        statusText: 'Not Found',
+        headers: {},
+        config,
+        request: {},
+      };
+    }
+    const pendingRecipients = (status.recipients || [])
+      .filter((recipient) => !mockRouteBriefRecipientConfirmed(recipient));
+    const updatedRecipients = (status.recipients || []).map((recipient) => {
+      if (mockRouteBriefRecipientConfirmed(recipient)) return recipient;
+      return {
+        ...recipient,
+        last_reminded_at: now,
+        reminder_count: Number(recipient.reminder_count || 0) + 1,
+      };
+    });
+    const nextStatus = saveMockRouteBriefStatus({
+      ...status,
+      last_reminded_at: pendingRecipients.length ? now : status.last_reminded_at,
+      recipients: updatedRecipients,
+    });
+    return {
+      data: {
+        message: pendingRecipients.length ? 'Przypomnienie wyslane' : 'Wszyscy odbiorcy potwierdzili odprawe',
+        brief_id: briefId,
+        team_id: status.team_id,
+        team_name: status.team_name,
+        reminded: pendingRecipients.length,
+        recipients: pendingRecipients.map((recipient) => ({
+          ...recipient,
+          last_reminded_at: now,
+          reminder_count: Number(recipient.reminder_count || 0) + 1,
+        })),
+        status: nextStatus,
       },
       status: 200,
       statusText: 'OK',

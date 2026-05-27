@@ -26,6 +26,27 @@ describe('api test-mode mocks', () => {
     expect(response.data).toEqual({ notifications: [], unread_count: 0 });
   });
 
+  it('serves inspection mocks for the local field-inspection views', async () => {
+    const list = await api.get('/api/ogledziny?status=Zaplanowane', { dedupe: false });
+
+    expect(list.status).toBe(200);
+    expect(list.data.length).toBeGreaterThan(0);
+    expect(list.data[0]).toEqual(expect.objectContaining({
+      id: expect.any(Number),
+      status: 'Zaplanowane',
+      klient_nazwa: expect.any(String),
+      data_planowana: expect.any(String),
+    }));
+
+    const detail = await api.get(`/api/ogledziny/${list.data[0].id}`, { dedupe: false });
+    expect(detail.status).toBe(200);
+    expect(detail.data).toEqual(expect.objectContaining({
+      id: list.data[0].id,
+      zdjecia: expect.any(Array),
+      media: expect.any(Array),
+    }));
+  });
+
   it('serves status workflow side-effect mocks', async () => {
     const log = await api.post('/api/tasks/101/logi', {
       tresc: 'Workflow: test',
@@ -207,6 +228,43 @@ describe('api test-mode mocks', () => {
     }));
   });
 
+  it('limits blocker previews in mock action recommendations to recommendation-specific blockers', async () => {
+    const response = await api.get('/api/ops/action-recommendations?date=2026-05-25', { dedupe: false });
+
+    expect(response.status).toBe(200);
+    const byId = Object.fromEntries(response.data.recommendations.map((item) => [item.id, item]));
+
+    if (byId.fix_dispatch_blockers) {
+      expect(byId.fix_dispatch_blockers.task_preview[0]).toEqual(
+        expect.objectContaining({
+          issue_key: null,
+          issue_label: null,
+        })
+      );
+      expect(byId.fix_dispatch_blockers.task_preview[0].blockers.every((key) => ['team', 'gps'].includes(key))).toBe(true);
+    }
+
+    if (byId.fix_contact_blockers) {
+      expect(byId.fix_contact_blockers.task_preview[0]).toEqual(
+        expect.objectContaining({
+          issue_key: null,
+          issue_label: null,
+        })
+      );
+      expect(byId.fix_contact_blockers.task_preview[0].blockers.every((key) => ['phone', 'address'].includes(key))).toBe(true);
+    }
+
+    if (byId.resolve_open_issues) {
+      expect(byId.resolve_open_issues.task_preview[0]).toEqual(
+        expect.objectContaining({
+          issue_key: null,
+          issue_label: null,
+          blockers: ['issue'],
+        })
+      );
+    }
+  });
+
   it('serves dispatch plan mocks for the local auto-dispatch demo', async () => {
     const preview = await api.post('/api/dispatch/plan', {
       date: '2026-05-25',
@@ -279,6 +337,29 @@ describe('api test-mode mocks', () => {
       team_name: 'Ekipa A',
       sent_to: 1,
       pending: 1,
+    });
+
+    const reminder = await api.post(`/api/dispatch/route-brief/${sent.data.brief_id}/remind`);
+
+    expect(reminder.data).toMatchObject({
+      message: 'Przypomnienie wyslane',
+      brief_id: sent.data.brief_id,
+      team_id: 5,
+      reminded: 1,
+    });
+    expect(reminder.data.recipients[0]).toMatchObject({
+      status: 'Nowe',
+      reminder_count: 1,
+    });
+
+    const afterReminder = await api.get('/api/dispatch/route-brief/status', {
+      params: { date: '2026-05-25', team_ids: '5' },
+      dedupe: false,
+    });
+
+    expect(afterReminder.data.items[0].recipients[0]).toMatchObject({
+      status: 'Nowe',
+      reminder_count: 1,
     });
   });
 

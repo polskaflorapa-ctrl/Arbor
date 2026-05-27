@@ -796,6 +796,75 @@ describe('GET /api/ops/action-recommendations', () => {
     });
   });
 
+  it('limits dispatch blocker recommendations to team and gps blockers only', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('WITH planned AS') && text.includes('open_issues')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [
+            {
+              id: 61,
+              numer: 'ARB-61',
+              klient_nazwa: 'Dispatch blocker mieszany',
+              klient_telefon: '+48123456789',
+              adres: 'Krakow 61',
+              miasto: 'Krakow',
+              status: 'Zaplanowane',
+              priorytet: 'Pilny',
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              ekipa_id: null,
+              oddzial_id: 7,
+              pin_lat: null,
+              pin_lng: null,
+              czas_planowany_godziny: 1,
+              czas_obslugi_min: 60,
+              ekipa_nazwa: null,
+              oddzial_nazwa: 'Krakow',
+              open_issues: 2,
+              planned_minutes: 60,
+              real_minutes: 0,
+              logs_total: 0,
+              has_started: false,
+              has_finished: false,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM ops_action_events e') && text.includes('GROUP BY e.action_type')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'recommendation_feedback'")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-recommendations?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    const byId = Object.fromEntries(res.body.recommendations.map((item) => [item.id, item]));
+    expect(byId.fix_dispatch_blockers).toMatchObject({
+      priority: 'medium',
+      action_kind: 'open_tasks',
+      task_ids: [61],
+      title: '1 blokad wysylki ekip',
+    });
+    expect(byId.fix_dispatch_blockers.target_path).toContain('field=ekipa_id');
+    expect(byId.fix_dispatch_blockers.target_path).not.toContain('tab=problemy');
+    expect(byId.fix_dispatch_blockers.task_preview[0]).toMatchObject({
+      id: 61,
+      numer: 'ARB-61',
+      blockers: ['team', 'gps'],
+      issue_key: null,
+      issue_label: null,
+    });
+    expect(byId.fix_dispatch_blockers.task_preview[0].target_path).toContain('field=ekipa_id');
+    expect(byId.fix_dispatch_blockers.task_preview[0].target_path).not.toContain('tab=problemy');
+  });
+
   it('hides recommendations dismissed for the selected day', async () => {
     pool.query.mockImplementation(async (sql, params = []) => {
       const text = String(sql);

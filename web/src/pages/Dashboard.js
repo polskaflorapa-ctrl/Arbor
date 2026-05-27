@@ -387,6 +387,7 @@ export default function Dashboard() {
   });
   const todayTasks = openTasks.filter((z) => taskDateKey(z) === todayIso);
   const unassignedTasks = openTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
+  const todayUnassignedTasks = todayTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
   const statusCounts = allTasks.reduce((acc, z) => {
     const key = z.status || 'Nowe';
     acc[key] = (acc[key] || 0) + 1;
@@ -450,9 +451,11 @@ export default function Dashboard() {
     {
       label: 'Dzisiaj w planie',
       value: todayTasks.length,
-      sub: `${unassignedTasks.length} bez ekipy`,
+      sub: todayTasks.length
+        ? (todayUnassignedTasks.length ? `${todayUnassignedTasks.length} bez ekipy dzisiaj` : 'Plan dnia obsadzony')
+        : 'Brak prac w planie dnia',
       icon: 'nowe',
-      tone: unassignedTasks.length ? 'amber' : 'green',
+      tone: todayUnassignedTasks.length ? 'amber' : 'green',
       path: '/harmonogram',
     },
   ];
@@ -565,9 +568,9 @@ export default function Dashboard() {
   const teamRanking = apiTeamRanking.length ? apiTeamRanking : fallbackTeamRanking;
   const activeRankingWeek = useMemo(() => pickDashboardWeek(teamRankingApi), [teamRankingApi]);
 
-  const scheduleItems = useMemo(() => [...ostatnie]
+  const scheduleItems = [...todayTasks]
     .sort((a, b) => new Date(a.data_planowana || a.data_zaplanowana || 0) - new Date(b.data_planowana || b.data_zaplanowana || 0))
-    .slice(0, 6), [ostatnie]);
+    .slice(0, 6);
 
   const systemAlertItems = payrollClose.export_allowed
     ? []
@@ -578,6 +581,7 @@ export default function Dashboard() {
           tone: 'warn',
         },
       ];
+  const systemAlertCount = systemAlertItems.length;
 
   return (
     <div className="app-shell dashboard-shell" style={d.root}>
@@ -614,8 +618,15 @@ export default function Dashboard() {
             <button type="submit" style={d.searchShortcut}>Enter</button>
           </form>
           <div style={d.topbarMeta}>
-            <button type="button" onClick={() => navigate('/powiadomienia')} style={d.iconStatusBtn} aria-label="Powiadomienia">
-              <span style={d.statusDot}>{systemAlertItems.length}</span>
+            <button
+              type="button"
+              onClick={() => navigate('/powiadomienia')}
+              style={d.iconStatusBtn}
+              aria-label={systemAlertCount ? `Powiadomienia: ${systemAlertCount}` : 'Powiadomienia'}
+            >
+              {systemAlertCount > 0 ? (
+                <span data-testid="dashboard-system-alert-count" style={d.statusDot}>{systemAlertCount}</span>
+              ) : null}
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
                 <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />

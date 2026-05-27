@@ -160,3 +160,24 @@ test('copies a crew-ready brief from the focused schedule task', async () => {
   expect(copied).toContain('Przycinka koron nad podjazdem');
   expect(copied).toContain('Korona od ulicy');
 });
+
+test('falls back to textarea copy when browser clipboard is blocked', async () => {
+  mockHarmonogramApi();
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: vi.fn().mockRejectedValue(new Error('blocked')) },
+    configurable: true,
+  });
+  const execCommand = vi.fn().mockReturnValue(true);
+  Object.defineProperty(document, 'execCommand', {
+    value: execCommand,
+    configurable: true,
+  });
+
+  renderRoute('/harmonogram?date=2026-05-26&team=3&task=42&oddzial=7&view=dzien');
+
+  expect(await screen.findByText(/1\/6 typow pakietu/i, {}, { timeout: 10000 })).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: /Kopiuj odprawe zlecenia/i }, { timeout: 10000 }));
+
+  await waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
+  expect(await screen.findByText(/Odprawa zlecenia #42 skopiowana/i)).toBeInTheDocument();
+});

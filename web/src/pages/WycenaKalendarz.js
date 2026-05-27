@@ -220,6 +220,18 @@ export default function WycenaKalendarz() {
   const monthOgledziny = ogledziny.filter((o) => (o.data_planowana || '').startsWith(monthPrefix));
   const monthPending = monthWyceny.filter((w) => ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty'].includes(w.status_akceptacji)).length;
   const monthApproved = monthWyceny.filter((w) => w.status_akceptacji === 'zatwierdzono').length;
+  const monthDataIssues = monthWyceny.reduce((sum, w) => {
+    const q = dataQualityFlags(w);
+    return sum + ((q.noPin || q.noGps || q.staleGps) ? 1 : 0);
+  }, 0);
+  const liveTeamsCount = Object.keys(liveByTeam).length;
+  const selectedDayWork = wycenyWybrany.length + ogledzinyWybrane.length;
+  const calendarStats = [
+    { label: 'Miesiąc: wyceny', value: monthWyceny.length, detail: `${monthApproved} zatwierdzonych`, tone: 'good' },
+    { label: 'Oględziny', value: monthOgledziny.length, detail: 'wizyty terenowe', tone: 'good' },
+    { label: 'Do decyzji', value: monthPending, detail: monthPending ? 'wymaga reakcji' : 'kolejka czysta', tone: monthPending ? 'warning' : 'good' },
+    { label: 'Ryzyka danych', value: monthDataIssues, detail: liveTeamsCount ? `${liveTeamsCount} ekip live` : 'brak sygnałów GPS', tone: monthDataIssues ? 'danger' : 'good' },
+  ];
 
   const selectedYmd = ymdForCalDay(selectedDay);
   const selectedBlocked = isYmdBlocked(selectedYmd, calendarBlocks);
@@ -354,13 +366,16 @@ export default function WycenaKalendarz() {
       <div style={S.bgOrbTop} />
       <div style={S.bgOrbBottom} />
       {/* Header */}
-      <div style={S.header}>
-        <button style={S.backBtn} onClick={() => navigate(-1)}>←</button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={S.headerTitle}>📋 Kalendarz Wycen</div>
-          <div style={S.headerSub}>Planowanie i zarządzanie wizytami specjalisty ds. wyceny</div>
+      <div className="wycena-calendar-hero" style={S.hero}>
+        <div style={S.heroMain}>
+          <button style={S.heroBack} onClick={() => navigate(-1)} aria-label="Wróć">←</button>
+          <div style={{ minWidth: 0 }}>
+            <div style={S.heroEyebrow}>Planowanie wycen</div>
+            <h1 style={S.heroTitle}>Kalendarz Wycen</h1>
+            <div style={S.heroSub}>Wizyty specjalisty, rezerwacje ekip, SLA i ryzyka GPS w jednym miejscu.</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
+        <div style={S.heroActions}>
           <button type="button" style={S.linkBtn} onClick={() => navigate('/blokady-kalendarza')}>
             {t('nav.calendarBlocks')}
           </button>
@@ -374,6 +389,23 @@ export default function WycenaKalendarz() {
               + Nowa wycena
             </button>
           )}
+        </div>
+        <div className="wycena-calendar-hero-stats" style={S.heroStats}>
+          <div style={S.heroStat}>
+            <span style={S.heroStatLabel}>Wybrany dzień</span>
+            <strong style={S.heroStatValue}>{selectedDayWork}</strong>
+            <small style={S.heroStatDetail}>wyceny + oględziny</small>
+          </div>
+          <div style={S.heroStat}>
+            <span style={S.heroStatLabel}>SLA po terminie</span>
+            <strong style={S.heroStatValue}>{slaOverdue.length}</strong>
+            <small style={S.heroStatDetail}>do rozstrzygnięcia</small>
+          </div>
+          <div style={S.heroStat}>
+            <span style={S.heroStatLabel}>Tryb</span>
+            <strong style={S.heroStatValue}>{calView === 'combined' ? 'Mix' : calView === 'wyceny' ? 'Wyceny' : 'Oględziny'}</strong>
+            <small style={S.heroStatDetail}>widok kalendarza</small>
+          </div>
         </div>
       </div>
 
@@ -431,22 +463,13 @@ export default function WycenaKalendarz() {
       )}
 
       <div style={S.kpiRow}>
-        <div style={S.kpiCard}>
-          <div style={S.kpiLabel}>Miesiąc: wyceny</div>
-          <div style={S.kpiValue}>{monthWyceny.length}</div>
-        </div>
-        <div style={S.kpiCard}>
-          <div style={S.kpiLabel}>Miesiąc: oględziny</div>
-          <div style={S.kpiValue}>{monthOgledziny.length}</div>
-        </div>
-        <div style={S.kpiCard}>
-          <div style={S.kpiLabel}>Do decyzji</div>
-          <div style={{ ...S.kpiValue, color: 'var(--warning)' }}>{monthPending}</div>
-        </div>
-        <div style={S.kpiCard}>
-          <div style={S.kpiLabel}>Zatwierdzone</div>
-          <div style={{ ...S.kpiValue, color: 'var(--accent)' }}>{monthApproved}</div>
-        </div>
+        {calendarStats.map((item) => (
+          <div key={item.label} style={{ ...S.kpiCard, ...(S[`kpiCard_${item.tone}`] || {}) }}>
+            <div style={S.kpiLabel}>{item.label}</div>
+            <div style={S.kpiValue}>{item.value}</div>
+            <div style={S.kpiDetail}>{item.detail}</div>
+          </div>
+        ))}
       </div>
 
       <div style={S.body}>
@@ -822,6 +845,7 @@ const S = {
     color: 'var(--text)',
     position: 'relative',
     overflow: 'hidden',
+    padding: '20px 22px 28px',
   },
   bgOrbTop: { display: 'none' },
   bgOrbBottom: { display: 'none' },
@@ -837,14 +861,52 @@ const S = {
   viewBtn: {
     padding: '6px 12px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
-    color: 'var(--text-sub)',
+    border: '1px solid rgba(15,107,63,0.16)',
+    background: '#ffffff',
+    color: '#335648',
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 850,
     cursor: 'pointer',
   },
-  viewBtnOn: { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--accent-surface)' },
+  viewBtnOn: { borderColor: 'rgba(20,131,79,0.42)', color: '#0f5f3a', background: 'rgba(20,131,79,0.08)' },
+
+  hero: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(260px, 1fr) auto',
+    gap: 16,
+    alignItems: 'start',
+    padding: 18,
+    marginBottom: 14,
+    background: 'linear-gradient(135deg, #0b3825 0%, #0f5f3a 58%, #168a4a 100%)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: 8,
+    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+    position: 'relative',
+    zIndex: 1,
+  },
+  heroMain: { display: 'flex', alignItems: 'flex-start', gap: 14, minWidth: 0 },
+  heroBack: {
+    width: 38,
+    height: 38,
+    display: 'grid',
+    placeItems: 'center',
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.22)',
+    color: '#ffffff',
+    borderRadius: 8,
+    fontSize: 20,
+    cursor: 'pointer',
+    flex: '0 0 auto',
+  },
+  heroEyebrow: { color: '#86efac', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
+  heroTitle: { margin: '4px 0 0', color: '#ffffff', fontSize: 30, lineHeight: 1.08, fontWeight: 950 },
+  heroSub: { marginTop: 8, color: 'rgba(240,253,244,0.82)', fontSize: 13, fontWeight: 750 },
+  heroActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  heroStats: { gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 },
+  heroStat: { background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(255,255,255,0.24)', borderRadius: 8, padding: 12, display: 'grid', gap: 4 },
+  heroStatLabel: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  heroStatValue: { color: 'var(--text)', fontSize: 18, lineHeight: 1.05 },
+  heroStatDetail: { color: 'var(--text-sub)', fontSize: 11, lineHeight: 1.25 },
 
   header: {
     display: 'flex', alignItems: 'center', gap: 16, padding: '16px 18px', marginBottom: 14,
@@ -854,15 +916,15 @@ const S = {
   backBtn: { background: 'none', border: 'none', color: 'var(--accent)', fontSize: 22, cursor: 'pointer', padding: '4px 8px' },
   headerTitle: { fontSize: 24, fontWeight: 850, color: 'var(--text)' },
   headerSub: { fontSize: 13, color: 'var(--text-sub)', marginTop: 2 },
-  addBtn: { padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  addBtn: { padding: '10px 20px', backgroundColor: '#20b768', color: '#062216', border: '1px solid rgba(134,239,172,0.5)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
   linkBtn: {
     padding: '8px 12px',
-    background: 'var(--surface-field)',
-    color: 'var(--text-sub)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
+    background: '#ffffff',
+    color: '#0f5f3a',
+    border: '1px solid rgba(255,255,255,0.25)',
+    borderRadius: 8,
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 850,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
@@ -877,30 +939,34 @@ const S = {
     zIndex: 1,
   },
   kpiCard: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--border)',
-    borderRadius: 14,
-    padding: '10px 12px',
+    background: '#ffffff',
+    border: '1px solid rgba(15,107,63,0.14)',
+    borderRadius: 8,
+    padding: 12,
     boxShadow: 'var(--shadow-sm)',
   },
-  kpiLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' },
-  kpiValue: { marginTop: 5, fontSize: 22, fontWeight: 800, color: 'var(--text)' },
+  kpiCard_good: { borderColor: 'rgba(20,131,79,0.2)' },
+  kpiCard_warning: { borderColor: 'rgba(180,83,9,0.28)', background: 'rgba(255,251,235,0.9)' },
+  kpiCard_danger: { borderColor: 'rgba(220,38,38,0.28)', background: 'rgba(254,242,242,0.9)' },
+  kpiLabel: { fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0 },
+  kpiValue: { marginTop: 5, fontSize: 22, fontWeight: 950, color: 'var(--text)' },
+  kpiDetail: { marginTop: 2, fontSize: 11, color: 'var(--text-sub)', fontWeight: 700 },
 
-  body: { display: 'flex', gap: 20, padding: '20px 0', flexWrap: 'wrap', position: 'relative', zIndex: 1 },
+  body: { display: 'flex', gap: 18, padding: '6px 0 0', flexWrap: 'wrap', position: 'relative', zIndex: 1 },
 
-  calBox: { flex: '1 1 320px', maxWidth: 420, minWidth: 0, background: 'var(--surface-glass)', borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
+  calBox: { flex: '1 1 320px', maxWidth: 430, minWidth: 0, background: '#ffffff', borderRadius: 8, padding: 18, border: '1px solid rgba(15,107,63,0.14)', boxShadow: 'var(--shadow-sm)', alignSelf: 'flex-start', position: 'sticky', top: 16 },
   monthNav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  navBtn: { width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', color: 'var(--accent)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  monthTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)' },
+  navBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#f5faf6', border: '1px solid rgba(15,107,63,0.16)', color: '#0f5f3a', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  monthTitle: { fontSize: 17, fontWeight: 950, color: '#0f5f3a' },
   calGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 },
-  dayHead: { textAlign: 'center', fontSize: 11, fontWeight: '600', color: 'var(--text-muted)', padding: '6px 0' },
-  dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 10, cursor: 'pointer', padding: 2, transition: 'background 0.15s, transform 0.15s', border: '1px solid transparent' },
+  dayHead: { textAlign: 'center', fontSize: 11, fontWeight: 850, color: 'var(--text-muted)', padding: '6px 0' },
+  dayCell: { aspectRatio: '1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: 8, cursor: 'pointer', padding: 2, transition: 'background 0.15s, transform 0.15s', border: '1px solid transparent' },
   blockedCell: {
     background: 'repeating-linear-gradient(-45deg, rgba(239,68,68,0.10), rgba(239,68,68,0.10) 4px, transparent 4px, transparent 7px)',
     border: '1px dashed rgba(239,68,68,0.45)',
   },
-  todayCell: { border: '2px solid var(--accent)' },
-  selCell: { backgroundColor: 'var(--accent)', color: 'var(--on-accent)' },
+  todayCell: { border: '2px solid rgba(32,183,104,0.65)' },
+  selCell: { backgroundColor: '#0f5f3a', color: '#ffffff' },
   emptyCell: { aspectRatio: '1' },
   dayNum: { fontSize: 13, color: 'var(--text-sub)' },
   dotRow: { display: 'flex', gap: 2, marginTop: 2 },
@@ -909,40 +975,40 @@ const S = {
   legenda: { display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 6 },
 
-  dayPanel: { flex: '2 1 320px', minWidth: 0, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
+  dayPanel: { flex: '2 1 320px', minWidth: 0, background: '#ffffff', border: '1px solid rgba(15,107,63,0.14)', borderRadius: 8, padding: 16, boxShadow: 'var(--shadow-sm)' },
   dayPanelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   dayPanelTitle: { fontSize: 18, fontWeight: 'bold', color: 'var(--text)' },
-  dayPanelCount: { fontSize: 13, color: 'var(--text-muted)', backgroundColor: 'var(--surface-field)', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--border)' },
+  dayPanelCount: { fontSize: 13, color: '#0f5f3a', backgroundColor: 'rgba(20,131,79,0.08)', padding: '3px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.18)', fontWeight: 850 },
 
-  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
-  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer' },
+  empty: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#f7fbf8', borderRadius: 8, border: '1px dashed rgba(15,107,63,0.18)', boxShadow: 'none' },
+  addBtnSm: { marginTop: 16, padding: '10px 20px', backgroundColor: '#20b768', color: '#062216', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, cursor: 'pointer' },
 
-  wycenaCard: { background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
+  wycenaCard: { background: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid rgba(15,107,63,0.14)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' },
   wycenaTop: { display: 'flex', gap: 12, justifyContent: 'space-between' },
   wycenaKlient: { fontSize: 15, fontWeight: '600', color: 'var(--text)', marginBottom: 4 },
   wycenaSub: { fontSize: 12, color: 'var(--text-sub)', marginTop: 2 },
-  badge: { fontSize: 11, fontWeight: '600', padding: '3px 10px', borderRadius: 20 },
-  kwota: { fontSize: 14, fontWeight: 'bold', color: 'var(--accent)' },
+  badge: { fontSize: 11, fontWeight: 850, padding: '4px 10px', borderRadius: 8 },
+  kwota: { fontSize: 14, fontWeight: 950, color: '#0f5f3a' },
   wycenaDetail: { marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' },
   detailRow: { display: 'flex', gap: 8, marginBottom: 6, fontSize: 13 },
   detailLabel: { color: 'var(--text-muted)', minWidth: 100 },
   detailVal: { color: 'var(--text)', flex: 1 },
-  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer', fontSize: 13 },
+  openBtn: { marginTop: 8, padding: '8px 16px', backgroundColor: '#0f5f3a', color: '#ffffff', border: '1px solid rgba(15,107,63,0.2)', borderRadius: 8, fontWeight: 850, cursor: 'pointer', fontSize: 13 },
 
   // Modal
-  overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  modal: { background: 'var(--surface-glass)', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-lg)' },
+  overlay: { position: 'fixed', inset: 0, backgroundColor: 'rgba(6,16,11,0.68)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
+  modal: { background: '#ffffff', borderRadius: 8, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto', padding: 28, border: '1px solid rgba(15,107,63,0.14)', boxShadow: '0 28px 70px rgba(11,56,37,0.22)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: 'var(--text)' },
   closeBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', padding: 4 },
 
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  formSection: { backgroundColor: 'var(--surface-field)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--border)' },
+  formSection: { backgroundColor: '#f7fbf8', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid rgba(15,107,63,0.14)' },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: 'var(--accent)', marginBottom: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   fieldWrap: { display: 'flex', flexDirection: 'column', gap: 4 },
-  label: { fontSize: 12, fontWeight: '600', color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  input: { padding: '10px 12px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none' },
+  label: { fontSize: 12, fontWeight: 900, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: 0 },
+  input: { minHeight: 40, padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none' },
 
   ekipyGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   ekipaPill: {
@@ -950,19 +1016,19 @@ const S = {
     alignItems: 'center',
     gap: 6,
     padding: '7px 14px',
-    borderRadius: 20,
+    borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--border)',
-    backgroundColor: 'var(--bg)',
-    color: 'var(--text-sub)',
+    borderColor: 'rgba(15,107,63,0.16)',
+    backgroundColor: '#ffffff',
+    color: '#335648',
     fontSize: 13,
     cursor: 'pointer',
     transition: 'all 0.15s',
-    fontWeight: '500',
+    fontWeight: 850,
   },
 
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
-  cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-sub)', cursor: 'pointer', fontSize: 14 },
-  submitBtn: { padding: '10px 24px', backgroundColor: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 10, fontWeight: 'bold', fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
+  cancelBtn: { padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8, color: '#335648', cursor: 'pointer', fontSize: 14, fontWeight: 850 },
+  submitBtn: { padding: '10px 24px', backgroundColor: '#20b768', color: '#062216', border: '1px solid rgba(20,131,79,0.28)', borderRadius: 8, fontWeight: 950, fontSize: 14, cursor: 'pointer', boxShadow: 'var(--shadow-sm)' },
 };

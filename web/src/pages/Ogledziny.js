@@ -345,8 +345,7 @@ export default function Ogledziny() {
         klientId,
       }), { replace: true });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate, searchParams]);
 
   const openForm = async () => {
     const now = new Date();
@@ -543,6 +542,64 @@ export default function Ogledziny() {
     .sort((a, b) => new Date(b.live_recorded_at || 0).getTime() - new Date(a.live_recorded_at || 0).getTime());
   const fieldDelayRows = fieldLiveRows.filter((o) => o.live_event_type === 'delay');
   const detailProtocol = parseFieldProtocol(detail?.notatki_wyniki);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayRows = trasaList.filter((o) => String(o.data_planowana || '').slice(0, 10) === todayKey);
+  const operationsCards = [
+    {
+      key: 'visible',
+      label: 'Widoczne',
+      value: trasaList.length,
+      detail: filterDate || 'pelna lista',
+      tone: 'good',
+    },
+    {
+      key: 'today',
+      label: 'Dzisiaj',
+      value: todayRows.length,
+      detail: todayKey,
+      tone: todayRows.length ? 'warning' : 'good',
+    },
+    {
+      key: 'live',
+      label: 'Live',
+      value: fieldLiveRows.length + livePoints.length,
+      detail: fieldDelayRows.length ? `${fieldDelayRows.length} opoz. live` : 'sygnaly aktualne',
+      tone: fieldDelayRows.length ? 'warning' : 'good',
+    },
+    {
+      key: 'gps',
+      label: 'GPS braki',
+      value: withoutGpsRows.length,
+      detail: staleSignals.length ? `${staleSignals.length} stary sygnal` : 'przydzial z sygnalem',
+      tone: withoutGpsRows.length ? 'danger' : 'good',
+    },
+  ];
+  const detailHeroStats = detail ? [
+    {
+      label: 'Termin',
+      value: fmtDt(detail.data_planowana),
+      detail: detail.miasto || 'bez miasta',
+      tone: 'good',
+    },
+    {
+      label: 'Przypisanie',
+      value: getAssignmentLabel(detail, detail.ekipa_id ? liveLocationsByTeam[detail.ekipa_id] : null),
+      detail: detail.klient_firma || detail.klient_nazwa || 'brak klienta',
+      tone: 'good',
+    },
+    {
+      label: 'Live teren',
+      value: fieldEventLabel(detail) || 'Brak sygnalu',
+      detail: detail.live_recorded_at ? fmtGpsAge(detail.live_recorded_at) : 'bez ostatniego sygnalu',
+      tone: detail.live_event_type === 'delay' ? 'warning' : fieldEventLabel(detail) ? 'good' : 'danger',
+    },
+    {
+      label: 'Wynik biura',
+      value: detailProtocol ? `${detailProtocol.rows.length} pol` : (detail.notatki_wyniki ? 'Jest notatka' : 'Brak'),
+      detail: detail.status || 'bez statusu',
+      tone: detail.notatki_wyniki ? 'good' : 'warning',
+    },
+  ] : [];
 
   useEffect(() => {
     localStorage.setItem('ogledziny_zone_overrides', JSON.stringify(zoneOverrides));
@@ -1183,7 +1240,7 @@ export default function Ogledziny() {
             <div style={{ maxWidth: 1080, margin: '0 auto', padding: 28 }}>
 
               {/* Nagłówek */}
-              <div style={sec.detailHero}>
+              <div className="ogledziny-detail-hero" style={sec.detailHero}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                     <span style={sec.heroEyebrow}>Paszport oględzin</span>
@@ -1506,8 +1563,8 @@ function Chip({ children, active, onClick, color }) {
 
 function Card({ title, children }) {
   return (
-    <div style={{ background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', padding: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
+    <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.13)', boxShadow: 'var(--shadow-sm)', padding: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 950, color: 'var(--text-muted)', letterSpacing: 0, marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
   );
@@ -1526,7 +1583,7 @@ function Row({ label, value }) {
 function FormField({ label, children, style }) {
   return (
     <div style={style}>
-      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0 }}>{label}</label>
       {children}
     </div>
   );
@@ -1541,12 +1598,12 @@ const btn = {
   },
   secondary: {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
-    background: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)',
-    borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    background: '#ffffff', color: '#0f5f3a', border: '1px solid rgba(20,131,79,0.24)',
+    borderRadius: 8, fontSize: 12, fontWeight: 850, cursor: 'pointer', boxShadow: 'var(--shadow-xs)',
   },
   secondaryGhost: {
-    padding: '9px 18px', background: 'var(--surface-field)', color: 'var(--text-sub)',
-    border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    padding: '9px 18px', background: '#ffffff', color: '#0f5f3a',
+    border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, fontSize: 13, fontWeight: 850, cursor: 'pointer',
   },
   danger: {
     padding: '7px 13px', background: 'rgba(255,127,169,0.14)', color: 'var(--danger)',
@@ -1556,13 +1613,27 @@ const btn = {
 
 const inp = {
   base: {
-    width: '100%', padding: '9px 11px', background: 'var(--surface-field)',
-    border: '1px solid var(--border)', borderRadius: 8,
+    width: '100%', minHeight: 40, padding: '9px 11px', background: '#ffffff',
+    border: '1px solid rgba(15,107,63,0.16)', borderRadius: 8,
     color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   },
 };
 
 const sec = {
+  detailHero: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 18,
+    flexWrap: 'wrap',
+    background: 'linear-gradient(135deg, #0b3825 0%, #0f5f3a 56%, #168a4a 100%)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    borderRadius: 8,
+    padding: 18,
+    marginBottom: 12,
+    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+  },
+  heroEyebrow: { color: '#86efac', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
   commandGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginBottom: 10 },
   commandCard: { background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)', padding: '7px 8px', boxShadow: 'var(--shadow-xs)', display: 'grid', gap: 2 },
   commandCard_good: { borderColor: 'rgba(20,131,79,0.22)' },
@@ -1580,20 +1651,20 @@ const sec = {
   detailStatValue: { color: 'var(--text)', fontSize: 15, lineHeight: 1.2 },
   detailStatDetail: { color: 'var(--text-sub)', fontSize: 11, lineHeight: 1.3 },
   wrap: {
-    background: 'var(--surface-glass)',
+    background: '#ffffff',
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: 'var(--glass-border)',
+    borderColor: 'rgba(15,107,63,0.13)',
     padding: 16,
     marginBottom: 16,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: 'var(--shadow-sm)',
   },
   header: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
-  title: { fontSize: 13, fontWeight: 700, color: 'var(--text)' },
+  title: { fontSize: 13, fontWeight: 900, color: 'var(--text)' },
   row: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-    background: 'var(--surface-field)', borderRadius: 8, border: '1px solid var(--border)',
+    background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,107,63,0.13)',
   },
 };
 
@@ -1603,9 +1674,9 @@ const modal = {
     alignItems: 'center', justifyContent: 'center', zIndex: 500,
   },
   box: {
-    width: '90%', maxWidth: 600, background: 'var(--surface-glass)',
-    borderRadius: 8, border: '1px solid var(--glass-border)',
-    boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column',
+    width: '90%', maxWidth: 600, background: '#ffffff',
+    borderRadius: 8, border: '1px solid rgba(15,107,63,0.14)',
+    boxShadow: '0 28px 70px rgba(11,56,37,0.22)', display: 'flex', flexDirection: 'column',
     maxHeight: '90vh',
   },
   header: {

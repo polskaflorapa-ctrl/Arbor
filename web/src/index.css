@@ -3759,3 +3759,21 @@ button.btn-primary,
 .clients-client-hero h1 {
   color: #ffffff !important;
 }
+
+.ogledziny-detail-hero h1 {
+  color: #ffffff !important;
+}
+
+.wycena-calendar-hero h1 {
+  color: #ffffff !important;
+}
+
+@media (max-width: 700px) {
+  .wycena-calendar-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .wycena-calendar-hero-stats {
+    grid-template-columns: 1fr !important;
+  }
+}
