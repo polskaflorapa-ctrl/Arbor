@@ -1102,13 +1102,16 @@ export default function Telefonia() {
 
 const s = {
   root: {
+    display: 'flex',
     minHeight: '100vh',
     background: 'var(--bg)',
     color: 'var(--text)',
   },
   content: {
-    marginLeft: 252,
+    flex: 1,
+    minWidth: 0,
     padding: '22px 24px',
+    overflowX: 'hidden',
   },
   panel: {
     background: 'var(--surface-glass)',
