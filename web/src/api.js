@@ -5,6 +5,7 @@
  */
 import axios from 'axios';
 import { getReactApiBase } from './utils/apiBase';
+import { resetAuthSession } from './utils/authSession';
 import { getStoredToken } from './utils/storedToken';
 import {
   getMockData,
@@ -28,7 +29,6 @@ import {
 
 /** Vite dev: API_URL=/api + proxy z `vite.config.js` (ARBOR_API_PROXY_TARGET) omija CORS. */
 const API_URL = getReactApiBase();
-let isRedirectingToLogin = false;
 const API_URL_WITHOUT_API_SUFFIX = API_URL.replace(/\/api\/?$/, '');
 const HAS_VALID_API_FALLBACK_BASE =
   Boolean(API_URL_WITHOUT_API_SUFFIX) &&
@@ -38,6 +38,8 @@ const MOCK_OPS_EVENTS_KEY = 'arbor-test-mode-ops-action-events';
 const MOCK_ROUTE_BRIEF_STATUSES_KEY = 'arbor-test-mode-route-brief-statuses';
 const MOCK_OGLEDZINY_STATUS_OVERRIDES_KEY = 'arbor-test-mode-ogledziny-status-overrides';
 const MOCK_OGLEDZINY_DELETED_KEY = 'arbor-test-mode-ogledziny-deleted';
+const MOCK_BRANCH_GOALS_KEY = 'arbor-test-mode-branch-goals';
+const MOCK_BRANCH_SALES_KEY = 'arbor-test-mode-branch-sales';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -153,6 +155,28 @@ function saveMockRouteBriefStatus(status) {
 function mockRouteBriefRecipientConfirmed(recipient = {}) {
   const status = String(recipient.status || '').toLowerCase();
   return Boolean(recipient.confirmed_at) || (status && status !== 'nowe');
+}
+
+function getStoredMockAuthUser() {
+  if (typeof localStorage === 'undefined') return getTestUser('dyrektor');
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    if (user && typeof user === 'object') {
+      let permissions = user.permissions || {};
+      try {
+        permissions = {
+          ...permissions,
+          ...(JSON.parse(localStorage.getItem('permissions') || '{}') || {}),
+        };
+      } catch {
+        // Keep user permissions only.
+      }
+      return { ...user, permissions };
+    }
+  } catch {
+    // Fall through to the default test user.
+  }
+  return getTestUser('dyrektor');
 }
 
 function countBy(rows, key) {
@@ -405,6 +429,7 @@ function buildMockOgledzinyRow(task = {}, index = 0, overrides = {}) {
     wyceniajacy_id: task.wyceniajacy_id || 9004,
     wyceniajacy_nazwa: task.wyceniajacy_nazwa || 'Test Specjalista Wyceny',
     ekipa_id: task.ekipa_id || null,
+    oddzial_id: task.oddzial_id || null,
     data_planowana: plannedDate,
     adres: task.adres || 'ul. Testowa 2',
     miasto: task.miasto || 'Krakow',
@@ -475,6 +500,123 @@ function mockDeleteOgledziny(id) {
   return { deleted: true, id: Number(id) || id };
 }
 
+function mockMonthParts(config = {}, body = {}) {
+  const now = new Date();
+  const rok = Number(body.rok || getRequestParam(config, 'rok') || now.getFullYear());
+  const miesiac = Number(body.miesiac || getRequestParam(config, 'miesiac') || now.getMonth() + 1);
+  return { rok, miesiac };
+}
+
+function mockPeriodKey(row = {}) {
+  return `${row.oddzial_id}_${row.rok}_${row.miesiac}`;
+}
+
+function getStoredMockRows(key) {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStoredMockRows(key, rowsByKey) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(key, JSON.stringify(rowsByKey || {}));
+}
+
+function getBranchMonthTasks(oddzialId, rok, miesiac) {
+  return (getMockData('/tasks/wszystkie') || []).filter((task) => {
+    if (String(task.oddzial_id || '') !== String(oddzialId)) return false;
+    const raw = String(task.data_planowana || task.data_zaplanowana || '');
+    if (!raw) return false;
+    const dt = new Date(raw);
+    return dt.getFullYear() === Number(rok) && dt.getMonth() + 1 === Number(miesiac);
+  });
+}
+
+function buildMockBranchGoals(config = {}) {
+  const { rok, miesiac } = mockMonthParts(config);
+  const stored = getStoredMockRows(MOCK_BRANCH_GOALS_KEY);
+  return (getMockData('/oddzialy') || []).map((branch) => {
+    const tasks = getBranchMonthTasks(branch.id, rok, miesiac);
+    const revenuePlan = tasks.reduce((sum, task) => sum + Number(task.wartosc_planowana || task.budzet || 0), 0);
+    const base = {
+      id: Number(`${branch.id}${String(rok).slice(-2)}${String(miesiac).padStart(2, '0')}`),
+      oddzial_id: Number(branch.id),
+      rok,
+      miesiac,
+      plan_zlecen: Math.max(tasks.length + 2, branch.id === 1 ? 6 : 4),
+      plan_obrotu: Math.max(revenuePlan, branch.id === 1 ? 18000 : 12000),
+      plan_marzy: 24,
+      updated_at: new Date().toISOString(),
+    };
+    return { ...base, ...(stored[mockPeriodKey(base)] || {}) };
+  });
+}
+
+function saveMockBranchGoal(body = {}, config = {}) {
+  const { rok, miesiac } = mockMonthParts(config, body);
+  const row = {
+    id: Number(`${body.oddzial_id}${String(rok).slice(-2)}${String(miesiac).padStart(2, '0')}`),
+    oddzial_id: Number(body.oddzial_id),
+    rok,
+    miesiac,
+    plan_zlecen: Number(body.plan_zlecen || 0),
+    plan_obrotu: Number(body.plan_obrotu || 0),
+    plan_marzy: Number(body.plan_marzy || 0),
+    updated_at: new Date().toISOString(),
+  };
+  const stored = getStoredMockRows(MOCK_BRANCH_GOALS_KEY);
+  stored[mockPeriodKey(row)] = row;
+  saveStoredMockRows(MOCK_BRANCH_GOALS_KEY, stored);
+  return row;
+}
+
+function buildMockBranchSales(config = {}) {
+  const { rok, miesiac } = mockMonthParts(config);
+  const stored = getStoredMockRows(MOCK_BRANCH_SALES_KEY);
+  return (getMockData('/oddzialy') || []).map((branch) => {
+    const tasks = getBranchMonthTasks(branch.id, rok, miesiac);
+    const inspections = buildMockOgledzinyList(config).filter((item) => String(item.oddzial_id || branch.id) === String(branch.id));
+    const calls = Math.max(tasks.length * 3 + inspections.length * 2, branch.id === 1 ? 18 : 10);
+    const base = {
+      id: Number(`${branch.id}${String(rok).slice(-2)}${String(miesiac).padStart(2, '0')}9`),
+      oddzial_id: Number(branch.id),
+      rok,
+      miesiac,
+      calls_total: calls,
+      calls_answered: Math.max(0, calls - 3),
+      calls_missed: Math.min(3, calls),
+      leads_new: Math.max(tasks.length + inspections.length, branch.id === 1 ? 7 : 4),
+      meetings_booked: Math.max(inspections.length, branch.id === 1 ? 3 : 2),
+      updated_at: new Date().toISOString(),
+    };
+    return { ...base, ...(stored[mockPeriodKey(base)] || {}) };
+  });
+}
+
+function saveMockBranchSales(body = {}, config = {}) {
+  const { rok, miesiac } = mockMonthParts(config, body);
+  const row = {
+    id: Number(`${body.oddzial_id}${String(rok).slice(-2)}${String(miesiac).padStart(2, '0')}9`),
+    oddzial_id: Number(body.oddzial_id),
+    rok,
+    miesiac,
+    calls_total: Number(body.calls_total || 0),
+    calls_answered: Number(body.calls_answered || 0),
+    calls_missed: Number(body.calls_missed || 0),
+    leads_new: Number(body.leads_new || 0),
+    meetings_booked: Number(body.meetings_booked || 0),
+    updated_at: new Date().toISOString(),
+  };
+  const stored = getStoredMockRows(MOCK_BRANCH_SALES_KEY);
+  stored[mockPeriodKey(row)] = row;
+  saveStoredMockRows(MOCK_BRANCH_SALES_KEY, stored);
+  return row;
+}
+
 function getTestUserForLogin(login) {
   const normalized = String(login || '').trim().toLowerCase();
   if (normalized.includes('dyrektor')) return getTestUser('dyrektor');
@@ -501,6 +643,63 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/auth/me' && method === 'get') {
+    return {
+      data: getStoredMockAuthUser(),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/oddzialy/cele' && method === 'get') {
+    return {
+      data: buildMockBranchGoals(config),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/oddzialy/cele' && method === 'post') {
+    const body = parseJsonData(config.data);
+    return {
+      data: saveMockBranchGoal(body, config),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/oddzialy/sprzedaz' && method === 'get') {
+    return {
+      data: buildMockBranchSales(config),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/oddzialy/sprzedaz' && method === 'post') {
+    const body = parseJsonData(config.data);
+    return {
+      data: saveMockBranchSales(body, config),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/notifications' && method === 'post') {
     const body = parseJsonData(config.data);
     return {
@@ -512,6 +711,92 @@ function getTestModeMockResponse(config) {
       },
       status: 201,
       statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/notifications' && method === 'get') {
+    const routeBriefNotifications = getMockRouteBriefStatuses()
+      .flatMap((status) => (status.recipients || []).map((recipient) => ({
+        id: recipient.notification_id || `${status.brief_id}-${recipient.user_id}`,
+        typ: 'Odprawa ekipy',
+        tresc: `Odprawa ekipy - ${status.team_name || `Ekipa #${status.team_id}`}`,
+        status: mockRouteBriefRecipientConfirmed(recipient) ? 'Odczytane' : 'Nowe',
+        data_utworzenia: status.sent_at || new Date().toISOString(),
+        data_odczytu: recipient.confirmed_at || null,
+        dispatch_route_brief_id: status.brief_id,
+        dispatch_route_team_id: status.team_id,
+        dispatch_route_team_name: status.team_name,
+      })));
+    const baseData = getMockData('/notifications') || {};
+    const base = Array.isArray(baseData) ? baseData : (baseData.notifications || []);
+    const notifications = [...routeBriefNotifications, ...base].slice(0, 50);
+    return {
+      data: {
+        notifications,
+        unread_count: notifications.filter((item) => item.status === 'Nowe' || item.read === false).length,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/notifications/odczytaj-wszystkie' && method === 'put') {
+    return {
+      data: {
+        message: 'Wszystkie odczytane',
+        updated: 0,
+        skipped_route_briefs: getMockRouteBriefStatuses()
+          .reduce((sum, status) => sum + (status.recipients || []).filter((recipient) => !mockRouteBriefRecipientConfirmed(recipient)).length, 0),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mNotificationRead = path.match(/^\/notifications\/(\d+)\/odczytaj$/);
+  if (mNotificationRead && method === 'put') {
+    const notificationId = Number(mNotificationRead[1]);
+    const isRouteBriefRead = getMockRouteBriefStatuses()
+      .some((status) => (status.recipients || [])
+        .some((recipient) => Number(recipient.notification_id) === notificationId));
+    if (isRouteBriefRead) {
+      return {
+        data: {
+          error: 'Odprawa wymaga osobnego potwierdzenia',
+          requires_route_brief_confirmation: true,
+        },
+        status: 409,
+        statusText: 'Conflict',
+        headers: {},
+        config,
+        request: {},
+      };
+    }
+    return {
+      data: { message: 'Odczytano', id: notificationId },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mNotificationDelete = path.match(/^\/notifications\/(\d+)$/);
+  if (mNotificationDelete && method === 'delete') {
+    return {
+      data: { message: 'Powiadomienie usuniete', id: Number(mNotificationDelete[1]) },
+      status: 200,
+      statusText: 'OK',
       headers: {},
       config,
       request: {},
@@ -846,10 +1131,15 @@ function getTestModeMockResponse(config) {
       .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
       .forEach((event) => {
         const id = event?.metadata?.recommendation_id || event?.recommendation_id;
-        if (id) latestFeedbackToday.set(id, event?.metadata?.decision || event?.decision);
+        if (id) {
+          latestFeedbackToday.set(id, {
+            decision: event?.metadata?.decision || event?.decision,
+            source: event?.metadata?.source || event?.source || '',
+          });
+        }
       });
     const hiddenToday = new Set([...latestFeedbackToday.entries()]
-      .filter(([, decision]) => ['dismissed', 'snoozed'].includes(decision))
+      .filter(([, feedback]) => ['dismissed', 'snoozed'].includes(feedback?.decision))
       .map(([id]) => id));
     const reasonLabels = {
       dojazd: 'Dojazd',
@@ -1012,7 +1302,16 @@ function getTestModeMockResponse(config) {
     }
     const rankedRecommendations = recommendations
       .sort((a, b) => b.score - a.score)
-      .map((item, index) => ({ ...item, rank: index + 1 }));
+      .map((item, index) => {
+        const feedback = latestFeedbackToday.get(item.id);
+        return {
+          ...item,
+          rank: index + 1,
+          feedback_decision: feedback?.decision || null,
+          feedback_source: feedback?.source || null,
+          accepted_today: feedback?.decision === 'accepted' && feedback?.source === 'action',
+        };
+      });
     const hiddenRecommendations = rankedRecommendations.filter((item) => hiddenToday.has(item.id));
     const sorted = rankedRecommendations
       .filter((item) => !hiddenToday.has(item.id))
@@ -1049,6 +1348,7 @@ function getTestModeMockResponse(config) {
           plan_tasks: rows.length,
           memory_rows: events.length,
           hidden_today: hiddenRecommendations.length,
+          accepted_today: sorted.filter((item) => item.accepted_today).length,
         },
         recommendations: sorted,
         hidden_recommendations: hiddenRecommendations,
@@ -1067,6 +1367,7 @@ function getTestModeMockResponse(config) {
     const body = parseJsonData(config.data);
     const date = String(body.date || getRequestDate(config));
     const decision = ['accepted', 'dismissed', 'snoozed'].includes(body.decision) ? body.decision : 'dismissed';
+    const source = body.source || (decision === 'dismissed' ? 'hide' : decision === 'snoozed' ? 'snooze' : 'manual');
     const event = addMockOpsEvent({
       task_id: null,
       oddzial_id: body.oddzial_id || null,
@@ -1074,9 +1375,11 @@ function getTestModeMockResponse(config) {
       note: body.note || '',
       recommendation_id: decodeURIComponent(mRecommendationFeedback[1]),
       decision,
+      source,
       metadata: {
         recommendation_id: decodeURIComponent(mRecommendationFeedback[1]),
         decision,
+        source,
         date,
         target_path: body.target_path || null,
         task_ids: Array.isArray(body.task_ids) ? body.task_ids : [],
@@ -1088,6 +1391,7 @@ function getTestModeMockResponse(config) {
         feedback: {
           recommendation_id: decodeURIComponent(mRecommendationFeedback[1]),
           decision,
+          source,
           date,
           oddzial_id: body.oddzial_id || null,
         },
@@ -1281,6 +1585,67 @@ function getTestModeMockResponse(config) {
         recipients: [team?.brygadzista_id || 1],
         recipient_details: [recipient],
         status,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mRouteBriefConfirm = path.match(/^\/dispatch\/route-brief\/(\d+)\/confirm$/);
+  if (mRouteBriefConfirm && method === 'post') {
+    const briefId = Number(mRouteBriefConfirm[1]);
+    const now = new Date().toISOString();
+    const user = getStoredMockAuthUser();
+    const status = getMockRouteBriefStatuses()
+      .find((item) => String(item.brief_id) === String(briefId));
+    if (!status) {
+      return {
+        data: { error: 'Odprawa nie istnieje' },
+        status: 404,
+        statusText: 'Not Found',
+        headers: {},
+        config,
+        request: {},
+      };
+    }
+    const recipients = Array.isArray(status.recipients) ? status.recipients : [];
+    const userRecipient = recipients.find((recipient) => String(recipient.user_id) === String(user?.id));
+    const targetRecipient = userRecipient || recipients[0];
+    if (!targetRecipient) {
+      return {
+        data: { error: 'Odprawa nie ma odbiorcy do potwierdzenia' },
+        status: 409,
+        statusText: 'Conflict',
+        headers: {},
+        config,
+        request: {},
+      };
+    }
+    const updatedRecipients = recipients.map((recipient) => (
+      recipient === targetRecipient || String(recipient.user_id) === String(targetRecipient.user_id)
+        ? { ...recipient, status: 'Odczytane', confirmed_at: recipient.confirmed_at || now }
+        : recipient
+    ));
+    const confirmed = updatedRecipients.filter(mockRouteBriefRecipientConfirmed).length;
+    const nextStatus = saveMockRouteBriefStatus({
+      ...status,
+      confirmed,
+      pending: Math.max(0, updatedRecipients.length - confirmed),
+      recipients: updatedRecipients,
+    });
+    return {
+      data: {
+        message: 'Odprawa potwierdzona',
+        brief_id: briefId,
+        team_id: status.team_id,
+        team_name: status.team_name,
+        notification_id: targetRecipient.notification_id,
+        status: 'Odczytane',
+        confirmed_at: updatedRecipients.find((recipient) => String(recipient.user_id) === String(targetRecipient.user_id))?.confirmed_at || now,
+        route_status: nextStatus,
       },
       status: 200,
       statusText: 'OK',
@@ -1822,14 +2187,7 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-
-      const isOnLoginPage = window.location.pathname === '/';
-      if (!isOnLoginPage && !isRedirectingToLogin) {
-        isRedirectingToLogin = true;
-        window.location.assign('/');
-      }
+      resetAuthSession();
     }
 
     if (process.env.NODE_ENV !== 'production' && error.response?.status >= 400) {

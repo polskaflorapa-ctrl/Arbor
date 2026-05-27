@@ -5,7 +5,7 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.9",
+    "@mui/icons-material": "^7.3.11",
     "@mui/material": "^7.3.9",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -28,9 +28,9 @@
   },
   "scripts": {
     "clean:cache": "node -e \"const fs=require('fs');['node_modules/.cache','node_modules/.vite','build'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true});}catch(e){}});\"",
-    "start": "vite --host 0.0.0.0",
-    "preview": "npm run build && vite preview --host 0.0.0.0 --port 4173",
-    "build": "vite build",
+    "start": "node ./node_modules/vite/bin/vite.js --configLoader runner --host 0.0.0.0",
+    "preview": "npm run build && node ./node_modules/vite/bin/vite.js --configLoader runner preview --host 0.0.0.0 --port 4173",
+    "build": "node ./node_modules/vite/bin/vite.js --configLoader runner build",
     "verify": "npm run build && npm test",
     "test": "node ./scripts/run-vitest.cjs run",
     "test:watch": "node ./scripts/run-vitest.cjs watch",

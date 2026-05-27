@@ -30,6 +30,7 @@ export default function Powiadomienia() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [sending, setSending] = useState(false);
+  const [confirmingBrief, setConfirmingBrief] = useState('');
   const { message: msg, showMessage: showMsg } = useTimedMessage();
   const [unreadCount, setUnreadCount] = useState(0);
   const [form, setForm] = useState({
@@ -107,13 +108,39 @@ export default function Powiadomienia() {
   const odczytajWszystkie = async () => {
     try {
       const token = getStoredToken();
-      await api.put(`/notifications/odczytaj-wszystkie`, {}, {
+      const res = await api.put(`/notifications/odczytaj-wszystkie`, {}, {
         headers: authHeaders(token)
       });
-      showMsg(successMessage(t('pages.powiadomienia.markAllSuccess')));
+      const skippedRouteBriefs = Number(res.data?.skipped_route_briefs || 0);
+      showMsg(successMessage(
+        skippedRouteBriefs
+          ? `Zwykle powiadomienia oznaczone. ${skippedRouteBriefs} odpraw wymaga osobnego potwierdzenia.`
+          : t('pages.powiadomienia.markAllSuccess')
+      ));
       loadData();
     } catch (err) {
       showMsg(errorMessage(t('pages.powiadomienia.markAllError')));
+    }
+  };
+
+  const isRouteBriefNotification = (notification = {}) => (
+    notification.typ === 'Odprawa ekipy' && notification.dispatch_route_brief_id
+  );
+
+  const confirmRouteBrief = async (notification) => {
+    if (!isRouteBriefNotification(notification)) return;
+    setConfirmingBrief(String(notification.id));
+    try {
+      const token = getStoredToken();
+      await api.post(`/dispatch/route-brief/${notification.dispatch_route_brief_id}/confirm`, {}, {
+        headers: authHeaders(token)
+      });
+      showMsg(successMessage('Odprawa potwierdzona.'));
+      loadData();
+    } catch (err) {
+      showMsg(errorMessage('Nie udalo sie potwierdzic odprawy.'));
+    } finally {
+      setConfirmingBrief('');
     }
   };
 
@@ -150,6 +177,12 @@ export default function Powiadomienia() {
   })), [t]);
 
   const getTypInfo = (typ) => {
+    if (typ === 'Odprawa ekipy') {
+      return { label: 'Odprawa ekipy', color: '#0f766e', bg: '#ccfbf1' };
+    }
+    if (typ === 'Przypomnienie odprawy') {
+      return { label: 'Przypomnienie odprawy', color: '#b45309', bg: '#fef3c7' };
+    }
     return typChoices.find((x) => x.value === typ) || {
       label: t(`notifType.${typ}`, { defaultValue: typ }),
       color: 'var(--text-muted)',
@@ -157,6 +190,7 @@ export default function Powiadomienia() {
     };
   };
   const isNotificationValid = Boolean(form.to_user_id);
+  const routeBriefPendingCount = powiadomienia.filter((n) => isRouteBriefNotification(n) && n.status === 'Nowe').length;
 
   return (
     <div style={styles.container}>
@@ -252,6 +286,13 @@ export default function Powiadomienia() {
           </div>
         )}
 
+        {routeBriefPendingCount > 0 && (
+          <div style={styles.routeBriefNotice}>
+            <strong>Odprawy do potwierdzenia: {routeBriefPendingCount}</strong>
+            <span>Nie zamykam ich przyciskiem "oznacz wszystkie", zeby przypadkiem nie potwierdzic odprawy bez przeczytania.</span>
+          </div>
+        )}
+
         {/* Lista powiadomień */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
@@ -273,6 +314,7 @@ export default function Powiadomienia() {
             <div>
               {powiadomienia.map(n => {
                 const typInfo = getTypInfo(n.typ);
+                const isRouteBrief = isRouteBriefNotification(n);
                 return (
                   <div
                     key={n.id}
@@ -304,13 +346,21 @@ export default function Powiadomienia() {
                           {n.od_kogo ? `${t('sidebar.fromPrefix')} ${n.od_kogo}` : t('pages.powiadomienia.fromSystem')}
                         </span>
                         <span style={{...styles.notifStatus, color: n.status === 'Nowe' ? '#F9A825' : '#4CAF50'}}>
-                          {n.status === 'Nowe' ? t('pages.powiadomienia.statusNew') : t('pages.powiadomienia.statusRead')}
+                          {n.status === 'Nowe'
+                            ? t('pages.powiadomienia.statusNew')
+                            : isRouteBrief ? 'Potwierdzona' : t('pages.powiadomienia.statusRead')}
                         </span>
                       </div>
                       <div style={{...styles.notifTyp, color: typInfo.color}}>
                         {typInfo.label}
                       </div>
                       {n.tresc && <div style={styles.notifTresc}>"{n.tresc}"</div>}
+                      {isRouteBrief && (
+                        <div style={styles.routeBriefMeta}>
+                          <strong>{n.dispatch_route_team_name || 'Ekipa'}</strong>
+                          <span>Potwierdzenie odprawy trafia do statusu Auto-Dispatch.</span>
+                        </div>
+                      )}
                       {n.klient_nazwa && (
                         <div
                           style={styles.notifTask}
@@ -322,8 +372,17 @@ export default function Powiadomienia() {
                       <div style={styles.notifFooter}>
                         <span style={styles.notifTime}>{fmtTime(n.data_utworzenia)}</span>
                         <div style={styles.notifActions}>
-                          {n.status === 'Nowe' && (
+                          {n.status === 'Nowe' && (isRouteBrief ? (
+                            <button
+                              style={styles.confirmBriefBtn}
+                              onClick={() => confirmRouteBrief(n)}
+                              disabled={confirmingBrief === String(n.id)}
+                            >
+                              {confirmingBrief === String(n.id) ? 'Potwierdzam...' : 'Potwierdz odprawe'}
+                            </button>
+                          ) : (
                             <button style={styles.readBtn} onClick={() => odczytaj(n.id)}>{t('pages.powiadomienia.markRead')}</button>
+                          )
                           )}
                           <button style={styles.deleteBtn} onClick={() => usunPowiadomienie(n.id)}>{t('pages.powiadomienia.delete')}</button>
                         </div>
@@ -370,6 +429,7 @@ const styles = {
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 },
   cancelBtn: { padding: '10px 20px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 14, transition: 'all 0.2s' },
   submitBtn: { padding: '10px 24px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-1px)' } },
+  routeBriefNotice: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14, padding: '10px 12px', border: '1px solid #99f6e4', borderRadius: 8, background: '#f0fdfa', color: '#0f766e', fontSize: 13 },
   card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)' },
   cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 },
@@ -386,10 +446,12 @@ const styles = {
   notifStatus: { fontSize: 11, fontWeight: '600' },
   notifTyp: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   notifTresc: { fontSize: 13, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic', backgroundColor: 'var(--surface-glass)', padding: '8px 12px', borderRadius: 8 },
+  routeBriefMeta: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8, padding: '7px 9px', borderRadius: 8, border: '1px solid #99f6e4', background: '#f0fdfa', color: '#0f766e', fontSize: 12 },
   notifTask: { fontSize: 12, color: 'var(--accent)', cursor: 'pointer', marginBottom: 8, display: 'inline-block', backgroundColor: 'var(--surface-field)', padding: '4px 10px', borderRadius: 6, '&:hover': { textDecoration: 'underline' } },
   notifFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 8 },
   notifTime: { fontSize: 11, color: 'var(--text-muted)' },
   notifActions: { display: 'flex', gap: 8 },
   readBtn: { padding: '4px 10px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: 'var(--border)' } },
+  confirmBriefBtn: { padding: '5px 10px', backgroundColor: '#ccfbf1', color: '#0f766e', border: '1px solid #5eead4', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 800, transition: 'all 0.2s' },
   deleteBtn: { padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: '500', transition: 'all 0.2s', '&:hover': { backgroundColor: '#FFCDD2' } }
 };

@@ -3768,7 +3768,25 @@ button.btn-primary,
   color: #ffffff !important;
 }
 
+.dashboard-command-hero,
+.dashboard-command-hero * {
+  letter-spacing: 0 !important;
+}
+
+.dashboard-decision-strip > * {
+  min-width: 0 !important;
+}
+
 @media (max-width: 700px) {
+  .dashboard-command-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-hero-stats,
+  .dashboard-decision-strip {
+    grid-template-columns: 1fr !important;
+  }
+
   .wycena-calendar-hero {
     grid-template-columns: 1fr !important;
   }

@@ -350,7 +350,7 @@ export default function Kierownik() {
     }
   }, [cockpitDate, filtrOddzial, loadCockpit, loadData, planActionDrafts, showMsg, user]);
 
-  const recordRecommendationDecision = useCallback(async (recommendation, decision, note = '') => {
+  const recordRecommendationDecision = useCallback(async (recommendation, decision, note = '', source = '') => {
     if (!recommendation?.id) return null;
     const token = getStoredToken();
     const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
@@ -361,6 +361,7 @@ export default function Kierownik() {
       target_path: recommendation.target_path || '',
       task_ids: recommendation.task_ids || [],
       note: note || recommendation.title || '',
+      source,
     }, {
       headers: authHeaders(token),
     });
@@ -373,7 +374,7 @@ export default function Kierownik() {
     if (['open_map', 'open_tasks'].includes(recommendation.action_kind)) {
       setPlanActionSaving(key);
       try {
-        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`);
+        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`, 'action');
       } catch {
         // Navigation should not be blocked by auxiliary feedback telemetry.
       } finally {
@@ -389,7 +390,7 @@ export default function Kierownik() {
     if (matchingTasks.length === 0) {
       setPlanActionSaving(key);
       try {
-        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`);
+        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`, 'action');
       } catch {
         // Navigation should not be blocked by auxiliary feedback telemetry.
       } finally {
@@ -428,12 +429,12 @@ export default function Kierownik() {
           headers: authHeaders(token),
         })));
       } else {
-        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`);
+        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`, 'action');
         navigate(recommendation.target_path || '/kierownik');
         return;
       }
 
-      await recordRecommendationDecision(recommendation, 'accepted', `Wykonano: ${recommendation.title || ''}`);
+      await recordRecommendationDecision(recommendation, 'accepted', `Wykonano: ${recommendation.title || ''}`, 'action');
       showMsg(successMessage(`Wykonano: ${recommendation.title}`));
       const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
       await Promise.all([
@@ -452,7 +453,7 @@ export default function Kierownik() {
     const key = `recommendation-hide:${recommendation.id}`;
     setPlanActionSaving(key);
     try {
-      const result = await recordRecommendationDecision(recommendation, 'dismissed');
+      const result = await recordRecommendationDecision(recommendation, 'dismissed', '', 'hide');
       setActionRecommendations((current) => withRecommendationVisibility(current, recommendation, true));
       showMsg(successMessage('Rekomendacja ukryta na dzis.'));
       await loadCockpit(user, cockpitDate, result?.oddzialForCockpit);
@@ -468,7 +469,7 @@ export default function Kierownik() {
     const key = `recommendation-restore:${recommendation.id}`;
     setPlanActionSaving(key);
     try {
-      const result = await recordRecommendationDecision(recommendation, 'accepted');
+      const result = await recordRecommendationDecision(recommendation, 'accepted', '', 'restore');
       setActionRecommendations((current) => withRecommendationVisibility(current, recommendation, false));
       showMsg(successMessage('Rekomendacja przywrocona.'));
       await loadCockpit(user, cockpitDate, result?.oddzialForCockpit);
@@ -754,7 +755,7 @@ export default function Kierownik() {
                 Sugerowane ruchy
               </div>
               <span style={styles.planRealDate}>
-                {actionRecommendationSummary.high ?? 0} pilne / {actionRecommendationSummary.actionable ?? 0} wykonalne / {actionRecommendationSummary.hidden_today ?? 0} ukryte
+                {actionRecommendationSummary.high ?? 0} pilne / {actionRecommendationSummary.actionable ?? 0} wykonalne / {actionRecommendationSummary.accepted_today ?? 0} podjete / {actionRecommendationSummary.hidden_today ?? 0} ukryte
               </span>
             </div>
             {actionRecommendationItems.length === 0 ? (
@@ -775,6 +776,7 @@ export default function Kierownik() {
                         <span style={styles.recommendationBody}>
                           <strong>{item.title}</strong>
                           <small>{item.rationale}</small>
+                          {item.accepted_today ? <em style={styles.recommendationAccepted}>Podjete dzis</em> : null}
                         </span>
                       </div>
                       <div style={styles.recommendationActionText}>{item.suggested_action}</div>
@@ -1187,6 +1189,7 @@ const styles = {
   recommendationTop: { display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 },
   recommendationRank: { minWidth: 28, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 950, flexShrink: 0 },
   recommendationBody: { minWidth: 0, display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12 },
+  recommendationAccepted: { justifySelf: 'start', padding: '2px 6px', borderRadius: 7, background: 'rgba(34,197,94,0.12)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.24)', fontSize: 10, fontStyle: 'normal', fontWeight: 850 },
   recommendationActionText: { color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.35 },
   recommendationPreview: { display: 'grid', gap: 4, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)' },
   recommendationPreviewTitle: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0 },

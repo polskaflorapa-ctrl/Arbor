@@ -5,7 +5,8 @@ const projectRoot = path.resolve(__dirname, '..');
 const viteConfig = path.join(projectRoot, 'vite.config.js');
 const mode = process.argv[2] === 'watch' ? 'watch' : 'run';
 const extraArgs = process.argv.slice(3);
-const vitestBin = path.join(projectRoot, '..', 'node_modules', 'vitest', 'vitest.mjs');
+const vitestPkg = require.resolve('vitest/package.json', { paths: [projectRoot] });
+const vitestBin = path.join(path.dirname(vitestPkg), 'vitest.mjs');
 
 const args = [
   mode,

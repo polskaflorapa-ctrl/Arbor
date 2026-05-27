@@ -185,6 +185,17 @@ export function DevPanel() {
     }
   };
 
+  const handleInvalidSession = () => {
+    const fallbackUser = TEST_USERS[selectedUser] || TEST_USERS.dyrektor;
+    if (!localStorage.getItem('user')) {
+      localStorage.setItem('user', JSON.stringify(fallbackUser));
+      localStorage.removeItem('permissions');
+    }
+    localStorage.setItem('token', `invalid_dev_token_${Date.now()}`);
+    window.location.hash = '#/dashboard';
+    window.location.reload();
+  };
+
   if (!isOpen) return null;
 
   const sparkline = buildSparkline(history);
@@ -238,6 +249,27 @@ export function DevPanel() {
                 </select>
               </div>
             )}
+            <div className="dev-panel-section">
+              <button
+                type="button"
+                onClick={handleInvalidSession}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(255,107,107,0.35)',
+                  background: 'rgba(255,107,107,0.12)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Symuluj niewazny token
+              </button>
+              <p className="dev-panel-hint">
+                Zostawia uzytkownika w storage, ale podmienia JWT na bledny, zeby sprawdzic powrot do logowania po `401`.
+              </p>
+            </div>
           </>
         )}
 

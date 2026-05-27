@@ -5,14 +5,16 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import { getRolaColor } from '../theme';
 import { readStoredUser } from '../utils/readStoredUser';
-import { getRoleDisplayName } from '../utils/roleDisplay';
+import { getRoleDisplayName, hasAnyRole } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
+import { clearAuthSession } from '../utils/authSession';
 // ─── Stałe ───────────────────────────────────────────────────────────────────
 const NOTIF_KOLOR = {
   problem: '#F87171', potrzebuje_czasu: '#FBBF24', skonczylem_wczesniej: 'var(--accent)',
   pytanie: '#60A5FA', info: '#94A3B8', nowe_zlecenie: 'var(--accent)',
   potwierdzenie_godzin: 'var(--accent)', raport_dnia_ekipy: 'var(--accent)', kasa_oddzial_nieodebrana: '#F87171',
   delegacja: '#FBBF24', przypomnienie: '#F87171',
+  'Odprawa ekipy': '#0f766e', 'Przypomnienie odprawy': '#b45309',
 };
 // SVG ikony nawigacji
 const ICONS = {
@@ -54,6 +56,10 @@ const ICONS = {
 
 function NavChevron() {
   return null;
+}
+
+function isRouteBriefNotification(notification = {}) {
+  return notification.typ === 'Odprawa ekipy' && notification.dispatch_route_brief_id;
 }
 
 const NAV_GROUPS = [
@@ -262,7 +268,7 @@ export default function Sidebar() {
     ];
     if (!currentUser?.rola) return [];
     return all
-      .filter(l => l.roles.includes(currentUser.rola))
+      .filter(l => hasAnyRole(currentUser.rola, l.roles))
       .map((link) => ({
         ...link,
         primary: link.primary === false ? false : isPrimaryNavPath(link.path, currentUser.rola),
@@ -315,7 +321,17 @@ export default function Sidebar() {
       loadNotifications();
     } catch { /* ignoruj */ }
   };
-  const handleLogout = () => { localStorage.clear(); navigate('/'); };
+  const openNotification = (notification) => {
+    if (isRouteBriefNotification(notification)) {
+      navigate('/powiadomienia');
+      setShowNotif(false);
+      return;
+    }
+    if (notification.task_id) navigate(`/zlecenia/${notification.task_id}`);
+    if (notification.status === 'Nowe') markOne(notification.id);
+    setShowNotif(false);
+  };
+  const handleLogout = () => { clearAuthSession(); navigate('/'); };
   const role = currentUser?.rola;
   const canCreateQuickActions = [
     'Prezes',
@@ -326,7 +342,7 @@ export default function Sidebar() {
     'Dyrektor Sprzedaży',
     'Dyrektor dzialu sprzedaz',
     'Dyrektor działu sprzedaż',
-  ].includes(role);
+  ].some((expectedRole) => hasAnyRole(role, [expectedRole]));
   const branchName = useMemo(() => {
     if (!currentUser) return '';
     const match = oddzialy.find((o) => String(o.id) === String(currentUser.oddzial_id));
@@ -632,7 +648,7 @@ export default function Sidebar() {
                       const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
                       return (
                         <div key={n.id}
-                          onClick={() => { if (n.task_id) navigate(`/zlecenia/${n.task_id}`); if (n.status === 'Nowe') markOne(n.id); setShowNotif(false); }}
+                          onClick={() => openNotification(n)}
                           style={{ ...sb.notifItem, background: n.status === 'Nowe' ? 'var(--accent-surface)' : 'transparent' }}>
                           <div style={{ ...sb.notifDot, background: kolor + '33', color: kolor }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -733,7 +749,7 @@ export default function Sidebar() {
                       const kolor = NOTIF_KOLOR[n.typ] || '#94A3B8';
                       return (
                         <div key={n.id}
-                          onClick={() => { if (n.task_id) navigate(`/zlecenia/${n.task_id}`); if (n.status === 'Nowe') markOne(n.id); setShowNotif(false); }}
+                          onClick={() => openNotification(n)}
                           style={{ ...sb.notifItem, background: n.status === 'Nowe' ? 'var(--accent-surface)' : 'transparent' }}>
                           <div style={{ ...sb.notifDot, background: kolor + '33', color: kolor }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

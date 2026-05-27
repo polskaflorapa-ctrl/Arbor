@@ -114,3 +114,26 @@ test('filters legacy test fixture tasks from dashboard metrics and lists', async
   expect(screen.getByText('Brak zaplanowanych prac na dziś.')).toBeInTheDocument();
   expect(screen.getByTestId('ops-radar')).toHaveTextContent('1');
 });
+
+test('shows estimator quick links for non-diacritic role variant', async () => {
+  localStorage.setItem('user', JSON.stringify({
+    id: 8,
+    imie: 'Ewa',
+    rola: 'Wyceniajacy',
+    oddzial_nazwa: 'Krakow',
+  }));
+  api.get.mockImplementation(async (path) => {
+    if (path === '/tasks/wszystkie') return { data: [] };
+    if (path === '/ekipy/ranking') return { data: null };
+    if (path === '/payroll/month-close-status') {
+      return { data: { export_allowed: true, pending_count: 0 } };
+    }
+    return { data: null };
+  });
+
+  renderDashboard();
+
+  expect(await screen.findByText('Centrum specjalisty ds. wyceny')).toBeInTheDocument();
+  expect(screen.getByText('Wyceny')).toBeInTheDocument();
+  expect(screen.getByText('Rozliczenie wyceny')).toBeInTheDocument();
+});

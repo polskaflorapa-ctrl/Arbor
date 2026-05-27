@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
@@ -7,11 +7,10 @@ import OpsRadar from '../components/OpsRadar';
 import TelemetryStatus from '../components/TelemetryStatus';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
-import { getRoleDisplayName } from '../utils/roleDisplay';
+import { getRoleDisplayName, hasAnyRole, normalizeRole } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import {
   CREW_REQUIRED_TASK_STATUSES,
-  getTaskStatusColor,
   isTaskClosed,
   isTaskDone,
   isTaskInProgress,
@@ -57,13 +56,6 @@ function teamDisplayName(task) {
   if (task?.ekipa_nazwa) return task.ekipa_nazwa;
   if (task?.ekipa_id) return `Ekipa #${task.ekipa_id}`;
   return 'Nieprzypisana';
-}
-
-function normalizeRole(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
 }
 
 function canViewTeamRanking(user) {
@@ -176,23 +168,6 @@ const QL_ICONS = {
   '/zarzadzaj-rolami': <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
 };
 
-const CMD_ICONS = {
-  zlecenia: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-      <rect x="9" y="3" width="6" height="4" rx="1" />
-      <line x1="9" y1="12" x2="15" y2="12" />
-    </svg>
-  ),
-  harmonogram: QL_ICONS['/harmonogram'],
-  powiadomienia: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  ),
-};
-
 /** Wspólne style listy „inset” (KPI, centrum operacyjne). Kategorie skrótów web — ścieżki jak na mobilce. */
 const WEB_QUICK_CAT_ORDER = ['operations', 'quotes', 'fleetMagazyn', 'reports', 'finance', 'administration'];
 
@@ -220,75 +195,6 @@ function webQuickCategory(path) {
   if (['/flota', '/magazyn', '/rezerwacje-sprzetu'].includes(path)) return 'fleetMagazyn';
   return 'operations';
 }
-
-const INSET_LIST = {
-  group: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
-  },
-  hairline: {
-    height: 1,
-    marginLeft: 56,
-    background: 'var(--border)',
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    width: '100%',
-    minHeight: 52,
-    padding: '12px 14px',
-    border: 'none',
-    cursor: 'pointer',
-    textAlign: 'left',
-    font: 'inherit',
-    color: 'inherit',
-    transition: 'background 0.12s ease',
-    boxSizing: 'border-box',
-  },
-  iconTile: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    color: 'var(--text-sub)',
-    background: 'var(--surface-field)',
-    border: '1px solid var(--border)',
-  },
-  rowTexts: {
-    flex: 1,
-    minWidth: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-    alignItems: 'flex-start',
-  },
-  rowTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    letterSpacing: 0,
-    color: 'var(--text)',
-    lineHeight: 1.25,
-  },
-  rowSub: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: 'var(--text-muted)',
-    lineHeight: 1.3,
-  },
-  rowChevron: {
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    color: 'var(--text-muted)',
-    opacity: 0.75,
-  },
-};
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -388,11 +294,6 @@ export default function Dashboard() {
   const todayTasks = openTasks.filter((z) => taskDateKey(z) === todayIso);
   const unassignedTasks = openTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
   const todayUnassignedTasks = todayTasks.filter((z) => CREW_REQUIRED_TASK_STATUSES.has(z.status) && !z.ekipa_id);
-  const statusCounts = allTasks.reduce((acc, z) => {
-    const key = z.status || 'Nowe';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
   const dzisiaj = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthTasks = allTasks.filter((z) => String(z.data_planowana || z.data_wykonania || z.created_at || '').startsWith(currentMonth));
@@ -484,7 +385,7 @@ export default function Dashboard() {
     { label: 'Użytkownicy',    sub: 'Konta i uprawnienia',    path: '/uzytkownicy',       color: '#F87171', roles: ['Dyrektor','Administrator'] },
     { label: 'Role',           sub: 'Uprawnienia pracowników',path: '/zarzadzaj-rolami',  color: '#F59E0B', roles: ['Dyrektor','Administrator'] },
     { label: 'Księgowość',     sub: 'Faktury i rozliczenia',  path: '/ksiegowosc',        color: '#FBBF24', roles: ['Dyrektor','Administrator','Kierownik'] },
-  ].filter(i => i.roles.includes(user?.rola)), [user?.rola]);
+  ].filter(i => hasAnyRole(user?.rola, i.roles)), [user?.rola]);
 
   const visibleQuickLinks = useMemo(() => {
     const reportEntry = quickLinks.find((item) => webQuickCategory(item.path) === 'reports');
@@ -582,6 +483,44 @@ export default function Dashboard() {
         },
       ];
   const systemAlertCount = systemAlertItems.length;
+  const commandCards = [
+    {
+      key: 'overdue',
+      label: 'Po terminie',
+      value: overdueTasks.length,
+      detail: overdueTasks.length ? 'wymaga decyzji operacyjnej' : 'brak zaległości',
+      tone: overdueTasks.length ? 'danger' : 'good',
+      action: 'Otwórz zaległe',
+      onClick: () => openSmartTaskFilter('overdue'),
+    },
+    {
+      key: 'unassigned',
+      label: 'Bez ekipy',
+      value: unassignedTasks.length,
+      detail: unassignedTasks.length ? 'blokuje harmonogram' : 'obsada kompletna',
+      tone: unassignedTasks.length ? 'warning' : 'good',
+      action: 'Przypisz ekipy',
+      onClick: () => navigate('/kierownik'),
+    },
+    {
+      key: 'today',
+      label: 'Plan dnia',
+      value: todayTasks.length,
+      detail: todayUnassignedTasks.length ? `${todayUnassignedTasks.length} bez obsady dzisiaj` : 'gotowe do kontroli',
+      tone: todayUnassignedTasks.length ? 'warning' : 'good',
+      action: 'Harmonogram',
+      onClick: () => navigate('/harmonogram'),
+    },
+    {
+      key: 'payroll',
+      label: 'Payroll',
+      value: payrollClose.export_allowed ? 'OK' : payrollClose.pending_count,
+      detail: payrollClose.export_allowed ? 'raporty zamknięte' : 'brak raportów dnia',
+      tone: payrollClose.export_allowed ? 'good' : 'danger',
+      action: 'Raporty',
+      onClick: () => navigate('/raporty'),
+    },
+  ];
 
   return (
     <div className="app-shell dashboard-shell" style={d.root}>
@@ -644,13 +583,31 @@ export default function Dashboard() {
         </header>
 
         {/* ─── HERO HEADER ─────────────────────────────────────────────────── */}
-        <div style={d.hero}>
+        <div className="dashboard-command-hero" style={d.hero}>
           <div style={d.heroBg} />
           <div style={d.heroLeft}>
+            <div style={d.heroEyebrow}>Centrum dowodzenia</div>
             <div style={d.heroGreeting}>Dzień dobry, {user?.imie}</div>
             <div style={d.heroDate}>{dzisiaj}</div>
             <div style={d.rolaBadge}>
               {getRoleDisplayName(user?.rola)}{user?.oddzial_nazwa ? ` · ${user.oddzial_nazwa}` : ''}
+            </div>
+          </div>
+          <div className="dashboard-hero-stats" style={d.heroStats}>
+            <div style={d.heroStat}>
+              <span style={d.heroStatLabel}>Otwarte</span>
+              <strong style={d.heroStatValue}>{openTasks.length}</strong>
+              <small style={d.heroStatDetail}>zlecenia aktywne</small>
+            </div>
+            <div style={d.heroStat}>
+              <span style={d.heroStatLabel}>Dzisiaj</span>
+              <strong style={d.heroStatValue}>{todayTasks.length}</strong>
+              <small style={d.heroStatDetail}>w planie</small>
+            </div>
+            <div style={d.heroStat}>
+              <span style={d.heroStatLabel}>Ryzyka</span>
+              <strong style={d.heroStatValue}>{overdueTasks.length + unassignedTasks.length}</strong>
+              <small style={d.heroStatDetail}>termin + obsada</small>
             </div>
           </div>
           <div style={{ ...d.topActions, ...(isCompact ? d.topActionsCompact : {}) }}>
@@ -664,6 +621,17 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        <section className="dashboard-decision-strip" style={d.decisionStrip}>
+          {commandCards.map((card) => (
+            <button key={card.key} type="button" onClick={card.onClick} style={{ ...d.decisionCard, ...(d[`decisionCard_${card.tone}`] || {}) }}>
+              <span style={d.decisionLabel}>{card.label}</span>
+              <strong style={d.decisionValue}>{card.value}</strong>
+              <small style={d.decisionDetail}>{card.detail}</small>
+              <span style={d.decisionAction}>{card.action}{QL_CHEVRON}</span>
+            </button>
+          ))}
+        </section>
 
         {/* ─── KPI (grupa inset, jak iOS) ───────────────────────────────────── */}
         <section className="dashboard-kpi-grid" style={d.kpiGrid}>
@@ -880,158 +848,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <div style={d.commandGrid}>
-          <div style={d.commandCard}>
-            <div style={d.commandTitle}>Centrum operacyjne</div>
-            <div style={d.commandText}>Priorytetowe akcje na teraz</div>
-            <div style={d.insetGroupLift}>
-              {[
-                { label: 'Zarządzaj zleceniami', sub: 'Lista i statusy zleceń', path: '/zlecenia', icon: 'zlecenia' },
-                { label: 'Sprawdź harmonogram', sub: 'Plan dnia i ekip', path: '/harmonogram', icon: 'harmonogram' },
-                { label: 'Powiadomienia', sub: 'Alerty systemowe', path: '/powiadomienia', icon: 'powiadomienia' },
-              ].map((row, i) => (
-                <Fragment key={row.path}>
-                  {i > 0 ? <div style={d.insetHairline} /> : null}
-                  <button
-                    type="button"
-                    onClick={() => navigate(row.path)}
-                    onMouseEnter={() => setHovered(`cmd${i}`)}
-                    onMouseLeave={() => setHovered(null)}
-                    style={{
-                      ...d.insetRow,
-                      background: hovered === `cmd${i}` ? 'rgba(255,255,255,0.06)' : 'var(--surface-field)',
-                    }}
-                  >
-                    <span style={d.insetIconTile}>{CMD_ICONS[row.icon]}</span>
-                    <span style={d.insetRowTexts}>
-                      <span style={d.insetRowTitle}>{row.label}</span>
-                      <span style={d.insetRowSub}>{row.sub}</span>
-                    </span>
-                    <span style={d.insetRowChevron}>{QL_CHEVRON}</span>
-                  </button>
-                </Fragment>
-              ))}
-            </div>
-          </div>
-          <div style={d.commandCard}>
-            <div style={d.commandTitle}>Pipeline live</div>
-            <div style={d.commandText}>Zlecenia w ostatniej próbce (max 8)</div>
-            <div style={d.insetGroupLift}>
-              {[
-                { label: 'Nowe', value: statusCounts.Nowe || 0 },
-                { label: 'Oględziny / wycena', value: statusCounts.Wycena_Terenowa || 0 },
-                { label: 'Do zatwierdzenia', value: statusCounts.Do_Zatwierdzenia || 0 },
-                { label: 'Zaplanowane', value: statusCounts.Zaplanowane || 0 },
-                { label: 'W realizacji', value: statusCounts.W_Realizacji || 0 },
-                { label: 'Zakończone', value: statusCounts.Zakonczone || 0 },
-              ].map((row, i) => (
-                <Fragment key={row.label}>
-                  {i > 0 ? <div style={d.pipeHairline} /> : null}
-                  <div style={d.pipeRow}>
-                    <span style={d.pipeLabel}>{row.label}</span>
-                    <span style={d.pipeValue}>{row.value}</span>
-                  </div>
-                </Fragment>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ─── GŁÓWNA SIATKA ───────────────────────────────────────────────── */}
-        <div style={d.mainGrid}>
-
-          {/* Ostatnie zlecenia */}
-          {!isWyceniajacy && (
-            <div style={d.card}>
-              <div style={d.cardHeader}>
-                <span style={d.cardTitle}>{isBrygadzista ? 'Moje zlecenia' : 'Ostatnie zlecenia'}</span>
-                <button onClick={() => navigate('/zlecenia')} style={d.seeAll}>
-                  Wszystkie
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-              </div>
-
-              {loading ? (
-                <div style={d.emptyState}>
-                  <div style={d.spinner} />
-                  <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 12 }}>Ładowanie...</p>
-                </div>
-              ) : ostatnie.length === 0 ? (
-                <div style={d.emptyState}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="1.5" strokeLinecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>Brak zleceń</p>
-                </div>
-              ) : ostatnie.map((z, i) => (
-                <div key={dashboardTaskKey(z, i, 'recent-card')}
-                  onClick={() => navigate(`/zlecenia/${z.id}`)}
-                  onMouseEnter={() => setHovered(`z${z.id}`)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{ ...d.zRow, borderLeftColor: getTaskStatusColor(z.status, '#334155'),
-                    background: hovered === `z${z.id}` ? 'rgba(20,131,79,0.06)' : 'transparent' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={d.zKlient}>{z.klient_nazwa}</div>
-                    <div style={d.zMeta}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                      {z.adres}{z.typ_uslugi ? ` · ${z.typ_uslugi}` : ''}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <TelemetryStatus value={z.status} label={z.status?.replace('_', ' ')} />
-                    {!isBrygadzista && z.wartosc_planowana && (
-                      <div style={d.zWartosc}>{parseFloat(z.wartosc_planowana).toLocaleString('pl-PL')} PLN</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Szybki dostęp — kategorie + listy inset (iOS) */}
-          <div style={{ ...d.card, ...(isWyceniajacy ? { gridColumn: '1 / -1' } : {}) }}>
-            <div style={d.cardHeader}>
-              <span style={d.cardTitle}>Szybki dostęp</span>
-            </div>
-            {quickLinks.length === 0 ? (
-              <div style={d.qlEmpty}>Brak skrótów dla tej roli.</div>
-            ) : (
-              quickLinkSections.map((sec, si) => (
-                <div key={sec.key} style={si === 0 ? d.quickSectionWrapFirst : d.quickSectionWrap}>
-                  <div style={d.quickSectionTitle}>{sec.title}</div>
-                  <div style={d.insetGroup}>
-                    {sec.items.map((item, i) => (
-                      <Fragment key={`${sec.key}-${item.path}-${i}`}>
-                        {i > 0 ? <div style={d.insetHairline} /> : null}
-                        <button
-                          type="button"
-                          onClick={() => navigate(item.path)}
-                          onMouseEnter={() => setHovered(`ql-${sec.key}-${i}`)}
-                          onMouseLeave={() => setHovered(null)}
-                          style={{
-                            ...d.insetRow,
-                            background: hovered === `ql-${sec.key}-${i}` ? 'rgba(255,255,255,0.06)' : 'var(--surface-field)',
-                          }}
-                        >
-                          <span style={d.insetIconTile}>
-                            {QL_ICONS[item.path] || (
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                                <circle cx="12" cy="12" r="10" />
-                              </svg>
-                            )}
-                          </span>
-                          <span style={d.insetRowTexts}>
-                            <span style={d.insetRowTitle}>{item.label}</span>
-                            <span style={d.insetRowSub}>{item.sub}</span>
-                          </span>
-                          <span style={d.insetRowChevron}>{QL_CHEVRON}</span>
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
       </main>
     </div>
   );
@@ -1421,12 +1237,14 @@ const d = {
 
   // Hero
   hero: {
-    display: 'flex',
-    position: 'relative', borderRadius: 8, padding: '26px 28px', marginBottom: 18,
-    justifyContent: 'space-between', alignItems: 'center',
-    background: 'linear-gradient(135deg, #07301f 0%, #0f6b3f 58%, #2fbe72 100%)',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(260px, 1fr) minmax(280px, 0.8fr) auto',
+    gap: 16,
+    position: 'relative', borderRadius: 8, padding: '22px 24px', marginBottom: 12,
+    justifyContent: 'space-between', alignItems: 'stretch',
+    background: 'linear-gradient(135deg, #0b3825 0%, #0f5f3a 58%, #168a4a 100%)',
     border: '1px solid rgba(255,255,255,0.24)', overflow: 'hidden',
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
   },
   heroCompact: {
     padding: '26px 16px 20px',
@@ -1439,16 +1257,22 @@ const d = {
     boxSizing: 'border-box',
   },
   heroBg: {
-    display: 'block', position: 'absolute', top: -94, right: -72, width: 300, height: 300,
-    borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.22), transparent 66%)',
+    display: 'none', position: 'absolute', top: -94, right: -72, width: 300, height: 300,
+    borderRadius: '50%', background: 'transparent',
     pointerEvents: 'none',
   },
-  heroLeft: { position: 'relative' },
+  heroLeft: { position: 'relative', minWidth: 0 },
   heroLeftCompact: { minWidth: 0 },
+  heroEyebrow: { color: '#86efac', fontSize: 11, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0, marginBottom: 6 },
   heroGreeting: { fontSize: 30, fontWeight: 950, color: '#ffffff', marginBottom: 4 },
   heroGreetingCompact: { fontSize: 24, lineHeight: 1.18 },
   heroDate: { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginBottom: 12, textTransform: 'capitalize', fontWeight: 750 },
   rolaBadge: { display: 'inline-block', borderRadius: 999, padding: '5px 11px', fontSize: 12, fontWeight: 850, background: 'rgba(255,255,255,0.16)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.2)' },
+  heroStats: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, alignSelf: 'stretch' },
+  heroStat: { background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(255,255,255,0.24)', borderRadius: 8, padding: 11, display: 'grid', gap: 3, minWidth: 0 },
+  heroStatLabel: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  heroStatValue: { color: 'var(--text)', fontSize: 22, lineHeight: 1.05, fontWeight: 950, fontVariantNumeric: 'tabular-nums' },
+  heroStatDetail: { color: 'var(--text-sub)', fontSize: 11, lineHeight: 1.25, fontWeight: 650 },
   heroBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
     background: 'var(--accent)', color: 'var(--on-accent)', border: '1px solid var(--border)', borderRadius: 6,
@@ -1463,83 +1287,6 @@ const d = {
     maxWidth: '100%',
   },
 
-  insetGroup: INSET_LIST.group,
-  insetGroupLift: { ...INSET_LIST.group, marginTop: 12 },
-  insetHairline: INSET_LIST.hairline,
-  insetRow: INSET_LIST.row,
-  insetRowCompact: { gap: 10, padding: '11px 12px', minHeight: 50 },
-  kpiRowCompact: { flexWrap: 'wrap' },
-  insetIconTile: INSET_LIST.iconTile,
-  insetRowTexts: INSET_LIST.rowTexts,
-  insetRowTitle: INSET_LIST.rowTitle,
-  insetRowSub: INSET_LIST.rowSub,
-  insetRowChevron: INSET_LIST.rowChevron,
-  pipeHairline: {
-    height: 1,
-    marginLeft: 14,
-    marginRight: 14,
-    background: 'var(--border)',
-  },
-  pipeRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 48,
-    padding: '11px 14px',
-    background: 'var(--surface-field)',
-  },
-  pipeLabel: { fontSize: 15, fontWeight: 500, color: 'var(--text-sub)' },
-  pipeValue: {
-    fontSize: 17,
-    fontWeight: 600,
-    letterSpacing: 0,
-    fontVariantNumeric: 'tabular-nums',
-    color: 'var(--text)',
-  },
-  commandGrid: { display: 'none', gridTemplateColumns: '1.3fr .9fr', gap: 16, marginBottom: 20 },
-  commandCard: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--border)',
-    borderRadius: 8,
-    padding: 18,
-    boxShadow: 'var(--shadow-sm)',
-  },
-  commandTitle: { fontSize: 16, fontWeight: 700, letterSpacing: 0, color: 'var(--text)' },
-  commandText: { marginTop: 4, fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' },
-
-  // Main grid
-  mainGrid: { display: 'none', gridTemplateColumns: '1.5fr 1fr', gap: 20 },
-  card: {
-    background: 'var(--surface-glass)',
-    borderRadius: 8, padding: 18, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)'
-  },
-  cardCompact: { padding: 16, borderRadius: 14, maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cardHeaderCompact: { alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
-  cardTitle: { fontSize: 15, fontWeight: 700, color: 'var(--text)' },
-  seeAll: { fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 },
-
-  emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0' },
-  spinner: { width: 28, height: 28, border: '2px solid var(--border)', borderTop: '2px solid #34D399', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
-
-  // Zlecenia
-  zRow: {
-    display: 'flex', alignItems: 'center', padding: '10px 10px 10px 14px',
-    borderLeft: '3px solid #334155', borderRadius: '0 10px 10px 0',
-    marginBottom: 6, cursor: 'pointer', transition: 'all 0.15s',
-  },
-  zRowCompact: { alignItems: 'stretch', gap: 8, padding: '10px 10px 10px 12px' },
-  zKlient: { fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  zMeta: { fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 },
-  statusBadge: { fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '3px 10px', display: 'inline-block', marginBottom: 3 },
-  zWartosc: { fontSize: 12, fontWeight: 700, color: 'var(--accent)' },
-
-  qlEmpty: {
-    padding: '18px 14px',
-    fontSize: 13,
-    color: 'var(--text-muted)',
-    textAlign: 'center',
-  },
   topBar: {
     display: 'flex',
     alignItems: 'center',
@@ -1586,6 +1333,36 @@ const d = {
     fontWeight: 750,
     cursor: 'pointer',
   },
+  decisionStrip: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: 10,
+    marginBottom: 16,
+  },
+  decisionCard: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gridTemplateRows: 'auto auto auto',
+    gap: '3px 10px',
+    minHeight: 118,
+    padding: 14,
+    background: '#ffffff',
+    border: '1px solid rgba(15,107,63,0.14)',
+    borderLeft: '5px solid rgba(20,131,79,0.7)',
+    borderRadius: 8,
+    boxShadow: 'var(--shadow-sm)',
+    color: 'var(--text)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  decisionCard_good: { borderLeftColor: '#20b768' },
+  decisionCard_warning: { borderLeftColor: '#f59e0b', background: 'rgba(255,251,235,0.9)' },
+  decisionCard_danger: { borderLeftColor: '#ef4444', background: 'rgba(254,242,242,0.9)' },
+  decisionLabel: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0, gridColumn: '1 / -1' },
+  decisionValue: { color: '#0b3825', fontSize: 26, lineHeight: 1.05, fontWeight: 950, fontVariantNumeric: 'tabular-nums' },
+  decisionDetail: { color: 'var(--text-sub)', fontSize: 12, fontWeight: 650, lineHeight: 1.25, gridColumn: '1 / -1' },
+  decisionAction: { display: 'inline-flex', alignItems: 'center', gap: 4, color: '#0f5f3a', fontSize: 12, fontWeight: 900, marginTop: 6, gridColumn: '1 / -1' },
   kpiGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
@@ -1750,46 +1527,5 @@ const d = {
     borderRadius: 0, border: 'none', borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: '#e6e9ef',
     width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
   },
-  alertDot: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
-  alertWarn: { background: '#fdab3d' },
-  alertOk: { background: '#00c875' },
-  alertInfo: { background: '#579bfc' },
-  opsList: { padding: '10px 14px 14px' },
-  opsRow: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 44px', gap: 10, alignItems: 'center', marginBottom: 12, color: 'var(--text-sub)', fontSize: 12 },
-  progress: { gridColumn: '1 / -1', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
   progressFill: { display: 'block', height: '100%', borderRadius: 999, background: '#579bfc' },
-  quickPanel: {
-    borderRadius: 8,
-    border: '1px solid var(--glass-border)',
-    background: 'var(--surface-glass)',
-    boxShadow: 'var(--shadow-md)',
-    paddingBottom: 14,
-  },
-  quickGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8, padding: '0 14px' },
-  quickTile: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 58,
-    padding: '10px 12px',
-    borderRadius: 12,
-    border: '1px solid var(--border)',
-    background: '#fff',
-    color: 'var(--text)',
-    textAlign: 'left',
-    cursor: 'pointer',
-  },
-  quickIcon: { width: 30, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', color: 'var(--accent)', border: '1px solid var(--border)', flexShrink: 0 },
-  quickSectionWrapFirst: { marginTop: 8 },
-  quickSectionWrap: { marginTop: 20 },
-  quickSection: { marginTop: 16 },
-  quickSectionTitle: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'var(--text-muted)',
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    marginLeft: 2,
-  },
 };

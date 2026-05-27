@@ -19,6 +19,26 @@ describe('api test-mode mocks', () => {
     expect(response.data.user.rola).toBe('Dyrektor');
   });
 
+  it('serves the stored test user for /auth/me', async () => {
+    localStorage.setItem('user', JSON.stringify({
+      id: 7,
+      imie: 'Anna',
+      nazwisko: 'Kierownik',
+      rola: 'Kierownik',
+      oddzial_id: 2,
+    }));
+    localStorage.setItem('permissions', JSON.stringify({ canViewFinance: true }));
+
+    const response = await api.get('/api/auth/me', { dedupe: false });
+
+    expect(response.status).toBe(200);
+    expect(response.data).toMatchObject({
+      id: 7,
+      rola: 'Kierownik',
+      permissions: { canViewFinance: true },
+    });
+  });
+
   it('serves mock data when same-origin GET calls include the /api prefix', async () => {
     const response = await api.get('/api/notifications');
 
@@ -45,6 +65,52 @@ describe('api test-mode mocks', () => {
       zdjecia: expect.any(Array),
       media: expect.any(Array),
     }));
+  });
+
+  it('serves and persists branch goal and sales metric mocks', async () => {
+    const goals = await api.get('/api/oddzialy/cele?rok=2026&miesiac=5', { dedupe: false });
+    const sales = await api.get('/api/oddzialy/sprzedaz?rok=2026&miesiac=5', { dedupe: false });
+
+    expect(goals.status).toBe(200);
+    expect(goals.data[0]).toEqual(expect.objectContaining({
+      oddzial_id: expect.any(Number),
+      rok: 2026,
+      miesiac: 5,
+      plan_zlecen: expect.any(Number),
+    }));
+    expect(sales.status).toBe(200);
+    expect(sales.data[0]).toEqual(expect.objectContaining({
+      oddzial_id: expect.any(Number),
+      calls_total: expect.any(Number),
+      leads_new: expect.any(Number),
+    }));
+
+    const savedGoal = await api.post('/api/oddzialy/cele', {
+      oddzial_id: goals.data[0].oddzial_id,
+      rok: 2026,
+      miesiac: 5,
+      plan_zlecen: 11,
+      plan_obrotu: 22000,
+      plan_marzy: 27,
+    });
+    const savedSales = await api.post('/api/oddzialy/sprzedaz', {
+      oddzial_id: goals.data[0].oddzial_id,
+      rok: 2026,
+      miesiac: 5,
+      calls_total: 44,
+      calls_answered: 36,
+      calls_missed: 8,
+      leads_new: 12,
+      meetings_booked: 6,
+    });
+
+    expect(savedGoal.data).toMatchObject({ plan_zlecen: 11, plan_obrotu: 22000 });
+    expect(savedSales.data).toMatchObject({ calls_total: 44, meetings_booked: 6 });
+
+    const goalsAfter = await api.get('/api/oddzialy/cele?rok=2026&miesiac=5', { dedupe: false });
+    const salesAfter = await api.get('/api/oddzialy/sprzedaz?rok=2026&miesiac=5', { dedupe: false });
+    expect(goalsAfter.data.find((row) => row.oddzial_id === goals.data[0].oddzial_id)).toMatchObject({ plan_zlecen: 11 });
+    expect(salesAfter.data.find((row) => row.oddzial_id === goals.data[0].oddzial_id)).toMatchObject({ calls_total: 44 });
   });
 
   it('serves status workflow side-effect mocks', async () => {
