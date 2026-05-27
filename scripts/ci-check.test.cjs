@@ -23,6 +23,14 @@ test("runStep surfaces spawn errors", () => {
   );
 });
 
+test("getSmokeCredentials uses smoke defaults and env overrides", () => {
+  assert.deepEqual(ciCheck.getSmokeCredentials({}), { login: "smoke_admin", haslo: "Smoke123!" });
+  assert.deepEqual(
+    ciCheck.getSmokeCredentials({ SMOKE_LOGIN: "ops_bot", SMOKE_PASSWORD: "secret" }),
+    { login: "ops_bot", haslo: "secret" }
+  );
+});
+
 test("smokeLogin posts credentials and accepts token responses", async () => {
   let capturedUrl = null;
   let capturedPayload = null;
@@ -40,8 +48,25 @@ test("smokeLogin posts credentials and accepts token responses", async () => {
     },
   });
   assert.equal(capturedUrl, "https://api.example.test/api/auth/login");
-  assert.deepEqual(capturedPayload, { login: "oleg", haslo: "oleg" });
+  assert.deepEqual(capturedPayload, { login: "smoke_admin", haslo: "Smoke123!" });
   assert.equal(capturedTimeout, 3000);
+});
+
+test("smokeLogin allows smoke credentials from environment", async () => {
+  let capturedPayload = null;
+
+  await ciCheck.smokeLogin("https://api.example.test", {
+    env: { SMOKE_LOGIN: "custom_smoke", SMOKE_PASSWORD: "Custom123!" },
+    async httpPostJson(_url, payload) {
+      capturedPayload = payload;
+      return {
+        status: 200,
+        body: JSON.stringify({ token: "demo-token" }),
+      };
+    },
+  });
+
+  assert.deepEqual(capturedPayload, { login: "custom_smoke", haslo: "Custom123!" });
 });
 
 test("smokeLogin surfaces missing token payloads", async () => {

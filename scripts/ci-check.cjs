@@ -20,10 +20,17 @@ function runStep(command, args, deps = {}) {
   }
 }
 
+function getSmokeCredentials(env = process.env) {
+  return {
+    login: env.SMOKE_LOGIN || "smoke_admin",
+    haslo: env.SMOKE_PASSWORD || "Smoke123!",
+  };
+}
+
 async function smokeLogin(proxyTarget, deps = {}) {
   const httpPostJsonImpl = deps.httpPostJson || httpPostJson;
   const loginUrl = new URL("/api/auth/login", proxyTarget).toString();
-  const response = await httpPostJsonImpl(loginUrl, { login: "oleg", haslo: "oleg" }, 3000);
+  const response = await httpPostJsonImpl(loginUrl, getSmokeCredentials(deps.env), 3000);
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Smoke login failed with status ${response.status}: ${response.body}`);
@@ -73,6 +80,7 @@ if (require.main === module) {
 
 module.exports = {
   buildStepInvocation,
+  getSmokeCredentials,
   runStep,
   smokeLogin,
   main,
