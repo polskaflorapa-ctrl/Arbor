@@ -4,7 +4,7 @@ const logger = require('../config/logger');
 const { authMiddleware, requireNieBrygadzista, isSalesDirector } = require('../middleware/auth');
 const { blockPayrollSettlements } = require('../middleware/payroll-policy');
 const { validateQuery, validateBody, validateParams } = require('../middleware/validate');
-const { ensureGpsTables, syncJuwentusGps, getLiveTeamLocations } = require('../services/juwentus-gps');
+const { ensureGpsTables, syncJuwentusGps, getLiveTeamLocations, getGpsHistory } = require('../services/juwentus-gps');
 const { getBranchResources } = require('../services/branchResources');
 const { z } = require('zod');
 
@@ -64,6 +64,16 @@ const liveLocationsQuerySchema = z.object({
     .preprocess((v) => (v === undefined ? false : ['1', 'true', true].includes(v)), z.boolean())
     .optional()
     .default(false),
+});
+
+const gpsHistoryQuerySchema = z.object({
+  date: ymdSchema.optional(),
+  team_id: z.coerce.number().int().positive().optional(),
+  user_id: z.coerce.number().int().positive().optional(),
+  vehicle_id: z.coerce.number().int().positive().optional(),
+  plate_number: z.string().trim().min(1).max(50).optional(),
+  provider: z.enum(['mobile', 'juwentus']).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
 const taskIdParamsSchema = z.object({
@@ -549,6 +559,28 @@ router.get('/live-locations', authMiddleware, validateQuery(liveLocationsQuerySc
     res.json({ items: rows, count: rows.length });
   } catch (err) {
     logger.error('Blad pobierania live-locations ekip', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/gps-history', authMiddleware, validateQuery(gpsHistoryQuerySchema), async (req, res) => {
+  try {
+    const date = req.query.date || todayKey();
+    const queryNumber = (value) => (value == null ? null : Number(value));
+    const scopedOddzialId = isDyrektor(req.user) ? null : req.user.oddzial_id;
+    const rows = await getGpsHistory({
+      date,
+      oddzialId: scopedOddzialId,
+      teamId: queryNumber(req.query.team_id),
+      userId: queryNumber(req.query.user_id),
+      vehicleId: queryNumber(req.query.vehicle_id),
+      plateNumber: req.query.plate_number || null,
+      provider: req.query.provider || null,
+      limit: queryNumber(req.query.limit) || 240,
+    });
+    res.json({ date, items: rows, count: rows.length });
+  } catch (err) {
+    logger.error('Blad pobierania gps-history ekip', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

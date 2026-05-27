@@ -1954,7 +1954,13 @@ function getTaskCrewDescription(task) {
 }
 
 function getTaskCrewRisk(task) {
-  return task?.ryzyka || extractTaskNoteLine(task, 'Ryzyka') || '';
+  const explicitRisk = task?.ryzyka || extractTaskNoteLine(task, 'Ryzyka') || extractTaskNoteLine(task, 'Ryzyko');
+  if (explicitRisk) return explicitRisk;
+  const rawNotes = String(task?.notatki_wewnetrzne || task?.notatki || '');
+  return rawNotes
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .find((item) => /ryzyko|bhp|bezpiecz|dojazd|zgod|stref/i.test(item)) || '';
 }
 
 function getTaskCrewEquipmentNote(task) {
@@ -6320,6 +6326,36 @@ export default function Zlecenia() {
   };
   const goPrevFormStep = () => setFormStep(FORM_STEPS[Math.max(0, formStepIndex - 1)].key);
   const goNextFormStep = () => setFormStep(FORM_STEPS[Math.min(FORM_STEPS.length - 1, formStepIndex + 1)].key);
+  const formReadinessCards = [
+    {
+      key: 'client',
+      label: 'Klient',
+      value: form.klient_nazwa ? 'Gotowy' : 'Brak',
+      detail: form.klient_telefon || 'telefon do uzupelnienia',
+      tone: form.klient_nazwa ? 'good' : 'warning',
+    },
+    {
+      key: 'stage',
+      label: 'Etap',
+      value: formWorkflowStage.label,
+      detail: formWorkflowStage.detail,
+      tone: 'good',
+    },
+    {
+      key: 'plan',
+      label: 'Plan',
+      value: form.data_planowana || 'Bez terminu',
+      detail: form.ekipa_id ? 'ekipa wskazana' : 'ekipa do przypisania',
+      tone: form.data_planowana && form.ekipa_id ? 'good' : 'warning',
+    },
+    {
+      key: 'quality',
+      label: 'Gotowosc',
+      value: formPreviewSafetyRequired.length ? `${formPreviewSafetyRequired.length} brakow` : 'OK',
+      detail: formPreviewPrice.detail || formPreviewPrice.label,
+      tone: formPreviewSafetyRequired.length ? 'danger' : 'good',
+    },
+  ];
  
   return (
     <div className="app-shell">
@@ -7888,9 +7924,10 @@ export default function Zlecenia() {
         {tryb === 'szczegoly' && wybraneZlecenie && (
           <>
             <PageHeader
-              variant="plain"
+              variant="hero"
               back={{ onClick: () => setTryb('lista'), label: t('common.back') }}
               title={t('pages.zlecenia.detailHeading', { id: wybraneZlecenie.id })}
+              subtitle={detailNextAction?.detail || detailBusinessMeta?.diagnostics?.nextAction?.detail || 'Jedna karta: klient, etap, blokady, dokumentacja, plan i decyzja.'}
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
               actions={
                 <>
@@ -8728,14 +8765,25 @@ export default function Zlecenia() {
         {(tryb === 'nowy' || tryb === 'edytuj') && (
           <>
             <PageHeader
-              variant="plain"
+              variant="hero"
               back={{
                 onClick: anulujFormularz,
                 label: t('common.back'),
               }}
               title={tryb === 'nowy' ? t('common.newOrder') : `${t('common.edit')} #${wybraneZlecenie?.id}`}
+              subtitle="Najpierw klient i adres, potem termin, ekipa, zakres, dowody i podsumowanie do przekazania dalej."
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
             />
+
+            <div className="zlecenia-form-readiness" style={s.formReadinessGrid}>
+              {formReadinessCards.map((item) => (
+                <div key={item.key} style={{ ...s.formReadinessCard, ...(s[`formReadinessCard_${item.tone}`] || {}) }}>
+                  <span style={s.formReadinessLabel}>{item.label}</span>
+                  <strong style={s.formReadinessValue}>{item.value}</strong>
+                  <small style={s.formReadinessDetail}>{item.detail}</small>
+                </div>
+              ))}
+            </div>
 
             <div style={s.formWizardPanel}>
               <div style={s.formWizardHeader}>
@@ -10808,18 +10856,61 @@ const s = {
     fontVariantNumeric: 'tabular-nums',
   },
   card: {
-    background: 'var(--surface-glass)',
-    borderRadius: 8, padding: 20, border: '1px solid var(--border)',
+    background: '#ffffff',
+    borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)',
     boxShadow: 'var(--shadow-sm)', marginBottom: 16
   },
-  cardTitle: { fontSize: 15, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
+  cardTitle: { fontSize: 14, fontWeight: 950, color: 'var(--text)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)', textTransform: 'uppercase', letterSpacing: 0 },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 0 },
-  formWizardPanel: {
-    border: '1px solid var(--border)',
+  formReadinessGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+    gap: 10,
+    marginBottom: 12,
+  },
+  formReadinessCard: {
+    minHeight: 92,
+    border: '1px solid var(--glass-border)',
+    borderLeft: '5px solid var(--accent)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
+    background: '#ffffff',
     boxShadow: 'var(--shadow-sm)',
-    padding: 14,
+    padding: '11px 12px',
+    display: 'grid',
+    alignContent: 'space-between',
+    gap: 5,
+    minWidth: 0,
+  },
+  formReadinessCard_good: { borderLeftColor: 'var(--accent)' },
+  formReadinessCard_warning: { borderLeftColor: 'var(--warning)', background: 'linear-gradient(180deg, #ffffff, rgba(255,251,235,0.78))' },
+  formReadinessCard_danger: { borderLeftColor: 'var(--danger)', background: 'linear-gradient(180deg, #ffffff, rgba(254,242,242,0.78))' },
+  formReadinessLabel: {
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+    lineHeight: 1.1,
+  },
+  formReadinessValue: {
+    color: 'var(--text)',
+    fontSize: 17,
+    lineHeight: 1.15,
+    fontWeight: 950,
+    overflowWrap: 'anywhere',
+  },
+  formReadinessDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 11,
+    lineHeight: 1.25,
+    fontWeight: 780,
+    overflowWrap: 'anywhere',
+  },
+  formWizardPanel: {
+    border: '1px solid var(--glass-border)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: 'var(--shadow-md)',
+    padding: 16,
     marginBottom: 14,
   },
   formWizardHeader: {
@@ -10832,8 +10923,8 @@ const s = {
   },
   formWizardTitle: {
     color: 'var(--text)',
-    fontSize: 18,
-    fontWeight: 900,
+    fontSize: 20,
+    fontWeight: 950,
     lineHeight: 1.2,
   },
   formWizardSubtitle: {
@@ -10866,7 +10957,7 @@ const s = {
     minHeight: 58,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    backgroundColor: 'var(--surface-field)',
+    backgroundColor: '#ffffff',
     color: 'var(--text-sub)',
     padding: '8px 9px',
     display: 'flex',
@@ -10876,9 +10967,10 @@ const s = {
     textAlign: 'left',
   },
   formWizardStepActive: {
-    border: '1px solid rgba(52,211,153,0.42)',
-    backgroundColor: 'rgba(52,211,153,0.1)',
+    border: '1px solid rgba(15,107,63,0.35)',
+    backgroundColor: 'var(--accent-surface)',
     color: 'var(--text)',
+    boxShadow: 'inset 4px 0 0 var(--accent)',
   },
   formWizardStepDone: {
     border: '1px solid rgba(76,175,80,0.24)',
@@ -10908,9 +11000,9 @@ const s = {
   formFlowPanel: {
     marginTop: 12,
     padding: 12,
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,107,63,0.18)',
     borderRadius: 8,
-    backgroundColor: 'var(--surface-field)',
+    background: 'linear-gradient(135deg, rgba(240,247,242,0.96), #ffffff)',
   },
   formFlowHeader: {
     display: 'flex',
@@ -11753,11 +11845,11 @@ const s = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
     gap: 12,
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(255,255,255,0.16)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(229,246,236,0.76))',
-    boxShadow: 'var(--shadow-md)',
-    padding: 14,
+    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+    padding: 16,
     marginBottom: 12,
     overflow: 'hidden',
   },
@@ -11770,7 +11862,7 @@ const s = {
   },
   detailHeroTitle: {
     margin: 0,
-    color: 'var(--text)',
+    color: '#ffffff',
     fontSize: 24,
     lineHeight: 1.12,
     fontWeight: 950,
@@ -11782,7 +11874,7 @@ const s = {
     display: 'flex',
     flexWrap: 'wrap',
     gap: 8,
-    color: 'var(--text-sub)',
+    color: 'rgba(240,253,244,0.78)',
     fontSize: 12,
     fontWeight: 800,
   },
@@ -11791,9 +11883,9 @@ const s = {
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
     gap: 10,
     alignItems: 'center',
-    border: '1px solid rgba(20,131,79,0.18)',
+    border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: 8,
-    background: 'rgba(255,255,255,0.72)',
+    background: 'rgba(255,255,255,0.94)',
     padding: '10px 11px',
     marginTop: 3,
   },
@@ -11864,9 +11956,9 @@ const s = {
     minWidth: 0,
   },
   detailHeroStat: {
-    border: '1px solid rgba(20,131,79,0.16)',
+    border: '1px solid rgba(255,255,255,0.18)',
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.76)',
+    backgroundColor: 'rgba(255,255,255,0.94)',
     padding: '10px 11px',
     minHeight: 96,
     display: 'flex',

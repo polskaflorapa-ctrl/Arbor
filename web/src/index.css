@@ -3729,3 +3729,30 @@ button.btn-primary,
     padding: 18px 16px !important;
   }
 }
+
+/* ARBOR-OS V2 detail/form polish */
+.zlecenia-detail-hero {
+  background: linear-gradient(135deg, #0b3825 0%, #0f5f3a 58%, #168a4a 100%) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 22px 46px rgba(11, 56, 37, 0.16) !important;
+}
+
+.zlecenia-detail-hero .zlecenia-detail-hero-stats > * {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.zlecenia-detail-hero h2 {
+  color: #ffffff !important;
+}
+
+.zlecenia-detail-hero [style*='Paszport operacyjny'],
+.zlecenia-detail-hero [style*='detailOpsEyebrow'] {
+  color: #86efac !important;
+}
+
+.zlecenia-form-readiness > * {
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-sm) !important;
+}

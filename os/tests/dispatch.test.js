@@ -304,6 +304,208 @@ describe('POST /api/dispatch/apply/:id', () => {
 
 // ─── GET /api/dispatch/plans ──────────────────────────────────────────────────
 
+describe('POST /api/dispatch/route-brief/send', () => {
+  const PATH = '/api/dispatch/route-brief/send';
+
+  afterEach(() => {
+    pool.query.mockReset();
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+  });
+
+  it('401 when no token', async () => {
+    expect((await request(app).post(PATH).send({ team_id: 10, brief: 'Odprawa' })).status).toBe(401);
+  });
+
+  it('403 for Brygadzista', async () => {
+    const res = await request(app)
+      .post(PATH)
+      .send({ team_id: 10, brief: 'Odprawa' })
+      .set('Authorization', `Bearer ${brygadzistaToken()}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('400 for missing team_id or brief', async () => {
+    const noTeam = await request(app)
+      .post(PATH)
+      .send({ brief: 'Odprawa' })
+      .set('Authorization', `Bearer ${kierownikToken()}`);
+    expect(noTeam.status).toBe(400);
+
+    const noBrief = await request(app)
+      .post(PATH)
+      .send({ team_id: 10 })
+      .set('Authorization', `Bearer ${kierownikToken()}`);
+    expect(noBrief.status).toBe(400);
+  });
+
+  it('403 when Kierownik sends a brief outside their branch', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
+        return { rows: [{ id: 10, nazwa: 'Ekipa Obca', oddzial_id: 99 }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .send({ team_id: 10, date: '2025-06-15', brief: 'Odprawa ekipy' })
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledWith('SELECT id, nazwa, oddzial_id FROM teams WHERE id = $1', [10]);
+  });
+
+  it('200 creates notifications for team recipients', async () => {
+    pool.query.mockImplementation(async (sql, params) => {
+      const s = String(sql);
+      if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
+        return { rows: [{ id: 10, nazwa: 'Brygada Alfa', oddzial_id: 3 }], rowCount: 1 };
+      }
+      if (s.includes('FROM team_members tm') && s.includes('JOIN users u')) {
+        return { rows: [{ user_id: 21 }, { user_id: 22 }], rowCount: 2 };
+      }
+      if (s.includes('INSERT INTO notifications')) {
+        expect(params).toEqual([1, expect.stringContaining('Odprawa ekipy'), [21, 22]]);
+        return {
+          rows: [
+            { id: 1, to_user_id: 21, typ: 'Odprawa ekipy', tresc: params[1], status: 'Nowe', data_utworzenia: '2025-06-15T06:00:00Z' },
+            { id: 2, to_user_id: 22, typ: 'Odprawa ekipy', tresc: params[1], status: 'Nowe', data_utworzenia: '2025-06-15T06:00:00Z' },
+          ],
+          rowCount: 2,
+        };
+      }
+      if (s.includes('INSERT INTO dispatch_route_briefs')) {
+        expect(params).toEqual([
+          '2025-06-15',
+          10,
+          3,
+          1,
+          expect.stringContaining('Odprawa ekipy'),
+          [101, 102],
+        ]);
+        return { rows: [{ id: 77, created_at: '2025-06-15T06:00:00Z' }], rowCount: 1 };
+      }
+      if (s.includes('INSERT INTO dispatch_route_brief_recipients')) {
+        expect(params).toEqual([77, [21, 22], [1, 2]]);
+        return { rows: [], rowCount: 2 };
+      }
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX') || s.includes('INSERT INTO audit_log')) {
+        return { rows: [], rowCount: 0 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .send({
+        team_id: 10,
+        team_name: 'Brygada Alfa',
+        date: '2025-06-15',
+        task_ids: [101, 102, 102],
+        brief: 'Odprawa ekipy - Brygada Alfa\n1. ZL/101',
+      })
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      message: 'Odprawa wyslana do ekipy',
+      brief_id: 77,
+      team_id: 10,
+      team_name: 'Brygada Alfa',
+      notification_count: 2,
+      recipients: [21, 22],
+      status: expect.objectContaining({
+        sent_to: 2,
+        confirmed: 0,
+        pending: 2,
+      }),
+    }));
+  });
+
+  it('409 when a team has no active recipients', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT id, nazwa, oddzial_id FROM teams')) {
+        return { rows: [{ id: 10, nazwa: 'Brygada Alfa', oddzial_id: 3 }], rowCount: 1 };
+      }
+      if (s.includes('FROM team_members tm') && s.includes('JOIN users u')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post(PATH)
+      .send({ team_id: 10, date: '2025-06-15', brief: 'Odprawa ekipy' })
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/odbiorcow/);
+  });
+});
+
+describe('GET /api/dispatch/route-brief/status', () => {
+  const PATH = '/api/dispatch/route-brief/status';
+
+  afterEach(() => {
+    pool.query.mockReset();
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+  });
+
+  it('400 for missing date', async () => {
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${kierownikToken()}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('200 returns confirmation counters for sent route briefs', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('WITH latest AS')) {
+        return {
+          rows: [{
+            brief_id: 77,
+            date: '2025-06-15',
+            team_id: 10,
+            team_name: 'Brygada Alfa',
+            sent_at: '2025-06-15T06:00:00Z',
+            task_ids: [101, 102],
+            sent_to: 2,
+            confirmed: 1,
+            pending: 1,
+            recipients: [
+              { user_id: 21, name: 'Jan Brygadzista', notification_id: 1, status: 'Odczytane', confirmed_at: '2025-06-15T06:10:00Z' },
+              { user_id: 22, name: 'Anna Pomocnik', notification_id: 2, status: 'Nowe', confirmed_at: null },
+            ],
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .get(`${PATH}?date=2025-06-15&team_ids=10`)
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary).toEqual(expect.objectContaining({
+      teams_sent: 1,
+      sent_to: 2,
+      confirmed: 1,
+      pending: 1,
+    }));
+    expect(res.body.items[0]).toEqual(expect.objectContaining({
+      team_id: 10,
+      team_name: 'Brygada Alfa',
+      pending: 1,
+    }));
+  });
+});
+
 describe('GET /api/dispatch/plans', () => {
   const PATH = '/api/dispatch/plans';
 

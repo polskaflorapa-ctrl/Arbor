@@ -107,4 +107,38 @@ describe('getLiveTeamLocations', () => {
     ]));
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('CREATE TABLE IF NOT EXISTS gps_vehicle_positions'));
   });
+
+  it('limits GPS history to the newest points and returns them chronologically', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE') || text.includes('CREATE UNIQUE INDEX') || text.includes('CREATE INDEX')) {
+        return { rows: [] };
+      }
+
+      expect(params).toEqual(['2026-05-26', 12, 'mobile', 2]);
+      expect(text).toContain('FROM combined');
+      expect(text).toContain('ekipa_id = $2');
+      expect(text).toContain('provider = $3');
+      expect(text).toMatch(/ORDER BY recorded_at DESC\s+LIMIT \$4[\s\S]+ORDER BY recorded_at ASC/);
+      return {
+        rows: [
+          { provider: 'mobile', ekipa_id: 12, recorded_at: '2026-05-26T20:45:00.000Z' },
+          { provider: 'mobile', ekipa_id: 12, recorded_at: '2026-05-26T20:50:00.000Z' },
+        ],
+      };
+    });
+
+    const { getGpsHistory } = loadService();
+    const rows = await getGpsHistory({
+      date: '2026-05-26',
+      teamId: 12,
+      provider: 'mobile',
+      limit: 2,
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({ recorded_at: '2026-05-26T20:45:00.000Z' }),
+      expect.objectContaining({ recorded_at: '2026-05-26T20:50:00.000Z' }),
+    ]);
+  });
 });

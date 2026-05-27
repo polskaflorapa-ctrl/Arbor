@@ -101,6 +101,7 @@ export default function Kierownik() {
   const [cockpitError, setCockpitError] = useState('');
   const [planReal, setPlanReal] = useState(null);
   const [actionInsights, setActionInsights] = useState(null);
+  const [actionRecommendations, setActionRecommendations] = useState(null);
   const [planActionDrafts, setPlanActionDrafts] = useState({});
   const [planActionSaving, setPlanActionSaving] = useState('');
   const navigate = useNavigate();
@@ -141,7 +142,7 @@ export default function Kierownik() {
       if (['Prezes', 'Dyrektor'].includes(u?.rola) && oddzialId) {
         params.oddzial_id = oddzialId;
       }
-      const [cockpitResponse, planRealResponse, insightsResponse] = await Promise.all([
+      const [cockpitResponse, planRealResponse, insightsResponse, recommendationsResponse] = await Promise.all([
         api.get('/ops/kierownik-today', {
           params,
           headers: authHeaders(token),
@@ -157,10 +158,16 @@ export default function Kierownik() {
           headers: authHeaders(token),
           dedupe: false,
         }),
+        api.get('/ops/action-recommendations', {
+          params,
+          headers: authHeaders(token),
+          dedupe: false,
+        }),
       ]);
       setCockpit(cockpitResponse.data);
       setPlanReal(planRealResponse.data);
       setActionInsights(insightsResponse.data);
+      setActionRecommendations(recommendationsResponse.data);
     } catch (err) {
       setCockpitError(getApiErrorMessage(err, 'Nie udalo sie wczytac cockpit kierownika.'));
     } finally {
@@ -298,6 +305,68 @@ export default function Kierownik() {
     }
   }, [cockpitDate, filtrOddzial, loadCockpit, loadData, planActionDrafts, showMsg, user]);
 
+  const runRecommendationAction = useCallback(async (recommendation) => {
+    if (!recommendation || recommendation.action_kind === 'none') return;
+    if (['open_map', 'open_tasks'].includes(recommendation.action_kind)) {
+      navigate(recommendation.target_path || '/kierownik');
+      return;
+    }
+
+    const candidateIds = new Set((recommendation.task_ids || []).map((id) => Number(id)));
+    const currentPlanTasks = planReal?.tasks || [];
+    const matchingTasks = currentPlanTasks.filter((task) => candidateIds.has(Number(task.id))).slice(0, 6);
+    if (matchingTasks.length === 0) {
+      navigate(recommendation.target_path || '/kierownik');
+      return;
+    }
+
+    const key = `recommendation:${recommendation.id}`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      if (recommendation.action_kind === 'set_duration_batch') {
+        const plannedMinutes = Math.max(15, Math.round(Number(recommendation.suggested_minutes || 120)));
+        await Promise.all(matchingTasks.map((task) => api.post(`/ops/plan-vs-real/tasks/${task.id}/action`, {
+          action: 'set_duration',
+          planned_minutes: plannedMinutes,
+          previous_planned_minutes: task.planned_minutes || 0,
+          issue_key: task.issue_key || 'missing_duration',
+          delta_minutes: task.delta_minutes,
+          planned_minutes_before: task.planned_minutes,
+          real_minutes: task.real_minutes,
+          note: `Rekomendacja: ${recommendation.title}`,
+        }, {
+          headers: authHeaders(token),
+        })));
+      } else if (recommendation.action_kind === 'remind_team_batch') {
+        await Promise.all(matchingTasks.map((task) => api.post(`/ops/plan-vs-real/tasks/${task.id}/action`, {
+          action: 'remind_team',
+          issue_key: task.issue_key || 'not_started',
+          delta_minutes: task.delta_minutes,
+          planned_minutes: task.planned_minutes,
+          real_minutes: task.real_minutes,
+          note: `Rekomendacja: ${recommendation.title}`,
+        }, {
+          headers: authHeaders(token),
+        })));
+      } else {
+        navigate(recommendation.target_path || '/kierownik');
+        return;
+      }
+
+      showMsg(successMessage(`Wykonano: ${recommendation.title}`));
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await Promise.all([
+        loadCockpit(user, cockpitDate, oddzialForCockpit),
+        loadData(user),
+      ]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie wykonac rekomendacji.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, navigate, planReal, showMsg, user]);
+
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
     if (filtrStatus && z.status !== filtrStatus) return false;
@@ -343,6 +412,8 @@ export default function Kierownik() {
   const actionInsightReasons = actionInsights?.reasons || [];
   const actionInsightIssues = actionInsights?.issues || [];
   const actionInsightRecent = actionInsights?.recent || [];
+  const actionRecommendationSummary = actionRecommendations?.summary || {};
+  const actionRecommendationItems = actionRecommendations?.recommendations || [];
 
   return (
     <div className="app-shell" style={styles.container}>
@@ -556,6 +627,67 @@ export default function Kierownik() {
                           Otworz
                         </button>
                       </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={styles.recommendationsBand}>
+            <div style={styles.recommendationsHeader}>
+              <div style={styles.cockpitSectionTitle}>
+                <BoltOutlined sx={{ fontSize: 18 }} />
+                Sugerowane ruchy
+              </div>
+              <span style={styles.planRealDate}>
+                {actionRecommendationSummary.high ?? 0} pilne / {actionRecommendationSummary.actionable ?? 0} wykonalne
+              </span>
+            </div>
+            {actionRecommendationItems.length === 0 ? (
+              <div style={styles.actionInsightsEmpty}>Brak rekomendacji dla wybranego dnia.</div>
+            ) : (
+              <div style={styles.recommendationsGrid}>
+                {actionRecommendationItems.map((item) => {
+                  const tone = cockpitTone(item.tone || (item.priority === 'high' ? 'danger' : 'info'));
+                  const savingRecommendation = planActionSaving === `recommendation:${item.id}`;
+                  return (
+                    <div key={item.id} style={{ ...styles.recommendationCard, borderColor: tone.border }}>
+                      <div style={styles.recommendationTop}>
+                        <span style={{ ...styles.recommendationRank, color: tone.color, background: tone.bg }}>
+                          {item.rank}
+                        </span>
+                        <span style={styles.recommendationBody}>
+                          <strong>{item.title}</strong>
+                          <small>{item.rationale}</small>
+                        </span>
+                      </div>
+                      <div style={styles.recommendationActionText}>{item.suggested_action}</div>
+                      <div style={styles.recommendationFooter}>
+                        <span style={styles.recommendationImpact}>{item.impact_label}</span>
+                        <span style={styles.recommendationButtons}>
+                          {item.action_kind !== 'none' ? (
+                            <button
+                              type="button"
+                              style={{ ...styles.recommendationPrimary, color: tone.color, background: tone.bg, borderColor: tone.border }}
+                              onClick={() => runRecommendationAction(item)}
+                              disabled={Boolean(planActionSaving)}
+                            >
+                              {savingRecommendation ? 'Robie' : item.primary_label}
+                            </button>
+                          ) : null}
+                          {item.secondary_label ? (
+                            <button
+                              type="button"
+                              style={styles.recommendationGhost}
+                              onClick={() => navigate(item.target_path || '/kierownik')}
+                              disabled={Boolean(planActionSaving)}
+                            >
+                              {item.secondary_label}
+                            </button>
+                          ) : null}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -880,6 +1012,19 @@ const styles = {
   planActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-surface)', color: 'var(--accent)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
   planActionGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   planRealEmpty: { padding: '10px 0 2px', color: 'var(--text-muted)', fontSize: 12 },
+  recommendationsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
+  recommendationsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  recommendationsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 10 },
+  recommendationCard: { minWidth: 0, display: 'grid', gap: 8, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)' },
+  recommendationTop: { display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 },
+  recommendationRank: { minWidth: 28, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 950, flexShrink: 0 },
+  recommendationBody: { minWidth: 0, display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12 },
+  recommendationActionText: { color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.35 },
+  recommendationFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  recommendationImpact: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 750 },
+  recommendationButtons: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  recommendationPrimary: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
+  recommendationGhost: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-sub)', cursor: 'pointer', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   actionInsightsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
   actionInsightsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   actionInsightsSummary: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, marginBottom: 8 },

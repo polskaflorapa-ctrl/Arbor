@@ -26,6 +26,89 @@ describe('api test-mode mocks', () => {
     expect(response.data).toEqual({ notifications: [], unread_count: 0 });
   });
 
+  it('serves status workflow side-effect mocks', async () => {
+    const log = await api.post('/api/tasks/101/logi', {
+      tresc: 'Workflow: test',
+      status: 'W_Realizacji',
+    });
+    expect(log.status).toBe(201);
+    expect(log.data).toMatchObject({
+      task_id: 101,
+      tresc: 'Workflow: test',
+      status: 'W_Realizacji',
+    });
+
+    const notification = await api.post('/api/notifications', {
+      typ: 'info',
+      tresc: 'Powiadomienie testowe',
+      task_id: 101,
+    });
+    expect(notification.status).toBe(201);
+    expect(notification.data).toMatchObject({
+      typ: 'info',
+      tresc: 'Powiadomienie testowe',
+      task_id: 101,
+      read: false,
+    });
+
+    const sms = await api.post('/api/sms/zlecenie/101', { typ: 'w_drodze' });
+    expect(sms.status).toBe(200);
+    expect(sms.data).toMatchObject({
+      task_id: 101,
+      typ: 'w_drodze',
+      status: 'sent',
+    });
+  });
+
+  it('persists client contact status mocks', async () => {
+    const saved = await api.patch('/api/tasks/101/client-contact', {
+      status: 'informed',
+      note: 'Klient potwierdzil termin i zakres.',
+    });
+
+    expect(saved.status).toBe(200);
+    expect(saved.data).toMatchObject({
+      task_id: 101,
+      status: 'informed',
+      note: 'Klient potwierdzil termin i zakres.',
+      actor: 'Test Dyrektor',
+    });
+    expect(saved.data.history[0]).toMatchObject({
+      task_id: 101,
+      status: 'informed',
+    });
+
+    const contacts = await api.get('/api/tasks/client-contacts', { dedupe: false });
+    expect(contacts.data.contacts['101']).toMatchObject({
+      task_id: 101,
+      status: 'informed',
+      note: 'Klient potwierdzil termin i zakres.',
+    });
+  });
+
+  it('persists closure decision event mocks', async () => {
+    const saved = await api.post('/api/tasks/101/closure-events', {
+      action: 'clean_close',
+      status_before: 'W_Realizacji',
+      status_after: 'Zakonczone',
+      warnings: [{ key: 'client', label: 'Status klienta' }],
+    });
+
+    expect(saved.status).toBe(201);
+    expect(saved.data).toMatchObject({
+      task_id: 101,
+      action: 'clean_close',
+      status_before: 'W_Realizacji',
+      status_after: 'Zakonczone',
+    });
+
+    const events = await api.get('/api/tasks/closure-events', { dedupe: false });
+    expect(events.data.events['101'][0]).toMatchObject({
+      task_id: 101,
+      action: 'clean_close',
+    });
+  });
+
   it('serves attendance mocks with the same-origin /api prefix', async () => {
     const list = await api.get('/api/ekipy/attendance?date=2026-05-25');
 
@@ -228,5 +311,43 @@ describe('api test-mode mocks', () => {
 
     const list = await api.get('/api/tasks/wszystkie', { dedupe: false });
     expect(list.data.find((task) => task.id === 1)).toMatchObject({ status: 'Zakonczone' });
+  });
+
+  it('adds crew check-in state when a task starts work in test mode', async () => {
+    const saved = await api.put('/api/tasks/101/status', { status: 'W_Realizacji' });
+
+    expect(saved.status).toBe(200);
+    expect(saved.data).toMatchObject({
+      id: 101,
+      status: 'W_Realizacji',
+      active_work_count: 1,
+      work_logs_total: 1,
+    });
+    expect(saved.data.last_checkin_at).toEqual(expect.any(String));
+    expect(saved.data.active_work_started_at).toEqual(expect.any(String));
+
+    const detail = await api.get('/api/tasks/101', { dedupe: false });
+    expect(detail.data).toMatchObject({
+      status: 'W_Realizacji',
+      active_work_count: 1,
+      last_checkin_at: expect.any(String),
+      active_work_started_at: expect.any(String),
+    });
+  });
+
+  it('normalizes stale in-progress mock tasks without check-in fields', async () => {
+    localStorage.setItem('arbor-test-mode-task-overrides', JSON.stringify({
+      101: { id: 101, status: 'W_Realizacji', active_work_count: 0 },
+    }));
+
+    const detail = await api.get('/api/tasks/101', { dedupe: false });
+
+    expect(detail.data).toMatchObject({
+      status: 'W_Realizacji',
+      active_work_count: 1,
+      work_logs_total: 1,
+      last_checkin_at: expect.any(String),
+      active_work_started_at: expect.any(String),
+    });
   });
 });

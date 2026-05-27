@@ -1453,6 +1453,31 @@ CREATE TABLE IF NOT EXISTS dispatch_plans (
 CREATE INDEX IF NOT EXISTS idx_dispatch_plans_data ON dispatch_plans (data DESC);
 CREATE INDEX IF NOT EXISTS idx_dispatch_plans_oddzial ON dispatch_plans (oddzial_id, data DESC);
 
+-- Route handoff briefs sent to crews and recipient confirmation status
+CREATE TABLE IF NOT EXISTS dispatch_route_briefs (
+  id            SERIAL PRIMARY KEY,
+  date_ymd      DATE,
+  team_id       INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  oddzial_id    INTEGER,
+  sent_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  brief         TEXT NOT NULL,
+  task_ids      INTEGER[] NOT NULL DEFAULT '{}'::integer[],
+  created_at    TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dispatch_route_brief_recipients (
+  id              SERIAL PRIMARY KEY,
+  brief_id        INTEGER NOT NULL REFERENCES dispatch_route_briefs(id) ON DELETE CASCADE,
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notification_id INTEGER REFERENCES notifications(id) ON DELETE SET NULL,
+  created_at      TIMESTAMP DEFAULT NOW(),
+  UNIQUE (brief_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dispatch_route_briefs_day_team ON dispatch_route_briefs(date_ymd, team_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dispatch_route_briefs_branch_day ON dispatch_route_briefs(oddzial_id, date_ymd);
+CREATE INDEX IF NOT EXISTS idx_dispatch_route_brief_recipients_brief ON dispatch_route_brief_recipients(brief_id);
+
 -- ─── EPIC 8 — Kommo bidirectional sync ──────────────────────────────────────
 ALTER TABLE tasks
   ADD COLUMN IF NOT EXISTS kommo_last_sync_at     TIMESTAMP,

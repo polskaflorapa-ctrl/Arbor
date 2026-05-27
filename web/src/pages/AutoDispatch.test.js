@@ -283,59 +283,78 @@ test('shows absent team availability returned by dispatch preview', async () => 
 });
 
 test('copies day and team handoff briefs from the generated plan', async () => {
-  api.post.mockResolvedValueOnce({
-    data: {
-      routes: [
-        {
+  api.post
+    .mockResolvedValueOnce({
+      data: {
+        routes: [
+          {
+            team_id: 10,
+            team_name: 'Brygada Alfa',
+            total_min: 150,
+            distance_km: 22,
+            end_time: '11:30',
+            return_travel_min: 18,
+            stops: [
+              {
+                task_id: 101,
+                task_numer: 'ZL/101',
+                client: 'Anna Nowak',
+                client_phone: '+48500111222',
+                adres: 'Lesna 1',
+                eta: '08:00',
+                okno_od: '08:00',
+                okno_do: '10:00',
+                travel_min: 15,
+                service_min: 60,
+                time_window_ok: true,
+                lat: 52.1,
+                lng: 21.1,
+              },
+              {
+                task_id: 102,
+                task_numer: 'ZL/102',
+                client: 'Brak Kontaktu',
+                client_phone: '',
+                adres: 'Polna 2',
+                eta: '10:20',
+                travel_min: 25,
+                service_min: 45,
+                time_window_ok: false,
+                lat: null,
+                lng: null,
+              },
+            ],
+          },
+        ],
+        unassigned: [],
+        stats: {
+          coverage_pct: 100,
+          tasks_assigned: 2,
+          tasks_total: 2,
+          teams_used: 1,
+          tasks_unassigned: 0,
+          solver_ms: 21,
+        },
+      },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        message: 'Odprawa wyslana do ekipy',
+        notification_count: 2,
+        status: {
+          brief_id: 77,
           team_id: 10,
           team_name: 'Brygada Alfa',
-          total_min: 150,
-          distance_km: 22,
-          end_time: '11:30',
-          return_travel_min: 18,
-          stops: [
-            {
-              task_id: 101,
-              task_numer: 'ZL/101',
-              client: 'Anna Nowak',
-              client_phone: '+48500111222',
-              adres: 'Lesna 1',
-              eta: '08:00',
-              okno_od: '08:00',
-              okno_do: '10:00',
-              travel_min: 15,
-              service_min: 60,
-              time_window_ok: true,
-              lat: 52.1,
-              lng: 21.1,
-            },
-            {
-              task_id: 102,
-              task_numer: 'ZL/102',
-              client: 'Brak Kontaktu',
-              client_phone: '',
-              adres: 'Polna 2',
-              eta: '10:20',
-              travel_min: 25,
-              service_min: 45,
-              time_window_ok: false,
-              lat: null,
-              lng: null,
-            },
+          sent_to: 2,
+          confirmed: 0,
+          pending: 2,
+          recipients: [
+            { user_id: 21, name: 'Jan Brygadzista', status: 'Nowe' },
+            { user_id: 22, name: 'Anna Pomocnik', status: 'Nowe' },
           ],
         },
-      ],
-      unassigned: [],
-      stats: {
-        coverage_pct: 100,
-        tasks_assigned: 2,
-        tasks_total: 2,
-        teams_used: 1,
-        tasks_unassigned: 0,
-        solver_ms: 21,
       },
-    },
-  });
+    });
 
   renderAutoDispatch('/auto-dispatch?date=2026-05-25');
 
@@ -362,6 +381,24 @@ test('copies day and team handoff briefs from the generated plan', async () => {
   });
   expect(writeTextMock.mock.calls.at(-1)[0]).toContain('tel: brak telefonu');
   expect(writeTextMock.mock.calls.at(-1)[0]).toContain('uwagi: brak telefonu, brak pinezki gps, ryzyko okna czasowego');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Wyslij odprawy do ekip' }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenLastCalledWith(
+      '/dispatch/route-brief/send',
+      expect.objectContaining({
+        date: '2026-05-25',
+        oddzial_id: 7,
+        team_id: 10,
+        team_name: 'Brygada Alfa',
+        task_ids: [101, 102],
+        brief: expect.stringContaining('Odprawa ekipy - Brygada Alfa'),
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Wyslano odprawy: 1/1 ekip, 2 odbiorcow. Czekamy na potwierdzenia.')).toBeInTheDocument();
+  expect(screen.getByText('Wyslano do 2 | czeka 2')).toBeInTheDocument();
 }, 10000);
 
 test('falls back when Clipboard API is blocked', async () => {
