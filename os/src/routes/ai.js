@@ -389,7 +389,7 @@ router.get('/dispatch-brief', authMiddleware, async (req, res) => {
         COALESCE(ps.photo_total, 0)::int AS photo_total,
         COALESCE(er.equipment_reserved_count, 0)::int AS equipment_reserved_count
       FROM tasks t
-      LEFT JOIN ekipy e ON e.id = t.ekipa_id
+      LEFT JOIN teams e ON e.id = t.ekipa_id
       LEFT JOIN (
         SELECT task_id, COUNT(*)::int AS photo_total
         FROM photos
@@ -409,10 +409,10 @@ router.get('/dispatch-brief', authMiddleware, async (req, res) => {
       LIMIT 80`;
 
     const teamsParams = branchId ? [branchId] : [];
-    const teamsWhere = branchId ? 'WHERE aktywna = true AND oddzial_id = $1' : 'WHERE aktywna = true';
+    const teamsWhere = branchId ? 'WHERE COALESCE(aktywny, true) = true AND oddzial_id = $1' : 'WHERE COALESCE(aktywny, true) = true';
     const [tasksRes, teamsRes] = await Promise.all([
       pool.query(tasksSql, params),
-      pool.query(`SELECT COUNT(*)::int AS teams_count FROM ekipy ${teamsWhere}`, teamsParams),
+      pool.query(`SELECT COUNT(*)::int AS teams_count FROM teams ${teamsWhere}`, teamsParams),
     ]);
 
     const advisor = buildDispatchAdvisor({

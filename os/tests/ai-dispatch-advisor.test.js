@@ -103,6 +103,8 @@ describe('AI dispatch advisor', () => {
     expect(res.body.top_tasks[0].issues[0]).toEqual(expect.objectContaining({ key: 'client_phone' }));
     expect(pool.query.mock.calls[0][0]).toContain('t.oddzial_id = $3');
     expect(pool.query.mock.calls[0][1]).toEqual(['2026-05-25', 1, 7]);
+    expect(pool.query.mock.calls[1][0]).toContain('FROM teams');
+    expect(pool.query.mock.calls[1][0]).toContain('COALESCE(aktywny, true) = true');
   });
 
   it('GET /api/ai/dispatch-brief can use AI summary without changing factual metrics', async () => {
