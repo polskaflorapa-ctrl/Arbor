@@ -151,6 +151,19 @@ describe('Telephony routes', () => {
     expect(listCall[1]).toEqual([2, 'open', 10, 0]);
   });
 
+  it('scopes callback listing to branch users own branch', async () => {
+    const res = await request(app)
+      .get('/api/telephony/callbacks?status=open&limit=5&offset=1')
+      .set('Authorization', `Bearer ${token({ rola: 'Brygadzista', oddzial_id: 5 })}`);
+
+    expect(res.status).toBe(200);
+    const countCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('COUNT(*)::int AS c FROM telephony_callbacks'));
+    const listCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('LIMIT $3 OFFSET $4'));
+    expect(countCall[0]).toContain('WHERE c.oddzial_id = $1 AND c.status = $2');
+    expect(countCall[1]).toEqual([5, 'open']);
+    expect(listCall[1]).toEqual([5, 'open', 5, 1]);
+  });
+
   it('creates call logs with coerced numeric payload', async () => {
     const res = await request(app)
       .post('/api/telephony/calls')
