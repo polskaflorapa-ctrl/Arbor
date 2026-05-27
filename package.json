@@ -72,6 +72,8 @@
     "restart:force": "node ./scripts/restart-force.cjs"
   },
   "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@types/react": "19.2.14",
     "concurrently": "^9.2.1",
     "react-native": "0.81.5"
