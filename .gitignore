@@ -60,6 +60,7 @@ output/
 .codex-logs/
 artifacts/
 .tmp-chrome-*/
+os/.codex-pgdata/
 
 # IDE
 .idea/
