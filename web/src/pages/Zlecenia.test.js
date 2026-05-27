@@ -55,16 +55,46 @@ const TASK = {
 
 const SLOW_FORM_RENDER = { timeout: 10000 };
 
-function mockZleceniaApi() {
+function gpsRows(date = '2026-05-26') {
+  return [
+    {
+      provider: 'mobile',
+      user_id: 9,
+      user_name: 'Jan Brygadzista',
+      lat: 51.1,
+      lng: 17.03,
+      speed_kmh: 12,
+      accuracy_m: 8,
+      recorded_at: `${date}T08:00:00`,
+    },
+    {
+      provider: 'juwentus',
+      nr_rejestracyjny: 'KR12345',
+      lat: 51.12,
+      lng: 17.06,
+      speed_kmh: 38,
+      accuracy_m: 5,
+      recorded_at: `${date}T08:20:00`,
+    },
+  ];
+}
+
+function mockZleceniaApi(options = {}) {
+  const task = options.task || TASK;
   api.get.mockImplementation((url) => {
-    if (url === '/tasks/wszystkie') return Promise.resolve({ data: [TASK] });
-    if (url === '/tasks/42') return Promise.resolve({ data: TASK });
+    if (url === '/tasks/wszystkie') return Promise.resolve({ data: [task] });
+    if (url === '/tasks/42') return Promise.resolve({ data: task });
     if (url === '/ekipy') return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa', oddzial_id: 7 }] });
     if (url === '/uzytkownicy') return Promise.resolve({ data: [] });
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
     if (url === '/flota/sprzet') return Promise.resolve({ data: [] });
     if (url === '/tasks/client-contacts') return Promise.resolve({ data: null });
     if (url === '/tasks/closure-events') return Promise.resolve({ data: null });
+    if (String(url).startsWith('/ekipy/gps-history?')) {
+      const params = new URLSearchParams(String(url).split('?')[1]);
+      const date = params.get('date') || '2026-05-26';
+      return Promise.resolve({ data: { date, items: gpsRows(date), count: 2 } });
+    }
     if (String(url).startsWith('/tasks/42/')) return Promise.resolve({ data: [] });
     return Promise.resolve({ data: [] });
   });
@@ -198,5 +228,47 @@ test('opens routed office planning focus links in task details', async () => {
 
   await waitFor(() => {
     expect(scrollIntoViewMock.mock.contexts).toContain(officePlanSection);
+  });
+}, 15000);
+
+test('shows routed task GPS history and refreshes the selected day', async () => {
+  mockZleceniaApi({
+    task: {
+      ...TASK,
+      status: 'Zaplanowane',
+      ekipa_id: 3,
+      ekipa_nazwa: 'Brygada Alfa',
+      data_planowana: '2026-05-26T08:00:00.000Z',
+    },
+  });
+
+  renderRoute('/zlecenia/42');
+
+  expect(await screen.findByText('Historia GPS dnia', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  expect(await screen.findByText('2 pkt')).toBeInTheDocument();
+  expect(screen.getByText('Max predkosc')).toBeInTheDocument();
+  expect(screen.getByText('38 km/h')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Trasa GPS/ })).toHaveAttribute(
+    'href',
+    expect.stringContaining('https://www.google.com/maps/dir/')
+  );
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      expect.stringContaining('/ekipy/gps-history?date=2026-05-26'),
+      expect.objectContaining({ dedupe: false })
+    );
+  });
+
+  fireEvent.change(screen.getByLabelText('Data historii GPS'), {
+    target: { value: '2026-05-27' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Odswiez' }));
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      expect.stringContaining('/ekipy/gps-history?date=2026-05-27'),
+      expect.objectContaining({ dedupe: false })
+    );
   });
 }, 15000);
