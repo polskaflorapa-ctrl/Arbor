@@ -25,6 +25,7 @@
     "dev": "node ./scripts/dev-smart.cjs",
     "dev:all": "npx --yes concurrently -n API,WEB,OS \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:os\"",
     "health": "node ./scripts/health-check.cjs",
+    "test:scripts": "node --test scripts/*.test.cjs",
     "status": "node ./scripts/status.cjs",
     "status:web": "npm run status:web -w arbor-web",
     "status:web:json": "npm run status:web:json -w arbor-web",
