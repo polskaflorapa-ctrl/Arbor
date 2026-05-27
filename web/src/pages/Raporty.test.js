@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -271,13 +271,13 @@ test('saves callback queue entry with numeric branch payload', async () => {
   const [oddzialSelect, prioritySelect] = scoped.getAllByRole('combobox');
   const phoneInput = scoped.getByPlaceholderText('Telefon (+48...)');
   const leadInput = scoped.getByPlaceholderText('Lead / klient');
-  const dueAtInput = scoped.getByDisplayValue('');
+  const dueAtInput = callbackCard.querySelector('input[type="datetime-local"]');
 
   await userEvent.selectOptions(oddzialSelect, '1');
   await userEvent.type(phoneInput, '+48999111222');
   await userEvent.type(leadInput, 'Maria Nowak');
   await userEvent.selectOptions(prioritySelect, 'high');
-  await userEvent.type(dueAtInput, '2026-05-28T09:30');
+  fireEvent.change(dueAtInput, { target: { value: '2026-05-28T09:30' } });
   await userEvent.click(saveButton);
 
   await waitFor(() => {
