@@ -71,8 +71,12 @@ export default function CrmDashboard() {
       { key: 'technical_leads', label: t('crm.dashboard.technicalLeads', { defaultValue: 'Lejek techniczny' }), value: k.technical_leads || 0 },
       { key: 'calls_30d', label: t('crm.dashboard.calls30', { defaultValue: 'Połączenia (30 dni)' }), value: k.calls_30d || 0 },
       { key: 'callbacks_open', label: t('crm.dashboard.callbacksOpen', { defaultValue: 'Follow-up otwarte' }), value: k.callbacks_open || 0 },
+      { key: 'lead_win_rate', label: t('crm.dashboard.leadWinRate', { defaultValue: 'Konwersja leadów' }), value: `${k.lead_win_rate || 0}%` },
     ];
   }, [overview.kpis, t]);
+
+  const conversion = overview.analytics?.conversion || {};
+  const owners = overview.analytics?.owners || [];
 
   return (
     <div className="app-shell">
@@ -160,13 +164,69 @@ export default function CrmDashboard() {
               <div className="ios-inset-list">
                 {(overview.sources || []).slice(0, 8).map((s) => (
                   <div key={s.source} className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{s.source}</span>
-                    <strong>{s.count}</strong>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{s.source}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {t('crm.dashboard.sourceWonLost', { defaultValue: 'Wygrane/przegrane' })}: {s.won || 0}/{s.lost || 0}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <strong>{s.count}</strong>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.conversion_rate || 0}%</div>
+                    </div>
                   </div>
                 ))}
                 {!loading && (!overview.sources || overview.sources.length === 0) ? (
                   <div className="ios-inset-row muted">
                     {t('crm.dashboard.emptySources', { defaultValue: 'Brak danych źródeł.' })}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr', gap: 12, marginTop: 12 }}>
+            <section className="ios-inset" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 700, marginBottom: 10 }}>
+                {t('crm.dashboard.conversion', { defaultValue: 'Konwersja CRM' })}
+              </div>
+              <div className="ios-inset-list">
+                {[
+                  [t('crm.dashboard.openLeads', { defaultValue: 'Otwarte' }), conversion.open || 0, conversion.open_rate || 0],
+                  [t('crm.dashboard.wonLeads', { defaultValue: 'Wygrane' }), conversion.won || 0, conversion.win_rate || 0],
+                  [t('crm.dashboard.lostLeads', { defaultValue: 'Przegrane' }), conversion.lost || 0, conversion.loss_rate || 0],
+                  [t('crm.dashboard.technicalLeads', { defaultValue: 'Techniczne' }), conversion.technical || 0, null],
+                ].map(([label, count, rate]) => (
+                  <div key={label} className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <span>{label}</span>
+                    <strong>{count}{rate == null ? '' : ` (${rate}%)`}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="ios-inset" style={{ padding: 12 }}>
+              <div style={{ fontWeight: 700, marginBottom: 10 }}>
+                {t('crm.dashboard.ownerPerformance', { defaultValue: 'Aktywność ownerów' })}
+              </div>
+              <div className="ios-inset-list">
+                {owners.map((o) => (
+                  <div key={o.owner_user_id || 'none'} className="ios-inset-row" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{o.owner_name || t('crm.pipeline.noOwner', { defaultValue: 'Bez ownera' })}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {t('crm.dashboard.ownerOpenWonLost', { defaultValue: 'Otwarte/wygrane/przegrane' })}: {o.open || 0}/{o.won || 0}/{o.lost || 0}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <strong>{o.conversion_rate || 0}%</strong>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatCurrency(o.won_value || 0)}</div>
+                    </div>
+                  </div>
+                ))}
+                {!loading && owners.length === 0 ? (
+                  <div className="ios-inset-row muted">
+                    {t('crm.dashboard.emptyOwners', { defaultValue: 'Brak danych ownerów.' })}
                   </div>
                 ) : null}
               </div>

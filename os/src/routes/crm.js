@@ -93,6 +93,12 @@ function taskStageFromStatus(status) {
   return 'Inne';
 }
 
+function pct(part, total) {
+  const p = Number(part || 0);
+  const t = Number(total || 0);
+  return t > 0 ? Math.round((p / t) * 100) : 0;
+}
+
 async function mapLeadRow(client, row) {
   const owner = row.owner_user_id
     ? (await client.query('SELECT imie, nazwisko, login FROM users WHERE id = $1', [row.owner_user_id])).rows[0]
@@ -138,7 +144,14 @@ router.get('/overview', async (req, res) => {
         oddzialId ? [oddzialId, ['Zakonczone', 'Zakończone'], d30] : [['Zakonczone', 'Zakończone'], d30]
       ),
       pool.query('SELECT COUNT(*)::int AS c FROM phone_call_conversations WHERE created_at >= $1', [d30]),
-      pool.query(oddzialId ? 'SELECT * FROM crm_leads l WHERE l.oddzial_id = $1' : 'SELECT * FROM crm_leads l', oParam),
+      pool.query(
+        `${oddzialId ? 'SELECT l.*' : 'SELECT l.*'},
+          o.imie as owner_imie, o.nazwisko as owner_nazwisko, o.login as owner_login
+         FROM crm_leads l
+         LEFT JOIN users o ON o.id = l.owner_user_id
+         ${oddzialId ? 'WHERE l.oddzial_id = $1' : ''}`,
+        oParam
+      ),
       pool.query(
         oddzialId
           ? 'SELECT id, status, wartosc_planowana FROM tasks t WHERE t.oddzial_id = $1'
@@ -173,9 +186,65 @@ router.get('/overview', async (req, res) => {
       .map((stage) => pipelineMap.get(stage) || { stage, count: 0, value: 0 })
       .filter((x) => x.count > 0 || x.stage !== 'Inne');
 
-    const srcRes = await pool.query(
-      `SELECT COALESCE(NULLIF(TRIM(zrodlo), ''), 'inne') AS source, COUNT(*)::int AS count FROM klienci GROUP BY 1 ORDER BY 2 DESC`
-    );
+    const sourceMap = new Map();
+    const ownerMap = new Map();
+    const conversion = { total: 0, open: 0, won: 0, lost: 0, technical: 0, value_total: 0, won_value: 0 };
+    for (const lead of crmLeadsRows) {
+      const stage = normStage(lead.stage);
+      const value = Number(lead.value || 0);
+      const technical = stage === 'Techniczny' || lead.close_bucket === 'technical';
+      const won = stage === 'Wygrane';
+      const lost = stage === 'Przegrane' || lead.close_bucket === 'lost';
+      const source = String(lead.source || '').trim() || 'inne';
+      const ownerKey = lead.owner_user_id ? String(lead.owner_user_id) : 'none';
+      const ownerName = lead.owner_user_id
+        ? [lead.owner_imie, lead.owner_nazwisko].filter(Boolean).join(' ').trim() || lead.owner_login || `#${lead.owner_user_id}`
+        : 'Bez ownera';
+
+      conversion.total += 1;
+      conversion.value_total += value;
+      if (technical) conversion.technical += 1;
+      else if (won) {
+        conversion.won += 1;
+        conversion.won_value += value;
+      } else if (lost) conversion.lost += 1;
+      else conversion.open += 1;
+
+      const src = sourceMap.get(source) || { source, count: 0, value: 0, won: 0, lost: 0, technical: 0 };
+      src.count += 1;
+      src.value += value;
+      if (technical) src.technical += 1;
+      else if (won) src.won += 1;
+      else if (lost) src.lost += 1;
+      sourceMap.set(source, src);
+
+      const owner = ownerMap.get(ownerKey) || { owner_user_id: lead.owner_user_id || null, owner_name: ownerName, count: 0, open: 0, won: 0, lost: 0, value: 0, won_value: 0 };
+      owner.count += 1;
+      owner.value += value;
+      if (won) {
+        owner.won += 1;
+        owner.won_value += value;
+      } else if (lost) owner.lost += 1;
+      else if (!technical) owner.open += 1;
+      ownerMap.set(ownerKey, owner);
+    }
+
+    let sources = Array.from(sourceMap.values()).map((row) => ({
+      ...row,
+      conversion_rate: pct(row.won, row.count - row.technical),
+    })).sort((a, b) => b.count - a.count);
+
+    if (sources.length === 0) {
+      const srcRes = await pool.query(
+        `SELECT COALESCE(NULLIF(TRIM(zrodlo), ''), 'inne') AS source, COUNT(*)::int AS count FROM klienci GROUP BY 1 ORDER BY 2 DESC`
+      );
+      sources = srcRes.rows.map((r) => ({ source: r.source, count: r.count, value: 0, won: 0, lost: 0, technical: 0, conversion_rate: 0 }));
+    }
+
+    const owners = Array.from(ownerMap.values())
+      .map((row) => ({ ...row, conversion_rate: pct(row.won, row.count) }))
+      .sort((a, b) => b.won_value - a.won_value || b.count - a.count)
+      .slice(0, 12);
 
     let callbacksOpen = 0;
     let callbacksOverdue = 0;
@@ -220,9 +289,19 @@ router.get('/overview', async (req, res) => {
         calls_30d: callsRes.rows[0]?.c ?? 0,
         callbacks_open: callbacksOpen,
         callbacks_overdue: callbacksOverdue,
+        lead_win_rate: pct(conversion.won, conversion.total - conversion.technical),
       },
       pipeline,
-      sources: srcRes.rows.map((r) => ({ source: r.source, count: r.count })),
+      sources,
+      analytics: {
+        conversion: {
+          ...conversion,
+          win_rate: pct(conversion.won, conversion.total - conversion.technical),
+          loss_rate: pct(conversion.lost, conversion.total - conversion.technical),
+          open_rate: pct(conversion.open, conversion.total - conversion.technical),
+        },
+        owners,
+      },
       callbacks,
     });
   } catch (err) {
