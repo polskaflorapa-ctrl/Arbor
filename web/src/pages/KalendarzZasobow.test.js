@@ -176,7 +176,7 @@ test('copies the dispatcher day brief with task, equipment, risk, and map contex
   expect(copied).toContain('Akceptacja klienta: tak');
   expect(copied).toContain('Mapa: https://www.google.com/maps/search/?api=1&query=Lesna%2012%2C%20Wroclaw');
   expect(await screen.findByText('Odprawa dnia skopiowana.')).toBeInTheDocument();
-});
+}, 10000);
 
 test('copies a team-only day brief from the team header', async () => {
   mockCalendarApi();

@@ -99,6 +99,18 @@ function dashboardTaskKey(task, index, scope) {
   return stableId ? `${scope}-${stableId}-${index}` : `${scope}-row-${index}`;
 }
 
+function isDashboardOperationalTask(task) {
+  const id = Number(task?.id);
+  const client = String(task?.klient_nazwa || '').trim().toLowerCase();
+  const description = String(task?.opis || task?.opis_pracy || '').trim().toLowerCase();
+  const isLegacyTestFixture =
+    Number.isFinite(id) &&
+    id < 100 &&
+    client.startsWith('test klient') &&
+    description.startsWith('testowe zlecenie');
+  return !isLegacyTestFixture;
+}
+
 function AnimatedNumber({ value, duration = 900 }) {
   const [display, setDisplay] = useState(0);
   const raf = useRef(null);
@@ -304,7 +316,7 @@ export default function Dashboard() {
         api.get('/tasks/wszystkie', { headers: h }),
         rankingReq,
       ]);
-      const taskRows = Array.isArray(zRes.data) ? zRes.data : [];
+      const taskRows = (Array.isArray(zRes.data) ? zRes.data : []).filter(isDashboardOperationalTask);
       setAllTasks(taskRows);
       setOstatnie(taskRows.slice(0, 8));
       setTeamRankingApi(rRes.data || null);
