@@ -3,235 +3,189 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ARBOR-OS Command Center V2</title>
+  <title>ARBOR-OS — Specyfikacja Systemu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800;900&display=swap');
-
     :root {
-      --bg: #f4faf5;
-      --bg-2: #eaf5ee;
-      --surface: rgba(255, 255, 255, 0.9);
-      --surface-strong: #ffffff;
-      --green-900: #0b3d27;
-      --green-800: #0f5f3a;
-      --green-700: #146b43;
-      --green-500: #28b66c;
-      --green-100: #dff4e7;
-      --green-50: #effaf3;
-      --amber: #f59e0b;
-      --amber-soft: #fff7df;
-      --red: #dc2626;
-      --red-soft: #fff0f0;
-      --blue: #0ea5e9;
-      --blue-soft: #e8f7ff;
-      --text: #102218;
-      --muted: #6a7c70;
-      --line: rgba(15, 95, 58, 0.12);
-      --hairline: rgba(255,255,255,0.72);
-      --shadow: 0 22px 58px rgba(15, 95, 58, 0.13);
-      --shadow-soft: 0 12px 32px rgba(16, 34, 24, 0.08);
-      --shadow-lift: 0 22px 50px rgba(20, 107, 67, 0.18);
-      font-family: "Manrope", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --forest-950: #062316;
+      --forest-900: #0b3522;
+      --forest-800: #105134;
+      --forest-700: #176d46;
+      --forest-600: #218755;
+      --forest-100: #dff4e8;
+      --forest-50: #f1fbf5;
+      --amber-700: #c4540a;
+      --amber-100: #fff1d8;
+      --amber-50: #fff8ec;
+      --ink: #132119;
+      --muted: #66736b;
+      --soft: #f5f8f6;
+      --line: #dfe8e2;
+      --line-strong: #cbd8cf;
+      --white: #ffffff;
+      --code: #17231e;
+      --shadow: 0 24px 70px rgba(6, 35, 22, 0.10);
+      --shadow-soft: 0 12px 30px rgba(6, 35, 22, 0.07);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    * { box-sizing: border-box; }
-    html, body { max-width: 100%; overflow-x: hidden; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       margin: 0;
-      color: var(--text);
+      color: var(--ink);
       background:
-        linear-gradient(90deg, rgba(20,107,67,0.035) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(20,107,67,0.035) 1px, transparent 1px),
-        radial-gradient(circle at 18% 10%, rgba(40, 182, 108, 0.18), transparent 34rem),
-        linear-gradient(135deg, var(--bg), #fbfefc 48%, var(--bg-2));
-      background-size: 36px 36px, 36px 36px, auto, auto;
+        linear-gradient(90deg, rgba(16, 81, 52, 0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(16, 81, 52, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 92% 8%, rgba(33, 135, 85, 0.15), transparent 25rem),
+        linear-gradient(180deg, #fbfdfb 0%, var(--soft) 100%);
+      background-size: 34px 34px, 34px 34px, auto, auto;
       min-height: 100vh;
     }
 
-    button, input { font: inherit; }
-    button { cursor: pointer; }
+    button,
+    input {
+      font: inherit;
+    }
 
-    .shell {
+    button {
+      cursor: pointer;
+    }
+
+    .app-shell {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 244px minmax(0, 1fr);
+      grid-template-columns: 272px minmax(0, 1fr);
     }
 
     .sidebar {
       position: sticky;
       top: 0;
       height: 100vh;
-      padding: 18px 14px;
+      padding: 22px 16px;
+      color: var(--white);
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.055), transparent 22%),
-        linear-gradient(180deg, #06331f, #0c4d31 68%, #093a25);
-      color: #f4fff8;
-      box-shadow: 16px 0 46px rgba(11, 61, 39, 0.22);
+        radial-gradient(circle at 30% 4%, rgba(72, 187, 120, 0.22), transparent 10rem),
+        linear-gradient(180deg, var(--forest-950), var(--forest-800));
+      box-shadow: 16px 0 54px rgba(6, 35, 22, 0.18);
       display: flex;
       flex-direction: column;
-      gap: 0;
-    }
-
-    .sidebar::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 16px),
-        radial-gradient(circle at 55% 8%, rgba(168,255,193,0.16), transparent 8rem);
-      opacity: 0.65;
+      gap: 18px;
+      z-index: 3;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 11px;
-      padding: 9px 10px 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.12);
-      margin-bottom: 16px;
-      position: relative;
-      z-index: 1;
+      gap: 12px;
+      padding: 4px 6px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
     }
 
-    .brand-photo-mark {
-      width: 54px;
-      height: 54px;
-      border-radius: 18px;
-      position: relative;
-      flex: 0 0 auto;
-      background:
-        linear-gradient(145deg, rgba(234,255,239,0.92), rgba(140,230,172,0.78));
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.7), 0 14px 30px rgba(0,0,0,0.24);
-      overflow: hidden;
-    }
-
-    .brand-photo-mark::before {
-      content: "";
-      position: absolute;
-      inset: 7px;
+    .brand-mark {
+      width: 48px;
+      height: 48px;
       border-radius: 14px;
-      background:
-        linear-gradient(145deg, rgba(15,95,58,0.08), rgba(255,255,255,0.2)),
-        url("data:image/svg+xml,%3Csvg width='180' height='180' viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='sky' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop stop-color='%23d9f7e5'/%3E%3Cstop offset='1' stop-color='%2370c58f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='180' height='180' fill='url(%23sky)'/%3E%3Ccircle cx='134' cy='46' r='24' fill='%23fff8d8' opacity='.95'/%3E%3Cpath d='M0 132 C34 104 72 104 110 132 C138 152 158 148 180 126 L180 180 L0 180Z' fill='%230f5f3a' opacity='.9'/%3E%3Cpath d='M48 126 L72 50 L94 126' stroke='%230b3d27' stroke-width='9' stroke-linecap='round' fill='none'/%3E%3Cpath d='M72 51 C42 68 32 89 38 111 C64 105 80 88 72 51Z' fill='%2328b66c'/%3E%3Cpath d='M76 52 C108 64 124 84 120 108 C92 106 74 86 76 52Z' fill='%23146b43'/%3E%3Cpath d='M92 118 L122 94' stroke='%23ffffff' stroke-width='5' stroke-linecap='round' opacity='.85'/%3E%3Cpath d='M99 104 L126 126' stroke='%23ffffff' stroke-width='5' stroke-linecap='round' opacity='.85'/%3E%3C/svg%3E");
-      background-size: cover;
-      border: 2px solid rgba(255,255,255,0.78);
-    }
-
-    .brand-photo-mark::after {
-      content: "ARBOR";
-      position: absolute;
-      left: 8px;
-      right: 8px;
-      bottom: 7px;
-      height: 16px;
       display: grid;
       place-items: center;
-      border-radius: 999px;
-      color: #fff;
-      background: rgba(11,61,39,0.72);
-      font-size: 8px;
-      font-weight: 950;
-      letter-spacing: .06em;
+      background: linear-gradient(145deg, #ffffff, #bff2cf);
+      color: var(--forest-900);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+      flex: 0 0 auto;
     }
 
-    .brand-photo-dot {
-      position: absolute;
-      right: 4px;
-      top: 4px;
-      width: 13px;
-      height: 13px;
-      border-radius: 999px;
-      background: var(--green-500);
-      border: 2px solid #eaffef;
-      box-shadow: 0 0 0 3px rgba(40,182,108,0.2);
-      z-index: 2;
+    .brand-mark svg {
+      width: 30px;
+      height: 30px;
+      fill: currentColor;
     }
 
     .brand strong {
       display: block;
-      font-size: 18px;
+      font-size: 21px;
+      line-height: 1;
       letter-spacing: 0;
+      color: var(--white);
     }
 
     .brand span {
       display: block;
-      margin-top: 2px;
-      color: rgba(244,255,248,0.68);
+      margin-top: 4px;
+      color: rgba(255, 255, 255, 0.68);
       font-size: 12px;
       font-weight: 700;
     }
 
-    .nav-group {
-      margin-bottom: 18px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .nav-title {
-      padding: 0 10px;
-      color: rgba(244,255,248,0.55);
+    .side-label {
+      padding: 0 8px;
+      color: rgba(255, 255, 255, 0.55);
       font-size: 11px;
       font-weight: 900;
       text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
-    .nav-btn {
+    .tab-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tab-btn {
       width: 100%;
-      margin-top: 7px;
-      min-height: 42px;
+      min-height: 46px;
       border: 0;
       border-radius: 13px;
+      padding: 0 12px;
       background: transparent;
-      color: rgba(244,255,248,0.82);
+      color: rgba(255, 255, 255, 0.78);
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 0 11px;
       text-align: left;
-      font-weight: 850;
-      position: relative;
+      font-size: 14px;
+      font-weight: 800;
       transition: background 160ms ease, color 160ms ease, transform 160ms ease;
     }
 
-    .nav-btn:hover {
-      background: rgba(255,255,255,0.08);
-      color: #fff;
+    .tab-btn:hover {
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.08);
       transform: translateX(2px);
     }
 
-    .nav-btn.active {
-      color: #073521;
-      background: linear-gradient(135deg, #ffffff, #dff4e7);
-      box-shadow: 0 15px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.82);
+    .tab-btn.active {
+      color: var(--forest-900);
+      background: linear-gradient(135deg, #ffffff, #dff4e8);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
     }
 
-    .nav-btn.active::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 10px;
-      bottom: 10px;
-      width: 3px;
-      border-radius: 0 999px 999px 0;
-      background: var(--green-500);
-    }
-
-    .nav-ico {
-      width: 26px;
-      height: 26px;
-      border-radius: 9px;
+    .tab-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
       display: grid;
       place-items: center;
-      background: rgba(255,255,255,0.12);
+      background: rgba(255, 255, 255, 0.12);
       flex: 0 0 auto;
     }
 
-    .nav-ico svg,
+    .tab-btn.active .tab-icon {
+      background: rgba(33, 135, 85, 0.14);
+      color: var(--forest-700);
+    }
+
+    .tab-icon svg,
     .line-icon {
       width: 17px;
       height: 17px;
-      display: block;
       stroke: currentColor;
       fill: none;
       stroke-width: 2;
@@ -239,1341 +193,925 @@
       stroke-linejoin: round;
     }
 
-    .nav-btn.active .nav-ico {
-      background: rgba(20,107,67,0.12);
-      color: var(--green-800);
-    }
-
-    .sidebar-card {
+    .side-note {
       margin-top: auto;
+      padding: 15px;
       border-radius: 18px;
-      padding: 13px;
-      background: linear-gradient(145deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07));
-      border: 1px solid rgba(255,255,255,0.18);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
-      position: relative;
-      z-index: 1;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
     }
 
-    .sidebar-card strong {
+    .side-note strong {
       display: block;
-      margin-bottom: 5px;
       font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--white);
     }
 
-    .sidebar-card span {
-      color: rgba(244,255,248,0.68);
+    .side-note span {
+      display: block;
+      color: rgba(255, 255, 255, 0.68);
       font-size: 12px;
-      line-height: 1.35;
+      line-height: 1.45;
       font-weight: 650;
     }
 
     .main {
-      padding: 18px;
       min-width: 0;
-      width: 100%;
+      padding: 26px;
     }
 
-    .topbar {
-      min-height: 128px;
+    .hero {
       border: 1px solid var(--line);
       border-radius: 28px;
       background:
-        linear-gradient(90deg, rgba(255,255,255,0.26) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(255,255,255,0.26) 1px, transparent 1px),
-        radial-gradient(circle at 96% 16%, rgba(40,182,108,0.22), transparent 18rem),
-        linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,250,243,0.84));
-      background-size: 28px 28px, 28px 28px, auto, auto;
-      backdrop-filter: blur(18px);
+        radial-gradient(circle at 94% 10%, rgba(33, 135, 85, 0.15), transparent 20rem),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 251, 245, 0.88));
+      box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      padding: 24px;
       display: grid;
-      grid-template-columns: minmax(330px, 1fr) minmax(430px, 0.82fr);
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-      padding: 20px;
-      box-shadow: var(--shadow-soft), inset 0 1px 0 var(--hairline);
-      margin-bottom: 16px;
+      grid-template-columns: minmax(0, 1fr) minmax(310px, 0.48fr);
+      gap: 24px;
+      align-items: stretch;
       position: relative;
       overflow: hidden;
     }
 
-    .topbar::before {
-      content: "";
-      position: absolute;
-      right: 18%;
-      bottom: -54px;
-      width: 160px;
-      height: 160px;
-      border-radius: 50% 50% 46% 46%;
-      border: 1px solid rgba(20,107,67,0.08);
-      background: rgba(40,182,108,0.08);
-      transform: rotate(-18deg);
-    }
-
-    .topbar::after {
+    .hero::after {
       content: "";
       position: absolute;
       left: 24px;
       bottom: 0;
-      width: 340px;
+      width: 360px;
       height: 4px;
       border-radius: 999px 999px 0 0;
-      background: linear-gradient(90deg, var(--green-800), var(--green-500), rgba(40,182,108,0.2), transparent);
+      background: linear-gradient(90deg, var(--forest-800), var(--forest-600), transparent);
     }
 
-    .title-block small {
-      display: block;
-      color: var(--green-700);
-      font-size: 11px;
-      font-weight: 950;
-      text-transform: uppercase;
-    }
-
-    .title-block {
+    .hero-title {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
       position: relative;
       z-index: 1;
-      min-width: 280px;
-      max-width: 650px;
+    }
+
+    .doc-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 17px;
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--forest-800), var(--forest-600));
+      box-shadow: 0 18px 38px rgba(16, 81, 52, 0.26);
+    }
+
+    .doc-icon svg {
+      width: 30px;
+      height: 30px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .breadcrumbs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
 
     h1 {
-      margin: 3px 0 0;
-      max-width: 620px;
-      font-size: clamp(30px, 2.7vw, 42px);
-      line-height: 1.02;
+      margin: 0;
+      color: var(--forest-950);
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 0.98;
       letter-spacing: 0;
-      color: var(--green-900);
     }
 
-    .title-lead {
-      margin: 10px 0 0;
-      max-width: 560px;
+    .lead {
+      max-width: 760px;
+      margin: 14px 0 0;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.42;
-      font-weight: 760;
+      font-size: 15px;
+      line-height: 1.55;
+      font-weight: 600;
     }
 
-    .hero-status-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .topbar-controls {
+    .meta-grid {
       position: relative;
       z-index: 1;
-      min-width: 0;
-      display: grid;
-      justify-items: end;
-      gap: 10px;
-    }
-
-    .hero-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 30px;
-      padding: 0 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(15,95,58,0.12);
-      background: rgba(255,255,255,0.82);
-      color: var(--green-800);
-      font-size: 12px;
-      font-weight: 900;
-      box-shadow: 0 8px 18px rgba(16,34,24,0.05);
-    }
-
-    .hero-status.warning {
-      color: #a16207;
-      background: rgba(255,247,223,0.9);
-      border-color: rgba(245,158,11,0.22);
-    }
-
-    .hero-status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--green-500);
-      box-shadow: 0 0 0 4px rgba(40,182,108,0.14);
-    }
-
-    .search {
-      width: min(100%, 360px);
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 0 13px;
-      height: 46px;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.9);
-      color: var(--muted);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 12px 24px rgba(16,34,24,0.06);
-    }
-
-    .search:focus-within {
-      border-color: rgba(40,182,108,0.38);
-      box-shadow: 0 0 0 4px rgba(40,182,108,0.1), 0 14px 30px rgba(16,34,24,0.08);
-    }
-
-    .search input {
-      border: 0;
-      outline: 0;
-      width: 100%;
-      color: var(--text);
-      background: transparent;
-      font-weight: 750;
-    }
-
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      width: 100%;
-    }
-
-    .field-status {
-      min-height: 54px;
-      border-radius: 18px;
-      border: 1px solid rgba(15,95,58,0.12);
-      background: rgba(255,255,255,0.9);
-      box-shadow: 0 10px 24px rgba(16,34,24,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
-      display: grid;
-      grid-template-columns: auto auto;
-      gap: 10px;
-      align-items: center;
-      padding: 8px 11px;
-      min-width: 170px;
-    }
-
-    .weather-mark {
-      width: 38px;
-      height: 38px;
-      border-radius: 14px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #fff7df, #dcfce7);
-      border: 1px solid rgba(245,158,11,0.18);
-      color: var(--green-800);
-    }
-
-    .field-status-body {
-      display: grid;
-      gap: 2px;
-      min-width: 96px;
-    }
-
-    .field-status-body strong {
-      color: var(--green-900);
-      font-size: 16px;
-      line-height: 1;
-      font-weight: 950;
-    }
-
-    .field-status-body span {
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.2;
-      font-weight: 820;
-    }
-
-    .time-card {
-      min-height: 54px;
-      border-radius: 18px;
-      border: 1px solid rgba(15,95,58,0.12);
-      background: rgba(255,255,255,0.9);
-      box-shadow: 0 10px 24px rgba(16,34,24,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
-      display: grid;
-      gap: 2px;
-      align-content: center;
-      padding: 8px 12px;
-      min-width: 96px;
-    }
-
-    .time-card strong {
-      color: var(--green-900);
-      font-size: 17px;
-      line-height: 1;
-      font-weight: 950;
-    }
-
-    .time-card span {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 820;
-      line-height: 1.2;
-    }
-
-    .icon-btn, .primary-btn, .ghost-btn {
-      border-radius: 15px;
-      border: 1px solid var(--line);
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-weight: 900;
-      white-space: nowrap;
-    }
-
-    .icon-btn {
-      width: 44px;
-      background: rgba(255,255,255,0.92);
-      color: var(--green-800);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 22px rgba(16,34,24,0.07);
-    }
-
-    .primary-btn {
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.16), transparent 40%),
-        linear-gradient(135deg, var(--green-800), var(--green-500));
-      color: #fff;
-      padding: 0 15px;
-      box-shadow: var(--shadow-lift);
-    }
-
-    .primary-btn:hover,
-    .icon-btn:hover,
-    .ghost-btn:hover {
-      transform: translateY(-1px);
-      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
-    }
-
-    .ghost-btn {
-      background: #fff;
-      color: var(--green-800);
-      padding: 0 13px;
-    }
-
-    .kpis {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(130px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .kpi {
-      min-height: 98px;
-      border-radius: 20px;
-      border: 1px solid var(--line);
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.86));
-      box-shadow: var(--shadow-soft), inset 0 1px 0 var(--hairline);
-      padding: 13px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      overflow: hidden;
-      position: relative;
-      isolation: isolate;
-    }
-
-    .kpi::after {
-      content: "";
-      position: absolute;
-      right: -28px;
-      bottom: -34px;
-      width: 86px;
-      height: 86px;
-      border-radius: 50%;
-      background: rgba(40,182,108,0.1);
-    }
-
-    .kpi label {
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 950;
-    }
-
-    .kpi strong {
-      display: block;
-      margin-top: 7px;
-      color: var(--green-900);
-      font-size: 28px;
-      line-height: 1;
-    }
-
-    .kpi span {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 750;
-      min-height: 16px;
-    }
-
-    .workbench {
-      display: grid;
-      grid-template-columns: minmax(270px, 0.85fr) minmax(390px, 1.42fr) minmax(240px, 0.78fr);
-      gap: 16px;
-      align-items: start;
-    }
-
-    .panel {
-      border-radius: 24px;
-      border: 1px solid var(--line);
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88));
-      box-shadow: var(--shadow), inset 0 1px 0 var(--hairline);
-      min-width: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .panel-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      min-height: 76px;
-      padding: 15px 16px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.18));
-    }
-
-    .panel-head label {
-      display: block;
-      color: var(--green-700);
-      font-size: 11px;
-      font-weight: 950;
-      text-transform: uppercase;
-    }
-
-    .panel-head strong {
-      display: block;
-      margin-top: 3px;
-      font-size: 17px;
-      color: var(--green-900);
-    }
-
-    .small-pill {
-      border-radius: 999px;
-      padding: 7px 10px;
-      background: var(--green-50);
-      color: var(--green-800);
-      font-size: 12px;
-      font-weight: 900;
-      border: 1px solid var(--line);
-    }
-
-    .stage-tabs {
-      padding: 14px 14px 8px;
-      display: grid;
-      gap: 8px;
-    }
-
-    .stage {
-      border: 1px solid var(--line);
-      border-radius: 17px;
-      padding: 11px;
-      background: linear-gradient(180deg, #fff, rgba(248,252,249,0.96));
-      display: grid;
-      grid-template-columns: 38px minmax(0, 1fr) auto;
-      grid-template-areas:
-        "no body count"
-        "bar bar bar";
-      gap: 10px;
-      align-items: center;
-      transition: transform 160ms ease, box-shadow 160ms ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .stage:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .stage.active {
-      border-color: rgba(40,182,108,0.48);
-      background: linear-gradient(135deg, #fff, var(--green-50));
-      box-shadow: 0 15px 32px rgba(40,182,108,0.13), inset 0 1px 0 rgba(255,255,255,0.92);
-    }
-
-    .stage-no {
-      grid-area: no;
-      width: 38px;
-      height: 38px;
-      border-radius: 14px;
-      display: grid;
-      place-items: center;
-      background: var(--green-100);
-      color: var(--green-800);
-      font-weight: 950;
-    }
-
-    .stage-body {
-      grid-area: body;
-      min-width: 0;
-    }
-
-    .stage-body strong {
-      display: block;
-      font-size: 13px;
-      color: var(--text);
-    }
-
-    .stage-body span {
-      display: block;
-      margin-top: 2px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .stage-count {
-      grid-area: count;
-      color: var(--green-800);
-      font-weight: 950;
-      font-size: 14px;
-    }
-
-    .stage-bar {
-      grid-area: bar;
-      height: 6px;
-      border-radius: 999px;
-      background: #e7f1eb;
-      overflow: hidden;
-    }
-
-    .stage-bar span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--green-800), var(--green-500));
-    }
-
-    .queue {
-      padding: 8px 14px 14px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .task-card {
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 12px;
-      background: linear-gradient(180deg, #fff, rgba(248,252,249,0.96));
-      box-shadow: 0 8px 22px rgba(16,34,24,0.06), inset 0 1px 0 rgba(255,255,255,0.88);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .task-card::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 14px;
-      bottom: 14px;
-      width: 4px;
-      border-radius: 0 999px 999px 0;
-      background: var(--green-500);
-    }
-
-    .task-card.selected {
-      border-color: rgba(20,107,67,0.42);
-      box-shadow: 0 18px 36px rgba(20,107,67,0.13);
-      background: linear-gradient(135deg, #fff, #f4fbf6);
-    }
-
-    .task-card:hover,
-    .stage:hover,
-    .info-card:hover,
-    .next-action:hover {
-      border-color: rgba(40,182,108,0.28);
-    }
-
-    .task-card.blocked::before { background: var(--red); }
-    .task-card.field::before { background: var(--blue); }
-
-    .task-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-      margin-bottom: 9px;
-    }
-
-    .task-title strong {
-      display: block;
-      color: var(--green-900);
-      font-size: 15px;
-      line-height: 1.18;
-    }
-
-    .task-title span {
-      display: block;
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 750;
-    }
-
-    .task-readiness {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 7px;
-      margin-bottom: 9px;
-    }
-
-    .readiness-item {
-      min-width: 0;
-      border-radius: 13px;
-      padding: 8px;
-      background: rgba(239,250,243,0.82);
-      border: 1px solid rgba(15,95,58,0.08);
-    }
-
-    .readiness-item label {
-      display: block;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 950;
-      text-transform: uppercase;
-    }
-
-    .readiness-item strong {
-      display: block;
-      margin-top: 3px;
-      color: var(--green-900);
-      font-size: 12px;
-      line-height: 1.18;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .badge {
-      border-radius: 999px;
-      padding: 5px 8px;
-      border: 1px solid var(--line);
-      background: var(--green-50);
-      color: var(--green-800);
-      font-size: 11px;
-      font-weight: 950;
-      white-space: nowrap;
-    }
-
-    .badge.warning { background: var(--amber-soft); color: #a16207; border-color: rgba(245,158,11,0.28); }
-    .badge.danger { background: var(--red-soft); color: var(--red); border-color: rgba(220,38,38,0.22); }
-    .badge.blue { background: var(--blue-soft); color: #0369a1; border-color: rgba(14,165,233,0.22); }
-
-    .task-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 7px;
-      margin-bottom: 9px;
-    }
-
-    .metric {
-      border-radius: 14px;
-      background: rgba(248,252,249,0.86);
-      border: 1px solid rgba(15,95,58,0.08);
-      padding: 8px;
-      min-width: 0;
-    }
-
-    .metric label {
-      display: block;
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 950;
-      text-transform: uppercase;
-    }
-
-    .metric strong {
-      display: block;
-      margin-top: 4px;
-      color: var(--text);
-      font-size: 13px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .progress {
-      height: 8px;
-      border-radius: 999px;
-      background: #e7f1eb;
-      overflow: hidden;
-      margin-top: 10px;
-    }
-
-    .progress span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--green-800), var(--green-500));
-    }
-
-    .center-body {
-      padding: 14px;
-      display: grid;
-      gap: 12px;
-    }
-
-    .hero-task {
-      border-radius: 22px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.1), transparent 36%),
-        linear-gradient(135deg, rgba(11,61,39,0.96), rgba(40,182,108,0.86)),
-        url("data:image/svg+xml,%3Csvg width='260' height='260' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(255,255,255,0.18)' stroke-width='1'%3E%3Cpath d='M130 20 C95 70 95 120 130 170 C165 120 165 70 130 20Z'/%3E%3Cpath d='M130 42 L130 188'/%3E%3Cpath d='M130 82 C98 78 78 62 58 36'/%3E%3Cpath d='M130 114 C168 104 196 82 218 46'/%3E%3C/g%3E%3C/svg%3E");
-      background-size: cover;
-      color: #fff;
-      padding: 18px;
-      box-shadow: 0 24px 48px rgba(15,95,58,0.25), inset 0 1px 0 rgba(255,255,255,0.18);
-      min-height: 174px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .hero-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
-    }
-
-    .hero-task label {
-      display: block;
-      color: rgba(255,255,255,0.72);
-      font-size: 11px;
-      font-weight: 950;
-      text-transform: uppercase;
-    }
-
-    .hero-task h2 {
-      margin: 5px 0;
-      font-size: clamp(24px, 3vw, 38px);
-      line-height: 1;
-      letter-spacing: 0;
-    }
-
-    .hero-task p {
-      margin: 0;
-      max-width: 650px;
-      color: rgba(255,255,255,0.84);
-      font-size: 13px;
-      line-height: 1.45;
-      font-weight: 700;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .hero-actions button {
-      min-height: 40px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: rgba(255,255,255,0.16);
-      color: #fff;
-      padding: 0 12px;
-      font-weight: 900;
-      backdrop-filter: blur(12px);
-    }
-
-    .hero-actions button.primary-white {
-      color: var(--green-900);
-      background: #fff;
-    }
-
-    .workflow {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 8px;
-    }
-
-    .step-card {
-      border-radius: 17px;
-      background: #fff;
-      border: 1px solid var(--line);
-      padding: 11px;
-      min-height: 104px;
-    }
-
-    .step-card.done { background: var(--green-50); border-color: rgba(40,182,108,0.22); }
-    .step-card.current { background: var(--amber-soft); border-color: rgba(245,158,11,0.32); }
-
-    .step-card span {
-      width: 28px;
-      height: 28px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      background: var(--green-100);
-      color: var(--green-800);
-      font-weight: 950;
-      margin-bottom: 8px;
-    }
-
-    .step-card.current span { background: #fde68a; color: #92400e; }
-
-    .step-card strong {
-      display: block;
-      font-size: 13px;
-      line-height: 1.18;
-    }
-
-    .step-card small {
-      display: block;
-      margin-top: 5px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.3;
-      font-weight: 700;
-    }
-
-    .detail-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .info-card {
-      border-radius: 20px;
-      border: 1px solid var(--line);
-      background: linear-gradient(180deg, #fff, rgba(249,253,250,0.95));
-      padding: 14px;
-      min-width: 0;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
-    }
-
-    .info-card h3 {
-      margin: 0 0 11px;
-      font-size: 15px;
-      color: var(--green-900);
-    }
-
-    .field-list {
-      display: grid;
-      gap: 8px;
-    }
-
-    .field {
-      display: grid;
-      grid-template-columns: 112px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-      font-size: 13px;
-    }
-
-    .field label {
-      color: var(--muted);
-      font-weight: 850;
-      font-size: 11px;
-      text-transform: uppercase;
-    }
-
-    .field strong {
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-
-    .photo-strip {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-    }
-
-    .photo {
-      aspect-ratio: 1.18;
-      border-radius: 16px;
-      overflow: hidden;
-      position: relative;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,0.24), rgba(15,95,58,0.08)),
-        linear-gradient(135deg, #d8f1df, #79c898);
-      border: 1px solid var(--line);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.52), 0 10px 18px rgba(16,34,24,0.08);
-    }
-
-    .photo::before {
-      content: "";
-      position: absolute;
-      inset: 16% 18% 24%;
-      border: 2px solid rgba(255,255,255,0.8);
-      border-radius: 52% 48% 44% 50%;
-      transform: rotate(var(--rot, -12deg));
-    }
-
-    .photo::after {
-      content: attr(data-label);
-      position: absolute;
-      left: 7px;
-      bottom: 7px;
-      border-radius: 999px;
-      background: rgba(11,61,39,0.72);
-      color: #fff;
-      padding: 4px 7px;
-      font-size: 10px;
-      font-weight: 850;
-    }
-
-    .photo.sketch {
-      background:
-        repeating-linear-gradient(135deg, rgba(15,95,58,0.08) 0 7px, rgba(255,255,255,0.62) 7px 14px),
-        linear-gradient(135deg, #effaf3, #bde9cd);
-    }
-
-    .photo.sketch::before {
-      inset: 19% 16% 26%;
-      border: 0;
-      border-radius: 0;
-      background:
-        linear-gradient(115deg, transparent 0 36%, rgba(11,61,39,0.72) 36% 40%, transparent 40%),
-        linear-gradient(35deg, transparent 0 48%, rgba(11,61,39,0.72) 48% 52%, transparent 52%);
-      transform: none;
-    }
-
-    .right-body {
-      padding: 14px;
-      display: grid;
-      gap: 12px;
       align-content: start;
     }
 
-    .next-action {
-      border-radius: 22px;
-      padding: 15px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.72)),
-        linear-gradient(135deg, #fff, var(--green-50));
-      border: 1px solid rgba(40,182,108,0.25);
-      box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,0.9);
+    .meta-card {
+      min-height: 82px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 10px 22px rgba(6, 35, 22, 0.05);
     }
 
-    .next-action label {
+    .meta-card label {
       display: block;
-      color: var(--green-700);
+      color: var(--muted);
       font-size: 11px;
-      font-weight: 950;
+      font-weight: 900;
       text-transform: uppercase;
     }
 
-    .next-action strong {
+    .meta-card strong {
       display: block;
-      margin-top: 5px;
-      font-size: 21px;
-      line-height: 1.08;
-      color: var(--green-900);
+      margin-top: 8px;
+      color: var(--forest-950);
+      font-size: 15px;
+      line-height: 1.2;
     }
 
-    .next-action p {
-      margin: 9px 0 14px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.4;
-      font-weight: 720;
-    }
-
-    .action-stack {
-      display: grid;
-      gap: 8px;
-    }
-
-    .wide-btn {
-      min-height: 44px;
-      border-radius: 15px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--green-800);
-      display: flex;
+    .status-pill {
+      display: inline-flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0 12px;
+      gap: 7px;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: var(--forest-800);
+      background: var(--forest-100);
+      border: 1px solid rgba(33, 135, 85, 0.22);
+      font-size: 12px;
       font-weight: 900;
     }
 
-    .wide-btn .line-icon {
-      width: 16px;
-      height: 16px;
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--forest-600);
+      box-shadow: 0 0 0 4px rgba(33, 135, 85, 0.14);
+    }
+
+    .mobile-tabs {
+      display: none;
+      margin-top: 14px;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: none;
+    }
+
+    .mobile-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .mobile-tab-btn {
+      min-height: 42px;
       flex: 0 0 auto;
-    }
-
-    .wide-btn.main {
-      color: #fff;
-      background: linear-gradient(135deg, var(--green-800), var(--green-500));
-      box-shadow: 0 14px 28px rgba(20,107,67,0.18);
-    }
-
-    .blocker {
-      border-radius: 18px;
-      border: 1px solid rgba(245,158,11,0.24);
-      background: var(--amber-soft);
-      padding: 12px;
-    }
-
-    .blocker.danger {
-      border-color: rgba(220,38,38,0.22);
-      background: var(--red-soft);
-    }
-
-    .blocker strong {
-      display: block;
-      font-size: 13px;
-      color: var(--text);
-    }
-
-    .blocker span {
-      display: block;
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-      font-weight: 700;
-    }
-
-    .mini-calendar {
-      border-radius: 20px;
       border: 1px solid var(--line);
-      background: #fff;
-      padding: 14px;
-    }
-
-    .timeline {
-      position: relative;
-      height: 42px;
-      border-radius: 14px;
-      background: #eef7f1;
-      overflow: hidden;
-      margin-top: 12px;
-      border: 1px solid rgba(15,95,58,0.08);
-    }
-
-    .busy, .free {
-      position: absolute;
-      top: 7px;
-      bottom: 7px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      font-size: 10px;
-      font-weight: 950;
+      border-radius: 999px;
+      padding: 0 14px;
+      background: var(--white);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
       white-space: nowrap;
     }
 
-    .busy { background: rgba(245,158,11,0.42); color: #78350f; }
-    .free { background: rgba(40,182,108,0.66); color: #06351f; }
-
-    @media (max-width: 1380px) {
-      .shell { grid-template-columns: 82px minmax(0, 1fr); }
-      .sidebar { padding: 16px 12px; align-items: center; }
-      .brand div:not(.brand-photo-mark), .nav-title, .nav-btn span:not(.nav-ico), .sidebar-card { display: none; }
-      .brand-photo-mark { width: 50px; height: 50px; border-radius: 17px; }
-      .nav-group { width: 100%; margin-bottom: 14px; display: grid; gap: 8px; }
-      .nav-btn { width: 54px; min-height: 54px; justify-content: center; padding: 0; margin: 0 auto; border-radius: 17px; }
-      .nav-btn:hover { transform: translateY(-1px); }
-      .nav-btn.active::before { left: -12px; top: 13px; bottom: 13px; }
-      .nav-ico { width: 34px; height: 34px; border-radius: 12px; }
-      .brand { justify-content: center; padding: 0 0 16px; margin-bottom: 16px; width: 100%; }
-      .topbar { grid-template-columns: minmax(360px, 1fr) minmax(360px, 0.72fr); align-items: center; }
-      .search { width: 100%; }
-      .workbench { grid-template-columns: 0.9fr 1.4fr; }
-      .right-panel { grid-column: 1 / -1; }
-      .right-panel .right-body { grid-template-columns: minmax(280px, 1fr) 1fr 1fr; }
-      .right-panel .next-action { grid-row: span 2; }
-      .kpis { grid-template-columns: repeat(3, 1fr); }
+    .mobile-tab-btn.active {
+      border-color: rgba(33, 135, 85, 0.26);
+      color: var(--forest-800);
+      background: var(--forest-50);
+      box-shadow: 0 10px 22px rgba(6, 35, 22, 0.06);
     }
 
-    @media (max-width: 900px) {
-      .shell { display: block; }
-      .sidebar { position: static; height: auto; display: flex; flex-direction: row; align-items: center; gap: 8px; overflow-x: auto; padding: 10px; scrollbar-width: none; }
-      .sidebar::-webkit-scrollbar { display: none; }
-      .brand { border: 0; margin: 0; padding: 0; width: auto; }
-      .nav-group { display: flex; gap: 8px; margin: 0; }
-      .nav-btn { width: 48px; min-height: 48px; flex: 0 0 auto; }
-      .nav-ico { width: 32px; height: 32px; }
-      .nav-btn.active::before { display: none; }
-      .main { padding: 10px; }
-      .topbar { grid-template-columns: 1fr; align-items: stretch; border-radius: 22px; min-height: 0; }
-      .title-block { min-width: 0; }
-      h1 { font-size: clamp(28px, 9vw, 38px); line-height: 1; }
-      .title-lead { font-size: 12px; max-width: 100%; }
-      .topbar-controls { justify-items: stretch; }
-      .search { min-width: 0; width: 100%; flex-basis: auto; }
-      .kpis { grid-template-columns: repeat(2, 1fr); }
-      .workbench, .detail-grid, .workflow { grid-template-columns: 1fr; }
-      .right-panel .right-body { grid-template-columns: 1fr; }
-      .right-panel .next-action { grid-row: auto; }
-      .field { grid-template-columns: 1fr; gap: 3px; }
-      .photo-strip { grid-template-columns: repeat(2, 1fr); }
-      .panel, .hero-task { border-radius: 18px; }
+    .content-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 20px;
+      margin-top: 20px;
+      align-items: start;
+    }
+
+    .document-panel,
+    .aside-panel {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .document-header {
+      min-height: 70px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .document-header strong {
+      display: block;
+      color: var(--forest-950);
+      font-size: 18px;
+    }
+
+    .document-header span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .doc-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .action-btn {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      color: var(--forest-800);
+      background: var(--white);
+      font-size: 13px;
+      font-weight: 850;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-content {
+      display: none;
+      padding: clamp(20px, 3vw, 34px);
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: reveal 220ms ease;
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h2 {
+      margin: 0 0 20px;
+      color: var(--forest-950);
+      font-size: clamp(24px, 2.4vw, 34px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      color: var(--forest-800);
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: #2a382f;
+      line-height: 1.72;
+      font-size: 15px;
+    }
+
+    ul {
+      margin: 0 0 18px;
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 9px;
+      line-height: 1.6;
+    }
+
+    strong {
+      color: var(--forest-950);
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: var(--forest-700);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .section-kicker::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--forest-600);
+      box-shadow: 0 0 0 5px rgba(33, 135, 85, 0.12);
+    }
+
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 22px 0 12px;
+    }
+
+    .flow-step {
+      min-height: 120px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #ffffff, #f9fbfa);
+      position: relative;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      top: 28px;
+      right: -13px;
+      width: 14px;
+      height: 2px;
+      background: var(--line-strong);
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .flow-step span {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      color: var(--forest-800);
+      background: var(--forest-100);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    .flow-step small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      line-height: 1.4;
+      font-weight: 650;
+    }
+
+    .highlight-box {
+      margin: 22px 0;
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px solid rgba(33, 135, 85, 0.26);
+      background:
+        linear-gradient(135deg, rgba(241, 251, 245, 0.96), rgba(255, 255, 255, 0.9));
+      box-shadow: 0 12px 26px rgba(33, 135, 85, 0.08);
+    }
+
+    .highlight-box .formula {
+      margin: 0;
+      color: var(--forest-950);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: clamp(15px, 2vw, 20px);
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .warning-box {
+      margin: 22px 0;
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px solid rgba(196, 84, 10, 0.32);
+      background: linear-gradient(135deg, var(--amber-50), #ffffff);
+      box-shadow: 0 12px 26px rgba(196, 84, 10, 0.08);
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .warning-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: var(--amber-700);
+      background: var(--amber-100);
+      flex: 0 0 auto;
+    }
+
+    .warning-box p {
+      margin-bottom: 0;
+    }
+
+    .db-structure {
+      margin: 20px 0;
+      border-radius: 20px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent),
+        var(--code);
+      color: #effaf3;
+      padding: 20px;
+      overflow-x: auto;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .db-structure code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      white-space: pre;
+    }
+
+    .db-structure strong {
+      color: #b7f3c9;
+    }
+
+    .aside-panel {
+      position: sticky;
+      top: 22px;
+    }
+
+    .aside-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .aside-head label {
+      display: block;
+      color: var(--forest-700);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .aside-head strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 18px;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .summary-item {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff, #fbfdfb);
+    }
+
+    .summary-item label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .summary-item strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 15px;
+    }
+
+    .summary-item span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+
+    footer {
+      margin-top: 20px;
+      padding: 18px 8px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 88px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        align-items: center;
+        padding: 18px 12px;
+      }
+
+      .brand {
+        justify-content: center;
+        width: 100%;
+        padding: 0 0 16px;
+      }
+
+      .brand div:not(.brand-mark),
+      .side-label,
+      .tab-btn span:not(.tab-icon),
+      .side-note {
+        display: none;
+      }
+
+      .tab-btn {
+        width: 56px;
+        min-height: 56px;
+        justify-content: center;
+        padding: 0;
+      }
+
+      .tab-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+      }
+
+      .hero,
+      .content-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .aside-panel {
+        position: static;
+      }
+
+      .summary-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        display: block;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .main {
+        padding: 12px;
+      }
+
+      .hero {
+        border-radius: 22px;
+        padding: 18px;
+      }
+
+      .hero-title {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .doc-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 15px;
+      }
+
+      .meta-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .mobile-tabs {
+        display: flex;
+      }
+
+      .document-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .doc-actions {
+        justify-content: flex-start;
+      }
+
+      .flow-grid,
+      .summary-list {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
     }
 
     @media (max-width: 520px) {
-      .kpis { grid-template-columns: 1fr; }
-      .task-metrics { grid-template-columns: 1fr; }
-      .hero-row { flex-direction: column; }
-      .top-actions { justify-content: stretch; }
-      .field-status, .time-card, .icon-btn { flex: 1 1 auto; }
-      .primary-btn, .ghost-btn { flex: 1; }
+      .hero {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .lead {
+        font-size: 14px;
+      }
+
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .document-panel,
+      .aside-panel {
+        border-radius: 20px;
+      }
+
+      .tab-content {
+        padding: 18px;
+      }
+
+      .warning-box {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar">
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Nawigacja dokumentu">
       <div class="brand">
-        <div class="brand-photo-mark" title="Zdjęcia z terenu i marka ARBOR-OS"><span class="brand-photo-dot"></span></div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M16 2 3 29h8l2-5h6l2 5h8L16 2Zm0 10 3 7h-6l3-7Z"/></svg>
+        </div>
         <div>
           <strong>ARBOR-OS</strong>
-          <span>Tree Care Operations</span>
+          <span>Specyfikacja systemu</span>
         </div>
       </div>
 
-      <div class="nav-group">
-        <div class="nav-title">Praca</div>
-        <button class="nav-btn active" title="Command Center" aria-label="Command Center"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4z"></path><path d="M14 5h6v6h-6z"></path><path d="M4 15h6v4H4z"></path><path d="M14 15h6v4h-6z"></path></svg></span><span>Command Center</span></button>
-        <button class="nav-btn" title="CRM / telefony" aria-label="CRM / telefony"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5.5h11v13h-11z"></path><path d="M9 4h6"></path><path d="M9 20h6"></path><path d="M10 8h4"></path><path d="M10 12h4"></path></svg></span><span>CRM / telefony</span></button>
-        <button class="nav-btn" title="Oględziny" aria-label="Oględziny"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l1.5-2h5L16 8h4v10H4z"></path><circle cx="12" cy="13" r="3"></circle><path d="M7 8V6"></path></svg></span><span>Oględziny</span></button>
-        <button class="nav-btn" title="Plan ekip" aria-label="Plan ekip"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"></path><path d="M9 5v14"></path><path d="M15 5v14"></path><path d="M5 11h14"></path></svg></span><span>Plan ekip</span></button>
-      </div>
+      <div class="side-label">Sekcje</div>
+      <nav class="tab-list">
+        <button class="tab-btn active" data-tab="wstep"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16"></path><path d="M4 12h12"></path><path d="M4 19h8"></path></svg></span><span>Wstęp i cel</span></button>
+        <button class="tab-btn" data-tab="architektura"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"></path><path d="M4 8h16"></path><path d="M6 16h12"></path></svg></span><span>Architektura</span></button>
+        <button class="tab-btn" data-tab="moduly"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4z"></path><path d="M13 4h7v7h-7z"></path><path d="M4 13h7v7H4z"></path><path d="M13 13h7v7h-7z"></path></svg></span><span>Moduły</span></button>
+        <button class="tab-btn" data-tab="logika"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M12 5v14"></path><path d="M17 7l2-2"></path><path d="M5 19l2-2"></path></svg></span><span>Algorytmy</span></button>
+        <button class="tab-btn" data-tab="baza"><span class="tab-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v14c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"></path></svg></span><span>Baza danych</span></button>
+        <button class="tab-btn" data-tab="koszty"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span>Koszty</span></button>
+        <button class="tab-btn" data-tab="scenariusze"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg></span><span>Scenariusze</span></button>
+      </nav>
 
-      <div class="nav-group">
-        <div class="nav-title">Firma</div>
-        <button class="nav-btn" title="Ekipy" aria-label="Ekipy"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path><path d="M3 19c.6-3 2.5-5 5-5s4.4 2 5 5"></path><path d="M11 19c.5-2.5 2.1-4.3 5-4.3 2.4 0 4.2 1.7 5 4.3"></path></svg></span><span>Ekipy</span></button>
-        <button class="nav-btn" title="Sprzęt" aria-label="Sprzęt"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5.5 18 2l4 4-3.5 3.5"></path><path d="m13 7 4 4"></path><path d="M5 19l8.5-8.5"></path><path d="M3 21l2-6 4 4z"></path></svg></span><span>Sprzęt</span></button>
-        <button class="nav-btn" title="Oddziały" aria-label="Oddziały"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3"></path><path d="M12 19v3"></path><path d="M2 12h3"></path><path d="M19 12h3"></path></svg></span><span>Oddziały</span></button>
-      </div>
-
-      <div class="sidebar-card">
-        <strong>Dzisiaj: Kraków</strong>
-        <span>5 oględzin, 12 prac, 2 blokady sprzętu. Najpierw domknij plan ekip.</span>
+      <div class="side-note">
+        <strong>Redesign UX/UI</strong>
+        <span>Mobile-first, zakładki, akcenty finansowe i kompaktowa struktura do prezentacji zarządowi.</span>
       </div>
     </aside>
 
     <main class="main">
-      <header class="topbar">
-        <div class="title-block">
-          <small>ARBOR Command Center 3w1</small>
-          <h1>Operacje od telefonu do ekipy</h1>
-          <p class="title-lead">Jedno miejsce dla biura: klient, oględziny, zdjęcia, plan ekipy, sprzęt i następny ruch bez skakania po modułach.</p>
-          <div class="hero-status-row">
-            <span class="hero-status"><i class="hero-status-dot"></i> Kraków online</span>
-            <span class="hero-status warning"><i class="hero-status-dot" style="background: var(--amber); box-shadow: 0 0 0 4px rgba(245,158,11,0.16);"></i> 2 plany blokują ekipy</span>
-            <span class="hero-status">42 aktywne zlecenia</span>
+      <header class="hero">
+        <div class="hero-title">
+          <div class="doc-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg>
+          </div>
+          <div>
+            <div class="breadcrumbs">
+              <span>Dokumentacja</span>
+              <span>/</span>
+              <span>Specyfikacja techniczna</span>
+              <span>/</span>
+              <span>ARBOR-OS</span>
+            </div>
+            <h1>Specyfikacja Systemu ARBOR-OS</h1>
+            <p class="lead">Zintegrowany system operacyjno-finansowy klasy FSM dla wycinki drzew, pielęgnacji zieleni i zarządzania ekipami terenowymi.</p>
           </div>
         </div>
-        <div class="topbar-controls">
-          <label class="search">
-            <span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg></span>
-            <input value="" placeholder="Szukaj klienta, adresu, telefonu, zlecenia..." />
-          </label>
-          <div class="top-actions">
-            <button class="icon-btn" title="Powiadomienia"><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg></button>
-            <div class="field-status" title="Warunki terenowe dla oddziału">
-              <span class="weather-mark"><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11-1.8A5 5 0 0 0 7 18z"></path></svg></span>
-              <span class="field-status-body">
-                <strong>14°C</strong>
-                <span>Kraków · lekki wiatr</span>
-              </span>
-            </div>
-            <div class="time-card" title="Czas operacyjny">
-              <strong>09:42</strong>
-              <span>Wtorek · dzisiaj</span>
-            </div>
-            <button class="primary-btn">+ Nowe zgłoszenie</button>
-          </div>
+
+        <div class="meta-grid" aria-label="Metadane dokumentu">
+          <div class="meta-card"><label>Wersja</label><strong>1.0</strong></div>
+          <div class="meta-card"><label>Status</label><strong class="status-pill"><i class="status-dot"></i> Aktywny</strong></div>
+          <div class="meta-card"><label>Data</label><strong>Styczeń 2026</strong></div>
+          <div class="meta-card"><label>Integracja</label><strong>Kommo CRM</strong></div>
         </div>
       </header>
 
-      <section class="kpis">
-        <div class="kpi"><div><label>Telefon</label><strong>18</strong></div><span>5 wymaga kontaktu</span></div>
-        <div class="kpi"><div><label>Oględziny</label><strong>9</strong></div><span>3 w trasie wyceniacza</span></div>
-        <div class="kpi"><div><label>Biuro planuje</label><strong>7</strong></div><span>2 z konfliktem ekipy</span></div>
-        <div class="kpi"><div><label>Ekipa gotowa</label><strong>14</strong></div><span>odprawa kompletna</span></div>
-        <div class="kpi"><div><label>Praca trwa</label><strong>6</strong></div><span>4 GPS online</span></div>
-        <div class="kpi"><div><label>Blokady</label><strong>4</strong></div><span>sprzęt, zdjęcia, cena</span></div>
-      </section>
+      <nav class="mobile-tabs" aria-label="Nawigacja mobilna">
+        <button class="mobile-tab-btn active" data-tab="wstep">Wstęp</button>
+        <button class="mobile-tab-btn" data-tab="architektura">Architektura</button>
+        <button class="mobile-tab-btn" data-tab="moduly">Moduły</button>
+        <button class="mobile-tab-btn" data-tab="logika">Algorytmy</button>
+        <button class="mobile-tab-btn" data-tab="baza">Baza</button>
+        <button class="mobile-tab-btn" data-tab="koszty">Koszty</button>
+        <button class="mobile-tab-btn" data-tab="scenariusze">Scenariusze</button>
+      </nav>
 
-      <section class="workbench">
-        <aside class="panel">
-          <div class="panel-head">
+      <div class="content-shell">
+        <section class="document-panel">
+          <div class="document-header">
             <div>
-              <label>Pipeline operacyjny</label>
-              <strong>Kolejka decyzji</strong>
+              <strong>Dokument koncepcyjny i techniczny</strong>
+              <span>Przełączaj sekcje bez przewijania całej specyfikacji.</span>
             </div>
-            <span class="small-pill">42 aktywne</span>
-          </div>
-
-          <div class="stage-tabs">
-            <div class="stage"><div class="stage-no">1</div><div class="stage-body"><strong>Telefon</strong><span>ruch: specjalista</span></div><span class="stage-count">18</span><div class="stage-bar"><span style="width: 72%"></span></div></div>
-            <div class="stage active"><div class="stage-no">2</div><div class="stage-body"><strong>Oględziny</strong><span>ruch: wyceniacz</span></div><span class="stage-count">9</span><div class="stage-bar"><span style="width: 48%"></span></div></div>
-            <div class="stage"><div class="stage-no">3</div><div class="stage-body"><strong>Biuro planuje</strong><span>ruch: kierownik</span></div><span class="stage-count">7</span><div class="stage-bar"><span style="width: 38%"></span></div></div>
-            <div class="stage"><div class="stage-no">4</div><div class="stage-body"><strong>Ekipa gotowa</strong><span>ruch: brygadzista</span></div><span class="stage-count">14</span><div class="stage-bar"><span style="width: 82%"></span></div></div>
-          </div>
-
-          <div class="queue">
-            <article class="task-card selected">
-              <div class="task-top">
-                <div class="task-title"><strong>#2847 Wspólnota Zielona 12</strong><span>Kraków, ul. Zielona 12</span></div>
-                <span class="badge warning">Biuro planuje</span>
-              </div>
-              <div class="task-readiness">
-                <div class="readiness-item"><label>Następny ruch</label><strong>plan ekipy 08:00</strong></div>
-                <div class="readiness-item"><label>Właściciel</label><strong>Anna / biuro</strong></div>
-              </div>
-              <div class="task-metrics">
-                <div class="metric"><label>Zdjęcia</label><strong>12 / szkic</strong></div>
-                <div class="metric"><label>Budżet</label><strong>18 900 zł</strong></div>
-                <div class="metric"><label>Właściciel</label><strong>Anna</strong></div>
-              </div>
-              <div class="progress"><span style="width: 82%"></span></div>
-            </article>
-
-            <article class="task-card field">
-              <div class="task-top">
-                <div class="task-title"><strong>#2846 Park Lotników</strong><span>Kraków, alejka lipowa</span></div>
-                <span class="badge blue">Oględziny</span>
-              </div>
-              <div class="task-readiness">
-                <div class="readiness-item"><label>Następny ruch</label><strong>zdjęcia + zakres</strong></div>
-                <div class="readiness-item"><label>Właściciel</label><strong>Oleg / teren</strong></div>
-              </div>
-              <div class="task-metrics">
-                <div class="metric"><label>Zdjęcia</label><strong>0</strong></div>
-                <div class="metric"><label>Budżet</label><strong>brak</strong></div>
-                <div class="metric"><label>Właściciel</label><strong>Oleg</strong></div>
-              </div>
-              <div class="progress"><span style="width: 35%"></span></div>
-            </article>
-
-            <article class="task-card blocked">
-              <div class="task-top">
-                <div class="task-title"><strong>#2845 Osiedle Leśne</strong><span>Wieliczka, ul. Leśna</span></div>
-                <span class="badge danger">Blokada</span>
-              </div>
-              <div class="task-readiness">
-                <div class="readiness-item"><label>Następny ruch</label><strong>przypisz ekipę</strong></div>
-                <div class="readiness-item"><label>Właściciel</label><strong>kierownik</strong></div>
-              </div>
-              <div class="task-metrics">
-                <div class="metric"><label>Zdjęcia</label><strong>8</strong></div>
-                <div class="metric"><label>Budżet</label><strong>6 300 zł</strong></div>
-                <div class="metric"><label>Brak</label><strong>ekipa</strong></div>
-              </div>
-              <div class="progress"><span style="width: 64%"></span></div>
-            </article>
-          </div>
-        </aside>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <label>Wybrane zlecenie</label>
-              <strong>Jedna karta, cała decyzja</strong>
-            </div>
-            <span class="small-pill">gotowość 82%</span>
-          </div>
-
-          <div class="center-body">
-            <div class="hero-task">
-              <div class="hero-row">
-                <div>
-                  <label>#2847 / Wspólnota Zielona 12</label>
-                  <h2>Przycinka i usunięcie pnia</h2>
-                  <p>Klient zaakceptował zakres z oględzin. Biuro musi dopiąć ekipę, slot 08:00-11:00 i sprzęt: rębak + podnośnik. Zdjęcia i szkic są w pakiecie dla brygady.</p>
-                </div>
-                <span class="badge warning">następny ruch: plan</span>
-              </div>
-              <div class="hero-actions">
-                <button class="primary-white">Zaplanuj ekipę</button>
-                <button>Zadzwoń</button>
-                <button>SMS</button>
-                <button>Zdjęcia</button>
-                <button>Trasa</button>
-              </div>
-            </div>
-
-            <div class="workflow">
-              <div class="step-card done"><span>1</span><strong>Telefon</strong><small>Klient i adres OK</small></div>
-              <div class="step-card done"><span>2</span><strong>Oględziny</strong><small>12 zdjęć, szkic, budżet</small></div>
-              <div class="step-card current"><span>3</span><strong>Biuro planuje</strong><small>wybierz ekipę i sprzęt</small></div>
-              <div class="step-card"><span>4</span><strong>Ekipa</strong><small>czeka na odprawę</small></div>
-              <div class="step-card"><span>5</span><strong>Realizacja</strong><small>start z mobilki</small></div>
-            </div>
-
-            <div class="detail-grid">
-              <div class="info-card">
-                <h3>Pakiet z oględzin</h3>
-                <div class="field-list">
-                  <div class="field"><label>Zakres</label><strong>przycinka korony, usunięcie pnia, wywóz gałęzi</strong></div>
-                  <div class="field"><label>Czas</label><strong>3 h / 3 osoby</strong></div>
-                  <div class="field"><label>Budżet</label><strong>18 900 zł, rabat 5%</strong></div>
-                  <div class="field"><label>Ryzyko</label><strong>ogrodzenie, wąski wjazd, kontakt z klientem przed startem</strong></div>
-                </div>
-              </div>
-
-              <div class="info-card">
-                <h3>Zdjęcia i szkic dla ekipy</h3>
-                <div class="photo-strip">
-                  <div class="photo" data-label="drzewo" style="--rot:-10deg"></div>
-                  <div class="photo sketch" data-label="szkic"></div>
-                  <div class="photo" data-label="wjazd" style="--rot:4deg"></div>
-                  <div class="photo" data-label="pien" style="--rot:-22deg"></div>
-                </div>
-              </div>
+            <div class="doc-actions">
+              <button class="action-btn"><svg class="line-icon" viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Dodaj uwagę</button>
+              <button class="action-btn"><svg class="line-icon" viewBox="0 0 24 24"><path d="M6 9V4h12v5"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path></svg> Drukuj</button>
             </div>
           </div>
+
+          <article id="wstep" class="tab-content active">
+            <span class="section-kicker">Sekcja 01</span>
+            <h2>Wstęp i cel projektu</h2>
+            <h3>Charakterystyka firmy</h3>
+            <p>Firma specjalizuje się w wycince drzew, pielęgnacji zieleni oraz usługach ogrodniczych, prowadząc działalność w strukturze obejmującej <strong>6 oddziałów terenowych</strong>. Każdy oddział dysponuje wieloma 3-osobowymi ekipami, na czele których stoi brygadzista odpowiedzialny za realizację zleceń.</p>
+            <h3>Cele biznesowe systemu</h3>
+            <p>System ARBOR-OS ma pełnić rolę cyfrowego centrum dowodzenia operacjami firmy, zastępując rozproszone metody zarządzania.</p>
+            <ul>
+              <li><strong>Optymalizacja logistyki:</strong> automatyczne układanie tras minimalizujące dojazdy.</li>
+              <li><strong>Kontrola marży:</strong> automatyczne wyliczanie zysku netto na każdym zleceniu.</li>
+              <li><strong>Zarządzanie zasobami:</strong> monitoring dostępności ekip oraz ciężkiego sprzętu.</li>
+              <li><strong>Komunikacja wewnętrzna:</strong> automatyczny przepływ informacji między sprzedażą, kierownikami i terenem.</li>
+            </ul>
+          </article>
+
+          <article id="architektura" class="tab-content">
+            <span class="section-kicker">Sekcja 02</span>
+            <h2>Architektura systemu i integracja z Kommo CRM</h2>
+            <h3>Model integracji</h3>
+            <p>ARBOR-OS nie zastępuje systemu Kommo CRM, lecz rozszerza go o funkcje operacyjne. Integracja opiera się na wymianie danych w czasie rzeczywistym poprzez API Kommo.</p>
+            <ul>
+              <li><strong>Kommo CRM:</strong> mózg sprzedażowy odpowiedzialny za pozyskiwanie klientów i lejek sprzedaży.</li>
+              <li><strong>ARBOR-OS:</strong> mózg operacyjny odpowiedzialny za planowanie, realizację i rozliczenie.</li>
+            </ul>
+            <h3>Rekomendowana architektura techniczna</h3>
+            <ul>
+              <li><strong>Panel webowy:</strong> React.js lub Vue.js.</li>
+              <li><strong>Aplikacja mobilna:</strong> React Native lub Flutter z obsługą trybu offline.</li>
+              <li><strong>Backend:</strong> Node.js / NestJS albo Python / FastAPI.</li>
+              <li><strong>Baza danych:</strong> PostgreSQL.</li>
+            </ul>
+          </article>
+
+          <article id="moduly" class="tab-content">
+            <span class="section-kicker">Sekcja 03</span>
+            <h2>Moduły systemu i funkcjonalności</h2>
+            <div class="flow-grid">
+              <div class="flow-step"><span>1</span><strong>AI Dispatcher</strong><small>Planowanie ekip i optymalizacja tras.</small></div>
+              <div class="flow-step"><span>2</span><strong>Aplikacja mobilna</strong><small>START/STOP, GPS, zdjęcia i problemy.</small></div>
+              <div class="flow-step"><span>3</span><strong>Panel kierownika</strong><small>Kalendarz zasobów, alerty i drag & drop.</small></div>
+              <div class="flow-step"><span>4</span><strong>BI dyrektorski</strong><small>Marże, koszty i raporty w czasie rzeczywistym.</small></div>
+            </div>
+            <h3>AI Dispatcher</h3>
+            <p>Moduł odpowiada za inteligentne planowanie pracy ekip przy użyciu algorytmów rozwiązujących problem tras pojazdów. Uwzględnia grupowanie geograficzne, kompetencje pracowników i harmonogram sprzętowy.</p>
+            <h3>Aplikacja mobilna dla brygadzisty</h3>
+            <p>Narzędzie terenowe działa według zasady: <strong>jak najmniej pisania, jak najwięcej klikania</strong>. Brygadzista widzi trasę dnia, rejestruje czas pracy, zgłasza problemy i wykonuje dokumentację fotograficzną przed oraz po realizacji.</p>
+          </article>
+
+          <article id="logika" class="tab-content">
+            <span class="section-kicker">Sekcja 04</span>
+            <h2>Logika biznesowa i algorytmy</h2>
+            <h3>Obliczanie rentowności zlecenia</h3>
+            <p>System automatycznie wylicza marżę dla każdego zlecenia, łącząc dane o przychodzie, czasie pracy, sprzęcie, paliwie i utylizacji odpadów.</p>
+            <div class="highlight-box">
+              <p class="formula">Marża = Przychód - Koszty Bezpośrednie - Koszty Zmienne</p>
+            </div>
+            <p>Koszty bezpośrednie zawierają między innymi rzeczywisty czas pracy ekip pomnożony przez stawkę godzinową oraz czas pracy sprzętu. Koszty zmienne obejmują paliwo, utylizację odpadów i pozostałe koszty operacyjne.</p>
+            <h3>Logika zarządzania problemami</h3>
+            <p>Problem zgłoszony przez brygadzistę trafia do weryfikacji kierownika. Problem zaakceptowany jako uzasadniony wstrzymuje nalicznik wydajności dla danego zlecenia, dzięki czemu ekipa nie ponosi konsekwencji za czynniki zewnętrzne.</p>
+          </article>
+
+          <article id="baza" class="tab-content">
+            <span class="section-kicker">Sekcja 05</span>
+            <h2>Struktura bazy danych</h2>
+            <p>Poniżej przedstawiono kluczowe relacje i tabele główne zaprojektowane dla systemu operacyjnego PostgreSQL.</p>
+            <div class="db-structure">
+<code><strong>Tabela: users</strong>
+- id (PK) | login | password | role | branch_id (FK) | stawka_godzinowa
+
+<strong>Tabela: tasks</strong>
+- id (PK) | kommo_id (FK) | klient_nazwa | adres | lat | lng
+- typ_uslugi | status | wartosc_planowana | team_id (FK)
+
+<strong>Tabela: equipment</strong>
+- id (PK) | nazwa | typ | status | koszt_motogodziny
+- data_nastepnego_przegladu
+
+<strong>Tabela: work_logs</strong>
+- id (PK) | task_id (FK) | start_time | end_time
+- start_lat | end_lat | czas_pracy_minuty</code>
+            </div>
+          </article>
+
+          <article id="koszty" class="tab-content">
+            <span class="section-kicker">Sekcja 06</span>
+            <h2>Etapy realizacji i szacunkowe koszty</h2>
+            <h3>Harmonogram wdrożenia</h3>
+            <ul>
+              <li><strong>Etap 1, miesiące 1-2:</strong> fundamenty, baza danych, podstawowy START/STOP i integracja z Kommo.</li>
+              <li><strong>Etap 2, miesiące 3-4:</strong> moduł mapowy i algorytm optymalizacji tras.</li>
+              <li><strong>Etap 3, miesiące 5-6:</strong> silnik obliczania marży, raportowanie BI i dashboard dyrektorski.</li>
+              <li><strong>Etap 4, miesiące 7-8:</strong> automatyczne SMS-y i linki statusowe dla klientów.</li>
+            </ul>
+            <h3>Szacunki finansowe</h3>
+            <div class="warning-box">
+              <div class="warning-icon" aria-hidden="true">
+                <svg class="line-icon" viewBox="0 0 24 24"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 4.2 2.7 18a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"></path></svg>
+              </div>
+              <p><strong>Uwaga dotycząca kosztów budowy dedykowanej:</strong><br>Wersja MVP: 60 000 - 120 000 PLN. Pełny system z modułem AI Dispatcher i BI: 150 000 - 350 000 PLN.</p>
+            </div>
+          </article>
+
+          <article id="scenariusze" class="tab-content">
+            <span class="section-kicker">Sekcja 07</span>
+            <h2>Scenariusze dnia i pytania do wykonawców</h2>
+            <h3>Przykładowy scenariusz brygadzisty</h3>
+            <p>Brygadzista Marek klika START na zleceniu, wykonuje zdjęcia przed rozpoczęciem prac, a następnie zgłasza problem z powodem „Awaria sprzętu”. System wstrzymuje licznik efektywności. Po zakończeniu pracy brygadzista klika STOP, wykonuje zdjęcia po realizacji i wpisuje zużycie materiałów.</p>
+            <h3>Kluczowe pytania do software house'ów</h3>
+            <ul>
+              <li>Jak zrealizujecie dwukierunkową synchronizację danych w czasie rzeczywistym z Kommo CRM?</li>
+              <li>Jakiego silnika lub biblioteki użyjecie do optymalizacji tras i rozwiązania problemu VRP?</li>
+              <li>Jak zapewnicie ciągłość pracy aplikacji mobilnej w miejscach bez zasięgu sieci komórkowej?</li>
+            </ul>
+          </article>
         </section>
 
-        <aside class="panel right-panel">
-          <div class="panel-head">
-            <div>
-              <label>Inspektor decyzji</label>
-              <strong>Następny ruch</strong>
-            </div>
-            <span class="small-pill">2 kliknięcia</span>
+        <aside class="aside-panel" aria-label="Podsumowanie redesignu">
+          <div class="aside-head">
+            <label>Najważniejsze zmiany</label>
+            <strong>Redesign UX/UI</strong>
           </div>
-
-          <div class="right-body">
-            <div class="next-action">
-              <label>Co teraz zrobić</label>
-              <strong>Dopnij plan ekipy</strong>
-              <p>Wybierz wolny slot, przypisz ekipę i sprzęt. Po zapisie brygadzista dostanie zdjęcia, szkic, opis i instrukcję.</p>
-              <div class="action-stack">
-                <button class="wide-btn main"><span>Auto-dopasuj ekipę</span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></button>
-                <button class="wide-btn"><span>Otwórz harmonogram</span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"></path><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M5 10h14"></path></svg></button>
-                <button class="wide-btn"><span>Wyślij brief do brygady</span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-5 16-3-7z"></path><path d="m12 13 8-9"></path></svg></button>
-              </div>
+          <div class="summary-list">
+            <div class="summary-item">
+              <label>Mobile-first</label>
+              <strong>Układ dla telefonu i tabletu</strong>
+              <span>Na małych ekranach sekcje przechodzą w poziome zakładki nad treścią.</span>
             </div>
-
-            <div class="blocker">
-              <strong>Uwaga: sprzęt do potwierdzenia</strong>
-              <span>Rębak jest przypisany do Załogi Dąb. System proponuje delegację sprzętu na 08:00-11:00.</span>
+            <div class="summary-item">
+              <label>Nawigacja</label>
+              <strong>Zakładki zamiast ściany tekstu</strong>
+              <span>Użytkownik przełącza konkretne obszary dokumentu bez długiego przewijania.</span>
             </div>
-
-            <div class="blocker danger">
-              <strong>Blokada przed startem</strong>
-              <span>Nie ma potwierdzenia klienta na wjazd przez bramę boczną. Jeden SMS rozwiąże temat.</span>
-            </div>
-
-            <div class="mini-calendar">
-              <div class="task-top">
-                <div class="task-title"><strong>Załoga Zielona</strong><span>dzisiaj 08:00-18:00</span></div>
-                <span class="badge">slot OK</span>
-              </div>
-              <div class="timeline">
-                <div class="busy" style="left:4%;width:22%;">08-10</div>
-                <div class="free" style="left:32%;width:30%;">11-14 wolne</div>
-                <div class="busy" style="left:68%;width:24%;">15-17</div>
-              </div>
+            <div class="summary-item">
+              <label>Akcenty UI</label>
+              <strong>Finanse i ryzyka są widoczne</strong>
+              <span>Zielony boks oznacza algorytm finansowy, a pomarańczowy koszty i ostrzeżenia.</span>
             </div>
           </div>
         </aside>
-      </section>
+      </div>
+
+      <footer>© 2026 ARBOR-OS. Dokument koncepcyjny i techniczny dla dyrekcji produkcji.</footer>
     </main>
   </div>
+
+  <script>
+    const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+    const panels = Array.from(document.querySelectorAll(".tab-content"));
+
+    function setActiveTab(tabId) {
+      panels.forEach((panel) => panel.classList.toggle("active", panel.id === tabId));
+      tabButtons.forEach((button) => button.classList.toggle("active", button.dataset.tab === tabId));
+
+      const panel = document.getElementById(tabId);
+      if (panel && window.matchMedia("(max-width: 820px)").matches) {
+        panel.closest(".document-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    tabButtons.forEach((button) => {
+      button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+    });
+  </script>
 </body>
 </html>
