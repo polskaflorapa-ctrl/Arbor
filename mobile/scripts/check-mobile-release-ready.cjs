@@ -5,6 +5,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const rootDir = path.resolve(__dirname, '..');
+const REQUIRED_BUILD_PROFILES = ['development', 'preview', 'production'];
 
 function fail(message) {
   console.error(`x ${message}`);
@@ -22,6 +23,16 @@ function readJson(relativePath) {
   } catch (error) {
     fail(`${relativePath} is missing or invalid JSON: ${error.message}`);
     return null;
+  }
+}
+
+function readText(relativePath) {
+  const filePath = path.join(rootDir, relativePath);
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    fail(`${relativePath} is missing or unreadable: ${error.message}`);
+    return '';
   }
 }
 
@@ -88,7 +99,52 @@ function getPluginConfig(appConfig, pluginName) {
   return Array.isArray(plugin) ? plugin[1] || {} : {};
 }
 
-function assertBuildProfile(easConfig, name) {
+function normalizeApiUrl(value) {
+  return String(value || '').replace(/\/+$/, '');
+}
+
+function assertDefaultApiUrlMatchesReleaseEnv(apiSource, releaseEnvironments) {
+  const match = apiSource.match(/DEFAULT_API_URL\s*=\s*['"]([^'"]+)['"]/);
+  if (!match) {
+    fail('DEFAULT_API_URL is missing in constants/api.js');
+    return;
+  }
+
+  const defaultApiUrl = match[1];
+  assertUrl('DEFAULT_API_URL', defaultApiUrl);
+
+  const releaseUrls = new Set(
+    Object.values(releaseEnvironments || {}).map((entry) => normalizeApiUrl(entry?.apiUrl))
+  );
+
+  if (releaseUrls.has(normalizeApiUrl(defaultApiUrl))) {
+    pass('DEFAULT_API_URL matches a release environment');
+  } else {
+    fail('DEFAULT_API_URL does not match any release environment');
+  }
+}
+
+function assertReleaseEnvironmentCatalog(releaseEnvironments) {
+  if (!releaseEnvironments || typeof releaseEnvironments !== 'object') {
+    fail('release environments must be an object');
+    return;
+  }
+
+  const expected = new Set(REQUIRED_BUILD_PROFILES);
+  for (const name of Object.keys(releaseEnvironments)) {
+    if (expected.has(name)) {
+      pass(`release environment "${name}" is expected`);
+    } else {
+      fail(`release environment "${name}" is not a known build profile`);
+    }
+  }
+
+  for (const name of REQUIRED_BUILD_PROFILES) {
+    assertValue(`release environment ${name} purpose is set`, releaseEnvironments[name]?.purpose);
+  }
+}
+
+function assertBuildProfile(easConfig, releaseEnvironments, name) {
   const profile = easConfig?.build?.[name];
   if (profile) {
     pass(`eas build profile "${name}" exists`);
@@ -99,6 +155,28 @@ function assertBuildProfile(easConfig, name) {
 
   assertUrl(`eas ${name} EXPO_PUBLIC_API_URL`, profile.env?.EXPO_PUBLIC_API_URL);
   assertValue(`eas ${name} EXPO_PUBLIC_EXPECTED_API_VERSION is set`, profile.env?.EXPO_PUBLIC_EXPECTED_API_VERSION);
+
+  const releaseEnv = releaseEnvironments?.[name];
+  if (!releaseEnv) {
+    fail(`release environment "${name}" is missing`);
+    return;
+  }
+
+  pass(`release environment "${name}" exists`);
+  assertUrl(`release environment ${name} apiUrl`, releaseEnv.apiUrl);
+  assertValue(`release environment ${name} expectedApiVersion is set`, releaseEnv.expectedApiVersion);
+
+  if (normalizeApiUrl(profile.env?.EXPO_PUBLIC_API_URL) === normalizeApiUrl(releaseEnv.apiUrl)) {
+    pass(`eas ${name} API URL matches release environment`);
+  } else {
+    fail(`eas ${name} API URL does not match release environment`);
+  }
+
+  if (profile.env?.EXPO_PUBLIC_EXPECTED_API_VERSION === releaseEnv.expectedApiVersion) {
+    pass(`eas ${name} expected API version matches release environment`);
+  } else {
+    fail(`eas ${name} expected API version does not match release environment`);
+  }
 }
 
 function runNpmScript(name) {
@@ -162,6 +240,8 @@ console.log('Checking mobile release readiness...\n');
 
 const appConfig = readJson('app.json');
 const easConfig = readJson('eas.json');
+const releaseEnvironments = readJson('config/release-environments.json');
+const apiSource = readText('constants/api.js');
 
 assertValue('ios.bundleIdentifier is set', appConfig?.expo?.ios?.bundleIdentifier);
 assertValue('ios.buildNumber is set', appConfig?.expo?.ios?.buildNumber);
@@ -189,9 +269,11 @@ assertValue('location permission text is set', locationPlugin.locationWhenInUseP
 assertAppAsset('notification icon is set', notificationPlugin.icon);
 assertAppAsset('splash image is set', splashPlugin.image);
 
-assertBuildProfile(easConfig, 'development');
-assertBuildProfile(easConfig, 'preview');
-assertBuildProfile(easConfig, 'production');
+assertReleaseEnvironmentCatalog(releaseEnvironments);
+for (const profileName of REQUIRED_BUILD_PROFILES) {
+  assertBuildProfile(easConfig, releaseEnvironments, profileName);
+}
+assertDefaultApiUrlMatchesReleaseEnv(apiSource, releaseEnvironments);
 assertValue('eas cli version guard is set', easConfig?.cli?.version);
 
 assertFile('docs/mobile-device-smoke-checklist.md');
@@ -220,6 +302,15 @@ const result = runNpmScript('smoke:mobile');
 
 if (result.status !== 0) {
   fail('npm run smoke:mobile failed');
+  process.exit(process.exitCode);
+}
+
+console.log('\nChecking Metro bundle resolution...\n');
+
+const metroResult = runNpmScript('test:metro-bundle');
+
+if (metroResult.status !== 0) {
+  fail('npm run test:metro-bundle failed');
   process.exit(process.exitCode);
 }
 

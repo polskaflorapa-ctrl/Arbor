@@ -28,7 +28,7 @@ Optional backend smoke:
 SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 ```
 
-`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, and high/critical production dependency advisories. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
+`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, Metro iOS bundle resolution, and high/critical production dependency advisories. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
 
 Check release metadata:
 
@@ -37,6 +37,7 @@ Check release metadata:
 - [ ] `android.versionCode` is incremented for Android releases.
 - [ ] `eas.json` profile `EXPO_PUBLIC_API_URL` points to the intended backend.
 - [ ] `eas.json` profile `EXPO_PUBLIC_EXPECTED_API_VERSION` matches the backend release note or is intentionally left as profile default.
+- [ ] `config/release-environments.json` contains only `development`, `preview`, and `production`, with `apiUrl`, `expectedApiVersion`, and `purpose` filled in.
 - [ ] `npm run release:eas-doctor` passes on the release operator machine.
 
 Security dependency check:
@@ -54,6 +55,8 @@ Use `eas.json` profiles:
 - `development`: internal dev-client build for debugging native behavior.
 - `preview`: internal QA build for field testing.
 - `production`: store-ready build with EAS auto-increment enabled.
+
+Environment intent is tracked in `config/release-environments.json`; keep it in sync with `eas.json`.
 
 Use the guarded build commands. They run `release:check`, `release:eas-doctor`, and then the EAS build:
 
