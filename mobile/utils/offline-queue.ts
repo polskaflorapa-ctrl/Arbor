@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { emitOfflineFlushDone } from './offline-queue-sync-events';
 
 const OFFLINE_QUEUE_KEY = 'offline_queue_v1';
+const MAX_QUEUE_ITEMS = 250;
+const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 
 type HttpMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -27,6 +29,9 @@ export interface OfflineQueueItem {
   body?: Record<string, unknown> | null;
   multipart?: OfflineQueueMultipart | null;
   createdAt: string;
+  attempts?: number;
+  lastAttemptAt?: string;
+  lastError?: string;
 }
 
 type OfflineQueueInput = Omit<OfflineQueueItem, 'id' | 'createdAt'> & {
@@ -53,8 +58,28 @@ const readQueue = async (): Promise<OfflineQueueItem[]> => {
 };
 
 const writeQueue = async (items: OfflineQueueItem[]): Promise<void> => {
-  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items));
+  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(items.slice(-MAX_QUEUE_ITEMS)));
 };
+
+const retryDelayMs = (attempts: number) => {
+  if (attempts <= 0) return 0;
+  return Math.min(MAX_RETRY_DELAY_MS, 1000 * Math.pow(2, Math.min(attempts, 8)));
+};
+
+const canRetryNow = (item: OfflineQueueItem, now: number) => {
+  const attempts = Math.max(0, item.attempts || 0);
+  if (!item.lastAttemptAt || attempts <= 0) return true;
+  const last = Date.parse(item.lastAttemptAt);
+  if (!Number.isFinite(last)) return true;
+  return now - last >= retryDelayMs(attempts);
+};
+
+const markAttemptFailed = (item: OfflineQueueItem, error: string, now: number): OfflineQueueItem => ({
+  ...item,
+  attempts: Math.max(0, item.attempts || 0) + 1,
+  lastAttemptAt: new Date(now).toISOString(),
+  lastError: error.slice(0, 240),
+});
 
 export const enqueueOfflineRequest = async (
   item: OfflineQueueInput,
@@ -70,6 +95,7 @@ export const enqueueOfflineRequest = async (
     ...(dedupeKey ? { dedupeKey } : {}),
     id: item.id || createOfflineRequestId(),
     createdAt: new Date().toISOString(),
+    attempts: 0,
   });
   await writeQueue(dedupedQueue);
 };
@@ -94,6 +120,12 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
   let flushed = 0;
 
   for (const item of queue) {
+    const now = Date.now();
+    if (!canRetryNow(item, now)) {
+      remaining.push(item);
+      continue;
+    }
+
     try {
       const headers: Record<string, string> = {
         Authorization: `Bearer ${token}`,
@@ -135,13 +167,13 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
           /* ignore */
         }
         if (dropAsDone) flushed += 1;
-        else remaining.push(item);
+        else remaining.push(markAttemptFailed(item, text || `HTTP ${res.status}`, now));
       } else {
-        await res.text().catch(() => '');
-        remaining.push(item);
+        const text = await res.text().catch(() => '');
+        remaining.push(markAttemptFailed(item, text || `HTTP ${res.status}`, now));
       }
-    } catch {
-      remaining.push(item);
+    } catch (error) {
+      remaining.push(markAttemptFailed(item, error instanceof Error ? error.message : 'Network error', now));
     }
   }
 

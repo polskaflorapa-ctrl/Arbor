@@ -3,10 +3,10 @@ import { LiveGpsHeartbeat } from '../components/live-gps-heartbeat';
 import { OfflineQueueSync } from '../components/offline-queue-sync';
 import { LanguageProvider } from '../constants/LanguageContext';
 import { ThemeProvider } from '../constants/ThemeContext';
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { InteractionManager, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrateAppRemoteFlags } from '../utils/app-remote-flags';
@@ -71,6 +71,9 @@ function navigateFromNotification(path: string) {
 }
 
 export default function Layout() {
+  const [hasSession, setHasSession] = useState(false);
+  const pathname = usePathname();
+
   useEffect(() => {
     void (async () => {
       await installMobileTestModeFetchInterceptor();
@@ -78,9 +81,17 @@ export default function Layout() {
       await hydrateOddzialFeatureOverrides();
       await hydrateAppRemoteFlags();
       const { token } = await getStoredSession();
+      setHasSession(Boolean(token));
       if (token) await fetchAndApplyMobileRemoteConfig(token);
     })();
   }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const { token } = await getStoredSession();
+      setHasSession(Boolean(token));
+    })();
+  }, [pathname]);
 
   useEffect(() => {
     if (!isNativeNotificationRuntime() || Platform.OS !== 'android') return;
@@ -138,8 +149,8 @@ export default function Layout() {
     <LanguageProvider>
       <ThemeProvider>
         <AppPrivacyLock />
-        <LiveGpsHeartbeat />
-        <OfflineQueueSync />
+        {hasSession ? <LiveGpsHeartbeat /> : null}
+        {hasSession ? <OfflineQueueSync /> : null}
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
