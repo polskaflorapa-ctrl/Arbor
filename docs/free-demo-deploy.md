@@ -184,6 +184,8 @@ npm run deploy:netlify:check
 
 Repo ma juz `vercel.json`: Vercel serwuje `web/build`, a `/api/*` obsluguje
 `api/[...path].js` jako wrapper backendu Arbor OS.
+Funkcja API ma `maxDuration=60`, zeby wolniejsze endpointy mialy pelne okno
+Vercel Hobby zamiast krotszego limitu domyslnego.
 
 W Vercel ustaw env z:
 

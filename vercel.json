@@ -6,6 +6,7 @@
   "outputDirectory": "web/build",
   "functions": {
     "api/[...path].js": {
+      "maxDuration": 60,
       "includeFiles": "os/{migrate.sql,docs/openapi.yaml,public/app/**,data/flota-pojazdy-katalog.json}"
     }
   },

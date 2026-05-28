@@ -184,6 +184,7 @@ async function main() {
   assert(vercel.buildCommand === 'npm run build -w arbor-web', 'vercel.json build command is unexpected.');
   assert(vercel.outputDirectory === 'web/build', 'vercel.json should publish web/build.');
   const includeFiles = getApiIncludeFiles(vercel);
+  assert(vercel.functions?.['api/[...path].js']?.maxDuration === 60, 'vercel.json should give the API function a 60s Hobby-compatible maxDuration.');
   assert(typeof includeFiles === 'string', 'vercel.json API includeFiles should be a glob string.');
   assert(includeFiles.includes('migrate.sql'), 'vercel.json should include migrate.sql for API cold-start migrations.');
   assert(includeFiles.includes('docs/openapi.yaml'), 'vercel.json should include openapi.yaml for the API function.');

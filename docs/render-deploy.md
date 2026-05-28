@@ -130,6 +130,8 @@ Full backup and restore procedure is in `docs/backup-restore.md`.
 
 The root `vercel.json` is ready for Vercel Free. It serves `web/build` and
 routes `/api/*` to `api/[...path].js`, which wraps the Arbor OS Express API.
+The API function has `maxDuration=60`, so slower production routes have the
+full Vercel Hobby request window instead of the shorter default.
 
 Set the Vercel environment variables from:
 
