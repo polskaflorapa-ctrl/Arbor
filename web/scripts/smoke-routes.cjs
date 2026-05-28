@@ -112,7 +112,7 @@ async function main() {
     throw new Error(`Web app is not reachable at ${BASE}: ${error.message}`);
   });
 
-  const userDataDir = path.join(__dirname, `..`, `..`, 'output', 'playwright', `web-route-smoke-${Date.now()}`);
+  const userDataDir = path.join(__dirname, '..', '..', 'output', 'playwright', `web-route-smoke-${Date.now()}`);
   const chrome = spawn(chromePath, [
     `--remote-debugging-port=${PORT}`,
     `--user-data-dir=${userDataDir}`,
@@ -148,7 +148,9 @@ async function main() {
         data.method === 'Runtime.exceptionThrown' ||
         data.method === 'Log.entryAdded' ||
         data.method === 'Network.responseReceived'
-      ) events.push(data);
+      ) {
+        events.push(data);
+      }
     };
 
     await new Promise((resolve) => { ws.onopen = resolve; });
@@ -165,6 +167,33 @@ async function main() {
           }
         }, 15000);
       });
+    }
+
+    async function evaluateRoute(route) {
+      const evaluated = await send('Runtime.evaluate', {
+        awaitPromise: true,
+        returnByValue: true,
+        expression: `(() => {
+          const text = document.body?.innerText || '';
+          const frameText = [...document.querySelectorAll('iframe')]
+            .map((frame) => {
+              try { return frame.contentDocument?.body?.innerText || ''; } catch { return ''; }
+            }).join(' ');
+          const allText = [text, frameText].join(' ').trim();
+          return {
+            route: ${JSON.stringify(route)},
+            hash: location.hash,
+            href: location.href,
+            heading: document.querySelector('h1,h2,[role="heading"]')?.textContent?.trim() || '',
+            textLength: allText.length,
+            login: /Zaloguj|Login|Password|Haslo/.test(allText),
+            loading: /Ladowanie|Loading/.test(allText),
+            overflowX: document.body ? document.body.scrollWidth > window.innerWidth + 2 : false,
+            snippet: allText.replace(/\\s+/g, ' ').slice(0, 180),
+          };
+        })()`,
+      });
+      return evaluated.result.value;
     }
 
     await send('Runtime.enable');
@@ -189,34 +218,20 @@ async function main() {
 
     const results = [];
     const failures = [];
+
     for (const route of routes) {
       const beforeEvents = events.length;
       await send('Runtime.evaluate', { expression: authScript, awaitPromise: true }).catch(() => {});
       await send('Page.navigate', { url: `${BASE}/#${route}` });
-      await sleep(1500);
-      const evaluated = await send('Runtime.evaluate', {
-        awaitPromise: true,
-        returnByValue: true,
-        expression: `(() => {
-          const text = document.body.innerText || '';
-          const frameText = [...document.querySelectorAll('iframe')]
-            .map((frame) => {
-              try { return frame.contentDocument?.body?.innerText || ''; } catch { return ''; }
-            }).join(' ');
-          const allText = [text, frameText].join(' ').trim();
-          return {
-            route: ${JSON.stringify(route)},
-            hash: location.hash,
-            heading: document.querySelector('h1,h2,[role="heading"]')?.textContent?.trim() || '',
-            textLength: allText.length,
-            login: /Zaloguj|Login|Hasło/.test(allText),
-            loading: /Ladowanie|Ładowanie|Loading/.test(allText),
-            overflowX: document.body.scrollWidth > window.innerWidth + 2,
-            snippet: allText.replace(/\\s+/g, ' ').slice(0, 180),
-          };
-        })()`,
-      });
-      const result = evaluated.result.value;
+
+      await sleep(700);
+      let result = await evaluateRoute(route);
+      for (let i = 0; i < 8; i += 1) {
+        if (result.login || (result.textLength >= 40 && !result.loading)) break;
+        await sleep(500);
+        result = await evaluateRoute(route);
+      }
+
       const routeEvents = events.slice(beforeEvents)
         .map((event) => {
           if (event.method === 'Network.responseReceived') {
@@ -228,10 +243,12 @@ async function main() {
         })
         .filter(Boolean)
         .filter((entry) => !entry.includes('[api:test-mode] generic mock fallback'));
-      results.push({ ...result, consoleEvents: routeEvents.slice(0, 5) });
+
+      const enriched = { ...result, consoleEvents: routeEvents.slice(0, 5) };
+      results.push(enriched);
 
       if (result.login || result.textLength < 40 || result.overflowX || routeEvents.some((entry) => !entry.includes('favicon'))) {
-        failures.push({ ...result, consoleEvents: routeEvents.slice(0, 5) });
+        failures.push(enriched);
       }
     }
 

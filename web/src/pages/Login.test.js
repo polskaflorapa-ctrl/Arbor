@@ -18,15 +18,16 @@ vi.mock('../components/LanguageSwitcher', () => ({
   default: () => <div data-testid="language-switcher" />,
 }));
 
-function renderLogin() {
+function renderLogin({ initialEntries = ['/'] } = {}) {
   return render(
     <MemoryRouter
-      initialEntries={['/']}
+      initialEntries={initialEntries}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<div>Dashboard gotowy</div>} />
+        <Route path="/zlecenia" element={<div>Zlecenia gotowe</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -80,6 +81,26 @@ test('fills a demo account and stores session data after login', async () => {
   expect(JSON.parse(localStorage.getItem('permissions'))).toEqual(['dashboard:view']);
   expect(localStorage.getItem('remembered_login')).toBe('demo_dyrektor');
   expect(await screen.findByText('Dashboard gotowy')).toBeInTheDocument();
+});
+
+test('returns to the protected route requested before login', async () => {
+  api.post.mockResolvedValue({
+    data: {
+      token: 'demo-token',
+      user: { id: 7, rola: 'Dyrektor', imie: 'Demo' },
+    },
+  });
+
+  const { container } = renderLogin({
+    initialEntries: [{ pathname: '/', state: { from: '/zlecenia?search=Anna' } }],
+  });
+  const { loginInput, passwordInput, submitButton } = getLoginFields(container);
+
+  await userEvent.type(loginInput, 'demo_dyrektor');
+  await userEvent.type(passwordInput, 'Demo123!ARBOR');
+  await userEvent.click(submitButton);
+
+  expect(await screen.findByText('Zlecenia gotowe')).toBeInTheDocument();
 });
 
 test('restores remembered login without requiring a token', () => {

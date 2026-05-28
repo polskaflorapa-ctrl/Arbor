@@ -12,7 +12,7 @@
  *   } />
  */
 
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { readPermissions } from '../utils/permissions';
 import { readStoredUser } from '../utils/readStoredUser';
 import { hasAnyRole } from '../utils/roleDisplay';
@@ -27,11 +27,13 @@ import { getStoredToken } from '../utils/storedToken';
  * }} props
  */
 export default function ProtectedRoute({ children, require: permKey, roles, redirectTo = '/' }) {
+  const location = useLocation();
+  const from = `${location.pathname || '/'}${location.search || ''}`;
   const token = getStoredToken();
-  if (!token) return <Navigate to={redirectTo} replace />;
+  if (!token) return <Navigate to={redirectTo} replace state={{ from }} />;
 
   const user = readStoredUser();
-  if (!user) return <Navigate to={redirectTo} replace />;
+  if (!user) return <Navigate to={redirectTo} replace state={{ from }} />;
 
   // Role-list check
   if (roles && roles.length > 0) {

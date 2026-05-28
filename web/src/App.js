@@ -77,7 +77,20 @@ function AuthenticatedRoute({ children }) {
   return <ProtectedRoute>{children}</ProtectedRoute>;
 }
 
+export function redirectCleanPathToHashRoute() {
+  if (typeof window === 'undefined') return false;
+  const { pathname, search, hash } = window.location;
+  if (hash || !pathname || pathname === '/' || pathname === '/index.html') return false;
+
+  const cleanPath = pathname.replace(/\/+$/, '') || '/';
+  const nextHash = `#${cleanPath}${search || ''}`;
+  window.history.replaceState(null, '', `/${nextHash}`);
+  return true;
+}
+
 function App() {
+  redirectCleanPathToHashRoute();
+
   return (
     <ThemeProvider>
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

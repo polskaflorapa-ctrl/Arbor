@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import { clearAuthSession } from '../utils/authSession';
 import { getStoredToken } from '../utils/storedToken';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const DEMO_ACCOUNTS = [
@@ -24,15 +24,20 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo =
+    typeof location.state?.from === 'string' && location.state.from.startsWith('/')
+      ? location.state.from
+      : '/dashboard';
   const loginInputId = useId();
   const passwordInputId = useId();
   const rememberInputId = useId();
 
   useEffect(() => {
-    if (getStoredToken()) navigate('/dashboard', { replace: true });
+    if (getStoredToken()) navigate(returnTo, { replace: true });
     const saved = localStorage.getItem('remembered_login');
     if (saved) { setLogin(saved); setRememberMe(true); }
-  }, [navigate]);
+  }, [navigate, returnTo]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -59,7 +64,7 @@ export default function Login() {
       }
       if (rememberMe) localStorage.setItem('remembered_login', login);
       else localStorage.removeItem('remembered_login');
-      navigate('/dashboard', { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (err) {
       setError(err.userMessage || err.response?.data?.error || t('login.invalidCredentials'));
       setHaslo('');
