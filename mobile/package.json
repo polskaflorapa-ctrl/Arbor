@@ -13,6 +13,7 @@
     "web": "expo start --web",
     "lint": "node ./scripts/run-expo-lint.cjs",
     "typecheck": "node ./scripts/run-tsc-noemit.cjs",
+    "test:offline-queue": "node ./scripts/test-offline-queue.cjs",
     "smoke:api": "node ./scripts/smoke-api-rezerwacje.cjs"
   },
   "dependencies": {

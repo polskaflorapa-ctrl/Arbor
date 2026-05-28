@@ -13,7 +13,7 @@ export const PHOTO_TYPE_LABELS: Record<(typeof TYP_ZDJECIA_KEYS)[number], string
   szkic: 'Szkic zakresu',
   dojazd: 'Dojazd / posesja',
   checkin: 'Check-in',
-  przed: 'Przed pracÄ…',
+  przed: 'Przed praca',
   po: 'Po pracy',
   inne: 'Inne',
 };
@@ -33,14 +33,14 @@ export const SAFETY_CHECKLIST_ITEMS = [
   },
   {
     key: 'ppe',
-    label: 'SprzÄ™t i PPE',
-    hint: 'Kaski, uprzÄ™ĹĽe, piĹ‚a, rÄ™bak i komunikacja ekipy gotowe.',
+    label: 'Sprzet i PPE',
+    hint: 'Kaski, uprzeze, pila, rebak i komunikacja ekipy gotowe.',
     icon: 'construct-outline',
   },
   {
     key: 'escape',
     label: 'Droga ucieczki',
-    hint: 'Ustalona strefa zrzutu, kierunek obalenia i awaryjny odwrĂłt.',
+    hint: 'Ustalona strefa zrzutu, kierunek obalenia i awaryjny odwrot.',
     icon: 'walk-outline',
   },
   {
@@ -193,7 +193,7 @@ export function extractNoteValue(value: unknown, prefixes: string[]) {
 }
 
 export function noteHasClientAccepted(value: unknown) {
-  const accepted = extractNoteValue(value, ['Klient zaakceptowal', 'Klient zaakceptowaĹ‚']);
+  const accepted = extractNoteValue(value, ['Klient zaakceptowal']);
   return /^(tak|yes|true|1)$/i.test(accepted);
 }
 
@@ -301,7 +301,7 @@ export function taskWorkflowMissingItems(task: any): WorkflowMissingItem[] {
   });
 }
 
-export function formatApiWorkflowError(data: any, fallback = 'Nie udaĹ‚o siÄ™ wykonaÄ‡ akcji.') {
+export function formatApiWorkflowError(data: any, fallback = 'Nie udalo sie wykonac akcji.') {
   const labels = Array.isArray(data?.missing_labels)
     ? data.missing_labels.map((label: unknown) => String(label || '').trim()).filter(Boolean)
     : [];
@@ -322,10 +322,10 @@ export async function readApiErrorBody(res: Response) {
 
 export function workflowTargetFor(item?: WorkflowMissingItem) {
   const key = String(item?.key || item?.label || '').toLowerCase();
-  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdjÄ™') || key.includes('sketch') || key.includes('szkic') || key.includes('dojazd')) {
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('sketch') || key.includes('szkic') || key.includes('dojazd')) {
     return 'photos';
   }
-  if (key.includes('brief') || key.includes('opis') || key.includes('zakres') || key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('budĹĽet') || key.includes('hours') || key.includes('czas')) {
+  if (key.includes('brief') || key.includes('opis') || key.includes('zakres') || key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('hours') || key.includes('czas')) {
     return 'field';
   }
   return 'details';
@@ -335,7 +335,7 @@ export function workflowPhotoFilterFor(item?: WorkflowMissingItem): PhotoFilterK
   const key = String(item?.key || item?.label || '').toLowerCase();
   if (key.includes('szkic') || key.includes('sketch')) return 'szkic';
   if (key.includes('dojazd') || key.includes('posesja')) return 'dojazd';
-  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdjÄ™') || key.includes('wycena')) return 'wycena';
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('wycena')) return 'wycena';
   return 'all';
 }
 

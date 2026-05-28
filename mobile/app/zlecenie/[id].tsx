@@ -2205,7 +2205,7 @@ export default function ZlecenieDetailScreen() {
   const accessLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('dostęp') || line.toLowerCase().startsWith('dostep'));
   const equipmentLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('sprzęt') || line.toLowerCase().startsWith('sprzet'));
   const equipmentFromBrief = equipmentLine?.split(':').slice(1).join(':').split(',').map((item) => item.trim()).filter((item) => item && item !== '-') || [];
-  const officeEquipmentLine = findCrewPackageLine(['Sprzet', 'SprzÄ™t']);
+  const officeEquipmentLine = findCrewPackageLine(['Sprzet']);
   const settlementLine = findCrewPackageLine(['Warunki rozliczenia']);
   const budgetLine = findCrewPackageLine(['Budzet/wartosc', 'Budzet', 'Wartosc']);
   const equipmentFromOfficePlan = officeEquipmentLine?.split(':').slice(1).join(':').split(/[,|]/).map((item) => item.trim()).filter((item) => item && item !== '-' && item.toLowerCase() !== 'brak') || [];

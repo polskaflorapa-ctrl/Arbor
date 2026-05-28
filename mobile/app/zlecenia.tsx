@@ -417,7 +417,7 @@ function taskNeedsCrewPlan(task: any) {
   const officeStage = status === TASK_STATUS.DO_ZATWIERDZENIA || status === TASK_STATUS.ZAPLANOWANE || taskReadyForOffice(task);
   if (!officeStage) return false;
   if (typeof task?.office_plan_ready === 'boolean') return !task.office_plan_ready;
-  if (taskWorkflowMissingIncludes(task, ['ekipa', 'team', 'termin pracy', 'work_date', 'sprzet', 'sprzÄ™t', 'equipment', 'czas', 'budzet', 'budĹĽet', 'cena', 'zakres'])) return true;
+  if (taskWorkflowMissingIncludes(task, ['ekipa', 'team', 'termin pracy', 'work_date', 'sprzet', 'equipment', 'czas', 'budzet', 'cena', 'zakres'])) return true;
   return taskOfficePlanChecks(task).some((check) => !check.ready);
 }
 
