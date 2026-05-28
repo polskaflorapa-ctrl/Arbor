@@ -4,6 +4,11 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build -w arbor-web",
   "outputDirectory": "web/build",
+  "functions": {
+    "api/[...path].js": {
+      "includeFiles": "os/{docs/openapi.yaml,public/app/**,data/flota-pojazdy-katalog.json}"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

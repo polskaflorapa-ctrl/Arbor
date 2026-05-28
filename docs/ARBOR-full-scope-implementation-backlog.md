@@ -6,6 +6,18 @@
 
 ---
 
+## Status techniczny po smoke 2026-05-28
+
+- [x] **P0 smoke web**: 46 tras web przechodzi w trybie testowym bez przekierowania do logowania, bez pustych widokow, bez poziomego overflow i bez bledow konsoli/sieci >=400.
+- [x] **P0 test/demo API**: nieznane endpointy w test-mode dostaja bezpieczny mock fallback zamiast uderzac w realny backend.
+- [x] **P0 auth guard**: `401` nie kasuje sesji, gdy aktywny jest test-mode.
+- [x] **P0 SSE**: real-time notifications sa wylaczone w test-mode, zeby demo/offline smoke nie generowal `/auth/me` i `/notifications/stream`.
+- [x] **P0 backend critical path smoke**: endpoint-level test dla sciezki Kommo payload -> dispatcher -> START -> finish -> rozliczenie -> Kommo payload po zamknieciu.
+- [x] **P0 Kommo settlement field**: `task.sync` niesie `wartosc_netto_do_rozliczenia` i `marza_pct`, zeby CRM mogl dostac wynik po zamknieciu zlecenia.
+- [ ] **Nastepny pakiet**: rozbudowac test sciezki o prawdziwe ogledziny/quotation approval i snapshot payloadu Kommo z kosztami pracy/sprzetu/materialow.
+
+---
+
 ## Zależności między epikami (skrót)
 
 ```mermaid

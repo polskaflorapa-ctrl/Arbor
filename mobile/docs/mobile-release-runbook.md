@@ -10,13 +10,19 @@ Run the local release gate:
 npm run release:check
 ```
 
+Check the EAS operator environment before cloud builds:
+
+```bash
+npm run release:eas-doctor
+```
+
 Optional backend smoke:
 
 ```bash
 SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 ```
 
-`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, and high/critical production dependency advisories.
+`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, and high/critical production dependency advisories. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
 
 Check release metadata:
 
@@ -25,6 +31,7 @@ Check release metadata:
 - [ ] `android.versionCode` is incremented for Android releases.
 - [ ] `EXPO_PUBLIC_API_URL` points to the intended backend.
 - [ ] `EXPO_PUBLIC_EXPECTED_API_VERSION` matches the backend release note or is intentionally left as profile default.
+- [ ] `npm run release:eas-doctor` passes on the release operator machine.
 
 Security dependency check:
 
@@ -78,8 +85,9 @@ Do not promote the build if any of these fail:
 Before submit:
 
 - [ ] `npm run release:check` is green.
+- [ ] `npm run release:eas-doctor` is green on the release operator machine.
 - [ ] Device QA checklist is complete.
-- [ ] Known issues are documented.
+- [ ] Known issues are documented in `docs/mobile-release-risks.md` or the release note.
 - [ ] `npm audit --omit=dev` output is reviewed; any Expo SDK major-upgrade findings are accepted or handled in a dedicated SDK upgrade branch.
 - [ ] API URL and build profile are confirmed.
 - [ ] Crash/error monitoring destination is confirmed.

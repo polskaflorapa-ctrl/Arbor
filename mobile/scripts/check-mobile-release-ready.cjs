@@ -81,14 +81,31 @@ function runExpoConfigCheck() {
   const npmCli = process.env.npm_execpath;
   const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const args = npmCli
-    ? [npmCli, 'exec', '--', 'expo', 'config', '--type', 'public']
-    : ['exec', '--', 'expo', 'config', '--type', 'public'];
+    ? [npmCli, 'exec', '--', 'expo', 'config', '--type', 'public', '--json']
+    : ['exec', '--', 'expo', 'config', '--type', 'public', '--json'];
 
-  return spawnSync(command, args, {
+  const result = spawnSync(command, args, {
     cwd: rootDir,
     env: process.env,
-    stdio: 'inherit',
+    encoding: 'utf8',
   });
+
+  if (result.status !== 0) {
+    process.stdout.write(result.stdout || '');
+    process.stderr.write(result.stderr || '');
+    return result;
+  }
+
+  try {
+    const config = JSON.parse(result.stdout);
+    pass(`Expo config resolves for SDK ${config.sdkVersion || 'unknown'}`);
+  } catch (error) {
+    result.status = 1;
+    result.stderr = `Expo config returned invalid JSON: ${error.message}`;
+    process.stderr.write(result.stderr);
+  }
+
+  return result;
 }
 
 console.log('Checking mobile release readiness...\n');
@@ -108,6 +125,7 @@ assertValue('eas cli version guard is set', easConfig?.cli?.version);
 
 assertFile('docs/mobile-device-smoke-checklist.md');
 assertFile('docs/mobile-release-runbook.md');
+assertFile('docs/mobile-release-risks.md');
 
 if (process.exitCode) {
   console.error('\nRelease readiness check failed before smoke tests.');

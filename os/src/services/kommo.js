@@ -110,6 +110,10 @@ function buildKommoTaskPayload(row, actor = null) {
       oddzial_id: row.oddzial_id ?? null,
       data_planowana: dateToYmd(row.data_planowana),
       wartosc_planowana: row.wartosc_planowana != null ? Number(row.wartosc_planowana) : null,
+      wartosc_netto_do_rozliczenia: row.wartosc_netto_do_rozliczenia != null
+        ? Number(row.wartosc_netto_do_rozliczenia)
+        : null,
+      marza_pct: row.marza_pct != null ? Number(row.marza_pct) : null,
       notatki_wewnetrzne: toCompactText(row.notatki_wewnetrzne),
       sync_meta: {
         last_sync_at: row.kommo_last_sync_at || null,

@@ -62,6 +62,7 @@
     "start:api:prod": "node ./scripts/start-api-with-migrations.cjs",
     "seed:president-demo": "npm run seed:president-demo -w arbor-os",
     "smoke:operational": "npm run smoke:operational -w arbor-os",
+    "smoke:critical-path": "npm run test:critical-path -w arbor-os",
     "backup:db": "npm run backup:db -w arbor-os",
     "backup:db:check": "npm run backup:db:check -w arbor-os",
     "restore:db": "npm run restore:db -w arbor-os --",

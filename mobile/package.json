@@ -16,6 +16,7 @@
     "test:offline-queue": "node ./scripts/test-offline-queue.cjs",
     "smoke:mobile": "node ./scripts/smoke-mobile-release.cjs",
     "release:check": "node ./scripts/check-mobile-release-ready.cjs",
+    "release:eas-doctor": "node ./scripts/eas-release-doctor.cjs",
     "smoke:api": "node ./scripts/smoke-api-rezerwacje.cjs"
   },
   "dependencies": {
