@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -348,6 +348,82 @@ test('lets a user create a round-robin owner workflow', async () => {
         trigger_type: 'unassigned_leads',
         action_type: 'assign_round_robin',
         action_config: { user_ids: [9001, 9002] },
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+test('lets a user create a message template and template workflow', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/leads') return Promise.resolve({ data: [] });
+    if (url === '/crm/workflows') return Promise.resolve({ data: [] });
+    if (url === '/crm/message-templates') {
+      return Promise.resolve({ data: [{ id: 31, name: 'Follow-up', channel: 'sms', body: 'Dzien dobry, wracam w sprawie {title}.' }] });
+    }
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
+    if (url === '/uzytkownicy') return Promise.resolve({ data: [{ id: 9001, imie: 'Smoke', nazwisko: 'Admin', oddzial_id: 7 }] });
+    if (url === '/klienci') return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+  api.post
+    .mockResolvedValueOnce({
+      data: {
+        id: 31,
+        oddzial_id: 7,
+        name: 'Follow-up',
+        key: 'follow_up',
+        channel: 'sms',
+        body: 'Dzien dobry, wracam w sprawie {title}.',
+      },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        id: 41,
+        oddzial_id: 7,
+        name: 'Brak odpowiedzi 24h: wyslij szablon',
+        trigger_type: 'no_response_after_hours',
+        action_type: 'send_template_message',
+        action_config: { template_id: 31, channel: 'sms' },
+        active: true,
+      },
+    });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Szablony wiadomości');
+  await userEvent.type(screen.getByPlaceholderText('Nazwa szablonu'), 'Follow-up');
+  fireEvent.change(screen.getByPlaceholderText(/Treść/i), { target: { value: 'Dzien dobry, wracam w sprawie {title}.' } });
+  await userEvent.click(screen.getByRole('button', { name: /Dodaj szablon/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/message-templates',
+      expect.objectContaining({
+        oddzial_id: 7,
+        name: 'Follow-up',
+        channel: 'sms',
+        body: 'Dzien dobry, wracam w sprawie {title}.',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  await waitFor(() => expect(screen.getAllByText('Follow-up').length).toBeGreaterThan(0));
+  await userEvent.click(screen.getByRole('button', { name: /\+ wyślij szablon/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/workflows',
+      expect.objectContaining({
+        oddzial_id: 7,
+        trigger_type: 'no_response_after_hours',
+        action_type: 'send_template_message',
+        action_config: { template_id: 31, channel: 'sms' },
       }),
       expect.objectContaining({ headers: expect.any(Object) })
     );

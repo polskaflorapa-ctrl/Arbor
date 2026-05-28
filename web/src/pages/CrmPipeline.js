@@ -57,6 +57,14 @@ const EMPTY_MESSAGE = {
   body: '',
 };
 
+const EMPTY_TEMPLATE = {
+  name: '',
+  key: '',
+  channel: 'sms',
+  subject: '',
+  body: '',
+};
+
 export default function CrmPipeline() {
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -78,6 +86,8 @@ export default function CrmPipeline() {
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState([]);
+  const [templateForm, setTemplateForm] = useState(EMPTY_TEMPLATE);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [messageForm, setMessageForm] = useState(EMPTY_MESSAGE);
   const [savingMessage, setSavingMessage] = useState(false);
   const [aiLead, setAiLead] = useState(null);
@@ -489,6 +499,59 @@ export default function CrmPipeline() {
     }
   };
 
+  const createTemplate = async () => {
+    if (!templateForm.name.trim() || !templateForm.body.trim()) return;
+    try {
+      setSavingTemplate(true);
+      await api.post(
+        '/crm/message-templates',
+        {
+          oddzial_id: workflowOddzialId ? Number(workflowOddzialId) : undefined,
+          ...templateForm,
+          name: templateForm.name.trim(),
+          key: templateForm.key.trim() || undefined,
+          subject: templateForm.subject.trim() || null,
+          body: templateForm.body.trim(),
+        },
+        { headers: requestHeaders }
+      );
+      setTemplateForm(EMPTY_TEMPLATE);
+      await loadMessageTemplates();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.templates.createError', { defaultValue: 'Nie udało się zapisać szablonu.' })));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const createTemplateWorkflow = async () => {
+    const template = messageTemplates[0];
+    if (!workflowOddzialId || !template) {
+      setMsg(t('crm.pipeline.workflows.templateRequired', { defaultValue: 'Dodaj najpierw szablon dla automatyzacji.' }));
+      return;
+    }
+    try {
+      setSavingWorkflow(true);
+      await api.post(
+        '/crm/workflows',
+        {
+          oddzial_id: Number(workflowOddzialId),
+          name: t('crm.pipeline.workflows.templateName', { defaultValue: 'Brak odpowiedzi 24h: wyślij szablon' }),
+          trigger_type: 'no_response_after_hours',
+          trigger_config: { hours: 24 },
+          action_type: 'send_template_message',
+          action_config: { template_id: Number(template.id), channel: template.channel },
+        },
+        { headers: requestHeaders }
+      );
+      await loadWorkflows();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.workflows.createError', { defaultValue: 'Nie udało się zapisać automatyzacji.' })));
+    } finally {
+      setSavingWorkflow(false);
+    }
+  };
+
   const runWorkflows = async () => {
     if (!workflowOddzialId) return;
     try {
@@ -614,6 +677,72 @@ export default function CrmPipeline() {
           </section>
 
           <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 800 }}>{t('crm.pipeline.templates.title', { defaultValue: 'Szablony wiadomości' })}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {t('crm.pipeline.templates.subtitle', { defaultValue: 'Centrum odpowiedzi dla Inbox i automatyzacji.' })}
+                </div>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{messageTemplates.length} aktywne</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+              <input
+                className="ios-field"
+                value={templateForm.name}
+                onChange={(e) => setTemplateForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder={t('crm.pipeline.templates.name', { defaultValue: 'Nazwa szablonu' })}
+              />
+              <input
+                className="ios-field"
+                value={templateForm.key}
+                onChange={(e) => setTemplateForm((prev) => ({ ...prev, key: e.target.value }))}
+                placeholder={t('crm.pipeline.templates.key', { defaultValue: 'Klucz (opcjonalnie)' })}
+              />
+              <select
+                className="ios-field"
+                value={templateForm.channel}
+                onChange={(e) => setTemplateForm((prev) => ({ ...prev, channel: e.target.value }))}
+              >
+                {['whatsapp', 'email', 'sms', 'phone', 'webchat', 'other'].map((channel) => (
+                  <option key={channel} value={channel}>{messageChannelLabel(channel)}</option>
+                ))}
+              </select>
+              <input
+                className="ios-field"
+                value={templateForm.subject}
+                onChange={(e) => setTemplateForm((prev) => ({ ...prev, subject: e.target.value }))}
+                placeholder={t('crm.pipeline.templates.subject', { defaultValue: 'Temat (opcjonalnie)' })}
+              />
+              <textarea
+                className="ios-field"
+                rows={2}
+                value={templateForm.body}
+                onChange={(e) => setTemplateForm((prev) => ({ ...prev, body: e.target.value }))}
+                placeholder={t('crm.pipeline.templates.body', { defaultValue: 'Treść, np. Dzień dobry, wracam w sprawie {title}.' })}
+                style={{ gridColumn: '1 / -1' }}
+              />
+              <button type="button" className="ios-btn ios-btn-primary" disabled={savingTemplate || !templateForm.name.trim() || !templateForm.body.trim()} onClick={createTemplate}>
+                {t('crm.pipeline.templates.add', { defaultValue: 'Dodaj szablon' })}
+              </button>
+            </div>
+            <div className="ios-inset-list" style={{ marginTop: 10, maxHeight: 180, overflow: 'auto' }}>
+              {messageTemplates.map((template) => (
+                <div key={template.id} className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{template.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{template.body}</div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{messageChannelLabel(template.channel)}</span>
+                </div>
+              ))}
+              {messageTemplates.length === 0 ? (
+                <div className="ios-inset-row muted">{t('crm.pipeline.templates.empty', { defaultValue: 'Brak szablonów wiadomości.' })}</div>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontWeight: 800 }}>{t('crm.pipeline.workflows.title', { defaultValue: 'Automatyzacje' })}</div>
@@ -637,6 +766,14 @@ export default function CrmPipeline() {
                   onClick={createRoundRobinWorkflow}
                 >
                   {t('crm.pipeline.workflows.addRoundRobin', { defaultValue: '+ round-robin' })}
+                </button>
+                <button
+                  type="button"
+                  className="ios-btn"
+                  disabled={savingWorkflow || messageTemplates.length === 0 || workflows.some((rule) => rule.action_type === 'send_template_message')}
+                  onClick={createTemplateWorkflow}
+                >
+                  {t('crm.pipeline.workflows.addTemplate', { defaultValue: '+ wyślij szablon 24h' })}
                 </button>
                 <button type="button" className="ios-btn ios-btn-primary" disabled={savingWorkflow || workflows.length === 0} onClick={runWorkflows}>
                   {t('crm.pipeline.workflows.run', { defaultValue: 'Uruchom workflow' })}

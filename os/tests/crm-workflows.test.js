@@ -138,6 +138,26 @@ describe('CRM workflow automations', () => {
     }));
   });
 
+  it('creates a no-response template message workflow rule', async () => {
+    const res = await request(app)
+      .post('/api/crm/workflows')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        oddzial_id: 7,
+        name: 'Wyślij szablon po 24h',
+        trigger_type: 'no_response_after_hours',
+        trigger_config: { hours: 24 },
+        action_type: 'send_template_message',
+        action_config: { template_id: 44, channel: 'sms' },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(expect.objectContaining({
+      action_type: 'send_template_message',
+      action_config: { template_id: 44, channel: 'sms' },
+    }));
+  });
+
   it('lists workflow rules scoped to user branch', async () => {
     const res = await request(app)
       .get('/api/crm/workflows')
@@ -165,5 +185,72 @@ describe('CRM workflow automations', () => {
     const ownerUpdate = pool.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE crm_leads SET owner_user_id'));
     expect(ownerUpdate[1][0]).toBe(101);
     expect(ownerUpdate[1][3]).toBe(52);
+  });
+
+  it('runs template message workflow actions', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE') || text.includes('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (text.includes('SELECT * FROM crm_workflow_rules WHERE') && text.includes('ORDER BY id ASC')) {
+        return {
+          rows: [{
+            id: 44,
+            oddzial_id: 7,
+            name: 'Wyślij szablon',
+            trigger_type: 'no_response_after_hours',
+            trigger_config: { hours: 24 },
+            action_type: 'send_template_message',
+            action_config: { template_id: 77, channel: 'sms' },
+            active: true,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('WITH last_outbound AS')) {
+        return {
+          rows: [{
+            id: 51,
+            oddzial_id: 7,
+            title: 'Lead bez odpowiedzi',
+            stage: 'Lead',
+            phone: '+48500100200',
+            value: 1200,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes("metadata->>'workflow_id'")) return { rows: [] };
+      if (text === 'SELECT * FROM crm_message_templates WHERE id = $1 AND active = true') {
+        return {
+          rows: [{
+            id: params[0],
+            oddzial_id: 7,
+            key: 'follow_up',
+            name: 'Follow-up',
+            channel: 'sms',
+            subject: null,
+            body: 'Dzien dobry, wracam w sprawie {title}.',
+            variables: ['title'],
+            active: true,
+          }],
+        };
+      }
+      if (text.includes('INSERT INTO crm_lead_messages')) return { rows: [], rowCount: 1 };
+      if (text.includes('UPDATE crm_leads SET updated_at')) return { rows: [], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/crm/workflows/run')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ oddzial_id: 7 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.actions_count).toBe(1);
+    const insertMessage = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO crm_lead_messages'));
+    expect(insertMessage[1][0]).toBe(51);
+    expect(insertMessage[1][1]).toBe('sms');
+    expect(insertMessage[1][4]).toBe('Dzien dobry, wracam w sprawie Lead bez odpowiedzi.');
+    expect(JSON.parse(insertMessage[1][7])).toEqual(expect.objectContaining({ workflow_id: '44', template_id: 77 }));
   });
 });

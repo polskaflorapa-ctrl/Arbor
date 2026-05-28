@@ -1,8 +1,9 @@
 const pool = require('../config/database');
 const logger = require('../config/logger');
+const { renderTemplateById } = require('./crmMessageTemplates');
 
 const TRIGGERS = new Set(['no_response_after_hours', 'unassigned_leads']);
-const ACTIONS = new Set(['create_followup_task', 'move_stage', 'assign_round_robin']);
+const ACTIONS = new Set(['create_followup_task', 'move_stage', 'assign_round_robin', 'send_template_message']);
 
 function normalizeTriggerType(value) {
   const triggerType = String(value || '').trim().toLowerCase();
@@ -186,6 +187,52 @@ async function findUnassignedLeadCandidates(rule) {
 async function applyRuleAction(rule, lead, userId) {
   const actionConfig = safeObject(rule.action_config);
   const now = new Date().toISOString();
+  if (rule.action_type === 'send_template_message') {
+    const templateId = toPositiveInt(actionConfig.template_id, null);
+    if (!templateId) return { lead_id: lead.id, action: 'send_template_message', skipped: true, reason: 'missing_template_id' };
+    const existing = await pool.query(
+      `SELECT id FROM crm_lead_messages
+       WHERE lead_id = $1 AND metadata->>'workflow_id' = $2
+       LIMIT 1`,
+      [lead.id, String(rule.id)]
+    );
+    if (existing.rows.length) return { lead_id: lead.id, action: 'send_template_message', skipped: true, reason: 'already_sent' };
+    const fields = {
+      lead_id: lead.id,
+      title: lead.title,
+      phone: lead.phone,
+      email: lead.email,
+      source: lead.source,
+      stage: lead.stage,
+      value: lead.value,
+      ...safeObject(actionConfig.dynamic_fields),
+    };
+    const template = await renderTemplateById({ templateId, fields });
+    if (!template) return { lead_id: lead.id, action: 'send_template_message', skipped: true, reason: 'template_not_found' };
+    const channel = String(actionConfig.channel || template.channel || lead.last_outbound_channel || 'other').trim().toLowerCase();
+    const recipient = String(actionConfig.recipient_handle || lead.recipient_handle || lead.phone || lead.email || '').trim() || null;
+    await pool.query(
+      `INSERT INTO crm_lead_messages (
+        lead_id, channel, direction, recipient_handle, subject, body, status,
+        template_key, dynamic_fields, metadata, created_by, created_at
+      ) VALUES ($1,$2,'outbound',$3,$4,$5,'queued',$6,$7::jsonb,$8::jsonb,$9,$10)`,
+      [
+        lead.id,
+        channel,
+        recipient,
+        String(template.rendered_subject || '').trim() || null,
+        template.rendered_body,
+        template.key,
+        JSON.stringify(fields),
+        JSON.stringify({ workflow_id: String(rule.id), template_id: template.id, automated: true }),
+        userId || null,
+        now,
+      ]
+    );
+    await pool.query('UPDATE crm_leads SET updated_at = $1, updated_by = $2 WHERE id = $3', [now, userId || null, lead.id]);
+    return { lead_id: lead.id, action: 'send_template_message', template_id: template.id, channel };
+  }
+
   if (rule.action_type === 'move_stage') {
     const nextStage = String(actionConfig.stage || '').trim();
     if (!nextStage) return { lead_id: lead.id, action: 'move_stage', skipped: true };
