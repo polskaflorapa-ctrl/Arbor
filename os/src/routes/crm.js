@@ -917,6 +917,10 @@ function mapMessageRow(row) {
     lead_email: row.lead_email || null,
     client_name: row.client_name || null,
     oddzial_id: row.oddzial_id || null,
+    owner_user_id: row.owner_user_id || null,
+    owner_name: row.owner_user_id
+      ? [row.owner_imie, row.owner_nazwisko].filter(Boolean).join(' ').trim() || row.owner_login || `#${row.owner_user_id}`
+      : null,
     channel: normMessageChannel(row.channel),
     direction: normMessageDirection(row.direction),
     sender_name: row.sender_name,
@@ -1161,12 +1165,15 @@ router.get('/messages/inbox', async (req, res) => {
               l.phone AS lead_phone,
               l.email AS lead_email,
               l.oddzial_id,
+              l.owner_user_id,
               COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
-              u.imie, u.nazwisko, u.login
+              u.imie, u.nazwisko, u.login,
+              o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login
        FROM crm_lead_messages m
        JOIN crm_leads l ON l.id = m.lead_id
        LEFT JOIN klienci k ON k.id = l.client_id
        LEFT JOIN users u ON u.id = m.created_by
+       LEFT JOIN users o ON o.id = l.owner_user_id
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
        ORDER BY m.created_at DESC
        LIMIT $${params.length}`,

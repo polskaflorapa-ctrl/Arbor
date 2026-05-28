@@ -53,6 +53,14 @@ beforeEach(() => {
         ],
       });
     }
+    if (url === '/uzytkownicy') {
+      return Promise.resolve({
+        data: [
+          { id: 9, imie: 'Anna', nazwisko: 'Kowalska', login: 'anna' },
+          { id: 10, imie: 'Piotr', nazwisko: 'Nowak', login: 'piotr' },
+        ],
+      });
+    }
     if (url === '/crm/leads/22/messages') {
       return Promise.resolve({
         data: [
@@ -87,6 +95,8 @@ beforeEach(() => {
           direction: 'inbound',
           status: 'received',
           sender_handle: '+48500100200',
+          owner_user_id: 9,
+          owner_name: 'Anna Kowalska',
           body: 'Prosze o szybka wycene.',
           created_at: '2026-05-28T08:00:00.000Z',
         },
@@ -196,4 +206,23 @@ test('updates a message status from unified inbox actions', async () => {
     );
   });
   expect(await screen.findByText('Status wiadomosci zmieniony na read.')).toBeInTheDocument();
+});
+
+test('assigns a lead owner from unified inbox', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  fireEvent.change(await screen.findByDisplayValue('Anna Kowalska'), { target: { value: '10' } });
+
+  await waitFor(() => {
+    expect(api.patch).toHaveBeenCalledWith(
+      '/crm/leads/22',
+      { owner_user_id: 10 },
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Handlowiec przypisany do rozmowy.')).toBeInTheDocument();
 });

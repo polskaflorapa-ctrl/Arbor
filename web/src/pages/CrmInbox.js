@@ -28,11 +28,13 @@ export default function CrmInbox() {
   const [timelineMessages, setTimelineMessages] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState([]);
+  const [owners, setOwners] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [replyBody, setReplyBody] = useState('');
   const [replyTemplateId, setReplyTemplateId] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [statusSavingId, setStatusSavingId] = useState(null);
+  const [ownerSaving, setOwnerSaving] = useState(false);
   const [filters, setFilters] = useState({ channel: '', direction: '', status: '', q: '' });
 
   const selected = useMemo(
@@ -67,6 +69,16 @@ export default function CrmInbox() {
     }
   };
 
+  const loadOwners = async () => {
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/uzytkownicy', { headers: authHeaders(token) });
+      setOwners(Array.isArray(res.data) ? res.data.filter((user) => Number(user.id) > 0) : []);
+    } catch {
+      setOwners([]);
+    }
+  };
+
   const loadTimeline = async (leadId) => {
     if (!leadId) {
       setTimelineMessages([]);
@@ -91,6 +103,7 @@ export default function CrmInbox() {
 
   useEffect(() => {
     loadTemplates();
+    loadOwners();
   }, []);
 
   useEffect(() => {
@@ -161,6 +174,28 @@ export default function CrmInbox() {
       setStatusSavingId(null);
     }
   };
+
+  const assignLeadOwner = async (ownerUserId) => {
+    if (!selected?.lead_id) return;
+    try {
+      setOwnerSaving(true);
+      setMsg('');
+      const token = getStoredToken();
+      await api.patch(
+        `/crm/leads/${selected.lead_id}`,
+        { owner_user_id: ownerUserId ? Number(ownerUserId) : null },
+        { headers: authHeaders(token) }
+      );
+      await loadInbox();
+      setMsg('Handlowiec przypisany do rozmowy.');
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, 'Nie udalo sie przypisac handlowca'));
+    } finally {
+      setOwnerSaving(false);
+    }
+  };
+
+  const ownerLabel = (owner) => [owner.imie, owner.nazwisko].filter(Boolean).join(' ') || owner.login || `#${owner.id}`;
 
   return (
     <div className="app-shell">
@@ -269,6 +304,24 @@ export default function CrmInbox() {
                     <div className="ios-inset-row">
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Kontakt</div>
                       <div>{selected.recipient_handle || selected.sender_handle || selected.lead_phone || selected.lead_email || '-'}</div>
+                    </div>
+                    <div className="ios-inset-row">
+                      <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                        Handlowiec
+                        <select
+                          className="ios-field"
+                          value={selected.owner_user_id || ''}
+                          disabled={ownerSaving}
+                          onChange={(e) => assignLeadOwner(e.target.value)}
+                        >
+                          <option value="">Bez ownera</option>
+                          {owners.map((owner) => (
+                            <option key={owner.id} value={owner.id}>
+                              {ownerLabel(owner)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                     {selected.subject ? (
                       <div className="ios-inset-row">
