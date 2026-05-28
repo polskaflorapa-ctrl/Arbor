@@ -18,6 +18,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { getReactApiBase } from '../utils/apiBase';
 import { resetAuthSession } from '../utils/authSession';
 import { getStoredToken } from '../utils/storedToken';
+import { isTestModeEnabled } from '../utils/testMode';
 
 const BASE_URL = getReactApiBase();
 const STREAM_URL = `${BASE_URL}/notifications/stream`;
@@ -48,6 +49,7 @@ export function useSSE(onEvent) {
 
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
+    if (isTestModeEnabled()) return;
     const token = getStoredToken();
     if (!token) return; // not logged in
     if (typeof EventSource === 'undefined') return; // SSE not supported

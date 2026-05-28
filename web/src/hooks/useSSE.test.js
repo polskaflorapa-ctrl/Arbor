@@ -2,6 +2,7 @@ import { act, render } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useSSE } from './useSSE';
 import { resetAuthSession } from '../utils/authSession';
+import { isTestModeEnabled } from '../utils/testMode';
 
 vi.mock('../utils/storedToken', () => ({
   getStoredToken: vi.fn(() => 'jwt-token'),
@@ -9,6 +10,10 @@ vi.mock('../utils/storedToken', () => ({
 
 vi.mock('../utils/authSession', () => ({
   resetAuthSession: vi.fn(),
+}));
+
+vi.mock('../utils/testMode', () => ({
+  isTestModeEnabled: vi.fn(() => false),
 }));
 
 class FakeEventSource {
@@ -33,6 +38,7 @@ describe('useSSE', () => {
     global.EventSource = FakeEventSource;
     global.fetch = vi.fn(() => new Promise(() => {}));
     resetAuthSession.mockClear();
+    isTestModeEnabled.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -111,5 +117,14 @@ describe('useSSE', () => {
       vi.advanceTimersByTime(1);
     });
     expect(FakeEventSource.instances).toHaveLength(2);
+  });
+
+  it('does not open SSE in test mode', () => {
+    isTestModeEnabled.mockReturnValue(true);
+
+    render(<Harness />);
+
+    expect(FakeEventSource.instances).toHaveLength(0);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

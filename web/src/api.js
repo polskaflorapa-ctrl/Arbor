@@ -2037,10 +2037,55 @@ function getTestModeMockResponse(config) {
   return null;
 }
 
+function buildGenericTestModeMockResponse(config) {
+  const method = String(config?.method || 'get').toLowerCase();
+  const path = getRequestPath(String(config.url || ''));
+  const body = parseJsonData(config?.data);
+  let data;
+
+  if (method === 'delete') {
+    data = { ok: true, deleted: true, path };
+  } else if (method === 'post' || method === 'put' || method === 'patch') {
+    data = {
+      ok: true,
+      id: body.id || Date.now(),
+      path,
+      ...body,
+      updated_at: new Date().toISOString(),
+    };
+  } else if (path.includes('notifications')) {
+    data = { notifications: [], unread_count: 0 };
+  } else if (path.includes('live-locations')) {
+    data = { items: [], count: 0 };
+  } else if (path.includes('ranking')) {
+    data = { items: [], ranking: [], generated_at: new Date().toISOString() };
+  } else if (path.includes('stats') || path.includes('summary') || path.includes('analytics')) {
+    data = { items: [], summary: {}, stats: {}, generated_at: new Date().toISOString() };
+  } else if (path.includes('status')) {
+    data = { ok: true, status: 'mock', items: [], summary: {} };
+  } else {
+    data = [];
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(`[api:test-mode] generic mock fallback for ${method.toUpperCase()} ${path}`);
+  }
+
+  return {
+    data,
+    status: method === 'post' ? 201 : 200,
+    statusText: 'OK',
+    headers: {},
+    config,
+    request: {},
+  };
+}
+
 api.defaults.adapter = async (config) => {
   if (isTestModeEnabled()) {
     const mockResponse = getTestModeMockResponse(config);
     if (mockResponse) return mockResponse;
+    return buildGenericTestModeMockResponse(config);
   }
   return originalAdapter(config);
 };
@@ -2186,7 +2231,7 @@ api.interceptors.response.use(
       error.userMessage = `Błąd serwera API (${requestDebug.method} ${requestDebug.fullUrl || requestDebug.urlPath}).`;
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isTestModeEnabled()) {
       resetAuthSession();
     }
 
