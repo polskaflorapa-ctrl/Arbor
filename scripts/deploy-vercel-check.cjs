@@ -81,6 +81,7 @@ async function main() {
   assert(vercel.outputDirectory === 'web/build', 'vercel.json should publish web/build.');
   const includeFiles = getApiIncludeFiles(vercel);
   assert(typeof includeFiles === 'string', 'vercel.json API includeFiles should be a glob string.');
+  assert(includeFiles.includes('migrate.sql'), 'vercel.json should include migrate.sql for API cold-start migrations.');
   assert(includeFiles.includes('docs/openapi.yaml'), 'vercel.json should include openapi.yaml for the API function.');
   assert(includeFiles.includes('public/app/**'), 'vercel.json should include the embedded /app panel for the API function.');
   assert(includeFiles.includes('data/flota-pojazdy-katalog.json'), 'vercel.json should include the fleet catalog JSON for the API function.');
@@ -94,6 +95,7 @@ async function main() {
   assert(fs.existsSync('api/[...path].js'), 'Vercel API wrapper api/[...path].js is missing.');
   assert(fs.existsSync('deploy/vercel.env.example'), 'Vercel env template is missing.');
   assert(!/serverless-http/.test(vercelApiWrapper), 'Vercel API wrapper should use native req/res, not serverless-http.');
+  assert(/VERCEL_RUN_MIGRATIONS=1/.test(read('deploy/vercel.env.example')), 'Vercel env template should document VERCEL_RUN_MIGRATIONS.');
   assert(!/fonts\.googleapis\.com\/css2\?family=Inter:wght@400;500;600;700&display=swap/.test(webIndex), 'web/index.html should not duplicate the Inter font stylesheet.');
 
   await smokeVercelApiWrapper();

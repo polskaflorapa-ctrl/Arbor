@@ -16,6 +16,12 @@ Check the EAS operator environment before cloud builds:
 npm run release:eas-doctor
 ```
 
+If it reports that the shell is not logged in, authenticate with the same pinned CLI version:
+
+```bash
+npm exec --yes --package eas-cli@19.1.0 -- eas login
+```
+
 Optional backend smoke:
 
 ```bash

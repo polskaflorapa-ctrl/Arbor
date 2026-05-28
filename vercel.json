@@ -6,7 +6,7 @@
   "outputDirectory": "web/build",
   "functions": {
     "api/[...path].js": {
-      "includeFiles": "os/{docs/openapi.yaml,public/app/**,data/flota-pojazdy-katalog.json}"
+      "includeFiles": "os/{migrate.sql,docs/openapi.yaml,public/app/**,data/flota-pojazdy-katalog.json}"
     }
   },
   "headers": [

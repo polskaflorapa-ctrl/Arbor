@@ -4,11 +4,14 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..');
+const easCliPackage = 'eas-cli@19.1.0';
 
 function runEas(args) {
   const npmCli = process.env.npm_execpath;
   const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const npmArgs = npmCli ? [npmCli, 'exec', '--', 'eas', ...args] : ['exec', '--', 'eas', ...args];
+  const npmArgs = npmCli
+    ? [npmCli, 'exec', '--yes', '--package', easCliPackage, '--', 'eas', ...args]
+    : ['exec', '--yes', '--package', easCliPackage, '--', 'eas', ...args];
 
   return spawnSync(command, npmArgs, {
     cwd: rootDir,
@@ -43,9 +46,9 @@ console.log('Checking EAS release operator environment...\n');
 let ok = true;
 
 const cliOk = printResult(
-  'EAS CLI is available',
+  `EAS CLI ${easCliPackage} is available`,
   runEas(['--version']),
-  'Install or expose EAS CLI for this shell, then retry: npm install --save-dev eas-cli'
+  'Check npm network/package access or install EAS CLI globally, then retry: npm install -g eas-cli@19.1.0'
 );
 
 if (!cliOk) {
@@ -53,11 +56,16 @@ if (!cliOk) {
   process.exit(1);
 }
 
-ok = printResult(
+const authOk = printResult(
   'EAS account is authenticated',
   runEas(['whoami']),
-  'Log in with an account that can access this Expo project: npx eas login'
-) && ok;
+  'Log in with an account that can access this Expo project: npm exec --yes --package eas-cli@19.1.0 -- eas login'
+);
+
+if (!authOk) {
+  console.error('\nEAS release doctor stopped before project checks because this shell is not logged in.');
+  process.exit(1);
+}
 
 ok = printResult(
   'EAS project access is available',

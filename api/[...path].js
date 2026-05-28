@@ -4,13 +4,41 @@ process.env.UPLOADS_DIR = process.env.UPLOADS_DIR || '/tmp/arbor-uploads';
 process.env.PHONE_RECORDING_STORAGE = process.env.PHONE_RECORDING_STORAGE || 'none';
 process.env.METRICS_ENABLED = process.env.METRICS_ENABLED || 'false';
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { createApp } = require('../os/src/app');
 
 let app;
+let readyPromise;
 
-module.exports = (req, res) => {
+async function runColdStartMigrations() {
+  if (!process.env.DATABASE_URL || process.env.VERCEL_RUN_MIGRATIONS === '0') {
+    return;
+  }
+
+  const pool = require('../os/src/config/database');
+  const migratePath = path.resolve(__dirname, '../os/migrate.sql');
+  if (!fs.existsSync(migratePath)) {
+    console.warn('[vercel-api] os/migrate.sql not found, skipping cold-start migrations');
+    return;
+  }
+
+  await pool.query(fs.readFileSync(migratePath, 'utf8'));
+}
+
+async function getApp() {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await runColdStartMigrations();
+      return app || (app = createApp());
+    })();
+  }
+  return readyPromise;
+}
+
+module.exports = async (req, res) => {
   if (!app) {
-    app = createApp();
+    app = await getApp();
   }
   return app(req, res);
 };
