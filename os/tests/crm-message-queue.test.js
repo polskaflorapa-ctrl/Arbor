@@ -79,6 +79,22 @@ describe('CRM message send queue', () => {
     });
   });
 
+  it('reports message provider readiness', async () => {
+    const res = await request(app)
+      .get('/api/crm/messages/providers')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      worker: expect.objectContaining({ enabled: expect.any(Boolean) }),
+      channels: expect.arrayContaining([
+        expect.objectContaining({ channel: 'sms', ready: expect.any(Boolean) }),
+        expect.objectContaining({ channel: 'email', ready: expect.any(Boolean) }),
+        expect.objectContaining({ channel: 'whatsapp', ready: false }),
+      ]),
+    }));
+  });
+
   it('lists queued outbound messages for the scoped branch', async () => {
     const res = await request(app)
       .get('/api/crm/messages/queue?status=queued&oddzial_id=7&limit=5')

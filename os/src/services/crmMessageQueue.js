@@ -1,7 +1,7 @@
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
-const { sendSmsGateway } = require('./smsGateway');
+const { activeSmsProvider, sendSmsGateway } = require('./smsGateway');
 const { sendSystemEmailOptional } = require('./systemEmail');
 const { ensureCrmLeadMessagesTable } = require('./crmInbox');
 
@@ -16,21 +16,65 @@ function pickRecipient(message) {
   return String(message.recipient_handle || message.lead_phone || '').trim();
 }
 
+function getMessageProviderStatus() {
+  const smsProvider = activeSmsProvider();
+  const smtpReady = Boolean(env.SMTP_USER && env.SMTP_PASS);
+  return {
+    worker: {
+      enabled: Boolean(env.CRM_MESSAGE_QUEUE_WORKER_ENABLED),
+      interval_ms: env.CRM_MESSAGE_QUEUE_INTERVAL_MS,
+    },
+    channels: [
+      {
+        channel: 'sms',
+        ready: Boolean(smsProvider),
+        provider: smsProvider,
+        note: smsProvider ? 'SMS gotowy do wysylki' : 'Brak konfiguracji SMS: ustaw Zadarma albo Twilio',
+      },
+      {
+        channel: 'email',
+        ready: smtpReady,
+        provider: smtpReady ? 'smtp' : null,
+        note: smtpReady ? 'SMTP gotowy do wysylki' : 'Brak konfiguracji SMTP_USER / SMTP_PASS',
+      },
+      ...['whatsapp', 'instagram', 'facebook', 'messenger', 'telegram', 'webchat'].map((channel) => ({
+        channel,
+        ready: false,
+        provider: null,
+        note: `Brak providera wysylki dla kanalu ${channel}`,
+      })),
+    ],
+  };
+}
+
 async function fetchQueuedMessages({ limit = 10 } = {}) {
   await ensureCrmLeadMessagesTable();
   const batchLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
   const { rows } = await pool.query(
-    `SELECT m.*,
+    `WITH picked AS (
+       SELECT m.id
+       FROM crm_lead_messages m
+       WHERE m.direction = 'outbound'
+         AND m.status = 'queued'
+       ORDER BY m.created_at ASC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED
+     ),
+     claimed AS (
+       UPDATE crm_lead_messages q
+       SET status = 'processing'
+       FROM picked
+       WHERE q.id = picked.id
+       RETURNING q.*
+     )
+     SELECT c.*,
             l.title AS lead_title,
             l.phone AS lead_phone,
             l.email AS lead_email,
             l.oddzial_id
-     FROM crm_lead_messages m
-     JOIN crm_leads l ON l.id = m.lead_id
-     WHERE m.direction = 'outbound'
-       AND m.status = 'queued'
-     ORDER BY m.created_at ASC
-     LIMIT $1`,
+     FROM claimed c
+     JOIN crm_leads l ON l.id = c.lead_id
+     ORDER BY c.created_at ASC`,
     [batchLimit]
   );
   return rows;
@@ -55,6 +99,7 @@ async function markMessageSent(message, result = {}) {
          last_error = NULL,
          delivered_at = COALESCE(delivered_at, NOW())
      WHERE id = $1
+       AND status IN ('processing', 'queued')
      RETURNING *`,
     [message.id, providerId, JSON.stringify(metadata)]
   );
@@ -69,6 +114,7 @@ async function markMessageFailed(message, error) {
          retry_count = retry_count + 1,
          last_error = $2
      WHERE id = $1
+       AND status IN ('processing', 'queued')
      RETURNING *`,
     [message.id, messageText]
   );
@@ -108,14 +154,19 @@ async function processQueuedMessage(message) {
     const result = await deliverMessage(message);
     if (result.ok || result.sent) {
       const updated = await markMessageSent(message, result);
-      return { id: message.id, status: 'sent', provider: result.provider || null, message: updated };
+      return {
+        id: message.id,
+        status: updated?.status || 'sent',
+        provider: result.provider || null,
+        message: updated || null,
+      };
     }
     const updated = await markMessageFailed(message, result.error || 'Wysylka nie powiodla sie');
-    return { id: message.id, status: 'failed', error: updated.last_error };
+    return { id: message.id, status: updated?.status || 'failed', error: updated?.last_error || result.error || null };
   } catch (err) {
     logger.error('crm.messageQueue.deliver', { message: err.message, message_id: message.id });
     const updated = await markMessageFailed(message, err.message);
-    return { id: message.id, status: 'failed', error: updated.last_error };
+    return { id: message.id, status: updated?.status || 'failed', error: updated?.last_error || err.message };
   }
 }
 
@@ -162,6 +213,7 @@ function stopMessageQueueWorker() {
 module.exports = {
   deliverMessage,
   fetchQueuedMessages,
+  getMessageProviderStatus,
   processMessageQueue,
   processQueuedMessage,
   startMessageQueueWorker,

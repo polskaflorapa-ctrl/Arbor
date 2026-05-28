@@ -26,6 +26,7 @@ export default function CrmDashboard() {
     callbacks: [],
   });
   const [messageQueue, setMessageQueue] = useState([]);
+  const [messageProviders, setMessageProviders] = useState({ worker: {}, channels: [] });
   const [queueStatus, setQueueStatus] = useState('all');
   const [queueSavingId, setQueueSavingId] = useState(null);
   const [queueProcessing, setQueueProcessing] = useState(false);
@@ -38,14 +39,16 @@ export default function CrmDashboard() {
       const headers = authHeaders(token);
       const params = oddzialId ? { oddzial_id: oddzialId } : {};
       const queueParams = { ...params, status: queueStatus, limit: 12 };
-      const [overviewRes, oddzialyRes, queueRes] = await Promise.all([
+      const [overviewRes, oddzialyRes, queueRes, providersRes] = await Promise.all([
         api.get('/crm/overview', { headers, params }),
         api.get('/oddzialy', { headers }).catch(() => ({ data: [] })),
         api.get('/crm/messages/queue', { headers, params: queueParams }).catch(() => ({ data: [] })),
+        api.get('/crm/messages/providers', { headers }).catch(() => ({ data: { worker: {}, channels: [] } })),
       ]);
       setOverview(overviewRes.data || { kpis: {}, pipeline: [], sources: [], callbacks: [] });
       setOddzialy(Array.isArray(oddzialyRes.data) ? oddzialyRes.data : []);
       setMessageQueue(Array.isArray(queueRes.data) ? queueRes.data : []);
+      setMessageProviders(providersRes.data || { worker: {}, channels: [] });
     } catch (e) {
       const base = getApiErrorMessage(e, t('crm.dashboard.loadError', { defaultValue: 'Nie udało się pobrać dashboardu CRM' }));
       const path = e?.requestDebug?.urlPath || '';
@@ -334,6 +337,23 @@ export default function CrmDashboard() {
                   ? t('crm.dashboard.queueProcessing', { defaultValue: 'Przetwarzam...' })
                   : t('crm.dashboard.queueProcessNow', { defaultValue: 'Uruchom kolejke' })}
               </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 10 }}>
+              {(messageProviders.channels || []).slice(0, 6).map((provider) => (
+                <div key={provider.channel} className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <strong>{provider.channel}</strong>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {provider.provider || provider.note || 'brak'}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 12, color: provider.ready ? 'var(--success, #16794a)' : 'var(--text-muted)' }}>
+                    {provider.ready
+                      ? t('crm.dashboard.providerReady', { defaultValue: 'gotowy' })
+                      : t('crm.dashboard.providerMissing', { defaultValue: 'brak' })}
+                  </span>
+                </div>
+              ))}
             </div>
             <div className="ios-inset-list">
               {messageQueue.map((m) => (

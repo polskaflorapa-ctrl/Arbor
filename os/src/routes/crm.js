@@ -7,7 +7,7 @@ const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = req
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
 const { createTemplate, listTemplates, renderTemplateById } = require('../services/crmMessageTemplates');
 const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
-const { processMessageQueue } = require('../services/crmMessageQueue');
+const { getMessageProviderStatus, processMessageQueue } = require('../services/crmMessageQueue');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -875,8 +875,8 @@ function normActType(t) {
 
 const MESSAGE_CHANNELS = ['whatsapp', 'instagram', 'facebook', 'messenger', 'telegram', 'email', 'sms', 'phone', 'webchat', 'other'];
 const MESSAGE_DIRECTIONS = ['inbound', 'outbound'];
-const MESSAGE_STATUSES = ['received', 'queued', 'sent', 'delivered', 'read', 'failed'];
-const QUEUE_STATUSES = ['queued', 'failed', 'sent', 'delivered', 'read'];
+const MESSAGE_STATUSES = ['received', 'queued', 'processing', 'sent', 'delivered', 'read', 'failed'];
+const QUEUE_STATUSES = ['queued', 'processing', 'failed', 'sent', 'delivered', 'read'];
 let messageQueueSchemaReady = false;
 
 function normMessageChannel(channel) {
@@ -1106,6 +1106,10 @@ router.get('/messages/queue', async (req, res) => {
     logger.error('crm.messages.queue.get', { message: err.message });
     res.status(500).json({ error: 'Blad odczytu kolejki wiadomosci CRM' });
   }
+});
+
+router.get('/messages/providers', async (_req, res) => {
+  res.json(getMessageProviderStatus());
 });
 
 router.patch('/messages/:messageId/status', async (req, res) => {

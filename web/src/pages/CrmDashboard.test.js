@@ -72,6 +72,18 @@ beforeEach(() => {
         ],
       });
     }
+    if (url === '/crm/messages/providers') {
+      return Promise.resolve({
+        data: {
+          worker: { enabled: false, interval_ms: 60000 },
+          channels: [
+            { channel: 'sms', ready: false, provider: null, note: 'Brak konfiguracji SMS' },
+            { channel: 'email', ready: true, provider: 'smtp', note: 'SMTP gotowy do wysylki' },
+            { channel: 'whatsapp', ready: false, provider: null, note: 'Brak providera wysylki dla kanalu whatsapp' },
+          ],
+        },
+      });
+    }
     if (url === '/oddzialy') return Promise.resolve({ data: [] });
     return Promise.resolve({ data: [] });
   });
@@ -96,7 +108,7 @@ test('renders CRM conversion analytics and owner performance', async () => {
   expect(screen.getByText('Anna CRM')).toBeInTheDocument();
   expect(screen.getByText('Satysfakcja klientów')).toBeInTheDocument();
   expect(screen.getByText('Średnia ocena')).toBeInTheDocument();
-  expect(screen.getByText('whatsapp')).toBeInTheDocument();
+  expect(screen.getAllByText('whatsapp').length).toBeGreaterThan(0);
   expect(screen.getByText('Wygrane/przegrane: 1/1')).toBeInTheDocument();
 });
 
@@ -108,6 +120,8 @@ test('renders and updates CRM message send queue', async () => {
   );
 
   expect(await screen.findByText('Kolejka wysylki')).toBeInTheDocument();
+  expect(screen.getByText('email')).toBeInTheDocument();
+  expect(screen.getByText('smtp')).toBeInTheDocument();
   expect(screen.getByText('Oferta ogrodu')).toBeInTheDocument();
   expect(screen.getByText('Dzien dobry, wracam z oferta.')).toBeInTheDocument();
 

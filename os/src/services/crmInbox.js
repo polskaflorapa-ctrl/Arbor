@@ -16,7 +16,7 @@ function normalizeDirection(direction) {
 }
 
 function normalizeStatus(status, direction) {
-  const allowed = new Set(['received', 'queued', 'sent', 'delivered', 'read', 'failed']);
+  const allowed = new Set(['received', 'queued', 'processing', 'sent', 'delivered', 'read', 'failed']);
   const value = String(status || '').trim().toLowerCase();
   if (allowed.has(value)) return value;
   return normalizeDirection(direction) === 'outbound' ? 'sent' : 'received';
