@@ -5,6 +5,7 @@ const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = 
 const { createWorkflowRule, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
 const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = require('../services/crmIntegrations');
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
+const { createTemplate, listTemplates, renderTemplateById } = require('../services/crmMessageTemplates');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -705,6 +706,53 @@ router.post('/leads/:id/ai-assistant', async (req, res) => {
   }
 });
 
+router.get('/message-templates', async (req, res) => {
+  try {
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    const templates = await listTemplates({ oddzialId, channel: req.query.channel });
+    res.json(templates);
+  } catch (err) {
+    logger.error('crm.templates.list', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu szablonow CRM' });
+  }
+});
+
+router.post('/message-templates', async (req, res) => {
+  const b = req.body || {};
+  const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
+  if (oddzialId && !canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  if (!String(b.body || '').trim()) return res.status(400).json({ error: 'body jest wymagane' });
+  try {
+    const template = await createTemplate({
+      oddzialId,
+      key: b.key,
+      name: b.name,
+      channel: b.channel,
+      subject: b.subject,
+      body: b.body,
+      userId: req.user.id,
+    });
+    res.status(201).json(template);
+  } catch (err) {
+    logger.error('crm.templates.create', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie zapisac szablonu CRM' });
+  }
+});
+
+router.post('/message-templates/:id/render', async (req, res) => {
+  const templateId = toInt(req.params.id);
+  if (!templateId) return res.status(400).json({ error: 'Nieprawidlowe id szablonu' });
+  try {
+    const rendered = await renderTemplateById({ templateId, fields: safeJsonObject(req.body?.fields || req.body) });
+    if (!rendered) return res.status(404).json({ error: 'Szablon nie znaleziony' });
+    if (rendered.oddzial_id && !canAccessOddzial(req.user, rendered.oddzial_id)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    res.json(rendered);
+  } catch (err) {
+    logger.error('crm.templates.render', { message: err.message });
+    res.status(500).json({ error: 'Render szablonu CRM nie powiodl sie' });
+  }
+});
+
 const ACT_TYPES = ['note', 'call', 'task'];
 function normActType(t) {
   const v = String(t || '').trim();
@@ -914,18 +962,37 @@ router.post('/leads/:id/messages', async (req, res) => {
   const leadId = toInt(req.params.id);
   if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
   const b = req.body || {};
-  const body = String(b.body || b.text || b.tresc || '').trim();
-  if (!body) return res.status(400).json({ error: 'Pole body jest wymagane' });
 
   try {
-    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    const lead = (await pool.query('SELECT * FROM crm_leads WHERE id = $1', [leadId])).rows[0];
     if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
     if (!canAccessOddzial(req.user, lead.oddzial_id)) {
       return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
     }
 
+    let template = null;
+    if (b.template_id) {
+      const defaultFields = {
+        lead_id: lead.id,
+        title: lead.title,
+        phone: lead.phone,
+        email: lead.email,
+        source: lead.source,
+        stage: lead.stage,
+        value: lead.value,
+      };
+      template = await renderTemplateById({ templateId: toInt(b.template_id), fields: { ...defaultFields, ...safeJsonObject(b.dynamic_fields) } });
+      if (!template) return res.status(404).json({ error: 'Szablon nie znaleziony' });
+      if (template.oddzial_id && Number(template.oddzial_id) !== Number(lead.oddzial_id)) {
+        return res.status(403).json({ error: 'Szablon spoza oddzialu leada' });
+      }
+    }
+
+    const body = String(template?.rendered_body || b.body || b.text || b.tresc || '').trim();
+    if (!body) return res.status(400).json({ error: 'Pole body jest wymagane' });
+
     const direction = normMessageDirection(b.direction);
-    const channel = normMessageChannel(b.channel);
+    const channel = normMessageChannel(b.channel || template?.channel);
     const status = normMessageStatus(b.status, direction);
     const now = new Date().toISOString();
     const { rows } = await pool.query(
@@ -942,14 +1009,14 @@ router.post('/leads/:id/messages', async (req, res) => {
         String(b.sender_name || '').trim() || null,
         String(b.sender_handle || '').trim() || null,
         String(b.recipient_handle || '').trim() || null,
-        String(b.subject || '').trim() || null,
+        String(template?.rendered_subject || b.subject || '').trim() || null,
         body,
         status,
         String(b.external_message_id || '').trim() || null,
         String(b.external_thread_id || '').trim() || null,
-        String(b.template_key || '').trim() || null,
-        JSON.stringify(safeJsonObject(b.dynamic_fields)),
-        JSON.stringify(safeJsonObject(b.metadata)),
+        String(template?.key || b.template_key || '').trim() || null,
+        JSON.stringify(template?.dynamic_fields || safeJsonObject(b.dynamic_fields)),
+        JSON.stringify({ ...safeJsonObject(b.metadata), ...(template ? { template_id: template.id } : {}) }),
         b.delivered_at || null,
         b.read_at || null,
         req.user.id,

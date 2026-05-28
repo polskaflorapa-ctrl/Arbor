@@ -925,6 +925,24 @@ CREATE TABLE IF NOT EXISTS crm_integration_events (
 CREATE INDEX IF NOT EXISTS idx_crm_integration_events_app_created ON crm_integration_events(app_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_crm_integration_events_external ON crm_integration_events(external_id);
 
+CREATE TABLE IF NOT EXISTS crm_message_templates (
+  id            SERIAL PRIMARY KEY,
+  oddzial_id    INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+  key           VARCHAR(100) NOT NULL,
+  name          VARCHAR(160) NOT NULL,
+  channel       VARCHAR(32) NOT NULL DEFAULT 'other',
+  subject       VARCHAR(255),
+  body          TEXT NOT NULL,
+  variables     JSONB NOT NULL DEFAULT '[]'::jsonb,
+  active        BOOLEAN NOT NULL DEFAULT true,
+  created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (oddzial_id, key)
+);
+CREATE INDEX IF NOT EXISTS idx_crm_message_templates_oddzial ON crm_message_templates(oddzial_id, active);
+
 -- ─── Wyceny terenowe (Wyceniający) — quotations / items / approvals / photos ─
 CREATE TABLE IF NOT EXISTS quotations (
   id                      SERIAL PRIMARY KEY,

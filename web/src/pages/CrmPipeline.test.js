@@ -140,6 +140,79 @@ test('lets a user add a unified inbox message to a lead', async () => {
   });
 });
 
+test('lets a user send a unified inbox message from a template', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/leads') {
+      return Promise.resolve({
+        data: [{
+          id: 51,
+          title: 'Template lead',
+          stage: 'Lead',
+          oddzial_id: 7,
+          owner_user_id: 9001,
+          value: 1500,
+          phone: '+48500100200',
+          source: 'web',
+        }],
+      });
+    }
+    if (url === '/crm/leads/51/activities') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/messages') return Promise.resolve({ data: [] });
+    if (url === '/crm/message-templates') {
+      return Promise.resolve({
+        data: [{
+          id: 31,
+          name: 'Follow-up',
+          channel: 'sms',
+          subject: null,
+          body: 'Dzien dobry, wracam w sprawie {title}.',
+          variables: ['title'],
+        }],
+      });
+    }
+    if (url === '/crm/workflows') return Promise.resolve({ data: [] });
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
+    if (url === '/uzytkownicy') return Promise.resolve({ data: [{ id: 9001, imie: 'Smoke', nazwisko: 'Admin' }] });
+    if (url === '/klienci') return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+  api.post.mockResolvedValueOnce({
+    data: {
+      id: 77,
+      lead_id: 51,
+      channel: 'sms',
+      direction: 'outbound',
+      body: 'Dzien dobry, wracam w sprawie Template lead.',
+      status: 'sent',
+      template_key: 'follow_up',
+    },
+  });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Template lead');
+  await userEvent.click(screen.getByRole('button', { name: /Aktywno/i }));
+
+  await userEvent.selectOptions(await screen.findByDisplayValue('Bez szablonu'), '31');
+  await userEvent.click(screen.getByRole('button', { name: /Zapisz wiadomo/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/leads/51/messages',
+      expect.objectContaining({
+        template_id: 31,
+        channel: 'sms',
+        direction: 'outbound',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
 test('lets a user run AI assistant for a lead', async () => {
   api.get.mockImplementation((url) => {
     if (url === '/crm/leads') {

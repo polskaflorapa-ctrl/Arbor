@@ -50,6 +50,7 @@ const EMPTY_ACTIVITY = {
 const EMPTY_MESSAGE = {
   channel: 'whatsapp',
   direction: 'inbound',
+  template_id: '',
   sender_handle: '',
   recipient_handle: '',
   subject: '',
@@ -76,6 +77,7 @@ export default function CrmPipeline() {
   const [savingActivity, setSavingActivity] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messageTemplates, setMessageTemplates] = useState([]);
   const [messageForm, setMessageForm] = useState(EMPTY_MESSAGE);
   const [savingMessage, setSavingMessage] = useState(false);
   const [aiLead, setAiLead] = useState(null);
@@ -213,6 +215,21 @@ export default function CrmPipeline() {
     [requestHeaders, t]
   );
 
+  const loadMessageTemplates = useCallback(async () => {
+    try {
+      const params = {};
+      if (workflowOddzialId) params.oddzial_id = workflowOddzialId;
+      const res = await api.get('/crm/message-templates', { headers: requestHeaders, params });
+      setMessageTemplates(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setMessageTemplates([]);
+    }
+  }, [requestHeaders, workflowOddzialId]);
+
+  useEffect(() => {
+    loadMessageTemplates();
+  }, [loadMessageTemplates]);
+
   useEffect(() => {
     if (selectedLeadId) {
       loadActivities(selectedLeadId);
@@ -337,7 +354,7 @@ export default function CrmPipeline() {
   };
 
   const submitMessage = async () => {
-    if (!selectedLeadId || !messageForm.body.trim()) return;
+    if (!selectedLeadId || (!messageForm.body.trim() && !messageForm.template_id)) return;
     try {
       setSavingMessage(true);
       await api.post(
@@ -345,6 +362,7 @@ export default function CrmPipeline() {
         {
           ...messageForm,
           body: messageForm.body.trim(),
+          template_id: messageForm.template_id ? Number(messageForm.template_id) : undefined,
           sender_handle: messageForm.sender_handle.trim() || null,
           recipient_handle: messageForm.recipient_handle.trim() || null,
           subject: messageForm.subject.trim() || null,
@@ -928,6 +946,28 @@ export default function CrmPipeline() {
                   <option value="outbound">{t('crm.pipeline.messages.outbound', { defaultValue: 'Wychodząca' })}</option>
                 </select>
               </div>
+              <select
+                className="ios-field"
+                value={messageForm.template_id}
+                onChange={(e) => {
+                  const template = messageTemplates.find((item) => String(item.id) === String(e.target.value));
+                  setMessageForm((prev) => ({
+                    ...prev,
+                    template_id: e.target.value,
+                    channel: template?.channel || prev.channel,
+                    subject: template?.subject || prev.subject,
+                    body: template?.body || prev.body,
+                    direction: 'outbound',
+                  }));
+                }}
+              >
+                <option value="">{t('crm.pipeline.messages.noTemplate', { defaultValue: 'Bez szablonu' })}</option>
+                {messageTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} / {messageChannelLabel(template.channel)}
+                  </option>
+                ))}
+              </select>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 <input
                   className="ios-field"
@@ -957,7 +997,7 @@ export default function CrmPipeline() {
                 onChange={(e) => setMessageForm((prev) => ({ ...prev, body: e.target.value }))}
                 placeholder={t('crm.pipeline.messages.body', { defaultValue: 'Treść wiadomości...' })}
               />
-              <button type="button" className="ios-btn ios-btn-primary" disabled={savingMessage || !messageForm.body.trim()} onClick={submitMessage}>
+              <button type="button" className="ios-btn ios-btn-primary" disabled={savingMessage || (!messageForm.body.trim() && !messageForm.template_id)} onClick={submitMessage}>
                 {t('crm.pipeline.messages.add', { defaultValue: 'Zapisz wiadomość' })}
               </button>
               <div className="ios-inset-list" style={{ maxHeight: 260, overflow: 'auto' }}>
