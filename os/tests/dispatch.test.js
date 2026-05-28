@@ -108,6 +108,10 @@ describe('POST /api/dispatch/plan', () => {
     expect(res.body).toHaveProperty('routes');
     expect(res.body).toHaveProperty('stats');
     expect(res.body).toHaveProperty('date', '2025-06-15');
+    expect(res.body.stats).toEqual(expect.objectContaining({
+      solver_target_ms: 30000,
+      solver_sla_ok: true,
+    }));
   });
 
   it('excludes absent teams from solver input', async () => {

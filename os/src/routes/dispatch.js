@@ -98,6 +98,19 @@ function queryPositiveInts(value) {
   return distinctPositiveInts(String(value || '').split(/[,\s]+/));
 }
 
+function attachDispatchBenchmark(result) {
+  const targetMs = Math.max(1000, Number(process.env.DISPATCH_SOLVER_TARGET_MS || 30000));
+  const solverMs = Number(result?.stats?.solver_ms || 0);
+  return {
+    ...result,
+    stats: {
+      ...(result.stats || {}),
+      solver_target_ms: targetMs,
+      solver_sla_ok: solverMs <= targetMs,
+    },
+  };
+}
+
 async function fetchTasksForDate(client, date, oddzialId) {
   const params = [date];
   let where = `t.data_planowana::date = $1
@@ -224,7 +237,7 @@ router.post('/plan', async (req, res) => {
     const tasks = await fetchTasksForDate(client, date, branchId);
     const { teams, absentTeams } = await fetchTeamsForDispatch(client, branchId, date);
 
-    const result = solve({ tasks, teams, date, oddzial_id: branchId });
+    const result = attachDispatchBenchmark(solve({ tasks, teams, date, oddzial_id: branchId }));
     res.json({
       ...result,
       date,
@@ -265,7 +278,7 @@ router.post('/plan/save', async (req, res) => {
     const tasks = await fetchTasksForDate(client, date, branchId);
     const { teams, absentTeams } = await fetchTeamsForDispatch(client, branchId, date);
 
-    const result = solve({ tasks, teams, date, oddzial_id: branchId });
+    const result = attachDispatchBenchmark(solve({ tasks, teams, date, oddzial_id: branchId }));
     result.team_availability = {
       total: teams.length + absentTeams.length,
       available: teams.length,

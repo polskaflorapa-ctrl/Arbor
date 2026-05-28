@@ -77,6 +77,82 @@ function teamCanHandleTask(team, task) {
   return true;
 }
 
+function missingCapabilities(team, task) {
+  const missing = { equipment: [], competencies: [] };
+  if (task.wymagany_sprzet_typ) {
+    const need = String(task.wymagany_sprzet_typ).toLowerCase();
+    const has = (team.sprzet_typy || []).map(s => String(s).toLowerCase());
+    if (!has.includes(need)) missing.equipment.push(task.wymagany_sprzet_typ);
+  }
+  if (task.wymagane_kompetencje && task.wymagane_kompetencje.length > 0) {
+    const teamComps = new Set((team.kompetencje || []).map(c => String(c).toLowerCase()));
+    for (const comp of task.wymagane_kompetencje) {
+      if (!teamComps.has(String(comp).toLowerCase())) missing.competencies.push(comp);
+    }
+  }
+  return missing;
+}
+
+function explainUnassignedTask(task, teams) {
+  if (!teams.length) {
+    return {
+      reason: 'no_teams',
+      label: 'Brak dostepnych ekip',
+      details: ['W wybranym oddziale/dniu nie ma dostepnej ekipy.'],
+    };
+  }
+  const capable = teams.filter(team => teamCanHandleTask(team, task));
+  if (!capable.length) {
+    const equipment = new Set();
+    const competencies = new Set();
+    for (const team of teams) {
+      const missing = missingCapabilities(team, task);
+      missing.equipment.forEach(item => equipment.add(item));
+      missing.competencies.forEach(item => competencies.add(item));
+    }
+    return {
+      reason: 'no_capable_team',
+      label: 'Brak ekipy ze sprzetem lub kompetencjami',
+      details: [
+        ...[...equipment].map(item => `Brakuje sprzetu: ${item}`),
+        ...[...competencies].map(item => `Brakuje kompetencji: ${item}`),
+      ],
+      missing_equipment: [...equipment],
+      missing_competencies: [...competencies],
+    };
+  }
+  const impossibleByCapacity = capable.every((team) => {
+    const depotLat = team.depot_lat ?? 50.06;
+    const depotLng = team.depot_lng ?? 19.94;
+    const maxMin = (team.max_godzin_dzien || DEFAULT_MAX_HOURS) * 60;
+    return routeDurationMin([task], depotLat, depotLng) > maxMin;
+  });
+  if (impossibleByCapacity) {
+    return {
+      reason: 'capacity_exceeded',
+      label: 'Zlecenie przekracza dzienny limit pracy ekip',
+      details: ['Czas dojazdu, realizacji i powrotu nie miesci sie w max_godzin_dzien.'],
+    };
+  }
+  const impossibleByWindow = capable.every((team) => {
+    const depotLat = team.depot_lat ?? 50.06;
+    const depotLng = team.depot_lng ?? 19.94;
+    return !timeWindowsOk([task], depotLat, depotLng);
+  });
+  if (impossibleByWindow) {
+    return {
+      reason: 'time_window_missed',
+      label: 'Nie da sie dotrzymac okna czasowego',
+      details: ['ETA z depot wypada po oknie klienta lub okno jest zbyt waskie.'],
+    };
+  }
+  return {
+    reason: 'capacity_exceeded',
+    label: 'Brak miejsca w trasach po optymalizacji',
+    details: ['Ekipy sa zdolne wykonac zlecenie, ale plan dnia nie zmiescil go w trasach.'],
+  };
+}
+
 // ─── Clarke-Wright Savings ────────────────────────────────────────────────────
 
 /**
@@ -123,7 +199,11 @@ function clarkeWright(team, tasks, depotLat, depotLng) {
     routes[oldRj] = [];
   }
 
-  return routes.filter(r => r.length > 0);
+  return routes.filter(r =>
+    r.length > 0
+    && routeDurationMin(r, depotLat, depotLng) <= maxMin
+    && timeWindowsOk(r, depotLat, depotLng)
+  );
 }
 
 function routeDurationMin(tasks, depotLat, depotLng) {
@@ -277,13 +357,16 @@ function solve(input) {
   // Collect unassigned
   for (const t of eligibleTasks) {
     if (!assigned.has(t.id)) {
+      const explanation = explainUnassignedTask(t, teams);
       unassigned.push({
         task_id:    t.id,
         task_numer: t.numer || `ZLE-${String(t.id).padStart(4,'0')}`,
         adres:      t.adres || t.miasto || '',
-        reason:     teams.length === 0 ? 'no_teams' :
-                    !teams.some(tm => teamCanHandleTask(tm, t)) ? 'no_capable_team' :
-                    'capacity_exceeded',
+        reason:     explanation.reason,
+        reason_label: explanation.label,
+        reason_details: explanation.details,
+        missing_equipment: explanation.missing_equipment || [],
+        missing_competencies: explanation.missing_competencies || [],
       });
     }
   }
@@ -306,4 +389,4 @@ function solve(input) {
   };
 }
 
-module.exports = { solve, haversineKm, travelMin };
+module.exports = { solve, haversineKm, travelMin, explainUnassignedTask };
