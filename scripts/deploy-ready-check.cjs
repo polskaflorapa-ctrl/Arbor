@@ -2,12 +2,14 @@ const { spawnSync } = require('node:child_process');
 
 const criticalNodeFiles = [
   'scripts/deploy-free-preflight.cjs',
+  'scripts/deploy-vercel-check.cjs',
   'scripts/deploy-netlify-check.cjs',
   'scripts/deploy-koyeb-check.cjs',
   'scripts/demo-deploy-check.cjs',
   'scripts/deploy-cloudflare-pages.cjs',
   'scripts/run-production-bootstrap.cjs',
   'scripts/start-api-with-migrations.cjs',
+  'api/[...path].js',
   'os/scripts/seed-president-demo.js',
   'os/scripts/bootstrap-admin.js',
   'os/scripts/production-doctor.js',
@@ -42,6 +44,7 @@ function run(command, args, options = {}) {
 
 function main() {
   run('npm', ['run', 'deploy:free:check']);
+  run('npm', ['run', 'deploy:vercel:check']);
   run('npm', ['run', 'deploy:netlify:check']);
   run('npm', ['run', 'deploy:koyeb:check']);
   run('npm', ['run', 'deploy:demo:check']);

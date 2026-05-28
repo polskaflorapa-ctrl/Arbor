@@ -4,7 +4,10 @@ import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import AiChat from './components/AiChat';
-import { DevPanel } from './components/DevPanel';
+
+const DevPanel = import.meta.env.DEV
+  ? lazy(() => import('./components/DevPanel').then((module) => ({ default: module.DevPanel })))
+  : null;
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Zlecenia = lazy(() => import('./pages/Zlecenia'));
@@ -79,7 +82,11 @@ function App() {
     <ThemeProvider>
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AiChat />
-        <DevPanel />
+        {DevPanel && (
+          <Suspense fallback={null}>
+            <DevPanel />
+          </Suspense>
+        )}
         <Suspense fallback={<div className="loading">Ladowanie...</div>}>
         <Routes>
           {/* Public */}

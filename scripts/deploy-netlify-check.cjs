@@ -35,7 +35,7 @@ function mainChecks() {
   const netlifyToml = read('netlify.toml');
   const redirects = read('web/public/_redirects');
 
-  assert(rootPackage.engines?.node === '>=20', 'Root package should require Node >=20.');
+  assert(rootPackage.engines?.node === '>=22.12.0', 'Root package should require Node >=22.12.0.');
   assert(rootPackage.workspaces?.includes('web'), 'Root package workspaces should include web.');
   assert(rootPackage.workspaces?.includes('os'), 'Root package workspaces should include os.');
   assert(rootPackage.dependencies?.['serverless-http'], 'Root package should include serverless-http for Netlify API functions.');

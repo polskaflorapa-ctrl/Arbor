@@ -39,6 +39,7 @@
     "dev:full": "node ./scripts/dev-full-smart.cjs",
     "status:web": "node ./scripts/status-web.cjs",
     "status:web:json": "node ./scripts/status-web.cjs --json",
+    "smoke:routes": "node ./scripts/smoke-routes.cjs",
     "smoke:kommo:crm": "node ./scripts/smoke-kommo-crm.cjs"
   },
   "eslintConfig": {

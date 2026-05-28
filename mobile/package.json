@@ -14,6 +14,8 @@
     "lint": "node ./scripts/run-expo-lint.cjs",
     "typecheck": "node ./scripts/run-tsc-noemit.cjs",
     "test:offline-queue": "node ./scripts/test-offline-queue.cjs",
+    "smoke:mobile": "node ./scripts/smoke-mobile-release.cjs",
+    "release:check": "node ./scripts/check-mobile-release-ready.cjs",
     "smoke:api": "node ./scripts/smoke-api-rezerwacje.cjs"
   },
   "dependencies": {
