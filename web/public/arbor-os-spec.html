@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ARBOR-OS — Specyfikacja Systemu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --forest-950: #062316;
+      --forest-900: #0b3522;
+      --forest-800: #105134;
+      --forest-700: #176d46;
+      --forest-600: #218755;
+      --forest-100: #dff4e8;
+      --forest-50: #f1fbf5;
+      --amber-700: #c4540a;
+      --amber-100: #fff1d8;
+      --amber-50: #fff8ec;
+      --ink: #132119;
+      --muted: #66736b;
+      --soft: #f5f8f6;
+      --line: #dfe8e2;
+      --line-strong: #cbd8cf;
+      --white: #ffffff;
+      --code: #17231e;
+      --shadow: 0 24px 70px rgba(6, 35, 22, 0.10);
+      --shadow-soft: 0 12px 30px rgba(6, 35, 22, 0.07);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(16, 81, 52, 0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(16, 81, 52, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 92% 8%, rgba(33, 135, 85, 0.15), transparent 25rem),
+        linear-gradient(180deg, #fbfdfb 0%, var(--soft) 100%);
+      background-size: 34px 34px, 34px 34px, auto, auto;
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 272px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 22px 16px;
+      color: var(--white);
+      background:
+        radial-gradient(circle at 30% 4%, rgba(72, 187, 120, 0.22), transparent 10rem),
+        linear-gradient(180deg, var(--forest-950), var(--forest-800));
+      box-shadow: 16px 0 54px rgba(6, 35, 22, 0.18);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 3;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 6px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #ffffff, #bff2cf);
+      color: var(--forest-900);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+      flex: 0 0 auto;
+    }
+
+    .brand-mark svg {
+      width: 30px;
+      height: 30px;
+      fill: currentColor;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 21px;
+      line-height: 1;
+      letter-spacing: 0;
+      color: var(--white);
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .side-label {
+      padding: 0 8px;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .tab-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      width: 100%;
+      min-height: 46px;
+      border: 0;
+      border-radius: 13px;
+      padding: 0 12px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.78);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 800;
+      transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateX(2px);
+    }
+
+    .tab-btn.active {
+      color: var(--forest-900);
+      background: linear-gradient(135deg, #ffffff, #dff4e8);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+    }
+
+    .tab-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.12);
+      flex: 0 0 auto;
+    }
+
+    .tab-btn.active .tab-icon {
+      background: rgba(33, 135, 85, 0.14);
+      color: var(--forest-700);
+    }
+
+    .tab-icon svg,
+    .line-icon {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .side-note {
+      margin-top: auto;
+      padding: 15px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    .side-note strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--white);
+    }
+
+    .side-note span {
+      display: block;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 650;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 26px;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 94% 10%, rgba(33, 135, 85, 0.15), transparent 20rem),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 251, 245, 0.88));
+      box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      padding: 24px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(310px, 0.48fr);
+      gap: 24px;
+      align-items: stretch;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 24px;
+      bottom: 0;
+      width: 360px;
+      height: 4px;
+      border-radius: 999px 999px 0 0;
+      background: linear-gradient(90deg, var(--forest-800), var(--forest-600), transparent);
+    }
+
+    .hero-title {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+      position: relative;
+      z-index: 1;
+    }
+
+    .doc-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 17px;
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--forest-800), var(--forest-600));
+      box-shadow: 0 18px 38px rgba(16, 81, 52, 0.26);
+    }
+
+    .doc-icon svg {
+      width: 30px;
+      height: 30px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .breadcrumbs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--forest-950);
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 760px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+      font-weight: 600;
+    }
+
+    .meta-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      align-content: start;
+    }
+
+    .meta-card {
+      min-height: 82px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 10px 22px rgba(6, 35, 22, 0.05);
+    }
+
+    .meta-card label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .meta-card strong {
+      display: block;
+      margin-top: 8px;
+      color: var(--forest-950);
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      width: fit-content;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: var(--forest-800);
+      background: var(--forest-100);
+      border: 1px solid rgba(33, 135, 85, 0.22);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--forest-600);
+      box-shadow: 0 0 0 4px rgba(33, 135, 85, 0.14);
+    }
+
+    .mobile-tabs {
+      display: none;
+      margin-top: 14px;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: none;
+    }
+
+    .mobile-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .mobile-tab-btn {
+      min-height: 42px;
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 14px;
+      background: var(--white);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .mobile-tab-btn.active {
+      border-color: rgba(33, 135, 85, 0.26);
+      color: var(--forest-800);
+      background: var(--forest-50);
+      box-shadow: 0 10px 22px rgba(6, 35, 22, 0.06);
+    }
+
+    .content-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 20px;
+      margin-top: 20px;
+      align-items: start;
+    }
+
+    .document-panel,
+    .aside-panel {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .document-header {
+      min-height: 70px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .document-header strong {
+      display: block;
+      color: var(--forest-950);
+      font-size: 18px;
+    }
+
+    .document-header span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .doc-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .action-btn {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      color: var(--forest-800);
+      background: var(--white);
+      font-size: 13px;
+      font-weight: 850;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-content {
+      display: none;
+      padding: clamp(20px, 3vw, 34px);
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: reveal 220ms ease;
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h2 {
+      margin: 0 0 20px;
+      color: var(--forest-950);
+      font-size: clamp(24px, 2.4vw, 34px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      color: var(--forest-800);
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    p {
+      margin: 0 0 16px;
+      color: #2a382f;
+      line-height: 1.72;
+      font-size: 15px;
+    }
+
+    ul {
+      margin: 0 0 18px;
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 9px;
+      line-height: 1.6;
+    }
+
+    strong {
+      color: var(--forest-950);
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: var(--forest-700);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .section-kicker::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--forest-600);
+      box-shadow: 0 0 0 5px rgba(33, 135, 85, 0.12);
+    }
+
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 22px 0 12px;
+    }
+
+    .flow-step {
+      min-height: 120px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #ffffff, #f9fbfa);
+      position: relative;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      top: 28px;
+      right: -13px;
+      width: 14px;
+      height: 2px;
+      background: var(--line-strong);
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .flow-step span {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      color: var(--forest-800);
+      background: var(--forest-100);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    .flow-step small {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      line-height: 1.4;
+      font-weight: 650;
+    }
+
+    .highlight-box {
+      margin: 22px 0;
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px solid rgba(33, 135, 85, 0.26);
+      background:
+        linear-gradient(135deg, rgba(241, 251, 245, 0.96), rgba(255, 255, 255, 0.9));
+      box-shadow: 0 12px 26px rgba(33, 135, 85, 0.08);
+    }
+
+    .highlight-box .formula {
+      margin: 0;
+      color: var(--forest-950);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: clamp(15px, 2vw, 20px);
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .warning-box {
+      margin: 22px 0;
+      border-radius: 20px;
+      padding: 18px;
+      border: 1px solid rgba(196, 84, 10, 0.32);
+      background: linear-gradient(135deg, var(--amber-50), #ffffff);
+      box-shadow: 0 12px 26px rgba(196, 84, 10, 0.08);
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .warning-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: var(--amber-700);
+      background: var(--amber-100);
+      flex: 0 0 auto;
+    }
+
+    .warning-box p {
+      margin-bottom: 0;
+    }
+
+    .db-structure {
+      margin: 20px 0;
+      border-radius: 20px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent),
+        var(--code);
+      color: #effaf3;
+      padding: 20px;
+      overflow-x: auto;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .db-structure code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      white-space: pre;
+    }
+
+    .db-structure strong {
+      color: #b7f3c9;
+    }
+
+    .aside-panel {
+      position: sticky;
+      top: 22px;
+    }
+
+    .aside-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .aside-head label {
+      display: block;
+      color: var(--forest-700);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .aside-head strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 18px;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .summary-item {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff, #fbfdfb);
+    }
+
+    .summary-item label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .summary-item strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 15px;
+    }
+
+    .summary-item span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+
+    footer {
+      margin-top: 20px;
+      padding: 18px 8px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 88px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        align-items: center;
+        padding: 18px 12px;
+      }
+
+      .brand {
+        justify-content: center;
+        width: 100%;
+        padding: 0 0 16px;
+      }
+
+      .brand div:not(.brand-mark),
+      .side-label,
+      .tab-btn span:not(.tab-icon),
+      .side-note {
+        display: none;
+      }
+
+      .tab-btn {
+        width: 56px;
+        min-height: 56px;
+        justify-content: center;
+        padding: 0;
+      }
+
+      .tab-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+      }
+
+      .hero,
+      .content-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .aside-panel {
+        position: static;
+      }
+
+      .summary-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        display: block;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .main {
+        padding: 12px;
+      }
+
+      .hero {
+        border-radius: 22px;
+        padding: 18px;
+      }
+
+      .hero-title {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .doc-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 15px;
+      }
+
+      .meta-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .mobile-tabs {
+        display: flex;
+      }
+
+      .document-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .doc-actions {
+        justify-content: flex-start;
+      }
+
+      .flow-grid,
+      .summary-list {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .hero {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .lead {
+        font-size: 14px;
+      }
+
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .document-panel,
+      .aside-panel {
+        border-radius: 20px;
+      }
+
+      .tab-content {
+        padding: 18px;
+      }
+
+      .warning-box {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Nawigacja dokumentu">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M16 2 3 29h8l2-5h6l2 5h8L16 2Zm0 10 3 7h-6l3-7Z"/></svg>
+        </div>
+        <div>
+          <strong>ARBOR-OS</strong>
+          <span>Specyfikacja systemu</span>
+        </div>
+      </div>
+
+      <div class="side-label">Sekcje</div>
+      <nav class="tab-list">
+        <button class="tab-btn active" data-tab="wstep"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16"></path><path d="M4 12h12"></path><path d="M4 19h8"></path></svg></span><span>Wstęp i cel</span></button>
+        <button class="tab-btn" data-tab="architektura"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"></path><path d="M4 8h16"></path><path d="M6 16h12"></path></svg></span><span>Architektura</span></button>
+        <button class="tab-btn" data-tab="moduly"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4z"></path><path d="M13 4h7v7h-7z"></path><path d="M4 13h7v7H4z"></path><path d="M13 13h7v7h-7z"></path></svg></span><span>Moduły</span></button>
+        <button class="tab-btn" data-tab="logika"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M12 5v14"></path><path d="M17 7l2-2"></path><path d="M5 19l2-2"></path></svg></span><span>Algorytmy</span></button>
+        <button class="tab-btn" data-tab="baza"><span class="tab-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="3"></ellipse><path d="M5 5v14c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"></path></svg></span><span>Baza danych</span></button>
+        <button class="tab-btn" data-tab="koszty"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span>Koszty</span></button>
+        <button class="tab-btn" data-tab="scenariusze"><span class="tab-icon"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg></span><span>Scenariusze</span></button>
+      </nav>
+
+      <div class="side-note">
+        <strong>Redesign UX/UI</strong>
+        <span>Mobile-first, zakładki, akcenty finansowe i kompaktowa struktura do prezentacji zarządowi.</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="hero">
+        <div class="hero-title">
+          <div class="doc-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h6"></path></svg>
+          </div>
+          <div>
+            <div class="breadcrumbs">
+              <span>Dokumentacja</span>
+              <span>/</span>
+              <span>Specyfikacja techniczna</span>
+              <span>/</span>
+              <span>ARBOR-OS</span>
+            </div>
+            <h1>Specyfikacja Systemu ARBOR-OS</h1>
+            <p class="lead">Zintegrowany system operacyjno-finansowy klasy FSM dla wycinki drzew, pielęgnacji zieleni i zarządzania ekipami terenowymi.</p>
+          </div>
+        </div>
+
+        <div class="meta-grid" aria-label="Metadane dokumentu">
+          <div class="meta-card"><label>Wersja</label><strong>1.0</strong></div>
+          <div class="meta-card"><label>Status</label><strong class="status-pill"><i class="status-dot"></i> Aktywny</strong></div>
+          <div class="meta-card"><label>Data</label><strong>Styczeń 2026</strong></div>
+          <div class="meta-card"><label>Integracja</label><strong>Kommo CRM</strong></div>
+        </div>
+      </header>
+
+      <nav class="mobile-tabs" aria-label="Nawigacja mobilna">
+        <button class="mobile-tab-btn active" data-tab="wstep">Wstęp</button>
+        <button class="mobile-tab-btn" data-tab="architektura">Architektura</button>
+        <button class="mobile-tab-btn" data-tab="moduly">Moduły</button>
+        <button class="mobile-tab-btn" data-tab="logika">Algorytmy</button>
+        <button class="mobile-tab-btn" data-tab="baza">Baza</button>
+        <button class="mobile-tab-btn" data-tab="koszty">Koszty</button>
+        <button class="mobile-tab-btn" data-tab="scenariusze">Scenariusze</button>
+      </nav>
+
+      <div class="content-shell">
+        <section class="document-panel">
+          <div class="document-header">
+            <div>
+              <strong>Dokument koncepcyjny i techniczny</strong>
+              <span>Przełączaj sekcje bez przewijania całej specyfikacji.</span>
+            </div>
+            <div class="doc-actions">
+              <button class="action-btn"><svg class="line-icon" viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg> Dodaj uwagę</button>
+              <button class="action-btn"><svg class="line-icon" viewBox="0 0 24 24"><path d="M6 9V4h12v5"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v7H6z"></path></svg> Drukuj</button>
+            </div>
+          </div>
+
+          <article id="wstep" class="tab-content active">
+            <span class="section-kicker">Sekcja 01</span>
+            <h2>Wstęp i cel projektu</h2>
+            <h3>Charakterystyka firmy</h3>
+            <p>Firma specjalizuje się w wycince drzew, pielęgnacji zieleni oraz usługach ogrodniczych, prowadząc działalność w strukturze obejmującej <strong>6 oddziałów terenowych</strong>. Każdy oddział dysponuje wieloma 3-osobowymi ekipami, na czele których stoi brygadzista odpowiedzialny za realizację zleceń.</p>
+            <h3>Cele biznesowe systemu</h3>
+            <p>System ARBOR-OS ma pełnić rolę cyfrowego centrum dowodzenia operacjami firmy, zastępując rozproszone metody zarządzania.</p>
+            <ul>
+              <li><strong>Optymalizacja logistyki:</strong> automatyczne układanie tras minimalizujące dojazdy.</li>
+              <li><strong>Kontrola marży:</strong> automatyczne wyliczanie zysku netto na każdym zleceniu.</li>
+              <li><strong>Zarządzanie zasobami:</strong> monitoring dostępności ekip oraz ciężkiego sprzętu.</li>
+              <li><strong>Komunikacja wewnętrzna:</strong> automatyczny przepływ informacji między sprzedażą, kierownikami i terenem.</li>
+            </ul>
+          </article>
+
+          <article id="architektura" class="tab-content">
+            <span class="section-kicker">Sekcja 02</span>
+            <h2>Architektura systemu i integracja z Kommo CRM</h2>
+            <h3>Model integracji</h3>
+            <p>ARBOR-OS nie zastępuje systemu Kommo CRM, lecz rozszerza go o funkcje operacyjne. Integracja opiera się na wymianie danych w czasie rzeczywistym poprzez API Kommo.</p>
+            <ul>
+              <li><strong>Kommo CRM:</strong> mózg sprzedażowy odpowiedzialny za pozyskiwanie klientów i lejek sprzedaży.</li>
+              <li><strong>ARBOR-OS:</strong> mózg operacyjny odpowiedzialny za planowanie, realizację i rozliczenie.</li>
+            </ul>
+            <h3>Rekomendowana architektura techniczna</h3>
+            <ul>
+              <li><strong>Panel webowy:</strong> React.js lub Vue.js.</li>
+              <li><strong>Aplikacja mobilna:</strong> React Native lub Flutter z obsługą trybu offline.</li>
+              <li><strong>Backend:</strong> Node.js / NestJS albo Python / FastAPI.</li>
+              <li><strong>Baza danych:</strong> PostgreSQL.</li>
+            </ul>
+          </article>
+
+          <article id="moduly" class="tab-content">
+            <span class="section-kicker">Sekcja 03</span>
+            <h2>Moduły systemu i funkcjonalności</h2>
+            <div class="flow-grid">
+              <div class="flow-step"><span>1</span><strong>AI Dispatcher</strong><small>Planowanie ekip i optymalizacja tras.</small></div>
+              <div class="flow-step"><span>2</span><strong>Aplikacja mobilna</strong><small>START/STOP, GPS, zdjęcia i problemy.</small></div>
+              <div class="flow-step"><span>3</span><strong>Panel kierownika</strong><small>Kalendarz zasobów, alerty i drag & drop.</small></div>
+              <div class="flow-step"><span>4</span><strong>BI dyrektorski</strong><small>Marże, koszty i raporty w czasie rzeczywistym.</small></div>
+            </div>
+            <h3>AI Dispatcher</h3>
+            <p>Moduł odpowiada za inteligentne planowanie pracy ekip przy użyciu algorytmów rozwiązujących problem tras pojazdów. Uwzględnia grupowanie geograficzne, kompetencje pracowników i harmonogram sprzętowy.</p>
+            <h3>Aplikacja mobilna dla brygadzisty</h3>
+            <p>Narzędzie terenowe działa według zasady: <strong>jak najmniej pisania, jak najwięcej klikania</strong>. Brygadzista widzi trasę dnia, rejestruje czas pracy, zgłasza problemy i wykonuje dokumentację fotograficzną przed oraz po realizacji.</p>
+          </article>
+
+          <article id="logika" class="tab-content">
+            <span class="section-kicker">Sekcja 04</span>
+            <h2>Logika biznesowa i algorytmy</h2>
+            <h3>Obliczanie rentowności zlecenia</h3>
+            <p>System automatycznie wylicza marżę dla każdego zlecenia, łącząc dane o przychodzie, czasie pracy, sprzęcie, paliwie i utylizacji odpadów.</p>
+            <div class="highlight-box">
+              <p class="formula">Marża = Przychód - Koszty Bezpośrednie - Koszty Zmienne</p>
+            </div>
+            <p>Koszty bezpośrednie zawierają między innymi rzeczywisty czas pracy ekip pomnożony przez stawkę godzinową oraz czas pracy sprzętu. Koszty zmienne obejmują paliwo, utylizację odpadów i pozostałe koszty operacyjne.</p>
+            <h3>Logika zarządzania problemami</h3>
+            <p>Problem zgłoszony przez brygadzistę trafia do weryfikacji kierownika. Problem zaakceptowany jako uzasadniony wstrzymuje nalicznik wydajności dla danego zlecenia, dzięki czemu ekipa nie ponosi konsekwencji za czynniki zewnętrzne.</p>
+          </article>
+
+          <article id="baza" class="tab-content">
+            <span class="section-kicker">Sekcja 05</span>
+            <h2>Struktura bazy danych</h2>
+            <p>Poniżej przedstawiono kluczowe relacje i tabele główne zaprojektowane dla systemu operacyjnego PostgreSQL.</p>
+            <div class="db-structure">
+<code><strong>Tabela: users</strong>
+- id (PK) | login | password | role | branch_id (FK) | stawka_godzinowa
+
+<strong>Tabela: tasks</strong>
+- id (PK) | kommo_id (FK) | klient_nazwa | adres | lat | lng
+- typ_uslugi | status | wartosc_planowana | team_id (FK)
+
+<strong>Tabela: equipment</strong>
+- id (PK) | nazwa | typ | status | koszt_motogodziny
+- data_nastepnego_przegladu
+
+<strong>Tabela: work_logs</strong>
+- id (PK) | task_id (FK) | start_time | end_time
+- start_lat | end_lat | czas_pracy_minuty</code>
+            </div>
+          </article>
+
+          <article id="koszty" class="tab-content">
+            <span class="section-kicker">Sekcja 06</span>
+            <h2>Etapy realizacji i szacunkowe koszty</h2>
+            <h3>Harmonogram wdrożenia</h3>
+            <ul>
+              <li><strong>Etap 1, miesiące 1-2:</strong> fundamenty, baza danych, podstawowy START/STOP i integracja z Kommo.</li>
+              <li><strong>Etap 2, miesiące 3-4:</strong> moduł mapowy i algorytm optymalizacji tras.</li>
+              <li><strong>Etap 3, miesiące 5-6:</strong> silnik obliczania marży, raportowanie BI i dashboard dyrektorski.</li>
+              <li><strong>Etap 4, miesiące 7-8:</strong> automatyczne SMS-y i linki statusowe dla klientów.</li>
+            </ul>
+            <h3>Szacunki finansowe</h3>
+            <div class="warning-box">
+              <div class="warning-icon" aria-hidden="true">
+                <svg class="line-icon" viewBox="0 0 24 24"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 4.2 2.7 18a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"></path></svg>
+              </div>
+              <p><strong>Uwaga dotycząca kosztów budowy dedykowanej:</strong><br>Wersja MVP: 60 000 - 120 000 PLN. Pełny system z modułem AI Dispatcher i BI: 150 000 - 350 000 PLN.</p>
+            </div>
+          </article>
+
+          <article id="scenariusze" class="tab-content">
+            <span class="section-kicker">Sekcja 07</span>
+            <h2>Scenariusze dnia i pytania do wykonawców</h2>
+            <h3>Przykładowy scenariusz brygadzisty</h3>
+            <p>Brygadzista Marek klika START na zleceniu, wykonuje zdjęcia przed rozpoczęciem prac, a następnie zgłasza problem z powodem „Awaria sprzętu”. System wstrzymuje licznik efektywności. Po zakończeniu pracy brygadzista klika STOP, wykonuje zdjęcia po realizacji i wpisuje zużycie materiałów.</p>
+            <h3>Kluczowe pytania do software house'ów</h3>
+            <ul>
+              <li>Jak zrealizujecie dwukierunkową synchronizację danych w czasie rzeczywistym z Kommo CRM?</li>
+              <li>Jakiego silnika lub biblioteki użyjecie do optymalizacji tras i rozwiązania problemu VRP?</li>
+              <li>Jak zapewnicie ciągłość pracy aplikacji mobilnej w miejscach bez zasięgu sieci komórkowej?</li>
+            </ul>
+          </article>
+        </section>
+
+        <aside class="aside-panel" aria-label="Podsumowanie redesignu">
+          <div class="aside-head">
+            <label>Najważniejsze zmiany</label>
+            <strong>Redesign UX/UI</strong>
+          </div>
+          <div class="summary-list">
+            <div class="summary-item">
+              <label>Mobile-first</label>
+              <strong>Układ dla telefonu i tabletu</strong>
+              <span>Na małych ekranach sekcje przechodzą w poziome zakładki nad treścią.</span>
+            </div>
+            <div class="summary-item">
+              <label>Nawigacja</label>
+              <strong>Zakładki zamiast ściany tekstu</strong>
+              <span>Użytkownik przełącza konkretne obszary dokumentu bez długiego przewijania.</span>
+            </div>
+            <div class="summary-item">
+              <label>Akcenty UI</label>
+              <strong>Finanse i ryzyka są widoczne</strong>
+              <span>Zielony boks oznacza algorytm finansowy, a pomarańczowy koszty i ostrzeżenia.</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer>© 2026 ARBOR-OS. Dokument koncepcyjny i techniczny dla dyrekcji produkcji.</footer>
+    </main>
+  </div>
+
+  <script>
+    const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+    const panels = Array.from(document.querySelectorAll(".tab-content"));
+
+    function setActiveTab(tabId) {
+      panels.forEach((panel) => panel.classList.toggle("active", panel.id === tabId));
+      tabButtons.forEach((button) => button.classList.toggle("active", button.dataset.tab === tabId));
+
+      const panel = document.getElementById(tabId);
+      if (panel && window.matchMedia("(max-width: 820px)").matches) {
+        panel.closest(".document-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    tabButtons.forEach((button) => {
+      button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+    });
+  </script>
+</body>
+</html>

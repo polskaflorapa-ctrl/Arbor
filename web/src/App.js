@@ -60,6 +60,7 @@ const BiDashboard = lazy(() => import('./pages/BiDashboard'));
 const HrPanel = lazy(() => import('./pages/HrPanel'));
 const KalendarzZasobow = lazy(() => import('./pages/KalendarzZasobow'));
 const MapaLive = lazy(() => import('./pages/MapaLive'));
+const ArborSpecPage = lazy(() => import('./pages/ArborSpecPage'));
 
 // Role constants — single source of truth for App.js route guards
 const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
@@ -82,6 +83,7 @@ function App() {
         <Routes>
           {/* Public */}
           <Route path="/" element={<Login />} />
+          <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
 
           {/* All authenticated users */}
           <Route path="/dashboard" element={<AuthenticatedRoute><Dashboard /></AuthenticatedRoute>} />
