@@ -28,6 +28,7 @@ export default function CrmDashboard() {
   const [messageQueue, setMessageQueue] = useState([]);
   const [queueStatus, setQueueStatus] = useState('all');
   const [queueSavingId, setQueueSavingId] = useState(null);
+  const [queueProcessing, setQueueProcessing] = useState(false);
 
   const loadData = async () => {
     try {
@@ -82,6 +83,24 @@ export default function CrmDashboard() {
       setMsg(getApiErrorMessage(e, t('crm.dashboard.queueUpdateError', { defaultValue: 'Nie udalo sie zaktualizowac kolejki wysylki' })));
     } finally {
       setQueueSavingId(null);
+    }
+  };
+
+  const processQueue = async () => {
+    try {
+      setQueueProcessing(true);
+      setMsg('');
+      const token = getStoredToken();
+      const res = await api.post('/crm/messages/queue/process', { limit: 10 }, { headers: authHeaders(token) });
+      const data = res.data || {};
+      await loadData();
+      setMsg(t('crm.dashboard.queueProcessed', {
+        defaultValue: `Kolejka przetworzona: ${data.sent || 0} wyslane, ${data.failed || 0} bledy.`,
+      }));
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.dashboard.queueProcessError', { defaultValue: 'Nie udalo sie uruchomic kolejki wysylki' })));
+    } finally {
+      setQueueProcessing(false);
     }
   };
 
@@ -310,6 +329,11 @@ export default function CrmDashboard() {
                 <option value="failed">{t('crm.dashboard.queueFailed', { defaultValue: 'Bledy' })}</option>
                 <option value="sent">{t('crm.dashboard.queueSent', { defaultValue: 'Wyslane' })}</option>
               </select>
+              <button className="ios-btn ios-btn-primary" type="button" disabled={queueProcessing} onClick={processQueue}>
+                {queueProcessing
+                  ? t('crm.dashboard.queueProcessing', { defaultValue: 'Przetwarzam...' })
+                  : t('crm.dashboard.queueProcessNow', { defaultValue: 'Uruchom kolejke' })}
+              </button>
             </div>
             <div className="ios-inset-list">
               {messageQueue.map((m) => (

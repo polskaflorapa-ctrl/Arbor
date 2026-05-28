@@ -119,6 +119,12 @@ const envSchema = z.object({
     .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
   /** Sekret webhooka Kommo → lead „Do wyceny” (POST /api/webhooks/kommo/quotation-lead) */
   KOMMO_QUOTATION_WEBHOOK_SECRET: z.string().optional(),
+  CRM_MESSAGE_QUEUE_WORKER_ENABLED: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((s) => s === 'true' || s === '1' || s === 'on'),
+  CRM_MESSAGE_QUEUE_INTERVAL_MS: z.coerce.number().int().positive().default(60000),
   /** Cron: GET /api/ops/quotation-sla-tick?secret=… */
   OPS_CRON_SECRET: z.string().optional(),
   /** F11.8 — opcjonalnie Bearer do Expo Push API (wyższe limity); https://expo.dev/accounts/[account]/settings/access-tokens */

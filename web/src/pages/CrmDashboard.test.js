@@ -30,6 +30,7 @@ vi.mock('../api', () => ({
   default: {
     get: vi.fn(),
     patch: vi.fn(),
+    post: vi.fn(),
   },
 }));
 
@@ -38,6 +39,7 @@ beforeEach(() => {
   localStorage.setItem('token', 'crm-dashboard-token');
   api.get.mockReset();
   api.patch.mockReset();
+  api.post.mockReset();
   api.get.mockImplementation((url) => {
     if (url === '/crm/overview') {
       return Promise.resolve({
@@ -74,6 +76,7 @@ beforeEach(() => {
     return Promise.resolve({ data: [] });
   });
   api.patch.mockResolvedValue({ data: {} });
+  api.post.mockResolvedValue({ data: { processed: 1, sent: 1, failed: 0 } });
 });
 
 afterEach(() => {
@@ -117,4 +120,23 @@ test('renders and updates CRM message send queue', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
+});
+
+test('can trigger CRM message queue processing', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmDashboard />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Uruchom kolejke' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/messages/queue/process',
+      { limit: 10 },
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Kolejka przetworzona: 1 wyslane, 0 bledy.')).toBeInTheDocument();
 });

@@ -7,6 +7,7 @@ const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = req
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
 const { createTemplate, listTemplates, renderTemplateById } = require('../services/crmMessageTemplates');
 const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
+const { processMessageQueue } = require('../services/crmMessageQueue');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -1150,6 +1151,20 @@ router.patch('/messages/:messageId/status', async (req, res) => {
   } catch (err) {
     logger.error('crm.messages.status.patch', { message: err.message });
     res.status(500).json({ error: 'Aktualizacja statusu wiadomosci CRM nie powiodla sie' });
+  }
+});
+
+router.post('/messages/queue/process', async (req, res) => {
+  if (!isDyrektorOrAdmin(req.user) && !isSalesDirector(req.user)) {
+    return res.status(403).json({ error: 'Brak dostepu do uruchomienia kolejki wysylki' });
+  }
+  try {
+    const limit = Math.min(Math.max(toInt(req.body?.limit || req.query.limit) || 10, 1), 50);
+    const out = await processMessageQueue({ limit });
+    res.json(out);
+  } catch (err) {
+    logger.error('crm.messages.queue.process', { message: err.message });
+    res.status(500).json({ error: 'Uruchomienie kolejki wysylki nie powiodlo sie' });
   }
 });
 

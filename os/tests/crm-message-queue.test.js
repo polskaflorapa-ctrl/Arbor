@@ -127,4 +127,27 @@ describe('CRM message send queue', () => {
     expect(updateCall[0]).toContain('retry_count = CASE WHEN $2 = \'failed\' THEN retry_count + 1 ELSE retry_count END');
     expect(updateCall[1][2]).toBe('Provider timeout');
   });
+
+  it('lets directors trigger a queue processing batch', async () => {
+    pool.query.mockImplementation((sql) => {
+      const text = String(sql);
+      if (text.includes('ALTER TABLE crm_lead_messages') || text.includes('CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_queue')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (text.includes('WHERE m.direction = \'outbound\'') && text.includes('m.status = \'queued\'')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const res = await request(app)
+      .post('/api/crm/messages/queue/process')
+      .set('Authorization', `Bearer ${token({ rola: 'Administrator' })}`)
+      .send({ limit: 3 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({ processed: 0, sent: 0, failed: 0 }));
+    const queueCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('m.status = \'queued\''));
+    expect(queueCall[1]).toEqual([3]);
+  });
 });

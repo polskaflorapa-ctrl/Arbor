@@ -3,6 +3,7 @@ const { createApp } = require('./app');
 const { env } = require('./config/env');
 const { API_VERSION } = require('./config/version');
 const logger = require('./config/logger');
+const { startMessageQueueWorker, stopMessageQueueWorker } = require('./services/crmMessageQueue');
 
 const initDatabase = async () => {
   const fs = require('fs');
@@ -42,6 +43,10 @@ const startServer = async () => {
     serverInstance = app.listen(PORT, '0.0.0.0', () => {
       logger.info('ARBOR-OS uruchomiony', { port: PORT, version: API_VERSION });
     });
+    if (env.CRM_MESSAGE_QUEUE_WORKER_ENABLED) {
+      startMessageQueueWorker();
+      logger.info('CRM message queue worker uruchomiony', { intervalMs: env.CRM_MESSAGE_QUEUE_INTERVAL_MS });
+    }
     return serverInstance;
   } catch (err) {
     logger.error('Blad uruchamiania', { message: err.message });
@@ -63,6 +68,7 @@ const stopServer = async () => {
     serverInstance.close(() => resolve());
   });
 
+  stopMessageQueueWorker();
   await pool.end();
   logger.info('Serwer i polaczenia DB zostaly zamkniete');
 };
