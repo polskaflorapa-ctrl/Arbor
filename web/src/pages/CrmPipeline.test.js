@@ -140,6 +140,62 @@ test('lets a user add a unified inbox message to a lead', async () => {
   });
 });
 
+test('lets a user run AI assistant for a lead', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/leads') {
+      return Promise.resolve({
+        data: [{
+          id: 51,
+          title: 'AI lead',
+          stage: 'Lead',
+          oddzial_id: 7,
+          owner_user_id: 9001,
+          value: 1500,
+          phone: '+48500100200',
+          source: 'whatsapp',
+        }],
+      });
+    }
+    if (url === '/crm/leads/51/activities') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/messages') return Promise.resolve({ data: [] });
+    if (url === '/crm/workflows') return Promise.resolve({ data: [] });
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
+    if (url === '/uzytkownicy') return Promise.resolve({ data: [{ id: 9001, imie: 'Smoke', nazwisko: 'Admin' }] });
+    if (url === '/klienci') return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+  api.post.mockResolvedValueOnce({
+    data: {
+      summary: 'Klient czeka na kontakt.',
+      next_best_action: 'Zadzwon dzis.',
+      suggested_reply: 'Dzien dobry, oddzwonimy dzis.',
+      lead_score: 72,
+      risk: 'medium',
+    },
+  });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('AI lead');
+  await userEvent.click(screen.getByRole('button', { name: /Aktywno/i }));
+  await screen.findByText('AI Lead Assistant');
+  await userEvent.click(screen.getByRole('button', { name: 'Analizuj' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/leads/51/ai-assistant',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Klient czeka na kontakt.')).toBeInTheDocument();
+  expect(screen.getByText('Zadzwon dzis.')).toBeInTheDocument();
+});
+
 test('lets a user create the default no-response workflow', async () => {
   api.post.mockResolvedValueOnce({
     data: {

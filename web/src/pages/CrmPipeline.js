@@ -78,6 +78,8 @@ export default function CrmPipeline() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageForm, setMessageForm] = useState(EMPTY_MESSAGE);
   const [savingMessage, setSavingMessage] = useState(false);
+  const [aiLead, setAiLead] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [workflows, setWorkflows] = useState([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [savingWorkflow, setSavingWorkflow] = useState(false);
@@ -218,6 +220,7 @@ export default function CrmPipeline() {
     } else {
       setActivities([]);
       setMessages([]);
+      setAiLead(null);
     }
   }, [selectedLeadId, loadActivities, loadMessages]);
 
@@ -390,6 +393,20 @@ export default function CrmPipeline() {
     if (type === 'call') return t('crm.pipeline.activities.typeCall', { defaultValue: 'Telefon' });
     if (type === 'task') return t('crm.pipeline.activities.typeTask', { defaultValue: 'Zadanie / follow-up' });
     return t('crm.pipeline.activities.typeNote', { defaultValue: 'Notatka' });
+  };
+
+  const runLeadAi = async () => {
+    if (!selectedLeadId) return;
+    try {
+      setAiLoading(true);
+      setMsg('');
+      const res = await api.post(`/crm/leads/${selectedLeadId}/ai-assistant`, {}, { headers: requestHeaders });
+      setAiLead(res.data || null);
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.ai.error', { defaultValue: 'AI CRM nie udało się uruchomić.' })));
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const createNoResponseWorkflow = async () => {
@@ -842,6 +859,42 @@ export default function CrmPipeline() {
               <button type="button" className="ios-btn" onClick={() => setSelectedLeadId(null)}>
                 {t('crm.pipeline.activities.close', { defaultValue: 'Zamknij' })}
               </button>
+            </div>
+
+            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {t('crm.pipeline.ai.title', { defaultValue: 'AI Lead Assistant' })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {t('crm.pipeline.ai.subtitle', { defaultValue: 'Podsumowanie, następna akcja i propozycja odpowiedzi.' })}
+                  </div>
+                </div>
+                <button type="button" className="ios-btn ios-btn-primary" disabled={aiLoading} onClick={runLeadAi}>
+                  {aiLoading ? t('common.loading', { defaultValue: 'Ładowanie...' }) : t('crm.pipeline.ai.run', { defaultValue: 'Analizuj' })}
+                </button>
+              </div>
+              {aiLead ? (
+                <div className="ios-inset-list">
+                  <div className="ios-inset-row">
+                    <strong>{t('crm.pipeline.ai.summary', { defaultValue: 'Podsumowanie' })}</strong>
+                    <div style={{ marginTop: 4 }}>{aiLead.summary || '—'}</div>
+                  </div>
+                  <div className="ios-inset-row">
+                    <strong>{t('crm.pipeline.ai.nextAction', { defaultValue: 'Następna akcja' })}</strong>
+                    <div style={{ marginTop: 4 }}>{aiLead.next_best_action || '—'}</div>
+                  </div>
+                  <div className="ios-inset-row">
+                    <strong>{t('crm.pipeline.ai.reply', { defaultValue: 'Propozycja odpowiedzi' })}</strong>
+                    <div style={{ marginTop: 4 }}>{aiLead.suggested_reply || '—'}</div>
+                  </div>
+                  <div className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span>{t('crm.pipeline.ai.score', { defaultValue: 'Score' })}: <strong>{aiLead.lead_score ?? '—'}</strong></span>
+                    <span>{t('crm.pipeline.ai.risk', { defaultValue: 'Ryzyko' })}: <strong>{aiLead.risk || '—'}</strong></span>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
