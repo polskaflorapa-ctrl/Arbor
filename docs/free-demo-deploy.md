@@ -199,6 +199,16 @@ Przed pierwszym ruchem produkcyjnym wykonaj migracje na tej samej bazie:
 npm run deploy:vercel:migrate
 ```
 
+Deploy z podpietego projektu Vercel:
+
+```powershell
+npm run deploy:vercel
+```
+
+W CI albo deployu tokenowym ustaw najpierw `VERCEL_TOKEN`, `VERCEL_ORG_ID` i
+`VERCEL_PROJECT_ID`; skrypt przekaze token do Vercel CLI bez wypisywania
+sekretu.
+
 Domyslnie `VERCEL_RUN_MIGRATIONS=0`, zeby serverless cold-start nie odpalal
 migracji wielokrotnie. Ustaw `VERCEL_RUN_MIGRATIONS=1` tylko tymczasowo, jesli
 nie masz osobnego kroku migracji.

@@ -51,6 +51,7 @@
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
     "deploy:vercel:check": "node ./scripts/deploy-vercel-check.cjs",
+    "deploy:vercel": "node ./scripts/deploy-vercel-prod.cjs",
     "deploy:vercel:migrate": "npm run db:migrate -w arbor-os",
     "deploy:vercel:smoke": "node ./scripts/deploy-vercel-smoke.cjs",
     "deploy:netlify:check": "node ./scripts/deploy-netlify-check.cjs",

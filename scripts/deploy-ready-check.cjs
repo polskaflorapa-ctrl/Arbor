@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const criticalNodeFiles = [
   'scripts/deploy-free-preflight.cjs',
   'scripts/deploy-vercel-check.cjs',
+  'scripts/deploy-vercel-prod.cjs',
   'scripts/deploy-vercel-smoke.cjs',
   'scripts/deploy-netlify-check.cjs',
   'scripts/deploy-koyeb-check.cjs',

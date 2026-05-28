@@ -174,6 +174,7 @@ async function main() {
 
   assert(rootPackage.engines?.node === '>=22.12.0', 'Root package should pin Node >=22.12.0 for Vite 7 and Vercel.');
   assert(rootPackage.scripts?.['deploy:vercel:check'] === 'node ./scripts/deploy-vercel-check.cjs', 'Root deploy:vercel:check script is missing.');
+  assert(rootPackage.scripts?.['deploy:vercel'] === 'node ./scripts/deploy-vercel-prod.cjs', 'Root deploy:vercel script is missing.');
   assert(rootPackage.scripts?.['deploy:vercel:migrate'] === 'npm run db:migrate -w arbor-os', 'Root deploy:vercel:migrate script is missing.');
   assert(rootPackage.scripts?.['deploy:vercel:smoke'] === 'node ./scripts/deploy-vercel-smoke.cjs', 'Root deploy:vercel:smoke script is missing.');
   assert(rootPackage.dependencies?.['serverless-http'], 'Root package should include serverless-http for the Vercel API wrapper.');

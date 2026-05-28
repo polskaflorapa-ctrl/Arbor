@@ -146,6 +146,16 @@ Before first production traffic, run the schema migration against the same
 npm run deploy:vercel:migrate
 ```
 
+Deploy from the linked Vercel project:
+
+```powershell
+npm run deploy:vercel
+```
+
+For CI or token-based deploys, set `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and
+`VERCEL_PROJECT_ID` first; the deploy script passes the token to Vercel CLI
+without printing the secret.
+
 Cold-start migrations are disabled by default on Vercel
 (`VERCEL_RUN_MIGRATIONS=0`) to avoid repeated migrations across serverless
 instances. Set `VERCEL_RUN_MIGRATIONS=1` only for a short, explicit migration
