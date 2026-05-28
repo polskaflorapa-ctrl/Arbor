@@ -25,8 +25,10 @@ export default function CrmInbox() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [messages, setMessages] = useState([]);
+  const [messageTemplates, setMessageTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [replyBody, setReplyBody] = useState('');
+  const [replyTemplateId, setReplyTemplateId] = useState('');
   const [replySending, setReplySending] = useState(false);
   const [filters, setFilters] = useState({ channel: '', direction: '', status: '', q: '' });
 
@@ -52,10 +54,24 @@ export default function CrmInbox() {
     }
   };
 
+  const loadTemplates = async () => {
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/crm/message-templates', { headers: authHeaders(token) });
+      setMessageTemplates(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setMessageTemplates([]);
+    }
+  };
+
   useEffect(() => {
     loadInbox();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.channel, filters.direction, filters.status]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   const applySearch = (event) => {
     event.preventDefault();
@@ -75,6 +91,7 @@ export default function CrmInbox() {
           channel: selected.channel,
           direction: 'outbound',
           status: 'queued',
+          template_id: replyTemplateId ? Number(replyTemplateId) : undefined,
           recipient_handle: selected.sender_handle || selected.recipient_handle || selected.lead_phone || selected.lead_email || null,
           subject: selected.subject || null,
           body: replyBody.trim(),
@@ -83,6 +100,7 @@ export default function CrmInbox() {
         { headers: authHeaders(token) }
       );
       setReplyBody('');
+      setReplyTemplateId('');
       await loadInbox();
       setMsg('Odpowiedz dodana do kolejki wysylki.');
     } catch (e) {
@@ -90,6 +108,12 @@ export default function CrmInbox() {
     } finally {
       setReplySending(false);
     }
+  };
+
+  const applyReplyTemplate = (templateId) => {
+    setReplyTemplateId(templateId);
+    const template = messageTemplates.find((item) => String(item.id) === String(templateId));
+    if (template) setReplyBody(template.body || '');
   };
 
   return (
@@ -204,6 +228,17 @@ export default function CrmInbox() {
                     ) : null}
                   </div>
                   <form onSubmit={sendReply} className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                      Szablon
+                      <select className="ios-field" value={replyTemplateId} onChange={(e) => applyReplyTemplate(e.target.value)}>
+                        <option value="">Bez szablonu</option>
+                        {messageTemplates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name} / {template.channel}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
                       Odpowiedz
                       <textarea
