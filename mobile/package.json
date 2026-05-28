@@ -13,6 +13,7 @@
     "web": "expo start --web",
     "lint": "node ./scripts/run-expo-lint.cjs",
     "typecheck": "node ./scripts/run-tsc-noemit.cjs",
+    "test:module-resolution": "node ./scripts/check-module-resolution.cjs",
     "test:offline-queue": "node ./scripts/test-offline-queue.cjs",
     "test:metro-bundle": "node ./scripts/check-metro-bundle.cjs",
     "smoke:mobile": "node ./scripts/smoke-mobile-release.cjs",

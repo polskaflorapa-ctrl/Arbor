@@ -5,9 +5,13 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const rootDir = path.resolve(__dirname, '..');
-const outputDir = path.join(rootDir, '.expo-export-check');
+const platforms = ['ios', 'android'];
 
-function removeOutputDir() {
+function getOutputDir(platform) {
+  return path.join(rootDir, `.expo-export-check-${platform}`);
+}
+
+function removeOutputDir(outputDir) {
   const resolved = path.resolve(outputDir);
   if (!resolved.startsWith(`${rootDir}${path.sep}`)) {
     throw new Error(`Refusing to remove unexpected path: ${resolved}`);
@@ -15,12 +19,12 @@ function removeOutputDir() {
   fs.rmSync(resolved, { recursive: true, force: true });
 }
 
-function runExpoExport() {
+function runExpoExport(platform, outputDir) {
   const npmCli = process.env.npm_execpath;
   const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const args = npmCli
-    ? [npmCli, 'exec', '--', 'expo', 'export', '--platform', 'ios', '--clear', '--output-dir', outputDir]
-    : ['exec', '--', 'expo', 'export', '--platform', 'ios', '--clear', '--output-dir', outputDir];
+    ? [npmCli, 'exec', '--', 'expo', 'export', '--platform', platform, '--clear', '--output-dir', outputDir]
+    : ['exec', '--', 'expo', 'export', '--platform', platform, '--clear', '--output-dir', outputDir];
 
   return spawnSync(command, args, {
     cwd: rootDir,
@@ -29,15 +33,20 @@ function runExpoExport() {
   });
 }
 
-console.log('Checking Metro iOS bundle resolution...\n');
+console.log('Checking Metro native bundle resolution...\n');
 
-removeOutputDir();
-const result = runExpoExport();
-removeOutputDir();
+for (const platform of platforms) {
+  const outputDir = getOutputDir(platform);
 
-if (result.status !== 0) {
-  console.error('\nMetro bundle check failed.');
-  process.exit(result.status || 1);
+  console.log(`== ${platform} ==\n`);
+  removeOutputDir(outputDir);
+  const result = runExpoExport(platform, outputDir);
+  removeOutputDir(outputDir);
+
+  if (result.status !== 0) {
+    console.error(`\nMetro ${platform} bundle check failed.`);
+    process.exit(result.status || 1);
+  }
 }
 
 console.log('\nMetro bundle check passed.');
