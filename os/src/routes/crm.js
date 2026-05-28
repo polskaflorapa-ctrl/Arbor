@@ -6,6 +6,7 @@ const { createWorkflowRule, listWorkflowRules, runWorkflowRules } = require('../
 const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = require('../services/crmIntegrations');
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
 const { createTemplate, listTemplates, renderTemplateById } = require('../services/crmMessageTemplates');
+const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -133,7 +134,7 @@ router.get('/overview', async (req, res) => {
     d30.setDate(d30.getDate() - 30);
     const oParam = oddzialId ? [oddzialId] : [];
 
-    const [clientsRes, clientsNew, tasksRes, wonRes, callsRes, crmLeadsRes, tasksRowsRes] = await Promise.all([
+    const [clientsRes, clientsNew, tasksRes, wonRes, callsRes, crmLeadsRes, tasksRowsRes, npsSummary] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS c FROM klienci'),
       pool.query('SELECT COUNT(*)::int AS c FROM klienci WHERE created_at >= $1', [d30]),
       pool.query(
@@ -161,6 +162,10 @@ router.get('/overview', async (req, res) => {
           : 'SELECT id, status, wartosc_planowana FROM tasks t',
         oParam
       ),
+      getNpsSummary({ oddzialId, since: d30 }).catch((e) => {
+        logger.warn('crm.overview.nps', { message: e.message });
+        return { responses: 0, avg_score: 0, promoters: 0, passives: 0, detractors: 0, score: 0 };
+      }),
     ]);
 
     const crmLeadsRows = crmLeadsRes.rows;
@@ -293,6 +298,9 @@ router.get('/overview', async (req, res) => {
         callbacks_open: callbacksOpen,
         callbacks_overdue: callbacksOverdue,
         lead_win_rate: pct(conversion.won, conversion.total - conversion.technical),
+        nps_score: npsSummary.score,
+        nps_avg_score: npsSummary.avg_score,
+        nps_responses_30d: npsSummary.responses,
       },
       pipeline,
       sources,
@@ -304,6 +312,7 @@ router.get('/overview', async (req, res) => {
           open_rate: pct(conversion.open, conversion.total - conversion.technical),
         },
         owners,
+        nps: npsSummary,
       },
       callbacks,
     });
@@ -750,6 +759,44 @@ router.post('/message-templates/:id/render', async (req, res) => {
   } catch (err) {
     logger.error('crm.templates.render', { message: err.message });
     res.status(500).json({ error: 'Render szablonu CRM nie powiodl sie' });
+  }
+});
+
+router.get('/nps-surveys', async (req, res) => {
+  try {
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    const surveys = await listNpsSurveys({ oddzialId, limit: toInt(req.query.limit) || 50 });
+    res.json(surveys);
+  } catch (err) {
+    logger.error('crm.nps.list', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu ankiet NPS CRM' });
+  }
+});
+
+router.post('/nps-surveys', async (req, res) => {
+  const b = req.body || {};
+  const score = toInt(b.score);
+  if (score == null || score < 0 || score > 10) return res.status(400).json({ error: 'score musi byc w zakresie 0-10' });
+  const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
+  if (oddzialId && !canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+  try {
+    const survey = await createNpsSurvey({
+      oddzialId,
+      leadId: toInt(b.lead_id),
+      clientId: toInt(b.client_id),
+      taskId: toInt(b.task_id),
+      channel: b.channel,
+      score,
+      comment: b.comment,
+      respondentName: b.respondent_name,
+      respondentContact: b.respondent_contact,
+      sentAt: b.sent_at,
+      userId: req.user.id,
+    });
+    res.status(201).json(survey);
+  } catch (err) {
+    logger.error('crm.nps.create', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie zapisac ankiety NPS CRM' });
   }
 });
 

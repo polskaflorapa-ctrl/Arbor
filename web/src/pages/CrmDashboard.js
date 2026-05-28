@@ -72,11 +72,13 @@ export default function CrmDashboard() {
       { key: 'calls_30d', label: t('crm.dashboard.calls30', { defaultValue: 'Połączenia (30 dni)' }), value: k.calls_30d || 0 },
       { key: 'callbacks_open', label: t('crm.dashboard.callbacksOpen', { defaultValue: 'Follow-up otwarte' }), value: k.callbacks_open || 0 },
       { key: 'lead_win_rate', label: t('crm.dashboard.leadWinRate', { defaultValue: 'Konwersja leadów' }), value: `${k.lead_win_rate || 0}%` },
+      { key: 'nps_score', label: t('crm.dashboard.npsScore', { defaultValue: 'NPS (30 dni)' }), value: k.nps_responses_30d ? k.nps_score || 0 : '—' },
     ];
   }, [overview.kpis, t]);
 
   const conversion = overview.analytics?.conversion || {};
   const owners = overview.analytics?.owners || [];
+  const nps = overview.analytics?.nps || {};
 
   return (
     <div className="app-shell">
@@ -232,6 +234,31 @@ export default function CrmDashboard() {
               </div>
             </section>
           </div>
+
+          <section className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+              <div style={{ fontWeight: 700 }}>
+                {t('crm.dashboard.npsTitle', { defaultValue: 'Satysfakcja klientów' })}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {t('crm.dashboard.npsResponses', { defaultValue: 'Odpowiedzi' })}: {nps.responses || 0}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+              {[
+                [t('crm.dashboard.npsScore', { defaultValue: 'NPS' }), nps.responses ? nps.score || 0 : '—'],
+                [t('crm.dashboard.npsAverage', { defaultValue: 'Średnia ocena' }), nps.responses ? nps.avg_score || 0 : '—'],
+                [t('crm.dashboard.npsPromoters', { defaultValue: 'Promotorzy' }), nps.promoters || 0],
+                [t('crm.dashboard.npsPassives', { defaultValue: 'Pasywni' }), nps.passives || 0],
+                [t('crm.dashboard.npsDetractors', { defaultValue: 'Krytycy' }), nps.detractors || 0],
+              ].map(([label, value]) => (
+                <div key={label} className="ios-inset-row" style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <section className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>

@@ -36,6 +36,9 @@ describe('CRM overview analytics', () => {
       if (text.includes('COUNT(*)::int AS c FROM tasks') && text.includes('status = ANY')) return { rows: [{ c: 3 }] };
       if (text.includes('COUNT(*)::int AS c FROM tasks')) return { rows: [{ c: 8 }] };
       if (text.includes('COUNT(*)::int AS c FROM phone_call_conversations')) return { rows: [{ c: 4 }] };
+      if (text.includes('FROM crm_nps_surveys')) {
+        return { rows: [{ responses: 4, avg_score: 8.3, promoters: 2, passives: 1, detractors: 1 }] };
+      }
       if (text.includes('FROM crm_leads l') && text.includes('LEFT JOIN users o')) {
         return {
           rows: [
@@ -59,6 +62,15 @@ describe('CRM overview analytics', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.kpis.lead_win_rate).toBe(33);
+    expect(res.body.kpis.nps_score).toBe(25);
+    expect(res.body.analytics.nps).toEqual(expect.objectContaining({
+      responses: 4,
+      avg_score: 8.3,
+      promoters: 2,
+      passives: 1,
+      detractors: 1,
+      score: 25,
+    }));
     expect(res.body.analytics.conversion).toEqual(expect.objectContaining({
       total: 4,
       open: 1,

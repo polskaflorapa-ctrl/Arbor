@@ -948,6 +948,25 @@ CREATE TABLE IF NOT EXISTS crm_message_templates (
 );
 CREATE INDEX IF NOT EXISTS idx_crm_message_templates_oddzial ON crm_message_templates(oddzial_id, active);
 
+CREATE TABLE IF NOT EXISTS crm_nps_surveys (
+  id                 SERIAL PRIMARY KEY,
+  oddzial_id         INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  lead_id            INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+  client_id          INTEGER REFERENCES klienci(id) ON DELETE SET NULL,
+  task_id            INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  channel            VARCHAR(32) NOT NULL DEFAULT 'manual',
+  score              INTEGER NOT NULL CHECK (score >= 0 AND score <= 10),
+  comment            TEXT,
+  respondent_name    VARCHAR(160),
+  respondent_contact VARCHAR(160),
+  sent_at            TIMESTAMPTZ,
+  responded_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_nps_surveys_oddzial ON crm_nps_surveys(oddzial_id, responded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crm_nps_surveys_lead ON crm_nps_surveys(lead_id);
+
 -- ─── Wyceny terenowe (Wyceniający) — quotations / items / approvals / photos ─
 CREATE TABLE IF NOT EXISTS quotations (
   id                      SERIAL PRIMARY KEY,

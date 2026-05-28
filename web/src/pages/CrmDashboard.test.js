@@ -40,12 +40,13 @@ beforeEach(() => {
     if (url === '/crm/overview') {
       return Promise.resolve({
         data: {
-          kpis: { lead_win_rate: 33 },
+          kpis: { lead_win_rate: 33, nps_score: 25, nps_responses_30d: 4 },
           pipeline: [],
           sources: [{ source: 'whatsapp', count: 3, won: 1, lost: 1, conversion_rate: 33 }],
           analytics: {
             conversion: { open: 1, won: 1, lost: 1, technical: 0, open_rate: 33, win_rate: 33, loss_rate: 33 },
             owners: [{ owner_user_id: 21, owner_name: 'Anna CRM', open: 1, won: 1, lost: 0, conversion_rate: 50, won_value: 1200 }],
+            nps: { responses: 4, avg_score: 8.3, promoters: 2, passives: 1, detractors: 1, score: 25 },
           },
           callbacks: [],
         },
@@ -71,6 +72,8 @@ test('renders CRM conversion analytics and owner performance', async () => {
   expect(await screen.findByText('Konwersja CRM')).toBeInTheDocument();
   expect(screen.getByText('Aktywność ownerów')).toBeInTheDocument();
   expect(screen.getByText('Anna CRM')).toBeInTheDocument();
+  expect(screen.getByText('Satysfakcja klientów')).toBeInTheDocument();
+  expect(screen.getByText('Średnia ocena')).toBeInTheDocument();
   expect(screen.getByText('whatsapp')).toBeInTheDocument();
   expect(screen.getByText('Wygrane/przegrane: 1/1')).toBeInTheDocument();
 });
