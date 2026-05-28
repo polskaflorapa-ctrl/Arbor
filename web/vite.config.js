@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
     env.ARBOR_API_PROXY_TARGET ||
     env.REACT_APP_DEV_PROXY_TARGET ||
     env.VITE_DEV_PROXY_TARGET ||
-    'http://localhost:3001';
+    'http://localhost:3000';
 
   return {
     plugins: [jsxInJsPlugin(), react({ include: /\.(js|jsx|ts|tsx)$/ })],
