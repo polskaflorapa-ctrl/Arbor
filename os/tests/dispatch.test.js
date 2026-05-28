@@ -137,7 +137,7 @@ describe('POST /api/dispatch/plan', () => {
         return {
           rows: [
             { id: 10, nazwa: 'Ekipa nieobecna', oddzial_id: 3, aktywny: true, attendance_present: false, attendance_note: 'Auto w serwisie' },
-            { id: 11, nazwa: 'Ekipa gotowa', oddzial_id: 3, aktywny: true, attendance_present: true, attendance_note: '' },
+            { id: 11, nazwa: 'Ekipa gotowa', oddzial_id: 3, aktywny: true, attendance_present: true, attendance_note: '', przerwa_od: '12:00', przerwa_do: '12:30', sprzet_niedostepny: ['Podnosnik'] },
           ],
           rowCount: 2,
         };
@@ -152,9 +152,16 @@ describe('POST /api/dispatch/plan', () => {
 
     expect(res.status).toBe(200);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('FROM teams e'))).toBe(true);
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('equipment_reservations er'))).toBe(true);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('tm.aktywny'))).toBe(false);
     expect(solve).toHaveBeenCalledWith(expect.objectContaining({
-      teams: [expect.objectContaining({ id: 11, nazwa: 'Ekipa gotowa' })],
+      teams: [expect.objectContaining({
+        id: 11,
+        nazwa: 'Ekipa gotowa',
+        przerwa_od: '12:00',
+        przerwa_do: '12:30',
+        sprzet_niedostepny: ['Podnosnik'],
+      })],
     }));
     expect(solve.mock.calls[0][0].teams.some((team) => Number(team.id) === 10)).toBe(false);
     expect(res.body.team_availability.absent).toEqual([

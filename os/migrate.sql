@@ -1625,6 +1625,9 @@ ALTER TABLE teams
   ADD COLUMN IF NOT EXISTS depot_lat  DECIMAL(9,6),
   ADD COLUMN IF NOT EXISTS depot_lng  DECIMAL(9,6),
   ADD COLUMN IF NOT EXISTS max_godzin_dzien INTEGER DEFAULT 8;
+ALTER TABLE teams
+  ADD COLUMN IF NOT EXISTS przerwa_od TIME,
+  ADD COLUMN IF NOT EXISTS przerwa_do TIME;
 
 -- Dispatch plans (saved solver output)
 CREATE TABLE IF NOT EXISTS dispatch_plans (

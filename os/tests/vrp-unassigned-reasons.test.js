@@ -48,4 +48,42 @@ describe('VRP unassigned diagnostics', () => {
       reason_label: expect.stringContaining('okna'),
     }));
   });
+
+  test('moves stop after crew break and counts break time in route', () => {
+    const result = solve({
+      date: '2026-05-28',
+      teams: [{
+        id: 8,
+        nazwa: 'Ekipa z przerwa',
+        depot_lat: 50.06,
+        depot_lng: 19.94,
+        max_godzin_dzien: 8,
+        przerwa_od: '12:00',
+        przerwa_do: '12:30',
+        sprzet_typy: [],
+        kompetencje: [],
+      }],
+      tasks: [{
+        id: 100,
+        numer: 'BRK-100',
+        status: 'Zaplanowane',
+        adres: 'Przy depot',
+        pin_lat: 50.06,
+        pin_lng: 19.94,
+        czas_obslugi_min: 60,
+        okno_od: '12:00',
+        okno_do: '13:30',
+      }],
+    });
+
+    expect(result.unassigned).toHaveLength(0);
+    expect(result.routes[0]).toEqual(expect.objectContaining({
+      break_min: 30,
+      breaks: [expect.objectContaining({ od: '12:00', do: '12:30' })],
+    }));
+    expect(result.routes[0].stops[0]).toEqual(expect.objectContaining({
+      eta: '12:30',
+      break_delay_min: 30,
+    }));
+  });
 });

@@ -47,6 +47,14 @@ async function ensureTeamAttendanceTables(client) {
   teamAttendanceTablesReady = true;
 }
 
+let dispatchTeamPlanningColumnsReady = false;
+async function ensureDispatchTeamPlanningColumns(client) {
+  if (dispatchTeamPlanningColumnsReady) return;
+  await client.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS przerwa_od TIME');
+  await client.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS przerwa_do TIME');
+  dispatchTeamPlanningColumnsReady = true;
+}
+
 let dispatchRouteBriefTablesReady = false;
 async function ensureDispatchRouteBriefTables(client) {
   if (dispatchRouteBriefTablesReady) return;
@@ -147,6 +155,7 @@ async function fetchTasksForDate(client, date, oddzialId) {
 
 async function fetchTeamsForDispatch(client, oddzialId, date) {
   await ensureTeamAttendanceTables(client);
+  await ensureDispatchTeamPlanningColumns(client);
   const params = [date];
   let where = 'COALESCE(e.aktywny, true) = true';
   if (oddzialId) {
@@ -156,15 +165,44 @@ async function fetchTeamsForDispatch(client, oddzialId, date) {
   const r = await client.query(
     `SELECT e.id, e.nazwa, e.oddzial_id,
             e.depot_lat, e.depot_lng, e.max_godzin_dzien,
+            e.przerwa_od, e.przerwa_do,
             a.present AS attendance_present,
             a.note AS attendance_note,
             a.actor_name AS attendance_actor,
             COALESCE(
               (SELECT array_agg(DISTINCT ei.typ)
                FROM equipment_items ei
-               WHERE ei.ekipa_id = e.id AND ei.status = 'Dostepny'),
+               WHERE ei.ekipa_id = e.id
+                 AND ei.status = 'Dostepny'
+                 AND NOT EXISTS (
+                   SELECT 1
+                   FROM equipment_reservations er
+                   WHERE er.sprzet_id = ei.id
+                     AND er.status NOT IN ('Anulowane', 'Zwrócone', 'Zwrocone')
+                     AND er.data_od <= $1::date
+                     AND er.data_do >= $1::date
+                     AND er.ekipa_id <> e.id
+                 )),
               '{}'
             ) AS sprzet_typy,
+            COALESCE(
+              (SELECT array_agg(DISTINCT COALESCE(ei.nazwa, ei.typ, 'Sprzet #' || ei.id::text))
+               FROM equipment_items ei
+               WHERE ei.ekipa_id = e.id
+                 AND (
+                   ei.status <> 'Dostepny'
+                   OR EXISTS (
+                     SELECT 1
+                     FROM equipment_reservations er
+                     WHERE er.sprzet_id = ei.id
+                       AND er.status NOT IN ('Anulowane', 'Zwrócone', 'Zwrocone')
+                       AND er.data_od <= $1::date
+                       AND er.data_do >= $1::date
+                       AND er.ekipa_id <> e.id
+                   )
+                 )),
+              '{}'
+            ) AS sprzet_niedostepny,
             COALESCE(
               (SELECT array_agg(DISTINCT uc.nazwa)
                FROM user_competencies uc
@@ -182,6 +220,9 @@ async function fetchTeamsForDispatch(client, oddzialId, date) {
     ...row,
     depot_lat: row.depot_lat != null ? Number(row.depot_lat) : null,
     depot_lng: row.depot_lng != null ? Number(row.depot_lng) : null,
+    przerwa_od: row.przerwa_od || null,
+    przerwa_do: row.przerwa_do || null,
+    sprzet_niedostepny: Array.isArray(row.sprzet_niedostepny) ? row.sprzet_niedostepny : [],
     attendance: {
       present: row.attendance_present === null || row.attendance_present === undefined ? true : row.attendance_present === true,
       note: row.attendance_note || '',

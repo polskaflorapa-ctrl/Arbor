@@ -58,6 +58,48 @@ function minToTime(m) {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
+function normalizeBreaks(team = {}) {
+  const source = Array.isArray(team.breaks)
+    ? team.breaks
+    : [{
+      od: team.przerwa_od ?? team.break_start,
+      do: team.przerwa_do ?? team.break_end,
+      duration_min: team.przerwa_min ?? team.break_duration_min,
+    }];
+  return source
+    .map((item) => {
+      const start = timeToMin(item?.od ?? item?.from ?? item?.start);
+      const explicitEnd = timeToMin(item?.do ?? item?.to ?? item?.end);
+      const duration = Number(item?.duration_min ?? item?.duration ?? item?.minutes);
+      const end = explicitEnd ?? (start != null && duration > 0 ? start + duration : null);
+      if (start == null || end == null || end <= start) return null;
+      return {
+        start,
+        end,
+        label: item?.label || 'Przerwa',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start);
+}
+
+function applyBreakBeforeService(timeMin, serviceMin, breaks = []) {
+  let t = timeMin;
+  let delay = 0;
+  const applied = [];
+  for (const br of breaks) {
+    if (t < br.end && (t + serviceMin) > br.start) {
+      const wait = br.end - t;
+      if (wait > 0) {
+        delay += wait;
+        applied.push({ label: br.label, od: minToTime(br.start), do: minToTime(br.end), delay_min: wait });
+        t = br.end;
+      }
+    }
+  }
+  return { time: t, delay, applied };
+}
+
 // ─── Feasibility checks ───────────────────────────────────────────────────────
 
 function teamCanHandleTask(team, task) {
@@ -125,7 +167,7 @@ function explainUnassignedTask(task, teams) {
     const depotLat = team.depot_lat ?? 50.06;
     const depotLng = team.depot_lng ?? 19.94;
     const maxMin = (team.max_godzin_dzien || DEFAULT_MAX_HOURS) * 60;
-    return routeDurationMin([task], depotLat, depotLng) > maxMin;
+    return routeDurationMin([task], depotLat, depotLng, normalizeBreaks(team)) > maxMin;
   });
   if (impossibleByCapacity) {
     return {
@@ -137,7 +179,7 @@ function explainUnassignedTask(task, teams) {
   const impossibleByWindow = capable.every((team) => {
     const depotLat = team.depot_lat ?? 50.06;
     const depotLng = team.depot_lng ?? 19.94;
-    return !timeWindowsOk([task], depotLat, depotLng);
+    return !timeWindowsOk([task], depotLat, depotLng, normalizeBreaks(team));
   });
   if (impossibleByWindow) {
     return {
@@ -180,6 +222,7 @@ function clarkeWright(team, tasks, depotLat, depotLng) {
   const taskRoute = tasks.map((_, i) => i); // taskRoute[i] = route index
 
   const maxMin = (team.max_godzin_dzien || DEFAULT_MAX_HOURS) * 60;
+  const breaks = normalizeBreaks(team);
 
   for (const { i, j } of savings) {
     const ri = taskRoute[i];
@@ -187,8 +230,8 @@ function clarkeWright(team, tasks, depotLat, depotLng) {
     if (ri === rj) continue; // already in same route
 
     const merged = [...routes[ri], ...routes[rj]];
-    if (routeDurationMin(merged, depotLat, depotLng) > maxMin) continue;
-    if (!timeWindowsOk(merged, depotLat, depotLng)) continue;
+    if (routeDurationMin(merged, depotLat, depotLng, breaks) > maxMin) continue;
+    if (!timeWindowsOk(merged, depotLat, depotLng, breaks)) continue;
 
     // Merge: rj into ri
     routes[ri] = merged;
@@ -201,18 +244,20 @@ function clarkeWright(team, tasks, depotLat, depotLng) {
 
   return routes.filter(r =>
     r.length > 0
-    && routeDurationMin(r, depotLat, depotLng) <= maxMin
-    && timeWindowsOk(r, depotLat, depotLng)
+    && routeDurationMin(r, depotLat, depotLng, breaks) <= maxMin
+    && timeWindowsOk(r, depotLat, depotLng, breaks)
   );
 }
 
-function routeDurationMin(tasks, depotLat, depotLng) {
+function routeDurationMin(tasks, depotLat, depotLng, breaks = []) {
   if (tasks.length === 0) return 0;
   let t = WORKDAY_START_HOUR * 60;
   let prevLat = depotLat, prevLng = depotLng;
   for (const task of tasks) {
     t += travelMin(prevLat, prevLng, task.pin_lat, task.pin_lng);
-    t += task.czas_obslugi_min || DEFAULT_SERVICE_MIN;
+    const serviceMin = task.czas_obslugi_min || DEFAULT_SERVICE_MIN;
+    t = applyBreakBeforeService(t, serviceMin, breaks).time;
+    t += serviceMin;
     prevLat = task.pin_lat;
     prevLng = task.pin_lng;
   }
@@ -220,7 +265,7 @@ function routeDurationMin(tasks, depotLat, depotLng) {
   return t - WORKDAY_START_HOUR * 60;
 }
 
-function timeWindowsOk(tasks, depotLat, depotLng) {
+function timeWindowsOk(tasks, depotLat, depotLng, breaks = []) {
   let t = WORKDAY_START_HOUR * 60;
   let prevLat = depotLat, prevLng = depotLng;
   for (const task of tasks) {
@@ -228,8 +273,10 @@ function timeWindowsOk(tasks, depotLat, depotLng) {
     const windowFrom = timeToMin(task.okno_od);
     const windowTo   = timeToMin(task.okno_do);
     if (windowFrom != null && t < windowFrom) t = windowFrom; // wait at site
+    const serviceMin = task.czas_obslugi_min || DEFAULT_SERVICE_MIN;
+    t = applyBreakBeforeService(t, serviceMin, breaks).time;
     if (windowTo   != null && t > windowTo)   return false;   // too late
-    t += task.czas_obslugi_min || DEFAULT_SERVICE_MIN;
+    t += serviceMin;
     prevLat = task.pin_lat;
     prevLng = task.pin_lng;
   }
@@ -238,10 +285,11 @@ function timeWindowsOk(tasks, depotLat, depotLng) {
 
 // ─── Build schedule (ETA per stop) ───────────────────────────────────────────
 
-function buildSchedule(tasks, depotLat, depotLng, startMin) {
+function buildSchedule(tasks, depotLat, depotLng, startMin, breaks = []) {
   const stops = [];
   let t = startMin ?? WORKDAY_START_HOUR * 60;
   let prevLat = depotLat, prevLng = depotLng;
+  let totalBreakMin = 0;
 
   for (const task of tasks) {
     const travel = Math.round(travelMin(prevLat, prevLng, task.pin_lat, task.pin_lng));
@@ -249,8 +297,11 @@ function buildSchedule(tasks, depotLat, depotLng, startMin) {
     const windowFrom = timeToMin(task.okno_od);
     const windowTo   = timeToMin(task.okno_do);
     if (windowFrom != null && t < windowFrom) t = windowFrom;
-    const etaMin = t;
     const serviceMin = task.czas_obslugi_min || DEFAULT_SERVICE_MIN;
+    const breakResult = applyBreakBeforeService(t, serviceMin, breaks);
+    t = breakResult.time;
+    totalBreakMin += breakResult.delay;
+    const etaMin = t;
     t += serviceMin;
 
     stops.push({
@@ -266,6 +317,8 @@ function buildSchedule(tasks, depotLat, depotLng, startMin) {
       finish:     minToTime(t),
       travel_min: travel,
       service_min: serviceMin,
+      break_delay_min: breakResult.delay,
+      breaks_applied: breakResult.applied,
       time_window_ok: windowTo == null || etaMin <= windowTo,
       okno_od:    task.okno_od ?? null,
       okno_do:    task.okno_do ?? null,
@@ -279,7 +332,7 @@ function buildSchedule(tasks, depotLat, depotLng, startMin) {
   const returnTravel = Math.round(travelMin(prevLat, prevLng, depotLat, depotLng));
   const totalMin = t - (startMin ?? WORKDAY_START_HOUR * 60) + returnTravel;
 
-  return { stops, total_min: totalMin, return_travel_min: returnTravel, end_time: minToTime(t + returnTravel) };
+  return { stops, total_min: totalMin, return_travel_min: returnTravel, end_time: minToTime(t + returnTravel), break_min: totalBreakMin };
 }
 
 // ─── Main solver ──────────────────────────────────────────────────────────────
@@ -329,10 +382,11 @@ function solve(input) {
 
     // Clarke-Wright to find good route(s) for this team in one day
     const teamRoutes = clarkeWright(team, feasible, depotLat, depotLng);
+    const breaks = normalizeBreaks(team);
 
     for (const routeTasks of teamRoutes) {
-      const { stops, total_min, return_travel_min, end_time } =
-        buildSchedule(routeTasks, depotLat, depotLng);
+      const { stops, total_min, return_travel_min, end_time, break_min } =
+        buildSchedule(routeTasks, depotLat, depotLng, undefined, breaks);
 
       routes.push({
         team_id:   team.id,
@@ -343,6 +397,8 @@ function solve(input) {
         stops,
         total_min,
         return_travel_min,
+        break_min,
+        breaks: breaks.map(br => ({ od: minToTime(br.start), do: minToTime(br.end), label: br.label })),
         end_time,
         distance_km: Math.round(
           stops.reduce((sum, s) => sum + s.travel_min, 0) / 60 * AVG_SPEED_KMH
@@ -389,4 +445,4 @@ function solve(input) {
   };
 }
 
-module.exports = { solve, haversineKm, travelMin, explainUnassignedTask };
+module.exports = { solve, haversineKm, travelMin, explainUnassignedTask, normalizeBreaks };
