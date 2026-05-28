@@ -27,6 +27,8 @@ const CLIENT_ROW = {
   firma: 'Zielony Ogród',
   telefon: '+48500100200',
   miasto: 'Wroclaw',
+  segment: 'VIP',
+  tags: ['premium'],
   liczba_zlecen: 2,
   liczba_ogledzen: 1,
 };
@@ -42,6 +44,9 @@ const CLIENT_DETAIL = {
   miasto: 'Wroclaw',
   kod_pocztowy: '50-100',
   zrodlo: 'telefon',
+  segment: 'VIP',
+  tags: ['premium', 'ogrod'],
+  custom_fields: { Budzet: '12000', Kanal: 'WhatsApp' },
   created_at: '2026-05-20T10:00:00.000Z',
   created_by_nazwa: 'Jan Operator',
   notatki: 'Klient premium',
@@ -114,6 +119,28 @@ test('shows the redesigned client passport after selecting a client from the lis
   expect(screen.getByText('Zielony Ogród')).toBeInTheDocument();
   expect(screen.getByText('Kontakt')).toBeInTheDocument();
   expect(screen.getByText('Informacje')).toBeInTheDocument();
+  expect(screen.getByText('CRM')).toBeInTheDocument();
+  expect(screen.getAllByText('#premium').length).toBeGreaterThan(0);
+  expect(screen.getByText('Budzet')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Zaplanuj ogl/i })).toBeInTheDocument();
   expect(screen.getByText(/Zlecenia \(1\)/)).toBeInTheDocument();
+});
+
+test('sends CRM fields when creating a client', async () => {
+  api.post.mockResolvedValueOnce({ data: { id: 12 } });
+  renderPage();
+
+  fireEvent.click(await screen.findByRole('button', { name: /Nowy/i }));
+  fireEvent.change(screen.getByPlaceholderText('+48 000 000 000'), { target: { value: '+48500100200' } });
+  fireEvent.change(screen.getByDisplayValue('Brak segmentu'), { target: { value: 'VIP' } });
+  fireEvent.change(screen.getByPlaceholderText('np. premium, ogrod, pilne'), { target: { value: 'premium, ogrod' } });
+  fireEvent.change(screen.getByPlaceholderText(/Budzet:/i), { target: { value: 'Budzet: 12000\nKanal: WhatsApp' } });
+  fireEvent.click(screen.getByRole('button', { name: /Dodaj klienta/i }));
+
+  expect(api.post).toHaveBeenCalledWith('/klienci', expect.objectContaining({
+    telefon: '+48500100200',
+    segment: 'VIP',
+    tags: ['premium', 'ogrod'],
+    custom_fields: { Budzet: '12000', Kanal: 'WhatsApp' },
+  }));
 });
