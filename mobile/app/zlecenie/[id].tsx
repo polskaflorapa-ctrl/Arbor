@@ -171,10 +171,28 @@ function compactLines(value: unknown) {
     .filter(Boolean);
 }
 
+function normalizeWorkflowMatch(value: unknown) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ä…/g, 'a')
+    .replace(/ä‡/g, 'c')
+    .replace(/ä™/g, 'e')
+    .replace(/å‚/g, 'l')
+    .replace(/å„/g, 'n')
+    .replace(/ã³/g, 'o')
+    .replace(/å›/g, 's')
+    .replace(/åº/g, 'z')
+    .replace(/å¼/g, 'z')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .trim();
+}
+
 function extractNoteValue(value: unknown, prefixes: string[]) {
-  const lowerPrefixes = prefixes.map((prefix) => prefix.toLowerCase());
+  const lowerPrefixes = prefixes.map((prefix) => normalizeWorkflowMatch(prefix));
   const line = compactLines(value).find((item) => {
-    const lower = item.toLowerCase();
+    const lower = normalizeWorkflowMatch(item);
     return lowerPrefixes.some((prefix) => lower.startsWith(`${prefix}:`) || lower.startsWith(prefix));
   });
   if (!line) return '';
@@ -2194,16 +2212,16 @@ export default function ZlecenieDetailScreen() {
   ).filter((line) => !officeHandoffLines.includes(line) && !officePlanLines.includes(line));
   const crewPackageNoteLines = [...officePlanLines, ...fieldBriefLines];
   const findCrewPackageLine = (prefixes: string[]) => {
-    const normalized = prefixes.map((prefix) => prefix.toLowerCase());
+    const normalized = prefixes.map((prefix) => normalizeWorkflowMatch(prefix));
     return crewPackageNoteLines.find((line) => {
-      const lower = line.toLowerCase();
+      const lower = normalizeWorkflowMatch(line);
       return normalized.some((prefix) => lower.startsWith(`${prefix}:`) || lower.startsWith(prefix));
     });
   };
   const scopeLine = findCrewPackageLine(['Zakres z terenu', 'Zakres prac', 'Zakres']);
   const riskLine = findCrewPackageLine(['Ryzyka', 'BHP / ryzyka', 'Ryzyka / uwagi BHP']);
-  const accessLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('dostęp') || line.toLowerCase().startsWith('dostep'));
-  const equipmentLine = fieldBriefLines.find((line) => line.toLowerCase().startsWith('sprzęt') || line.toLowerCase().startsWith('sprzet'));
+  const accessLine = fieldBriefLines.find((line) => normalizeWorkflowMatch(line).startsWith('dostep'));
+  const equipmentLine = fieldBriefLines.find((line) => normalizeWorkflowMatch(line).startsWith('sprzet'));
   const equipmentFromBrief = equipmentLine?.split(':').slice(1).join(':').split(',').map((item) => item.trim()).filter((item) => item && item !== '-') || [];
   const officeEquipmentLine = findCrewPackageLine(['Sprzet']);
   const settlementLine = findCrewPackageLine(['Warunki rozliczenia']);

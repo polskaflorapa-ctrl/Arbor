@@ -144,9 +144,27 @@ function taskWorkflowMissingLabels(task: any) {
   return labels.map((label: unknown) => String(label || '').trim()).filter(Boolean);
 }
 
+function normalizeWorkflowMatch(value: unknown) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ä…/g, 'a')
+    .replace(/ä‡/g, 'c')
+    .replace(/ä™/g, 'e')
+    .replace(/å‚/g, 'l')
+    .replace(/å„/g, 'n')
+    .replace(/ã³/g, 'o')
+    .replace(/å›/g, 's')
+    .replace(/åº/g, 'z')
+    .replace(/å¼/g, 'z')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .trim();
+}
+
 function taskWorkflowMissingIncludes(task: any, patterns: string[]) {
-  const haystack = taskWorkflowMissingLabels(task).join(' ').toLowerCase();
-  return patterns.some((pattern) => haystack.includes(pattern));
+  const haystack = normalizeWorkflowMatch(taskWorkflowMissingLabels(task).join(' '));
+  return patterns.some((pattern) => haystack.includes(normalizeWorkflowMatch(pattern)));
 }
 
 function taskWorkflowReadyForNext(task: any) {
