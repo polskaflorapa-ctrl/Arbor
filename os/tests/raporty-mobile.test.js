@@ -44,7 +44,7 @@ describe('GET /raporty/mobile', () => {
     expect(res.body.total_hours).toBe(4.5);
     expect(res.body.total_revenue).toBe(1200.5);
     expect(res.body.total_cost).toBe(100);
-    expect(res.body.avg_margin_percent).toBeCloseTo(((1200.5 - 100) / 1200.5) * 100, 5);
+    expect(res.body.avg_margin_percent).toBe(91.7);
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('AND t.oddzial_id = $1'), [2]);
   });
 

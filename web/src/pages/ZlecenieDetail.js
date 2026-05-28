@@ -333,6 +333,15 @@ export default function ZlecenieDetail() {
   const [finishNotatki, setFinishNotatki] = useState('');
   const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
   const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
+  const [finishUsageKoszt, setFinishUsageKoszt] = useState('');
+  const [finishOperationalCosts, setFinishOperationalCosts] = useState({
+    sprzet: '',
+    paliwo: '',
+    utylizacja: '',
+    inne: '',
+  });
+  const [finishCostSuggestions, setFinishCostSuggestions] = useState(null);
+  const [finishCostSuggestionsLoading, setFinishCostSuggestionsLoading] = useState(false);
   const [finishSubmitting, setFinishSubmitting] = useState(false);
 
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
@@ -952,6 +961,32 @@ export default function ZlecenieDetail() {
     (finishRequirements.require_po_photo && !finishRequirements.has_po_photo) ||
     (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo);
 
+  const loadFinishCostSuggestions = async () => {
+    setFinishCostSuggestionsLoading(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/tasks/${id}/finish-cost-suggestions`, { headers: authHeaders(token) });
+      setFinishCostSuggestions(data);
+      return data;
+    } catch {
+      setFinishCostSuggestions(null);
+      return null;
+    } finally {
+      setFinishCostSuggestionsLoading(false);
+    }
+  };
+
+  const suggestedFinishCosts = (suggestions = finishCostSuggestions) => {
+    const next = { sprzet: '', paliwo: '', utylizacja: '', inne: '' };
+    for (const item of suggestions?.suggestions || []) {
+      const amount = Number(item?.amount);
+      if (Object.prototype.hasOwnProperty.call(next, item?.category) && Number.isFinite(amount) && amount > 0) {
+        next[item.category] = String(amount);
+      }
+    }
+    return next;
+  };
+
   const openFinishModal = () => {
     if (finishPhotoBlocked) {
       const missing = [];
@@ -974,11 +1009,28 @@ export default function ZlecenieDetail() {
     setFinishNotatki('');
     setFinishUsageNazwa('');
     setFinishUsageIlosc('');
+    setFinishUsageKoszt('');
+    setFinishOperationalCosts({ sprzet: '', paliwo: '', utylizacja: '', inne: '' });
+    setFinishCostSuggestions(null);
     setFinishModalOpen(true);
+    void loadFinishCostSuggestions().then((data) => {
+      const next = suggestedFinishCosts(data);
+      if (Object.values(next).some(Boolean)) setFinishOperationalCosts(next);
+    });
   };
 
   const submitFinish = async () => {
     const { forma_platnosc, kwota_odebrana, faktura_vat, nip } = finishPayForm;
+    const parseOptionalFinishMoney = (value, label) => {
+      const raw = String(value || '').trim().replace(',', '.');
+      if (!raw) return null;
+      const parsed = parseFloat(raw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        showMsg(errorMessage(`Podaj poprawny koszt: ${label}.`));
+        return false;
+      }
+      return Math.round(parsed * 100) / 100;
+    };
     if (forma_platnosc === 'Gotowka') {
       const k = parseFloat(String(kwota_odebrana).replace(',', '.'));
       if (!Number.isFinite(k) || k < 0) {
@@ -996,6 +1048,27 @@ export default function ZlecenieDetail() {
     if (finishRequirements.require_material_usage && !finishUsageNazwa.trim()) {
       showMsg(errorMessage('Podaj nazwę zużytego materiału (wymóg serwera).'));
       return;
+    }
+    const usageCost = parseOptionalFinishMoney(finishUsageKoszt, 'materialy');
+    if (usageCost === false) return;
+    const costLabels = {
+      sprzet: 'sprzet',
+      paliwo: 'paliwo',
+      utylizacja: 'utylizacja',
+      inne: 'inne',
+    };
+    const koszty_operacyjne = [];
+    for (const [category, value] of Object.entries(finishOperationalCosts)) {
+      const amount = parseOptionalFinishMoney(value, costLabels[category] || category);
+      if (amount === false) return;
+      if (amount != null) {
+        koszty_operacyjne.push({
+          category,
+          amount,
+          label: costLabels[category] || category,
+          source: 'web_finish',
+        });
+      }
     }
     setFinishSubmitting(true);
     try {
@@ -1036,6 +1109,7 @@ export default function ZlecenieDetail() {
               {
                 nazwa: usageNazwa.slice(0, 200),
                 ...(Number.isFinite(usageIlosc) ? { ilosc: usageIlosc, jednostka: 'szt' } : {}),
+                ...(usageCost != null ? { koszt_laczny: usageCost } : {}),
               },
             ]
           : undefined;
@@ -1046,6 +1120,7 @@ export default function ZlecenieDetail() {
           lng,
           notatki: noteTrim || undefined,
           ...(zuzyte_materialy ? { zuzyte_materialy } : {}),
+          ...(koszty_operacyjne.length ? { koszty_operacyjne } : {}),
           payment: {
             forma_platnosc,
             kwota_odebrana: forma_platnosc === 'Gotowka' ? parseFloat(String(kwota_odebrana).replace(',', '.')) : null,
@@ -2386,6 +2461,98 @@ export default function ZlecenieDetail() {
                 value={finishUsageIlosc}
                 onChange={(e) => setFinishUsageIlosc(e.target.value)}
               />
+              <input
+                style={{ ...styles.editInput, marginBottom: 14 }}
+                placeholder="Koszt materiałów PLN (opcjonalnie)"
+                inputMode="decimal"
+                value={finishUsageKoszt}
+                onChange={(e) => setFinishUsageKoszt(e.target.value)}
+              />
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+                Koszty operacyjne do marży (opcjonalnie)
+              </div>
+              <div style={{
+                display: 'flex',
+                gap: 10,
+                padding: 10,
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                background: 'var(--surface-field)',
+                marginBottom: 10,
+                alignItems: 'flex-start',
+              }}>
+                <AttachMoney sx={{ fontSize: 18, color: 'var(--accent)' }} />
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                    {finishCostSuggestionsLoading ? 'Pobieram stawki oddzialu...' : 'Podpowiedzi ze stawek oddzialu'}
+                  </div>
+                  {finishCostSuggestions?.suggestions?.length ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {finishCostSuggestions.suggestions.map((item) => (
+                        <button
+                          key={item.category}
+                          type="button"
+                          style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: 8,
+                            padding: '6px 8px',
+                            background: 'var(--surface-field)',
+                            color: 'var(--text)',
+                            cursor: Number(item.amount) > 0 ? 'pointer' : 'default',
+                            fontSize: 12,
+                          }}
+                          onClick={() => {
+                            const amount = Number(item.amount);
+                            if (Number.isFinite(amount) && amount > 0) {
+                              setFinishOperationalCosts((prev) => ({ ...prev, [item.category]: String(amount) }));
+                            }
+                          }}
+                          title={item.basis}
+                        >
+                          {item.label}: {formatCurrency(item.amount || 0)}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        style={{
+                          border: '1px solid var(--accent)',
+                          borderRadius: 8,
+                          padding: '6px 8px',
+                          background: 'var(--accent-soft, rgba(155,217,87,0.14))',
+                          color: 'var(--accent)',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                          fontWeight: 700,
+                        }}
+                        onClick={() => setFinishOperationalCosts(suggestedFinishCosts())}
+                      >
+                        Uzyj sugestii
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      Formularz przyjmie realne koszty, a backend odrzuci wartosci ujemne lub poza limitem marzy.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                {[
+                  ['sprzet', 'Sprzęt PLN'],
+                  ['paliwo', 'Paliwo PLN'],
+                  ['utylizacja', 'Utylizacja PLN'],
+                  ['inne', 'Inne PLN'],
+                ].map(([key, label]) => (
+                  <input
+                    key={key}
+                    style={styles.editInput}
+                    placeholder={label}
+                    inputMode="decimal"
+                    value={finishOperationalCosts[key]}
+                    onChange={(e) => setFinishOperationalCosts((prev) => ({ ...prev, [key]: e.target.value }))}
+                  />
+                ))}
+              </div>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button type="button" style={styles.cancelBtn} disabled={finishSubmitting} onClick={() => setFinishModalOpen(false)}>
                   Anuluj

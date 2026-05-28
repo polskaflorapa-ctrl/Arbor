@@ -735,9 +735,26 @@ CREATE TABLE IF NOT EXISTS task_finish_material_usage (
   nazwa         VARCHAR(200) NOT NULL,
   ilosc         NUMERIC(14, 4),
   jednostka     VARCHAR(24),
+  koszt_jednostkowy NUMERIC(12,2),
+  koszt_laczny  NUMERIC(12,2),
   notatka       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_task_finish_usage_task ON task_finish_material_usage (task_id);
+ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS koszt_jednostkowy NUMERIC(12,2);
+ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS koszt_laczny NUMERIC(12,2);
+
+CREATE TABLE IF NOT EXISTS task_operational_costs (
+  id            SERIAL PRIMARY KEY,
+  task_id       INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  recorded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  recorded_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  category      VARCHAR(40) NOT NULL,
+  label         VARCHAR(200),
+  amount        NUMERIC(12,2) NOT NULL DEFAULT 0,
+  source        VARCHAR(80),
+  note          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_task_operational_costs_task ON task_operational_costs (task_id);
 
 -- ─── GPS LIVE (Juwentus) ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gps_vehicle_positions (

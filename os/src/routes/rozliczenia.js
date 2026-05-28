@@ -33,6 +33,10 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function money(v) {
+  return Math.round((num(v) + Number.EPSILON) * 100) / 100;
+}
+
 /** Wylicza netto, koszt pomocników i wynagrodzenie brygadzisty. */
 async function recalcTask(client, taskId) {
   // pobierz aktualny koszt pomocników
@@ -42,7 +46,7 @@ async function recalcTask(client, taskId) {
       WHERE task_id = $1`,
     [taskId],
   );
-  const kosztPomocnikow = num(g.rows[0]?.koszt);
+  const kosztPomocnikow = money(g.rows[0]?.koszt);
 
   // pobierz aktualne brutto i % brygadzisty
   const r = await client.query(
@@ -52,13 +56,13 @@ async function recalcTask(client, taskId) {
   );
   if (!r.rows.length) return null;
   const { wartosc_brutto, vat_stawka, procent_brygadzisty } = r.rows[0];
-  const brutto = num(wartosc_brutto);
+  const brutto = money(wartosc_brutto);
   const vat    = num(vat_stawka);
   const pct    = num(procent_brygadzisty);
 
-  const netto         = brutto / (1 + vat / 100);
-  const podstawa      = Math.max(0, netto - kosztPomocnikow);
-  const wynagrodzenie = podstawa * (pct / 100);
+  const netto         = money(brutto / (1 + vat / 100));
+  const podstawa      = money(Math.max(0, netto - kosztPomocnikow));
+  const wynagrodzenie = money(podstawa * (pct / 100));
 
   await client.query(
     `UPDATE task_rozliczenie
@@ -246,11 +250,11 @@ router.post('/zadanie/:taskId', async (req, res) => {
            FROM task_pomocnik_godziny WHERE task_id = $1`,
         [taskId],
       );
-      const kosztPomocnikow = num(g.rows[0]?.koszt);
+      const kosztPomocnikow = money(g.rows[0]?.koszt);
 
-      const netto         = wartosc_brutto / (1 + vat_stawka / 100);
-      const podstawa      = Math.max(0, netto - kosztPomocnikow);
-      const wynagrodzenie = podstawa * (procent_brygadzisty / 100);
+      const netto         = money(wartosc_brutto / (1 + vat_stawka / 100));
+      const podstawa      = money(Math.max(0, netto - kosztPomocnikow));
+      const wynagrodzenie = money(podstawa * (procent_brygadzisty / 100));
 
       // Upsert task_rozliczenie
       const { rows } = await client.query(

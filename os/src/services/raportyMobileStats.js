@@ -1,4 +1,5 @@
 const isDyrektor = (user) => user.rola === 'Dyrektor' || user.rola === 'Administrator';
+const { calculateTaskMargin } = require('./taskMargin');
 
 /**
  * Agregaty jak w aplikacji mobilnej (`/raporty/mobile`): zlecenia z ostatnich 365 dni,
@@ -33,14 +34,14 @@ async function getRaportyMobileAggregates(pool, user) {
   const row = r.rows[0] || {};
   const revenue = Number(row.total_revenue) || 0;
   const cost = Number(row.total_cost) || 0;
-  const marginPct = revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
+  const margin = calculateTaskMargin({ revenue_net: revenue, total_known_cost: cost });
   return {
     total_tasks: Number(row.total_tasks) || 0,
     completed_tasks: Number(row.completed_tasks) || 0,
     total_hours: Number(row.total_hours) || 0,
     total_revenue: revenue,
     total_cost: cost,
-    avg_margin_percent: marginPct,
+    avg_margin_percent: margin.margin_pct ?? 0,
   };
 }
 

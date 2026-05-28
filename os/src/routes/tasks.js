@@ -29,6 +29,7 @@ const {
 } = require('../services/taskSettlement');
 const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamDay');
 const { sendSmsOptional } = require('../services/twilioSms');
+const { getTaskFinishCostSuggestions, validateFinishCostPayload } = require('../services/taskFinishCosts');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
 const { assertTeamAvailableForBranch, assertEstimatorAvailableForBranch } = require('../services/branchResources');
@@ -250,16 +251,27 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
   for (const row of rows.slice(0, 50)) {
     const nazwa = row?.nazwa != null ? String(row.nazwa).trim() : '';
     if (!nazwa) continue;
+    const ilosc = row.ilosc != null && row.ilosc !== '' ? Number(row.ilosc) : null;
+    const unitCost = row.koszt_jednostkowy != null && row.koszt_jednostkowy !== ''
+      ? Number(row.koszt_jednostkowy)
+      : null;
+    const totalCost = row.koszt_laczny != null && row.koszt_laczny !== ''
+      ? Number(row.koszt_laczny)
+      : (Number.isFinite(ilosc) && Number.isFinite(unitCost) ? ilosc * unitCost : null);
     try {
       await client.query(
-        `INSERT INTO task_finish_material_usage (task_id, recorded_by, nazwa, ilosc, jednostka, notatka)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO task_finish_material_usage (
+           task_id, recorded_by, nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           taskId,
           userId,
           nazwa.slice(0, 200),
-          row.ilosc != null && row.ilosc !== '' ? Number(row.ilosc) : null,
+          ilosc,
           row.jednostka ? String(row.jednostka).trim().slice(0, 24) : null,
+          Number.isFinite(unitCost) ? unitCost : null,
+          Number.isFinite(totalCost) ? totalCost : null,
           row.notatka ? String(row.notatka).trim().slice(0, 500) : null,
         ]
       );
@@ -271,6 +283,33 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
       }
       throw err;
     }
+  }
+}
+
+/** @param {import('pg').PoolClient} client */
+async function insertOperationalCostRows(client, taskId, userId, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  const allowed = new Set(['sprzet', 'paliwo', 'utylizacja', 'inne']);
+  for (const row of rows.slice(0, 50)) {
+    const category = String(row?.category || row?.kategoria || '').trim().toLowerCase();
+    const amount = row?.amount ?? row?.kwota ?? row?.koszt;
+    const numericAmount = amount !== '' && amount != null ? Number(amount) : null;
+    if (!allowed.has(category) || !Number.isFinite(numericAmount) || numericAmount < 0) continue;
+    await client.query(
+      `INSERT INTO task_operational_costs (
+         task_id, recorded_by, category, label, amount, source, note
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        taskId,
+        userId,
+        category,
+        row.label ? String(row.label).trim().slice(0, 200) : null,
+        numericAmount,
+        row.source ? String(row.source).trim().slice(0, 80) : 'finish',
+        row.note ? String(row.note).trim().slice(0, 500) : null,
+      ]
+    );
   }
 }
 
@@ -316,6 +355,59 @@ const requireTaskAccess = async (req, res, next) => {
     return res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 };
+
+function taskKommoPayloadSql() {
+  return `
+    SELECT
+      t.*,
+      tr.wartosc_brutto AS rozliczenie_wartosc_brutto,
+      tr.vat_stawka AS rozliczenie_vat_stawka,
+      tr.wartosc_netto AS rozliczenie_wartosc_netto,
+      tr.koszt_pomocnikow AS rozliczenie_koszt_pomocnikow,
+      tr.podstawa_brygadzisty AS rozliczenie_podstawa_brygadzisty,
+      tr.procent_brygadzisty AS rozliczenie_procent_brygadzisty,
+      tr.wynagrodzenie_brygadzisty AS rozliczenie_wynagrodzenie_brygadzisty,
+      COALESCE(mu.materialy_zuzyte_count, 0)::int AS materialy_zuzyte_count,
+      COALESCE(mu.materialy_zuzyte, '[]'::json) AS materialy_zuzyte,
+      COALESCE(mu.koszt_materialow, 0)::numeric AS koszt_materialow,
+      COALESCE(op.koszt_sprzetu, 0)::numeric AS koszt_sprzetu,
+      COALESCE(op.koszt_paliwa, 0)::numeric AS koszt_paliwa,
+      COALESCE(op.koszt_utylizacji, 0)::numeric AS koszt_utylizacji,
+      COALESCE(op.koszt_inne, 0)::numeric AS koszt_inne
+    FROM tasks t
+    LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*)::int AS materialy_zuzyte_count,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'nazwa', m.nazwa,
+              'ilosc', m.ilosc,
+              'jednostka', m.jednostka,
+              'koszt_jednostkowy', m.koszt_jednostkowy,
+              'koszt_laczny', m.koszt_laczny,
+              'notatka', m.notatka
+            )
+            ORDER BY m.id
+          ),
+          '[]'::json
+        ) AS materialy_zuzyte,
+        COALESCE(SUM(m.koszt_laczny), 0) AS koszt_materialow
+      FROM task_finish_material_usage m
+      WHERE m.task_id = t.id
+    ) mu ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        COALESCE(SUM(amount) FILTER (WHERE category = 'sprzet'), 0) AS koszt_sprzetu,
+        COALESCE(SUM(amount) FILTER (WHERE category = 'paliwo'), 0) AS koszt_paliwa,
+        COALESCE(SUM(amount) FILTER (WHERE category = 'utylizacja'), 0) AS koszt_utylizacji,
+        COALESCE(SUM(amount) FILTER (WHERE category = 'inne'), 0) AS koszt_inne
+      FROM task_operational_costs c
+      WHERE c.task_id = t.id
+    ) op ON true
+    WHERE t.id = $1`;
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -1406,7 +1498,20 @@ const taskFinishMaterialRowSchema = z.object({
   nazwa: z.string().trim().min(1).max(200),
   ilosc: z.coerce.number().optional().nullable(),
   jednostka: z.string().trim().max(24).optional().nullable(),
+  koszt_jednostkowy: z.coerce.number().optional().nullable(),
+  koszt_laczny: z.coerce.number().optional().nullable(),
   notatka: z.string().trim().max(500).optional().nullable(),
+});
+
+const taskOperationalCostRowSchema = z.object({
+  category: z.enum(['sprzet', 'paliwo', 'utylizacja', 'inne']).optional(),
+  kategoria: z.enum(['sprzet', 'paliwo', 'utylizacja', 'inne']).optional(),
+  label: z.string().trim().max(200).optional().nullable(),
+  amount: z.coerce.number().optional().nullable(),
+  kwota: z.coerce.number().optional().nullable(),
+  koszt: z.coerce.number().optional().nullable(),
+  source: z.string().trim().max(80).optional().nullable(),
+  note: z.string().trim().max(500).optional().nullable(),
 });
 
 const taskFinishSchema = z.object({
@@ -1415,6 +1520,7 @@ const taskFinishSchema = z.object({
   notatki: z.string().optional().nullable(),
   payment: paymentCloseSchema.optional(),
   zuzyte_materialy: z.array(taskFinishMaterialRowSchema).max(50).optional(),
+  koszty_operacyjne: z.array(taskOperationalCostRowSchema).max(50).optional(),
 });
 
 const extraWorkCreateSchema = z.object({
@@ -2025,7 +2131,7 @@ router.get(
   async (req, res) => {
     await ensureKommoTaskColumns();
     try {
-      const result = await pool.query('SELECT t.* FROM tasks t WHERE t.id = $1', [req.params.id]);
+      const result = await pool.query(taskKommoPayloadSql(), [req.params.id]);
       if (!result.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
       res.json(buildKommoTaskPayload(result.rows[0], kommoActor(req)));
     } catch (err) {
@@ -2043,7 +2149,7 @@ router.post(
   async (req, res) => {
     await ensureKommoTaskColumns();
     try {
-      const result = await pool.query('SELECT t.* FROM tasks t WHERE t.id = $1', [req.params.id]);
+      const result = await pool.query(taskKommoPayloadSql(), [req.params.id]);
       if (!result.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
       const row = result.rows[0];
       if (!kommoWebhookConfigured('crm')) {
@@ -2544,6 +2650,17 @@ router.get('/:id/protokol-link', authMiddleware, validateParams(taskIdParamsSche
     });
   } catch (err) {
     logger.error('tasks.protokolLink.get', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/:id/finish-cost-suggestions', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    const suggestions = await getTaskFinishCostSuggestions(pool, Number(req.params.id));
+    if (!suggestions) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    res.json(suggestions);
+  } catch (err) {
+    logger.error('tasks.finishCostSuggestions.get', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
@@ -3603,6 +3720,20 @@ router.post(
           }
         }
       }
+      const costValidation = validateFinishCostPayload({
+        task,
+        materialRows: req.body.zuzyte_materialy,
+        operationalRows: req.body.koszty_operacyjne,
+      });
+      if (!costValidation.ok) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: costValidation.errors.join('; '),
+          code: 'TASK_FINISH_COST_VALIDATION_FAILED',
+          details: costValidation,
+          requestId: req.requestId,
+        });
+      }
       const wl = await client.query(
         `SELECT id FROM work_logs WHERE task_id = $1 AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`,
         [taskId]
@@ -3687,6 +3818,9 @@ router.post(
           }
           throw e;
         }
+      }
+      if (isTeamScoped(req.user) && Array.isArray(req.body.koszty_operacyjne)) {
+        await insertOperationalCostRows(client, taskId, req.user.id, req.body.koszty_operacyjne);
       }
       const calcDetail = settlementCalcDetail({
         task,

@@ -19,6 +19,12 @@ function num(n) {
 function pct(n) {
   return n == null ? '—' : `${n}%`;
 }
+function sourceStatusLabel(status) {
+  if (status === 'ok') return 'OK';
+  if (status === 'missing') return 'Brak danych';
+  if (status === 'missing_schema') return 'Brak pola';
+  return status || '---';
+}
 function delta(n) {
   if (n == null) return null;
   return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#16a34a' : '#dc2626' };
@@ -60,24 +66,41 @@ function DrillModal({ title, tasks, loading, onClose }) {
           ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-sub)' }}>Brak zleceń</div>
           : (
             <div className="modern-data-stack" style={{ overflowY: 'auto', maxHeight: '60vh', padding: 12 }}>
-              {tasks.map(t => (
-                <ModernDataRow
-                  key={t.id}
-                  idLabel="Order"
-                  idValue={t.numer || `#${t.id}`}
-                  title={t.typ_uslugi || 'Zlecenie'}
-                  subtitle={`${t.oddzial_nazwa || 'brak oddziału'} · ${t.ekipa_nazwa || 'brak ekipy'}`}
-                  tone={t.status === 'Zakonczone' ? 'success' : t.status === 'Anulowane' ? 'danger' : 'info'}
-                  status={t.status}
-                  statusValue={t.status}
-                  statusState={t.status === 'Zakonczone' ? 'success' : t.status === 'Anulowane' ? 'danger' : 'info'}
-                  metrics={[
-                    { label: 'Data', value: t.data_planowana?.slice(0,10) || '—' },
-                    { label: 'Ekipa', value: t.ekipa_nazwa || '—', mono: false },
-                    { label: 'Plan PLN', value: t.wartosc_planowana ? pln(t.wartosc_planowana) : '—', tone: 'success' },
-                  ]}
-                />
-              ))}
+              {tasks.map(t => {
+                const fin = t.financials || {};
+                const sources = Array.isArray(fin.cost_sources) ? fin.cost_sources : [];
+                return (
+                  <div key={t.id} style={dm.drillItem}>
+                    <ModernDataRow
+                      idLabel="Order"
+                      idValue={t.numer || `#${t.id}`}
+                      title={t.typ_uslugi || 'Zlecenie'}
+                      subtitle={`${t.oddzial_nazwa || 'brak oddzialu'} / ${t.ekipa_nazwa || 'brak ekipy'}`}
+                      tone={t.status === 'Zakonczone' ? 'success' : t.status === 'Anulowane' ? 'danger' : 'info'}
+                      status={t.status}
+                      statusValue={t.status}
+                      statusState={t.status === 'Zakonczone' ? 'success' : t.status === 'Anulowane' ? 'danger' : 'info'}
+                      metrics={[
+                        { label: 'Data', value: t.data_planowana?.slice(0,10) || '---' },
+                        { label: 'Ekipa', value: t.ekipa_nazwa || '---', mono: false },
+                        { label: 'Przychod', value: pln(fin.revenue_net ?? t.wartosc_planowana), tone: 'success' },
+                        { label: 'Koszt znany', value: pln(fin.total_known_cost), tone: 'warning' },
+                        { label: 'Marza', value: `${pln(fin.gross_margin)} / ${pct(fin.margin_pct)}`, tone: fin.margin_pct >= 30 ? 'success' : 'danger' },
+                      ]}
+                    />
+                    <div style={dm.breakdown}>
+                      {sources.map(src => (
+                        <div key={src.key} style={dm.costPill}>
+                          <span style={dm.costLabel}>{src.label}</span>
+                          <strong style={dm.costValue}>{pln(src.value)}</strong>
+                          <span style={src.status === 'ok' ? dm.costOk : dm.costMissing}>{sourceStatusLabel(src.status)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {fin.note && <div style={dm.finNote}>{fin.note}</div>}
+                  </div>
+                );
+              })}
             </div>
           )
         }
@@ -103,6 +126,14 @@ const dm = {
   td:      { padding: '9px 10px', color: 'var(--text)', verticalAlign: 'middle' },
   badge:   { display: 'inline-block', borderRadius: 4, padding: '2px 6px', fontSize: 11, color: '#fff', fontWeight: 600 },
   csvBtn:  { padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 },
+  drillItem: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', overflow: 'hidden' },
+  breakdown: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)' },
+  costPill: { display: 'grid', gap: 2, minHeight: 52, padding: '8px 10px', borderRadius: 7, background: 'var(--surface-glass)', border: '1px solid var(--glass-border)' },
+  costLabel: { fontSize: 11, color: 'var(--text-sub)', fontWeight: 700 },
+  costValue: { fontSize: 13, color: 'var(--text)' },
+  costOk: { fontSize: 10, color: '#15803d', fontWeight: 800 },
+  costMissing: { fontSize: 10, color: '#c2410c', fontWeight: 800 },
+  finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
 };
 
 // ─── Inline SVG bar chart ────────────────────────────────────────────────────

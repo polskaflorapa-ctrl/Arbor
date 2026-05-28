@@ -55,6 +55,18 @@ import {
 import { triggerHaptic } from '../../utils/haptics';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+type FinishCostSuggestion = {
+  category: 'sprzet' | 'paliwo' | 'utylizacja' | 'inne';
+  label: string;
+  amount: number;
+  source?: string;
+  basis?: string;
+};
+type FinishCostSuggestions = {
+  suggestions?: FinishCostSuggestion[];
+  rates?: Record<string, number>;
+  validation_limits?: Record<string, number>;
+};
 
 const TYP_ZDJECIA_KEYS = ['wycena', 'szkic', 'dojazd', 'checkin', 'przed', 'po', 'inne'] as const;
 const PHOTO_TYPE_LABELS: Record<(typeof TYP_ZDJECIA_KEYS)[number], string> = {
@@ -491,6 +503,15 @@ export default function ZlecenieDetailScreen() {
   const [finishModal, setFinishModal] = useState(false);
   const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
   const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
+  const [finishUsageKoszt, setFinishUsageKoszt] = useState('');
+  const [finishOperationalCosts, setFinishOperationalCosts] = useState({
+    sprzet: '',
+    paliwo: '',
+    utylizacja: '',
+    inne: '',
+  });
+  const [finishCostSuggestions, setFinishCostSuggestions] = useState<FinishCostSuggestions | null>(null);
+  const [finishCostSuggestionsLoading, setFinishCostSuggestionsLoading] = useState(false);
   const [finishNotatki, setFinishNotatki] = useState('');
   const [finishIssuesReviewed, setFinishIssuesReviewed] = useState(false);
   const [finishClientAccepted, setFinishClientAccepted] = useState(false);
@@ -1338,6 +1359,36 @@ export default function ZlecenieDetailScreen() {
   };
 
   /** M3 F3.9 — ekran płatności przed zakończeniem (ekipa). F3.5–F3.7 — zgodność z regułami serwera. */
+  const suggestedFinishCosts = (suggestions: FinishCostSuggestions | null = finishCostSuggestions) => {
+    const next = { sprzet: '', paliwo: '', utylizacja: '', inne: '' };
+    for (const item of suggestions?.suggestions || []) {
+      const amount = Number(item.amount);
+      if (item.category in next && Number.isFinite(amount) && amount > 0) {
+        next[item.category] = String(amount);
+      }
+    }
+    return next;
+  };
+
+  const loadFinishCostSuggestions = async () => {
+    if (!token) return null;
+    setFinishCostSuggestionsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/tasks/${id}/finish-cost-suggestions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('finish_cost_suggestions_failed');
+      const data = await res.json();
+      setFinishCostSuggestions(data);
+      return data as FinishCostSuggestions;
+    } catch {
+      setFinishCostSuggestions(null);
+      return null;
+    } finally {
+      setFinishCostSuggestionsLoading(false);
+    }
+  };
+
   const zakoncz = () => {
     void triggerHaptic('light');
     const fr = finishRequirements;
@@ -1367,7 +1418,14 @@ export default function ZlecenieDetailScreen() {
       ]);
       return;
     }
+    setFinishUsageKoszt('');
+    setFinishOperationalCosts({ sprzet: '', paliwo: '', utylizacja: '', inne: '' });
+    setFinishCostSuggestions(null);
     setFinishModal(true);
+    void loadFinishCostSuggestions().then((data) => {
+      const next = suggestedFinishCosts(data);
+      if (Object.values(next).some(Boolean)) setFinishOperationalCosts(next);
+    });
   };
 
   const submitFinish = async () => {
@@ -1391,6 +1449,39 @@ export default function ZlecenieDetailScreen() {
       Alert.alert(t('notif.alert.errorTitle'), t('order.finishMaterialRequired'));
       return;
     }
+    const parseOptionalFinishMoney = (value: string, label: string): number | false | null => {
+      const raw = String(value || '').trim().replace(',', '.');
+      if (!raw) return null;
+      const parsed = parseFloat(raw);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        void triggerHaptic('warning');
+        Alert.alert('Uwaga', `Podaj poprawny koszt: ${label}.`);
+        return false;
+      }
+      return Math.round(parsed * 100) / 100;
+    };
+    const usageCost = parseOptionalFinishMoney(finishUsageKoszt, 'materialy');
+    if (usageCost === false) return;
+    const costLabels: Record<string, string> = {
+      sprzet: 'sprzet',
+      paliwo: 'paliwo',
+      utylizacja: 'utylizacja',
+      inne: 'inne',
+    };
+    const koszty_operacyjne = Object.entries(finishOperationalCosts)
+      .map(([category, value]) => {
+        const amount = parseOptionalFinishMoney(value, costLabels[category] || category);
+        if (amount === false) return false;
+        if (amount == null) return null;
+        return {
+          category,
+          amount,
+          label: costLabels[category] || category,
+          source: 'mobile_finish',
+        };
+      });
+    if (koszty_operacyjne.some((row) => row === false)) return;
+    const operationalCostRows = koszty_operacyjne.filter(Boolean);
     if (!finishAfterPhotoReady) {
       void triggerHaptic('warning');
       Alert.alert('Brakuje zdjęć po pracy', 'Dodaj minimum jedno zdjęcie po zakończeniu, żeby biuro i klient mieli jasny protokół odbioru.', [
@@ -1451,6 +1542,7 @@ export default function ZlecenieDetailScreen() {
               {
                 nazwa: usageNazwa.slice(0, 200),
                 ...(Number.isFinite(usageIlosc) ? { ilosc: usageIlosc, jednostka: 'szt' } : {}),
+                ...(usageCost != null ? { koszt_laczny: usageCost } : {}),
               },
             ]
           : undefined;
@@ -1475,6 +1567,7 @@ export default function ZlecenieDetailScreen() {
         lng: coords?.lng ?? null,
         notatki: noteTrim,
         ...(zuzyte_materialy ? { zuzyte_materialy } : {}),
+        ...(operationalCostRows.length ? { koszty_operacyjne: operationalCostRows } : {}),
         payment: {
           forma_platnosc,
           kwota_odebrana: forma_platnosc === 'Gotowka' ? parseFloat(String(kwota_odebrana).replace(',', '.')) : null,
@@ -7352,6 +7445,68 @@ export default function ZlecenieDetailScreen() {
                 value={finishUsageIlosc}
                 onChangeText={setFinishUsageIlosc}
               />
+              <Text style={[S.modalLbl, { color: theme.textSub }]}>Koszt materialow PLN</Text>
+              <TextInput
+                style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                placeholder="0"
+                placeholderTextColor={theme.inputPlaceholder}
+                keyboardType="decimal-pad"
+                value={finishUsageKoszt}
+                onChangeText={setFinishUsageKoszt}
+              />
+              <Text style={[S.modalLbl, { color: theme.textSub, marginTop: 10 }]}>Koszty operacyjne do marzy</Text>
+              <View style={[S.finishSwitchRow, { backgroundColor: theme.cardBg, borderColor: theme.border, marginBottom: 8 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.finishSwitchTitle, { color: theme.text }]}>
+                    {finishCostSuggestionsLoading ? 'Pobieram stawki oddzialu...' : 'Sugestie ze stawek oddzialu'}
+                  </Text>
+                  <Text style={[S.finishSwitchHint, { color: theme.textMuted }]}>
+                    Backend waliduje wartosci ujemne i koszty poza limitem marzy.
+                  </Text>
+                  {finishCostSuggestions?.suggestions?.length ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {finishCostSuggestions.suggestions.map((item) => (
+                        <TouchableOpacity
+                          key={item.category}
+                          style={[S.typBtn, { backgroundColor: theme.surface2, borderColor: theme.border }]}
+                          onPress={() => {
+                            const amount = Number(item.amount);
+                            if (Number.isFinite(amount) && amount > 0) {
+                              setFinishOperationalCosts((prev) => ({ ...prev, [item.category]: String(amount) }));
+                            }
+                          }}
+                        >
+                          <Text style={[S.typBtnTxt, { color: theme.textSub }]}>
+                            {item.label}: {Number(item.amount || 0).toFixed(2)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                      <TouchableOpacity
+                        style={[S.typBtn, { backgroundColor: theme.accentLight, borderColor: theme.accent }]}
+                        onPress={() => setFinishOperationalCosts(suggestedFinishCosts())}
+                      >
+                        <Text style={[S.typBtnTxt, { color: theme.accent }]}>Uzyj sugestii</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+              {[
+                ['sprzet', 'Sprzet PLN'],
+                ['paliwo', 'Paliwo PLN'],
+                ['utylizacja', 'Utylizacja PLN'],
+                ['inne', 'Inne PLN'],
+              ].map(([key, label]) => (
+                <TextInput
+                  key={key}
+                  style={[S.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.inputText }]}
+                  placeholder={label}
+                  placeholderTextColor={theme.inputPlaceholder}
+                  keyboardType="decimal-pad"
+                  value={finishOperationalCosts[key as keyof typeof finishOperationalCosts]}
+                  onChangeText={(value) => setFinishOperationalCosts((prev) => ({ ...prev, [key]: value }))}
+                />
+              ))}
               </ScrollView>
               <View style={S.modalBtns}>
                 <TouchableOpacity

@@ -72,10 +72,11 @@ function gpsRows(date = '2026-05-26') {
   ];
 }
 
-function mockApi() {
+function mockApi({ taskOverride = {}, workLogs = [] } = {}) {
+  const taskRow = { ...task, ...taskOverride };
   api.get.mockImplementation(async (path) => {
-    if (path === '/tasks/42') return { data: task };
-    if (path === '/tasks/42/logi') return { data: [] };
+    if (path === '/tasks/42') return { data: taskRow };
+    if (path === '/tasks/42/logi') return { data: workLogs };
     if (path === '/tasks/42/problemy') return { data: [] };
     if (path === '/tasks/42/zdjecia') return { data: [] };
     if (path === '/tasks/42/wideo') return { data: [] };
@@ -179,6 +180,57 @@ test('loads task GPS history and refreshes it for a selected date', async () => 
     expect(api.get).toHaveBeenCalledWith(
       expect.stringContaining('/ekipy/gps-history?date=2026-05-27'),
       expect.objectContaining({ dedupe: false })
+    );
+  });
+});
+
+test('submits finish with material and operational costs', async () => {
+  localStorage.setItem('user', JSON.stringify({
+    id: 9,
+    imie: 'Jan',
+    rola: 'Brygadzista',
+    oddzial_id: 1,
+  }));
+  mockApi({
+    taskOverride: { status: 'W_Realizacji', finish_requirements: { require_material_usage: false } },
+    workLogs: [{ id: 701, task_id: 42, start_time: '2026-05-26T08:00:00.000Z', end_time: null }],
+  });
+  api.post.mockResolvedValueOnce({ data: { message: 'ok' } });
+
+  await act(async () => {
+    renderDetail();
+  });
+
+  const openFinishButton = await screen.findByRole('button', { name: /Zako.*zlecenie/i });
+  await act(async () => {
+    await userEvent.click(openFinishButton);
+  });
+
+  await act(async () => {
+    await userEvent.clear(screen.getByPlaceholderText(/Nazwa materia/i));
+    await userEvent.type(screen.getByPlaceholderText(/Nazwa materia/i), 'Paliwo mieszanka');
+    await userEvent.type(screen.getByPlaceholderText(/Ilo/i), '5');
+    await userEvent.type(screen.getByPlaceholderText(/Koszt materia/i), '80');
+    await userEvent.type(screen.getByPlaceholderText('Sprzęt PLN'), '100');
+    await userEvent.type(screen.getByPlaceholderText('Paliwo PLN'), '50');
+    await userEvent.type(screen.getByPlaceholderText('Utylizacja PLN'), '40');
+    await userEvent.type(screen.getByPlaceholderText('Inne PLN'), '10');
+    await userEvent.click(screen.getByRole('button', { name: /^Zako.*zlecenie$/i }));
+  });
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/tasks/42/finish',
+      expect.objectContaining({
+        zuzyte_materialy: [expect.objectContaining({ nazwa: 'Paliwo mieszanka', ilosc: 5, koszt_laczny: 80 })],
+        koszty_operacyjne: expect.arrayContaining([
+          expect.objectContaining({ category: 'sprzet', amount: 100, source: 'web_finish' }),
+          expect.objectContaining({ category: 'paliwo', amount: 50, source: 'web_finish' }),
+          expect.objectContaining({ category: 'utylizacja', amount: 40, source: 'web_finish' }),
+          expect.objectContaining({ category: 'inne', amount: 10, source: 'web_finish' }),
+        ]),
+      }),
+      expect.any(Object)
     );
   });
 });

@@ -1,4 +1,5 @@
 const { sendSystemEmailOptional } = require('./systemEmail');
+const { calculateTaskMargin, isLowMarginRisk, money } = require('./taskMargin');
 
 const DIGEST_TYPE = 'operational_daily_digest';
 const CENTRAL_ROLES = ['Prezes', 'Dyrektor', 'Administrator'];
@@ -42,11 +43,6 @@ function firstRow(result) {
 
 function count(row, key) {
   return Number(row?.[key] || 0);
-}
-
-function money(value) {
-  const n = Number(value) || 0;
-  return Math.round(n);
 }
 
 function topTaskLabel(row) {
@@ -190,17 +186,35 @@ async function buildOperationalDigest(pool, options = {}) {
     WITH settled AS (
       SELECT t.id, t.klient_nazwa, t.oddzial_id,
              COALESCE(t.wartosc_rzeczywista, t.wartosc_planowana, tr.wartosc_brutto, 0)::numeric AS revenue,
-             (COALESCE(tr.koszt_pomocnikow, 0) + COALESCE(tr.wynagrodzenie_brygadzisty, 0))::numeric AS labor_cost
+             COALESCE(b.marza_prog_rentowosci_pct, 15)::numeric AS threshold_pct,
+             (
+               COALESCE(tr.koszt_pomocnikow, 0) +
+               COALESCE(tr.wynagrodzenie_brygadzisty, 0) +
+               COALESCE(op.koszt_operacyjny, 0) +
+               COALESCE(mu.koszt_materialow, 0)
+             )::numeric AS labor_cost
       FROM tasks t
       JOIN task_rozliczenie tr ON tr.task_id = t.id
+      LEFT JOIN branches b ON b.id = t.oddzial_id
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(amount), 0)::numeric AS koszt_operacyjny
+        FROM task_operational_costs c
+        WHERE c.task_id = t.id
+      ) op ON true
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(koszt_laczny), 0)::numeric AS koszt_materialow
+        FROM task_finish_material_usage m
+        WHERE m.task_id = t.id
+      ) mu ON true
       WHERE t.status = 'Zakonczone'
         AND COALESCE(t.data_zakonczenia, t.data_planowana, t.updated_at) >= $1::date - INTERVAL '7 days'
         ${marginBranch}
     )
-    SELECT id, klient_nazwa, oddzial_id, revenue, labor_cost,
-           ROUND(((revenue - labor_cost) / NULLIF(revenue, 0)) * 100, 1) AS margin_pct
+    SELECT id, klient_nazwa, oddzial_id, revenue, labor_cost, threshold_pct,
+           ((revenue - labor_cost) / NULLIF(revenue, 0) * 100)::numeric AS margin_pct
     FROM settled
-    WHERE revenue > 0 AND labor_cost / NULLIF(revenue, 0) >= 0.8
+    WHERE revenue > 0
+      AND ((revenue - labor_cost) / NULLIF(revenue, 0) * 100) < threshold_pct
     ORDER BY margin_pct ASC NULLS FIRST, revenue DESC
     LIMIT 8`;
 
@@ -318,12 +332,25 @@ async function buildOperationalDigest(pool, options = {}) {
       unassigned_tasks: unassignedResult.rows,
       fleet_due: fleetDueResult.rows,
       reservation_conflicts: conflictResult.rows,
-      margin_risks: marginResult.rows.map((row) => ({
-        ...row,
-        revenue: money(row.revenue),
-        labor_cost: money(row.labor_cost),
-        margin_pct: row.margin_pct == null ? null : Number(row.margin_pct),
-      })),
+      margin_risks: marginResult.rows
+        .map((row) => {
+          const margin = calculateTaskMargin({
+            revenue_net: row.revenue,
+            labor_cost: row.labor_cost,
+          });
+          return {
+            ...row,
+            revenue: money(margin.revenue_net),
+            labor_cost: money(margin.costs.direct_labor_cost),
+            margin_pct: margin.margin_pct,
+            total_known_cost: money(margin.total_known_cost),
+          };
+        })
+        .filter((row) => isLowMarginRisk({
+          revenue_net: row.revenue,
+          total_known_cost: row.total_known_cost,
+          marginThresholdPct: Number(row.threshold_pct || 15),
+        })),
     },
     errors,
   };

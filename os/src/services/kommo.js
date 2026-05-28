@@ -8,6 +8,7 @@ const KOMMO_WEBHOOK_URL =
 const KOMMO_CRM_WEBHOOK_URL = (process.env.KOMMO_CRM_WEBHOOK_URL || '').trim();
 const KOMMO_WEBHOOK_SECRET_HEADER = (process.env.KOMMO_WEBHOOK_SECRET_HEADER || '').trim();
 const KOMMO_WEBHOOK_SECRET = (process.env.KOMMO_WEBHOOK_SECRET || '').trim();
+const { calculateTaskMargin, money } = require('./taskMargin');
 
 function toNum(v) {
   if (v === '' || v === undefined || v === null) return null;
@@ -68,10 +69,36 @@ function customField(fieldId, value) {
   };
 }
 
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function buildKommoTaskPayload(row, actor = null) {
   const client = toCompactText(row.klient_nazwa);
   const leadName = ['Zlecenie', `#${row.id}`, client].filter(Boolean).join(' · ');
   const addr = [toCompactText(row.adres), toCompactText(row.miasto)].filter(Boolean).join(', ');
+  const settlementRevenue = money(row.wartosc_netto_do_rozliczenia ?? row.rozliczenie_wartosc_netto ?? row.wartosc_planowana);
+  const helperCost = money(row.rozliczenie_koszt_pomocnikow);
+  const crewLeadCost = money(row.rozliczenie_wynagrodzenie_brygadzisty);
+  const materialRows = parseJsonArray(row.materialy_zuzyte);
+  const margin = calculateTaskMargin({
+    revenue_net: settlementRevenue,
+    helper_cost: helperCost,
+    crew_lead_pay: crewLeadCost,
+    equipment_cost: row.koszt_sprzetu,
+    fuel_cost: row.koszt_paliwa,
+    material_cost: row.koszt_materialow,
+    disposal_cost: row.koszt_utylizacji,
+    other_cost: row.koszt_inne,
+    marza_pct: row.marza_pct,
+  });
   const customFields = [
     customField(KOMMO_CF_ORDER_ID, row.id),
     customField(KOMMO_CF_BRANCH_ID, row.oddzial_id ?? null),
@@ -113,7 +140,41 @@ function buildKommoTaskPayload(row, actor = null) {
       wartosc_netto_do_rozliczenia: row.wartosc_netto_do_rozliczenia != null
         ? Number(row.wartosc_netto_do_rozliczenia)
         : null,
-      marza_pct: row.marza_pct != null ? Number(row.marza_pct) : null,
+      marza_pct: margin.margin_pct,
+      financials: {
+        revenue_net: margin.revenue_net,
+        direct_labor_cost: margin.costs.direct_labor_cost,
+        helper_cost: helperCost,
+        crew_lead_pay: crewLeadCost,
+        equipment_cost: margin.costs.equipment_cost,
+        fuel_cost: margin.costs.fuel_cost,
+        material_cost: margin.costs.material_cost,
+        disposal_cost: margin.costs.disposal_cost,
+        other_cost: margin.costs.other_cost,
+        total_known_cost: margin.total_known_cost,
+        gross_margin: margin.gross_margin,
+        margin_pct: margin.margin_pct,
+      },
+      settlement: {
+        gross: money(row.rozliczenie_wartosc_brutto),
+        vat_rate: row.rozliczenie_vat_stawka != null ? Number(row.rozliczenie_vat_stawka) : null,
+        net: money(row.rozliczenie_wartosc_netto),
+        helper_cost: helperCost,
+        crew_lead_base: money(row.rozliczenie_podstawa_brygadzisty),
+        crew_lead_pct: row.rozliczenie_procent_brygadzisty != null ? Number(row.rozliczenie_procent_brygadzisty) : null,
+        crew_lead_pay: crewLeadCost,
+      },
+      material_usage: {
+        count: Number(row.materialy_zuzyte_count || materialRows.length || 0),
+        items: materialRows.map((item) => ({
+          nazwa: toCompactText(item?.nazwa),
+          ilosc: item?.ilosc != null ? Number(item.ilosc) : null,
+          jednostka: toCompactText(item?.jednostka),
+          koszt_jednostkowy: money(item?.koszt_jednostkowy, null),
+          koszt_laczny: money(item?.koszt_laczny, null),
+          notatka: toCompactText(item?.notatka),
+        })),
+      },
       notatki_wewnetrzne: toCompactText(row.notatki_wewnetrzne),
       sync_meta: {
         last_sync_at: row.kommo_last_sync_at || null,
