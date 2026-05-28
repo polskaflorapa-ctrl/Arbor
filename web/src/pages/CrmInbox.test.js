@@ -38,20 +38,34 @@ beforeEach(() => {
   localStorage.setItem('token', 'crm-inbox-token');
   api.get.mockReset();
   api.post.mockReset();
-  api.get.mockResolvedValue({
-    data: [
-      {
-        id: 701,
-        lead_id: 22,
-        lead_title: 'Oferta ogrodu',
-        channel: 'whatsapp',
-        direction: 'inbound',
-        status: 'received',
-        sender_handle: '+48500100200',
-        body: 'Prosze o szybka wycene.',
-        created_at: '2026-05-28T08:00:00.000Z',
-      },
-    ],
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/message-templates') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 31,
+            name: 'Follow-up wycena',
+            channel: 'whatsapp',
+            body: 'Dzien dobry, wracam z wycena dla {title}.',
+          },
+        ],
+      });
+    }
+    return Promise.resolve({
+      data: [
+        {
+          id: 701,
+          lead_id: 22,
+          lead_title: 'Oferta ogrodu',
+          channel: 'whatsapp',
+          direction: 'inbound',
+          status: 'received',
+          sender_handle: '+48500100200',
+          body: 'Prosze o szybka wycene.',
+          created_at: '2026-05-28T08:00:00.000Z',
+        },
+      ],
+    });
   });
   api.post.mockResolvedValue({ data: { id: 702, status: 'queued' } });
 });
@@ -110,4 +124,28 @@ test('adds a reply from unified inbox to the send queue', async () => {
     );
   });
   expect(await screen.findByText('Odpowiedz dodana do kolejki wysylki.')).toBeInTheDocument();
+});
+
+test('uses a message template when replying from unified inbox', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  fireEvent.change(await screen.findByDisplayValue('Bez szablonu'), { target: { value: '31' } });
+  expect(screen.getByDisplayValue('Dzien dobry, wracam z wycena dla {title}.')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Dodaj do kolejki' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/leads/22/messages',
+      expect.objectContaining({
+        template_id: 31,
+        body: 'Dzien dobry, wracam z wycena dla {title}.',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 });
