@@ -1,5 +1,5 @@
 import '../i18n';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import CrmDashboard from './CrmDashboard';
@@ -29,6 +29,7 @@ vi.mock('../api', () => ({
   __esModule: true,
   default: {
     get: vi.fn(),
+    patch: vi.fn(),
   },
 }));
 
@@ -36,6 +37,7 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('token', 'crm-dashboard-token');
   api.get.mockReset();
+  api.patch.mockReset();
   api.get.mockImplementation((url) => {
     if (url === '/crm/overview') {
       return Promise.resolve({
@@ -52,9 +54,26 @@ beforeEach(() => {
         },
       });
     }
+    if (url === '/crm/messages/queue') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 501,
+            lead_id: 22,
+            lead_title: 'Oferta ogrodu',
+            channel: 'whatsapp',
+            status: 'queued',
+            subject: null,
+            body: 'Dzien dobry, wracam z oferta.',
+            retry_count: 0,
+          },
+        ],
+      });
+    }
     if (url === '/oddzialy') return Promise.resolve({ data: [] });
     return Promise.resolve({ data: [] });
   });
+  api.patch.mockResolvedValue({ data: {} });
 });
 
 afterEach(() => {
@@ -76,4 +95,26 @@ test('renders CRM conversion analytics and owner performance', async () => {
   expect(screen.getByText('Średnia ocena')).toBeInTheDocument();
   expect(screen.getByText('whatsapp')).toBeInTheDocument();
   expect(screen.getByText('Wygrane/przegrane: 1/1')).toBeInTheDocument();
+});
+
+test('renders and updates CRM message send queue', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmDashboard />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText('Kolejka wysylki')).toBeInTheDocument();
+  expect(screen.getByText('Oferta ogrodu')).toBeInTheDocument();
+  expect(screen.getByText('Dzien dobry, wracam z oferta.')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Wyslane' }));
+
+  await waitFor(() => {
+    expect(api.patch).toHaveBeenCalledWith(
+      '/crm/messages/501/status',
+      { status: 'sent', error: undefined },
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 });

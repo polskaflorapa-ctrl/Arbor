@@ -883,6 +883,9 @@ CREATE TABLE IF NOT EXISTS crm_lead_messages (
 CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_lead ON crm_lead_messages(lead_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_channel ON crm_lead_messages(channel, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_external ON crm_lead_messages(external_message_id);
+ALTER TABLE crm_lead_messages ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE crm_lead_messages ADD COLUMN IF NOT EXISTS last_error TEXT;
+CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_queue ON crm_lead_messages(status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS crm_workflow_rules (
   id              SERIAL PRIMARY KEY,

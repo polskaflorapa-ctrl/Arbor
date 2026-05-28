@@ -875,6 +875,8 @@ function normActType(t) {
 const MESSAGE_CHANNELS = ['whatsapp', 'instagram', 'facebook', 'messenger', 'telegram', 'email', 'sms', 'phone', 'webchat', 'other'];
 const MESSAGE_DIRECTIONS = ['inbound', 'outbound'];
 const MESSAGE_STATUSES = ['received', 'queued', 'sent', 'delivered', 'read', 'failed'];
+const QUEUE_STATUSES = ['queued', 'failed', 'sent', 'delivered', 'read'];
+let messageQueueSchemaReady = false;
 
 function normMessageChannel(channel) {
   const value = String(channel || '').trim().toLowerCase();
@@ -897,10 +899,23 @@ function safeJsonObject(value) {
   return value;
 }
 
+async function ensureMessageQueueSchema() {
+  if (messageQueueSchemaReady) return;
+  await pool.query('ALTER TABLE crm_lead_messages ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0');
+  await pool.query('ALTER TABLE crm_lead_messages ADD COLUMN IF NOT EXISTS last_error TEXT');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_queue ON crm_lead_messages(status, created_at DESC)');
+  messageQueueSchemaReady = true;
+}
+
 function mapMessageRow(row) {
   return {
     id: row.id,
     lead_id: row.lead_id,
+    lead_title: row.lead_title || null,
+    lead_phone: row.lead_phone || null,
+    lead_email: row.lead_email || null,
+    client_name: row.client_name || null,
+    oddzial_id: row.oddzial_id || null,
     channel: normMessageChannel(row.channel),
     direction: normMessageDirection(row.direction),
     sender_name: row.sender_name,
@@ -914,6 +929,8 @@ function mapMessageRow(row) {
     template_key: row.template_key,
     dynamic_fields: row.dynamic_fields || {},
     metadata: row.metadata || {},
+    retry_count: Number(row.retry_count || 0),
+    last_error: row.last_error || null,
     delivered_at: row.delivered_at,
     read_at: row.read_at,
     created_by: row.created_by,
@@ -1035,6 +1052,104 @@ router.patch('/leads/:leadId/activities/:activityId', async (req, res) => {
   } catch (err) {
     logger.error('crm.activities.patch', { message: err.message });
     res.status(500).json({ error: 'Aktualizacja aktywności nie powiodła się' });
+  }
+});
+
+router.get('/messages/queue', async (req, res) => {
+  try {
+    await ensureMessageQueueSchema();
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    if (oddzialId && !canAccessOddzial(req.user, oddzialId)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+
+    const requestedStatus = String(req.query.status || 'queued').trim().toLowerCase();
+    const statuses = requestedStatus === 'all'
+      ? ['queued', 'failed']
+      : [QUEUE_STATUSES.includes(requestedStatus) ? requestedStatus : 'queued'];
+    const channel = String(req.query.channel || '').trim().toLowerCase();
+    const limit = Math.min(Math.max(toInt(req.query.limit) || 50, 1), 200);
+    const params = [statuses];
+    const where = ['m.direction = \'outbound\'', 'm.status = ANY($1)'];
+
+    if (oddzialId) {
+      params.push(oddzialId);
+      where.push(`l.oddzial_id = $${params.length}`);
+    }
+    if (channel && MESSAGE_CHANNELS.includes(channel)) {
+      params.push(channel);
+      where.push(`m.channel = $${params.length}`);
+    }
+    params.push(limit);
+
+    const { rows } = await pool.query(
+      `SELECT m.*,
+              l.title AS lead_title,
+              l.phone AS lead_phone,
+              l.email AS lead_email,
+              l.oddzial_id,
+              COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
+              u.imie, u.nazwisko, u.login
+       FROM crm_lead_messages m
+       JOIN crm_leads l ON l.id = m.lead_id
+       LEFT JOIN klienci k ON k.id = l.client_id
+       LEFT JOIN users u ON u.id = m.created_by
+       WHERE ${where.join(' AND ')}
+       ORDER BY m.created_at ASC
+       LIMIT $${params.length}`,
+      params
+    );
+
+    res.json(rows.map(mapMessageRow));
+  } catch (err) {
+    logger.error('crm.messages.queue.get', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu kolejki wiadomosci CRM' });
+  }
+});
+
+router.patch('/messages/:messageId/status', async (req, res) => {
+  const messageId = toInt(req.params.messageId);
+  if (!messageId) return res.status(400).json({ error: 'Nieprawidlowe id wiadomosci' });
+  const status = String(req.body?.status || '').trim().toLowerCase();
+  if (!MESSAGE_STATUSES.includes(status)) return res.status(400).json({ error: 'Nieprawidlowy status wiadomosci' });
+
+  try {
+    await ensureMessageQueueSchema();
+    const existing = (await pool.query(
+      `SELECT m.*, l.title AS lead_title, l.oddzial_id
+       FROM crm_lead_messages m
+       JOIN crm_leads l ON l.id = m.lead_id
+       WHERE m.id = $1`,
+      [messageId]
+    )).rows[0];
+    if (!existing) return res.status(404).json({ error: 'Wiadomosc nie znaleziona' });
+    if (!canAccessOddzial(req.user, existing.oddzial_id)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+
+    const now = new Date().toISOString();
+    const lastError = status === 'failed' ? String(req.body?.error || req.body?.last_error || '').trim() || 'Wysylka nie powiodla sie' : null;
+    const { rows } = await pool.query(
+      `UPDATE crm_lead_messages
+       SET status = $2,
+           retry_count = CASE WHEN $2 = 'failed' THEN retry_count + 1 ELSE retry_count END,
+           last_error = CASE WHEN $2 = 'failed' THEN $3 ELSE NULL END,
+           delivered_at = CASE WHEN $2 IN ('sent', 'delivered', 'read') THEN COALESCE(delivered_at, $4::timestamptz) ELSE delivered_at END,
+           read_at = CASE WHEN $2 = 'read' THEN COALESCE(read_at, $4::timestamptz) ELSE read_at END
+       WHERE id = $1
+       RETURNING *`,
+      [messageId, status, lastError, now]
+    );
+    await pool.query('UPDATE crm_leads SET updated_at = $1, updated_by = $2 WHERE id = $3', [now, req.user.id, existing.lead_id]);
+
+    res.json(mapMessageRow({
+      ...rows[0],
+      lead_title: existing.lead_title,
+      oddzial_id: existing.oddzial_id,
+    }));
+  } catch (err) {
+    logger.error('crm.messages.status.patch', { message: err.message });
+    res.status(500).json({ error: 'Aktualizacja statusu wiadomosci CRM nie powiodla sie' });
   }
 });
 

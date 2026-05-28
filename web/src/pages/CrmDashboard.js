@@ -25,6 +25,9 @@ export default function CrmDashboard() {
     sources: [],
     callbacks: [],
   });
+  const [messageQueue, setMessageQueue] = useState([]);
+  const [queueStatus, setQueueStatus] = useState('all');
+  const [queueSavingId, setQueueSavingId] = useState(null);
 
   const loadData = async () => {
     try {
@@ -33,12 +36,15 @@ export default function CrmDashboard() {
       const token = getStoredToken();
       const headers = authHeaders(token);
       const params = oddzialId ? { oddzial_id: oddzialId } : {};
-      const [overviewRes, oddzialyRes] = await Promise.all([
+      const queueParams = { ...params, status: queueStatus, limit: 12 };
+      const [overviewRes, oddzialyRes, queueRes] = await Promise.all([
         api.get('/crm/overview', { headers, params }),
         api.get('/oddzialy', { headers }).catch(() => ({ data: [] })),
+        api.get('/crm/messages/queue', { headers, params: queueParams }).catch(() => ({ data: [] })),
       ]);
       setOverview(overviewRes.data || { kpis: {}, pipeline: [], sources: [], callbacks: [] });
       setOddzialy(Array.isArray(oddzialyRes.data) ? oddzialyRes.data : []);
+      setMessageQueue(Array.isArray(queueRes.data) ? queueRes.data : []);
     } catch (e) {
       const base = getApiErrorMessage(e, t('crm.dashboard.loadError', { defaultValue: 'Nie udało się pobrać dashboardu CRM' }));
       const path = e?.requestDebug?.urlPath || '';
@@ -59,7 +65,25 @@ export default function CrmDashboard() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oddzialId]);
+  }, [oddzialId, queueStatus]);
+
+  const updateQueueMessage = async (messageId, status) => {
+    try {
+      setQueueSavingId(messageId);
+      setMsg('');
+      const token = getStoredToken();
+      await api.patch(
+        `/crm/messages/${messageId}/status`,
+        { status, error: status === 'failed' ? 'Oznaczone recznie w CRM' : undefined },
+        { headers: authHeaders(token) }
+      );
+      await loadData();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.dashboard.queueUpdateError', { defaultValue: 'Nie udalo sie zaktualizowac kolejki wysylki' })));
+    } finally {
+      setQueueSavingId(null);
+    }
+  };
 
   const kpiCards = useMemo(() => {
     const k = overview.kpis || {};
@@ -79,6 +103,10 @@ export default function CrmDashboard() {
   const conversion = overview.analytics?.conversion || {};
   const owners = overview.analytics?.owners || [];
   const nps = overview.analytics?.nps || {};
+  const queueCounts = messageQueue.reduce((acc, item) => {
+    acc[item.status] = (acc[item.status] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="app-shell">
@@ -257,6 +285,72 @@ export default function CrmDashboard() {
                   <strong>{value}</strong>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>
+                  {t('crm.dashboard.messageQueue', { defaultValue: 'Kolejka wysylki' })}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {t('crm.dashboard.messageQueueMeta', { defaultValue: 'Do wyslania' })}: {queueCounts.queued || 0} · {t('crm.dashboard.messageQueueFailed', { defaultValue: 'Bledy' })}: {queueCounts.failed || 0}
+                </div>
+              </div>
+              <select
+                className="ios-field"
+                value={queueStatus}
+                onChange={(e) => setQueueStatus(e.target.value)}
+                style={{ maxWidth: 180 }}
+                aria-label={t('crm.dashboard.messageQueueFilter', { defaultValue: 'Status kolejki wysylki' })}
+              >
+                <option value="all">{t('crm.dashboard.queueAll', { defaultValue: 'Otwarte i bledy' })}</option>
+                <option value="queued">{t('crm.dashboard.queueQueued', { defaultValue: 'Do wyslania' })}</option>
+                <option value="failed">{t('crm.dashboard.queueFailed', { defaultValue: 'Bledy' })}</option>
+                <option value="sent">{t('crm.dashboard.queueSent', { defaultValue: 'Wyslane' })}</option>
+              </select>
+            </div>
+            <div className="ios-inset-list">
+              {messageQueue.map((m) => (
+                <div key={m.id} className="ios-inset-row" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                      <strong>{m.lead_title || m.client_name || `#${m.lead_id}`}</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.channel} · {m.status}</span>
+                    </div>
+                    <div style={{ fontSize: 13, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.subject ? `${m.subject}: ` : ''}{m.body}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                      {t('crm.dashboard.queueRetryCount', { defaultValue: 'Proby' })}: {m.retry_count || 0}
+                      {m.last_error ? ` · ${m.last_error}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {m.status === 'failed' ? (
+                      <button className="ios-btn" type="button" disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'queued')}>
+                        {t('crm.dashboard.queueRetry', { defaultValue: 'Ponow' })}
+                      </button>
+                    ) : null}
+                    {m.status === 'queued' || m.status === 'failed' ? (
+                      <>
+                        <button className="ios-btn ios-btn-primary" type="button" disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'sent')}>
+                          {t('crm.dashboard.queueMarkSent', { defaultValue: 'Wyslane' })}
+                        </button>
+                        <button className="ios-btn" type="button" disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'failed')}>
+                          {t('crm.dashboard.queueMarkFailed', { defaultValue: 'Blad' })}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+              {!loading && messageQueue.length === 0 ? (
+                <div className="ios-inset-row muted">
+                  {t('crm.dashboard.emptyMessageQueue', { defaultValue: 'Brak wiadomosci w kolejce.' })}
+                </div>
+              ) : null}
             </div>
           </section>
 
