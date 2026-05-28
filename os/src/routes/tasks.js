@@ -91,6 +91,34 @@ async function ensureKommoInboundEventTable() {
   `);
 }
 
+let _taskDocumentsTable = false;
+async function ensureTaskDocumentsTable() {
+  if (_taskDocumentsTable) return;
+  _taskDocumentsTable = true;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_documents (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      nazwa VARCHAR(240) NOT NULL,
+      sciezka TEXT NOT NULL,
+      mime_type VARCHAR(120),
+      rozmiar_bytes INTEGER,
+      kategoria VARCHAR(80) NOT NULL DEFAULT 'inne',
+      status VARCHAR(40) NOT NULL DEFAULT 'roboczy',
+      opis TEXT,
+      wersja INTEGER NOT NULL DEFAULT 1,
+      source_provider VARCHAR(40),
+      source_external_id VARCHAR(160),
+      remote_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (source_provider, source_external_id)
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_task_documents_task ON task_documents (task_id, created_at DESC)');
+}
+
 let _taskOperationalCols = false;
 async function ensureTaskOperationalColumns() {
   if (_taskOperationalCols) return;
@@ -463,6 +491,23 @@ const upload = multer({
       cb(new Error('Tylko obrazy'), false);
     }
   }
+});
+
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = uploadsPath('task-documents');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `task_doc_${Date.now()}${ext}`);
+  }
+});
+
+const documentUpload = multer({
+  storage: documentStorage,
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 function cleanupUploadedFile(file) {
@@ -1591,6 +1636,11 @@ const taskIdParamsSchema = z.object({
 const taskPhotoIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
   photoId: z.coerce.number().int().positive(),
+});
+
+const taskDocumentIdParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  docId: z.coerce.number().int().positive(),
 });
 
 const taskPhotoPatchSchema = z
@@ -4553,5 +4603,113 @@ router.delete(
     }
   }
 );
+
+router.get('/:id/dokumenty', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    await ensureTaskDocumentsTable();
+    const result = await pool.query(
+      `SELECT d.*,
+              COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.imie, u.nazwisko)), ''), u.login) AS autor
+         FROM task_documents d
+         LEFT JOIN users u ON u.id = d.user_id
+        WHERE d.task_id = $1
+        ORDER BY d.created_at DESC, d.id DESC`,
+      [req.params.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    logger.error('Blad pobierania dokumentow zlecenia', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post(
+  '/:id/dokumenty',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  requireTaskAccess,
+  documentUpload.single('dokument'),
+  async (req, res) => {
+    let stored;
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Brak pliku (pole dokument)' });
+      await ensureTaskDocumentsTable();
+      stored = await persistUploadedFile(req.file, { folder: 'task-documents', fileName: req.file.filename });
+      const nazwa = String(req.body.nazwa || req.file.originalname || req.file.filename || 'Dokument').slice(0, 240);
+      const kategoria = String(req.body.kategoria || 'inne').slice(0, 80);
+      const status = String(req.body.status || 'roboczy').slice(0, 40);
+      const opis = String(req.body.opis || '').trim().slice(0, 4000) || null;
+      const result = await pool.query(
+        `INSERT INTO task_documents (
+           task_id, user_id, nazwa, sciezka, mime_type, rozmiar_bytes, kategoria, status, opis
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING *`,
+        [
+          req.params.id,
+          req.user.id,
+          nazwa,
+          stored.url,
+          req.file.mimetype || null,
+          req.file.size || null,
+          kategoria,
+          status,
+          opis,
+        ]
+      );
+      cleanupTemporaryUpload(stored);
+      stored = null;
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      if (stored) await deleteStoredUpload(stored).catch(() => {});
+      else cleanupUploadedFile(req.file);
+      logger.error('Blad dodawania dokumentu zlecenia', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
+router.patch('/:id/dokumenty/:docId', authMiddleware, validateParams(taskDocumentIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    await ensureTaskDocumentsTable();
+    const sets = ['updated_at = NOW()'];
+    const params = [];
+    for (const [column, max] of [['opis', 4000], ['kategoria', 80], ['status', 40], ['nazwa', 240]]) {
+      if (req.body[column] === undefined) continue;
+      params.push(String(req.body[column] || '').trim().slice(0, max) || null);
+      sets.push(`${column} = $${params.length}`);
+    }
+    if (req.body.bump_version === true) sets.push('wersja = COALESCE(wersja, 1) + 1');
+    params.push(req.params.id, req.params.docId);
+    const result = await pool.query(
+      `UPDATE task_documents SET ${sets.join(', ')}
+        WHERE task_id = $${params.length - 1} AND id = $${params.length}
+        RETURNING *`,
+      params
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Dokument nie istnieje' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    logger.error('Blad aktualizacji dokumentu zlecenia', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.delete('/:id/dokumenty/:docId', authMiddleware, validateParams(taskDocumentIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    await ensureTaskDocumentsTable();
+    const result = await pool.query(
+      'DELETE FROM task_documents WHERE task_id = $1 AND id = $2 RETURNING sciezka',
+      [req.params.id, req.params.docId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'Dokument nie istnieje' });
+    await deleteUploadByUrl(result.rows[0].sciezka).catch((error) => {
+      logger.warn('task.document.deleteUpload', { message: error.message, docId: req.params.docId });
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('Blad usuwania dokumentu zlecenia', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
 
 module.exports = router;

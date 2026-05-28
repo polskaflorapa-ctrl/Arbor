@@ -113,7 +113,7 @@ test('renders unified CRM inbox and applies filters', async () => {
   expect(screen.getAllByText('Oferta ogrodu').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Prosze o szybka wycene.').length).toBeGreaterThan(0);
   expect(await screen.findByText('Historia rozmowy')).toBeInTheDocument();
-  expect(screen.getByText('Dzien dobry, przygotujemy wycene.')).toBeInTheDocument();
+  expect(await screen.findByText('Dzien dobry, przygotujemy wycene.')).toBeInTheDocument();
 
   fireEvent.change(screen.getAllByDisplayValue('Wszystkie')[0], { target: { value: 'whatsapp' } });
 

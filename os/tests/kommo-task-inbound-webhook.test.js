@@ -50,6 +50,17 @@ function setupPool({ currentTask, duplicateEvent = null } = {}) {
         rowCount: 1,
       };
     }
+    if (text.includes('INSERT INTO task_documents')) {
+      return {
+        rows: [{
+          id: 77,
+          nazwa: params[1],
+          sciezka: params[2],
+          source_external_id: params[6],
+        }],
+        rowCount: 1,
+      };
+    }
     return { rows: [], rowCount: 0 };
   });
 }
@@ -159,5 +170,15 @@ describe('Kommo task inbound webhook', () => {
       2,
     ]));
     expect(updateCall[1].some((value) => String(value).includes('Kommo zalaczniki'))).toBe(true);
+    const documentCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO task_documents'));
+    expect(documentCall[1]).toEqual(expect.arrayContaining([
+      202,
+      'file.pdf',
+      'https://kommo.example/file.pdf',
+      'https://kommo.example/file.pdf',
+    ]));
+    expect(res.body.attachments).toEqual([
+      expect.objectContaining({ id: 77, nazwa: 'file.pdf', sciezka: 'https://kommo.example/file.pdf' }),
+    ]);
   });
 });

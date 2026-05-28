@@ -55,6 +55,28 @@ async function ensureTaskInboundTables() {
     CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_status_created
       ON task_kommo_inbound_events (status, created_at DESC)
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_documents (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      nazwa VARCHAR(240) NOT NULL,
+      sciezka TEXT NOT NULL,
+      mime_type VARCHAR(120),
+      rozmiar_bytes INTEGER,
+      kategoria VARCHAR(80) NOT NULL DEFAULT 'inne',
+      status VARCHAR(40) NOT NULL DEFAULT 'roboczy',
+      opis TEXT,
+      wersja INTEGER NOT NULL DEFAULT 1,
+      source_provider VARCHAR(40),
+      source_external_id VARCHAR(160),
+      remote_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (source_provider, source_external_id)
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_task_documents_task ON task_documents (task_id, created_at DESC)');
 }
 
 function stableEventKey(payload) {
@@ -140,6 +162,32 @@ function firstNumber(...values) {
     if (Number.isFinite(n)) return n;
   }
   return null;
+}
+
+function normalizeKommoAttachment(item) {
+  const url = firstText(item?.url, item?.link, item?.download_url, item?.href, typeof item === 'string' ? item : null);
+  const name = firstText(item?.name, item?.filename, item?.file_name, url ? String(url).split('/').pop() : null, 'Kommo zalacznik');
+  const externalId = firstText(item?.id, item?.uuid, item?.external_id)
+    || (url ? crypto.createHash('sha256').update(url).digest('hex').slice(0, 40) : null);
+  if (!url && !name) return null;
+  return {
+    url,
+    name: String(name).slice(0, 240),
+    mime_type: firstText(item?.mime_type, item?.content_type, item?.type),
+    size: firstNumber(item?.size, item?.bytes, item?.file_size),
+    external_id: externalId ? String(externalId).slice(0, 160) : null,
+  };
+}
+
+function collectKommoAttachments(payload, task, lead) {
+  return [
+    ...(Array.isArray(payload.attachments) ? payload.attachments : []),
+    ...(Array.isArray(payload.files) ? payload.files : []),
+    ...(Array.isArray(task.attachments) ? task.attachments : []),
+    ...(Array.isArray(task.files) ? task.files : []),
+    ...(Array.isArray(lead.attachments) ? lead.attachments : []),
+    ...(Array.isArray(lead.files) ? lead.files : []),
+  ].map(normalizeKommoAttachment).filter(Boolean);
 }
 
 function collectCustomFields(payload) {
@@ -240,15 +288,11 @@ function extractKommoTaskPatch(payload) {
     task.pin_lng,
     fieldValue(fields, ['lng', 'lon', 'longitude'])
   );
-  const attachments = [
-    ...(Array.isArray(payload.attachments) ? payload.attachments : []),
-    ...(Array.isArray(task.attachments) ? task.attachments : []),
-    ...(Array.isArray(lead.attachments) ? lead.attachments : []),
-  ].map((item) => firstText(item.url, item.link, item.name, item.filename, item)).filter(Boolean);
+  const attachments = collectKommoAttachments(payload, task, lead);
   const kommoLeadId = firstText(payload.kommo_lead_id, payload.lead_id, lead.id, payload.external_id, lead.external_id);
   const notes = [
     firstText(payload.notatki, payload.notes, task.notatki, lead.notes, fieldValue(fields, ['notatki', 'notes', 'opis'])),
-    attachments.length ? `Kommo zalaczniki:\n${attachments.map((x) => `- ${x}`).join('\n')}` : null,
+    attachments.length ? `Kommo zalaczniki:\n${attachments.map((x) => `- ${[x.name, x.url].filter(Boolean).join(' | ')}`).join('\n')}` : null,
     kommoLeadId ? `Kommo lead: ${kommoLeadId}` : null,
   ].filter(Boolean).join('\n\n') || null;
 
@@ -302,7 +346,44 @@ function extractKommoTaskPatch(payload) {
     pin_lat: lat,
     pin_lng: lng,
     notatki_wewnetrzne: notes,
+    attachments,
   };
+}
+
+async function persistKommoTaskAttachments(taskId, attachments = []) {
+  const saved = [];
+  for (const attachment of attachments) {
+    if (!attachment.url) continue;
+    const sourceExternalId = attachment.external_id
+      || crypto.createHash('sha256').update(attachment.url).digest('hex').slice(0, 40);
+    const result = await pool.query(
+      `INSERT INTO task_documents (
+         task_id, nazwa, sciezka, mime_type, rozmiar_bytes, kategoria, status,
+         opis, source_provider, source_external_id, remote_url
+       ) VALUES ($1,$2,$3,$4,$5,'kommo','roboczy',$6,'kommo',$7,$8)
+       ON CONFLICT (source_provider, source_external_id) DO UPDATE SET
+         task_id = EXCLUDED.task_id,
+         nazwa = EXCLUDED.nazwa,
+         sciezka = EXCLUDED.sciezka,
+         mime_type = EXCLUDED.mime_type,
+         rozmiar_bytes = EXCLUDED.rozmiar_bytes,
+         remote_url = EXCLUDED.remote_url,
+         updated_at = NOW()
+       RETURNING id, nazwa, sciezka, source_external_id`,
+      [
+        taskId,
+        attachment.name || 'Kommo zalacznik',
+        attachment.url,
+        attachment.mime_type || null,
+        attachment.size || null,
+        'Import z Kommo',
+        sourceExternalId,
+        attachment.url,
+      ]
+    );
+    if (result.rows[0]) saved.push(result.rows[0]);
+  }
+  return saved;
 }
 
 function canApplyInboundStatus(current, next) {
@@ -553,8 +634,12 @@ async function handleKommoTaskSync(req, res) {
       appliedStatus: r.rows[0]?.status || currentTask.status,
       payload,
     });
+    const attachments = await persistKommoTaskAttachments(taskId, taskPatch.attachments).catch((error) => {
+      logger.warn('kommo.task-sync attachments', { taskId, message: error.message });
+      return [];
+    });
     logger.info('kommo.task-sync applied', { taskId, incomingStatus, ekipaId: taskPatch.ekipa_id });
-    return res.json({ ok: true, status: 'applied', task: r.rows[0], event });
+    return res.json({ ok: true, status: 'applied', task: r.rows[0], event, attachments });
   } catch (e) {
     logger.error('kommo.task-sync error', { message: e.message });
     await recordInboundEvent({

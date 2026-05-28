@@ -19,6 +19,9 @@ function num(n) {
 function pct(n) {
   return n == null ? '—' : `${n}%`;
 }
+function hours(n) {
+  return n == null ? '---' : `${Number(n).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} h`;
+}
 function sourceStatusLabel(status) {
   if (status === 'ok') return 'OK';
   if (status === 'missing') return 'Brak danych';
@@ -52,7 +55,7 @@ function downloadCSV(rows, filename) {
 
 // ─── Drill-down modal ────────────────────────────────────────────────────────
 
-function DrillModal({ title, tasks, loading, onClose }) {
+function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
   return (
     <div style={dm.overlay} onClick={onClose}>
       <div style={dm.panel} onClick={e => e.stopPropagation()}>
@@ -88,6 +91,11 @@ function DrillModal({ title, tasks, loading, onClose }) {
                         { label: 'Marza', value: `${pln(fin.gross_margin)} / ${pct(fin.margin_pct)}`, tone: fin.margin_pct >= 30 ? 'success' : 'danger' },
                       ]}
                     />
+                    <div style={dm.actions}>
+                      <button type="button" style={dm.openTaskBtn} onClick={() => onOpenTask?.(t.id)}>
+                        Otworz zlecenie
+                      </button>
+                    </div>
                     <div style={dm.breakdown}>
                       {sources.map(src => (
                         <div key={src.key} style={dm.costPill}>
@@ -134,6 +142,8 @@ const dm = {
   costOk: { fontSize: 10, color: '#15803d', fontWeight: 800 },
   costMissing: { fontSize: 10, color: '#c2410c', fontWeight: 800 },
   finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
+  actions: { display: 'flex', justifyContent: 'flex-end', padding: '0 12px 10px' },
+  openTaskBtn: { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
 };
 
 // ─── Inline SVG bar chart ────────────────────────────────────────────────────
@@ -257,6 +267,7 @@ export default function BiDashboard() {
   const [serviceMix, setServiceMix] = useState([]);
   const [teams, setTeams]         = useState([]);
   const [funnel, setFunnel]       = useState(null);
+  const [planVsReal, setPlanVsReal] = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -286,6 +297,7 @@ export default function BiDashboard() {
     { key: 'teams',    label: `👥 ${t('biDashboard.tabs.teams')}` },
     { key: 'services', label: `🌳 ${t('biDashboard.tabs.services')}` },
     { key: 'funnel',   label: `🎯 ${t('biDashboard.tabs.funnel')}` },
+    { key: 'plan',     label: 'Plan vs real' },
     { key: 'alerts',   label: `⚡ Alerty` },
   ];
 
@@ -294,13 +306,14 @@ export default function BiDashboard() {
     const token = getStoredToken();
     const h = { headers: authHeaders(token) };
     try {
-      const [ov, tr, br, sm, tm, fn] = await Promise.all([
+      const [ov, tr, br, sm, tm, fn, pvr] = await Promise.all([
         api.get(`/bi/overview?days=${days}`, h),
         api.get(`/bi/revenue-trend?months=12`, h),
         api.get(`/bi/branch-comparison?days=${days}`, h),
         api.get(`/bi/service-mix?days=${days}`, h),
         api.get(`/bi/team-performance?days=${days}`, h),
         api.get(`/bi/funnel?days=${days}`, h),
+        api.get(`/bi/plan-vs-real?days=${days}`, h),
       ]);
       setOverview(ov.data);
       setTrend(tr.data);
@@ -308,6 +321,7 @@ export default function BiDashboard() {
       setServiceMix(sm.data);
       setTeams(tm.data);
       setFunnel(fn.data);
+      setPlanVsReal(pvr.data);
     } catch (e) {
       setError(e.response?.data?.error || e.message);
     } finally {
@@ -382,6 +396,7 @@ export default function BiDashboard() {
                 if (activeTab === 'branches') downloadCSV(branches, `oddzialy-${days}d.csv`);
                 else if (activeTab === 'teams') downloadCSV(teams, `ekipy-${days}d.csv`);
                 else if (activeTab === 'services') downloadCSV(serviceMix, `uslugi-${days}d.csv`);
+                else if (activeTab === 'plan') downloadCSV(planVsReal?.tasks || [], `plan-vs-real-${days}d.csv`);
                 else if (activeTab === 'overview' && ov) downloadCSV([ov], `kpi-${days}d.csv`);
               }}>⬇ CSV</button>
             <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>← Powrót</button>
@@ -454,10 +469,10 @@ export default function BiDashboard() {
                     idValue={`BR-${b.oddzial_id}`}
                     title={b.oddzial_nazwa}
                     subtitle={`Aktywne ekipy: ${num(b.teams_active)}`}
-                    tone={b.tasks_overdue > 0 ? 'warning' : 'success'}
-                    status={b.completion_pct >= 80 ? 'ON TRACK' : 'WATCH'}
-                    statusValue={b.completion_pct >= 80 ? 'success' : 'warning'}
-                    statusState={b.completion_pct >= 80 ? 'success' : 'warning'}
+                    tone={b.profitability_tone === 'danger' ? 'danger' : b.tasks_overdue > 0 ? 'warning' : 'success'}
+                    status={b.profitability_tone === 'danger' ? 'LOW MARGIN' : b.completion_pct >= 80 ? 'ON TRACK' : 'WATCH'}
+                    statusValue={b.profitability_tone === 'danger' ? 'danger' : b.completion_pct >= 80 ? 'success' : 'warning'}
+                    statusState={b.profitability_tone === 'danger' ? 'danger' : b.completion_pct >= 80 ? 'success' : 'warning'}
                     onClick={() => openDrill({ title: `Zlecenia — ${b.oddzial_nazwa}`, dim: 'oddzial', id: b.oddzial_id })}
                     metrics={[
                       { label: 'Zlecenia', value: num(b.tasks_total) },
@@ -466,6 +481,10 @@ export default function BiDashboard() {
                       { label: 'Zaległe', value: num(b.tasks_overdue), tone: b.tasks_overdue > 0 ? 'danger' : undefined },
                       { label: 'Plan PLN', value: pln(b.revenue_planned) },
                       { label: 'Real PLN', value: pln(b.revenue_actual), tone: 'success' },
+                      { label: 'Marża', value: `${pln(b.gross_margin)} / ${pct(b.margin_pct)}`, tone: b.profitability_tone === 'danger' ? 'danger' : 'success' },
+                      { label: 'Próg', value: pct(b.margin_threshold_pct), tone: 'info' },
+                      { label: 'Jakość danych', value: pct(b.data_quality_pct), tone: b.data_quality_pct >= 70 ? 'success' : 'warning' },
+                      { label: 'Score', value: num(b.score), tone: b.score >= 70 ? 'success' : 'warning' },
                     ]}
                   />
                 ))}
@@ -495,9 +514,9 @@ export default function BiDashboard() {
                     title={tm.team_name}
                     subtitle={tm.oddzial_nazwa}
                     tone={tm.tasks_overdue > 0 ? 'warning' : 'success'}
-                    status={tm.completion_pct >= 80 ? 'HIGH PERF' : 'TRACKED'}
-                    statusValue={tm.completion_pct >= 80 ? 'success' : 'info'}
-                    statusState={tm.completion_pct >= 80 ? 'success' : 'info'}
+                    status={tm.score >= 75 ? 'HIGH PERF' : tm.score >= 50 ? 'TRACKED' : 'WATCH'}
+                    statusValue={tm.score >= 75 ? 'success' : tm.score >= 50 ? 'info' : 'warning'}
+                    statusState={tm.score >= 75 ? 'success' : tm.score >= 50 ? 'info' : 'warning'}
                     onClick={() => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })}
                     metrics={[
                       { label: 'Zlecenia', value: num(tm.tasks_total) },
@@ -505,6 +524,10 @@ export default function BiDashboard() {
                       { label: 'Skuteczność', value: pct(tm.completion_pct), tone: tm.completion_pct >= 80 ? 'success' : 'warning' },
                       { label: 'Zaległe', value: num(tm.tasks_overdue), tone: tm.tasks_overdue > 0 ? 'danger' : undefined },
                       { label: 'Przychód plan', value: pln(tm.revenue), tone: 'success' },
+                      { label: 'Real PLN', value: pln(tm.revenue_actual), tone: 'success' },
+                      { label: 'Marża', value: `${pln(tm.gross_margin)} / ${pct(tm.margin_pct)}`, tone: tm.margin_pct >= 25 ? 'success' : 'warning' },
+                      { label: 'Jakość danych', value: pct(tm.data_quality_pct), tone: tm.data_quality_pct >= 70 ? 'success' : 'warning' },
+                      { label: 'Score', value: num(tm.score), tone: tm.score >= 75 ? 'success' : 'warning' },
                     ]}
                   />
                 ))}
@@ -512,8 +535,8 @@ export default function BiDashboard() {
               </div>
             </div>
             <div style={s.card}>
-              <div style={s.cardTitle}>{t('biDashboard.charts.teamRevenueTop')}</div>
-              <BarChart data={teams.slice(0, 10)} valueKey="revenue" labelKey="team_name"
+              <div style={s.cardTitle}>Top 10 ekip wg score</div>
+              <BarChart data={teams.slice(0, 10)} valueKey="score" labelKey="team_name"
                 color="#7c3aed" height={140}
                 onBarClick={tm => openDrill({ title: `Zlecenia — ${tm.team_name}`, dim: 'ekipa', id: tm.team_id })} />
             </div>
@@ -601,6 +624,90 @@ export default function BiDashboard() {
           </div>
         )}
 
+        {activeTab === 'plan' && planVsReal && (
+          <div style={s.content}>
+            <div style={s.kpiRow}>
+              <KpiCard label="Godziny plan" value={hours(planVsReal.planned_hours)} />
+              <KpiCard label="Godziny real" value={hours(planVsReal.actual_hours)}
+                tone={planVsReal.time_variance_minutes > 0 ? 'warn' : 'ok'} />
+              <KpiCard label="Odchylenie czasu" value={pct(planVsReal.time_variance_pct)}
+                sub={`${planVsReal.time_variance_minutes >= 0 ? '+' : ''}${planVsReal.time_variance_minutes} min`}
+                tone={planVsReal.time_variance_minutes > 0 ? 'warn' : 'ok'} />
+              <KpiCard label="Plan PLN" value={pln(planVsReal.value_planned)} />
+              <KpiCard label="Real PLN" value={pln(planVsReal.value_actual)}
+                tone={planVsReal.value_variance >= 0 ? 'ok' : 'warn'} />
+              <KpiCard label="Bez work logu" value={num(planVsReal.missing_worklog_tasks)}
+                tone={planVsReal.missing_worklog_tasks > 0 ? 'warn' : 'ok'} />
+            </div>
+
+            <div style={s.twoCol}>
+              <div style={s.card}>
+                <div style={s.cardTitle}>Czas: plan vs real</div>
+                <div style={s.compareGrid}>
+                  <div style={s.compareBlock}>
+                    <span style={s.compareLabel}>Plan</span>
+                    <strong style={s.compareValue}>{hours(planVsReal.planned_hours)}</strong>
+                  </div>
+                  <div style={s.compareBlock}>
+                    <span style={s.compareLabel}>Real</span>
+                    <strong style={s.compareValue}>{hours(planVsReal.actual_hours)}</strong>
+                  </div>
+                  <div style={s.compareBlock}>
+                    <span style={s.compareLabel}>Zlecenia ponad +20%</span>
+                    <strong style={s.compareValue}>{num(planVsReal.overrun_tasks)}</strong>
+                  </div>
+                </div>
+              </div>
+              <div style={s.card}>
+                <div style={s.cardTitle}>Wartość i koszty</div>
+                <div style={s.compareGrid}>
+                  <div style={s.compareBlock}>
+                    <span style={s.compareLabel}>Plan</span>
+                    <strong style={s.compareValue}>{pln(planVsReal.value_planned)}</strong>
+                  </div>
+                  <div style={s.compareBlock}>
+                    <span style={s.compareLabel}>Real</span>
+                    <strong style={s.compareValue}>{pln(planVsReal.value_actual)}</strong>
+                  </div>
+                  <div style={s.compareBlock}>
+                    <span style={s.compareLabel}>Koszt znany</span>
+                    <strong style={s.compareValue}>{pln(planVsReal.known_cost)}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={s.card}>
+              <div style={s.cardTitle}>Największe odchylenia zleceń</div>
+              <div className="modern-data-stack">
+                {(planVsReal.tasks || []).map(task => (
+                  <ModernDataRow
+                    key={task.id}
+                    idLabel="Order"
+                    idValue={task.numer || `#${task.id}`}
+                    title={task.typ_uslugi || 'Zlecenie'}
+                    subtitle={`${task.oddzial_nazwa || 'brak oddziału'} / ${task.ekipa_nazwa || 'brak ekipy'}`}
+                    tone={task.variance_minutes > 0 ? 'warning' : 'success'}
+                    status={task.status}
+                    statusValue={task.variance_minutes > 0 ? 'warning' : 'success'}
+                    statusState={task.variance_minutes > 0 ? 'warning' : 'success'}
+                    onClick={() => navigate(`/zlecenia/${task.id}`)}
+                    metrics={[
+                      { label: 'Plan', value: `${task.planned_minutes} min` },
+                      { label: 'Real', value: `${task.actual_minutes} min`, tone: task.variance_minutes > 0 ? 'warning' : 'success' },
+                      { label: 'Odchylenie', value: `${task.variance_minutes >= 0 ? '+' : ''}${task.variance_minutes} min / ${pct(task.variance_pct)}`, tone: task.variance_minutes > 0 ? 'danger' : 'success' },
+                      { label: 'Plan PLN', value: pln(task.value_planned) },
+                      { label: 'Real PLN', value: pln(task.value_actual), tone: 'success' },
+                      { label: 'Koszt', value: pln(task.known_cost), tone: 'warning' },
+                    ]}
+                  />
+                ))}
+                {(!planVsReal.tasks || planVsReal.tasks.length === 0) && <div className="modern-data-empty">Brak danych</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── ALERTS TAB ── */}
         {activeTab === 'alerts' && (
           <div style={s.content}>
@@ -657,10 +764,32 @@ export default function BiDashboard() {
                 {alertResult.margin_risks?.length ? (
                   <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                     {alertResult.margin_risks.slice(0, 6).map((risk) => (
-                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.24)', background: 'rgba(220,38,38,0.08)' }}>
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.24)', background: 'rgba(220,38,38,0.08)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
                         <strong>#{risk.id} {risk.klient_nazwa || 'Zlecenie'}</strong>
                         <span style={{ marginLeft: 8 }}>
                           marża {risk.margin_pct}% / próg {risk.threshold_pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {alertResult.fleet_due?.length ? (
+                  <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                    {alertResult.fleet_due.slice(0, 6).map((item) => (
+                      <div key={`${item.kind}-${item.id}-${item.due_type}`} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.10)' }}>
+                        <strong>{item.label || `#${item.id}`}</strong>
+                        <span style={{ marginLeft: 8 }}>{item.kind} / {item.due_type}: {String(item.due_date || '').slice(0, 10)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {alertResult.competency_risks?.length ? (
+                  <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                    {alertResult.competency_risks.slice(0, 6).map((risk) => (
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.24)', background: 'rgba(220,38,38,0.08)', cursor: 'pointer' }} onClick={() => navigate(`/zlecenia/${risk.id}`)}>
+                        <strong>{risk.numer || `#${risk.id}`} {risk.klient_nazwa || 'Zlecenie'}</strong>
+                        <span style={{ marginLeft: 8 }}>
+                          {risk.ekipa_nazwa || 'Ekipa'}: brakuje {(risk.missing_competencies || []).join(', ')}
                         </span>
                       </div>
                     ))}
@@ -692,6 +821,7 @@ export default function BiDashboard() {
           tasks={drill.tasks}
           loading={drill.loading}
           onClose={() => setDrill(null)}
+          onOpenTask={(taskId) => navigate(`/zlecenia/${taskId}`)}
         />
       )}
     </div>
@@ -721,6 +851,10 @@ const s = {
   kpiSub:   { fontSize: 11, color: 'var(--text-muted, var(--text-sub))', marginTop: 2 },
   card:     { background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: '16px 18px', boxShadow: 'var(--shadow-md)' },
   cardTitle:{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 },
+  compareGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 },
+  compareBlock: { display: 'grid', gap: 4, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' },
+  compareLabel: { fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase' },
+  compareValue: { fontSize: 18, color: 'var(--text)' },
   twoCol:   { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 },
   table:    { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th:       { padding: '8px 10px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)' },

@@ -84,6 +84,50 @@ function buildTaskFinancialDrilldown(row) {
   };
 }
 
+function profitabilityTone(marginPct, thresholdPct) {
+  if (marginPct == null) return 'unknown';
+  if (marginPct < thresholdPct) return 'danger';
+  if (marginPct < thresholdPct + 10) return 'warning';
+  return 'success';
+}
+
+function scoreFromMetrics({ completionPct = 0, marginPct = 0, overdue = 0, tasks = 0, dataQualityPct = 0 }) {
+  const overduePenalty = tasks > 0 ? Math.min(30, Math.round((overdue / tasks) * 100)) : 0;
+  return Math.max(0, Math.min(100, Math.round(
+    completionPct * 0.35
+    + Math.max(0, Math.min(100, marginPct)) * 0.35
+    + dataQualityPct * 0.2
+    + (100 - overduePenalty) * 0.1
+  )));
+}
+
+function asStringArray(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  if (value == null) return [];
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return asStringArray(parsed);
+    } catch (parseErr) {
+      void parseErr;
+      // PostgreSQL text[] can arrive from mocks as a simple comma-separated string.
+    }
+    return trimmed
+      .replace(/^\{|\}$/g, '')
+      .split(',')
+      .map((item) => item.replace(/^"|"$/g, '').trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function missingCompetencies(required, available) {
+  const availableSet = new Set(asStringArray(available).map((item) => item.toLowerCase()));
+  return asStringArray(required).filter((item) => !availableSet.has(item.toLowerCase()));
+}
+
 // ─── GET /api/bi/overview ────────────────────────────────────────────────────
 router.get('/overview', async (req, res) => {
   if (!canViewBI(req.user)) return res.status(403).json({ error: 'Brak uprawnień' });
@@ -215,35 +259,95 @@ router.get('/branch-comparison', async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT
-         o.id                                                                      AS oddzial_id,
-         o.nazwa                                                                   AS oddzial_nazwa,
-         COUNT(t.id) FILTER (WHERE t.status != 'Anulowane')                       AS tasks_total,
-         COUNT(t.id) FILTER (WHERE t.status = 'Zakonczone')                       AS tasks_done,
-         COUNT(t.id) FILTER (WHERE t.status NOT IN ('Zakonczone','Anulowane')
-                              AND t.data_planowana < NOW())                        AS tasks_overdue,
-         COALESCE(SUM(t.wartosc_planowana) FILTER (WHERE t.status != 'Anulowane'), 0) AS revenue_planned,
-         COALESCE(SUM(t.wartosc_rzeczywista) FILTER (WHERE t.status = 'Zakonczone'), 0) AS revenue_actual,
-         COUNT(DISTINCT t.ekipa_id) FILTER (WHERE t.status != 'Anulowane')         AS teams_active
+      `WITH task_metrics AS (
+         SELECT
+           t.id,
+           t.oddzial_id,
+           t.ekipa_id,
+           t.status,
+           t.data_planowana,
+           COALESCE(t.wartosc_planowana, 0)::numeric AS revenue_planned,
+           COALESCE(t.wartosc_rzeczywista, tr.wartosc_brutto, t.wartosc_planowana, 0)::numeric AS revenue_actual,
+           COALESCE(tr.koszt_pomocnikow, 0)::numeric
+             + COALESCE(tr.wynagrodzenie_brygadzisty, 0)::numeric
+             + COALESCE(op.known_cost, 0)::numeric
+             + COALESCE(mu.material_cost, 0)::numeric AS known_cost,
+           CASE WHEN tr.id IS NOT NULL THEN 1 ELSE 0 END AS has_settlement,
+           CASE WHEN COALESCE(op.known_cost, 0) > 0 OR COALESCE(mu.material_cost, 0) > 0 THEN 1 ELSE 0 END AS has_costs
+         FROM tasks t
+         LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(amount), 0) AS known_cost
+           FROM task_operational_costs c
+           WHERE c.task_id = t.id
+         ) op ON true
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(koszt_laczny), 0) AS material_cost
+           FROM task_finish_material_usage m
+           WHERE m.task_id = t.id
+         ) mu ON true
+         WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
+           AND t.status != 'Anulowane'
+           ${branchFilter}
+       )
+       SELECT
+         o.id AS oddzial_id,
+         o.nazwa AS oddzial_nazwa,
+         COALESCE(MAX(b.marza_prog_rentowosci_pct), 15)::numeric AS margin_threshold_pct,
+         COUNT(tm.id) AS tasks_total,
+         COUNT(tm.id) FILTER (WHERE tm.status = 'Zakonczone') AS tasks_done,
+         COUNT(tm.id) FILTER (WHERE tm.status NOT IN ('Zakonczone','Anulowane')
+                              AND tm.data_planowana < NOW()) AS tasks_overdue,
+         COALESCE(SUM(tm.revenue_planned), 0) AS revenue_planned,
+         COALESCE(SUM(tm.revenue_actual) FILTER (WHERE tm.status = 'Zakonczone'), 0) AS revenue_actual,
+         COALESCE(SUM(tm.known_cost), 0) AS known_cost,
+         COUNT(DISTINCT tm.ekipa_id) AS teams_active,
+         COALESCE(SUM(tm.has_settlement), 0) AS settlement_count,
+         COALESCE(SUM(tm.has_costs), 0) AS cost_count
        FROM oddzialy o
-       LEFT JOIN tasks t ON t.oddzial_id = o.id
-         AND t.data_planowana >= NOW() - INTERVAL '1 day' * $1 ${branchFilter}
+       LEFT JOIN branches b ON b.id = o.id
+       LEFT JOIN task_metrics tm ON tm.oddzial_id = o.id
        GROUP BY o.id, o.nazwa
        ORDER BY revenue_planned DESC`,
       params
     );
 
-    res.json(r.rows.map(row => ({
-      oddzial_id:      row.oddzial_id,
-      oddzial_nazwa:   row.oddzial_nazwa,
-      tasks_total:     Number(row.tasks_total),
-      tasks_done:      Number(row.tasks_done),
-      tasks_overdue:   Number(row.tasks_overdue),
-      completion_pct:  row.tasks_total > 0 ? Math.round((row.tasks_done / row.tasks_total) * 100) : 0,
-      revenue_planned: Math.round(Number(row.revenue_planned)),
-      revenue_actual:  Math.round(Number(row.revenue_actual)),
-      teams_active:    Number(row.teams_active),
-    })));
+    res.json(r.rows.map(row => {
+      const tasksTotal = Number(row.tasks_total);
+      const tasksDone = Number(row.tasks_done);
+      const revenueActual = Number(row.revenue_actual);
+      const knownCost = Number(row.known_cost);
+      const marginPct = revenueActual > 0 ? Math.round(((revenueActual - knownCost) / revenueActual) * 1000) / 10 : null;
+      const thresholdPct = Number(row.margin_threshold_pct || 15);
+      const completionPct = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+      const dataQualityPct = tasksTotal > 0
+        ? Math.round(((Number(row.settlement_count || 0) + Number(row.cost_count || 0)) / (tasksTotal * 2)) * 100)
+        : 0;
+      return {
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        tasks_total: tasksTotal,
+        tasks_done: tasksDone,
+        tasks_overdue: Number(row.tasks_overdue),
+        completion_pct: completionPct,
+        revenue_planned: Math.round(Number(row.revenue_planned)),
+        revenue_actual: Math.round(revenueActual),
+        known_cost: Math.round(knownCost),
+        gross_margin: revenueActual > 0 ? Math.round(revenueActual - knownCost) : null,
+        margin_pct: marginPct,
+        margin_threshold_pct: thresholdPct,
+        profitability_tone: profitabilityTone(marginPct, thresholdPct),
+        data_quality_pct: dataQualityPct,
+        score: scoreFromMetrics({
+          completionPct,
+          marginPct: marginPct ?? 0,
+          overdue: Number(row.tasks_overdue),
+          tasks: tasksTotal,
+          dataQualityPct,
+        }),
+        teams_active: Number(row.teams_active),
+      };
+    }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -295,20 +399,52 @@ router.get('/team-performance', async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT
-         e.id                                                                   AS team_id,
-         e.nazwa                                                                AS team_name,
-         o.nazwa                                                                AS oddzial_nazwa,
-         COUNT(t.id) FILTER (WHERE t.status != 'Anulowane')                    AS tasks_total,
-         COUNT(t.id) FILTER (WHERE t.status = 'Zakonczone')                    AS tasks_done,
-         COUNT(t.id) FILTER (WHERE t.status NOT IN ('Zakonczone','Anulowane')
-                              AND t.data_planowana < NOW())                     AS tasks_overdue,
-         COALESCE(SUM(t.wartosc_planowana) FILTER (WHERE t.status != 'Anulowane'), 0) AS revenue
+      `WITH task_metrics AS (
+         SELECT
+           t.id,
+           t.ekipa_id,
+           t.status,
+           t.data_planowana,
+           COALESCE(t.wartosc_planowana, 0)::numeric AS revenue_planned,
+           COALESCE(t.wartosc_rzeczywista, tr.wartosc_brutto, t.wartosc_planowana, 0)::numeric AS revenue_actual,
+           COALESCE(tr.koszt_pomocnikow, 0)::numeric
+             + COALESCE(tr.wynagrodzenie_brygadzisty, 0)::numeric
+             + COALESCE(op.known_cost, 0)::numeric
+             + COALESCE(mu.material_cost, 0)::numeric AS known_cost,
+           CASE WHEN tr.id IS NOT NULL THEN 1 ELSE 0 END AS has_settlement,
+           CASE WHEN COALESCE(op.known_cost, 0) > 0 OR COALESCE(mu.material_cost, 0) > 0 THEN 1 ELSE 0 END AS has_costs
+         FROM tasks t
+         LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(amount), 0) AS known_cost
+           FROM task_operational_costs c
+           WHERE c.task_id = t.id
+         ) op ON true
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(koszt_laczny), 0) AS material_cost
+           FROM task_finish_material_usage m
+           WHERE m.task_id = t.id
+         ) mu ON true
+         WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
+           AND t.status != 'Anulowane'
+           ${bc}
+       )
+       SELECT
+         e.id AS team_id,
+         e.nazwa AS team_name,
+         o.nazwa AS oddzial_nazwa,
+         COUNT(tm.id) AS tasks_total,
+         COUNT(tm.id) FILTER (WHERE tm.status = 'Zakonczone') AS tasks_done,
+         COUNT(tm.id) FILTER (WHERE tm.status NOT IN ('Zakonczone','Anulowane')
+                              AND tm.data_planowana < NOW()) AS tasks_overdue,
+         COALESCE(SUM(tm.revenue_planned), 0) AS revenue,
+         COALESCE(SUM(tm.revenue_actual) FILTER (WHERE tm.status = 'Zakonczone'), 0) AS revenue_actual,
+         COALESCE(SUM(tm.known_cost), 0) AS known_cost,
+         COALESCE(SUM(tm.has_settlement), 0) AS settlement_count,
+         COALESCE(SUM(tm.has_costs), 0) AS cost_count
        FROM ekipy e
        LEFT JOIN oddzialy o ON o.id = e.oddzial_id
-       LEFT JOIN tasks t ON t.ekipa_id = e.id
-         AND t.data_planowana >= NOW() - INTERVAL '1 day' * $1
-         ${bc}
+       LEFT JOIN task_metrics tm ON tm.ekipa_id = e.id
        WHERE e.aktywna = true
        GROUP BY e.id, e.nazwa, o.nazwa
        ORDER BY revenue DESC
@@ -316,17 +452,42 @@ router.get('/team-performance', async (req, res) => {
       [days, ...bp]
     );
 
-    res.json(r.rows.map((row, i) => ({
-      rank:          i + 1,
-      team_id:       row.team_id,
-      team_name:     row.team_name,
-      oddzial_nazwa: row.oddzial_nazwa,
-      tasks_total:   Number(row.tasks_total),
-      tasks_done:    Number(row.tasks_done),
-      tasks_overdue: Number(row.tasks_overdue),
-      completion_pct: row.tasks_total > 0 ? Math.round((row.tasks_done / row.tasks_total) * 100) : 0,
-      revenue:       Math.round(Number(row.revenue)),
-    })));
+    const rows = r.rows.map((row) => {
+      const tasksTotal = Number(row.tasks_total);
+      const tasksDone = Number(row.tasks_done);
+      const revenueActual = Number(row.revenue_actual);
+      const knownCost = Number(row.known_cost);
+      const marginPct = revenueActual > 0 ? Math.round(((revenueActual - knownCost) / revenueActual) * 1000) / 10 : null;
+      const completionPct = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+      const dataQualityPct = tasksTotal > 0
+        ? Math.round(((Number(row.settlement_count || 0) + Number(row.cost_count || 0)) / (tasksTotal * 2)) * 100)
+        : 0;
+      const score = scoreFromMetrics({
+        completionPct,
+        marginPct: marginPct ?? 0,
+        overdue: Number(row.tasks_overdue),
+        tasks: tasksTotal,
+        dataQualityPct,
+      });
+      return {
+        team_id: row.team_id,
+        team_name: row.team_name,
+        oddzial_nazwa: row.oddzial_nazwa,
+        tasks_total: tasksTotal,
+        tasks_done: tasksDone,
+        tasks_overdue: Number(row.tasks_overdue),
+        completion_pct: completionPct,
+        revenue: Math.round(Number(row.revenue)),
+        revenue_actual: Math.round(revenueActual),
+        known_cost: Math.round(knownCost),
+        gross_margin: revenueActual > 0 ? Math.round(revenueActual - knownCost) : null,
+        margin_pct: marginPct,
+        data_quality_pct: dataQualityPct,
+        score,
+      };
+    }).sort((a, b) => b.score - a.score || b.revenue - a.revenue);
+
+    res.json(rows.map((row, i) => ({ rank: i + 1, ...row })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -382,6 +543,168 @@ router.get('/funnel', async (req, res) => {
 
 // ─── GET /api/bi/drill — szczegółowa lista zadań dla wybranego wymiaru ────────
 // ?dim=oddzial|ekipa|usluga&id=N&val=STR&days=N
+router.get('/plan-vs-real', async (req, res) => {
+  if (!canViewBI(req.user)) return res.status(403).json({ error: 'Brak uprawnien' });
+
+  const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+  const branchId = scopedOddzialId(req.user, req.query.oddzial_id ? Number(req.query.oddzial_id) : null);
+  const { clause: bc, params: bp } = scopeClause(branchId, 2, 't');
+
+  try {
+    const [summaryResult, tasksResult] = await Promise.all([
+      pool.query(
+        `WITH base AS (
+           SELECT
+             t.id,
+             t.status,
+             COALESCE(t.czas_planowany_godziny, t.czas_realizacji_godz, 0)::numeric * 60 AS planned_minutes,
+             COALESCE(wl.actual_minutes, 0)::numeric AS actual_minutes,
+             COALESCE(t.wartosc_planowana, 0)::numeric AS value_planned,
+             COALESCE(t.wartosc_rzeczywista, tr.wartosc_brutto, t.wartosc_planowana, 0)::numeric AS value_actual,
+             COALESCE(op.known_cost, 0)::numeric AS known_cost
+           FROM tasks t
+           LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
+           LEFT JOIN LATERAL (
+             SELECT COALESCE(SUM(
+               COALESCE(
+                 NULLIF(w.czas_pracy_minuty, 0),
+                 NULLIF(w.duration_hours, 0) * 60,
+                 CASE WHEN w.end_time IS NOT NULL THEN EXTRACT(EPOCH FROM (w.end_time - w.start_time)) / 60 END,
+                 0
+               )
+             ), 0) AS actual_minutes
+             FROM work_logs w
+             WHERE w.task_id = t.id
+           ) wl ON true
+           LEFT JOIN LATERAL (
+             SELECT COALESCE(SUM(amount), 0) AS known_cost
+             FROM task_operational_costs c
+             WHERE c.task_id = t.id
+           ) op ON true
+           WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
+             AND t.status != 'Anulowane'
+             ${bc}
+         )
+         SELECT
+           COUNT(*)::int AS tasks_total,
+           COUNT(*) FILTER (WHERE status = 'Zakonczone')::int AS tasks_done,
+           COALESCE(SUM(planned_minutes), 0)::numeric AS planned_minutes,
+           COALESCE(SUM(actual_minutes), 0)::numeric AS actual_minutes,
+           COALESCE(SUM(value_planned), 0)::numeric AS value_planned,
+           COALESCE(SUM(value_actual), 0)::numeric AS value_actual,
+           COALESCE(SUM(known_cost), 0)::numeric AS known_cost,
+           COUNT(*) FILTER (
+             WHERE planned_minutes > 0
+               AND actual_minutes > planned_minutes * 1.2
+           )::int AS overrun_tasks,
+           COUNT(*) FILTER (
+             WHERE status = 'Zakonczone'
+               AND actual_minutes = 0
+           )::int AS missing_worklog_tasks
+         FROM base`,
+        [days, ...bp]
+      ),
+      pool.query(
+        `SELECT
+           t.id,
+           t.numer,
+           t.status,
+           t.typ_uslugi,
+           t.data_planowana::text AS data_planowana,
+           COALESCE(t.czas_planowany_godziny, t.czas_realizacji_godz, 0)::numeric * 60 AS planned_minutes,
+           COALESCE(wl.actual_minutes, 0)::numeric AS actual_minutes,
+           COALESCE(t.wartosc_planowana, 0)::numeric AS value_planned,
+           COALESCE(t.wartosc_rzeczywista, tr.wartosc_brutto, t.wartosc_planowana, 0)::numeric AS value_actual,
+           COALESCE(op.known_cost, 0)::numeric AS known_cost,
+           e.nazwa AS ekipa_nazwa,
+           o.nazwa AS oddzial_nazwa
+         FROM tasks t
+         LEFT JOIN teams e ON e.id = t.ekipa_id
+         LEFT JOIN oddzialy o ON o.id = t.oddzial_id
+         LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(
+             COALESCE(
+               NULLIF(w.czas_pracy_minuty, 0),
+               NULLIF(w.duration_hours, 0) * 60,
+               CASE WHEN w.end_time IS NOT NULL THEN EXTRACT(EPOCH FROM (w.end_time - w.start_time)) / 60 END,
+               0
+             )
+           ), 0) AS actual_minutes
+           FROM work_logs w
+           WHERE w.task_id = t.id
+         ) wl ON true
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(amount), 0) AS known_cost
+           FROM task_operational_costs c
+           WHERE c.task_id = t.id
+         ) op ON true
+         WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
+           AND t.status != 'Anulowane'
+           ${bc}
+         ORDER BY
+           CASE
+             WHEN COALESCE(t.czas_planowany_godziny, t.czas_realizacji_godz, 0) > 0
+             THEN COALESCE(wl.actual_minutes, 0) / NULLIF(COALESCE(t.czas_planowany_godziny, t.czas_realizacji_godz, 0) * 60, 0)
+             ELSE 0
+           END DESC,
+           t.data_planowana DESC
+         LIMIT 20`,
+        [days, ...bp]
+      ),
+    ]);
+
+    const row = summaryResult.rows[0] || {};
+    const plannedMinutes = Math.round(Number(row.planned_minutes || 0));
+    const actualMinutes = Math.round(Number(row.actual_minutes || 0));
+    const varianceMinutes = actualMinutes - plannedMinutes;
+    const valuePlanned = Math.round(Number(row.value_planned || 0));
+    const valueActual = Math.round(Number(row.value_actual || 0));
+    const valueVariance = valueActual - valuePlanned;
+
+    res.json({
+      period_days: days,
+      tasks_total: Number(row.tasks_total || 0),
+      tasks_done: Number(row.tasks_done || 0),
+      planned_minutes: plannedMinutes,
+      actual_minutes: actualMinutes,
+      planned_hours: Math.round((plannedMinutes / 60) * 10) / 10,
+      actual_hours: Math.round((actualMinutes / 60) * 10) / 10,
+      time_variance_minutes: varianceMinutes,
+      time_variance_pct: plannedMinutes > 0 ? Math.round((varianceMinutes / plannedMinutes) * 100) : null,
+      value_planned: valuePlanned,
+      value_actual: valueActual,
+      value_variance: valueVariance,
+      value_variance_pct: valuePlanned > 0 ? Math.round((valueVariance / valuePlanned) * 100) : null,
+      known_cost: Math.round(Number(row.known_cost || 0)),
+      overrun_tasks: Number(row.overrun_tasks || 0),
+      missing_worklog_tasks: Number(row.missing_worklog_tasks || 0),
+      tasks: tasksResult.rows.map((task) => {
+        const planned = Math.round(Number(task.planned_minutes || 0));
+        const actual = Math.round(Number(task.actual_minutes || 0));
+        return {
+          id: task.id,
+          numer: task.numer,
+          status: task.status,
+          typ_uslugi: task.typ_uslugi,
+          data_planowana: task.data_planowana,
+          ekipa_nazwa: task.ekipa_nazwa,
+          oddzial_nazwa: task.oddzial_nazwa,
+          planned_minutes: planned,
+          actual_minutes: actual,
+          variance_minutes: actual - planned,
+          variance_pct: planned > 0 ? Math.round(((actual - planned) / planned) * 100) : null,
+          value_planned: Math.round(Number(task.value_planned || 0)),
+          value_actual: Math.round(Number(task.value_actual || 0)),
+          known_cost: Math.round(Number(task.known_cost || 0)),
+        };
+      }),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/drill', async (req, res) => {
   if (!canViewBI(req.user)) return res.status(403).json({ error: 'Brak uprawnień' });
 
@@ -558,6 +881,91 @@ router.post('/alerts/check', async (req, res) => {
       .sort((a, b) => (a.margin_pct ?? 999) - (b.margin_pct ?? 999))
       .slice(0, 10);
 
+    const { clause: fleetScope, params: fleetParams } = scopeClause(branchId, 2, 'x');
+    const fleetDueResult = await pool.query(
+      `SELECT *
+         FROM (
+           SELECT 'vehicle' AS kind,
+                  v.id,
+                  COALESCE(v.nr_rejestracyjny, CONCAT_WS(' ', v.marka, v.model), 'Pojazd #' || v.id::text) AS label,
+                  'przeglad' AS due_type,
+                  v.data_przegladu AS due_date,
+                  v.oddzial_id
+             FROM vehicles v
+            WHERE v.data_przegladu IS NOT NULL
+           UNION ALL
+           SELECT 'vehicle' AS kind,
+                  v.id,
+                  COALESCE(v.nr_rejestracyjny, CONCAT_WS(' ', v.marka, v.model), 'Pojazd #' || v.id::text) AS label,
+                  'ubezpieczenie' AS due_type,
+                  v.data_ubezpieczenia AS due_date,
+                  v.oddzial_id
+             FROM vehicles v
+            WHERE v.data_ubezpieczenia IS NOT NULL
+           UNION ALL
+           SELECT 'equipment' AS kind,
+                  e.id,
+                  COALESCE(e.nazwa, e.typ, 'Sprzet #' || e.id::text) AS label,
+                  'przeglad' AS due_type,
+                  e.data_przegladu AS due_date,
+                  e.oddzial_id
+             FROM equipment_items e
+            WHERE e.data_przegladu IS NOT NULL
+         ) x
+        WHERE x.due_date < CURRENT_DATE
+          AND x.due_date >= CURRENT_DATE - ($1::int * INTERVAL '1 day')
+          ${fleetScope}
+        ORDER BY x.due_date ASC
+        LIMIT 20`,
+      [days, ...fleetParams]
+    );
+    const fleetDue = fleetDueResult.rows.map((item) => ({
+      kind: item.kind,
+      id: item.id,
+      label: item.label,
+      due_type: item.due_type,
+      due_date: item.due_date,
+      oddzial_id: item.oddzial_id,
+    }));
+
+    const { clause: competencyScope, params: competencyParams } = scopeClause(branchId, 2, 't');
+    const competencyResult = await pool.query(
+      `SELECT t.id,
+              t.numer,
+              t.klient_nazwa,
+              t.oddzial_id,
+              t.ekipa_id,
+              e.nazwa AS ekipa_nazwa,
+              COALESCE(t.wymagane_kompetencje, '{}'::text[]) AS required_competencies,
+              COALESCE(array_agg(DISTINCT uc.nazwa) FILTER (WHERE uc.nazwa IS NOT NULL), '{}'::text[]) AS team_competencies
+         FROM tasks t
+         JOIN teams e ON e.id = t.ekipa_id
+         LEFT JOIN team_members tm ON tm.team_id = e.id
+         LEFT JOIN user_competencies uc ON uc.user_id = tm.user_id
+        WHERE t.status NOT IN ('Zakonczone','Anulowane')
+          AND t.data_planowana >= NOW() - INTERVAL '1 day' * $1
+          AND COALESCE(array_length(t.wymagane_kompetencje, 1), 0) > 0
+          ${competencyScope}
+        GROUP BY t.id, e.nazwa
+        ORDER BY t.data_planowana ASC NULLS LAST
+        LIMIT 100`,
+      [days, ...competencyParams]
+    );
+    const competencyRisks = competencyResult.rows
+      .map((item) => ({
+        id: item.id,
+        numer: item.numer,
+        klient_nazwa: item.klient_nazwa,
+        oddzial_id: item.oddzial_id,
+        ekipa_id: item.ekipa_id,
+        ekipa_nazwa: item.ekipa_nazwa,
+        required_competencies: asStringArray(item.required_competencies),
+        team_competencies: asStringArray(item.team_competencies),
+        missing_competencies: missingCompetencies(item.required_competencies, item.team_competencies),
+      }))
+      .filter((item) => item.missing_competencies.length > 0)
+      .slice(0, 10);
+
     const alerts = [];
     if (compPct < completionThreshold) {
       alerts.push(`⚠️ Wskaźnik ukończenia: ${compPct}% (próg: ${completionThreshold}%)`);
@@ -568,6 +976,12 @@ router.post('/alerts/check', async (req, res) => {
 
     if (marginRisks.length > 0) {
       alerts.push(`Ryzyko marzy: ${marginRisks.length} zlec. ponizej progu oddzialu`);
+    }
+    if (fleetDue.length > 0) {
+      alerts.push(`Przeterminowane przeglady/OC: ${fleetDue.length} zasobow floty i sprzetu`);
+    }
+    if (competencyRisks.length > 0) {
+      alerts.push(`Brak kompetencji: ${competencyRisks.length} zlec. przypisanych do niepelnej ekipy`);
     }
 
     let emailResult = { sent: false, skipped: 'no_alerts' };
@@ -582,6 +996,8 @@ router.post('/alerts/check', async (req, res) => {
         `Przeterminowane: ${overdue}`,
         '',
         ...marginRisks.map((m) => `Marza #${m.id} ${m.klient_nazwa || ''}: ${m.margin_pct}% / prog ${m.threshold_pct}%`),
+        ...fleetDue.map((f) => `Flota ${f.kind} #${f.id} ${f.label || ''}: ${f.due_type} ${f.due_date}`),
+        ...competencyRisks.map((c) => `Kompetencje #${c.id} ${c.klient_nazwa || ''}: brakuje ${c.missing_competencies.join(', ')}`),
       ].join('\n');
       emailResult = await sendSystemEmailOptional({
         to: recipients,
@@ -598,6 +1014,8 @@ router.post('/alerts/check', async (req, res) => {
       tasks_total: total,
       tasks_overdue: overdue,
       margin_risks: marginRisks,
+      fleet_due: fleetDue,
+      competency_risks: competencyRisks,
       alerts,
       email: emailResult,
     });

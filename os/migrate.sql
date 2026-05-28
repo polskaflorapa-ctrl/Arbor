@@ -185,6 +185,28 @@ CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_status_created
   ON task_kommo_inbound_events (status, created_at DESC);
 
 -- Kolumny używane przez POST /tasks/nowe (API)
+CREATE TABLE IF NOT EXISTS task_documents (
+  id                 SERIAL PRIMARY KEY,
+  task_id            INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id            INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  nazwa              VARCHAR(240) NOT NULL,
+  sciezka            TEXT NOT NULL,
+  mime_type          VARCHAR(120),
+  rozmiar_bytes      INTEGER,
+  kategoria          VARCHAR(80) NOT NULL DEFAULT 'inne',
+  status             VARCHAR(40) NOT NULL DEFAULT 'roboczy',
+  opis               TEXT,
+  wersja             INTEGER NOT NULL DEFAULT 1,
+  source_provider    VARCHAR(40),
+  source_external_id VARCHAR(160),
+  remote_url         TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (source_provider, source_external_id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_documents_task
+  ON task_documents (task_id, created_at DESC);
+
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kierownik_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS czas_planowany_godziny DECIMAL(5,2);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS godzina_rozpoczecia TIME;

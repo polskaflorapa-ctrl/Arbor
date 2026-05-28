@@ -34,8 +34,9 @@
 - [x] **P0 Kommo inbound status sync**: `/api/webhooks/kommo/task-sync` przyjmuje status z Kommo, ma idempotencje eventow i blokuje konflikty na zamknietych zleceniach.
 - [x] **P0 Kommo sync diagnostyka**: `/api/tasks/kommo-sync/diagnostics` oraz panel Integracje pokazuja outbound queue, dead-letter i inbound konflikty.
 - [x] **P0 Kommo inbound field mapping**: `task.sync` mapuje `status_id`, klienta, telefon, email, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow do notatek.
+- [x] **P0 Kommo attachments as documents**: inbound `task.sync` zapisuje zalaczniki Kommo jako `task_documents`, a `/api/tasks/:id/dokumenty` obsluguje liste, upload, edycje, wersjonowanie i usuwanie dokumentow zlecenia.
 - [x] **P0 Dispatcher diagnostics**: solver nie przypisuje zlecen lamiacych pojedyncze okno/capacity, a `unassigned` zwraca etykiety i szczegoly brakow sprzetu, kompetencji, okien oraz pojemnosci.
-- [ ] **Nastepny pakiet**: rozbudowac Kommo -> ARBOR o pobieranie zalacznikow jako pliki oraz ekran konfiguracji mapowania pol/statusow pod konkretne konto Kommo.
+- [ ] **Nastepny pakiet**: rozbudowac Kommo -> ARBOR o ekran konfiguracji mapowania pol/statusow pod konkretne konto Kommo oraz opcjonalne kopiowanie binariow zalacznikow do storage ARBOR.
 
 ---
 
@@ -78,7 +79,7 @@ flowchart LR
 - [x] **1.1** Model danych: okno czasowe klienta, czas obslugi zlecenia, priorytet, wymagany sprzet, wymagane kompetencje (schemat + migracja).
 - [ ] **1.2** Decyzja architektoniczna: **Google Routes / Mapbox Optimization** vs **OR-Tools** self-hosted — dokument + szacunek kosztu API.
 - [x] **1.3** Serwis `POST /api/dispatch/plan` (wejscie: zestaw zlecen + ekipy + dzien; wyjscie: przypisania + kolejnosc + ETA).
-- [ ] **1.4** Ograniczenia: okna czasowe, przerwy, max godzin prowadzenia, niedostepnosc pojazdu. **Czesciowo:** okna, max godzin i nieobecnosc ekip sa respektowane; zostaja przerwy i twarda niedostepnosc pojazdu w planie.
+- [x] **1.4** Ograniczenia: okna czasowe, przerwy, max godzin prowadzenia, niedostepnosc pojazdu/sprzetu. Solver respektuje okna, limity dnia, nieobecnosc ekip, przerwy (`przerwa_od`/`przerwa_do`) oraz wyklucza sprzet niedostepny statusem lub rezerwacja na inna ekipe.
 - [x] **1.5** Ograniczenia kompetencji i sprzetu w solverze (filtrowanie ekip przed VRP).
 - [x] **1.6** UI Kierownika: Auto-dispatch + podglad mapy + reczna edycja (zapis planu).
 - [x] **1.7** Benchmark: wynik planu zwraca `solver_target_ms` i `solver_sla_ok` z konfigurowalnym `DISPATCH_SOLVER_TARGET_MS`.
@@ -110,11 +111,11 @@ flowchart LR
 
 ## EPIC 4 — Panel Dyrektorski / BI
 
-- [ ] **4.1** Dashboard 6 oddziałów: KPI + kolory rentowności (progi konfigurowalne).
-- [ ] **4.2** Plan vs real: godziny, trasy, koszt materiałów (źródła danych z work logów i magazynu).
-- [ ] **4.3** Rankingi ekip / oddziałów (okres, metryka).
-- [ ] **4.4** Alerty (marża, przeterminowane przeglądy, brak kompetencji).
-- [ ] **4.5** Drill-down do pojedynczego zlecenia z BI.
+- [x] **4.1** Dashboard 6 oddziałów: KPI + kolory rentowności (progi konfigurowalne). `branch-comparison` zwraca marze, prog rentownosci oddzialu, kolor/tone, jakosc danych i score.
+- [x] **4.2** Plan vs real: godziny, trasy, koszt materiałów (źródła danych z work logów i magazynu). Backend `/api/bi/plan-vs-real` liczy plan/real z `tasks`, `work_logs`, `task_operational_costs`; UI BI ma zakladke Plan vs real z odchyleniami i drill-downem do zlecen.
+- [x] **4.3** Rankingi ekip / oddziałów (okres, metryka). `team-performance` sortuje po score laczacym wykonanie, marze, jakosc danych i zaleglosci; UI pokazuje score/marze/jakosc danych.
+- [x] **4.4** Alerty (marża, przeterminowane przeglądy, brak kompetencji). `/api/bi/alerts/check` zwraca ryzyka marzy, przeterminowane przeglady/OC floty i sprzetu oraz zlecenia przypisane do ekip bez wymaganych kompetencji.
+- [x] **4.5** Drill-down do pojedynczego zlecenia z BI. Modal BI pokazuje zlecenia z finansami i ma bezposrednie przejscie do `/zlecenia/:id`; listy alertow marzy i kompetencji tez prowadza do zlecenia.
 
 ---
 
@@ -147,7 +148,7 @@ flowchart LR
 
 ## EPIC 8 — Kommo dwukierunkowo (produkt „jak w spec”)
 
-- [ ] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". **Czesciowo:** inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow w notatce. Zostaje import zalacznikow jako pliki i konfigurowalne mapowanie przez UI.
+- [ ] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". **Czesciowo:** inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i zapisuje zalaczniki jako dokumenty zlecenia. Zostaje konfigurowalne mapowanie przez UI i opcjonalne kopiowanie binariow zalacznikow do storage ARBOR.
 - [ ] **8.2** ARBOR → Kommo: status, zdjęcia, czas rzeczywisty, zużycie, kosztorys z marżą, link statusowy.
 - [ ] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. **Czesciowo:** ARBOR -> Kommo `task.sync` ma juz retry/dead-letter, a Kommo -> ARBOR ma idempotencje eventow.
 - [x] **8.4** Panel diagnostyczny sync (ostatni blad, HTTP, payload): API diagnostyczne + panel Integracje dla kolejki outbound i inbound konfliktow.

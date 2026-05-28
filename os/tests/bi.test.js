@@ -111,6 +111,46 @@ describe('GET /api/bi/branch-comparison', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
   });
+
+  it('returns branch profitability, threshold and ranking score', async () => {
+    pool.query.mockResolvedValue({
+      rows: [{
+        oddzial_id: 2,
+        oddzial_nazwa: 'Krakow',
+        margin_threshold_pct: '20',
+        tasks_total: '4',
+        tasks_done: '3',
+        tasks_overdue: '1',
+        revenue_planned: '5000',
+        revenue_actual: '4000',
+        known_cost: '2600',
+        teams_active: '2',
+        settlement_count: '3',
+        cost_count: '2',
+      }],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${direktorToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      oddzial_id: 2,
+      completion_pct: 75,
+      revenue_planned: 5000,
+      revenue_actual: 4000,
+      known_cost: 2600,
+      gross_margin: 1400,
+      margin_pct: 35,
+      margin_threshold_pct: 20,
+      profitability_tone: 'success',
+      data_quality_pct: 63,
+      teams_active: 2,
+    }));
+    expect(res.body[0].score).toBeGreaterThan(0);
+  });
 });
 
 // ─── /api/bi/service-mix ─────────────────────────────────────────────────────
@@ -162,6 +202,58 @@ describe('GET /api/bi/team-performance', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('ranks teams by combined score with margin and data quality', async () => {
+    pool.query.mockResolvedValue({
+      rows: [
+        {
+          team_id: 1,
+          team_name: 'Ekipa Marza',
+          oddzial_nazwa: 'Krakow',
+          tasks_total: '4',
+          tasks_done: '4',
+          tasks_overdue: '0',
+          revenue: '3000',
+          revenue_actual: '3000',
+          known_cost: '900',
+          settlement_count: '4',
+          cost_count: '4',
+        },
+        {
+          team_id: 2,
+          team_name: 'Ekipa Obrot',
+          oddzial_nazwa: 'Krakow',
+          tasks_total: '4',
+          tasks_done: '2',
+          tasks_overdue: '1',
+          revenue: '9000',
+          revenue_actual: '9000',
+          known_cost: '8000',
+          settlement_count: '1',
+          cost_count: '1',
+        },
+      ],
+      rowCount: 2,
+    });
+
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${direktorToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      rank: 1,
+      team_id: 1,
+      margin_pct: 70,
+      data_quality_pct: 100,
+    }));
+    expect(res.body[1]).toEqual(expect.objectContaining({
+      rank: 2,
+      team_id: 2,
+      margin_pct: 11.1,
+      data_quality_pct: 25,
+    }));
   });
 });
 
@@ -282,6 +374,75 @@ describe('GET /api/bi/drill', () => {
   });
 });
 
+describe('GET /api/bi/plan-vs-real', () => {
+  it('returns planned vs actual time and value variance from work logs', async () => {
+    pool.query
+      .mockResolvedValueOnce({
+        rows: [{
+          tasks_total: 2,
+          tasks_done: 1,
+          planned_minutes: '300',
+          actual_minutes: '390',
+          value_planned: '3000',
+          value_actual: '3300',
+          known_cost: '450',
+          overrun_tasks: 1,
+          missing_worklog_tasks: 1,
+        }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 501,
+          numer: 'ARB-501',
+          status: 'Zakonczone',
+          typ_uslugi: 'Wycinka',
+          data_planowana: '2026-05-28T08:00:00.000Z',
+          planned_minutes: '180',
+          actual_minutes: '270',
+          value_planned: '2000',
+          value_actual: '2300',
+          known_cost: '300',
+          ekipa_nazwa: 'Ekipa A',
+          oddzial_nazwa: 'Krakow',
+        }],
+        rowCount: 1,
+      });
+
+    const res = await request(app)
+      .get('/api/bi/plan-vs-real?days=30')
+      .set('Authorization', `Bearer ${direktorToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      tasks_total: 2,
+      tasks_done: 1,
+      planned_minutes: 300,
+      actual_minutes: 390,
+      planned_hours: 5,
+      actual_hours: 6.5,
+      time_variance_minutes: 90,
+      time_variance_pct: 30,
+      value_planned: 3000,
+      value_actual: 3300,
+      value_variance: 300,
+      value_variance_pct: 10,
+      known_cost: 450,
+      overrun_tasks: 1,
+      missing_worklog_tasks: 1,
+    });
+    expect(res.body.tasks[0]).toEqual(expect.objectContaining({
+      id: 501,
+      planned_minutes: 180,
+      actual_minutes: 270,
+      variance_minutes: 90,
+      variance_pct: 50,
+    }));
+    expect(pool.query.mock.calls[0][0]).toContain('FROM work_logs w');
+    expect(pool.query.mock.calls[0][0]).toContain('task_operational_costs');
+  });
+});
+
 describe('POST /api/bi/alerts/check', () => {
   it('includes margin risks below branch threshold', async () => {
     pool.query
@@ -305,6 +466,30 @@ describe('POST /api/bi/alerts/check', () => {
           other_cost: '20',
         }],
         rowCount: 1,
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          kind: 'vehicle',
+          id: 12,
+          label: 'KR 12345',
+          due_type: 'przeglad',
+          due_date: '2026-05-01',
+          oddzial_id: 2,
+        }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 910,
+          numer: 'ARB-910',
+          klient_nazwa: 'Brak uprawnien',
+          oddzial_id: 2,
+          ekipa_id: 7,
+          ekipa_nazwa: 'Ekipa B',
+          required_competencies: ['Arborysta', 'SEP'],
+          team_competencies: ['Arborysta'],
+        }],
+        rowCount: 1,
       });
 
     const res = await request(app)
@@ -315,12 +500,23 @@ describe('POST /api/bi/alerts/check', () => {
     expect(res.status).toBe(200);
     expect(res.body.alerts).toEqual(expect.arrayContaining([
       expect.stringContaining('Ryzyko marzy'),
+      expect.stringContaining('Przeterminowane przeglady'),
+      expect.stringContaining('Brak kompetencji'),
     ]));
     expect(res.body.margin_risks).toEqual([
       expect.objectContaining({
         id: 909,
         margin_pct: 13,
         threshold_pct: 20,
+      }),
+    ]);
+    expect(res.body.fleet_due).toEqual([
+      expect.objectContaining({ kind: 'vehicle', id: 12, due_type: 'przeglad' }),
+    ]);
+    expect(res.body.competency_risks).toEqual([
+      expect.objectContaining({
+        id: 910,
+        missing_competencies: ['SEP'],
       }),
     ]);
   });
