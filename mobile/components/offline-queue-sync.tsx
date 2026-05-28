@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { addNetworkStateListener } from 'expo-network';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, type AppStateStatus, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
 import { flushOfflineQueue, getOfflineQueueSize } from '../utils/offline-queue';
@@ -18,6 +19,7 @@ type SyncBannerState =
 
 export function OfflineQueueSync() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const flushingRef = useRef(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,7 +94,7 @@ export function OfflineQueueSync() {
   const backgroundColor = banner.kind === 'success' ? theme.successBg : banner.kind === 'warning' ? theme.warningBg : theme.infoBg;
 
   return (
-    <View style={styles.overlay}>
+    <View style={[styles.overlay, { top: Math.max(insets.top + 8, 18) }]}>
       <View
         style={[
           styles.banner,
@@ -119,7 +121,6 @@ export function OfflineQueueSync() {
 const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
-    top: 60,
     left: 12,
     right: 12,
     zIndex: 9999,

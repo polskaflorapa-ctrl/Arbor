@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 export interface StoredUser {
   id?: number;
@@ -23,6 +24,10 @@ const safeParseUser = (value: string | null): StoredUser | null => {
   }
 };
 
+const SESSION_TOKEN_KEY = 'session_token_v1';
+const LEGACY_TOKEN_KEY = 'token';
+const USER_KEY = 'user';
+
 const normalizeStoredToken = (value: string | null): string | null => {
   if (value == null) return null;
   const token = String(value).replace(/[\uFEFF\u200B-\u200D]/g, '').trim();
@@ -31,19 +36,43 @@ const normalizeStoredToken = (value: string | null): string | null => {
 };
 
 export const getStoredSession = async (): Promise<StoredSession> => {
-  const [tokenRaw, userStr] = await AsyncStorage.multiGet(['token', 'user']).then((pairs) => [
+  let secureTokenRaw: string | null = null;
+  try {
+    secureTokenRaw = await SecureStore.getItemAsync(SESSION_TOKEN_KEY);
+  } catch {
+    secureTokenRaw = null;
+  }
+
+  const [legacyTokenRaw, userStr] = await AsyncStorage.multiGet([LEGACY_TOKEN_KEY, USER_KEY]).then((pairs) => [
     pairs[0]?.[1] ?? null,
     pairs[1]?.[1] ?? null,
   ]);
 
-  const token = normalizeStoredToken(tokenRaw);
+  let token = normalizeStoredToken(secureTokenRaw);
+  const legacyToken = normalizeStoredToken(legacyTokenRaw);
+
+  if (!token && legacyToken) {
+    try {
+      await SecureStore.setItemAsync(SESSION_TOKEN_KEY, legacyToken);
+      token = legacyToken;
+      await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+    } catch {
+      token = legacyToken;
+    }
+  } else if (legacyTokenRaw) {
+    await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+  }
+
   const user = safeParseUser(userStr);
 
-  if (tokenRaw && !token) {
-    await AsyncStorage.removeItem('token');
+  if (secureTokenRaw && !normalizeStoredToken(secureTokenRaw)) {
+    await SecureStore.deleteItemAsync(SESSION_TOKEN_KEY).catch(() => undefined);
+  }
+  if (legacyTokenRaw && !legacyToken) {
+    await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
   }
   if (userStr && !user) {
-    await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem(USER_KEY);
   }
 
   return { token, user };
@@ -54,12 +83,14 @@ export const saveStoredSession = async (token: string, user: StoredUser): Promis
   if (!normalizedToken) {
     throw new Error('Invalid session token');
   }
-  await AsyncStorage.multiSet([
-    ['token', normalizedToken],
-    ['user', JSON.stringify(user)],
-  ]);
+  await SecureStore.setItemAsync(SESSION_TOKEN_KEY, normalizedToken);
+  await AsyncStorage.multiSet([[USER_KEY, JSON.stringify(user)]]);
+  await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
 };
 
 export const clearStoredSession = async (): Promise<void> => {
-  await AsyncStorage.multiRemove(['token', 'user']);
+  await Promise.all([
+    SecureStore.deleteItemAsync(SESSION_TOKEN_KEY).catch(() => undefined),
+    AsyncStorage.multiRemove([LEGACY_TOKEN_KEY, USER_KEY]),
+  ]);
 };

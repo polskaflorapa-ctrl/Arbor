@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View, type AppStateStatus } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../constants/api';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
@@ -83,6 +84,7 @@ function formatSyncTime(timestamp: number) {
 
 export function LiveGpsHeartbeat() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const tokenRef = useRef<string | null>(null);
@@ -226,7 +228,7 @@ export function LiveGpsHeartbeat() {
       : 'navigate-circle-outline';
 
   return (
-    <View style={styles.overlay} pointerEvents="none">
+    <View style={[styles.overlay, { top: Math.max(insets.top + 54, 72) }]} pointerEvents="none">
       <View
         style={[
           styles.pill,
@@ -256,7 +258,6 @@ export function LiveGpsHeartbeat() {
 const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
-    top: 106,
     left: 12,
     right: 12,
     zIndex: 9998,

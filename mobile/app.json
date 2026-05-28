@@ -31,6 +31,24 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "ARBOR-OS uzywa aparatu do dokumentowania zlecen, ogledzin, protokolow i zdjec przed oraz po pracy."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ARBOR-OS potrzebuje dostepu do zdjec, aby dolaczac dokumentacje terenu, szkice i materialy do zlecen."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "ARBOR-OS uzywa Face ID do odblokowania aplikacji po wlaczeniu blokady prywatnosci."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
@@ -54,7 +72,8 @@
             "backgroundColor": "#060908"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
