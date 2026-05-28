@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { OfflineQueueBanner } from '../../components/ui/app-state';
+import { InfoRow } from '../../components/task-info-row';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../../components/ui/platinum-cta';
 import { PlatinumIconBadge } from '../../components/ui/platinum-icon-badge';
@@ -7686,16 +7687,6 @@ function TaskClientSignatureModal({
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  );
-}
-
-function InfoRow({ label, val, theme }: { label: string; val: string; theme: Theme }) {
-  if (!val) return null;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-      <Text style={{ fontSize: 13, color: theme.textMuted, width: 100 }}>{label}:</Text>
-      <Text style={{ fontSize: 13, color: theme.text, flex: 1 }}>{val}</Text>
-    </View>
   );
 }
 
