@@ -62,6 +62,11 @@ function formatMinutes(value) {
   return `${sign}${hours} h ${minutes} min`;
 }
 
+function formatMoney(value) {
+  const n = Number(value || 0);
+  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(Number.isFinite(n) ? n : 0);
+}
+
 const PLAN_REASON_OPTIONS = [
   { value: 'zakres', label: 'Wiekszy zakres' },
   { value: 'dojazd', label: 'Dojazd' },
@@ -517,6 +522,7 @@ export default function Kierownik() {
   const cockpitBlockers = cockpit?.blockers || [];
   const cockpitTasks = cockpit?.tasks || [];
   const cockpitTeams = cockpit?.teams || [];
+  const cockpitMarginRisks = cockpit?.margin_risks || [];
   const planRealSummary = planReal?.summary || {};
   const planRealTasks = planReal?.tasks || [];
   const planRealDelta = Number(planRealSummary.delta_minutes || 0);
@@ -614,12 +620,51 @@ export default function Kierownik() {
               tone={(cockpitSummary.open_issues ?? 0) > 0 ? 'warning' : 'ok'}
             />
             <CockpitMetric
+              label="Marza"
+              value={cockpitLoading ? '...' : cockpitSummary.margin_risks ?? 0}
+              detail="ponizej progu"
+              tone={(cockpitSummary.margin_risks ?? 0) > 0 ? 'danger' : 'ok'}
+            />
+            <CockpitMetric
               label="GPS ekip"
               value={cockpitLoading ? '...' : `${cockpitSummary.gps_online ?? 0}/${cockpitSummary.assigned_teams ?? 0}`}
               detail={`${cockpitSummary.gps_attention ?? 0} do sprawdzenia`}
               tone={(cockpitSummary.gps_attention ?? 0) > 0 ? 'warning' : 'ok'}
             />
           </div>
+
+          {cockpitMarginRisks.length > 0 ? (
+            <div style={styles.marginRiskBand}>
+              <div style={styles.planRealHeader}>
+                <div style={styles.cockpitSectionTitle}>
+                  <ReportProblemOutlined sx={{ fontSize: 18, color: 'var(--danger)' }} />
+                  Marza ponizej progu oddzialu
+                </div>
+                <span style={styles.planRealDate}>{cockpitMarginRisks.length} do sprawdzenia</span>
+              </div>
+              <div style={styles.marginRiskList}>
+                {cockpitMarginRisks.map((risk) => (
+                  <button
+                    type="button"
+                    key={risk.id}
+                    style={styles.marginRiskRow}
+                    onClick={() => navigate(risk.action_path || `/zlecenia/${risk.id}`)}
+                  >
+                    <span style={styles.marginRiskMain}>
+                      <strong>{risk.numer || `#${risk.id}`}</strong>
+                      <small>{risk.klient_nazwa || 'Bez klienta'}</small>
+                    </span>
+                    <span style={styles.marginRiskMoney}>
+                      {formatMoney(risk.gross_margin)} / koszt {formatMoney(risk.total_known_cost)}
+                    </span>
+                    <span style={styles.marginRiskPct}>
+                      {risk.margin_pct ?? '-'}% / prog {risk.threshold_pct}%
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div style={styles.planRealBand}>
             <div style={styles.planRealHeader}>
@@ -1166,6 +1211,26 @@ const styles = {
   cockpitMetricLabel: { color: 'var(--text-sub)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
   cockpitMetricValue: { fontSize: 24, lineHeight: 1, fontWeight: 900 },
   cockpitMetricDetail: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 650 },
+  marginRiskBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
+  marginRiskList: { display: 'grid', gap: 0, borderTop: '1px solid var(--border)' },
+  marginRiskRow: {
+    width: '100%',
+    minHeight: 48,
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 9,
+    padding: '8px 0',
+    border: 0,
+    borderBottom: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text)',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  marginRiskMain: { minWidth: 130, flex: '1 1 180px', display: 'grid', gap: 2, fontSize: 12 },
+  marginRiskMoney: { flex: '1 1 150px', color: 'var(--text-sub)', fontSize: 12, fontWeight: 750 },
+  marginRiskPct: { justifySelf: 'end', border: '1px solid rgba(239,68,68,0.24)', borderRadius: 8, padding: '4px 7px', color: 'var(--danger)', background: 'rgba(239,68,68,0.1)', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
   planRealBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
   planRealHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   planRealDate: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 800 },

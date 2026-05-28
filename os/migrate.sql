@@ -147,6 +147,43 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_http INTEGER;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT;
 
+CREATE TABLE IF NOT EXISTS task_kommo_sync_queue (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  event VARCHAR(40) NOT NULL DEFAULT 'task.sync',
+  status VARCHAR(32) NOT NULL DEFAULT 'failed',
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  next_retry_at TIMESTAMPTZ,
+  last_http_status INTEGER,
+  last_error TEXT,
+  payload_json JSONB,
+  actor_json JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_attempt_at TIMESTAMPTZ,
+  sent_at TIMESTAMPTZ,
+  UNIQUE (task_id, event)
+);
+CREATE INDEX IF NOT EXISTS idx_task_kommo_sync_queue_status_retry
+  ON task_kommo_sync_queue (status, next_retry_at);
+
+CREATE TABLE IF NOT EXISTS task_kommo_inbound_events (
+  id SERIAL PRIMARY KEY,
+  event_key VARCHAR(160) NOT NULL UNIQUE,
+  task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'received',
+  incoming_status VARCHAR(64),
+  applied_status VARCHAR(64),
+  conflict_reason TEXT,
+  payload_json JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_task_created
+  ON task_kommo_inbound_events (task_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_status_created
+  ON task_kommo_inbound_events (status, created_at DESC);
+
 -- Kolumny używane przez POST /tasks/nowe (API)
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kierownik_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS czas_planowany_godziny DECIMAL(5,2);

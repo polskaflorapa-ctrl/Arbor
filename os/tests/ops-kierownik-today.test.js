@@ -139,6 +139,62 @@ describe('GET /api/ops/kierownik-today', () => {
     const taskCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('LEFT JOIN teams e'));
     expect(taskCall[1]).toEqual(['2026-05-26', 4]);
   });
+
+  it('adds margin risks below branch threshold to manager cockpit', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('FROM tasks t') && text.includes('LEFT JOIN teams e')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM teams tm')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM notifications')) {
+        return { rows: [{ unread: 0 }] };
+      }
+      if (text.includes('JOIN task_rozliczenie tr')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        expect(text).toContain('t.oddzial_id = $2');
+        expect(text).toContain('task_operational_costs');
+        return {
+          rows: [{
+            id: 77,
+            numer: 'ARB-77',
+            klient_nazwa: 'Slaba Marza',
+            status: 'Zakonczone',
+            oddzial_id: 7,
+            data_planowana: '2026-05-26T08:00:00.000Z',
+            threshold_pct: '20',
+            revenue_net: '1000',
+            helper_cost: '300',
+            crew_lead_pay: '250',
+            equipment_cost: '150',
+            fuel_cost: '80',
+            material_cost: '40',
+            disposal_cost: '30',
+            other_cost: '20',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/kierownik-today?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.margin_risks).toBe(1);
+    expect(res.body.blockers.map((b) => b.key)).toContain('margin');
+    expect(res.body.margin_risks).toEqual([
+      expect.objectContaining({
+        id: 77,
+        margin_pct: 13,
+        threshold_pct: 20,
+        action_path: expect.stringContaining('/zlecenia/77'),
+      }),
+    ]);
+  });
 });
 
 describe('GET /api/ops/plan-vs-real', () => {

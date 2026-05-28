@@ -36,6 +36,117 @@ const KOMMO_CF_LOAD_DATE_ID = toNum(process.env.KOMMO_CF_LOAD_DATE_ID);
 const KOMMO_CF_PHONE_ID = toNum(process.env.KOMMO_CF_PHONE_ID);
 const KOMMO_CF_GOODS_SUMMARY_ID = toNum(process.env.KOMMO_CF_GOODS_SUMMARY_ID);
 const KOMMO_CF_KLIENT_RECORD_ID = toNum(process.env.KOMMO_CF_KLIENT_RECORD_ID);
+const KOMMO_TASK_SYNC_EVENT = 'task.sync';
+
+async function ensureKommoTaskSyncQueue(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_kommo_sync_queue (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      event VARCHAR(40) NOT NULL DEFAULT 'task.sync',
+      status VARCHAR(32) NOT NULL DEFAULT 'failed',
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      next_retry_at TIMESTAMPTZ,
+      last_http_status INTEGER,
+      last_error TEXT,
+      payload_json JSONB,
+      actor_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_attempt_at TIMESTAMPTZ,
+      sent_at TIMESTAMPTZ,
+      UNIQUE (task_id, event)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_task_kommo_sync_queue_status_retry
+      ON task_kommo_sync_queue (status, next_retry_at)
+  `);
+}
+
+function retryDelayMinutes(retryCount) {
+  const n = Number(retryCount || 0);
+  return Math.min(60, Math.max(5, 5 * Math.pow(2, Math.max(0, n))));
+}
+
+async function recordKommoTaskSyncFailure(pool, {
+  taskId,
+  payload,
+  actor = null,
+  httpStatus = null,
+  error = '',
+  retryCount = 0,
+  maxRetries = 3,
+}) {
+  await ensureKommoTaskSyncQueue(pool);
+  const nextRetryCount = Number(retryCount || 0) + 1;
+  const status = nextRetryCount >= maxRetries ? 'dead_letter' : 'failed';
+  const delay = retryDelayMinutes(nextRetryCount);
+  const result = await pool.query(
+    `INSERT INTO task_kommo_sync_queue (
+       task_id, event, status, retry_count, next_retry_at, last_http_status, last_error,
+       payload_json, actor_json, last_attempt_at, updated_at
+     )
+     VALUES ($1, $2, $3, $4, NOW() + ($5::text || ' minutes')::interval, $6, $7, $8::jsonb, $9::jsonb, NOW(), NOW())
+     ON CONFLICT (task_id, event)
+     DO UPDATE SET
+       status = EXCLUDED.status,
+       retry_count = EXCLUDED.retry_count,
+       next_retry_at = EXCLUDED.next_retry_at,
+       last_http_status = EXCLUDED.last_http_status,
+       last_error = EXCLUDED.last_error,
+       payload_json = EXCLUDED.payload_json,
+       actor_json = EXCLUDED.actor_json,
+       last_attempt_at = NOW(),
+       updated_at = NOW(),
+       sent_at = NULL
+     RETURNING *`,
+    [
+      taskId,
+      KOMMO_TASK_SYNC_EVENT,
+      status,
+      nextRetryCount,
+      delay,
+      httpStatus,
+      String(error || '').slice(0, 1000),
+      JSON.stringify(payload || {}),
+      JSON.stringify(actor || null),
+    ]
+  );
+  return result.rows[0] || null;
+}
+
+async function markKommoTaskSyncSuccess(pool, taskId) {
+  await ensureKommoTaskSyncQueue(pool);
+  const result = await pool.query(
+    `INSERT INTO task_kommo_sync_queue (
+       task_id, event, status, retry_count, next_retry_at, last_error, last_attempt_at, sent_at, updated_at
+     )
+     VALUES ($1, $2, 'sent', 0, NULL, NULL, NOW(), NOW(), NOW())
+     ON CONFLICT (task_id, event)
+     DO UPDATE SET
+       status = 'sent',
+       retry_count = 0,
+       next_retry_at = NULL,
+       last_http_status = NULL,
+       last_error = NULL,
+       last_attempt_at = NOW(),
+       sent_at = NOW(),
+       updated_at = NOW()
+     RETURNING *`,
+    [taskId, KOMMO_TASK_SYNC_EVENT]
+  );
+  return result.rows[0] || null;
+}
+
+async function getKommoTaskSyncQueueRow(pool, taskId) {
+  await ensureKommoTaskSyncQueue(pool);
+  const result = await pool.query(
+    `SELECT * FROM task_kommo_sync_queue WHERE task_id = $1 AND event = $2`,
+    [taskId, KOMMO_TASK_SYNC_EVENT]
+  );
+  return result.rows[0] || null;
+}
 
 function toCompactText(value) {
   if (value == null) return null;
@@ -284,11 +395,18 @@ async function syncTaskToKommo(pool, taskRow, actor = null) {
       `UPDATE tasks SET kommo_last_sync_at = NOW(), kommo_last_sync_status = 'ok' WHERE id = $1`,
       [taskRow.id]
     );
+    await markKommoTaskSyncSuccess(pool, taskRow.id).catch(() => {});
   } catch {
     await pool.query(
       `UPDATE tasks SET kommo_last_sync_at = NOW(), kommo_last_sync_status = 'error' WHERE id = $1`,
       [taskRow.id]
     ).catch(() => {});
+    await recordKommoTaskSyncFailure(pool, {
+      taskId: taskRow.id,
+      payload,
+      actor,
+      error: 'background sync failed',
+    }).catch(() => {});
   }
 }
 
@@ -298,4 +416,8 @@ module.exports = {
   postKommoWebhook,
   syncTaskToKommo,
   kommoWebhookConfigured,
+  ensureKommoTaskSyncQueue,
+  getKommoTaskSyncQueueRow,
+  markKommoTaskSyncSuccess,
+  recordKommoTaskSyncFailure,
 };

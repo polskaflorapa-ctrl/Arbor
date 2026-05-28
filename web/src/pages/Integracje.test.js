@@ -74,6 +74,29 @@ function setupGetMocks() {
     if (path === '/crm/integrations/events') {
       return Promise.resolve({ data: [] });
     }
+    if (path === '/tasks/kommo-sync/diagnostics') {
+      return Promise.resolve({
+        data: {
+          summary: { queue_errors: 1, inbound_conflicts: 1 },
+          queue: [{
+            id: 10,
+            task_id: 101,
+            klient_nazwa: 'Test Klient',
+            status: 'dead_letter',
+            retry_count: 3,
+            last_error: 'HTTP 500',
+          }],
+          inbound_events: [{
+            id: 20,
+            task_id: 102,
+            status: 'conflict',
+            incoming_status: 'Anulowane',
+            conflict_reason: 'Zlecenie jest juz zamkniete',
+            created_at: '2026-05-28T08:00:00.000Z',
+          }],
+        },
+      });
+    }
     return Promise.reject(new Error(`unmocked GET ${url}`));
   });
 }
@@ -116,6 +139,9 @@ describe('Integracje (integration-style)', () => {
     expect(await screen.findByRole('heading', { name: /Integracje/i })).toBeInTheDocument();
     expect(screen.getByText(/Globalny dashboard logów i retry/i)).toBeInTheDocument();
     expect(await screen.findByText('Wszystkie logi')).toBeInTheDocument();
+    expect(await screen.findByText('Kommo task.sync')).toBeInTheDocument();
+    expect(await screen.findByText('Bledy: 1')).toBeInTheDocument();
+    expect(await screen.findByText('Konflikty: 1')).toBeInTheDocument();
     expect(await screen.findByText('Wyniki: 1')).toBeInTheDocument();
     expect(await screen.findByText('#t1')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /^Retry$/ })).toBeInTheDocument();

@@ -29,7 +29,12 @@
 - [x] **P0 finish UI sugestii kosztow**: web i mobile pobieraja sugestie stawek oddzialu i pozwalaja jednym kliknieciem wpisac je do kosztow operacyjnych.
 - [x] **P0 alerty marzy BI/digest**: BI alerts i poranny digest wykrywaja zlecenia ponizej `branches.marza_prog_rentowosci_pct`, liczac wspolnym silnikiem marzy i realnymi kosztami finish.
 - [x] **P0 UI alertow marzy w BI**: karta alertow BI pokazuje liste zlecen z marza ponizej progu oddzialu.
-- [ ] **Nastepny pakiet**: pokazac te same alerty marzy w kokpicie kierownika i powiazac klik z drill-down do zlecenia.
+- [x] **P0 alerty marzy w kokpicie kierownika**: `/api/ops/kierownik-today` zwraca `margin_risks`, metryke i blocker `margin`, a webowy cockpit pokazuje liste z linkiem do zlecenia.
+- [x] **P0 Kommo retry/dead-letter**: `task.sync` zapisuje nieudane wysylki do kolejki, przechodzi do `dead_letter` po limicie prob i ma endpoint recznego retry.
+- [x] **P0 Kommo inbound status sync**: `/api/webhooks/kommo/task-sync` przyjmuje status z Kommo, ma idempotencje eventow i blokuje konflikty na zamknietych zleceniach.
+- [x] **P0 Kommo sync diagnostyka**: `/api/tasks/kommo-sync/diagnostics` oraz panel Integracje pokazuja outbound queue, dead-letter i inbound konflikty.
+- [x] **P0 Kommo inbound field mapping**: `task.sync` mapuje `status_id`, klienta, telefon, email, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow do notatek.
+- [ ] **Nastepny pakiet**: rozbudowac Kommo -> ARBOR o pobieranie zalacznikow jako pliki oraz ekran konfiguracji mapowania pol/statusow pod konkretne konto Kommo.
 
 ---
 
@@ -141,10 +146,10 @@ flowchart LR
 
 ## EPIC 8 — Kommo dwukierunkowo (produkt „jak w spec”)
 
-- [ ] **8.1** Kommo → ARBOR: mapowanie pól (adres, geokodowanie, zakres, wartość, załączniki) przy statusie „Do realizacji”.
+- [ ] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". **Czesciowo:** inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow w notatce. Zostaje import zalacznikow jako pliki i konfigurowalne mapowanie przez UI.
 - [ ] **8.2** ARBOR → Kommo: status, zdjęcia, czas rzeczywisty, zużycie, kosztorys z marżą, link statusowy.
-- [ ] **8.3** Idempotencja webhooków, kolejka retry, dead-letter.
-- [ ] **8.4** Panel diagnostyczny sync (ostatni błąd, HTTP, payload — częściowo już w DB przy push).
+- [ ] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. **Czesciowo:** ARBOR -> Kommo `task.sync` ma juz retry/dead-letter, a Kommo -> ARBOR ma idempotencje eventow.
+- [x] **8.4** Panel diagnostyczny sync (ostatni blad, HTTP, payload): API diagnostyczne + panel Integracje dla kolejki outbound i inbound konfliktow.
 
 ---
 

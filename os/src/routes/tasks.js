@@ -12,7 +12,11 @@ const { z } = require('zod');
 const { TASK_ACCESS_DENIED, VALIDATION_FAILED } = require('../constants/error-codes');
 const {
   buildKommoTaskPayload,
+  ensureKommoTaskSyncQueue,
+  getKommoTaskSyncQueueRow,
+  markKommoTaskSyncSuccess,
   postKommoWebhook,
+  recordKommoTaskSyncFailure,
   syncTaskToKommo,
   kommoWebhookConfigured,
 } = require('../services/kommo');
@@ -57,6 +61,34 @@ async function ensureKommoTaskColumns() {
   for (const sql of stmts) {
     await pool.query(sql);
   }
+}
+
+let _kommoInboundEventTable = false;
+async function ensureKommoInboundEventTable() {
+  if (_kommoInboundEventTable) return;
+  _kommoInboundEventTable = true;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_kommo_inbound_events (
+      id SERIAL PRIMARY KEY,
+      event_key VARCHAR(160) NOT NULL UNIQUE,
+      task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'received',
+      incoming_status VARCHAR(64),
+      applied_status VARCHAR(64),
+      conflict_reason TEXT,
+      payload_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      processed_at TIMESTAMPTZ
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_task_created
+      ON task_kommo_inbound_events (task_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_status_created
+      ON task_kommo_inbound_events (status, created_at DESC)
+  `);
 }
 
 let _taskOperationalCols = false;
@@ -983,6 +1015,10 @@ const taskPlanPatchSchema = z.object({
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   absence_override: z.boolean().optional(),
+});
+
+const taskKommoRetrySchema = z.object({
+  force: z.boolean().optional(),
 });
 
 const taskAssignSchema = z.object({
@@ -2174,25 +2210,50 @@ router.post(
       try {
         const { response, bodyText } = await postKommoWebhook(payload, 'crm');
         if (!response.ok) {
+          const error = `HTTP ${response.status}: ${bodyText.slice(0, 500)}`;
           await markSync({
             status: 'error',
             http: response.status,
-            error: `HTTP ${response.status}: ${bodyText.slice(0, 500)}`,
+            error,
+          });
+          const queueRow = await recordKommoTaskSyncFailure(pool, {
+            taskId: row.id,
+            payload,
+            actor: kommoActor(req),
+            httpStatus: response.status,
+            error,
           });
           return res.status(502).json({
             ok: false,
-            status: 'error',
+            status: queueRow?.status || 'failed',
+            queue_status: queueRow?.status || 'failed',
+            retry_count: Number(queueRow?.retry_count || 0),
             http_status: response.status,
             body: bodyText.slice(0, 500),
           });
         }
         await markSync({ status: 'ok', http: response.status, error: null });
-        return res.json({ ok: true, status: 'ok', http_status: response.status });
+        const queueRow = await markKommoTaskSyncSuccess(pool, row.id);
+        return res.json({
+          ok: true,
+          status: 'ok',
+          queue_status: queueRow?.status || 'sent',
+          http_status: response.status,
+        });
       } catch (err) {
-        await markSync({ status: 'error', http: null, error: err.message || 'network error' });
+        const error = err.message || 'network error';
+        await markSync({ status: 'error', http: null, error });
+        const queueRow = await recordKommoTaskSyncFailure(pool, {
+          taskId: row.id,
+          payload,
+          actor: kommoActor(req),
+          error,
+        });
         return res.status(502).json({
           ok: false,
-          status: 'error',
+          status: queueRow?.status || 'failed',
+          queue_status: queueRow?.status || 'failed',
+          retry_count: Number(queueRow?.retry_count || 0),
           error: err.message || 'Nie udało się wysłać danych do Kommo',
         });
       }
@@ -2203,7 +2264,108 @@ router.post(
   }
 );
 
-/** F4.1 — zmiana terminu zlecenia z harmonogramu (DnD); Kierownik / Dyrektor. */
+router.post(
+  '/:id/kommo-retry',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  validateBody(taskKommoRetrySchema),
+  requireTaskAccess,
+  async (req, res) => {
+    await ensureKommoTaskColumns();
+    try {
+      const result = await pool.query(taskKommoPayloadSql(), [req.params.id]);
+      if (!result.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+      const row = result.rows[0];
+      if (!kommoWebhookConfigured('crm')) {
+        return res.status(400).json({
+          error:
+            'Brak konfiguracji webhooka Kommo dla CRM. Ustaw KOMMO_CRM_WEBHOOK_URL lub KOMMO_WEBHOOK_URL.',
+        });
+      }
+
+      const queueBefore = await getKommoTaskSyncQueueRow(pool, row.id);
+      if (queueBefore?.status === 'dead_letter' && req.body.force !== true) {
+        return res.status(409).json({
+          ok: false,
+          status: 'dead_letter',
+          queue_status: 'dead_letter',
+          retry_count: Number(queueBefore.retry_count || 0),
+          error: 'Sync Kommo jest w dead-letter. Wyslij ponownie z force=true po sprawdzeniu konfliktu.',
+        });
+      }
+
+      const payload = buildKommoTaskPayload(row, kommoActor(req));
+      const retryCount = Number(queueBefore?.retry_count || 0);
+      const markSync = async (next) => {
+        await pool.query(
+          `UPDATE tasks SET
+            kommo_last_sync_at = NOW(),
+            kommo_last_sync_status = $1,
+            kommo_last_sync_http = $2,
+            kommo_last_sync_error = $3,
+            updated_at = NOW()
+          WHERE id = $4`,
+          [next.status || null, next.http ?? null, next.error || null, row.id]
+        );
+      };
+
+      try {
+        const { response, bodyText } = await postKommoWebhook(payload, 'crm');
+        if (!response.ok) {
+          const error = `HTTP ${response.status}: ${bodyText.slice(0, 500)}`;
+          await markSync({ status: 'error', http: response.status, error });
+          const queueAfter = await recordKommoTaskSyncFailure(pool, {
+            taskId: row.id,
+            payload,
+            actor: kommoActor(req),
+            httpStatus: response.status,
+            error,
+            retryCount,
+          });
+          return res.status(502).json({
+            ok: false,
+            status: queueAfter?.status || 'failed',
+            queue_status: queueAfter?.status || 'failed',
+            retry_count: Number(queueAfter?.retry_count || retryCount + 1),
+            http_status: response.status,
+            body: bodyText.slice(0, 500),
+          });
+        }
+
+        await markSync({ status: 'ok', http: response.status, error: null });
+        const queueAfter = await markKommoTaskSyncSuccess(pool, row.id);
+        return res.json({
+          ok: true,
+          status: 'ok',
+          queue_status: queueAfter?.status || 'sent',
+          http_status: response.status,
+        });
+      } catch (err) {
+        const error = err.message || 'network error';
+        await markSync({ status: 'error', http: null, error });
+        const queueAfter = await recordKommoTaskSyncFailure(pool, {
+          taskId: row.id,
+          payload,
+          actor: kommoActor(req),
+          error,
+          retryCount,
+        });
+        return res.status(502).json({
+          ok: false,
+          status: queueAfter?.status || 'failed',
+          queue_status: queueAfter?.status || 'failed',
+          retry_count: Number(queueAfter?.retry_count || retryCount + 1),
+          error,
+        });
+      }
+    } catch (err) {
+      logger.error('Blad kommo-retry zlecenia', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
+/** F4.1 - zmiana terminu zlecenia z harmonogramu (DnD); Kierownik / Dyrektor. */
 router.patch(
   '/:id/plan',
   authMiddleware,
@@ -2416,6 +2578,62 @@ function requestActorName(req) {
     || req.user?.login
     || 'Operator';
 }
+
+router.get('/kommo-sync/diagnostics', authMiddleware, async (req, res) => {
+  if (!canManageTaskBackoffice(req.user) && !isSalesDirector(req.user)) {
+    return res.status(403).json({ error: req.t('errors.http.forbidden') });
+  }
+  try {
+    await ensureKommoTaskColumns();
+    await ensureKommoTaskSyncQueue(pool);
+    await ensureKommoInboundEventTable();
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit || 30)));
+    const status = String(req.query.status || '').trim();
+    const queueParams = [];
+    let queueWhere = '';
+    if (status) {
+      queueParams.push(status);
+      queueWhere = `WHERE q.status = $${queueParams.length}`;
+    }
+    queueParams.push(limit);
+    const [queueResult, inboundResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           q.id, q.task_id, q.event, q.status, q.retry_count, q.next_retry_at,
+           q.last_http_status, q.last_error, q.updated_at, q.last_attempt_at, q.sent_at,
+           t.numer, t.klient_nazwa, t.status AS task_status, t.oddzial_id
+         FROM task_kommo_sync_queue q
+         LEFT JOIN tasks t ON t.id = q.task_id
+         ${queueWhere}
+         ORDER BY q.updated_at DESC, q.id DESC
+         LIMIT $${queueParams.length}`,
+        queueParams
+      ),
+      pool.query(
+        `SELECT
+           e.id, e.event_key, e.task_id, e.status, e.incoming_status, e.applied_status,
+           e.conflict_reason, e.created_at, e.processed_at,
+           t.numer, t.klient_nazwa, t.status AS task_status, t.oddzial_id
+         FROM task_kommo_inbound_events e
+         LEFT JOIN tasks t ON t.id = e.task_id
+         ORDER BY e.created_at DESC, e.id DESC
+         LIMIT $1`,
+        [limit]
+      ),
+    ]);
+    res.json({
+      queue: queueResult.rows,
+      inbound_events: inboundResult.rows,
+      summary: {
+        queue_errors: queueResult.rows.filter((row) => ['failed', 'dead_letter'].includes(row.status)).length,
+        inbound_conflicts: inboundResult.rows.filter((row) => row.status === 'conflict').length,
+      },
+    });
+  } catch (err) {
+    logger.error('Blad diagnostyki Kommo sync', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
 
 router.get('/client-contacts', authMiddleware, async (req, res) => {
   try {

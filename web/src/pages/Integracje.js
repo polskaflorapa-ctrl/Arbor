@@ -39,6 +39,7 @@ export default function Integracje() {
   const [crmApps, setCrmApps] = useState([]);
   const [crmEvents, setCrmEvents] = useState([]);
   const [crmAppForm, setCrmAppForm] = useState({ name: 'Landing widget', type: 'widget', oddzial_id: '' });
+  const [kommoSync, setKommoSync] = useState({ queue: [], inbound_events: [], summary: {} });
 
   const loadData = useCallback(async () => {
     try {
@@ -69,6 +70,9 @@ export default function Integracje() {
         api.get('/crm/integrations/apps', { headers }).catch(() => ({ data: [] })),
         api.get('/crm/integrations/events', { headers }).catch(() => ({ data: [] })),
       ]);
+      const kommoSyncRes = await api.get('/tasks/kommo-sync/diagnostics', { headers }).catch(() => ({
+        data: { queue: [], inbound_events: [], summary: {} },
+      }));
       setStats(sRes.data || EMPTY_STATS);
       const items = Array.isArray(lRes.data?.items) ? lRes.data.items : [];
       setLogs(items);
@@ -83,6 +87,11 @@ export default function Integracje() {
       });
       setCrmApps(Array.isArray(crmAppsRes.data) ? crmAppsRes.data : []);
       setCrmEvents(Array.isArray(crmEventsRes.data) ? crmEventsRes.data : []);
+      setKommoSync({
+        queue: Array.isArray(kommoSyncRes.data?.queue) ? kommoSyncRes.data.queue : [],
+        inbound_events: Array.isArray(kommoSyncRes.data?.inbound_events) ? kommoSyncRes.data.inbound_events : [],
+        summary: kommoSyncRes.data?.summary || {},
+      });
       setSelectedLogIds([]);
     } catch (err) {
       showMessage(errorMessage('Błąd ładowania integracji'));
@@ -361,6 +370,48 @@ export default function Integracje() {
                   title={`${event.event_type} · ${event.status}`}
                   subtitle={event.app_name || `app #${event.app_id || '-'}`}
                   meta={event.lead_id ? `lead #${event.lead_id}` : ''}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={styles.tableWrap}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 800 }}>Kommo task.sync</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Outbound retry/dead-letter oraz inbound konflikty statusow z Kommo.</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span style={styles.statusPill}>Bledy: {kommoSync.summary?.queue_errors || 0}</span>
+              <span style={styles.statusPill}>Konflikty: {kommoSync.summary?.inbound_conflicts || 0}</span>
+            </div>
+          </div>
+          <div style={styles.grid2}>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Kolejka wysylki</div>
+              {kommoSync.queue.length === 0 ? <div style={styles.empty}>Brak wpisow task.sync w kolejce.</div> : kommoSync.queue.slice(0, 6).map((row) => (
+                <ModernDataRow
+                  key={`queue-${row.id}`}
+                  title={`#${row.task_id} ${row.klient_nazwa || ''}`.trim()}
+                  subtitle={row.last_error || row.task_status || 'Brak bledu'}
+                  meta={`retry ${row.retry_count || 0}`}
+                  tone={row.status === 'dead_letter' ? 'danger' : row.status === 'failed' ? 'warning' : 'success'}
+                  status={row.status}
+                  statusValue={row.status}
+                />
+              ))}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Inbound z Kommo</div>
+              {kommoSync.inbound_events.length === 0 ? <div style={styles.empty}>Brak zdarzen inbound.</div> : kommoSync.inbound_events.slice(0, 6).map((event) => (
+                <ModernDataRow
+                  key={`inbound-${event.id}`}
+                  title={`#${event.task_id || '-'} ${event.incoming_status || 'bez statusu'}`}
+                  subtitle={event.conflict_reason || event.klient_nazwa || event.event_key}
+                  meta={event.created_at ? new Date(event.created_at).toLocaleString('pl-PL') : ''}
+                  tone={event.status === 'conflict' || event.status === 'error' ? 'danger' : 'success'}
+                  status={event.status}
+                  statusValue={event.status}
                 />
               ))}
             </div>
@@ -682,5 +733,6 @@ const styles = {
   trendLabel: { fontSize: 10, color: 'var(--text-muted)' },
   trendCount: { fontSize: 11, fontWeight: 700, color: 'var(--text)' },
   workflowStatRow: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 8px', backgroundColor: 'var(--surface-field)', border: '1px solid var(--border)', borderRadius: 8 },
+  statusPill: { display: 'inline-flex', alignItems: 'center', minHeight: 30, padding: '4px 10px', borderRadius: 999, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontSize: 12, fontWeight: 800 },
   rollbackBlockedBadge: { display: 'inline-block', marginBottom: 6, fontSize: 11, color: '#EF5350', backgroundColor: 'rgba(239,83,80,0.12)', borderRadius: 999, padding: '2px 8px' },
 };

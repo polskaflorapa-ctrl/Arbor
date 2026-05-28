@@ -12,6 +12,7 @@ const { pushToUser } = require('./notifications');
 const { sendSmsOptional } = require('../services/twilioSms');
 const { sendSystemEmailOptional } = require('../services/systemEmail');
 const { runUploadStorageSelfTest, uploadStorageMode } = require('../services/upload-storage');
+const { calculateTaskMargin } = require('../services/taskMargin');
 
 const router = express.Router();
 
@@ -78,6 +79,12 @@ const BLOCKER_META = {
     action: 'Sprawdz zgloszenia',
     tone: 'danger',
     path: '/zlecenia',
+  },
+  margin: {
+    label: 'Marza ponizej progu',
+    action: 'Sprawdz koszty',
+    tone: 'danger',
+    path: '/bi',
   },
   gps_stale: {
     label: 'GPS ekip opozniony',
@@ -673,7 +680,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
   const teamBranchSql = oddzialId != null ? 'AND tm.oddzial_id = $2' : '';
 
   try {
-    const [tasksResult, teamsResult, notificationsResult] = await Promise.all([
+    const [tasksResult, teamsResult, notificationsResult, marginRiskResult] = await Promise.all([
       pool.query(
         `WITH open_issues AS (
            SELECT task_id, COUNT(*)::int AS open_issues
@@ -767,6 +774,41 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
          WHERE to_user_id = $1 AND status = 'Nowe'`,
         [req.user.id]
       ),
+      pool.query(
+        `SELECT t.id, t.numer, t.klient_nazwa, t.status, t.oddzial_id, t.data_planowana,
+                COALESCE(b.marza_prog_rentowosci_pct, 15)::numeric AS threshold_pct,
+                COALESCE(t.wartosc_netto_do_rozliczenia, t.wartosc_rzeczywista, t.wartosc_planowana, tr.wartosc_brutto, 0)::numeric AS revenue_net,
+                COALESCE(tr.koszt_pomocnikow, 0)::numeric AS helper_cost,
+                COALESCE(tr.wynagrodzenie_brygadzisty, 0)::numeric AS crew_lead_pay,
+                COALESCE(op.koszt_sprzetu, 0)::numeric AS equipment_cost,
+                COALESCE(op.koszt_paliwa, 0)::numeric AS fuel_cost,
+                COALESCE(mu.koszt_materialow, 0)::numeric AS material_cost,
+                COALESCE(op.koszt_utylizacji, 0)::numeric AS disposal_cost,
+                COALESCE(op.koszt_inne, 0)::numeric AS other_cost
+         FROM tasks t
+         JOIN task_rozliczenie tr ON tr.task_id = t.id
+         LEFT JOIN branches b ON b.id = t.oddzial_id
+         LEFT JOIN LATERAL (
+           SELECT
+             COALESCE(SUM(amount) FILTER (WHERE category = 'sprzet'), 0) AS koszt_sprzetu,
+             COALESCE(SUM(amount) FILTER (WHERE category = 'paliwo'), 0) AS koszt_paliwa,
+             COALESCE(SUM(amount) FILTER (WHERE category = 'utylizacja'), 0) AS koszt_utylizacji,
+             COALESCE(SUM(amount) FILTER (WHERE category = 'inne'), 0) AS koszt_inne
+           FROM task_operational_costs c
+           WHERE c.task_id = t.id
+         ) op ON true
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(koszt_laczny), 0) AS koszt_materialow
+           FROM task_finish_material_usage m
+           WHERE m.task_id = t.id
+         ) mu ON true
+         WHERE t.status = 'Zakonczone'
+           AND COALESCE(t.data_zakonczenia, t.data_planowana, t.updated_at)::date = $1::date
+           ${branchSql}
+         ORDER BY COALESCE(t.data_zakonczenia, t.updated_at) DESC NULLS LAST
+         LIMIT 50`,
+        taskParams
+      ),
     ]);
 
     const blockerCounts = new Map();
@@ -833,6 +875,30 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
     const unreadNotifications = Number(notificationsResult.rows[0]?.unread || 0);
     if (unreadNotifications > 0) bumpBlocker(blockerCounts, 'notification', unreadNotifications);
 
+    const marginRisks = marginRiskResult.rows
+      .map((row) => {
+        const margin = calculateTaskMargin(row);
+        const thresholdPct = Number(row.threshold_pct || 15);
+        return {
+          id: row.id,
+          numer: row.numer || `ZLE-${String(row.id).padStart(4, '0')}`,
+          klient_nazwa: row.klient_nazwa,
+          status: row.status,
+          oddzial_id: row.oddzial_id,
+          data_planowana: row.data_planowana,
+          threshold_pct: thresholdPct,
+          revenue_net: margin.revenue_net,
+          total_known_cost: margin.total_known_cost,
+          gross_margin: margin.gross_margin,
+          margin_pct: margin.margin_pct,
+          action_path: buildTaskPath(row, date),
+        };
+      })
+      .filter((row) => row.margin_pct != null && row.margin_pct < row.threshold_pct)
+      .sort((a, b) => (a.margin_pct ?? 999) - (b.margin_pct ?? 999))
+      .slice(0, 8);
+    if (marginRisks.length > 0) bumpBlocker(blockerCounts, 'margin', marginRisks.length);
+
     const riskyTasks = openTasks
       .filter((task) => task.blockers.length > 0 || task.open_issues > 0)
       .sort((a, b) => b.blockers.length - a.blockers.length || b.open_issues - a.open_issues)
@@ -855,6 +921,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
         blocked,
         unassigned,
         open_issues: openIssues,
+        margin_risks: marginRisks.length,
         unread_notifications: unreadNotifications,
         active_teams: teams.length,
         assigned_teams: teams.filter((team) => team.tasks_total > 0).length,
@@ -863,6 +930,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
       },
       blockers: blockerRows(blockerCounts),
       tasks: riskyTasks,
+      margin_risks: marginRisks,
       teams: teams.filter((team) => team.tasks_total > 0 || team.gps_status !== 'missing').slice(0, 12),
       generated_at: new Date().toISOString(),
       requestId: req.requestId,
