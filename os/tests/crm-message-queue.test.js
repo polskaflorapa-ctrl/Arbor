@@ -119,6 +119,38 @@ describe('CRM message send queue', () => {
     expect(queueCall[1]).toEqual([['queued'], 7, 5]);
   });
 
+  it('lists the unified CRM inbox with filters', async () => {
+    pool.query.mockImplementation((sql) => {
+      const text = String(sql);
+      if (text.includes('ALTER TABLE crm_lead_messages') || text.includes('CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_queue')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (text.includes('FROM crm_lead_messages m') && text.includes('ORDER BY m.created_at DESC')) {
+        return Promise.resolve({ rows: [messageRow({ direction: 'inbound', status: 'received' })] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const res = await request(app)
+      .get('/api/crm/messages/inbox?channel=whatsapp&direction=inbound&status=received&q=oferta&limit=20')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      id: 501,
+      lead_title: 'Oferta ogrodu',
+      channel: 'whatsapp',
+      direction: 'inbound',
+      status: 'received',
+    }));
+    const inboxCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY m.created_at DESC'));
+    expect(inboxCall[0]).toContain('m.channel =');
+    expect(inboxCall[0]).toContain('m.direction =');
+    expect(inboxCall[0]).toContain('m.status =');
+    expect(inboxCall[0]).toContain('m.body ILIKE');
+    expect(inboxCall[1]).toEqual([7, 'whatsapp', 'inbound', 'received', '%oferta%', 20]);
+  });
+
   it('marks queued messages as sent', async () => {
     const res = await request(app)
       .patch('/api/crm/messages/501/status')

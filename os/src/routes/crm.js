@@ -1108,6 +1108,78 @@ router.get('/messages/queue', async (req, res) => {
   }
 });
 
+router.get('/messages/inbox', async (req, res) => {
+  try {
+    await ensureMessageQueueSchema();
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    if (oddzialId && !canAccessOddzial(req.user, oddzialId)) {
+      return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    }
+
+    const channel = String(req.query.channel || '').trim().toLowerCase();
+    const direction = String(req.query.direction || '').trim().toLowerCase();
+    const status = String(req.query.status || '').trim().toLowerCase();
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(Math.max(toInt(req.query.limit) || 80, 1), 200);
+    const params = [];
+    const where = [];
+
+    if (oddzialId) {
+      params.push(oddzialId);
+      where.push(`l.oddzial_id = $${params.length}`);
+    }
+    if (channel && MESSAGE_CHANNELS.includes(channel)) {
+      params.push(channel);
+      where.push(`m.channel = $${params.length}`);
+    }
+    if (MESSAGE_DIRECTIONS.includes(direction)) {
+      params.push(direction);
+      where.push(`m.direction = $${params.length}`);
+    }
+    if (MESSAGE_STATUSES.includes(status)) {
+      params.push(status);
+      where.push(`m.status = $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where.push(`(
+        m.body ILIKE $${params.length}
+        OR m.subject ILIKE $${params.length}
+        OR l.title ILIKE $${params.length}
+        OR l.phone ILIKE $${params.length}
+        OR l.email ILIKE $${params.length}
+        OR k.firma ILIKE $${params.length}
+        OR k.imie ILIKE $${params.length}
+        OR k.nazwisko ILIKE $${params.length}
+      )`);
+    }
+    params.push(limit);
+
+    const { rows } = await pool.query(
+      `SELECT m.*,
+              l.title AS lead_title,
+              l.phone AS lead_phone,
+              l.email AS lead_email,
+              l.oddzial_id,
+              COALESCE(NULLIF(TRIM(k.firma), ''), NULLIF(TRIM(CONCAT(k.imie, ' ', k.nazwisko)), '')) AS client_name,
+              u.imie, u.nazwisko, u.login
+       FROM crm_lead_messages m
+       JOIN crm_leads l ON l.id = m.lead_id
+       LEFT JOIN klienci k ON k.id = l.client_id
+       LEFT JOIN users u ON u.id = m.created_by
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY m.created_at DESC
+       LIMIT $${params.length}`,
+      params
+    );
+
+    res.json(rows.map(mapMessageRow));
+  } catch (err) {
+    logger.error('crm.messages.inbox.get', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu skrzynki CRM' });
+  }
+});
+
 router.get('/messages/providers', async (_req, res) => {
   res.json(getMessageProviderStatus());
 });

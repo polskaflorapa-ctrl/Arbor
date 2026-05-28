@@ -23,6 +23,7 @@ export default function Crm() {
       { path: '/telefonia', titleKey: 'crm.cardTelephony', descKey: 'crm.cardTelephonyDesc' },
       { path: '/integracje', titleKey: 'crm.cardIntegrations', descKey: 'crm.cardIntegrationsDesc' },
       { path: '/crm/dashboard', titleKey: 'crm.cardDashboard', descKey: 'crm.cardDashboardDesc' },
+      { path: '/crm/inbox', title: 'Unified Inbox', desc: 'Wspolna skrzynka WhatsApp, SMS, e-mail i webchat.' },
       { path: '/crm/pipeline', titleKey: 'crm.cardPipeline', descKey: 'crm.cardPipelineDesc' },
     ],
     []
@@ -73,8 +74,8 @@ export default function Crm() {
                   color: 'var(--text)',
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>{t(c.titleKey)}</div>
-                <div style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--text-sub)' }}>{t(c.descKey)}</div>
+                <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>{c.title || t(c.titleKey)}</div>
+                <div style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--text-sub)' }}>{c.desc || t(c.descKey)}</div>
               </button>
             ))}
           </div>

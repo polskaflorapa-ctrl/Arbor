@@ -30,6 +30,7 @@ const PotwierdzeniaEkip = lazy(() => import('./pages/PotwierdzeniaEkip'));
 const RankingBrygad = lazy(() => import('./pages/RankingBrygad'));
 const Crm = lazy(() => import('./pages/Crm'));
 const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
+const CrmInbox = lazy(() => import('./pages/CrmInbox'));
 const CrmPipeline = lazy(() => import('./pages/CrmPipeline'));
 const Powiadomienia = lazy(() => import('./pages/Powiadomienia'));
 const Telefonia = lazy(() => import('./pages/Telefonia'));
@@ -152,6 +153,9 @@ function App() {
           } />
           <Route path="/crm/dashboard" element={
             <ProtectedRoute roles={SALES}><CrmDashboard /></ProtectedRoute>
+          } />
+          <Route path="/crm/inbox" element={
+            <ProtectedRoute roles={SALES}><CrmInbox /></ProtectedRoute>
           } />
           <Route path="/crm/pipeline" element={
             <ProtectedRoute roles={SALES}><CrmPipeline /></ProtectedRoute>
