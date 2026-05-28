@@ -26,6 +26,8 @@ export default function CrmInbox() {
   const [msg, setMsg] = useState('');
   const [messages, setMessages] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [replySending, setReplySending] = useState(false);
   const [filters, setFilters] = useState({ channel: '', direction: '', status: '', q: '' });
 
   const selected = useMemo(
@@ -58,6 +60,36 @@ export default function CrmInbox() {
   const applySearch = (event) => {
     event.preventDefault();
     loadInbox();
+  };
+
+  const sendReply = async (event) => {
+    event.preventDefault();
+    if (!selected?.lead_id || !replyBody.trim()) return;
+    try {
+      setReplySending(true);
+      setMsg('');
+      const token = getStoredToken();
+      await api.post(
+        `/crm/leads/${selected.lead_id}/messages`,
+        {
+          channel: selected.channel,
+          direction: 'outbound',
+          status: 'queued',
+          recipient_handle: selected.sender_handle || selected.recipient_handle || selected.lead_phone || selected.lead_email || null,
+          subject: selected.subject || null,
+          body: replyBody.trim(),
+          metadata: { source: 'crm.inbox.reply', reply_to_message_id: selected.id },
+        },
+        { headers: authHeaders(token) }
+      );
+      setReplyBody('');
+      await loadInbox();
+      setMsg('Odpowiedz dodana do kolejki wysylki.');
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, 'Nie udalo sie dodac odpowiedzi do kolejki'));
+    } finally {
+      setReplySending(false);
+    }
   };
 
   return (
@@ -171,6 +203,23 @@ export default function CrmInbox() {
                       </div>
                     ) : null}
                   </div>
+                  <form onSubmit={sendReply} className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+                    <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                      Odpowiedz
+                      <textarea
+                        className="ios-field"
+                        rows={4}
+                        value={replyBody}
+                        onChange={(e) => setReplyBody(e.target.value)}
+                        placeholder="Napisz odpowiedz do klienta..."
+                      />
+                    </label>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                      <button className="ios-btn ios-btn-primary" type="submit" disabled={replySending || !replyBody.trim()}>
+                        {replySending ? 'Dodaje...' : 'Dodaj do kolejki'}
+                      </button>
+                    </div>
+                  </form>
                 </>
               ) : (
                 <div className="ios-inset-row muted">Wybierz rozmowe z listy.</div>

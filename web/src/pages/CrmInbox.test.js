@@ -29,6 +29,7 @@ vi.mock('../api', () => ({
   __esModule: true,
   default: {
     get: vi.fn(),
+    post: vi.fn(),
   },
 }));
 
@@ -36,6 +37,7 @@ beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('token', 'crm-inbox-token');
   api.get.mockReset();
+  api.post.mockReset();
   api.get.mockResolvedValue({
     data: [
       {
@@ -51,6 +53,7 @@ beforeEach(() => {
       },
     ],
   });
+  api.post.mockResolvedValue({ data: { id: 702, status: 'queued' } });
 });
 
 afterEach(() => {
@@ -79,4 +82,32 @@ test('renders unified CRM inbox and applies filters', async () => {
       })
     );
   });
+});
+
+test('adds a reply from unified inbox to the send queue', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  fireEvent.change(await screen.findByPlaceholderText('Napisz odpowiedz do klienta...'), {
+    target: { value: 'Dzien dobry, przygotujemy wycene.' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Dodaj do kolejki' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/leads/22/messages',
+      expect.objectContaining({
+        channel: 'whatsapp',
+        direction: 'outbound',
+        status: 'queued',
+        recipient_handle: '+48500100200',
+        body: 'Dzien dobry, przygotujemy wycene.',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Odpowiedz dodana do kolejki wysylki.')).toBeInTheDocument();
 });
