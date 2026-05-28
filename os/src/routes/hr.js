@@ -27,6 +27,27 @@ function canHR(user) {
 // We register this handler on BOTH /position-cards (for /api/hr/position-cards)
 // AND on '/' (for the alias app.use('/api/position-cards', hrRoutes) → root match).
 
+function mapPositionCardRow(row) {
+  return {
+    id: row.id,
+    employee_name: row.employee_name,
+    rola: row.rola,
+    stanowisko: row.stanowisko,
+    oddzial_id: row.oddzial_id,
+    oddzial_nazwa: row.oddzial_nazwa,
+    data_zatrudnienia: row.data_zatrudnienia,
+    stawka_godzinowa: row.stawka_godzinowa ? Number(row.stawka_godzinowa) : null,
+    procent_wynagrodzenia: row.procent_wynagrodzenia ? Number(row.procent_wynagrodzenia) : null,
+    hourly_rate_pln: row.hourly_rate_pln ? Number(row.hourly_rate_pln) : null,
+    acknowledged_at: row.acknowledged_at || null,
+    acknowledgement_status: row.acknowledgement_status || 'Brak',
+  };
+}
+
+function isMissingOddzialyRelation(err) {
+  return err && err.code === '42P01' && /oddzialy/i.test(err.message || '');
+}
+
 async function positionCardsHandler(req, res) {
   if (!canHR(req.user)) return res.status(403).json({ error: 'Brak uprawnień' });
 
@@ -35,61 +56,57 @@ async function positionCardsHandler(req, res) {
   let where = 'u.aktywny = true';
   if (branchId) { params.push(branchId); where += ` AND u.oddzial_id = $${params.length}`; }
 
-  try {
-    const r = await pool.query(
-      `SELECT
-         u.id,
-         u.imie || ' ' || u.nazwisko          AS employee_name,
-         u.rola,
-         u.stanowisko,
-         u.oddzial_id,
-         o.nazwa                               AS oddzial_nazwa,
-         u.data_zatrudnienia,
-         u.stawka_godzinowa,
-         u.procent_wynagrodzenia,
-         -- Latest payroll rate
-         (SELECT upr.rate_pln_per_hour
-          FROM user_payroll_rates upr
-          WHERE upr.user_id = u.id
-          ORDER BY upr.effective_from DESC
-          LIMIT 1)                             AS hourly_rate_pln,
-         -- Card acknowledgement
-         (SELECT pck.acknowledged_at
-          FROM position_card_acknowledgements pck
-          WHERE pck.user_id = u.id
-          ORDER BY pck.acknowledged_at DESC
-          LIMIT 1)                             AS acknowledged_at,
-         (SELECT pck.status
-          FROM position_card_acknowledgements pck
-          WHERE pck.user_id = u.id
-          ORDER BY pck.acknowledged_at DESC
-          LIMIT 1)                             AS acknowledgement_status
-       FROM users u
-       LEFT JOIN oddzialy o ON o.id = u.oddzial_id
-       WHERE ${where}
-       ORDER BY u.nazwisko, u.imie`,
-      params
-    );
+  const runPositionCardsQuery = (withOddzialJoin) => pool.query(
+    `SELECT
+       u.id,
+       u.imie || ' ' || u.nazwisko          AS employee_name,
+       u.rola,
+       u.stanowisko,
+       u.oddzial_id,
+       ${withOddzialJoin ? 'o.nazwa' : 'NULL::text'} AS oddzial_nazwa,
+       u.data_zatrudnienia,
+       u.stawka_godzinowa,
+       u.procent_wynagrodzenia,
+       -- Latest payroll rate
+       (SELECT upr.rate_pln_per_hour
+        FROM user_payroll_rates upr
+        WHERE upr.user_id = u.id
+        ORDER BY upr.effective_from DESC
+        LIMIT 1)                             AS hourly_rate_pln,
+       -- Card acknowledgement
+       (SELECT pck.acknowledged_at
+        FROM position_card_acknowledgements pck
+        WHERE pck.user_id = u.id
+        ORDER BY pck.acknowledged_at DESC
+        LIMIT 1)                             AS acknowledged_at,
+       (SELECT pck.status
+        FROM position_card_acknowledgements pck
+        WHERE pck.user_id = u.id
+        ORDER BY pck.acknowledged_at DESC
+        LIMIT 1)                             AS acknowledgement_status
+     FROM users u
+     ${withOddzialJoin ? 'LEFT JOIN oddzialy o ON o.id = u.oddzial_id' : ''}
+     WHERE ${where}
+     ORDER BY u.nazwisko, u.imie`,
+    params
+  );
 
-    res.json({
-      cards: r.rows.map(row => ({
-        id:                   row.id,
-        employee_name:        row.employee_name,
-        rola:                 row.rola,
-        stanowisko:           row.stanowisko,
-        oddzial_id:           row.oddzial_id,
-        oddzial_nazwa:        row.oddzial_nazwa,
-        data_zatrudnienia:    row.data_zatrudnienia,
-        stawka_godzinowa:     row.stawka_godzinowa ? Number(row.stawka_godzinowa) : null,
-        procent_wynagrodzenia: row.procent_wynagrodzenia ? Number(row.procent_wynagrodzenia) : null,
-        hourly_rate_pln:      row.hourly_rate_pln ? Number(row.hourly_rate_pln) : null,
-        acknowledged_at:      row.acknowledged_at || null,
-        acknowledgement_status: row.acknowledgement_status || 'Brak',
-      })),
-    });
+  try {
+    const r = await runPositionCardsQuery(true);
+    return res.json({ cards: r.rows.map(mapPositionCardRow) });
   } catch (err) {
+    if (isMissingOddzialyRelation(err)) {
+      logger.warn('hr.position-cards fallback-no-oddzialy', { message: err.message, code: err.code });
+      try {
+        const fallback = await runPositionCardsQuery(false);
+        return res.json({ cards: fallback.rows.map(mapPositionCardRow) });
+      } catch (fallbackErr) {
+        logger.error('hr.position-cards fallback error', { message: fallbackErr.message, code: fallbackErr.code });
+        return res.status(500).json({ error: fallbackErr.message });
+      }
+    }
     logger.error('hr.position-cards error', { message: err.message });
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
 

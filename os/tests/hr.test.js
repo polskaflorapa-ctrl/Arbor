@@ -57,12 +57,54 @@ describe('GET /api/hr/position-cards', () => {
     expect(res.body).toEqual(expect.objectContaining({ cards: expect.any(Array) }));
   });
 
-  it('200 for Kierownik — branch-scoped', async () => {
+  it('200 for Kierownik branch-scoped', async () => {
     pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
     const res = await request(app)
       .get(PATH)
       .set('Authorization', `Bearer ${kierownikToken()}`);
     expect(res.status).toBe(200);
+  });
+
+  it('falls back when oddzialy relation is missing', async () => {
+    pool.query.mockReset();
+    const missingOddzialy = new Error('relacja "oddzialy" nie istnieje');
+    missingOddzialy.code = '42P01';
+
+    pool.query
+      .mockRejectedValueOnce(missingOddzialy)
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 11,
+          employee_name: 'Jan Kowalski',
+          rola: 'Specjalista',
+          stanowisko: 'Technik',
+          oddzial_id: 3,
+          oddzial_nazwa: null,
+          data_zatrudnienia: '2025-01-15',
+          stawka_godzinowa: '31.50',
+          procent_wynagrodzenia: '8.25',
+          hourly_rate_pln: '42',
+          acknowledged_at: null,
+          acknowledgement_status: null,
+        }],
+        rowCount: 1,
+      });
+
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${dyrektorToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+    expect(res.body.cards).toHaveLength(1);
+    expect(res.body.cards[0]).toEqual(expect.objectContaining({
+      employee_name: 'Jan Kowalski',
+      oddzial_nazwa: null,
+      stawka_godzinowa: 31.5,
+      procent_wynagrodzenia: 8.25,
+      hourly_rate_pln: 42,
+      acknowledgement_status: 'Brak',
+    }));
   });
 });
 
