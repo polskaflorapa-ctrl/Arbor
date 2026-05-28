@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import { isPrivacyLockEnabled, setPrivacyLockEnabled } from '../components/app-privacy-lock';
+import { isLiveGpsEnabled, setLiveGpsEnabled } from '../components/live-gps-heartbeat';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
@@ -32,6 +33,7 @@ export default function ProfilScreen() {
   const [loading, setLoading] = useState(true);
   const [bioSupported, setBioSupported] = useState(false);
   const [bioOn, setBioOn] = useState(false);
+  const [liveGpsOn, setLiveGpsOn] = useState(true);
   const [syncingRemote, setSyncingRemote] = useState(false);
   const [devTapCount, setDevTapCount] = useState(0);
   const router = useRouter();
@@ -41,6 +43,7 @@ export default function ProfilScreen() {
   useEffect(() => {
     void (async () => {
       setBioOn(await isPrivacyLockEnabled());
+      setLiveGpsOn(await isLiveGpsEnabled());
       const h = await LocalAuthentication.hasHardwareAsync();
       const e = await LocalAuthentication.isEnrolledAsync();
       setBioSupported(Boolean(h && e));
@@ -340,6 +343,30 @@ export default function ProfilScreen() {
           )}
         </View>
 
+        {isFieldWorker ? (
+          <View style={S.section}>
+            <Text style={S.sectionTitle}>GPS live</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 12 }}>
+              Pozycja brygady jest widoczna w harmonogramie tylko wtedy, gdy aplikacja jest aktywna.
+            </Text>
+            <View style={[S.settingRow, { borderColor: theme.border, backgroundColor: theme.cardBg }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[S.settingTitle, { color: theme.text }]}>Wysylaj pozycje podczas pracy</Text>
+                <Text style={[S.settingSub, { color: theme.textMuted }]}>
+                  Wylaczenie zatrzymuje lokalizacje bez zmiany zgod systemowych iPhone.
+                </Text>
+              </View>
+              <Switch
+                value={liveGpsOn}
+                onValueChange={(next: boolean) => {
+                  setLiveGpsOn(next);
+                  void setLiveGpsEnabled(next);
+                }}
+              />
+            </View>
+          </View>
+        ) : null}
+
         <View style={S.section}>
           <Text style={S.sectionTitle}>{t('profile.syncRemote.title')}</Text>
           <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 12 }}>{t('profile.syncRemote.sub')}</Text>
@@ -608,6 +635,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 20, height: 20, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
+  settingRow: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingTitle: { fontSize: 14, fontWeight: '800' },
+  settingSub: { fontSize: 12, lineHeight: 17, marginTop: 3 },
 
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

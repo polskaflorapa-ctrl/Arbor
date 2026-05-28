@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View, type AppStateStatus } from 'react-native';
@@ -12,6 +13,29 @@ const SEND_INTERVAL_MS = 55000;
 const SESSION_CHECK_INTERVAL_MS = 60000;
 const WATCH_TIME_INTERVAL_MS = 60000;
 const WATCH_DISTANCE_METERS = 50;
+export const LIVE_GPS_ENABLED_KEY = 'live_gps_enabled_v1';
+
+const liveGpsListeners = new Set<(enabled: boolean) => void>();
+
+export async function isLiveGpsEnabled(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(LIVE_GPS_ENABLED_KEY)) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export async function setLiveGpsEnabled(on: boolean): Promise<void> {
+  await AsyncStorage.setItem(LIVE_GPS_ENABLED_KEY, on ? '1' : '0');
+  liveGpsListeners.forEach((listener) => listener(on));
+}
+
+export function subscribeLiveGpsEnabled(listener: (enabled: boolean) => void) {
+  liveGpsListeners.add(listener);
+  return () => {
+    liveGpsListeners.delete(listener);
+  };
+}
 
 type GpsStatus =
   | { kind: 'hidden'; message: '' }
@@ -133,7 +157,8 @@ export function LiveGpsHeartbeat() {
       startingRef.current = true;
       try {
         const { token, user } = await getStoredSession();
-        if (!token || !isLiveGpsUser(user)) {
+        const liveGpsEnabled = await isLiveGpsEnabled();
+        if (!token || !isLiveGpsUser(user) || !liveGpsEnabled) {
           tokenRef.current = null;
           stopTracking();
           setStatus({ kind: 'hidden', message: '' });
@@ -193,6 +218,17 @@ export function LiveGpsHeartbeat() {
       }
     });
 
+    const liveGpsSub = subscribeLiveGpsEnabled((enabled) => {
+      permissionDeniedRef.current = false;
+      if (enabled) {
+        void ensureTracking();
+      } else {
+        tokenRef.current = null;
+        stopTracking();
+        setStatus({ kind: 'hidden', message: '' });
+      }
+    });
+
     const intervalId = setInterval(() => {
       void ensureTracking();
     }, SESSION_CHECK_INTERVAL_MS);
@@ -200,6 +236,7 @@ export function LiveGpsHeartbeat() {
     return () => {
       mounted = false;
       appStateSub.remove();
+      liveGpsSub();
       clearInterval(intervalId);
       stopTracking();
     };
