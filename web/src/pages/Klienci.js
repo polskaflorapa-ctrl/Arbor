@@ -11,6 +11,36 @@ import { getApiErrorMessage } from '../utils/apiError';
 import { getTaskStatusColor } from '../utils/taskWorkflow';
 
 const ZRODLA = ['telefon', 'polecenie', 'internet', 'social media', 'wizytówka', 'inne'];
+const SEGMENTY = ['VIP', 'Stały klient', 'Nowy lead', 'Do odzyskania', 'B2B', 'B2C'];
+
+function tagsToInput(tags) {
+  return Array.isArray(tags) ? tags.join(', ') : '';
+}
+
+function parseTags(value) {
+  return [...new Set(String(value || '').split(',').map((item) => item.trim()).filter(Boolean))].slice(0, 24);
+}
+
+function customFieldsToInput(fields) {
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return '';
+  return Object.entries(fields).map(([key, value]) => `${key}: ${value ?? ''}`).join('\n');
+}
+
+function parseCustomFields(value) {
+  return Object.fromEntries(
+    String(value || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const idx = line.indexOf(':');
+        if (idx === -1) return [line, true];
+        return [line.slice(0, idx).trim(), line.slice(idx + 1).trim()];
+      })
+      .filter(([key]) => key)
+      .slice(0, 50)
+  );
+}
 
 export default function Klienci() {
   const { t } = useTranslation();
@@ -18,6 +48,8 @@ export default function Klienci() {
   const [klienci, setKlienci] = useState([]);
   const [loading, setLoading] = useState(true);
   const [szukaj, setSzukaj] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -27,6 +59,7 @@ export default function Klienci() {
   const [form, setForm] = useState({
     imie: '', nazwisko: '', firma: '', telefon: '', email: '',
     adres: '', miasto: '', kod_pocztowy: '', notatki: '', zrodlo: 'telefon',
+    segment: '', tags: '', custom_fields: '',
   });
   const [klientKommoPayload, setKlientKommoPayload] = useState(null);
   const [loadingKlientKommoPayload, setLoadingKlientKommoPayload] = useState(false);
@@ -41,6 +74,8 @@ export default function Klienci() {
     try {
       const params = {};
       if (szukaj) params.szukaj = szukaj;
+      if (segmentFilter) params.segment = segmentFilter;
+      if (tagFilter) params.tag = tagFilter;
       const res = await api.get('/klienci', { params });
       setKlienci(res.data);
     } catch (e) {
@@ -48,7 +83,7 @@ export default function Klienci() {
     } finally {
       setLoading(false);
     }
-  }, [szukaj]);
+  }, [szukaj, segmentFilter, tagFilter]);
 
   useEffect(() => { loadKlienci(); }, [loadKlienci]);
 
@@ -112,7 +147,7 @@ export default function Klienci() {
   };
 
   const openAddForm = () => {
-    setForm({ imie: '', nazwisko: '', firma: '', telefon: '', email: '', adres: '', miasto: '', kod_pocztowy: '', notatki: '', zrodlo: 'telefon' });
+    setForm({ imie: '', nazwisko: '', firma: '', telefon: '', email: '', adres: '', miasto: '', kod_pocztowy: '', notatki: '', zrodlo: 'telefon', segment: '', tags: '', custom_fields: '' });
     setEditMode(false);
     setShowForm(true);
   };
@@ -130,6 +165,9 @@ export default function Klienci() {
       kod_pocztowy: detail.kod_pocztowy || '',
       notatki: detail.notatki || '',
       zrodlo: detail.zrodlo || 'telefon',
+      segment: detail.segment || '',
+      tags: tagsToInput(detail.tags),
+      custom_fields: customFieldsToInput(detail.custom_fields),
     });
     setEditMode(true);
     setShowForm(true);
@@ -139,10 +177,15 @@ export default function Klienci() {
     if (!form.telefon && !form.email) { alert('Podaj telefon lub email'); return; }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        tags: parseTags(form.tags),
+        custom_fields: parseCustomFields(form.custom_fields),
+      };
       if (editMode && selected) {
-        await api.put(`/klienci/${selected}`, form);
+        await api.put(`/klienci/${selected}`, payload);
       } else {
-        await api.post('/klienci', form);
+        await api.post('/klienci', payload);
       }
       setShowForm(false);
       await loadKlienci();
@@ -209,6 +252,18 @@ export default function Klienci() {
                 style={{ ...inp.base, paddingLeft: 32, width: '100%', boxSizing: 'border-box' }}
               />
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+              <select value={segmentFilter} onChange={e => setSegmentFilter(e.target.value)} style={inp.base}>
+                <option value="">Wszystkie segmenty</option>
+                {SEGMENTY.map((segment) => <option key={segment} value={segment}>{segment}</option>)}
+              </select>
+              <input
+                value={tagFilter}
+                onChange={e => setTagFilter(e.target.value)}
+                placeholder="Tag"
+                style={inp.base}
+              />
+            </div>
           </div>
 
           {/* Lista */}
@@ -252,6 +307,14 @@ export default function Klienci() {
                     )}
                     {k.miasto && (
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{k.miasto}</div>
+                    )}
+                    {(k.segment || (Array.isArray(k.tags) && k.tags.length > 0)) && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                        {k.segment ? <span style={miniPill}>{k.segment}</span> : null}
+                        {(Array.isArray(k.tags) ? k.tags.slice(0, 3) : []).map((tag) => (
+                          <span key={tag} style={miniPill}>#{tag}</span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -347,9 +410,26 @@ export default function Klienci() {
                 </Card>
                 <Card title="Informacje">
                   <Row label="Źródło" value={detail.zrodlo} />
+                  <Row label="Segment" value={detail.segment} />
                   <Row label="Zlecenia" value={detail.zlecenia?.length || 0} />
                   <Row label="Oględziny" value={detail.ogledziny?.length || 0} />
                   {detail.notatki && <Row label="Notatki" value={detail.notatki} />}
+                </Card>
+                <Card title="CRM">
+                  {Array.isArray(detail.tags) && detail.tags.length > 0 ? (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {detail.tags.map((tag) => <span key={tag} style={tagPill}>#{tag}</span>)}
+                    </div>
+                  ) : (
+                    <Row label="Tagi" value="—" />
+                  )}
+                  {detail.custom_fields && typeof detail.custom_fields === 'object' && Object.keys(detail.custom_fields).length > 0 ? (
+                    Object.entries(detail.custom_fields).map(([key, value]) => (
+                      <Row key={key} label={key} value={String(value ?? '—')} />
+                    ))
+                  ) : (
+                    <Row label="Pola własne" value="—" />
+                  )}
                 </Card>
               </div>
 
@@ -518,6 +598,23 @@ export default function Klienci() {
                     {ZRODLA.map(z => <option key={z} value={z}>{z}</option>)}
                   </select>
                 </FormField>
+                <FormField label="Segment">
+                  <select style={inp.base} value={form.segment} onChange={e => setForm(f => ({ ...f, segment: e.target.value }))}>
+                    <option value="">Brak segmentu</option>
+                    {SEGMENTY.map(segment => <option key={segment} value={segment}>{segment}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="Tagi">
+                  <input style={inp.base} value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="np. premium, ogrod, pilne" />
+                </FormField>
+                <FormField label="Pola własne" style={{ gridColumn: '1 / -1' }}>
+                  <textarea
+                    style={{ ...inp.base, resize: 'vertical', minHeight: 76 }}
+                    value={form.custom_fields}
+                    onChange={e => setForm(f => ({ ...f, custom_fields: e.target.value }))}
+                    placeholder={'Budzet: 12000\nPreferowany kanal: WhatsApp'}
+                  />
+                </FormField>
                 <FormField label="Notatki" style={{ gridColumn: '1 / -1' }}>
                   <textarea style={{ ...inp.base, resize: 'vertical', minHeight: 80 }} value={form.notatki} onChange={e => setForm(f => ({ ...f, notatki: e.target.value }))} placeholder="Dodatkowe informacje o kliencie..." />
                 </FormField>
@@ -629,6 +726,22 @@ const sec = {
 
 const badge = {
   fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 8, whiteSpace: 'nowrap',
+};
+
+const miniPill = {
+  fontSize: 10,
+  background: 'rgba(20,131,79,0.08)',
+  color: 'var(--accent-dk)',
+  border: '1px solid rgba(20,131,79,0.18)',
+  borderRadius: 6,
+  padding: '2px 6px',
+  fontWeight: 800,
+};
+
+const tagPill = {
+  ...miniPill,
+  fontSize: 12,
+  padding: '4px 8px',
 };
 
 const modal = {
