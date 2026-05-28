@@ -14,8 +14,17 @@ const SESSION_CHECK_INTERVAL_MS = 60000;
 const WATCH_TIME_INTERVAL_MS = 60000;
 const WATCH_DISTANCE_METERS = 50;
 export const LIVE_GPS_ENABLED_KEY = 'live_gps_enabled_v1';
+const LIVE_GPS_STATUS_KEY = 'live_gps_status_v1';
 
 const liveGpsListeners = new Set<(enabled: boolean) => void>();
+const liveGpsStatusListeners = new Set<(status: LiveGpsStatusSnapshot) => void>();
+
+export type LiveGpsStatusSnapshot = {
+  kind: 'hidden' | 'starting' | 'active' | 'warning' | 'blocked';
+  message: string;
+  updatedAt: string;
+  sentAt?: string;
+};
 
 export async function isLiveGpsEnabled(): Promise<boolean> {
   try {
@@ -34,6 +43,29 @@ export function subscribeLiveGpsEnabled(listener: (enabled: boolean) => void) {
   liveGpsListeners.add(listener);
   return () => {
     liveGpsListeners.delete(listener);
+  };
+}
+
+export async function getLiveGpsStatusSnapshot(): Promise<LiveGpsStatusSnapshot | null> {
+  try {
+    const raw = await AsyncStorage.getItem(LIVE_GPS_STATUS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed as LiveGpsStatusSnapshot : null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveLiveGpsStatusSnapshot(status: LiveGpsStatusSnapshot): Promise<void> {
+  await AsyncStorage.setItem(LIVE_GPS_STATUS_KEY, JSON.stringify(status));
+  liveGpsStatusListeners.forEach((listener) => listener(status));
+}
+
+export function subscribeLiveGpsStatusSnapshot(listener: (status: LiveGpsStatusSnapshot) => void) {
+  liveGpsStatusListeners.add(listener);
+  return () => {
+    liveGpsStatusListeners.delete(listener);
   };
 }
 
@@ -117,6 +149,16 @@ export function LiveGpsHeartbeat() {
   const lastSentAtRef = useRef(0);
   const [status, setStatus] = useState<GpsStatus>({ kind: 'hidden', message: '' });
 
+  const setGpsStatus = (next: GpsStatus) => {
+    setStatus(next);
+    void saveLiveGpsStatusSnapshot({
+      kind: next.kind,
+      message: next.message,
+      updatedAt: new Date().toISOString(),
+      ...(next.kind === 'active' ? { sentAt: new Date(next.sentAt).toISOString() } : {}),
+    });
+  };
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -137,12 +179,12 @@ export function LiveGpsHeartbeat() {
         const ok = await sendLocationHeartbeat(token, location);
         if (!ok) {
           tokenRef.current = null;
-          setStatus({ kind: 'warning', message: 'GPS LIVE: serwer nie przyjal pozycji' });
+          setGpsStatus({ kind: 'warning', message: 'GPS LIVE: serwer nie przyjal pozycji' });
           return;
         }
-        setStatus({ kind: 'active', message: `GPS LIVE - sync ${formatSyncTime(now)}`, sentAt: now });
+        setGpsStatus({ kind: 'active', message: `GPS LIVE - sync ${formatSyncTime(now)}`, sentAt: now });
       } catch {
-        setStatus({ kind: 'warning', message: 'GPS LIVE: brak polaczenia' });
+        setGpsStatus({ kind: 'warning', message: 'GPS LIVE: brak polaczenia' });
         return;
       }
     };
@@ -161,7 +203,7 @@ export function LiveGpsHeartbeat() {
         if (!token || !isLiveGpsUser(user) || !liveGpsEnabled) {
           tokenRef.current = null;
           stopTracking();
-          setStatus({ kind: 'hidden', message: '' });
+          setGpsStatus({ kind: 'hidden', message: '' });
           return;
         }
         tokenRef.current = token;
@@ -174,7 +216,7 @@ export function LiveGpsHeartbeat() {
         }
         if (!permission.granted) {
           permissionDeniedRef.current = true;
-          setStatus({ kind: 'blocked', message: 'GPS LIVE: wlacz zgode lokalizacji' });
+          setGpsStatus({ kind: 'blocked', message: 'GPS LIVE: wlacz zgode lokalizacji' });
           return;
         }
 
@@ -225,7 +267,7 @@ export function LiveGpsHeartbeat() {
       } else {
         tokenRef.current = null;
         stopTracking();
-        setStatus({ kind: 'hidden', message: '' });
+        setGpsStatus({ kind: 'hidden', message: '' });
       }
     });
 

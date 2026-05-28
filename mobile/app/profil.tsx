@@ -4,7 +4,13 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import { isPrivacyLockEnabled, setPrivacyLockEnabled } from '../components/app-privacy-lock';
-import { isLiveGpsEnabled, setLiveGpsEnabled } from '../components/live-gps-heartbeat';
+import {
+  getLiveGpsStatusSnapshot,
+  isLiveGpsEnabled,
+  setLiveGpsEnabled,
+  subscribeLiveGpsStatusSnapshot,
+  type LiveGpsStatusSnapshot,
+} from '../components/live-gps-heartbeat';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
@@ -34,6 +40,7 @@ export default function ProfilScreen() {
   const [bioSupported, setBioSupported] = useState(false);
   const [bioOn, setBioOn] = useState(false);
   const [liveGpsOn, setLiveGpsOn] = useState(true);
+  const [liveGpsStatus, setLiveGpsStatus] = useState<LiveGpsStatusSnapshot | null>(null);
   const [syncingRemote, setSyncingRemote] = useState(false);
   const [devTapCount, setDevTapCount] = useState(0);
   const router = useRouter();
@@ -44,11 +51,14 @@ export default function ProfilScreen() {
     void (async () => {
       setBioOn(await isPrivacyLockEnabled());
       setLiveGpsOn(await isLiveGpsEnabled());
+      setLiveGpsStatus(await getLiveGpsStatusSnapshot());
       const h = await LocalAuthentication.hasHardwareAsync();
       const e = await LocalAuthentication.isEnrolledAsync();
       setBioSupported(Boolean(h && e));
     })();
   }, []);
+
+  useEffect(() => subscribeLiveGpsStatusSnapshot(setLiveGpsStatus), []);
 
   const loadUser = async () => {
     const { user: storedUser } = await getStoredSession();
@@ -96,6 +106,27 @@ export default function ProfilScreen() {
   const initials = `${user?.imie?.[0] || ''}${user?.nazwisko?.[0] || ''}` || 'AR';
   const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(String(user?.rola || ''));
   const isFieldWorker = ['Brygadzista', 'Pomocnik'].includes(String(user?.rola || ''));
+  const liveGpsStatusLabel = !liveGpsOn
+    ? 'Wylaczony'
+    : liveGpsStatus?.kind === 'active'
+      ? 'Aktywny'
+      : liveGpsStatus?.kind === 'blocked'
+        ? 'Brak zgody'
+        : liveGpsStatus?.kind === 'warning'
+          ? 'Problem z synchronizacja'
+          : 'Gotowy';
+  const liveGpsStatusColor = !liveGpsOn
+    ? theme.textMuted
+    : liveGpsStatus?.kind === 'active'
+      ? theme.success
+      : liveGpsStatus?.kind === 'blocked'
+        ? theme.danger
+        : liveGpsStatus?.kind === 'warning'
+          ? theme.warning
+          : theme.info;
+  const liveGpsLastSync = liveGpsStatus?.sentAt
+    ? new Date(liveGpsStatus.sentAt).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : 'brak';
   const profileStats = [
     { key: 'role', label: 'Rola', value: rolaLabel },
     { key: 'branch', label: 'Oddział', value: user?.oddzial_nazwa || 'Nieustawiony' },
@@ -355,6 +386,16 @@ export default function ProfilScreen() {
                 <Text style={[S.settingSub, { color: theme.textMuted }]}>
                   Wylaczenie zatrzymuje lokalizacje bez zmiany zgod systemowych iPhone.
                 </Text>
+                <View style={S.gpsStatusRow}>
+                  <View style={[S.gpsStatusDot, { backgroundColor: liveGpsStatusColor }]} />
+                  <Text style={[S.gpsStatusText, { color: liveGpsStatusColor }]}>{liveGpsStatusLabel}</Text>
+                  <Text style={[S.gpsStatusMeta, { color: theme.textMuted }]}>ostatni sync: {liveGpsLastSync}</Text>
+                </View>
+                {liveGpsOn && liveGpsStatus?.message ? (
+                  <Text style={[S.settingSub, { color: theme.textMuted }]} numberOfLines={2}>
+                    {liveGpsStatus.message}
+                  </Text>
+                ) : null}
               </View>
               <Switch
                 value={liveGpsOn}
@@ -645,6 +686,16 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   settingTitle: { fontSize: 14, fontWeight: '800' },
   settingSub: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+  gpsStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 9,
+    flexWrap: 'wrap',
+  },
+  gpsStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  gpsStatusText: { fontSize: 12, fontWeight: '900' },
+  gpsStatusMeta: { fontSize: 11, fontWeight: '600' },
 
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
