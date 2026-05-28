@@ -34,6 +34,16 @@ function assertFile(relativePath) {
   }
 }
 
+function assertAppAsset(label, assetPath) {
+  assertValue(label, assetPath);
+  if (!assetPath) {
+    return;
+  }
+
+  const relativePath = assetPath.replace(/^\.\//, '');
+  assertFile(relativePath);
+}
+
 function assertValue(label, value) {
   if (value !== undefined && value !== null && String(value).trim() !== '') {
     pass(label);
@@ -42,13 +52,53 @@ function assertValue(label, value) {
   }
 }
 
+function assertUrl(label, value) {
+  assertValue(label, value);
+  if (!value) {
+    return;
+  }
+
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== 'https:') {
+      fail(`${label} must use https`);
+      return;
+    }
+    pass(`${label} is a valid https URL`);
+  } catch (error) {
+    fail(`${label} is not a valid URL: ${error.message}`);
+  }
+}
+
+function getPluginConfig(appConfig, pluginName) {
+  const plugins = appConfig?.expo?.plugins || [];
+  const plugin = plugins.find((entry) => {
+    if (typeof entry === 'string') {
+      return entry === pluginName;
+    }
+    return Array.isArray(entry) && entry[0] === pluginName;
+  });
+
+  if (!plugin) {
+    fail(`${pluginName} plugin is missing`);
+    return {};
+  }
+
+  pass(`${pluginName} plugin exists`);
+  return Array.isArray(plugin) ? plugin[1] || {} : {};
+}
+
 function assertBuildProfile(easConfig, name) {
   const profile = easConfig?.build?.[name];
   if (profile) {
     pass(`eas build profile "${name}" exists`);
   } else {
     fail(`eas build profile "${name}" is missing`);
+    return;
   }
+
+  assertUrl(`eas ${name} EXPO_PUBLIC_API_URL`, profile.env?.EXPO_PUBLIC_API_URL);
+  assertValue(`eas ${name} EXPO_PUBLIC_EXPECTED_API_VERSION is set`, profile.env?.EXPO_PUBLIC_EXPECTED_API_VERSION);
 }
 
 function runNpmScript(name) {
@@ -117,6 +167,27 @@ assertValue('ios.bundleIdentifier is set', appConfig?.expo?.ios?.bundleIdentifie
 assertValue('ios.buildNumber is set', appConfig?.expo?.ios?.buildNumber);
 assertValue('android.package is set', appConfig?.expo?.android?.package);
 assertValue('android.versionCode is set', appConfig?.expo?.android?.versionCode);
+
+assertAppAsset('app icon is set', appConfig?.expo?.icon);
+assertAppAsset('web favicon is set', appConfig?.expo?.web?.favicon);
+assertAppAsset('android foreground icon is set', appConfig?.expo?.android?.adaptiveIcon?.foregroundImage);
+assertAppAsset('android background icon is set', appConfig?.expo?.android?.adaptiveIcon?.backgroundImage);
+assertAppAsset('android monochrome icon is set', appConfig?.expo?.android?.adaptiveIcon?.monochromeImage);
+
+const cameraPlugin = getPluginConfig(appConfig, 'expo-camera');
+const imagePickerPlugin = getPluginConfig(appConfig, 'expo-image-picker');
+const localAuthPlugin = getPluginConfig(appConfig, 'expo-local-authentication');
+const notificationPlugin = getPluginConfig(appConfig, 'expo-notifications');
+const locationPlugin = getPluginConfig(appConfig, 'expo-location');
+const splashPlugin = getPluginConfig(appConfig, 'expo-splash-screen');
+getPluginConfig(appConfig, 'expo-secure-store');
+
+assertValue('camera permission text is set', cameraPlugin.cameraPermission);
+assertValue('photos permission text is set', imagePickerPlugin.photosPermission);
+assertValue('Face ID permission text is set', localAuthPlugin.faceIDPermission);
+assertValue('location permission text is set', locationPlugin.locationWhenInUsePermission);
+assertAppAsset('notification icon is set', notificationPlugin.icon);
+assertAppAsset('splash image is set', splashPlugin.image);
 
 assertBuildProfile(easConfig, 'development');
 assertBuildProfile(easConfig, 'preview');

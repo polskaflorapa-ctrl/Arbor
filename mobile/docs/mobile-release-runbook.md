@@ -35,8 +35,8 @@ Check release metadata:
 - [ ] `app.json` version is correct.
 - [ ] `ios.buildNumber` is incremented for iOS releases.
 - [ ] `android.versionCode` is incremented for Android releases.
-- [ ] `EXPO_PUBLIC_API_URL` points to the intended backend.
-- [ ] `EXPO_PUBLIC_EXPECTED_API_VERSION` matches the backend release note or is intentionally left as profile default.
+- [ ] `eas.json` profile `EXPO_PUBLIC_API_URL` points to the intended backend.
+- [ ] `eas.json` profile `EXPO_PUBLIC_EXPECTED_API_VERSION` matches the backend release note or is intentionally left as profile default.
 - [ ] `npm run release:eas-doctor` passes on the release operator machine.
 
 Security dependency check:
