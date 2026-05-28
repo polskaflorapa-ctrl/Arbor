@@ -30,6 +30,7 @@ export default function CrmInbox() {
   const [replyBody, setReplyBody] = useState('');
   const [replyTemplateId, setReplyTemplateId] = useState('');
   const [replySending, setReplySending] = useState(false);
+  const [statusSavingId, setStatusSavingId] = useState(null);
   const [filters, setFilters] = useState({ channel: '', direction: '', status: '', q: '' });
 
   const selected = useMemo(
@@ -114,6 +115,26 @@ export default function CrmInbox() {
     setReplyTemplateId(templateId);
     const template = messageTemplates.find((item) => String(item.id) === String(templateId));
     if (template) setReplyBody(template.body || '');
+  };
+
+  const updateMessageStatus = async (messageId, status) => {
+    if (!messageId) return;
+    try {
+      setStatusSavingId(messageId);
+      setMsg('');
+      const token = getStoredToken();
+      await api.patch(
+        `/crm/messages/${messageId}/status`,
+        { status, error: status === 'failed' ? 'Oznaczone recznie w Unified Inbox' : undefined },
+        { headers: authHeaders(token) }
+      );
+      await loadInbox();
+      setMsg(`Status wiadomosci zmieniony na ${status}.`);
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, 'Nie udalo sie zmienic statusu wiadomosci'));
+    } finally {
+      setStatusSavingId(null);
+    }
   };
 
   return (
@@ -204,6 +225,20 @@ export default function CrmInbox() {
                       </div>
                     </div>
                     <button className="ios-btn" type="button" onClick={() => navigate('/crm/pipeline')}>Pipeline</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'read')}>
+                      Przeczytane
+                    </button>
+                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'sent')}>
+                      Wyslane
+                    </button>
+                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'queued')}>
+                      Ponow
+                    </button>
+                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'failed')}>
+                      Blad
+                    </button>
                   </div>
                   <div className="ios-inset-list">
                     <div className="ios-inset-row">

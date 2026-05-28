@@ -30,6 +30,7 @@ vi.mock('../api', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    patch: vi.fn(),
   },
 }));
 
@@ -38,6 +39,7 @@ beforeEach(() => {
   localStorage.setItem('token', 'crm-inbox-token');
   api.get.mockReset();
   api.post.mockReset();
+  api.patch.mockReset();
   api.get.mockImplementation((url) => {
     if (url === '/crm/message-templates') {
       return Promise.resolve({
@@ -68,6 +70,7 @@ beforeEach(() => {
     });
   });
   api.post.mockResolvedValue({ data: { id: 702, status: 'queued' } });
+  api.patch.mockResolvedValue({ data: { id: 701, status: 'read' } });
 });
 
 afterEach(() => {
@@ -148,4 +151,23 @@ test('uses a message template when replying from unified inbox', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
+});
+
+test('updates a message status from unified inbox actions', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Przeczytane' }));
+
+  await waitFor(() => {
+    expect(api.patch).toHaveBeenCalledWith(
+      '/crm/messages/701/status',
+      { status: 'read', error: undefined },
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Status wiadomosci zmieniony na read.')).toBeInTheDocument();
 });
