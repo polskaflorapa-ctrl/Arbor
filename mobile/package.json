@@ -17,6 +17,10 @@
     "smoke:mobile": "node ./scripts/smoke-mobile-release.cjs",
     "release:check": "node ./scripts/check-mobile-release-ready.cjs",
     "release:eas-doctor": "node ./scripts/eas-release-doctor.cjs",
+    "release:build:ios:preview": "node ./scripts/eas-release-build.cjs ios preview",
+    "release:build:ios:production": "node ./scripts/eas-release-build.cjs ios production",
+    "release:build:android:preview": "node ./scripts/eas-release-build.cjs android preview",
+    "release:build:android:production": "node ./scripts/eas-release-build.cjs android production",
     "smoke:api": "node ./scripts/smoke-api-rezerwacje.cjs"
   },
   "dependencies": {

@@ -12,7 +12,11 @@ let app;
 let readyPromise;
 
 async function runColdStartMigrations() {
-  if (!process.env.DATABASE_URL || process.env.VERCEL_RUN_MIGRATIONS === '0') {
+  if (process.env.VERCEL_RUN_MIGRATIONS !== '1') {
+    return;
+  }
+
+  if (!process.env.DATABASE_URL) {
     return;
   }
 
@@ -31,14 +35,26 @@ async function getApp() {
     readyPromise = (async () => {
       await runColdStartMigrations();
       return app || (app = createApp());
-    })();
+    })().catch((error) => {
+      readyPromise = null;
+      throw error;
+    });
   }
   return readyPromise;
 }
 
 module.exports = async (req, res) => {
-  if (!app) {
-    app = await getApp();
+  try {
+    if (!app) {
+      app = await getApp();
+    }
+    return app(req, res);
+  } catch (error) {
+    console.error('[vercel-api] initialization failed', { message: error.message });
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: 'API initialization failed' }));
+    }
   }
-  return app(req, res);
 };

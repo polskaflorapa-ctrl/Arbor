@@ -29,6 +29,7 @@ async function smokeVercelApiWrapper() {
   process.env.NODE_ENV = 'production';
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'deploy-vercel-check-secret';
   process.env.DATABASE_URL = process.env.DATABASE_URL || '';
+  process.env.VERCEL_RUN_MIGRATIONS = '0';
 
   try {
     const handler = require('../api/[...path].js');
@@ -64,6 +65,107 @@ async function smokeVercelApiWrapper() {
   }
 }
 
+async function smokeVercelApiInitFailure() {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousJwtSecret = process.env.JWT_SECRET;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousConnectTimeout = process.env.DB_CONNECT_TIMEOUT_MS;
+  const previousRunMigrations = process.env.VERCEL_RUN_MIGRATIONS;
+  const previousConsoleError = console.error;
+
+  process.env.NODE_ENV = 'production';
+  process.env.JWT_SECRET = 'deploy-vercel-check-secret';
+  process.env.DATABASE_URL = 'postgres://invalid:invalid@127.0.0.1:1/invalid';
+  process.env.DB_CONNECT_TIMEOUT_MS = '100';
+  process.env.VERCEL_RUN_MIGRATIONS = '1';
+
+  const modulePath = require.resolve('../api/[...path].js');
+  delete require.cache[modulePath];
+
+  try {
+    console.error = () => {};
+    const handler = require('../api/[...path].js');
+    await new Promise((resolve, reject) => {
+      const server = http.createServer((req, res) => handler(req, res));
+      server.on('error', reject);
+      server.listen(0, '127.0.0.1', async () => {
+        try {
+          const { port } = server.address();
+          const res = await fetch(`http://127.0.0.1:${port}/api/health`);
+          const body = await res.json();
+          assert(res.status === 500, `Vercel API init failure smoke expected 500, got ${res.status}`);
+          assert(body.error === 'API initialization failed', 'Vercel API init failure smoke expected JSON error payload.');
+          resolve();
+        } catch (error) {
+          reject(error);
+        } finally {
+          server.close();
+        }
+      });
+    });
+  } finally {
+    console.error = previousConsoleError;
+    delete require.cache[modulePath];
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousJwtSecret;
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousConnectTimeout === undefined) delete process.env.DB_CONNECT_TIMEOUT_MS;
+    else process.env.DB_CONNECT_TIMEOUT_MS = previousConnectTimeout;
+    if (previousRunMigrations === undefined) delete process.env.VERCEL_RUN_MIGRATIONS;
+    else process.env.VERCEL_RUN_MIGRATIONS = previousRunMigrations;
+  }
+}
+
+async function smokeVercelApiSkipsMigrationsByDefault() {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousJwtSecret = process.env.JWT_SECRET;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  const previousRunMigrations = process.env.VERCEL_RUN_MIGRATIONS;
+
+  process.env.NODE_ENV = 'production';
+  process.env.JWT_SECRET = 'deploy-vercel-check-secret';
+  process.env.DATABASE_URL = 'postgres://invalid:invalid@127.0.0.1:1/invalid';
+  delete process.env.VERCEL_RUN_MIGRATIONS;
+
+  const modulePath = require.resolve('../api/[...path].js');
+  delete require.cache[modulePath];
+
+  try {
+    const handler = require('../api/[...path].js');
+    await new Promise((resolve, reject) => {
+      const server = http.createServer((req, res) => handler(req, res));
+      server.on('error', reject);
+      server.listen(0, '127.0.0.1', async () => {
+        try {
+          const { port } = server.address();
+          const res = await fetch(`http://127.0.0.1:${port}/api/health`);
+          const body = await res.json();
+          assert(res.status === 200, `Vercel API migration-skip smoke expected 200, got ${res.status}`);
+          assert(body.status === 'ok', 'Vercel API migration-skip smoke expected /api/health status ok.');
+          resolve();
+        } catch (error) {
+          reject(error);
+        } finally {
+          server.close();
+        }
+      });
+    });
+  } finally {
+    delete require.cache[modulePath];
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousJwtSecret;
+    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDatabaseUrl;
+    if (previousRunMigrations === undefined) delete process.env.VERCEL_RUN_MIGRATIONS;
+    else process.env.VERCEL_RUN_MIGRATIONS = previousRunMigrations;
+  }
+}
+
 async function main() {
   const rootPackage = JSON.parse(read('package.json'));
   const vercel = JSON.parse(read('vercel.json'));
@@ -72,6 +174,7 @@ async function main() {
 
   assert(rootPackage.engines?.node === '>=22.12.0', 'Root package should pin Node >=22.12.0 for Vite 7 and Vercel.');
   assert(rootPackage.scripts?.['deploy:vercel:check'] === 'node ./scripts/deploy-vercel-check.cjs', 'Root deploy:vercel:check script is missing.');
+  assert(rootPackage.scripts?.['deploy:vercel:migrate'] === 'npm run db:migrate -w arbor-os', 'Root deploy:vercel:migrate script is missing.');
   assert(rootPackage.dependencies?.['serverless-http'], 'Root package should include serverless-http for the Vercel API wrapper.');
 
   assert(vercel.version === 2, 'vercel.json should use version 2.');
@@ -95,10 +198,12 @@ async function main() {
   assert(fs.existsSync('api/[...path].js'), 'Vercel API wrapper api/[...path].js is missing.');
   assert(fs.existsSync('deploy/vercel.env.example'), 'Vercel env template is missing.');
   assert(!/serverless-http/.test(vercelApiWrapper), 'Vercel API wrapper should use native req/res, not serverless-http.');
-  assert(/VERCEL_RUN_MIGRATIONS=1/.test(read('deploy/vercel.env.example')), 'Vercel env template should document VERCEL_RUN_MIGRATIONS.');
+  assert(/VERCEL_RUN_MIGRATIONS=0/.test(read('deploy/vercel.env.example')), 'Vercel env template should default VERCEL_RUN_MIGRATIONS to 0.');
   assert(!/fonts\.googleapis\.com\/css2\?family=Inter:wght@400;500;600;700&display=swap/.test(webIndex), 'web/index.html should not duplicate the Inter font stylesheet.');
 
   await smokeVercelApiWrapper();
+  await smokeVercelApiSkipsMigrationsByDefault();
+  await smokeVercelApiInitFailure();
 
   console.log('[deploy-vercel] Local Vercel config OK.');
   console.log('[deploy-vercel] Vercel will serve web/build and route /api/* to api/[...path].js.');

@@ -55,19 +55,24 @@ Use `eas.json` profiles:
 - `preview`: internal QA build for field testing.
 - `production`: store-ready build with EAS auto-increment enabled.
 
-Example commands:
+Use the guarded build commands. They run `release:check`, `release:eas-doctor`, and then the EAS build:
 
 ```bash
-npx eas build --platform ios --profile development
-npx eas build --platform ios --profile preview
-npx eas build --platform ios --profile production
+npm run release:build:ios:preview
+npm run release:build:ios:production
 ```
 
 For Android:
 
 ```bash
-npx eas build --platform android --profile preview
-npx eas build --platform android --profile production
+npm run release:build:android:preview
+npm run release:build:android:production
+```
+
+For a dev-client build, run the wrapper directly:
+
+```bash
+node ./scripts/eas-release-build.cjs ios development
 ```
 
 ## 3. Device QA
@@ -75,6 +80,14 @@ npx eas build --platform android --profile production
 Install the build on a real iPhone and run:
 
 - `docs/mobile-device-smoke-checklist.md`
+
+Record the build result and QA decision in:
+
+- `docs/mobile-preview-release-template.md`
+
+Before TestFlight, App Store review, or Google Play internal testing, complete:
+
+- `docs/mobile-store-readiness-checklist.md`
 
 Do not promote the build if any of these fail:
 
@@ -93,7 +106,9 @@ Before submit:
 - [ ] `npm run release:check` is green.
 - [ ] `npm run release:eas-doctor` is green on the release operator machine.
 - [ ] Device QA checklist is complete.
+- [ ] Store readiness checklist is complete.
 - [ ] Known issues are documented in `docs/mobile-release-risks.md` or the release note.
+- [ ] Preview QA result is recorded from `docs/mobile-preview-release-template.md`.
 - [ ] `npm audit --omit=dev` output is reviewed; any Expo SDK major-upgrade findings are accepted or handled in a dedicated SDK upgrade branch.
 - [ ] API URL and build profile are confirmed.
 - [ ] Crash/error monitoring destination is confirmed.

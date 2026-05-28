@@ -126,6 +126,8 @@ assertValue('eas cli version guard is set', easConfig?.cli?.version);
 assertFile('docs/mobile-device-smoke-checklist.md');
 assertFile('docs/mobile-release-runbook.md');
 assertFile('docs/mobile-release-risks.md');
+assertFile('docs/mobile-preview-release-template.md');
+assertFile('docs/mobile-store-readiness-checklist.md');
 
 if (process.exitCode) {
   console.error('\nRelease readiness check failed before smoke tests.');
