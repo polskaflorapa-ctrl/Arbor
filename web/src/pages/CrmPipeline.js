@@ -65,6 +65,12 @@ const EMPTY_TEMPLATE = {
   body: '',
 };
 
+const EMPTY_NPS = {
+  score: '10',
+  channel: 'phone',
+  comment: '',
+};
+
 export default function CrmPipeline() {
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
@@ -85,6 +91,10 @@ export default function CrmPipeline() {
   const [savingActivity, setSavingActivity] = useState(false);
   const [workflowEvents, setWorkflowEvents] = useState([]);
   const [workflowEventsLoading, setWorkflowEventsLoading] = useState(false);
+  const [npsSurveys, setNpsSurveys] = useState([]);
+  const [npsLoading, setNpsLoading] = useState(false);
+  const [npsForm, setNpsForm] = useState(EMPTY_NPS);
+  const [savingNps, setSavingNps] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState([]);
@@ -246,6 +256,25 @@ export default function CrmPipeline() {
     [requestHeaders]
   );
 
+  const loadNpsSurveys = useCallback(
+    async (leadId) => {
+      if (!leadId) {
+        setNpsSurveys([]);
+        return;
+      }
+      try {
+        setNpsLoading(true);
+        const res = await api.get(`/crm/leads/${leadId}/nps-surveys`, { headers: requestHeaders });
+        setNpsSurveys(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setNpsSurveys([]);
+      } finally {
+        setNpsLoading(false);
+      }
+    },
+    [requestHeaders]
+  );
+
   const loadMessageTemplates = useCallback(async () => {
     try {
       const params = {};
@@ -266,13 +295,15 @@ export default function CrmPipeline() {
       loadActivities(selectedLeadId);
       loadMessages(selectedLeadId);
       loadWorkflowEvents(selectedLeadId);
+      loadNpsSurveys(selectedLeadId);
     } else {
       setActivities([]);
       setMessages([]);
       setWorkflowEvents([]);
+      setNpsSurveys([]);
       setAiLead(null);
     }
-  }, [selectedLeadId, loadActivities, loadMessages, loadWorkflowEvents]);
+  }, [selectedLeadId, loadActivities, loadMessages, loadWorkflowEvents, loadNpsSurveys]);
 
   useEffect(() => {
     if (!selectedLeadId) return undefined;
@@ -446,6 +477,33 @@ export default function CrmPipeline() {
     return t('crm.pipeline.activities.typeNote', { defaultValue: 'Notatka' });
   };
 
+  const submitNps = async () => {
+    if (!selectedLeadId) return;
+    const score = Number(npsForm.score);
+    if (!Number.isInteger(score) || score < 0 || score > 10) {
+      setMsg(t('crm.pipeline.nps.scoreError', { defaultValue: 'NPS musi być liczbą od 0 do 10.' }));
+      return;
+    }
+    try {
+      setSavingNps(true);
+      await api.post(
+        `/crm/leads/${selectedLeadId}/nps-surveys`,
+        {
+          score,
+          channel: npsForm.channel,
+          comment: npsForm.comment.trim() || null,
+        },
+        { headers: requestHeaders }
+      );
+      setNpsForm(EMPTY_NPS);
+      await Promise.all([loadNpsSurveys(selectedLeadId), loadData()]);
+    } catch (e) {
+      setMsg(getApiErrorMessage(e, t('crm.pipeline.nps.createError', { defaultValue: 'Nie udało się zapisać NPS.' })));
+    } finally {
+      setSavingNps(false);
+    }
+  };
+
   const runLeadAi = async () => {
     if (!selectedLeadId) return;
     try {
@@ -611,6 +669,13 @@ export default function CrmPipeline() {
     if (status === 'skipped') return t('crm.pipeline.workflowEvents.skipped', { defaultValue: 'pominięte' });
     if (status === 'error') return t('crm.pipeline.workflowEvents.error', { defaultValue: 'błąd' });
     return status || '—';
+  };
+
+  const npsGroupLabel = (group) => {
+    if (group === 'promoter') return t('crm.pipeline.nps.promoter', { defaultValue: 'promotor' });
+    if (group === 'passive') return t('crm.pipeline.nps.passive', { defaultValue: 'pasywny' });
+    if (group === 'detractor') return t('crm.pipeline.nps.detractor', { defaultValue: 'krytyk' });
+    return group || '—';
   };
 
   return (
@@ -1187,6 +1252,64 @@ export default function CrmPipeline() {
                 ))}
                 {!messagesLoading && messages.length === 0 ? (
                   <div className="ios-inset-row muted">{t('crm.pipeline.messages.empty', { defaultValue: 'Brak wiadomości w tej rozmowie.' })}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {t('crm.pipeline.nps.title', { defaultValue: 'NPS klienta' })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {t('crm.pipeline.nps.subtitle', { defaultValue: 'Ocena 0-10 zapisana przy leadzie.' })}
+                  </div>
+                </div>
+                {npsLoading ? <span className="muted" style={{ fontSize: 12 }}>{t('common.loading', { defaultValue: 'Ładowanie...' })}</span> : null}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '84px 1fr', gap: 6 }}>
+                <input
+                  className="ios-field"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={npsForm.score}
+                  onChange={(e) => setNpsForm((prev) => ({ ...prev, score: e.target.value }))}
+                  aria-label={t('crm.pipeline.nps.score', { defaultValue: 'Ocena NPS' })}
+                />
+                <select
+                  className="ios-field"
+                  value={npsForm.channel}
+                  onChange={(e) => setNpsForm((prev) => ({ ...prev, channel: e.target.value }))}
+                >
+                  {['phone', 'sms', 'email', 'whatsapp', 'manual', 'other'].map((channel) => (
+                    <option key={channel} value={channel}>{messageChannelLabel(channel)}</option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                className="ios-field"
+                rows={2}
+                value={npsForm.comment}
+                onChange={(e) => setNpsForm((prev) => ({ ...prev, comment: e.target.value }))}
+                placeholder={t('crm.pipeline.nps.comment', { defaultValue: 'Komentarz klienta...' })}
+              />
+              <button type="button" className="ios-btn ios-btn-primary" disabled={savingNps} onClick={submitNps}>
+                {t('crm.pipeline.nps.add', { defaultValue: 'Zapisz NPS' })}
+              </button>
+              <div className="ios-inset-list" style={{ maxHeight: 180, overflow: 'auto' }}>
+                {npsSurveys.map((survey) => (
+                  <div key={survey.id} className="ios-inset-row" style={{ display: 'grid', gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <strong>{survey.score}/10 · {npsGroupLabel(survey.nps_group)}</strong>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatActivityWhen(survey.responded_at || survey.created_at, lng)}</span>
+                    </div>
+                    {survey.comment ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{survey.comment}</div> : null}
+                  </div>
+                ))}
+                {!npsLoading && npsSurveys.length === 0 ? (
+                  <div className="ios-inset-row muted">{t('crm.pipeline.nps.empty', { defaultValue: 'Brak ocen NPS przy tym leadzie.' })}</div>
                 ) : null}
               </div>
             </div>

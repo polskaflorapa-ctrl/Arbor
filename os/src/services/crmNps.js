@@ -65,13 +65,25 @@ async function createNpsSurvey({ oddzialId, leadId, clientId, taskId, channel, s
   return mapSurvey(rows[0]);
 }
 
-async function listNpsSurveys({ oddzialId, limit = 50 }) {
+async function listNpsSurveys({ oddzialId, leadId, clientId, taskId, limit = 50 }) {
   await ensureCrmNpsTable();
   const params = [];
   let where = 'WHERE 1=1';
   if (oddzialId) {
     params.push(oddzialId);
     where += ` AND s.oddzial_id = $${params.length}`;
+  }
+  if (leadId) {
+    params.push(leadId);
+    where += ` AND s.lead_id = $${params.length}`;
+  }
+  if (clientId) {
+    params.push(clientId);
+    where += ` AND s.client_id = $${params.length}`;
+  }
+  if (taskId) {
+    params.push(taskId);
+    where += ` AND s.task_id = $${params.length}`;
   }
   params.push(Math.min(Math.max(Number(limit) || 50, 1), 200));
   const { rows } = await pool.query(

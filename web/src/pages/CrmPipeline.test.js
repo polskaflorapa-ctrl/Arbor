@@ -156,6 +156,80 @@ test('lets a user add a unified inbox message to a lead', async () => {
   });
 });
 
+test('lets a user save lead NPS feedback', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/leads') {
+      return Promise.resolve({
+        data: [{
+          id: 51,
+          title: 'NPS lead',
+          stage: 'Lead',
+          oddzial_id: 7,
+          owner_user_id: 9001,
+          value: 1500,
+          phone: '+48500100200',
+          source: 'phone',
+        }],
+      });
+    }
+    if (url === '/crm/leads/51/activities') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/messages') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/workflow-events') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/nps-surveys') {
+      return Promise.resolve({
+        data: [{
+          id: 91,
+          lead_id: 51,
+          score: 10,
+          nps_group: 'promoter',
+          comment: 'Super kontakt',
+          responded_at: '2026-05-28T08:00:00.000Z',
+        }],
+      });
+    }
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
+    if (url === '/uzytkownicy') return Promise.resolve({ data: [{ id: 9001, imie: 'Smoke', nazwisko: 'Admin' }] });
+    if (url === '/klienci') return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+  api.post.mockResolvedValueOnce({
+    data: {
+      id: 92,
+      lead_id: 51,
+      score: 8,
+      nps_group: 'passive',
+      comment: 'Dobry kontakt',
+    },
+  });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('NPS lead');
+  await userEvent.click(screen.getByRole('button', { name: /Aktywno/i }));
+
+  expect(await screen.findByText('NPS klienta')).toBeInTheDocument();
+  expect(await screen.findByText(/10\/10/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Ocena NPS'), { target: { value: '8' } });
+  fireEvent.change(screen.getByPlaceholderText('Komentarz klienta...'), { target: { value: 'Dobry kontakt' } });
+  await userEvent.click(screen.getByRole('button', { name: /Zapisz NPS/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/crm/leads/51/nps-surveys',
+      expect.objectContaining({
+        score: 8,
+        channel: 'phone',
+        comment: 'Dobry kontakt',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
 test('lets a user send a unified inbox message from a template', async () => {
   api.get.mockImplementation((url) => {
     if (url === '/crm/leads') {

@@ -780,11 +780,32 @@ router.post('/message-templates/:id/render', async (req, res) => {
 router.get('/nps-surveys', async (req, res) => {
   try {
     const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
-    const surveys = await listNpsSurveys({ oddzialId, limit: toInt(req.query.limit) || 50 });
+    const surveys = await listNpsSurveys({
+      oddzialId,
+      leadId: toInt(req.query.lead_id),
+      clientId: toInt(req.query.client_id),
+      taskId: toInt(req.query.task_id),
+      limit: toInt(req.query.limit) || 50,
+    });
     res.json(surveys);
   } catch (err) {
     logger.error('crm.nps.list', { message: err.message });
     res.status(500).json({ error: 'Blad odczytu ankiet NPS CRM' });
+  }
+});
+
+router.get('/leads/:id/nps-surveys', async (req, res) => {
+  const leadId = toInt(req.params.id);
+  if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    const surveys = await listNpsSurveys({ leadId, limit: toInt(req.query.limit) || 50 });
+    res.json(surveys);
+  } catch (err) {
+    logger.error('crm.nps.leadList', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu ankiet NPS leada' });
   }
 });
 
@@ -812,6 +833,36 @@ router.post('/nps-surveys', async (req, res) => {
   } catch (err) {
     logger.error('crm.nps.create', { message: err.message });
     res.status(500).json({ error: 'Nie udalo sie zapisac ankiety NPS CRM' });
+  }
+});
+
+router.post('/leads/:id/nps-surveys', async (req, res) => {
+  const leadId = toInt(req.params.id);
+  if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  const b = req.body || {};
+  const score = toInt(b.score);
+  if (score == null || score < 0 || score > 10) return res.status(400).json({ error: 'score musi byc w zakresie 0-10' });
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id, client_id, phone, email FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    const survey = await createNpsSurvey({
+      oddzialId: lead.oddzial_id,
+      leadId,
+      clientId: toInt(b.client_id) || lead.client_id || null,
+      taskId: toInt(b.task_id),
+      channel: b.channel,
+      score,
+      comment: b.comment,
+      respondentName: b.respondent_name,
+      respondentContact: b.respondent_contact || lead.phone || lead.email,
+      sentAt: b.sent_at,
+      userId: req.user.id,
+    });
+    res.status(201).json(survey);
+  } catch (err) {
+    logger.error('crm.nps.leadCreate', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie zapisac NPS leada' });
   }
 });
 

@@ -26,6 +26,12 @@ describe('CRM NPS surveys', () => {
     pool.query.mockImplementation(async (sql, params = []) => {
       const text = String(sql);
       if (text.includes('CREATE TABLE') || text.includes('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (text === 'SELECT id, oddzial_id FROM crm_leads WHERE id = $1') {
+        return { rows: [{ id: Number(params[0]), oddzial_id: 7 }] };
+      }
+      if (text === 'SELECT id, oddzial_id, client_id, phone, email FROM crm_leads WHERE id = $1') {
+        return { rows: [{ id: Number(params[0]), oddzial_id: 7, client_id: 88, phone: '+48500100200', email: 'lead@test.pl' }] };
+      }
       if (text.includes('INSERT INTO crm_nps_surveys')) {
         return {
           rows: [{
@@ -94,6 +100,43 @@ describe('CRM NPS surveys', () => {
       score: 10,
       nps_group: 'promoter',
       lead_title: 'Wycinka sosny',
+    }));
+  });
+
+  it('creates an NPS response directly for a lead', async () => {
+    const res = await request(app)
+      .post('/api/crm/leads/22/nps-surveys')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        channel: 'phone',
+        score: 8,
+        comment: 'Dobry kontakt',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual(expect.objectContaining({
+      oddzial_id: 7,
+      lead_id: 22,
+      client_id: 88,
+      channel: 'phone',
+      score: 8,
+      respondent_contact: '+48500100200',
+      nps_group: 'passive',
+    }));
+  });
+
+  it('lists NPS responses for a lead', async () => {
+    const res = await request(app)
+      .get('/api/crm/leads/22/nps-surveys')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    const listCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM crm_nps_surveys s'));
+    expect(String(listCall[0])).toContain('s.lead_id =');
+    expect(listCall[1]).toEqual([22, 50]);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      lead_id: 22,
+      nps_group: 'promoter',
     }));
   });
 
