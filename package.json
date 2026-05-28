@@ -52,6 +52,7 @@
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
     "deploy:vercel:check": "node ./scripts/deploy-vercel-check.cjs",
     "deploy:vercel:migrate": "npm run db:migrate -w arbor-os",
+    "deploy:vercel:smoke": "node ./scripts/deploy-vercel-smoke.cjs",
     "deploy:netlify:check": "node ./scripts/deploy-netlify-check.cjs",
     "deploy:koyeb:check": "node ./scripts/deploy-koyeb-check.cjs",
     "deploy:free:check": "node ./scripts/deploy-free-preflight.cjs",

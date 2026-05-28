@@ -201,6 +201,12 @@ Domyslnie `VERCEL_RUN_MIGRATIONS=0`, zeby serverless cold-start nie odpalal
 migracji wielokrotnie. Ustaw `VERCEL_RUN_MIGRATIONS=1` tylko tymczasowo, jesli
 nie masz osobnego kroku migracji.
 
+Po deployu sprawdz live URL:
+
+```powershell
+npm run deploy:vercel:smoke -- https://<twoj-projekt>.vercel.app
+```
+
 ## 9. Finalny smoke
 
 Po stworzeniu admina:

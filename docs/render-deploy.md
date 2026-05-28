@@ -149,6 +149,12 @@ Cold-start migrations are disabled by default on Vercel
 instances. Set `VERCEL_RUN_MIGRATIONS=1` only for a short, explicit migration
 deploy if you cannot run the separate command.
 
+After deploy, smoke check the live Vercel URL:
+
+```powershell
+npm run deploy:vercel:smoke -- https://<your-vercel-project>.vercel.app
+```
+
 ## 5. Mobile app
 
 Expo mobile is not hosted on Render. During mobile builds set:
