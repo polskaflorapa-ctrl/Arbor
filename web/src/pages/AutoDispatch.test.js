@@ -892,22 +892,40 @@ test('allows saving after the dispatcher preflight is bypassed', async () => {
 });
 
 test('marks the dispatch progress as applied after applying a saved plan', async () => {
-  api.get.mockResolvedValueOnce({
-    data: {
-      source: 'rules',
-      date: '2026-05-25',
-      metrics: {
-        ready_for_dispatch: 3,
-        tasks_total: 3,
-        blocked: 0,
-        warnings: 0,
-        avg_quality: 97,
-        total_value: 9000,
+  api.get
+    .mockResolvedValueOnce({
+      data: {
+        source: 'rules',
+        date: '2026-05-25',
+        metrics: {
+          ready_for_dispatch: 3,
+          tasks_total: 3,
+          blocked: 0,
+          warnings: 0,
+          avg_quality: 97,
+          total_value: 9000,
+        },
+        recommendations: [],
+        top_tasks: [],
       },
-      recommendations: [],
-      top_tasks: [],
-    },
-  });
+    })
+    .mockResolvedValueOnce({
+      data: {
+        source: 'rules',
+        date: '2026-05-25',
+        summary: 'Plan zastosowany, brak nowych blokad.',
+        metrics: {
+          ready_for_dispatch: 3,
+          tasks_total: 3,
+          blocked: 0,
+          warnings: 0,
+          avg_quality: 97,
+          total_value: 9000,
+        },
+        recommendations: [],
+        top_tasks: [],
+      },
+    });
   api.post
     .mockResolvedValueOnce({
       data: {
@@ -942,6 +960,10 @@ test('marks the dispatch progress as applied after applying a saved plan', async
       {},
       expect.objectContaining({ headers: expect.any(Object) })
     );
+  });
+  await waitFor(() => {
+    const advisorCalls = api.get.mock.calls.filter(([url]) => url === '/ai/dispatch-brief');
+    expect(advisorCalls.length).toBe(2);
   });
   expect(await screen.findByText('Plan zastosowany!')).toBeInTheDocument();
   expect(screen.getByText('Zastosowany')).toBeInTheDocument();

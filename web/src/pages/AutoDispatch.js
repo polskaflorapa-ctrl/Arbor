@@ -558,6 +558,10 @@ export default function AutoDispatch() {
     try {
       const token = getStoredToken();
       const res = await api.post(`/dispatch/apply/${savedPlanId}`, {}, { headers: authHeaders(token) });
+      const refreshedAdvisor = await fetchAdvisorBrief().catch(() => null);
+      if (refreshedAdvisor) {
+        setAdvisor(refreshedAdvisor);
+      }
       setSuccess(res.data.message || 'Plan zastosowany!');
       setPlanApplied(true);
     } catch (e) {
@@ -577,7 +581,7 @@ export default function AutoDispatch() {
       }
       setError(payload.error || e.message);
     } finally { setApplying(false); }
-  }, [savedPlanId]);
+  }, [fetchAdvisorBrief, savedPlanId]);
 
   const loadAdvisor = useCallback(async () => {
     setAdvisorLoading(true);
