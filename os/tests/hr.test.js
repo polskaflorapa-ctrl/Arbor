@@ -57,7 +57,7 @@ describe('GET /api/hr/position-cards', () => {
     expect(res.body).toEqual(expect.objectContaining({ cards: expect.any(Array) }));
   });
 
-  it('200 for Kierownik branch-scoped', async () => {
+  it('200 for Kierownik — branch-scoped', async () => {
     pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
     const res = await request(app)
       .get(PATH)
