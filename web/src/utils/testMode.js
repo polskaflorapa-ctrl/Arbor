@@ -970,6 +970,158 @@ function scopeMockUsers(users, user) {
   return users.filter((row) => Number(row.oddzial_id) === Number(user.oddzial_id));
 }
 
+function mockCrmInboxMessages() {
+  const now = Date.now();
+  const at = (minutesAgo) => new Date(now - minutesAgo * 60 * 1000).toISOString();
+  return [
+    {
+      id: 9103,
+      lead_id: 9101,
+      lead_title: 'Wycena ogrodu - Lipowa 8',
+      lead_phone: '+48500100200',
+      lead_email: 'jan.kowalski@example.test',
+      client_name: 'Ogrody Kowalski',
+      oddzial_id: 1,
+      owner_user_id: 9001,
+      owner_name: 'Test Dyrektor',
+      channel: 'whatsapp',
+      direction: 'inbound',
+      sender_name: 'Jan Kowalski',
+      sender_handle: '+48500100200',
+      recipient_handle: 'ARBOR',
+      subject: null,
+      body: 'Pasuje. Prosze tez sprawdzic jeden suchy konar nad altana.',
+      status: 'received',
+      external_thread_id: 'mock-crm-thread-9101',
+      retry_count: 0,
+      last_error: null,
+      created_at: at(76),
+    },
+    {
+      id: 9202,
+      lead_id: 9201,
+      lead_title: 'Wspolnota Zielona 12 - oferta po ogledzinach',
+      lead_phone: '+48500777888',
+      lead_email: 'zarzad.zielona@example.test',
+      client_name: 'Wspolnota Zielona 12',
+      oddzial_id: 1,
+      owner_user_id: 9001,
+      owner_name: 'Test Dyrektor',
+      channel: 'email',
+      direction: 'outbound',
+      sender_name: 'ARBOR',
+      sender_handle: 'oferty@arbor.local',
+      recipient_handle: 'zarzad.zielona@example.test',
+      subject: 'Oferta ARBOR - Zielona 12',
+      body: 'Dzien dobry, oferta jest gotowa. W zalaczniku zakres prac i termin realizacji.',
+      status: 'queued',
+      template_key: 'offer_followup',
+      external_thread_id: 'mock-crm-thread-9201',
+      retry_count: 0,
+      last_error: null,
+      created_at: at(35),
+    },
+    {
+      id: 9302,
+      lead_id: 9301,
+      lead_title: 'Dom Seniora Parkowy - awaria SMS',
+      lead_phone: '+48500666555',
+      lead_email: 'parkowy@example.test',
+      client_name: 'Dom Seniora Parkowy',
+      oddzial_id: 1,
+      owner_user_id: null,
+      owner_name: null,
+      channel: 'telegram',
+      direction: 'inbound',
+      sender_name: 'Adam Wisniewski',
+      sender_handle: '@parkowy_admin',
+      recipient_handle: 'ARBOR',
+      subject: null,
+      body: 'Czy mozemy dostac termin jeszcze w tym tygodniu?',
+      status: 'received',
+      external_thread_id: 'mock-crm-thread-9301',
+      retry_count: 0,
+      last_error: null,
+      created_at: at(15),
+    },
+    {
+      id: 9301,
+      lead_id: 9301,
+      lead_title: 'Dom Seniora Parkowy - awaria SMS',
+      lead_phone: '+48500666555',
+      lead_email: 'parkowy@example.test',
+      client_name: 'Dom Seniora Parkowy',
+      oddzial_id: 1,
+      owner_user_id: null,
+      owner_name: null,
+      channel: 'sms',
+      direction: 'outbound',
+      sender_name: 'ARBOR',
+      sender_handle: 'ARBOR',
+      recipient_handle: '+48500666555',
+      subject: null,
+      body: 'Dzien dobry, potwierdzamy przyjecie zgloszenia i oddzwonimy w sprawie terminu.',
+      status: 'failed',
+      external_thread_id: 'mock-crm-thread-9301',
+      retry_count: 2,
+      last_error: 'Demo: provider SMS zwrocil timeout.',
+      created_at: at(24),
+    },
+  ];
+}
+
+function mockCrmLeadMessages(leadId) {
+  const messages = mockCrmInboxMessages();
+  const selected = messages.filter((message) => String(message.lead_id) === String(leadId));
+  if (String(leadId) === '9101') {
+    return [
+      {
+        ...selected[0],
+        id: 9101,
+        direction: 'inbound',
+        body: 'Dzien dobry, prosze o szybka wycene przyciecia drzew przy ogrodzeniu.',
+        created_at: new Date(Date.now() - 95 * 60 * 1000).toISOString(),
+      },
+      {
+        ...selected[0],
+        id: 9102,
+        direction: 'outbound',
+        sender_name: 'ARBOR',
+        sender_handle: 'ARBOR',
+        recipient_handle: '+48500100200',
+        body: 'Dzien dobry, mozemy podjechac jutro rano. Czy pasuje 9:30?',
+        status: 'sent',
+        created_at: new Date(Date.now() - 82 * 60 * 1000).toISOString(),
+      },
+      ...selected,
+    ];
+  }
+  return selected;
+}
+
+function mockCrmMessageTemplates() {
+  return [
+    {
+      id: 931,
+      key: 'offer_followup',
+      name: 'Follow-up po ogledzinach',
+      channel: 'whatsapp',
+      subject: null,
+      body: 'Dzien dobry, wracam z informacja po ogledzinach. Przygotujemy wycene i proponowany termin.',
+      active: true,
+    },
+    {
+      id: 932,
+      key: 'sms_callback',
+      name: 'SMS oddzwonimy',
+      channel: 'sms',
+      subject: null,
+      body: 'Dzien dobry, dziekujemy za zgloszenie. Oddzwonimy z terminem ogledzin.',
+      active: true,
+    },
+  ];
+}
+
 export function getMockData(endpoint) {
   const currentUser = getStoredTestUser();
   const visibleTasks = scopeMockTasks(getMockTasksWithOverrides(), currentUser);
@@ -1029,6 +1181,11 @@ export function getMockData(endpoint) {
     '/tasks/client-contacts': getMockClientContacts(),
     '/tasks/closure-events': getMockClosureEvents(),
     '/notifications': { notifications: [], unread_count: 0 },
+    '/crm/messages/inbox': mockCrmInboxMessages(),
+    '/crm/message-templates': mockCrmMessageTemplates(),
+    '/crm/leads/9101/messages': mockCrmLeadMessages(9101),
+    '/crm/leads/9201/messages': mockCrmLeadMessages(9201),
+    '/crm/leads/9301/messages': mockCrmLeadMessages(9301),
     '/ekipy/ranking': {
       month: { ranking: rankingRows },
       weeks: [{ week_start: new Date().toISOString().slice(0, 10), ranking: rankingRows }],
