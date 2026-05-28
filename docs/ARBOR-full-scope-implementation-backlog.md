@@ -34,6 +34,7 @@
 - [x] **P0 Kommo inbound status sync**: `/api/webhooks/kommo/task-sync` przyjmuje status z Kommo, ma idempotencje eventow i blokuje konflikty na zamknietych zleceniach.
 - [x] **P0 Kommo sync diagnostyka**: `/api/tasks/kommo-sync/diagnostics` oraz panel Integracje pokazuja outbound queue, dead-letter i inbound konflikty.
 - [x] **P0 Kommo inbound field mapping**: `task.sync` mapuje `status_id`, klienta, telefon, email, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow do notatek.
+- [x] **P0 Dispatcher diagnostics**: solver nie przypisuje zlecen lamiacych pojedyncze okno/capacity, a `unassigned` zwraca etykiety i szczegoly brakow sprzetu, kompetencji, okien oraz pojemnosci.
 - [ ] **Nastepny pakiet**: rozbudowac Kommo -> ARBOR o pobieranie zalacznikow jako pliki oraz ekran konfiguracji mapowania pol/statusow pod konkretne konto Kommo.
 
 ---
@@ -74,14 +75,14 @@ flowchart LR
 
 ## EPIC 1 — AI Dispatcher (VRP, okna, kompetencje, sprzęt, auto-dispatch)
 
-- [ ] **1.1** Model danych: okno czasowe klienta, czas obsługi zlecenia, priorytet, wymagany sprzęt, wymagane kompetencje (schemat + migracja).
+- [x] **1.1** Model danych: okno czasowe klienta, czas obslugi zlecenia, priorytet, wymagany sprzet, wymagane kompetencje (schemat + migracja).
 - [ ] **1.2** Decyzja architektoniczna: **Google Routes / Mapbox Optimization** vs **OR-Tools** self-hosted — dokument + szacunek kosztu API.
-- [ ] **1.3** Serwis `POST /api/dispatch/plan` (wejście: zestaw zleceń + ekipy + dzień; wyjście: przypisania + kolejność + ETA).
-- [ ] **1.4** Ograniczenia: okna czasowe, przerwy, max godzin prowadzenia, niedostępność pojazdu.
-- [ ] **1.5** Ograniczenia kompetencji i sprzętu w solverze (filtrowanie ekip przed VRP).
-- [ ] **1.6** UI Kierownika: „Auto-dispatch” + podgląd mapy + ręczna edycja (zapis planu).
-- [ ] **1.7** Benchmark: N zleceń × M ekip w czasie z Executive Summary (<30 s dla 50×10 — parametr konfigurowalny).
-- [ ] **1.8** Obsługa błędu solvera (brak rozwiązania → komunikat + propozycja ręczna).
+- [x] **1.3** Serwis `POST /api/dispatch/plan` (wejscie: zestaw zlecen + ekipy + dzien; wyjscie: przypisania + kolejnosc + ETA).
+- [ ] **1.4** Ograniczenia: okna czasowe, przerwy, max godzin prowadzenia, niedostepnosc pojazdu. **Czesciowo:** okna, max godzin i nieobecnosc ekip sa respektowane; zostaja przerwy i twarda niedostepnosc pojazdu w planie.
+- [x] **1.5** Ograniczenia kompetencji i sprzetu w solverze (filtrowanie ekip przed VRP).
+- [x] **1.6** UI Kierownika: Auto-dispatch + podglad mapy + reczna edycja (zapis planu).
+- [x] **1.7** Benchmark: wynik planu zwraca `solver_target_ms` i `solver_sla_ok` z konfigurowalnym `DISPATCH_SOLVER_TARGET_MS`.
+- [x] **1.8** Obsluga bledu/braku rozwiazania: `unassigned` zwraca reason, etykiete i szczegoly dla no_teams/no_capable_team/time_window_missed/capacity_exceeded.
 
 ---
 

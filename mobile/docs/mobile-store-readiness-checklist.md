@@ -1,0 +1,54 @@
+# Mobile Store Readiness Checklist
+
+Use this before TestFlight, App Store review, or Google Play internal testing.
+
+## App Identity
+
+- [ ] App display name is final.
+- [ ] Bundle identifier is final: `com.arbor.mobile`.
+- [ ] Android package is final: `com.arbor.mobile`.
+- [ ] App icon and adaptive Android icon render correctly.
+- [ ] Splash screen matches the current brand and is readable in light/dark mode.
+- [ ] Support URL, marketing URL, and privacy policy URL are ready.
+
+## Review Access
+
+- [ ] Reviewer test account exists.
+- [ ] Reviewer account has field worker permissions.
+- [ ] Reviewer account has safe demo/test data.
+- [ ] Login instructions are written in the review notes.
+- [ ] Backend environment used for review will stay available during review.
+
+## Permission Review Notes
+
+- Camera: used for documenting jobs, inspections, protocols, and before/after photos.
+- Photos: used for attaching site documentation, sketches, and materials to jobs.
+- Location: used during work to show crew and estimator positions in the schedule.
+- Face ID: used to unlock the app when privacy lock is enabled.
+- Push notifications: used for operational job updates and deep links.
+
+## Privacy Labels
+
+- [ ] Location data is declared if sent to backend for live GPS.
+- [ ] Photos/media are declared if uploaded as job evidence.
+- [ ] User identifiers/account data are declared.
+- [ ] Diagnostics/crash data are declared if crash reporting is enabled.
+- [ ] Data linked to user is reviewed with backend/API owner.
+- [ ] Data retention and deletion process is documented.
+
+## Screenshots And Metadata
+
+- [ ] iPhone screenshots show real app workflows, not placeholder data.
+- [ ] Screenshots include dashboard, task detail, evidence/photos, profile/privacy, and GPS state if appropriate.
+- [ ] App subtitle and description describe field operations plainly.
+- [ ] Keywords avoid unsupported claims.
+- [ ] Version release notes mention user-visible changes and known preview limits.
+
+## Submission Gates
+
+- [ ] `npm run release:check` passed.
+- [ ] `npm run release:eas-doctor` passed.
+- [ ] Preview build completed and was installed on a real iPhone.
+- [ ] `docs/mobile-device-smoke-checklist.md` passed.
+- [ ] `docs/mobile-preview-release-template.md` has a go decision.
+- [ ] Production blockers in `docs/mobile-release-risks.md` are resolved or explicitly accepted by the owner.
