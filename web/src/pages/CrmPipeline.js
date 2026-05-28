@@ -83,6 +83,8 @@ export default function CrmPipeline() {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activityForm, setActivityForm] = useState(EMPTY_ACTIVITY);
   const [savingActivity, setSavingActivity] = useState(false);
+  const [workflowEvents, setWorkflowEvents] = useState([]);
+  const [workflowEventsLoading, setWorkflowEventsLoading] = useState(false);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState([]);
@@ -225,6 +227,25 @@ export default function CrmPipeline() {
     [requestHeaders, t]
   );
 
+  const loadWorkflowEvents = useCallback(
+    async (leadId) => {
+      if (!leadId) {
+        setWorkflowEvents([]);
+        return;
+      }
+      try {
+        setWorkflowEventsLoading(true);
+        const res = await api.get(`/crm/leads/${leadId}/workflow-events`, { headers: requestHeaders });
+        setWorkflowEvents(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setWorkflowEvents([]);
+      } finally {
+        setWorkflowEventsLoading(false);
+      }
+    },
+    [requestHeaders]
+  );
+
   const loadMessageTemplates = useCallback(async () => {
     try {
       const params = {};
@@ -244,12 +265,14 @@ export default function CrmPipeline() {
     if (selectedLeadId) {
       loadActivities(selectedLeadId);
       loadMessages(selectedLeadId);
+      loadWorkflowEvents(selectedLeadId);
     } else {
       setActivities([]);
       setMessages([]);
+      setWorkflowEvents([]);
       setAiLead(null);
     }
-  }, [selectedLeadId, loadActivities, loadMessages]);
+  }, [selectedLeadId, loadActivities, loadMessages, loadWorkflowEvents]);
 
   useEffect(() => {
     if (!selectedLeadId) return undefined;
@@ -559,7 +582,7 @@ export default function CrmPipeline() {
       const res = await api.post('/crm/workflows/run', { oddzial_id: Number(workflowOddzialId) }, { headers: requestHeaders });
       const count = Number(res.data?.actions_count || 0);
       setMsg(t('crm.pipeline.workflows.runDone', { defaultValue: 'Automatyzacje wykonane: {{count}} akcji.', count }));
-      await Promise.all([loadData(), loadWorkflows()]);
+      await Promise.all([loadData(), loadWorkflows(), selectedLeadId ? loadWorkflowEvents(selectedLeadId) : Promise.resolve()]);
     } catch (e) {
       setMsg(getApiErrorMessage(e, t('crm.pipeline.workflows.runError', { defaultValue: 'Nie udało się uruchomić automatyzacji.' })));
     } finally {
@@ -581,6 +604,13 @@ export default function CrmPipeline() {
       other: 'Inne',
     };
     return labels[channel] || labels.other;
+  };
+
+  const workflowEventStatusLabel = (status) => {
+    if (status === 'completed') return t('crm.pipeline.workflowEvents.completed', { defaultValue: 'wykonane' });
+    if (status === 'skipped') return t('crm.pipeline.workflowEvents.skipped', { defaultValue: 'pominięte' });
+    if (status === 'error') return t('crm.pipeline.workflowEvents.error', { defaultValue: 'błąd' });
+    return status || '—';
   };
 
   return (
@@ -1157,6 +1187,43 @@ export default function CrmPipeline() {
                 ))}
                 {!messagesLoading && messages.length === 0 ? (
                   <div className="ios-inset-row muted">{t('crm.pipeline.messages.empty', { defaultValue: 'Brak wiadomości w tej rozmowie.' })}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="ios-inset" style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {t('crm.pipeline.workflowEvents.title', { defaultValue: 'Automatyzacje' })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {t('crm.pipeline.workflowEvents.subtitle', { defaultValue: 'Co system zrobił lub pominął przy tym leadzie.' })}
+                  </div>
+                </div>
+                {workflowEventsLoading ? <span className="muted" style={{ fontSize: 12 }}>{t('common.loading', { defaultValue: 'Ładowanie...' })}</span> : null}
+              </div>
+              <div className="ios-inset-list" style={{ maxHeight: 220, overflow: 'auto' }}>
+                {workflowEvents.map((event) => (
+                  <div key={event.id} className="ios-inset-row" style={{ display: 'grid', gap: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, fontSize: 12 }}>{event.workflow_name || `Workflow #${event.workflow_id || '—'}`}</span>
+                      <span style={{
+                        fontSize: 11,
+                        color: event.status === 'error' ? 'var(--danger)' : event.status === 'skipped' ? 'var(--text-muted)' : 'var(--accent)',
+                        fontWeight: 800,
+                      }}>
+                        {workflowEventStatusLabel(event.status)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {event.trigger_type || '—'} -&gt; {event.action_type || '—'} · {formatActivityWhen(event.created_at, lng)}
+                    </div>
+                    {event.reason ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{event.reason}</div> : null}
+                  </div>
+                ))}
+                {!workflowEventsLoading && workflowEvents.length === 0 ? (
+                  <div className="ios-inset-row muted">{t('crm.pipeline.workflowEvents.empty', { defaultValue: 'Brak historii automatyzacji.' })}</div>
                 ) : null}
               </div>
             </div>

@@ -901,6 +901,22 @@ CREATE TABLE IF NOT EXISTS crm_workflow_rules (
 CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_oddzial ON crm_workflow_rules(oddzial_id, active);
 CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_trigger ON crm_workflow_rules(trigger_type, active);
 
+CREATE TABLE IF NOT EXISTS crm_workflow_events (
+  id           SERIAL PRIMARY KEY,
+  workflow_id  INTEGER REFERENCES crm_workflow_rules(id) ON DELETE SET NULL,
+  oddzial_id   INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  lead_id      INTEGER REFERENCES crm_leads(id) ON DELETE CASCADE,
+  trigger_type VARCHAR(64),
+  action_type  VARCHAR(64),
+  status       VARCHAR(32) NOT NULL DEFAULT 'completed',
+  reason       VARCHAR(160),
+  details      JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_crm_workflow_events_lead ON crm_workflow_events(lead_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crm_workflow_events_rule ON crm_workflow_events(workflow_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS crm_integration_apps (
   id            SERIAL PRIMARY KEY,
   oddzial_id    INTEGER REFERENCES branches(id) ON DELETE CASCADE,

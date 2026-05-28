@@ -98,6 +98,20 @@ test('lets a user add a unified inbox message to a lead', async () => {
     }
     if (url === '/crm/leads/51/activities') return Promise.resolve({ data: [] });
     if (url === '/crm/leads/51/messages') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/workflow-events') {
+      return Promise.resolve({
+        data: [{
+          id: 701,
+          workflow_id: 31,
+          workflow_name: 'Brak odpowiedzi 24h',
+          lead_id: 51,
+          trigger_type: 'no_response_after_hours',
+          action_type: 'send_template_message',
+          status: 'completed',
+          created_at: '2026-05-28T08:00:00.000Z',
+        }],
+      });
+    }
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
     if (url === '/uzytkownicy') return Promise.resolve({ data: [{ id: 9001, imie: 'Smoke', nazwisko: 'Admin' }] });
     if (url === '/klienci') return Promise.resolve({ data: [] });
@@ -124,6 +138,8 @@ test('lets a user add a unified inbox message to a lead', async () => {
   await userEvent.click(screen.getByRole('button', { name: /Aktywno/i }));
 
   expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
+  expect(await screen.findByText('Brak odpowiedzi 24h')).toBeInTheDocument();
+  expect(screen.getByText(/no_response_after_hours/i)).toBeInTheDocument();
   await userEvent.type(screen.getByPlaceholderText('Treść wiadomości...'), 'Prosze o kontakt');
   await userEvent.click(screen.getByRole('button', { name: 'Zapisz wiadomość' }));
 

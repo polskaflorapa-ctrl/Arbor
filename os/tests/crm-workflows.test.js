@@ -109,6 +109,26 @@ describe('CRM workflow automations', () => {
         };
       }
       if (text.includes('INSERT INTO crm_lead_activities')) return { rows: [], rowCount: 1 };
+      if (text.includes('INSERT INTO crm_workflow_events')) return { rows: [], rowCount: 1 };
+      if (text === 'SELECT id, oddzial_id FROM crm_leads WHERE id = $1') return { rows: [{ id: Number(params[0]), oddzial_id: 7 }] };
+      if (text.includes('FROM crm_workflow_events e')) {
+        return {
+          rows: [{
+            id: 701,
+            workflow_id: 31,
+            workflow_name: 'Brak odpowiedzi 24h',
+            oddzial_id: 7,
+            lead_id: 51,
+            trigger_type: 'no_response_after_hours',
+            action_type: 'create_followup_task',
+            status: 'completed',
+            reason: null,
+            details: { lead_id: 51, action: 'create_followup_task' },
+            created_by: 9,
+            created_at: '2026-05-28T08:00:00.000Z',
+          }],
+        };
+      }
       if (text.includes('UPDATE crm_leads SET next_action_at')) return { rows: [], rowCount: 1 };
       if (text.includes('UPDATE crm_leads SET owner_user_id')) return { rows: [], rowCount: 1 };
       return { rows: [], rowCount: 0 };
@@ -185,6 +205,7 @@ describe('CRM workflow automations', () => {
     const ownerUpdate = pool.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE crm_leads SET owner_user_id'));
     expect(ownerUpdate[1][0]).toBe(101);
     expect(ownerUpdate[1][3]).toBe(52);
+    expect(pool.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO crm_workflow_events'))).toHaveLength(2);
   });
 
   it('runs template message workflow actions', async () => {
@@ -236,6 +257,7 @@ describe('CRM workflow automations', () => {
         };
       }
       if (text.includes('INSERT INTO crm_lead_messages')) return { rows: [], rowCount: 1 };
+      if (text.includes('INSERT INTO crm_workflow_events')) return { rows: [], rowCount: 1 };
       if (text.includes('UPDATE crm_leads SET updated_at')) return { rows: [], rowCount: 1 };
       return { rows: [], rowCount: 0 };
     });
@@ -252,5 +274,24 @@ describe('CRM workflow automations', () => {
     expect(insertMessage[1][1]).toBe('sms');
     expect(insertMessage[1][4]).toBe('Dzien dobry, wracam w sprawie Lead bez odpowiedzi.');
     expect(JSON.parse(insertMessage[1][7])).toEqual(expect.objectContaining({ workflow_id: '44', template_id: 77 }));
+    const insertEvent = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO crm_workflow_events'));
+    expect(insertEvent[1][0]).toBe(44);
+    expect(insertEvent[1][2]).toBe(51);
+    expect(insertEvent[1][5]).toBe('completed');
+  });
+
+  it('lists workflow events for a lead', async () => {
+    const res = await request(app)
+      .get('/api/crm/leads/51/workflow-events')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      workflow_id: 31,
+      workflow_name: 'Brak odpowiedzi 24h',
+      lead_id: 51,
+      status: 'completed',
+      action_type: 'create_followup_task',
+    }));
   });
 });

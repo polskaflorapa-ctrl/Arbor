@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
-const { createWorkflowRule, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
+const { createWorkflowRule, listWorkflowEventsForLead, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
 const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = require('../services/crmIntegrations');
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
 const { createTemplate, listTemplates, renderTemplateById } = require('../services/crmMessageTemplates');
@@ -654,6 +654,21 @@ router.post('/workflows/run', async (req, res) => {
   } catch (err) {
     logger.error('crm.workflows.run', { message: err.message });
     res.status(500).json({ error: 'Uruchomienie automatyzacji CRM nie powiodlo sie' });
+  }
+});
+
+router.get('/leads/:id/workflow-events', async (req, res) => {
+  const leadId = toInt(req.params.id);
+  if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
+  try {
+    const lead = (await pool.query('SELECT id, oddzial_id FROM crm_leads WHERE id = $1', [leadId])).rows[0];
+    if (!lead) return res.status(404).json({ error: 'Lead nie znaleziony' });
+    if (!canAccessOddzial(req.user, lead.oddzial_id)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    const events = await listWorkflowEventsForLead({ leadId, limit: toInt(req.query.limit) || 100 });
+    res.json(events);
+  } catch (err) {
+    logger.error('crm.workflowEvents.get', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu historii automatyzacji CRM' });
   }
 });
 

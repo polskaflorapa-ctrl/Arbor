@@ -43,6 +43,23 @@ async function ensureCrmWorkflowTables() {
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_oddzial ON crm_workflow_rules(oddzial_id, active)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_workflow_rules_trigger ON crm_workflow_rules(trigger_type, active)');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS crm_workflow_events (
+      id            SERIAL PRIMARY KEY,
+      workflow_id   INTEGER REFERENCES crm_workflow_rules(id) ON DELETE SET NULL,
+      oddzial_id    INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+      lead_id       INTEGER REFERENCES crm_leads(id) ON DELETE CASCADE,
+      trigger_type  VARCHAR(64),
+      action_type   VARCHAR(64),
+      status        VARCHAR(32) NOT NULL DEFAULT 'completed',
+      reason        VARCHAR(160),
+      details       JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_workflow_events_lead ON crm_workflow_events(lead_id, created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_workflow_events_rule ON crm_workflow_events(workflow_id, created_at DESC)');
 }
 
 function mapRule(row) {
@@ -60,6 +77,58 @@ function mapRule(row) {
     updated_by: row.updated_by,
     updated_at: row.updated_at,
   };
+}
+
+function mapWorkflowEvent(row) {
+  return {
+    id: row.id,
+    workflow_id: row.workflow_id,
+    workflow_name: row.workflow_name || null,
+    oddzial_id: row.oddzial_id,
+    lead_id: row.lead_id,
+    trigger_type: row.trigger_type,
+    action_type: row.action_type,
+    status: row.status,
+    reason: row.reason,
+    details: row.details || {},
+    created_by: row.created_by,
+    created_at: row.created_at,
+  };
+}
+
+async function recordWorkflowEvent({ rule, lead, outcome, userId }) {
+  const status = outcome?.error ? 'error' : outcome?.skipped ? 'skipped' : 'completed';
+  const reason = String(outcome?.reason || outcome?.error || '').slice(0, 160) || null;
+  await pool.query(
+    `INSERT INTO crm_workflow_events (
+      workflow_id, oddzial_id, lead_id, trigger_type, action_type, status, reason, details, created_by
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
+    [
+      rule.id || null,
+      rule.oddzial_id || lead?.oddzial_id || null,
+      lead?.id || outcome?.lead_id || null,
+      rule.trigger_type,
+      rule.action_type,
+      status,
+      reason,
+      JSON.stringify(safeObject(outcome)),
+      userId || null,
+    ]
+  );
+}
+
+async function listWorkflowEventsForLead({ leadId, limit = 100 }) {
+  await ensureCrmWorkflowTables();
+  const { rows } = await pool.query(
+    `SELECT e.*, r.name AS workflow_name
+     FROM crm_workflow_events e
+     LEFT JOIN crm_workflow_rules r ON r.id = e.workflow_id
+     WHERE e.lead_id = $1
+     ORDER BY e.created_at DESC, e.id DESC
+     LIMIT $2`,
+    [leadId, Math.min(Math.max(Number(limit) || 100, 1), 200)]
+  );
+  return rows.map(mapWorkflowEvent);
 }
 
 async function listWorkflowRules({ oddzialId = null, includeInactive = false } = {}) {
@@ -289,11 +358,19 @@ async function runWorkflowRules({ oddzialId, ruleId = null, userId = null } = {}
         : await findNoResponseCandidates(row);
       const actions = [];
       for (const lead of candidates) {
-        actions.push(await applyRuleAction(row, lead, userId));
+        const outcome = await applyRuleAction(row, lead, userId);
+        await recordWorkflowEvent({ rule: row, lead, outcome, userId });
+        actions.push(outcome);
       }
       results.push({ rule_id: row.id, matched: candidates.length, actions });
     } catch (err) {
       logger.warn('crm.workflows.run.rule', { rule_id: row.id, message: err.message });
+      await recordWorkflowEvent({
+        rule: row,
+        lead: null,
+        outcome: { action: row.action_type, error: err.message },
+        userId,
+      }).catch((eventErr) => logger.warn('crm.workflows.run.event', { rule_id: row.id, message: eventErr.message }));
       results.push({ rule_id: row.id, error: err.message, matched: 0, actions: [] });
     }
   }
@@ -303,6 +380,7 @@ async function runWorkflowRules({ oddzialId, ruleId = null, userId = null } = {}
 module.exports = {
   createWorkflowRule,
   ensureCrmWorkflowTables,
+  listWorkflowEventsForLead,
   listWorkflowRules,
   runWorkflowRules,
 };
