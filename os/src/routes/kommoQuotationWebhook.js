@@ -8,6 +8,7 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { geocodeAddressPoland } = require('../services/geocodeNominatim');
 const { distanceMeters } = require('../utils/geo');
+const { DEFAULT_KOMMO_MAPPING, mergeWithDefaults } = require('./kommoConfig');
 
 const router = express.Router();
 
@@ -136,6 +137,37 @@ function parseKommoStatusMap() {
   }
 }
 
+function kommoAccountKey(payload = {}) {
+  return firstText(
+    payload.account_key,
+    payload.kommo_account_key,
+    payload.account_id,
+    payload.kommo_account_id,
+    payload.account?.id,
+    payload.kommo?.account?.id,
+    payload.kommo?.account_id,
+    'default'
+  );
+}
+
+async function loadKommoMappingConfig(payload = {}) {
+  const accountKey = kommoAccountKey(payload) || 'default';
+  try {
+    const result = await pool.query(
+      `SELECT account_key, status_map, field_aliases, options
+         FROM kommo_account_mappings
+        WHERE account_key = $1 OR account_key = 'default'
+        ORDER BY CASE WHEN account_key = $1 THEN 0 ELSE 1 END
+        LIMIT 1`,
+      [accountKey]
+    );
+    return mergeWithDefaults(result.rows[0] || { account_key: accountKey });
+  } catch (error) {
+    logger.warn('kommo.mapping_config fallback', { accountKey, message: error.message });
+    return mergeWithDefaults({ account_key: accountKey });
+  }
+}
+
 function normalizeKey(value) {
   return String(value || '')
     .trim()
@@ -234,7 +266,7 @@ function fieldValue(fields, names) {
   return null;
 }
 
-function statusFromKommoId(payload) {
+function statusFromKommoId(payload, mapping = DEFAULT_KOMMO_MAPPING) {
   const statusId = firstText(
     payload.status_id,
     payload.kommo_status_id,
@@ -242,11 +274,11 @@ function statusFromKommoId(payload) {
     payload.kommo?.lead?.status_id
   );
   if (!statusId) return null;
-  return normalizeTaskStatus(parseKommoStatusMap()[statusId]);
+  return normalizeTaskStatus(mapping.status_map?.[statusId] || parseKommoStatusMap()[statusId]);
 }
 
-function statusFromPayload(payload) {
-  return statusFromKommoId(payload) || normalizeTaskStatus(
+function statusFromPayload(payload, mapping = DEFAULT_KOMMO_MAPPING) {
+  return statusFromKommoId(payload, mapping) || normalizeTaskStatus(
     payload.status
       ?? payload.arbor_status
       ?? payload.task?.status
@@ -256,7 +288,12 @@ function statusFromPayload(payload) {
   );
 }
 
-function extractKommoTaskPatch(payload) {
+function aliases(mapping, key, fallback = []) {
+  const configured = mapping?.field_aliases?.[key];
+  return Array.isArray(configured) && configured.length ? configured : fallback;
+}
+
+function extractKommoTaskPatch(payload, mapping = DEFAULT_KOMMO_MAPPING) {
   const fields = collectCustomFields(payload);
   const lead = payload.lead || payload.kommo?.lead || {};
   const task = payload.task || {};
@@ -268,7 +305,7 @@ function extractKommoTaskPatch(payload) {
     task.address,
     lead.adres,
     lead.address,
-    fieldValue(fields, ['adres', 'address', 'adres realizacji', 'adres uslugi'])
+    fieldValue(fields, aliases(mapping, 'adres', ['adres', 'address', 'adres realizacji', 'adres uslugi']))
   );
   const city = firstText(
     payload.miasto,
@@ -277,21 +314,21 @@ function extractKommoTaskPatch(payload) {
     task.city,
     lead.miasto,
     lead.city,
-    fieldValue(fields, ['miasto', 'city'])
+    fieldValue(fields, aliases(mapping, 'miasto', ['miasto', 'city']))
   );
-  const lat = firstNumber(payload.lat, payload.latitude, task.lat, task.pin_lat, fieldValue(fields, ['lat', 'latitude']));
+  const lat = firstNumber(payload.lat, payload.latitude, task.lat, task.pin_lat, fieldValue(fields, aliases(mapping, 'pin_lat', ['lat', 'latitude'])));
   const lng = firstNumber(
     payload.lng,
     payload.lon,
     payload.longitude,
     task.lng,
     task.pin_lng,
-    fieldValue(fields, ['lng', 'lon', 'longitude'])
+    fieldValue(fields, aliases(mapping, 'pin_lng', ['lng', 'lon', 'longitude']))
   );
   const attachments = collectKommoAttachments(payload, task, lead);
   const kommoLeadId = firstText(payload.kommo_lead_id, payload.lead_id, lead.id, payload.external_id, lead.external_id);
   const notes = [
-    firstText(payload.notatki, payload.notes, task.notatki, lead.notes, fieldValue(fields, ['notatki', 'notes', 'opis'])),
+    firstText(payload.notatki, payload.notes, task.notatki, lead.notes, fieldValue(fields, aliases(mapping, 'notatki_wewnetrzne', ['notatki', 'notes', 'opis']))),
     attachments.length ? `Kommo zalaczniki:\n${attachments.map((x) => `- ${[x.name, x.url].filter(Boolean).join(' | ')}`).join('\n')}` : null,
     kommoLeadId ? `Kommo lead: ${kommoLeadId}` : null,
   ].filter(Boolean).join('\n\n') || null;
@@ -304,7 +341,7 @@ function extractKommoTaskPatch(payload) {
       lead.klient_nazwa,
       lead.name,
       contact.name,
-      fieldValue(fields, ['klient', 'klient nazwa', 'nazwa klienta', 'name'])
+      fieldValue(fields, aliases(mapping, 'klient_nazwa', ['klient', 'klient nazwa', 'nazwa klienta', 'name']))
     ),
     klient_telefon: firstText(
       payload.telefon,
@@ -312,14 +349,14 @@ function extractKommoTaskPatch(payload) {
       task.klient_telefon,
       lead.phone,
       contact.phone,
-      fieldValue(fields, ['telefon', 'phone'])
+      fieldValue(fields, aliases(mapping, 'klient_telefon', ['telefon', 'phone']))
     ),
     klient_email: firstText(
       payload.email,
       task.klient_email,
       lead.email,
       contact.email,
-      fieldValue(fields, ['email', 'e-mail'])
+      fieldValue(fields, aliases(mapping, 'klient_email', ['email', 'e-mail']))
     ),
     adres: address,
     miasto: city,
@@ -328,21 +365,21 @@ function extractKommoTaskPatch(payload) {
       payload.service_type,
       task.typ_uslugi,
       lead.service_type,
-      fieldValue(fields, ['typ uslugi', 'zakres', 'zakres prac', 'service'])
+      fieldValue(fields, aliases(mapping, 'typ_uslugi', ['typ uslugi', 'zakres', 'zakres prac', 'service']))
     ),
-    opis: firstText(payload.opis, task.opis, lead.description, fieldValue(fields, ['opis prac', 'description'])),
+    opis: firstText(payload.opis, task.opis, lead.description, fieldValue(fields, aliases(mapping, 'opis', ['opis prac', 'description']))),
     wartosc_planowana: firstNumber(
       payload.wartosc_planowana,
       payload.value,
       task.wartosc_planowana,
       lead.price,
       lead.value,
-      fieldValue(fields, ['wartosc', 'budzet', 'price', 'value'])
+      fieldValue(fields, aliases(mapping, 'wartosc_planowana', ['wartosc', 'budzet', 'price', 'value']))
     ),
-    priorytet: firstText(payload.priorytet, task.priorytet, fieldValue(fields, ['priorytet', 'priority'])),
-    data_planowana: firstText(payload.data_planowana, payload.planned_at, task.data_planowana, fieldValue(fields, ['data planowana', 'termin'])),
-    oddzial_id: firstNumber(payload.oddzial_id, task.oddzial_id, fieldValue(fields, ['oddzial id', 'branch id'])),
-    ekipa_id: firstNumber(payload.ekipa_id, task.ekipa_id, fieldValue(fields, ['ekipa id', 'team id'])),
+    priorytet: firstText(payload.priorytet, task.priorytet, fieldValue(fields, aliases(mapping, 'priorytet', ['priorytet', 'priority']))),
+    data_planowana: firstText(payload.data_planowana, payload.planned_at, task.data_planowana, fieldValue(fields, aliases(mapping, 'data_planowana', ['data planowana', 'termin']))),
+    oddzial_id: firstNumber(payload.oddzial_id, task.oddzial_id, fieldValue(fields, aliases(mapping, 'oddzial_id', ['oddzial id', 'branch id']))),
+    ekipa_id: firstNumber(payload.ekipa_id, task.ekipa_id, fieldValue(fields, aliases(mapping, 'ekipa_id', ['ekipa id', 'team id']))),
     pin_lat: lat,
     pin_lng: lng,
     notatki_wewnetrzne: notes,
@@ -519,8 +556,9 @@ async function handleKommoTaskSync(req, res) {
   const payload = req.body || {};
   const taskId = parseTaskId(payload);
   const eventKey = stableEventKey(payload);
-  const incomingStatus = statusFromPayload(payload);
-  const taskPatch = extractKommoTaskPatch(payload);
+  const mappingConfig = await loadKommoMappingConfig(payload);
+  const incomingStatus = statusFromPayload(payload, mappingConfig);
+  const taskPatch = extractKommoTaskPatch(payload, mappingConfig);
   if (!taskId) return res.status(400).json({ error: 'Wymagane pole: task_id lub external_id task:<id>' });
 
   const duplicate = await pool.query('SELECT * FROM task_kommo_inbound_events WHERE event_key = $1', [eventKey]);
@@ -609,7 +647,7 @@ async function handleKommoTaskSync(req, res) {
       params.push(String(taskPatch.notatki_wewnetrzne).slice(0, 4000));
       sets.push(`notatki_wewnetrzne = CONCAT_WS(E'\\n\\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $${params.length})`);
     }
-    if ((taskPatch.pin_lat == null || taskPatch.pin_lng == null) && taskPatch.adres) {
+    if (mappingConfig.options?.auto_geocode !== false && (taskPatch.pin_lat == null || taskPatch.pin_lng == null) && taskPatch.adres) {
       const geo = await geocodeAddressPoland({ adres: taskPatch.adres, miasto: taskPatch.miasto }).catch(() => null);
       if (geo?.status === 'ok') {
         params.push(geo.lat);
@@ -634,10 +672,12 @@ async function handleKommoTaskSync(req, res) {
       appliedStatus: r.rows[0]?.status || currentTask.status,
       payload,
     });
-    const attachments = await persistKommoTaskAttachments(taskId, taskPatch.attachments).catch((error) => {
-      logger.warn('kommo.task-sync attachments', { taskId, message: error.message });
-      return [];
-    });
+    const attachments = mappingConfig.options?.save_remote_attachments_as_documents === false
+      ? []
+      : await persistKommoTaskAttachments(taskId, taskPatch.attachments).catch((error) => {
+        logger.warn('kommo.task-sync attachments', { taskId, message: error.message });
+        return [];
+      });
     logger.info('kommo.task-sync applied', { taskId, incomingStatus, ekipaId: taskPatch.ekipa_id });
     return res.json({ ok: true, status: 'applied', task: r.rows[0], event, attachments });
   } catch (e) {

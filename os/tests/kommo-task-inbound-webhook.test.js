@@ -19,6 +19,9 @@ function setupPool({ currentTask, duplicateEvent = null } = {}) {
     if (text.includes('SELECT * FROM task_kommo_inbound_events WHERE event_key')) {
       return { rows: duplicateEvent ? [duplicateEvent] : [], rowCount: duplicateEvent ? 1 : 0 };
     }
+    if (text.includes('FROM kommo_account_mappings')) {
+      return { rows: [], rowCount: 0 };
+    }
     if (text.includes('SELECT id, status, ekipa_id')) {
       return { rows: currentTask ? [currentTask] : [], rowCount: currentTask ? 1 : 0 };
     }
@@ -180,5 +183,69 @@ describe('Kommo task inbound webhook', () => {
     expect(res.body.attachments).toEqual([
       expect.objectContaining({ id: 77, nazwa: 'file.pdf', sciezka: 'https://kommo.example/file.pdf' }),
     ]);
+  });
+
+  test('uses saved Kommo account mapping for status ids and custom field aliases', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.startsWith('CREATE TABLE') || text.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (text.includes('FROM kommo_account_mappings')) {
+        return {
+          rows: [{
+            account_key: 'acc-17',
+            status_map: { '777': 'W_Realizacji' },
+            field_aliases: {
+              adres: ['Adres inwestycji'],
+              typ_uslugi: ['Zakres z Kommo'],
+              wartosc_planowana: ['Budzet klienta'],
+            },
+            options: { auto_geocode: false, save_remote_attachments_as_documents: true },
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('SELECT * FROM task_kommo_inbound_events WHERE event_key')) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (text.includes('SELECT id, status, ekipa_id')) {
+        return { rows: [{ id: 303, status: 'Zaplanowane', ekipa_id: 4, oddzial_id: 1 }], rowCount: 1 };
+      }
+      if (text.includes('UPDATE tasks SET') && text.includes("kommo_last_sync_status = 'inbound_ok'")) {
+        return {
+          rows: [{ id: 303, status: params[0], kommo_last_sync_status: 'inbound_ok' }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('INSERT INTO task_kommo_inbound_events')) {
+        return { rows: [{ event_key: params[0], task_id: params[1], status: params[2] }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/webhooks/kommo/task-sync')
+      .set('x-arbor-webhook-secret', 'secret')
+      .send({
+        event_id: 'evt-configured-map',
+        account_id: 'acc-17',
+        task_id: 303,
+        status_id: 777,
+        custom_fields_values: [
+          { field_name: 'Adres inwestycji', values: [{ value: 'Konfigurowa 4' }] },
+          { field_name: 'Zakres z Kommo', values: [{ value: 'Pielęgnacja' }] },
+          { field_name: 'Budzet klienta', values: [{ value: '5100' }] },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => (
+      String(sql).includes('UPDATE tasks SET') && String(sql).includes("kommo_last_sync_status = 'inbound_ok'")
+    ));
+    expect(updateCall[1]).toEqual(expect.arrayContaining([
+      'W_Realizacji',
+      'Konfigurowa 4',
+      'Pielęgnacja',
+      5100,
+    ]));
   });
 });

@@ -36,7 +36,8 @@
 - [x] **P0 Kommo inbound field mapping**: `task.sync` mapuje `status_id`, klienta, telefon, email, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow do notatek.
 - [x] **P0 Kommo attachments as documents**: inbound `task.sync` zapisuje zalaczniki Kommo jako `task_documents`, a `/api/tasks/:id/dokumenty` obsluguje liste, upload, edycje, wersjonowanie i usuwanie dokumentow zlecenia.
 - [x] **P0 Dispatcher diagnostics**: solver nie przypisuje zlecen lamiacych pojedyncze okno/capacity, a `unassigned` zwraca etykiety i szczegoly brakow sprzetu, kompetencji, okien oraz pojemnosci.
-- [ ] **Nastepny pakiet**: rozbudowac Kommo -> ARBOR o ekran konfiguracji mapowania pol/statusow pod konkretne konto Kommo oraz opcjonalne kopiowanie binariow zalacznikow do storage ARBOR.
+- [x] **P0 Kommo configurable mapping UI**: `/api/kommo/config` zapisuje mapowania statusow i aliasow pol per `account_key`; panel Integracje ma edytor JSON, a inbound `task.sync` uzywa zapisanej konfiguracji.
+- [ ] **Nastepny pakiet**: opcjonalne kopiowanie binariow zalacznikow Kommo do storage ARBOR zamiast samego zapisu remote URL w `task_documents`.
 
 ---
 
@@ -148,7 +149,7 @@ flowchart LR
 
 ## EPIC 8 — Kommo dwukierunkowo (produkt „jak w spec”)
 
-- [ ] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". **Czesciowo:** inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i zapisuje zalaczniki jako dokumenty zlecenia. Zostaje konfigurowalne mapowanie przez UI i opcjonalne kopiowanie binariow zalacznikow do storage ARBOR.
+- [ ] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". **Czesciowo:** inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i zapisuje zalaczniki jako dokumenty zlecenia; `/api/kommo/config` i panel Integracje pozwalaja ustawic mapowanie pol/statusow per konto Kommo. Zostaje opcjonalne kopiowanie binariow zalacznikow do storage ARBOR.
 - [ ] **8.2** ARBOR → Kommo: status, zdjęcia, czas rzeczywisty, zużycie, kosztorys z marżą, link statusowy.
 - [ ] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. **Czesciowo:** ARBOR -> Kommo `task.sync` ma juz retry/dead-letter, a Kommo -> ARBOR ma idempotencje eventow.
 - [x] **8.4** Panel diagnostyczny sync (ostatni blad, HTTP, payload): API diagnostyczne + panel Integracje dla kolejki outbound i inbound konfliktow.

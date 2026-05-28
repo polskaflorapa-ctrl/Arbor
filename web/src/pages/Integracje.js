@@ -12,6 +12,25 @@ import useTimedMessage from '../hooks/useTimedMessage';
 
 const EMPTY_STATS = { total: 0, sent_demo: 0, byChannel: { sms: 0, email: 0, push: 0 } };
 const ROLLBACK_MAX_AGE_DAYS = 14;
+const KOMMO_DEFAULT_CONFIG = {
+  account_key: 'default',
+  status_map: {},
+  field_aliases: {},
+  options: {
+    auto_geocode: true,
+    save_remote_attachments_as_documents: true,
+    copy_attachment_binaries_to_storage: false,
+  },
+};
+
+function parseJsonObject(text, fallback = {}) {
+  try {
+    const parsed = JSON.parse(text || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export default function Integracje() {
   const navigate = useNavigate();
@@ -40,6 +59,13 @@ export default function Integracje() {
   const [crmEvents, setCrmEvents] = useState([]);
   const [crmAppForm, setCrmAppForm] = useState({ name: 'Landing widget', type: 'widget', oddzial_id: '' });
   const [kommoSync, setKommoSync] = useState({ queue: [], inbound_events: [], summary: {} });
+  const [kommoConfig, setKommoConfig] = useState(KOMMO_DEFAULT_CONFIG);
+  const [kommoConfigForm, setKommoConfigForm] = useState({
+    account_key: 'default',
+    status_map: '{}',
+    field_aliases: '{}',
+    options: JSON.stringify(KOMMO_DEFAULT_CONFIG.options, null, 2),
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -73,6 +99,9 @@ export default function Integracje() {
       const kommoSyncRes = await api.get('/tasks/kommo-sync/diagnostics', { headers }).catch(() => ({
         data: { queue: [], inbound_events: [], summary: {} },
       }));
+      const kommoConfigRes = await api.get('/kommo/config?account_key=default', { headers }).catch(() => ({
+        data: KOMMO_DEFAULT_CONFIG,
+      }));
       setStats(sRes.data || EMPTY_STATS);
       const items = Array.isArray(lRes.data?.items) ? lRes.data.items : [];
       setLogs(items);
@@ -91,6 +120,16 @@ export default function Integracje() {
         queue: Array.isArray(kommoSyncRes.data?.queue) ? kommoSyncRes.data.queue : [],
         inbound_events: Array.isArray(kommoSyncRes.data?.inbound_events) ? kommoSyncRes.data.inbound_events : [],
         summary: kommoSyncRes.data?.summary || {},
+      });
+      const nextKommoConfig = kommoConfigRes.data && !Array.isArray(kommoConfigRes.data)
+        ? { ...KOMMO_DEFAULT_CONFIG, ...kommoConfigRes.data }
+        : KOMMO_DEFAULT_CONFIG;
+      setKommoConfig(nextKommoConfig);
+      setKommoConfigForm({
+        account_key: nextKommoConfig.account_key || 'default',
+        status_map: JSON.stringify(nextKommoConfig.status_map || {}, null, 2),
+        field_aliases: JSON.stringify(nextKommoConfig.field_aliases || {}, null, 2),
+        options: JSON.stringify(nextKommoConfig.options || KOMMO_DEFAULT_CONFIG.options, null, 2),
       });
       setSelectedLogIds([]);
     } catch (err) {
@@ -204,6 +243,30 @@ export default function Integracje() {
       loadData();
     } catch (err) {
       showMessage(errorMessage('Nie udało się utworzyć integracji CRM.'));
+    }
+  };
+
+  const saveKommoConfig = async () => {
+    try {
+      const token = getStoredToken();
+      const body = {
+        account_key: kommoConfigForm.account_key || 'default',
+        status_map: parseJsonObject(kommoConfigForm.status_map),
+        field_aliases: parseJsonObject(kommoConfigForm.field_aliases),
+        options: parseJsonObject(kommoConfigForm.options, KOMMO_DEFAULT_CONFIG.options),
+      };
+      const res = await api.put('/kommo/config', body, { headers: authHeaders(token) });
+      const next = { ...KOMMO_DEFAULT_CONFIG, ...(res.data || body) };
+      setKommoConfig(next);
+      setKommoConfigForm({
+        account_key: next.account_key || 'default',
+        status_map: JSON.stringify(next.status_map || {}, null, 2),
+        field_aliases: JSON.stringify(next.field_aliases || {}, null, 2),
+        options: JSON.stringify(next.options || KOMMO_DEFAULT_CONFIG.options, null, 2),
+      });
+      showMessage(successMessage('Konfiguracja Kommo zapisana.'));
+    } catch (err) {
+      showMessage(errorMessage('Nie udalo sie zapisac konfiguracji Kommo.'));
     }
   };
 
@@ -415,6 +478,52 @@ export default function Integracje() {
                 />
               ))}
             </div>
+          </div>
+        </div>
+        <div style={styles.tableWrap}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 800 }}>Mapowanie Kommo -> ARBOR</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Aktualne konto: {kommoConfig.account_key || 'default'} · statusy {Object.keys(kommoConfig.status_map || {}).length} · pola {Object.keys(kommoConfig.field_aliases || {}).length}
+              </div>
+            </div>
+            <button type="button" style={styles.btn} onClick={saveKommoConfig}>Zapisz mapowanie</button>
+          </div>
+          <div style={styles.grid3}>
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Konto Kommo</span>
+              <input
+                style={styles.input}
+                value={kommoConfigForm.account_key}
+                onChange={(e) => setKommoConfigForm((prev) => ({ ...prev, account_key: e.target.value }))}
+                placeholder="default lub account_id"
+              />
+            </label>
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Status map JSON</span>
+              <textarea
+                style={styles.textarea}
+                value={kommoConfigForm.status_map}
+                onChange={(e) => setKommoConfigForm((prev) => ({ ...prev, status_map: e.target.value }))}
+              />
+            </label>
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Field aliases JSON</span>
+              <textarea
+                style={styles.textarea}
+                value={kommoConfigForm.field_aliases}
+                onChange={(e) => setKommoConfigForm((prev) => ({ ...prev, field_aliases: e.target.value }))}
+              />
+            </label>
+            <label style={styles.fieldBlock}>
+              <span style={styles.fieldLabel}>Opcje importu JSON</span>
+              <textarea
+                style={styles.textarea}
+                value={kommoConfigForm.options}
+                onChange={(e) => setKommoConfigForm((prev) => ({ ...prev, options: e.target.value }))}
+              />
+            </label>
           </div>
         </div>
         <div style={{ marginBottom: 10, color: retryLocked ? '#EF5350' : 'var(--text-muted)', fontSize: 12 }}>
@@ -721,6 +830,10 @@ const styles = {
   btn: { padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontWeight: 700 },
   tableWrap: { background: 'var(--surface-glass)', borderRadius: 8, padding: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', marginBottom: 12 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 },
+  grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 },
+  fieldBlock: { display: 'grid', gap: 6 },
+  fieldLabel: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 800 },
+  textarea: { minHeight: 132, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 12, resize: 'vertical' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { textAlign: 'left', fontSize: 12, padding: 8, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' },
   td: { fontSize: 13, padding: 8, borderBottom: '1px solid var(--border)' },

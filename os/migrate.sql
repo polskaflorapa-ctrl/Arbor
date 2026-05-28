@@ -179,6 +179,19 @@ CREATE TABLE IF NOT EXISTS task_kommo_inbound_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   processed_at TIMESTAMPTZ
 );
+CREATE TABLE IF NOT EXISTS kommo_account_mappings (
+  id SERIAL PRIMARY KEY,
+  account_key VARCHAR(120) NOT NULL UNIQUE,
+  status_map JSONB NOT NULL DEFAULT '{}'::jsonb,
+  field_aliases JSONB NOT NULL DEFAULT '{}'::jsonb,
+  options JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_kommo_account_mappings_account
+  ON kommo_account_mappings(account_key);
 CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_task_created
   ON task_kommo_inbound_events (task_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_status_created

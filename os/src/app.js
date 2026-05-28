@@ -52,6 +52,7 @@ const quotationsRoutes = require('./routes/quotations');
 const payrollRoutes = require('./routes/payroll');
 const quotationPublicRoutes = require('./routes/quotation-public');
 const kommoQuotationWebhookRoutes = require('./routes/kommoQuotationWebhook');
+const { router: kommoConfigRoutes } = require('./routes/kommoConfig');
 const crmWebhooksRoutes = require('./routes/crmWebhooks');
 const dispatchRoutes = require('./routes/dispatch');
 const biRoutes = require('./routes/bi');
@@ -167,6 +168,7 @@ const createApp = () => {
   app.use('/api/position-cards', hrRoutes);
   app.use('/api/public', quotationPublicRoutes);
   app.use('/api/webhooks/crm', crmWebhooksRoutes);
+  app.use('/api/kommo', kommoConfigRoutes);
   app.use('/api/webhooks', kommoQuotationWebhookRoutes);
   app.use('/api/quotations', quotationsRoutes);
   app.use('/api/payroll', payrollRoutes);
