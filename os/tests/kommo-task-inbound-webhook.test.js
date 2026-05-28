@@ -1,4 +1,7 @@
 const request = require('supertest');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 jest.mock('../src/config/database', () => ({
   query: jest.fn(),
@@ -69,10 +72,25 @@ function setupPool({ currentTask, duplicateEvent = null } = {}) {
 }
 
 describe('Kommo task inbound webhook', () => {
+  let previousFetch;
+  let previousUploadsDir;
+  let previousUploadStorage;
+
   beforeEach(() => {
     process.env.KOMMO_QUOTATION_WEBHOOK_SECRET = 'secret';
     process.env.KOMMO_STATUS_MAP_JSON = '{"142":"Zaplanowane","143":"W_Realizacji"}';
+    previousFetch = global.fetch;
+    previousUploadsDir = process.env.UPLOADS_DIR;
+    previousUploadStorage = process.env.UPLOAD_STORAGE;
     pool.query.mockReset();
+  });
+
+  afterEach(() => {
+    global.fetch = previousFetch;
+    if (previousUploadsDir == null) delete process.env.UPLOADS_DIR;
+    else process.env.UPLOADS_DIR = previousUploadsDir;
+    if (previousUploadStorage == null) delete process.env.UPLOAD_STORAGE;
+    else process.env.UPLOAD_STORAGE = previousUploadStorage;
   });
 
   test('applies task.sync idempotently to an open task', async () => {
@@ -247,5 +265,93 @@ describe('Kommo task inbound webhook', () => {
       'Pielęgnacja',
       5100,
     ]));
+  });
+
+  test('copies Kommo attachment binaries to ARBOR storage when enabled', async () => {
+    const uploadRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arbor-kommo-test-'));
+    process.env.UPLOADS_DIR = uploadRoot;
+    process.env.UPLOAD_STORAGE = 'local';
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name) => {
+          if (name === 'content-length') return '11';
+          if (name === 'content-type') return 'application/pdf';
+          return null;
+        },
+      },
+      arrayBuffer: async () => Buffer.from('hello world').buffer,
+    }));
+
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.startsWith('CREATE TABLE') || text.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (text.includes('FROM kommo_account_mappings')) {
+        return {
+          rows: [{
+            account_key: 'default',
+            status_map: {},
+            field_aliases: {},
+            options: {
+              auto_geocode: false,
+              save_remote_attachments_as_documents: true,
+              copy_attachment_binaries_to_storage: true,
+            },
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('SELECT * FROM task_kommo_inbound_events WHERE event_key')) return { rows: [], rowCount: 0 };
+      if (text.includes('SELECT id, status, ekipa_id')) {
+        return { rows: [{ id: 404, status: 'Zaplanowane', ekipa_id: 4, oddzial_id: 1 }], rowCount: 1 };
+      }
+      if (text.includes('UPDATE tasks SET') && text.includes("kommo_last_sync_status = 'inbound_ok'")) {
+        return { rows: [{ id: 404, status: 'Zaplanowane', kommo_last_sync_status: 'inbound_ok' }], rowCount: 1 };
+      }
+      if (text.includes('INSERT INTO task_kommo_inbound_events')) {
+        return { rows: [{ event_key: params[0], task_id: params[1], status: params[2] }], rowCount: 1 };
+      }
+      if (text.includes('INSERT INTO task_documents')) {
+        return {
+          rows: [{
+            id: 88,
+            nazwa: params[1],
+            sciezka: params[2],
+            source_external_id: params[6],
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    try {
+      const res = await request(app)
+        .post('/api/webhooks/kommo/task-sync')
+        .set('x-arbor-webhook-secret', 'secret')
+        .send({
+          event_id: 'evt-copy-attachment',
+          task_id: 404,
+          attachments: [{ id: 'att-1', name: 'plik.pdf', url: 'https://kommo.example/files/plik.pdf' }],
+        });
+
+      expect(res.status).toBe(200);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://kommo.example/files/plik.pdf',
+        expect.objectContaining({ method: 'GET' })
+      );
+      const documentCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO task_documents'));
+      expect(documentCall[1]).toEqual(expect.arrayContaining([
+        404,
+        'plik.pdf',
+        '/uploads/kommo/task-404/plik.pdf',
+        'application/pdf',
+        'https://kommo.example/files/plik.pdf',
+      ]));
+      expect(fs.existsSync(path.join(uploadRoot, 'kommo', 'task-404', 'plik.pdf'))).toBe(true);
+    } finally {
+      fs.rmSync(uploadRoot, { recursive: true, force: true });
+    }
   });
 });

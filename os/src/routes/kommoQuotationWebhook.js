@@ -4,9 +4,18 @@
  */
 const crypto = require('crypto');
 const express = require('express');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { geocodeAddressPoland } = require('../services/geocodeNominatim');
+const {
+  cleanupTemporaryUpload,
+  persistUploadedFile,
+  uploadStorageMode,
+} = require('../services/upload-storage');
+const { getUploadsRoot } = require('../config/uploadPaths');
 const { distanceMeters } = require('../utils/geo');
 const { DEFAULT_KOMMO_MAPPING, mergeWithDefaults } = require('./kommoConfig');
 
@@ -222,6 +231,97 @@ function collectKommoAttachments(payload, task, lead) {
   ].map(normalizeKommoAttachment).filter(Boolean);
 }
 
+function safeAttachmentName(value, fallback = 'kommo-attachment.bin') {
+  const raw = String(value || fallback).trim().replace(/\\/g, '/').split('/').pop() || fallback;
+  return raw
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 160) || fallback;
+}
+
+function kommoAttachmentMaxBytes() {
+  const value = Number(process.env.KOMMO_ATTACHMENT_MAX_BYTES || 10 * 1024 * 1024);
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 10 * 1024 * 1024;
+}
+
+function assertDownloadableAttachmentUrl(rawUrl) {
+  const parsed = new URL(rawUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Kommo attachment URL must use http/https.');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (
+    hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1'
+    || hostname.endsWith('.local')
+  ) {
+    throw new Error('Kommo attachment URL points to a local host.');
+  }
+  return parsed;
+}
+
+async function downloadKommoAttachmentToStorage(taskId, attachment) {
+  if (!attachment?.url) return null;
+  const parsed = assertDownloadableAttachmentUrl(attachment.url);
+  const maxBytes = kommoAttachmentMaxBytes();
+  const response = await fetch(parsed.toString(), { method: 'GET', cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Kommo attachment download failed: HTTP ${response.status}`);
+  }
+  const contentLength = Number(response.headers?.get?.('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error(`Kommo attachment is too large: ${contentLength} bytes.`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > maxBytes) {
+    throw new Error(`Kommo attachment is too large: ${buffer.length} bytes.`);
+  }
+
+  const fileName = safeAttachmentName(attachment.name || decodeURIComponent(path.basename(parsed.pathname || '')));
+  const folder = `kommo/task-${taskId}`;
+  const mimetype = response.headers?.get?.('content-type') || attachment.mime_type || 'application/octet-stream';
+  let filePath;
+  let tmpDir;
+  let stored;
+
+  if (uploadStorageMode() === 'local') {
+    const dir = path.join(getUploadsRoot(), folder);
+    fs.mkdirSync(dir, { recursive: true });
+    filePath = path.join(dir, fileName);
+  } else {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'arbor-kommo-'));
+    filePath = path.join(tmpDir, fileName);
+  }
+
+  try {
+    fs.writeFileSync(filePath, buffer);
+    stored = await persistUploadedFile(
+      {
+        path: filePath,
+        filename: fileName,
+        originalname: attachment.name || fileName,
+        mimetype,
+        size: buffer.length,
+      },
+      { folder, fileName }
+    );
+    cleanupTemporaryUpload(stored);
+    return {
+      url: stored.url,
+      mime_type: mimetype,
+      size: buffer.length,
+      storage_backend: stored.backend,
+      storage_key: stored.key || null,
+    };
+  } finally {
+    if (tmpDir) {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+  }
+}
+
 function collectCustomFields(payload) {
   const fields = {};
   const sources = [
@@ -387,10 +487,22 @@ function extractKommoTaskPatch(payload, mapping = DEFAULT_KOMMO_MAPPING) {
   };
 }
 
-async function persistKommoTaskAttachments(taskId, attachments = []) {
+async function persistKommoTaskAttachments(taskId, attachments = [], options = {}) {
   const saved = [];
   for (const attachment of attachments) {
     if (!attachment.url) continue;
+    let storedCopy = null;
+    if (options.copy_attachment_binaries_to_storage) {
+      try {
+        storedCopy = await downloadKommoAttachmentToStorage(taskId, attachment);
+      } catch (error) {
+        logger.warn('kommo.task-sync attachment_copy', {
+          taskId,
+          url: attachment.url,
+          message: error.message,
+        });
+      }
+    }
     const sourceExternalId = attachment.external_id
       || crypto.createHash('sha256').update(attachment.url).digest('hex').slice(0, 40);
     const result = await pool.query(
@@ -410,10 +522,10 @@ async function persistKommoTaskAttachments(taskId, attachments = []) {
       [
         taskId,
         attachment.name || 'Kommo zalacznik',
-        attachment.url,
-        attachment.mime_type || null,
-        attachment.size || null,
-        'Import z Kommo',
+        storedCopy?.url || attachment.url,
+        storedCopy?.mime_type || attachment.mime_type || null,
+        storedCopy?.size || attachment.size || null,
+        storedCopy ? 'Import z Kommo; kopia w storage ARBOR' : 'Import z Kommo',
         sourceExternalId,
         attachment.url,
       ]
@@ -674,7 +786,7 @@ async function handleKommoTaskSync(req, res) {
     });
     const attachments = mappingConfig.options?.save_remote_attachments_as_documents === false
       ? []
-      : await persistKommoTaskAttachments(taskId, taskPatch.attachments).catch((error) => {
+      : await persistKommoTaskAttachments(taskId, taskPatch.attachments, mappingConfig.options).catch((error) => {
         logger.warn('kommo.task-sync attachments', { taskId, message: error.message });
         return [];
       });
