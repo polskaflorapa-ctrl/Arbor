@@ -17,6 +17,8 @@ const isDyrektor = (u) => ['Prezes', 'Dyrektor'].includes(u.rola);
 const klienciListQuerySchema = z.object({
   szukaj: z.string().max(200).optional(),
   miasto: z.string().max(100).optional(),
+  segment: z.string().max(80).optional(),
+  tag: z.string().max(80).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -36,6 +38,9 @@ const klientWriteFields = {
   kod_pocztowy: z.string().max(10).optional().nullable(),
   notatki: z.string().optional().nullable(),
   zrodlo: z.string().max(50).optional().nullable(),
+  segment: z.string().max(80).optional().nullable(),
+  tags: z.array(z.string().max(80)).max(24).optional().nullable(),
+  custom_fields: z.record(z.string(), z.any()).optional().nullable(),
 };
 
 const klientCreateSchema = z
@@ -55,6 +60,21 @@ const klientUpdateSchema = z
       (d.email != null && String(d.email).trim().length > 0),
     { message: 'Podaj telefon lub email', path: ['telefon'] }
   );
+
+function normalizeTags(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, 24);
+}
+
+function normalizeCustomFields(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => String(key || '').trim())
+      .slice(0, 50)
+      .map(([key, val]) => [String(key).trim().slice(0, 80), val == null ? null : val])
+  );
+}
 
 // ── Migracja tabel ────────────────────────────────────────────────────
 let _migDone = false;
@@ -93,13 +113,18 @@ const runMigration = async () => {
   await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32)`);
   await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_http INTEGER`);
   await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT`);
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS segment VARCHAR(80)`);
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await safe(`ALTER TABLE klienci ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb`);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_klienci_segment ON klienci(segment)`);
+  await safe(`CREATE INDEX IF NOT EXISTS idx_klienci_tags ON klienci USING GIN(tags)`);
 };
 
 // ── GET /api/klienci ────────────────────────────────────────────────
 router.get('/', authMiddleware, validateQuery(klienciListQuerySchema), async (req, res) => {
   await runMigration();
   try {
-    const { szukaj, miasto, limit, offset } = req.query;
+    const { szukaj, miasto, segment, tag, limit, offset } = req.query;
     let where = 'WHERE 1=1';
     const params = [];
     if (szukaj) {
@@ -111,6 +136,14 @@ router.get('/', authMiddleware, validateQuery(klienciListQuerySchema), async (re
     if (miasto) {
       params.push(`%${miasto}%`);
       where += ` AND k.miasto ILIKE $${params.length}`;
+    }
+    if (segment) {
+      params.push(segment);
+      where += ` AND k.segment = $${params.length}`;
+    }
+    if (tag) {
+      params.push(tag);
+      where += ` AND k.tags ? $${params.length}`;
     }
 
     const selectBody = `
@@ -291,13 +324,15 @@ router.get('/:id', authMiddleware, validateParams(klientIdParamsSchema), async (
 router.post('/', authMiddleware, validateBody(klientCreateSchema), async (req, res) => {
   await runMigration();
   try {
-    const { imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo } = req.body;
+    const { imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo, segment } = req.body;
+    const tags = normalizeTags(req.body.tags);
+    const customFields = normalizeCustomFields(req.body.custom_fields);
 
     const { rows } = await pool.query(`
-      INSERT INTO klienci (imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      INSERT INTO klienci (imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo, segment, tags, custom_fields, created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14)
       RETURNING *
-    `, [imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo || 'telefon', req.user.id]);
+    `, [imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo || 'telefon', segment || null, JSON.stringify(tags), JSON.stringify(customFields), req.user.id]);
 
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -311,15 +346,18 @@ router.put('/:id', authMiddleware, validateParams(klientIdParamsSchema), validat
   await runMigration();
   try {
     const { id } = req.params;
-    const { imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo } = req.body;
+    const { imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo, segment } = req.body;
+    const tags = normalizeTags(req.body.tags);
+    const customFields = normalizeCustomFields(req.body.custom_fields);
 
     const { rows } = await pool.query(`
       UPDATE klienci SET
         imie=$1, nazwisko=$2, firma=$3, telefon=$4, email=$5,
         adres=$6, miasto=$7, kod_pocztowy=$8, notatki=$9, zrodlo=$10,
+        segment=$11, tags=$12::jsonb, custom_fields=$13::jsonb,
         updated_at=NOW()
-      WHERE id=$11 RETURNING *
-    `, [imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo, id]);
+      WHERE id=$14 RETURNING *
+    `, [imie, nazwisko, firma, telefon, email, adres, miasto, kod_pocztowy, notatki, zrodlo, segment || null, JSON.stringify(tags), JSON.stringify(customFields), id]);
 
     if (!rows.length) return res.status(404).json({ error: req.t('errors.klienci.clientNotFound') });
     res.json(rows[0]);

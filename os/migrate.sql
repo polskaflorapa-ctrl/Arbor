@@ -294,6 +294,11 @@ ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_at TIMESTAMPTZ;
 ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32);
 ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_http INTEGER;
 ALTER TABLE klienci ADD COLUMN IF NOT EXISTS kommo_last_sync_error TEXT;
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS segment VARCHAR(80);
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE klienci ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb;
+CREATE INDEX IF NOT EXISTS idx_klienci_segment ON klienci(segment);
+CREATE INDEX IF NOT EXISTS idx_klienci_tags ON klienci USING GIN(tags);
 
 -- ─── 7. OGLEDZINY ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ogledziny (
