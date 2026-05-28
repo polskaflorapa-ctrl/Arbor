@@ -67,8 +67,9 @@ describe('opsDigest service', () => {
               id: 303,
               klient_nazwa: 'Firma ABC',
               revenue: '1000.00',
-              labor_cost: '850.00',
-              margin_pct: '15.0',
+              labor_cost: '900.00',
+              threshold_pct: '15.0',
+              margin_pct: '10.0',
             },
           ],
         };

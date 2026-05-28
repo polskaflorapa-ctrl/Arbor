@@ -505,12 +505,69 @@ router.post('/alerts/check', async (req, res) => {
     const overdue  = Number(row.tasks_overdue);
     const compPct  = total > 0 ? Math.round((done / total) * 100) : 0;
 
+    const marginRiskResult = await pool.query(
+      `SELECT t.id, t.klient_nazwa, t.oddzial_id,
+              COALESCE(b.marza_prog_rentowosci_pct, 15)::numeric AS threshold_pct,
+              COALESCE(t.wartosc_rzeczywista, t.wartosc_planowana, tr.wartosc_brutto, 0)::numeric AS revenue_net,
+              COALESCE(tr.koszt_pomocnikow, 0)::numeric AS helper_cost,
+              COALESCE(tr.wynagrodzenie_brygadzisty, 0)::numeric AS crew_lead_pay,
+              COALESCE(op.koszt_sprzetu, 0)::numeric AS equipment_cost,
+              COALESCE(op.koszt_paliwa, 0)::numeric AS fuel_cost,
+              COALESCE(mu.koszt_materialow, 0)::numeric AS material_cost,
+              COALESCE(op.koszt_utylizacji, 0)::numeric AS disposal_cost,
+              COALESCE(op.koszt_inne, 0)::numeric AS other_cost
+         FROM tasks t
+         JOIN task_rozliczenie tr ON tr.task_id = t.id
+         LEFT JOIN branches b ON b.id = t.oddzial_id
+         LEFT JOIN LATERAL (
+           SELECT
+             COALESCE(SUM(amount) FILTER (WHERE category = 'sprzet'), 0) AS koszt_sprzetu,
+             COALESCE(SUM(amount) FILTER (WHERE category = 'paliwo'), 0) AS koszt_paliwa,
+             COALESCE(SUM(amount) FILTER (WHERE category = 'utylizacja'), 0) AS koszt_utylizacji,
+             COALESCE(SUM(amount) FILTER (WHERE category = 'inne'), 0) AS koszt_inne
+           FROM task_operational_costs c
+           WHERE c.task_id = t.id
+         ) op ON true
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(SUM(koszt_laczny), 0) AS koszt_materialow
+           FROM task_finish_material_usage m
+           WHERE m.task_id = t.id
+         ) mu ON true
+        WHERE t.status = 'Zakonczone'
+          AND COALESCE(t.data_zakonczenia, t.data_planowana, t.updated_at) >= NOW() - INTERVAL '1 day' * $1
+          ${bc}
+        ORDER BY t.data_zakonczenia DESC NULLS LAST
+        LIMIT 100`,
+      [days, ...bp]
+    );
+    const marginRisks = marginRiskResult.rows
+      .map((item) => {
+        const margin = calculateTaskMargin(item);
+        return {
+          id: item.id,
+          klient_nazwa: item.klient_nazwa,
+          oddzial_id: item.oddzial_id,
+          threshold_pct: Number(item.threshold_pct || 15),
+          revenue_net: margin.revenue_net,
+          total_known_cost: margin.total_known_cost,
+          margin_pct: margin.margin_pct,
+          gross_margin: margin.gross_margin,
+        };
+      })
+      .filter((item) => item.margin_pct != null && item.margin_pct < item.threshold_pct)
+      .sort((a, b) => (a.margin_pct ?? 999) - (b.margin_pct ?? 999))
+      .slice(0, 10);
+
     const alerts = [];
     if (compPct < completionThreshold) {
       alerts.push(`⚠️ Wskaźnik ukończenia: ${compPct}% (próg: ${completionThreshold}%)`);
     }
     if (overdue > overdueThreshold) {
       alerts.push(`⚠️ Przeterminowane zlecenia: ${overdue} szt. (próg: ${overdueThreshold})`);
+    }
+
+    if (marginRisks.length > 0) {
+      alerts.push(`Ryzyko marzy: ${marginRisks.length} zlec. ponizej progu oddzialu`);
     }
 
     let emailResult = { sent: false, skipped: 'no_alerts' };
@@ -523,6 +580,8 @@ router.post('/alerts/check', async (req, res) => {
         `Łączne zlecenia: ${total}`,
         `Ukończone: ${done}`,
         `Przeterminowane: ${overdue}`,
+        '',
+        ...marginRisks.map((m) => `Marza #${m.id} ${m.klient_nazwa || ''}: ${m.margin_pct}% / prog ${m.threshold_pct}%`),
       ].join('\n');
       emailResult = await sendSystemEmailOptional({
         to: recipients,
@@ -538,6 +597,7 @@ router.post('/alerts/check', async (req, res) => {
       completion_pct: compPct,
       tasks_total: total,
       tasks_overdue: overdue,
+      margin_risks: marginRisks,
       alerts,
       email: emailResult,
     });

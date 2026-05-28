@@ -281,3 +281,47 @@ describe('GET /api/bi/drill', () => {
     });
   });
 });
+
+describe('POST /api/bi/alerts/check', () => {
+  it('includes margin risks below branch threshold', async () => {
+    pool.query
+      .mockResolvedValueOnce({
+        rows: [{ tasks_total: 5, tasks_done: 5, tasks_overdue: 0 }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 909,
+          klient_nazwa: 'Ryzykowna Marza',
+          oddzial_id: 2,
+          threshold_pct: '20',
+          revenue_net: '1000',
+          helper_cost: '300',
+          crew_lead_pay: '250',
+          equipment_cost: '150',
+          fuel_cost: '80',
+          material_cost: '40',
+          disposal_cost: '30',
+          other_cost: '20',
+        }],
+        rowCount: 1,
+      });
+
+    const res = await request(app)
+      .post('/api/bi/alerts/check')
+      .set('Authorization', `Bearer ${direktorToken()}`)
+      .send({ completion_threshold: 60, overdue_threshold: 10, days: 30 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.alerts).toEqual(expect.arrayContaining([
+      expect.stringContaining('Ryzyko marzy'),
+    ]));
+    expect(res.body.margin_risks).toEqual([
+      expect.objectContaining({
+        id: 909,
+        margin_pct: 13,
+        threshold_pct: 20,
+      }),
+    ]);
+  });
+});

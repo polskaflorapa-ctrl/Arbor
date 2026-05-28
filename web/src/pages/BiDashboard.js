@@ -654,6 +654,18 @@ export default function BiDashboard() {
                       <div key={i} style={{ color: '#dc2626', fontWeight: 600, marginBottom: 6 }}>{a}</div>
                     ))
                 }
+                {alertResult.margin_risks?.length ? (
+                  <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                    {alertResult.margin_risks.slice(0, 6).map((risk) => (
+                      <div key={risk.id} style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.24)', background: 'rgba(220,38,38,0.08)' }}>
+                        <strong>#{risk.id} {risk.klient_nazwa || 'Zlecenie'}</strong>
+                        <span style={{ marginLeft: 8 }}>
+                          marża {risk.margin_pct}% / próg {risk.threshold_pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-sub)' }}>
                   E-mail: {alertResult.email?.sent ? '✅ Wysłano' : alertResult.email?.skipped === 'no_alerts' ? '— brak alertów' : alertResult.email?.skipped === 'no_smtp' ? '⚠️ Brak SMTP' : alertResult.email?.skipped === 'no_to' ? '⚠️ Brak adresów e-mail' : '❌ Błąd'}
                 </div>
