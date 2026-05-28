@@ -53,6 +53,30 @@ beforeEach(() => {
         ],
       });
     }
+    if (url === '/crm/leads/22/messages') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 702,
+            lead_id: 22,
+            channel: 'whatsapp',
+            direction: 'outbound',
+            status: 'sent',
+            body: 'Dzien dobry, przygotujemy wycene.',
+            created_at: '2026-05-28T08:05:00.000Z',
+          },
+          {
+            id: 701,
+            lead_id: 22,
+            channel: 'whatsapp',
+            direction: 'inbound',
+            status: 'received',
+            body: 'Prosze o szybka wycene.',
+            created_at: '2026-05-28T08:00:00.000Z',
+          },
+        ],
+      });
+    }
     return Promise.resolve({
       data: [
         {
@@ -88,6 +112,8 @@ test('renders unified CRM inbox and applies filters', async () => {
   expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
   expect(screen.getAllByText('Oferta ogrodu').length).toBeGreaterThan(0);
   expect(screen.getAllByText('Prosze o szybka wycene.').length).toBeGreaterThan(0);
+  expect(await screen.findByText('Historia rozmowy')).toBeInTheDocument();
+  expect(screen.getByText('Dzien dobry, przygotujemy wycene.')).toBeInTheDocument();
 
   fireEvent.change(screen.getAllByDisplayValue('Wszystkie')[0], { target: { value: 'whatsapp' } });
 

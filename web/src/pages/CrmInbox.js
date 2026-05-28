@@ -25,6 +25,8 @@ export default function CrmInbox() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [messages, setMessages] = useState([]);
+  const [timelineMessages, setTimelineMessages] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [replyBody, setReplyBody] = useState('');
@@ -65,6 +67,23 @@ export default function CrmInbox() {
     }
   };
 
+  const loadTimeline = async (leadId) => {
+    if (!leadId) {
+      setTimelineMessages([]);
+      return;
+    }
+    try {
+      setTimelineLoading(true);
+      const token = getStoredToken();
+      const res = await api.get(`/crm/leads/${leadId}/messages`, { headers: authHeaders(token) });
+      setTimelineMessages(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setTimelineMessages([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadInbox();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,6 +92,10 @@ export default function CrmInbox() {
   useEffect(() => {
     loadTemplates();
   }, []);
+
+  useEffect(() => {
+    loadTimeline(selected?.lead_id);
+  }, [selected?.lead_id]);
 
   const applySearch = (event) => {
     event.preventDefault();
@@ -103,6 +126,7 @@ export default function CrmInbox() {
       setReplyBody('');
       setReplyTemplateId('');
       await loadInbox();
+      await loadTimeline(selected.lead_id);
       setMsg('Odpowiedz dodana do kolejki wysylki.');
     } catch (e) {
       setMsg(getApiErrorMessage(e, 'Nie udalo sie dodac odpowiedzi do kolejki'));
@@ -129,6 +153,7 @@ export default function CrmInbox() {
         { headers: authHeaders(token) }
       );
       await loadInbox();
+      await loadTimeline(selected?.lead_id);
       setMsg(`Status wiadomosci zmieniony na ${status}.`);
     } catch (e) {
       setMsg(getApiErrorMessage(e, 'Nie udalo sie zmienic statusu wiadomosci'));
@@ -261,6 +286,31 @@ export default function CrmInbox() {
                         <div>{selected.last_error}</div>
                       </div>
                     ) : null}
+                  </div>
+                  <div className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                      <strong>Historia rozmowy</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {timelineLoading ? 'Laduje...' : `${timelineMessages.length} wpisow`}
+                      </span>
+                    </div>
+                    <div className="ios-inset-list">
+                      {timelineMessages.map((message) => (
+                        <div key={message.id} className="ios-inset-row">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                            <strong>{message.direction === 'outbound' ? 'Handlowiec' : 'Klient'}</strong>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{message.channel} · {message.status}</span>
+                          </div>
+                          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.body}</div>
+                          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                            {formatDate(message.created_at)}
+                          </div>
+                        </div>
+                      ))}
+                      {!timelineLoading && timelineMessages.length === 0 ? (
+                        <div className="ios-inset-row muted">Brak historii rozmowy.</div>
+                      ) : null}
+                    </div>
                   </div>
                   <form onSubmit={sendReply} className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
