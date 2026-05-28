@@ -126,17 +126,28 @@ npm run restore:db:check
 
 Full backup and restore procedure is in `docs/backup-restore.md`.
 
-## 4. Alternative web on Vercel
+## 4. Alternative full stack on Vercel
 
-The root `vercel.json` is ready for Vercel Free.
+The root `vercel.json` is ready for Vercel Free. It serves `web/build` and
+routes `/api/*` to `api/[...path].js`, which wraps the Arbor OS Express API.
 
-Set this Vercel environment variable:
+Set the Vercel environment variables from:
 
-```bash
-VITE_API_URL=https://<arbor-os-url>.onrender.com/api
+```powershell
+npm run deploy:env:print
 ```
 
-Then deploy the same GitHub repo in Vercel.
+Before first production traffic, run the schema migration against the same
+`DATABASE_URL` used by Vercel:
+
+```powershell
+npm run deploy:vercel:migrate
+```
+
+Cold-start migrations are disabled by default on Vercel
+(`VERCEL_RUN_MIGRATIONS=0`) to avoid repeated migrations across serverless
+instances. Set `VERCEL_RUN_MIGRATIONS=1` only for a short, explicit migration
+deploy if you cannot run the separate command.
 
 ## 5. Mobile app
 

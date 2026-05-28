@@ -8,6 +8,7 @@ const files = [
   ['Local production doctor env', 'deploy/local-production-doctor.env.example'],
   ['Mobile Expo env', 'deploy/mobile-production.env.example'],
   ['Web env', 'deploy/web-production.env.example'],
+  ['Vercel env', 'deploy/vercel.env.example'],
 ];
 
 function read(file) {

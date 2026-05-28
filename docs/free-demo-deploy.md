@@ -182,15 +182,24 @@ npm run deploy:netlify:check
 
 ## 8. Vercel alternatywnie
 
-Repo ma juz `vercel.json`.
+Repo ma juz `vercel.json`: Vercel serwuje `web/build`, a `/api/*` obsluguje
+`api/[...path].js` jako wrapper backendu Arbor OS.
 
-Ustaw:
+W Vercel ustaw env z:
 
-```text
-VITE_API_URL=https://<arbor-os>.up.railway.app/api
+```powershell
+npm run deploy:env:print
 ```
 
-Output jest `web/build`.
+Przed pierwszym ruchem produkcyjnym wykonaj migracje na tej samej bazie:
+
+```powershell
+npm run deploy:vercel:migrate
+```
+
+Domyslnie `VERCEL_RUN_MIGRATIONS=0`, zeby serverless cold-start nie odpalal
+migracji wielokrotnie. Ustaw `VERCEL_RUN_MIGRATIONS=1` tylko tymczasowo, jesli
+nie masz osobnego kroku migracji.
 
 ## 9. Finalny smoke
 
@@ -211,5 +220,5 @@ z API przez `VITE_API_URL`.
 2. R2 bucket + public URL.
 3. Railway API z `deploy/railway-arbor-os.env.example` albo Koyeb API z `deploy/koyeb-arbor-os.env.example`.
 4. `npm run deploy:prod:bootstrap -- --seed-demo --skip-backup`.
-5. Cloudflare Pages / Netlify / Vercel web z `VITE_API_URL`.
+5. Cloudflare Pages / Netlify albo Vercel full stack.
 6. Login admina i pokaz sciezki: telefon -> ogledziny -> zdjecia -> zlecenie -> ekipa.
