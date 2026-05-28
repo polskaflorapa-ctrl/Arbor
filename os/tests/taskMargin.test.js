@@ -50,6 +50,11 @@ describe('taskMargin service', () => {
     expect(isLowMarginRisk(calculateTaskMargin({ revenue_net: 1000, total_known_cost: 799 }))).toBe(false);
   });
 
+  it('detects low margin risk from branch percentage threshold', () => {
+    expect(isLowMarginRisk({ revenue_net: 1000, total_known_cost: 880, marginThresholdPct: 15 })).toBe(true);
+    expect(isLowMarginRisk({ revenue_net: 1000, total_known_cost: 800, marginThresholdPct: 15 })).toBe(false);
+  });
+
   it('rounds money and percent consistently', () => {
     expect(money('12.345')).toBe(12.35);
     expect(percent('78.24')).toBe(78.2);
