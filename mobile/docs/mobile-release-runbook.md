@@ -10,6 +10,12 @@ Run the local release gate:
 npm run release:check
 ```
 
+For a faster local sanity check while iterating, use:
+
+```bash
+npm run release:check:quick
+```
+
 Check the EAS operator environment before cloud builds:
 
 ```bash
@@ -28,7 +34,7 @@ Optional backend smoke:
 SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 ```
 
-`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, Metro iOS/Android bundle resolution, and high/critical production dependency advisories. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
+`release:check` verifies release metadata, EAS profiles, release docs, Expo public config generation, typecheck, lint, offline queue tests, Metro iOS/Android bundle resolution, and high/critical production dependency advisories. `release:check:quick` runs the same gate but skips the slow Metro export. `release:eas-doctor` verifies that the current shell can run EAS, is logged in, and can access the Expo project.
 
 Check release metadata:
 

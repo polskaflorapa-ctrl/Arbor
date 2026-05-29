@@ -307,11 +307,15 @@ if (result.status !== 0) {
 
 console.log('\nChecking Metro bundle resolution...\n');
 
-const metroResult = runNpmScript('test:metro-bundle');
+if (process.env.SKIP_METRO_BUNDLE === '1') {
+  console.log('Skipping Metro bundle check because SKIP_METRO_BUNDLE=1.');
+} else {
+  const metroResult = runNpmScript('test:metro-bundle');
 
-if (metroResult.status !== 0) {
-  fail('npm run test:metro-bundle failed');
-  process.exit(process.exitCode);
+  if (metroResult.status !== 0) {
+    fail('npm run test:metro-bundle failed');
+    process.exit(process.exitCode);
+  }
 }
 
 console.log('\nChecking for high or critical production dependency advisories...\n');
