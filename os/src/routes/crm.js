@@ -176,6 +176,88 @@ const createActivitySchema = z.object({
   call_duration_sec: z.coerce.number().min(0).optional().nullable(),
 });
 
+const objLike = z.any().optional().nullable();
+
+const createWorkflowSchema = z.object({
+  oddzial_id:     optInt,
+  name:           z.string().trim().min(1, 'name jest wymagany').max(200),
+  trigger_type:   optStr(100),
+  trigger_config: objLike,
+  action_type:    optStr(100),
+  action_config:  objLike,
+  active:         z.boolean().optional(),
+});
+
+const runWorkflowSchema = z.object({
+  oddzial_id: optInt,
+  rule_id:    optInt,
+});
+
+const createIntegrationAppSchema = z.object({
+  oddzial_id: optInt,
+  name:       z.string().trim().min(1, 'name jest wymagany').max(200),
+  type:       optStr(100),
+  config:     objLike,
+});
+
+const createTemplateSchema = z.object({
+  oddzial_id: optInt,
+  key:        optStr(100),
+  name:       optStr(200),
+  channel:    optStr(50),
+  subject:    optStr(500),
+  body:       z.string().trim().min(1, 'body jest wymagane').max(20000),
+});
+
+const createNpsSchema = z.object({
+  oddzial_id:         optInt,
+  lead_id:            optInt,
+  client_id:          optInt,
+  task_id:            optInt,
+  channel:            optStr(50),
+  score:              z.coerce.number().int().min(0, 'score musi byc w zakresie 0-10').max(10, 'score musi byc w zakresie 0-10'),
+  comment:            optStr(5000),
+  respondent_name:    optStr(200),
+  respondent_contact: optStr(200),
+  sent_at:            optStr(64),
+});
+
+const patchActivitySchema = z.object({
+  completed: z.boolean().optional(),
+  done:      z.boolean().optional(),
+});
+
+const patchMessageStatusSchema = z.object({
+  status:     z.string().trim().min(1, 'status jest wymagany').max(50),
+  error:      optStr(2000),
+  last_error: optStr(2000),
+});
+
+const processQueueSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional().nullable(),
+});
+
+const createMessageSchema = z.object({
+  template_id:         optInt,
+  dynamic_fields:      objLike,
+  metadata:            objLike,
+  body:                optStr(20000),
+  text:                optStr(20000),
+  tresc:               optStr(20000),
+  direction:           optStr(20),
+  channel:             optStr(50),
+  status:              optStr(50),
+  sender_name:         optStr(200),
+  sender_handle:       optStr(200),
+  recipient_handle:    optStr(200),
+  subject:             optStr(500),
+  external_message_id: optStr(200),
+  external_thread_id:  optStr(200),
+  template_key:        optStr(100),
+  delivered_at:        optStr(64),
+  read_at:             optStr(64),
+});
+
 /** Dashboard CRM — agregaty (pipeline z leadów CRM lub ze zleceń). */
 router.get('/overview', async (req, res) => {
   try {
@@ -666,7 +748,7 @@ router.get('/workflows', async (req, res) => {
   }
 });
 
-router.post('/workflows', async (req, res) => {
+router.post('/workflows', validateBody(createWorkflowSchema), async (req, res) => {
   const b = req.body || {};
   const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
   if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
@@ -691,7 +773,7 @@ router.post('/workflows', async (req, res) => {
   }
 });
 
-router.post('/workflows/run', async (req, res) => {
+router.post('/workflows/run', validateBody(runWorkflowSchema), async (req, res) => {
   const b = req.body || {};
   const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
   if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
@@ -734,7 +816,7 @@ router.get('/integrations/apps', async (req, res) => {
   }
 });
 
-router.post('/integrations/apps', async (req, res) => {
+router.post('/integrations/apps', validateBody(createIntegrationAppSchema), async (req, res) => {
   const b = req.body || {};
   const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
   if (!oddzialId) return res.status(400).json({ error: 'oddzial_id jest wymagany' });
@@ -791,7 +873,7 @@ router.get('/message-templates', async (req, res) => {
   }
 });
 
-router.post('/message-templates', async (req, res) => {
+router.post('/message-templates', validateBody(createTemplateSchema), async (req, res) => {
   const b = req.body || {};
   const oddzialId = scopedOddzialId(req.user, toInt(b.oddzial_id || req.query.oddzial_id));
   if (oddzialId && !canAccessOddzial(req.user, oddzialId)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
@@ -859,7 +941,7 @@ router.get('/leads/:id/nps-surveys', async (req, res) => {
   }
 });
 
-router.post('/nps-surveys', async (req, res) => {
+router.post('/nps-surveys', validateBody(createNpsSchema), async (req, res) => {
   const b = req.body || {};
   const score = toInt(b.score);
   if (score == null || score < 0 || score > 10) return res.status(400).json({ error: 'score musi byc w zakresie 0-10' });
@@ -886,7 +968,7 @@ router.post('/nps-surveys', async (req, res) => {
   }
 });
 
-router.post('/leads/:id/nps-surveys', async (req, res) => {
+router.post('/leads/:id/nps-surveys', validateBody(createNpsSchema), async (req, res) => {
   const leadId = toInt(req.params.id);
   if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
   const b = req.body || {};
@@ -1073,7 +1155,7 @@ router.post('/leads/:id/activities', validateBody(createActivitySchema), async (
   }
 });
 
-router.patch('/leads/:leadId/activities/:activityId', async (req, res) => {
+router.patch('/leads/:leadId/activities/:activityId', validateBody(patchActivitySchema), async (req, res) => {
   const leadId = toInt(req.params.leadId);
   const activityId = toInt(req.params.activityId);
   if (!leadId || !activityId) return res.status(400).json({ error: 'Nieprawidłowe id' });
@@ -1240,7 +1322,7 @@ router.get('/messages/providers', async (_req, res) => {
   res.json(getMessageProviderStatus());
 });
 
-router.patch('/messages/:messageId/status', async (req, res) => {
+router.patch('/messages/:messageId/status', validateBody(patchMessageStatusSchema), async (req, res) => {
   const messageId = toInt(req.params.messageId);
   if (!messageId) return res.status(400).json({ error: 'Nieprawidlowe id wiadomosci' });
   const status = String(req.body?.status || '').trim().toLowerCase();
@@ -1286,7 +1368,7 @@ router.patch('/messages/:messageId/status', async (req, res) => {
   }
 });
 
-router.post('/messages/queue/process', async (req, res) => {
+router.post('/messages/queue/process', validateBody(processQueueSchema), async (req, res) => {
   if (!isDyrektorOrAdmin(req.user) && !isSalesDirector(req.user)) {
     return res.status(403).json({ error: 'Brak dostepu do uruchomienia kolejki wysylki' });
   }
@@ -1333,7 +1415,7 @@ router.get('/leads/:id/messages', async (req, res) => {
   }
 });
 
-router.post('/leads/:id/messages', async (req, res) => {
+router.post('/leads/:id/messages', validateBody(createMessageSchema), async (req, res) => {
   const leadId = toInt(req.params.id);
   if (!leadId) return res.status(400).json({ error: 'Nieprawidlowe id leada' });
   const b = req.body || {};
