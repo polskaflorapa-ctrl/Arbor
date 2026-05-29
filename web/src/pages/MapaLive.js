@@ -453,6 +453,24 @@ function mapHref(row) {
     : '';
 }
 
+function useNarrowViewport(maxWidth = 760) {
+  const getMatch = useCallback(() => (
+    typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches
+  ), [maxWidth]);
+  const [matches, setMatches] = useState(getMatch);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const query = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const onChange = () => setMatches(query.matches);
+    onChange();
+    query.addEventListener?.('change', onChange);
+    return () => query.removeEventListener?.('change', onChange);
+  }, [maxWidth]);
+
+  return matches;
+}
+
 function taskAddress(task) {
   return [task?.adres, task?.miasto].filter(Boolean).join(', ') || 'Brak adresu';
 }
@@ -577,6 +595,7 @@ function pointPosition(row, bounds) {
 
 export default function MapaLive() {
   const navigate = useNavigate();
+  const isNarrow = useNarrowViewport();
   const [rows, setRows] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -1069,17 +1088,17 @@ export default function MapaLive() {
   return (
     <div className="app-shell">
       <Sidebar />
-      <main className="app-main" style={S.main}>
-        <section style={S.hero}>
-          <div style={S.heroIcon}><MapOutlined /></div>
-          <div style={S.heroCopy}>
+      <main className="app-main" style={{ ...S.main, ...(isNarrow ? S.mainNarrow : null) }}>
+        <section style={{ ...S.hero, ...(isNarrow ? S.heroNarrow : null) }}>
+          <div style={{ ...S.heroIcon, ...(isNarrow ? S.heroIconNarrow : null) }}><MapOutlined /></div>
+          <div style={{ ...S.heroCopy, ...(isNarrow ? S.fullWidth : null) }}>
             <div style={S.eyebrow}>Live operations</div>
-            <h1 style={S.title}>Mapa live brygad i wyceniających</h1>
+            <h1 style={{ ...S.title, ...(isNarrow ? S.titleNarrow : null) }}>Mapa live brygad i wyceniających</h1>
             <p style={S.subtitle}>
               Ostatnia znana pozycja z mobilki i GPS pojazdów. Kierownik widzi kto jest online, kto ma stary sygnał i gdzie otworzyć trasę.
             </p>
           </div>
-          <button type="button" onClick={() => load({ refresh: true })} style={S.refreshBtn} disabled={loading}>
+          <button type="button" onClick={() => load({ refresh: true })} style={{ ...S.refreshBtn, ...(isNarrow ? S.fullWidthButton : null) }} disabled={loading}>
             <RefreshOutlined style={{ fontSize: 18 }} />
             {loading ? 'Odświeżam...' : 'Odśwież GPS'}
           </button>
@@ -1087,8 +1106,8 @@ export default function MapaLive() {
 
         {error ? <div style={S.error}><WarningAmberOutlined style={{ fontSize: 18 }} />{error}</div> : null}
 
-        <section style={S.toolbar}>
-          <div style={S.filterGroup}>
+        <section style={{ ...S.toolbar, ...(isNarrow ? S.toolbarNarrow : null) }}>
+          <div style={{ ...S.filterGroup, ...(isNarrow ? S.fullWidth : null) }}>
             <label style={S.label}>Oddział</label>
             <select
               value={selectedBranch}
@@ -1102,7 +1121,7 @@ export default function MapaLive() {
               ))}
             </select>
           </div>
-          <div style={S.filterGroup}>
+          <div style={{ ...S.filterGroup, ...(isNarrow ? S.fullWidth : null) }}>
             <label style={S.label}>Źródło</label>
             <select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)} style={S.select}>
               <option value="">Wszystkie źródła</option>
@@ -1110,7 +1129,7 @@ export default function MapaLive() {
               <option value="juwentus">GPS auta</option>
             </select>
           </div>
-          <div style={S.lastSync}>
+          <div style={{ ...S.lastSync, ...(isNarrow ? S.lastSyncNarrow : null) }}>
             Ostatnie odświeżenie: <strong>{lastLoadAt ? formatClock(lastLoadAt.toISOString()) : '--:--'}</strong>
           </div>
         </section>
@@ -1130,7 +1149,7 @@ export default function MapaLive() {
         </section>
 
         <section style={S.officeLivePanel}>
-          <div style={S.panelHeader}>
+          <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
             <div>
               <div style={S.panelTitle}>Biuro na zywo</div>
               <div style={S.panelSub}>
@@ -1198,7 +1217,7 @@ export default function MapaLive() {
         </section>
 
         <section style={S.dispatchPanel}>
-          <div style={S.panelHeader}>
+          <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
             <div>
               <div style={S.panelTitle}>Dyspozytornia dnia</div>
               <div style={S.panelSub}>
@@ -1212,7 +1231,7 @@ export default function MapaLive() {
           </div>
 
           <div style={S.queueSection}>
-            <div style={S.queueHead}>
+            <div style={{ ...S.queueHead, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
               <div>
                 <div style={S.queueTitle}>Kolejka do dopiecia</div>
                 <div style={S.panelSub}>Bez ekipy, bez terminu, bez czasu pracy albo do zatwierdzenia po ogledzinach.</div>
@@ -1281,7 +1300,7 @@ export default function MapaLive() {
                 </div>
               </div>
 
-              <div style={S.quickPlanGrid}>
+              <div style={{ ...S.quickPlanGrid, ...(isNarrow ? S.quickPlanGridNarrow : null) }}>
                 <label style={S.quickPlanField}>
                   <span style={S.metricLabel}>Data</span>
                   <input
@@ -1560,16 +1579,16 @@ export default function MapaLive() {
           </div>
         </section>
 
-        <section style={S.grid}>
-          <div style={S.radarPanel}>
-            <div style={S.panelHeader}>
+        <section style={{ ...S.grid, ...(isNarrow ? S.gridNarrow : null) }}>
+          <div style={{ ...S.radarPanel, ...(isNarrow ? S.radarPanelNarrow : null) }}>
+            <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
               <div>
                 <div style={S.panelTitle}>Radar pozycji</div>
                 <div style={S.panelSub}>Widok orientacyjny według koordynatów GPS</div>
               </div>
               <MyLocationOutlined style={{ color: '#14834F' }} />
             </div>
-            <div style={S.radar}>
+            <div style={{ ...S.radar, ...(isNarrow ? S.radarNarrow : null) }}>
               <div style={S.gridLineH} />
               <div style={S.gridLineV} />
               <div style={S.radarCircleLarge} />
@@ -1594,8 +1613,8 @@ export default function MapaLive() {
             </div>
           </div>
 
-          <div style={S.listPanel}>
-            <div style={S.panelHeader}>
+          <div style={{ ...S.listPanel, ...(isNarrow ? S.panelNarrow : null) }}>
+            <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
               <div>
                 <div style={S.panelTitle}>Sygnały live</div>
                 <div style={S.panelSub}>Kliknij “Mapa”, żeby otworzyć dokładną pozycję</div>
@@ -1608,7 +1627,7 @@ export default function MapaLive() {
                 return (
                   <article key={`${row.provider}-${row.user_id || row.vehicle_id || row.nr_rejestracyjny}-${index}`} style={S.locationCard}>
                     <div style={{ ...S.statusRail, background: fresh.color }} />
-                    <div style={S.locationTop}>
+                    <div style={{ ...S.locationTop, ...(isNarrow ? S.locationTopNarrow : null) }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={S.locationName}>{subjectLabel(row)}</div>
                         <div style={S.locationMeta}>
@@ -1619,7 +1638,7 @@ export default function MapaLive() {
                         {fresh.label}
                       </span>
                     </div>
-                    <div style={S.detailsGrid}>
+                    <div style={{ ...S.detailsGrid, ...(isNarrow ? S.detailsGridNarrow : null) }}>
                       <Metric label="Zrodlo" value={sourceLabel(row)} />
                       <Metric label="Wyslal" value={gpsSenderLabel(row)} />
                       <Metric label="Sync" value={formatAge(row.recorded_at)} />
@@ -1629,7 +1648,7 @@ export default function MapaLive() {
                       <Metric label="Urzadzenie" value={gpsPlatformLabel(row)} />
                       <Metric label="GPS" value={`${row.lat.toFixed(5)}, ${row.lng.toFixed(5)}`} />
                     </div>
-                    <div style={S.cardActions}>
+                    <div style={{ ...S.cardActions, ...(isNarrow ? S.cardActionsNarrow : null) }}>
                       {href ? (
                         <a href={href} target="_blank" rel="noreferrer" style={S.mapBtn}>
                           <NavigationOutlined style={{ fontSize: 16 }} />
@@ -1656,7 +1675,7 @@ export default function MapaLive() {
 
         {historyTarget ? (
           <section style={S.historyPanel}>
-            <div style={S.panelHeader}>
+            <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
               <div>
                 <div style={S.panelTitle}>Historia GPS dnia</div>
                 <div style={S.panelSub}>
@@ -1706,7 +1725,7 @@ export default function MapaLive() {
                 </div>
                 <div style={S.historyTimeline}>
                   {historyRows.slice(-80).map((point, index) => (
-                    <div key={`${point.provider}-${point.recorded_at}-${index}`} style={S.historyPoint}>
+                    <div key={`${point.provider}-${point.recorded_at}-${index}`} style={{ ...S.historyPoint, ...(isNarrow ? S.historyPointNarrow : null) }}>
                       <span style={{ ...S.historyPointDot, background: point.provider === 'mobile' ? '#14834F' : '#0E7490' }} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={S.historyPointTitle}>{formatClock(point.recorded_at)} / {sourceLabel(point)}</div>
@@ -1887,6 +1906,18 @@ const S = {
     minHeight: '100vh',
     background: 'linear-gradient(135deg, rgba(246,251,247,0.96), rgba(255,255,255,0.9) 44%, rgba(229,246,236,0.78))',
   },
+  mainNarrow: {
+    padding: 12,
+    overflowX: 'hidden',
+  },
+  fullWidth: {
+    width: '100%',
+    minWidth: 0,
+  },
+  fullWidthButton: {
+    width: '100%',
+    justifyContent: 'center',
+  },
   hero: {
     ...glass,
     position: 'relative',
@@ -1902,6 +1933,11 @@ const S = {
     border: '1px solid rgba(15,95,58,0.18)',
     boxShadow: '0 22px 46px rgba(11,56,37,0.18)',
   },
+  heroNarrow: {
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 14,
+  },
   heroCopy: {
     flex: '1 1 360px',
     minWidth: 220,
@@ -1916,12 +1952,20 @@ const S = {
     color: '#DFF7E8',
     border: '1px solid rgba(255,255,255,0.22)',
   },
+  heroIconNarrow: {
+    width: 44,
+    height: 44,
+  },
   eyebrow: {
     color: '#86EFAC',
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 0,
     fontWeight: 950,
+  },
+  titleNarrow: {
+    fontSize: 22,
+    lineHeight: 1.12,
   },
   title: {
     margin: '4px 0',
@@ -1974,6 +2018,12 @@ const S = {
     flexWrap: 'wrap',
     marginBottom: 14,
   },
+  toolbarNarrow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: 10,
+    padding: 12,
+  },
   filterGroup: {
     display: 'flex',
     flexDirection: 'column',
@@ -2004,6 +2054,11 @@ const S = {
     borderRadius: 8,
     background: 'rgba(240,247,242,0.78)',
     padding: '8px 10px',
+  },
+  lastSyncNarrow: {
+    marginLeft: 0,
+    width: '100%',
+    overflowWrap: 'anywhere',
   },
   kpiGrid: {
     display: 'grid',
@@ -2078,6 +2133,10 @@ const S = {
     justifyContent: 'space-between',
     gap: 10,
     marginBottom: 10,
+  },
+  panelHeaderNarrow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   officeLiveTitle: {
     color: 'var(--text)',
@@ -2188,6 +2247,9 @@ const S = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
     gap: 10,
+  },
+  quickPlanGridNarrow: {
+    gridTemplateColumns: '1fr',
   },
   planningCard: {
     position: 'relative',
@@ -2555,16 +2617,26 @@ const S = {
     gap: 14,
     alignItems: 'start',
   },
+  gridNarrow: {
+    gridTemplateColumns: '1fr',
+  },
   radarPanel: {
     ...glass,
     borderRadius: 8,
     padding: 16,
     minHeight: 540,
   },
+  radarPanelNarrow: {
+    padding: 12,
+    minHeight: 'auto',
+  },
   listPanel: {
     ...glass,
     borderRadius: 8,
     padding: 16,
+  },
+  panelNarrow: {
+    padding: 12,
   },
   panelHeader: {
     display: 'flex',
@@ -2590,6 +2662,9 @@ const S = {
     borderRadius: 14,
     background: 'radial-gradient(circle at center, rgba(20,131,79,0.12), rgba(255,255,255,0.92) 58%), linear-gradient(135deg, rgba(236,253,245,0.82), rgba(240,249,255,0.72))',
     border: '1px solid rgba(20,131,79,0.14)',
+  },
+  radarNarrow: {
+    height: 320,
   },
   gridLineH: {
     position: 'absolute',
@@ -2673,6 +2748,10 @@ const S = {
     gap: 10,
     marginBottom: 12,
   },
+  locationTopNarrow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   locationName: {
     color: 'var(--text)',
     fontSize: 15,
@@ -2700,6 +2779,9 @@ const S = {
     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: 10,
   },
+  detailsGridNarrow: {
+    gridTemplateColumns: '1fr',
+  },
   metricLabel: {
     color: 'var(--text-muted)',
     fontSize: 10,
@@ -2719,6 +2801,10 @@ const S = {
     gap: 8,
     marginTop: 12,
     flexWrap: 'wrap',
+  },
+  cardActionsNarrow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
   },
   mapBtn: {
     display: 'inline-flex',
@@ -2800,6 +2886,10 @@ const S = {
     background: 'rgba(255,255,255,0.84)',
     padding: 10,
     minWidth: 0,
+  },
+  historyPointNarrow: {
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
   },
   historyPointDot: {
     width: 10,
