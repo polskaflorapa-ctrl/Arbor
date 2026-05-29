@@ -191,6 +191,34 @@ function parseJsonArray(value) {
   }
 }
 
+function parseJsonObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (!value) return {};
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function publicTaskUrl(rowOrTaskId) {
+  const base = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (!base) return null;
+  const token = typeof rowOrTaskId === 'object' ? rowOrTaskId?.link_statusowy_token : null;
+  if (token) return `${base}/track/${token}`;
+  const taskId = typeof rowOrTaskId === 'object' ? rowOrTaskId?.id : rowOrTaskId;
+  return taskId ? `${base}/#/zlecenia/${taskId}` : null;
+}
+
+function absolutePublicUrl(value) {
+  const url = toCompactText(value);
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
+  const base = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  return base && url.startsWith('/') ? `${base}${url}` : url;
+}
+
 function buildKommoTaskPayload(row, actor = null) {
   const client = toCompactText(row.klient_nazwa);
   const leadName = ['Zlecenie', `#${row.id}`, client].filter(Boolean).join(' · ');
@@ -199,6 +227,10 @@ function buildKommoTaskPayload(row, actor = null) {
   const helperCost = money(row.rozliczenie_koszt_pomocnikow);
   const crewLeadCost = money(row.rozliczenie_wynagrodzenie_brygadzisty);
   const materialRows = parseJsonArray(row.materialy_zuzyte);
+  const workLogRows = parseJsonArray(row.work_logs);
+  const photoRows = parseJsonArray(row.photos);
+  const documentRows = parseJsonArray(row.documents);
+  const photoCountsByType = parseJsonObject(row.photo_counts_by_type);
   const margin = calculateTaskMargin({
     revenue_net: settlementRevenue,
     helper_cost: helperCost,
@@ -247,6 +279,7 @@ function buildKommoTaskPayload(row, actor = null) {
       adres: addr || null,
       oddzial_id: row.oddzial_id ?? null,
       data_planowana: dateToYmd(row.data_planowana),
+      status_url: publicTaskUrl(row),
       wartosc_planowana: row.wartosc_planowana != null ? Number(row.wartosc_planowana) : null,
       wartosc_netto_do_rozliczenia: row.wartosc_netto_do_rozliczenia != null
         ? Number(row.wartosc_netto_do_rozliczenia)
@@ -284,6 +317,43 @@ function buildKommoTaskPayload(row, actor = null) {
           koszt_jednostkowy: money(item?.koszt_jednostkowy, null),
           koszt_laczny: money(item?.koszt_laczny, null),
           notatka: toCompactText(item?.notatka),
+        })),
+      },
+      work_time: {
+        logs_count: Number(row.work_logs_count || workLogRows.length || 0),
+        total_minutes: Number(row.work_total_minutes || 0),
+        started_at: row.work_started_at || null,
+        finished_at: row.work_finished_at || null,
+        logs: workLogRows.map((log) => ({
+          id: log?.id ?? null,
+          user_id: log?.user_id ?? null,
+          start_time: log?.start_time || null,
+          end_time: log?.end_time || null,
+          minutes: log?.minutes != null ? Number(log.minutes) : null,
+          start_gps: log?.start_lat != null && log?.start_lng != null ? { lat: Number(log.start_lat), lng: Number(log.start_lng) } : null,
+          end_gps: log?.end_lat != null && log?.end_lng != null ? { lat: Number(log.end_lat), lng: Number(log.end_lng) } : null,
+        })),
+      },
+      photos: {
+        count: Number(row.photos_count || photoRows.length || 0),
+        by_type: photoCountsByType,
+        items: photoRows.map((photo) => ({
+          id: photo?.id ?? null,
+          typ: toCompactText(photo?.typ),
+          url: absolutePublicUrl(photo?.url || photo?.sciezka),
+          opis: toCompactText(photo?.opis),
+          data_dodania: photo?.data_dodania || null,
+        })),
+      },
+      documents: {
+        count: Number(row.documents_count || documentRows.length || 0),
+        items: documentRows.map((doc) => ({
+          id: doc?.id ?? null,
+          nazwa: toCompactText(doc?.nazwa),
+          kategoria: toCompactText(doc?.kategoria),
+          url: absolutePublicUrl(doc?.sciezka),
+          remote_url: absolutePublicUrl(doc?.remote_url),
+          source_provider: toCompactText(doc?.source_provider),
         })),
       },
       notatki_wewnetrzne: toCompactText(row.notatki_wewnetrzne),

@@ -1,7 +1,9 @@
 /**
- * Publiczna strona śledzenia statusu zlecenia dla klienta.
- * Dostępna bez JWT — link wysyłany w SMS-ie.
+ * Publiczny, tokenowy status zlecenia dla klienta.
  * GET /track/:token
+ *
+ * Bez JWT. Endpoint celowo zwraca tylko zakres danych bezpieczny dla klienta:
+ * status, termin, adres uslugi, oddzialowy kontakt, ogolna historia i mapa.
  */
 const express = require('express');
 const pool = require('../config/database');
@@ -11,197 +13,215 @@ const { z } = require('zod');
 
 const router = express.Router();
 
-// Ensure link_statusowy_token column exists
-let _tokenColEnsured = false;
-async function ensureTokenColumn() {
-  if (_tokenColEnsured) return;
-  _tokenColEnsured = true;
+async function ensurePublicStatusTables() {
+  await pool.query('ALTER TABLE tasks ADD COLUMN IF NOT EXISTS link_statusowy_token VARCHAR(64)');
   await pool.query(
-    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS link_statusowy_token VARCHAR(64)`
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_link_statusowy_token ON tasks(link_statusowy_token) WHERE link_statusowy_token IS NOT NULL'
   );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS task_public_status_events (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      from_status VARCHAR(64),
+      to_status VARCHAR(64) NOT NULL,
+      source VARCHAR(40) NOT NULL DEFAULT 'system',
+      note TEXT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   await pool.query(
-    `CREATE INDEX IF NOT EXISTS idx_tasks_link_statusowy_token ON tasks(link_statusowy_token) WHERE link_statusowy_token IS NOT NULL`
+    'CREATE INDEX IF NOT EXISTS idx_task_public_status_events_task_created ON task_public_status_events(task_id, created_at)'
   );
 }
 
 const trackParamsSchema = z.object({
-  token: z.string().trim().min(1).max(120),
+  token: z.string().trim().min(20).max(96).regex(/^[a-zA-Z0-9_-]+$/),
 });
 
-function escHtml(s) {
-  return String(s || '')
+const STATUS_META = {
+  Nowe: { label: 'Zgloszenie przyjete', color: '#64748b' },
+  Wycena_Terenowa: { label: 'Oględziny / wycena', color: '#0284c7' },
+  Do_Zatwierdzenia: { label: 'Uzgadniamy szczegoly', color: '#d97706' },
+  Zaplanowane: { label: 'Zaplanowane', color: '#16a34a' },
+  W_Realizacji: { label: 'Realizacja w toku', color: '#2563eb' },
+  Zakonczone: { label: 'Zakonczone', color: '#15803d' },
+  Anulowane: { label: 'Anulowane', color: '#dc2626' },
+};
+
+const PUBLIC_STEPS = [
+  { status: 'Nowe', label: 'Przyjete' },
+  { status: 'Wycena_Terenowa', label: 'Wycena' },
+  { status: 'Zaplanowane', label: 'Termin' },
+  { status: 'W_Realizacji', label: 'Prace' },
+  { status: 'Zakonczone', label: 'Gotowe' },
+];
+
+function escHtml(value) {
+  return String(value || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
 
-const STATUS_META = {
-  Nowe:               { label: 'Zgłoszenie przyjęte',       color: '#64748b', icon: '📋' },
-  Do_Zatwierdzenia:   { label: 'Oczekuje na potwierdzenie', color: '#d97706', icon: '⏳' },
-  Zaplanowane:        { label: 'Zaplanowane',               color: '#16a34a', icon: '📅' },
-  W_Realizacji:       { label: 'Realizacja w toku',         color: '#2563eb', icon: '🔧' },
-  Zakonczone:         { label: 'Zakończone',                color: '#15803d', icon: '✅' },
-  Anulowane:          { label: 'Anulowane',                 color: '#dc2626', icon: '❌' },
-};
-
-function formatDate(val) {
-  if (!val) return null;
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+function formatDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function renderPage({ task, ekipaName, oddzialTelefon, oddzialNazwa }) {
-  const meta = STATUS_META[task.status] || { label: task.status, color: '#64748b', icon: '📋' };
-  const dateStr = formatDate(task.data_planowana);
-  const isClosed = task.status === 'Zakonczone' || task.status === 'Anulowane';
+function formatDateTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
-  const timeWindowHtml = task.okno_od && task.okno_do
-    ? `<p class="detail"><span class="lbl">Godziny:</span> ${escHtml(task.okno_od)}–${escHtml(task.okno_do)}</p>`
-    : task.godzina_planowana
-      ? `<p class="detail"><span class="lbl">Godz.:</span> ok. ${escHtml(String(task.godzina_planowana).slice(0, 5))}</p>`
-      : '';
+function statusLabel(status) {
+  return STATUS_META[status]?.label || String(status || 'Status');
+}
 
-  const teamHtml = ekipaName && ['W_Realizacji', 'Zaplanowane'].includes(task.status)
-    ? `<p class="detail"><span class="lbl">Ekipa:</span> ${escHtml(ekipaName)}</p>`
-    : '';
+function publicTimeline(task, events) {
+  const rows = Array.isArray(events) && events.length
+    ? events.map((event) => ({
+      status: event.to_status,
+      label: statusLabel(event.to_status),
+      at: event.created_at,
+      note: event.note || null,
+    }))
+    : [{ status: task.status, label: statusLabel(task.status), at: task.updated_at || task.created_at, note: null }];
 
-  const contactHtml = oddzialTelefon
-    ? `<a class="tel-btn" href="tel:${escHtml(oddzialTelefon)}">📞&nbsp;Zadzwoń: ${escHtml(oddzialTelefon)}</a>`
-    : '';
+  return rows
+    .filter((row) => row.status)
+    .map((row) => ({
+      status: row.status,
+      label: row.label,
+      at: row.at || null,
+      note: row.note || null,
+    }));
+}
 
-  const progressSteps = [
-    { key: 'Nowe',             label: 'Przyjęte' },
-    { key: 'Zaplanowane',      label: 'Zaplanowane' },
-    { key: 'W_Realizacji',     label: 'W realizacji' },
-    { key: 'Zakonczone',       label: 'Zakończone' },
-  ];
-  const ORDER = ['Nowe', 'Do_Zatwierdzenia', 'Zaplanowane', 'W_Realizacji', 'Zakonczone'];
-  const currentIdx = ORDER.indexOf(task.status);
-  const progressHtml = isClosed && task.status !== 'Zakonczone' ? '' : progressSteps.map((s) => {
-    const stepIdx = ORDER.indexOf(s.key);
-    const done  = stepIdx < currentIdx || task.status === 'Zakonczone';
-    const active = s.key === task.status || (task.status === 'Do_Zatwierdzenia' && s.key === 'Zaplanowane' && stepIdx === 2);
-    const cls = done ? 'step done' : active ? 'step active' : 'step';
-    return `<div class="${cls}"><div class="dot"></div><span>${escHtml(s.label)}</span></div>`;
+function publicPayload(task, events) {
+  const address = [task.adres, task.miasto].filter(Boolean).join(', ') || null;
+  const hasPin = task.pin_lat != null && task.pin_lng != null;
+  return {
+    task: {
+      id: task.id,
+      status: task.status,
+      status_label: statusLabel(task.status),
+      service: task.typ_uslugi || null,
+      planned_date: task.data_planowana || null,
+      planned_date_label: formatDate(task.data_planowana),
+      address,
+      branch: {
+        name: task.oddzial_nazwa || null,
+        phone: task.oddzial_telefon || null,
+      },
+      team_visible: ['Zaplanowane', 'W_Realizacji'].includes(task.status) ? (task.ekipa_nazwa || null) : null,
+      map: hasPin ? {
+        lat: Number(task.pin_lat),
+        lng: Number(task.pin_lng),
+        url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${task.pin_lat},${task.pin_lng}`)}`,
+      } : null,
+    },
+    timeline: publicTimeline(task, events),
+  };
+}
+
+function renderPage(payload) {
+  const task = payload.task;
+  const meta = STATUS_META[task.status] || STATUS_META.Nowe;
+  const currentIndex = PUBLIC_STEPS.findIndex((step) => step.status === task.status);
+  const effectiveIndex = task.status === 'Do_Zatwierdzenia' ? 1 : currentIndex;
+  const stepsHtml = task.status === 'Anulowane' ? '' : PUBLIC_STEPS.map((step, index) => {
+    const done = index < effectiveIndex || task.status === 'Zakonczone';
+    const active = step.status === task.status || (task.status === 'Do_Zatwierdzenia' && step.status === 'Wycena_Terenowa');
+    return `<div class="step ${done ? 'done' : ''} ${active ? 'active' : ''}"><span></span><small>${escHtml(step.label)}</small></div>`;
   }).join('');
+  const timelineHtml = payload.timeline.map((row) => (
+    `<li><strong>${escHtml(row.label)}</strong>${row.at ? `<time>${escHtml(formatDateTime(row.at))}</time>` : ''}${row.note ? `<p>${escHtml(row.note)}</p>` : ''}</li>`
+  )).join('');
+  const mapHtml = task.map
+    ? `<a class="map" href="${escHtml(task.map.url)}" target="_blank" rel="noreferrer">Otworz mape dojazdu</a>`
+    : '';
+  const phoneHtml = task.branch.phone
+    ? `<a class="tel" href="tel:${escHtml(task.branch.phone)}">Zadzwon: ${escHtml(task.branch.phone)}</a>`
+    : '';
 
-  return `<!DOCTYPE html>
+  return `<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Status zlecenia — ARBOR</title>
+<title>Status zlecenia ARBOR</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;min-height:100vh;padding:20px 16px 40px}
-.card{background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,.08);max-width:480px;margin:0 auto;overflow:hidden}
-.header{background:#1a2e44;color:#fff;padding:20px 24px}
-.header h1{font-size:17px;font-weight:600;letter-spacing:.3px}
-.header p{font-size:13px;color:#94a3b8;margin-top:4px}
-.status-badge{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:24px;color:#fff;font-weight:600;font-size:15px;margin:20px 24px 0}
-.body{padding:20px 24px 24px}
-.detail{margin-bottom:10px;font-size:15px;color:#334155}
-.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8;display:block;margin-bottom:2px}
-.detail strong{font-size:17px;color:#0f172a}
-.divider{height:1px;background:#f1f5f9;margin:16px 0}
-/* Progress */
-.progress{display:flex;justify-content:space-between;align-items:flex-start;margin:20px 0 0;gap:4px}
-.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:#94a3b8;text-align:center}
-.dot{width:20px;height:20px;border-radius:50%;border:2px solid #cbd5e1;background:#fff;flex-shrink:0}
-.step.done .dot{background:#16a34a;border-color:#16a34a}
-.step.done{color:#16a34a}
-.step.active .dot{background:#2563eb;border-color:#2563eb;box-shadow:0 0 0 3px #bfdbfe}
-.step.active{color:#2563eb;font-weight:600}
-/* Tel button */
-.tel-btn{display:block;background:#1a2e44;color:#fff;text-align:center;padding:13px;border-radius:10px;font-size:15px;font-weight:600;text-decoration:none;margin-top:20px}
-.tel-btn:hover{background:#243b55}
-.footer{text-align:center;margin-top:20px;font-size:12px;color:#94a3b8}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#eef2f6;color:#172033;padding:20px 14px 34px}.shell{max-width:560px;margin:0 auto;background:#fff;border:1px solid #d9e1ea;border-radius:14px;overflow:hidden;box-shadow:0 16px 44px rgba(23,32,51,.12)}header{background:#173525;color:#fff;padding:22px 24px}header h1{font-size:19px;margin:0 0 4px}header p{margin:0;color:#b9d5c4;font-size:13px}.body{padding:22px 24px}.badge{display:inline-flex;background:${escHtml(meta.color)};color:#fff;border-radius:999px;padding:9px 14px;font-weight:800;font-size:14px;margin-bottom:18px}.field{margin:0 0 14px}.field span{display:block;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}.field strong{font-size:17px}.steps{display:flex;gap:6px;margin:22px 0}.step{flex:1;text-align:center;color:#94a3b8;font-size:11px}.step span{display:block;width:18px;height:18px;border:2px solid #cbd5e1;border-radius:50%;margin:0 auto 6px;background:#fff}.step.done span{background:#16a34a;border-color:#16a34a}.step.done{color:#15803d}.step.active span{background:#2563eb;border-color:#2563eb;box-shadow:0 0 0 4px #dbeafe}.step.active{color:#1d4ed8;font-weight:800}.actions{display:grid;gap:10px;margin:18px 0}.tel,.map{display:block;text-decoration:none;text-align:center;border-radius:9px;padding:12px 14px;font-weight:800}.tel{background:#173525;color:#fff}.map{background:#edf7ef;color:#173525;border:1px solid #b9d5c4}.timeline{border-top:1px solid #e2e8f0;margin-top:20px;padding-top:18px}.timeline h2{font-size:15px;margin:0 0 10px}.timeline ul{list-style:none;margin:0;padding:0}.timeline li{padding:10px 0;border-bottom:1px solid #edf2f7}.timeline strong{display:block}.timeline time{display:block;color:#64748b;font-size:12px;margin-top:2px}.timeline p{margin:5px 0 0;color:#475569;font-size:13px}.foot{text-align:center;color:#64748b;font-size:12px;margin:16px auto 0;max-width:520px}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="header">
-    <h1>ARBOR — status zlecenia #${escHtml(String(task.id))}</h1>
-    <p>${escHtml(oddzialNazwa || 'Firma ARBOR')}</p>
-  </div>
-  <div style="background:${escHtml(meta.color)};display:inline-flex;align-items:center;gap:8px;padding:10px 20px;color:#fff;font-weight:600;font-size:15px;margin:20px 24px 0;border-radius:24px">
-    <span>${meta.icon}</span><span>${escHtml(meta.label)}</span>
-  </div>
-  <div class="body">
-    <p class="detail"><span class="lbl">Usługa</span><strong>${escHtml(task.typ_uslugi || '—')}</strong></p>
-    <p class="detail"><span class="lbl">Adres</span>${escHtml([task.adres, task.miasto].filter(Boolean).join(', ') || '—')}</p>
-    ${dateStr ? `<p class="detail"><span class="lbl">Planowany termin</span>${escHtml(dateStr)}</p>` : ''}
-    ${timeWindowHtml}
-    ${teamHtml}
-    ${progressHtml ? `<div class="divider"></div><div class="progress">${progressHtml}</div>` : ''}
-    ${contactHtml}
-  </div>
-</div>
-<p class="footer">Masz pytania? Zadzwoń do nas ${oddzialTelefon ? '(' + escHtml(oddzialTelefon) + ')' : ''}.<br/>Dziękujemy za skorzystanie z usług ARBOR.</p>
+<main class="shell">
+  <header><h1>ARBOR - status zlecenia #${escHtml(task.id)}</h1><p>${escHtml(task.branch.name || 'Centrum obslugi')}</p></header>
+  <section class="body">
+    <div class="badge">${escHtml(task.status_label)}</div>
+    <p class="field"><span>Usluga</span><strong>${escHtml(task.service || 'Usluga terenowa')}</strong></p>
+    <p class="field"><span>Adres</span>${escHtml(task.address || 'Adres zostanie potwierdzony')}</p>
+    ${task.planned_date_label ? `<p class="field"><span>Planowany termin</span>${escHtml(task.planned_date_label)}</p>` : ''}
+    ${task.team_visible ? `<p class="field"><span>Ekipa</span>${escHtml(task.team_visible)}</p>` : ''}
+    ${stepsHtml ? `<div class="steps">${stepsHtml}</div>` : ''}
+    <div class="actions">${mapHtml}${phoneHtml}</div>
+    <div class="timeline"><h2>Historia statusow</h2><ul>${timelineHtml}</ul></div>
+  </section>
+</main>
+<p class="foot">Link zawiera prywatny token. Nie udostepnia danych finansowych ani wewnetrznych notatek.</p>
 </body>
 </html>`;
 }
 
 router.get('/:token', validateParams(trackParamsSchema), async (req, res) => {
   try {
-    await ensureTokenColumn();
-    const { token } = req.params;
-    const isNumeric = /^\d+$/.test(token);
+    await ensurePublicStatusTables();
+    const taskResult = await pool.query(
+      `SELECT t.id, t.status, t.typ_uslugi, t.adres, t.miasto, t.data_planowana,
+              t.created_at, t.updated_at, t.pin_lat, t.pin_lng,
+              o.telefon AS oddzial_telefon, o.nazwa AS oddzial_nazwa,
+              e.nazwa AS ekipa_nazwa
+         FROM tasks t
+         LEFT JOIN branches o ON t.oddzial_id = o.id
+         LEFT JOIN teams e ON t.ekipa_id = e.id
+        WHERE t.link_statusowy_token = $1
+        LIMIT 1`,
+      [req.params.token]
+    );
 
-    // Look up by token first, then by numeric id as fallback
-    let rows;
-    if (isNumeric) {
-      ({ rows } = await pool.query(
-        `SELECT t.id, t.status, t.typ_uslugi, t.adres, t.miasto,
-                t.data_planowana, t.klient_nazwa,
-                t.godzina_planowana, t.link_statusowy_token,
-                o.telefon AS oddzial_telefon, o.nazwa AS oddzial_nazwa,
-                e.nazwa AS ekipa_nazwa
-         FROM tasks t
-         LEFT JOIN oddzialy o ON t.oddzial_id = o.id
-         LEFT JOIN teams e ON t.ekipa_id = e.id
-         WHERE t.link_statusowy_token = $1 OR t.id = $2
-         ORDER BY (t.link_statusowy_token = $1) DESC
-         LIMIT 1`,
-        [token, parseInt(token, 10)]
-      ));
-    } else {
-      ({ rows } = await pool.query(
-        `SELECT t.id, t.status, t.typ_uslugi, t.adres, t.miasto,
-                t.data_planowana, t.klient_nazwa,
-                t.godzina_planowana, t.link_statusowy_token,
-                o.telefon AS oddzial_telefon, o.nazwa AS oddzial_nazwa,
-                e.nazwa AS ekipa_nazwa
-         FROM tasks t
-         LEFT JOIN oddzialy o ON t.oddzial_id = o.id
-         LEFT JOIN teams e ON t.ekipa_id = e.id
-         WHERE t.link_statusowy_token = $1
-         LIMIT 1`,
-        [token]
-      ));
+    if (!taskResult.rows.length) {
+      return res.status(404).type('html').send('<!doctype html><html lang="pl"><body><h1>ARBOR</h1><p>Link statusu jest nieprawidlowy albo wygasl.</p></body></html>');
     }
 
-    if (!rows.length) {
-      return res.status(404).type('html').send(`<!DOCTYPE html>
-<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Nie znaleziono — ARBOR</title>
-<style>body{font-family:system-ui;padding:40px 16px;text-align:center;background:#f1f5f9;color:#334155}h1{color:#1a2e44}p{margin-top:12px;color:#64748b}</style>
-</head><body><h1>ARBOR</h1><p>Nie znaleziono zlecenia.<br/>Sprawdź link w SMS lub skontaktuj się z nami.</p></body></html>`);
-    }
+    const task = taskResult.rows[0];
+    const eventsResult = await pool.query(
+      `SELECT to_status, note, created_at
+         FROM task_public_status_events
+        WHERE task_id = $1
+        ORDER BY created_at ASC, id ASC`,
+      [task.id]
+    );
+    const payload = publicPayload(task, eventsResult.rows);
 
-    const task = rows[0];
-    const html = renderPage({
-      task,
-      ekipaName: task.ekipa_nazwa,
-      oddzialTelefon: task.oddzial_telefon,
-      oddzialNazwa: task.oddzial_nazwa,
-    });
-    res.type('html').send(html);
-  } catch (e) {
-    logger.error('track GET', { message: e.message });
-    res.status(500).type('html').send('<p>Błąd serwera. Spróbuj ponownie za chwilę.</p>');
+    if (String(req.get('accept') || '').includes('application/json')) {
+      return res.json(payload);
+    }
+    return res.type('html').send(renderPage(payload));
+  } catch (error) {
+    logger.error('track.status', { message: error.message });
+    return res.status(500).type('html').send('<p>Blad serwera. Sprobuj ponownie za chwile.</p>');
   }
 });
 

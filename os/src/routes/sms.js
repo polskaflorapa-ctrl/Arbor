@@ -6,7 +6,13 @@ const { env } = require('../config/env');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { z } = require('zod');
 
-const { formatSmsPlanParts } = require('../services/smsTemplates');
+const {
+  formatSmsPlanParts,
+  knownSmsTemplateKey,
+  listSmsStatusTemplates,
+  renderSmsStatusTemplate,
+  upsertSmsStatusTemplate,
+} = require('../services/smsTemplates');
 const { sendSmsGateway, activeSmsProvider } = require('../services/smsGateway');
 const { appendCrmMessageForContact } = require('../services/crmInbox');
 
@@ -36,6 +42,20 @@ const smsBulkSchema = z.object({
   data: z.string().max(20).optional(),
 });
 
+const smsTemplatesQuerySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive().optional(),
+});
+
+const smsTemplateParamsSchema = z.object({
+  key: z.string().trim().min(1).max(80),
+});
+
+const smsTemplateBodySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive().optional().nullable(),
+  body: z.string().trim().min(1).max(1000),
+  active: z.boolean().optional(),
+});
+
 const smsHistoriaQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
@@ -55,6 +75,13 @@ function parseHistoriaDate(s) {
 }
 
 // Thin wrapper — historia jest zapisywana przez smsGateway
+function publicTrackUrl(task) {
+  const token = task?.link_statusowy_token;
+  if (!token) return null;
+  const base = String(env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  return base ? `${base}/track/${token}` : `/track/${token}`;
+}
+
 const _logSmsHistory = async (task_id, telefon, tresc, status, sid = null, error = null) => {
   try {
     await pool.query(
@@ -87,6 +114,64 @@ const SZABLONY = {
     return `Dzień dobry! Potwierdzamy przyjęcie zlecenia: ${z.typ_uslugi} pod adresem ${z.adres}, ${z.miasto}. Planowany termin: ${dateStr}, ok. ${windowStr}. Zespół ARBOR`;
   },
 };
+
+SZABLONY.w_drodze = (z) => (
+  `Ekipa ARBOR jest w drodze do Panstwa. Szacowany czas przyjazdu: ok. 30 min. Zlecenie: ${z.typ_uslugi}, ${z.adres}.${publicTrackUrl(z) ? ` Sledzenie: ${publicTrackUrl(z)}` : ''}`
+);
+
+function canManageSmsTemplates(user) {
+  return ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
+}
+
+function templateScopeForUser(user, requestedOddzialId) {
+  if (user?.rola === 'Kierownik') return user.oddzial_id || null;
+  return requestedOddzialId || null;
+}
+
+async function renderTaskSms(typ, task, context = {}) {
+  const rendered = await renderSmsStatusTemplate(pool, { templateKey: typ, task, context });
+  return rendered?.body || null;
+}
+
+router.get('/templates', authMiddleware, validateQuery(smsTemplatesQuerySchema), async (req, res) => {
+  if (!canManageSmsTemplates(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  try {
+    const oddzialId = templateScopeForUser(req.user, req.query.oddzial_id);
+    const result = await listSmsStatusTemplates(pool, { oddzialId });
+    res.json(result);
+  } catch (err) {
+    logger.error('sms.templates.list', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put(
+  '/templates/:key',
+  authMiddleware,
+  validateParams(smsTemplateParamsSchema),
+  validateBody(smsTemplateBodySchema),
+  async (req, res) => {
+    if (!canManageSmsTemplates(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    const templateKey = req.params.key;
+    if (!knownSmsTemplateKey(templateKey)) {
+      return res.status(400).json({ error: req.tv('errors.sms.unknownType', { typ: templateKey }) });
+    }
+    try {
+      const oddzialId = templateScopeForUser(req.user, req.body.oddzial_id);
+      const row = await upsertSmsStatusTemplate(pool, {
+        templateKey,
+        oddzialId,
+        body: req.body.body,
+        active: req.body.active !== false,
+        userId: req.user.id,
+      });
+      res.json(row);
+    } catch (err) {
+      logger.error('sms.templates.upsert', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
 
 // POST /api/sms/wyslij
 router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req, res) => {
@@ -136,12 +221,9 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
     if (zRes.rows.length === 0) return res.status(404).json({ error: req.t('errors.sms.taskNotFound') });
     const z = zRes.rows[0];
     if (!z.klient_telefon) return res.status(400).json({ error: req.t('errors.sms.clientPhoneMissing') });
-    if (!SZABLONY[typ]) return res.status(400).json({ error: req.tv('errors.sms.unknownType', { typ }) });
+    if (!knownSmsTemplateKey(typ)) return res.status(400).json({ error: req.tv('errors.sms.unknownType', { typ }) });
     const data = z.data_planowana ? new Date(z.data_planowana).toLocaleDateString('pl-PL') : '-';
-    let tresc = '';
-    if (typ === 'problem' && powod) tresc = SZABLONY[typ](z, powod);
-    else if (['przypomnienie', 'potwierdzenie', 'zaplanowane'].includes(typ)) tresc = SZABLONY[typ](z, data);
-    else tresc = SZABLONY[typ](z);
+    const tresc = await renderTaskSms(typ, z, { powod, data });
     const result = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: id });
     if (!result.ok) {
       logger.error('Blad SMS /zlecenie/:id', { error: result.error, requestId: req.requestId });
@@ -265,8 +347,9 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
     // ensureTableExists removed — handled by smsGateway on first send
     if (!['Prezes', 'Dyrektor', 'Kierownik'].includes(req.user.rola)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     const { typ, data } = req.body;
+    if (!knownSmsTemplateKey(typ)) return res.status(400).json({ error: req.tv('errors.sms.unknownType', { typ }) });
     const targetDate = data || new Date().toISOString().split('T')[0];
-    let query = `SELECT t.*, b.telefon as oddzial_telefon FROM tasks t LEFT JOIN branches b ON t.oddzial_id = b.id
+    let query = `SELECT t.*, b.telefon as oddzial_telefon, b.nazwa as oddzial_nazwa FROM tasks t LEFT JOIN branches b ON t.oddzial_id = b.id
       WHERE t.data_planowana::date = $1 AND t.klient_telefon IS NOT NULL AND t.klient_telefon != ''`;
     let params = [targetDate];
     if (req.user.rola === 'Kierownik') { query += ` AND t.oddzial_id = $2`; params.push(req.user.oddzial_id); }
@@ -278,9 +361,7 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
     const bledy = [];
     for (const z of zlecenia) {
       const dataFormat = new Date(z.data_planowana).toLocaleDateString('pl-PL');
-      const tresc = ['przypomnienie', 'potwierdzenie', 'zaplanowane'].includes(typ)
-        ? SZABLONY[typ](z, dataFormat)
-        : (SZABLONY[typ] ? SZABLONY[typ](z) : `Informacja od ARBOR: zlecenie ${z.typ_uslugi} pod adresem ${z.adres}.`);
+      const tresc = await renderTaskSms(typ, z, { data: dataFormat });
       const r = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: z.id });
       if (r.ok) { wyslane++; } else { bledy.push({ telefon: z.klient_telefon, error: r.error }); }
       // throttle — Zadarma ma limit ~10 SMS/s, Twilio podobnie

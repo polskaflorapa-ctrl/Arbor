@@ -100,4 +100,117 @@ describe('SMS CRM inbox bridge', () => {
       createdBy: 7,
     }));
   });
+
+  it('lists default and configured SMS templates for managers', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.startsWith('CREATE TABLE') || text.startsWith('CREATE UNIQUE INDEX') || text.startsWith('CREATE INDEX')) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (text.includes('SELECT * FROM sms_status_templates')) {
+        return {
+          rows: [{ id: 12, oddzial_id: null, template_key: 'zaplanowane', body: 'Global {{service}}', active: true }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .get('/api/sms/templates?oddzial_id=3')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.defaults.zaplanowane).toContain('{{status_url}}');
+    expect(res.body.templates).toEqual([
+      expect.objectContaining({ template_key: 'zaplanowane', body: 'Global {{service}}' }),
+    ]);
+  });
+
+  it('saves branch SMS template configuration', async () => {
+    pool.query.mockImplementation(async (sql, params) => {
+      const text = String(sql);
+      if (text.startsWith('CREATE TABLE') || text.startsWith('CREATE UNIQUE INDEX') || text.startsWith('CREATE INDEX')) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (text.includes('INSERT INTO sms_status_templates')) {
+        return {
+          rows: [{
+            id: 44,
+            oddzial_id: params[0],
+            template_key: params[1],
+            body: params[2],
+            active: params[3],
+            updated_by: params[4],
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .put('/api/sms/templates/w_drodze')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ oddzial_id: 3, body: 'Oddzialowy SMS {{service}} {{status_url}}', active: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      oddzial_id: 3,
+      template_key: 'w_drodze',
+      body: 'Oddzialowy SMS {{service}} {{status_url}}',
+      active: true,
+      updated_by: 7,
+    }));
+  });
+
+  it('uses configured branch SMS template when sending task status', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('FROM tasks t LEFT JOIN branches b')) {
+        return {
+          rows: [{
+            id: 88,
+            oddzial_id: 3,
+            klient_nazwa: 'Maria',
+            klient_telefon: '+48999111222',
+            klient_email: 'maria@example.com',
+            typ_uslugi: 'Wycinka',
+            adres: 'Lesna 1',
+            miasto: 'Warszawa',
+            link_statusowy_token: 'tok_sms_12345678901234567890',
+            data_planowana: '2026-05-29T08:00:00.000Z',
+            oddzial_telefon: '+48220000000',
+            oddzial_nazwa: 'Warszawa',
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.startsWith('CREATE TABLE') || text.startsWith('CREATE UNIQUE INDEX') || text.startsWith('CREATE INDEX')) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (text.includes('FROM sms_status_templates')) {
+        return {
+          rows: [{ id: 5, oddzial_id: 3, template_key: 'w_drodze', body: 'Custom {{service}} {{status_url}}' }],
+          rowCount: 1,
+        };
+      }
+      if (text.startsWith('UPDATE tasks SET status')) {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/sms/zlecenie/88')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ typ: 'w_drodze' });
+
+    expect(res.status).toBe(200);
+    expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
+      to: '+48999111222',
+      body: 'Custom Wycinka /track/tok_sms_12345678901234567890',
+      taskId: 88,
+    }));
+  });
 });

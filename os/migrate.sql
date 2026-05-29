@@ -140,7 +140,36 @@ ALTER TABLE tasks ADD COLUMN IF NOT EXISTS wyceniajacy_id INTEGER REFERENCES use
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lat DECIMAL(10,7);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pin_lng DECIMAL(10,7);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS ankieta_uproszczona BOOLEAN DEFAULT false;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS link_statusowy_token VARCHAR(64);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_link_statusowy_token ON tasks(link_statusowy_token) WHERE link_statusowy_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_wyceniajacy ON tasks(wyceniajacy_id);
+
+CREATE TABLE IF NOT EXISTS task_public_status_events (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  from_status VARCHAR(64),
+  to_status VARCHAR(64) NOT NULL,
+  source VARCHAR(40) NOT NULL DEFAULT 'system',
+  note TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_task_public_status_events_task_created ON task_public_status_events(task_id, created_at);
+
+CREATE TABLE IF NOT EXISTS sms_status_templates (
+  id SERIAL PRIMARY KEY,
+  oddzial_id INTEGER REFERENCES branches(id) ON DELETE CASCADE,
+  template_key VARCHAR(80) NOT NULL,
+  body TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_status_templates_scope_key
+  ON sms_status_templates (COALESCE(oddzial_id, 0), template_key);
+CREATE INDEX IF NOT EXISTS idx_sms_status_templates_active ON sms_status_templates(template_key, active);
 
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_at TIMESTAMPTZ;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kommo_last_sync_status VARCHAR(32);

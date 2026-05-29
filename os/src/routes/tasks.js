@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const logger = require('../config/logger');
@@ -47,6 +48,81 @@ const {
 } = require('../services/upload-storage');
 
 const router = express.Router();
+
+function generatePublicStatusToken() {
+  return crypto.randomBytes(24).toString('base64url');
+}
+
+function publicStatusBaseUrl() {
+  const base = String(env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+  return base || null;
+}
+
+function publicStatusUrl(token) {
+  const base = publicStatusBaseUrl();
+  return base && token ? `${base}/track/${token}` : null;
+}
+
+async function ensurePublicStatusLinkTables(db = pool) {
+  await db.query('ALTER TABLE tasks ADD COLUMN IF NOT EXISTS link_statusowy_token VARCHAR(64)');
+  await db.query(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_link_statusowy_token ON tasks(link_statusowy_token) WHERE link_statusowy_token IS NOT NULL'
+  );
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS task_public_status_events (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      from_status VARCHAR(64),
+      to_status VARCHAR(64) NOT NULL,
+      source VARCHAR(40) NOT NULL DEFAULT 'system',
+      note TEXT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    'CREATE INDEX IF NOT EXISTS idx_task_public_status_events_task_created ON task_public_status_events(task_id, created_at)'
+  );
+}
+
+async function ensureTaskPublicStatusToken(db, taskId) {
+  await ensurePublicStatusLinkTables(db);
+  const current = await db.query('SELECT link_statusowy_token FROM tasks WHERE id = $1', [taskId]);
+  if (current.rows[0]?.link_statusowy_token) return current.rows[0].link_statusowy_token;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const token = generatePublicStatusToken();
+    const updated = await db.query(
+      `UPDATE tasks
+          SET link_statusowy_token = COALESCE(link_statusowy_token, $1),
+              updated_at = NOW()
+        WHERE id = $2
+        RETURNING link_statusowy_token`,
+      [token, taskId]
+    );
+    if (updated.rows[0]?.link_statusowy_token) return updated.rows[0].link_statusowy_token;
+  }
+  return null;
+}
+
+async function recordTaskPublicStatusEvent(db, {
+  taskId,
+  fromStatus = null,
+  toStatus,
+  source = 'system',
+  note = null,
+  userId = null,
+}) {
+  if (!taskId || !toStatus) return null;
+  await ensurePublicStatusLinkTables(db);
+  const result = await db.query(
+    `INSERT INTO task_public_status_events (
+       task_id, from_status, to_status, source, note, created_by
+     ) VALUES ($1,$2,$3,$4,$5,$6)
+     RETURNING *`,
+    [taskId, fromStatus || null, toStatus, source, note || null, userId || null]
+  );
+  return result.rows[0] || null;
+}
 
 let _kommoTaskCols = false;
 async function ensureKommoTaskColumns() {
@@ -433,7 +509,17 @@ function taskKommoPayloadSql() {
       COALESCE(op.koszt_sprzetu, 0)::numeric AS koszt_sprzetu,
       COALESCE(op.koszt_paliwa, 0)::numeric AS koszt_paliwa,
       COALESCE(op.koszt_utylizacji, 0)::numeric AS koszt_utylizacji,
-      COALESCE(op.koszt_inne, 0)::numeric AS koszt_inne
+      COALESCE(op.koszt_inne, 0)::numeric AS koszt_inne,
+      COALESCE(wl.work_logs_count, 0)::int AS work_logs_count,
+      COALESCE(wl.work_total_minutes, 0)::int AS work_total_minutes,
+      wl.work_started_at,
+      wl.work_finished_at,
+      COALESCE(wl.work_logs, '[]'::json) AS work_logs,
+      COALESCE(ph.photos_count, 0)::int AS photos_count,
+      COALESCE(ph.photo_counts_by_type, '{}'::json) AS photo_counts_by_type,
+      COALESCE(ph.photos, '[]'::json) AS photos,
+      COALESCE(doc.documents_count, 0)::int AS documents_count,
+      COALESCE(doc.documents, '[]'::json) AS documents
     FROM tasks t
     LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
     LEFT JOIN LATERAL (
@@ -466,6 +552,81 @@ function taskKommoPayloadSql() {
       FROM task_operational_costs c
       WHERE c.task_id = t.id
     ) op ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*)::int AS work_logs_count,
+        COALESCE(SUM(COALESCE(w.czas_pracy_minuty, EXTRACT(EPOCH FROM (w.end_time - w.start_time)) / 60)), 0)::int AS work_total_minutes,
+        MIN(w.start_time) AS work_started_at,
+        MAX(w.end_time) AS work_finished_at,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', w.id,
+              'user_id', w.user_id,
+              'start_time', w.start_time,
+              'end_time', w.end_time,
+              'minutes', COALESCE(w.czas_pracy_minuty, EXTRACT(EPOCH FROM (w.end_time - w.start_time)) / 60),
+              'start_lat', w.start_lat,
+              'start_lng', w.start_lng,
+              'end_lat', w.end_lat,
+              'end_lng', w.end_lng
+            )
+            ORDER BY w.start_time
+          ) FILTER (WHERE w.id IS NOT NULL),
+          '[]'::json
+        ) AS work_logs
+      FROM work_logs w
+      WHERE w.task_id = t.id
+    ) wl ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*)::int AS photos_count,
+        COALESCE(json_object_agg(photo_type, c), '{}'::json) AS photo_counts_by_type,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', id,
+              'typ', typ,
+              'url', url,
+              'sciezka', sciezka,
+              'opis', opis,
+              'data_dodania', data_dodania
+            )
+            ORDER BY data_dodania DESC
+          ) FILTER (WHERE id IS NOT NULL),
+          '[]'::json
+        ) AS photos
+      FROM (
+        SELECT
+          p.*,
+          COALESCE(NULLIF(p.typ, ''), 'inne') AS photo_type,
+          COUNT(*) OVER (PARTITION BY COALESCE(NULLIF(p.typ, ''), 'inne')) AS c
+        FROM photos p
+        WHERE p.task_id = t.id
+        ORDER BY p.data_dodania DESC
+        LIMIT 24
+      ) p
+    ) ph ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*)::int AS documents_count,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', d.id,
+              'nazwa', d.nazwa,
+              'kategoria', d.kategoria,
+              'sciezka', d.sciezka,
+              'remote_url', d.remote_url,
+              'source_provider', d.source_provider
+            )
+            ORDER BY d.created_at DESC
+          ) FILTER (WHERE d.id IS NOT NULL),
+          '[]'::json
+        ) AS documents
+      FROM task_documents d
+      WHERE d.task_id = t.id
+    ) doc ON true
     WHERE t.id = $1`;
 }
 
@@ -2016,6 +2177,8 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
     const taskOpis = toStr(opis) || taskOpisPracy;
     const taskNotes = [toStr(notatki_wewnetrzne), toStr(notatki)].filter(Boolean).join('\n\n') || null;
     const finalKierownikId = toInt(kierownik_id) || req.user.id;
+    const statusToken = generatePublicStatusToken();
+    await ensurePublicStatusLinkTables();
 
     // Branch ownership check: non-admin users can only assign teams from their own branch
     if (ekipa_id && !isDyrektorOrAdmin(req.user)) {
@@ -2034,15 +2197,15 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         typ_uslugi, priorytet, wartosc_planowana,
         czas_planowany_godziny, data_planowana, godzina_rozpoczecia,
         opis, opis_pracy, notatki_wewnetrzne, notatki, status, kierownik_id,
-        oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona,
+        oddzial_id, ekipa_id, wyceniajacy_id, pin_lat, pin_lng, ankieta_uproszczona, link_statusowy_token,
         wywoz, usuwanie_pni, czas_realizacji_godz, rebak, pila_wysiegniku,
         nozyce_dlugie, kosiarka, podkaszarka, lopata, mulczer, ilosc_osob, arborysta,
         wynik, budzet, rabat, kwota_minimalna, zrebki, drzewno
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41
+        $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42
       )
-      RETURNING id`,
+      RETURNING id, link_statusowy_token`,
       [
         klient_nazwa,
         toStr(klient_telefon),
@@ -2067,6 +2230,7 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
         toNum(pin_lat),
         toNum(pin_lng),
         ankieta_uproszczona === true,
+        statusToken,
         toBool(wywoz),
         toBool(usuwanie_pni),
         toNum(czas_realizacji_godz),
@@ -2088,6 +2252,13 @@ router.post('/nowe', authMiddleware, validateBody(taskCreateSchema), async (req,
       ]
     );
     const taskId = result.rows[0].id;
+    await recordTaskPublicStatusEvent(pool, {
+      taskId,
+      toStatus: initialStatus,
+      source: 'created',
+      note: 'Zlecenie przyjete',
+      userId: req.user.id,
+    }).catch((error) => logger.warn('tasks.public_status.created', { message: error.message, taskId }));
 
     let wycenaId = null;
     if (toInt(wyceniajacy_id)) {
@@ -2222,6 +2393,27 @@ router.get(
       res.json(buildKommoTaskPayload(result.rows[0], kommoActor(req)));
     } catch (err) {
       logger.error('Blad kommo-payload zlecenia', { message: err.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
+router.get(
+  '/:id/status-link',
+  authMiddleware,
+  validateParams(taskIdParamsSchema),
+  requireTaskAccess,
+  async (req, res) => {
+    try {
+      const token = await ensureTaskPublicStatusToken(pool, Number(req.params.id));
+      if (!token) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+      res.json({
+        task_id: Number(req.params.id),
+        token,
+        url: publicStatusUrl(token),
+      });
+    } catch (err) {
+      logger.error('Blad status-link zlecenia', { message: err.message, requestId: req.requestId });
       res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   }
@@ -2543,6 +2735,13 @@ router.patch(
           `UPDATE tasks SET status = 'Zaplanowane', updated_at = NOW() WHERE id = $1`,
           [taskId]
         );
+        await recordTaskPublicStatusEvent(pool, {
+          taskId,
+          fromStatus: row.status,
+          toStatus: 'Zaplanowane',
+          source: 'plan',
+          userId: req.user.id,
+        }).catch((error) => logger.warn('tasks.public_status.plan', { message: error.message, taskId }));
         promoted = true;
         workflowRow = await fetchTaskWorkflowRow(taskId).catch(() => null);
         hasWorkflowRow = Boolean(workflowRow?.id);
@@ -3607,6 +3806,15 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
        RETURNING id, status`,
       [toNum(ekipa_id), req.params.id, nextAssignedStatus, nextNotes]
     );
+    if (nextAssignedStatus !== task.status) {
+      await recordTaskPublicStatusEvent(pool, {
+        taskId: Number(req.params.id),
+        fromStatus: task.status,
+        toStatus: nextAssignedStatus,
+        source: 'assignment',
+        userId: req.user.id,
+      }).catch((error) => logger.warn('tasks.public_status.assign', { message: error.message, taskId: req.params.id }));
+    }
     const workflowRow = await fetchTaskWorkflowRow(req.params.id)
       .catch(() => update.rows[0] || { id: req.params.id, status: task.status });
     res.json({
@@ -3663,6 +3871,13 @@ router.put('/:id/status', authMiddleware, validateParams(taskIdParamsSchema), va
       return res.status(409).json(taskTransitionBlockedPayload(prevStatus, status, transitionBlockers));
     }
     await client.query('UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2', [status, taskId]);
+    await recordTaskPublicStatusEvent(client, {
+      taskId,
+      fromStatus: prevStatus,
+      toStatus: status,
+      source: 'manual',
+      userId: req.user.id,
+    });
     await client.query('COMMIT');
     await req.auditLog({
       action: 'task.status_change',
@@ -3843,6 +4058,12 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
       `UPDATE tasks SET status = 'W_Realizacji', data_rozpoczecia = COALESCE(data_rozpoczecia, NOW()) WHERE id = $1`,
       [req.params.id]
     );
+    await recordTaskPublicStatusEvent(client, {
+      taskId,
+      toStatus: 'W_Realizacji',
+      source: 'start',
+      userId: req.user.id,
+    });
     await client.query('COMMIT');
     res.json({ work_log_id: result.rows[0].id });
   } catch (err) {
@@ -3877,6 +4098,12 @@ router.post('/:id/stop', authMiddleware, validateParams(taskIdParamsSchema), val
       [toNum(lat), toNum(lng), work_log_id]
     );
     await client.query("UPDATE tasks SET status = 'Zakonczone' WHERE id = $1", [req.params.id]);
+    await recordTaskPublicStatusEvent(client, {
+      taskId,
+      toStatus: 'Zakonczone',
+      source: 'stop',
+      userId: req.user.id,
+    });
     await client.query('COMMIT');
     res.json({ message: 'Czas zapisany' });
   } catch (err) {
@@ -4073,6 +4300,13 @@ router.post(
          WHERE id = $3`,
         [net, notatki, taskId]
       );
+      await recordTaskPublicStatusEvent(client, {
+        taskId,
+        fromStatus: task.status,
+        toStatus: 'Zakonczone',
+        source: 'finish',
+        userId: req.user.id,
+      });
       if (isTeamScoped(req.user) && Array.isArray(req.body.zuzyte_materialy)) {
         try {
           await insertFinishMaterialUsageRows(client, taskId, req.user.id, req.body.zuzyte_materialy);

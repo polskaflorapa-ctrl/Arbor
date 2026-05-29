@@ -38,7 +38,10 @@
 - [x] **P0 Dispatcher diagnostics**: solver nie przypisuje zlecen lamiacych pojedyncze okno/capacity, a `unassigned` zwraca etykiety i szczegoly brakow sprzetu, kompetencji, okien oraz pojemnosci.
 - [x] **P0 Kommo configurable mapping UI**: `/api/kommo/config` zapisuje mapowania statusow i aliasow pol per `account_key`; panel Integracje ma edytor JSON, a inbound `task.sync` uzywa zapisanej konfiguracji.
 - [x] **P0 Kommo attachment binary copy**: opcja `copy_attachment_binaries_to_storage` pobiera zalacznik z Kommo, zapisuje kopie w upload storage ARBOR i zachowuje `remote_url` jako zrodlo.
-- [ ] **Nastepny pakiet**: ARBOR -> Kommo payload powinien dolaczac zdjecia, realny czas, materialy, koszty i link statusowy po zamknieciu zlecenia.
+- [x] **P0 Kommo outbound operational package**: `task.sync` ARBOR -> Kommo dolacza status URL, work logi, realny czas, zdjecia, dokumenty, materialy, koszty i marze.
+- [x] **P0 publiczny link statusowy klienta**: `/track/:token` wymaga prywatnego tokena, pokazuje bezpieczny zakres danych, mape, oddzialowy kontakt i historie statusow; `/api/tasks/:id/status-link` generuje link.
+- [x] **P0 szablony SMS per status/oddzial**: `/api/sms/templates` pozwala listowac i zapisywac szablony per status oraz oddzial, wysylka zlecenia uzywa konfiguracji oddzialowej z fallbackiem globalnym/default i podstawia publiczny link statusowy.
+- [ ] **Nastepny pakiet**: sledzenie dostarczenia SMS z provider webhook / status oraz widok bledow dostarczenia.
 
 ---
 
@@ -123,9 +126,9 @@ flowchart LR
 
 ## EPIC 5 — Komunikacja z klientem
 
-- [ ] **5.1** Szablony SMS w cyklu życia zlecenia (konfiguracja per status).
+- [x] **5.1** Szablony SMS w cyklu zycia zlecenia (konfiguracja per status). Backend ma `sms_status_templates`, endpointy list/save i renderowanie z fallbackiem default oraz `status_url`.
 - [ ] **5.2** Okna czasowe klienta (propozycja + akceptacja / odrzucenie).
-- [ ] **5.3** Link statusowy: token, mapa, historia statusów (publiczny endpoint + RODO).
+- [x] **5.3** Link statusowy: token, mapa, historia statusow (publiczny endpoint + RODO). `/track/:token` nie pozwala na wejscie po numeric ID, zwraca HTML/JSON, ukrywa dane finansowe i wewnetrzne, a historia pochodzi z `task_public_status_events`.
 - [ ] **5.4** Śledzenie dostarczenia SMS (provider webhook / status).
 
 ---
@@ -151,7 +154,7 @@ flowchart LR
 ## EPIC 8 — Kommo dwukierunkowo (produkt „jak w spec”)
 
 - [x] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". Inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke, zapisuje zalaczniki jako dokumenty, potrafi kopiowac binaria do storage ARBOR oraz ma `/api/kommo/config` i panel Integracje dla mapowan per konto Kommo.
-- [ ] **8.2** ARBOR → Kommo: status, zdjęcia, czas rzeczywisty, zużycie, kosztorys z marżą, link statusowy.
+- [x] **8.2** ARBOR -> Kommo: status, zdjecia, czas rzeczywisty, zuzycie, kosztorys z marza, link statusowy. `task.sync` buduje jedna paczke operacyjno-finansowa z `work_time`, `photos`, `documents`, `material_usage`, `financials`, `settlement` i `status_url`.
 - [ ] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. **Czesciowo:** ARBOR -> Kommo `task.sync` ma juz retry/dead-letter, a Kommo -> ARBOR ma idempotencje eventow.
 - [x] **8.4** Panel diagnostyczny sync (ostatni blad, HTTP, payload): API diagnostyczne + panel Integracje dla kolejki outbound i inbound konfliktow.
 
