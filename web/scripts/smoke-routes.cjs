@@ -24,6 +24,7 @@ const routes = [
   '/crm',
   '/crm/dashboard',
   '/crm/pipeline',
+  '/crm/inbox',
   '/klienci',
   '/telefonia',
   '/integracje',
@@ -54,6 +55,16 @@ const routes = [
   '/powiadomienia',
   '/zadania',
   '/arbor-os-spec',
+];
+
+const criticalMobileRoutes = [
+  '/dashboard',
+  '/crm/inbox',
+  '/zlecenia',
+  '/mapa-live',
+  '/telefonia',
+  '/rozliczenia-polowe',
+  '/rozliczenia-ekip',
 ];
 
 const user = {
@@ -200,12 +211,23 @@ async function main() {
     await send('Log.enable');
     await send('Page.enable');
     await send('Network.enable');
-    await send('Emulation.setDeviceMetricsOverride', {
-      width: 1440,
-      height: 1100,
-      deviceScaleFactor: 1,
-      mobile: false,
-    });
+    async function setViewport({ mobile = false } = {}) {
+      await send('Emulation.setDeviceMetricsOverride', mobile
+        ? {
+          width: 390,
+          height: 844,
+          deviceScaleFactor: 2,
+          mobile: true,
+          screenWidth: 390,
+          screenHeight: 844,
+        }
+        : {
+          width: 1440,
+          height: 1100,
+          deviceScaleFactor: 1,
+          mobile: false,
+        });
+    }
 
     const authScript = `
       localStorage.setItem('arbor-test-mode', 'true');
@@ -216,10 +238,12 @@ async function main() {
     await send('Page.addScriptToEvaluateOnNewDocument', { source: authScript });
     await send('Runtime.evaluate', { expression: authScript, awaitPromise: true });
 
+    await setViewport();
+
     const results = [];
     const failures = [];
 
-    for (const route of routes) {
+    async function checkRoute(route, { mobile = false } = {}) {
       const beforeEvents = events.length;
       await send('Runtime.evaluate', { expression: authScript, awaitPromise: true }).catch(() => {});
       await send('Page.navigate', { url: `${BASE}/#${route}` });
@@ -244,7 +268,11 @@ async function main() {
         .filter(Boolean)
         .filter((entry) => !entry.includes('[api:test-mode] generic mock fallback'));
 
-      const enriched = { ...result, consoleEvents: routeEvents.slice(0, 5) };
+      const enriched = {
+        ...result,
+        viewport: mobile ? 'mobile' : 'desktop',
+        consoleEvents: routeEvents.slice(0, 5),
+      };
       results.push(enriched);
 
       if (result.login || result.textLength < 40 || result.overflowX || routeEvents.some((entry) => !entry.includes('favicon'))) {
@@ -252,7 +280,24 @@ async function main() {
       }
     }
 
-    const report = { base: BASE, checked: routes.length, failures, results };
+    await setViewport();
+    for (const route of routes) {
+      await checkRoute(route);
+    }
+
+    await setViewport({ mobile: true });
+    for (const route of criticalMobileRoutes) {
+      await checkRoute(route, { mobile: true });
+    }
+
+    const report = {
+      base: BASE,
+      checked: results.length,
+      desktopRoutes: routes.length,
+      mobileRoutes: criticalMobileRoutes.length,
+      failures,
+      results,
+    };
     const outPath = path.join(__dirname, '..', '..', 'output', 'playwright', 'web-route-smoke-results.json');
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(report, null, 2));

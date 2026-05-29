@@ -40,6 +40,7 @@
     "status:web": "node ./scripts/status-web.cjs",
     "status:web:json": "node ./scripts/status-web.cjs --json",
     "smoke:routes": "node ./scripts/smoke-routes.cjs",
+    "smoke:platform": "node ./scripts/smoke-routes.cjs",
     "smoke:kommo:crm": "node ./scripts/smoke-kommo-crm.cjs"
   },
   "eslintConfig": {
