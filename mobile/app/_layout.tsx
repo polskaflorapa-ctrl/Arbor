@@ -6,8 +6,8 @@ import { ThemeProvider } from '../constants/ThemeContext';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useState } from 'react';
-import { InteractionManager, Platform } from 'react-native';
+import { Component, type ReactNode, useEffect, useState } from 'react';
+import { InteractionManager, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrateAppRemoteFlags } from '../utils/app-remote-flags';
 import { hydrateOddzialFeatureOverrides } from '../utils/oddzial-feature-overrides';
@@ -22,6 +22,43 @@ import {
 
 /** Maks. wiek powiadomienia przy zimnym starcie — unikamy nawigacji „w tyle”. */
 const NOTIFICATION_COLD_START_MAX_AGE_MS = 45 * 60 * 1000;
+
+// ─── Global error boundary ────────────────────────────────────────────────────
+// Catches render-phase exceptions anywhere in the tree. Without this, any
+// uncaught throw during render silently crashes the app on production.
+interface EBState { hasError: boolean; message: string }
+class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+  static getDerivedStateFromError(err: unknown): EBState {
+    const msg = err instanceof Error ? err.message : String(err ?? 'Nieznany błąd');
+    return { hasError: true, message: msg };
+  }
+  override render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <View style={ebStyles.container}>
+        <Text style={ebStyles.title}>Coś poszło nie tak</Text>
+        <Text style={ebStyles.sub}>{this.state.message}</Text>
+        <TouchableOpacity
+          style={ebStyles.btn}
+          onPress={() => this.setState({ hasError: false, message: '' })}
+        >
+          <Text style={ebStyles.btnText}>Spróbuj ponownie</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+}
+const ebStyles = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#fff' },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#1a1a1a' },
+  sub: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 24 },
+  btn: { backgroundColor: '#2F8A3B', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  btnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+});
 
 function isWebRuntime() {
   const runtime = globalThis as typeof globalThis & {
@@ -155,6 +192,7 @@ export default function Layout() {
   }, []);
 
   return (
+    <AppErrorBoundary>
     <SafeAreaProvider>
     <LanguageProvider>
       <ThemeProvider>
@@ -207,5 +245,6 @@ export default function Layout() {
       </ThemeProvider>
     </LanguageProvider>
     </SafeAreaProvider>
+    </AppErrorBoundary>
   );
 }

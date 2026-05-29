@@ -15,6 +15,7 @@ export default function PomocnikScreen() {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [pomocnicy, setPomocnicy] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { fetchPomocnicy(); }, []);
 
@@ -27,8 +28,9 @@ export default function PomocnikScreen() {
       });
       const data = await response.json();
       setPomocnicy(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
       setPomocnicy([]);
+      setError(err instanceof Error ? err.message : 'Błąd ładowania listy');
     } finally {
       setLoading(false);
     }
@@ -40,6 +42,17 @@ export default function PomocnikScreen() {
     return (
       <View style={S.center}>
         <ActivityIndicator size="large" color={theme.accent} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={S.center}>
+        <Text style={{ color: theme.danger, fontWeight: '700', marginBottom: 12 }}>{error}</Text>
+        <TouchableOpacity onPress={fetchPomocnicy}>
+          <Text style={{ color: theme.accent, fontWeight: '700' }}>Spróbuj ponownie</Text>
+        </TouchableOpacity>
       </View>
     );
   }
