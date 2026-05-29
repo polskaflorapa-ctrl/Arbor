@@ -3741,13 +3741,14 @@ export default function Zlecenia() {
   const isAdmin = currentUser?.rola === 'Administrator';
   const canManageAllBranches = isDyrektor || isAdmin;
   const isKierownik = currentUser?.rola === 'Kierownik';
+  const isDyspozytor = currentUser?.rola === 'Dyspozytor';
   const isSpecjalista = currentUser?.rola === 'Specjalista';
   const isWyceniajacy = currentUser?.rola === 'Wyceniający' || currentUser?.rola === 'Wyceniajacy';
-  const mozeTworzyc = canManageAllBranches || isKierownik || isSpecjalista || isWyceniajacy;
-  const mozeEdytowac = canManageAllBranches || isKierownik || isSpecjalista || isWyceniajacy;
-  const mozePlanowacBiuro = canManageAllBranches || isKierownik || isSpecjalista;
+  const mozeTworzyc = canManageAllBranches || isKierownik || isDyspozytor || isSpecjalista || isWyceniajacy;
+  const mozeEdytowac = canManageAllBranches || isKierownik || isDyspozytor || isSpecjalista || isWyceniajacy;
+  const mozePlanowacBiuro = canManageAllBranches || isKierownik || isDyspozytor || isSpecjalista;
   const mozeUsuwac = canManageAllBranches;
-  const mozePrzesuwacStatus = canManageAllBranches || isKierownik;
+  const mozePrzesuwacStatus = canManageAllBranches || isKierownik || isDyspozytor;
   const mozeObslugiwacRealizacje = mozePrzesuwacStatus || String(currentUser?.rola || '').toLowerCase().includes('bryg');
 
   useEffect(() => {

@@ -226,25 +226,25 @@ export default function Sidebar() {
 
   const links = useMemo(() => {
     const ADMIN   = ['Prezes', 'Dyrektor', 'Administrator'];
-    const MGMT    = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik'];
-    const WORKERS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
-    const FIELD_OPS = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
-    const ALL     = ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
+    const MGMT    = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor'];
+    const WORKERS = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
+    const FIELD_OPS = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia'];
+    const ALL     = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor', 'Handlowiec', 'Pracownik biurowy', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
     const all = [
       { path: '/dashboard',         labelKey: 'nav.dashboard',       icon: 'dashboard',   roles: ALL },
       { path: '/eksploruj',        labelKey: 'nav.explore',         icon: 'explore',     roles: ALL },
       { path: '/profil',           labelKey: 'nav.profile',          icon: 'profil',      roles: ALL },
       { path: '/zadania',          labelKey: 'nav.todos',            icon: 'zlecenia',    roles: ALL },
       { path: '/kadry-dokumenty',  labelKey: 'nav.hrDocuments',      icon: 'uzytkownicy', roles: MGMT },
-      { path: '/wyceniajacy-hub', labelKey: 'nav.estimatorHub',     icon: 'wyceny',       roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Wyceniający', 'Specjalista'] },
-      { path: '/crm',               labelKey: 'nav.crm',           icon: 'crm',         roles: [...MGMT, 'Wyceniający', 'Specjalista'] },
-      { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, 'Magazynier'] },
-      { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, 'Brygadzista', 'Specjalista', 'Magazynier'] },
-      { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', ...MGMT] },
-      { path: '/blokady-kalendarza', labelKey: 'nav.calendarBlocks', icon: 'calendarBlocks', roles: ['Wyceniający', 'Specjalista', ...MGMT] },
-      { path: '/zatwierdz-wyceny',  labelKey: 'nav.approveQuotes',   icon: 'approveNav',   roles: ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'] },
-      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyrektor', 'Administrator', 'Specjalista'] },
-      { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: MGMT },
+      { path: '/wyceniajacy-hub', labelKey: 'nav.estimatorHub',     icon: 'wyceny',       roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor', 'Wyceniający', 'Specjalista', 'Handlowiec'] },
+      { path: '/crm',               labelKey: 'nav.crm',           icon: 'crm',         roles: [...MGMT, 'Wyceniający', 'Specjalista', 'Handlowiec'] },
+      { path: '/zlecenia',          labelKey: 'nav.orders',          icon: 'zlecenia',    roles: [...WORKERS, 'Handlowiec', 'Pracownik biurowy', 'Magazynier'] },
+      { path: '/harmonogram',       labelKey: 'nav.schedule',      icon: 'harmonogram', roles: [...MGMT, 'Brygadzista', 'Specjalista', 'Pracownik biurowy', 'Magazynier'] },
+      { path: '/wycena-kalendarz',  labelKey: 'nav.quotes',          icon: 'wyceny',      roles: ['Wyceniający', 'Specjalista', 'Handlowiec', ...MGMT] },
+      { path: '/blokady-kalendarza', labelKey: 'nav.calendarBlocks', icon: 'calendarBlocks', roles: ['Wyceniający', 'Specjalista', 'Handlowiec', ...MGMT] },
+      { path: '/zatwierdz-wyceny',  labelKey: 'nav.approveQuotes',   icon: 'approveNav',   roles: ['Kierownik', 'Dyspozytor', 'Administrator', 'Dyrektor', 'Specjalista'] },
+      { path: '/wyceny-terenowe',   labelKey: 'nav.fieldQuotes',     icon: 'wyceny',      roles: ['Wyceniający', 'Kierownik', 'Dyspozytor', 'Dyrektor', 'Administrator', 'Specjalista', 'Handlowiec'] },
+      { path: '/klienci',           labelKey: 'nav.clients',       icon: 'klienci',     roles: [...MGMT, 'Handlowiec'] },
       { path: '/telefonia',         labelKey: 'nav.telephony',     icon: 'telefonia',   roles: MGMT },
       { path: '/integracje',        labelKey: 'nav.integrations',  icon: 'integracje',  roles: MGMT },
       { path: '/wynagrodzenie-wyceniajacych', labelKey: 'nav.estimatorPayout', icon: 'ksiegowosc', roles: ['Prezes', 'Dyrektor', 'Kierownik', 'Wyceniający'] },

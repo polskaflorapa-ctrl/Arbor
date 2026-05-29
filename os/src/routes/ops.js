@@ -18,7 +18,7 @@ const { requestCallback } = require('../services/zadarma');
 
 const router = express.Router();
 
-const MANAGER_ROLES = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik'];
+const MANAGER_ROLES = ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor'];
 const CLOSED_TASK_STATUSES = new Set(['Zakonczone', 'Anulowane']);
 const IN_PROGRESS_TASK_STATUS = 'W_Realizacji';
 const PLAN_REAL_REASON_LABELS = {

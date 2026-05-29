@@ -21,7 +21,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 function canViewBI(user) {
-  return isDyrektorOrAdmin(user) || isKierownik(user);
+  return isDyrektorOrAdmin(user) || isKierownik(user) || String(user?.rola || '') === 'Dyspozytor';
 }
 
 function scopeClause(branchId, paramIndex, alias = 't') {
