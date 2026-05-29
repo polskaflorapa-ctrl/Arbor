@@ -13,6 +13,8 @@ import { hydrateAppRemoteFlags } from '../utils/app-remote-flags';
 import { hydrateOddzialFeatureOverrides } from '../utils/oddzial-feature-overrides';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { getStoredSession } from '../utils/session';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setRuntimeApiUrl, CUSTOM_API_URL_STORAGE_KEY } from '../constants/api';
 import {
   installMobileTestModeFetchInterceptor,
   installMobileTestModeAxiosAdapter,
@@ -76,6 +78,12 @@ export default function Layout() {
 
   useEffect(() => {
     void (async () => {
+      // Load custom API URL override before any network calls
+      try {
+        const customUrl = await AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY);
+        if (customUrl) setRuntimeApiUrl(customUrl);
+      } catch { /* ignore */ }
+
       await installMobileTestModeFetchInterceptor();
       await installMobileTestModeAxiosAdapter();
       await hydrateOddzialFeatureOverrides();

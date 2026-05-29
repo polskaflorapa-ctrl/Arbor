@@ -4,10 +4,10 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, Share, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL, EXPECTED_API_VERSION, WEB_APP_URL } from '../constants/api';
+import { API_URL, CUSTOM_API_URL_STORAGE_KEY, EXPECTED_API_VERSION, WEB_APP_URL, getApiUrl, setRuntimeApiUrl } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
@@ -495,10 +495,31 @@ export default function ApiDiagnostykaScreen() {
       sub: t('apiDiag.action.authSub', { status: primaryIssue.httpCode }),
     };
   })();
+  const [customUrlInput, setCustomUrlInput] = useState('');
+  const [customUrlSaved, setCustomUrlSaved] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY).then((v) => {
+      if (v) setCustomUrlInput(v);
+    });
+  }, []);
+  const saveCustomUrl = async () => {
+    const trimmed = customUrlInput.trim();
+    if (trimmed) {
+      await AsyncStorage.setItem(CUSTOM_API_URL_STORAGE_KEY, trimmed);
+      setRuntimeApiUrl(trimmed);
+    } else {
+      await AsyncStorage.removeItem(CUSTOM_API_URL_STORAGE_KEY);
+      setRuntimeApiUrl(null);
+    }
+    setCustomUrlSaved(true);
+    setTimeout(() => setCustomUrlSaved(false), 2500);
+  };
+
   const configRows = [
     { label: 'Czas', value: checkedAt },
     { label: 'Aplikacja', value: `${appVersion} / native ${nativeApp} / build ${nativeBuild}` },
-    { label: 'API', value: API_URL },
+    { label: 'API (build)', value: API_URL },
+    { label: 'API (aktywny)', value: getApiUrl() },
     { label: 'Panel web', value: WEB_APP_URL },
     { label: 'Token', value: tokenPresent ? t('apiDiag.token.yes') : t('apiDiag.token.no') },
     { label: 'Kolejka offline', value: String(offlineQueueSize) },
@@ -608,6 +629,26 @@ export default function ApiDiagnostykaScreen() {
               <Text style={S.configValue} selectable numberOfLines={2}>{row.value}</Text>
             </View>
           ))}
+          <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 12 }}>
+            <Text style={[S.configLabel, { marginBottom: 6, fontWeight: '700' }]}>Nadpisz URL backendu (po zapisie restart apki)</Text>
+            <TextInput
+              style={[S.configValue, { borderWidth: 1, borderColor: theme.inputBorder, borderRadius: 8, padding: 8, color: theme.text, backgroundColor: theme.inputBg, minHeight: 40 }]}
+              value={customUrlInput}
+              onChangeText={setCustomUrlInput}
+              placeholder={`Domyślny: ${API_URL}`}
+              placeholderTextColor={theme.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              onPress={() => void saveCustomUrl()}
+              style={{ marginTop: 8, backgroundColor: customUrlSaved ? theme.success : theme.accent, borderRadius: 8, padding: 10, alignItems: 'center' }}
+            >
+              <Text style={{ color: theme.accentText, fontWeight: '700', fontSize: 13 }}>
+                {customUrlSaved ? '✓ Zapisano — zrestartuj aplikację' : 'Zapisz URL'}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={S.configRow}>
             <Text style={S.configLabel}>{t('apiDiag.serverVersion')}</Text>
             <Text style={S.configValue} selectable>{serverApiVer ?? '-'}</Text>

@@ -10,6 +10,28 @@ const resolveApiUrl = () => {
   return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
 };
 
+/** Klucz AsyncStorage dla runtime override URL (ustawiany z ekranu diagnostyki). */
+export const CUSTOM_API_URL_STORAGE_KEY = 'arbor_custom_api_url';
+
+/**
+ * Zmienna mutable — aktualizowana przy starcie apki z AsyncStorage.
+ * Zmień via setRuntimeApiUrl() w _layout.tsx po odczycie AsyncStorage.
+ */
+let _runtimeApiUrl = resolveApiUrl();
+
+/** Pobiera aktualny URL API (uwzględnia runtime override). */
+export const getApiUrl = () => _runtimeApiUrl;
+
+/** Ustawia runtime override — wywołaj po starcie z AsyncStorage. Wymaga restartu dla pełnego efektu. */
+export const setRuntimeApiUrl = (url) => {
+  if (!url || !String(url).trim()) {
+    _runtimeApiUrl = resolveApiUrl();
+  } else {
+    const normalized = trimTrailingSlash(String(url).trim());
+    _runtimeApiUrl = normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+  }
+};
+
 export const API_URL = resolveApiUrl();
 export const API_BASE_URL = API_URL.replace(/\/api$/, '');
 
