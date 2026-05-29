@@ -36,6 +36,10 @@ jest.mock('../src/services/payrollTeamDay', () => ({
   tryAutoTeamDayCloseAfterTaskFinish: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('../src/services/crmInbox', () => ({
+  appendCrmMessageForContact: jest.fn().mockResolvedValue({ lead_id: 301, message_id: 401 }),
+}));
+
 jest.mock('../src/services/quotationFinalize', () => ({
   afterQuotationFullyApproved: jest.fn().mockResolvedValue(null),
   resendQuotationClientOffer: jest.fn().mockResolvedValue({ id: 501, status: 'Wyslana_Klientowi' }),
@@ -46,8 +50,10 @@ const { createApp } = require('../src/app');
 const { env } = require('../src/config/env');
 const { solve } = require('../src/services/vrp');
 const { afterQuotationFullyApproved } = require('../src/services/quotationFinalize');
+const { appendCrmMessageForContact } = require('../src/services/crmInbox');
 
 const app = createApp();
+const PREVIOUS_PUBLIC_BASE_URL = env.PUBLIC_BASE_URL;
 
 function directorToken() {
   return jwt.sign({ id: 9001, rola: 'Dyrektor', oddzial_id: null }, env.JWT_SECRET);
@@ -58,11 +64,16 @@ describe('critical operational path smoke', () => {
   let quotation;
   let workLogId;
   let settlement;
+  let statusEvents;
+  let statusToken;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    env.PUBLIC_BASE_URL = 'https://demo.arbor.test';
     workLogId = 701;
     settlement = null;
+    statusEvents = [];
+    statusToken = 'tok_smoke_public_123456789012345';
     quotation = {
       id: 501,
       status: 'W_Zatwierdzeniu',
@@ -101,15 +112,75 @@ describe('critical operational path smoke', () => {
       wyceniajacy_id: 9004,
       pin_lat: 50.06143,
       pin_lng: 19.93658,
+      link_statusowy_token: null,
     };
 
     pool.query.mockImplementation(async (sql, params = []) => {
       const s = String(sql);
-      if (s.startsWith('ALTER TABLE') || s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) {
+      if (
+        s.startsWith('ALTER TABLE') ||
+        s.startsWith('CREATE TABLE') ||
+        s.startsWith('CREATE INDEX') ||
+        s.startsWith('CREATE UNIQUE INDEX')
+      ) {
         return { rows: [], rowCount: 0 };
+      }
+      if (s.includes('INSERT INTO telephony_call_logs')) {
+        return {
+          rows: [{
+            id: 301,
+            oddzial_id: Number(params[0]),
+            phone: params[1],
+            call_type: params[2],
+            status: params[3],
+            duration_sec: Number(params[4] || 0),
+            task_id: params[5],
+            lead_name: params[6],
+            notes: params[7],
+            created_by: params[8],
+            created_at: '2026-05-29T07:45:00.000Z',
+          }],
+          rowCount: 1,
+        };
       }
       if (s.includes('SELECT id FROM tasks t WHERE')) {
         return { rows: [{ id: task.id }], rowCount: 1 };
+      }
+      if (s.includes('SELECT link_statusowy_token FROM tasks WHERE id = $1')) {
+        return { rows: [{ link_statusowy_token: task.link_statusowy_token }], rowCount: 1 };
+      }
+      if (s.includes('SET link_statusowy_token = COALESCE')) {
+        task.link_statusowy_token = task.link_statusowy_token || statusToken;
+        return { rows: [{ link_statusowy_token: task.link_statusowy_token }], rowCount: 1 };
+      }
+      if (s.includes('WHERE t.link_statusowy_token = $1')) {
+        if (params[0] !== statusToken) return { rows: [], rowCount: 0 };
+        return {
+          rows: [{
+            ...task,
+            oddzial_telefon: '+48123123123',
+            oddzial_nazwa: 'Oddzial Smoke',
+            ekipa_nazwa: 'Ekipa Smoke',
+          }],
+          rowCount: 1,
+        };
+      }
+      if (s.includes('FROM task_public_status_events')) {
+        return { rows: statusEvents, rowCount: statusEvents.length };
+      }
+      if (s.includes('INSERT INTO task_public_status_events')) {
+        const row = {
+          id: statusEvents.length + 1,
+          task_id: Number(params[0]),
+          from_status: params[1],
+          to_status: params[2],
+          source: params[3],
+          note: params[4],
+          created_by: params[5],
+          created_at: new Date(Date.UTC(2026, 4, 29, 8 + statusEvents.length, 0, 0)).toISOString(),
+        };
+        statusEvents.push(row);
+        return { rows: [row], rowCount: 1 };
       }
       if (/FROM\s+tasks\s+t[\s\S]*WHERE\s+t\.id\s*=\s*\$1/i.test(s)) {
         return {
@@ -171,9 +242,24 @@ describe('critical operational path smoke', () => {
             s === 'ROLLBACK' ||
             s.startsWith('CREATE TABLE') ||
             s.startsWith('CREATE INDEX') ||
+            s.startsWith('CREATE UNIQUE INDEX') ||
             s.startsWith('ALTER TABLE')
           ) {
             return { rows: [], rowCount: 0 };
+          }
+          if (s.includes('INSERT INTO task_public_status_events')) {
+            const row = {
+              id: statusEvents.length + 1,
+              task_id: Number(params[0]),
+              from_status: params[1],
+              to_status: params[2],
+              source: params[3],
+              note: params[4],
+              created_by: params[5],
+              created_at: new Date(Date.UTC(2026, 4, 29, 8 + statusEvents.length, 0, 0)).toISOString(),
+            };
+            statusEvents.push(row);
+            return { rows: [row], rowCount: 1 };
           }
           if (s.includes('FROM tasks t') && s.includes('t.data_planowana::date')) {
             return { rows: [{ ...task }], rowCount: 1 };
@@ -237,8 +323,35 @@ describe('critical operational path smoke', () => {
     });
   });
 
+  afterAll(() => {
+    env.PUBLIC_BASE_URL = PREVIOUS_PUBLIC_BASE_URL;
+  });
+
   it('keeps Kommo, dispatcher, field finish and settlement wired together', async () => {
     const auth = { Authorization: `Bearer ${directorToken()}` };
+
+    const intakeCall = await request(app)
+      .post('/api/telephony/calls')
+      .set(auth)
+      .send({
+        oddzial_id: 2,
+        phone: '+48500111222',
+        call_type: 'inbound',
+        status: 'answered',
+        duration_sec: 184,
+        task_id: 101,
+        lead_name: 'Smoke Klient',
+        notes: 'Klient pyta o termin i koszt wycinki',
+      });
+    expect(intakeCall.status).toBe(201);
+    expect(appendCrmMessageForContact).toHaveBeenCalledWith(expect.objectContaining({
+      oddzialId: 2,
+      phone: '+48500111222',
+      channel: 'phone',
+      direction: 'inbound',
+      status: 'received',
+      externalMessageId: 'telephony_call_301',
+    }));
 
     const beforeKommo = await request(app)
       .get('/api/tasks/101/kommo-payload')
@@ -286,6 +399,31 @@ describe('critical operational path smoke', () => {
       .send({ lat: 50.06143, lng: 19.93658 });
     expect(start.status).toBe(200);
     expect(start.body.work_log_id).toBe(workLogId);
+
+    const publicLink = await request(app)
+      .get('/api/tasks/101/status-link')
+      .set(auth);
+    expect(publicLink.status).toBe(200);
+    expect(publicLink.body).toMatchObject({
+      task_id: 101,
+      token: statusToken,
+    });
+    expect(publicLink.body.url).toContain(`/track/${statusToken}`);
+
+    const publicTrack = await request(app)
+      .get(`/track/${statusToken}`)
+      .set('Accept', 'application/json');
+    expect(publicTrack.status).toBe(200);
+    expect(publicTrack.body.task).toMatchObject({
+      id: 101,
+      status: 'W_Realizacji',
+      branch: { name: 'Oddzial Smoke', phone: '+48123123123' },
+      team_visible: 'Ekipa Smoke',
+    });
+    expect(publicTrack.body.task.map.url).toContain('google.com/maps');
+    expect(publicTrack.body.task).not.toHaveProperty('klient_telefon');
+    expect(publicTrack.body.task).not.toHaveProperty('wartosc_planowana');
+    expect(publicTrack.body.timeline.map((row) => row.status)).toContain('W_Realizacji');
 
     const finish = await request(app)
       .post('/api/tasks/101/finish')
