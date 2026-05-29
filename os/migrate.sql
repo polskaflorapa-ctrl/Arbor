@@ -1908,6 +1908,14 @@ CREATE TABLE IF NOT EXISTS operational_digest_settings (
 );
 CREATE INDEX IF NOT EXISTS idx_operational_digest_settings_branch ON operational_digest_settings(branch_id);
 
+-- ─── Performance: add missing indexes on hot FK columns ──────────────────────
+-- These columns are GROUP BY targets in every task-list aggregation subquery.
+-- Without indexes, PostgreSQL does full sequential scans of work_logs, issues
+-- and photos on every GET /tasks/wszystkie and GET /tasks/moje call.
+CREATE INDEX IF NOT EXISTS idx_work_logs_task_id ON work_logs(task_id);
+CREATE INDEX IF NOT EXISTS idx_issues_task_id    ON issues(task_id);
+CREATE INDEX IF NOT EXISTS idx_photos_task_id    ON photos(task_id);
+
 -- ─── Patch: expand users_rola_chk to include all current roles ───────────────
 -- Drops and recreates the constraint so both fresh and existing DBs get the
 -- full list: Dyspozytor, Handlowiec, Pracownik biurowy, Pomocnik bez doświadczenia, Magazynier
