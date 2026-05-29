@@ -78,19 +78,21 @@ export default function Layout() {
 
   useEffect(() => {
     void (async () => {
-      // Load custom API URL override before any network calls
-      try {
-        const customUrl = await AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY);
-        if (customUrl) setRuntimeApiUrl(customUrl);
-      } catch { /* ignore */ }
+      // Run all local AsyncStorage reads in parallel — none of these make
+      // network calls so order between them doesn't matter.
+      const [customUrl, { token }] = await Promise.all([
+        AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY).catch(() => null),
+        getStoredSession(),
+        installMobileTestModeFetchInterceptor(),
+        installMobileTestModeAxiosAdapter(),
+        hydrateOddzialFeatureOverrides(),
+        hydrateAppRemoteFlags(),
+      ]);
 
-      await installMobileTestModeFetchInterceptor();
-      await installMobileTestModeAxiosAdapter();
-      await hydrateOddzialFeatureOverrides();
-      await hydrateAppRemoteFlags();
-      const { token } = await getStoredSession();
+      if (customUrl) setRuntimeApiUrl(customUrl);
       setHasSession(Boolean(token));
-      if (token) await fetchAndApplyMobileRemoteConfig(token);
+      // Fire remote config fetch in the background — non-blocking
+      if (token) void fetchAndApplyMobileRemoteConfig(token);
     })();
   }, []);
 
