@@ -768,9 +768,11 @@ CREATE TABLE IF NOT EXISTS team_members (
   id          SERIAL PRIMARY KEY,
   team_id     INTEGER REFERENCES teams(id) ON DELETE CASCADE,
   user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  rola        VARCHAR(80),
   joined_at   TIMESTAMP DEFAULT NOW(),
   UNIQUE(team_id, user_id)
 );
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS rola VARCHAR(80);
 
 -- ─── 22. VEHICLES (FLOTA - POJAZDY) ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS vehicles (
