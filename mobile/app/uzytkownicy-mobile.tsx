@@ -71,7 +71,7 @@ export default function UzytkownicyScreen() {
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
-  const role = ['', 'Brygadzista', 'Kierownik', 'Dyrektor', 'Administrator'];
+  const role = ['', 'Prezes', 'Dyrektor', 'Administrator', 'Kierownik', 'Dyspozytor', 'Handlowiec', 'Pracownik biurowy', 'Brygadzista', 'Specjalista', 'Pomocnik', 'Pomocnik bez doświadczenia', 'Wyceniający', 'Magazynier'];
   const getOddzial = (id: number) => oddzialy.find(o => o.id === id)?.nazwa || '-';
   const aktywniCount = uzytkownicy.filter(u => u.aktywny).length;
   const brygadzisciCount = uzytkownicy.filter(u => u.rola === 'Brygadzista').length;
