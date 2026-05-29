@@ -1912,9 +1912,13 @@ CREATE INDEX IF NOT EXISTS idx_operational_digest_settings_branch ON operational
 -- These columns are GROUP BY targets in every task-list aggregation subquery.
 -- Without indexes, PostgreSQL does full sequential scans of work_logs, issues
 -- and photos on every GET /tasks/wszystkie and GET /tasks/moje call.
-CREATE INDEX IF NOT EXISTS idx_work_logs_task_id ON work_logs(task_id);
-CREATE INDEX IF NOT EXISTS idx_issues_task_id    ON issues(task_id);
-CREATE INDEX IF NOT EXISTS idx_photos_task_id    ON photos(task_id);
+CREATE INDEX IF NOT EXISTS idx_work_logs_task_id    ON work_logs(task_id);
+CREATE INDEX IF NOT EXISTS idx_issues_task_id       ON issues(task_id);
+CREATE INDEX IF NOT EXISTS idx_photos_task_id       ON photos(task_id);
+-- team_members: user_id lookup in /tasks/moje (WHERE tm.user_id = ?)
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
+-- equipment_reservations: task_id already indexed via FK but explicit for GROUP BY
+CREATE INDEX IF NOT EXISTS idx_equip_res_task_id    ON equipment_reservations(task_id) WHERE task_id IS NOT NULL;
 
 -- ─── Patch: expand users_rola_chk to include all current roles ───────────────
 -- Drops and recreates the constraint so both fresh and existing DBs get the
