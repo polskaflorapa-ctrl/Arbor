@@ -151,6 +151,8 @@ export default function Kierownik() {
   const [cockpitError, setCockpitError] = useState('');
   const [planReal, setPlanReal] = useState(null);
   const [actionInsights, setActionInsights] = useState(null);
+  const [actionHistory, setActionHistory] = useState(null);
+  const [actionHistoryFilter, setActionHistoryFilter] = useState('risk');
   const [actionRecommendations, setActionRecommendations] = useState(null);
   const [planActionDrafts, setPlanActionDrafts] = useState({});
   const [planActionSaving, setPlanActionSaving] = useState('');
@@ -192,7 +194,14 @@ export default function Kierownik() {
       if (['Prezes', 'Dyrektor'].includes(u?.rola) && oddzialId) {
         params.oddzial_id = oddzialId;
       }
-      const [cockpitResponse, planRealResponse, insightsResponse, recommendationsResponse] = await Promise.all([
+      const actionHistoryParams = {
+        ...params,
+        range: 'week',
+        limit: 12,
+        ...(actionHistoryFilter === 'risk' ? { q: 'risk_' } : {}),
+        ...(actionHistoryFilter && actionHistoryFilter !== 'all' && actionHistoryFilter !== 'risk' ? { action_type: actionHistoryFilter } : {}),
+      };
+      const [cockpitResponse, planRealResponse, insightsResponse, actionHistoryResponse, recommendationsResponse] = await Promise.all([
         api.get('/ops/kierownik-today', {
           params,
           headers: authHeaders(token),
@@ -208,6 +217,11 @@ export default function Kierownik() {
           headers: authHeaders(token),
           dedupe: false,
         }),
+        api.get('/ops/action-history', {
+          params: actionHistoryParams,
+          headers: authHeaders(token),
+          dedupe: false,
+        }),
         api.get('/ops/action-recommendations', {
           params,
           headers: authHeaders(token),
@@ -217,13 +231,14 @@ export default function Kierownik() {
       setCockpit(cockpitResponse.data);
       setPlanReal(planRealResponse.data);
       setActionInsights(insightsResponse.data);
+      setActionHistory(actionHistoryResponse.data);
       setActionRecommendations(recommendationsResponse.data);
     } catch (err) {
       setCockpitError(getApiErrorMessage(err, 'Nie udalo sie wczytac cockpit kierownika.'));
     } finally {
       setCockpitLoading(false);
     }
-  }, []);
+  }, [actionHistoryFilter]);
 
   useEffect(() => {
     const parsedUser = getLocalStorageJson('user');
@@ -376,72 +391,27 @@ export default function Kierownik() {
   const runRecommendationAction = useCallback(async (recommendation) => {
     if (!recommendation || recommendation.action_kind === 'none') return;
     const key = `recommendation:${recommendation.id}`;
-    if (['open_map', 'open_tasks'].includes(recommendation.action_kind)) {
-      setPlanActionSaving(key);
-      try {
-        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`, 'action');
-      } catch {
-        // Navigation should not be blocked by auxiliary feedback telemetry.
-      } finally {
-        setPlanActionSaving('');
-        navigate(recommendation.target_path || '/kierownik');
-      }
-      return;
-    }
-
-    const candidateIds = new Set((recommendation.task_ids || []).map((id) => Number(id)));
-    const currentPlanTasks = planReal?.tasks || [];
-    const matchingTasks = currentPlanTasks.filter((task) => candidateIds.has(Number(task.id))).slice(0, 6);
-    if (matchingTasks.length === 0) {
-      setPlanActionSaving(key);
-      try {
-        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`, 'action');
-      } catch {
-        // Navigation should not be blocked by auxiliary feedback telemetry.
-      } finally {
-        setPlanActionSaving('');
-        navigate(recommendation.target_path || '/kierownik');
-      }
-      return;
-    }
-
     setPlanActionSaving(key);
     try {
       const token = getStoredToken();
-      if (recommendation.action_kind === 'set_duration_batch') {
-        const plannedMinutes = Math.max(15, Math.round(Number(recommendation.suggested_minutes || 120)));
-        await Promise.all(matchingTasks.map((task) => api.post(`/ops/plan-vs-real/tasks/${task.id}/action`, {
-          action: 'set_duration',
-          planned_minutes: plannedMinutes,
-          previous_planned_minutes: task.planned_minutes || 0,
-          issue_key: task.issue_key || 'missing_duration',
-          delta_minutes: task.delta_minutes,
-          planned_minutes_before: task.planned_minutes,
-          real_minutes: task.real_minutes,
-          note: `Rekomendacja: ${recommendation.title}`,
-        }, {
-          headers: authHeaders(token),
-        })));
-      } else if (recommendation.action_kind === 'remind_team_batch') {
-        await Promise.all(matchingTasks.map((task) => api.post(`/ops/plan-vs-real/tasks/${task.id}/action`, {
-          action: 'remind_team',
-          issue_key: task.issue_key || 'not_started',
-          delta_minutes: task.delta_minutes,
-          planned_minutes: task.planned_minutes,
-          real_minutes: task.real_minutes,
-          note: `Rekomendacja: ${recommendation.title}`,
-        }, {
-          headers: authHeaders(token),
-        })));
-      } else {
-        await recordRecommendationDecision(recommendation, 'accepted', `Otworzono: ${recommendation.title || ''}`, 'action');
-        navigate(recommendation.target_path || '/kierownik');
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      const { data } = await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/apply`, {
+        date: cockpitDate,
+        oddzial_id: oddzialForCockpit || null,
+        action_kind: recommendation.action_kind || 'open_tasks',
+        target_path: recommendation.target_path || '',
+        task_ids: recommendation.task_ids || [],
+        suggested_minutes: recommendation.suggested_minutes || null,
+        title: recommendation.title || '',
+      }, {
+        headers: authHeaders(token),
+      });
+      if (data?.navigate_to) {
+        navigate(data.navigate_to);
         return;
       }
 
-      await recordRecommendationDecision(recommendation, 'accepted', `Wykonano: ${recommendation.title || ''}`, 'action');
       showMsg(successMessage(`Wykonano: ${recommendation.title}`));
-      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
       await Promise.all([
         loadCockpit(user, cockpitDate, oddzialForCockpit),
         loadData(user),
@@ -451,7 +421,7 @@ export default function Kierownik() {
     } finally {
       setPlanActionSaving('');
     }
-  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, navigate, planReal, recordRecommendationDecision, showMsg, user]);
+  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, navigate, showMsg, user]);
 
   const dismissRecommendation = useCallback(async (recommendation) => {
     if (!recommendation?.id) return;
@@ -484,6 +454,101 @@ export default function Kierownik() {
       setPlanActionSaving('');
     }
   }, [cockpitDate, loadCockpit, recordRecommendationDecision, showMsg, user]);
+
+  const copyRiskReport = useCallback(async () => {
+    const text = cockpit?.risk_report?.text || '';
+    if (!text) {
+      showMsg(errorMessage('Raport ryzyk jest jeszcze pusty.'));
+      return;
+    }
+    try {
+      if (!navigator?.clipboard?.writeText) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(text);
+      showMsg(successMessage('Raport ryzyk skopiowany.'));
+    } catch {
+      showMsg(errorMessage('Nie udalo sie skopiowac raportu.'));
+    }
+  }, [cockpit, showMsg]);
+
+  const runRiskAction = useCallback(async (risk, action) => {
+    if (!risk?.id) return;
+    if (!risk.task_id && action !== 'acknowledge') {
+      showMsg(errorMessage('To ryzyko nie jest powiazane ze zleceniem.'));
+      return;
+    }
+    const key = `risk:${risk.id}:${action}`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/ops/risk-report/actions', {
+        action,
+        risk_id: risk.id,
+        risk_type: risk.type,
+        task_id: risk.task_id || null,
+        note: risk.title || '',
+      }, {
+        headers: authHeaders(token),
+      });
+      showMsg(successMessage(data?.message || 'Akcja ryzyka zapisana.'));
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await loadCockpit(user, cockpitDate, oddzialForCockpit);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie wykonac akcji ryzyka.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, showMsg, user]);
+
+  const runConflictFix = useCallback(async (risk) => {
+    if (!risk?.task_id || !['team_conflict', 'equipment_conflict'].includes(risk.type)) {
+      showMsg(errorMessage('Dla tego ryzyka nie ma automatycznej naprawy.'));
+      return;
+    }
+    const key = `risk:${risk.id}:fix_conflict`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get('/ops/risk-report/actions/options', {
+        params: {
+          risk_id: risk.id,
+          risk_type: risk.type,
+          task_id: risk.task_id,
+        },
+        headers: authHeaders(token),
+      });
+      const option = (data?.options || [])[0];
+      if (!option) {
+        showMsg(errorMessage('Brak bezkolizyjnej alternatywy dla tego ryzyka.'));
+        return;
+      }
+      const action = risk.type === 'team_conflict' ? 'reassign_team' : 'replace_equipment';
+      const ok = typeof window !== 'undefined' && window.confirm
+        ? window.confirm(`${option.impact}\n\nZastosowac te zmiane?`)
+        : true;
+      if (!ok) return;
+      const payload = {
+        action,
+        risk_id: risk.id,
+        risk_type: risk.type,
+        task_id: risk.task_id,
+        note: risk.title || '',
+        ...(action === 'reassign_team' ? { team_id: option.team_id } : { sprzet_id: option.sprzet_id }),
+      };
+      const result = await api.post('/ops/risk-report/actions', payload, {
+        headers: authHeaders(token),
+      });
+      showMsg(successMessage(result.data?.message || 'Konflikt poprawiony.'));
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await Promise.all([
+        loadCockpit(user, cockpitDate, oddzialForCockpit),
+        loadData(user),
+      ]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie naprawic konfliktu.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, showMsg, user]);
 
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
@@ -523,6 +588,9 @@ export default function Kierownik() {
   const cockpitTasks = cockpit?.tasks || [];
   const cockpitTeams = cockpit?.teams || [];
   const cockpitMarginRisks = cockpit?.margin_risks || [];
+  const cockpitRiskReport = cockpit?.risk_report || {};
+  const cockpitRiskCounts = cockpitRiskReport.counts || {};
+  const cockpitRiskItems = cockpitRiskReport.items || [];
   const planRealSummary = planReal?.summary || {};
   const planRealTasks = planReal?.tasks || [];
   const planRealDelta = Number(planRealSummary.delta_minutes || 0);
@@ -531,6 +599,8 @@ export default function Kierownik() {
   const actionInsightReasons = actionInsights?.reasons || [];
   const actionInsightIssues = actionInsights?.issues || [];
   const actionInsightRecent = actionInsights?.recent || [];
+  const actionHistoryItems = actionHistory?.items || [];
+  const actionHistorySummary = actionHistory?.summary || {};
   const actionRecommendationSummary = actionRecommendations?.summary || {};
   const actionRecommendationItems = actionRecommendations?.recommendations || [];
   const actionRecommendationHiddenItems = actionRecommendations?.hidden_recommendations || [];
@@ -631,6 +701,107 @@ export default function Kierownik() {
               detail={`${cockpitSummary.gps_attention ?? 0} do sprawdzenia`}
               tone={(cockpitSummary.gps_attention ?? 0) > 0 ? 'warning' : 'ok'}
             />
+          </div>
+
+          <div style={styles.riskReportBand}>
+            <div style={styles.planRealHeader}>
+              <div style={styles.cockpitSectionTitle}>
+                <ReportProblemOutlined sx={{ fontSize: 18, color: (cockpitRiskCounts.critical || 0) > 0 ? 'var(--danger)' : 'var(--accent)' }} />
+                Raport ryzyk dnia
+              </div>
+              <button type="button" style={styles.compactActionBtn} onClick={copyRiskReport}>
+                Kopiuj raport
+              </button>
+            </div>
+            <div style={styles.riskReportMetrics}>
+              <CockpitMetric
+                label="Krytyczne"
+                value={cockpitLoading ? '...' : cockpitRiskCounts.critical ?? 0}
+                detail={`${cockpitRiskCounts.total ?? 0} lacznie`}
+                tone={(cockpitRiskCounts.critical ?? 0) > 0 ? 'danger' : 'ok'}
+              />
+              <CockpitMetric
+                label="Zadarma/SMS"
+                value={cockpitLoading ? '...' : cockpitRiskCounts.sms_delivery ?? 0}
+                detail="niedostarczone lub bez statusu"
+                tone={(cockpitRiskCounts.sms_delivery ?? 0) > 0 ? 'warning' : 'ok'}
+              />
+              <CockpitMetric
+                label="Okna klienta"
+                value={cockpitLoading ? '...' : cockpitRiskCounts.client_window ?? 0}
+                detail="poza planem lub bez zgody"
+                tone={(cockpitRiskCounts.client_window ?? 0) > 0 ? 'warning' : 'ok'}
+              />
+              <CockpitMetric
+                label="Konflikty"
+                value={cockpitLoading ? '...' : (cockpitRiskCounts.team_conflict ?? 0) + (cockpitRiskCounts.equipment_conflict ?? 0)}
+                detail="ekipy i sprzet"
+                tone={((cockpitRiskCounts.team_conflict ?? 0) + (cockpitRiskCounts.equipment_conflict ?? 0)) > 0 ? 'danger' : 'ok'}
+              />
+            </div>
+            {cockpitRiskItems.length === 0 ? (
+              <div style={styles.planRealEmpty}>Brak ryzyk dnia do natychmiastowej reakcji.</div>
+            ) : (
+              <div style={styles.riskReportList}>
+                {cockpitRiskItems.slice(0, 8).map((risk) => {
+                  const tone = cockpitTone(risk.severity === 'critical' ? 'danger' : 'warning');
+                  return (
+                    <div
+                      key={risk.id}
+                      style={styles.riskReportRow}
+                    >
+                      <span style={{ ...styles.riskSeverity, color: tone.color, background: tone.bg, borderColor: tone.border }}>
+                        {risk.severity === 'critical' ? 'Pilne' : 'Uwaga'}
+                      </span>
+                      <span style={styles.riskReportBody}>
+                        <strong>{risk.title}</strong>
+                        <small>{risk.detail || risk.action}</small>
+                      </span>
+                      <span style={styles.riskReportType}>{risk.type}</span>
+                      <span style={styles.riskActionGroup}>
+                        <button
+                          type="button"
+                          style={styles.planActionGhost}
+                          onClick={() => navigate(risk.action_path || (risk.task_id ? `/zlecenia/${risk.task_id}` : '/kierownik'))}
+                        >
+                          Otworz
+                        </button>
+                        {['sms_delivery', 'client_window'].includes(risk.type) ? (
+                          <button
+                            type="button"
+                            style={styles.planActionBtn}
+                            disabled={planActionSaving === `risk:${risk.id}:resend_zadarma_sms`}
+                            onClick={() => runRiskAction(risk, 'resend_zadarma_sms')}
+                          >
+                            {planActionSaving === `risk:${risk.id}:resend_zadarma_sms` ? 'Wysylam' : 'Zadarma SMS'}
+                          </button>
+                        ) : null}
+                        {risk.task_id ? (
+                          <button
+                            type="button"
+                            style={styles.planActionBtn}
+                            disabled={planActionSaving === `risk:${risk.id}:queue_zadarma_call`}
+                            onClick={() => runRiskAction(risk, 'queue_zadarma_call')}
+                          >
+                            {planActionSaving === `risk:${risk.id}:queue_zadarma_call` ? 'Lacze' : 'Zadarma tel.'}
+                          </button>
+                        ) : null}
+                        {['team_conflict', 'equipment_conflict'].includes(risk.type) ? (
+                          <button
+                            type="button"
+                            style={styles.planActionBtn}
+                            disabled={planActionSaving === `risk:${risk.id}:fix_conflict`}
+                            onClick={() => runConflictFix(risk)}
+                          >
+                            {planActionSaving === `risk:${risk.id}:fix_conflict` ? 'Sprawdzam' : 'Napraw'}
+                          </button>
+                        ) : null}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {cockpitMarginRisks.length > 0 ? (
@@ -953,6 +1124,59 @@ export default function Kierownik() {
             )}
           </div>
 
+          <div style={styles.actionHistoryBand}>
+            <div style={styles.actionInsightsHeader}>
+              <div style={styles.cockpitSectionTitle}>
+                <AssignmentOutlined sx={{ fontSize: 18 }} />
+                Historia decyzji operacyjnych
+              </div>
+              <select
+                value={actionHistoryFilter}
+                onChange={(e) => setActionHistoryFilter(e.target.value)}
+                style={styles.planActionSelect}
+              >
+                <option value="risk">Ryzyka</option>
+                <option value="all">Wszystkie</option>
+                <option value="risk_reassign_team">Przepiecie ekip</option>
+                <option value="risk_replace_equipment">Przepiecie sprzetu</option>
+                <option value="risk_resend_sms">Zadarma SMS</option>
+                <option value="risk_queue_call">Zadarma tel.</option>
+                <option value="mark_reason">Powody odchylen</option>
+              </select>
+            </div>
+            <div style={styles.actionInsightsSummary}>
+              <span><strong>{actionHistory?.total ?? 0}</strong> wpisow</span>
+              <span><strong>{(actionHistorySummary.actions || []).length}</strong> typow decyzji</span>
+              <span><strong>{(actionHistorySummary.issues || []).length}</strong> typow ryzyk</span>
+            </div>
+            {actionHistoryItems.length === 0 ? (
+              <div style={styles.actionInsightsEmpty}>Brak decyzji dla tego filtra.</div>
+            ) : (
+              <div style={styles.actionHistoryList}>
+                {actionHistoryItems.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    style={styles.actionHistoryRow}
+                    onClick={() => navigate(item.action_path || (item.task_id ? `/zlecenia/${item.task_id}` : '/kierownik'))}
+                  >
+                    <span style={styles.actionHistoryTime}>
+                      {String(item.created_at || '').slice(11, 16) || '--:--'}
+                    </span>
+                    <span style={styles.actionHistoryBody}>
+                      <strong>{item.action_label || item.action_type}</strong>
+                      <small>{item.numer || '-'}{item.klient_nazwa ? ` / ${item.klient_nazwa}` : ''}</small>
+                    </span>
+                    <span style={styles.actionHistoryOutcome}>
+                      {item.outcome || item.issue_label || item.risk_type || '-'}
+                    </span>
+                    <span style={styles.actionHistoryActor}>{item.actor_name || '-'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div style={styles.cockpitGrid}>
             <div style={styles.cockpitColumn}>
               <div style={styles.cockpitSectionTitle}>
@@ -1211,6 +1435,29 @@ const styles = {
   cockpitMetricLabel: { color: 'var(--text-sub)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
   cockpitMetricValue: { fontSize: 24, lineHeight: 1, fontWeight: 900 },
   cockpitMetricDetail: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 650 },
+  riskReportBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
+  riskReportMetrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 8 },
+  riskReportList: { display: 'grid', gap: 0, borderTop: '1px solid var(--border)' },
+  riskReportRow: {
+    width: '100%',
+    minHeight: 48,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+    padding: '8px 0',
+    border: 0,
+    borderBottom: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    flexWrap: 'wrap',
+  },
+  riskSeverity: { minWidth: 58, height: 26, border: '1px solid var(--border)', borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' },
+  riskReportBody: { minWidth: 180, flex: '1 1 260px', display: 'grid', gap: 2, fontSize: 12 },
+  riskReportType: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', whiteSpace: 'nowrap' },
+  riskActionGroup: { marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' },
+  compactActionBtn: { minHeight: 30, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 850, whiteSpace: 'nowrap' },
   marginRiskBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
   marginRiskList: { display: 'grid', gap: 0, borderTop: '1px solid var(--border)' },
   marginRiskRow: {
@@ -1277,6 +1524,13 @@ const styles = {
   actionInsightsEmpty: { color: 'var(--text-muted)', fontSize: 12, padding: '6px 0 2px' },
   actionInsightsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12, alignItems: 'start' },
   actionInsightsReasons: { display: 'grid', gap: 6 },
+  actionHistoryBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
+  actionHistoryList: { display: 'grid', gap: 0, borderTop: '1px solid var(--border)' },
+  actionHistoryRow: { width: '100%', minHeight: 42, display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', border: 0, borderBottom: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer', flexWrap: 'wrap' },
+  actionHistoryTime: { minWidth: 44, color: 'var(--text-muted)', fontSize: 11, fontWeight: 900 },
+  actionHistoryBody: { minWidth: 160, flex: '1 1 220px', display: 'grid', gap: 2, fontSize: 12 },
+  actionHistoryOutcome: { flex: '1 1 180px', color: 'var(--text-sub)', fontSize: 11, fontWeight: 800 },
+  actionHistoryActor: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' },
   reasonRow: { display: 'grid', gridTemplateColumns: '120px minmax(80px, 1fr) auto', alignItems: 'center', gap: 8, fontSize: 12 },
   reasonLabel: { color: 'var(--text)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   reasonTrack: { height: 8, borderRadius: 8, background: 'var(--surface-field)', border: '1px solid var(--border)', overflow: 'hidden' },

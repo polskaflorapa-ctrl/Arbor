@@ -13,6 +13,8 @@ const { sendSmsOptional } = require('../services/twilioSms');
 const { sendSystemEmailOptional } = require('../services/systemEmail');
 const { runUploadStorageSelfTest, uploadStorageMode } = require('../services/upload-storage');
 const { calculateTaskMargin } = require('../services/taskMargin');
+const { sendSmsGateway, resolveBranchSmsSender } = require('../services/smsGateway');
+const { requestCallback } = require('../services/zadarma');
 
 const router = express.Router();
 
@@ -39,9 +41,17 @@ const OPS_ACTION_LABELS = {
   mark_reason: 'Powod odchylenia',
   remind_team: 'Przypomnienie ekipy',
   recommendation_feedback: 'Feedback rekomendacji',
+  risk_resend_sms: 'Ponowienie SMS ryzyka',
+  risk_queue_call: 'Telefon Zadarma z ryzyka',
+  risk_acknowledge: 'Potwierdzenie ryzyka',
+  risk_reassign_team: 'Przepiecie ekipy z ryzyka',
+  risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
+  dispatch_auto_assign_team: 'Auto-przypisanie ekipy',
+  dispatch_gps_checklist: 'Checklist GPS dispatchera',
 };
 
 let opsActionEventsReady = false;
+let riskTelephonyCallbacksReady = false;
 
 const BLOCKER_META = {
   team: {
@@ -191,6 +201,332 @@ function blockerRows(counts) {
     });
 }
 
+function dateTimeMs(value) {
+  const ms = new Date(value || 0).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function taskPlannedMinutes(task) {
+  return Math.max(0, Math.round(
+    numberValue(task.czas_obslugi_min) || numberValue(task.czas_planowany_godziny) * 60
+  ));
+}
+
+function sameDayClockMinutes(dateValue) {
+  const date = new Date(dateValue || 0);
+  const ms = date.getTime();
+  if (!Number.isFinite(ms)) return null;
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function buildRiskText(report) {
+  const lines = [
+    `Raport ryzyk dnia ARBOR - ${report.date}`,
+    `Ryzyka: ${report.counts.total}, krytyczne: ${report.counts.critical}, ostrzezenia: ${report.counts.warning}.`,
+  ];
+  if (!report.items.length) {
+    lines.push('Brak ryzyk wymagajacych natychmiastowej reakcji.');
+    return lines.join('\n');
+  }
+  lines.push('');
+  report.items.slice(0, 20).forEach((item, index) => {
+    lines.push(`${index + 1}. [${item.severity.toUpperCase()}] ${item.title}`);
+    if (item.detail) lines.push(`   ${item.detail}`);
+    if (item.action) lines.push(`   Akcja: ${item.action}`);
+  });
+  return lines.join('\n');
+}
+
+function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = [], proposalRows = [], equipmentRows = [] }) {
+  const items = [];
+  const add = (item) => {
+    items.push({
+      id: item.id || `${item.type}:${items.length + 1}`,
+      type: item.type,
+      severity: item.severity || 'warning',
+      task_id: item.task_id || null,
+      title: item.title,
+      detail: item.detail || '',
+      action: item.action || 'Sprawdz w kokpicie kierownika.',
+      action_path: item.action_path || (item.task_id ? `/zlecenia/${item.task_id}` : '/kierownik'),
+    });
+  };
+
+  for (const task of tasks || []) {
+    if (isTaskClosed(task.status) || !task.data_planowana) continue;
+    const plannedStart = sameDayClockMinutes(task.data_planowana);
+    const duration = taskPlannedMinutes(task);
+    const plannedEnd = plannedStart == null || duration <= 0 ? null : plannedStart + duration;
+    const windowFrom = task.okno_od == null ? null : Number(task.okno_od);
+    const windowTo = task.okno_do == null ? null : Number(task.okno_do);
+    if (plannedStart != null && plannedEnd != null && windowFrom != null && windowTo != null) {
+      if (plannedStart < windowFrom || plannedEnd > windowTo) {
+        add({
+          id: `client_window:${task.id}`,
+          type: 'client_window',
+          severity: 'critical',
+          task_id: task.id,
+          title: `Okno klienta poza planem: ${task.numer || `#${task.id}`}`,
+          detail: `${task.klient_nazwa || 'Klient'} ma okno ${formatActionMinutes(windowFrom)}-${formatActionMinutes(windowTo)}, plan wychodzi ${formatActionMinutes(plannedStart)}-${formatActionMinutes(plannedEnd)}.`,
+          action: 'Przesun plan albo wyslij nowa propozycje terminu przez Zadarma SMS.',
+          action_path: buildTaskPath({ ...task, blockers: [] }, date),
+        });
+      }
+    }
+  }
+
+  for (const row of proposalRows || []) {
+    const status = String(row.status || '').toLowerCase();
+    if (!['pending', 'rejected', 'expired'].includes(status)) continue;
+    add({
+      id: `time_window_proposal:${row.id || row.task_id}`,
+      type: 'client_window',
+      severity: status === 'pending' ? 'warning' : 'critical',
+      task_id: row.task_id,
+      title: `${status === 'pending' ? 'Termin czeka na klienta' : 'Termin niepotwierdzony'}: ${row.numer || `#${row.task_id}`}`,
+      detail: `${row.klient_nazwa || 'Klient'} / status propozycji: ${row.status || 'pending'}.`,
+      action: 'Sprawdz historie okien i ponow wysylke Zadarma SMS lub ustal termin telefonicznie.',
+      action_path: `/zlecenia/${row.task_id}`,
+    });
+  }
+
+  for (const row of smsRows || []) {
+    add({
+      id: `sms_delivery:${row.id}`,
+      type: 'sms_delivery',
+      severity: String(row.status || '').toLowerCase().includes('blad') || row.delivery_error_code ? 'critical' : 'warning',
+      task_id: row.task_id,
+      title: `Zadarma/SMS do sprawdzenia: ${row.numer || `#${row.task_id || row.id}`}`,
+      detail: `${row.telefon || 'brak numeru'} / ${row.provider_status || row.status || 'brak statusu'}${row.delivery_error_code ? ` / ${row.delivery_error_code}` : ''}.`,
+      action: 'Ponow kontakt z Telefonii albo zadzwon przez Zadarma.',
+      action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/telefonia',
+    });
+  }
+
+  const activeByTeam = new Map();
+  for (const task of tasks || []) {
+    if (!task.ekipa_id || isTaskClosed(task.status) || !task.data_planowana) continue;
+    const start = dateTimeMs(task.data_planowana);
+    const minutes = taskPlannedMinutes(task);
+    if (start == null || minutes <= 0) continue;
+    const end = start + minutes * 60000;
+    const list = activeByTeam.get(task.ekipa_id) || [];
+    list.push({ ...task, start, end });
+    activeByTeam.set(task.ekipa_id, list);
+  }
+  for (const list of activeByTeam.values()) {
+    const sorted = list.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < sorted.length; i += 1) {
+      const previous = sorted[i - 1];
+      const current = sorted[i];
+      if (current.start < previous.end) {
+        add({
+          id: `team_conflict:${previous.id}:${current.id}`,
+          type: 'team_conflict',
+          severity: 'critical',
+          task_id: current.id,
+          title: `Konflikt ekipy: ${current.ekipa_nazwa || `ekipa #${current.ekipa_id}`}`,
+          detail: `${previous.numer || `#${previous.id}`} nachodzi na ${current.numer || `#${current.id}`}.`,
+          action: 'Rozdziel zlecenia w planie biura albo zmien ekipe.',
+          action_path: `/zlecenia/${current.id}`,
+        });
+      }
+    }
+  }
+
+  for (const row of equipmentRows || []) {
+    add({
+      id: `equipment_conflict:${row.sprzet_id}`,
+      type: 'equipment_conflict',
+      severity: 'critical',
+      task_id: row.task_id || null,
+      title: `Kolizja sprzetu: ${row.sprzet_nazwa || `sprzet #${row.sprzet_id}`}`,
+      detail: `${row.conflict_pairs || 1} kolizji rezerwacji w planie dnia.`,
+      action: 'Zmien rezerwacje sprzetu zanim ekipa ruszy w teren.',
+      action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/flota',
+    });
+  }
+
+  for (const risk of marginRisks || []) {
+    add({
+      id: `margin:${risk.id}`,
+      type: 'margin',
+      severity: 'critical',
+      task_id: risk.id,
+      title: `Marza ponizej progu: ${risk.numer || `#${risk.id}`}`,
+      detail: `${risk.margin_pct ?? '-'}% przy progu ${risk.threshold_pct}%, klient: ${risk.klient_nazwa || 'brak'}.`,
+      action: 'Sprawdz koszty, roboczogodziny i doplaty przed zamknieciem dnia.',
+      action_path: risk.action_path || `/zlecenia/${risk.id}`,
+    });
+  }
+
+  const severityRank = { critical: 0, warning: 1, info: 2 };
+  items.sort((a, b) => (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9) || String(a.title).localeCompare(String(b.title)));
+  const counts = {
+    total: items.length,
+    critical: items.filter((item) => item.severity === 'critical').length,
+    warning: items.filter((item) => item.severity === 'warning').length,
+    client_window: items.filter((item) => item.type === 'client_window').length,
+    sms_delivery: items.filter((item) => item.type === 'sms_delivery').length,
+    team_conflict: items.filter((item) => item.type === 'team_conflict').length,
+    equipment_conflict: items.filter((item) => item.type === 'equipment_conflict').length,
+    margin: items.filter((item) => item.type === 'margin').length,
+  };
+  const report = {
+    date,
+    generated_at: new Date().toISOString(),
+    counts,
+    items: items.slice(0, 30),
+  };
+  return {
+    ...report,
+    text: buildRiskText({ ...report, items }),
+  };
+}
+
+function taskPlanBounds(task) {
+  const startMs = dateTimeMs(task?.data_planowana);
+  if (startMs == null) return null;
+  const minutes = Math.max(15, taskPlannedMinutes(task) || 120);
+  return {
+    start: new Date(startMs),
+    end: new Date(startMs + minutes * 60000),
+    day: new Date(startMs).toISOString().slice(0, 10),
+    minutes,
+  };
+}
+
+function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+  const as = dateTimeMs(aStart);
+  const ae = dateTimeMs(aEnd);
+  const bs = dateTimeMs(bStart);
+  const be = dateTimeMs(bEnd);
+  if ([as, ae, bs, be].some((v) => v == null)) return false;
+  return as < be && bs < ae;
+}
+
+async function getRiskTask(taskId, user) {
+  const result = await pool.query(
+    `SELECT t.id, t.numer, t.klient_nazwa, t.klient_telefon, t.oddzial_id,
+            t.ekipa_id, t.data_planowana, t.czas_planowany_godziny, t.czas_obslugi_min,
+            t.notatki_wewnetrzne, e.nazwa AS ekipa_nazwa, b.telefon AS oddzial_telefon
+     FROM tasks t
+     LEFT JOIN teams e ON e.id = t.ekipa_id
+     LEFT JOIN branches b ON b.id = t.oddzial_id
+     WHERE t.id = $1`,
+    [taskId]
+  );
+  const task = result.rows[0] || null;
+  if (!task) return { error: { status: 404, message: 'Nie znaleziono zlecenia dla ryzyka.' } };
+  if (!isDyrektorOrAdmin(user) && String(task.oddzial_id || '') !== String(user.oddzial_id || '')) {
+    return { error: { status: 403, message: 'Brak dostepu do zlecenia z innego oddzialu.' } };
+  }
+  return { task };
+}
+
+async function buildTeamConflictOptions(task, limit = 5) {
+  const bounds = taskPlanBounds(task);
+  if (!bounds) return [];
+  const { rows } = await pool.query(
+    `SELECT tm.id, tm.nazwa, tm.oddzial_id
+     FROM teams tm
+     WHERE tm.aktywny IS NOT FALSE
+       AND tm.oddzial_id = $1
+       AND tm.id IS DISTINCT FROM $2::int
+     ORDER BY tm.nazwa ASC
+     LIMIT 50`,
+    [task.oddzial_id, task.ekipa_id || null]
+  );
+  const options = [];
+  for (const team of rows) {
+    const busy = await pool.query(
+      `SELECT t.id, t.numer, t.data_planowana,
+              COALESCE(t.czas_obslugi_min, t.czas_planowany_godziny * 60, 120)::int AS minutes,
+              'task' AS source
+       FROM tasks t
+       WHERE t.ekipa_id = $1
+         AND t.id <> $2
+         AND t.data_planowana::date = $3::date
+         AND t.status NOT IN ('Zakonczone', 'Anulowane')
+       UNION ALL
+       SELECT r.id, NULL::text AS numer, r.data_od::timestamptz AS data_planowana,
+              1440::int AS minutes,
+              'equipment' AS source
+       FROM equipment_reservations r
+       WHERE r.ekipa_id = $1
+         AND r.data_od <= $3::date
+         AND r.data_do >= $3::date
+         AND LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%'
+         AND LOWER(COALESCE(r.status, '')) NOT LIKE 'zwr%'`,
+      [team.id, task.id, bounds.day]
+    );
+    const conflict = busy.rows.some((row) => {
+      const start = row.source === 'equipment'
+        ? `${bounds.day}T00:00:00.000Z`
+        : row.data_planowana;
+      const startMs = dateTimeMs(start);
+      if (startMs == null) return false;
+      const end = new Date(startMs + Math.max(15, Number(row.minutes || 120)) * 60000).toISOString();
+      return rangesOverlap(bounds.start, bounds.end, start, end);
+    });
+    if (!conflict) {
+      options.push({
+        team_id: team.id,
+        team_name: team.nazwa,
+        impact: `Przepnij ${task.numer || `#${task.id}`} na ${team.nazwa}; okno ${bounds.start.toISOString()} - ${bounds.end.toISOString()} jest wolne.`,
+      });
+    }
+    if (options.length >= limit) break;
+  }
+  return options;
+}
+
+async function buildEquipmentConflictOptions(task, riskId, limit = 5) {
+  const bounds = taskPlanBounds(task);
+  const conflictedId = Number(String(riskId || '').match(/^equipment_conflict:(\d+)$/)?.[1] || 0);
+  if (!bounds || !conflictedId) return [];
+  const source = await pool.query('SELECT id, nazwa, typ, oddzial_id FROM equipment_items WHERE id = $1', [conflictedId]);
+  const sourceItem = source.rows[0];
+  if (!sourceItem) return [];
+  const { rows } = await pool.query(
+    `SELECT e.id, e.nazwa, e.typ, e.oddzial_id
+     FROM equipment_items e
+     WHERE e.id <> $1
+       AND e.oddzial_id = $2
+       AND COALESCE(e.status, '') NOT ILIKE '%serwis%'
+       AND COALESCE(e.status, '') NOT ILIKE '%awari%'
+       AND COALESCE(e.status, '') NOT ILIKE '%wycof%'
+       AND ($3::text IS NULL OR e.typ = $3)
+     ORDER BY e.nazwa ASC
+     LIMIT 40`,
+    [conflictedId, task.oddzial_id || sourceItem.oddzial_id, sourceItem.typ || null]
+  );
+  const options = [];
+  for (const item of rows) {
+    const clash = await pool.query(
+      `SELECT id
+       FROM equipment_reservations
+       WHERE sprzet_id = $1
+         AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'
+         AND LOWER(COALESCE(status, '')) NOT LIKE 'zwr%'
+         AND NOT (data_do < $2::date OR data_od > $2::date)
+         AND (task_id IS NULL OR task_id <> $3::int)
+       LIMIT 1`,
+      [item.id, bounds.day, task.id]
+    );
+    if (!clash.rows.length) {
+      options.push({
+        old_sprzet_id: conflictedId,
+        sprzet_id: item.id,
+        sprzet_nazwa: item.nazwa,
+        impact: `Zastap ${sourceItem.nazwa || `sprzet #${conflictedId}`} sprzetem ${item.nazwa}; ${bounds.day} bez kolizji.`,
+      });
+    }
+    if (options.length >= limit) break;
+  }
+  return options;
+}
+
 function numberValue(value) {
   const n = Number(value || 0);
   return Number.isFinite(n) ? n : 0;
@@ -260,6 +596,31 @@ async function ensureOpsActionEventsTable() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ops_action_events_branch_created ON ops_action_events(oddzial_id, created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_ops_action_events_task ON ops_action_events(task_id)');
   opsActionEventsReady = true;
+}
+
+async function ensureRiskTelephonyCallbacksTable() {
+  if (riskTelephonyCallbacksReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS telephony_callbacks (
+      id SERIAL PRIMARY KEY,
+      oddzial_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      phone VARCHAR(64) NOT NULL,
+      task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      lead_name VARCHAR(255),
+      priority VARCHAR(16) NOT NULL DEFAULT 'normal',
+      due_at TIMESTAMPTZ,
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      notes TEXT,
+      assigned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      closed_at TIMESTAMPTZ
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks_oddzial_status ON telephony_callbacks(oddzial_id, status)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks_due ON telephony_callbacks(due_at)');
+  riskTelephonyCallbacksReady = true;
 }
 
 async function recordOpsActionEvent({
@@ -519,10 +880,10 @@ function buildOpsActionRecommendations({ date, oddzialId, tasks = [], eventStats
       score: 78 + dispatchBlockers.length * 6,
       title: `${dispatchBlockers.length} blokad wysylki ekip`,
       rationale: `${missingTeams} bez ekipy, ${missingGps} bez pinezki GPS. To blokuje dobry plan dnia.`,
-      suggested_action: 'Otworz pierwsze zlecenie z blokada i napraw dane planowania.',
-      action_kind: 'open_tasks',
-      primary_label: 'Otworz zlecenia',
-      secondary_label: '',
+      suggested_action: 'Uruchom preflight: system przypisze wolna ekipe, a brak GPS oznaczy checklistą do uzupelnienia.',
+      action_kind: 'fix_dispatch_blockers',
+      primary_label: 'Napraw blokady',
+      secondary_label: 'Otworz',
       task_count: dispatchBlockers.length,
       task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
       task_preview: recommendationBlockerTaskPreview(dispatchBlockers, date, ['team', 'gps']),
@@ -662,6 +1023,82 @@ function latestRecommendationFeedbackById(rows = []) {
   return latest;
 }
 
+function safeMetadata(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(String(value));
+  } catch {
+    return {};
+  }
+}
+
+function recommendationTaskIds(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0))]
+    .slice(0, 20);
+}
+
+function decisionOutcome(row) {
+  const meta = safeMetadata(row.metadata);
+  if (row.action_type === 'risk_reassign_team') {
+    return `Ekipa ${meta.old_team_id || '-'} -> ${meta.new_team_id || '-'}`;
+  }
+  if (row.action_type === 'risk_replace_equipment') {
+    return `Sprzet ${meta.old_sprzet_id || '-'} -> ${meta.new_sprzet_id || '-'}`;
+  }
+  if (row.action_type === 'risk_queue_call') {
+    if (meta.zadarma_call?.ok) return 'Telefon Zadarma uruchomiony';
+    if (meta.callback_id) return `Callback #${meta.callback_id}`;
+  }
+  if (row.action_type === 'risk_resend_sms') {
+    return meta.ok ? `SMS ${meta.provider || 'gateway'} wyslany` : `SMS blad: ${meta.error || '-'}`;
+  }
+  if (row.action_type === 'set_duration') {
+    return row.planned_minutes ? `Plan ${formatActionMinutes(row.planned_minutes)}` : 'Czas planu zapisany';
+  }
+  if (row.action_type === 'mark_reason') {
+    return PLAN_REAL_REASON_LABELS[row.reason_code] || row.reason_code || 'Powod zapisany';
+  }
+  if (row.action_type === 'remind_team') {
+    return `Powiadomien: ${meta.notification_count ?? 0}`;
+  }
+  if (row.action_type === 'recommendation_feedback') {
+    return `${meta.decision || '-'} / ${meta.recommendation_id || '-'}`;
+  }
+  return row.note || '';
+}
+
+function csvCell(value) {
+  const text = value == null ? '' : String(value).replace(/\r?\n/g, ' ').trim();
+  if (/[;"\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function actionHistoryCsv(items) {
+  const columns = [
+    ['id', 'ID'],
+    ['created_at', 'Data decyzji'],
+    ['oddzial_nazwa', 'Oddzial'],
+    ['actor_name', 'Operator'],
+    ['action_label', 'Decyzja'],
+    ['action_type', 'Kod decyzji'],
+    ['risk_type', 'Typ ryzyka'],
+    ['risk_id', 'ID ryzyka'],
+    ['numer', 'Zlecenie'],
+    ['klient_nazwa', 'Klient'],
+    ['outcome', 'Wynik'],
+    ['note', 'Notatka'],
+  ];
+  const rows = [
+    columns.map(([, label]) => csvCell(label)).join(';'),
+    ...items.map((item) => columns.map(([key]) => csvCell(item[key])).join(';')),
+  ];
+  return `\uFEFF${rows.join('\r\n')}\r\n`;
+}
+
 router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
   const date = parseDateParam(req.query.date);
   if (!date) {
@@ -678,9 +1115,18 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
   const taskParams = oddzialId != null ? [date, oddzialId] : [date];
 
   const teamBranchSql = oddzialId != null ? 'AND tm.oddzial_id = $2' : '';
+  const reservationBranchSql = oddzialId != null ? 'AND r1.oddzial_id = $2' : '';
 
   try {
-    const [tasksResult, teamsResult, notificationsResult, marginRiskResult] = await Promise.all([
+    const [
+      tasksResult,
+      teamsResult,
+      notificationsResult,
+      marginRiskResult,
+      smsRiskResult,
+      proposalRiskResult,
+      equipmentConflictResult,
+    ] = await Promise.all([
       pool.query(
         `WITH open_issues AS (
            SELECT task_id, COUNT(*)::int AS open_issues
@@ -699,6 +1145,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
          SELECT t.id, t.numer, t.klient_nazwa, t.klient_telefon, t.adres, t.miasto,
                 t.status, t.priorytet, t.data_planowana, t.ekipa_id, t.oddzial_id,
                 t.pin_lat, t.pin_lng, t.czas_planowany_godziny, t.czas_obslugi_min,
+                t.okno_od, t.okno_do,
                 e.nazwa AS ekipa_nazwa, b.nazwa AS oddzial_nazwa,
                 COALESCE(oi.open_issues, 0)::int AS open_issues,
                 COALESCE(ws.has_started, false) AS has_started,
@@ -809,6 +1256,66 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
          LIMIT 50`,
         taskParams
       ),
+      pool.query(
+        `SELECT h.id, h.task_id, h.telefon, h.status, h.provider, h.provider_status,
+                h.delivery_error_code, h.created_at, t.numer, t.klient_nazwa
+         FROM sms_history h
+         LEFT JOIN tasks t ON t.id = h.task_id
+         WHERE h.created_at >= $1::date
+           AND h.created_at < $1::date + INTERVAL '1 day'
+           ${branchSql}
+           AND (
+             h.delivery_error_code IS NOT NULL
+             OR LOWER(COALESCE(h.status, '')) LIKE 'blad%'
+             OR LOWER(COALESCE(h.provider_status, '')) IN ('failed', 'undelivered', 'rejected', 'denied', 'error')
+             OR (
+               h.provider_status IS NULL
+               AND h.created_at < NOW() - INTERVAL '30 minutes'
+               AND LOWER(COALESCE(h.status, '')) NOT IN ('dostarczony', 'delivered')
+             )
+           )
+         ORDER BY h.created_at DESC
+         LIMIT 12`,
+        taskParams
+      ),
+      pool.query(
+        `SELECT DISTINCT ON (p.task_id)
+                p.id, p.task_id, p.status, p.expires_at, p.created_at,
+                t.numer, t.klient_nazwa
+         FROM task_time_window_proposals p
+         JOIN tasks t ON t.id = p.task_id
+         WHERE t.data_planowana::date = $1::date
+           ${branchSql}
+           AND (
+             p.status IN ('pending', 'rejected', 'expired')
+             OR (p.status = 'pending' AND p.expires_at IS NOT NULL AND p.expires_at < NOW())
+           )
+         ORDER BY p.task_id, p.created_at DESC
+         LIMIT 20`,
+        taskParams
+      ),
+      pool.query(
+        `SELECT r1.sprzet_id, COALESCE(e.nazwa, 'sprzet #' || r1.sprzet_id) AS sprzet_nazwa,
+                COUNT(*)::int AS conflict_pairs,
+                MIN(COALESCE(r1.task_id, r2.task_id)) AS task_id
+         FROM equipment_reservations r1
+         JOIN equipment_reservations r2
+           ON r1.sprzet_id = r2.sprzet_id
+          AND r1.id < r2.id
+          AND r1.status != 'Anulowane'
+          AND r1.status NOT ILIKE 'Zwr%'
+          AND r2.status != 'Anulowane'
+          AND r2.status NOT ILIKE 'Zwr%'
+          AND NOT (r1.data_do <= r2.data_od OR r1.data_od >= r2.data_do)
+         LEFT JOIN equipment_items e ON e.id = r1.sprzet_id
+         WHERE r1.data_od < $1::date + INTERVAL '1 day'
+           AND r1.data_do > $1::date
+           ${reservationBranchSql}
+         GROUP BY r1.sprzet_id, e.nazwa
+         ORDER BY conflict_pairs DESC
+         LIMIT 8`,
+        taskParams
+      ),
     ]);
 
     const blockerCounts = new Map();
@@ -899,6 +1406,15 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
       .slice(0, 8);
     if (marginRisks.length > 0) bumpBlocker(blockerCounts, 'margin', marginRisks.length);
 
+    const riskReport = buildManagerRiskReport({
+      date,
+      tasks: tasksResult.rows,
+      marginRisks,
+      smsRows: smsRiskResult.rows,
+      proposalRows: proposalRiskResult.rows,
+      equipmentRows: equipmentConflictResult.rows,
+    });
+
     const riskyTasks = openTasks
       .filter((task) => task.blockers.length > 0 || task.open_issues > 0)
       .sort((a, b) => b.blockers.length - a.blockers.length || b.open_issues - a.open_issues)
@@ -922,6 +1438,9 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
         unassigned,
         open_issues: openIssues,
         margin_risks: marginRisks.length,
+        day_risks: riskReport.counts.total,
+        critical_day_risks: riskReport.counts.critical,
+        zadarma_sms_risks: riskReport.counts.sms_delivery,
         unread_notifications: unreadNotifications,
         active_teams: teams.length,
         assigned_teams: teams.filter((team) => team.tasks_total > 0).length,
@@ -931,6 +1450,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
       blockers: blockerRows(blockerCounts),
       tasks: riskyTasks,
       margin_risks: marginRisks,
+      risk_report: riskReport,
       teams: teams.filter((team) => team.tasks_total > 0 || team.gps_status !== 'missing').slice(0, 12),
       generated_at: new Date().toISOString(),
       requestId: req.requestId,
@@ -1236,6 +1756,183 @@ router.get('/action-insights', authMiddleware, requireRole(...MANAGER_ROLES), as
   }
 });
 
+router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const date = parseDateParam(req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+
+  const range = req.query.range === 'today' ? 'today' : 'week';
+  const requestedOddzial = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  const format = cleanText(req.query.format, 20).toLowerCase();
+  const maxLimit = format === 'csv' ? 1000 : 100;
+  const limit = Math.min(maxLimit, Math.max(1, Number(req.query.limit || (format === 'csv' ? 1000 : 30))));
+  const offset = Math.max(0, Number(req.query.offset || 0));
+  const actionType = cleanText(req.query.action_type, 60);
+  const issueKey = cleanText(req.query.issue_key, 60);
+  const taskId = Number(req.query.task_id || 0);
+  const search = cleanText(req.query.q, 120);
+
+  const filters = [];
+  const params = [date];
+  const fromSql = range === 'today' ? '$1::date' : "($1::date - INTERVAL '6 days')";
+  if (oddzialId != null) {
+    params.push(oddzialId);
+    filters.push(`e.oddzial_id = $${params.length}`);
+  }
+  if (actionType) {
+    params.push(actionType);
+    filters.push(`e.action_type = $${params.length}`);
+  }
+  if (issueKey) {
+    params.push(issueKey);
+    filters.push(`e.issue_key = $${params.length}`);
+  }
+  if (Number.isInteger(taskId) && taskId > 0) {
+    params.push(taskId);
+    filters.push(`e.task_id = $${params.length}`);
+  }
+  if (search) {
+    params.push(`%${search.replace(/[%_]/g, '\\$&')}%`);
+    filters.push(`(
+      COALESCE(t.numer, '') ILIKE $${params.length} ESCAPE E'\\\\'
+      OR COALESCE(t.klient_nazwa, '') ILIKE $${params.length} ESCAPE E'\\\\'
+      OR COALESCE(e.note, '') ILIKE $${params.length} ESCAPE E'\\\\'
+      OR COALESCE(e.metadata::text, '') ILIKE $${params.length} ESCAPE E'\\\\'
+    )`);
+  }
+
+  const whereExtra = filters.length ? `AND ${filters.join(' AND ')}` : '';
+  const limitParam = params.length + 1;
+  const offsetParam = params.length + 2;
+
+  try {
+    await ensureOpsActionEventsTable();
+    const [countResult, rowsResult, actionResult, issueResult] = await Promise.all([
+      pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM ops_action_events e
+         LEFT JOIN tasks t ON t.id = e.task_id
+         WHERE e.created_at >= ${fromSql}
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           ${whereExtra}`,
+        params
+      ),
+      pool.query(
+        `SELECT e.id, e.task_id, e.oddzial_id, e.actor_id, e.action_type,
+                e.issue_key, e.reason_code, e.delta_minutes, e.planned_minutes,
+                e.real_minutes, e.note, e.metadata, e.created_at,
+                t.numer, t.klient_nazwa,
+                b.nazwa AS oddzial_nazwa,
+                NULLIF(TRIM(CONCAT(COALESCE(u.imie, ''), ' ', COALESCE(u.nazwisko, ''))), '') AS actor_name
+         FROM ops_action_events e
+         LEFT JOIN tasks t ON t.id = e.task_id
+         LEFT JOIN branches b ON b.id = e.oddzial_id
+         LEFT JOIN users u ON u.id = e.actor_id
+         WHERE e.created_at >= ${fromSql}
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           ${whereExtra}
+         ORDER BY e.created_at DESC
+         LIMIT $${limitParam} OFFSET $${offsetParam}`,
+        [...params, limit, offset]
+      ),
+      pool.query(
+        `SELECT e.action_type, COUNT(*)::int AS count
+         FROM ops_action_events e
+         LEFT JOIN tasks t ON t.id = e.task_id
+         WHERE e.created_at >= ${fromSql}
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           ${whereExtra}
+         GROUP BY e.action_type
+         ORDER BY count DESC`,
+        params
+      ),
+      pool.query(
+        `SELECT e.issue_key, COUNT(*)::int AS count
+         FROM ops_action_events e
+         LEFT JOIN tasks t ON t.id = e.task_id
+         WHERE e.created_at >= ${fromSql}
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           ${whereExtra}
+           AND e.issue_key IS NOT NULL
+         GROUP BY e.issue_key
+         ORDER BY count DESC`,
+        params
+      ),
+    ]);
+
+    const items = rowsResult.rows.map((row) => {
+      const metadata = safeMetadata(row.metadata);
+      return {
+        id: row.id,
+        task_id: row.task_id,
+        numer: row.numer || (row.task_id ? `#${row.task_id}` : '-'),
+        klient_nazwa: row.klient_nazwa,
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        actor_id: row.actor_id,
+        actor_name: row.actor_name || (row.actor_id ? `#${row.actor_id}` : '-'),
+        action_type: row.action_type,
+        action_label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+        issue_key: row.issue_key,
+        issue_label: PLAN_REAL_ISSUE_LABELS[row.issue_key] || row.issue_key,
+        reason_code: row.reason_code,
+        reason_label: PLAN_REAL_REASON_LABELS[row.reason_code] || row.reason_code,
+        delta_minutes: eventNumber(row.delta_minutes),
+        planned_minutes: eventNumber(row.planned_minutes),
+        real_minutes: eventNumber(row.real_minutes),
+        note: row.note,
+        metadata,
+        risk_id: metadata.risk_id || null,
+        risk_type: metadata.risk_type || row.issue_key || null,
+        outcome: decisionOutcome(row),
+        created_at: row.created_at,
+        action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/kierownik',
+      };
+    });
+
+    if (format === 'csv') {
+      const stamp = new Date().toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="arbor-decyzje-operacyjne-${stamp}.csv"`);
+      return res.status(200).send(actionHistoryCsv(items));
+    }
+
+    return res.json({
+      date,
+      range,
+      oddzial_id: oddzialId,
+      filters: { action_type: actionType || null, issue_key: issueKey || null, task_id: Number.isInteger(taskId) && taskId > 0 ? taskId : null, q: search || null, format: format || null },
+      total: countResult.rows[0]?.total || 0,
+      limit,
+      offset,
+      items,
+      summary: {
+        actions: actionResult.rows.map((row) => ({
+          action_type: row.action_type,
+          label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+          count: Number(row.count || 0),
+        })),
+        issues: issueResult.rows.map((row) => ({
+          issue_key: row.issue_key,
+          label: PLAN_REAL_ISSUE_LABELS[row.issue_key] || row.issue_key,
+          count: Number(row.count || 0),
+        })),
+      },
+      generated_at: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops action-history', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
 router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
   const date = parseDateParam(req.query.date);
   if (!date) {
@@ -1443,6 +2140,361 @@ router.get('/action-recommendations', authMiddleware, requireRole(...MANAGER_ROL
   } catch (e) {
     logger.error('ops action-recommendations', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.post('/action-recommendations/:recommendationId/apply', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const recommendationId = cleanText(req.params.recommendationId, 80);
+  if (!recommendationId) {
+    return res.status(400).json({ error: 'Nieprawidlowy identyfikator rekomendacji.' });
+  }
+
+  const date = parseDateParam(req.body?.date || req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+
+  const actionKind = cleanText(req.body?.action_kind, 60) || 'open_tasks';
+  const allowedActionKinds = new Set(['set_duration_batch', 'remind_team_batch', 'fix_dispatch_blockers', 'open_tasks', 'open_task', 'open_map', 'none']);
+  if (!allowedActionKinds.has(actionKind)) {
+    return res.status(400).json({ error: 'Nieznany typ akcji rekomendacji.' });
+  }
+
+  const requestedOddzial = req.body?.oddzial_id || req.query.oddzial_id ? Number(req.body?.oddzial_id || req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  const taskIds = recommendationTaskIds(req.body?.task_ids);
+  const targetPath = cleanText(req.body?.target_path, 300) || '/kierownik';
+  const title = cleanText(req.body?.title, 300) || recommendationId;
+
+  try {
+    await ensureOpsActionEventsTable();
+
+    const result = {
+      recommendation_id: recommendationId,
+      action_kind: actionKind,
+      date,
+      oddzial_id: oddzialId,
+      task_ids: taskIds,
+      updated_tasks: [],
+      notification_count: 0,
+      dispatch_preflight: null,
+      navigate_to: ['open_tasks', 'open_task', 'open_map', 'none'].includes(actionKind) ? targetPath : null,
+    };
+
+    if (['set_duration_batch', 'remind_team_batch', 'fix_dispatch_blockers'].includes(actionKind)) {
+      if (taskIds.length === 0) {
+        return res.status(400).json({ error: 'Akcja rekomendacji wymaga task_ids.' });
+      }
+
+      const branchSql = oddzialId != null ? 'AND t.oddzial_id = $2' : '';
+      const taskParams = oddzialId != null ? [taskIds, oddzialId] : [taskIds];
+      const taskResult = await pool.query(
+        `SELECT t.id, t.numer, t.klient_nazwa, t.klient_telefon, t.adres, t.status, t.oddzial_id, t.ekipa_id,
+                t.data_planowana, t.pin_lat, t.pin_lng, t.czas_planowany_godziny, t.czas_obslugi_min,
+                t.notatki_wewnetrzne,
+                e.nazwa AS ekipa_nazwa, e.brygadzista_id
+         FROM tasks t
+         LEFT JOIN teams e ON e.id = t.ekipa_id
+         WHERE t.id = ANY($1::int[])
+           ${branchSql}
+         ORDER BY t.id ASC`,
+        taskParams
+      );
+      const tasks = taskResult.rows || [];
+      if (tasks.length === 0) {
+        return res.status(404).json({ error: 'Nie znaleziono zlecen dla rekomendacji w dostepnym zakresie.' });
+      }
+      if (!isDyrektorOrAdmin(req.user) && tasks.some((task) => String(task.oddzial_id || '') !== String(req.user.oddzial_id || ''))) {
+        return res.status(403).json({ error: 'Brak dostepu do zlecenia z innego oddzialu.' });
+      }
+
+      if (actionKind === 'set_duration_batch') {
+        const plannedMinutes = roundedMinutes(req.body?.suggested_minutes || req.body?.planned_minutes || 120);
+        if (plannedMinutes < 15 || plannedMinutes > 720) {
+          return res.status(400).json({ error: 'Czas planu musi byc w zakresie 15 min - 12 h.' });
+        }
+        const plannedHours = Math.round((plannedMinutes / 60) * 100) / 100;
+        for (const task of tasks) {
+          const note = planRealNote({
+            title: 'Rekomendacja kierownika: ustawiono czas planu',
+            user: req.user,
+            lines: [
+              `Rekomendacja: ${title}`,
+              `Zlecenie: ${task.numer || `#${task.id}`}`,
+              `Czas planu: ${formatActionMinutes(plannedMinutes)}`,
+            ],
+          });
+          const update = await pool.query(
+            `UPDATE tasks
+             SET czas_planowany_godziny = $1,
+                 czas_obslugi_min = $2,
+                 notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $3::text),
+                 updated_at = NOW()
+             WHERE id = $4
+             RETURNING id, numer, czas_planowany_godziny, czas_obslugi_min`,
+            [plannedHours, plannedMinutes, note, task.id]
+          );
+          const event = await recordOpsActionEvent({
+            task,
+            user: req.user,
+            actionType: 'set_duration',
+            issueKey: 'missing_duration',
+            plannedMinutes,
+            note: `Rekomendacja: ${title}`,
+            metadata: {
+              recommendation_id: recommendationId,
+              source: 'recommendation_apply',
+              task_numer: task.numer || null,
+            },
+          });
+          result.updated_tasks.push({ ...(update.rows[0] || { id: task.id }), event_id: event?.id || null });
+        }
+      }
+
+      if (actionKind === 'fix_dispatch_blockers') {
+        const preflight = {
+          checked: tasks.length,
+          ready: [],
+          still_blocked: [],
+          fixed_team_count: 0,
+          gps_checklist_count: 0,
+        };
+        for (const task of tasks) {
+          const blockers = taskBlockers(task).filter((key) => key === 'team' || key === 'gps');
+          const remaining = new Set(blockers);
+
+          if (remaining.has('team')) {
+            const options = await buildTeamConflictOptions(task, 1);
+            const selected = options[0] || null;
+            if (selected) {
+              const note = planRealNote({
+                title: 'Preflight dispatchera: automatycznie przypisano ekipe',
+                user: req.user,
+                lines: [
+                  `Rekomendacja: ${title}`,
+                  `Zlecenie: ${task.numer || `#${task.id}`}`,
+                  `Ekipa: ${selected.team_name} (#${selected.team_id})`,
+                  `Powod: brak ekipy blokowal dispatch.`,
+                ],
+              });
+              const updated = await pool.query(
+                `UPDATE tasks
+                 SET ekipa_id = $1,
+                     notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $2::text),
+                     updated_at = NOW()
+                 WHERE id = $3
+                 RETURNING id, numer, ekipa_id, notatki_wewnetrzne`,
+                [selected.team_id, note, task.id]
+              );
+              await pool.query(
+                `UPDATE equipment_reservations
+                 SET ekipa_id = $1, updated_at = NOW()
+                 WHERE task_id = $2
+                   AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'
+                   AND LOWER(COALESCE(status, '')) NOT LIKE 'zwr%'`,
+                [selected.team_id, task.id]
+              );
+              const event = await recordOpsActionEvent({
+                task,
+                user: req.user,
+                actionType: 'dispatch_auto_assign_team',
+                issueKey: 'team',
+                note: `Rekomendacja: ${title}`,
+                metadata: {
+                  recommendation_id: recommendationId,
+                  source: 'recommendation_apply',
+                  old_team_id: task.ekipa_id || null,
+                  new_team_id: selected.team_id,
+                  impact: selected.impact,
+                  task_numer: task.numer || null,
+                },
+              });
+              task.ekipa_id = selected.team_id;
+              task.ekipa_nazwa = selected.team_name;
+              preflight.fixed_team_count += 1;
+              remaining.delete('team');
+              result.updated_tasks.push({
+                ...(updated.rows[0] || { id: task.id, ekipa_id: selected.team_id }),
+                action: 'assign_team',
+                option: selected,
+                event_id: event?.id || null,
+              });
+            }
+          }
+
+          if (remaining.has('gps')) {
+            const note = planRealNote({
+              title: 'Preflight dispatchera: checklist GPS',
+              user: req.user,
+              lines: [
+                `Rekomendacja: ${title}`,
+                `Zlecenie: ${task.numer || `#${task.id}`}`,
+                'Do dispatch: ustaw pinezke GPS na podstawie adresu lub potwierdzenia telefonicznego w Zadarma.',
+                task.adres ? `Adres do weryfikacji: ${task.adres}` : 'Brak adresu do automatycznej pinezki.',
+              ],
+            });
+            const updated = await pool.query(
+              `UPDATE tasks
+               SET notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $1::text),
+                   updated_at = NOW()
+               WHERE id = $2
+               RETURNING id, numer, pin_lat, pin_lng, notatki_wewnetrzne`,
+              [note, task.id]
+            );
+            const event = await recordOpsActionEvent({
+              task,
+              user: req.user,
+              actionType: 'dispatch_gps_checklist',
+              issueKey: 'gps',
+              note: `Rekomendacja: ${title}`,
+              metadata: {
+                recommendation_id: recommendationId,
+                source: 'recommendation_apply',
+                needs_manual_gps: true,
+                zadarma_first: true,
+                task_numer: task.numer || null,
+              },
+            });
+            preflight.gps_checklist_count += 1;
+            result.updated_tasks.push({
+              ...(updated.rows[0] || { id: task.id }),
+              action: 'gps_checklist',
+              event_id: event?.id || null,
+            });
+          }
+
+          if (remaining.size === 0) {
+            preflight.ready.push(task.id);
+          } else {
+            preflight.still_blocked.push({
+              task_id: task.id,
+              numer: task.numer || null,
+              blockers: Array.from(remaining),
+              target_path: buildTaskPath({ ...task, blockers: Array.from(remaining) }, date),
+            });
+          }
+        }
+        result.dispatch_preflight = preflight;
+      }
+
+      if (actionKind === 'remind_team_batch') {
+        for (const task of tasks) {
+          if (!task.ekipa_id) continue;
+          const noteText = `Rekomendacja: ${title}`;
+          const reminderText = [
+            `Plan vs real: sprawdz zlecenie ${task.numer || `#${task.id}`}.`,
+            task.klient_nazwa ? `Klient: ${task.klient_nazwa}.` : '',
+            noteText,
+          ].filter(Boolean).join(' ');
+          const note = planRealNote({
+            title: 'Rekomendacja kierownika: przypomnienie do ekipy',
+            user: req.user,
+            lines: [
+              `Rekomendacja: ${title}`,
+              `Zlecenie: ${task.numer || `#${task.id}`}`,
+              `Ekipa: ${task.ekipa_nazwa || `#${task.ekipa_id}`}`,
+            ],
+          });
+
+          const recipientsResult = await pool.query(
+            `SELECT DISTINCT user_id
+             FROM (
+               SELECT e.brygadzista_id AS user_id
+               FROM teams e
+               WHERE e.id = $1 AND e.brygadzista_id IS NOT NULL
+               UNION
+               SELECT tm.user_id
+               FROM team_members tm
+               WHERE tm.team_id = $1
+             ) recipients
+             WHERE user_id IS NOT NULL`,
+            [task.ekipa_id]
+          );
+          const recipientIds = recipientsResult.rows
+            .map((row) => Number(row.user_id))
+            .filter((id) => Number.isInteger(id) && id > 0);
+          const update = await pool.query(
+            `UPDATE tasks
+             SET notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $1::text),
+                 updated_at = NOW()
+             WHERE id = $2
+             RETURNING id, numer, notatki_wewnetrzne`,
+            [note, task.id]
+          );
+          let notificationRows = [];
+          if (recipientIds.length > 0) {
+            const notificationsResult = await pool.query(
+              `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
+               SELECT $1, recipient_id, $2, 'Plan vs real', $3, 'Nowe'
+               FROM UNNEST($4::int[]) AS recipient_id
+               RETURNING id, to_user_id, typ, tresc, task_id, status, data_utworzenia`,
+              [req.user.id, task.id, reminderText, recipientIds]
+            );
+            notificationRows = notificationsResult.rows || [];
+            notificationRows.forEach((notification) => {
+              pushToUser(notification.to_user_id, { event: 'notification', notification });
+            });
+          }
+          const event = await recordOpsActionEvent({
+            task,
+            user: req.user,
+            actionType: 'remind_team',
+            issueKey: 'not_started',
+            note: noteText,
+            metadata: {
+              recommendation_id: recommendationId,
+              source: 'recommendation_apply',
+              team_id: task.ekipa_id,
+              recipients: recipientIds,
+              notification_count: notificationRows.length,
+              task_numer: task.numer || null,
+            },
+          });
+          result.notification_count += notificationRows.length;
+          result.updated_tasks.push({ ...(update.rows[0] || { id: task.id }), event_id: event?.id || null });
+        }
+      }
+    }
+
+    const feedbackEvent = await recordOpsActionEvent({
+      task: { oddzial_id: oddzialId },
+      user: req.user,
+      actionType: 'recommendation_feedback',
+      note: `Wykonano: ${title}`,
+      metadata: {
+        recommendation_id: recommendationId,
+        decision: 'accepted',
+        source: 'action',
+        date,
+        target_path: targetPath,
+        task_ids: taskIds,
+        action_kind: actionKind,
+        updated_count: result.updated_tasks.length,
+        notification_count: result.notification_count,
+        dispatch_preflight: result.dispatch_preflight,
+      },
+    });
+
+    await req.auditLog?.({
+      action: 'ops.action_recommendation.apply',
+      entity: 'ops_recommendation',
+      entity_id: recommendationId,
+      details: { action_kind: actionKind, date, oddzial_id: oddzialId, task_ids: taskIds },
+    });
+
+    return res.json({
+      message: result.updated_tasks.length > 0 ? 'Rekomendacja wykonana' : 'Decyzja rekomendacji zapisana',
+      ...result,
+      feedback_event: feedbackEvent,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops action-recommendation apply', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });
 
@@ -1751,6 +2803,331 @@ router.post('/plan-vs-real/tasks/:taskId/action', authMiddleware, requireRole(..
     });
   } catch (e) {
     logger.error('ops plan-vs-real action', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.get('/risk-report/actions/options', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const taskId = Number(req.query.task_id || 0);
+  const riskType = cleanText(req.query.risk_type, 60);
+  const riskId = cleanText(req.query.risk_id, 120);
+  if (!Number.isInteger(taskId) || taskId <= 0) {
+    return res.status(400).json({ error: 'Opcje ryzyka wymagaja task_id.' });
+  }
+  try {
+    const { task, error } = await getRiskTask(taskId, req.user);
+    if (error) return res.status(error.status).json({ error: error.message });
+    let options = [];
+    if (riskType === 'team_conflict') {
+      options = await buildTeamConflictOptions(task);
+    } else if (riskType === 'equipment_conflict') {
+      options = await buildEquipmentConflictOptions(task, riskId);
+    } else {
+      return res.status(400).json({ error: 'Brak automatycznych opcji dla tego typu ryzyka.' });
+    }
+    return res.json({
+      risk_id: riskId,
+      risk_type: riskType,
+      task_id: task.id,
+      options,
+      generated_at: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops risk-report options', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.post('/risk-report/actions', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const action = cleanText(req.body?.action, 50);
+  const allowedActions = new Set(['resend_zadarma_sms', 'queue_zadarma_call', 'acknowledge', 'reassign_team', 'replace_equipment']);
+  if (!allowedActions.has(action)) {
+    return res.status(400).json({ error: 'Nieznana akcja raportu ryzyk.' });
+  }
+
+  const taskId = Number(req.body?.task_id || 0);
+  const riskId = cleanText(req.body?.risk_id, 120);
+  const riskType = cleanText(req.body?.risk_type, 60);
+  const noteText = cleanText(req.body?.note, 800);
+  const smsHistoryIdMatch = riskId.match(/^sms_delivery:(\d+)$/);
+  const smsHistoryId = smsHistoryIdMatch ? Number(smsHistoryIdMatch[1]) : null;
+
+  try {
+    await ensureOpsActionEventsTable();
+
+    let task = null;
+    if (Number.isInteger(taskId) && taskId > 0) {
+      const resolved = await getRiskTask(taskId, req.user);
+      if (resolved.error) return res.status(resolved.error.status).json({ error: resolved.error.message });
+      task = resolved.task;
+    }
+
+    if (action === 'acknowledge') {
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: 'risk_acknowledge',
+        issueKey: riskType || 'risk_report',
+        note: noteText || `Potwierdzono ryzyko ${riskId || riskType || ''}`,
+        metadata: { risk_id: riskId, risk_type: riskType },
+      });
+      return res.json({ message: 'Ryzyko oznaczone jako sprawdzone', action, event, requestId: req.requestId });
+    }
+
+    if (!task) return res.status(400).json({ error: 'Akcja wymaga task_id.' });
+
+    if (action === 'reassign_team') {
+      const newTeamId = Number(req.body?.team_id || req.body?.ekipa_id || 0);
+      if (!Number.isInteger(newTeamId) || newTeamId <= 0) {
+        return res.status(400).json({ error: 'Przepiecie ekipy wymaga team_id.' });
+      }
+      const options = await buildTeamConflictOptions(task, 20);
+      const selected = options.find((option) => Number(option.team_id) === newTeamId);
+      if (!selected) {
+        return res.status(409).json({ error: 'Wybrana ekipa nie jest bezkolizyjna dla tego terminu.' });
+      }
+      const note = [
+        'RAPORT RYZYK / PRZEPIECIE EKIPY',
+        `Ryzyko: ${riskId || riskType || '-'}`,
+        `Z ${task.ekipa_nazwa || `#${task.ekipa_id || '-'}`} na ${selected.team_name} (#${selected.team_id})`,
+        `Skutek: ${selected.impact}`,
+        noteText ? `Komentarz: ${noteText}` : '',
+        `Kierownik: ${managerActor(req.user)}`,
+        `Data decyzji: ${new Date().toISOString()}`,
+      ].filter(Boolean).join('\n');
+      const updated = await pool.query(
+        `UPDATE tasks
+         SET ekipa_id = $1,
+             notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $2::text),
+             updated_at = NOW()
+         WHERE id = $3
+         RETURNING id, numer, ekipa_id, notatki_wewnetrzne`,
+        [selected.team_id, note, task.id]
+      );
+      await pool.query(
+        `UPDATE equipment_reservations
+         SET ekipa_id = $1, updated_at = NOW()
+         WHERE task_id = $2
+           AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'
+           AND LOWER(COALESCE(status, '')) NOT LIKE 'zwr%'`,
+        [selected.team_id, task.id]
+      );
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: 'risk_reassign_team',
+        issueKey: riskType || 'team_conflict',
+        note: noteText || `Przepieto ekipe z raportu ryzyk: ${riskId}`,
+        metadata: {
+          risk_id: riskId,
+          risk_type: riskType,
+          old_team_id: task.ekipa_id || null,
+          new_team_id: selected.team_id,
+          impact: selected.impact,
+        },
+      });
+      return res.json({
+        message: `Przepieto zlecenie na ${selected.team_name}`,
+        action,
+        task: updated.rows[0],
+        option: selected,
+        event,
+        requestId: req.requestId,
+      });
+    }
+
+    if (action === 'replace_equipment') {
+      const newEquipmentId = Number(req.body?.sprzet_id || 0);
+      const options = await buildEquipmentConflictOptions(task, riskId, 20);
+      const selected = options.find((option) => Number(option.sprzet_id) === newEquipmentId);
+      if (!selected) {
+        return res.status(409).json({ error: 'Wybrany sprzet nie jest bezkolizyjny dla tego terminu.' });
+      }
+      const bounds = taskPlanBounds(task);
+      const note = [
+        'RAPORT RYZYK / PRZEPIECIE SPRZETU',
+        `Ryzyko: ${riskId || riskType || '-'}`,
+        `Nowy sprzet: ${selected.sprzet_nazwa} (#${selected.sprzet_id})`,
+        `Skutek: ${selected.impact}`,
+        noteText ? `Komentarz: ${noteText}` : '',
+        `Kierownik: ${managerActor(req.user)}`,
+        `Data decyzji: ${new Date().toISOString()}`,
+      ].filter(Boolean).join('\n');
+      await pool.query(
+        `UPDATE equipment_reservations
+         SET status = 'Anulowane', updated_at = NOW()
+         WHERE task_id = $1
+           AND sprzet_id = $2
+           AND LOWER(COALESCE(status, '')) NOT LIKE 'anul%'`,
+        [task.id, selected.old_sprzet_id]
+      );
+      const reservation = await pool.query(
+        `INSERT INTO equipment_reservations (
+           oddzial_id, sprzet_id, ekipa_id, data_od, data_do, caly_dzien,
+           status, user_id, task_id, notatki
+         )
+         VALUES ($1,$2,$3,$4::date,$4::date,true,'Zarezerwowane',$5,$6,$7)
+         RETURNING id, sprzet_id, task_id, ekipa_id, status`,
+        [task.oddzial_id, selected.sprzet_id, task.ekipa_id || null, bounds.day, req.user.id, task.id, note]
+      );
+      const updated = await pool.query(
+        `UPDATE tasks
+         SET notatki_wewnetrzne = CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $1::text),
+             updated_at = NOW()
+         WHERE id = $2
+         RETURNING id, numer, notatki_wewnetrzne`,
+        [note, task.id]
+      );
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: 'risk_replace_equipment',
+        issueKey: riskType || 'equipment_conflict',
+        note: noteText || `Przepieto sprzet z raportu ryzyk: ${riskId}`,
+        metadata: {
+          risk_id: riskId,
+          risk_type: riskType,
+          old_sprzet_id: selected.old_sprzet_id,
+          new_sprzet_id: selected.sprzet_id,
+          reservation_id: reservation.rows[0]?.id || null,
+          impact: selected.impact,
+        },
+      });
+      return res.json({
+        message: `Zmieniono sprzet na ${selected.sprzet_nazwa}`,
+        action,
+        task: updated.rows[0],
+        reservation: reservation.rows[0],
+        option: selected,
+        event,
+        requestId: req.requestId,
+      });
+    }
+
+    if (!truthyText(task.klient_telefon)) {
+      return res.status(409).json({ error: 'Zlecenie nie ma telefonu klienta.' });
+    }
+
+    if (action === 'resend_zadarma_sms') {
+      let smsText = '';
+      if (smsHistoryId) {
+        const smsResult = await pool.query(
+          `SELECT h.id, h.tresc, h.task_id
+           FROM sms_history h
+           LEFT JOIN tasks t ON t.id = h.task_id
+           WHERE h.id = $1
+             AND ($2::int IS NULL OR h.task_id = $2)
+             AND ($3::int IS NULL OR t.oddzial_id = $3)
+           ORDER BY h.created_at DESC
+           LIMIT 1`,
+          [smsHistoryId, task.id, isDyrektorOrAdmin(req.user) ? null : req.user.oddzial_id]
+        );
+        smsText = cleanText(smsResult.rows[0]?.tresc, 640);
+      }
+      if (!smsText) {
+        const proposalResult = await pool.query(
+          `SELECT p.token, p.proposed_date, p.okno_od, p.okno_do
+           FROM task_time_window_proposals p
+           WHERE p.task_id = $1
+           ORDER BY p.created_at DESC
+           LIMIT 1`,
+          [task.id]
+        );
+        const proposal = proposalResult.rows[0];
+        const base = (env.PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+        const link = proposal?.token && base ? `${base}/api/tasks/time-window/${proposal.token}` : '';
+        smsText = [
+          `ARBOR: przypomnienie dotyczace zlecenia ${task.numer || `#${task.id}`}.`,
+          proposal ? `Termin ${proposal.proposed_date || ''} ${proposal.okno_od || ''}-${proposal.okno_do || ''}.` : '',
+          link ? `Potwierdz tutaj: ${link}` : 'Prosimy o kontakt w sprawie terminu.',
+        ].filter(Boolean).join(' ');
+      }
+
+      const sms = await sendSmsGateway({
+        to: task.klient_telefon,
+        body: smsText,
+        taskId: task.id,
+        oddzialId: task.oddzial_id,
+      });
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: 'risk_resend_sms',
+        issueKey: riskType || 'sms_delivery',
+        note: noteText || `Ponowiono SMS z raportu ryzyk: ${riskId}`,
+        metadata: {
+          risk_id: riskId,
+          risk_type: riskType,
+          provider: sms.provider || null,
+          sid: sms.sid || sms.id || sms.message_id || null,
+          ok: Boolean(sms.ok),
+          error: sms.error || null,
+        },
+      });
+      return res.status(sms.ok ? 200 : 502).json({
+        message: sms.ok ? 'SMS wyslany przez Zadarma/SMS gateway' : 'Nie udalo sie wyslac SMS',
+        action,
+        sms,
+        event,
+        requestId: req.requestId,
+      });
+    }
+
+    await ensureRiskTelephonyCallbacksTable();
+    const callbackResult = await pool.query(
+      `INSERT INTO telephony_callbacks (
+         oddzial_id, phone, task_id, lead_name, priority, due_at, status, notes, assigned_user_id, created_by
+       )
+       VALUES ($1,$2,$3,$4,'high',NOW(),'open',$5,NULL,$6)
+       RETURNING *`,
+      [
+        task.oddzial_id,
+        task.klient_telefon,
+        task.id,
+        task.klient_nazwa || null,
+        noteText || `Raport ryzyk: ${riskType || riskId || 'kontakt z klientem'}`,
+        req.user.id,
+      ]
+    );
+
+    let zadarmaCall = { requested: false };
+    const from = cleanText(await resolveBranchSmsSender({ oddzialId: task.oddzial_id, taskId: task.id }), 64)
+      || cleanText(task.oddzial_telefon || env.ZADARMA_CALLER_ID, 64);
+    if (from) {
+      try {
+        const result = await requestCallback({ from, to: task.klient_telefon });
+        zadarmaCall = { requested: true, ok: true, from, result };
+      } catch (e) {
+        zadarmaCall = { requested: true, ok: false, from, error: e.message };
+      }
+    }
+
+    const event = await recordOpsActionEvent({
+      task,
+      user: req.user,
+      actionType: 'risk_queue_call',
+      issueKey: riskType || 'risk_report',
+      note: noteText || `Telefon Zadarma z raportu ryzyk: ${riskId}`,
+      metadata: {
+        risk_id: riskId,
+        risk_type: riskType,
+        callback_id: callbackResult.rows[0]?.id || null,
+        zadarma_call: zadarmaCall,
+      },
+    });
+    return res.status(zadarmaCall.requested && zadarmaCall.ok === false ? 202 : 200).json({
+      message: zadarmaCall.requested && zadarmaCall.ok
+        ? 'Telefon Zadarma uruchomiony i wpisany do kolejki'
+        : 'Callback zapisany w kolejce Telefonii',
+      action,
+      callback: callbackResult.rows[0],
+      zadarma_call: zadarmaCall,
+      event,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops risk-report action', { message: e.message, requestId: req.requestId });
     return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });

@@ -40,6 +40,7 @@ const MOCK_OGLEDZINY_STATUS_OVERRIDES_KEY = 'arbor-test-mode-ogledziny-status-ov
 const MOCK_OGLEDZINY_DELETED_KEY = 'arbor-test-mode-ogledziny-deleted';
 const MOCK_BRANCH_GOALS_KEY = 'arbor-test-mode-branch-goals';
 const MOCK_BRANCH_SALES_KEY = 'arbor-test-mode-branch-sales';
+const MOCK_SETTLEMENTS_KEY = 'arbor-test-mode-settlements';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -915,6 +916,59 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  const mTaskTimeWindowProposal = path.match(/^\/tasks\/(\d+)\/time-window-proposals$/);
+  if (mTaskTimeWindowProposal && method === 'get') {
+    return {
+      data: {
+        items: [
+          {
+            id: 9001,
+            task_id: Number(mTaskTimeWindowProposal[1]),
+            token: `demo_time_window_${mTaskTimeWindowProposal[1]}`,
+            proposed_date: new Date().toISOString().slice(0, 10),
+            okno_od: '08:00',
+            okno_do: '10:00',
+            status: 'pending',
+            effective_status: 'pending',
+            url: `/api/tasks/time-window/demo_time_window_${mTaskTimeWindowProposal[1]}`,
+            created_at: new Date().toISOString(),
+            sms: { status: 'Wyslany', provider: 'test-mode', provider_status: 'accepted' },
+          },
+        ],
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (mTaskTimeWindowProposal && method === 'post') {
+    const body = parseJsonData(config.data);
+    const token = `demo_time_window_${mTaskTimeWindowProposal[1]}_${Date.now()}`;
+    return {
+      data: {
+        proposal: {
+          id: Date.now(),
+          task_id: Number(mTaskTimeWindowProposal[1]),
+          token,
+          proposed_date: body.proposed_date,
+          okno_od: body.okno_od,
+          okno_do: body.okno_do,
+          status: 'pending',
+          url: `/api/tasks/time-window/${token}`,
+        },
+        sms: body.send_sms ? { ok: true, provider: 'test-mode', sid: `sms_${token}` } : null,
+      },
+      status: 201,
+      statusText: 'Created',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/ops/kierownik-today' && method === 'get') {
     const date = getRequestDate(config);
     const tasks = (getMockData('/tasks/wszystkie') || []).filter((task) => {
@@ -939,6 +993,28 @@ function getTestModeMockResponse(config) {
       });
       return acc;
     }, {});
+    const riskItems = [
+      ...risky.slice(0, 3).map(({ task, blockers }) => ({
+        id: `demo_blocker_${task.id}`,
+        type: blockers.some((label) => label.includes('GPS') || label.includes('ekipy')) ? 'team_conflict' : 'client_window',
+        severity: blockers.some((label) => label.includes('GPS') || label.includes('ekipy')) ? 'critical' : 'warning',
+        task_id: task.id,
+        title: `${task.numer || `ZLE-${String(task.id).padStart(4, '0')}`}: ${blockers[0]}`,
+        detail: blockers.join(', '),
+        action: 'Otworz zlecenie i domknij dane przed wysylka.',
+        action_path: `/zlecenia/${task.id}`,
+      })),
+    ];
+    const riskCounts = {
+      total: riskItems.length,
+      critical: riskItems.filter((item) => item.severity === 'critical').length,
+      warning: riskItems.filter((item) => item.severity === 'warning').length,
+      client_window: riskItems.filter((item) => item.type === 'client_window').length,
+      sms_delivery: 0,
+      team_conflict: riskItems.filter((item) => item.type === 'team_conflict').length,
+      equipment_conflict: 0,
+      margin: 0,
+    };
     return {
       data: {
         date,
@@ -952,6 +1028,9 @@ function getTestModeMockResponse(config) {
           blocked: risky.length,
           unassigned: openTasks.filter((task) => !task.ekipa_id).length,
           open_issues: 0,
+          day_risks: riskCounts.total,
+          critical_day_risks: riskCounts.critical,
+          zadarma_sms_risks: riskCounts.sms_delivery,
           unread_notifications: 0,
           active_teams: teams.length,
           assigned_teams: new Set(openTasks.map((task) => task.ekipa_id).filter(Boolean)).size,
@@ -974,6 +1053,17 @@ function getTestModeMockResponse(config) {
           blocker_labels: blockers,
           action_path: `/zlecenia/${task.id}`,
         })),
+        risk_report: {
+          date,
+          generated_at: new Date().toISOString(),
+          counts: riskCounts,
+          items: riskItems,
+          text: [
+            `Raport ryzyk dnia ARBOR - ${date}`,
+            `Ryzyka: ${riskCounts.total}, krytyczne: ${riskCounts.critical}, ostrzezenia: ${riskCounts.warning}.`,
+            ...riskItems.map((item, index) => `${index + 1}. [${item.severity.toUpperCase()}] ${item.title}`),
+          ].join('\n'),
+        },
         teams: teams.slice(0, 8).map((team) => ({
           id: team.id,
           nazwa: team.nazwa,
@@ -1203,10 +1293,10 @@ function getTestModeMockResponse(config) {
         score: 78 + dispatchBlockers.length * 6,
         title: `${dispatchBlockers.length} blokad wysylki ekip`,
         rationale: `${dispatchBlockers.filter((task) => !task.ekipa_id).length} bez ekipy, ${dispatchBlockers.filter((task) => !task.pin_lat || !task.pin_lng).length} bez pinezki GPS.`,
-        suggested_action: 'Otworz pierwsze zlecenie z blokada i napraw dane planowania.',
-        action_kind: 'open_tasks',
-        primary_label: 'Otworz zlecenia',
-        secondary_label: '',
+        suggested_action: 'Uruchom preflight: system przypisze wolna ekipe, a brak GPS oznaczy checklistą do uzupelnienia.',
+        action_kind: 'fix_dispatch_blockers',
+        primary_label: 'Napraw blokady',
+        secondary_label: 'Otworz',
         task_count: dispatchBlockers.length,
         task_ids: dispatchBlockers.slice(0, 8).map((task) => task.id),
         task_preview: mockRecommendationBlockerPreview(dispatchBlockers, ['team', 'gps']),
@@ -1362,6 +1452,237 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/tasks/kommo-sync/diagnostics' && method === 'get') {
+    const rows = buildMockBiRows();
+    const finished = rows.filter((task) => String(task.status || '') === 'Zakonczone');
+    const missingSync = rows
+      .filter((task) => !task.kommo_last_sync_at && String(task.status || '') !== 'Nowe')
+      .slice(0, 5)
+      .map((task, index) => ({
+        id: 9100 + index,
+        task_id: task.id,
+        numer: task.numer || `ZLE-${task.id}`,
+        klient_nazwa: task.klient_nazwa,
+        status: index === 0 ? 'pending' : 'retry',
+        retry_count: index,
+        last_error: index === 0 ? null : 'Demo: oczekuje na ponowienie Kommo task.sync',
+        updated_at: new Date().toISOString(),
+      }));
+    return {
+      data: {
+        summary: {
+          queue_errors: missingSync.filter((row) => row.status === 'retry' || row.status === 'dead_letter').length,
+          inbound_conflicts: 0,
+          outbound_pending: missingSync.length,
+          outbound_ok: finished.length,
+          inbound_ok: 1,
+          last_success_at: finished.length ? new Date().toISOString() : null,
+        },
+        queue: missingSync,
+        inbound_events: [{
+          id: 9201,
+          task_id: rows[0]?.id || 101,
+          status: 'accepted',
+          incoming_status: 'Do_Zatwierdzenia',
+          conflict_reason: null,
+          created_at: new Date().toISOString(),
+        }],
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/kommo/config' && method === 'get') {
+    return {
+      data: {
+        account_key: getRequestParam(config, 'account_key') || 'default',
+        status_map: {
+          '142': 'Nowe',
+          '143': 'Do_Zatwierdzenia',
+          '144': 'Zaplanowane',
+          '145': 'Zakonczone',
+        },
+        field_aliases: {
+          phone: ['phone', 'klient_telefon'],
+          address: ['address', 'adres'],
+          value: ['price', 'wartosc_planowana'],
+          planned_date: ['planned_date', 'data_planowana'],
+        },
+        options: {
+          copy_attachment_binaries_to_storage: false,
+          allow_closed_status_change: false,
+        },
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/kommo/config' && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: {
+        account_key: body.account_key || 'default',
+        status_map: body.status_map || {},
+        field_aliases: body.field_aliases || {},
+        options: body.options || {},
+        updated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mRecommendationApply = path.match(/^\/ops\/action-recommendations\/([^/]+)\/apply$/);
+  if (mRecommendationApply && method === 'post') {
+    const body = parseJsonData(config.data);
+    const actionKind = body.action_kind || 'open_tasks';
+    const taskIds = Array.isArray(body.task_ids) ? body.task_ids.map((id) => Number(id)).filter(Boolean) : [];
+    const updatedTasks = [];
+    let notificationCount = 0;
+    let dispatchPreflight = null;
+    if (actionKind === 'set_duration_batch') {
+      const plannedMinutes = Math.max(15, Math.round(Number(body.suggested_minutes || body.planned_minutes || 120)));
+      taskIds.forEach((taskId) => {
+        const task = mockUpdateTaskInTestMode(taskId, {
+          czas_obslugi_min: plannedMinutes,
+          czas_planowany_godziny: Math.round((plannedMinutes / 60) * 100) / 100,
+        });
+        updatedTasks.push(task);
+        addMockOpsEvent({
+          task_id: Number(taskId),
+          oddzial_id: task?.oddzial_id || body.oddzial_id || null,
+          action_type: 'set_duration',
+          issue_key: 'missing_duration',
+          planned_minutes: plannedMinutes,
+          note: `Rekomendacja: ${body.title || decodeURIComponent(mRecommendationApply[1])}`,
+          numer: task?.numer,
+          klient_nazwa: task?.klient_nazwa,
+        });
+      });
+    } else if (actionKind === 'remind_team_batch') {
+      taskIds.forEach((taskId) => {
+        const task = getMockTaskDetail(taskId);
+        updatedTasks.push(task);
+        notificationCount += task?.ekipa_id ? 1 : 0;
+        addMockOpsEvent({
+          task_id: Number(taskId),
+          oddzial_id: task?.oddzial_id || body.oddzial_id || null,
+          action_type: 'remind_team',
+          issue_key: 'not_started',
+          notification_count: task?.ekipa_id ? 1 : 0,
+          note: `Rekomendacja: ${body.title || decodeURIComponent(mRecommendationApply[1])}`,
+          numer: task?.numer,
+          klient_nazwa: task?.klient_nazwa,
+        });
+      });
+    } else if (actionKind === 'fix_dispatch_blockers') {
+      dispatchPreflight = {
+        checked: taskIds.length,
+        ready: [],
+        still_blocked: [],
+        fixed_team_count: 0,
+        gps_checklist_count: 0,
+      };
+      taskIds.forEach((taskId, index) => {
+        const current = getMockTaskDetail(taskId);
+        if (!current) return;
+        const remaining = [];
+        let next = current;
+        if (!current.ekipa_id) {
+          const teamId = Number(body.team_id || 5 + index);
+          next = mockUpdateTaskInTestMode(taskId, { ekipa_id: teamId, ekipa_nazwa: `Ekipa ${teamId}` });
+          dispatchPreflight.fixed_team_count += 1;
+          updatedTasks.push({ ...next, action: 'assign_team' });
+          addMockOpsEvent({
+            task_id: Number(taskId),
+            oddzial_id: next?.oddzial_id || body.oddzial_id || null,
+            action_type: 'dispatch_auto_assign_team',
+            issue_key: 'team',
+            note: `Rekomendacja: ${body.title || decodeURIComponent(mRecommendationApply[1])}`,
+            numer: next?.numer,
+            klient_nazwa: next?.klient_nazwa,
+          });
+        }
+        if (!next.pin_lat || !next.pin_lng) {
+          remaining.push('gps');
+          dispatchPreflight.gps_checklist_count += 1;
+          updatedTasks.push({ ...next, action: 'gps_checklist' });
+          addMockOpsEvent({
+            task_id: Number(taskId),
+            oddzial_id: next?.oddzial_id || body.oddzial_id || null,
+            action_type: 'dispatch_gps_checklist',
+            issue_key: 'gps',
+            note: `Rekomendacja: ${body.title || decodeURIComponent(mRecommendationApply[1])}`,
+            numer: next?.numer,
+            klient_nazwa: next?.klient_nazwa,
+          });
+        }
+        if (remaining.length) {
+          dispatchPreflight.still_blocked.push({
+            task_id: Number(taskId),
+            numer: next.numer || null,
+            blockers: remaining,
+            target_path: `/zlecenia/${taskId}?focus=officePlan`,
+          });
+        } else {
+          dispatchPreflight.ready.push(Number(taskId));
+        }
+      });
+    }
+    const event = addMockOpsEvent({
+      task_id: null,
+      oddzial_id: body.oddzial_id || null,
+      action_type: 'recommendation_feedback',
+      note: `Wykonano: ${body.title || decodeURIComponent(mRecommendationApply[1])}`,
+      recommendation_id: decodeURIComponent(mRecommendationApply[1]),
+      decision: 'accepted',
+      source: 'action',
+      metadata: {
+        recommendation_id: decodeURIComponent(mRecommendationApply[1]),
+        decision: 'accepted',
+        source: 'action',
+        date: body.date || getRequestDate(config),
+        target_path: body.target_path || null,
+        task_ids: taskIds,
+        action_kind: actionKind,
+        updated_count: updatedTasks.length,
+        notification_count: notificationCount,
+        dispatch_preflight: dispatchPreflight,
+      },
+    });
+    return {
+      data: {
+        message: updatedTasks.length ? 'Rekomendacja wykonana' : 'Decyzja rekomendacji zapisana',
+        recommendation_id: decodeURIComponent(mRecommendationApply[1]),
+        action_kind: actionKind,
+        date: body.date || getRequestDate(config),
+        oddzial_id: body.oddzial_id || null,
+        task_ids: taskIds,
+        updated_tasks: updatedTasks,
+        notification_count: notificationCount,
+        dispatch_preflight: dispatchPreflight,
+        navigate_to: ['open_tasks', 'open_task', 'open_map', 'none'].includes(actionKind) ? (body.target_path || '/kierownik') : null,
+        feedback_event: event,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   const mRecommendationFeedback = path.match(/^\/ops\/action-recommendations\/([^/]+)\/feedback$/);
   if (mRecommendationFeedback && method === 'post') {
     const body = parseJsonData(config.data);
@@ -1438,6 +1759,10 @@ function getTestModeMockResponse(config) {
       mark_reason: 'Powod odchylenia',
       remind_team: 'Przypomnienie ekipy',
       recommendation_feedback: 'Feedback rekomendacji',
+      risk_resend_sms: 'Ponowienie SMS ryzyka',
+      risk_queue_call: 'Telefon Zadarma z ryzyka',
+      risk_reassign_team: 'Przepiecie ekipy z ryzyka',
+      risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
     };
     const reasonCounts = countBy(events, 'reason_code');
     const issueCounts = countBy(events, 'issue_key');
@@ -1483,6 +1808,277 @@ function getTestModeMockResponse(config) {
             reason_label: reasonLabels[event.reason_code] || event.reason_code,
           })),
         generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/action-history' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const range = config?.params?.range === 'today' ? 'today' : 'week';
+    const actionType = config?.params?.action_type || '';
+    const issueKey = config?.params?.issue_key || '';
+    const format = String(config?.params?.format || '').toLowerCase();
+    const taskId = Number(config?.params?.task_id || 0);
+    const q = String(config?.params?.q || '').toLowerCase();
+    const fromDate = new Date(`${date}T00:00:00.000Z`);
+    if (range === 'week') fromDate.setUTCDate(fromDate.getUTCDate() - 6);
+    const toDate = new Date(`${date}T00:00:00.000Z`);
+    toDate.setUTCDate(toDate.getUTCDate() + 1);
+    const actionLabels = {
+      set_duration: 'Ustawienie czasu',
+      mark_reason: 'Powod odchylenia',
+      remind_team: 'Przypomnienie ekipy',
+      recommendation_feedback: 'Feedback rekomendacji',
+      risk_resend_sms: 'Ponowienie SMS ryzyka',
+      risk_queue_call: 'Telefon Zadarma z ryzyka',
+      risk_reassign_team: 'Przepiecie ekipy z ryzyka',
+      risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
+    };
+    const events = getMockOpsEvents().filter((event) => {
+      const created = new Date(event.created_at || 0);
+      if (created < fromDate || created >= toDate) return false;
+      if (oddzialId && String(event.oddzial_id || '') !== String(oddzialId)) return false;
+      if (actionType && event.action_type !== actionType) return false;
+      if (issueKey && event.issue_key !== issueKey) return false;
+      if (taskId > 0 && Number(event.task_id || 0) !== taskId) return false;
+      if (q && !JSON.stringify(event).toLowerCase().includes(q)) return false;
+      return true;
+    }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const maxLimit = format === 'csv' ? 1000 : 100;
+    const limit = Math.max(1, Math.min(maxLimit, Number(config?.params?.limit || (format === 'csv' ? 1000 : 30))));
+    const offset = Math.max(0, Number(config?.params?.offset || 0));
+    const page = events.slice(offset, offset + limit);
+    const actionCounts = countBy(events, 'action_type');
+    const issueCounts = countBy(events, 'issue_key');
+    const items = page.map((event) => ({
+      ...event,
+      numer: event.numer || (event.task_id ? `#${event.task_id}` : '-'),
+      action_label: actionLabels[event.action_type] || event.action_type,
+      issue_label: event.issue_key || '',
+      risk_id: event.risk_id || null,
+      risk_type: event.issue_key || null,
+      outcome: event.action_type === 'risk_reassign_team'
+        ? 'Ekipa przepieta'
+        : event.action_type === 'risk_replace_equipment'
+          ? 'Sprzet przepiety'
+          : event.action_type === 'risk_resend_sms'
+            ? 'SMS wyslany'
+            : event.action_type === 'risk_queue_call'
+              ? 'Telefon Zadarma'
+              : event.note || '',
+      actor_name: event.actor_name || 'Demo Kierownik',
+      action_path: event.task_id ? `/zlecenia/${event.task_id}` : '/kierownik',
+    }));
+    if (format === 'csv') {
+      const columns = ['id', 'created_at', 'oddzial_nazwa', 'actor_name', 'action_label', 'action_type', 'risk_type', 'risk_id', 'numer', 'klient_nazwa', 'outcome', 'note'];
+      const csv = [
+        columns.join(';'),
+        ...items.map((item) => columns.map((key) => `"${String(item[key] ?? '').replace(/"/g, '""')}"`).join(';')),
+      ].join('\r\n');
+      return {
+        data: `\uFEFF${csv}\r\n`,
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'text/csv; charset=utf-8' },
+        config,
+        request: {},
+      };
+    }
+    return {
+      data: {
+        date,
+        range,
+        oddzial_id: oddzialId,
+        total: events.length,
+        limit,
+        offset,
+        items,
+        summary: {
+          actions: Object.entries(actionCounts).map(([type, count]) => ({ action_type: type, label: actionLabels[type] || type, count })),
+          issues: Object.entries(issueCounts).filter(([key]) => key).map(([key, count]) => ({ issue_key: key, label: key, count })),
+        },
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/automations/daily-digest/preview' && method === 'get') {
+    const date = getRequestDate(config);
+    const events = getMockOpsEvents().filter((event) => String(event.created_at || '').slice(0, 10) === date);
+    const zadarma = events.filter((event) => ['risk_resend_sms', 'risk_queue_call'].includes(event.action_type)).length;
+    return {
+      data: {
+        date,
+        branch_id: config?.params?.oddzial_id || null,
+        horizon_days: Number(config?.params?.horizon_days || 3),
+        fleet_lookahead_days: Number(config?.params?.fleet_lookahead_days || 14),
+        generated_at: new Date().toISOString(),
+        summary: {
+          high_alerts: 1,
+          medium_alerts: zadarma > 0 ? 1 : 0,
+          total_alerts: zadarma > 0 ? 2 : 1,
+          today_tasks: 6,
+          horizon_tasks: 14,
+          overdue_tasks: 1,
+          unassigned_tasks: 2,
+          draft_reports: 1,
+          fleet_due: 1,
+          reservation_conflicts: 1,
+          margin_risks: 1,
+          kommo_sync_errors: 0,
+          operational_decisions: events.length,
+          zadarma_actions: zadarma,
+          risk_resolution_actions: events.filter((event) => ['risk_reassign_team', 'risk_replace_equipment'].includes(event.action_type)).length,
+          reason_actions: events.filter((event) => event.action_type === 'mark_reason').length,
+          query_errors: 0,
+        },
+        alerts: [
+          { level: 'high', type: 'equipment_reservation_conflicts', title: 'Kolizje rezerwacji sprzetu', count: 1, action: 'Rozwiaz konflikt zanim ekipa zacznie dzien.' },
+          ...(zadarma > 0 ? [{ level: 'medium', type: 'zadarma_followups', title: 'Decyzje Zadarma/SMS', count: zadarma, action: 'Zweryfikuj, czy kontakty z klientami domknely ryzyka dnia.' }] : []),
+        ],
+        details: {
+          operational_action_types: [
+            { action_type: 'risk_queue_call', label: 'Telefon Zadarma z ryzyka', count: events.filter((event) => event.action_type === 'risk_queue_call').length },
+            { action_type: 'risk_resend_sms', label: 'Ponowienie SMS ryzyka', count: events.filter((event) => event.action_type === 'risk_resend_sms').length },
+          ].filter((item) => item.count > 0),
+          operational_actions: events.slice(0, 8),
+        },
+        errors: [],
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/automations/daily-digest/history' && method === 'get') {
+    const today = new Date().toISOString().slice(0, 10);
+    const branchId = config?.params?.oddzial_id || null;
+    const items = [
+      {
+        id: 1,
+        digest_date: today,
+        scope: branchId ? 'branch' : 'global',
+        branch_id: branchId,
+        branch_name: branchId ? `Oddzial #${branchId}` : null,
+        trigger_type: 'cron',
+        status: 'completed',
+        high_alerts: 1,
+        medium_alerts: 2,
+        total_alerts: 3,
+        recipients: 3,
+        notifications_created: 3,
+        emails_sent: 1,
+        summary: { total_alerts: 3, zadarma_actions: 2 },
+        delivery: { recipients: 3, emails_sent: 1 },
+        errors: [],
+        created_at: `${today}T06:00:00.000Z`,
+      },
+      {
+        id: 2,
+        digest_date: today,
+        scope: 'branch',
+        branch_id: 7,
+        branch_name: 'Demo Krakow',
+        trigger_type: 'manual',
+        status: 'completed',
+        high_alerts: 0,
+        medium_alerts: 1,
+        total_alerts: 1,
+        recipients: 1,
+        notifications_created: 1,
+        emails_sent: 0,
+        summary: { total_alerts: 1, zadarma_actions: 1 },
+        delivery: { recipients: 1, emails_sent: 0 },
+        errors: [],
+        created_at: `${today}T09:15:00.000Z`,
+      },
+    ];
+    const filtered = branchId ? items.filter((item) => String(item.branch_id || '') === String(branchId)) : items;
+    return {
+      data: {
+        total: filtered.length,
+        limit: Number(config?.params?.limit || 6),
+        offset: Number(config?.params?.offset || 0),
+        items: filtered.slice(0, Number(config?.params?.limit || 6)),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/automations/daily-digest/settings' && method === 'get') {
+    return {
+      data: {
+        settings: [
+          {
+            scope_key: 'global',
+            scope: 'global',
+            branch_id: null,
+            branch_name: null,
+            enabled: true,
+            send_time: '06:00',
+            email_enabled: false,
+            horizon_days: 3,
+            fleet_lookahead_days: 14,
+            recipient_user_ids: [],
+            extra_emails: ['dyrektor@example.com'],
+          },
+          {
+            scope_key: 'branch:7',
+            scope: 'branch',
+            branch_id: 7,
+            branch_name: 'Demo Krakow',
+            enabled: true,
+            send_time: '06:15',
+            email_enabled: true,
+            horizon_days: 3,
+            fleet_lookahead_days: 14,
+            recipient_user_ids: [7],
+            extra_emails: [],
+          },
+        ],
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/automations/daily-digest/settings' && method === 'put') {
+    const body = parseJsonData(config.data);
+    return {
+      data: {
+        settings: {
+          scope_key: body.branch_id ? `branch:${body.branch_id}` : 'global',
+          scope: body.branch_id ? 'branch' : 'global',
+          branch_id: body.branch_id || null,
+          enabled: body.enabled !== false,
+          send_time: body.send_time || '06:00',
+          email_enabled: body.email_enabled === true,
+          horizon_days: Number(body.horizon_days || 3),
+          fleet_lookahead_days: Number(body.fleet_lookahead_days || 14),
+          recipient_user_ids: body.recipient_user_ids || [],
+          extra_emails: body.extra_emails || [],
+        },
       },
       status: 200,
       statusText: 'OK',
@@ -1585,6 +2181,91 @@ function getTestModeMockResponse(config) {
         recipients: [team?.brygadzista_id || 1],
         recipient_details: [recipient],
         status,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/risk-report/actions' && method === 'post') {
+    const body = parseJsonData(config.data);
+    const task = body.task_id ? getMockTaskDetail(body.task_id) : null;
+    const actionLabels = {
+      resend_zadarma_sms: 'SMS wyslany przez Zadarma/SMS gateway',
+      queue_zadarma_call: 'Telefon Zadarma uruchomiony i wpisany do kolejki',
+      acknowledge: 'Ryzyko oznaczone jako sprawdzone',
+      reassign_team: 'Przepieto zlecenie na sugerowana ekipe',
+      replace_equipment: 'Zmieniono sprzet na sugerowana alternatywe',
+    };
+    const event = addMockOpsEvent({
+      task_id: body.task_id || null,
+      oddzial_id: task?.oddzial_id || null,
+      action_type: body.action === 'resend_zadarma_sms'
+        ? 'risk_resend_sms'
+        : body.action === 'queue_zadarma_call'
+          ? 'risk_queue_call'
+          : body.action === 'reassign_team'
+            ? 'risk_reassign_team'
+            : body.action === 'replace_equipment'
+              ? 'risk_replace_equipment'
+              : 'risk_acknowledge',
+      issue_key: body.risk_type || 'risk_report',
+      numer: task?.numer,
+      klient_nazwa: task?.klient_nazwa,
+    });
+    return {
+      data: {
+        message: actionLabels[body.action] || 'Akcja ryzyka zapisana',
+        action: body.action,
+        sms: body.action === 'resend_zadarma_sms' ? { ok: true, provider: 'test-mode', sid: `risk_sms_${Date.now()}` } : null,
+        callback: body.action === 'queue_zadarma_call' ? { id: Date.now(), task_id: body.task_id || null, status: 'open' } : null,
+        zadarma_call: body.action === 'queue_zadarma_call' ? { requested: true, ok: true, from: '+48221234567' } : null,
+        option: body.action === 'reassign_team'
+          ? { team_id: body.team_id, team_name: `Ekipa ${body.team_id}` }
+          : body.action === 'replace_equipment'
+            ? { sprzet_id: body.sprzet_id, sprzet_nazwa: `Sprzet ${body.sprzet_id}` }
+            : null,
+        event,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/risk-report/actions/options' && method === 'get') {
+    const riskType = config?.params?.risk_type;
+    const taskId = Number(config?.params?.task_id || 0);
+    const options = riskType === 'team_conflict'
+      ? [
+          {
+            team_id: 99,
+            team_name: 'Ekipa Rezerwowa',
+            impact: `Przepnij zlecenie #${taskId} na Ekipe Rezerwowa; termin jest wolny.`,
+          },
+        ]
+      : riskType === 'equipment_conflict'
+        ? [
+            {
+              old_sprzet_id: Number(String(config?.params?.risk_id || '').match(/^equipment_conflict:(\d+)$/)?.[1] || 1),
+              sprzet_id: 199,
+              sprzet_nazwa: 'Rebak rezerwowy',
+              impact: `Zastap sprzet kolizyjny rebakiem rezerwowym dla zlecenia #${taskId}.`,
+            },
+          ]
+        : [];
+    return {
+      data: {
+        risk_id: config?.params?.risk_id || '',
+        risk_type: riskType,
+        task_id: taskId,
+        options,
+        generated_at: new Date().toISOString(),
       },
       status: 200,
       statusText: 'OK',
@@ -1873,6 +2554,42 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  const mTasksKommoPayload = path.match(/^\/tasks\/(\d+)\/kommo-payload$/);
+  if (mTasksKommoPayload && method === 'get') {
+    return {
+      data: buildMockKommoTaskPayload(mTasksKommoPayload[1]),
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  const mTasksStart = path.match(/^\/tasks\/(\d+)\/start$/);
+  if (mTasksStart && method === 'post') {
+    const now = new Date().toISOString();
+    const task = mockUpdateTaskInTestMode(mTasksStart[1], {
+      status: 'W_Realizacji',
+      active_work_count: 1,
+      work_logs_total: 1,
+      last_checkin_at: now,
+      active_work_started_at: now,
+    });
+    return {
+      data: {
+        message: 'Praca wystartowana w trybie testowym',
+        work_log_id: 99000 + (Number(mTasksStart[1]) % 1000),
+        task,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   const mTasksStatus = path.match(/^\/tasks\/(\d+)\/status$/);
   if (mTasksStatus && method === 'put') {
     const body = parseJsonData(config.data);
@@ -2011,15 +2728,215 @@ function getTestModeMockResponse(config) {
 
   const mTasksFinish = path.match(/^\/tasks\/(\d+)\/finish$/);
   if (mTasksFinish && method === 'post') {
+    const taskBeforeFinish = getMockTaskDetail(mTasksFinish[1]);
+    const netToSettle = roundMoney(taskBeforeFinish.wartosc_netto_do_rozliczenia || taskBeforeFinish.wartosc_planowana || 1425);
     mockMarkTaskFinishedInTestMode(mTasksFinish[1]);
+    const task = mockUpdateTaskInTestMode(mTasksFinish[1], {
+      status: 'Zakonczone',
+      wartosc_netto_do_rozliczenia: netToSettle,
+      wartosc_rzeczywista: netToSettle,
+      active_work_count: 0,
+      last_work_finished_at: new Date().toISOString(),
+    });
     return {
-      data: { message: 'Zlecenie zakończone', wartosc_netto_do_rozliczenia: 1425 },
+      data: {
+        message: 'Zlecenie zakonczone',
+        wartosc_netto_do_rozliczenia: netToSettle,
+        task,
+      },
       status: 200,
       statusText: 'OK',
       headers: {},
       config,
       request: {},
     };
+  }
+
+  const mSettlement = path.match(/^\/rozliczenia\/zadanie\/(\d+)$/);
+  if (mSettlement && method === 'get') {
+    const task = getMockTaskDetail(mSettlement[1]);
+    return {
+      data: {
+        task,
+        pomocnicy: [],
+        rozliczenie: getMockSettlement(mSettlement[1]),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+  if (mSettlement && method === 'post') {
+    const body = parseJsonData(config.data);
+    const gross = roundMoney(body.wartosc_brutto || body.gross || 0);
+    const vatRate = Number(body.vat_stawka ?? body.vat_rate ?? 8);
+    const net = roundMoney(body.wartosc_netto || (gross / (1 + vatRate / 100)));
+    const helperCost = roundMoney(body.koszt_pomocnikow ?? 200);
+    const crewLeadPct = Number(body.procent_brygadzisty ?? 15);
+    const crewLeadBase = roundMoney(body.podstawa_brygadzisty ?? Math.max(0, net - helperCost));
+    const crewLeadPay = roundMoney(body.wynagrodzenie_brygadzisty ?? (crewLeadBase * crewLeadPct / 100));
+    const settlement = saveMockSettlement(mSettlement[1], {
+      task_id: Number(mSettlement[1]),
+      wartosc_brutto: gross,
+      vat_stawka: vatRate,
+      wartosc_netto: net,
+      koszt_pomocnikow: helperCost,
+      podstawa_brygadzisty: crewLeadBase,
+      procent_brygadzisty: crewLeadPct,
+      wynagrodzenie_brygadzisty: crewLeadPay,
+      created_at: new Date().toISOString(),
+    });
+    mockUpdateTaskInTestMode(mSettlement[1], {
+      wartosc_netto_do_rozliczenia: net,
+      wartosc_rzeczywista: net,
+    });
+    return {
+      data: settlement,
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/bi/overview' && method === 'get') {
+    return { data: buildMockBiOverview(), status: 200, statusText: 'OK', headers: {}, config, request: {} };
+  }
+
+  if (path === '/bi/revenue-trend' && method === 'get') {
+    const overview = buildMockBiOverview();
+    return {
+      data: [
+        { month: '2026-03', revenue_planned: Math.round(overview.revenue_planned * 0.72), revenue_actual: Math.round(overview.revenue_actual * 0.66), tasks_count: 3 },
+        { month: '2026-04', revenue_planned: Math.round(overview.revenue_planned * 0.86), revenue_actual: Math.round(overview.revenue_actual * 0.8), tasks_count: 4 },
+        { month: '2026-05', revenue_planned: overview.revenue_planned, revenue_actual: overview.revenue_actual, tasks_count: overview.tasks_total },
+      ],
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/bi/branch-comparison' && method === 'get') {
+    const rows = buildMockBiRows();
+    const byBranch = new Map();
+    rows.forEach((task) => {
+      const id = task.oddzial_id || 0;
+      const current = byBranch.get(id) || {
+        oddzial_id: id,
+        oddzial_nazwa: task.oddzial_nazwa || `Oddzial ${id || 'demo'}`,
+        tasks_total: 0,
+        tasks_done: 0,
+        revenue_actual: 0,
+        gross_margin: 0,
+        teams_active: 0,
+        tasks_overdue: 0,
+      };
+      current.tasks_total += 1;
+      if (String(task.status || '') === 'Zakonczone') current.tasks_done += 1;
+      current.revenue_actual += Number(task.financials?.revenue_net || 0);
+      current.gross_margin += Number(task.financials?.gross_margin || 0);
+      current.teams_active = Math.max(current.teams_active, task.ekipa_id ? 1 : 0);
+      byBranch.set(id, current);
+    });
+    const data = [...byBranch.values()].map((row) => ({
+      ...row,
+      completion_pct: row.tasks_total ? roundPct((row.tasks_done / row.tasks_total) * 100) : 0,
+      margin_pct: row.revenue_actual > 0 ? roundPct((row.gross_margin / row.revenue_actual) * 100) : 0,
+      profitability_tone: row.revenue_actual > 0 && row.gross_margin / row.revenue_actual < 0.3 ? 'danger' : 'success',
+    }));
+    return { data, status: 200, statusText: 'OK', headers: {}, config, request: {} };
+  }
+
+  if (path === '/bi/service-mix' && method === 'get') {
+    const byService = new Map();
+    buildMockBiRows().forEach((task) => {
+      const key = task.typ_uslugi || 'Usluga demo';
+      const current = byService.get(key) || { typ_uslugi: key, tasks_count: 0, revenue: 0, margin: 0 };
+      current.tasks_count += 1;
+      current.revenue += Number(task.financials?.revenue_net || 0);
+      current.margin += Number(task.financials?.gross_margin || 0);
+      byService.set(key, current);
+    });
+    return { data: [...byService.values()], status: 200, statusText: 'OK', headers: {}, config, request: {} };
+  }
+
+  if (path === '/bi/team-performance' && method === 'get') {
+    const byTeam = new Map();
+    buildMockBiRows().filter((task) => task.ekipa_id).forEach((task) => {
+      const id = task.ekipa_id;
+      const current = byTeam.get(id) || {
+        ekipa_id: id,
+        ekipa_nazwa: task.ekipa_nazwa || `Ekipa #${id}`,
+        oddzial_nazwa: task.oddzial_nazwa || '',
+        tasks_total: 0,
+        tasks_done: 0,
+        revenue: 0,
+        gross_margin: 0,
+        logged_hours: 0,
+      };
+      current.tasks_total += 1;
+      if (String(task.status || '') === 'Zakonczone') current.tasks_done += 1;
+      current.revenue += Number(task.financials?.revenue_net || 0);
+      current.gross_margin += Number(task.financials?.gross_margin || 0);
+      current.logged_hours += Number(task.czas_planowany_godziny || 0);
+      byTeam.set(id, current);
+    });
+    return { data: [...byTeam.values()], status: 200, statusText: 'OK', headers: {}, config, request: {} };
+  }
+
+  if (path === '/bi/funnel' && method === 'get') {
+    const rows = buildMockBiRows();
+    const countStatus = (status) => rows.filter((task) => String(task.status || '') === status).length;
+    return {
+      data: [
+        { stage: 'Nowe', count: countStatus('Nowe') },
+        { stage: 'Wycena', count: countStatus('Wycena_Terenowa') + countStatus('Do_Zatwierdzenia') },
+        { stage: 'Realizacja', count: countStatus('W_Realizacji') + countStatus('Zaplanowane') },
+        { stage: 'Zakonczone', count: countStatus('Zakonczone') },
+      ],
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/bi/plan-vs-real' && method === 'get') {
+    const tasks = buildMockBiRows().map((task) => ({
+      id: task.id,
+      numer: task.numer || `ZLE-${task.id}`,
+      klient_nazwa: task.klient_nazwa,
+      status: task.status,
+      planned_minutes: Math.round(Number(task.czas_planowany_godziny || 0) * 60),
+      real_minutes: String(task.status || '') === 'Zakonczone' ? Math.max(30, Math.round(Number(task.czas_planowany_godziny || 1) * 55)) : 0,
+      financials: task.financials,
+    }));
+    return {
+      data: {
+        summary: {
+          planned_tasks: tasks.length,
+          finished_tasks: tasks.filter((task) => task.status === 'Zakonczone').length,
+          value_done: tasks.reduce((sum, task) => sum + Number(task.financials?.revenue_net || 0), 0),
+        },
+        tasks,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/bi/drill' && method === 'get') {
+    return { data: buildMockBiRows().slice(0, 100), status: 200, statusText: 'OK', headers: {}, config, request: {} };
   }
 
   const mockData = getMockData(path);
@@ -2078,6 +2995,132 @@ function buildGenericTestModeMockResponse(config) {
     headers: {},
     config,
     request: {},
+  };
+}
+
+function getMockSettlements() {
+  if (typeof localStorage === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(MOCK_SETTLEMENTS_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMockSettlement(taskId, settlement) {
+  if (typeof localStorage !== 'undefined') {
+    const settlements = getMockSettlements();
+    settlements[String(taskId)] = settlement;
+    localStorage.setItem(MOCK_SETTLEMENTS_KEY, JSON.stringify(settlements));
+  }
+  return settlement;
+}
+
+function getMockSettlement(taskId) {
+  return getMockSettlements()[String(taskId)] || null;
+}
+
+function roundMoney(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function roundPct(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function buildMockTaskFinancials(task = {}, settlement = null) {
+  const revenueNet = roundMoney(
+    settlement?.wartosc_netto
+      ?? task.wartosc_netto_do_rozliczenia
+      ?? task.wartosc_rzeczywista
+      ?? task.wartosc_planowana
+      ?? 0
+  );
+  const helperCost = roundMoney(settlement?.koszt_pomocnikow ?? task.koszt_pomocnikow ?? 200);
+  const crewLeadPay = roundMoney(settlement?.wynagrodzenie_brygadzisty ?? task.wynagrodzenie_brygadzisty ?? 270);
+  const operationalCost = roundMoney(task.koszt_operacyjny ?? 0);
+  const totalKnownCost = roundMoney(helperCost + crewLeadPay + operationalCost);
+  const grossMargin = roundMoney(revenueNet - totalKnownCost);
+  const marginPct = revenueNet > 0 ? roundPct((grossMargin / revenueNet) * 100) : null;
+  return {
+    revenue_net: revenueNet,
+    direct_labor_cost: roundMoney(helperCost + crewLeadPay),
+    helper_cost: helperCost,
+    crew_lead_pay: crewLeadPay,
+    operational_cost: operationalCost,
+    total_known_cost: totalKnownCost,
+    gross_margin: grossMargin,
+    margin_pct: marginPct,
+    cost_sources: [
+      { key: 'helper_cost', label: 'Pomocnicy', value: helperCost, source: 'demo_settlement', status: 'ok' },
+      { key: 'crew_lead_pay', label: 'Brygadzista', value: crewLeadPay, source: 'demo_settlement', status: 'ok' },
+      { key: 'operational_cost', label: 'Koszty operacyjne', value: operationalCost, source: 'demo_finish', status: operationalCost > 0 ? 'ok' : 'missing' },
+    ],
+    note: 'Tryb demo: finanse liczone z rozliczenia zlecenia i zakonczonej pracy.',
+  };
+}
+
+function buildMockKommoTaskPayload(taskId) {
+  const task = getMockTaskDetail(taskId);
+  const settlement = getMockSettlement(taskId);
+  return {
+    event: 'task.sync',
+    provider: 'kommo',
+    source: 'arbor-test-mode',
+    telephony: {
+      provider: 'Zadarma',
+      primary_phone: task.klient_telefon || '+48500111222',
+      phone_only_flow: true,
+    },
+    task: {
+      ...task,
+      wartosc_netto_do_rozliczenia: task.wartosc_netto_do_rozliczenia ?? settlement?.wartosc_netto ?? null,
+      financials: buildMockTaskFinancials(task, settlement),
+      settlement: settlement ? {
+        gross: settlement.wartosc_brutto,
+        vat_rate: settlement.vat_stawka,
+        net: settlement.wartosc_netto,
+        helper_cost: settlement.koszt_pomocnikow,
+        crew_lead_pay: settlement.wynagrodzenie_brygadzisty,
+      } : null,
+    },
+  };
+}
+
+function buildMockBiRows() {
+  const tasks = getMockData('/tasks/wszystkie') || [];
+  return tasks.map((task) => {
+    const settlement = getMockSettlement(task.id);
+    const financials = buildMockTaskFinancials(task, settlement);
+    return {
+      ...task,
+      financials,
+      wartosc_rzeczywista: task.wartosc_rzeczywista || financials.revenue_net,
+    };
+  });
+}
+
+function buildMockBiOverview() {
+  const rows = buildMockBiRows();
+  const done = rows.filter((task) => String(task.status || '') === 'Zakonczone');
+  const revenuePlanned = rows.reduce((sum, task) => sum + Number(task.wartosc_planowana || 0), 0);
+  const revenueActual = done.reduce((sum, task) => sum + Number(task.financials?.revenue_net || 0), 0);
+  const grossMargin = done.reduce((sum, task) => sum + Number(task.financials?.gross_margin || 0), 0);
+  return {
+    revenue_planned: revenuePlanned,
+    revenue_actual: revenueActual,
+    revenue_delta_pct: revenuePlanned > 0 ? roundPct(((revenueActual - revenuePlanned) / revenuePlanned) * 100) : 0,
+    gross_margin: grossMargin,
+    margin_pct: revenueActual > 0 ? roundPct((grossMargin / revenueActual) * 100) : 0,
+    tasks_total: rows.length,
+    tasks_done: done.length,
+    completion_pct: rows.length ? roundPct((done.length / rows.length) * 100) : 0,
+    tasks_overdue: 0,
+    tasks_unassigned: rows.filter((task) => !task.ekipa_id).length,
+    zadarma_calls: 1,
+    kommo_sync_errors: 0,
+    generated_at: new Date().toISOString(),
   };
 }
 

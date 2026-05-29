@@ -13,6 +13,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Zlecenia = lazy(() => import('./pages/Zlecenia'));
 const NoweZlecenie = lazy(() => import('./pages/NoweZlecenie'));
 const Kierownik = lazy(() => import('./pages/Kierownik'));
+const KontrolaOperacyjna = lazy(() => import('./pages/KontrolaOperacyjna'));
 const Ekipy = lazy(() => import('./pages/Ekipy'));
 const RaportyCentrum = lazy(() => import('./pages/RaportyCentrum'));
 const Raporty = lazy(() => import('./pages/Raporty'));
@@ -187,6 +188,9 @@ function App() {
           } />
           <Route path="/kierownik" element={
             <ProtectedRoute roles={MGMT}><Kierownik /></ProtectedRoute>
+          } />
+          <Route path="/kontrola-operacyjna" element={
+            <ProtectedRoute roles={ADMIN}><KontrolaOperacyjna /></ProtectedRoute>
           } />
           <Route path="/ekipy" element={
             <ProtectedRoute roles={MGMT}><Ekipy /></ProtectedRoute>

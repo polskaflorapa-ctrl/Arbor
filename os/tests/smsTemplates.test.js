@@ -68,6 +68,25 @@ describe('SMS status templates', () => {
     expect(body).toContain('/track/tok_12345678901234567890');
   });
 
+  it('renders client time-window proposal template variables', () => {
+    const task = {
+      id: 16,
+      klient_nazwa: 'Marek',
+      typ_uslugi: 'Pielegnacja',
+      adres: 'Ogrodowa 8',
+      miasto: 'Gdansk',
+    };
+
+    const fields = templateFields(task, {
+      proposed_date: '2026-06-04',
+      proposed_window: '09:00-12:00',
+      time_window_url: 'https://api.example.test/api/tasks/time-window/tok_abc',
+    });
+    const body = renderTemplate('Termin {{proposed_date}} {{proposed_window}} {{time_window_url}}', fields);
+
+    expect(body).toBe('Termin 2026-06-04 09:00-12:00 https://api.example.test/api/tasks/time-window/tok_abc');
+  });
+
   it('prefers branch configured template over default', async () => {
     const pool = {
       query: jest.fn(async (sql) => {

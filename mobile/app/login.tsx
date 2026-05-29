@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView,
   Platform, StyleSheet, Text, TextInput,
@@ -20,6 +20,7 @@ import { tryRegisterPushTokenAfterAuth } from '../utils/expo-push-backend';
 
 const LAST_LOGIN_KEY = 'last_login_value';
 const REMEMBER_LOGIN_KEY = 'remember_login_enabled';
+const SERVER_PROBE_TIMEOUT_MS = 8000;
 
 export default function Login() {
   const { theme } = useTheme();
@@ -41,24 +42,39 @@ export default function Login() {
   const insets = useSafeAreaInsets();
   const isLocked = lockUntil !== null && nowMs < lockUntil;
   const lockSecondsLeft = isLocked ? Math.max(1, Math.ceil((lockUntil! - nowMs) / 1000)) : 0;
-  const canSubmit = Boolean(login.trim()) && Boolean(haslo) && !loading && serverStatus !== 'offline' && !isLocked;
+  const canSubmit = Boolean(login.trim()) && Boolean(haslo) && !loading && !isLocked;
 
-  const checkServer = async () => {
+  const probeStatus = useCallback(async (path: string): Promise<number | null> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SERVER_PROBE_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${API_URL}${path}`, { signal: controller.signal });
+      return response.status;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }, []);
+
+  const checkServer = useCallback(async () => {
     setCheckingServer(true);
     setServerStatus('checking');
     try {
-      const res = await fetch(`${API_URL}/auth/me`);
-      if (res.status === 401 || res.status === 403 || res.ok) {
-        setServerStatus('online');
-      } else {
-        setServerStatus('offline');
-      }
+      const [healthStatus, authStatus] = await Promise.all([
+        probeStatus('/health'),
+        probeStatus('/auth/me'),
+      ]);
+      const online =
+        (healthStatus !== null && healthStatus !== 404) ||
+        (authStatus !== null && authStatus !== 404);
+      setServerStatus(online ? 'online' : 'offline');
     } catch {
       setServerStatus('offline');
     } finally {
       setCheckingServer(false);
     }
-  };
+  }, [probeStatus]);
 
   useEffect(() => {
     void checkServer();
@@ -69,7 +85,7 @@ export default function Login() {
       setRememberLogin(remember);
       if (remember && savedLogin) setLogin(savedLogin);
     });
-  }, []);
+  }, [checkServer]);
 
   useEffect(() => {
     if (serverStatus !== 'offline' || checkingServer) return;
@@ -77,7 +93,7 @@ export default function Login() {
       void checkServer();
     }, 10000);
     return () => clearInterval(intervalId);
-  }, [serverStatus, checkingServer]);
+  }, [serverStatus, checkingServer, checkServer]);
 
   useEffect(() => {
     if (!isLocked) return;

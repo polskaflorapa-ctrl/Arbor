@@ -53,6 +53,35 @@ export default function Telefonia() {
   const [savingCall, setSavingCall] = useState(false);
   const [savingCb, setSavingCb] = useState(false);
   const [updatingCbId, setUpdatingCbId] = useState(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentSaving, setAgentSaving] = useState(false);
+  const [agentTestLoading, setAgentTestLoading] = useState(false);
+  const [agentMessage, setAgentMessage] = useState('');
+  const [agentError, setAgentError] = useState('');
+  const [agentConfig, setAgentConfig] = useState(null);
+  const [agentIntegration, setAgentIntegration] = useState(null);
+  const [agentIntakes, setAgentIntakes] = useState([]);
+  const [agentIntakesTotal, setAgentIntakesTotal] = useState(0);
+  const [agentIntakesLoading, setAgentIntakesLoading] = useState(false);
+  const [selectedAgentIntake, setSelectedAgentIntake] = useState(null);
+  const [agentFixSaving, setAgentFixSaving] = useState(false);
+  const [agentFixForm, setAgentFixForm] = useState({
+    customer_name: '',
+    caller_phone: '',
+    inspection_address: '',
+    city: '',
+    service_type: '',
+    appointment_at: '',
+    notes: '',
+    transcript: '',
+    create_missing_inspection: true,
+  });
+  const [agentForm, setAgentForm] = useState({
+    oddzial_id: '',
+    provider: 'external',
+    provider_account_id: '',
+    provider_api_key: '',
+  });
   const [callForm, setCallForm] = useState({
     oddzial_id: '',
     phone: '',
@@ -207,7 +236,7 @@ export default function Telefonia() {
   };
 
   useEffect(() => {
-    if (tab === 'calls') loadTelephonyExtras();
+    if (tab === 'calls' || tab === 'agent') loadTelephonyExtras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -235,6 +264,183 @@ export default function Telefonia() {
   const oddzialLabel = (id) => {
     const o = oddzialy.find((x) => Number(x.id) === Number(id));
     return o ? o.nazwa || `#${id}` : `#${id || '-'}`;
+  };
+
+  const toDateTimeLocal = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  useEffect(() => {
+    if (tab !== 'agent') return;
+    if (agentForm.oddzial_id || oddzialy.length === 0) return;
+    const user = getLocalStorageJson('user');
+    const preferred = user?.oddzial_id || oddzialy[0]?.id || '';
+    if (preferred) setAgentForm((f) => ({ ...f, oddzial_id: String(preferred) }));
+  }, [tab, oddzialy, agentForm.oddzial_id]);
+
+  useEffect(() => {
+    if (!selectedAgentIntake) return;
+    setAgentFixForm({
+      customer_name: selectedAgentIntake.customer_name || '',
+      caller_phone: selectedAgentIntake.caller_phone || '',
+      inspection_address: selectedAgentIntake.inspection_address || '',
+      city: selectedAgentIntake.city || '',
+      service_type: selectedAgentIntake.service_type || '',
+      appointment_at: toDateTimeLocal(selectedAgentIntake.appointment_at),
+      notes: selectedAgentIntake.notes || '',
+      transcript: selectedAgentIntake.transcript || '',
+      create_missing_inspection: !selectedAgentIntake.ogledziny_id,
+    });
+  }, [selectedAgentIntake]);
+
+  const loadVoiceAgentIntegration = useCallback(async (oddzialIdArg) => {
+    const oddzialId = oddzialIdArg || agentForm.oddzial_id;
+    if (!oddzialId) return;
+    setAgentLoading(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/telephony/voice-agent/polska-flora/integration?oddzial_id=${encodeURIComponent(oddzialId)}`, {
+        headers: authHeaders(token),
+      });
+      setAgentConfig(data.config || null);
+      setAgentIntegration(data.integration || null);
+      setAgentForm((f) => ({
+        ...f,
+        oddzial_id: String(oddzialId),
+        provider: data.integration?.provider || f.provider || 'external',
+        provider_account_id: data.integration?.provider_account_id || f.provider_account_id || '',
+        provider_api_key: '',
+      }));
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie pobrac konfiguracji agenta.'));
+    } finally {
+      setAgentLoading(false);
+    }
+  }, [agentForm.oddzial_id]);
+
+  const loadVoiceAgentIntakes = useCallback(async (oddzialIdArg) => {
+    const oddzialId = oddzialIdArg || agentForm.oddzial_id;
+    if (!oddzialId) return;
+    setAgentIntakesLoading(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/telephony/voice-agent/polska-flora/intakes?oddzial_id=${encodeURIComponent(oddzialId)}&limit=12`, {
+        headers: authHeaders(token),
+      });
+      setAgentIntakes(Array.isArray(data.items) ? data.items : []);
+      setAgentIntakesTotal(Number(data.total || 0));
+      setSelectedAgentIntake((current) => {
+        if (!current?.id) return current;
+        return (data.items || []).find((row) => Number(row.id) === Number(current.id)) || null;
+      });
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie pobrac historii rozmow agenta.'));
+    } finally {
+      setAgentIntakesLoading(false);
+    }
+  }, [agentForm.oddzial_id]);
+
+  useEffect(() => {
+    if (tab === 'agent' && agentForm.oddzial_id) {
+      loadVoiceAgentIntegration(agentForm.oddzial_id);
+      loadVoiceAgentIntakes(agentForm.oddzial_id);
+    }
+  }, [tab, agentForm.oddzial_id, loadVoiceAgentIntegration, loadVoiceAgentIntakes]);
+
+  const saveVoiceAgentIntegration = async (e) => {
+    e.preventDefault();
+    if (!agentForm.oddzial_id) {
+      setAgentError('Wybierz oddzial.');
+      return;
+    }
+    setAgentSaving(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/telephony/voice-agent/polska-flora/integration', {
+        oddzial_id: Number(agentForm.oddzial_id),
+        provider: agentForm.provider || 'external',
+        provider_account_id: agentForm.provider_account_id || null,
+        provider_api_key: agentForm.provider_api_key || null,
+        status: 'active',
+      }, { headers: authHeaders(token) });
+      setAgentIntegration(data.integration || null);
+      setAgentConfig(data.config || agentConfig);
+      setAgentForm((f) => ({ ...f, provider_api_key: '' }));
+      setAgentMessage('Agent Ania jest wlaczony dla oddzialu. Webhook i sekret sa gotowe do wklejenia u providera.');
+      await loadVoiceAgentIntakes(agentForm.oddzial_id);
+    } catch (e2) {
+      setAgentError(getApiErrorMessage(e2, 'Nie udalo sie wlaczyc agenta.'));
+    } finally {
+      setAgentSaving(false);
+    }
+  };
+
+  const testVoiceAgentIntegration = async () => {
+    if (!agentForm.oddzial_id) return;
+    setAgentTestLoading(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/telephony/voice-agent/polska-flora/integration/test', {
+        oddzial_id: Number(agentForm.oddzial_id),
+      }, { headers: authHeaders(token) });
+      setAgentMessage(data.message || 'Test konfiguracji OK.');
+      await loadVoiceAgentIntegration(agentForm.oddzial_id);
+      await loadVoiceAgentIntakes(agentForm.oddzial_id);
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Test konfiguracji nie przeszedl.'));
+    } finally {
+      setAgentTestLoading(false);
+    }
+  };
+
+  const saveAgentIntakeFix = async (e) => {
+    e.preventDefault();
+    if (!selectedAgentIntake?.id) return;
+    setAgentFixSaving(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.patch(`/telephony/voice-agent/polska-flora/intakes/${selectedAgentIntake.id}`, {
+        customer_name: agentFixForm.customer_name || null,
+        caller_phone: agentFixForm.caller_phone || null,
+        inspection_address: agentFixForm.inspection_address || null,
+        city: agentFixForm.city || null,
+        service_type: agentFixForm.service_type || null,
+        appointment_at: agentFixForm.appointment_at || null,
+        notes: agentFixForm.notes || null,
+        transcript: agentFixForm.transcript || null,
+        create_missing_inspection: !!agentFixForm.create_missing_inspection,
+      }, { headers: authHeaders(token) });
+      if (data.intake) setSelectedAgentIntake(data.intake);
+      await loadVoiceAgentIntakes(agentForm.oddzial_id);
+      setAgentMessage(data.intake?.quality_status === 'ok'
+        ? 'Korekta zapisana. Rozmowa ma komplet danych.'
+        : 'Korekta zapisana, ale rozmowa nadal wymaga sprawdzenia.');
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Nie udalo sie zapisac korekty rozmowy.'));
+    } finally {
+      setAgentFixSaving(false);
+    }
+  };
+
+  const copyAgentText = async (value, label) => {
+    try {
+      await navigator.clipboard.writeText(String(value || ''));
+      setAgentMessage(`${label} skopiowane.`);
+    } catch {
+      setAgentError(`Nie udalo sie skopiowac: ${label}.`);
+    }
   };
 
   const saveCallLog = async (e) => {
@@ -513,15 +719,21 @@ export default function Telefonia() {
 
   const stats = useMemo(() => {
     let sent = 0;
+    let delivered = 0;
+    let failed = 0;
     let missing = 0;
     for (const x of filtered) {
       const st = String(x.status || '');
       if (['wyslano_demo', 'Wyslany', 'Dostarczony', 'dostarczono'].includes(st)) sent += 1;
+      if (st === 'Dostarczony' || st === 'dostarczono') delivered += 1;
+      if (st === 'Niedostarczony' || st === 'blad' || st === 'Błąd') failed += 1;
       else if (st === 'brak_numeru') missing += 1;
     }
     return {
       total: filtered.length,
       sent,
+      delivered,
+      failed,
       missing,
     };
   }, [filtered]);
@@ -555,6 +767,25 @@ export default function Telefonia() {
     return 'info';
   };
 
+  const formatAgentDate = (value) => (value ? new Date(value).toLocaleString('pl-PL') : 'brak');
+  const agentServiceLabel = (value) => {
+    const v = String(value || '').toLowerCase();
+    if (v === 'dach') return 'Dach';
+    if (v === 'elewacja_kostka') return 'Elewacja / kostka';
+    if (v === 'ogrod') return 'Ogrod';
+    if (v === 'wycinka_pielegnacja') return 'Drzewa';
+    return value || 'Inne';
+  };
+  const agentIssueLabel = (value) => ({
+    brak_telefonu: 'brak telefonu',
+    brak_adresu: 'brak adresu',
+    brak_terminu: 'brak terminu',
+    brak_leada_crm: 'brak leada CRM',
+    brak_ogledzin: 'brak ogledzin',
+    brak_notatki: 'brak notatki',
+  }[value] || value);
+  const agentNeedsReviewCount = agentIntakes.filter((x) => x.quality_status === 'needs_review').length;
+
   const updateSmsStatus = async (id, status) => {
     setUpdatingStatusId(id);
     setError('');
@@ -574,6 +805,12 @@ export default function Telefonia() {
     }
   };
 
+  const pageSubtitle = tab === 'sms'
+    ? `Historia SMS: ${filtered.length}${serverPaging && smsTotalAll > 0 ? ` w bazie: ${smsTotalAll}` : ''}`
+    : tab === 'agent'
+      ? `Agent Ania: ${agentIntegration?.status === 'active' ? 'aktywny' : 'do podpiecia'}`
+      : `Log polaczen: ${callRows.length} | kolejka oddzwonien: ${callbacks.filter((x) => x.status === 'open').length}`;
+
   return (
     <div style={s.root}>
       <Sidebar />
@@ -585,13 +822,13 @@ export default function Telefonia() {
             </svg>
           }
           title="Telefonia"
-          subtitle={
+          subtitle={pageSubtitle /*
             tab === 'sms'
               ? `Historia SMS: ${filtered.length}${
                   serverPaging && smsTotalAll > 0 ? ` · ${smsTotalAll} w bazie` : ''
                 }`
               : `Log połączeń: ${callRows.length} · kolejka oddzwonień: ${callbacks.filter((x) => x.status === 'open').length}`
-          }
+          */}
           actions={
             <>
               {tab === 'sms' && (
@@ -613,16 +850,332 @@ export default function Telefonia() {
           <button type="button" style={tab === 'calls' ? s.tabActive : s.tab} onClick={() => setTab('calls')}>
             Połączenia i oddzwonienia
           </button>
+          <button type="button" style={tab === 'agent' ? s.tabActive : s.tab} onClick={() => setTab('agent')}>
+            Agent AI
+          </button>
         </div>
 
         {!!error && tab === 'sms' && (
           <div style={{ marginBottom: 12 }}>
-            <StatusMessage message={error} type="error" />
+            <StatusMessage message={error} tone="error" />
           </div>
         )}
         {!!telError && tab === 'calls' && (
           <div style={{ marginBottom: 12 }}>
-            <StatusMessage message={telError} type="error" />
+            <StatusMessage message={telError} tone="error" />
+          </div>
+        )}
+        {!!agentError && tab === 'agent' && (
+          <div style={{ marginBottom: 12 }}>
+            <StatusMessage message={agentError} tone="error" />
+          </div>
+        )}
+        {!!agentMessage && tab === 'agent' && (
+          <div style={{ marginBottom: 12 }}>
+            <StatusMessage message={agentMessage} tone="success" />
+          </div>
+        )}
+
+        {tab === 'agent' && (
+          <div style={s.panel}>
+            <div style={s.callsIntro}>
+              Podpiecie bez kodu: wybierz oddzial, wlacz agenta, skopiuj webhook i sekret do providera telefonii AI. Agent zapisuje rozmowy w CRM i historii telefonii w tym panelu.
+            </div>
+            {agentLoading && <div style={s.empty}>Ladowanie konfiguracji...</div>}
+            <div style={s.agentGrid}>
+              <form style={s.callForm} onSubmit={saveVoiceAgentIntegration}>
+                <div style={s.manualTitle}>Agent Ania / Polska Flora</div>
+                <select
+                  value={agentForm.oddzial_id}
+                  onChange={(e) => setAgentForm((f) => ({ ...f, oddzial_id: e.target.value }))}
+                  style={s.input}
+                  required
+                >
+                  <option value="">Oddzial...</option>
+                  {oddzialy.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nazwa || `Oddzial #${o.id}`} {o.telefon ? `(${o.telefon})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={agentForm.provider}
+                  onChange={(e) => setAgentForm((f) => ({ ...f, provider: e.target.value }))}
+                  style={s.input}
+                >
+                  <option value="external">Provider zewnetrzny / webhook</option>
+                  <option value="vapi">Vapi</option>
+                  <option value="elevenlabs">ElevenLabs</option>
+                  <option value="twilio">Twilio</option>
+                  <option value="zadarma">Zadarma</option>
+                </select>
+                <input
+                  value={agentForm.provider_account_id}
+                  onChange={(e) => setAgentForm((f) => ({ ...f, provider_account_id: e.target.value }))}
+                  placeholder="ID konta / asystenta u providera (opcjonalnie)"
+                  style={s.input}
+                />
+                <input
+                  value={agentForm.provider_api_key}
+                  onChange={(e) => setAgentForm((f) => ({ ...f, provider_api_key: e.target.value }))}
+                  placeholder={agentIntegration?.provider_api_key_masked ? `Token zapisany: ${agentIntegration.provider_api_key_masked}` : 'API key providera (opcjonalnie)'}
+                  style={s.input}
+                  type="password"
+                />
+                <div style={s.inlineActions}>
+                  <button type="submit" style={s.sendBtn} disabled={agentSaving || !agentForm.oddzial_id}>
+                    {agentSaving ? 'Wlaczanie...' : agentIntegration ? 'Zapisz podpiecie' : 'Wlacz agenta'}
+                  </button>
+                  <button type="button" style={s.rowBtn} onClick={testVoiceAgentIntegration} disabled={agentTestLoading || !agentIntegration}>
+                    {agentTestLoading ? 'Test...' : 'Test konfiguracji'}
+                  </button>
+                </div>
+              </form>
+
+              <div style={s.callForm}>
+                <div style={s.manualTitle}>Dane do wklejenia u providera</div>
+                <div style={s.agentStatusRow}>
+                  <span>Status</span>
+                  <strong style={{ color: agentIntegration?.status === 'active' ? '#22c55e' : 'var(--text-muted)' }}>
+                    {agentIntegration?.status === 'active' ? 'Aktywny' : 'Niepodlaczony'}
+                  </strong>
+                </div>
+                <label style={s.copyLabel}>Webhook URL</label>
+                <div style={s.copyRow}>
+                  <input value={agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake'} readOnly style={s.input} />
+                  <button type="button" style={s.rowBtn} onClick={() => copyAgentText(agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake', 'Webhook')}>
+                    Kopiuj
+                  </button>
+                </div>
+                <label style={s.copyLabel}>Header</label>
+                <div style={s.copyRow}>
+                  <input value="x-voice-agent-secret" readOnly style={s.input} />
+                  <button type="button" style={s.rowBtn} onClick={() => copyAgentText('x-voice-agent-secret', 'Header')}>
+                    Kopiuj
+                  </button>
+                </div>
+                <label style={s.copyLabel}>Sekret</label>
+                <div style={s.copyRow}>
+                  <input value={agentIntegration?.webhook_secret || ''} readOnly style={s.input} placeholder="Pojawi sie po wlaczeniu agenta" />
+                  <button type="button" style={s.rowBtn} onClick={() => copyAgentText(agentIntegration?.webhook_secret || '', 'Sekret')} disabled={!agentIntegration?.webhook_secret}>
+                    Kopiuj
+                  </button>
+                </div>
+                <label style={s.copyLabel}>Prompt systemowy</label>
+                <textarea value={agentConfig?.system_prompt || ''} readOnly rows={8} style={s.textarea} />
+                <button type="button" style={s.rowBtn} onClick={() => copyAgentText(agentConfig?.system_prompt || '', 'Prompt')} disabled={!agentConfig?.system_prompt}>
+                  Kopiuj prompt
+                </button>
+              </div>
+            </div>
+            <div style={s.agentHistoryHeader}>
+              <div>
+                <div style={s.manualTitle}>Historia rozmow agenta</div>
+                <div style={s.agentHistoryMeta}>
+                  Ostatnie zapisy z webhooka dla oddzialu {oddzialLabel(agentForm.oddzial_id)} ({agentIntakesTotal}) · do sprawdzenia: {agentNeedsReviewCount}
+                </div>
+              </div>
+              <button
+                type="button"
+                style={s.rowBtn}
+                onClick={() => loadVoiceAgentIntakes(agentForm.oddzial_id)}
+                disabled={agentIntakesLoading || !agentForm.oddzial_id}
+              >
+                {agentIntakesLoading ? 'Odswiezanie...' : 'Odswiez'}
+              </button>
+            </div>
+            {agentIntakesLoading && <div style={s.empty}>Ladowanie historii rozmow...</div>}
+            {!agentIntakesLoading && agentIntakes.length === 0 ? (
+              <div style={s.emptyMuted}>Brak rozmow agenta dla tego oddzialu.</div>
+            ) : null}
+            {!agentIntakesLoading && agentIntakes.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Data</th>
+                      <th style={s.th}>Klient</th>
+                      <th style={s.th}>Telefon</th>
+                      <th style={s.th}>Usluga</th>
+                      <th style={s.th}>Termin</th>
+                      <th style={s.th}>Jakosc</th>
+                      <th style={s.th}>Status</th>
+                      <th style={s.th}>Powiazania</th>
+                      <th style={s.th}>Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agentIntakes.map((x) => (
+                      <tr key={x.id}>
+                        <td style={s.td}>{formatAgentDate(x.created_at)}</td>
+                        <td style={s.td}>
+                          <strong style={{ color: 'var(--text)' }}>{x.customer_name || 'Klient telefoniczny'}</strong>
+                          <div style={s.auditBy}>{[x.inspection_address, x.city].filter(Boolean).join(', ') || 'brak adresu'}</div>
+                        </td>
+                        <td style={s.td}>
+                          {telHref(x.caller_phone) ? (
+                            <a href={telHref(x.caller_phone)} style={s.telLinkSmall}>{x.caller_phone}</a>
+                          ) : x.caller_phone || 'brak'}
+                        </td>
+                        <td style={s.td}>{agentServiceLabel(x.service_type)}</td>
+                        <td style={s.td}>{formatAgentDate(x.appointment_at)}</td>
+                        <td style={s.td}>
+                          <span style={x.quality_status === 'needs_review' ? s.reviewBadge : s.okBadge}>
+                            {x.quality_status === 'needs_review' ? 'Do sprawdzenia' : 'OK'}
+                          </span>
+                          {Array.isArray(x.quality_issues) && x.quality_issues.length ? (
+                            <div style={s.issueList}>{x.quality_issues.map(agentIssueLabel).join(', ')}</div>
+                          ) : null}
+                        </td>
+                        <td style={s.td}>
+                          <span style={{ ...s.badge, background: 'rgba(34,197,94,0.12)', color: 'var(--accent)' }}>
+                            {x.ogledziny_status || x.crm_stage || 'zapisano'}
+                          </span>
+                        </td>
+                        <td style={s.td}>
+                          <div style={s.agentLinks}>
+                            {x.crm_lead_id ? <span>Lead #{x.crm_lead_id}</span> : null}
+                            {x.klient_id ? <span>Klient #{x.klient_id}</span> : null}
+                            {x.ogledziny_id ? <span>Ogl. #{x.ogledziny_id}</span> : null}
+                          </div>
+                        </td>
+                        <td style={s.td}>
+                          <button
+                            type="button"
+                            style={selectedAgentIntake?.id === x.id ? s.rowBtnActive : s.rowBtn}
+                            onClick={() => setSelectedAgentIntake((current) => current?.id === x.id ? null : x)}
+                          >
+                            {selectedAgentIntake?.id === x.id ? 'Ukryj' : 'Szczegoly'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+            {selectedAgentIntake ? (
+              <div style={s.agentDetailBox}>
+                <div style={s.agentDetailTop}>
+                  <div>
+                    <div style={s.manualTitle}>{selectedAgentIntake.customer_name || 'Klient telefoniczny'}</div>
+                    <div style={s.agentHistoryMeta}>
+                      {selectedAgentIntake.provider || 'external'} · {selectedAgentIntake.call_sid || selectedAgentIntake.external_id || `intake #${selectedAgentIntake.id}`}
+                    </div>
+                  </div>
+                  <div style={s.inlineActions}>
+                    {selectedAgentIntake.crm_lead_id ? (
+                      <button type="button" style={s.rowBtn} onClick={() => navigate('/crm/pipeline')}>
+                        CRM
+                      </button>
+                    ) : null}
+                    {selectedAgentIntake.klient_id ? (
+                      <button type="button" style={s.rowBtn} onClick={() => navigate('/klienci')}>
+                        Klienci
+                      </button>
+                    ) : null}
+                    {selectedAgentIntake.ogledziny_id ? (
+                      <button type="button" style={s.rowBtn} onClick={() => navigate('/ogledziny')}>
+                        Ogledziny
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div style={s.agentDetailGrid}>
+                  <div>
+                    <div style={s.copyLabel}>Jakosc zapisu</div>
+                    <div style={s.agentDetailText}>
+                      {selectedAgentIntake.quality_status === 'needs_review'
+                        ? `Do sprawdzenia: ${(selectedAgentIntake.quality_issues || []).map(agentIssueLabel).join(', ')}`
+                        : 'OK - rozmowa ma komplet danych do dalszej obslugi.'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={s.copyLabel}>Notatka</div>
+                    <div style={s.agentDetailText}>{selectedAgentIntake.notes || 'Brak notatki.'}</div>
+                  </div>
+                  <div>
+                    <div style={s.copyLabel}>Transkrypt</div>
+                    <div style={s.agentDetailText}>{selectedAgentIntake.transcript || 'Brak transkryptu.'}</div>
+                  </div>
+                </div>
+                <form style={s.agentFixForm} onSubmit={saveAgentIntakeFix}>
+                  <div style={s.manualTitle}>Korekta danych z rozmowy</div>
+                  <div style={s.agentFixGrid}>
+                    <input
+                      value={agentFixForm.customer_name}
+                      onChange={(e) => setAgentFixForm((f) => ({ ...f, customer_name: e.target.value }))}
+                      placeholder="Imie i nazwisko"
+                      style={s.input}
+                    />
+                    <input
+                      value={agentFixForm.caller_phone}
+                      onChange={(e) => setAgentFixForm((f) => ({ ...f, caller_phone: e.target.value }))}
+                      placeholder="Telefon"
+                      style={s.input}
+                    />
+                    <input
+                      value={agentFixForm.inspection_address}
+                      onChange={(e) => setAgentFixForm((f) => ({ ...f, inspection_address: e.target.value }))}
+                      placeholder="Adres ogledzin"
+                      style={s.input}
+                    />
+                    <input
+                      value={agentFixForm.city}
+                      onChange={(e) => setAgentFixForm((f) => ({ ...f, city: e.target.value }))}
+                      placeholder="Miasto"
+                      style={s.input}
+                    />
+                    <select
+                      value={agentFixForm.service_type}
+                      onChange={(e) => setAgentFixForm((f) => ({ ...f, service_type: e.target.value }))}
+                      style={s.input}
+                    >
+                      <option value="">Typ uslugi...</option>
+                      <option value="wycinka_pielegnacja">Drzewa</option>
+                      <option value="dach">Dach</option>
+                      <option value="elewacja_kostka">Elewacja / kostka</option>
+                      <option value="ogrod">Ogrod</option>
+                      <option value="inne">Inne</option>
+                    </select>
+                    <input
+                      type="datetime-local"
+                      value={agentFixForm.appointment_at}
+                      onChange={(e) => setAgentFixForm((f) => ({ ...f, appointment_at: e.target.value }))}
+                      style={s.input}
+                    />
+                  </div>
+                  <textarea
+                    value={agentFixForm.notes}
+                    onChange={(e) => setAgentFixForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder="Notatka do CRM"
+                    rows={2}
+                    style={s.textarea}
+                  />
+                  <textarea
+                    value={agentFixForm.transcript}
+                    onChange={(e) => setAgentFixForm((f) => ({ ...f, transcript: e.target.value }))}
+                    placeholder="Transkrypt / streszczenie"
+                    rows={2}
+                    style={s.textarea}
+                  />
+                  <div style={s.inlineActions}>
+                    <label style={s.checkboxWrap}>
+                      <input
+                        type="checkbox"
+                        checked={agentFixForm.create_missing_inspection}
+                        onChange={(e) => setAgentFixForm((f) => ({ ...f, create_missing_inspection: e.target.checked }))}
+                        disabled={!!selectedAgentIntake.ogledziny_id}
+                      />
+                      Utworz brakujace ogledziny
+                    </label>
+                    <button type="submit" style={s.sendBtn} disabled={agentFixSaving}>
+                      {agentFixSaving ? 'Zapis...' : 'Zapisz korekte'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -953,6 +1506,14 @@ export default function Telefonia() {
               <div style={{ ...s.kpiValue, color: '#10b981' }}>{stats.sent}</div>
             </div>
             <div style={s.kpiCard}>
+              <div style={s.kpiLabel}>Dostarczone</div>
+              <div style={{ ...s.kpiValue, color: '#22c55e' }}>{stats.delivered}</div>
+            </div>
+            <div style={s.kpiCard}>
+              <div style={s.kpiLabel}>Bledy dostawy</div>
+              <div style={{ ...s.kpiValue, color: '#f87171' }}>{stats.failed}</div>
+            </div>
+            <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Brak numeru</div>
               <div style={{ ...s.kpiValue, color: '#f87171' }}>{stats.missing}</div>
             </div>
@@ -1022,9 +1583,11 @@ export default function Telefonia() {
                       { label: 'Data', value: x.created_at ? new Date(x.created_at).toLocaleString('pl-PL') : 'brak' },
                       { label: 'Zlecenie', value: x.task_id ? `#${x.task_id}` : 'brak', tone: x.task_id ? 'info' : undefined },
                       { label: 'Typ', value: x.typ || 'manual' },
+                      { label: 'Provider', value: x.provider || 'brak' },
+                      { label: 'Provider status', value: x.provider_status || 'brak', tone: x.error ? 'danger' : undefined },
                       { label: 'Wyslal', value: x.created_by_name || 'system', mono: false },
                       { label: 'Ost. zmiana', value: x.updated_at ? new Date(x.updated_at).toLocaleString('pl-PL') : 'brak' },
-                      { label: 'Audit', value: x.updated_by_name || x.sid || 'brak', mono: false, tone: x.error ? 'danger' : undefined },
+                      { label: 'Dostawa', value: x.delivery_updated_at ? new Date(x.delivery_updated_at).toLocaleString('pl-PL') : x.sid || 'brak', mono: false, tone: x.error ? 'danger' : undefined },
                     ]}
                     actions={
                       <>
@@ -1047,8 +1610,8 @@ export default function Telefonia() {
                           {sendingId === x.id ? 'Wysylanie...' : 'Ponow SMS'}
                         </button>
                         {x._fromOsApi ? (
-                          <span style={s.twilioLock} title="ARBOR-OS: status dostawy ustawia Twilio (webhook)">
-                            Twilio
+                          <span style={s.twilioLock} title="ARBOR-OS: status dostawy ustawia provider webhook">
+                            {x.provider || 'Webhook'}
                           </span>
                         ) : (
                           <select
@@ -1301,6 +1864,17 @@ const s = {
     cursor: 'pointer',
     textDecoration: 'none',
   },
+  rowBtnActive: {
+    padding: '5px 8px',
+    border: '1px solid var(--accent)',
+    background: 'rgba(34,197,94,0.12)',
+    color: 'var(--accent)',
+    borderRadius: 8,
+    fontSize: 12,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    fontWeight: 700,
+  },
   rowSelect: {
     minWidth: 130,
     padding: '5px 7px',
@@ -1412,6 +1986,12 @@ const s = {
     gap: 12,
     marginBottom: 16,
   },
+  agentGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: 12,
+    marginBottom: 4,
+  },
   callForm: {
     background: 'var(--surface-field)',
     border: '1px solid var(--border)',
@@ -1431,6 +2011,116 @@ const s = {
     flexWrap: 'wrap',
     gap: 10,
     alignItems: 'center',
+  },
+  copyRow: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: 8,
+    alignItems: 'center',
+  },
+  copyLabel: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: 4,
+  },
+  agentStatusRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '8px 10px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    color: 'var(--text-sub)',
+    fontSize: 13,
+  },
+  agentHistoryHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  agentHistoryMeta: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+  },
+  agentLinks: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+    color: 'var(--text-muted)',
+    fontSize: 12,
+  },
+  okBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    borderRadius: 999,
+    background: 'rgba(34,197,94,0.12)',
+    color: 'var(--accent)',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  reviewBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    borderRadius: 999,
+    background: 'rgba(245,158,11,0.14)',
+    color: '#b45309',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  issueList: {
+    marginTop: 4,
+    maxWidth: 180,
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1.3,
+  },
+  agentDetailBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+  },
+  agentDetailTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 10,
+  },
+  agentDetailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: 10,
+  },
+  agentDetailText: {
+    minHeight: 54,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-glass)',
+    color: 'var(--text-sub)',
+    fontSize: 13,
+    lineHeight: 1.45,
+    whiteSpace: 'pre-wrap',
+  },
+  agentFixForm: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTop: '1px solid var(--border)',
+  },
+  agentFixGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 8,
+    marginBottom: 8,
   },
   telLink: {
     display: 'inline-flex',

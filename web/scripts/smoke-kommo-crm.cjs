@@ -7,8 +7,15 @@
 const axios = require('axios');
 
 const base = (process.env.ARBOR_SMOKE_API_BASE || 'http://127.0.0.1:3001/api').replace(/\/$/, '');
-const login = process.env.ARBOR_SMOKE_LOGIN || 'admin';
-const password = process.env.ARBOR_SMOKE_PASSWORD || 'admin';
+const envLogin = process.env.ARBOR_SMOKE_LOGIN;
+const envPassword = process.env.ARBOR_SMOKE_PASSWORD;
+const credentials = (envLogin || envPassword)
+  ? [{ login: envLogin || 'smoke_admin', haslo: envPassword || 'Smoke123!' }]
+  : [
+      { login: 'smoke_admin', haslo: 'Smoke123!' },
+      { login: 'demo_dyrektor', haslo: 'Demo123!ARBOR' },
+      { login: 'admin', haslo: 'admin' },
+    ];
 
 async function req(method, path, { headers = {}, body } = {}) {
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
@@ -30,21 +37,32 @@ async function req(method, path, { headers = {}, body } = {}) {
   }
 }
 
+async function loginSmoke() {
+  const attempts = [];
+  for (const cred of credentials) {
+    const auth = await req('POST', '/auth/login', { body: cred });
+    if (auth.ok && auth.json?.token) {
+      return { ok: true, token: auth.json.token, login: cred.login, attempts };
+    }
+    const detail = auth.json?.error || auth.text?.slice(0, 200) || 'missing token';
+    attempts.push(`${cred.login} -> ${auth.status} (${detail})`);
+  }
+  return { ok: false, token: null, login: null, attempts };
+}
+
 async function main() {
   const errors = [];
 
-  const auth = await req('POST', '/auth/login', { body: { login, haslo: password } });
-  if (!auth.ok || !auth.json?.token) {
-    const detail = auth.json?.error || auth.text?.slice(0, 200) || 'missing token';
-    errors.push(`POST /auth/login -> ${auth.status} (${detail})`);
+  const auth = await loginSmoke();
+  if (!auth.ok || !auth.token) {
     console.error('[smoke:kommo:crm] Login failed');
-    console.error(`[smoke:kommo:crm] login=${login} status=${auth.status}`);
+    for (const attempt of auth.attempts) console.error(` - ${attempt}`);
     console.error('[smoke:kommo:crm] FAIL');
-    for (const e of errors) console.error(' -', e);
     return 1;
   }
 
-  const token = auth.json.token;
+  const token = auth.token;
+  const activeLogin = auth.login;
   const authz = { Authorization: `Bearer ${token}` };
 
   const tasks = await req('GET', '/tasks', { headers: authz });
@@ -87,7 +105,7 @@ async function main() {
     return 1;
   }
 
-  console.log('[smoke:kommo:crm] OK', { base, user: login });
+  console.log('[smoke:kommo:crm] OK', { base, user: activeLogin });
   return 0;
 }
 

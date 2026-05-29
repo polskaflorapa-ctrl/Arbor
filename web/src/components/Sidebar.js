@@ -80,6 +80,7 @@ const NAV_GROUP_BY_PATH = {
   '/zlecenia': 'planning',
   '/harmonogram': 'planning',
   '/kierownik': 'planning',
+  '/kontrola-operacyjna': 'reports',
   '/auto-dispatch': 'planning',
   '/mapa-live': 'planning',
   '/bi': 'reports',
@@ -135,6 +136,7 @@ function isPrimaryNavPath(path, role) {
   }
   if (normalizedRole.includes('prezes') || normalizedRole.includes('dyrektor')) {
     rolePrimary.add('/bi');
+    rolePrimary.add('/kontrola-operacyjna');
   }
   if (normalizedRole.includes('administrator')) {
     rolePrimary.add('/uzytkownicy');
@@ -249,6 +251,7 @@ export default function Sidebar() {
       { path: '/rozliczenia-ekip',    labelKey: 'nav.payrollTeams',   icon: 'ksiegowosc',  roles: ['Prezes', 'Dyrektor', 'Kierownik'] },
       { path: '/rozliczenia-polowe', labelKey: 'nav.fieldSettlements', icon: 'raporty',   roles: ['Dyrektor', 'Administrator', 'Kierownik', 'Brygadzista'] },
       { path: '/kierownik',         labelKey: 'nav.planning',      icon: 'kierownik',   roles: MGMT },
+      { path: '/kontrola-operacyjna', labelKey: 'nav.operationalControl', icon: 'raporty', roles: ADMIN },
       { path: '/auto-dispatch',     labelKey: 'nav.autoDispatch',  icon: 'dispatch',    roles: MGMT },
       { path: '/mapa-live',         labelKey: 'nav.liveMap',       icon: 'liveMap',     roles: MGMT, primary: false },
       { path: '/bi',                labelKey: 'nav.bi',            icon: 'bi',          roles: MGMT },

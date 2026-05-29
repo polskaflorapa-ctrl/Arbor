@@ -15,12 +15,21 @@ jest.mock('../src/services/audit', () => ({
 
 jest.mock('../src/services/opsDigest', () => ({
   buildOperationalDigest: jest.fn(),
+  getDigestRunHistory: jest.fn(),
+  listDigestSettings: jest.fn(),
   runOperationalDigest: jest.fn(),
+  saveDigestSettings: jest.fn(),
 }));
 
 const pool = require('../src/config/database');
 const automationsRoutes = require('../src/routes/automations');
-const { buildOperationalDigest, runOperationalDigest } = require('../src/services/opsDigest');
+const {
+  buildOperationalDigest,
+  getDigestRunHistory,
+  listDigestSettings,
+  runOperationalDigest,
+  saveDigestSettings,
+} = require('../src/services/opsDigest');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
 
@@ -78,7 +87,77 @@ describe('Automations routes', () => {
     expect(res.body.reminders).toEqual({ scanned: 1, remindersCreated: 1 });
     expect(runOperationalDigest).toHaveBeenCalledWith(
       pool,
-      expect.objectContaining({ date: '2026-05-25', horizonDays: 2 })
+      expect.objectContaining({ date: '2026-05-25', horizonDays: 2, actorUserId: 10, triggerType: 'manual' })
+    );
+  });
+
+  it('returns branch-scoped operational digest run history', async () => {
+    getDigestRunHistory.mockResolvedValue({
+      total: 1,
+      items: [{ id: 100, scope: 'branch', branch_id: 7, emails_sent: 1 }],
+    });
+
+    const res = await request(app)
+      .get('/api/automations/daily-digest/history?oddzial_id=999&scope=branch&limit=10')
+      .set('Authorization', `Bearer ${token({ rola: 'Kierownik', oddzial_id: 7 })}`);
+
+    expect(res.status).toBe(200);
+    expect(getDigestRunHistory).toHaveBeenCalledWith(
+      pool,
+      expect.objectContaining({ branchId: 7, scope: 'branch', limit: '10' })
+    );
+    expect(res.body.total).toBe(1);
+  });
+
+  it('reads and saves operational digest settings', async () => {
+    listDigestSettings.mockResolvedValue([{ scope_key: 'global', enabled: true, send_time: '06:00' }]);
+    saveDigestSettings.mockResolvedValue({
+      scope_key: 'branch:7',
+      scope: 'branch',
+      branch_id: 7,
+      enabled: true,
+      recipient_user_ids: [10],
+      extra_emails: ['boss@example.com'],
+    });
+
+    const getRes = await request(app)
+      .get('/api/automations/daily-digest/settings')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.settings[0].scope_key).toBe('global');
+
+    const putRes = await request(app)
+      .put('/api/automations/daily-digest/settings')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`)
+      .send({
+        branch_id: 7,
+        enabled: true,
+        recipient_user_ids: [10],
+        extra_emails: ['boss@example.com'],
+      });
+
+    expect(putRes.status).toBe(200);
+    expect(saveDigestSettings).toHaveBeenCalledWith(
+      pool,
+      expect.objectContaining({ branch_id: 7, updated_by: 10 })
+    );
+  });
+
+  it('runs operational digest from cron secret and respects enabled settings', async () => {
+    process.env.OPS_CRON_SECRET = 'cron-secret';
+    runOperationalDigest.mockResolvedValue({
+      date: '2026-05-25',
+      global: { summary: { total_alerts: 1 } },
+      branches: [{ branch_id: 7, summary: { total_alerts: 0 } }],
+    });
+
+    const res = await request(app)
+      .get('/api/automations/daily-digest/tick?secret=cron-secret&date=2026-05-25');
+
+    expect(res.status).toBe(200);
+    expect(runOperationalDigest).toHaveBeenCalledWith(
+      pool,
+      expect.objectContaining({ date: '2026-05-25', triggerType: 'cron', respectEnabled: true })
     );
   });
 });

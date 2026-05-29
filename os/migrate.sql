@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS branches (
   miasto        VARCHAR(100),
   kod_pocztowy  VARCHAR(10),
   telefon       VARCHAR(30),
+  sms_sender_id VARCHAR(64),
   email         VARCHAR(255),
   kierownik_id  INTEGER,
   aktywny       BOOLEAN DEFAULT true,
@@ -154,6 +155,7 @@ CREATE TABLE IF NOT EXISTS task_public_status_events (
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS sms_sender_id VARCHAR(64);
 CREATE INDEX IF NOT EXISTS idx_task_public_status_events_task_created ON task_public_status_events(task_id, created_at);
 
 CREATE TABLE IF NOT EXISTS sms_status_templates (
@@ -355,7 +357,6 @@ CREATE TABLE IF NOT EXISTS wyceny_zdjecia (
   lon        DECIMAL(10,7),
   created_at TIMESTAMP DEFAULT NOW()
 );
-
 CREATE INDEX IF NOT EXISTS idx_wyceny_autor         ON wyceny(autor_id);
 CREATE INDEX IF NOT EXISTS idx_wyceny_status        ON wyceny(status);
 CREATE INDEX IF NOT EXISTS idx_wyceny_status_akc    ON wyceny(status_akceptacji);
@@ -617,6 +618,78 @@ CREATE TABLE IF NOT EXISTS sms_history (
   error      TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS provider VARCHAR(20);
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS provider_status VARCHAR(80);
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS delivery_error_code VARCHAR(80);
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS delivery_updated_at TIMESTAMPTZ;
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS sms_cost NUMERIC(12,4);
+ALTER TABLE sms_history ADD COLUMN IF NOT EXISTS sms_currency VARCHAR(12);
+CREATE TABLE IF NOT EXISTS sms_delivery_events (
+  id SERIAL PRIMARY KEY,
+  sms_history_id INTEGER REFERENCES sms_history(id) ON DELETE SET NULL,
+  sid VARCHAR(100) NOT NULL,
+  provider VARCHAR(20) NOT NULL,
+  provider_status VARCHAR(80),
+  mapped_status VARCHAR(80),
+  error_code VARCHAR(80),
+  error_message TEXT,
+  raw_payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sms_delivery_events_sid ON sms_delivery_events(sid, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sms_delivery_events_history ON sms_delivery_events(sms_history_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS voice_agent_intakes (
+  id SERIAL PRIMARY KEY,
+  provider VARCHAR(40) NOT NULL DEFAULT 'external',
+  agent_id VARCHAR(80) NOT NULL DEFAULT 'polska-flora-ania',
+  external_id VARCHAR(120),
+  call_sid VARCHAR(120),
+  oddzial_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  crm_lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+  ogledziny_id INTEGER REFERENCES ogledziny(id) ON DELETE SET NULL,
+  caller_phone VARCHAR(64),
+  customer_name VARCHAR(255),
+  inspection_address TEXT,
+  city VARCHAR(120),
+  service_type VARCHAR(80),
+  appointment_at TIMESTAMPTZ,
+  source VARCHAR(40) NOT NULL DEFAULT 'telefon_przychodzacy',
+  notes TEXT,
+  transcript TEXT,
+  raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_voice_agent_intakes_oddzial_created ON voice_agent_intakes(oddzial_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_voice_agent_intakes_external ON voice_agent_intakes(external_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_voice_agent_intakes_external
+  ON voice_agent_intakes(agent_id, provider, external_id)
+  WHERE external_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_voice_agent_intakes_call_sid
+  ON voice_agent_intakes(agent_id, provider, call_sid)
+  WHERE call_sid IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS voice_agent_integrations (
+  id SERIAL PRIMARY KEY,
+  agent_id VARCHAR(80) NOT NULL DEFAULT 'polska-flora-ania',
+  oddzial_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  provider VARCHAR(40) NOT NULL DEFAULT 'external',
+  provider_account_id VARCHAR(120),
+  provider_api_key_masked VARCHAR(80),
+  webhook_secret VARCHAR(120) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  last_test_at TIMESTAMPTZ,
+  last_test_status VARCHAR(20),
+  last_error TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(agent_id, oddzial_id)
+);
+CREATE INDEX IF NOT EXISTS idx_voice_agent_integrations_branch ON voice_agent_integrations(oddzial_id, status);
+CREATE INDEX IF NOT EXISTS idx_voice_agent_integrations_secret ON voice_agent_integrations(webhook_secret);
 
 -- ─── 18. USER_COMPETENCIES ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user_competencies (
@@ -1684,6 +1757,25 @@ ALTER TABLE tasks
   ADD COLUMN IF NOT EXISTS wymagany_sprzet_typ VARCHAR(80),
   ADD COLUMN IF NOT EXISTS wymagane_kompetencje TEXT[];
 
+CREATE TABLE IF NOT EXISTS task_time_window_proposals (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  token VARCHAR(80) NOT NULL UNIQUE,
+  proposed_date DATE NOT NULL,
+  okno_od TIME NOT NULL,
+  okno_do TIME NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'pending',
+  note TEXT,
+  client_note TEXT,
+  proposed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  decided_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_task_time_window_proposals_task ON task_time_window_proposals(task_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_task_time_window_proposals_status ON task_time_window_proposals(status, expires_at);
+
 -- Teams: depot (start location for routing)
 ALTER TABLE teams
   ADD COLUMN IF NOT EXISTS depot_lat  DECIMAL(9,6),
@@ -1772,6 +1864,47 @@ CREATE TABLE IF NOT EXISTS position_card_acknowledgements (
   UNIQUE (user_id, card_version)
 );
 CREATE INDEX IF NOT EXISTS idx_pca_user ON position_card_acknowledgements (user_id);
+
+-- Operational digest runs and settings (managed by opsDigest service)
+CREATE TABLE IF NOT EXISTS operational_digest_runs (
+  id                     SERIAL PRIMARY KEY,
+  digest_date            DATE NOT NULL,
+  scope                  TEXT NOT NULL DEFAULT 'global',
+  branch_id              INTEGER NULL,
+  trigger_type           TEXT NULL,
+  actor_id               INTEGER NULL,
+  status                 TEXT NOT NULL DEFAULT 'completed',
+  summary                JSONB NOT NULL DEFAULT '{}'::jsonb,
+  delivery               JSONB NOT NULL DEFAULT '{}'::jsonb,
+  errors                 JSONB NOT NULL DEFAULT '[]'::jsonb,
+  high_alerts            INTEGER NOT NULL DEFAULT 0,
+  medium_alerts          INTEGER NOT NULL DEFAULT 0,
+  total_alerts           INTEGER NOT NULL DEFAULT 0,
+  recipients             INTEGER NOT NULL DEFAULT 0,
+  notifications_created  INTEGER NOT NULL DEFAULT 0,
+  emails_sent            INTEGER NOT NULL DEFAULT 0,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_operational_digest_runs_date   ON operational_digest_runs(digest_date DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_operational_digest_runs_branch ON operational_digest_runs(branch_id, digest_date DESC);
+
+CREATE TABLE IF NOT EXISTS operational_digest_settings (
+  id                    SERIAL PRIMARY KEY,
+  scope_key             TEXT NOT NULL UNIQUE,
+  scope                 TEXT NOT NULL DEFAULT 'global',
+  branch_id             INTEGER NULL,
+  enabled               BOOLEAN NOT NULL DEFAULT TRUE,
+  send_time             TEXT NOT NULL DEFAULT '06:00',
+  email_enabled         BOOLEAN NOT NULL DEFAULT FALSE,
+  horizon_days          INTEGER NOT NULL DEFAULT 3,
+  fleet_lookahead_days  INTEGER NOT NULL DEFAULT 14,
+  recipient_user_ids    JSONB NOT NULL DEFAULT '[]'::jsonb,
+  extra_emails          JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_by            INTEGER NULL,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_operational_digest_settings_branch ON operational_digest_settings(branch_id);
 
 -- ============================================================
 -- KONIEC MIGRACJI

@@ -262,3 +262,7 @@ Jeśli napotkasz problemy:
 - **[TEST_MODE_GUIDE.md](./TEST_MODE_GUIDE.md)** — Pełny przewodnik trybu testowego
 - **[MONOREPO-SETUP.md](./MONOREPO-SETUP.md)** — Konfiguracja monorepo
 - **[CHANGELOG.md](./CHANGELOG.md)** — Historia zmian
+
+## Environment Runbook
+
+- **[docs/ENVIRONMENT-RUNBOOK.md](./docs/ENVIRONMENT-RUNBOOK.md)** - konfiguracja `.env`, Kommo, Zadarma, publicznych linkow i wdrozen

@@ -117,7 +117,7 @@ function verifyWebhookSignature(body = {}, signatureHeader) {
  * @param {string} opts.body - treść SMS (max 640 znaków)
  * @returns {Promise<{ ok: boolean, message_id?: string, error?: string }>}
  */
-async function sendSms({ to, body }) {
+async function sendSms({ to, body, senderId }) {
   const number = normalizePhone(to);
   if (!number) return { ok: false, error: `Nieprawidłowy numer telefonu: ${to}` };
 
@@ -126,11 +126,27 @@ async function sendSms({ to, body }) {
     number,
   };
   // sender_id — identyfikator nadawcy widoczny u odbiorcy (max 11 znaków alfanum.)
-  if (env.ZADARMA_CALLER_ID) params.sender_id = env.ZADARMA_CALLER_ID;
+  const sender = String(senderId || env.ZADARMA_CALLER_ID || '').trim();
+  if (sender) params.sender_id = sender;
 
   try {
     const data = await zadarmaRequest('POST', '/v1/sms/send/', params);
-    return { ok: true, message_id: String(data.message_id || ''), cost: data.cost, currency: data.currency };
+    const detail = Array.isArray(data.sms_detalization) ? data.sms_detalization[0] : null;
+    const denied = Array.isArray(data.denied_numbers) ? data.denied_numbers[0] : null;
+    if (denied) {
+      return {
+        ok: false,
+        error: denied.message || data.message || 'Zadarma odrzucila numer SMS',
+        cost: data.cost,
+        currency: data.currency,
+      };
+    }
+    return {
+      ok: true,
+      message_id: String(data.message_id || data.sms_id || detail?.message_id || detail?.sms_id || ''),
+      cost: data.cost ?? detail?.cost,
+      currency: data.currency,
+    };
   } catch (e) {
     if (e.code === 'ZADARMA_NOT_CONFIGURED') return { ok: false, error: e.message };
     return { ok: false, error: e.message || 'Błąd Zadarma SMS' };

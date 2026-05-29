@@ -6,7 +6,12 @@ jest.mock('../src/config/database', () => ({
   connect: jest.fn(),
 }));
 
+jest.mock('../src/services/smsGateway', () => ({
+  sendSmsGateway: jest.fn(),
+}));
+
 const pool = require('../src/config/database');
+const { sendSmsGateway } = require('../src/services/smsGateway');
 const tasksRoutes = require('../src/routes/tasks');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
@@ -18,6 +23,7 @@ describe('Tasks routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    sendSmsGateway.mockResolvedValue({ ok: true, provider: 'zadarma', sid: 'sms-test' });
   });
 
   it('blocks stats endpoint without authorization', async () => {
@@ -132,6 +138,265 @@ describe('Tasks routes', () => {
     expect(typeof res.body.requestId).toBe('string');
     expect(Array.isArray(res.body.details)).toBe(true);
     expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it('POST /tasks/:id/time-window-proposals creates a public client decision link', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    const previousPublicBaseUrl = env.PUBLIC_BASE_URL;
+    env.PUBLIC_BASE_URL = 'https://arbor.test';
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT t.*, b.telefon AS oddzial_telefon')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', klient_nazwa: 'Jan Test', klient_telefon: '+48123123123', typ_uslugi: 'Wycinka', oddzial_id: 5 }] };
+      }
+      if (s.includes('UPDATE task_time_window_proposals')) return { rows: [] };
+      if (s.includes('INSERT INTO task_time_window_proposals')) {
+        return {
+          rows: [{
+            id: 44,
+            task_id: 12,
+            token: 'client_time_token_1234567890',
+            proposed_date: '2026-06-03',
+            okno_od: '08:00:00',
+            okno_do: '11:00:00',
+            status: 'pending',
+            note: 'Rano najlepiej',
+            expires_at: null,
+            created_at: '2026-05-29T10:00:00.000Z',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/tasks/12/time-window-proposals')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        proposed_date: '2026-06-03',
+        okno_od: '08:00',
+        okno_do: '11:00',
+        note: 'Rano najlepiej',
+      });
+    env.PUBLIC_BASE_URL = previousPublicBaseUrl;
+
+    expect(res.status).toBe(201);
+    expect(res.body.proposal).toMatchObject({
+      id: 44,
+      task_id: 12,
+      okno_od: '08:00',
+      okno_do: '11:00',
+      status: 'pending',
+      url: 'https://arbor.test/api/tasks/time-window/client_time_token_1234567890',
+    });
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes("status = 'superseded'"))).toBe(true);
+  });
+
+  it('POST /tasks/:id/time-window-proposals can send the proposal link by SMS', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    const previousPublicBaseUrl = env.PUBLIC_BASE_URL;
+    env.PUBLIC_BASE_URL = 'https://arbor.test';
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT t.*, b.telefon AS oddzial_telefon')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Do_Zatwierdzenia',
+            klient_nazwa: 'Jan Test',
+            klient_telefon: '+48123123123',
+            typ_uslugi: 'Wycinka',
+            oddzial_id: 5,
+            oddzial_telefon: '+4822123123',
+            oddzial_nazwa: 'Warszawa',
+          }],
+        };
+      }
+      if (s.includes('UPDATE task_time_window_proposals')) return { rows: [] };
+      if (s.includes('INSERT INTO task_time_window_proposals')) {
+        return {
+          rows: [{
+            id: 45,
+            task_id: 12,
+            token: 'client_time_token_sms_1234567890',
+            proposed_date: '2026-06-03',
+            okno_od: '09:00:00',
+            okno_do: '12:00:00',
+            status: 'pending',
+            note: null,
+            expires_at: null,
+            created_at: '2026-05-29T10:00:00.000Z',
+          }],
+        };
+      }
+      if (s.includes('FROM sms_status_templates')) return { rows: [] };
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/tasks/12/time-window-proposals')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        proposed_date: '2026-06-03',
+        okno_od: '09:00',
+        okno_do: '12:00',
+        send_sms: true,
+      });
+    env.PUBLIC_BASE_URL = previousPublicBaseUrl;
+
+    expect(res.status).toBe(201);
+    expect(res.body.sms).toMatchObject({ ok: true, provider: 'zadarma' });
+    expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
+      to: '+48123123123',
+      taskId: 12,
+      oddzialId: 5,
+    }));
+    expect(sendSmsGateway.mock.calls[0][0].body).toContain('https://arbor.test/api/tasks/time-window/client_time_token_sms_1234567890');
+  });
+
+  it('GET /tasks/:id/time-window-proposals returns history with SMS delivery diagnostics', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    const previousPublicBaseUrl = env.PUBLIC_BASE_URL;
+    env.PUBLIC_BASE_URL = 'https://arbor.test';
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('FROM task_time_window_proposals p') && s.includes('LEFT JOIN LATERAL')) {
+        return {
+          rows: [{
+            id: 45,
+            task_id: 12,
+            token: 'client_time_token_sms_1234567890',
+            proposed_date: '2026-06-03',
+            okno_od: '09:00:00',
+            okno_do: '12:00:00',
+            status: 'accepted',
+            note: 'Propozycja',
+            client_note: 'Pasuje',
+            proposed_by_login: 'anna',
+            created_at: '2026-05-29T10:00:00.000Z',
+            updated_at: '2026-05-29T10:10:00.000Z',
+            decided_at: '2026-05-29T10:10:00.000Z',
+            expires_at: null,
+            sms_status: 'Wyslany',
+            sms_provider: 'zadarma',
+            sms_provider_status: 'delivered',
+            sms_delivery_error_code: null,
+            sms_delivery_updated_at: '2026-05-29T10:01:00.000Z',
+            sms_delivered_at: '2026-05-29T10:01:00.000Z',
+            sms_created_at: '2026-05-29T10:00:02.000Z',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/12/time-window-proposals')
+      .set('Authorization', `Bearer ${token}`);
+    env.PUBLIC_BASE_URL = previousPublicBaseUrl;
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      id: 45,
+      task_id: 12,
+      url: 'https://arbor.test/api/tasks/time-window/client_time_token_sms_1234567890',
+      okno_od: '09:00',
+      okno_do: '12:00',
+      status: 'accepted',
+      effective_status: 'accepted',
+      client_note: 'Pasuje',
+      sms: {
+        provider: 'zadarma',
+        provider_status: 'delivered',
+        delivered_at: '2026-05-29T10:01:00.000Z',
+      },
+    });
+  });
+
+  it('GET /tasks/time-window/:token returns safe public proposal details', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('FROM task_time_window_proposals p') && s.includes('LEFT JOIN branches')) {
+        return {
+          rows: [{
+            id: 44,
+            task_id: 12,
+            proposed_date: '2026-06-03',
+            okno_od: '08:00:00',
+            okno_do: '11:00:00',
+            status: 'pending',
+            note: 'Rano najlepiej',
+            client_note: null,
+            expires_at: null,
+            created_at: '2026-05-29T10:00:00.000Z',
+            decided_at: null,
+            klient_nazwa: 'Jan Test',
+            adres: 'Lesna 4',
+            miasto: 'Warszawa',
+            typ_uslugi: 'Wycinka',
+            task_status: 'Do_Zatwierdzenia',
+            oddzial_nazwa: 'Warszawa',
+            oddzial_telefon: '+4822123123',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app).get('/api/tasks/time-window/client_time_token_1234567890');
+
+    expect(res.status).toBe(200);
+    expect(res.body.proposal).toMatchObject({ task_id: 12, okno_od: '08:00', okno_do: '11:00', status: 'pending' });
+    expect(res.body.task).toMatchObject({ service: 'Wycinka', address: 'Lesna 4, Warszawa', client_name: 'Jan Test' });
+    expect(res.body.task).not.toHaveProperty('klient_telefon');
+  });
+
+  it('POST /tasks/time-window/:token/decision accepts proposal and writes task window', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('FROM task_time_window_proposals p') && s.includes('JOIN tasks t')) {
+        return {
+          rows: [{
+            id: 44,
+            task_id: 12,
+            token: 'client_time_token_1234567890',
+            proposed_date: '2026-06-03',
+            okno_od: '08:00:00',
+            okno_do: '11:00:00',
+            status: 'pending',
+            task_status: 'Do_Zatwierdzenia',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/tasks/time-window/client_time_token_1234567890/decision')
+      .send({ decision: 'accepted', client_note: 'Pasuje' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'accepted', task_id: 12, proposed_date: '2026-06-03', okno_od: '08:00', okno_do: '11:00' });
+    const taskUpdate = pool.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE tasks') && String(sql).includes('okno_od = $2::time'));
+    expect(taskUpdate?.[1]).toEqual(['2026-06-03 08:00:00', '08:00', '11:00', 12]);
   });
 
   it('creates task with explicit start hour and checks team load ranges', async () => {
@@ -651,6 +916,46 @@ describe('Tasks routes', () => {
     expect(savedNotes).toContain('Zakres z terenu: Przycinka korony');
     expect(savedNotes).toContain('Ekipa: Ekipa A (#9)');
     expect(savedNotes).toContain('Sprzet: bez dodatkowego sprzetu');
+  });
+
+  it('PUT /tasks/:id/office-plan blocks planning outside accepted client window', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return {
+          rows: [{
+            id: 12,
+            status: 'Do_Zatwierdzenia',
+            oddzial_id: 5,
+            notatki_wewnetrzne: '',
+            okno_od: '08:00:00',
+            okno_do: '11:00:00',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '12:00',
+        czas_planowany_godziny: 2,
+        ekipa_id: 9,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TASK_CLIENT_TIME_WINDOW_CONFLICT');
+    expect(res.body).toMatchObject({ okno_od: '08:00', okno_do: '11:00', start: '12:00' });
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
   });
 
   it('PUT /tasks/:id/office-plan blocks an absent crew without manager override', async () => {
@@ -1576,6 +1881,33 @@ describe('Tasks routes', () => {
       return s.includes('UPDATE tasks') && s.includes('data_planowana = $1::timestamptz');
     });
     expect(updateCall?.[1]).toEqual(['2026-05-10T09:00:00.000Z', 9, 1, null]);
+    pool.query.mockReset();
+  });
+
+  it('blocks PATCH /tasks/:id/plan outside accepted client window', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }] };
+      }
+      if (s.includes('SELECT okno_od, okno_do FROM tasks')) {
+        return { rows: [{ okno_od: '08:00:00', okno_do: '11:00:00' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T12:00:00.000Z', ekipa_id: 9 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TASK_CLIENT_TIME_WINDOW_CONFLICT');
+    expect(res.body).toMatchObject({ okno_od: '08:00', okno_do: '11:00', start: '14:00' });
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
     pool.query.mockReset();
   });
 

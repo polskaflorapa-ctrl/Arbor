@@ -369,6 +369,204 @@ describe('api test-mode mocks', () => {
     });
   });
 
+  it('keeps the demo critical path wired from Zadarma and Kommo to dispatch, settlement and BI', async () => {
+    const taskId = 103;
+
+    const intake = await api.post('/api/telephony/calls', {
+      oddzial_id: 3,
+      phone: '+48500999888',
+      call_type: 'inbound',
+      status: 'answered',
+      duration_sec: 184,
+      task_id: taskId,
+      lead_name: 'Osiedle Lesne Tarasy',
+      provider: 'Zadarma',
+    });
+    expect(intake.status).toBe(201);
+    expect(intake.data).toMatchObject({
+      task_id: taskId,
+      provider: 'Zadarma',
+    });
+
+    const beforeKommo = await api.get(`/api/tasks/${taskId}/kommo-payload`, { dedupe: false });
+    expect(beforeKommo.data).toMatchObject({
+      event: 'task.sync',
+      provider: 'kommo',
+      telephony: {
+        provider: 'Zadarma',
+        phone_only_flow: true,
+      },
+      task: {
+        id: taskId,
+        klient_telefon: '+48500999888',
+      },
+    });
+
+    const savedPlan = await api.post('/api/dispatch/plan/save', {
+      date: '2026-05-30',
+      oddzial_id: 3,
+    });
+    expect(savedPlan.data.routes[0].stops.map((stop) => stop.task_id)).toContain(taskId);
+
+    const appliedPlan = await api.post(`/api/dispatch/apply/${savedPlan.data.id}`);
+    expect(appliedPlan.data).toMatchObject({ status: 'applied' });
+
+    const start = await api.post(`/api/tasks/${taskId}/start`, {
+      lat: 50.06143,
+      lng: 19.93658,
+    });
+    expect(start.data).toMatchObject({
+      work_log_id: expect.any(Number),
+      task: {
+        id: taskId,
+        status: 'W_Realizacji',
+        active_work_count: 1,
+      },
+    });
+
+    const finish = await api.post(`/api/tasks/${taskId}/finish`, {
+      lat: 50.062,
+      lng: 19.937,
+      notatki: 'Demo finish',
+    });
+    expect(finish.data).toMatchObject({
+      wartosc_netto_do_rozliczenia: 2800,
+      task: {
+        id: taskId,
+        status: 'Zakonczone',
+      },
+    });
+
+    const settlement = await api.post(`/api/rozliczenia/zadanie/${taskId}`, {
+      wartosc_brutto: 3024,
+      vat_stawka: 8,
+      koszt_pomocnikow: 200,
+      procent_brygadzisty: 15,
+    });
+    expect(settlement.data).toMatchObject({
+      task_id: taskId,
+      wartosc_brutto: 3024,
+      vat_stawka: 8,
+      wartosc_netto: 2800,
+      koszt_pomocnikow: 200,
+    });
+    expect(settlement.data.wynagrodzenie_brygadzisty).toBeCloseTo(390, 2);
+
+    const afterKommo = await api.get(`/api/tasks/${taskId}/kommo-payload`, { dedupe: false });
+    expect(afterKommo.data.task).toMatchObject({
+      id: taskId,
+      status: 'Zakonczone',
+      wartosc_netto_do_rozliczenia: 2800,
+      settlement: {
+        gross: 3024,
+        net: 2800,
+        helper_cost: 200,
+        crew_lead_pay: 390,
+      },
+      financials: {
+        revenue_net: 2800,
+        total_known_cost: 590,
+        gross_margin: 2210,
+        margin_pct: 78.9,
+      },
+    });
+
+    const overview = await api.get('/api/bi/overview?days=30', { dedupe: false });
+    expect(overview.data).toMatchObject({
+      tasks_done: expect.any(Number),
+      revenue_actual: expect.any(Number),
+      gross_margin: expect.any(Number),
+      margin_pct: expect.any(Number),
+      zadarma_calls: 1,
+      kommo_sync_errors: 0,
+    });
+    expect(overview.data.tasks_done).toBeGreaterThanOrEqual(1);
+    expect(overview.data.revenue_actual).toBeGreaterThanOrEqual(2800);
+
+    const drill = await api.get('/api/bi/drill?dim=task&id=103', { dedupe: false });
+    expect(drill.data.find((task) => task.id === taskId)).toMatchObject({
+      status: 'Zakonczone',
+      financials: {
+        revenue_net: 2800,
+        margin_pct: 78.9,
+      },
+    });
+    expect(drill.data.find((task) => task.id === taskId).financials.cost_sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'helper_cost', status: 'ok' }),
+        expect.objectContaining({ key: 'crew_lead_pay', status: 'ok' }),
+        expect.objectContaining({ key: 'operational_cost', source: 'demo_finish' }),
+      ])
+    );
+
+    const kommoDiagnostics = await api.get('/api/tasks/kommo-sync/diagnostics', { dedupe: false });
+    expect(kommoDiagnostics.data.summary).toMatchObject({
+      outbound_ok: expect.any(Number),
+      outbound_pending: expect.any(Number),
+      inbound_ok: 1,
+      inbound_conflicts: 0,
+    });
+    expect(kommoDiagnostics.data.queue[0]).toEqual(expect.objectContaining({
+      task_id: expect.any(Number),
+      status: expect.stringMatching(/pending|retry|dead_letter/),
+    }));
+
+    const recommendations = await api.get('/api/ops/action-recommendations?date=2026-05-29&oddzial_id=2', { dedupe: false });
+    expect(recommendations.data.summary.actionable).toBeGreaterThan(0);
+    expect(recommendations.data.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: expect.stringMatching(/set_missing_duration|fix_dispatch_blockers/),
+          task_preview: expect.any(Array),
+          target_path: expect.stringMatching(/^\/zlecenia|^\/kierownik|^\/mapa-live/),
+        }),
+      ])
+    );
+
+    const appliedRecommendation = await api.post('/api/ops/action-recommendations/set_missing_duration/apply', {
+      date: '2026-05-29',
+      oddzial_id: 2,
+      action_kind: 'set_duration_batch',
+      task_ids: [102],
+      suggested_minutes: 90,
+      title: 'Demo: uzupelnij czas planu',
+    });
+    expect(appliedRecommendation.data).toMatchObject({
+      recommendation_id: 'set_missing_duration',
+      action_kind: 'set_duration_batch',
+      updated_tasks: [expect.objectContaining({
+        id: 102,
+        czas_obslugi_min: 90,
+      })],
+      feedback_event: expect.objectContaining({
+        action_type: 'recommendation_feedback',
+      }),
+    });
+
+    const dispatchPreflight = await api.post('/api/ops/action-recommendations/fix_dispatch_blockers/apply', {
+      date: '2026-05-29',
+      oddzial_id: 2,
+      action_kind: 'fix_dispatch_blockers',
+      task_ids: [102],
+      title: 'Demo: napraw blokady dispatchera',
+    });
+    expect(dispatchPreflight.data).toMatchObject({
+      recommendation_id: 'fix_dispatch_blockers',
+      action_kind: 'fix_dispatch_blockers',
+      dispatch_preflight: {
+        checked: 1,
+        fixed_team_count: 1,
+        gps_checklist_count: 1,
+      },
+      feedback_event: expect.objectContaining({
+        action_type: 'recommendation_feedback',
+      }),
+    });
+    expect(dispatchPreflight.data.dispatch_preflight.still_blocked[0]).toEqual(
+      expect.objectContaining({ task_id: 102, blockers: ['gps'] })
+    );
+  });
+
   it('persists route brief confirmation mocks across status reads', async () => {
     const sent = await api.post('/api/dispatch/route-brief/send', {
       date: '2026-05-25',

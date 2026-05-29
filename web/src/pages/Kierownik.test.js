@@ -151,6 +151,17 @@ beforeEach(() => {
   });
 
   api.post.mockImplementation(async (path, body) => {
+    if (path === '/ops/action-recommendations/assign-crew-42/apply') {
+      return {
+        data: {
+          message: 'Decyzja rekomendacji zapisana',
+          recommendation_id: 'assign-crew-42',
+          action_kind: body?.action_kind,
+          navigate_to: body?.target_path || '/zlecenia/42',
+          feedback_event: { id: 501 },
+        },
+      };
+    }
     if (path === '/ops/action-recommendations/assign-crew-42/feedback') {
       recommendationHidden = body?.decision === 'dismissed';
       return {
@@ -213,4 +224,27 @@ test('hides and restores a recommendation from the manager cockpit', async () =>
   expect(await screen.findByText('Przypisz ekipe do ARB-42')).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText('Ukryte dzis')).not.toBeInTheDocument());
   expect(screen.getByText(/0 ukryte/)).toBeInTheDocument();
+});
+
+test('runs recommendation actions through the backend apply contract', async () => {
+  renderPage();
+
+  expect(await screen.findByText('Przypisz ekipe do ARB-42')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Otworz zlecenie' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/action-recommendations/assign-crew-42/apply',
+      expect.objectContaining({
+        date: expect.any(String),
+        oddzial_id: 1,
+        action_kind: 'open_task',
+        target_path: '/zlecenia/42',
+        task_ids: [42],
+        title: 'Przypisz ekipe do ARB-42',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();
 });

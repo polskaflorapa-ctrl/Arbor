@@ -176,15 +176,25 @@ router.put(
 // POST /api/sms/wyslij
 router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req, res) => {
   const { telefon, tresc, task_id } = req.body;
-  const result = await sendSmsGateway({ to: telefon, body: tresc, taskId: task_id });
+  let smsOddzialId = req.user?.oddzial_id || null;
+  let smsTask = null;
+  if (task_id) {
+    try {
+      const taskResult = await pool.query('SELECT oddzial_id, klient_telefon, klient_email FROM tasks WHERE id = $1', [task_id]);
+      smsTask = taskResult.rows[0] || null;
+      smsOddzialId = smsTask?.oddzial_id || smsOddzialId;
+    } catch (taskErr) {
+      logger.warn('sms.taskLookup.manual', { message: taskErr.message, task_id });
+    }
+  }
+  const result = await sendSmsGateway({ to: telefon, body: tresc, taskId: task_id, oddzialId: smsOddzialId });
   if (!result.ok) {
     logger.error('Blad SMS /wyslij', { error: result.error, requestId: req.requestId });
     return res.status(500).json({ error: result.error });
   }
   if (task_id) {
     try {
-      const taskResult = await pool.query('SELECT oddzial_id, klient_telefon, klient_email FROM tasks WHERE id = $1', [task_id]);
-      const task = taskResult.rows[0];
+      const task = smsTask;
       if (task) {
         await appendCrmMessageForContact({
           oddzialId: task.oddzial_id,
@@ -224,7 +234,7 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
     if (!knownSmsTemplateKey(typ)) return res.status(400).json({ error: req.tv('errors.sms.unknownType', { typ }) });
     const data = z.data_planowana ? new Date(z.data_planowana).toLocaleDateString('pl-PL') : '-';
     const tresc = await renderTaskSms(typ, z, { powod, data });
-    const result = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: id });
+    const result = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: id, oddzialId: z.oddzial_id });
     if (!result.ok) {
       logger.error('Blad SMS /zlecenie/:id', { error: result.error, requestId: req.requestId });
       return res.status(500).json({ error: result.error });
@@ -362,7 +372,7 @@ router.post('/wyslij-do-wszystkich', authMiddleware, validateBody(smsBulkSchema)
     for (const z of zlecenia) {
       const dataFormat = new Date(z.data_planowana).toLocaleDateString('pl-PL');
       const tresc = await renderTaskSms(typ, z, { data: dataFormat });
-      const r = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: z.id });
+      const r = await sendSmsGateway({ to: z.klient_telefon, body: tresc, taskId: z.id, oddzialId: z.oddzial_id });
       if (r.ok) { wyslane++; } else { bledy.push({ telefon: z.klient_telefon, error: r.error }); }
       // throttle — Zadarma ma limit ~10 SMS/s, Twilio podobnie
       await new Promise(resolve => setTimeout(resolve, 200));

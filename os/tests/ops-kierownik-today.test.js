@@ -5,8 +5,19 @@ jest.mock('../src/config/database', () => ({
   query: jest.fn(),
 }));
 
+jest.mock('../src/services/smsGateway', () => ({
+  sendSmsGateway: jest.fn(),
+  resolveBranchSmsSender: jest.fn(),
+}));
+
+jest.mock('../src/services/zadarma', () => ({
+  requestCallback: jest.fn(),
+}));
+
 const pool = require('../src/config/database');
 const { env } = require('../src/config/env');
+const { sendSmsGateway, resolveBranchSmsSender } = require('../src/services/smsGateway');
+const { requestCallback } = require('../src/services/zadarma');
 const opsRoutes = require('../src/routes/ops');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -446,6 +457,279 @@ describe('POST /api/ops/plan-vs-real/tasks/:taskId/action', () => {
   });
 });
 
+describe('POST /api/ops/risk-report/actions', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+    sendSmsGateway.mockReset();
+    resolveBranchSmsSender.mockReset();
+    requestCallback.mockReset();
+  });
+
+  it('resends failed risk SMS through the Zadarma-first SMS gateway and records action memory', async () => {
+    sendSmsGateway.mockResolvedValue({ ok: true, provider: 'zadarma', message_id: 'sms-2' });
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('b.telefon AS oddzial_telefon')) {
+        expect(params).toEqual([77]);
+        return {
+          rows: [{
+            id: 77,
+            numer: 'ARB-77',
+            klient_nazwa: 'Klient SMS',
+            klient_telefon: '+48123123123',
+            oddzial_id: 7,
+            oddzial_telefon: '+48221234567',
+          }],
+        };
+      }
+      if (text.includes('FROM sms_history h')) {
+        expect(params).toEqual([55, 77, 7]);
+        return { rows: [{ id: 55, task_id: 77, tresc: 'Poprzednia tresc SMS' }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[0]).toBe(77);
+        expect(params[1]).toBe(7);
+        expect(params[3]).toBe('risk_resend_sms');
+        expect(params[4]).toBe('sms_delivery');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'sms_delivery:55',
+          provider: 'zadarma',
+          ok: true,
+        });
+        return { rows: [{ id: 900, task_id: 77, action_type: 'risk_resend_sms' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/risk-report/actions')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'resend_zadarma_sms',
+        risk_id: 'sms_delivery:55',
+        risk_type: 'sms_delivery',
+        task_id: 77,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toContain('SMS wyslany');
+    expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
+      to: '+48123123123',
+      body: 'Poprzednia tresc SMS',
+      taskId: 77,
+      oddzialId: 7,
+    }));
+  });
+
+  it('queues a Zadarma call from a risk and keeps audit trace even when callback API is used', async () => {
+    resolveBranchSmsSender.mockResolvedValue('+48221234567');
+    requestCallback.mockResolvedValue({ status: 'success', call_id: 'call-1' });
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('CREATE TABLE IF NOT EXISTS telephony_callbacks') || text.includes('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('b.telefon AS oddzial_telefon')) {
+        return {
+          rows: [{
+            id: 88,
+            numer: 'ARB-88',
+            klient_nazwa: 'Klient Telefon',
+            klient_telefon: '+48999111222',
+            oddzial_id: 7,
+            oddzial_telefon: '+48220000000',
+          }],
+        };
+      }
+      if (text.includes('INSERT INTO telephony_callbacks')) {
+        expect(params).toEqual([
+          7,
+          '+48999111222',
+          88,
+          'Klient Telefon',
+          'Pilny kontakt',
+          1,
+        ]);
+        return { rows: [{ id: 44, task_id: 88, phone: '+48999111222', status: 'open' }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[3]).toBe('risk_queue_call');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'client_window:88',
+          callback_id: 44,
+          zadarma_call: { requested: true, ok: true, from: '+48221234567' },
+        });
+        return { rows: [{ id: 901, task_id: 88, action_type: 'risk_queue_call' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/risk-report/actions')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'queue_zadarma_call',
+        risk_id: 'client_window:88',
+        risk_type: 'client_window',
+        task_id: 88,
+        note: 'Pilny kontakt',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.callback).toMatchObject({ id: 44, status: 'open' });
+    expect(requestCallback).toHaveBeenCalledWith({ from: '+48221234567', to: '+48999111222' });
+  });
+
+  it('suggests a free team and applies reassign action with audit', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('LEFT JOIN teams e')) {
+        return {
+          rows: [{
+            id: 101,
+            numer: 'ARB-101',
+            klient_nazwa: 'Konflikt Ekipy',
+            oddzial_id: 7,
+            ekipa_id: 5,
+            ekipa_nazwa: 'Ekipa A',
+            data_planowana: '2026-05-26T08:00:00.000Z',
+            czas_planowany_godziny: 2,
+          }],
+        };
+      }
+      if (text.includes('FROM teams tm')) {
+        expect(params).toEqual([7, 5]);
+        return { rows: [{ id: 6, nazwa: 'Ekipa B', oddzial_id: 7 }] };
+      }
+      if (text.includes('UNION ALL') && text.includes('equipment_reservations r')) {
+        expect(params).toEqual([6, 101, '2026-05-26']);
+        return { rows: [] };
+      }
+      if (text.includes('UPDATE tasks') && text.includes('SET ekipa_id = $1')) {
+        expect(params[0]).toBe(6);
+        expect(params[1]).toContain('RAPORT RYZYK / PRZEPIECIE EKIPY');
+        return { rows: [{ id: 101, numer: 'ARB-101', ekipa_id: 6 }] };
+      }
+      if (text.includes('UPDATE equipment_reservations') && text.includes('SET ekipa_id = $1')) {
+        expect(params).toEqual([6, 101]);
+        return { rows: [] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[3]).toBe('risk_reassign_team');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'team_conflict:100:101',
+          old_team_id: 5,
+          new_team_id: 6,
+        });
+        return { rows: [{ id: 902, task_id: 101, action_type: 'risk_reassign_team' }] };
+      }
+      return { rows: [] };
+    });
+
+    const options = await request(app)
+      .get('/api/ops/risk-report/actions/options?risk_type=team_conflict&risk_id=team_conflict:100:101&task_id=101')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(options.status).toBe(200);
+    expect(options.body.options[0]).toMatchObject({ team_id: 6, team_name: 'Ekipa B' });
+
+    const res = await request(app)
+      .post('/api/ops/risk-report/actions')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'reassign_team',
+        risk_id: 'team_conflict:100:101',
+        risk_type: 'team_conflict',
+        task_id: 101,
+        team_id: 6,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toContain('Ekipa B');
+  });
+
+  it('replaces conflicted equipment with a free alternative and records action memory', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('LEFT JOIN teams e')) {
+        return {
+          rows: [{
+            id: 202,
+            numer: 'ARB-202',
+            klient_nazwa: 'Konflikt Sprzetu',
+            oddzial_id: 7,
+            ekipa_id: 5,
+            ekipa_nazwa: 'Ekipa A',
+            data_planowana: '2026-05-26T08:00:00.000Z',
+            czas_planowany_godziny: 2,
+          }],
+        };
+      }
+      if (text.includes('SELECT id, nazwa, typ, oddzial_id FROM equipment_items WHERE id = $1')) {
+        expect(params).toEqual([30]);
+        return { rows: [{ id: 30, nazwa: 'Rebak A', typ: 'rebak', oddzial_id: 7 }] };
+      }
+      if (text.includes('FROM equipment_items e')) {
+        expect(params).toEqual([30, 7, 'rebak']);
+        return { rows: [{ id: 31, nazwa: 'Rebak B', typ: 'rebak', oddzial_id: 7 }] };
+      }
+      if (text.includes('FROM equipment_reservations') && text.includes('sprzet_id = $1')) {
+        expect(params).toEqual([31, '2026-05-26', 202]);
+        return { rows: [] };
+      }
+      if (text.includes('UPDATE equipment_reservations') && text.includes("status = 'Anulowane'")) {
+        expect(params).toEqual([202, 30]);
+        return { rows: [] };
+      }
+      if (text.includes('INSERT INTO equipment_reservations')) {
+        expect(params).toEqual([7, 31, 5, '2026-05-26', 1, 202, expect.stringContaining('PRZEPIECIE SPRZETU')]);
+        return { rows: [{ id: 700, sprzet_id: 31, task_id: 202, ekipa_id: 5, status: 'Zarezerwowane' }] };
+      }
+      if (text.includes('UPDATE tasks') && text.includes('notatki_wewnetrzne')) {
+        return { rows: [{ id: 202, numer: 'ARB-202' }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[3]).toBe('risk_replace_equipment');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'equipment_conflict:30',
+          old_sprzet_id: 30,
+          new_sprzet_id: 31,
+          reservation_id: 700,
+        });
+        return { rows: [{ id: 903, task_id: 202, action_type: 'risk_replace_equipment' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/risk-report/actions')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'replace_equipment',
+        risk_id: 'equipment_conflict:30',
+        risk_type: 'equipment_conflict',
+        task_id: 202,
+        sprzet_id: 31,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toContain('Rebak B');
+    expect(res.body.reservation).toMatchObject({ id: 700, sprzet_id: 31 });
+  });
+});
+
 describe('GET /api/ops/action-insights', () => {
   beforeEach(() => {
     pool.query.mockReset();
@@ -534,6 +818,127 @@ describe('GET /api/ops/action-insights', () => {
     });
     expect(res.body.reasons[0]).toMatchObject({ reason_code: 'dojazd', label: 'Dojazd', count: 2 });
     expect(res.body.issues.map((item) => item.issue_key)).toEqual(expect.arrayContaining(['overrun', 'not_started']));
+  });
+});
+
+describe('GET /api/ops/action-history', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+  });
+
+  it('returns filtered operational decision history with risk outcome and branch scope', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('COUNT(*)::int AS total')) {
+        expect(text).toContain('e.oddzial_id = $2');
+        expect(text).toContain('e.action_type = $3');
+        expect(text).toContain('COALESCE(t.numer');
+        expect(params).toEqual(['2026-05-26', 7, 'risk_reassign_team', '%ARB%']);
+        return { rows: [{ total: 1 }] };
+      }
+      if (text.includes('SELECT e.id, e.task_id') && text.includes('LIMIT $5 OFFSET $6')) {
+        expect(params).toEqual(['2026-05-26', 7, 'risk_reassign_team', '%ARB%', 10, 0]);
+        return {
+          rows: [{
+            id: 501,
+            task_id: 101,
+            oddzial_id: 7,
+            actor_id: 1,
+            action_type: 'risk_reassign_team',
+            issue_key: 'team_conflict',
+            reason_code: null,
+            delta_minutes: null,
+            planned_minutes: null,
+            real_minutes: null,
+            note: 'Przepieto ekipe',
+            metadata: { risk_id: 'team_conflict:100:101', old_team_id: 5, new_team_id: 6 },
+            created_at: '2026-05-26T09:00:00.000Z',
+            numer: 'ARB-101',
+            klient_nazwa: 'Klient',
+            oddzial_nazwa: 'Krakow',
+            actor_name: 'Test Kierownik',
+          }],
+        };
+      }
+      if (text.includes('GROUP BY e.action_type')) {
+        return { rows: [{ action_type: 'risk_reassign_team', count: 1 }] };
+      }
+      if (text.includes('GROUP BY e.issue_key')) {
+        return { rows: [{ issue_key: 'team_conflict', count: 1 }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-history?date=2026-05-26&action_type=risk_reassign_team&q=ARB&limit=10')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0]).toMatchObject({
+      id: 501,
+      task_id: 101,
+      action_label: 'Przepiecie ekipy z ryzyka',
+      risk_id: 'team_conflict:100:101',
+      risk_type: 'team_conflict',
+      outcome: 'Ekipa 5 -> 6',
+      actor_name: 'Test Kierownik',
+    });
+    expect(res.body.summary.actions[0]).toMatchObject({ action_type: 'risk_reassign_team', count: 1 });
+  });
+
+  it('exports operational decision history as CSV for director control', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('COUNT(*)::int AS total')) {
+        expect(params).toEqual(['2026-05-26', 7]);
+        return { rows: [{ total: 1 }] };
+      }
+      if (text.includes('SELECT e.id, e.task_id') && text.includes('LIMIT $3 OFFSET $4')) {
+        expect(params).toEqual(['2026-05-26', 7, 1000, 0]);
+        return {
+          rows: [{
+            id: 777,
+            task_id: 88,
+            oddzial_id: 7,
+            actor_id: 1,
+            action_type: 'risk_queue_call',
+            issue_key: 'sms_not_confirmed',
+            note: 'Telefon do klienta',
+            metadata: { risk_id: 'sms:88', zadarma_call: { ok: true } },
+            created_at: '2026-05-26T10:15:00.000Z',
+            numer: 'ARB-88',
+            klient_nazwa: 'Klient CSV',
+            oddzial_nazwa: 'Krakow',
+            actor_name: 'Dyspozytor',
+          }],
+        };
+      }
+      if (text.includes('GROUP BY e.action_type')) {
+        return { rows: [{ action_type: 'risk_queue_call', count: 1 }] };
+      }
+      if (text.includes('GROUP BY e.issue_key')) {
+        return { rows: [{ issue_key: 'sms_not_confirmed', count: 1 }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-history?date=2026-05-26&format=csv')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.headers['content-disposition']).toContain('arbor-decyzje-operacyjne');
+    expect(res.text).toContain('Data decyzji;Oddzial;Operator;Decyzja');
+    expect(res.text).toContain('Telefon Zadarma z ryzyka');
+    expect(res.text).toContain('Klient CSV');
   });
 });
 
@@ -904,7 +1309,7 @@ describe('GET /api/ops/action-recommendations', () => {
     const byId = Object.fromEntries(res.body.recommendations.map((item) => [item.id, item]));
     expect(byId.fix_dispatch_blockers).toMatchObject({
       priority: 'medium',
-      action_kind: 'open_tasks',
+      action_kind: 'fix_dispatch_blockers',
       task_ids: [61],
       title: '1 blokad wysylki ekip',
     });
@@ -1165,6 +1570,206 @@ describe('GET /api/ops/action-recommendations', () => {
       oddzial_id: 7,
     });
     expect(res.body.message).toBe('Rekomendacja ukryta na dzis');
+  });
+
+  it('applies a duration recommendation through one backend contract', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('WHERE t.id = ANY($1::int[])')) {
+        expect(params).toEqual([[41, 42], 7]);
+        expect(text).toContain('AND t.oddzial_id = $2');
+        return {
+          rows: [
+            { id: 41, numer: 'ARB-41', klient_nazwa: 'Bez czasu A', oddzial_id: 7, ekipa_id: 5 },
+            { id: 42, numer: 'ARB-42', klient_nazwa: 'Bez czasu B', oddzial_id: 7, ekipa_id: 5 },
+          ],
+        };
+      }
+      if (text.includes('SET czas_planowany_godziny = $1')) {
+        expect(params[0]).toBe(1.5);
+        expect(params[1]).toBe(90);
+        expect(params[2]).toContain('Rekomendacja kierownika');
+        return {
+          rows: [{
+            id: params[3],
+            numer: `ARB-${params[3]}`,
+            czas_planowany_godziny: '1.5',
+            czas_obslugi_min: 90,
+          }],
+        };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        const metadata = JSON.parse(params[10]);
+        if (params[3] === 'set_duration') {
+          expect([41, 42]).toContain(params[0]);
+          expect(params[1]).toBe(7);
+          expect(params[4]).toBe('missing_duration');
+          expect(params[7]).toBe(90);
+          expect(metadata).toMatchObject({
+            recommendation_id: 'set_missing_duration',
+            source: 'recommendation_apply',
+          });
+          return { rows: [{ id: 950 + params[0], task_id: params[0], action_type: 'set_duration' }] };
+        }
+        expect(params[0]).toBeNull();
+        expect(params[1]).toBe(7);
+        expect(params[3]).toBe('recommendation_feedback');
+        expect(metadata).toMatchObject({
+          recommendation_id: 'set_missing_duration',
+          decision: 'accepted',
+          source: 'action',
+          updated_count: 2,
+        });
+        return { rows: [{ id: 999, task_id: null, action_type: 'recommendation_feedback' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/action-recommendations/set_missing_duration/apply')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        date: '2026-05-26',
+        action_kind: 'set_duration_batch',
+        task_ids: [41, 42],
+        suggested_minutes: 90,
+        title: '2 zlecen bez czasu planu',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      message: 'Rekomendacja wykonana',
+      recommendation_id: 'set_missing_duration',
+      action_kind: 'set_duration_batch',
+      oddzial_id: 7,
+      notification_count: 0,
+    });
+    expect(res.body.updated_tasks).toHaveLength(2);
+    expect(res.body.feedback_event).toMatchObject({ action_type: 'recommendation_feedback' });
+  });
+
+  it('applies dispatch blocker preflight by assigning a free team and creating a GPS checklist', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('WHERE t.id = ANY($1::int[])')) {
+        return {
+          rows: [
+            {
+              id: 51,
+              numer: 'ARB-51',
+              klient_nazwa: 'Bez ekipy',
+              klient_telefon: '500100200',
+              adres: 'Krakow, Dobra 1',
+              oddzial_id: 7,
+              ekipa_id: null,
+              data_planowana: '2026-05-26T08:00:00.000Z',
+              pin_lat: 50.061,
+              pin_lng: 19.938,
+              czas_planowany_godziny: 2,
+              czas_obslugi_min: 120,
+            },
+            {
+              id: 52,
+              numer: 'ARB-52',
+              klient_nazwa: 'Bez GPS',
+              klient_telefon: '500100201',
+              adres: 'Krakow, Lesna 2',
+              oddzial_id: 7,
+              ekipa_id: 5,
+              data_planowana: '2026-05-26T10:00:00.000Z',
+              pin_lat: null,
+              pin_lng: null,
+              czas_planowany_godziny: 1,
+              czas_obslugi_min: 60,
+            },
+          ],
+        };
+      }
+      if (text.includes('FROM teams tm')) {
+        return { rows: [{ id: 8, nazwa: 'Ekipa Wolna', oddzial_id: 7 }] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('UNION ALL')) {
+        return { rows: [] };
+      }
+      if (text.includes('SET ekipa_id = $1')) {
+        return { rows: [{ id: 51, numer: 'ARB-51', ekipa_id: 8 }] };
+      }
+      if (text.includes('UPDATE equipment_reservations')) {
+        return { rows: [] };
+      }
+      if (text.includes('SET notatki_wewnetrzne') && text.includes('RETURNING id, numer, pin_lat, pin_lng')) {
+        return { rows: [{ id: 52, numer: 'ARB-52', pin_lat: null, pin_lng: null }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        const metadata = JSON.parse(params[10]);
+        if (params[3] === 'dispatch_auto_assign_team') {
+          expect(params[0]).toBe(51);
+          expect(params[4]).toBe('team');
+          expect(metadata).toMatchObject({
+            recommendation_id: 'fix_dispatch_blockers',
+            new_team_id: 8,
+            source: 'recommendation_apply',
+          });
+          return { rows: [{ id: 1051, task_id: 51, action_type: 'dispatch_auto_assign_team' }] };
+        }
+        if (params[3] === 'dispatch_gps_checklist') {
+          expect(params[0]).toBe(52);
+          expect(params[4]).toBe('gps');
+          expect(metadata).toMatchObject({
+            recommendation_id: 'fix_dispatch_blockers',
+            needs_manual_gps: true,
+            zadarma_first: true,
+          });
+          return { rows: [{ id: 1052, task_id: 52, action_type: 'dispatch_gps_checklist' }] };
+        }
+        expect(params[3]).toBe('recommendation_feedback');
+        expect(metadata).toMatchObject({
+          recommendation_id: 'fix_dispatch_blockers',
+          decision: 'accepted',
+          action_kind: 'fix_dispatch_blockers',
+          dispatch_preflight: {
+            checked: 2,
+            fixed_team_count: 1,
+            gps_checklist_count: 1,
+          },
+        });
+        return { rows: [{ id: 1099, task_id: null, action_type: 'recommendation_feedback' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/action-recommendations/fix_dispatch_blockers/apply')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        date: '2026-05-26',
+        action_kind: 'fix_dispatch_blockers',
+        task_ids: [51, 52],
+        title: '2 blokady wysylki ekip',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      message: 'Rekomendacja wykonana',
+      recommendation_id: 'fix_dispatch_blockers',
+      action_kind: 'fix_dispatch_blockers',
+      dispatch_preflight: {
+        checked: 2,
+        ready: [51],
+        fixed_team_count: 1,
+        gps_checklist_count: 1,
+      },
+    });
+    expect(res.body.dispatch_preflight.still_blocked).toEqual([
+      expect.objectContaining({ task_id: 52, blockers: ['gps'] }),
+    ]);
+    expect(res.body.updated_tasks.map((task) => task.action)).toEqual(['assign_team', 'gps_checklist']);
   });
 });
 

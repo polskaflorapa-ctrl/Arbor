@@ -7,6 +7,10 @@ const { spawnSync } = require('node:child_process');
 const rootDir = path.resolve(__dirname, '..');
 const platforms = ['ios', 'android'];
 
+function getWindowsHermescPath() {
+  return path.join(rootDir, '..', 'node_modules', 'react-native', 'sdks', 'hermesc', 'win64-bin', 'hermesc.exe');
+}
+
 function getOutputDir(platform) {
   return path.join(rootDir, `.expo-export-check-${platform}`);
 }
@@ -33,7 +37,33 @@ function runExpoExport(platform, outputDir) {
   });
 }
 
+function preflightHermesCompiler() {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
+  const hermescPath = getWindowsHermescPath();
+  if (!fs.existsSync(hermescPath)) {
+    return;
+  }
+
+  const check = spawnSync(hermescPath, ['-help'], { stdio: 'pipe', encoding: 'utf8' });
+  const output = `${check.stdout || ''}\n${check.stderr || ''}`;
+  const permissionDenied =
+    check.error?.code === 'EACCES' ||
+    check.error?.code === 'EPERM' ||
+    /permission denied|access is denied/i.test(output);
+
+  if (permissionDenied) {
+    console.error('Hermes compiler cannot execute on this machine.');
+    console.error(`Path: ${hermescPath}`);
+    console.error('Fix permissions (example: Unblock-File or ACL update) and rerun release checks.');
+    process.exit(1);
+  }
+}
+
 console.log('Checking Metro native bundle resolution...\n');
+preflightHermesCompiler();
 
 for (const platform of platforms) {
   const outputDir = getOutputDir(platform);

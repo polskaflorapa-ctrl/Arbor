@@ -1,7 +1,4 @@
-// Monorepo npm: `expo-router` zwykle jest tylko w `mobile/node_modules`, a `babel-preset-expo`
-// leży pod `arbor/node_modules/expo`. Wtedy `hasModule('expo-router')` wewnątrz presetu zwraca
-// false i plugin podstawiający `EXPO_ROUTER_APP_ROOT` w `expo-router/_ctx.*.js` się nie ładuje —
-// Metro zostaje z `require.context(process.env.EXPO_ROUTER_APP_ROOT, ...)`.
+const expoBabelPreset = require.resolve('babel-preset-expo');
 const { expoRouterBabelPlugin } = require('babel-preset-expo/build/expo-router-plugin');
 
 module.exports = function (api) {
@@ -9,17 +6,17 @@ module.exports = function (api) {
   return {
     presets: [
       [
-        'babel-preset-expo',
+        expoBabelPreset,
         {
-          // RN 0.81+ VirtualView + react-compiler potrafią rzucać „Unable to determine event arguments…”
+          // RN 0.81+ VirtualView and react-compiler can throw
+          // "Unable to determine event arguments" in some runtime paths.
           'react-compiler': false,
         },
       ],
     ],
     plugins: [
       expoRouterBabelPlugin,
-      // WAŻNE: react-native-worklets/plugin MUSI być ostatnim pluginem.
-      // Bez niego Reanimated 4 + nowa architektura wywalą animacje w runtime.
+      // react-native-worklets/plugin must be the final plugin.
       'react-native-worklets/plugin',
     ],
   };

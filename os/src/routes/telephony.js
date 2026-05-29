@@ -1,10 +1,18 @@
 const express = require('express');
+const crypto = require('crypto');
 const { z } = require('zod');
 const pool = require('../config/database');
 const logger = require('../config/logger');
+const { env } = require('../config/env');
 const { authMiddleware } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
-const { appendCrmMessageForContact } = require('../services/crmInbox');
+const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../services/crmInbox');
+const {
+  buildPolskaFloraLeadNotes,
+  buildPolskaFloraVoiceAgentConfig,
+  normalizePolskaFloraServiceType,
+  SERVICE_LABELS,
+} = require('../services/polskaFloraVoiceAgent');
 
 const router = express.Router();
 
@@ -50,6 +58,61 @@ const callbackStatusParamsSchema = z.object({
 
 const callbackStatusBodySchema = z.object({
   status: z.enum(['open', 'in_progress', 'done', 'cancelled']),
+});
+
+const voiceAgentConfigQuerySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive().optional(),
+});
+
+const voiceAgentIntakeSchema = z.object({
+  provider: z.string().max(40).optional(),
+  external_id: z.string().max(120).optional().nullable(),
+  call_sid: z.string().max(120).optional().nullable(),
+  oddzial_id: z.coerce.number().int().positive().optional().nullable(),
+  caller_phone: z.string().trim().min(3).max(64),
+  customer_name: z.string().trim().max(255).optional().nullable(),
+  inspection_address: z.string().trim().max(1000).optional().nullable(),
+  address: z.string().trim().max(1000).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  service_type: z.string().trim().max(80).optional().nullable(),
+  appointment_at: z.string().trim().max(80).optional().nullable(),
+  source: z.enum(['telefon_przychodzacy', 'oddzwonienie']).optional(),
+  notes: z.string().max(4000).optional().nullable(),
+  transcript: z.string().max(12000).optional().nullable(),
+});
+
+const voiceAgentIntegrationQuerySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive(),
+});
+
+const voiceAgentIntakesQuerySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+const voiceAgentIntakeParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+const voiceAgentIntakeFixSchema = z.object({
+  caller_phone: z.string().trim().min(3).max(64).optional().nullable(),
+  customer_name: z.string().trim().max(255).optional().nullable(),
+  inspection_address: z.string().trim().max(1000).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  service_type: z.string().trim().max(80).optional().nullable(),
+  appointment_at: z.string().trim().max(80).optional().nullable(),
+  notes: z.string().max(4000).optional().nullable(),
+  transcript: z.string().max(12000).optional().nullable(),
+  create_missing_inspection: z.boolean().optional(),
+});
+
+const voiceAgentIntegrationSaveSchema = z.object({
+  oddzial_id: z.coerce.number().int().positive(),
+  provider: z.string().trim().max(40).optional(),
+  provider_account_id: z.string().trim().max(120).optional().nullable(),
+  provider_api_key: z.string().trim().max(500).optional().nullable(),
+  status: z.enum(['active', 'paused']).optional(),
 });
 
 const isManagementRole = (user) =>
@@ -142,6 +205,902 @@ async function ensureTelephonyTables() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks_oddzial_status ON telephony_callbacks(oddzial_id, status)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_telephony_callbacks_due ON telephony_callbacks(due_at)');
 }
+
+async function ensureVoiceAgentIntakesTable() {
+  await ensureVoiceAgentInspectionTables();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS voice_agent_intakes (
+      id SERIAL PRIMARY KEY,
+      provider VARCHAR(40) NOT NULL DEFAULT 'external',
+      agent_id VARCHAR(80) NOT NULL DEFAULT 'polska-flora-ania',
+      external_id VARCHAR(120),
+      call_sid VARCHAR(120),
+      oddzial_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+      crm_lead_id INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
+      ogledziny_id INTEGER REFERENCES ogledziny(id) ON DELETE SET NULL,
+      caller_phone VARCHAR(64),
+      customer_name VARCHAR(255),
+      inspection_address TEXT,
+      city VARCHAR(120),
+      service_type VARCHAR(80),
+      appointment_at TIMESTAMPTZ,
+      source VARCHAR(40) NOT NULL DEFAULT 'telefon_przychodzacy',
+      notes TEXT,
+      transcript TEXT,
+      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_voice_agent_intakes_oddzial_created ON voice_agent_intakes(oddzial_id, created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_voice_agent_intakes_external ON voice_agent_intakes(external_id)');
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_voice_agent_intakes_external
+    ON voice_agent_intakes(agent_id, provider, external_id)
+    WHERE external_id IS NOT NULL
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_voice_agent_intakes_call_sid
+    ON voice_agent_intakes(agent_id, provider, call_sid)
+    WHERE call_sid IS NOT NULL
+  `);
+  await pool.query('ALTER TABLE voice_agent_intakes ADD COLUMN IF NOT EXISTS ogledziny_id INTEGER REFERENCES ogledziny(id) ON DELETE SET NULL');
+}
+
+async function ensureVoiceAgentInspectionTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS klienci (
+      id SERIAL PRIMARY KEY,
+      imie VARCHAR(100),
+      nazwisko VARCHAR(100),
+      firma VARCHAR(200),
+      telefon VARCHAR(30),
+      email VARCHAR(255),
+      adres VARCHAR(255),
+      miasto VARCHAR(100),
+      kod_pocztowy VARCHAR(10),
+      notatki TEXT,
+      zrodlo VARCHAR(50) DEFAULT 'telefon',
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ogledziny (
+      id SERIAL PRIMARY KEY,
+      klient_id INTEGER REFERENCES klienci(id) ON DELETE SET NULL,
+      brygadzista_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      data_planowana TIMESTAMP,
+      status VARCHAR(30) DEFAULT 'Zaplanowane',
+      adres VARCHAR(255),
+      miasto VARCHAR(100),
+      notatki TEXT,
+      notatki_wyniki TEXT,
+      wycena_id INTEGER REFERENCES wyceny(id) ON DELETE SET NULL,
+      task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ogledziny_status ON ogledziny(status)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_ogledziny_data ON ogledziny(data_planowana)');
+}
+
+async function ensureVoiceAgentIntegrationsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS voice_agent_integrations (
+      id SERIAL PRIMARY KEY,
+      agent_id VARCHAR(80) NOT NULL DEFAULT 'polska-flora-ania',
+      oddzial_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      provider VARCHAR(40) NOT NULL DEFAULT 'external',
+      provider_account_id VARCHAR(120),
+      provider_api_key_masked VARCHAR(80),
+      webhook_secret VARCHAR(120) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      last_test_at TIMESTAMPTZ,
+      last_test_status VARCHAR(20),
+      last_error TEXT,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(agent_id, oddzial_id)
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_voice_agent_integrations_branch ON voice_agent_integrations(oddzial_id, status)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_voice_agent_integrations_secret ON voice_agent_integrations(webhook_secret)');
+}
+
+async function resolveVoiceAgentBranch(oddzialId) {
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS sms_sender_id VARCHAR(64)');
+  if (Number(oddzialId) > 0) {
+    const { rows } = await pool.query(
+      'SELECT id, nazwa, miasto, telefon, sms_sender_id FROM branches WHERE id = $1',
+      [Number(oddzialId)],
+    );
+    return rows[0] || null;
+  }
+  const { rows } = await pool.query(
+    'SELECT id, nazwa, miasto, telefon, sms_sender_id FROM branches WHERE COALESCE(aktywny, true) ORDER BY id LIMIT 1',
+  );
+  return rows[0] || null;
+}
+
+function publicVoiceAgentWebhookUrl() {
+  const base = String(env.PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
+  const path = '/api/telephony/voice-agent/polska-flora/intake';
+  return base ? `${base}${path}` : path;
+}
+
+function generateWebhookSecret() {
+  return `vf_${crypto.randomBytes(24).toString('hex')}`;
+}
+
+function maskProviderKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const suffix = raw.slice(-4);
+  return `****${suffix}`;
+}
+
+function publicIntegration(row, { includeSecret = false } = {}) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    agent_id: row.agent_id,
+    oddzial_id: row.oddzial_id,
+    provider: row.provider,
+    provider_account_id: row.provider_account_id,
+    provider_api_key_masked: row.provider_api_key_masked,
+    status: row.status,
+    webhook_url: publicVoiceAgentWebhookUrl(),
+    webhook_secret: includeSecret ? row.webhook_secret : undefined,
+    last_test_at: row.last_test_at,
+    last_test_status: row.last_test_status,
+    last_error: row.last_error,
+    updated_at: row.updated_at,
+  };
+}
+
+async function findVoiceAgentIntegration({ oddzialId, secret } = {}) {
+  await ensureVoiceAgentIntegrationsTable();
+  if (secret) {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM voice_agent_integrations
+       WHERE agent_id = 'polska-flora-ania' AND webhook_secret = $1 AND status = 'active'
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [secret],
+    );
+    return rows[0] || null;
+  }
+  if (Number(oddzialId) > 0) {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM voice_agent_integrations
+       WHERE agent_id = 'polska-flora-ania' AND oddzial_id = $1
+       LIMIT 1`,
+      [Number(oddzialId)],
+    );
+    return rows[0] || null;
+  }
+  return null;
+}
+
+async function requireVoiceAgentSecret(req, res, next) {
+  const configured = String(env.VOICE_AGENT_WEBHOOK_SECRET || '').trim();
+  const provided = String(req.get('x-voice-agent-secret') || req.body?.secret || '').trim();
+  if (!provided) {
+    return res.status(401).json({ error: 'Brak sekretu agenta glosowego' });
+  }
+  if (configured && provided === configured) {
+    return next();
+  }
+  try {
+    const integration = await findVoiceAgentIntegration({ secret: provided });
+    if (!integration) return res.status(401).json({ error: 'Nieprawidlowy sekret agenta glosowego' });
+    req.voiceAgentIntegration = integration;
+    if (!req.body.oddzial_id) req.body.oddzial_id = integration.oddzial_id;
+    return next();
+  } catch (err) {
+    logger.error('telephony.voiceAgent.secret', { message: err.message, requestId: req.requestId });
+    return res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+}
+
+function voiceAgentLeadTitle(body, serviceType) {
+  const name = String(body.customer_name || '').trim() || 'Klient telefoniczny';
+  return `${name} - ${SERVICE_LABELS[serviceType] || 'Ogledziny'}`.slice(0, 255);
+}
+
+function normalizeVoiceAgentProvider(value) {
+  return String(value || 'external').trim().toLowerCase().slice(0, 40) || 'external';
+}
+
+function voiceAgentIntakeResponse(row, { duplicate = false, callLogId = null, stage = null, nextActionAt = null } = {}) {
+  return {
+    ok: true,
+    duplicate,
+    agent_id: row?.agent_id || 'polska-flora-ania',
+    oddzial_id: row?.oddzial_id || null,
+    crm_lead_id: row?.crm_lead_id || null,
+    klient_id: row?.klient_id || null,
+    ogledziny_id: row?.ogledziny_id || null,
+    call_log_id: callLogId,
+    intake_id: row?.id || null,
+    stage: stage || row?.stage || null,
+    next_action_at: nextActionAt || row?.next_action_at || null,
+  };
+}
+
+function voiceAgentQuality(row) {
+  const issues = [];
+  if (!row?.caller_phone) issues.push('brak_telefonu');
+  if (!row?.inspection_address) issues.push('brak_adresu');
+  if (!row?.appointment_at) issues.push('brak_terminu');
+  if (!row?.crm_lead_id) issues.push('brak_leada_crm');
+  if (row?.appointment_at && !row?.ogledziny_id) issues.push('brak_ogledzin');
+  if (!row?.notes && !row?.transcript) issues.push('brak_notatki');
+  return {
+    quality_status: issues.length ? 'needs_review' : 'ok',
+    quality_issues: issues,
+  };
+}
+
+function enrichVoiceAgentIntake(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    ...voiceAgentQuality(row),
+  };
+}
+
+async function findExistingVoiceAgentIntake({ provider, externalId, callSid }) {
+  if (!externalId && !callSid) return null;
+  const { rows } = await pool.query(
+    `SELECT v.*, l.client_id AS klient_id, l.stage, l.next_action_at
+     FROM voice_agent_intakes v
+     LEFT JOIN crm_leads l ON l.id = v.crm_lead_id
+     WHERE v.agent_id = 'polska-flora-ania'
+       AND v.provider = $1
+       AND (($2::varchar IS NOT NULL AND v.external_id = $2)
+         OR ($3::varchar IS NOT NULL AND v.call_sid = $3))
+     ORDER BY v.created_at DESC
+     LIMIT 1`,
+    [provider, externalId || null, callSid || null],
+  );
+  return rows[0] || null;
+}
+
+async function findVoiceAgentIntakeById(id) {
+  const { rows } = await pool.query(
+    `SELECT v.*, l.client_id AS klient_id, l.stage, l.next_action_at, o.status AS ogledziny_status
+     FROM voice_agent_intakes v
+     LEFT JOIN crm_leads l ON l.id = v.crm_lead_id
+     LEFT JOIN ogledziny o ON o.id = v.ogledziny_id
+     WHERE v.agent_id = 'polska-flora-ania' AND v.id = $1
+     LIMIT 1`,
+    [Number(id)],
+  );
+  return rows[0] || null;
+}
+
+async function reserveVoiceAgentIntake({ body, branch, provider, serviceType, appointmentAt, inspectionAddress }) {
+  const externalId = body.external_id || null;
+  const callSid = body.call_sid || null;
+  if (!externalId && !callSid) return { row: null, duplicate: false };
+
+  const { rows } = await pool.query(
+    `INSERT INTO voice_agent_intakes (
+      provider, external_id, call_sid, oddzial_id, caller_phone, customer_name,
+      inspection_address, city, service_type, appointment_at, source, notes, transcript, raw_payload
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+    ON CONFLICT DO NOTHING
+    RETURNING *`,
+    [
+      provider,
+      externalId,
+      callSid,
+      branch.id,
+      body.caller_phone,
+      body.customer_name || null,
+      inspectionAddress,
+      body.city || null,
+      serviceType,
+      appointmentAt,
+      body.source || 'telefon_przychodzacy',
+      body.notes || null,
+      body.transcript || null,
+      JSON.stringify({ ...body, secret: undefined }),
+    ],
+  );
+  if (rows[0]) return { row: rows[0], duplicate: false };
+  return { row: await findExistingVoiceAgentIntake({ provider, externalId, callSid }), duplicate: true };
+}
+
+function parseAppointment(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function splitCustomerName(value) {
+  const raw = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!raw) return { imie: null, nazwisko: null, firma: null };
+  const parts = raw.split(' ');
+  if (parts.length === 1) return { imie: parts[0], nazwisko: null, firma: null };
+  return { imie: parts[0], nazwisko: parts.slice(1).join(' '), firma: null };
+}
+
+async function ensureVoiceAgentClient({ customerName, phone, address, city }) {
+  await ensureVoiceAgentInspectionTables();
+  const normalizedPhone = String(phone || '').replace(/\D/g, '');
+  if (normalizedPhone) {
+    const existing = await pool.query(
+      `SELECT id FROM klienci
+       WHERE regexp_replace(COALESCE(telefon, ''), '\\D', '', 'g') = $1
+       ORDER BY id DESC
+       LIMIT 1`,
+      [normalizedPhone],
+    );
+    if (existing.rows[0]?.id) {
+      await pool.query(
+        `UPDATE klienci
+         SET imie = COALESCE(imie, $2),
+             nazwisko = COALESCE(nazwisko, $3),
+             firma = COALESCE(firma, $4),
+             adres = COALESCE(NULLIF($5, ''), adres),
+             miasto = COALESCE(NULLIF($6, ''), miasto),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [
+          existing.rows[0].id,
+          splitCustomerName(customerName).imie,
+          splitCustomerName(customerName).nazwisko,
+          splitCustomerName(customerName).firma,
+          address || '',
+          city || '',
+        ],
+      );
+      return existing.rows[0].id;
+    }
+  }
+
+  const name = splitCustomerName(customerName);
+  const { rows } = await pool.query(
+    `INSERT INTO klienci (imie, nazwisko, firma, telefon, adres, miasto, zrodlo, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,'voice_agent',NOW(),NOW())
+     RETURNING id`,
+    [name.imie, name.nazwisko, name.firma, phone || null, address || null, city || null],
+  );
+  return rows[0]?.id || null;
+}
+
+async function createVoiceAgentInspection({ clientId, appointmentAt, address, city, notes }) {
+  if (!clientId || !appointmentAt) return null;
+  await ensureVoiceAgentInspectionTables();
+  const { rows } = await pool.query(
+    `INSERT INTO ogledziny (
+      klient_id, brygadzista_id, data_planowana, status, adres, miasto, notatki, created_by
+    ) VALUES ($1,NULL,$2::timestamptz,'Zaplanowane',$3,$4,$5,NULL)
+    RETURNING id`,
+    [clientId, appointmentAt, address || null, city || null, notes || null],
+  );
+  return rows[0]?.id || null;
+}
+
+router.get('/voice-agent/polska-flora/config', authMiddleware, validateQuery(voiceAgentConfigQuerySchema), async (req, res) => {
+  try {
+    const requestedOddzialId = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+    const oddzialId = isManagementRole(req.user) ? requestedOddzialId : (req.user?.oddzial_id || requestedOddzialId);
+    if (!isManagementRole(req.user) && requestedOddzialId && Number(requestedOddzialId) !== Number(req.user?.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+    const branch = await resolveVoiceAgentBranch(oddzialId);
+    return res.json(buildPolskaFloraVoiceAgentConfig({ oddzialId: branch?.id || oddzialId, branch }));
+  } catch (err) {
+    logger.error('telephony.voiceAgent.config', { message: err.message, requestId: req.requestId });
+    return res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get(
+  '/voice-agent/polska-flora/integration',
+  authMiddleware,
+  validateQuery(voiceAgentIntegrationQuerySchema),
+  async (req, res) => {
+    try {
+      const oddzialId = Number(req.query.oddzial_id);
+      if (!isManagementRole(req.user) && Number(req.user?.oddzial_id) !== oddzialId) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      const branch = await resolveVoiceAgentBranch(oddzialId);
+      if (!branch?.id) return res.status(404).json({ error: 'Oddzial nie znaleziony' });
+      const integration = await findVoiceAgentIntegration({ oddzialId });
+      return res.json({
+        branch,
+        integration: publicIntegration(integration, { includeSecret: true }),
+        config: buildPolskaFloraVoiceAgentConfig({ oddzialId: branch.id, branch }),
+      });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.integration.get', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.post(
+  '/voice-agent/polska-flora/integration',
+  authMiddleware,
+  validateBody(voiceAgentIntegrationSaveSchema),
+  async (req, res) => {
+    try {
+      const b = req.body;
+      const oddzialId = Number(b.oddzial_id);
+      if (!isManagementRole(req.user) && Number(req.user?.oddzial_id) !== oddzialId) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      const branch = await resolveVoiceAgentBranch(oddzialId);
+      if (!branch?.id) return res.status(404).json({ error: 'Oddzial nie znaleziony' });
+      await ensureVoiceAgentIntegrationsTable();
+      const existing = await findVoiceAgentIntegration({ oddzialId });
+      const webhookSecret = existing?.webhook_secret || generateWebhookSecret();
+      const maskedKey = b.provider_api_key ? maskProviderKey(b.provider_api_key) : existing?.provider_api_key_masked || null;
+      const provider = String(b.provider || existing?.provider || 'external').trim().toLowerCase() || 'external';
+      const status = b.status || existing?.status || 'active';
+      const { rows } = await pool.query(
+        `INSERT INTO voice_agent_integrations (
+          agent_id, oddzial_id, provider, provider_account_id, provider_api_key_masked, webhook_secret,
+          status, created_by, created_at, updated_by, updated_at
+        ) VALUES ('polska-flora-ania',$1,$2,$3,$4,$5,$6,$7,NOW(),$7,NOW())
+        ON CONFLICT (agent_id, oddzial_id)
+        DO UPDATE SET
+          provider = EXCLUDED.provider,
+          provider_account_id = EXCLUDED.provider_account_id,
+          provider_api_key_masked = COALESCE(EXCLUDED.provider_api_key_masked, voice_agent_integrations.provider_api_key_masked),
+          webhook_secret = voice_agent_integrations.webhook_secret,
+          status = EXCLUDED.status,
+          updated_by = EXCLUDED.updated_by,
+          updated_at = NOW(),
+          last_error = NULL
+        RETURNING *`,
+        [
+          branch.id,
+          provider,
+          b.provider_account_id || existing?.provider_account_id || null,
+          maskedKey,
+          webhookSecret,
+          status,
+          req.user.id,
+        ],
+      );
+      const saved = rows[0];
+      return res.status(existing ? 200 : 201).json({
+        integration: publicIntegration(saved, { includeSecret: true }),
+        config: buildPolskaFloraVoiceAgentConfig({ oddzialId: branch.id, branch }),
+      });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.integration.save', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.post(
+  '/voice-agent/polska-flora/integration/test',
+  authMiddleware,
+  validateBody(voiceAgentIntegrationQuerySchema),
+  async (req, res) => {
+    try {
+      const oddzialId = Number(req.body.oddzial_id);
+      if (!isManagementRole(req.user) && Number(req.user?.oddzial_id) !== oddzialId) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      const integration = await findVoiceAgentIntegration({ oddzialId });
+      if (!integration) return res.status(404).json({ error: 'Najpierw wlacz agenta dla oddzialu' });
+      const branch = await resolveVoiceAgentBranch(oddzialId);
+      await pool.query(
+        `UPDATE voice_agent_integrations
+         SET last_test_at = NOW(), last_test_status = 'ok', last_error = NULL, updated_by = $2, updated_at = NOW()
+         WHERE id = $1`,
+        [integration.id, req.user.id],
+      );
+      return res.json({
+        ok: true,
+        message: 'Konfiguracja agenta jest gotowa do podpiecia u providera.',
+        webhook_url: publicVoiceAgentWebhookUrl(),
+        expected_header: 'x-voice-agent-secret',
+        branch: branch ? { id: branch.id, name: branch.nazwa, phone: branch.telefon } : null,
+      });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.integration.test', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.get(
+  '/voice-agent/polska-flora/intakes',
+  authMiddleware,
+  validateQuery(voiceAgentIntakesQuerySchema),
+  async (req, res) => {
+    try {
+      await ensureVoiceAgentIntakesTable();
+      const oddzialId = Number(req.query.oddzial_id);
+      if (!isManagementRole(req.user) && Number(req.user?.oddzial_id) !== oddzialId) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      const limit = Number(req.query.limit || 20);
+      const offset = Number(req.query.offset || 0);
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM voice_agent_intakes
+         WHERE agent_id = 'polska-flora-ania' AND oddzial_id = $1`,
+        [oddzialId],
+      );
+      const rowsResult = await pool.query(
+        `SELECT
+           v.id,
+           v.provider,
+           v.external_id,
+           v.call_sid,
+           v.oddzial_id,
+           v.crm_lead_id,
+           v.ogledziny_id,
+           l.client_id AS klient_id,
+           v.caller_phone,
+           v.customer_name,
+           v.inspection_address,
+           v.city,
+           v.service_type,
+           v.appointment_at,
+           v.source,
+           v.notes,
+           v.transcript,
+           v.created_at,
+           l.stage AS crm_stage,
+           o.status AS ogledziny_status
+         FROM voice_agent_intakes v
+         LEFT JOIN crm_leads l ON l.id = v.crm_lead_id
+         LEFT JOIN ogledziny o ON o.id = v.ogledziny_id
+         WHERE v.agent_id = 'polska-flora-ania' AND v.oddzial_id = $1
+         ORDER BY v.created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [oddzialId, limit, offset],
+      );
+      return res.json({
+        items: rowsResult.rows.map(enrichVoiceAgentIntake),
+        total: countResult.rows[0]?.total || 0,
+        limit,
+        offset,
+      });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.intakes.list', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.patch(
+  '/voice-agent/polska-flora/intakes/:id',
+  authMiddleware,
+  validateParams(voiceAgentIntakeParamsSchema),
+  validateBody(voiceAgentIntakeFixSchema),
+  async (req, res) => {
+    try {
+      await ensureTelephonyTables();
+      await ensureVoiceAgentIntakesTable();
+      const existing = await findVoiceAgentIntakeById(req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Rozmowa agenta nie znaleziona' });
+      if (!isManagementRole(req.user) && Number(req.user?.oddzial_id) !== Number(existing.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+
+      const b = req.body;
+      const merged = {
+        ...existing,
+        caller_phone: b.caller_phone !== undefined ? b.caller_phone : existing.caller_phone,
+        customer_name: b.customer_name !== undefined ? b.customer_name : existing.customer_name,
+        inspection_address: b.inspection_address !== undefined ? b.inspection_address : existing.inspection_address,
+        city: b.city !== undefined ? b.city : existing.city,
+        service_type: b.service_type !== undefined ? normalizePolskaFloraServiceType(b.service_type) : existing.service_type,
+        appointment_at: b.appointment_at !== undefined ? parseAppointment(b.appointment_at) : existing.appointment_at,
+        notes: b.notes !== undefined ? b.notes : existing.notes,
+        transcript: b.transcript !== undefined ? b.transcript : existing.transcript,
+      };
+
+      const notes = buildPolskaFloraLeadNotes({
+        customer_name: merged.customer_name,
+        caller_phone: merged.caller_phone,
+        service_type: merged.service_type,
+        inspection_address: merged.inspection_address,
+        city: merged.city,
+        appointment_at: merged.appointment_at,
+        source: merged.source,
+        notes: merged.notes,
+        transcript: merged.transcript,
+      });
+      const clientId = merged.klient_id || await ensureVoiceAgentClient({
+        customerName: merged.customer_name,
+        phone: merged.caller_phone,
+        address: merged.inspection_address,
+        city: merged.city,
+      });
+
+      let crmLeadId = merged.crm_lead_id;
+      if (crmLeadId) {
+        await pool.query(
+          `UPDATE crm_leads
+           SET title = $2,
+               phone = COALESCE(NULLIF($3, ''), phone),
+               notes = $4,
+               stage = CASE WHEN $5::timestamptz IS NOT NULL THEN 'OglÄ™dziny' ELSE stage END,
+               next_action_at = COALESCE($5::timestamptz, next_action_at),
+               client_id = COALESCE($6, client_id),
+               updated_by = $7,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [
+            crmLeadId,
+            voiceAgentLeadTitle(merged, merged.service_type),
+            merged.caller_phone || '',
+            notes,
+            merged.appointment_at,
+            clientId,
+            req.user.id,
+          ],
+        );
+      } else {
+        const leadResult = await pool.query(
+          `INSERT INTO crm_leads (
+            title, oddzial_id, owner_user_id, stage, source, value, phone, notes, tags, next_action_at,
+            client_id, created_by, created_at, updated_by, updated_at
+          ) VALUES ($1,$2,NULL,$3,'voice_agent',0,$4,$5,$6::jsonb,$7,$8,$9,NOW(),$9,NOW())
+          RETURNING id`,
+          [
+            voiceAgentLeadTitle(merged, merged.service_type),
+            existing.oddzial_id,
+            merged.appointment_at ? 'OglÄ™dziny' : 'Lead',
+            merged.caller_phone || null,
+            notes,
+            JSON.stringify(['voice-agent', 'polska-flora', merged.service_type]),
+            merged.appointment_at,
+            clientId,
+            req.user.id,
+          ],
+        );
+        crmLeadId = leadResult.rows[0]?.id || null;
+      }
+
+      let ogledzinyId = merged.ogledziny_id;
+      if (b.create_missing_inspection && !ogledzinyId && merged.appointment_at) {
+        ogledzinyId = await createVoiceAgentInspection({
+          clientId,
+          appointmentAt: merged.appointment_at,
+          address: merged.inspection_address,
+          city: merged.city,
+          notes,
+        });
+      }
+
+      await pool.query(
+        `UPDATE voice_agent_intakes
+         SET crm_lead_id = $2,
+             ogledziny_id = $3,
+             caller_phone = $4,
+             customer_name = $5,
+             inspection_address = $6,
+             city = $7,
+             service_type = $8,
+             appointment_at = $9,
+             notes = $10,
+             transcript = $11,
+             raw_payload = COALESCE(raw_payload, '{}'::jsonb) || $12::jsonb
+         WHERE id = $1`,
+        [
+          existing.id,
+          crmLeadId,
+          ogledzinyId,
+          merged.caller_phone || null,
+          merged.customer_name || null,
+          merged.inspection_address || null,
+          merged.city || null,
+          merged.service_type || null,
+          merged.appointment_at || null,
+          merged.notes || null,
+          merged.transcript || null,
+          JSON.stringify({ manual_fix_at: new Date().toISOString(), manual_fix_by: req.user.id }),
+        ],
+      );
+
+      const saved = await findVoiceAgentIntakeById(existing.id);
+      return res.json({ ok: true, intake: enrichVoiceAgentIntake({ ...saved, klient_id: saved?.klient_id || clientId }) });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.intakes.fix', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.post(
+  '/voice-agent/polska-flora/intake',
+  requireVoiceAgentSecret,
+  validateBody(voiceAgentIntakeSchema),
+  async (req, res) => {
+    try {
+      await ensureTelephonyTables();
+      await ensureVoiceAgentInspectionTables();
+      await ensureVoiceAgentIntakesTable();
+      const b = req.body;
+      const branch = await resolveVoiceAgentBranch(b.oddzial_id);
+      if (!branch?.id) return res.status(400).json({ error: 'Nie znaleziono oddzialu dla agenta glosowego' });
+
+      const serviceType = normalizePolskaFloraServiceType(b.service_type);
+      const appointmentAt = parseAppointment(b.appointment_at);
+      const inspectionAddress = String(b.inspection_address || b.address || '').trim() || null;
+      const provider = normalizeVoiceAgentProvider(b.provider);
+      const reservation = await reserveVoiceAgentIntake({
+        body: b,
+        branch,
+        provider,
+        serviceType,
+        appointmentAt,
+        inspectionAddress,
+      });
+      if (reservation.duplicate) {
+        return res.status(200).json(voiceAgentIntakeResponse(reservation.row, { duplicate: true }));
+      }
+      const notes = buildPolskaFloraLeadNotes({
+        ...b,
+        service_type: serviceType,
+        inspection_address: inspectionAddress,
+        appointment_at: appointmentAt || b.appointment_at || null,
+      });
+      const title = voiceAgentLeadTitle(b, serviceType);
+      const clientId = await ensureVoiceAgentClient({
+        customerName: b.customer_name,
+        phone: b.caller_phone,
+        address: inspectionAddress,
+        city: b.city,
+      });
+      const ogledzinyId = await createVoiceAgentInspection({
+        clientId,
+        appointmentAt,
+        address: inspectionAddress,
+        city: b.city,
+        notes,
+      });
+
+      const leadResult = await pool.query(
+        `INSERT INTO crm_leads (
+          title, oddzial_id, owner_user_id, stage, source, value, phone, notes, tags, next_action_at,
+          client_id, created_by, created_at, updated_by, updated_at
+        ) VALUES ($1,$2,NULL,$3,$4,0,$5,$6,$7::jsonb,$8,$9,NULL,NOW(),NULL,NOW())
+        RETURNING *`,
+        [
+          title,
+          branch.id,
+          appointmentAt ? 'Oględziny' : 'Lead',
+          'voice_agent',
+          b.caller_phone,
+          notes,
+          JSON.stringify(['voice-agent', 'polska-flora', serviceType]),
+          appointmentAt,
+          clientId,
+        ],
+      );
+      const lead = leadResult.rows[0];
+
+      await appendCrmLeadMessage({
+        leadId: lead.id,
+        channel: 'phone',
+        direction: 'inbound',
+        senderName: b.customer_name || null,
+        senderHandle: b.caller_phone,
+        subject: 'Rozmowa z agentem glosowym Ania',
+        body: notes,
+        status: 'received',
+        externalMessageId: b.external_id || b.call_sid || null,
+        templateKey: 'polska_flora_voice_agent',
+        metadata: {
+          source: 'voice_agent.polska_flora',
+          agent_id: 'polska-flora-ania',
+          call_sid: b.call_sid || null,
+          service_type: serviceType,
+          appointment_at: appointmentAt,
+          ogledziny_id: ogledzinyId,
+        },
+      });
+
+      const callLogResult = await pool.query(
+        `INSERT INTO telephony_call_logs (
+          oddzial_id, phone, call_type, status, duration_sec, task_id, lead_name, notes, created_by
+        ) VALUES ($1,$2,'inbound','answered',0,NULL,$3,$4,NULL)
+        RETURNING *`,
+        [branch.id, b.caller_phone, b.customer_name || null, notes],
+      );
+
+      const intakeResult = await pool.query(
+        reservation.row?.id
+          ? `UPDATE voice_agent_intakes
+             SET crm_lead_id = $2,
+                 ogledziny_id = $3,
+                 caller_phone = $4,
+                 customer_name = $5,
+                 inspection_address = $6,
+                 city = $7,
+                 service_type = $8,
+                 appointment_at = $9,
+                 source = $10,
+                 notes = $11,
+                 transcript = $12,
+                 raw_payload = $13::jsonb
+             WHERE id = $1
+             RETURNING *`
+          : `INSERT INTO voice_agent_intakes (
+              provider, external_id, call_sid, oddzial_id, crm_lead_id, ogledziny_id, caller_phone, customer_name,
+              inspection_address, city, service_type, appointment_at, source, notes, transcript, raw_payload
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
+        RETURNING *`,
+        reservation.row?.id
+          ? [
+              reservation.row.id,
+              lead.id,
+              ogledzinyId,
+              b.caller_phone,
+              b.customer_name || null,
+              inspectionAddress,
+              b.city || null,
+              serviceType,
+              appointmentAt,
+              b.source || 'telefon_przychodzacy',
+              b.notes || null,
+              b.transcript || null,
+              JSON.stringify({ ...b, secret: undefined }),
+            ]
+          : [
+              provider,
+              b.external_id || null,
+              b.call_sid || null,
+              branch.id,
+              lead.id,
+              ogledzinyId,
+              b.caller_phone,
+              b.customer_name || null,
+              inspectionAddress,
+              b.city || null,
+              serviceType,
+              appointmentAt,
+              b.source || 'telefon_przychodzacy',
+              b.notes || null,
+              b.transcript || null,
+              JSON.stringify({ ...b, secret: undefined }),
+            ],
+      );
+
+      return res.status(201).json(voiceAgentIntakeResponse(
+        {
+          ...intakeResult.rows[0],
+          klient_id: clientId,
+          crm_lead_id: lead.id,
+          ogledziny_id: ogledzinyId,
+          oddzial_id: branch.id,
+        },
+        {
+          callLogId: callLogResult.rows[0]?.id || null,
+          stage: lead.stage,
+          nextActionAt: lead.next_action_at,
+        },
+      ));
+    } catch (err) {
+      logger.error('telephony.voiceAgent.intake', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
 
 router.get('/calls', authMiddleware, validateQuery(callsListQuerySchema), async (req, res) => {
   try {

@@ -4,6 +4,19 @@ const { calculateTaskMargin, isLowMarginRisk, money } = require('./taskMargin');
 const DIGEST_TYPE = 'operational_daily_digest';
 const CENTRAL_ROLES = ['Prezes', 'Dyrektor', 'Administrator'];
 const MANAGER_ROLE = 'Kierownik';
+const OPS_ACTION_LABELS = {
+  set_duration: 'Ustawienie czasu',
+  mark_reason: 'Powod odchylenia',
+  remind_team: 'Przypomnienie ekipy',
+  recommendation_feedback: 'Feedback rekomendacji',
+  risk_resend_sms: 'Ponowienie SMS ryzyka',
+  risk_queue_call: 'Telefon Zadarma z ryzyka',
+  risk_acknowledge: 'Potwierdzenie ryzyka',
+  risk_reassign_team: 'Przepiecie ekipy z ryzyka',
+  risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
+};
+let digestRunsReady = false;
+let digestSettingsReady = false;
 
 function clampInt(value, fallback, min, max) {
   const n = Number(value);
@@ -53,6 +66,108 @@ function topTaskLabel(row) {
 function addAlert(alerts, condition, alert) {
   if (!condition) return;
   alerts.push(alert);
+}
+
+function normalizeEmailList(value) {
+  const raw = Array.isArray(value) ? value : String(value || '').split(/[,\n;]/);
+  return [...new Set(raw
+    .map((item) => String(item || '').trim().toLowerCase())
+    .filter((item) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(item))
+  )].slice(0, 30);
+}
+
+function normalizeUserIds(value) {
+  const raw = Array.isArray(value) ? value : String(value || '').split(/[,\n;]/);
+  return [...new Set(raw
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0)
+  )].slice(0, 80);
+}
+
+function digestScopeKey(branchId) {
+  return branchId ? `branch:${Number(branchId)}` : 'global';
+}
+
+function defaultDigestSettings(branchId = null) {
+  return {
+    scope_key: digestScopeKey(branchId),
+    scope: branchId ? 'branch' : 'global',
+    branch_id: branchId ? Number(branchId) : null,
+    enabled: true,
+    send_time: '06:00',
+    email_enabled: process.env.OPERATIONAL_DIGEST_EMAIL === '1',
+    horizon_days: 3,
+    fleet_lookahead_days: 14,
+    recipient_user_ids: [],
+    extra_emails: [],
+  };
+}
+
+function normalizeDigestSettings(row, branchId = null) {
+  const defaults = defaultDigestSettings(branchId);
+  if (!row) return defaults;
+  return {
+    ...defaults,
+    ...row,
+    enabled: row.enabled !== false,
+    email_enabled: row.email_enabled === true,
+    horizon_days: clampInt(row.horizon_days, defaults.horizon_days, 1, 14),
+    fleet_lookahead_days: clampInt(row.fleet_lookahead_days, defaults.fleet_lookahead_days, 1, 90),
+    recipient_user_ids: normalizeUserIds(row.recipient_user_ids || []),
+    extra_emails: normalizeEmailList(row.extra_emails || []),
+  };
+}
+
+async function ensureDigestRunsTable(pool) {
+  if (digestRunsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS operational_digest_runs (
+      id SERIAL PRIMARY KEY,
+      digest_date DATE NOT NULL,
+      scope TEXT NOT NULL DEFAULT 'global',
+      branch_id INTEGER NULL,
+      trigger_type TEXT NULL,
+      actor_id INTEGER NULL,
+      status TEXT NOT NULL DEFAULT 'completed',
+      summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+      delivery JSONB NOT NULL DEFAULT '{}'::jsonb,
+      errors JSONB NOT NULL DEFAULT '[]'::jsonb,
+      high_alerts INTEGER NOT NULL DEFAULT 0,
+      medium_alerts INTEGER NOT NULL DEFAULT 0,
+      total_alerts INTEGER NOT NULL DEFAULT 0,
+      recipients INTEGER NOT NULL DEFAULT 0,
+      notifications_created INTEGER NOT NULL DEFAULT 0,
+      emails_sent INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_operational_digest_runs_date ON operational_digest_runs(digest_date DESC, created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_operational_digest_runs_branch ON operational_digest_runs(branch_id, digest_date DESC)');
+  digestRunsReady = true;
+}
+
+async function ensureDigestSettingsTable(pool) {
+  if (digestSettingsReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS operational_digest_settings (
+      id SERIAL PRIMARY KEY,
+      scope_key TEXT NOT NULL UNIQUE,
+      scope TEXT NOT NULL DEFAULT 'global',
+      branch_id INTEGER NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      send_time TEXT NOT NULL DEFAULT '06:00',
+      email_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      horizon_days INTEGER NOT NULL DEFAULT 3,
+      fleet_lookahead_days INTEGER NOT NULL DEFAULT 14,
+      recipient_user_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      extra_emails JSONB NOT NULL DEFAULT '[]'::jsonb,
+      updated_by INTEGER NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_operational_digest_settings_branch ON operational_digest_settings(branch_id)');
+  digestSettingsReady = true;
 }
 
 async function buildOperationalDigest(pool, options = {}) {
@@ -227,6 +342,42 @@ async function buildOperationalDigest(pool, options = {}) {
       AND t.updated_at >= NOW() - INTERVAL '14 days'
       ${kommoBranch}`;
 
+  const actionParams = [date];
+  const actionBranch = branchPredicate('e', branchId, actionParams);
+  const actionSummarySql = `
+    SELECT
+      COUNT(*)::int AS total_actions,
+      COUNT(*) FILTER (WHERE e.action_type IN ('risk_resend_sms','risk_queue_call'))::int AS zadarma_actions,
+      COUNT(*) FILTER (WHERE e.action_type IN ('risk_reassign_team','risk_replace_equipment'))::int AS risk_resolution_actions,
+      COUNT(*) FILTER (WHERE e.action_type = 'mark_reason')::int AS reason_actions
+    FROM ops_action_events e
+    WHERE e.created_at >= $1::date
+      AND e.created_at < ($1::date + INTERVAL '1 day')
+      ${actionBranch}`;
+
+  const actionTypeSql = `
+    SELECT e.action_type, COUNT(*)::int AS count
+    FROM ops_action_events e
+    WHERE e.created_at >= $1::date
+      AND e.created_at < ($1::date + INTERVAL '1 day')
+      ${actionBranch}
+    GROUP BY e.action_type
+    ORDER BY count DESC
+    LIMIT 8`;
+
+  const recentActionSql = `
+    SELECT e.id, e.task_id, e.action_type, e.issue_key, e.note, e.metadata, e.created_at,
+           t.numer, t.klient_nazwa,
+           NULLIF(TRIM(CONCAT(COALESCE(u.imie, ''), ' ', COALESCE(u.nazwisko, ''))), '') AS actor_name
+    FROM ops_action_events e
+    LEFT JOIN tasks t ON t.id = e.task_id
+    LEFT JOIN users u ON u.id = e.actor_id
+    WHERE e.created_at >= $1::date
+      AND e.created_at < ($1::date + INTERVAL '1 day')
+      ${actionBranch}
+    ORDER BY e.created_at DESC
+    LIMIT 8`;
+
   const [
     taskSummaryResult,
     overdueResult,
@@ -236,6 +387,9 @@ async function buildOperationalDigest(pool, options = {}) {
     conflictResult,
     marginResult,
     kommoResult,
+    actionSummaryResult,
+    actionTypeResult,
+    recentActionResult,
   ] = await Promise.all([
     safeQuery(pool, 'tasks.summary', taskSummarySql, taskParams, errors),
     safeQuery(pool, 'tasks.overdue', overdueSql, overdueParams, errors),
@@ -245,11 +399,15 @@ async function buildOperationalDigest(pool, options = {}) {
     safeQuery(pool, 'fleet.reservation_conflicts', reservationConflictSql, conflictParams, errors),
     safeQuery(pool, 'finance.margin_risks', marginSql, marginParams, errors),
     safeQuery(pool, 'integrations.kommo_errors', kommoSql, kommoParams, errors),
+    safeQuery(pool, 'ops.actions.summary', actionSummarySql, actionParams, errors),
+    safeQuery(pool, 'ops.actions.types', actionTypeSql, actionParams, errors),
+    safeQuery(pool, 'ops.actions.recent', recentActionSql, actionParams, errors),
   ]);
 
   const taskSummary = firstRow(taskSummaryResult);
   const reportSummary = firstRow(reportResult);
   const kommoSummary = firstRow(kommoResult);
+  const actionSummary = firstRow(actionSummaryResult);
   const alerts = [];
 
   addAlert(alerts, count(taskSummary, 'overdue_total') > 0, {
@@ -301,6 +459,13 @@ async function buildOperationalDigest(pool, options = {}) {
     count: count(kommoSummary, 'sync_errors'),
     action: 'Ponow synchronizacje lub sprawdz webhook.',
   });
+  addAlert(alerts, count(actionSummary, 'zadarma_actions') > 0, {
+    level: 'medium',
+    type: 'zadarma_followups',
+    title: 'Decyzje Zadarma/SMS',
+    count: count(actionSummary, 'zadarma_actions'),
+    action: 'Zweryfikuj, czy kontakty z klientami domknely ryzyka dnia.',
+  });
 
   const highAlerts = alerts.filter((a) => a.level === 'high').length;
   const mediumAlerts = alerts.filter((a) => a.level === 'medium').length;
@@ -324,6 +489,10 @@ async function buildOperationalDigest(pool, options = {}) {
       reservation_conflicts: conflictResult.rows.length,
       margin_risks: marginResult.rows.length,
       kommo_sync_errors: count(kommoSummary, 'sync_errors'),
+      operational_decisions: count(actionSummary, 'total_actions'),
+      zadarma_actions: count(actionSummary, 'zadarma_actions'),
+      risk_resolution_actions: count(actionSummary, 'risk_resolution_actions'),
+      reason_actions: count(actionSummary, 'reason_actions'),
       query_errors: errors.length,
     },
     alerts,
@@ -351,6 +520,15 @@ async function buildOperationalDigest(pool, options = {}) {
           total_known_cost: row.total_known_cost,
           marginThresholdPct: Number(row.threshold_pct || 15),
         })),
+      operational_action_types: actionTypeResult.rows.map((row) => ({
+        action_type: row.action_type,
+        label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+        count: Number(row.count || 0),
+      })),
+      operational_actions: recentActionResult.rows.map((row) => ({
+        ...row,
+        label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+      })),
     },
     errors,
   };
@@ -396,6 +574,18 @@ function buildDigestText(digest) {
     lines.push(`Marza do sprawdzenia: ${margin.join('; ')}.`);
   }
 
+  const actionTypes = (digest.details.operational_action_types || [])
+    .slice(0, 4)
+    .map((row) => `${row.label}: ${row.count}`);
+  if (actionTypes.length) {
+    lines.push(`Decyzje operacyjne: ${actionTypes.join('; ')}.`);
+  }
+
+  const zadarma = Number(digest.summary.zadarma_actions || 0);
+  if (zadarma > 0) {
+    lines.push(`Zadarma/SMS: ${zadarma} akcji do sprawdzenia w kontroli operacyjnej.`);
+  }
+
   if (digest.summary.query_errors) {
     lines.push(`Uwaga techniczna: ${digest.summary.query_errors} sekcji digestu nie udalo sie odczytac.`);
   }
@@ -403,7 +593,31 @@ function buildDigestText(digest) {
   return lines.join('\n').slice(0, 3500);
 }
 
-async function getDigestRecipients(pool, { branchId = null, centralOnly = false, managersOnly = false } = {}) {
+async function getDigestRecipients(pool, { branchId = null, centralOnly = false, managersOnly = false, recipientUserIds = [], extraEmails = [] } = {}) {
+  const explicitUserIds = normalizeUserIds(recipientUserIds);
+  const normalizedExtraEmails = normalizeEmailList(extraEmails);
+  if (explicitUserIds.length || normalizedExtraEmails.length) {
+    const rows = [];
+    if (explicitUserIds.length) {
+      const result = await pool.query(
+        `SELECT u.id, u.email, u.rola, u.oddzial_id
+         FROM users u
+         WHERE u.aktywny IS NOT FALSE AND u.id = ANY($1::int[])
+         ORDER BY u.id`,
+        [explicitUserIds]
+      );
+      rows.push(...result.rows);
+    }
+    rows.push(...normalizedExtraEmails.map((email, index) => ({
+      id: `email:${index}:${email}`,
+      email,
+      rola: 'external',
+      oddzial_id: branchId || null,
+      external: true,
+    })));
+    return rows;
+  }
+
   const params = [];
   let predicate;
   if (centralOnly) {
@@ -430,6 +644,84 @@ async function getDigestRecipients(pool, { branchId = null, centralOnly = false,
   return result.rows;
 }
 
+async function getDigestSettings(pool, options = {}) {
+  const branchId = options.branchId ? Number(options.branchId) : null;
+  await ensureDigestSettingsTable(pool);
+  const result = await pool.query(
+    `SELECT *
+     FROM operational_digest_settings
+     WHERE scope_key = $1
+     LIMIT 1`,
+    [digestScopeKey(branchId)]
+  );
+  return normalizeDigestSettings(result.rows[0], branchId);
+}
+
+async function listDigestSettings(pool) {
+  await ensureDigestSettingsTable(pool);
+  const result = await pool.query(
+    `SELECT s.*, b.nazwa AS branch_name
+     FROM operational_digest_settings s
+     LEFT JOIN branches b ON b.id = s.branch_id
+     ORDER BY CASE WHEN s.scope = 'global' THEN 0 ELSE 1 END, b.nazwa NULLS FIRST, s.branch_id NULLS FIRST`
+  );
+  const rows = result.rows.map((row) => ({
+    ...normalizeDigestSettings(row, row.branch_id),
+    branch_name: row.branch_name || null,
+  }));
+  if (!rows.some((row) => row.scope_key === 'global')) rows.unshift(defaultDigestSettings(null));
+  return rows;
+}
+
+async function saveDigestSettings(pool, input = {}) {
+  const branchId = input.branch_id ? Number(input.branch_id) : null;
+  const defaults = defaultDigestSettings(branchId);
+  const settings = {
+    ...defaults,
+    enabled: input.enabled !== false,
+    send_time: String(input.send_time || defaults.send_time).trim().slice(0, 5) || defaults.send_time,
+    email_enabled: input.email_enabled === true,
+    horizon_days: clampInt(input.horizon_days, defaults.horizon_days, 1, 14),
+    fleet_lookahead_days: clampInt(input.fleet_lookahead_days, defaults.fleet_lookahead_days, 1, 90),
+    recipient_user_ids: normalizeUserIds(input.recipient_user_ids || []),
+    extra_emails: normalizeEmailList(input.extra_emails || []),
+    updated_by: input.updated_by || null,
+  };
+  await ensureDigestSettingsTable(pool);
+  const result = await pool.query(
+    `INSERT INTO operational_digest_settings (
+       scope_key, scope, branch_id, enabled, send_time, email_enabled,
+       horizon_days, fleet_lookahead_days, recipient_user_ids, extra_emails, updated_by
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+     ON CONFLICT (scope_key) DO UPDATE SET
+       enabled = EXCLUDED.enabled,
+       send_time = EXCLUDED.send_time,
+       email_enabled = EXCLUDED.email_enabled,
+       horizon_days = EXCLUDED.horizon_days,
+       fleet_lookahead_days = EXCLUDED.fleet_lookahead_days,
+       recipient_user_ids = EXCLUDED.recipient_user_ids,
+       extra_emails = EXCLUDED.extra_emails,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = NOW()
+     RETURNING *`,
+    [
+      settings.scope_key,
+      settings.scope,
+      settings.branch_id,
+      settings.enabled,
+      settings.send_time,
+      settings.email_enabled,
+      settings.horizon_days,
+      settings.fleet_lookahead_days,
+      JSON.stringify(settings.recipient_user_ids),
+      JSON.stringify(settings.extra_emails),
+      settings.updated_by,
+    ]
+  );
+  return normalizeDigestSettings(result.rows[0], branchId);
+}
+
 async function insertDigestNotification(pool, recipientId, digest, message) {
   const result = await pool.query(
     `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status, data_utworzenia)
@@ -453,8 +745,10 @@ async function deliverOperationalDigest(pool, digest, recipients, options = {}) 
   const emailEnabled = options.emailEnabled ?? process.env.OPERATIONAL_DIGEST_EMAIL === '1';
 
   for (const recipient of recipients) {
-    const inserted = await insertDigestNotification(pool, recipient.id, digest, message);
-    if (inserted) notificationsCreated += 1;
+    if (!recipient.external) {
+      const inserted = await insertDigestNotification(pool, recipient.id, digest, message);
+      if (inserted) notificationsCreated += 1;
+    }
     if (emailEnabled && recipient.email) {
       const mail = await sendSystemEmailOptional({
         to: recipient.email,
@@ -486,24 +780,166 @@ async function getManagerBranchIds(pool) {
   return result.rows.map((row) => Number(row.oddzial_id)).filter(Boolean);
 }
 
+async function recordDigestRun(pool, { digest, delivery, scope, branchId = null, options = {} }) {
+  await ensureDigestRunsTable(pool);
+  const summary = digest.summary || {};
+  const errors = Array.isArray(digest.errors) ? digest.errors : [];
+  const result = await pool.query(
+    `INSERT INTO operational_digest_runs (
+       digest_date, scope, branch_id, trigger_type, actor_id, status,
+       summary, delivery, errors,
+       high_alerts, medium_alerts, total_alerts,
+       recipients, notifications_created, emails_sent
+     )
+     VALUES (
+       $1::date, $2, $3, $4, $5, $6,
+       $7::jsonb, $8::jsonb, $9::jsonb,
+       $10, $11, $12,
+       $13, $14, $15
+     )
+     RETURNING id, created_at`,
+    [
+      digest.date,
+      scope,
+      branchId,
+      options.triggerType || 'manual',
+      options.actorUserId || null,
+      errors.length ? 'partial' : 'completed',
+      JSON.stringify(summary),
+      JSON.stringify(delivery || {}),
+      JSON.stringify(errors),
+      Number(summary.high_alerts || 0),
+      Number(summary.medium_alerts || 0),
+      Number(summary.total_alerts || 0),
+      Number(delivery?.recipients || 0),
+      Number(delivery?.notifications_created || 0),
+      Number(delivery?.emails_sent || 0),
+    ]
+  );
+  return result.rows[0] || null;
+}
+
+async function getDigestRunHistory(pool, options = {}) {
+  await ensureDigestRunsTable(pool);
+  const limit = clampInt(options.limit, 30, 1, 100);
+  const offset = Math.max(0, Number(options.offset || 0));
+  const params = [];
+  const filters = [];
+  if (options.date) {
+    params.push(toDateKey(options.date));
+    filters.push(`r.digest_date = $${params.length}::date`);
+  }
+  if (options.branchId != null && options.branchId !== '') {
+    params.push(Number(options.branchId));
+    filters.push(`r.branch_id = $${params.length}`);
+  }
+  if (options.scope) {
+    params.push(String(options.scope));
+    filters.push(`r.scope = $${params.length}`);
+  }
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+  const limitParam = params.length + 1;
+  const offsetParam = params.length + 2;
+  const [countResult, rowsResult] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS total FROM operational_digest_runs r ${where}`, params),
+    pool.query(
+      `SELECT r.id, r.digest_date, r.scope, r.branch_id, b.nazwa AS branch_name,
+              r.trigger_type, r.actor_id, r.status, r.summary, r.delivery, r.errors,
+              r.high_alerts, r.medium_alerts, r.total_alerts,
+              r.recipients, r.notifications_created, r.emails_sent, r.created_at
+       FROM operational_digest_runs r
+       LEFT JOIN branches b ON b.id = r.branch_id
+       ${where}
+       ORDER BY r.created_at DESC
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      [...params, limit, offset]
+    ),
+  ]);
+  return {
+    total: Number(countResult.rows[0]?.total || 0),
+    limit,
+    offset,
+    items: rowsResult.rows.map((row) => ({
+      ...row,
+      summary: row.summary || {},
+      delivery: row.delivery || {},
+      errors: Array.isArray(row.errors) ? row.errors : [],
+    })),
+  };
+}
+
 async function runOperationalDigest(pool, options = {}) {
   const date = toDateKey(options.date);
-  const globalDigest = await buildOperationalDigest(pool, { ...options, date, branchId: null });
-  const centralRecipients = await getDigestRecipients(pool, { centralOnly: true });
-  const centralDelivery = await deliverOperationalDigest(pool, globalDigest, centralRecipients, options);
+  const globalSettings = await getDigestSettings(pool, { branchId: null });
+  const globalDigestOptions = {
+    ...options,
+    date,
+    branchId: null,
+    horizonDays: options.horizonDays || globalSettings.horizon_days,
+    fleetLookaheadDays: options.fleetLookaheadDays || globalSettings.fleet_lookahead_days,
+  };
+  let global;
+  if (!options.respectEnabled || globalSettings.enabled) {
+    const globalDigest = await buildOperationalDigest(pool, globalDigestOptions);
+    const centralRecipients = await getDigestRecipients(pool, {
+      centralOnly: true,
+      recipientUserIds: globalSettings.recipient_user_ids,
+      extraEmails: globalSettings.extra_emails,
+    });
+    const centralDelivery = await deliverOperationalDigest(pool, globalDigest, centralRecipients, {
+      ...options,
+      emailEnabled: options.emailEnabled ?? globalSettings.email_enabled,
+    });
+    const globalRun = await recordDigestRun(pool, {
+      digest: globalDigest,
+      delivery: centralDelivery,
+      scope: 'global',
+      branchId: null,
+      options,
+    });
+    global = { summary: globalDigest.summary, delivery: centralDelivery, run: globalRun, settings: globalSettings };
+  } else {
+    global = { skipped: 'disabled', settings: globalSettings };
+  }
 
   const branchIds = options.branchIds || (await getManagerBranchIds(pool));
   const branches = [];
   for (const branchId of branchIds) {
-    const digest = await buildOperationalDigest(pool, { ...options, date, branchId });
-    const recipients = await getDigestRecipients(pool, { branchId, managersOnly: true });
-    const delivery = await deliverOperationalDigest(pool, digest, recipients, options);
-    branches.push({ branch_id: branchId, summary: digest.summary, delivery });
+    const settings = await getDigestSettings(pool, { branchId });
+    if (options.respectEnabled && !settings.enabled) {
+      branches.push({ branch_id: branchId, skipped: 'disabled', settings });
+      continue;
+    }
+    const digest = await buildOperationalDigest(pool, {
+      ...options,
+      date,
+      branchId,
+      horizonDays: options.horizonDays || settings.horizon_days,
+      fleetLookaheadDays: options.fleetLookaheadDays || settings.fleet_lookahead_days,
+    });
+    const recipients = await getDigestRecipients(pool, {
+      branchId,
+      managersOnly: true,
+      recipientUserIds: settings.recipient_user_ids,
+      extraEmails: settings.extra_emails,
+    });
+    const delivery = await deliverOperationalDigest(pool, digest, recipients, {
+      ...options,
+      emailEnabled: options.emailEnabled ?? settings.email_enabled,
+    });
+    const run = await recordDigestRun(pool, {
+      digest,
+      delivery,
+      scope: 'branch',
+      branchId,
+      options,
+    });
+    branches.push({ branch_id: branchId, summary: digest.summary, delivery, run, settings });
   }
 
   return {
     date,
-    global: { summary: globalDigest.summary, delivery: centralDelivery },
+    global,
     branches,
   };
 }
@@ -514,5 +950,10 @@ module.exports = {
   buildDigestText,
   deliverOperationalDigest,
   getDigestRecipients,
+  getDigestRunHistory,
+  getDigestSettings,
+  listDigestSettings,
+  recordDigestRun,
   runOperationalDigest,
+  saveDigestSettings,
 };

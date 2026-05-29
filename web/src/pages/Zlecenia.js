@@ -418,6 +418,30 @@ function getTaskDurationMinutes(task = {}) {
   return Math.max(15, Math.round((Number.isFinite(hours) && hours > 0 ? hours : 2) * 60));
 }
 
+function timeWindowStatusLabel(status) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'accepted') return 'zaakceptowane';
+  if (value === 'rejected') return 'odrzucone';
+  if (value === 'expired') return 'wygasle';
+  if (value === 'superseded') return 'zastapione';
+  return 'czeka';
+}
+
+function timeWindowStatusTone(status) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'accepted') return 'good';
+  if (value === 'rejected' || value === 'expired') return 'danger';
+  if (value === 'superseded') return 'warning';
+  return 'info';
+}
+
+function timeWindowSmsLabel(sms) {
+  if (!sms) return 'SMS: brak';
+  if (sms.delivered_at) return 'SMS: dostarczony';
+  if (sms.delivery_error_code) return `SMS: blad ${sms.delivery_error_code}`;
+  return `SMS: ${sms.provider_status || sms.status || sms.provider || 'wyslany'}`;
+}
+
 function rangesOverlap(startA, endA, startB, endB) {
   return startA < endB && startB < endA;
 }
@@ -3689,6 +3713,10 @@ export default function Zlecenia() {
   const [contactDueDraft, setContactDueDraft] = useState('');
   const [officePlan, setOfficePlan] = useState(OFFICE_PLAN_DEFAULTS);
   const [officePlanSaving, setOfficePlanSaving] = useState(false);
+  const [timeWindowProposalBusy, setTimeWindowProposalBusy] = useState(false);
+  const [timeWindowProposal, setTimeWindowProposal] = useState(null);
+  const [timeWindowProposals, setTimeWindowProposals] = useState([]);
+  const [timeWindowProposalsLoading, setTimeWindowProposalsLoading] = useState(false);
   const [officePlanEquipmentReservations, setOfficePlanEquipmentReservations] = useState([]);
   const [officePlanEquipmentReservationsLoading, setOfficePlanEquipmentReservationsLoading] = useState(false);
   const [officePlanEquipmentReservationsErr, setOfficePlanEquipmentReservationsErr] = useState('');
@@ -3822,11 +3850,14 @@ export default function Zlecenia() {
     if (!wybraneZlecenie?.id) {
       setContactDraft('');
       setOfficePlan(OFFICE_PLAN_DEFAULTS);
+      setTimeWindowProposal(null);
+      setTimeWindowProposals([]);
       setCrewIssueDraft({ typ: 'inne', opis: '' });
       return;
     }
     setContactDraft(clientContacts[String(wybraneZlecenie.id)]?.note || '');
     setContactDueDraft(toDatetimeLocalValue(clientContacts[String(wybraneZlecenie.id)]?.dueAt));
+    setTimeWindowProposal(null);
     setCrewIssueDraft({ typ: 'inne', opis: '' });
   }, [wybraneZlecenie?.id, clientContacts]);
 
@@ -3849,6 +3880,31 @@ export default function Zlecenia() {
         : getTaskReservedEquipmentIds(wybraneZlecenie),
     });
   }, [wybraneZlecenie]);
+
+  useEffect(() => {
+    if (tryb !== 'szczegoly' || !wybraneZlecenie?.id) {
+      setTimeWindowProposals([]);
+      setTimeWindowProposalsLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setTimeWindowProposalsLoading(true);
+      try {
+        const token = getStoredToken();
+        const { data } = await api.get(`/tasks/${wybraneZlecenie.id}/time-window-proposals`, { headers: authHeaders(token) });
+        if (!cancelled) setTimeWindowProposals(Array.isArray(data?.items) ? data.items : []);
+      } catch {
+        if (!cancelled) setTimeWindowProposals([]);
+      } finally {
+        if (!cancelled) setTimeWindowProposalsLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [tryb, wybraneZlecenie?.id]);
 
   useEffect(() => {
     if (tryb !== 'szczegoly' || !wybraneZlecenie?.id) {
@@ -4960,6 +5016,71 @@ export default function Zlecenia() {
       return false;
     } finally {
       setOfficePlanSaving(false);
+    }
+  };
+
+  const buildTimeWindowProposalPayload = () => {
+    const date = String(officePlan.data_planowana || taskDateOnly(wybraneZlecenie?.data_planowana) || '').slice(0, 10);
+    const start = normalizeTimeHM(officePlan.godzina_rozpoczecia || getTaskStartTimeHM(wybraneZlecenie) || '08:00');
+    const startMin = timeHMToMinutes(start);
+    const durationMin = Math.max(15, Math.round((Number(officePlan.czas_planowany_godziny || wybraneZlecenie?.czas_planowany_godziny || 2) || 2) * 60));
+    if (!date || startMin == null) {
+      return { error: 'Najpierw wybierz datę i godzinę okna dla klienta.' };
+    }
+    const endMin = startMin + durationMin;
+    if (endMin > 23 * 60 + 59) {
+      return { error: 'Okno klienta wychodzi poza koniec dnia. Skróć czas pracy albo wybierz wcześniejszą godzinę.' };
+    }
+    return {
+      proposed_date: date,
+      okno_od: start,
+      okno_do: minutesToTimeHM(endMin),
+      note: 'Propozycja okna czasowego z planu biura.',
+    };
+  };
+
+  const createClientTimeWindowProposal = async ({ sendSms = false, copyLink = false } = {}) => {
+    if (!wybraneZlecenie?.id) return null;
+    if (sendSms && !wybraneZlecenie.klient_telefon) {
+      pokazKomunikat('Brak telefonu klienta - nie wyślę SMS z propozycją terminu.', 'error');
+      return null;
+    }
+    const payload = buildTimeWindowProposalPayload();
+    if (payload.error) {
+      pokazKomunikat(payload.error, 'error');
+      return null;
+    }
+    setTimeWindowProposalBusy(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post(
+        `/tasks/${wybraneZlecenie.id}/time-window-proposals`,
+        { ...payload, send_sms: Boolean(sendSms) },
+        { headers: authHeaders(token) }
+      );
+      const proposal = data?.proposal || null;
+      setTimeWindowProposal({ proposal, sms: data?.sms || null });
+      if (proposal) {
+        setTimeWindowProposals((prev) => [
+          { ...proposal, effective_status: proposal.effective_status || proposal.status, sms: data?.sms || null },
+          ...prev.filter((item) => String(item.id) !== String(proposal.id)),
+        ].slice(0, 20));
+      }
+      if (proposal?.url && copyLink) {
+        await copyText(proposal.url, `Skopiowano link okna czasowego dla zlecenia #${wybraneZlecenie.id}.`);
+      } else if (copyLink) {
+        pokazKomunikat('Backend utworzył propozycję, ale nie zwrócił publicznego linku. Sprawdź PUBLIC_BASE_URL.', 'error');
+      } else {
+        pokazKomunikat(sendSms ? 'Wysłano SMS z propozycją okna czasowego.' : 'Utworzono propozycję okna czasowego.');
+      }
+      return proposal;
+    } catch (err) {
+      const maybeProposal = err?.response?.data?.proposal || null;
+      if (maybeProposal) setTimeWindowProposal({ proposal: maybeProposal, sms: err?.response?.data?.sms || null });
+      pokazKomunikat(getApiErrorMessage(err, sendSms ? 'Nie udało się wysłać SMS z propozycją terminu' : 'Nie udało się utworzyć propozycji terminu'), 'error');
+      return null;
+    } finally {
+      setTimeWindowProposalBusy(false);
     }
   };
 
@@ -6379,6 +6500,12 @@ export default function Zlecenia() {
       : officePlanWarningMissing.length
         ? 'Do doprecyzowania'
         : 'Gotowe dla ekipy';
+  const timeWindowDraft = buildTimeWindowProposalPayload();
+  const timeWindowDraftReady = Boolean(!timeWindowDraft.error && wybraneZlecenie?.id);
+  const timeWindowDraftLabel = timeWindowDraftReady
+    ? `${timeWindowDraft.proposed_date} ${timeWindowDraft.okno_od}-${timeWindowDraft.okno_do}`
+    : timeWindowDraft.error || 'Wybierz termin okna klienta.';
+  const latestTimeWindowUrl = timeWindowProposal?.proposal?.url || '';
   const officePlanTeamLabel = officePlanTeam
     ? getTeamOptionLabel(officePlanTeam)
     : (wybraneZlecenie?.ekipa_nazwa || (wybraneZlecenie?.ekipa_id ? `Ekipa #${wybraneZlecenie.ekipa_id}` : ''));
@@ -8517,6 +8644,64 @@ export default function Zlecenia() {
                       <small>{item.detail}</small>
                     </div>
                   ))}
+                </div>
+                <div style={s.timeWindowBox}>
+                  <div style={s.timeWindowMain}>
+                    <span style={s.detailOpsEyebrow}>Okno klienta</span>
+                    <strong style={s.timeWindowTitle}>{timeWindowDraftLabel}</strong>
+                    <small style={s.timeWindowDetail}>
+                      Wyślij klientowi link do akceptacji albo skopiuj go ręcznie. Akceptacja zapisze okno na zleceniu i zablokuje planowanie poza tym zakresem.
+                    </small>
+                    {latestTimeWindowUrl ? (
+                      <small style={s.timeWindowUrl}>{latestTimeWindowUrl}</small>
+                    ) : null}
+                  </div>
+                  <div style={s.timeWindowActions}>
+                    <button
+                      type="button"
+                      style={{ ...s.bulkBtn, ...(!timeWindowDraftReady || timeWindowProposalBusy ? { opacity: 0.62, cursor: 'not-allowed' } : {}) }}
+                      disabled={!timeWindowDraftReady || timeWindowProposalBusy}
+                      onClick={() => createClientTimeWindowProposal({ sendSms: true })}
+                    >
+                      {timeWindowProposalBusy ? 'Pracuję...' : 'Wyślij SMS z linkiem'}
+                    </button>
+                    <button
+                      type="button"
+                      style={s.bulkBtnSecondary}
+                      disabled={!timeWindowDraftReady || timeWindowProposalBusy}
+                      onClick={() => createClientTimeWindowProposal({ copyLink: true })}
+                    >
+                      Kopiuj link
+                    </button>
+                  </div>
+                  <div style={s.timeWindowHistory}>
+                    <span style={s.detailOpsEyebrow}>
+                      Historia propozycji {timeWindowProposalsLoading ? '(laduję...)' : ''}
+                    </span>
+                    {timeWindowProposals.length ? (
+                      timeWindowProposals.slice(0, 4).map((item) => {
+                        const tone = timeWindowStatusTone(item.effective_status || item.status);
+                        return (
+                          <div key={item.id || item.token} style={s.timeWindowHistoryRow}>
+                            <div style={s.timeWindowHistoryMain}>
+                              <strong>{item.proposed_date} {item.okno_od}-{item.okno_do}</strong>
+                              <small>{timeWindowSmsLabel(item.sms)}{item.client_note ? ` · klient: ${item.client_note}` : ''}</small>
+                            </div>
+                            <span style={{ ...s.timeWindowStatus, ...(s[`timeWindowStatus_${tone}`] || {}) }}>
+                              {timeWindowStatusLabel(item.effective_status || item.status)}
+                            </span>
+                            {item.url ? (
+                              <button type="button" style={s.timeWindowMiniBtn} onClick={() => copyText(item.url, 'Skopiowano link propozycji okna.')}>
+                                Link
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <small style={s.timeWindowDetail}>Brak wcześniejszych propozycji dla tego zlecenia.</small>
+                    )}
+                  </div>
                 </div>
                 {officePlanSuggestion ? (
                   <div
@@ -13073,6 +13258,111 @@ const s = {
     gap: 4,
     color: 'var(--text)',
     minWidth: 0,
+  },
+  timeWindowBox: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(260px, 1fr) minmax(220px, auto)',
+    alignItems: 'center',
+    gap: 12,
+    border: '1px solid rgba(14,116,144,0.24)',
+    borderRadius: 8,
+    background: 'rgba(14,116,144,0.06)',
+    padding: 12,
+    marginBottom: 12,
+  },
+  timeWindowMain: {
+    display: 'grid',
+    gap: 4,
+    minWidth: 0,
+  },
+  timeWindowTitle: {
+    color: 'var(--text)',
+    fontSize: 14,
+    fontWeight: 950,
+    lineHeight: 1.25,
+  },
+  timeWindowDetail: {
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    fontWeight: 750,
+    lineHeight: 1.35,
+  },
+  timeWindowUrl: {
+    color: 'var(--accent)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 11,
+    overflowWrap: 'anywhere',
+  },
+  timeWindowActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  timeWindowHistory: {
+    gridColumn: '1 / -1',
+    borderTop: '1px solid rgba(14,116,144,0.16)',
+    paddingTop: 10,
+    display: 'grid',
+    gap: 7,
+  },
+  timeWindowHistoryRow: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(180px, 1fr) auto auto',
+    gap: 8,
+    alignItems: 'center',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.62)',
+    padding: '7px 8px',
+    minWidth: 0,
+  },
+  timeWindowHistoryMain: {
+    display: 'grid',
+    gap: 2,
+    minWidth: 0,
+    color: 'var(--text)',
+    fontSize: 12,
+  },
+  timeWindowStatus: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    padding: '4px 7px',
+    fontSize: 10,
+    fontWeight: 900,
+    color: 'var(--text-sub)',
+    background: 'var(--surface-field)',
+    whiteSpace: 'nowrap',
+  },
+  timeWindowStatus_good: {
+    border: '1px solid rgba(22,138,74,0.24)',
+    color: '#166534',
+    background: 'rgba(22,138,74,0.08)',
+  },
+  timeWindowStatus_info: {
+    border: '1px solid rgba(14,116,144,0.24)',
+    color: '#0e7490',
+    background: 'rgba(14,116,144,0.08)',
+  },
+  timeWindowStatus_warning: {
+    border: '1px solid rgba(199,119,0,0.28)',
+    color: '#92400e',
+    background: 'rgba(199,119,0,0.08)',
+  },
+  timeWindowStatus_danger: {
+    border: '1px solid rgba(220,38,38,0.26)',
+    color: '#991b1b',
+    background: 'rgba(220,38,38,0.08)',
+  },
+  timeWindowMiniBtn: {
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    background: 'var(--surface-glass)',
+    color: 'var(--text)',
+    padding: '5px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    cursor: 'pointer',
   },
   officePlanAssistant: {
     display: 'grid',

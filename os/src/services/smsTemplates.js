@@ -19,6 +19,8 @@ const DEFAULT_SMS_TEMPLATES = {
     'Informujemy, ze realizacja zlecenia przy {{address}} jest opozniona z powodu: {{reason}}. Status: {{status_url}}',
   anulowane:
     'Informujemy o koniecznosci przelozenia wizyty przy {{address}}. Skontaktujemy sie, aby ustalic nowy termin.',
+  time_window_proposal:
+    'Dzien dobry {{client_name}}! Proponujemy termin zlecenia {{service}}: {{proposed_date}} w godz. {{proposed_window}}. Potwierdz lub odrzuc tutaj: {{time_window_url}}',
 };
 
 function formatSmsPlanParts(z, fallbackDateStr = '-') {
@@ -62,6 +64,9 @@ function templateFields(task = {}, context = {}) {
     branch_name: task.oddzial_nazwa || '',
     status_url: statusUrl(task),
     reason: context.powod || context.reason || '',
+    time_window_url: context.time_window_url || '',
+    proposed_date: context.proposed_date || '',
+    proposed_window: context.proposed_window || '',
   };
 }
 

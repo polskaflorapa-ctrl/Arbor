@@ -26,8 +26,8 @@ const envSchema = z.object({
   /** Zadarma VoIP + SMS — klucz i sekret z panelu zadarma.com */
   ZADARMA_API_KEY: z.string().optional(),
   ZADARMA_API_SECRET: z.string().optional(),
-  /** Zadarma: nadawca SMS (nazwa lub numer, max 11 znaków alfanum) — opcjonalny */
-  ZADARMA_CALLER_ID: z.string().max(11).optional(),
+  /** Zadarma: domyslny nadawca SMS, gdy oddzial nie ma sms_sender_id/telefonu. */
+  ZADARMA_CALLER_ID: z.string().max(64).optional(),
   /** Dev/test: pomiń walidację podpisu Zadarma na webhookach */
   ZADARMA_SKIP_SIGNATURE_VALIDATION: z
     .string()
@@ -119,6 +119,8 @@ const envSchema = z.object({
     .preprocess((v) => (v != null && String(v).trim() !== '' ? String(v).trim() : undefined), z.string().optional()),
   /** Sekret webhooka Kommo → lead „Do wyceny” (POST /api/webhooks/kommo/quotation-lead) */
   KOMMO_QUOTATION_WEBHOOK_SECRET: z.string().optional(),
+  /** Sekret dla zewnetrznego agenta glosowego Polska Flora (x-voice-agent-secret). */
+  VOICE_AGENT_WEBHOOK_SECRET: z.string().optional(),
   CRM_MESSAGE_QUEUE_WORKER_ENABLED: z
     .string()
     .optional()

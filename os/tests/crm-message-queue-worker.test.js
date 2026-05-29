@@ -67,6 +67,7 @@ describe('CRM message queue worker', () => {
       to: '+48500100200',
       body: 'Dzien dobry, wracam z oferta.',
       taskId: null,
+      oddzialId: null,
     });
     const updateCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('SET status = \'sent\''));
     expect(updateCall[1][1]).toBe('SM123');

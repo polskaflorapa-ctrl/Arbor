@@ -9,7 +9,7 @@
  * - If AUTH_TOKEN is missing, protected endpoints are expected to return 401/403.
  * - If reservation endpoints are not deployed yet, 404 is accepted and reported as "NOT_IMPLEMENTED".
  */
-const API_URL = (process.env.API_URL || 'https://arbor-os-dvf7.onrender.com/api').replace(/\/+$/, '');
+const API_URL = (process.env.API_URL || 'https://arbor-os.onrender.com/api').replace(/\/+$/, '');
 const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
 const now = new Date();
 const year = now.getFullYear();

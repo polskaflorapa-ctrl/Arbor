@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = 'https://arbor-os-dvf7.onrender.com/api';
+const DEFAULT_API_URL = 'https://arbor-os.onrender.com/api';
 
 const trimTrailingSlash = (value) => value.replace(/\/+$/, '');
 

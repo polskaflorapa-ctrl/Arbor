@@ -129,7 +129,12 @@ async function deliverMessage(message) {
   }
 
   if (channel === 'sms') {
-    return sendSmsGateway({ to: recipient, body: message.body, taskId: message.metadata?.task_id || null });
+    return sendSmsGateway({
+      to: recipient,
+      body: message.body,
+      taskId: message.metadata?.task_id || null,
+      oddzialId: message.oddzial_id || null,
+    });
   }
 
   if (channel === 'email') {

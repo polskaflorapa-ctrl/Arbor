@@ -261,6 +261,7 @@ const notificationPlugin = getPluginConfig(appConfig, 'expo-notifications');
 const locationPlugin = getPluginConfig(appConfig, 'expo-location');
 const splashPlugin = getPluginConfig(appConfig, 'expo-splash-screen');
 getPluginConfig(appConfig, 'expo-secure-store');
+getPluginConfig(appConfig, './plugins/with-react-native-node-modules-dir.cjs');
 
 assertValue('camera permission text is set', cameraPlugin.cameraPermission);
 assertValue('photos permission text is set', imagePickerPlugin.photosPermission);

@@ -20,6 +20,10 @@ expo-env.d.ts
 
 # Metro
 .metro-health-check*
+.expo-export-check*/
+metro-start*.log
+eas-android-build*
+eas-android-log-url.txt
 
 # debug
 npm-debug.*

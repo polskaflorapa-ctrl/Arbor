@@ -34,6 +34,8 @@ const {
 } = require('../services/taskSettlement');
 const { tryAutoTeamDayCloseAfterTaskFinish } = require('../services/payrollTeamDay');
 const { sendSmsOptional } = require('../services/twilioSms');
+const { sendSmsGateway } = require('../services/smsGateway');
+const { renderSmsStatusTemplate } = require('../services/smsTemplates');
 const { getTaskFinishCostSuggestions, validateFinishCostPayload } = require('../services/taskFinishCosts');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
@@ -63,6 +65,11 @@ function publicStatusUrl(token) {
   return base && token ? `${base}/track/${token}` : null;
 }
 
+function publicTaskTimeWindowUrl(token) {
+  const base = publicStatusBaseUrl();
+  return base && token ? `${base}/api/tasks/time-window/${token}` : null;
+}
+
 async function ensurePublicStatusLinkTables(db = pool) {
   await db.query('ALTER TABLE tasks ADD COLUMN IF NOT EXISTS link_statusowy_token VARCHAR(64)');
   await db.query(
@@ -83,6 +90,31 @@ async function ensurePublicStatusLinkTables(db = pool) {
   await db.query(
     'CREATE INDEX IF NOT EXISTS idx_task_public_status_events_task_created ON task_public_status_events(task_id, created_at)'
   );
+}
+
+async function ensureTaskTimeWindowTables(db = pool) {
+  await db.query('ALTER TABLE tasks ADD COLUMN IF NOT EXISTS okno_od TIME');
+  await db.query('ALTER TABLE tasks ADD COLUMN IF NOT EXISTS okno_do TIME');
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS task_time_window_proposals (
+      id SERIAL PRIMARY KEY,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      token VARCHAR(80) NOT NULL UNIQUE,
+      proposed_date DATE NOT NULL,
+      okno_od TIME NOT NULL,
+      okno_do TIME NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'pending',
+      note TEXT,
+      client_note TEXT,
+      proposed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      decided_at TIMESTAMPTZ,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query('CREATE INDEX IF NOT EXISTS idx_task_time_window_proposals_task ON task_time_window_proposals(task_id, created_at DESC)');
+  await db.query('CREATE INDEX IF NOT EXISTS idx_task_time_window_proposals_status ON task_time_window_proposals(status, expires_at)');
 }
 
 async function ensureTaskPublicStatusToken(db, taskId) {
@@ -818,6 +850,48 @@ function buildTaskPlannedDateTime(dataPlanowana, godzinaRozpoczecia) {
   return `${datePart} ${hh}:${mm}:00`;
 }
 
+function normalizeTimeHm(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hh = Number(match[1]);
+  const mm = Number(match[2]);
+  if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function timeHmToMinutes(value) {
+  const hm = normalizeTimeHm(value);
+  if (!hm) return null;
+  const [h, m] = hm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function planWindowViolation({ oknoOd, oknoDo, plannedDateTime, godzinaRozpoczecia, durationHours }) {
+  const windowStart = timeHmToMinutes(oknoOd);
+  const windowEnd = timeHmToMinutes(oknoDo);
+  if (windowStart == null || windowEnd == null || windowEnd <= windowStart) return null;
+  const explicitStart = timeHmToMinutes(godzinaRozpoczecia);
+  const planned = new Date(plannedDateTime);
+  const startMin = explicitStart != null
+    ? explicitStart
+    : (!Number.isNaN(planned.getTime()) ? planned.getHours() * 60 + planned.getMinutes() : null);
+  if (startMin == null) return null;
+  const durMin = Math.max(15, Math.round(Number(durationHours || 2) * 60));
+  const endMin = startMin + durMin;
+  if (startMin < windowStart || endMin > windowEnd) {
+    return {
+      code: 'TASK_CLIENT_TIME_WINDOW_CONFLICT',
+      error: `Plan poza zaakceptowanym oknem klienta ${normalizeTimeHm(oknoOd)}-${normalizeTimeHm(oknoDo)}.`,
+      okno_od: normalizeTimeHm(oknoOd),
+      okno_do: normalizeTimeHm(oknoDo),
+      start: normalizeTimeHm(godzinaRozpoczecia) || normalizeTimeHm(`${Math.floor(startMin / 60)}:${String(startMin % 60).padStart(2, '0')}`),
+      duration_min: durMin,
+    };
+  }
+  return null;
+}
+
 let _teamAttendanceTablesForTasks = false;
 async function ensureTeamAttendanceTablesForTasks() {
   if (_teamAttendanceTablesForTasks) return;
@@ -1221,6 +1295,24 @@ const taskPlanPatchSchema = z.object({
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   absence_override: z.boolean().optional(),
+});
+
+const taskTimeWindowProposalSchema = z.object({
+  proposed_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Podaj date w formacie YYYY-MM-DD'),
+  okno_od: z.string().trim().regex(/^\d{1,2}:\d{2}$/, 'Podaj godzine HH:MM'),
+  okno_do: z.string().trim().regex(/^\d{1,2}:\d{2}$/, 'Podaj godzine HH:MM'),
+  note: z.string().trim().max(2000).optional().nullable(),
+  expires_at: z.string().trim().max(80).optional().nullable(),
+  send_sms: z.boolean().optional(),
+});
+
+const publicTimeWindowTokenParamsSchema = z.object({
+  token: z.string().trim().min(20).max(120).regex(/^[a-zA-Z0-9_-]+$/),
+});
+
+const publicTimeWindowDecisionSchema = z.object({
+  decision: z.enum(['accepted', 'rejected']),
+  client_note: z.string().trim().max(2000).optional().nullable(),
 });
 
 const taskKommoRetrySchema = z.object({
@@ -1822,6 +1914,305 @@ const taskListQuerySchema = z.object({
 
 const taskMojeQuerySchema = z.object({
   data: z.string().max(20).optional(),
+});
+
+router.get('/time-window/:token', validateParams(publicTimeWindowTokenParamsSchema), async (req, res) => {
+  try {
+    await ensureTaskTimeWindowTables();
+    const { rows } = await pool.query(
+      `SELECT p.id, p.task_id, p.proposed_date::text AS proposed_date,
+              p.okno_od::text AS okno_od, p.okno_do::text AS okno_do,
+              p.status, p.note, p.client_note, p.expires_at, p.created_at, p.decided_at,
+              t.klient_nazwa, t.adres, t.miasto, t.typ_uslugi, t.status AS task_status,
+              b.nazwa AS oddzial_nazwa, b.telefon AS oddzial_telefon
+         FROM task_time_window_proposals p
+         JOIN tasks t ON t.id = p.task_id
+         LEFT JOIN branches b ON b.id = t.oddzial_id
+        WHERE p.token = $1
+        LIMIT 1`,
+      [req.params.token]
+    );
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Nie znaleziono propozycji terminu.' });
+    const expired = row.expires_at && new Date(row.expires_at).getTime() < Date.now();
+    res.json({
+      proposal: {
+        id: row.id,
+        task_id: row.task_id,
+        proposed_date: row.proposed_date,
+        okno_od: normalizeTimeHm(row.okno_od),
+        okno_do: normalizeTimeHm(row.okno_do),
+        status: expired && row.status === 'pending' ? 'expired' : row.status,
+        note: row.note,
+        client_note: row.client_note,
+        expires_at: row.expires_at,
+        created_at: row.created_at,
+        decided_at: row.decided_at,
+      },
+      task: {
+        service: row.typ_uslugi,
+        address: [row.adres, row.miasto].filter(Boolean).join(', '),
+        client_name: row.klient_nazwa,
+        status: row.task_status,
+      },
+      branch: {
+        name: row.oddzial_nazwa,
+        phone: row.oddzial_telefon,
+      },
+    });
+  } catch (err) {
+    logger.error('tasks.timeWindow.publicGet', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/time-window/:token/decision', validateParams(publicTimeWindowTokenParamsSchema), validateBody(publicTimeWindowDecisionSchema), async (req, res) => {
+  try {
+    await ensureTaskTimeWindowTables();
+    const { decision, client_note } = req.body;
+    const { rows } = await pool.query(
+      `SELECT p.*, t.status AS task_status
+         FROM task_time_window_proposals p
+         JOIN tasks t ON t.id = p.task_id
+        WHERE p.token = $1
+        LIMIT 1`,
+      [req.params.token]
+    );
+    const proposal = rows[0];
+    if (!proposal) return res.status(404).json({ error: 'Nie znaleziono propozycji terminu.' });
+    if (proposal.status !== 'pending') {
+      return res.status(409).json({ error: 'Ta propozycja zostala juz obsluzona.', status: proposal.status });
+    }
+    if (proposal.expires_at && new Date(proposal.expires_at).getTime() < Date.now()) {
+      await pool.query(
+        `UPDATE task_time_window_proposals
+            SET status = 'expired', client_note = COALESCE($2, client_note), updated_at = NOW()
+          WHERE id = $1`,
+        [proposal.id, client_note || null]
+      );
+      return res.status(409).json({ error: 'Ta propozycja terminu wygasla.', status: 'expired' });
+    }
+    if (decision === 'rejected') {
+      await pool.query(
+        `UPDATE task_time_window_proposals
+            SET status = 'rejected', client_note = $2, decided_at = NOW(), updated_at = NOW()
+          WHERE id = $1`,
+        [proposal.id, client_note || null]
+      );
+      return res.json({ status: 'rejected', task_id: proposal.task_id });
+    }
+    const date = String(proposal.proposed_date).slice(0, 10);
+    const start = normalizeTimeHm(proposal.okno_od);
+    const end = normalizeTimeHm(proposal.okno_do);
+    const plannedDateTime = `${date} ${start}:00`;
+    await pool.query(
+      `UPDATE task_time_window_proposals
+          SET status = 'accepted', client_note = $2, decided_at = NOW(), updated_at = NOW()
+        WHERE id = $1`,
+      [proposal.id, client_note || null]
+    );
+    await pool.query(
+      `UPDATE tasks
+          SET data_planowana = $1::timestamptz,
+              godzina_rozpoczecia = COALESCE(godzina_rozpoczecia, $2::time),
+              okno_od = $2::time,
+              okno_do = $3::time,
+              updated_at = NOW()
+        WHERE id = $4`,
+      [plannedDateTime, start, end, proposal.task_id]
+    );
+    await recordTaskPublicStatusEvent(pool, {
+      taskId: proposal.task_id,
+      fromStatus: proposal.task_status,
+      toStatus: proposal.task_status,
+      source: 'client_time_window',
+      note: `Klient zaakceptowal okno ${date} ${start}-${end}`,
+    }).catch((error) => logger.warn('tasks.timeWindow.publicStatusEvent', { message: error.message, taskId: proposal.task_id }));
+    res.json({ status: 'accepted', task_id: proposal.task_id, proposed_date: date, okno_od: start, okno_do: end });
+  } catch (err) {
+    logger.error('tasks.timeWindow.publicDecision', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.post('/:id/time-window-proposals', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskTimeWindowProposalSchema), requireTaskAccess, async (req, res) => {
+  try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    await ensureTaskTimeWindowTables();
+    const taskId = Number(req.params.id);
+    const start = normalizeTimeHm(req.body.okno_od);
+    const end = normalizeTimeHm(req.body.okno_do);
+    if (!start || !end || timeHmToMinutes(end) <= timeHmToMinutes(start)) {
+      return res.status(400).json({ error: 'Okno czasowe jest nieprawidlowe.' });
+    }
+    const taskR = await pool.query(
+      `SELECT t.*, b.telefon AS oddzial_telefon, b.nazwa AS oddzial_nazwa
+         FROM tasks t
+         LEFT JOIN branches b ON b.id = t.oddzial_id
+        WHERE t.id = $1
+        LIMIT 1`,
+      [taskId]
+    );
+    if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
+    const task = taskR.rows[0];
+    const proposalUrlPreview = publicTaskTimeWindowUrl('preview');
+    if (req.body.send_sms && !proposalUrlPreview) {
+      return res.status(400).json({ error: 'Brak PUBLIC_BASE_URL - nie mozna wyslac publicznego linku SMS.' });
+    }
+    if (req.body.send_sms && !task.klient_telefon) {
+      return res.status(400).json({ error: 'Brak telefonu klienta - nie mozna wyslac SMS z propozycja terminu.' });
+    }
+    const token = generatePublicStatusToken();
+    await pool.query(
+      `UPDATE task_time_window_proposals
+          SET status = 'superseded', updated_at = NOW()
+        WHERE task_id = $1 AND status = 'pending'`,
+      [taskId]
+    );
+    const insert = await pool.query(
+      `INSERT INTO task_time_window_proposals
+          (task_id, token, proposed_date, okno_od, okno_do, note, proposed_by, expires_at)
+       VALUES ($1, $2, $3::date, $4::time, $5::time, $6, $7, $8::timestamptz)
+       RETURNING id, task_id, token, proposed_date::text AS proposed_date, okno_od::text AS okno_od,
+                 okno_do::text AS okno_do, status, note, expires_at, created_at`,
+      [
+        taskId,
+        token,
+        req.body.proposed_date,
+        start,
+        end,
+        req.body.note || null,
+        req.user.id || null,
+        req.body.expires_at || null,
+      ]
+    );
+    const proposal = insert.rows[0];
+    const proposalUrl = publicTaskTimeWindowUrl(proposal.token);
+    let sms = null;
+    if (req.body.send_sms) {
+      const proposedWindow = `${start}-${end}`;
+      const rendered = await renderSmsStatusTemplate(pool, {
+        templateKey: 'time_window_proposal',
+        task,
+        context: {
+          proposed_date: req.body.proposed_date,
+          proposed_window: proposedWindow,
+          time_window_url: proposalUrl,
+        },
+      });
+      const smsResult = await sendSmsGateway({
+        to: task.klient_telefon,
+        body: rendered.body,
+        taskId,
+        oddzialId: task.oddzial_id,
+      });
+      sms = {
+        ok: Boolean(smsResult.ok),
+        provider: smsResult.provider || null,
+        sid: smsResult.sid || smsResult.id || null,
+        error: smsResult.error || null,
+        template: rendered.source,
+      };
+      if (!smsResult.ok) {
+        return res.status(502).json({
+          error: smsResult.error || 'Nie udalo sie wyslac SMS z propozycja terminu.',
+          proposal: {
+            ...proposal,
+            okno_od: normalizeTimeHm(proposal.okno_od),
+            okno_do: normalizeTimeHm(proposal.okno_do),
+            url: proposalUrl,
+          },
+          sms,
+        });
+      }
+    }
+    res.status(201).json({
+      proposal: {
+        ...proposal,
+        okno_od: normalizeTimeHm(proposal.okno_od),
+        okno_do: normalizeTimeHm(proposal.okno_do),
+        url: proposalUrl,
+      },
+      sms,
+    });
+  } catch (err) {
+    logger.error('tasks.timeWindow.createProposal', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/:id/time-window-proposals', authMiddleware, validateParams(taskIdParamsSchema), requireTaskAccess, async (req, res) => {
+  try {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
+    await ensureTaskTimeWindowTables();
+    const taskId = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT p.id, p.task_id, p.token, p.proposed_date::text AS proposed_date,
+              p.okno_od::text AS okno_od, p.okno_do::text AS okno_do,
+              p.status, p.note, p.client_note, p.created_at, p.updated_at, p.decided_at, p.expires_at,
+              u.login AS proposed_by_login,
+              h.status AS sms_status,
+              h.provider AS sms_provider,
+              h.provider_status AS sms_provider_status,
+              h.delivery_error_code AS sms_delivery_error_code,
+              h.delivery_updated_at AS sms_delivery_updated_at,
+              h.delivered_at AS sms_delivered_at,
+              h.created_at AS sms_created_at
+         FROM task_time_window_proposals p
+         LEFT JOIN users u ON u.id = p.proposed_by
+         LEFT JOIN LATERAL (
+           SELECT *
+             FROM sms_history sh
+            WHERE sh.task_id = p.task_id
+              AND COALESCE(sh.tresc, '') ILIKE '%' || p.token || '%'
+            ORDER BY sh.created_at DESC
+            LIMIT 1
+         ) h ON true
+        WHERE p.task_id = $1
+        ORDER BY p.created_at DESC
+        LIMIT 20`,
+      [taskId]
+    );
+    const items = rows.map((row) => {
+      const expired = row.expires_at && new Date(row.expires_at).getTime() < Date.now();
+      const effectiveStatus = expired && row.status === 'pending' ? 'expired' : row.status;
+      return {
+        id: row.id,
+        task_id: row.task_id,
+        token: row.token,
+        url: publicTaskTimeWindowUrl(row.token),
+        proposed_date: row.proposed_date,
+        okno_od: normalizeTimeHm(row.okno_od),
+        okno_do: normalizeTimeHm(row.okno_do),
+        status: row.status,
+        effective_status: effectiveStatus,
+        note: row.note,
+        client_note: row.client_note,
+        proposed_by_login: row.proposed_by_login,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        decided_at: row.decided_at,
+        expires_at: row.expires_at,
+        sms: row.sms_created_at ? {
+          status: row.sms_status,
+          provider: row.sms_provider,
+          provider_status: row.sms_provider_status,
+          delivery_error_code: row.sms_delivery_error_code,
+          delivery_updated_at: row.sms_delivery_updated_at,
+          delivered_at: row.sms_delivered_at,
+          created_at: row.sms_created_at,
+        } : null,
+      };
+    });
+    res.json({ items });
+  } catch (err) {
+    logger.error('tasks.timeWindow.listProposals', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
 });
 
 router.get('/moje', authMiddleware, validateQuery(taskMojeQuerySchema), async (req, res) => {
@@ -2630,6 +3021,15 @@ router.patch(
       if (st === 'Zakonczone' || st === 'Anulowane') {
         return res.status(400).json({ error: 'Nie można przesunąć zakończonego lub anulowanego zlecenia.' });
       }
+      const windowR = await pool.query('SELECT okno_od, okno_do FROM tasks WHERE id = $1', [taskId]);
+      const windowRow = windowR.rows[0] || {};
+      const windowConflict = planWindowViolation({
+        oknoOd: windowRow.okno_od,
+        oknoDo: windowRow.okno_do,
+        plannedDateTime: req.body.data_planowana,
+        durationHours: row.czas_planowany_godziny || 2,
+      });
+      if (windowConflict) return res.status(409).json(windowConflict);
       const hasTeamBody = Object.prototype.hasOwnProperty.call(req.body, 'ekipa_id');
       const teamId = hasTeamBody ? toNum(req.body.ekipa_id) : (row.ekipa_id != null ? Number(row.ekipa_id) : null);
       let teamAttendance = null;
@@ -3589,7 +3989,7 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
     const shouldSyncEquipment = Object.prototype.hasOwnProperty.call(req.body, 'sprzet_ids');
     const selectedEquipmentIds = shouldSyncEquipment ? normalizeIdList(sprzet_ids) : [];
     const taskR = await pool.query(
-      'SELECT id, status, oddzial_id, notatki_wewnetrzne FROM tasks WHERE id = $1',
+      'SELECT id, status, oddzial_id, notatki_wewnetrzne, okno_od, okno_do FROM tasks WHERE id = $1',
       [taskId]
     );
     if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -3600,6 +4000,14 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
 
     const plannedDateTime = buildTaskPlannedDateTime(data_planowana, godzina_rozpoczecia);
     const hours = toNum(czas_planowany_godziny) ?? 2;
+    const windowConflict = planWindowViolation({
+      oknoOd: task.okno_od,
+      oknoDo: task.okno_do,
+      plannedDateTime,
+      godzinaRozpoczecia: godzina_rozpoczecia,
+      durationHours: hours,
+    });
+    if (windowConflict) return res.status(409).json(windowConflict);
     const teamId = toNum(ekipa_id);
     if (!teamId) return res.status(400).json({ error: 'Wybierz ekipę.' });
 
