@@ -1,7 +1,9 @@
 const express = require('express');
+const { z } = require('zod');
 const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
+const { validateBody } = require('../middleware/validate');
 const { createWorkflowRule, listWorkflowEventsForLead, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
 const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = require('../services/crmIntegrations');
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
@@ -126,6 +128,53 @@ async function mapLeadRow(client, row) {
     tags: Array.isArray(row.tags) ? row.tags : row.tags || [],
   };
 }
+
+const optStr = (max) => z.string().max(max).optional().nullable();
+const optInt  = z.coerce.number().int().positive().optional().nullable();
+
+const createLeadSchema = z.object({
+  title:          z.string().trim().min(1, 'title jest wymagany').max(500),
+  oddzial_id:     z.coerce.number().int().positive('oddzial_id jest wymagany'),
+  stage:          z.string().max(100).optional(),
+  close_reason:   optStr(200),
+  closure_reason: optStr(200),
+  closeReason:    optStr(200),
+  source:         z.string().max(100).optional(),
+  value:          z.coerce.number().min(0).optional().nullable(),
+  phone:          optStr(30),
+  email:          optStr(200),
+  notes:          optStr(10000),
+  tags:           z.array(z.string().max(100)).max(16).optional(),
+  next_action_at: optStr(64),
+  client_id:      optInt,
+  owner_user_id:  optInt,
+});
+
+const patchLeadSchema = z.object({
+  title:          z.string().trim().min(1).max(500).optional(),
+  oddzial_id:     z.coerce.number().int().positive().optional(),
+  stage:          z.string().max(100).optional(),
+  close_reason:   optStr(200),
+  closure_reason: optStr(200),
+  closeReason:    optStr(200),
+  source:         z.string().max(100).optional(),
+  value:          z.coerce.number().min(0).optional().nullable(),
+  phone:          optStr(30),
+  email:          optStr(200),
+  notes:          optStr(10000),
+  tags:           z.array(z.string().max(100)).max(16).optional(),
+  next_action_at: optStr(64),
+  client_id:      optInt,
+  owner_user_id:  optInt,
+});
+
+const createActivitySchema = z.object({
+  type:              z.string().max(50).optional(),
+  text:              z.string().trim().min(1, 'text jest wymagany').max(5000),
+  tresc:             z.string().max(5000).optional(),
+  due_at:            optStr(64),
+  call_duration_sec: z.coerce.number().min(0).optional().nullable(),
+});
 
 /** Dashboard CRM — agregaty (pipeline z leadów CRM lub ze zleceń). */
 router.get('/overview', async (req, res) => {
@@ -391,7 +440,7 @@ router.get('/leads', async (req, res) => {
   }
 });
 
-router.post('/leads', async (req, res) => {
+router.post('/leads', validateBody(createLeadSchema), async (req, res) => {
   const b = req.body || {};
   const title = String(b.title || '').trim();
   const oddzialId = toInt(b.oddzial_id);
@@ -451,7 +500,7 @@ router.post('/leads', async (req, res) => {
   }
 });
 
-router.patch('/leads/:id', async (req, res) => {
+router.patch('/leads/:id', validateBody(patchLeadSchema), async (req, res) => {
   const id = toInt(req.params.id);
   if (!id) return res.status(400).json({ error: 'Nieprawidłowe id leada' });
   const b = req.body || {};
@@ -984,7 +1033,7 @@ router.get('/leads/:id/activities', async (req, res) => {
   }
 });
 
-router.post('/leads/:id/activities', async (req, res) => {
+router.post('/leads/:id/activities', validateBody(createActivitySchema), async (req, res) => {
   const leadId = toInt(req.params.id);
   if (!leadId) return res.status(400).json({ error: 'Nieprawidłowe id leada' });
   const b = req.body || {};

@@ -128,11 +128,14 @@ export default function Login() {
         setLockUntil(null);
       }
 
+      const loginController = new AbortController();
+      const loginTimeout = setTimeout(() => loginController.abort(), 20000);
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ login: login.trim(), haslo }),
-      });
+        signal: loginController.signal,
+      }).finally(() => clearTimeout(loginTimeout));
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
         if (!data?.token || !data?.user) {
@@ -178,9 +181,12 @@ export default function Login() {
           setErrorMessage(backendMessage || defaultMessage);
         }
       }
-    } catch {
+    } catch (err) {
       void triggerHaptic('error');
-      setErrorMessage(t('login.networkError'));
+      const isTimeout = err instanceof Error && err.name === 'AbortError';
+      setErrorMessage(isTimeout
+        ? (t('login.timeout') || 'Serwer nie odpowiada — spróbuj za chwilę')
+        : t('login.networkError'));
     } finally {
       setLoading(false);
     }

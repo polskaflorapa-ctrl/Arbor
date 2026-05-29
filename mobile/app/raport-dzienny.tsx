@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -167,10 +166,11 @@ export default function RaportDzienny() {
     }
     setTeamDayLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/mobile/me/team-day-report?date=${dzisiaj}`, {
+      const res = await fetch(`${API_URL}/mobile/me/team-day-report?date=${dzisiaj}`, {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
-      setTeamDayPack(normalizeTeamDayPack(res.data));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setTeamDayPack(normalizeTeamDayPack(await res.json()));
     } catch {
       setTeamDayPack(null);
     } finally {
@@ -192,25 +192,24 @@ export default function RaportDzienny() {
         ? `${API_URL}/tasks/moje?data=${dzisiaj}`
         : `${API_URL}/tasks/wszystkie`;
 
-      const [zRes, rRes] = await Promise.all([
-        axios.get(taskEndpoint, { headers: h }),
-        axios.get(`${API_URL}/raporty-dzienne?data=${dzisiaj}`, { headers: h }),
+      const [zData, rData] = await Promise.all([
+        fetch(taskEndpoint, { headers: h }).then(r => r.json()),
+        fetch(`${API_URL}/raporty-dzienne?data=${dzisiaj}`, { headers: h }).then(r => r.json()),
       ]);
 
-      const rawTasks: TaskLite[] = Array.isArray(zRes.data)
-        ? zRes.data
-        : Array.isArray(zRes.data?.items) ? zRes.data.items : [];
+      const rawTasks: TaskLite[] = Array.isArray(zData)
+        ? zData
+        : Array.isArray(zData?.items) ? zData.items : [];
       const dzisiejsze = isCrewRole(role)
         ? rawTasks
         : rawTasks.filter((z: TaskLite) => taskDateKey(z.data_planowana) === dzisiaj);
       setZlecenia(dzisiejsze);
       await fetchTeamDayReport(storedToken, role);
 
-      if (rRes.data.length > 0) {
-        const r = rRes.data[0];
+      if (Array.isArray(rData) && rData.length > 0) {
+        const r = rData[0];
         setExistingReport(r);
-        const detailRes = await axios.get(`${API_URL}/raporty-dzienne/${r.id}`, { headers: h });
-        const detail = detailRes.data;
+        const detail = await fetch(`${API_URL}/raporty-dzienne/${r.id}`, { headers: h }).then(res => res.json());
         setForm({
           data_raportu: dzisiaj,
           opis_pracy: detail.opis_pracy || '',
@@ -301,11 +300,14 @@ export default function RaportDzienny() {
     setSaving(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await axios.post(`${API_URL}/raporty-dzienne`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
+      const httpRes = await fetch(`${API_URL}/raporty-dzienne`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-
-      setExistingReport({ id: res.data.id, status: 'Roboczy' });
+      if (!httpRes.ok) throw new Error(`HTTP ${httpRes.status}`);
+      const data = await httpRes.json();
+      setExistingReport({ id: data.id, status: 'Roboczy' });
       void triggerHaptic('success');
       Alert.alert(t('dailyReport.alert.savedTitle'), t('dailyReport.alert.savedBody'));
     } catch {
@@ -342,9 +344,12 @@ export default function RaportDzienny() {
             setSending(true);
             try {
               if (!token) { router.replace('/login'); return; }
-              await axios.post(`${API_URL}/raporty-dzienne/${existingReport.id}/wyslij`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
+              const wysRes = await fetch(`${API_URL}/raporty-dzienne/${existingReport.id}/wyslij`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
               });
+              if (!wysRes.ok) throw new Error(`HTTP ${wysRes.status}`);
               void triggerHaptic('success');
               Alert.alert(t('dailyReport.alert.sentTitle'), t('dailyReport.alert.sentBody'));
               setExistingReport(r => (r ? { ...r, status: 'Wyslany' } : r));
@@ -371,17 +376,21 @@ export default function RaportDzienny() {
     if (!canCloseTeamDayReport(userRole)) return;
     setTeamDayBusy(true);
     try {
-      await axios.post(`${API_URL}/mobile/me/team-day-close`, {
-        report_date: dzisiaj,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
+      const closeRes = await fetch(`${API_URL}/mobile/me/team-day-close`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_date: dzisiaj }),
       });
+      if (!closeRes.ok) {
+        const errBody = await closeRes.json().catch(() => ({})) as { error?: string };
+        throw Object.assign(new Error('close-failed'), { apiError: errBody.error });
+      }
       await fetchTeamDayReport(token, userRole);
       void triggerHaptic('success');
       Alert.alert('Zamkniecie dnia', 'Raport ekipy zostal przeliczony.');
     } catch (err: any) {
       void triggerHaptic('warning');
-      Alert.alert('Zamkniecie dnia', err?.response?.data?.error || 'Nie udalo sie przeliczyc raportu ekipy.');
+      Alert.alert('Zamkniecie dnia', err?.apiError || 'Nie udalo sie przeliczyc raportu ekipy.');
     } finally {
       setTeamDayBusy(false);
     }
