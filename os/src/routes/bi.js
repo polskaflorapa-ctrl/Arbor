@@ -293,7 +293,7 @@ router.get('/branch-comparison', async (req, res) => {
        SELECT
          o.id AS oddzial_id,
          o.nazwa AS oddzial_nazwa,
-         COALESCE(MAX(b.marza_prog_rentowosci_pct), 15)::numeric AS margin_threshold_pct,
+         COALESCE(MAX(o.marza_prog_rentowosci_pct), 15)::numeric AS margin_threshold_pct,
          COUNT(tm.id) AS tasks_total,
          COUNT(tm.id) FILTER (WHERE tm.status = 'Zakonczone') AS tasks_done,
          COUNT(tm.id) FILTER (WHERE tm.status NOT IN ('Zakonczone','Anulowane')
@@ -304,8 +304,7 @@ router.get('/branch-comparison', async (req, res) => {
          COUNT(DISTINCT tm.ekipa_id) AS teams_active,
          COALESCE(SUM(tm.has_settlement), 0) AS settlement_count,
          COALESCE(SUM(tm.has_costs), 0) AS cost_count
-       FROM oddzialy o
-       LEFT JOIN branches b ON b.id = o.id
+       FROM branches o
        LEFT JOIN task_metrics tm ON tm.oddzial_id = o.id
        GROUP BY o.id, o.nazwa
        ORDER BY revenue_planned DESC`,
@@ -443,7 +442,7 @@ router.get('/team-performance', async (req, res) => {
          COALESCE(SUM(tm.has_settlement), 0) AS settlement_count,
          COALESCE(SUM(tm.has_costs), 0) AS cost_count
        FROM ekipy e
-       LEFT JOIN oddzialy o ON o.id = e.oddzial_id
+       LEFT JOIN branches o ON o.id = e.oddzial_id
        LEFT JOIN task_metrics tm ON tm.ekipa_id = e.id
        WHERE e.aktywna = true
        GROUP BY e.id, e.nazwa, o.nazwa
@@ -620,7 +619,7 @@ router.get('/plan-vs-real', async (req, res) => {
            o.nazwa AS oddzial_nazwa
          FROM tasks t
          LEFT JOIN teams e ON e.id = t.ekipa_id
-         LEFT JOIN oddzialy o ON o.id = t.oddzial_id
+         LEFT JOIN branches o ON o.id = t.oddzial_id
          LEFT JOIN task_rozliczenie tr ON tr.task_id = t.id
          LEFT JOIN LATERAL (
            SELECT COALESCE(SUM(
@@ -778,7 +777,7 @@ router.get('/drill', async (req, res) => {
          FROM task_finish_material_usage m
          WHERE m.task_id = t.id
        ) mu ON true
-       LEFT JOIN oddzialy o ON o.id = t.oddzial_id
+       LEFT JOIN branches o ON o.id = t.oddzial_id
        WHERE t.data_planowana >= NOW() - INTERVAL '1 day' * $1
          AND t.status != 'Anulowane'
          ${dimClause}

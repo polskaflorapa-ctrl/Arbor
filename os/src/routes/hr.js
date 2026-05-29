@@ -85,7 +85,7 @@ async function positionCardsHandler(req, res) {
         ORDER BY pck.acknowledged_at DESC
         LIMIT 1)                             AS acknowledgement_status
      FROM users u
-     ${withOddzialJoin ? 'LEFT JOIN oddzialy o ON o.id = u.oddzial_id' : ''}
+     ${withOddzialJoin ? 'LEFT JOIN branches o ON o.id = u.oddzial_id' : ''}
      WHERE ${where}
      ORDER BY u.nazwisko, u.imie`,
     params
@@ -141,7 +141,7 @@ router.get('/timesheet', async (req, res) => {
          COUNT(DISTINCT gp.data_pracy) FILTER (WHERE gp.status = 'Potwierdzone') AS days_worked,
          COUNT(DISTINCT gp.task_id) FILTER (WHERE gp.status = 'Potwierdzone')    AS tasks_covered
        FROM users u
-       LEFT JOIN oddzialy o ON o.id = u.oddzial_id
+       LEFT JOIN branches o ON o.id = u.oddzial_id
        LEFT JOIN godziny_potwierdzenia gp ON gp.pomocnik_id = u.id
          AND gp.data_pracy BETWEEN $1 AND $2
        WHERE u.aktywny = true
@@ -198,7 +198,7 @@ router.get('/competency-expiry', async (req, res) => {
          (uc.data_waznosci - CURRENT_DATE) AS days_left
        FROM user_competencies uc
        JOIN users u ON u.id = uc.user_id
-       LEFT JOIN oddzialy o ON o.id = u.oddzial_id
+       LEFT JOIN branches o ON o.id = u.oddzial_id
        WHERE uc.data_waznosci IS NOT NULL
          AND uc.data_waznosci <= CURRENT_DATE + INTERVAL '1 day' * $1
          AND u.aktywny = true
@@ -249,7 +249,7 @@ router.get('/absences', async (req, res) => {
       `SELECT a.*, u.imie || ' ' || u.nazwisko AS employee_name, u.rola, o.nazwa AS oddzial_nazwa
        FROM absencje a
        JOIN users u ON u.id = a.user_id
-       LEFT JOIN oddzialy o ON o.id = u.oddzial_id
+       LEFT JOIN branches o ON o.id = u.oddzial_id
        ${where}
        ORDER BY a.data_od DESC
        LIMIT 200`,
@@ -346,7 +346,7 @@ router.get('/headcount', async (req, res) => {
          u.rola,
          COUNT(*)    AS count
        FROM users u
-       LEFT JOIN oddzialy o ON o.id = u.oddzial_id
+       LEFT JOIN branches o ON o.id = u.oddzial_id
        WHERE u.aktywny = true ${branchFilter}
        GROUP BY o.id, o.nazwa, u.rola
        ORDER BY o.nazwa, count DESC`,
