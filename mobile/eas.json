@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://arbor-os.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://arbor-os-b7k6.onrender.com/api",
         "EXPO_PUBLIC_EXPECTED_API_VERSION": "mobile-dev"
       },
       "ios": {
@@ -18,14 +18,14 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://arbor-os.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://arbor-os-b7k6.onrender.com/api",
         "EXPO_PUBLIC_EXPECTED_API_VERSION": "mobile-preview"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://arbor-os.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://arbor-os-b7k6.onrender.com/api",
         "EXPO_PUBLIC_EXPECTED_API_VERSION": "mobile-production"
       }
     }
