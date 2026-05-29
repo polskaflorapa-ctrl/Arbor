@@ -4402,7 +4402,7 @@ export default function Zlecenia() {
 
   const getEstimatorOptionsForBranch = (branchId, selectedEstimatorId = '') => (
     uzytkownicy
-      .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy')
+      .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy' || u.rola === 'Specjalista')
       .filter((u) => (
         !branchId ||
         !u.oddzial_id ||
@@ -6227,7 +6227,7 @@ export default function Zlecenia() {
       .map((value) => String(value)))
   ];
   const estimatorOptions = uzytkownicy
-    .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy')
+    .filter((u) => u.rola === 'Wyceniający' || u.rola === 'Wyceniajacy' || u.rola === 'Specjalista')
     .filter((u) => (
       !form.oddzial_id ||
       !u.oddzial_id ||

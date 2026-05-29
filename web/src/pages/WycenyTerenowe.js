@@ -78,7 +78,7 @@ export default function WycenyTerenowe() {
       setQueue(Array.isArray(b.data) ? b.data : []);
       const raw = u.data;
       const list = Array.isArray(raw) ? raw : raw?.items || raw?.rows || [];
-      setUsers(list.filter((x) => x.rola === 'Wyceniający'));
+      setUsers(list.filter((x) => x.rola === 'Wyceniający' || x.rola === 'Wyceniajacy' || x.rola === 'Specjalista'));
     } catch (e) {
       setErr(getApiErrorMessage(e));
     }
