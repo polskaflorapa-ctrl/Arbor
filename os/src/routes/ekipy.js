@@ -717,12 +717,20 @@ router.put('/:id', authMiddleware, requireNieBrygadzista, validateParams(ekipaId
 router.delete('/:id', authMiddleware, validateParams(ekipaIdParamsSchema), async (req, res) => {
   try {
     if (!isDyrektor(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
-    await pool.query('UPDATE tasks SET ekipa_id = NULL WHERE ekipa_id = $1', [req.params.id]);
-    await pool.query('UPDATE delegacje SET ekipa_id = NULL WHERE ekipa_id = $1', [req.params.id]);
-    await pool.query('UPDATE equipment_items SET ekipa_id = NULL WHERE ekipa_id = $1', [req.params.id]);
-    await pool.query('UPDATE wyceny SET ekipa_id = NULL WHERE ekipa_id = $1', [req.params.id]);
-    await pool.query('DELETE FROM team_members WHERE team_id = $1', [req.params.id]);
-    await pool.query('DELETE FROM teams WHERE id = $1', [req.params.id]);
+    const id = req.params.id;
+    // Null-out all nullable FK references first (ON DELETE SET NULL columns)
+    await pool.query('UPDATE tasks SET ekipa_id = NULL WHERE ekipa_id = $1', [id]);
+    await pool.query('UPDATE delegacje SET ekipa_id = NULL WHERE ekipa_id = $1', [id]);
+    await pool.query('UPDATE equipment_items SET ekipa_id = NULL WHERE ekipa_id = $1', [id]);
+    await pool.query('UPDATE vehicles SET ekipa_id = NULL WHERE ekipa_id = $1', [id]);
+    await pool.query('UPDATE users SET ekipa_id_fk = NULL WHERE ekipa_id_fk = $1', [id]);
+    await pool.query('UPDATE wyceny SET ekipa_id = NULL WHERE ekipa_id = $1', [id]);
+    await pool.query('UPDATE wyceny SET proponowana_ekipa_id = NULL WHERE proponowana_ekipa_id = $1', [id]);
+    // Delete equipment reservations (NOT NULL FK — must delete before team row)
+    await pool.query('DELETE FROM equipment_reservations WHERE ekipa_id = $1', [id]);
+    // Delete members then the team itself
+    await pool.query('DELETE FROM team_members WHERE team_id = $1', [id]);
+    await pool.query('DELETE FROM teams WHERE id = $1', [id]);
     res.json({ message: 'Ekipa usunieta.' });
   } catch (err) {
     logger.error('Blad usuwania ekipy', { message: err.message, requestId: req.requestId });

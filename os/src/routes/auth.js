@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const pool = require('../config/database');
-const { authMiddleware, buildAppPermissions } = require('../middleware/auth');
+const { authMiddleware, buildAppPermissions, isDyrektorOrAdmin } = require('../middleware/auth');
 const { validateBody } = require('../middleware/validate');
 const { loginLimiter, resetLoginLimiterForTests } = require('../middleware/rate-limit');
 const { env } = require('../config/env');
@@ -125,6 +125,40 @@ router.put('/zmien-haslo', authMiddleware, validateBody(changePasswordSchema), a
     const nowyHash = await bcrypt.hash(nowe_haslo, 12);
     await pool.query('UPDATE users SET haslo_hash = $1 WHERE id = $2', [nowyHash, req.user.id]);
     res.json({ message: req.t('messages.passwordChanged') });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/auth/pomocnicy
+ * Returns active workers (Pomocnik / Pomocnik bez doświadczenia / Brygadzista / Specjalista)
+ * scoped to the requesting user's branch. Dyrektor/Admin see all branches.
+ */
+router.get('/pomocnicy', authMiddleware, async (req, res, next) => {
+  try {
+    const isGlobal = isDyrektorOrAdmin(req.user);
+    const WORKER_ROLES = [
+      'Pomocnik', 'Pomocnik bez doświadczenia', 'Brygadzista', 'Specjalista'
+    ];
+    const placeholders = WORKER_ROLES.map((_, i) => `$${i + 1}`).join(', ');
+    let query, params;
+    if (isGlobal) {
+      query = `SELECT id, imie, nazwisko, rola, stawka_godzinowa
+               FROM users
+               WHERE rola IN (${placeholders}) AND aktywny = true
+               ORDER BY rola, nazwisko, imie`;
+      params = WORKER_ROLES;
+    } else {
+      query = `SELECT id, imie, nazwisko, rola, stawka_godzinowa
+               FROM users
+               WHERE rola IN (${placeholders}) AND aktywny = true
+               AND oddzial_id = $${WORKER_ROLES.length + 1}
+               ORDER BY rola, nazwisko, imie`;
+      params = [...WORKER_ROLES, req.user.oddzial_id];
+    }
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
   } catch (err) {
     next(err);
   }

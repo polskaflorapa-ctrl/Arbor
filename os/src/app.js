@@ -176,6 +176,17 @@ const createApp = () => {
   // Public client-facing tracking page (no auth) — linked from SMS
   app.use('/track', trackRoutes);
 
+  // Mobile remote-config — returns app/branch feature flags.
+  // Accepts optional Bearer auth; returns empty config if none configured yet.
+  app.get('/api/mobile-config', (req, res) => {
+    res.setHeader('X-Api-Version', API_VERSION);
+    res.json({});
+  });
+  app.get('/api/config/mobile', (req, res) => {
+    res.setHeader('X-Api-Version', API_VERSION);
+    res.json({});
+  });
+
   app.get('/', (req, res) => {
     res.json({
       status: 'ok',

@@ -6,7 +6,7 @@ import {
   StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
+import { getApiUrl } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
@@ -22,7 +22,7 @@ export default function PomocnikScreen() {
     try {
       const { token } = await getStoredSession();
       if (!token) { router.replace('/login'); return; }
-      const response = await fetch(`${API_URL}/auth/pomocnicy`, {
+      const response = await fetch(`${getApiUrl()}/auth/pomocnicy`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

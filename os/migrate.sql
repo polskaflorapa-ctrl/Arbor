@@ -1659,13 +1659,15 @@ DO $$ BEGIN
     ALTER TABLE users ADD CONSTRAINT users_rola_chk CHECK (
       rola IN (
         'Prezes', 'Dyrektor', 'Administrator',
-        'Kierownik',
+        'Kierownik', 'Dyspozytor',
         'Dyrektor Sprzedazy', 'Dyrektor Sprzedaży',
         'Dyrektor dzialu sprzedaz', 'Dyrektor działu sprzedaż',
         'Wyceniający', 'Wyceniajacy',
         'Specjalista',
         'Brygadzista',
-        'Pomocnik'
+        'Pomocnik', 'Pomocnik bez doświadczenia',
+        'Handlowiec', 'Pracownik biurowy',
+        'Magazynier'
       )
     );
   END IF;
@@ -1905,6 +1907,27 @@ CREATE TABLE IF NOT EXISTS operational_digest_settings (
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_operational_digest_settings_branch ON operational_digest_settings(branch_id);
+
+-- ─── Patch: expand users_rola_chk to include all current roles ───────────────
+-- Drops and recreates the constraint so both fresh and existing DBs get the
+-- full list: Dyspozytor, Handlowiec, Pracownik biurowy, Pomocnik bez doświadczenia, Magazynier
+DO $$ BEGIN
+  ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rola_chk;
+  ALTER TABLE users ADD CONSTRAINT users_rola_chk CHECK (
+    rola IN (
+      'Prezes', 'Dyrektor', 'Administrator',
+      'Kierownik', 'Dyspozytor',
+      'Dyrektor Sprzedazy', 'Dyrektor Sprzedaży',
+      'Dyrektor dzialu sprzedaz', 'Dyrektor działu sprzedaż',
+      'Wyceniający', 'Wyceniajacy',
+      'Specjalista',
+      'Brygadzista',
+      'Pomocnik', 'Pomocnik bez doświadczenia',
+      'Handlowiec', 'Pracownik biurowy',
+      'Magazynier'
+    )
+  );
+END $$;
 
 -- ============================================================
 -- KONIEC MIGRACJI
