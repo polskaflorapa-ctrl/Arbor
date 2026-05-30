@@ -1,59 +1,43 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export const THEMES = {
-  dark: {
-    id: 'dark',
-    label: 'Arbor nocny',
-    bg: '#07110c',
-    bgCard: '#0d1a13',
-    bgDeep: '#040907',
-    sidebar: '#06130d',
-    accent: '#6ee7a8',
-    accentDk: '#22c55e',
-    text: '#f0f7f2',
-    textSub: '#c8d7ce',
-    textMuted: '#91a79a',
-    border: 'rgba(207,230,215,0.11)',
-    border2: 'rgba(110,231,168,0.28)',
-    inputBg: '#08120d',
-    previewDot: '#6ee7a8',
-    previewBg: '#07110c',
-  },
+  // Wariant A — Leśny premium (jasny)
   light: {
     id: 'light',
-    label: 'Arbor jasny',
-    bg: '#f4faf5',
+    label: 'Jasny · Leśny premium',
+    bg: '#f6faf7',
     bgCard: '#ffffff',
-    bgDeep: '#eef8f1',
-    sidebar: '#06331f',
-    accent: '#14834f',
-    accentDk: '#0f6b3f',
-    text: '#102218',
-    textSub: '#3f5f4b',
-    textMuted: '#6a7c70',
-    border: 'rgba(15,95,58,0.12)',
-    border2: 'rgba(40,182,108,0.24)',
+    bgDeep: '#edf6f0',
+    sidebar: '#0b3825',
+    accent: '#0f6b3f',
+    accentDk: '#0a4f31',
+    text: '#12251a',
+    textSub: '#3e5a48',
+    textMuted: '#6e8175',
+    border: 'rgba(15,95,58,0.14)',
+    border2: 'rgba(15,95,58,0.22)',
     inputBg: '#ffffff',
-    previewDot: '#28b66c',
-    previewBg: '#f4faf5',
+    previewDot: '#2fbe72',
+    previewBg: '#f6faf7',
   },
-  green: {
-    id: 'green',
-    label: 'Arbor terenowy',
-    bg: '#06110d',
-    bgCard: '#0c1d14',
-    bgDeep: '#030806',
-    sidebar: '#04110b',
-    accent: '#78f2ad',
-    accentDk: '#2fd06f',
-    text: '#f2faf5',
-    textSub: '#c9d9cf',
-    textMuted: '#92a99c',
-    border: 'rgba(213,236,220,0.1)',
-    border2: 'rgba(120,242,173,0.28)',
-    inputBg: '#08130d',
-    previewDot: '#78f2ad',
-    previewBg: '#06110d',
+  // Wariant C — Emerald aurora (ciemny)
+  dark: {
+    id: 'dark',
+    label: 'Ciemny · Emerald aurora',
+    bg: '#04130c',
+    bgCard: '#0c2016',
+    bgDeep: '#061a10',
+    sidebar: '#06140d',
+    accent: '#34e89e',
+    accentDk: '#0bd9b3',
+    text: '#eafff3',
+    textSub: '#a7d8bf',
+    textMuted: '#6b9580',
+    border: 'rgba(52,232,158,0.14)',
+    border2: 'rgba(52,232,158,0.24)',
+    inputBg: '#0a1b12',
+    previewDot: '#34e89e',
+    previewBg: '#04130c',
   },
 };
 
@@ -70,10 +54,8 @@ export function ThemeProvider({ children }) {
       const raw = localStorage.getItem('arbor-theme');
       const stored = raw == null ? '' : String(raw).trim();
       if (!stored || stored === 'undefined' || stored === 'null') return 'light';
-      if ((stored === 'dark' || stored === 'green') && localStorage.getItem('arbor-premium-theme-migrated') !== '1') {
-        localStorage.setItem('arbor-premium-theme-migrated', '1');
-        return 'light';
-      }
+      // Stary motyw "green" (terenowy) został scalony z motywem ciemnym.
+      if (stored === 'green') return 'dark';
       return THEMES[stored] ? stored : 'light';
     } catch {
       return 'light';

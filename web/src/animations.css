@@ -84,19 +84,109 @@
   animation: treeSway 3s ease-in-out infinite;
 }
 
+/* ==========================================================================
+   PREMIUM — globalne animacje wejścia + hover (auto, bez dotykania komponentów)
+   Karty/wiersze/nagłówki wjeżdżają z dołu ze staggerem; hover unosi element.
+   ========================================================================== */
+
+@keyframes arborRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Wejście głównych powierzchni treści */
+.dashboard-kpi-grid > *,
+.dashboard-content-grid > *,
+.dashboard-lower-grid > *,
+.dashboard-shortcuts-grid > *,
+.modern-data-row,
+.module-page-header-hero,
+.module-page-header-plain,
+.dashboard-topbar,
+.arbor-card,
+.arbor-panel,
+.ios-glass-panel:not(.arbor-sidebar) {
+  animation: arborRise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Stagger — kolejne elementy wchodzą z opóźnieniem */
+.dashboard-kpi-grid > *:nth-child(1),
+.dashboard-content-grid > *:nth-child(1),
+.dashboard-lower-grid > *:nth-child(1),
+.modern-data-stack .modern-data-row:nth-child(1) { animation-delay: 0.04s; }
+.dashboard-kpi-grid > *:nth-child(2),
+.dashboard-content-grid > *:nth-child(2),
+.dashboard-lower-grid > *:nth-child(2),
+.modern-data-stack .modern-data-row:nth-child(2) { animation-delay: 0.10s; }
+.dashboard-kpi-grid > *:nth-child(3),
+.dashboard-content-grid > *:nth-child(3),
+.dashboard-lower-grid > *:nth-child(3),
+.modern-data-stack .modern-data-row:nth-child(3) { animation-delay: 0.16s; }
+.dashboard-kpi-grid > *:nth-child(4),
+.dashboard-content-grid > *:nth-child(4),
+.dashboard-lower-grid > *:nth-child(4),
+.modern-data-stack .modern-data-row:nth-child(4) { animation-delay: 0.22s; }
+.dashboard-kpi-grid > *:nth-child(5),
+.modern-data-stack .modern-data-row:nth-child(5) { animation-delay: 0.28s; }
+.dashboard-kpi-grid > *:nth-child(6),
+.modern-data-stack .modern-data-row:nth-child(6) { animation-delay: 0.34s; }
+.modern-data-stack .modern-data-row:nth-child(7) { animation-delay: 0.40s; }
+.modern-data-stack .modern-data-row:nth-child(8) { animation-delay: 0.46s; }
+
+/* Hover — unoszenie + akcent (globalnie na kartach i wierszach) */
+.dashboard-kpi-grid > *,
+.dashboard-content-grid > *,
+.dashboard-lower-grid > *,
+.dashboard-shortcuts-grid > *,
+.modern-data-row {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.dashboard-kpi-grid > *:hover,
+.dashboard-content-grid > *:hover,
+.dashboard-lower-grid > *:hover,
+.dashboard-shortcuts-grid > *:hover {
+  transform: translateY(-4px) !important;
+}
+.modern-data-row:hover {
+  transform: translateX(4px) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fade-in,
   .slide-in,
   .bounce-in,
   .kpi-card,
-  .logo-tree {
+  .logo-tree,
+  .dashboard-kpi-grid > *,
+  .dashboard-content-grid > *,
+  .dashboard-lower-grid > *,
+  .dashboard-shortcuts-grid > *,
+  .modern-data-row,
+  .module-page-header-hero,
+  .module-page-header-plain,
+  .dashboard-topbar,
+  .arbor-card,
+  .arbor-panel,
+  .ios-glass-panel:not(.arbor-sidebar) {
     animation: none !important;
   }
 
   .card-hover,
   .btn-hover,
   .nav-item-hover,
-  .table-row-hover {
+  .table-row-hover,
+  .dashboard-kpi-grid > *,
+  .dashboard-content-grid > *,
+  .dashboard-lower-grid > *,
+  .dashboard-shortcuts-grid > *,
+  .modern-data-row {
     transition: none !important;
+  }
+  .dashboard-kpi-grid > *:hover,
+  .dashboard-content-grid > *:hover,
+  .dashboard-lower-grid > *:hover,
+  .dashboard-shortcuts-grid > *:hover,
+  .modern-data-row:hover {
+    transform: none !important;
   }
 }

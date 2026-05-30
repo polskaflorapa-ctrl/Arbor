@@ -3795,3 +3795,149 @@ button.btn-primary,
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ==========================================================================
+   ARBOR-OS — MOTYW CIEMNY (Wariant C · Emerald Aurora)
+   Nadrzędna warstwa ciemna. Aktywna tylko gdy body.theme-dark.
+   Pozostawia motyw jasny nietknięty. Re-mapuje tokeny + nadpisuje
+   powierzchnie z zakodowanym na sztywno bielą.
+   ========================================================================== */
+
+body.theme-dark {
+  --bg: #04130c !important;
+  --bg-card: #0c2016 !important;
+  --bg-card2: #0a1b12 !important;
+  --bg-deep: #061a10 !important;
+  --bg-edge: #10331f !important;
+  --sidebar: #06140d !important;
+  --accent: #34e89e !important;
+  --accent-dk: #0bd9b3 !important;
+  --on-accent: #04130c !important;
+  --text: #eafff3 !important;
+  --text-sub: #a7d8bf !important;
+  --text-muted: #6b9580 !important;
+  --border: rgba(52, 232, 158, 0.14) !important;
+  --border2: rgba(52, 232, 158, 0.24) !important;
+  --glass-border: rgba(52, 232, 158, 0.16) !important;
+  --input-bg: #0a1b12 !important;
+  --surface-field: #0a1b12 !important;
+  --surface-raised: #0c2016 !important;
+  --surface-glass: #0c2016 !important;
+  --accent-surface: rgba(52, 232, 158, 0.12) !important;
+  --success: #34e89e !important;
+  --success-surface: rgba(52, 232, 158, 0.12) !important;
+  --warning: #ffd479 !important;
+  --warning-surface: rgba(255, 212, 121, 0.12) !important;
+  --danger: #ff6b81 !important;
+  --danger-surface: rgba(255, 107, 129, 0.12) !important;
+  --info: #7cc4ff !important;
+  --focus-ring: rgba(52, 232, 158, 0.25) !important;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.55) !important;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.4) !important;
+  --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.5) !important;
+  --shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.6) !important;
+  --accent-gradient: linear-gradient(135deg, #34e89e 0%, #0bd9b3 100%) !important;
+  --ios-inset-bg: #0a1b12 !important;
+  --ios-inset-border: rgba(52, 232, 158, 0.16) !important;
+  --ios-row-hover: rgba(52, 232, 158, 0.08) !important;
+  --laser-emerald: #34e89e !important;
+  --pulsar-blue: #7cc4ff !important;
+  --supernova-orange: #ffd479 !important;
+  --stardust-white: #eafff3 !important;
+  --muted-text-token: #6b9580 !important;
+}
+
+/* Tło aplikacji — głęboka zieleń z poświatą aurory u góry */
+html body.theme-dark,
+body.theme-dark,
+body.theme-dark #root {
+  background:
+    radial-gradient(60% 50% at 18% 0%, rgba(52, 232, 158, 0.16), transparent 60%),
+    radial-gradient(55% 45% at 82% 6%, rgba(11, 217, 179, 0.13), transparent 62%),
+    radial-gradient(50% 40% at 50% 0%, rgba(124, 255, 181, 0.08), transparent 70%),
+    linear-gradient(180deg, #04130c 0%, #03100a 60%, #020c07 100%) !important;
+  color: var(--text) !important;
+}
+
+/* Karty / panele — zamiana sztywnej bieli na ciemną powierzchnię */
+body.theme-dark .ios-glass-panel:not(.arbor-sidebar),
+body.theme-dark .arbor-panel,
+body.theme-dark .arbor-card,
+body.theme-dark #root .MuiPaper-root,
+body.theme-dark #root .MuiCard-root,
+body.theme-dark .dashboard-kpi-grid > *,
+body.theme-dark .dashboard-content-grid > *,
+body.theme-dark .dashboard-lower-grid > *,
+body.theme-dark .dashboard-shortcuts-grid > *,
+body.theme-dark .zlecenia-form-readiness > *,
+body.theme-dark #root [style*='background: var(--surface-glass)'],
+body.theme-dark #root [style*='background-color: var(--surface-glass)'] {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+body.theme-dark .dashboard-kpi-grid > *:hover,
+body.theme-dark .dashboard-content-grid > *:hover,
+body.theme-dark .dashboard-lower-grid > *:hover,
+body.theme-dark .dashboard-shortcuts-grid > *:hover,
+body.theme-dark .modern-data-row:hover,
+body.theme-dark #root .MuiCard-root:hover {
+  border-color: rgba(52, 232, 158, 0.32) !important;
+  box-shadow: 0 0 0 1px rgba(52, 232, 158, 0.18), var(--shadow-md) !important;
+}
+
+/* Nagłówek strony / topbar — ciemne szkło zamiast białego */
+body.theme-dark .module-page-header-hero,
+body.theme-dark .module-page-header-plain,
+body.theme-dark .dashboard-topbar {
+  background:
+    linear-gradient(90deg, rgba(52, 232, 158, 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(52, 232, 158, 0.05) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(14, 36, 24, 0.96), rgba(8, 24, 16, 0.94)) !important;
+}
+
+body.theme-dark .module-page-header h1,
+body.theme-dark .dashboard-topbar h1 {
+  color: #eafff3 !important;
+}
+
+/* Pola formularzy */
+body.theme-dark input,
+body.theme-dark select,
+body.theme-dark textarea,
+body.theme-dark #root .MuiInputBase-root {
+  background: var(--input-bg) !important;
+  border: 1px solid rgba(52, 232, 158, 0.18) !important;
+  color: var(--text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Przyciski outline */
+body.theme-dark #root .MuiButton-outlinedPrimary,
+body.theme-dark .ghost-btn,
+body.theme-dark .arbor-action {
+  background: var(--bg-card) !important;
+  color: var(--accent) !important;
+  border: 1px solid rgba(52, 232, 158, 0.28) !important;
+}
+
+/* Wiersze danych */
+body.theme-dark .modern-data-row {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-left: 5px solid var(--row-accent) !important;
+}
+
+body.theme-dark .modern-data-row__icon {
+  background: color-mix(in srgb, var(--row-accent) 18%, #0c2016) !important;
+  border: 1px solid color-mix(in srgb, var(--row-accent) 30%, #0c2016) !important;
+}
+
+/* Pozostałe sztywne białe powierzchnie */
+body.theme-dark .clients-main section,
+body.theme-dark .clients-main [style*='background: var(--bg-card)'],
+body.theme-dark pre {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
