@@ -6,6 +6,11 @@ export interface StoredUser {
   imie?: string;
   nazwisko?: string;
   rola?: string;
+  oddzial_id?: number | string;
+  oddzial_nazwa?: string;
+  email?: string;
+  telefon?: string;
+  login?: string;
   [key: string]: unknown;
 }
 

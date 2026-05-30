@@ -17,7 +17,7 @@ import { Theme, ThemeName, themes } from './theme';
 
 const STORAGE_KEY = 'arbor_theme';
 const DESIGN_VERSION_KEY = 'arbor_theme_design_version';
-const CURRENT_DESIGN_VERSION = 'deep_space_tech_2026_05';
+const CURRENT_DESIGN_VERSION = 'deep_space_tech_2026_05b';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -25,28 +25,30 @@ interface ThemeContextValue {
   setTheme: (name: ThemeName) => void;
 }
 
+const DEFAULT_THEME: ThemeName = 'tech';
+
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: themes.dark,
-  themeName: 'dark',
+  theme: themes[DEFAULT_THEME],
+  themeName: DEFAULT_THEME,
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeName, setThemeName] = useState<ThemeName>('dark');
+  const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME);
 
   useEffect(() => {
     AsyncStorage.multiGet([STORAGE_KEY, DESIGN_VERSION_KEY]).then((pairs) => {
       const saved = pairs[0]?.[1];
       const designVersion = pairs[1]?.[1];
       if (designVersion !== CURRENT_DESIGN_VERSION) {
-        setThemeName('dark');
+        setThemeName(DEFAULT_THEME);
         void AsyncStorage.multiSet([
-          [STORAGE_KEY, 'dark'],
+          [STORAGE_KEY, DEFAULT_THEME],
           [DESIGN_VERSION_KEY, CURRENT_DESIGN_VERSION],
         ]);
         return;
       }
-      if (saved === 'dark' || saved === 'light' || saved === 'green') {
+      if (saved === 'tech' || saved === 'emerald' || saved === 'pulsar') {
         setThemeName(saved);
       }
     });

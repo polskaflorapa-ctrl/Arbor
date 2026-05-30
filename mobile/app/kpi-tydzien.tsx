@@ -132,7 +132,7 @@ export default function KpiTydzienScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <ScreenHeader title={t('kpiWeek.title')} />
       <ScrollView
         style={S.scroll}

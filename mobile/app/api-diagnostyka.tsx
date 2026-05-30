@@ -411,6 +411,14 @@ export default function ApiDiagnostykaScreen() {
     }
   };
 
+  const [customUrlInput, setCustomUrlInput] = useState('');
+  const [customUrlSaved, setCustomUrlSaved] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY).then((v) => {
+      if (v) setCustomUrlInput(v);
+    });
+  }, []);
+
   const S = makeStyles(theme);
 
   if (guard.ready && !guard.allowed) {
@@ -495,13 +503,6 @@ export default function ApiDiagnostykaScreen() {
       sub: t('apiDiag.action.authSub', { status: primaryIssue.httpCode }),
     };
   })();
-  const [customUrlInput, setCustomUrlInput] = useState('');
-  const [customUrlSaved, setCustomUrlSaved] = useState(false);
-  useEffect(() => {
-    AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY).then((v) => {
-      if (v) setCustomUrlInput(v);
-    });
-  }, []);
   const saveCustomUrl = async () => {
     const trimmed = customUrlInput.trim();
     if (trimmed) {
@@ -532,7 +533,7 @@ export default function ApiDiagnostykaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
         <TouchableOpacity
           onPress={() => {

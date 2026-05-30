@@ -551,7 +551,7 @@ export default function PlanOgledzinScreen() {
   if (!guard.ready || loading) {
     return (
       <KeyboardSafeScreen style={styles.center}>
-        <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+        <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
         <ActivityIndicator color={theme.accent} size="large" />
       </KeyboardSafeScreen>
     );
@@ -567,7 +567,7 @@ export default function PlanOgledzinScreen() {
 
   return (
     <KeyboardSafeScreen style={styles.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

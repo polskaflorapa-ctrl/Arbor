@@ -93,7 +93,7 @@ export default function RaportyMobilneScreen() {
   return (
     <View style={S.root}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

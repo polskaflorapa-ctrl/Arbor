@@ -341,7 +341,7 @@ export default function TelefoniaMobileScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <ScreenHeader title="Telefonia i SMS" />
       <View style={S.tabRow}>
         <TouchableOpacity style={[S.tabBtn, tab === 'calls' && S.tabBtnActive]} onPress={() => setTab('calls')}>

@@ -25,7 +25,7 @@ import {
   type EstimatorQuoteRow,
 } from '../utils/estimator-compensation';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 
 function ymFromDate(d: Date) {
   const y = d.getFullYear();
@@ -46,7 +46,7 @@ export default function WyceniajacyFinanseScreen() {
   const { t, language } = useLanguage();
   const numberLocale = language === 'uk' ? 'uk-UA' : language === 'ru' ? 'ru-RU' : 'pl-PL';
   const guard = useOddzialFeatureGuard('/wyceniajacy-finanse');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [quotes, setQuotes] = useState<EstimatorQuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [monthYm, setMonthYm] = useState(ymFromDate(new Date()));
@@ -117,7 +117,7 @@ export default function WyceniajacyFinanseScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <ScreenHeader title={t('estimatorFinance.title')} />
 
       <ScrollView

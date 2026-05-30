@@ -20,7 +20,7 @@ import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { subscribeOfflineFlushDone, subscribeTaskSync } from '../utils/offline-queue-sync-events';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
@@ -760,7 +760,7 @@ export default function ZleceniaScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const guard = useOddzialFeatureGuard('/zlecenia');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [zlecenia, setZlecenia] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1056,7 +1056,7 @@ export default function ZleceniaScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
 
       <ScreenHeader
         title={t('zlecenia.title')}

@@ -667,7 +667,7 @@ export default function WycenyDoBiuraScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={S.center}>
-        <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+        <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
         <ActivityIndicator color={theme.accent} size="large" />
       </KeyboardSafeScreen>
     );
@@ -675,7 +675,7 @@ export default function WycenyDoBiuraScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <ScreenHeader title="Do opracowania" edgeSlotWidth={48} />
 
       <ScrollView

@@ -340,9 +340,9 @@ export default function OgledzinyScreen() {
   const gpsState = (live?: LiveTeamLocation) => {
     const ageMin = live?.recorded_at ? (Date.now() - new Date(live.recorded_at).getTime()) / 60000 : Number.POSITIVE_INFINITY;
     const speed = Number(live?.speed_kmh || 0);
-    if (ageMin > 15) return { label: 'stary sygnał', color: '#B91C1C' };
-    if (speed > 5) return { label: 'jazda', color: '#15803D' };
-    return { label: 'postój', color: '#0F766E' };
+    if (ageMin > 15) return { label: 'stary sygnał', color: theme.danger };
+    if (speed > 5) return { label: 'jazda', color: theme.success };
+    return { label: 'postój', color: theme.info };
   };
   const liveTeamList = Object.values(liveLocationsByTeam)
     .filter((x) => x?.ekipa_id != null)
@@ -495,7 +495,7 @@ export default function OgledzinyScreen() {
   return (
     <View style={S.container}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

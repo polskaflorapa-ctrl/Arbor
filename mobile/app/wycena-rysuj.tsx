@@ -359,7 +359,7 @@ export default function WycenaRysujScreen() {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       {/* Toolbar górny */}
       <View style={s.toolbar}>
         <TouchableOpacity

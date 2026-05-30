@@ -460,7 +460,7 @@ export default function Powiadomienia() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
 
       <ScreenHeader
         title={t('notif.title')}

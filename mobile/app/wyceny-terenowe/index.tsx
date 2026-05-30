@@ -484,7 +484,7 @@ export default function WycenyTerenoweScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={s.center}>
-        <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle={'light-content'} />
         <ActivityIndicator color={theme.accent} />
       </KeyboardSafeScreen>
     );
@@ -492,7 +492,7 @@ export default function WycenyTerenoweScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
-      <StatusBar barStyle={theme.name !== 'light' ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={'light-content'} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Wróć">
           <Ionicons name="chevron-back" size={26} color={theme.text} />

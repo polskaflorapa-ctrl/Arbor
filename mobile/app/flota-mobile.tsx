@@ -13,7 +13,7 @@ import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { isFeatureEnabledForOddzial } from '../utils/oddzial-features';
 
 const FLEET_STATUS_ORDER = ['Dostępny', 'W_Użyciu', 'Naprawa', 'Wycofany'] as const;
@@ -46,7 +46,7 @@ export default function FlotaMobileScreen() {
   const { t, language } = useLanguage();
   const numberLocale = language === 'uk' ? 'uk-UA' : language === 'ru' ? 'ru-RU' : 'pl-PL';
   const guard = useOddzialFeatureGuard('/flota-mobile');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [aktywnaSekcja, setAktywnaSekcja] = useState<'pojazdy' | 'sprzet' | 'naprawy'>('pojazdy');
   const [pojazdy, setPojazdy] = useState<any[]>([]);
   const [sprzet, setSprzet] = useState<any[]>([]);
@@ -244,7 +244,7 @@ export default function FlotaMobileScreen() {
   return (
     <KeyboardSafeScreen style={S.container}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

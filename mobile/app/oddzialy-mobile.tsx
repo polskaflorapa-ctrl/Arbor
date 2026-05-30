@@ -16,6 +16,27 @@ import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 import { isTaskInProgress, makeTaskStatusColorMap } from '../constants/task-workflow';
 
+interface Oddzial {
+  id?: number;
+  nazwa?: string;
+  miasto?: string;
+  adres?: string;
+  telefon?: string;
+  email?: string;
+  kierownik_imie?: string;
+  kierownik_nazwisko?: string;
+  [key: string]: unknown;
+}
+
+interface OddzialDetail {
+  pracownicy: any[];
+  zlecenia: any[];
+  brygadzisci: number;
+  kierownicy: number;
+  aktywneZlecenia: number;
+  przychodTotal: number;
+}
+
 export default function OddzialyScreen() {
   const { theme } = useTheme();
   const rolaKolorMap = useMemo(() => ({
@@ -30,8 +51,8 @@ export default function OddzialyScreen() {
   const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-  const [detailData, setDetailData] = useState<any>(null);
+  const [selected, setSelected] = useState<Oddzial | null>(null);
+  const [detailData, setDetailData] = useState<OddzialDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -121,7 +142,7 @@ export default function OddzialyScreen() {
     return (
       <View style={S.container}>
         <StatusBar
-          barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+          barStyle={'light-content'}
           backgroundColor={theme.headerBg}
         />
         <View style={S.header}>
@@ -247,7 +268,7 @@ export default function OddzialyScreen() {
   return (
     <View style={S.container}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
       <View style={S.header}>

@@ -60,7 +60,7 @@ export default function PomocnikScreen() {
   return (
     <View style={S.container}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

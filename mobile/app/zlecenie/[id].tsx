@@ -34,7 +34,7 @@ import {
 } from '../../utils/offline-queue';
 import { emitTaskSync, subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
-import { getStoredSession } from '../../utils/session';
+import { getStoredSession, type StoredUser } from '../../utils/session';
 import { getTaskFieldExecutionSummary } from '../../utils/task-field-execution';
 import {
   TASK_STATUS,
@@ -436,6 +436,20 @@ function orderPhotoTypeMeta(theme: Theme): Record<(typeof TYP_ZDJECIA_KEYS)[numb
   };
 }
 
+interface GpsCoords {
+  lat: number;
+  lng: number;
+}
+
+interface ClientSignature {
+  signer_name?: string;
+  signature_data_url?: string;
+  signed_at?: string;
+  note?: string;
+  updated_at?: string;
+  [key: string]: unknown;
+}
+
 export default function ZlecenieDetailScreen() {
   const { id, tab, fieldFocus: fieldFocusParam, photoFilter: photoFilterParam } = useLocalSearchParams<{
     id: string;
@@ -449,7 +463,7 @@ export default function ZlecenieDetailScreen() {
   const statusPalette = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
   const prioPalette = useMemo(() => orderPrioColors(theme), [theme]);
   const photoTypeMeta = useMemo(() => orderPhotoTypeMeta(theme), [theme]);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [zlecenie, setZlecenie] = useState<any>(null);
   const [logi, setLogi] = useState<any[]>([]);
   const [problemy, setProblemy] = useState<any[]>([]);
@@ -466,7 +480,7 @@ export default function ZlecenieDetailScreen() {
   const [photoOpisDraft, setPhotoOpisDraft] = useState('');
   const [photoTagiDraft, setPhotoTagiDraft] = useState('');
   const [problemForm, setProblemForm] = useState({ typ: 'usterka', opis: '' });
-  const [lokalizacja, setLokalizacja] = useState<any>(null);
+  const [lokalizacja, setLokalizacja] = useState<GpsCoords | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
@@ -524,7 +538,7 @@ export default function ZlecenieDetailScreen() {
   const [extraOpis, setExtraOpis] = useState('');
   const [quoteAmount, setQuoteAmount] = useState<Record<number, string>>({});
   const [showClientSignatureModal, setShowClientSignatureModal] = useState(false);
-  const [clientSignature, setClientSignature] = useState<any>(null);
+  const [clientSignature, setClientSignature] = useState<ClientSignature | null>(null);
   const [scopeConfirmed, setScopeConfirmed] = useState(false);
   const [safetyChecks, setSafetyChecks] = useState<Record<string, boolean>>({});
   const [fieldScopeDraft, setFieldScopeDraft] = useState('');
@@ -2125,7 +2139,7 @@ export default function ZlecenieDetailScreen() {
     zlecenie?.status === 'W_Realizacji' &&
     ((finishRequirements.require_po_photo && !finishRequirements.has_po_photo) ||
       (finishRequirements.require_przed_photo && !finishRequirements.has_przed_photo));
-  const mozeZmieniacStatus = ['Kierownik', 'Dyrektor', 'Administrator'].includes(user?.rola);
+  const mozeZmieniacStatus = ['Kierownik', 'Dyrektor', 'Administrator'].includes(user?.rola ?? '');
   const mobileStatusOptions = getNextTaskStatuses(zlecenie.status, {
     includeCurrent: true,
     allowCancel: mozeZmieniacStatus,
@@ -4189,7 +4203,7 @@ export default function ZlecenieDetailScreen() {
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
     <View style={S.container}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

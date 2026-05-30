@@ -27,7 +27,7 @@ import { API_BASE_URL, API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { getRoleDisplayName } from '../utils/role-display';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { openAddressInMaps } from '../utils/maps-link';
@@ -96,7 +96,7 @@ export default function WycenaScreen() {
     Zlecenie: theme.accent,
   }), [theme]);
   const guard = useOddzialFeatureGuard('/wycena');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [wyceny, setWyceny] = useState<any[]>([]);
   const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [selectedOddzial, setSelectedOddzial] = useState('');
@@ -119,7 +119,7 @@ export default function WycenaScreen() {
   }, [token]);
 
   const fetchWyceny = useCallback(
-    async (tokenOverride?: string | null, sessionUser?: { id?: unknown; rola?: string } | null) => {
+    async (tokenOverride?: string | null, sessionUser?: { id?: string | number; rola?: string } | null) => {
       try {
         const authTok = tokenOverride || await getToken();
         const u = sessionUser ?? user;
@@ -253,7 +253,7 @@ export default function WycenaScreen() {
     ]);
   };
 
-  const isManager = ['Dyrektor','Administrator','Kierownik'].includes(user?.rola);
+  const isManager = ['Dyrektor','Administrator','Kierownik'].includes(user?.rola ?? '');
   const S = makeStyles(theme);
 
   // ─── Loading ──────────────────────────────────────────────────────────────
@@ -271,7 +271,7 @@ export default function WycenaScreen() {
   // ─── MAIN VIEW ────────────────────────────────────────────────────────────
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
 
       {/* Header */}
       <View style={S.header}>

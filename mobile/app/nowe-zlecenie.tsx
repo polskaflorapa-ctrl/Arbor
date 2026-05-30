@@ -49,7 +49,7 @@ import {
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { isPositiveNumber, isValidIsoDate, isValidPolishPhone, isValidTimeHHMM } from '../utils/validators';
 
 function paramString(value: unknown) {
@@ -326,7 +326,7 @@ export default function NoweZlecenieScreen() {
   const [oddzialy, setOddzialy] = useState<any[]>([]);
   const [ekipy, setEkipy] = useState<any[]>([]);
   const [ekipyLoading, setEkipyLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1597,7 +1597,7 @@ export default function NoweZlecenieScreen() {
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
       <ScrollView
@@ -3090,7 +3090,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderColor: t.cardBorder,
     borderRadius: 18,
     ...shadowStyle(t, {
-      color: '#0f2a1d',
       opacity: 0.08,
       radius: 16,
       offsetY: 8,
@@ -3172,7 +3171,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
-      color: '#0f2a1d',
       opacity: 0.06,
       radius: 14,
       offsetY: 8,
@@ -3262,7 +3260,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
-      color: '#0f2a1d',
       opacity: 0.07,
       radius: 14,
       offsetY: 8,
@@ -3959,7 +3956,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderWidth: 1,
     borderColor: t.cardBorder,
     ...shadowStyle(t, {
-      color: '#0f2a1d',
       opacity: 0.05,
       radius: 12,
       offsetY: 4,
@@ -4242,12 +4238,12 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 8,
   },
   photoEmptyText: { color: t.textMuted, fontSize: 12, lineHeight: 17, flex: 1 },
-  drawModalRoot: { flex: 1, backgroundColor: '#05080f' },
+  drawModalRoot: { flex: 1, backgroundColor: t.bg },
   drawModalHeader: {
     paddingTop: 52,
     paddingBottom: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#0b1220',
+    backgroundColor: t.surface,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.12)',
     flexDirection: 'row',
@@ -4372,7 +4368,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     padding: 14,
     gap: 12,
     ...shadowStyle(t, {
-      color: '#0f2a1d',
       opacity: 0.08,
       radius: 14,
       offsetY: 5,

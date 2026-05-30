@@ -108,7 +108,7 @@ export default function UzytkownicyScreen() {
   return (
     <KeyboardSafeScreen style={S.container}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

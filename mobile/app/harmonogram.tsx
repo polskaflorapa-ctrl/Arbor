@@ -15,7 +15,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
 import { subscribeOfflineFlushDone, subscribeTaskSync } from '../utils/offline-queue-sync-events';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { openAddressInMaps, openRouteInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
@@ -379,7 +379,7 @@ export default function HarmonogramScreen() {
   const { theme } = useTheme();
   const { language, t } = useLanguage();
   const guard = useOddzialFeatureGuard('/harmonogram');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -445,7 +445,7 @@ export default function HarmonogramScreen() {
         setEquipmentReservationsDown(true);
       }
 
-      const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
+      const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola ?? '');
       if (isManager) {
         const branchId = user?.oddzial_id != null ? String(user.oddzial_id) : '';
         const eUrl = branchId
@@ -549,7 +549,7 @@ export default function HarmonogramScreen() {
 
   const cells = getCalendarDays(viewYear, viewMonth);
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
+  const isManager = ['Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola ?? '');
 
   const monthLocale = language === 'uk' ? 'uk-UA' : language === 'ru' ? 'ru-RU' : 'pl-PL';
   const weekdayLabels = useMemo(
@@ -906,7 +906,7 @@ export default function HarmonogramScreen() {
   return (
     <View style={S.root}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={theme.headerBg}
       />
 

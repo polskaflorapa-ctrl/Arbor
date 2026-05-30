@@ -12,7 +12,7 @@ import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { PlatinumCard } from '../components/ui/platinum-card';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { PlatinumPressable } from '../components/ui/platinum-pressable';
-import { elevationCard, shadowStyle } from '../constants/elevation';
+import { colorWithAlpha, elevationCard, shadowStyle } from '../constants/elevation';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -24,7 +24,7 @@ import {
 } from '../utils/oddzial-features';
 import { pushRecentContext, readRecentContexts, type RecentContextItem } from '../utils/command-center-history';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
@@ -37,9 +37,17 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const DASHBOARD_CACHE_KEY = 'arbor-mobile-dashboard-cache-v2';
 
+interface DashboardStats {
+  nowe?: number;
+  w_realizacji?: number;
+  zaplanowane?: number;
+  zakonczone?: number;
+  [key: string]: number | undefined;
+}
+
 type DashboardCache = {
   zlecenia: any[];
-  stats: any;
+  stats: DashboardStats;
   savedAt: string;
 };
 
@@ -65,22 +73,31 @@ async function fetchJsonWithStatus(url: string, headers: Record<string, string>)
   return { ok: res.ok, status: res.status, data };
 }
 
-const ARBOR_UI = {
-  bg: '#F4F8F1',
-  bgSoft: '#EEF6EA',
-  paper: '#FFFFFF',
-  paperSoft: '#F8FBF6',
-  forest: '#14532D',
-  leaf: '#2F8A3B',
-  leafSoft: '#DCFCE7',
-  moss: '#6B8E23',
-  line: '#DDE8D6',
-  text: '#102116',
-  muted: '#647567',
-  warning: '#B45309',
-  danger: '#DC2626',
-  dangerSoft: '#FEE2E2',
-};
+/** Lokalna paleta dashboardu wyprowadzona z tokenów motywu — reaguje na zmianę motywu. */
+function arborColors(t: Theme) {
+  return {
+    bg: t.bg,
+    bgSoft: t.surface3,
+    paper: t.cardBg,
+    paperSoft: t.surface2,
+    forest: t.accent,
+    leaf: t.success,
+    leafSoft: t.successBg,
+    moss: t.chartSecondary,
+    line: t.border,
+    text: t.text,
+    muted: t.textMuted,
+    warning: t.warning,
+    warningSoft: t.warningBg,
+    warningBorder: colorWithAlpha(t.warning, 0.5),
+    warningText: t.warning,
+    danger: t.danger,
+    dangerSoft: t.dangerBg,
+    leafBorder: colorWithAlpha(t.success, 0.4),
+    onAccent: t.accentText,
+    inactive: t.navInactive,
+  };
+}
 
 interface QuickAction {
   label: string;
@@ -163,7 +180,7 @@ function isEstimatorRoleValue(role: unknown) {
   return dashboardRoleText(role).includes('wyceniaj');
 }
 
-function filterDashboardOrdersForUser(tasks: any[], user: any) {
+function filterDashboardOrdersForUser(tasks: any[], user: StoredUser | null) {
   if (!isEstimatorRoleValue(user?.rola)) return tasks;
   return tasks.filter((task) => String(task?.wyceniajacy_id || '') === String(user?.id || ''));
 }
@@ -206,10 +223,11 @@ function dashboardTaskNeedsSignal(task: any) {
 
 export default function DashboardScreen() {
   const { theme } = useTheme();
+  const ARBOR_UI = useMemo(() => arborColors(theme), [theme]);
   const { language, t } = useLanguage();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [zlecenia, setZlecenia] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>({ nowe: 0, w_realizacji: 0, zakonczone: 0 });
+  const [stats, setStats] = useState<DashboardStats>({ nowe: 0, w_realizacji: 0, zakonczone: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   /** Komunikat błędu sieciowego — pokazywany jako banner u góry; null = brak błędu. */
@@ -237,7 +255,7 @@ export default function DashboardScreen() {
           : Promise.resolve({ ok: true, status: 200, data: stats }),
       ]);
       const nextOrders = zRes.ok ? filterDashboardOrdersForUser(readArrayPayload(zRes.data), u) : zlecenia;
-      const nextStats = sRes.ok && sRes.data && typeof sRes.data === 'object' ? sRes.data : stats;
+      const nextStats: DashboardStats = sRes.ok && sRes.data && typeof sRes.data === 'object' ? (sRes.data as DashboardStats) : stats;
       // Najpierw twarde błędy HTTP — wcześniej szły bezgłośnie.
       if (!zRes.ok && !sRes.ok) {
         const cached = await AsyncStorage.getItem(DASHBOARD_CACHE_KEY);
@@ -397,7 +415,7 @@ export default function DashboardScreen() {
       color: rows.length ? ARBOR_UI.danger : ARBOR_UI.leaf,
       background: rows.length ? ARBOR_UI.dangerSoft : ARBOR_UI.leafSoft,
     };
-  }, [zlecenia]);
+  }, [zlecenia, ARBOR_UI]);
   const roleBrief = isWyceniajacy
     ? { title: 'Tryb specjalisty ds. wyceny', text: 'Moje ogledziny dzisiaj, telefon, mapa i pakiet dla biura.', action: 'Moje ogledziny', icon: 'map-outline' as IoniconName, path: '/zlecenia' }
     : isSpecjalista
@@ -618,7 +636,7 @@ export default function DashboardScreen() {
     return (
       <View style={S.root}>
         <StatusBar
-          barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+          barStyle={'light-content'}
           backgroundColor={ARBOR_UI.paper}
         />
         <DashboardSkeleton />
@@ -629,7 +647,7 @@ export default function DashboardScreen() {
   return (
     <View style={S.root}>
       <StatusBar
-        barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={'light-content'}
         backgroundColor={ARBOR_UI.paper}
       />
 
@@ -679,7 +697,7 @@ export default function DashboardScreen() {
           <View style={S.errorBanner}>
             <View style={S.errorTop}>
               <View style={S.errorIcon}>
-                <Ionicons name="cloud-offline-outline" size={18} color="#B45309" />
+                <Ionicons name="cloud-offline-outline" size={18} color={theme.warning} />
               </View>
               <View style={S.errorBody}>
                 <Text style={S.errorTitle}>Dane wymagaja odswiezenia</Text>
@@ -688,14 +706,14 @@ export default function DashboardScreen() {
             </View>
             <View style={S.errorActions}>
               <TouchableOpacity style={S.errorActionPrimary} onPress={onRefresh}>
-                <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+                <Ionicons name="refresh-outline" size={15} color={theme.accentText} />
                 <Text style={S.errorActionPrimaryText}>Ponow</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={S.errorActionSecondary}
                 onPress={() => { void openWithContext('/api-diagnostyka', 'Diagnostyka API', 'dashboard-error'); }}
               >
-                <Ionicons name="pulse-outline" size={15} color="#166534" />
+                <Ionicons name="pulse-outline" size={15} color={theme.accent} />
                 <Text style={S.errorActionSecondaryText}>Diagnostyka</Text>
               </TouchableOpacity>
             </View>
@@ -1128,7 +1146,7 @@ export default function DashboardScreen() {
               <Ionicons
                 name={n.icon}
                 size={24}
-                color={active ? ARBOR_UI.forest : '#91A09A'}
+                color={active ? ARBOR_UI.forest : ARBOR_UI.inactive}
               />
               <Text style={[S.navLabel, active && { color: theme.navActive }]}>
                 {t(n.labelKey)}
@@ -1141,7 +1159,9 @@ export default function DashboardScreen() {
   );
 }
 
-const makeStyles = (t: Theme) => StyleSheet.create({
+const makeStyles = (t: Theme) => {
+  const ARBOR_UI = arborColors(t);
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: ARBOR_UI.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: ARBOR_UI.bg },
   scroll: { flex: 1 },
@@ -1196,8 +1216,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F3D19A',
-    backgroundColor: '#FFF8E7',
+    borderColor: ARBOR_UI.warningBorder,
+    backgroundColor: ARBOR_UI.warningSoft,
     gap: 12,
   },
   errorTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
@@ -1205,13 +1225,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: ARBOR_UI.warningSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   errorBody: { flex: 1, gap: 2 },
-  errorTitle: { color: '#7C2D12', fontSize: 13, fontWeight: '900' },
-  errorText: { color: '#92400E', fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  errorTitle: { color: ARBOR_UI.warningText, fontSize: 13, fontWeight: '900' },
+  errorText: { color: ARBOR_UI.muted, fontSize: 12, fontWeight: '600', lineHeight: 17 },
   errorActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   errorActionPrimary: {
     minHeight: 36,
@@ -1223,7 +1243,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 6,
     backgroundColor: ARBOR_UI.forest,
   },
-  errorActionPrimaryText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  errorActionPrimaryText: { color: ARBOR_UI.onAccent, fontSize: 12, fontWeight: '900' },
   errorActionSecondary: {
     minHeight: 36,
     borderRadius: 10,
@@ -1246,7 +1266,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.08, radius: 14, offsetY: 3, elevation: 3 }),
+    ...shadowStyle(t, { opacity: 0.08, radius: 14, offsetY: 3, elevation: 3 }),
     gap: 14,
   },
   opsHeroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -1285,7 +1305,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
   },
   signalIcon: {
     width: 42,
@@ -1332,7 +1352,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
     gap: 12,
   },
   workflowHead: {
@@ -1379,7 +1399,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   workflowStepActive: {
     backgroundColor: ARBOR_UI.leafSoft,
-    borderColor: '#B7D8B7',
+    borderColor: ARBOR_UI.leafBorder,
   },
   workflowStepIcon: {
     width: 30,
@@ -1401,8 +1421,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   roleBrief: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#B7D8B7',
-    backgroundColor: '#F2FBF0',
+    borderColor: ARBOR_UI.leafBorder,
+    backgroundColor: ARBOR_UI.leafSoft,
     padding: 11,
     gap: 10,
   },
@@ -1428,7 +1448,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  roleBriefBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  roleBriefBtnText: { color: ARBOR_UI.onAccent, fontSize: 12, fontWeight: '900' },
   workflowFooter: {
     minHeight: 34,
     borderRadius: 12,
@@ -1455,7 +1475,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: ARBOR_UI.paper,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.07, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
     gap: 12,
   },
   focusDeckHead: {
@@ -1506,8 +1526,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 10,
   },
   focusActionPrimary: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#B7D8B7',
+    backgroundColor: ARBOR_UI.paper,
+    borderColor: ARBOR_UI.leafBorder,
   },
   focusActionIcon: {
     width: 38,
@@ -1536,7 +1556,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderTopWidth: 3,
     borderWidth: 1,
     borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.07, radius: 10, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.07, radius: 10, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
   },
   statNum: { fontSize: 20, fontWeight: '900' },
   statLabel: { fontSize: t.fontMicro, color: ARBOR_UI.muted, textAlign: 'center', fontWeight: '700' },
@@ -1547,7 +1567,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginHorizontal: 16, marginTop: 16,
     borderRadius: 18, padding: 14,
     borderWidth: 1, borderColor: ARBOR_UI.line,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.08, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.08, radius: 12, offsetY: 2, elevation: Math.max(1, t.cardElevation - 1) }),
   },
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
@@ -1630,7 +1650,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   quickFilterChipActive: {
     backgroundColor: ARBOR_UI.leafSoft,
-    borderColor: '#B7D8B7',
+    borderColor: ARBOR_UI.leafBorder,
   },
   quickFilterText: { color: ARBOR_UI.muted, fontSize: 11, fontWeight: '900', maxWidth: 92 },
   quickFilterTextActive: { color: ARBOR_UI.forest },
@@ -1747,7 +1767,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: ARBOR_UI.line,
     paddingBottom: 28, paddingTop: 10,
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    ...shadowStyle(t, { color: '#14532D', opacity: 0.08, radius: 12, offsetY: -2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.08, radius: 12, offsetY: -2, elevation: Math.max(1, t.cardElevation - 1) }),
   },
   navBtn: {
     flex: 1,
@@ -1760,5 +1780,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   navBtnActive: {
     backgroundColor: ARBOR_UI.leafSoft,
   },
-  navLabel: { fontSize: 10.5, color: '#91A09A', fontWeight: '900', letterSpacing: 0 },
-});
+  navLabel: { fontSize: 10.5, color: ARBOR_UI.muted, fontWeight: '900', letterSpacing: 0 },
+  });
+};

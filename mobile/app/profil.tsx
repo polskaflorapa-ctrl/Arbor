@@ -19,7 +19,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { getRoleDisplayName } from '../utils/role-display';
-import { clearStoredSession, getStoredSession } from '../utils/session';
+import { clearStoredSession, getStoredSession, type StoredUser } from '../utils/session';
 import { unregisterExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -35,7 +35,7 @@ export default function ProfilScreen() {
     Pomocnik: theme.textMuted,
   }), [theme]);
   const guard = useOddzialFeatureGuard('/profil');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [bioSupported, setBioSupported] = useState(false);
   const [bioOn, setBioOn] = useState(false);
@@ -158,7 +158,7 @@ export default function ProfilScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
 
       {/* Header z awatarem */}
       <View style={S.heroHeader}>
@@ -299,7 +299,7 @@ export default function ProfilScreen() {
         <View style={S.section}>
           <Text style={S.sectionTitle}>{t('profile.title.theme')}</Text>
           <View style={S.themeRow}>
-            {(['dark', 'light', 'green'] as ThemeName[]).map((themeKey) => {
+            {(['tech', 'emerald', 'pulsar'] as ThemeName[]).map((themeKey) => {
               const active = themeName === themeKey;
               const preview = themes[themeKey];
               return (

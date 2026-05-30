@@ -1,16 +1,16 @@
 {
   "development": {
-    "apiUrl": "https://arbor-os.onrender.com/api",
+    "apiUrl": "https://arbor-os-b7k6.onrender.com/api",
     "expectedApiVersion": "mobile-dev",
     "purpose": "internal dev-client debugging"
   },
   "preview": {
-    "apiUrl": "https://arbor-os.onrender.com/api",
+    "apiUrl": "https://arbor-os-b7k6.onrender.com/api",
     "expectedApiVersion": "mobile-preview",
     "purpose": "internal QA and field testing"
   },
   "production": {
-    "apiUrl": "https://arbor-os.onrender.com/api",
+    "apiUrl": "https://arbor-os-b7k6.onrender.com/api",
     "expectedApiVersion": "mobile-production",
     "purpose": "store-ready release"
   }

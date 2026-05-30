@@ -225,7 +225,7 @@ export default function WyceniajacyHubScreen() {
   if (!guard.ready || loading) {
     return (
       <View style={S.root}>
-        <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+        <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
         <DashboardSkeleton />
       </View>
     );
@@ -237,7 +237,7 @@ export default function WyceniajacyHubScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />

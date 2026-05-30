@@ -16,7 +16,7 @@ import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { elevationCard, shadowStyle } from '../constants/elevation';
 import { triggerHaptic } from '../utils/haptics';
@@ -267,7 +267,7 @@ export default function WycenaKalendarzScreen() {
   const guard = useOddzialFeatureGuard('/wycena-kalendarz');
   const approvalColors = useMemo(() => approvalStatusColors(theme), [theme]);
   const s = useMemo(() => makeCalendarStyles(theme), [theme]);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [wyceny, setWyceny] = useState<any[]>([]);
   const [ekipy, setEkipy] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -353,7 +353,7 @@ export default function WycenaKalendarzScreen() {
   };
 
   const loadAll = useCallback(
-    async (tokenOverride?: string, sessionUser?: { id?: unknown; rola?: string } | null) => {
+    async (tokenOverride?: string, sessionUser?: { id?: string | number; rola?: string } | null) => {
       try {
         setRuntimeError('');
         const authToken = tokenOverride || token;
@@ -530,7 +530,7 @@ export default function WycenaKalendarzScreen() {
   };
 
   // ─── Access control ─────────────────────────────────────────────────────────
-  const canAdd = user && WYCENA_ROLES.includes(user.rola);
+  const canAdd = user && WYCENA_ROLES.includes(user.rola ?? '');
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -566,7 +566,7 @@ export default function WycenaKalendarzScreen() {
 
   return (
     <KeyboardSafeScreen style={s.root}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
 
       {/* Header */}
       <View style={s.header}>

@@ -14,7 +14,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
-import { getStoredSession } from '../utils/session';
+import { getStoredSession, type StoredUser } from '../utils/session';
 
 function hourStatusLabel(status: string, tr: (key: string) => string) {
   const k = `settlements.hourStatus.${status}`;
@@ -36,7 +36,7 @@ export default function RozliczeniaScreen() {
   const guard = useOddzialFeatureGuard('/rozliczenia');
   const { task_id } = useLocalSearchParams();
   const hasTaskContext = Array.isArray(task_id) ? task_id.length > 0 : Boolean(task_id);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [task, setTask] = useState<any>(null);
   const [pomocnicy, setPomocnicy] = useState<any[]>([]);
   const [rozliczenie, setRozliczenie] = useState<any>(null);
@@ -305,7 +305,7 @@ export default function RozliczeniaScreen() {
 
   return (
     <KeyboardSafeScreen style={[S.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={theme.name === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={[S.header, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
