@@ -47,23 +47,30 @@ export const SHADOWS = {
   lg: '0 28px 68px rgba(15,95,58,0.16)',
 };
 
-export const getRolaColor = (rola) => {
-  const map = {
-    'Prezes':                      '#eab308',
-    'Dyrektor':                    '#f59e0b',
-    'Dyrektor Sprzedazy':           '#fb7185',
-    'Dyrektor Sprzedaży':           '#fb7185',
-    'Administrator':               '#fbbf24',
-    'Kierownik':                   '#38bdf8',
-    'Brygadzista':                 '#34d399',
-    'Specjalista':                 '#22d3ee',
-    'Wyceniający':                 '#94a3b8',
-    'Pomocnik':                    '#94a3b8',
-    'Pomocnik bez doświadczenia':  '#64748b',
-    'Magazynier':                  '#fb923c',
-  };
-  return map[rola] || '#94a3b8';
+// CANONICAL SOURCE — must stay in sync with mobile/constants/theme.ts ROLA_COLORS.
+// Covers all 14 employee roles + spelling/diacritic variants.
+export const ROLA_COLORS = {
+  'Prezes':                      '#FACC15',
+  'Dyrektor':                    '#F59E0B',
+  'Dyrektor Sprzedazy':           '#FB7185',
+  'Dyrektor Sprzedaży':           '#FB7185',
+  'Dyrektor dzialu sprzedaz':     '#FB7185',
+  'Dyrektor działu sprzedaż':     '#FB7185',
+  'Administrator':               '#00E5FF',
+  'Kierownik':                   '#38BDF8',
+  'Dyspozytor':                  '#A78BFA',
+  'Brygadzista':                 '#00E676',
+  'Specjalista':                 '#22D3EE',
+  'Wyceniający':                 '#B45309',
+  'Wyceniajacy':                 '#B45309',
+  'Handlowiec':                  '#F472B6',
+  'Pracownik biurowy':           '#818CF8',
+  'Pomocnik':                    '#94A3B8',
+  'Pomocnik bez doświadczenia':  '#64748B',
+  'Magazynier':                  '#FF9100',
 };
+
+export const getRolaColor = (rola) => ROLA_COLORS[rola] || '#64748B';
 
 // Wszystkie dostępne role (do dropdownów)
 export const WSZYSTKIE_ROLE = [
