@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 import AiChat from './components/AiChat';
 
 const DevPanel = import.meta.env.DEV
@@ -58,6 +59,7 @@ const KartaStanowiskaDruk = lazy(() => import('./pages/KartaStanowiskaDruk'));
 const WynagrodzenieWyceniajacych = lazy(() => import('./pages/WynagrodzenieWyceniajacych'));
 const PayrollM11 = lazy(() => import('./pages/PayrollM11'));
 const Integracje = lazy(() => import('./pages/Integracje'));
+const DemoRequests = lazy(() => import('./pages/DemoRequests'));
 const Eksploruj = lazy(() => import('./pages/Eksploruj'));
 const RozliczeniaFieldEntry = lazy(() => import('./pages/RozliczeniaFieldEntry'));
 const AutoDispatch = lazy(() => import('./pages/AutoDispatch'));
@@ -78,6 +80,12 @@ function AuthenticatedRoute({ children }) {
   return <ProtectedRoute>{children}</ProtectedRoute>;
 }
 
+function AppChrome() {
+  const location = useLocation();
+  const hideChat = location.pathname === '/' || location.pathname === '/login';
+  return hideChat ? null : <AiChat />;
+}
+
 export function redirectCleanPathToHashRoute() {
   if (typeof window === 'undefined') return false;
   const { pathname, search, hash } = window.location;
@@ -95,7 +103,7 @@ function App() {
   return (
     <ThemeProvider>
       <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AiChat />
+        <AppChrome />
         {DevPanel && (
           <Suspense fallback={null}>
             <DevPanel />
@@ -104,7 +112,8 @@ function App() {
         <Suspense fallback={<div className="loading">Ladowanie...</div>}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
 
           {/* All authenticated users */}
@@ -212,6 +221,9 @@ function App() {
           } />
           <Route path="/integracje" element={
             <ProtectedRoute roles={MGMT}><Integracje /></ProtectedRoute>
+          } />
+          <Route path="/zgloszenia-demo" element={
+            <ProtectedRoute roles={ADMIN}><DemoRequests /></ProtectedRoute>
           } />
           <Route path="/kadry-dokumenty" element={
             <ProtectedRoute roles={MGMT}><KadryDokumenty /></ProtectedRoute>

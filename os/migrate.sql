@@ -1910,6 +1910,26 @@ CREATE TABLE IF NOT EXISTS operational_digest_settings (
 );
 CREATE INDEX IF NOT EXISTS idx_operational_digest_settings_branch ON operational_digest_settings(branch_id);
 
+-- Public landing page demo requests
+CREATE TABLE IF NOT EXISTS demo_requests (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  company     TEXT NOT NULL,
+  phone       TEXT NOT NULL DEFAULT '',
+  message     TEXT NOT NULL DEFAULT '',
+  source      TEXT NOT NULL DEFAULT 'landing-page',
+  user_agent  TEXT NOT NULL DEFAULT '',
+  ip_hash     TEXT NOT NULL DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'new',
+  sales_note  TEXT NOT NULL DEFAULT '',
+  client_id   INTEGER,
+  converted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_demo_requests_created_at ON demo_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_demo_requests_status ON demo_requests(status);
+
 -- ─── Performance: add missing indexes on hot FK columns ──────────────────────
 -- These columns are GROUP BY targets in every task-list aggregation subquery.
 -- Without indexes, PostgreSQL does full sequential scans of work_logs, issues

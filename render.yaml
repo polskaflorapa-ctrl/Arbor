@@ -66,6 +66,17 @@ services:
         sync: false
       - key: TWILIO_PHONE
         sync: false
+      # Public landing page demo request notifications.
+      - key: DEMO_REQUEST_WEBHOOK_URL
+        sync: false
+      - key: DEMO_REQUEST_TELEGRAM_ENABLED
+        value: "false"
+      - key: DEMO_REQUEST_TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DEMO_REQUEST_TELEGRAM_CHAT_ID
+        sync: false
+      - key: DEMO_REQUEST_TELEGRAM_PARSE_MODE
+        value: HTML
 
   - type: web
     name: arbor-web

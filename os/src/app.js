@@ -58,6 +58,7 @@ const dispatchRoutes = require('./routes/dispatch');
 const biRoutes = require('./routes/bi');
 const hrRoutes = require('./routes/hr');
 const trackRoutes = require('./routes/track');
+const demoRequestsRoutes = require('./routes/demoRequests');
 
 const createApp = () => {
   const app = express();
@@ -172,6 +173,7 @@ const createApp = () => {
   app.use('/api/webhooks', kommoQuotationWebhookRoutes);
   app.use('/api/quotations', quotationsRoutes);
   app.use('/api/payroll', payrollRoutes);
+  app.use('/api/demo-requests', costlyApiLimiter, demoRequestsRoutes);
 
   // Public client-facing tracking page (no auth) — linked from SMS
   app.use('/track', trackRoutes);

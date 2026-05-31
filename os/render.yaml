@@ -42,3 +42,14 @@ services:
         value: "10000"
       - key: CORS_ORIGINS
         sync: false
+      # Public landing page demo request notifications.
+      - key: DEMO_REQUEST_WEBHOOK_URL
+        sync: false
+      - key: DEMO_REQUEST_TELEGRAM_ENABLED
+        value: "false"
+      - key: DEMO_REQUEST_TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DEMO_REQUEST_TELEGRAM_CHAT_ID
+        sync: false
+      - key: DEMO_REQUEST_TELEGRAM_PARSE_MODE
+        value: HTML
