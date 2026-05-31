@@ -1655,6 +1655,14 @@ export default function Telefonia() {
                   <button type="button" style={s.rowBtn} onClick={testVoiceAgentIntegration} disabled={agentTestLoading || !agentIntegration}>
                     {agentTestLoading ? 'Test...' : 'Test konfiguracji'}
                   </button>
+                  <button
+                    type="button"
+                    style={s.rowBtnActive}
+                    onClick={runBranchSetupTest}
+                    disabled={branchSetupTesting || !agentIntegration || !agentForm.oddzial_id}
+                  >
+                    {branchSetupTesting ? 'Test calosci...' : 'Test calosci oddzialu'}
+                  </button>
                 </div>
               </form>
 
@@ -1666,10 +1674,10 @@ export default function Telefonia() {
                     <button
                       type="button"
                       style={s.rowBtn}
-                      onClick={() => copyAgentText(buildAgentProviderPackage(), 'Pakiet podpiecia')}
-                      disabled={!agentForm.oddzial_id}
+                      onClick={runBranchSetupTest}
+                      disabled={branchSetupTesting || !agentIntegration || !agentForm.oddzial_id}
                     >
-                      Kopiuj pakiet
+                      {branchSetupTesting ? 'Test...' : 'Test calosci'}
                     </button>
                   </div>
                   <div style={s.providerChecklistList}>
