@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arbor — Wariant A · Leśny Premium</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#eef6f0; --card:#ffffff; --ink:#102218; --sub:#3f5f4b; --muted:#6e8175;
+    --accent:#0f6b3f; --accent2:#2fbe72; --line:rgba(15,95,58,.12);
+    --green-soft:rgba(15,107,63,.08); --shadow:0 18px 44px rgba(15,95,58,.12);
+  }
+  body{font-family:'Manrope',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(900px 500px at 88% -8%, rgba(47,190,114,.18), transparent 60%),
+      linear-gradient(135deg,#eef6f0 0%,#ffffff 46%,#e3f2e9 100%);
+    min-height:100vh;padding:26px;overflow-x:hidden}
+  .shell{display:grid;grid-template-columns:230px 1fr;gap:22px;max-width:1280px;margin:0 auto}
+
+  /* Sidebar */
+  .side{background:linear-gradient(180deg,#07301f,#0f5f3a 60%,#0a3f29);border-radius:18px;
+    padding:20px 14px;color:#f6fff9;box-shadow:var(--shadow);height:fit-content;position:sticky;top:26px;
+    animation:slideIn .7s cubic-bezier(.2,.8,.2,1) both}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:18px;letter-spacing:.5px;margin-bottom:22px}
+  .leaf{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.12);display:grid;place-items:center;
+    border:1px solid rgba(255,255,255,.18);font-size:18px;animation:sway 4s ease-in-out infinite}
+  .nav{display:flex;flex-direction:column;gap:4px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:rgba(246,255,249,.82);
+    text-decoration:none;font-weight:700;font-size:14px;transition:.22s;position:relative}
+  .nav a .ic{width:22px;text-align:center;opacity:.9}
+  .nav a:hover{background:rgba(255,255,255,.1);color:#fff;transform:translateX(3px)}
+  .nav a.on{background:#fff;color:#0b3825;box-shadow:0 12px 24px rgba(0,0,0,.18)}
+
+  /* Main */
+  .main{display:flex;flex-direction:column;gap:18px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(241,249,244,.96));
+    border:1px solid var(--line);border-radius:16px;padding:18px 22px;box-shadow:var(--shadow);
+    animation:fadeUp .6s .05s both}
+  .topbar h1{font-size:22px;font-weight:900;letter-spacing:-.3px}
+  .topbar p{color:var(--muted);font-size:13px;margin-top:3px;font-weight:600}
+  .live{display:inline-flex;align-items:center;gap:8px;background:var(--green-soft);color:var(--accent);
+    border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:800;font-size:12px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 0 rgba(47,190,114,.6);
+    animation:pulse 1.8s infinite}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);
+    position:relative;overflow:hidden;animation:fadeUp .6s both;transition:transform .25s,box-shadow .25s}
+  .kpi:nth-child(1){animation-delay:.10s}.kpi:nth-child(2){animation-delay:.16s}
+  .kpi:nth-child(3){animation-delay:.22s}.kpi:nth-child(4){animation-delay:.28s}
+  .kpi:hover{transform:translateY(-5px);box-shadow:0 26px 56px rgba(15,95,58,.2)}
+  .kpi::after{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,var(--accent),var(--accent2))}
+  .kpi .lab{color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+  .kpi .val{font-size:30px;font-weight:900;margin-top:8px;font-family:'JetBrains Mono';letter-spacing:-1px}
+  .kpi .chg{margin-top:6px;font-size:12px;font-weight:800;color:var(--accent)}
+  .kpi .chg.down{color:#b87514}
+
+  .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);
+    animation:fadeUp .6s .34s both}
+  .panel h3{font-size:15px;font-weight:900;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:12px;border-radius:11px;
+    transition:.18s;cursor:pointer;animation:fadeUp .5s both}
+  .row:nth-child(2){animation-delay:.40s}.row:nth-child(3){animation-delay:.46s}
+  .row:nth-child(4){animation-delay:.52s}.row:nth-child(5){animation-delay:.58s}
+  .row:hover{background:var(--green-soft);transform:translateX(4px)}
+  .row .t{font-weight:800;font-size:14px}.row .s{color:var(--muted);font-size:12px;font-weight:600;margin-top:2px}
+  .chip{font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .chip.ok{background:rgba(18,130,77,.12);color:#0f6b3f}
+  .chip.work{background:rgba(184,117,20,.13);color:#8a5a12}
+  .chip.new{background:rgba(18,110,144,.12);color:#12627f}
+  .crew{font-family:'JetBrains Mono';font-weight:700;color:var(--sub);font-size:13px}
+
+  /* Chart */
+  .chart{display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:6px;padding:0 4px}
+  .bar{flex:1;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,var(--accent2),var(--accent));
+    transform-origin:bottom;animation:grow .9s cubic-bezier(.2,.8,.2,1) both;position:relative}
+  .bar span{position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:var(--sub)}
+  .bar i{position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);font-style:normal;font-weight:700}
+  .bar:nth-child(1){animation-delay:.40s}.bar:nth-child(2){animation-delay:.46s}.bar:nth-child(3){animation-delay:.52s}
+  .bar:nth-child(4){animation-delay:.58s}.bar:nth-child(5){animation-delay:.64s}.bar:nth-child(6){animation-delay:.70s}
+  .bar:nth-child(7){animation-delay:.76s}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+  @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,190,114,.55)}70%{box-shadow:0 0 0 11px rgba(47,190,114,0)}100%{box-shadow:0 0 0 0 rgba(47,190,114,0)}}
+  @keyframes sway{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><span class="leaf">🌳</span> ARBOR</div>
+      <nav class="nav">
+        <a class="on"><span class="ic">▦</span> Pulpit</a>
+        <a><span class="ic">🗂</span> Zlecenia</a>
+        <a><span class="ic">👷</span> Ekipy</a>
+        <a><span class="ic">🚚</span> Flota</a>
+        <a><span class="ic">📋</span> Wyceny</a>
+        <a><span class="ic">🗺</span> Mapa live</a>
+        <a><span class="ic">💰</span> Księgowość</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div><h1>Pulpit operacyjny</h1><p>Poniedziałek, 30 maja · Centrala Warszawa</p></div>
+        <span class="live"><span class="dot"></span> 8 EKIP W TERENIE</span>
+      </div>
+      <section class="kpis">
+        <div class="kpi"><div class="lab">Aktywne zlecenia</div><div class="val" data-to="47">0</div><div class="chg">▲ 12% w tym tyg.</div></div>
+        <div class="kpi"><div class="lab">Ekipy w terenie</div><div class="val" data-to="8">0</div><div class="chg">▲ 2 dziś</div></div>
+        <div class="kpi"><div class="lab">Przychód · maj</div><div class="val" data-to="284" data-suffix=" tys">0</div><div class="chg">▲ 18%</div></div>
+        <div class="kpi"><div class="lab">Wyceny oczekujące</div><div class="val" data-to="12">0</div><div class="chg down">▼ 3 do akcept.</div></div>
+      </section>
+      <div class="grid2">
+        <div class="panel">
+          <h3>🗂 Ostatnie zlecenia</h3>
+          <div class="row"><div><div class="t">Wycinka 3 dębów — ul. Leśna 12</div><div class="s">Ekipa Kowalski · Pruszków</div></div><span class="crew">4 os.</span><span class="chip work">W toku</span></div>
+          <div class="row"><div><div class="t">Pielęgnacja koron — Park Miejski</div><div class="s">Ekipa Nowak · Warszawa</div></div><span class="crew">3 os.</span><span class="chip ok">Zakończone</span></div>
+          <div class="row"><div><div class="t">Frezowanie pni — os. Słoneczne</div><div class="s">Ekipa Wiśniewski · Piaseczno</div></div><span class="crew">2 os.</span><span class="chip work">W toku</span></div>
+          <div class="row"><div><div class="t">Usuwanie wiatrołomu — DW 719</div><div class="s">Nieprzypisane</div></div><span class="crew">—</span><span class="chip new">Nowe</span></div>
+          <div class="row"><div><div class="t">Nasadzenia 40 szt. — Galeria N.</div><div class="s">Ekipa Zieliński · Łódź</div></div><span class="crew">5 os.</span><span class="chip ok">Zakończone</span></div>
+        </div>
+        <div class="panel">
+          <h3>📈 Przychód · 7 dni</h3>
+          <div class="chart">
+            <div class="bar" style="height:55%"><span>32k</span><i>Pn</i></div>
+            <div class="bar" style="height:72%"><span>41k</span><i>Wt</i></div>
+            <div class="bar" style="height:48%"><span>28k</span><i>Śr</i></div>
+            <div class="bar" style="height:88%"><span>52k</span><i>Cz</i></div>
+            <div class="bar" style="height:66%"><span>38k</span><i>Pt</i></div>
+            <div class="bar" style="height:40%"><span>23k</span><i>So</i></div>
+            <div class="bar" style="height:30%"><span>17k</span><i>Nd</i></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+<script>
+  // count-up
+  document.querySelectorAll('.val').forEach(el=>{
+    const to=+el.dataset.to, suf=el.dataset.suffix||'', dur=1100, t0=performance.now();
+    function f(t){const p=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-p,3);
+      el.textContent=Math.round(to*e)+suf; if(p<1)requestAnimationFrame(f);}
+    setTimeout(()=>requestAnimationFrame(f),300);
+  });
+</script>
+</body>
+</html>

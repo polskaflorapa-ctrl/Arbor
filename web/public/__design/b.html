@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arbor — Wariant B · Neon Deep Space</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#060913; --card:rgba(18,24,41,.92); --card2:rgba(13,18,30,.88);
+    --ink:#f1f5f9; --sub:#cbd5e1; --muted:#64748b;
+    --accent:#00e5ff; --accent2:#00e676; --line:rgba(255,255,255,.06);
+    --glow:0 0 0 1px rgba(0,229,255,.18), 0 18px 50px rgba(0,0,0,.5);
+  }
+  body{font-family:'Space Grotesk',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(900px 600px at 85% -10%, rgba(0,229,255,.16), transparent 60%),
+      radial-gradient(700px 500px at 10% 110%, rgba(0,230,118,.12), transparent 60%),
+      #060913;
+    min-height:100vh;padding:26px;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:
+    linear-gradient(rgba(0,229,255,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,229,255,.04) 1px,transparent 1px);
+    background-size:40px 40px;pointer-events:none;z-index:0;
+    animation:drift 24s linear infinite}
+  .shell{display:grid;grid-template-columns:230px 1fr;gap:22px;max-width:1280px;margin:0 auto;position:relative;z-index:1}
+
+  .side{background:linear-gradient(180deg,rgba(13,18,30,.96),rgba(8,12,22,.96));
+    border:1px solid var(--line);border-radius:18px;padding:20px 14px;color:var(--ink);
+    box-shadow:var(--glow);height:fit-content;position:sticky;top:26px;
+    animation:slideIn .7s cubic-bezier(.2,.8,.2,1) both}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:1px;margin-bottom:22px}
+  .leaf{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#00e5ff,#00e676);
+    display:grid;place-items:center;font-size:18px;color:#04121a;
+    box-shadow:0 0 18px rgba(0,229,255,.6);animation:glowpulse 3s ease-in-out infinite}
+  .nav{display:flex;flex-direction:column;gap:4px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--sub);
+    text-decoration:none;font-weight:600;font-size:14px;transition:.22s;position:relative}
+  .nav a .ic{width:22px;text-align:center;opacity:.85}
+  .nav a:hover{background:rgba(0,229,255,.08);color:#fff;transform:translateX(3px)}
+  .nav a.on{background:linear-gradient(90deg,rgba(0,229,255,.18),rgba(0,229,255,.04));color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(0,229,255,.3)}
+  .nav a.on::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;
+    background:var(--accent);box-shadow:0 0 12px var(--accent)}
+
+  .main{display:flex;flex-direction:column;gap:18px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 22px;
+    box-shadow:var(--glow);animation:fadeUp .6s .05s both}
+  .topbar h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+  .topbar p{color:var(--muted);font-size:13px;margin-top:3px;font-weight:500}
+  .live{display:inline-flex;align-items:center;gap:8px;background:rgba(0,230,118,.1);color:var(--accent2);
+    border:1px solid rgba(0,230,118,.3);border-radius:999px;padding:7px 14px;font-weight:700;font-size:12px;
+    box-shadow:0 0 18px rgba(0,230,118,.25)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--accent2);box-shadow:0 0 8px var(--accent2);
+    animation:pulse 1.8s infinite}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--glow);
+    position:relative;overflow:hidden;animation:fadeUp .6s both;transition:transform .25s,box-shadow .25s}
+  .kpi:nth-child(1){animation-delay:.10s}.kpi:nth-child(2){animation-delay:.16s}
+  .kpi:nth-child(3){animation-delay:.22s}.kpi:nth-child(4){animation-delay:.28s}
+  .kpi:hover{transform:translateY(-5px);box-shadow:0 0 0 1px rgba(0,229,255,.4),0 26px 60px rgba(0,229,255,.18)}
+  .kpi::after{content:'';position:absolute;inset:0 auto 0 0;width:3px;
+    background:linear-gradient(180deg,var(--accent),var(--accent2));box-shadow:0 0 12px var(--accent)}
+  .kpi .lab{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+  .kpi .val{font-size:30px;font-weight:700;margin-top:8px;font-family:'JetBrains Mono';letter-spacing:-1px;
+    color:#fff;text-shadow:0 0 18px rgba(0,229,255,.4)}
+  .kpi .chg{margin-top:6px;font-size:12px;font-weight:700;color:var(--accent2)}
+  .kpi .chg.down{color:#ff9100}
+
+  .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--glow);
+    animation:fadeUp .6s .34s both}
+  .panel h3{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:12px;border-radius:11px;
+    transition:.18s;cursor:pointer;animation:fadeUp .5s both}
+  .row:nth-child(2){animation-delay:.40s}.row:nth-child(3){animation-delay:.46s}
+  .row:nth-child(4){animation-delay:.52s}.row:nth-child(5){animation-delay:.58s}
+  .row:hover{background:rgba(0,229,255,.06);transform:translateX(4px)}
+  .row .t{font-weight:600;font-size:14px}.row .s{color:var(--muted);font-size:12px;font-weight:500;margin-top:2px}
+  .chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .chip.ok{background:rgba(0,230,118,.12);color:#00e676;box-shadow:inset 0 0 0 1px rgba(0,230,118,.3)}
+  .chip.work{background:rgba(255,145,0,.12);color:#ff9100;box-shadow:inset 0 0 0 1px rgba(255,145,0,.3)}
+  .chip.new{background:rgba(0,229,255,.12);color:#00e5ff;box-shadow:inset 0 0 0 1px rgba(0,229,255,.3)}
+  .crew{font-family:'JetBrains Mono';font-weight:700;color:var(--sub);font-size:13px}
+
+  .chart{display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:6px;padding:0 4px}
+  .bar{flex:1;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,var(--accent),rgba(0,230,118,.5));
+    transform-origin:bottom;animation:grow .9s cubic-bezier(.2,.8,.2,1) both;position:relative;
+    box-shadow:0 0 14px rgba(0,229,255,.35)}
+  .bar span{position:absolute;top:-20px;left:0;right:0;text-align:center;font-size:11px;font-weight:700;color:var(--sub)}
+  .bar i{position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);font-style:normal;font-weight:600}
+  .bar:nth-child(1){animation-delay:.40s}.bar:nth-child(2){animation-delay:.46s}.bar:nth-child(3){animation-delay:.52s}
+  .bar:nth-child(4){animation-delay:.58s}.bar:nth-child(5){animation-delay:.64s}.bar:nth-child(6){animation-delay:.70s}
+  .bar:nth-child(7){animation-delay:.76s}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+  @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(0,230,118,.55)}70%{box-shadow:0 0 0 11px rgba(0,230,118,0)}100%{box-shadow:0 0 0 0 rgba(0,230,118,0)}}
+  @keyframes glowpulse{0%,100%{box-shadow:0 0 14px rgba(0,229,255,.5)}50%{box-shadow:0 0 26px rgba(0,229,255,.9)}}
+  @keyframes drift{from{background-position:0 0,0 0}to{background-position:40px 40px,40px 40px}}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><span class="leaf">🌲</span> ARBOR</div>
+      <nav class="nav">
+        <a class="on"><span class="ic">▦</span> Pulpit</a>
+        <a><span class="ic">🗂</span> Zlecenia</a>
+        <a><span class="ic">👷</span> Ekipy</a>
+        <a><span class="ic">🚚</span> Flota</a>
+        <a><span class="ic">📋</span> Wyceny</a>
+        <a><span class="ic">🗺</span> Mapa live</a>
+        <a><span class="ic">💰</span> Księgowość</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div><h1>Pulpit operacyjny</h1><p>Poniedziałek, 30 maja · Centrala Warszawa</p></div>
+        <span class="live"><span class="dot"></span> 8 EKIP W TERENIE</span>
+      </div>
+      <section class="kpis">
+        <div class="kpi"><div class="lab">Aktywne zlecenia</div><div class="val" data-to="47">0</div><div class="chg">▲ 12% w tym tyg.</div></div>
+        <div class="kpi"><div class="lab">Ekipy w terenie</div><div class="val" data-to="8">0</div><div class="chg">▲ 2 dziś</div></div>
+        <div class="kpi"><div class="lab">Przychód · maj</div><div class="val" data-to="284" data-suffix=" tys">0</div><div class="chg">▲ 18%</div></div>
+        <div class="kpi"><div class="lab">Wyceny oczekujące</div><div class="val" data-to="12">0</div><div class="chg down">▼ 3 do akcept.</div></div>
+      </section>
+      <div class="grid2">
+        <div class="panel">
+          <h3>🗂 Ostatnie zlecenia</h3>
+          <div class="row"><div><div class="t">Wycinka 3 dębów — ul. Leśna 12</div><div class="s">Ekipa Kowalski · Pruszków</div></div><span class="crew">4 os.</span><span class="chip work">W toku</span></div>
+          <div class="row"><div><div class="t">Pielęgnacja koron — Park Miejski</div><div class="s">Ekipa Nowak · Warszawa</div></div><span class="crew">3 os.</span><span class="chip ok">Zakończone</span></div>
+          <div class="row"><div><div class="t">Frezowanie pni — os. Słoneczne</div><div class="s">Ekipa Wiśniewski · Piaseczno</div></div><span class="crew">2 os.</span><span class="chip work">W toku</span></div>
+          <div class="row"><div><div class="t">Usuwanie wiatrołomu — DW 719</div><div class="s">Nieprzypisane</div></div><span class="crew">—</span><span class="chip new">Nowe</span></div>
+          <div class="row"><div><div class="t">Nasadzenia 40 szt. — Galeria N.</div><div class="s">Ekipa Zieliński · Łódź</div></div><span class="crew">5 os.</span><span class="chip ok">Zakończone</span></div>
+        </div>
+        <div class="panel">
+          <h3>📈 Przychód · 7 dni</h3>
+          <div class="chart">
+            <div class="bar" style="height:55%"><span>32k</span><i>Pn</i></div>
+            <div class="bar" style="height:72%"><span>41k</span><i>Wt</i></div>
+            <div class="bar" style="height:48%"><span>28k</span><i>Śr</i></div>
+            <div class="bar" style="height:88%"><span>52k</span><i>Cz</i></div>
+            <div class="bar" style="height:66%"><span>38k</span><i>Pt</i></div>
+            <div class="bar" style="height:40%"><span>23k</span><i>So</i></div>
+            <div class="bar" style="height:30%"><span>17k</span><i>Nd</i></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+<script>
+  document.querySelectorAll('.val').forEach(el=>{
+    const to=+el.dataset.to, suf=el.dataset.suffix||'', dur=1100, t0=performance.now();
+    function f(t){const p=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-p,3);
+      el.textContent=Math.round(to*e)+suf; if(p<1)requestAnimationFrame(f);}
+    setTimeout(()=>requestAnimationFrame(f),300);
+  });
+</script>
+</body>
+</html>
