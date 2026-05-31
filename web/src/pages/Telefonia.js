@@ -1300,7 +1300,10 @@ export default function Telefonia() {
                 onClick={() => (tab === 'sms'
                   ? loadSms(page)
                   : tab === 'agent'
-                    ? loadVoiceAgentIntakes(agentForm.oddzial_id)
+                    ? Promise.all([
+                      loadBranchIntegrationStatuses(),
+                      loadVoiceAgentIntakes(agentForm.oddzial_id),
+                    ])
                     : loadTelephonyExtras())}
               >
                 Odswiez
@@ -2925,6 +2928,40 @@ const s = {
     border: '1px solid rgba(15,95,58,0.16)',
     background: '#ffffff',
     boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+  },
+  branchStatusBox: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+  },
+  branchStatusGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
+    gap: 8,
+  },
+  branchStatusCard: {
+    minWidth: 0,
+    textAlign: 'left',
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
+    cursor: 'pointer',
+  },
+  branchStatusCardActive: {
+    borderColor: 'rgba(15,95,58,0.42)',
+    boxShadow: '0 0 0 2px rgba(15,95,58,0.08)',
+  },
+  branchStatusMeta: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 4,
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    marginBottom: 8,
   },
   agentHealthGrid: {
     display: 'grid',
