@@ -234,12 +234,19 @@ export default function RaportDzienny() {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
+    <Box className="app-shell raport-dzienny-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
       <Sidebar />
-      <Box sx={{ flex: 1, p: { xs: 2, sm: 3 }, maxWidth: 960 }}>
-        <PageHeader title={t('pages.dailyReport.title')} subtitle={t('pages.dailyReport.subtitle')} />
+      <Box className="app-main raport-dzienny-main" sx={{ flex: 1, width: '100%', p: { xs: '14px 12px 24px', sm: '22px clamp(16px, 2.4vw, 30px) 32px' }, maxWidth: 1120, mx: 'auto', minWidth: 0 }}>
+        <PageHeader variant="hero" title={t('pages.dailyReport.title')} subtitle={t('pages.dailyReport.subtitle')} />
         <StatusMessage message={msg} />
-        <Stack spacing={2} sx={{ mb: 2 }}>
+        <Stack className="raport-dzienny-toolbar" spacing={2} sx={{
+          mb: 2,
+          p: 2,
+          border: '1px solid rgba(15,95,58,0.13)',
+          borderRadius: '8px',
+          bgcolor: '#fff',
+          boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+        }}>
           <TextField
             type="date"
             label={t('pages.dailyReport.reportDate')}
@@ -256,13 +263,22 @@ export default function RaportDzienny() {
           )}
         </Stack>
         {loading ? (
-          <Typography color="text.secondary">{t('pages.dailyReport.loading')}</Typography>
+          <Typography className="raport-dzienny-panel" color="text.secondary" sx={{ p: 3, border: '1px solid rgba(15,95,58,0.13)', borderRadius: '8px', bgcolor: '#fff' }}>
+            {t('pages.dailyReport.loading')}
+          </Typography>
         ) : (
-          <>
+          <Box className="raport-dzienny-panel" sx={{
+            p: { xs: 1.5, sm: 2.5 },
+            border: '1px solid rgba(15,95,58,0.13)',
+            borderRadius: '8px',
+            bgcolor: '#fff',
+            boxShadow: '0 12px 30px rgba(31,79,50,0.065)',
+          }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               {t('pages.dailyReport.tasksSection')}
             </Typography>
-            <Table size="small" sx={{ mb: 3 }}>
+            <Box className="raport-dzienny-table" sx={{ mb: 3, overflowX: 'auto', border: '1px solid rgba(15,95,58,0.1)', borderRadius: '8px' }}>
+            <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>{t('pages.dailyReport.thTask')}</TableCell>
@@ -302,13 +318,14 @@ export default function RaportDzienny() {
                 )}
               </TableBody>
             </Table>
+            </Box>
 
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               {t('pages.dailyReport.materials')}
             </Typography>
-            <Stack spacing={1} sx={{ mb: 2 }}>
+            <Stack className="raport-dzienny-materials" spacing={1} sx={{ mb: 2 }}>
               {materialy.map((m, i) => (
-                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start">
+                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start" sx={{ p: 1.25, border: '1px solid rgba(15,95,58,0.1)', borderRadius: '8px', bgcolor: 'rgba(241,249,244,0.46)' }}>
                   <TextField
                     size="small"
                     label={t('pages.dailyReport.matName')}
@@ -366,7 +383,7 @@ export default function RaportDzienny() {
               sx={{ mb: 2 }}
             />
 
-            <Stack direction="row" spacing={2} flexWrap="wrap">
+            <Stack className="raport-dzienny-actions" direction="row" spacing={2} flexWrap="wrap">
               <Button variant="contained" startIcon={<Save />} onClick={save} disabled={saving}>
                 {saving ? t('pages.dailyReport.saving') : t('pages.dailyReport.save')}
               </Button>
@@ -374,7 +391,7 @@ export default function RaportDzienny() {
                 {sending ? t('pages.dailyReport.sending') : t('pages.dailyReport.send')}
               </Button>
             </Stack>
-          </>
+          </Box>
         )}
       </Box>
     </Box>
