@@ -1152,6 +1152,18 @@ export default function Telefonia() {
     branch_sender_test: 'Test nadawcy oddzialu',
     webhook_config_test: 'Test webhooka',
   }[value] || value || 'Test');
+  const branchIntegrationTone = (row) => {
+    if (!row?.integration_id) return 'bad';
+    if (row.integration_status === 'active' && row.telefon && (row.sms_sender_id || row.telefon)) return 'ok';
+    if (row.integration_status === 'paused') return 'warn';
+    return 'warn';
+  };
+  const branchIntegrationStatusLabel = (row) => {
+    if (!row?.integration_id) return 'Do podpiecia';
+    if (row.integration_status === 'active') return 'Aktywny';
+    if (row.integration_status === 'paused') return 'Pauza';
+    return row.integration_status || 'Nieznany';
+  };
   const agentNeedsReviewCount = Number(agentIntakesSummary.needs_review || 0);
   const agentSmsMissingCount = Number(agentIntakesSummary.sms_missing || 0);
   const agentSmsErrorCount = Number(agentIntakesSummary.sms_error || 0);
@@ -1334,6 +1346,65 @@ export default function Telefonia() {
           <div className="telefonia-panel telefonia-agent-panel" style={s.panel}>
             <div style={s.callsIntro}>
               Podpiecie bez kodu: wybierz oddzial, wlacz agenta, skopiuj webhook i sekret do providera telefonii AI. Agent zapisuje rozmowy w CRM i historii telefonii w tym panelu.
+            </div>
+            <div style={s.branchStatusBox}>
+              <div style={s.agentHistoryHeader}>
+                <div>
+                  <div style={s.manualTitle}>Oddzialy - status podpiecia</div>
+                  <div style={s.agentHistoryMeta}>
+                    Kontrola numerow, SMS i Agenta AI dla kazdego oddzialu osobno.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={loadBranchIntegrationStatuses}
+                  disabled={branchIntegrationStatusesLoading}
+                >
+                  {branchIntegrationStatusesLoading ? 'Sprawdzanie...' : 'Odswiez'}
+                </button>
+              </div>
+              {branchIntegrationStatuses.length ? (
+                <div style={s.branchStatusGrid}>
+                  {branchIntegrationStatuses.map((row) => {
+                    const tone = branchIntegrationTone(row);
+                    const selected = String(row.oddzial_id) === String(agentForm.oddzial_id);
+                    return (
+                      <button
+                        key={row.oddzial_id}
+                        type="button"
+                        style={{ ...s.branchStatusCard, ...(selected ? s.branchStatusCardActive : null) }}
+                        onClick={() => setAgentForm((f) => ({ ...f, oddzial_id: String(row.oddzial_id) }))}
+                      >
+                        <div style={s.agentHealthTop}>
+                          <span style={{
+                            ...s.agentHealthDot,
+                            background: tone === 'ok' ? '#22c55e' : tone === 'bad' ? '#ef4444' : '#f59e0b',
+                          }}
+                          />
+                          <span>{branchIntegrationStatusLabel(row)}</span>
+                        </div>
+                        <strong style={s.agentHealthValue}>{row.oddzial_name || `Oddzial #${row.oddzial_id}`}</strong>
+                        <div style={s.branchStatusMeta}>
+                          <span>Tel: {row.telefon || 'brak'}</span>
+                          <span>SMS: {row.sms_sender_id || row.telefon || 'globalny'}</span>
+                          <span>Rozmowy: {Number(row.intakes_total || 0)}</span>
+                          <span>Do sprawdzenia: {Number(row.needs_review || 0)}</span>
+                        </div>
+                        <div style={s.agentHistoryMeta}>
+                          {row.last_test_log_at
+                            ? `Ostatni test: ${row.last_test_log_status === 'ok' ? 'OK' : 'Blad'} / ${formatAgentDate(row.last_test_log_at)}`
+                            : 'Brak testu integracji.'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={s.emptyMuted}>
+                  {branchIntegrationStatusesLoading ? 'Ladowanie statusow oddzialow...' : 'Brak oddzialow do pokazania.'}
+                </div>
+              )}
             </div>
             {agentLoading && <div style={s.empty}>Ladowanie konfiguracji...</div>}
             <div style={s.agentHealthBox}>
