@@ -41,6 +41,7 @@ relying on the gallery and clients start receiving links.
 Before clicking deploy, run locally:
 
 ```bash
+npm run deploy:prod:dry-run
 npm run deploy:free:check
 npm run deploy:env:print
 ```

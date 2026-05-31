@@ -189,10 +189,26 @@ npm run bootstrap:admin
 9. Uruchom weryfikacje:
 
 ```powershell
+npm run deploy:prod:dry-run
 npm run deploy:ready:check
 npm run test:critical-path -w arbor-os
 npm run smoke:kommo:crm -w arbor-web
 ```
+
+10. Po migracji i bootstrapie admina wykonaj backup i sprawdz, ze dump jest czytelny:
+
+```powershell
+npm run backup:db
+npm run restore:db:check
+```
+
+11. Po deployu API uruchom smoke po publicznym URL:
+
+```powershell
+npm run smoke:render -- https://<arbor-os-url>
+```
+
+Pelny suchy przebieg produkcyjny jest w `docs/PRODUCTION-DEPLOY-DRY-RUN.md`.
 
 ## Szybka diagnostyka
 

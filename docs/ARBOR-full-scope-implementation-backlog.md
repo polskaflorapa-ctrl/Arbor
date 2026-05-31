@@ -59,7 +59,15 @@
 - [x] **Kontrola brakow po smoke w demo mode**: smoke E2E sprawdza Kommo diagnostics/config, blokady i rekomendacje dispatchera oraz BI drill z `cost_sources` dla zlecenia po rozliczeniu.
 - [x] **Backendowy kontrakt apply rekomendacji**: `/api/ops/action-recommendations/:id/apply` wykonuje `set_duration_batch`, `remind_team_batch` albo zwraca nawigacje dla `open_*`, zapisuje feedback `accepted/source=action`, a UI kierownika korzysta z jednego kontraktu.
 - [x] **Dispatch preflight z rekomendacji**: `fix_dispatch_blockers` w `/api/ops/action-recommendations/:id/apply` automatycznie dobiera wolna ekipe, dopisuje checklist GPS pod prace przez Zadarma i zwraca `dispatch_preflight` z tym, co gotowe oraz co nadal blokuje plan.
-- [ ] **Nastepny pakiet**: podlaczyc `dispatch_preflight` do ekranu Auto-dispatch/Harmonogram, zeby solver przed zapisem planu pokazywal te same blokady i szybkie akcje naprawcze.
+- [x] **P0 dokument QA pilota 1 oddzialu**: `docs/PILOT-ONE-BRANCH-CHECKLIST.md` spina bramke wejscia, dane startowe, scenariusz A-Z, offline, BI, klienta, smoke i GO/NO-GO.
+- [x] **P0 dispatch preflight w Auto-dispatch/Harmonogram**: Auto-dispatch zatrzymuje zapis na blokadach, uruchamia `fix_dispatch_blockers`, pokazuje wynik naprawy i nadal pozwala na swiadomy bypass; Harmonogram ma wejscie do preflightu dla wybranego dnia.
+- [x] **P0 mobile/offline v2 dla pilota**: mobilka cache'uje dzisiejsze zlecenia i szczegoly, lista pokazuje status kolejki offline, a flush rozroznia bezpieczny konflikt `TASK_ALREADY_FINISHED` od `IDEMPOTENCY_INCOMPLETE`, ktory zostaje w retry.
+- [x] **P0 RBAC/audyt pilota**: BI drill redaguje finanse dla rol operacyjnych, SMS manualny/szablonowy respektuje role i oddzial, a Kommo push/retry/payload wymaga roli biurowej; testy pokrywaja krytyczne blokady finansow, SMS i Kommo, a istniejace access-policy pilnuje rozliczen/eksportow ekip.
+- [x] **P0 audyt zmian statusu i danych finansowych**: `audit_log` obejmuje status manualny, finish z wartoscia netto oraz upsert rozliczenia finansowego z poprzednimi/nastepnymi wartosciami; `/api/audit` jest dostepne dla Dyrektora/Admina oraz branch-scoped dla Kierownika.
+- [x] **P0 UI/role polish RBAC**: web ukrywa finansowe KPI/wartosci dla rol bez `canViewFinance`, chowa SMS i Kommo w szczegole zlecenia zgodnie z backendowa macierza oraz nie odpala automatycznego SMS przy zmianie statusu dla rol bez uprawnien; BI drill pokazuje operacyjne dane z komunikatem `Finanse ukryte`.
+- [x] **P0 pilot hardening**: `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md` spina smoke Kierownik + Brygadzista na web/mobile, macierz GO/NO-GO i artefakty startu oddzialu; `npm run verify:pilot-hardening` pilnuje checklist, smoke scriptow i slow kluczowych.
+- [x] **P0 production deploy dry-run**: `docs/PRODUCTION-DEPLOY-DRY-RUN.md` opisuje suchy przebieg env, migracji, admin bootstrap, backup/restore dry-run i smoke po publicznym URL; `npm run deploy:prod:dry-run` pilnuje skryptow, runbookow i komend GO/NO-GO.
+- [ ] **Nastepny pakiet**: SLO/observability minimum - health/metrics, progi 5xx/p95, storage smoke i prosty alert operacyjny.
 
 ---
 
@@ -92,7 +100,7 @@ flowchart LR
 - [x] **0.1** Jedna „prawda” środowiskowa: `.env.example` + dokumentacja dla `os`, `web`, `mobile` (API URL, Kommo, mapy, SMS). Dodano `docs/ENVIRONMENT-RUNBOOK.md`, poprawiono szablony web/mobile/deploy i checker `verify:env-runbook`.
 - [ ] **0.2** RBAC spójny: Dyrektor Produkcji / Kierownik Oddziału / Brygadzista — mapowanie ról w JWT, guardy na endpointach, ukrywanie akcji w UI.
 - [ ] **0.3** Model `oddzial_id` konsekwentnie na zleceniach, ekipach, raportach (filtry BI).
-- [ ] **0.4** Audyt: kto zmienił status zlecenia / dane finansowe (tabela + UI minimalny).
+- [x] **0.4** Audyt: kto zmienił status zlecenia / dane finansowe (tabela + UI minimalny).
 - [ ] **0.5** SLO: logi, metryki czasu API, alert na 5xx (nawet prosty).
 
 ---
