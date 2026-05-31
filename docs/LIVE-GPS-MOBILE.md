@@ -17,6 +17,8 @@ Live GPS ma pokazywac ostatnia znana pozycje brygadzisty albo wyceniajacego w ha
 - Wysylka jest ograniczona do okolo 1 raz na minute albo po zmianie polozenia o 50 m.
 - Role dopuszczone: `Brygadzista`, `Pomocnik`, `Wyceniajacy` / `Wyceniający`.
 - Aplikacja pokazuje terenowym rolom widoczny status `GPS LIVE`, z ostatnia synchronizacja albo komunikatem o braku zgody/sieci.
+- Profil pracownika rozroznia stany diagnostyczne: aktywny, wylaczony, brak zgody, zgoda cofnieta w systemie, brak sygnalu GPS, offline oraz blad serwera.
+- Po przejsciu aplikacji do tla foreground heartbeat jest zatrzymywany; po powrocie do aktywnej aplikacji zgoda i watcher sa sprawdzane ponownie.
 - Pelny background GPS 24/7 wymaga osobnej decyzji, zgody pracownika, konfiguracji systemowej i polityki firmy.
 
 ## Payload
