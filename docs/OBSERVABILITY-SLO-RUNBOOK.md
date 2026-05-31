@@ -111,6 +111,8 @@ Minimalna eskalacja przed pelnym APM:
    - restore dry-run nie byl robiony w ostatnim miesiacu;
    - Kommo/SMS ma dead-letter bez wlasciciela.
 
+Szczegolowe kroki reakcji sa w `docs/PRODUCTION-INCIDENT-RUNBOOK.md`.
+
 ## 7. GO / NO-GO
 
 GO:

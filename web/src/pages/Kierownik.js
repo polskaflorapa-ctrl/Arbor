@@ -606,9 +606,9 @@ export default function Kierownik() {
   const actionRecommendationHiddenItems = actionRecommendations?.hidden_recommendations || [];
 
   return (
-    <div className="app-shell" style={styles.container}>
+    <div className="app-shell kierownik-shell" style={styles.container}>
       <Sidebar />
-      <main className="app-main" style={styles.main}>
+      <main className="app-main kierownik-main" style={styles.main}>
         <PageHeader
           variant="hero"
           title={t('pages.kierownik.title')}
@@ -628,7 +628,7 @@ export default function Kierownik() {
           }
         />
 
-        <section style={styles.cockpitPanel}>
+        <section className="kierownik-cockpit-panel" style={styles.cockpitPanel}>
           <div style={styles.cockpitHeader}>
             <div>
               <div style={styles.cockpitTitleRow}>
@@ -1260,7 +1260,7 @@ export default function Kierownik() {
 
         {/* Statystyki oddziałów (tylko dla dyrektora) */}
         {isDyrektor(user) && (
-          <div style={styles.oddzialyRow}>
+          <div className="kierownik-branches" style={styles.oddzialyRow}>
             {statsByOddzial.map(o => (
               <div
                 key={o.id}
@@ -1295,7 +1295,7 @@ export default function Kierownik() {
         )}
 
         {/* Filtry */}
-        <div style={styles.filtryRow}>
+        <div className="kierownik-filters" style={styles.filtryRow}>
           <div style={styles.filtrGroup}>
             <label style={styles.filtrLabel}>{t('pages.kierownik.filterStatus')}</label>
             <select style={styles.filtrSelect} value={filtrStatus} onChange={e => setFiltrStatus(e.target.value)}>
@@ -1335,7 +1335,7 @@ export default function Kierownik() {
         {loading ? (
           <div style={styles.loading}>{t('pages.kierownik.loadingTasks')}</div>
         ) : (
-          <div style={styles.cardsWrap}>
+          <div className="kierownik-cards-wrap" style={styles.cardsWrap}>
             {filtrowane.length === 0 ? (
               <div style={{ ...styles.tableWrap, textAlign: 'center', color: 'var(--text-muted)', padding: 60 }}>
                 <div style={{ ...styles.emptyIcon, display: 'flex', justifyContent: 'center' }}>
@@ -1344,7 +1344,7 @@ export default function Kierownik() {
                 <p>{t('pages.kierownik.emptyFiltered')}</p>
               </div>
             ) : (
-              <div style={styles.cardsGrid}>
+              <div className="kierownik-cards-grid" style={styles.cardsGrid}>
                 {filtrowane.map((z) => (
                   <div key={z.id} style={styles.taskCard}>
                     <div style={styles.taskCardTop}>
@@ -1399,22 +1399,22 @@ export default function Kierownik() {
 }
 
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
-  main: { flex: 1, padding: '24px', overflowX: 'hidden' },
+  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  main: { flex: 1, width: '100%', maxWidth: 1560, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', overflowX: 'hidden' },
   cockpitPanel: {
     marginBottom: 20,
-    padding: 16,
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--glass-border)',
+    padding: '16px clamp(14px, 2vw, 20px)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 14px 34px rgba(31,79,50,0.075)',
   },
   cockpitHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 },
   cockpitTitleRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  cockpitTitle: { margin: 0, color: 'var(--text)', fontSize: 18, fontWeight: 800 },
-  cockpitSub: { margin: '4px 0 0', color: 'var(--text-sub)', fontSize: 13 },
+  cockpitTitle: { margin: 0, color: 'var(--text)', fontSize: 19, fontWeight: 900 },
+  cockpitSub: { margin: '4px 0 0', color: 'var(--text-sub)', fontSize: 13, fontWeight: 650 },
   cockpitControls: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  cockpitDate: { minHeight: 36, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 13 },
+  cockpitDate: { minHeight: 36, padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.16)', background: '#ffffff', color: 'var(--text)', fontSize: 13 },
   cockpitRefresh: {
     minHeight: 36,
     display: 'inline-flex',
@@ -1422,8 +1422,8 @@ const styles = {
     gap: 6,
     padding: '7px 11px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
     color: 'var(--text)',
     cursor: 'pointer',
     fontSize: 13,
@@ -1431,7 +1431,7 @@ const styles = {
   },
   cockpitError: { marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.22)', fontSize: 13 },
   cockpitMetrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 },
-  cockpitMetric: { minHeight: 82, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4, border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface-glass)' },
+  cockpitMetric: { minHeight: 82, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 4, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, padding: '10px 12px', background: '#ffffff', boxShadow: '0 8px 20px rgba(31,79,50,0.045)' },
   cockpitMetricLabel: { color: 'var(--text-sub)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 },
   cockpitMetricValue: { fontSize: 24, lineHeight: 1, fontWeight: 900 },
   cockpitMetricDetail: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 650 },
@@ -1497,13 +1497,13 @@ const styles = {
   recommendationsBand: { marginBottom: 14, padding: '12px 0 2px', borderTop: '1px solid var(--border)' },
   recommendationsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   recommendationsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 10 },
-  recommendationCard: { minWidth: 0, display: 'grid', gap: 8, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)' },
+  recommendationCard: { minWidth: 0, display: 'grid', gap: 8, padding: 10, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: '#ffffff', boxShadow: '0 8px 20px rgba(31,79,50,0.045)' },
   recommendationTop: { display: 'flex', alignItems: 'flex-start', gap: 9, minWidth: 0 },
   recommendationRank: { minWidth: 28, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 950, flexShrink: 0 },
   recommendationBody: { minWidth: 0, display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12 },
   recommendationAccepted: { justifySelf: 'start', padding: '2px 6px', borderRadius: 7, background: 'rgba(34,197,94,0.12)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.24)', fontSize: 10, fontStyle: 'normal', fontWeight: 850 },
   recommendationActionText: { color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.35 },
-  recommendationPreview: { display: 'grid', gap: 4, padding: '7px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)' },
+  recommendationPreview: { display: 'grid', gap: 4, padding: '7px 8px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.11)', background: 'rgba(241,249,244,0.68)' },
   recommendationPreviewTitle: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0 },
   recommendationPreviewRow: { width: '100%', minHeight: 34, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 0', border: 0, borderTop: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer' },
   recommendationPreviewBody: { minWidth: 0, display: 'grid', gap: 1, fontSize: 11, overflow: 'hidden' },
@@ -1540,7 +1540,7 @@ const styles = {
   issuePill: { borderRadius: 8, padding: '4px 8px', background: 'rgba(245,158,11,0.13)', color: 'var(--warning)', fontSize: 11, fontWeight: 850 },
   issuePillMuted: { borderRadius: 8, padding: '4px 8px', background: 'var(--surface-field)', color: 'var(--text-sub)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 750 },
   cockpitGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12, alignItems: 'start' },
-  cockpitColumn: { minWidth: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12 },
+  cockpitColumn: { minWidth: 0, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: '#ffffff', padding: 12, boxShadow: '0 8px 20px rgba(31,79,50,0.045)' },
   cockpitSectionTitle: { display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, color: 'var(--text)', fontSize: 13, fontWeight: 850 },
   cockpitEmpty: { padding: '12px 0', color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.45 },
   blockerRow: { width: '100%', minHeight: 48, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', border: '0 solid var(--border)', borderTopWidth: 1, background: 'transparent', color: 'var(--text)', textAlign: 'left', cursor: 'pointer' },
@@ -1564,24 +1564,24 @@ const styles = {
   headerRight: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
   addBtn: { minHeight: 38, padding: '9px 16px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 900, transition: 'all 0.2s', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 },
   oddzialyRow: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
-  oddzialCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 16px', cursor: 'pointer', boxShadow: 'var(--shadow-md)', minWidth: 140, transition: 'all 0.2s' },
+  oddzialCard: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: '12px 16px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(31,79,50,0.06)', minWidth: 140, transition: 'all 0.2s' },
   oddzialNazwa: { fontSize: 13, fontWeight: '600', color: 'var(--text)', marginBottom: 6 },
   oddzialStats: { display: 'flex', gap: 8, fontSize: 11, flexWrap: 'wrap' },
   oddzialTotal: { fontSize: 10, color: 'var(--text-muted)', marginTop: 6 },
-  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', padding: '12px 16px', borderRadius: 8, boxShadow: 'var(--shadow-md)' },
+  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap', background: 'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))', backgroundSize: '32px 32px, 32px 32px, auto', border: '1px solid rgba(15,95,58,0.13)', padding: '12px 16px', borderRadius: 8, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
   filtrSelect: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   clearBtn: { padding: '6px 12px', backgroundColor: 'rgba(248,113,113,0.1)', color: '#EF5350', border: '1px solid #FFCDD2', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   filtrCount: { marginLeft: 'auto', fontSize: 13, color: 'var(--accent)', fontWeight: '600' },
-  tableWrap: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'auto', boxShadow: 'var(--shadow-md)' },
+  tableWrap: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, overflow: 'auto', boxShadow: '0 10px 24px rgba(31,79,50,0.06)' },
   cardsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   cardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 },
   taskCard: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.06)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',

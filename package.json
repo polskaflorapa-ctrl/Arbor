@@ -51,6 +51,7 @@
     "verify:env-runbook": "node ./scripts/env-runbook-check.cjs",
     "verify:pilot-hardening": "node ./scripts/pilot-hardening-check.cjs",
     "verify:observability": "node ./scripts/observability-check.cjs",
+    "verify:incident-runbook": "node ./scripts/incident-runbook-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

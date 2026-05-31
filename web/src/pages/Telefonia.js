@@ -780,9 +780,7 @@ export default function Telefonia() {
     const webhookUrl = agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake';
     const branchPhone = branchTelephonyForm.telefon || selectedAgentBranch?.telefon || '';
     const smsSender = branchTelephonyForm.sms_sender_id || selectedAgentBranch?.sms_sender_id || branchPhone || '';
-    return {
-      providerName,
-      steps: [
+    const steps = [
         {
           label: 'Oddzial wybrany',
           ready: !!agentForm.oddzial_id,
@@ -822,7 +820,94 @@ export default function Telefonia() {
             ? 'Opcjonalne przy zwyklym webhooku.'
             : (agentForm.provider_account_id || agentIntegration?.provider_account_id || 'Wklej ID asystenta/konta z panelu providera.'),
         },
-      ],
+      ];
+    const readyCount = steps.filter((step) => step.ready).length;
+    const readiness = Math.round((readyCount / Math.max(steps.length, 1)) * 100);
+    const blockers = steps.filter((step) => !step.ready).map((step) => `${step.label}: ${step.detail}`);
+    return {
+      providerName,
+      steps,
+      readyCount,
+      totalCount: steps.length,
+      readiness,
+      blockers,
+      reportText: [
+        `Audyt podpiecia Agenta AI - ${oddzialLabel(agentForm.oddzial_id)}`,
+        `Provider: ${providerName}`,
+        `Gotowosc: ${readiness}% (${readyCount}/${steps.length})`,
+        '',
+        'Status krokow:',
+        ...steps.map((step) => `- ${step.ready ? 'OK' : 'BRAK'} ${step.label}: ${step.detail}`),
+        '',
+        blockers.length ? 'Blokery:' : 'Blokery: brak',
+        ...blockers.map((item) => `- ${item}`),
+      ].join('\n'),
+    };
+  };
+
+  const buildProviderSetupGuide = () => {
+    const provider = agentIntegration?.provider || agentForm.provider || 'external';
+    const webhookUrl = agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake';
+    const secret = agentIntegration?.webhook_secret || '';
+    const guides = {
+      external: {
+        title: 'Zwykly webhook',
+        steps: [
+          'Ustaw webhook typu POST po zakonczonej rozmowie lub po zebraniu danych klienta.',
+          'Wklej Webhook URL jako adres docelowy.',
+          'Dodaj header x-voice-agent-secret z sekretem oddzialu.',
+          'Wysylaj pola: caller_phone, customer_name, inspection_address, city, service_type, appointment_at, notes, transcript.',
+        ],
+      },
+      vapi: {
+        title: 'Vapi',
+        steps: [
+          'W Vapi otworz Assistant albo Workflow dla numeru oddzialu.',
+          'W sekcji Server / Webhook ustaw POST na Webhook URL.',
+          'Dodaj header x-voice-agent-secret z sekretem oddzialu.',
+          'W payload mapperze przekaz caller_phone, transcript, appointment_at i dane adresowe.',
+        ],
+      },
+      elevenlabs: {
+        title: 'ElevenLabs',
+        steps: [
+          'W Conversational AI otworz agenta przypisanego do numeru oddzialu.',
+          'Dodaj webhook / post-call webhook z metoda POST.',
+          'Dodaj header x-voice-agent-secret z sekretem oddzialu.',
+          'W danych rozmowy przekaz telefon klienta, streszczenie, adres i termin ogledzin.',
+        ],
+      },
+      twilio: {
+        title: 'Twilio',
+        steps: [
+          'W numerze Twilio albo TwiML App ustaw webhook po rozmowie na Webhook URL.',
+          'Dodaj x-voice-agent-secret jako custom header, jesli flow to obsluguje.',
+          'Jezeli uzywasz Studio Flow, wyslij HTTP Request po zebraniu danych klienta.',
+          'Mapuj From jako caller_phone, CallSid jako call_sid i przekaz transkrypt/notatki.',
+        ],
+      },
+      zadarma: {
+        title: 'Zadarma',
+        steps: [
+          'W panelu Zadarma ustaw powiadomienie/webhook dla numeru oddzialu.',
+          'Jesli header nie jest obslugiwany, uzyj integratora posredniego i dodaj x-voice-agent-secret.',
+          'Webhook musi wyslac POST z numerem klienta, statusem rozmowy i notatka agenta.',
+          'Po tescie sprawdz Ostatnie testy integracji w tym panelu.',
+        ],
+      },
+    };
+    const guide = guides[provider] || guides.external;
+    return {
+      ...guide,
+      text: [
+        `Provider: ${guide.title}`,
+        `Oddzial: ${oddzialLabel(agentForm.oddzial_id)}`,
+        `Webhook URL: ${webhookUrl}`,
+        'Header: x-voice-agent-secret',
+        `Sekret: ${secret || '(wlacz agenta, zeby wygenerowac sekret)'}`,
+        '',
+        ...guide.steps.map((step, index) => `${index + 1}. ${step}`),
+      ].join('\n'),
     };
   };
 
@@ -1281,6 +1366,7 @@ export default function Telefonia() {
   const agentLastSmsProblem = agentIntakes.find((x) => x.sms_status?.confirmation_error || x.sms_status?.reminder_error) || null;
   const agentBranchSmsSender = selectedAgentBranch?.sms_sender_id || selectedAgentBranch?.sms_sender || selectedAgentBranch?.telefon || '';
   const providerChecklist = buildProviderChecklist();
+  const providerSetupGuide = buildProviderSetupGuide();
   const agentHealthItems = [
     {
       label: 'Agent AI',
@@ -1670,7 +1756,12 @@ export default function Telefonia() {
                 <div style={s.manualTitle}>Dane do wklejenia u providera</div>
                 <div style={s.providerChecklistBox}>
                   <div style={s.providerChecklistHead}>
-                    <strong>Checklist podpiecia: {providerChecklist.providerName}</strong>
+                    <div>
+                      <strong>Checklist podpiecia: {providerChecklist.providerName}</strong>
+                      <div style={s.agentHistoryMeta}>
+                        Gotowosc: {providerChecklist.readiness}% ({providerChecklist.readyCount}/{providerChecklist.totalCount})
+                      </div>
+                    </div>
                     <button
                       type="button"
                       style={s.rowBtn}
@@ -1679,6 +1770,14 @@ export default function Telefonia() {
                     >
                       {branchSetupTesting ? 'Test...' : 'Test calosci'}
                     </button>
+                  </div>
+                  <div style={s.providerReadinessBar} aria-label={`Gotowosc podpiecia ${providerChecklist.readiness}%`}>
+                    <div style={{ ...s.providerReadinessFill, width: `${providerChecklist.readiness}%` }} />
+                  </div>
+                  <div style={providerChecklist.blockers.length ? s.providerBlockers : s.providerReadyNote}>
+                    {providerChecklist.blockers.length
+                      ? `Blokuje start: ${providerChecklist.blockers.join(' | ')}`
+                      : 'Oddzial gotowy do testu produkcyjnego.'}
                   </div>
                   <div style={s.providerChecklistList}>
                     {providerChecklist.steps.map((step) => (
@@ -1696,6 +1795,30 @@ export default function Telefonia() {
                       </div>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    style={{ ...s.rowBtn, marginTop: 8 }}
+                    onClick={() => copyAgentText(providerChecklist.reportText, 'Raport audytu')}
+                  >
+                    Kopiuj raport audytu
+                  </button>
+                </div>
+                <div style={s.providerGuideBox}>
+                  <div style={s.providerChecklistHead}>
+                    <strong>Instrukcja: {providerSetupGuide.title}</strong>
+                    <button
+                      type="button"
+                      style={s.rowBtn}
+                      onClick={() => copyAgentText(providerSetupGuide.text, 'Instrukcja providera')}
+                    >
+                      Kopiuj instrukcje
+                    </button>
+                  </div>
+                  <ol style={s.providerGuideList}>
+                    {providerSetupGuide.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
                 </div>
                 <div style={s.agentStatusRow}>
                   <span>Status</span>
@@ -3184,6 +3307,39 @@ const s = {
     color: 'var(--text)',
     fontSize: 13,
   },
+  providerReadinessBar: {
+    height: 7,
+    borderRadius: 999,
+    background: 'rgba(15,95,58,0.10)',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  providerReadinessFill: {
+    height: '100%',
+    borderRadius: 999,
+    background: 'linear-gradient(90deg, #22c55e, #0f7a4c)',
+    transition: 'width 180ms ease',
+  },
+  providerBlockers: {
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 8,
+    border: '1px solid rgba(245,158,11,0.32)',
+    background: 'rgba(245,158,11,0.10)',
+    color: '#92400e',
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
+  providerReadyNote: {
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 8,
+    border: '1px solid rgba(34,197,94,0.30)',
+    background: 'rgba(34,197,94,0.10)',
+    color: '#166534',
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
   providerChecklistList: {
     display: 'grid',
     gap: 7,
@@ -3197,6 +3353,20 @@ const s = {
     borderRadius: 8,
     border: '1px solid rgba(15,95,58,0.10)',
     background: 'var(--surface-field)',
+  },
+  providerGuideBox: {
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: 'var(--surface-field)',
+  },
+  providerGuideList: {
+    margin: '0 0 0 18px',
+    padding: 0,
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    lineHeight: 1.5,
   },
   agentReminderBox: {
     marginTop: 12,

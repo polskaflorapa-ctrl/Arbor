@@ -18,6 +18,8 @@ web/.cache/
 web/node_modules/.cache/
 mobile/.expo/
 mobile/dist/
+mobile/eas-*.log
+mobile/decoded-deflate.txt
 os/coverage/
 os/coverage_output.txt
 backups/

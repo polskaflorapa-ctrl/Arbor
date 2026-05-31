@@ -11,6 +11,7 @@ Ta bramka sprawdza, czy repo ma komplet skryptow, runbookow i checklist do produ
 ```powershell
 cd C:\Users\paha1\arbor
 npm run verify:observability
+npm run verify:incident-runbook
 npm run deploy:prod:dry-run
 npm run deploy:ready:check
 npm run check

@@ -68,7 +68,8 @@
 - [x] **P0 pilot hardening**: `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md` spina smoke Kierownik + Brygadzista na web/mobile, macierz GO/NO-GO i artefakty startu oddzialu; `npm run verify:pilot-hardening` pilnuje checklist, smoke scriptow i slow kluczowych.
 - [x] **P0 production deploy dry-run**: `docs/PRODUCTION-DEPLOY-DRY-RUN.md` opisuje suchy przebieg env, migracji, admin bootstrap, backup/restore dry-run i smoke po publicznym URL; `npm run deploy:prod:dry-run` pilnuje skryptow, runbookow i komend GO/NO-GO.
 - [x] **P0 SLO/observability minimum**: `docs/OBSERVABILITY-SLO-RUNBOOK.md` definiuje health/ready/metrics, progi 5xx/p95, storage smoke, DB pool i prosty alert P1/P2; `npm run verify:observability` pilnuje endpointow, metryk Prometheus i komend operacyjnych.
-- [ ] **Nastepny pakiet**: production incident runbook - co robic przy down API, wolnym p95, storage fail, Kommo/SMS dead-letter i restore awaryjnym.
+- [x] **P0 production incident runbook**: `docs/PRODUCTION-INCIDENT-RUNBOOK.md` opisuje pierwsze 30 minut reakcji na down API, wolne p95/5xx, storage fail, Kommo/SMS dead-letter i awaryjny restore; `npm run verify:incident-runbook` pilnuje scenariuszy, skryptow i guardow restore.
+- [ ] **Nastepny pakiet**: p95 smoke script - lekki pomiar krytycznych endpointow po publicznym URL i raport PASS/FAIL pod prog 500 ms.
 
 ---
 
