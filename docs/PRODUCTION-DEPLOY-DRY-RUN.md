@@ -10,6 +10,7 @@ Ta bramka sprawdza, czy repo ma komplet skryptow, runbookow i checklist do produ
 
 ```powershell
 cd C:\Users\paha1\arbor
+npm run verify:observability
 npm run deploy:prod:dry-run
 npm run deploy:ready:check
 npm run check
@@ -32,6 +33,8 @@ Minimalne zmienne dla backendu:
 - `JWT_SECRET=<long-random-secret>`
 - `PUBLIC_BASE_URL=https://<public-api-host>`
 - `CORS_ORIGINS=https://<public-web-host>`
+- `METRICS_ENABLED=true`
+- `METRICS_TOKEN=<long-random-token>`
 - `UPLOAD_STORAGE=s3`
 - `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_BASE_URL`
 

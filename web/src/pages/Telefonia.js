@@ -73,6 +73,7 @@ export default function Telefonia() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentSaving, setAgentSaving] = useState(false);
   const [agentTestLoading, setAgentTestLoading] = useState(false);
+  const [branchSetupTesting, setBranchSetupTesting] = useState(false);
   const [agentMessage, setAgentMessage] = useState('');
   const [agentError, setAgentError] = useState('');
   const [agentConfig, setAgentConfig] = useState(null);
@@ -675,6 +676,56 @@ export default function Telefonia() {
     }
   };
 
+  const runBranchSetupTest = async () => {
+    if (!agentForm.oddzial_id) {
+      setAgentError('Wybierz oddzial.');
+      return;
+    }
+    if (!agentIntegration) {
+      setAgentError('Najpierw wlacz agenta dla oddzialu.');
+      return;
+    }
+    const testPhone = normalizePhone(branchTelephonyForm.test_phone.trim());
+    if (branchTelephonyForm.test_phone.trim() && !isValidPhone(branchTelephonyForm.test_phone)) {
+      setAgentError('Nieprawidlowy numer telefonu testowego. Uzyj formatu +48123123123 lub 123123123.');
+      return;
+    }
+    setBranchSetupTesting(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      await api.post('/telephony/voice-agent/polska-flora/integration/test', {
+        oddzial_id: Number(agentForm.oddzial_id),
+      }, { headers: authHeaders(token) });
+      let smsNote = 'SMS pominiety - wpisz numer testowy, zeby sprawdzic nadawce.';
+      if (testPhone) {
+        const { data } = await api.post('/sms/oddzial-test', {
+          oddzial_id: Number(agentForm.oddzial_id),
+          telefon: testPhone,
+        }, { headers: authHeaders(token) });
+        smsNote = `SMS OK (${data.provider || 'provider'}).`;
+      }
+      setAgentMessage(`Test calosci oddzialu OK: webhook gotowy. ${smsNote}`);
+      await Promise.all([
+        loadVoiceAgentIntegration(agentForm.oddzial_id),
+        loadIntegrationTestLogs(agentForm.oddzial_id),
+        loadVoiceAgentIntakes(agentForm.oddzial_id),
+        loadAgentReminderPreview(agentForm.oddzial_id),
+        loadBranchIntegrationStatuses(),
+        testPhone ? loadSms(1) : Promise.resolve(),
+      ]);
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Test calosci oddzialu nie przeszedl.'));
+      await Promise.all([
+        loadIntegrationTestLogs(agentForm.oddzial_id),
+        loadBranchIntegrationStatuses(),
+      ]);
+    } finally {
+      setBranchSetupTesting(false);
+    }
+  };
+
   const copyAgentText = async (value, label) => {
     try {
       await navigator.clipboard.writeText(String(value || ''));
@@ -716,6 +767,64 @@ export default function Telefonia() {
       'Nie podawaj cen przez telefon; umawiaj bezplatne ogledziny.',
     ],
   }, null, 2);
+
+  const buildProviderChecklist = () => {
+    const provider = agentIntegration?.provider || agentForm.provider || 'external';
+    const providerName = {
+      external: 'Provider zewnetrzny',
+      vapi: 'Vapi',
+      elevenlabs: 'ElevenLabs',
+      twilio: 'Twilio',
+      zadarma: 'Zadarma',
+    }[provider] || provider;
+    const webhookUrl = agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake';
+    const branchPhone = branchTelephonyForm.telefon || selectedAgentBranch?.telefon || '';
+    const smsSender = branchTelephonyForm.sms_sender_id || selectedAgentBranch?.sms_sender_id || branchPhone || '';
+    return {
+      providerName,
+      steps: [
+        {
+          label: 'Oddzial wybrany',
+          ready: !!agentForm.oddzial_id,
+          detail: agentForm.oddzial_id ? oddzialLabel(agentForm.oddzial_id) : 'Wybierz oddzial przed podpieciem.',
+        },
+        {
+          label: 'Numer oddzialu',
+          ready: !!branchPhone,
+          detail: branchPhone || 'Uzupelnij numer oddzialu w sekcji Numery oddzialu.',
+        },
+        {
+          label: 'Nadawca SMS',
+          ready: !!smsSender,
+          detail: smsSender || 'Dodaj SMS sender ID albo telefon oddzialu.',
+        },
+        {
+          label: 'Agent wlaczony',
+          ready: !!agentIntegration,
+          detail: agentIntegration ? `Status: ${agentIntegration.status || 'aktywny'}` : 'Kliknij Wlacz agenta.',
+        },
+        {
+          label: 'Webhook URL',
+          ready: !!webhookUrl,
+          detail: webhookUrl,
+          copy: webhookUrl,
+        },
+        {
+          label: 'Sekret webhooka',
+          ready: !!agentIntegration?.webhook_secret,
+          detail: agentIntegration?.webhook_secret ? 'Gotowy do wklejenia w header x-voice-agent-secret.' : 'Pojawi sie po wlaczeniu agenta.',
+          copy: agentIntegration?.webhook_secret || '',
+        },
+        {
+          label: provider === 'external' ? 'ID providera' : `ID ${providerName}`,
+          ready: provider === 'external' || !!(agentForm.provider_account_id || agentIntegration?.provider_account_id),
+          detail: provider === 'external'
+            ? 'Opcjonalne przy zwyklym webhooku.'
+            : (agentForm.provider_account_id || agentIntegration?.provider_account_id || 'Wklej ID asystenta/konta z panelu providera.'),
+        },
+      ],
+    };
+  };
 
   const saveCallLog = async (e) => {
     e.preventDefault();
@@ -1171,6 +1280,7 @@ export default function Telefonia() {
   const agentLastIntake = agentIntakes[0] || null;
   const agentLastSmsProblem = agentIntakes.find((x) => x.sms_status?.confirmation_error || x.sms_status?.reminder_error) || null;
   const agentBranchSmsSender = selectedAgentBranch?.sms_sender_id || selectedAgentBranch?.sms_sender || selectedAgentBranch?.telefon || '';
+  const providerChecklist = buildProviderChecklist();
   const agentHealthItems = [
     {
       label: 'Agent AI',
@@ -1550,6 +1660,35 @@ export default function Telefonia() {
 
               <div style={s.callForm}>
                 <div style={s.manualTitle}>Dane do wklejenia u providera</div>
+                <div style={s.providerChecklistBox}>
+                  <div style={s.providerChecklistHead}>
+                    <strong>Checklist podpiecia: {providerChecklist.providerName}</strong>
+                    <button
+                      type="button"
+                      style={s.rowBtn}
+                      onClick={() => copyAgentText(buildAgentProviderPackage(), 'Pakiet podpiecia')}
+                      disabled={!agentForm.oddzial_id}
+                    >
+                      Kopiuj pakiet
+                    </button>
+                  </div>
+                  <div style={s.providerChecklistList}>
+                    {providerChecklist.steps.map((step) => (
+                      <div key={step.label} style={s.providerChecklistItem}>
+                        <span style={step.ready ? s.okBadge : s.reviewBadge}>{step.ready ? 'OK' : 'Brak'}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <strong>{step.label}</strong>
+                          <div style={s.agentHistoryMeta}>{step.detail}</div>
+                        </div>
+                        {step.copy ? (
+                          <button type="button" style={s.rowBtn} onClick={() => copyAgentText(step.copy, step.label)} disabled={!step.ready}>
+                            Kopiuj
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <div style={s.agentStatusRow}>
                   <span>Status</span>
                   <strong style={{ color: agentIntegration?.status === 'active' ? '#22c55e' : 'var(--text-muted)' }}>
@@ -3020,6 +3159,36 @@ const s = {
     borderRadius: 8,
     border: '1px solid var(--border)',
     background: 'var(--surface-glass)',
+  },
+  providerChecklistBox: {
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
+  },
+  providerChecklistHead: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 8,
+    color: 'var(--text)',
+    fontSize: 13,
+  },
+  providerChecklistList: {
+    display: 'grid',
+    gap: 7,
+  },
+  providerChecklistItem: {
+    display: 'grid',
+    gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+    alignItems: 'start',
+    gap: 8,
+    padding: 8,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.10)',
+    background: 'var(--surface-field)',
   },
   agentReminderBox: {
     marginTop: 12,

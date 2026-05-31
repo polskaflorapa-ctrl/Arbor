@@ -67,7 +67,8 @@
 - [x] **P0 UI/role polish RBAC**: web ukrywa finansowe KPI/wartosci dla rol bez `canViewFinance`, chowa SMS i Kommo w szczegole zlecenia zgodnie z backendowa macierza oraz nie odpala automatycznego SMS przy zmianie statusu dla rol bez uprawnien; BI drill pokazuje operacyjne dane z komunikatem `Finanse ukryte`.
 - [x] **P0 pilot hardening**: `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md` spina smoke Kierownik + Brygadzista na web/mobile, macierz GO/NO-GO i artefakty startu oddzialu; `npm run verify:pilot-hardening` pilnuje checklist, smoke scriptow i slow kluczowych.
 - [x] **P0 production deploy dry-run**: `docs/PRODUCTION-DEPLOY-DRY-RUN.md` opisuje suchy przebieg env, migracji, admin bootstrap, backup/restore dry-run i smoke po publicznym URL; `npm run deploy:prod:dry-run` pilnuje skryptow, runbookow i komend GO/NO-GO.
-- [ ] **Nastepny pakiet**: SLO/observability minimum - health/metrics, progi 5xx/p95, storage smoke i prosty alert operacyjny.
+- [x] **P0 SLO/observability minimum**: `docs/OBSERVABILITY-SLO-RUNBOOK.md` definiuje health/ready/metrics, progi 5xx/p95, storage smoke, DB pool i prosty alert P1/P2; `npm run verify:observability` pilnuje endpointow, metryk Prometheus i komend operacyjnych.
+- [ ] **Nastepny pakiet**: production incident runbook - co robic przy down API, wolnym p95, storage fail, Kommo/SMS dead-letter i restore awaryjnym.
 
 ---
 
@@ -101,7 +102,7 @@ flowchart LR
 - [ ] **0.2** RBAC spójny: Dyrektor Produkcji / Kierownik Oddziału / Brygadzista — mapowanie ról w JWT, guardy na endpointach, ukrywanie akcji w UI.
 - [ ] **0.3** Model `oddzial_id` konsekwentnie na zleceniach, ekipach, raportach (filtry BI).
 - [x] **0.4** Audyt: kto zmienił status zlecenia / dane finansowe (tabela + UI minimalny).
-- [ ] **0.5** SLO: logi, metryki czasu API, alert na 5xx (nawet prosty).
+- [x] **0.5** SLO: logi, metryki czasu API, alert na 5xx (nawet prosty). Minimum operacyjne opisuje `docs/OBSERVABILITY-SLO-RUNBOOK.md`, a `verify:observability` pilnuje `/api/health`, `/api/ready`, `/api/metrics`, p95, 5xx i storage smoke.
 
 ---
 

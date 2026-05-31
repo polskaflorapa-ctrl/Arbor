@@ -4412,3 +4412,73 @@ body.theme-dark pre {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ARBOR-OS zasoby polish: calendar planner aligned with dispatch screens. */
+.zasoby-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.zasoby-main {
+  min-width: 0;
+  background: transparent !important;
+}
+
+.zasoby-header,
+.zasoby-legend,
+.zasoby-ops-panel,
+.zasoby-queue-panel,
+.zasoby-calendar-board {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.zasoby-header button:hover,
+.zasoby-legend button:hover,
+.zasoby-ops-panel button:hover,
+.zasoby-queue-panel button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.zasoby-calendar-scroll {
+  padding-bottom: 28px;
+  scrollbar-color: rgba(15, 95, 58, 0.28) rgba(15, 95, 58, 0.06);
+}
+
+.zasoby-calendar-board {
+  margin: 0 clamp(16px, 2.4vw, 30px) 24px;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07);
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .zasoby-header,
+  .zasoby-legend,
+  .zasoby-ops-panel,
+  .zasoby-queue-panel,
+  .zasoby-calendar-board {
+    margin-left: 12px !important;
+    margin-right: 12px !important;
+  }
+
+  .zasoby-header,
+  .zasoby-legend {
+    align-items: stretch !important;
+  }
+
+  .zasoby-header > *,
+  .zasoby-legend > * {
+    max-width: 100%;
+  }
+
+  .zasoby-ops-panel {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .zasoby-ops-panel [style*="grid-template-columns"],
+  .zasoby-queue-panel [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

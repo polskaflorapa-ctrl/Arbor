@@ -76,6 +76,8 @@ CORS_ORIGINS=https://app.twoja-domena.pl
 UPLOAD_STORAGE=s3
 S3_BUCKET=<bucket>
 S3_PUBLIC_BASE_URL=https://<public-bucket-or-domain>
+METRICS_ENABLED=true
+METRICS_TOKEN=<long-random-token>
 ```
 
 ### `web/.env`
@@ -190,6 +192,7 @@ npm run bootstrap:admin
 
 ```powershell
 npm run deploy:prod:dry-run
+npm run verify:observability
 npm run deploy:ready:check
 npm run test:critical-path -w arbor-os
 npm run smoke:kommo:crm -w arbor-web
@@ -220,3 +223,5 @@ npm run verify:env-runbook
 ```
 
 Gdy publiczne linki w SMS-ach sa puste albo prowadza na localhost, sprawdz w pierwszej kolejnosci `PUBLIC_BASE_URL` na backendzie oraz `CORS_ORIGINS` dla panelu.
+
+Minimalne SLO, metryki Prometheus i progi alertow sa w `docs/OBSERVABILITY-SLO-RUNBOOK.md`.

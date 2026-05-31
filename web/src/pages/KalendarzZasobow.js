@@ -2377,9 +2377,9 @@ export default function KalendarzZasobow() {
   // ─── render ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <div className="app-shell zasoby-shell" style={{ display: 'flex', minHeight: '100vh' }}>
         <Sidebar />
-        <div style={{ padding: 40, color: 'var(--text-muted)' }}>Ładowanie kalendarza zasobów…</div>
+        <div className="app-main zasoby-main" style={{ padding: 40, color: 'var(--text-muted)' }}>Ładowanie kalendarza zasobów…</div>
       </div>
     );
   }
@@ -2392,12 +2392,12 @@ export default function KalendarzZasobow() {
     : equipmentTotalW;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="app-shell zasoby-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="app-main zasoby-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* ── nagłówek strony ───────────────────────────────────────────── */}
-        <div style={st.pageHeader}>
+        <div className="zasoby-header" style={st.pageHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button style={st.navBtn} onClick={prev}>‹</button>
             <button style={st.todayBtn} onClick={goToday}>Dziś</button>
@@ -2454,7 +2454,7 @@ export default function KalendarzZasobow() {
         )}
 
         {/* ── legenda statusów ──────────────────────────────────────────── */}
-        <div style={st.legend}>
+        <div className="zasoby-legend" style={st.legend}>
           {Object.entries(activeTab === 'teams' ? TASK_STATUS_COLOR : STATUS_COLOR).map(([s, c]) => (
             <span key={s} style={st.legendItem}>
               <span style={{ ...st.legendDot, background: c }} />
@@ -2466,7 +2466,7 @@ export default function KalendarzZasobow() {
 
         {/* ── główna siatka ─────────────────────────────────────────────── */}
         {activeTab === 'teams' && (
-          <div style={st.opsPanel}>
+          <div className="zasoby-ops-panel" style={st.opsPanel}>
             <div style={st.opsTitle}>
               <strong>Dyspozytornia dnia</strong>
               <span>{dayLabel}</span>
@@ -2588,12 +2588,12 @@ export default function KalendarzZasobow() {
           </div>
         )}
 
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <div style={{ minWidth: totalW }}>
+        <div className="zasoby-calendar-scroll" style={{ flex: 1, overflow: 'auto' }}>
+          <div className="zasoby-calendar-board" style={{ minWidth: totalW }}>
             {activeTab === 'teams' ? (
               <>
                 {planningQueueRows.length > 0 && (
-                  <div style={st.queuePanel}>
+                  <div className="zasoby-queue-panel" style={st.queuePanel}>
                     <div style={st.queueHead}>
                       <div>
                         <strong>Do zaplanowania</strong>
@@ -3054,39 +3054,45 @@ export default function KalendarzZasobow() {
 // ─── style ───────────────────────────────────────────────────────────────────
 const st = {
   pageHeader: {
-    display: 'flex', alignItems: 'center', gap: 16, padding: '12px 24px',
-    borderBottom: '1px solid var(--border)', background: 'var(--surface-glass)',
+    display: 'flex', alignItems: 'center', gap: 16, padding: '16px 18px',
+    margin: '22px clamp(16px, 2.4vw, 30px) 14px',
+    border: '1px solid rgba(15,95,58,0.14)',
+    borderRadius: 8,
+    background:
+      'linear-gradient(90deg, rgba(15,107,63,0.045) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.96))',
+    backgroundSize: '34px 34px, 34px 34px, auto',
+    boxShadow: '0 16px 40px rgba(31,79,50,0.09)',
     flexWrap: 'wrap',
   },
   pageTitle: {
-    margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text)',
+    margin: 0, fontSize: 22, fontWeight: 950, color: '#12251a',
     marginLeft: 'auto',
   },
   navBtn: {
-    width: 32, height: 32, border: '1px solid var(--border)', borderRadius: 8,
-    background: 'var(--surface-field)', cursor: 'pointer', fontSize: 18,
+    width: 34, height: 34, border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8,
+    background: '#ffffff', cursor: 'pointer', fontSize: 18,
     color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
     lineHeight: 1,
   },
   todayBtn: {
-    padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 8,
-    background: 'var(--surface-field)', cursor: 'pointer', fontSize: 13,
-    color: 'var(--text)', fontWeight: 500,
+    padding: '7px 12px', border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8,
+    background: '#ffffff', cursor: 'pointer', fontSize: 13,
+    color: 'var(--text)', fontWeight: 850,
   },
   periodLabel: {
     fontSize: 15, fontWeight: 600, color: 'var(--text)',
   },
   viewBtn: {
-    padding: '5px 12px', border: 'none', borderRadius: 8,
-    cursor: 'pointer', fontSize: 13, fontWeight: 500,
+    padding: '7px 12px', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8,
+    cursor: 'pointer', fontSize: 13, fontWeight: 850,
   },
   branchSelect: {
     minWidth: 170,
     height: 32,
     padding: '5px 10px',
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.16)',
     borderRadius: 8,
-    background: 'var(--surface-field)',
+    background: '#ffffff',
     color: 'var(--text)',
     fontSize: 13,
     fontWeight: 600,
@@ -3096,8 +3102,13 @@ const st = {
   },
   legend: {
     display: 'flex', alignItems: 'center', gap: 16,
-    padding: '8px 24px', borderBottom: '1px solid var(--border)',
-    background: 'var(--surface-glass)', fontSize: 12,
+    margin: '0 clamp(16px, 2.4vw, 30px) 14px',
+    padding: '10px 12px',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    fontSize: 12,
   },
   legendItem: {
     display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)',
@@ -3106,9 +3117,12 @@ const st = {
     width: 10, height: 10, borderRadius: 3, flexShrink: 0,
   },
   opsPanel: {
-    borderBottom: '1px solid var(--border)',
-    background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(255,255,255,0.02))',
-    padding: '10px 16px',
+    margin: '0 clamp(16px, 2.4vw, 30px) 14px',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    padding: 14,
     display: 'flex',
     alignItems: 'center',
     gap: 12,
@@ -3132,9 +3146,9 @@ const st = {
   },
   opsMetric: {
     minHeight: 46,
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
+    background: '#ffffff',
     color: 'var(--text)',
     padding: '7px 9px',
     display: 'flex',
@@ -3168,8 +3182,8 @@ const st = {
   },
   delegationStrip: {
     width: '100%',
-    border: '1px solid rgba(14,165,233,0.28)',
-    borderRadius: 10,
+    border: '1px solid rgba(14,165,233,0.24)',
+    borderRadius: 8,
     background: 'rgba(14,165,233,0.08)',
     padding: 10,
     display: 'flex',
@@ -3210,9 +3224,9 @@ const st = {
     gap: 8,
   },
   opsAlert: {
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
+    background: '#ffffff',
     color: 'var(--text)',
     padding: '9px 10px',
     display: 'grid',
@@ -3273,9 +3287,12 @@ const st = {
     fontWeight: 850,
   },
   queuePanel: {
-    borderBottom: '1px solid var(--border)',
-    background: 'linear-gradient(135deg, rgba(34,197,94,0.08), var(--surface-glass))',
-    padding: '12px 16px',
+    margin: '0 clamp(16px, 2.4vw, 30px) 14px',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+    padding: 14,
   },
   queueHead: {
     display: 'flex',
@@ -3310,9 +3327,9 @@ const st = {
   },
   queueFilterBtn: {
     minHeight: 31,
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.16)',
     borderRadius: 8,
-    background: 'var(--surface-field)',
+    background: '#ffffff',
     color: 'var(--text)',
     padding: '5px 8px',
     display: 'inline-flex',
@@ -3333,9 +3350,9 @@ const st = {
     gap: 8,
   },
   queueTaskWrap: {
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'rgba(0,0,0,0.08)',
+    background: '#ffffff',
     padding: 6,
     minWidth: 0,
   },
@@ -3356,7 +3373,7 @@ const st = {
   queueReadyPill: {
     borderRadius: 999,
     padding: '3px 6px',
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     fontSize: 10,
     lineHeight: 1,
     fontWeight: 950,
@@ -3426,11 +3443,11 @@ const st = {
     minHeight: 54,
     border: '1px solid var(--border)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
+    background: '#ffffff',
     color: 'var(--text)',
     padding: '7px 8px',
     marginBottom: 6,
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
     cursor: 'grab',
     userSelect: 'none',
     boxSizing: 'border-box',
