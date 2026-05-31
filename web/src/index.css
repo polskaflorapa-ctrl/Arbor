@@ -3760,6 +3760,79 @@ button.btn-primary,
   color: #ffffff !important;
 }
 
+/* ARBOR-OS clients polish: CRM passport view aligned with pipeline and inbox. */
+.clients-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.clients-main {
+  background: transparent !important;
+}
+
+.clients-list-panel {
+  border-right-color: rgba(15, 95, 58, 0.13) !important;
+  box-shadow: 10px 0 28px rgba(31, 79, 50, 0.065) !important;
+}
+
+.clients-list-header {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.94)) !important;
+  background-size: 32px 32px, 32px 32px, auto !important;
+}
+
+.clients-list-scroll {
+  scrollbar-color: rgba(15, 95, 58, 0.28) rgba(15, 95, 58, 0.06);
+}
+
+.clients-list-row {
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.clients-list-row:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+  box-shadow: inset 3px 0 0 rgba(15, 107, 63, 0.22);
+}
+
+.clients-detail-panel {
+  background:
+    radial-gradient(circle at 96% 0%, rgba(15, 107, 63, 0.08), transparent 28%),
+    transparent !important;
+}
+
+.clients-detail-content > section,
+.clients-detail-content > div:not(.clients-client-hero) > div {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.clients-detail-content > section:hover,
+.clients-detail-content > div:not(.clients-client-hero) > div:hover {
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+.clients-detail-content pre {
+  background: rgba(241, 249, 244, 0.68) !important;
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+@media (max-width: 920px) {
+  .clients-list-panel {
+    width: 100% !important;
+    max-height: 46vh !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+  }
+
+  .clients-detail-content {
+    padding: 16px 12px 24px !important;
+  }
+
+  .clients-client-hero {
+    align-items: stretch !important;
+  }
+}
+
 .ogledziny-detail-hero h1 {
   color: #ffffff !important;
 }
@@ -5196,6 +5269,381 @@ body.theme-dark pre {
 
   .crm-inbox-detail-panel .ios-btn,
   .crm-inbox-reply .ios-btn {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS ekipy polish: operational crew workspace aligned with CRM surfaces. */
+.ekipy-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #e9f4ee 100%) !important;
+}
+
+.ekipy-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.ekipy-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.ekipy-summary-card,
+.ekipy-form-panel,
+.ekipy-team-card,
+.ekipy-detail-panel,
+.ekipy-member-form,
+.ekipy-salary-calculator {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.ekipy-summary-card,
+.ekipy-form-panel,
+.ekipy-team-card,
+.ekipy-detail-panel,
+.ekipy-member-row,
+.ekipy-salary-calculator {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.ekipy-summary-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr) !important;
+}
+
+.ekipy-workspace-grid {
+  grid-template-columns: minmax(320px, 1fr) minmax(0, 1.4fr) !important;
+}
+
+.ekipy-team-card {
+  border: 1px solid rgba(15, 95, 58, 0.11) !important;
+}
+
+.ekipy-team-card:hover,
+.ekipy-detail-panel:hover,
+.ekipy-summary-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.ekipy-member-row {
+  border: 1px solid transparent;
+}
+
+.ekipy-member-row:hover {
+  border-color: rgba(15, 95, 58, 0.1);
+}
+
+.ekipy-main input,
+.ekipy-main select {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.ekipy-main input:focus,
+.ekipy-main select:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.ekipy-action-card button:first-of-type:hover,
+.ekipy-main button[type="submit"]:hover {
+  background: var(--accent-gradient) !important;
+}
+
+@media (max-width: 900px) {
+  .ekipy-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .ekipy-summary-grid,
+  .ekipy-workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ekipy-detail-panel {
+    padding: 18px !important;
+  }
+}
+
+/* ARBOR-OS ranking brygad polish: scoreboard paired with the crew workspace. */
+.ranking-brygad-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.ranking-brygad-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.ranking-brygad-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.ranking-brygad-winner-card,
+.ranking-brygad-summary,
+.ranking-brygad-branch-card,
+.ranking-brygad-table .modern-data-row,
+.ranking-brygad-empty {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.ranking-brygad-winner-card,
+.ranking-brygad-summary,
+.ranking-brygad-branch-card,
+.ranking-brygad-table .modern-data-row {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.ranking-brygad-winner-card:hover,
+.ranking-brygad-branch-card:hover,
+.ranking-brygad-table .modern-data-row:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.ranking-brygad-summary {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.03) 1px, transparent 1px),
+    #ffffff !important;
+  background-size: 30px 30px, 30px 30px, auto !important;
+}
+
+.ranking-brygad-section {
+  background: transparent;
+}
+
+.ranking-brygad-main input,
+.ranking-brygad-main select {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.ranking-brygad-main input:focus,
+.ranking-brygad-main select:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.ranking-brygad-main button:hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.16);
+}
+
+@media (max-width: 900px) {
+  .ranking-brygad-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .ranking-brygad-winners,
+  .ranking-brygad-summary,
+  .ranking-brygad-section > div:nth-child(2) {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ARBOR-OS crew attendance polish: daily confirmation panel for field teams. */
+.crew-att-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.crew-att-main {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.crew-att-main > .module-page-header-hero,
+.crew-att-main > .module-page-header {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.crew-att-controls,
+.crew-att-stats,
+.crew-att-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.crew-att-controls {
+  padding: 14px !important;
+}
+
+.crew-att-stats {
+  padding: 10px !important;
+}
+
+.crew-att-card {
+  overflow: hidden;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crew-att-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.crew-att-main .MuiInputBase-root {
+  background: #ffffff !important;
+  border-radius: 8px !important;
+}
+
+.crew-att-main .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(15, 95, 58, 0.16) !important;
+}
+
+.crew-att-main .Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+@media (max-width: 900px) {
+  .crew-att-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .crew-att-controls,
+  .crew-att-stats {
+    align-items: stretch !important;
+  }
+
+  .crew-att-controls .MuiTextField-root {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS users polish: employee directory and personnel record surface. */
+.users-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.users-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.users-header-panel {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+  padding: 18px !important;
+}
+
+.users-filters,
+.users-card,
+.users-list-card,
+.users-competency-list .modern-data-row {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.users-filters,
+.users-card,
+.users-list-card,
+.users-competency-list .modern-data-row {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.users-list-card:hover,
+.users-card:hover,
+.users-competency-list .modern-data-row:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.users-list-card:hover,
+.users-competency-list .modern-data-row:hover {
+  transform: translateY(-1px);
+}
+
+.users-detail-grid {
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr) !important;
+}
+
+.users-inline-form {
+  background: rgba(241, 249, 244, 0.72) !important;
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.users-main input,
+.users-main select,
+.users-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.users-main input:focus,
+.users-main select:focus,
+.users-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.users-main button:not([style*="rgba(248,113,113"]):hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.14) !important;
+}
+
+@media (max-width: 900px) {
+  .users-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .users-header-panel {
+    align-items: stretch !important;
+  }
+
+  .users-filters,
+  .users-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .users-filters input,
+  .users-filters select,
+  .users-filters button {
     width: 100%;
   }
 }

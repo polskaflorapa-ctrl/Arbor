@@ -23,6 +23,10 @@ Aplikacja mobilna Expo/React Native dla zespołu Arbor OS.
 
 ## Przydatne komendy
 
+- `npm run codex:run` - uruchamia Expo przez stabilny runner Codex/PowerShell
+- `npm run codex:android` - uruchamia Expo i otwiera Androida przez runner Codex
+- `npm run codex:ios` - uruchamia Expo i otwiera iOS przez runner Codex
+- `npm run codex:doctor` - sprawdza projekt Expo przez ten sam runner
 - `npm run android` - uruchamia Expo na Androidzie
 - `npm run ios` - uruchamia Expo na iOS
 - `npm run web` - uruchamia Expo w przeglądarce

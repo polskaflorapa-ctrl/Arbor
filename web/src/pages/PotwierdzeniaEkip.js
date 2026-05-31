@@ -226,9 +226,9 @@ export default function PotwierdzeniaEkip() {
   const absentCount = ekipy.filter((e) => absentSet.has(String(e.id))).length;
 
   return (
-    <Box className="app-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
+    <Box className="app-shell crew-att-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
       <Sidebar />
-      <Box component="main" className="app-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+      <Box component="main" className="app-main crew-att-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <PageHeader
           title={t('pages.crewAtt.title')}
           subtitle={t('pages.crewAtt.subtitle')}
@@ -238,7 +238,7 @@ export default function PotwierdzeniaEkip() {
         <StatusMessage message={msg} style={{ marginBottom: 16 }} />
 
         {/* Date picker + hint */}
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Stack className="crew-att-controls" direction="row" spacing={2} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <TextField
             label={t('pages.crewAtt.date')}
             type="date"
@@ -254,7 +254,7 @@ export default function PotwierdzeniaEkip() {
         </Stack>
 
         {/* Stats bar */}
-        <Stack direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Stack className="crew-att-stats" direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
           <Chip
             label={`${t('pages.crewAtt.total')}: ${totalTeams}`}
             variant="outlined"
@@ -278,13 +278,14 @@ export default function PotwierdzeniaEkip() {
         ) : ekipy.length === 0 ? (
           <Typography color="text.secondary">{t('pages.crewAtt.noTeams')}</Typography>
         ) : (
-          <Stack spacing={1.5}>
+          <Stack className="crew-att-list" spacing={1.5}>
             {ekipy.map((ekipa, idx) => {
               const entry = getTeamEntry(ekipa.id);
               const present = entry ? entry.present : true;
               const note = entry?.note || '';
               return (
                 <Card
+                  className="crew-att-card"
                   key={ekipa.id}
                   variant="outlined"
                   sx={{

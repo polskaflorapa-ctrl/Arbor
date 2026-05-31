@@ -248,9 +248,9 @@ export default function Ekipy() {
   const isAddCzlonekValid = Boolean(formCzlonek.user_id);
 
   return (
-    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
+    <div className="app-shell ekipy-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <main className="app-main" style={{ flex: 1, padding: 28, position: 'relative' }}>
+      <main className="app-main ekipy-main" style={{ flex: 1, padding: 28, position: 'relative' }}>
 
         <PageHeader
           variant="hero"
@@ -308,12 +308,12 @@ export default function Ekipy() {
             </>
           }
         />
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12, marginBottom: 16 }}>
-          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
+        <div className="ekipy-summary-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12, marginBottom: 16 }}>
+          <div className="ekipy-summary-card" style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum ekip</div>
             <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Ekipy: <strong style={{ color: 'var(--text)' }}>{filtrowaneEkipy.length}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{uzytkownicy.length}</strong> · Oddziały: <strong style={{ color: 'var(--text)' }}>{oddzialy.length}</strong></div>
           </div>
-          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
+          <div className="ekipy-summary-card ekipy-action-card" style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Akcja</div>
             <button type="button" style={{ marginTop: 8, width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 700, cursor: 'pointer' }} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
               Dodaj nową ekipę
@@ -326,7 +326,7 @@ export default function Ekipy() {
 
         {/* Formularz */}
         {showForm && canEdit && (
-          <div style={{
+          <div className="ekipy-form-panel" style={{
             background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20,
             boxShadow: 'var(--shadow-md)',
             animation: 'slideIn 0.3s ease forwards',
@@ -388,17 +388,17 @@ export default function Ekipy() {
         )}
 
         {/* Dwie kolumny */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20, alignItems: 'start' }}>
+        <div className="ekipy-workspace-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20, alignItems: 'start' }}>
 
           {/* Lista ekip */}
-          <div>
+          <div className="ekipy-list-panel">
             {loading ? (
               <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🌿</div>
                 <p>Ładowanie ekip...</p>
               </div>
             ) : filtrowaneEkipy.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
+              <div className="ekipy-empty-panel" style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>
                   <GroupsOutlined style={{ fontSize: 48 }} aria-hidden />
                 </div>
@@ -407,6 +407,7 @@ export default function Ekipy() {
               </div>
             ) : filtrowaneEkipy.map((e, i) => (
               <div
+                className="ekipy-team-card"
                 key={e.id}
                 onClick={() => handleSelectEkipa(e)}
                 onMouseEnter={() => setHoveredEkipa(e.id)}
@@ -483,7 +484,7 @@ export default function Ekipy() {
 
           {/* Szczegóły */}
           {selectedEkipa && ekipaDetail ? (
-            <div style={{
+            <div className="ekipy-detail-panel" style={{
               background: 'var(--surface-glass)', borderRadius: 8, padding: 24,
               boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)',
               animation: 'fadeIn 0.3s ease forwards',
@@ -572,7 +573,7 @@ export default function Ekipy() {
                 </div>
 
                 {showAddCzlonek && (
-                  <form onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid var(--border)' }}>
+                  <form className="ekipy-member-form" onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid var(--border)' }}>
                     <Field label="Pracownik *">
                       <select style={S.input} value={formCzlonek.user_id} onChange={e => setFormCzlonek({ ...formCzlonek, user_id: e.target.value })} required>
                         <option value="">-- wybierz pracownika --</option>
@@ -606,6 +607,7 @@ export default function Ekipy() {
                   </div>
                 ) : ekipaDetail.czlonkowie.map((c, i) => (
                   <div
+                    className="ekipy-member-row"
                     key={c.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
@@ -650,7 +652,7 @@ export default function Ekipy() {
               )}
             </div>
           ) : (
-            <div style={{
+            <div className="ekipy-detail-panel ekipy-empty-panel" style={{
               background: 'var(--surface-glass)', borderRadius: 8, padding: 60,
               textAlign: 'center', color: 'var(--text-muted)',
               boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)',
@@ -694,7 +696,7 @@ function KalkulatorWynagrodzenia({ ekipa }) {
   };
 
   return (
-    <div style={{ borderTop: '2px solid var(--border)', paddingTop: 16 }}>
+    <div className="ekipy-salary-calculator" style={{ borderTop: '2px solid var(--border)', paddingTop: 16 }}>
       <div style={{ fontSize: 14, fontWeight: 'bold', color: 'var(--text-sub)', marginBottom: 14 }}>{t('pages.ekipy.salaryCalcTitle')}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         {[

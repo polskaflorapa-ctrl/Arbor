@@ -76,6 +76,8 @@ CORS_ORIGINS=https://app.twoja-domena.pl
 UPLOAD_STORAGE=s3
 S3_BUCKET=<bucket>
 S3_PUBLIC_BASE_URL=https://<public-bucket-or-domain>
+LOGIN_RATE_LIMIT_STORE=redis
+LOGIN_RATE_LIMIT_REDIS_URL=redis://<user>:<password>@<redis-host>:6379
 METRICS_ENABLED=true
 METRICS_TOKEN=<long-random-token>
 ```
@@ -192,6 +194,7 @@ npm run bootstrap:admin
 
 ```powershell
 npm run deploy:prod:dry-run
+npm run verify:scale-readiness
 npm run verify:observability
 npm run deploy:ready:check
 npm run test:critical-path -w arbor-os
@@ -225,3 +228,4 @@ npm run verify:env-runbook
 Gdy publiczne linki w SMS-ach sa puste albo prowadza na localhost, sprawdz w pierwszej kolejnosci `PUBLIC_BASE_URL` na backendzie oraz `CORS_ORIGINS` dla panelu.
 
 Minimalne SLO, metryki Prometheus i progi alertow sa w `docs/OBSERVABILITY-SLO-RUNBOOK.md`.
+Gotowosc wielu instancji, `UPLOAD_STORAGE=s3`, Redis dla login limitera i zasady cronow opisuje `docs/HORIZONTAL-SCALING-READINESS.md`.

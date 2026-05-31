@@ -60,7 +60,7 @@ function teamScopeLabel(row) {
 
 function WinnerCard({ title, subtitle, winner, Icon }) {
   return (
-    <div style={S.winnerCard}>
+    <div className="ranking-brygad-winner-card" style={S.winnerCard}>
       <div style={S.winnerIcon}><Icon style={{ fontSize: 22 }} /></div>
       <div style={{ minWidth: 0 }}>
         <div style={S.cardLabel}>{title}</div>
@@ -84,7 +84,7 @@ function RankingTable({ rows }) {
     return <div style={S.empty}>Brak zlecen z przypisana ekipa w tym okresie.</div>;
   }
   return (
-    <div className="modern-data-stack">
+    <div className="modern-data-stack ranking-brygad-table">
       {rows.map((row) => (
         <ModernDataRow
           key={row.ekipa_id}
@@ -173,9 +173,9 @@ export default function RankingBrygad() {
   const compact = viewportWidth < 720;
 
   return (
-    <div style={S.shell}>
+    <div className="ranking-brygad-shell" style={S.shell}>
       <Sidebar />
-      <main style={{ ...S.main, ...(compact ? S.mainCompact : null) }}>
+      <main className="ranking-brygad-main" style={{ ...S.main, ...(compact ? S.mainCompact : null) }}>
         <PageHeader
           variant="hero"
           showBack={!compact}
@@ -203,17 +203,17 @@ export default function RankingBrygad() {
         />
 
         {loading ? (
-          <div style={S.empty}>Ladowanie rankingu...</div>
+          <div className="ranking-brygad-empty" style={S.empty}>Ladowanie rankingu...</div>
         ) : (
           <>
-            <section style={{ ...S.winnerGrid, ...(compact ? S.singleColumnGrid : null) }}>
+            <section className="ranking-brygad-winners" style={{ ...S.winnerGrid, ...(compact ? S.singleColumnGrid : null) }}>
               <WinnerCard title="Najlepsza ekipa tygodnia" subtitle={activeWeek?.label || ''} winner={activeWeek?.winner} Icon={CalendarMonthOutlined} />
               <WinnerCard title="Najlepsza ekipa miesiaca" subtitle={ranking?.periods?.month?.label || ''} winner={ranking?.periods?.month?.winner} Icon={EmojiEventsOutlined} />
               <WinnerCard title="Najlepsza ekipa polrocza" subtitle={ranking?.periods?.half_year?.label || ''} winner={ranking?.periods?.half_year?.winner} Icon={TrendingUpOutlined} />
               <WinnerCard title="Najlepsza ekipa roku" subtitle={ranking?.periods?.year?.label || ''} winner={ranking?.periods?.year?.winner} Icon={GroupsOutlined} />
             </section>
 
-            <section style={S.summaryBar}>
+            <section className="ranking-brygad-summary" style={S.summaryBar}>
               <div>
                 <span style={S.summaryLabel}>Zakres</span>
                 <strong>{oddzialId ? oddzialy.find((o) => String(o.id) === String(oddzialId))?.nazwa : 'Wszystkie oddzialy'}</strong>
@@ -228,14 +228,14 @@ export default function RankingBrygad() {
               </div>
             </section>
 
-            <section style={S.section}>
+            <section className="ranking-brygad-section" style={S.section}>
               <div style={{ ...S.sectionTitle, ...(compact ? S.sectionTitleCompact : null) }}>
                 <CalendarMonthOutlined style={{ fontSize: 20 }} />
                 {compact ? 'Liga oddzialow' : 'Liga oddzialow z raportow dziennych'}
               </div>
               <div style={{ ...S.weekGrid, ...(compact ? S.singleColumnGrid : null) }}>
                 {branchRows.map((branch) => (
-                  <div key={branch.oddzial_id || branch.oddzial_nazwa} style={S.weekCard}>
+                  <div className="ranking-brygad-branch-card" key={branch.oddzial_id || branch.oddzial_nazwa} style={S.weekCard}>
                     <div style={S.cardLabel}>#{branch.rank} · {branch.teams_count} ekip</div>
                     <div style={S.weekWinner}>{branch.oddzial_nazwa}</div>
                     <div style={S.metricLine}>
@@ -248,7 +248,7 @@ export default function RankingBrygad() {
               </div>
             </section>
 
-            <section style={S.section}>
+            <section className="ranking-brygad-section ranking-brygad-month-section" style={S.section}>
               <div style={{ ...S.sectionTitle, ...(compact ? S.sectionTitleCompact : null) }}>
                 <EmojiEventsOutlined style={{ fontSize: 20 }} />
                 Pelny ranking miesiaca

@@ -30,7 +30,9 @@ W produkcji `/api/metrics` musi miec `METRICS_TOKEN`; brak tokena oznacza 401.
 | API availability | `/api/ready` 99.5% w godzinach pracy | 2 kolejne nieudane checki albo 5 min down |
 | API errors | 5xx < 1% requestow w 15 min | 5xx >= 1% przez 15 min albo >= 5 bledow w 5 min |
 | API latency | p95 krytycznych endpointow < 500 ms | p95 >= 500 ms przez 15 min |
+| Web TTI | krytyczne ekrany panelu <= 3000 ms | `smoke:web:tti` fail albo TTI > 3000 ms |
 | DB pool | `arbor_db_pool_waiting = 0` | waiting > 0 przez 5 min |
+| Horizontal scaling | brak lokalnego stanu krytycznego | `UPLOAD_STORAGE=local`, `LOGIN_RATE_LIMIT_STORE=memory` albo podwojny cron przy wielu instancjach |
 | Storage | `/api/ops/storage-smoke` OK | dowolny blad smoke storage |
 | Kommo/SMS | retry/dead-letter nie rosnie bez wlasciciela | dead-letter > 0 albo retry starsze niz 30 min |
 | Backup | backup dzienny i czytelny restore dry-run | brak backupu z 24 h albo `restore:db:check` fail |
@@ -84,6 +86,12 @@ npm run smoke:render -- https://<arbor-os-url>
 npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
+Po deployu web:
+
+```powershell
+npm run smoke:web:tti -- https://<arbor-web-url> --threshold 3000
+```
+
 Po utworzeniu admina:
 
 ```powershell
@@ -115,6 +123,7 @@ Minimalna eskalacja przed pelnym APM:
    - Kommo/SMS ma dead-letter bez wlasciciela.
 
 Szczegolowe kroki reakcji sa w `docs/PRODUCTION-INCIDENT-RUNBOOK.md`.
+Gotowosc horizontal scaling opisuje `docs/HORIZONTAL-SCALING-READINESS.md`; przy wielu instancjach pilnuj `LOGIN_RATE_LIMIT_STORE=redis`, `UPLOAD_STORAGE=s3`, jednego wlasciciela cronow i `arbor_db_pool_waiting = 0`.
 
 ## 7. GO / NO-GO
 

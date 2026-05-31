@@ -41,6 +41,7 @@
     "status:web:json": "node ./scripts/status-web.cjs --json",
     "smoke:routes": "node ./scripts/smoke-routes.cjs",
     "smoke:platform": "node ./scripts/smoke-routes.cjs",
+    "smoke:tti": "node ./scripts/smoke-tti.cjs",
     "smoke:demo:e2e": "node ./scripts/run-vitest.cjs run src/api.test.js -t \"demo critical path\"",
     "smoke:kommo:crm": "node ./scripts/smoke-kommo-crm.cjs"
   },

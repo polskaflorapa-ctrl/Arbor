@@ -308,9 +308,9 @@ export default function Uzytkownicy() {
   };
  
   return (
-    <div style={s.container}>
+    <div className="users-shell" style={s.container}>
       <Sidebar />
-      <div style={s.main}>
+      <div className="users-main" style={s.main}>
  
         {/* Komunikat */}
         <StatusMessage
@@ -321,7 +321,7 @@ export default function Uzytkownicy() {
         {/* ===== LISTA ===== */}
         {tryb === 'lista' && (
           <>
-            <div style={s.headerRow}>
+            <div className="users-header-panel" style={s.headerRow}>
               <div>
                 <h1 style={s.title}>Użytkownicy</h1>
                 <p style={s.sub}>Zarządzanie pracownikami i uprawnieniami</p>
@@ -331,7 +331,7 @@ export default function Uzytkownicy() {
               )}
             </div>
 
-            <div style={s.filtryRow}>
+            <div className="users-filters" style={s.filtryRow}>
               <input style={s.searchInput} placeholder="Szukaj po imieniu, loginie, emailu..."
                 value={szukaj} onChange={e => setSzukaj(e.target.value)} />
               <select style={s.filtrInput} value={filtrRola} onChange={e => setFiltrRola(e.target.value)}>
@@ -365,15 +365,15 @@ export default function Uzytkownicy() {
             {loading ? (
               <div style={s.loading}>Ładowanie...</div>
             ) : (
-              <div style={s.listCardsWrap}>
+              <div className="users-list-wrap" style={s.listCardsWrap}>
                 {filtrowane.length === 0 ? (
-                  <div style={{ ...s.card, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                  <div className="users-card users-empty" style={{ ...s.card, textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
                     Brak użytkowników spełniających kryteria
                   </div>
                 ) : (
-                  <div style={s.listCardsGrid}>
+                  <div className="users-list-grid" style={s.listCardsGrid}>
                     {filtrowane.map((u) => (
-                      <div key={u.id} style={s.userListCard} onClick={() => otworzSzczegoly(u)}>
+                      <div className="users-list-card" key={u.id} style={s.userListCard} onClick={() => otworzSzczegoly(u)}>
                         <div style={s.userListTop}>
                           <div style={s.avatarRow}>
                             <div style={{ ...s.avatar, backgroundColor: getRolaColor(u.rola) }}>
@@ -461,7 +461,7 @@ export default function Uzytkownicy() {
         {/* ===== SZCZEGÓŁY ===== */}
         {tryb === 'szczegoly' && wybranyUser && (
           <>
-            <div style={s.headerRow}>
+            <div className="users-header-panel" style={s.headerRow}>
               <div style={s.breadcrumb}>
                 <button style={s.backBtn} onClick={() => setTryb('lista')}>← Powrót</button>
                 <h1 style={s.title}>{wybranyUser.imie} {wybranyUser.nazwisko}</h1>
@@ -478,8 +478,8 @@ export default function Uzytkownicy() {
               )}
             </div>
  
-            <div style={s.twoCol}>
-              <div style={s.card}>
+            <div className="users-detail-grid" style={s.twoCol}>
+              <div className="users-card users-profile-card" style={s.card}>
                 <div style={s.cardTitle}>Dane podstawowe</div>
                 <div style={s.avatarBig}>
                   <div style={{ ...s.avatarLarge, backgroundColor: getRolaColor(wybranyUser.rola) }}>
@@ -532,7 +532,7 @@ export default function Uzytkownicy() {
  
               <div>
                 {isDyrektor && (
-                  <div style={{ ...s.card, marginBottom: 16 }}>
+                  <div className="users-card" style={{ ...s.card, marginBottom: 16 }}>
                     <div style={s.cardTitle}>Dane finansowe</div>
                     {wybranyUser.stawka_godzinowa && (
                       <div style={s.detailRow}>
@@ -555,7 +555,7 @@ export default function Uzytkownicy() {
                   onMessage={(tekst, typ) => pokazKomunikat(tekst, typ || 'success')}
                 />
  
-                <div style={{ ...s.card, marginBottom: 16 }}>
+                <div className="users-card" style={{ ...s.card, marginBottom: 16 }}>
                   <div style={s.cardTitle}>Kontakt awaryjny</div>
                   {wybranyUser.kontakt_awaryjny_imie || wybranyUser.kontakt_awaryjny_telefon ? (
                     <>
@@ -584,14 +584,14 @@ export default function Uzytkownicy() {
                 </div>
  
                 {wybranyUser.adres_zamieszkania && (
-                  <div style={{ ...s.card, marginBottom: 16 }}>
+                  <div className="users-card" style={{ ...s.card, marginBottom: 16 }}>
                     <div style={s.cardTitle}>Adres zamieszkania</div>
                     <p style={{ margin: 0, fontSize: 14 }}>{wybranyUser.adres_zamieszkania}</p>
                   </div>
                 )}
  
                 {wybranyUser.notatki && (
-                  <div style={s.card}>
+                  <div className="users-card" style={s.card}>
                     <div style={s.cardTitle}>Notatki</div>
                     <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{wybranyUser.notatki}</p>
                   </div>
@@ -601,7 +601,7 @@ export default function Uzytkownicy() {
  
             {/* Zmiana hasła */}
             {isDyrektor && (
-              <div style={s.card}>
+              <div className="users-card" style={s.card}>
                 <div style={s.cardTitle}>Zmiana hasła</div>
                 {!pokazFormHaslo ? (
                   <button style={s.btnSecondary} onClick={() => setPokazFormHaslo(true)}>Zmień hasło</button>
@@ -623,7 +623,7 @@ export default function Uzytkownicy() {
             )}
  
             {/* Kompetencje */}
-            <div style={s.card}>
+            <div className="users-card users-competencies" style={s.card}>
               <div style={{ ...s.cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Kompetencje ({kompetencje.length})</span>
                 {mozeEdytowac && (
@@ -632,7 +632,7 @@ export default function Uzytkownicy() {
               </div>
  
               {pokazFormKomp && (
-                <div style={s.kompForm}>
+                <div className="users-inline-form" style={s.kompForm}>
                   <div style={s.formGrid}>
                     <div style={s.formGroup}>
                       <label style={s.label}>Nazwa *</label>
@@ -680,7 +680,7 @@ export default function Uzytkownicy() {
               {kompetencje.length === 0 ? (
                 <p style={s.gray}>Brak zarejestrowanych kompetencji</p>
               ) : (
-                <div className="modern-data-stack">
+                <div className="modern-data-stack users-competency-list">
                   {kompetencje.map((k) => {
                     const waznosc = isWazna(k.data_waznosci);
                     return (
@@ -723,14 +723,14 @@ export default function Uzytkownicy() {
         {/* ===== NOWY / EDYTUJ ===== */}
         {(tryb === 'nowy' || tryb === 'edytuj') && (
           <>
-            <div style={s.headerRow}>
+            <div className="users-header-panel" style={s.headerRow}>
               <div style={s.breadcrumb}>
                 <button style={s.backBtn} onClick={() => setTryb(wybranyUser ? 'szczegoly' : 'lista')}>← Powrót</button>
                 <h1 style={s.title}>{tryb === 'nowy' ? 'Nowy użytkownik' : `Edytuj użytkownika: ${wybranyUser?.imie} ${wybranyUser?.nazwisko}`}</h1>
               </div>
             </div>
  
-            <div style={s.card}>
+            <div className="users-card users-form-card" style={s.card}>
               <div style={s.cardTitle}>Dane podstawowe</div>
               <div style={s.formGrid}>
                 {tryb === 'nowy' && (
@@ -806,7 +806,7 @@ export default function Uzytkownicy() {
             </div>
  
             {isDyrektor && (
-              <div style={s.card}>
+              <div className="users-card users-form-card" style={s.card}>
                 <div style={s.cardTitle}>Dane finansowe</div>
                 <div style={s.formGrid}>
                   <div style={s.formGroup}>
@@ -823,7 +823,7 @@ export default function Uzytkownicy() {
               </div>
             )}
  
-            <div style={s.card}>
+            <div className="users-card users-form-card" style={s.card}>
               <div style={s.cardTitle}>Dane dodatkowe</div>
               <div style={s.formGrid}>
                 <div style={{ ...s.formGroup, gridColumn: '1 / -1' }}>

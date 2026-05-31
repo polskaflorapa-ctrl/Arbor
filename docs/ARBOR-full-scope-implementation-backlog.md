@@ -72,7 +72,9 @@
 - [x] **P0 p95 smoke script**: `npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5` mierzy p95 bezpiecznych krytycznych endpointow po publicznym URL, rozszerza probe po tokenie/loginie i raportuje PASS/FAIL dla progu 500 ms.
 - [x] **P0 Kommo/SMS incident drill**: `docs/KOMMO-SMS-INCIDENT-DRILL.md` opisuje kontrolowany test `dead_letter`, retry pojedynczego zlecenia, SMS delivery fail i fallback Zadarma; `npm run verify:kommo-sms-drill` pilnuje diagnostyki, guardow `force=true`, delivery events i UI Integracje/Telefonia/Kierownik.
 - [x] **P0 backup RPO/RTO hardening**: `docs/BACKUP-RPO-RTO-RUNBOOK.md` definiuje mierzalne RPO/RTO, harmonogram backupow, restore drill na bazie replaceable, retencje i artefakty potwierdzenia; `npm run verify:backup-rpo` pilnuje runbookow, skryptow backup/restore i guardow `CONFIRM_RESTORE`.
-- [ ] **Nastepny pakiet**: web TTI smoke - referencyjny pomiar panelu, prog <3 s TTI, komenda smoke i artefakty dla EPIC 9.1.
+- [x] **P0 web TTI smoke**: `docs/WEB-TTI-SMOKE-RUNBOOK.md` opisuje referencyjny pomiar panelu, prog TTI <= 3000 ms, trasy krytyczne i artefakt JSON; `npm run smoke:web:tti` mierzy render SPA przez Chrome/CDP, a `npm run verify:web-tti` pilnuje komend i runbooka.
+- [x] **P0 horizontal scaling readiness**: `docs/HORIZONTAL-SCALING-READINESS.md` opisuje stateless JWT, wspolny `JWT_SECRET`, `UPLOAD_STORAGE=s3`, Redis login limiter, limity DB pool, pojedyncze crony/workery, SSE best-effort i dispatcher; `npm run verify:scale-readiness` pilnuje guardow i checklist.
+- [ ] **Nastepny pakiet**: RBAC branch scope audit - domknac EPIC 0.2/0.3 przez statyczny gate rol, oddzial_id i testy najwazniejszych zapisow.
 
 ---
 
@@ -193,10 +195,10 @@ flowchart LR
 
 ## EPIC 9 — Wymagania niefunkcjonalne (Executive §6)
 
-- [ ] **9.1** Test wydajności panelu (<3 s TTI na referencyjnym sprzęcie — zdefiniować).
+- [x] **9.1** Test wydajności panelu (<3 s TTI na referencyjnym sprzęcie — zdefiniować). `smoke:web:tti` mierzy krytyczne trasy panelu z progiem 3000 ms i zapisuje `output/playwright/web-tti-smoke-results.json`.
 - [x] **9.2** Test API p95 (<500 ms na krytycznych listach — zdefiniować zestaw). `smoke:p95` mierzy `/api/ready`, `/api/health`, auth-boundary list oraz po zalogowaniu `/api/auth/me`, `/api/tasks/wszystkie`, `/api/ops/kierownik-today`, `/api/bi/drill`.
 - [x] **9.3** Strategia backupów RPO/RTO (procedura + infrastruktura). `docs/BACKUP-RPO-RTO-RUNBOOK.md` opisuje RPO <= 24h, RTO <= 4h, backup <= 15 min po zmianie produkcyjnej, restore drill na bazie replaceable i dowody; `verify:backup-rpo` pilnuje kompletnego minimum.
-- [ ] **9.4** Skalowanie horyzontalne (sesje, uploady, worker dispatch).
+- [x] **9.4** Skalowanie horyzontalne (sesje, uploady, worker dispatch). `docs/HORIZONTAL-SCALING-READINESS.md` definiuje GO/NO-GO dla wielu instancji API: stateless JWT, S3/R2, Redis limiter, jeden wlasciciel cronow/workerow, DB pool i ograniczenia SSE/dispatcher.
 
 ---
 

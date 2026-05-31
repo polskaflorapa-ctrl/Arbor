@@ -14,11 +14,13 @@ SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 
 ## Device Setup
 
-- [ ] Install the latest build on a real iPhone.
+- [ ] Install the latest build on a real Android device or iPhone that matches the target preview build.
 - [ ] Confirm the build points to the intended API environment.
 - [ ] Confirm app version/build number matches the release candidate.
 - [ ] Start with a clean app install for one pass.
 - [ ] Repeat once with an upgraded install over the previous build.
+- [ ] For Android preview, install from the EAS build URL or QR code in the preview release note.
+- [ ] For iOS preview, confirm Apple credentials/provisioning are configured and the TestFlight/internal build is available.
 
 ## Login And Session
 
@@ -134,4 +136,4 @@ SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 - [ ] No stuck spinner after network loss/recovery.
 - [ ] No unreadable/mojibake text is visible in key flows.
 - [ ] Battery drain feels acceptable during a 20 minute field simulation.
-- [ ] QA notes include device model, iOS version, build number, account role, API URL, and tester name.
+- [ ] QA notes include device model, OS version, build number, account role, API URL, and tester name.

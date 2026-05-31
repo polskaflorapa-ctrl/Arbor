@@ -13,6 +13,7 @@ cd C:\Users\paha1\arbor
 npm run verify:observability
 npm run verify:incident-runbook
 npm run verify:backup-rpo
+npm run verify:scale-readiness
 npm run deploy:prod:dry-run
 npm run deploy:ready:check
 npm run check
@@ -39,6 +40,8 @@ Minimalne zmienne dla backendu:
 - `METRICS_TOKEN=<long-random-token>`
 - `UPLOAD_STORAGE=s3`
 - `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_BASE_URL`
+- `DB_POOL_MAX=5` na instancje API jako punkt startowy
+- `LOGIN_RATE_LIMIT_STORE=redis` i `LOGIN_RATE_LIMIT_REDIS_URL` przy wielu instancjach
 
 Minimalne zmienne dla web:
 
@@ -135,6 +138,7 @@ NO-GO:
 - Brak `DATABASE_URL`, `JWT_SECRET`, `PUBLIC_BASE_URL` albo `CORS_ORIGINS`.
 - `PUBLIC_BASE_URL` prowadzi do panelu web zamiast API.
 - `UPLOAD_STORAGE=local` przy realnych zdjeciach terenowych na Render Free.
+- Wiele instancji API uzywa `LOGIN_RATE_LIMIT_STORE=memory`.
 - Backup nie powstal albo `restore:db:check` nie czyta najnowszego dumpa.
 - `smoke:render` nie przechodzi po publicznym URL.
 - `ops/storage-smoke` nie przechodzi przy storage S3/R2.

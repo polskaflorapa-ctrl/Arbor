@@ -228,9 +228,9 @@ export default function Klienci() {
       <main className="clients-main" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
-        <div style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
+        <div className="clients-list-panel" style={{ width: 360, borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', background: '#ffffff', boxShadow: '8px 0 24px rgba(15,107,63,0.06)' }}>
           {/* Nagłówek */}
-          <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
+          <div className="clients-list-header" style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(15,107,63,0.12)', background: 'linear-gradient(135deg, rgba(240,247,242,0.98), #ffffff)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Klienci</h2>
@@ -267,7 +267,7 @@ export default function Klienci() {
           </div>
 
           {/* Lista */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="clients-list-scroll" style={{ flex: 1, overflowY: 'auto' }}>
             {loading ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Ładowanie...</div>
             ) : klienci.length === 0 ? (
@@ -277,6 +277,7 @@ export default function Klienci() {
               </div>
             ) : klienci.map(k => (
               <div
+                className="clients-list-row"
                 key={k.id}
                 onClick={() => loadDetail(k.id)}
                 style={{
@@ -336,7 +337,7 @@ export default function Klienci() {
         </div>
 
         {/* ── PRAWA KOLUMNA: szczegóły ── */}
-        <div style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
+        <div className="clients-detail-panel" style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
           {!selected ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ opacity: 0.3, marginBottom: 16 }}>
@@ -350,7 +351,7 @@ export default function Klienci() {
               Ładowanie...
             </div>
           ) : detail && (
-            <div style={{ maxWidth: 1040, margin: '0 auto', padding: 28 }}>
+            <div className="clients-detail-content" style={{ maxWidth: 1040, margin: '0 auto', padding: 28 }}>
 
               {/* Nagłówek szczegółów */}
               <div className="clients-client-hero" style={sec.clientHero}>

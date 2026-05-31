@@ -9,7 +9,7 @@ const { env } = require('../config/env');
 
 // ─── SSE client registry ──────────────────────────────────────────────────────
 // Map<userId (number), Set<express.Response>>
-// Single-process in-memory bus. For multi-instance deployments, swap with Redis pub/sub.
+// Single-process in-memory bus. For multi-instance deployments, use sticky sessions or swap with Redis pub/sub.
 
 const _sseClients = new Map();
 

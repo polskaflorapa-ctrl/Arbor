@@ -14,6 +14,8 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:incident-runbook` potwierdza reakcje na down API, p95, storage, Kommo/SMS i restore.
 - [ ] `npm run verify:kommo-sms-drill` potwierdza drill Kommo dead-letter, retry i SMS delivery fallback.
 - [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
+- [ ] `npm run verify:web-tti` potwierdza prog TTI panelu i komendy smoke web.
+- [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.
 - [ ] `npm run deploy:prod:dry-run` potwierdza suchy przebieg env, migracji, backup/restore i smoke produkcyjnego.
 - [ ] Backend `os` jest zrodlem prawdy dla API produkcyjnego.
 - [ ] Jest utworzony admin, kierownik oddzialu i brygadzista testowy.
@@ -103,6 +105,7 @@ npm run verify:env-runbook
 npm run smoke:critical-path
 npm run smoke:operational
 npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
+npm run smoke:web:tti -- https://<arbor-web-url> --threshold 3000
 ```
 
 Smoke offline/field, gdy pracujemy nad mobile:
