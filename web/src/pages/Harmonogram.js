@@ -1361,10 +1361,10 @@ export default function Harmonogram() {
   const filtrowaneEkipy = ekipy.filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial);
 
   return (
-    <div className="app-shell" style={styles.container}>
+    <div className="app-shell harmonogram-shell" style={styles.container}>
       <Sidebar />
-      <main className="app-main" style={styles.main}>
-        <div style={styles.headerRow}>
+      <main className="app-main harmonogram-main" style={styles.main}>
+        <div className="harmonogram-header" style={styles.headerRow}>
           <div style={styles.navRow}>
             <button style={styles.todayBtn} onClick={goToday}>
               <TodayOutlined style={{ fontSize: 17 }} aria-hidden />
@@ -1428,7 +1428,7 @@ export default function Harmonogram() {
         ) : null}
 
         {!loading ? (
-          <section style={styles.dispatchPanel} data-testid="harmonogram-dispatch-panel">
+          <section className="harmonogram-dispatch-panel" style={styles.dispatchPanel} data-testid="harmonogram-dispatch-panel">
             <div style={styles.dispatchHead}>
               <div>
                 <div style={styles.dispatchEyebrow}>Centrum planowania ekip</div>
@@ -1438,6 +1438,13 @@ export default function Harmonogram() {
                 </p>
               </div>
               <div style={styles.dispatchHeadActions}>
+                <button
+                  type="button"
+                  style={styles.dispatchLinkBtn}
+                  onClick={() => navigate(`/auto-dispatch?date=${encodeURIComponent(selectedDayISO)}&refresh=advisor`)}
+                >
+                  Preflight dispatchera
+                </button>
                 <button
                   type="button"
                   style={styles.dispatchLinkBtn}
@@ -1462,7 +1469,7 @@ export default function Harmonogram() {
               </div>
             </div>
 
-            <div style={styles.dispatchKpis}>
+            <div className="harmonogram-dispatch-kpis" style={styles.dispatchKpis}>
               <div style={styles.dispatchKpi}>
                 <span>Prace w dniu</span>
                 <strong>{dispatchStats.scheduled}</strong>
@@ -1489,7 +1496,7 @@ export default function Harmonogram() {
               </div>
             </div>
 
-            <div style={styles.dispatchSlotBoard} data-testid="harmonogram-dispatch-slot-board">
+            <div className="harmonogram-slot-board" style={styles.dispatchSlotBoard} data-testid="harmonogram-dispatch-slot-board">
               <div style={styles.dispatchSlotHeader}>
                 <span style={styles.dispatchSlotHeaderTeam}>Ekipa</span>
                 <div style={styles.dispatchSlotHours}>
@@ -1597,7 +1604,7 @@ export default function Harmonogram() {
               </div>
             </div>
 
-            <div style={styles.dispatchGrid}>
+            <div className="harmonogram-dispatch-grid" style={styles.dispatchGrid}>
               <div style={styles.dispatchTeamsGrid}>
                 {dispatchRows.length ? dispatchRows.map((row) => {
                   const color = row.team?.kolor || 'var(--accent)';
@@ -1710,7 +1717,7 @@ export default function Harmonogram() {
         ) : null}
 
         {selectedTask ? (
-          <section style={styles.quickPanel} data-testid="harmonogram-quick-panel">
+          <section className="harmonogram-quick-panel" style={styles.quickPanel} data-testid="harmonogram-quick-panel">
             <div style={styles.quickPanelHead}>
               <div>
                 <div style={styles.dispatchEyebrow}>Szybki pakiet zlecenia</div>
@@ -1855,7 +1862,7 @@ export default function Harmonogram() {
         {loading ? (
           <div style={styles.loading}>Ładowanie harmonogramu...</div>
         ) : (
-          <div style={styles.calendarWrap}>
+          <div className="harmonogram-calendar-wrap" style={styles.calendarWrap}>
             {widok === 'dzien' && renderDzien([currentDate])}
             {widok === 'tydzien' && renderDzien(tydzien)}
             {widok === 'miesiac' && renderMiesiac()}
@@ -1863,7 +1870,7 @@ export default function Harmonogram() {
         )}
 
         {/* Legenda */}
-        <div style={styles.legenda}>
+        <div className="harmonogram-legend" style={styles.legenda}>
           {ekipy.filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial).length > 0 ? (
             <>
               <span style={styles.legendaTitle}>
@@ -1900,8 +1907,23 @@ export default function Harmonogram() {
 }
 
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', background: 'transparent' },
-  main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
+  container: {
+    display: 'flex',
+    minHeight: '100vh',
+    background:
+      'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
+  },
+  main: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: 0,
+    maxWidth: 1560,
+    width: '100%',
+    margin: '0 auto',
+    padding: '22px clamp(16px, 2.4vw, 30px) 32px',
+    overflowX: 'hidden',
+  },
   headerRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -1911,9 +1933,11 @@ const styles = {
     gap: 12,
     border: '1px solid rgba(255,255,255,0.16)',
     borderRadius: 8,
-    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
-    padding: '16px 18px',
-    boxShadow: '0 22px 46px rgba(11,56,37,0.16)',
+    background:
+      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #07301f 0%, #0f5f3a 58%, #168a4a 100%)',
+    backgroundSize: '32px 32px, 32px 32px, auto',
+    padding: '18px 20px',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.17)',
   },
   navRow: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   calTitle: { fontSize: 24, fontWeight: 950, color: '#FFFFFF', margin: 0, lineHeight: 1.15 },
@@ -1965,21 +1989,21 @@ const styles = {
     gap: 7,
     boxShadow: '0 14px 28px rgba(0,0,0,0.12)',
   },
-  loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 8, background: 'var(--surface-glass)' },
-  calendarWrap: { background: 'var(--surface-raised)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)', overflow: 'hidden', flex: 1, minHeight: 520 },
+  loading: { textAlign: 'center', padding: 60, color: 'var(--text-muted)', border: '1px dashed rgba(15,95,58,0.2)', borderRadius: 8, background: '#ffffff' },
+  calendarWrap: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, boxShadow: '0 12px 30px rgba(31,79,50,0.07)', overflow: 'hidden', flex: 1, minHeight: 520 },
   readinessHint: { marginBottom: 10, fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
-  dispatchPanel: { border: '1px solid var(--glass-border)', borderRadius: 8, background: '#FFFFFF', boxShadow: 'var(--shadow-md)', padding: 14, marginBottom: 14 },
+  dispatchPanel: { border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#FFFFFF', boxShadow: '0 12px 30px rgba(31,79,50,0.07)', padding: 14, marginBottom: 14 },
   dispatchHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 },
   dispatchEyebrow: { fontSize: 10, fontWeight: 900, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0 },
   dispatchTitle: { margin: '2px 0 3px', color: 'var(--text)', fontSize: 18, fontWeight: 950, lineHeight: 1.15 },
   dispatchSubtitle: { margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, maxWidth: 720, lineHeight: 1.45 },
   dispatchHeadActions: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' },
-  dispatchLinkBtn: { minHeight: 34, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', color: 'var(--accent)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
+  dispatchLinkBtn: { minHeight: 34, border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8, background: '#ffffff', color: 'var(--accent)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
   dispatchKpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 },
-  dispatchKpi: { minHeight: 62, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' },
+  dispatchKpi: { minHeight: 62, border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   dispatchKpiWarn: { borderColor: 'rgba(245,158,11,0.42)', background: 'rgba(245,158,11,0.09)' },
   dispatchKpiDanger: { borderColor: 'rgba(239,68,68,0.46)', background: 'rgba(239,68,68,0.1)' },
-  dispatchSlotBoard: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', marginBottom: 12, overflowX: 'auto', boxShadow: 'var(--shadow-sm)' },
+  dispatchSlotBoard: { border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', marginBottom: 12, overflowX: 'auto', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   dispatchSlotHeader: { display: 'grid', gridTemplateColumns: '180px minmax(780px, 1fr)', borderBottom: '1px solid var(--border)', minWidth: 960 },
   dispatchSlotHeaderTeam: { padding: '10px 12px', color: 'var(--text-muted)', fontSize: 11, fontWeight: 950, textTransform: 'uppercase' },
   dispatchSlotHours: { display: 'grid', gridTemplateColumns: `repeat(${GODZINY.length}, minmax(72px, 1fr))` },
@@ -1998,7 +2022,7 @@ const styles = {
   dispatchSlotMore: { color: 'var(--text-muted)', fontSize: 10, fontWeight: 900, padding: '0 4px' },
   dispatchGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 12, alignItems: 'stretch' },
   dispatchTeamsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, alignContent: 'start' },
-  dispatchTeamCard: { textAlign: 'left', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', color: 'var(--text)', padding: 12, cursor: 'pointer', boxShadow: 'var(--shadow-sm)', minHeight: 126 },
+  dispatchTeamCard: { textAlign: 'left', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', color: 'var(--text)', padding: 12, cursor: 'pointer', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', minHeight: 126 },
   dispatchTeamCardDrop: { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px rgba(34,197,94,0.22), var(--shadow-md)', transform: 'translateY(-1px)' },
   dispatchTeamTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
   dispatchTeamDot: { width: 12, height: 12, borderRadius: '50%', flex: '0 0 auto' },
@@ -2011,7 +2035,7 @@ const styles = {
   dispatchBadgeOk: { color: 'var(--accent)', borderColor: 'rgba(34,197,94,0.28)', background: 'rgba(34,197,94,0.12)' },
   dispatchBadgeWarn: { color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.36)', background: 'rgba(245,158,11,0.12)' },
   dispatchBadgeDanger: { color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.38)', background: 'rgba(239,68,68,0.12)' },
-  dispatchQueue: { border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-field)', padding: 12, minWidth: 0 },
+  dispatchQueue: { border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', padding: 12, minWidth: 0, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   dispatchQueueHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, color: 'var(--text)', fontSize: 13, fontWeight: 950 },
   dispatchQueueList: { display: 'grid', gap: 8, maxHeight: 310, overflowY: 'auto', paddingRight: 2 },
   dispatchQueueItem: { border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-field)', color: 'var(--text)', padding: 10, textAlign: 'left', cursor: 'pointer', display: 'grid', gap: 4, fontSize: 12 },
@@ -2019,7 +2043,7 @@ const styles = {
   dispatchQueueWarn: { color: 'var(--warning)', fontSize: 11, fontWeight: 900 },
   dispatchQueueOk: { color: 'var(--accent)', fontSize: 11, fontWeight: 900 },
   dispatchEmpty: { border: '1px dashed var(--border)', borderRadius: 10, padding: 12, color: 'var(--text-muted)', background: 'var(--surface-field)', fontSize: 12, fontWeight: 800 },
-  quickPanel: { border: '1px solid var(--glass-border)', borderRadius: 12, background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)', padding: 14, marginBottom: 14 },
+  quickPanel: { border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', boxShadow: '0 12px 30px rgba(31,79,50,0.07)', padding: 14, marginBottom: 14 },
   quickPanelHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   quickPanelTitle: { margin: '2px 0 2px', color: 'var(--text)', fontSize: 17, fontWeight: 950, lineHeight: 1.15 },
   quickPanelSubtitle: { margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 800 },

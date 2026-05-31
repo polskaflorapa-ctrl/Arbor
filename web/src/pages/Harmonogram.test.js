@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { vi } from 'vitest';
 import Harmonogram from './Harmonogram';
 import api from '../api';
@@ -65,6 +65,7 @@ function renderRoute(path) {
     >
       <Routes>
         <Route path="/harmonogram" element={<Harmonogram />} />
+        <Route path="/auto-dispatch" element={<AutoDispatchRouteProbe />} />
         <Route path="/" element={<div>Login</div>} />
       </Routes>
     </MemoryRouter>
@@ -83,6 +84,11 @@ function HarmonogramRouteHarness() {
   );
 }
 
+function AutoDispatchRouteProbe() {
+  const location = useLocation();
+  return <div>Auto-dispatch route: {location.pathname}{location.search}</div>;
+}
+
 function renderRouteHarness(path) {
   return render(
     <MemoryRouter
@@ -91,6 +97,7 @@ function renderRouteHarness(path) {
     >
       <Routes>
         <Route path="/harmonogram" element={<HarmonogramRouteHarness />} />
+        <Route path="/auto-dispatch" element={<AutoDispatchRouteProbe />} />
         <Route path="/" element={<div>Login</div>} />
       </Routes>
     </MemoryRouter>
@@ -123,6 +130,17 @@ test('opens harmonogram deep link on the requested task, team and day', async ()
   await waitFor(() => {
     expect(api.get).toHaveBeenCalledWith('/tasks/wszystkie', expect.objectContaining({ headers: expect.any(Object) }));
   });
+});
+
+test('links selected day to dispatcher preflight', async () => {
+  mockHarmonogramApi();
+
+  renderRoute('/harmonogram?date=2026-05-26&view=dzien');
+
+  expect(await screen.findByText(/Dispatch dnia:/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Preflight dispatchera' }));
+
+  expect(await screen.findByText('Auto-dispatch route: /auto-dispatch?date=2026-05-26&refresh=advisor')).toBeInTheDocument();
 });
 
 test('clears deep-link quick panel state after navigating to bare harmonogram route', async () => {

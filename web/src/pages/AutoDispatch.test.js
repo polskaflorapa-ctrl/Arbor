@@ -891,6 +891,96 @@ test('allows saving after the dispatcher preflight is bypassed', async () => {
   expect(await screen.findByText(/Plan zapisany/)).toBeInTheDocument();
 });
 
+test('runs dispatcher preflight repair from the blocked save gate', async () => {
+  api.get
+    .mockResolvedValueOnce({
+      data: {
+        source: 'rules',
+        date: '2026-05-25',
+        metrics: {
+          ready_for_dispatch: 1,
+          tasks_total: 3,
+          blocked: 2,
+          warnings: 0,
+          avg_quality: 58,
+          total_value: 3000,
+        },
+        recommendations: [],
+        top_tasks: [],
+      },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        date: '2026-05-25',
+        recommendations: [
+          {
+            id: 'fix_dispatch_blockers',
+            title: '2 blokady wysylki ekip',
+            action_kind: 'fix_dispatch_blockers',
+            task_ids: [101, 102],
+            task_count: 2,
+            target_path: '/zlecenia/101',
+          },
+        ],
+      },
+    })
+    .mockResolvedValueOnce({
+      data: {
+        source: 'rules',
+        date: '2026-05-25',
+        summary: 'Preflight odswiezony.',
+        metrics: {
+          ready_for_dispatch: 2,
+          tasks_total: 3,
+          blocked: 1,
+          warnings: 1,
+          avg_quality: 76,
+          total_value: 3000,
+        },
+        recommendations: [],
+        top_tasks: [],
+      },
+    });
+  api.post.mockResolvedValueOnce({
+    data: {
+      dispatch_preflight: {
+        checked: 2,
+        ready: [101],
+        still_blocked: [{ task_id: 102, blockers: ['gps'], target_path: '/zlecenia/102?focus=officePlan' }],
+        fixed_team_count: 1,
+        gps_checklist_count: 1,
+      },
+    },
+  });
+
+  renderAutoDispatch();
+
+  await userEvent.click(screen.getByRole('button', { name: /Generuj i zapisz/i }));
+  expect(await screen.findByRole('button', { name: 'Uruchom preflight' })).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Uruchom preflight' }));
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      '/ops/action-recommendations',
+      expect.objectContaining({
+        params: expect.objectContaining({ date: expect.any(String), oddzial_id: 7 }),
+        headers: expect.any(Object),
+      })
+    );
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/action-recommendations/fix_dispatch_blockers/apply',
+      expect.objectContaining({
+        action_kind: 'fix_dispatch_blockers',
+        task_ids: [101, 102],
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect((await screen.findAllByText(/przypisano ekipy: 1/)).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/nadal blokuje: 1/).length).toBeGreaterThan(0);
+});
+
 test('marks the dispatch progress as applied after applying a saved plan', async () => {
   api.get
     .mockResolvedValueOnce({

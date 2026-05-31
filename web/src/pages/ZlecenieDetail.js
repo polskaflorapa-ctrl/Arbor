@@ -40,6 +40,7 @@ import { errorMessage, successMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getRoleDisplayName } from '../utils/roleDisplay';
+import { canManageTaskKommo, canSendTaskSms, canViewFinance, readPermissions } from '../utils/permissions';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 import { TASK_STATUSES, getTaskStatusColor, isTaskDone, taskMutationPayload } from '../utils/taskWorkflow';
@@ -348,6 +349,10 @@ export default function ZlecenieDetail() {
   const isPomocnik = currentUser?.rola === 'Pomocnik';
   const isEkipa = isBrygadzista || isPomocnik;
   const canEdit = !isBrygadzista && !isPomocnik;
+  const permissions = useMemo(() => readPermissions(), [currentUser?.rola]);
+  const canSeeFinance = canViewFinance(currentUser, permissions);
+  const canUseTaskSms = canSendTaskSms(currentUser);
+  const canUseTaskKommo = canManageTaskKommo(currentUser);
 
  useEffect(() => {
   const token = getStoredToken();
@@ -1269,7 +1274,7 @@ export default function ZlecenieDetail() {
 
         {/* KPI */}
         <div style={styles.kpiRow}>
-          <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)' }}>
+          <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)', display: canSeeFinance ? undefined : 'none' }}>
             <div style={styles.kpiIcon}><AttachMoney sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
             <div style={styles.kpiNum}>{formatCurrency(wartosc)}</div>
             <div style={styles.kpiLabel}>Wartość</div>
@@ -1279,12 +1284,12 @@ export default function ZlecenieDetail() {
             <div style={styles.kpiNum}>{formatMinutes(lacznie)}</div>
             <div style={styles.kpiLabel}>Czas pracy</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: 'var(--danger)' }}>
+          <div style={{ ...styles.kpi, borderTopColor: 'var(--danger)', display: canSeeFinance ? undefined : 'none' }}>
             <div style={styles.kpiIcon}><PaymentsOutlined sx={{ fontSize: 26, color: 'var(--danger)' }} /></div>
             <div style={styles.kpiNum}>{formatCurrency(kosztRobocizny)}</div>
             <div style={styles.kpiLabel}>Koszt robocizny</div>
           </div>
-          <div style={{ ...styles.kpi, borderTopColor: marza >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          <div style={{ ...styles.kpi, borderTopColor: marza >= 0 ? 'var(--success)' : 'var(--danger)', display: canSeeFinance ? undefined : 'none' }}>
             <div style={styles.kpiIcon}>{marza >= 0 ? <TrendingUpOutlined sx={{ fontSize: 26, color: 'var(--success)' }} /> : <TrendingDownOutlined sx={{ fontSize: 26, color: 'var(--danger)' }} />}</div>
             <div style={{ ...styles.kpiNum, color: marza >= 0 ? 'var(--success)' : 'var(--danger)' }}>
               {formatCurrency(marza)} ({marzaProcent}%)
@@ -1722,6 +1727,7 @@ export default function ZlecenieDetail() {
               </div>
 
               {/* Kommo (CRM) — zlecenie */}
+              {canUseTaskKommo && (
               <div style={styles.card}>
                 <div style={styles.cardTitle}>{t('kommoCrm.taskSectionTitle')}</div>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.45 }}>
@@ -1771,9 +1777,10 @@ export default function ZlecenieDetail() {
                   </pre>
                 )}
               </div>
+              )}
 
               {/* SMS */}
-              {canEdit && (
+              {canUseTaskSms && (
                 <div style={styles.card}>
                   <div style={styles.cardTitle}>SMS do klienta</div>
                   {!zlecenie.klient_telefon ? (

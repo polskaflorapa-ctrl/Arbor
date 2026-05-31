@@ -17,6 +17,7 @@ const DIRECTOR_ROLES = ['Prezes', 'Dyrektor', 'Administrator'];
  * Roles with management capabilities within a branch.
  */
 const MANAGER_ROLES = [...DIRECTOR_ROLES, 'Kierownik'];
+const TASK_BACKOFFICE_ROLES = [...MANAGER_ROLES, 'Specjalista'];
 
 /**
  * All sales-director role string variants (Polish chars + ASCII fallbacks).
@@ -39,6 +40,15 @@ export const isSalesDirector = (rola) => hasAnyRole(rola, SALES_DIRECTOR_ROLES);
 
 /** Returns true for Brygadzista or Pomocnik (field worker). */
 export const isFieldWorker = (rola) => roleMatches(rola, 'Brygadzista') || roleMatches(rola, 'Pomocnik');
+
+export const canViewFinance = (user, permissions = readPermissions()) =>
+  permissions?.canViewFinance === true || isDyrektor(user?.rola);
+
+export const canSendTaskSms = (user) =>
+  hasAnyRole(user?.rola, MANAGER_ROLES);
+
+export const canManageTaskKommo = (user) =>
+  hasAnyRole(user?.rola, TASK_BACKOFFICE_ROLES);
 
 /**
  * Read the permissions object stored in localStorage.

@@ -396,6 +396,23 @@ function routeBriefPendingRecipients(status = {}) {
   return (status.recipients || []).filter(recipient => !routeBriefRecipientConfirmed(recipient));
 }
 
+function dispatchPreflightRecommendation(items = []) {
+  return (items || []).find((item) => item?.action_kind === 'fix_dispatch_blockers' || item?.id === 'fix_dispatch_blockers') || null;
+}
+
+function dispatchPreflightSummary(preflight = {}) {
+  const fixedTeams = Number(preflight.fixed_team_count || 0);
+  const gpsChecklist = Number(preflight.gps_checklist_count || 0);
+  const stillBlocked = Array.isArray(preflight.still_blocked) ? preflight.still_blocked.length : 0;
+  const ready = Array.isArray(preflight.ready) ? preflight.ready.length : 0;
+  return [
+    fixedTeams ? `przypisano ekipy: ${fixedTeams}` : '',
+    gpsChecklist ? `checklisty GPS: ${gpsChecklist}` : '',
+    ready ? `gotowe po preflight: ${ready}` : '',
+    stillBlocked ? `nadal blokuje: ${stillBlocked}` : '',
+  ].filter(Boolean).join(' | ');
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -455,6 +472,7 @@ export default function AutoDispatch() {
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [advisorError, setAdvisorError] = useState('');
   const [preflightHold, setPreflightHold] = useState(null);
+  const [preflightApplying, setPreflightApplying] = useState(false);
   const [briefCopied, setBriefCopied] = useState(false);
   const [briefCopyText, setBriefCopyText] = useState('');
   const [dispatchBriefCopied, setDispatchBriefCopied] = useState('');
@@ -501,6 +519,15 @@ export default function AutoDispatch() {
   const fetchAdvisorBrief = useCallback(async () => {
     const token = getStoredToken();
     const res = await api.get('/ai/dispatch-brief', {
+      params: { date, oddzial_id: user?.oddzial_id },
+      headers: authHeaders(token),
+    });
+    return res.data;
+  }, [date, user?.oddzial_id]);
+
+  const fetchOpsRecommendations = useCallback(async () => {
+    const token = getStoredToken();
+    const res = await api.get('/ops/action-recommendations', {
       params: { date, oddzial_id: user?.oddzial_id },
       headers: authHeaders(token),
     });
@@ -603,6 +630,55 @@ export default function AutoDispatch() {
       setAdvisorLoading(false);
     }
   }, [fetchAdvisorBrief]);
+
+  const runDispatchPreflight = useCallback(async () => {
+    setPreflightApplying(true);
+    setError('');
+    setSuccess('');
+    try {
+      const token = getStoredToken();
+      const recPayload = await fetchOpsRecommendations();
+      const recommendation = dispatchPreflightRecommendation(recPayload?.recommendations || []);
+      if (!recommendation) {
+        const refreshedAdvisor = await fetchAdvisorBrief().catch(() => null);
+        if (refreshedAdvisor) setAdvisor(refreshedAdvisor);
+        setPreflightHold(null);
+        setSuccess('Preflight nie znalazl blokad ekipy/GPS dla tego dnia. Mozesz ponowic zapis planu.');
+        return;
+      }
+
+      const { data } = await api.post(`/ops/action-recommendations/${encodeURIComponent(recommendation.id)}/apply`, {
+        date,
+        oddzial_id: user?.oddzial_id || null,
+        action_kind: recommendation.action_kind || 'fix_dispatch_blockers',
+        target_path: recommendation.target_path || '',
+        task_ids: recommendation.task_ids || [],
+        title: recommendation.title || 'Preflight dispatchera',
+      }, {
+        headers: authHeaders(token),
+      });
+
+      const preflight = data?.dispatch_preflight || {};
+      const stillBlocked = Array.isArray(preflight.still_blocked) ? preflight.still_blocked.length : 0;
+      const checked = Number(preflight.checked || recommendation.task_count || recommendation.task_ids?.length || 0);
+      const ready = Array.isArray(preflight.ready) ? preflight.ready.length : 0;
+      const refreshedAdvisor = await fetchAdvisorBrief().catch(() => null);
+      if (refreshedAdvisor) setAdvisor(refreshedAdvisor);
+      setPreflightHold(stillBlocked > 0 ? {
+        blocked: stillBlocked,
+        warnings: Number(refreshedAdvisor?.metrics?.warnings || 0),
+        total: checked,
+        ready,
+        summary: dispatchPreflightSummary(preflight),
+        still_blocked: preflight.still_blocked || [],
+      } : null);
+      setSuccess(dispatchPreflightSummary(preflight) || 'Preflight dispatchera wykonany.');
+    } catch (e) {
+      setError(e.response?.data?.error || e.message || 'Nie udalo sie uruchomic preflightu dispatchera.');
+    } finally {
+      setPreflightApplying(false);
+    }
+  }, [date, fetchAdvisorBrief, fetchOpsRecommendations, user?.oddzial_id]);
 
   useEffect(() => {
     if (!advisorRefreshFromSearch(location.search)) return undefined;
@@ -987,20 +1063,20 @@ export default function AutoDispatch() {
   const availabilityAvailable = Number(availability?.available ?? Math.max(0, availabilityTotal - absentTeams.length));
 
   return (
-    <div style={s.shell}>
+    <div className="app-shell autodispatch-shell" style={s.shell}>
       <Sidebar />
-      <main style={s.main}>
+      <main className="app-main autodispatch-main" style={s.main}>
         {/* Header */}
-        <div style={s.topbar}>
+        <div className="autodispatch-topbar" style={s.topbar}>
           <div>
-            <h1 style={s.title}>🗺️ {t('autoDispatch.title')}</h1>
+            <h1 style={s.title}>{t('autoDispatch.title')}</h1>
             <p style={s.sub}>{t('autoDispatch.subtitle')}</p>
           </div>
-          <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>← Powrót</button>
+          <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>Powrot</button>
         </div>
 
         {/* Controls */}
-        <div style={s.controls}>
+        <div className="autodispatch-controls" style={s.controls}>
           <div style={s.controlGroup}>
             <label style={s.label}>{t('autoDispatch.datePicker')}</label>
             <input
@@ -1012,23 +1088,23 @@ export default function AutoDispatch() {
           </div>
           <div style={s.btnRow}>
             <button type="button" onClick={() => runSolver(false)} disabled={loading} style={s.previewBtn}>
-              {loading ? `⏳ ${t('autoDispatch.btnPreviewLoading')}` : `▶ ${t('autoDispatch.btnPreview')}`}
+              {loading ? t('autoDispatch.btnPreviewLoading') : t('autoDispatch.btnPreview')}
             </button>
             <button type="button" onClick={loadAdvisor} disabled={advisorLoading} style={s.aiBtn}>
               {advisorLoading ? 'Analizuje...' : 'AI Dyspozytor'}
             </button>
             <button type="button" onClick={() => runSolver(true)} disabled={loading} style={s.saveBtn}>
-              {loading ? '⏳...' : `💾 ${t('autoDispatch.btnSave')}`}
+              {loading ? 'Zapisywanie...' : t('autoDispatch.btnSave')}
             </button>
             {savedPlanId && (
               <button type="button" onClick={applyPlan} disabled={applying} style={s.applyBtn}>
-                {applying ? `⏳ ${t('autoDispatch.btnApplying')}` : `✅ ${t('autoDispatch.btnApply')}`}
+                {applying ? t('autoDispatch.btnApplying') : t('autoDispatch.btnApply')}
               </button>
             )}
           </div>
         </div>
 
-        <section style={s.workflowStrip} aria-label="Postep dyspozycji dnia">
+        <section className="autodispatch-workflow" style={s.workflowStrip} aria-label="Postep dyspozycji dnia">
           {workflowSteps.map((step, idx) => (
             <div
               key={step.key}
@@ -1077,20 +1153,31 @@ export default function AutoDispatch() {
                 Gotowe: {preflightHold.ready} / {preflightHold.total}. Blokady: {preflightHold.blocked}.
                 {preflightHold.warnings > 0 ? ` Uwagi: ${preflightHold.warnings}.` : ''}
               </span>
+              {preflightHold.summary ? <span>{preflightHold.summary}</span> : null}
             </div>
-            <button
-              type="button"
-              onClick={() => runSolver(true, { skipPreflight: true })}
-              disabled={loading}
-              style={s.preflightBypassBtn}
-            >
-              Zapisz mimo blokad
-            </button>
+            <div style={s.preflightActions}>
+              <button
+                type="button"
+                onClick={runDispatchPreflight}
+                disabled={loading || preflightApplying}
+                style={s.preflightFixBtn}
+              >
+                {preflightApplying ? 'Naprawiam...' : 'Uruchom preflight'}
+              </button>
+              <button
+                type="button"
+                onClick={() => runSolver(true, { skipPreflight: true })}
+                disabled={loading || preflightApplying}
+                style={s.preflightBypassBtn}
+              >
+                Zapisz mimo blokad
+              </button>
+            </div>
           </div>
         )}
 
         {advisor && (
-          <section style={s.advisorPanel}>
+          <section className="autodispatch-advisor-panel" style={s.advisorPanel}>
             <div style={s.advisorHeader}>
               <div>
                 <div style={s.advisorEyebrow}>AI Dyspozytor</div>
@@ -1117,7 +1204,7 @@ export default function AutoDispatch() {
               />
             )}
 
-            <div style={s.advisorMetrics}>
+            <div className="autodispatch-metrics" style={s.advisorMetrics}>
               <Stat
                 label="Gotowe"
                 value={`${advisor.metrics?.ready_for_dispatch ?? 0} / ${advisor.metrics?.tasks_total ?? 0}`}
@@ -1185,7 +1272,7 @@ export default function AutoDispatch() {
               </div>
             )}
 
-            <div style={s.advisorGrid}>
+            <div className="autodispatch-advisor-grid" style={s.advisorGrid}>
               <div style={s.advisorColumn}>
                 <h3 style={s.sectionTitle}>Rekomendacje</h3>
                 {(advisor.recommendations || []).map((item, idx) => (
@@ -1298,7 +1385,7 @@ export default function AutoDispatch() {
 
         {/* Stats bar */}
         {stats && (
-          <div style={s.statsBar}>
+          <div className="autodispatch-statsbar" style={s.statsBar}>
             <Stat label={t('autoDispatch.stats.coverage')}
                   value={`${stats.coverage_pct}%`}
                   tone={stats.coverage_pct >= 90 ? 'ok' : stats.coverage_pct >= 60 ? 'warn' : 'bad'} />
@@ -1315,7 +1402,7 @@ export default function AutoDispatch() {
         )}
 
         {availability && (
-          <section style={absentTeams.length ? { ...s.availabilityPanel, ...s.availabilityPanelWarn } : s.availabilityPanel}>
+          <section className="autodispatch-availability-panel" style={absentTeams.length ? { ...s.availabilityPanel, ...s.availabilityPanelWarn } : s.availabilityPanel}>
             <div style={s.availabilityHeader}>
               <div style={s.availabilityTitleWrap}>
                 <span style={s.availabilityEyebrow}>Gotowosc ekip</span>
@@ -1343,7 +1430,7 @@ export default function AutoDispatch() {
         )}
 
         {plan && (
-          <section style={planApplied ? { ...s.handoffPanel, ...s.handoffPanelReady } : s.handoffPanel}>
+          <section className="autodispatch-handoff-panel" style={planApplied ? { ...s.handoffPanel, ...s.handoffPanelReady } : s.handoffPanel}>
             <div style={s.handoffHeader}>
               <div style={s.handoffTitleWrap}>
                 <span style={s.handoffEyebrow}>Odprawy dla ekip</span>
@@ -1424,7 +1511,7 @@ export default function AutoDispatch() {
         )}
 
         {plan && (
-          <div style={s.content}>
+          <div className="autodispatch-content" style={s.content}>
             {/* Routes */}
             <div style={s.routesCol}>
               <h2 style={s.sectionTitle}>{t('autoDispatch.routes')} ({plan.routes?.length ?? 0})</h2>
@@ -1568,7 +1655,7 @@ export default function AutoDispatch() {
 
         {!plan && !loading && (
           <div style={s.empty}>
-            <div style={s.emptyIcon}>🗺️</div>
+            <div style={s.emptyIcon}>Mapa</div>
             <p>{t('autoDispatch.emptyHint')}</p>
           </div>
         )}
@@ -1612,22 +1699,60 @@ function DispatchStopRow({ stop, index, t }) {
 }
 
 const s = {
-  shell:    { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  main:     { flex: 1, padding: '20px 24px 32px', overflowX: 'hidden', minWidth: 0 },
-  topbar:   { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 },
-  title:    { fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 },
-  sub:      { fontSize: 13, color: 'var(--text-sub)', marginTop: 4 },
-  backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 },
-  controls: { display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 20, padding: '16px 18px', background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
+  shell:    {
+    display: 'flex',
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
+  },
+  main:     {
+    flex: 1,
+    padding: '22px clamp(16px, 2.4vw, 30px) 32px',
+    overflowX: 'hidden',
+    minWidth: 0,
+    maxWidth: 1560,
+    width: '100%',
+    margin: '0 auto',
+  },
+  topbar:   {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginBottom: 14,
+    padding: '18px 20px',
+    border: '1px solid rgba(255,255,255,0.16)',
+    borderRadius: 8,
+    background:
+      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #07301f 0%, #0f5f3a 58%, #168a4a 100%)',
+    backgroundSize: '32px 32px, 32px 32px, auto',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.17)',
+  },
+  title:    { fontSize: 26, fontWeight: 950, color: '#ffffff', margin: 0, lineHeight: 1.08 },
+  sub:      { fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 5, fontWeight: 700 },
+  backBtn:  { padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.28)', background: '#ffffff', color: '#0F5F3A', cursor: 'pointer', fontSize: 13, fontWeight: 900, boxShadow: '0 14px 28px rgba(0,0,0,0.12)' },
+  controls: {
+    display: 'flex',
+    gap: 16,
+    alignItems: 'flex-end',
+    flexWrap: 'wrap',
+    marginBottom: 14,
+    padding: '14px 16px',
+    background:
+      'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))',
+    backgroundSize: '32px 32px, 32px 32px, auto',
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.14)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
+  },
   controlGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
   label:    { fontSize: 12, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase' },
   dateInput:{ padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', fontSize: 14 },
   btnRow:   { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' },
-  previewBtn:{ padding: '10px 18px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  previewBtn:{ padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.16)', background: '#ffffff', color: 'var(--text)', cursor: 'pointer', fontSize: 14, fontWeight: 800 },
   aiBtn:    { padding: '10px 18px', borderRadius: 8, border: '1px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   saveBtn:  { padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
   applyBtn: { padding: '10px 18px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 14, fontWeight: 700 },
-  workflowStrip:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, margin: '-8px 0 16px', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)' },
+  workflowStrip:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, margin: '0 0 14px', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   workflowStep:{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, padding: '7px 8px', borderRadius: 7, border: '1px solid transparent' },
   workflowStepDone:{ background: '#f0fdf4', borderColor: '#bbf7d0' },
   workflowStepActive:{ background: '#eff6ff', borderColor: '#bfdbfe' },
@@ -1644,8 +1769,10 @@ const s = {
   successBox:{ padding: '12px 16px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', marginBottom: 16, fontSize: 14, fontWeight: 600 },
   preflightBox:{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', flexWrap: 'wrap', padding: '12px 14px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', marginBottom: 16 },
   preflightText:{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, lineHeight: 1.4 },
+  preflightActions:{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
+  preflightFixBtn:{ flexShrink: 0, padding: '8px 12px', borderRadius: 7, border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   preflightBypassBtn:{ flexShrink: 0, padding: '8px 12px', borderRadius: 7, border: '1px solid #f97316', background: '#fff', color: '#c2410c', cursor: 'pointer', fontSize: 12, fontWeight: 800 },
-  advisorPanel:{ marginBottom: 20, padding: '16px 18px', background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
+  advisorPanel:{ marginBottom: 18, padding: '16px 18px', background: '#ffffff', borderRadius: 8, border: '1px solid rgba(15,95,58,0.13)', boxShadow: '0 12px 30px rgba(31,79,50,0.07)' },
   advisorHeader:{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
   advisorEyebrow:{ fontSize: 11, fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', letterSpacing: 0 },
   advisorTitle:{ margin: '3px 0 0', fontSize: 17, lineHeight: 1.35, color: 'var(--text)' },
@@ -1697,11 +1824,11 @@ const s = {
   openTaskCta:{ padding: '4px 7px', borderRadius: 7, border: '1px solid var(--border)', background: '#fff', color: '#2563eb', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   repairTaskBtn:{ padding: '4px 7px', borderRadius: 7, border: '1px solid #16a34a', background: '#ecfdf5', color: '#047857', cursor: 'pointer', fontSize: 11, fontWeight: 900 },
   qualityPill:{ flexShrink: 0, minWidth: 40, textAlign: 'center', borderRadius: 6, padding: '2px 6px', background: '#f1f5f9', color: '#334155', fontSize: 11, fontWeight: 800 },
-  statsBar: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
-  statCard: { flex: 1, minWidth: 100, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' },
+  statsBar: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 18 },
+  statCard: { flex: 1, minWidth: 100, padding: '12px 16px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.13)', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   statValue:{ fontSize: 22, fontWeight: 800 },
   statLabel:{ fontSize: 11, fontWeight: 600, color: 'var(--text-sub)', textTransform: 'uppercase', marginTop: 4 },
-  availabilityPanel:{ marginBottom: 20, padding: '13px 14px', borderRadius: 10, border: '1px solid #bbf7d0', background: '#f0fdf4', boxShadow: 'var(--shadow-sm)' },
+  availabilityPanel:{ marginBottom: 18, padding: '13px 14px', borderRadius: 8, border: '1px solid #bbf7d0', background: '#f0fdf4', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   availabilityPanelWarn:{ borderColor: '#fdba74', background: '#fff7ed' },
   availabilityHeader:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
   availabilityTitleWrap:{ display: 'grid', gap: 2, minWidth: 0 },
@@ -1712,7 +1839,7 @@ const s = {
   availabilityNote:{ margin: '8px 0 0', color: 'var(--text-sub)', fontSize: 12 },
   absentTeamList:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 8, marginTop: 10 },
   absentTeamItem:{ display: 'grid', gap: 3, padding: '9px 10px', borderRadius: 8, border: '1px solid #fed7aa', background: '#fff', color: '#7c2d12', fontSize: 12 },
-  handoffPanel:{ marginBottom: 18, padding: '13px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-sm)' },
+  handoffPanel:{ marginBottom: 18, padding: '13px 14px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   handoffPanelReady:{ borderColor: '#86efac', background: '#f0fdf4' },
   handoffHeader:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
   handoffTitleWrap:{ display: 'grid', gap: 2, minWidth: 0 },
@@ -1730,7 +1857,7 @@ const s = {
   content:  { display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' },
   routesCol:{ display: 'flex', flexDirection: 'column', gap: 10 },
   sectionTitle:{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
-  routeCard:{ background: 'var(--surface-glass)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' },
+  routeCard:{ background: '#ffffff', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(15,95,58,0.13)', boxShadow: '0 12px 30px rgba(31,79,50,0.07)' },
   routeHeaderRow:{ display: 'flex', alignItems: 'stretch', gap: 8, padding: '0 8px 0 0' },
   routeHeader:{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left' },
   teamDot:  { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
@@ -1771,6 +1898,6 @@ const s = {
   unassignedCard:{ padding: '12px 14px', borderRadius: 8, background: 'var(--surface-field)', border: '1px solid #fca5a5' },
   unassignedAddr:{ fontSize: 12, color: 'var(--text-sub)', margin: '4px 0' },
   reasonBadge:{ fontSize: 10, background: '#fee2e2', color: '#dc2626', borderRadius: 4, padding: '2px 6px', display: 'inline-block', fontWeight: 600 },
-  empty:    { textAlign: 'center', padding: '60px 20px', color: 'var(--text-sub)' },
-  emptyIcon:{ fontSize: 48, marginBottom: 16 },
+  empty:    { textAlign: 'center', padding: '56px 20px', color: 'var(--text-sub)', background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
+  emptyIcon:{ fontSize: 18, fontWeight: 950, marginBottom: 10, color: 'var(--accent)' },
 };

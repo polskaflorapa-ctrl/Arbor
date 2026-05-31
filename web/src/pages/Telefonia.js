@@ -14,9 +14,26 @@ import { normalizeSmsHistoryRow } from '../utils/smsHistoryNormalize';
 /** Rozmiar strony dla GET /api/sms/historia?limit=&offset= (ARBOR-OS). */
 const SMS_HIST_PAGE_SIZE = 15;
 
+function useNarrowViewport(maxWidth = 760) {
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < maxWidth : false
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResize = () => setIsNarrow(window.innerWidth < maxWidth);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [maxWidth]);
+
+  return isNarrow;
+}
+
 export default function Telefonia() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isNarrow = useNarrowViewport();
   const [sms, setSms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,9 +79,19 @@ export default function Telefonia() {
   const [agentIntegration, setAgentIntegration] = useState(null);
   const [agentIntakes, setAgentIntakes] = useState([]);
   const [agentIntakesTotal, setAgentIntakesTotal] = useState(0);
+  const [agentIntakesSummary, setAgentIntakesSummary] = useState({ all: 0, needs_review: 0, sms_missing: 0, sms_error: 0, scheduled: 0 });
   const [agentIntakesLoading, setAgentIntakesLoading] = useState(false);
+  const [agentExporting, setAgentExporting] = useState(false);
+  const [branchTelephonySaving, setBranchTelephonySaving] = useState(false);
+  const [branchSmsTesting, setBranchSmsTesting] = useState(false);
+  const [agentHistoryFilter, setAgentHistoryFilter] = useState('all');
+  const [agentHistoryQuery, setAgentHistoryQuery] = useState('');
+  const [agentHistoryPage, setAgentHistoryPage] = useState(1);
+  const [agentReminderPreview, setAgentReminderPreview] = useState({ total: 0, items: [] });
+  const [agentReminderLoading, setAgentReminderLoading] = useState(false);
   const [selectedAgentIntake, setSelectedAgentIntake] = useState(null);
   const [agentFixSaving, setAgentFixSaving] = useState(false);
+  const [agentSmsSending, setAgentSmsSending] = useState(false);
   const [agentFixForm, setAgentFixForm] = useState({
     customer_name: '',
     caller_phone: '',
@@ -81,6 +108,12 @@ export default function Telefonia() {
     provider: 'external',
     provider_account_id: '',
     provider_api_key: '',
+    status: 'active',
+  });
+  const [branchTelephonyForm, setBranchTelephonyForm] = useState({
+    telefon: '',
+    sms_sender_id: '',
+    test_phone: '',
   });
   const [callForm, setCallForm] = useState({
     oddzial_id: '',
@@ -134,6 +167,7 @@ export default function Telefonia() {
   };
   const GSM7_REGEX = /^[\r\n !"$%&'()*+,\-./0-9:;<=>?@A-Z_a-z\u00A3\u00A5\u00C4\u00C5\u00C6\u00C9\u00D1\u00D6\u00D8\u00DC\u00DF\u00E0\u00E4\u00E5\u00E6\u00E8\u00E9\u00EC\u00F1\u00F2\u00F6\u00F8\u00F9\u00FC\u0393\u0394\u0398\u039B\u039E\u03A0\u03A3\u03A6\u03A8\u03A9\u20AC]*$/;
   const SMS_PRICE_PLN = 0.12;
+  const AGENT_HISTORY_PAGE_SIZE = 50;
 
   useEffect(() => {
     const user = getLocalStorageJson('user');
@@ -266,6 +300,19 @@ export default function Telefonia() {
     return o ? o.nazwa || `#${id}` : `#${id || '-'}`;
   };
 
+  const selectedAgentBranch = useMemo(
+    () => oddzialy.find((x) => Number(x.id) === Number(agentForm.oddzial_id)) || null,
+    [oddzialy, agentForm.oddzial_id]
+  );
+
+  useEffect(() => {
+    setBranchTelephonyForm((f) => ({
+      telefon: selectedAgentBranch?.telefon || '',
+      sms_sender_id: selectedAgentBranch?.sms_sender_id || '',
+      test_phone: f.test_phone,
+    }));
+  }, [selectedAgentBranch]);
+
   const toDateTimeLocal = (value) => {
     if (!value) return '';
     const date = new Date(value);
@@ -316,6 +363,7 @@ export default function Telefonia() {
         provider: data.integration?.provider || f.provider || 'external',
         provider_account_id: data.integration?.provider_account_id || f.provider_account_id || '',
         provider_api_key: '',
+        status: data.integration?.status || f.status || 'active',
       }));
     } catch (e) {
       setAgentError(getApiErrorMessage(e, 'Nie udalo sie pobrac konfiguracji agenta.'));
@@ -330,11 +378,19 @@ export default function Telefonia() {
     setAgentIntakesLoading(true);
     try {
       const token = getStoredToken();
-      const { data } = await api.get(`/telephony/voice-agent/polska-flora/intakes?oddzial_id=${encodeURIComponent(oddzialId)}&limit=12`, {
+      const qs = new URLSearchParams();
+      qs.set('oddzial_id', String(oddzialId));
+      qs.set('limit', String(AGENT_HISTORY_PAGE_SIZE));
+      qs.set('offset', String((Math.max(1, agentHistoryPage) - 1) * AGENT_HISTORY_PAGE_SIZE));
+      qs.set('filter', agentHistoryFilter || 'all');
+      const agentQ = agentHistoryQuery.trim().slice(0, 200);
+      if (agentQ) qs.set('q', agentQ);
+      const { data } = await api.get(`/telephony/voice-agent/polska-flora/intakes?${qs.toString()}`, {
         headers: authHeaders(token),
       });
       setAgentIntakes(Array.isArray(data.items) ? data.items : []);
       setAgentIntakesTotal(Number(data.total || 0));
+      setAgentIntakesSummary(data.summary || { all: 0, needs_review: 0, sms_missing: 0, sms_error: 0, scheduled: 0 });
       setSelectedAgentIntake((current) => {
         if (!current?.id) return current;
         return (data.items || []).find((row) => Number(row.id) === Number(current.id)) || null;
@@ -344,14 +400,39 @@ export default function Telefonia() {
     } finally {
       setAgentIntakesLoading(false);
     }
+  }, [agentForm.oddzial_id, agentHistoryFilter, agentHistoryPage, agentHistoryQuery]);
+
+  const loadAgentReminderPreview = useCallback(async (oddzialIdArg) => {
+    const oddzialId = oddzialIdArg || agentForm.oddzial_id;
+    if (!oddzialId) return;
+    setAgentReminderLoading(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/automations/inspection-sms-reminders/preview?oddzial_id=${encodeURIComponent(oddzialId)}`, {
+        headers: authHeaders(token),
+      });
+      setAgentReminderPreview({
+        total: Number(data.total || 0),
+        items: Array.isArray(data.items) ? data.items : [],
+      });
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie pobrac podgladu przypomnien SMS.'));
+    } finally {
+      setAgentReminderLoading(false);
+    }
   }, [agentForm.oddzial_id]);
 
   useEffect(() => {
     if (tab === 'agent' && agentForm.oddzial_id) {
       loadVoiceAgentIntegration(agentForm.oddzial_id);
       loadVoiceAgentIntakes(agentForm.oddzial_id);
+      loadAgentReminderPreview(agentForm.oddzial_id);
     }
-  }, [tab, agentForm.oddzial_id, loadVoiceAgentIntegration, loadVoiceAgentIntakes]);
+  }, [tab, agentForm.oddzial_id, loadVoiceAgentIntegration, loadVoiceAgentIntakes, loadAgentReminderPreview]);
+
+  useEffect(() => {
+    setAgentHistoryPage(1);
+  }, [agentHistoryFilter, agentHistoryQuery, agentForm.oddzial_id]);
 
   const saveVoiceAgentIntegration = async (e) => {
     e.preventDefault();
@@ -369,13 +450,14 @@ export default function Telefonia() {
         provider: agentForm.provider || 'external',
         provider_account_id: agentForm.provider_account_id || null,
         provider_api_key: agentForm.provider_api_key || null,
-        status: 'active',
+        status: agentForm.status || 'active',
       }, { headers: authHeaders(token) });
       setAgentIntegration(data.integration || null);
       setAgentConfig(data.config || agentConfig);
       setAgentForm((f) => ({ ...f, provider_api_key: '' }));
       setAgentMessage('Agent Ania jest wlaczony dla oddzialu. Webhook i sekret sa gotowe do wklejenia u providera.');
       await loadVoiceAgentIntakes(agentForm.oddzial_id);
+      await loadAgentReminderPreview(agentForm.oddzial_id);
     } catch (e2) {
       setAgentError(getApiErrorMessage(e2, 'Nie udalo sie wlaczyc agenta.'));
     } finally {
@@ -396,6 +478,7 @@ export default function Telefonia() {
       setAgentMessage(data.message || 'Test konfiguracji OK.');
       await loadVoiceAgentIntegration(agentForm.oddzial_id);
       await loadVoiceAgentIntakes(agentForm.oddzial_id);
+      await loadAgentReminderPreview(agentForm.oddzial_id);
     } catch (e) {
       setAgentError(getApiErrorMessage(e, 'Test konfiguracji nie przeszedl.'));
     } finally {
@@ -427,10 +510,123 @@ export default function Telefonia() {
       setAgentMessage(data.intake?.quality_status === 'ok'
         ? 'Korekta zapisana. Rozmowa ma komplet danych.'
         : 'Korekta zapisana, ale rozmowa nadal wymaga sprawdzenia.');
+      await loadAgentReminderPreview(agentForm.oddzial_id);
     } catch (err) {
       setAgentError(getApiErrorMessage(err, 'Nie udalo sie zapisac korekty rozmowy.'));
     } finally {
       setAgentFixSaving(false);
+    }
+  };
+
+  const setVoiceAgentStatus = async (status) => {
+    if (!agentForm.oddzial_id) return;
+    setAgentSaving(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/telephony/voice-agent/polska-flora/integration', {
+        oddzial_id: Number(agentForm.oddzial_id),
+        provider: agentForm.provider || agentIntegration?.provider || 'external',
+        provider_account_id: agentForm.provider_account_id || agentIntegration?.provider_account_id || null,
+        provider_api_key: null,
+        status,
+      }, { headers: authHeaders(token) });
+      setAgentIntegration(data.integration || null);
+      setAgentForm((f) => ({ ...f, status }));
+      setAgentMessage(status === 'active'
+        ? 'Agent Ania i automatyczne przypomnienia sa aktywne dla oddzialu.'
+        : 'Agent Ania zatrzymany. Webhook i przypomnienia SMS nie beda dzialac dla tego oddzialu.');
+      await Promise.all([
+        loadVoiceAgentIntegration(agentForm.oddzial_id),
+        loadAgentReminderPreview(agentForm.oddzial_id),
+      ]);
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie zmienic statusu agenta.'));
+    } finally {
+      setAgentSaving(false);
+    }
+  };
+
+  const sendAgentConfirmationSms = async () => {
+    if (!selectedAgentIntake?.id) return;
+    setAgentSmsSending(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const body = buildAgentSmsConfirmation(selectedAgentIntake);
+      await api.post(`/telephony/voice-agent/polska-flora/intakes/${selectedAgentIntake.id}/sms`, {
+        body,
+      }, { headers: authHeaders(token) });
+      setAgentMessage('SMS potwierdzajacy ogledziny zostal wyslany i zapisany w CRM.');
+      await Promise.all([
+        loadVoiceAgentIntakes(agentForm.oddzial_id),
+        loadAgentReminderPreview(agentForm.oddzial_id),
+        loadSms(1),
+      ]);
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Nie udalo sie wyslac SMS potwierdzajacego.'));
+    } finally {
+      setAgentSmsSending(false);
+    }
+  };
+
+  const saveBranchTelephony = async (e) => {
+    e.preventDefault();
+    if (!agentForm.oddzial_id) {
+      setAgentError('Wybierz oddzial.');
+      return;
+    }
+    setBranchTelephonySaving(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      await api.put(`/oddzialy/${agentForm.oddzial_id}`, {
+        telefon: branchTelephonyForm.telefon.trim(),
+        sms_sender_id: branchTelephonyForm.sms_sender_id.trim(),
+      }, { headers: authHeaders(token) });
+      setAgentMessage('Numery oddzialu zapisane. SMS i Agent AI beda uzywac tej konfiguracji oddzialowej.');
+      await Promise.all([
+        loadTelephonyExtras(),
+        loadVoiceAgentIntegration(agentForm.oddzial_id),
+      ]);
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Nie udalo sie zapisac numerow oddzialu.'));
+    } finally {
+      setBranchTelephonySaving(false);
+    }
+  };
+
+  const sendBranchTestSms = async () => {
+    if (!agentForm.oddzial_id) {
+      setAgentError('Wybierz oddzial.');
+      return;
+    }
+    if (!branchTelephonyForm.test_phone.trim()) {
+      setAgentError('Podaj numer do testu SMS.');
+      return;
+    }
+    if (!isValidPhone(branchTelephonyForm.test_phone)) {
+      setAgentError('Nieprawidlowy numer telefonu testowego. Uzyj formatu +48123123123 lub 123123123.');
+      return;
+    }
+    setBranchSmsTesting(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/sms/oddzial-test', {
+        oddzial_id: Number(agentForm.oddzial_id),
+        telefon: normalizePhone(branchTelephonyForm.test_phone.trim()),
+      }, { headers: authHeaders(token) });
+      setAgentMessage(`Test SMS wyslany z oddzialu ${oddzialLabel(agentForm.oddzial_id)} (${data.provider || 'provider'}).`);
+      await loadSms(1);
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Nie udalo sie wyslac testowego SMS oddzialu.'));
+    } finally {
+      setBranchSmsTesting(false);
     }
   };
 
@@ -659,6 +855,70 @@ export default function Telefonia() {
     URL.revokeObjectURL(url);
   };
 
+  const exportAgentCsv = async () => {
+    if (!agentForm.oddzial_id || agentExporting) return;
+    setAgentExporting(true);
+    setAgentError('');
+    let rowsToExport = [];
+    try {
+      const token = getStoredToken();
+      const pageSize = 100;
+      let offset = 0;
+      let total = null;
+
+      do {
+        const qs = new URLSearchParams();
+        qs.set('oddzial_id', String(agentForm.oddzial_id));
+        qs.set('limit', String(pageSize));
+        qs.set('offset', String(offset));
+        qs.set('filter', agentHistoryFilter || 'all');
+        const agentQ = agentHistoryQuery.trim().slice(0, 200);
+        if (agentQ) qs.set('q', agentQ);
+        const { data } = await api.get(`/telephony/voice-agent/polska-flora/intakes?${qs.toString()}`, {
+          headers: authHeaders(token),
+        });
+        const items = Array.isArray(data.items) ? data.items : [];
+        rowsToExport = rowsToExport.concat(items);
+        total = Number(data.total || rowsToExport.length);
+        offset += pageSize;
+        if (!items.length) break;
+      } while (rowsToExport.length < total);
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie wyeksportowac rozmow agenta.'));
+      setAgentExporting(false);
+      return;
+    }
+
+    const rows = [
+      ['data', 'klient', 'telefon', 'adres', 'miasto', 'usluga', 'termin', 'jakosc', 'sms', 'lead_id', 'klient_id', 'ogledziny_id'],
+      ...rowsToExport.map((x) => [
+        x.created_at ? new Date(x.created_at).toISOString() : '',
+        x.customer_name || '',
+        x.caller_phone || '',
+        x.inspection_address || '',
+        x.city || '',
+        agentServiceLabel(x.service_type),
+        x.appointment_at ? new Date(x.appointment_at).toISOString() : '',
+        x.quality_status || '',
+        agentSmsStatusLabel(x),
+        x.crm_lead_id || '',
+        x.klient_id || '',
+        x.ogledziny_id || '',
+      ]),
+    ];
+    const csv = rows
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `telefonia-agent-ai-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setAgentExporting(false);
+  };
+
   const resendSms = async (row) => {
     if (!row?.task_id) return;
     setSendingId(row.id);
@@ -768,6 +1028,14 @@ export default function Telefonia() {
   };
 
   const formatAgentDate = (value) => (value ? new Date(value).toLocaleString('pl-PL') : 'brak');
+  const buildAgentSmsConfirmation = (row) => {
+    const when = row?.appointment_at ? new Date(row.appointment_at).toLocaleString('pl-PL') : '';
+    const address = [row?.inspection_address, row?.city].filter(Boolean).join(', ');
+    const parts = ['Dzien dobry, potwierdzamy bezplatne ogledziny Polska Flora'];
+    if (when) parts.push(`termin: ${when}`);
+    if (address) parts.push(`adres: ${address}`);
+    return `${parts.join(', ')}. W razie pytan prosimy o kontakt.`.slice(0, SMS_LIMIT);
+  };
   const agentServiceLabel = (value) => {
     const v = String(value || '').toLowerCase();
     if (v === 'dach') return 'Dach';
@@ -784,7 +1052,94 @@ export default function Telefonia() {
     brak_ogledzin: 'brak ogledzin',
     brak_notatki: 'brak notatki',
   }[value] || value);
-  const agentNeedsReviewCount = agentIntakes.filter((x) => x.quality_status === 'needs_review').length;
+  const agentSmsStatusLabel = (row) => {
+    const sms = row?.sms_status || {};
+    if (sms.confirmation_error || sms.reminder_error) return 'SMS blad';
+    if (sms.confirmation_at && sms.reminder_at) return 'Potw. + przyp.';
+    if (sms.confirmation_at) return 'Potwierdzono';
+    if (sms.reminder_at) return 'Przypomniano';
+    return 'Brak SMS';
+  };
+  const agentSmsStatusTone = (row) => {
+    const sms = row?.sms_status || {};
+    if (sms.confirmation_error || sms.reminder_error) return s.reviewBadge;
+    if (sms.confirmation_at || sms.reminder_at) return s.okBadge;
+    return s.neutralBadge;
+  };
+  const agentNeedsReviewCount = Number(agentIntakesSummary.needs_review || 0);
+  const agentSmsMissingCount = Number(agentIntakesSummary.sms_missing || 0);
+  const agentSmsErrorCount = Number(agentIntakesSummary.sms_error || 0);
+  const agentScheduledCount = Number(agentIntakesSummary.scheduled || 0);
+  const agentLastIntake = agentIntakes[0] || null;
+  const agentLastSmsProblem = agentIntakes.find((x) => x.sms_status?.confirmation_error || x.sms_status?.reminder_error) || null;
+  const agentBranchSmsSender = selectedAgentBranch?.sms_sender_id || selectedAgentBranch?.sms_sender || selectedAgentBranch?.telefon || '';
+  const agentHealthItems = [
+    {
+      label: 'Agent AI',
+      value: agentIntegration?.status === 'active' ? 'Aktywny' : agentIntegration?.status === 'paused' ? 'Pauza' : 'Niepodlaczony',
+      tone: agentIntegration?.status === 'active' ? 'ok' : agentIntegration?.status === 'paused' ? 'warn' : 'bad',
+      detail: agentIntegration ? `${agentIntegration.provider || 'external'}${agentIntegration.provider_account_id ? ` / ${agentIntegration.provider_account_id}` : ''}` : 'Najpierw wlacz agenta dla oddzialu.',
+    },
+    {
+      label: 'Sekret webhooka',
+      value: agentIntegration?.webhook_secret ? 'Gotowy' : 'Brak',
+      tone: agentIntegration?.webhook_secret ? 'ok' : 'bad',
+      detail: agentIntegration?.webhook_secret ? 'Mozna wkleic u providera telefonii.' : 'Brak sekretu blokuje zewnetrzny webhook.',
+    },
+    {
+      label: 'Numer oddzialu',
+      value: selectedAgentBranch?.telefon || 'Brak',
+      tone: selectedAgentBranch?.telefon ? 'ok' : 'warn',
+      detail: selectedAgentBranch?.telefon ? oddzialLabel(agentForm.oddzial_id) : 'Uzupelnij telefon oddzialu w danych oddzialu.',
+    },
+    {
+      label: 'Nadawca SMS',
+      value: agentBranchSmsSender || 'Domyslny',
+      tone: agentBranchSmsSender ? 'ok' : 'warn',
+      detail: agentBranchSmsSender ? 'SMS-y ida z konfiguracji oddzialu.' : 'System uzyje globalnej konfiguracji SMS.',
+    },
+    {
+      label: 'Rozmowy webhook',
+      value: String(agentIntakesSummary.all || agentIntakesTotal || 0),
+      tone: (agentIntakesSummary.all || agentIntakesTotal) ? 'ok' : 'warn',
+      detail: agentLastIntake?.created_at ? `Ostatnia: ${formatAgentDate(agentLastIntake.created_at)}` : 'Jeszcze nie ma rozmow dla tego oddzialu.',
+    },
+    {
+      label: 'Do sprawdzenia',
+      value: String(agentNeedsReviewCount),
+      tone: agentNeedsReviewCount ? 'warn' : 'ok',
+      detail: agentNeedsReviewCount ? 'Sa rozmowy z brakujacymi danymi.' : 'Brak rozmow wymagajacych korekty.',
+    },
+    {
+      label: 'SMS bledy',
+      value: String(agentSmsErrorCount),
+      tone: agentSmsErrorCount ? 'bad' : 'ok',
+      detail: agentLastSmsProblem
+        ? (agentLastSmsProblem.sms_status?.confirmation_error || agentLastSmsProblem.sms_status?.reminder_error || 'Blad SMS')
+        : 'Nie widac bledow SMS w aktualnym filtrze.',
+    },
+    {
+      label: 'Przypomnienia jutro',
+      value: String(agentReminderPreview.total || 0),
+      tone: agentIntegration?.status === 'active' ? 'ok' : 'warn',
+      detail: agentIntegration?.status === 'active' ? 'Automat obejmuje aktywne podpiecie oddzialu.' : 'Pauza lub brak podpiecia zatrzyma automat.',
+    },
+  ];
+  const filteredAgentIntakes = agentIntakes.filter((x) => {
+    if (agentHistoryFilter === 'needs_review') return x.quality_status === 'needs_review';
+    if (agentHistoryFilter === 'sms_missing') return !x.sms_status?.confirmation_at && !x.sms_status?.reminder_at;
+    if (agentHistoryFilter === 'sms_error') return !!(x.sms_status?.confirmation_error || x.sms_status?.reminder_error);
+    if (agentHistoryFilter === 'scheduled') return !!x.appointment_at;
+    return true;
+  });
+  const agentHistoryFilters = [
+    { key: 'all', label: `Wszystkie (${agentIntakesSummary.all || agentIntakesTotal || 0})` },
+    { key: 'needs_review', label: `Do sprawdzenia (${agentNeedsReviewCount})` },
+    { key: 'sms_missing', label: `Bez SMS (${agentSmsMissingCount})` },
+    { key: 'sms_error', label: `Blad SMS (${agentSmsErrorCount})` },
+    { key: 'scheduled', label: `Z terminem (${agentScheduledCount})` },
+  ];
+  const agentHistoryTotalPages = Math.max(1, Math.ceil(agentIntakesTotal / AGENT_HISTORY_PAGE_SIZE));
 
   const updateSmsStatus = async (id, status) => {
     setUpdatingStatusId(id);
@@ -814,7 +1169,7 @@ export default function Telefonia() {
   return (
     <div style={s.root}>
       <Sidebar />
-      <div style={s.content}>
+      <div style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
         <PageHeader
           icon={
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -836,14 +1191,27 @@ export default function Telefonia() {
                   Eksport CSV
                 </button>
               )}
-              <button type="button" style={s.refreshBtn} onClick={() => (tab === 'sms' ? loadSms(page) : loadTelephonyExtras())}>
+              {tab === 'agent' && (
+                <button type="button" style={s.refreshBtn} onClick={exportAgentCsv} disabled={agentExporting || !agentForm.oddzial_id}>
+                  {agentExporting ? 'Eksport...' : 'Eksport CSV'}
+                </button>
+              )}
+              <button
+                type="button"
+                style={s.refreshBtn}
+                onClick={() => (tab === 'sms'
+                  ? loadSms(page)
+                  : tab === 'agent'
+                    ? loadVoiceAgentIntakes(agentForm.oddzial_id)
+                    : loadTelephonyExtras())}
+              >
                 Odswiez
               </button>
             </>
           }
         />
 
-        <div style={s.tabRow}>
+        <div style={{ ...s.tabRow, ...(isNarrow ? s.tabRowNarrow : null) }}>
           <button type="button" style={tab === 'sms' ? s.tabActive : s.tab} onClick={() => setTab('sms')}>
             SMS
           </button>
@@ -882,6 +1250,45 @@ export default function Telefonia() {
               Podpiecie bez kodu: wybierz oddzial, wlacz agenta, skopiuj webhook i sekret do providera telefonii AI. Agent zapisuje rozmowy w CRM i historii telefonii w tym panelu.
             </div>
             {agentLoading && <div style={s.empty}>Ladowanie konfiguracji...</div>}
+            <div style={s.agentHealthBox}>
+              <div style={s.agentHistoryHeader}>
+                <div>
+                  <div style={s.manualTitle}>Zdrowie integracji oddzialu</div>
+                  <div style={s.agentHistoryMeta}>
+                    Jeden podglad dla menadzerki: numer oddzialu, webhook, SMS-y i automaty.
+                  </div>
+                </div>
+                <div style={s.inlineActions}>
+                  <button
+                    type="button"
+                    style={s.rowBtn}
+                    onClick={() => loadVoiceAgentIntegration(agentForm.oddzial_id)}
+                    disabled={agentLoading || !agentForm.oddzial_id}
+                  >
+                    {agentLoading ? 'Sprawdzanie...' : 'Odswiez status'}
+                  </button>
+                  <button type="button" style={s.rowBtn} onClick={testVoiceAgentIntegration} disabled={agentTestLoading || !agentIntegration}>
+                    {agentTestLoading ? 'Test...' : 'Test webhooka'}
+                  </button>
+                </div>
+              </div>
+              <div style={s.agentHealthGrid}>
+                {agentHealthItems.map((item) => (
+                  <div key={item.label} style={s.agentHealthItem}>
+                    <div style={s.agentHealthTop}>
+                      <span style={{
+                        ...s.agentHealthDot,
+                        background: item.tone === 'ok' ? '#22c55e' : item.tone === 'bad' ? '#ef4444' : '#f59e0b',
+                      }}
+                      />
+                      <span>{item.label}</span>
+                    </div>
+                    <strong style={s.agentHealthValue}>{item.value}</strong>
+                    <div style={s.agentHistoryMeta}>{item.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div style={s.agentGrid}>
               <form style={s.callForm} onSubmit={saveVoiceAgentIntegration}>
                 <div style={s.manualTitle}>Agent Ania / Polska Flora</div>
@@ -926,6 +1333,16 @@ export default function Telefonia() {
                   <button type="submit" style={s.sendBtn} disabled={agentSaving || !agentForm.oddzial_id}>
                     {agentSaving ? 'Wlaczanie...' : agentIntegration ? 'Zapisz podpiecie' : 'Wlacz agenta'}
                   </button>
+                  {agentIntegration ? (
+                    <button
+                      type="button"
+                      style={agentIntegration.status === 'active' ? s.dangerBtn : s.rowBtnActive}
+                      onClick={() => setVoiceAgentStatus(agentIntegration.status === 'active' ? 'paused' : 'active')}
+                      disabled={agentSaving || !agentForm.oddzial_id}
+                    >
+                      {agentIntegration.status === 'active' ? 'Pauzuj' : 'Wznow'}
+                    </button>
+                  ) : null}
                   <button type="button" style={s.rowBtn} onClick={testVoiceAgentIntegration} disabled={agentTestLoading || !agentIntegration}>
                     {agentTestLoading ? 'Test...' : 'Test konfiguracji'}
                   </button>
@@ -937,7 +1354,7 @@ export default function Telefonia() {
                 <div style={s.agentStatusRow}>
                   <span>Status</span>
                   <strong style={{ color: agentIntegration?.status === 'active' ? '#22c55e' : 'var(--text-muted)' }}>
-                    {agentIntegration?.status === 'active' ? 'Aktywny' : 'Niepodlaczony'}
+                    {agentIntegration?.status === 'active' ? 'Aktywny' : agentIntegration?.status === 'paused' ? 'Pauza' : 'Niepodlaczony'}
                   </strong>
                 </div>
                 <label style={s.copyLabel}>Webhook URL</label>
@@ -967,6 +1384,95 @@ export default function Telefonia() {
                   Kopiuj prompt
                 </button>
               </div>
+
+              <form style={s.callForm} onSubmit={saveBranchTelephony}>
+                <div style={s.manualTitle}>Numery oddzialu</div>
+                <div style={s.callsIntro}>
+                  Tu ustawiasz dane dla wybranego oddzialu. Agent widzi numer oddzialu, a SMS-y biora nadawce z tego miejsca.
+                </div>
+                <label style={s.copyLabel}>Telefon oddzialu</label>
+                <input
+                  value={branchTelephonyForm.telefon}
+                  onChange={(e) => setBranchTelephonyForm((f) => ({ ...f, telefon: e.target.value }))}
+                  placeholder="+48..."
+                  style={s.input}
+                />
+                <label style={s.copyLabel}>Nadawca SMS oddzialu</label>
+                <input
+                  value={branchTelephonyForm.sms_sender_id}
+                  onChange={(e) => setBranchTelephonyForm((f) => ({ ...f, sms_sender_id: e.target.value }))}
+                  placeholder="np. ARBOR-KRK albo numer SMS"
+                  style={s.input}
+                  maxLength={64}
+                />
+                <div style={s.agentHistoryMeta}>
+                  Puste pole nadawcy oznacza fallback do telefonu oddzialu lub globalnej konfiguracji SMS.
+                </div>
+                <button type="submit" style={s.sendBtn} disabled={branchTelephonySaving || !agentForm.oddzial_id}>
+                  {branchTelephonySaving ? 'Zapisywanie...' : 'Zapisz numery oddzialu'}
+                </button>
+                <div style={s.branchSmsTestBox}>
+                  <label style={s.copyLabel}>Test SMS z tego oddzialu</label>
+                  <div style={s.copyRow}>
+                    <input
+                      value={branchTelephonyForm.test_phone}
+                      onChange={(e) => setBranchTelephonyForm((f) => ({ ...f, test_phone: e.target.value }))}
+                      placeholder="Numer testowy +48..."
+                      style={s.input}
+                    />
+                    <button
+                      type="button"
+                      style={s.rowBtnActive}
+                      onClick={sendBranchTestSms}
+                      disabled={branchSmsTesting || !agentForm.oddzial_id}
+                    >
+                      {branchSmsTesting ? 'Wysylanie...' : 'Wyslij test'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div style={s.agentReminderBox}>
+              <div style={s.agentHistoryHeader}>
+                <div>
+                  <div style={s.manualTitle}>Przypomnienia SMS na jutro</div>
+                  <div style={s.agentHistoryMeta}>
+                    Kolejka automatu dla oddzialu {oddzialLabel(agentForm.oddzial_id)}. To jest podglad - nic nie wysyla.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={() => loadAgentReminderPreview(agentForm.oddzial_id)}
+                  disabled={agentReminderLoading || !agentForm.oddzial_id}
+                >
+                  {agentReminderLoading ? 'Sprawdzanie...' : 'Sprawdz'}
+                </button>
+              </div>
+              <div style={s.agentReminderSummary}>
+                <strong>{agentReminderPreview.total || 0}</strong>
+                <span>SMS do wyslania przez automat dzien przed ogledzinami</span>
+              </div>
+              {agentReminderPreview.items?.length ? (
+                <div style={s.agentReminderList}>
+                  {agentReminderPreview.items.slice(0, 5).map((row) => (
+                    <div key={row.id} style={s.agentReminderItem}>
+                      <div>
+                        <strong>{row.customer_name || 'Klient telefoniczny'}</strong>
+                        <div style={s.agentHistoryMeta}>
+                          {row.caller_phone || 'brak telefonu'} · {formatAgentDate(row.appointment_at)}
+                        </div>
+                      </div>
+                      <div style={s.agentReminderText}>{row.sms_body}</div>
+                    </div>
+                  ))}
+                  {agentReminderPreview.items.length > 5 ? (
+                    <div style={s.agentHistoryMeta}>+{agentReminderPreview.items.length - 5} kolejnych przypomnien</div>
+                  ) : null}
+                </div>
+              ) : (
+                <div style={s.emptyMuted}>Brak przypomnien SMS do wyslania jutro.</div>
+              )}
             </div>
             <div style={s.agentHistoryHeader}>
               <div>
@@ -984,11 +1490,37 @@ export default function Telefonia() {
                 {agentIntakesLoading ? 'Odswiezanie...' : 'Odswiez'}
               </button>
             </div>
+            <div style={s.agentFilterRow}>
+              <input
+                value={agentHistoryQuery}
+                onChange={(e) => setAgentHistoryQuery(e.target.value)}
+                placeholder="Szukaj rozmowy: klient, telefon, adres, usluga..."
+                style={s.agentSearch}
+              />
+              {agentHistoryFilters.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  style={agentHistoryFilter === filter.key ? s.rowBtnActive : s.rowBtn}
+                  onClick={() => setAgentHistoryFilter(filter.key)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+              {agentHistoryQuery ? (
+                <button type="button" style={s.rowBtn} onClick={() => setAgentHistoryQuery('')}>
+                  Wyczysc
+                </button>
+              ) : null}
+            </div>
             {agentIntakesLoading && <div style={s.empty}>Ladowanie historii rozmow...</div>}
             {!agentIntakesLoading && agentIntakes.length === 0 ? (
               <div style={s.emptyMuted}>Brak rozmow agenta dla tego oddzialu.</div>
             ) : null}
-            {!agentIntakesLoading && agentIntakes.length > 0 ? (
+            {!agentIntakesLoading && agentIntakes.length > 0 && filteredAgentIntakes.length === 0 ? (
+              <div style={s.emptyMuted}>Brak rozmow dla wybranego filtra.</div>
+            ) : null}
+            {!agentIntakesLoading && filteredAgentIntakes.length > 0 ? (
               <div style={{ overflowX: 'auto' }}>
                 <table style={s.table}>
                   <thead>
@@ -999,13 +1531,14 @@ export default function Telefonia() {
                       <th style={s.th}>Usluga</th>
                       <th style={s.th}>Termin</th>
                       <th style={s.th}>Jakosc</th>
+                      <th style={s.th}>SMS</th>
                       <th style={s.th}>Status</th>
                       <th style={s.th}>Powiazania</th>
                       <th style={s.th}>Akcje</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {agentIntakes.map((x) => (
+                    {filteredAgentIntakes.map((x) => (
                       <tr key={x.id}>
                         <td style={s.td}>{formatAgentDate(x.created_at)}</td>
                         <td style={s.td}>
@@ -1025,6 +1558,15 @@ export default function Telefonia() {
                           </span>
                           {Array.isArray(x.quality_issues) && x.quality_issues.length ? (
                             <div style={s.issueList}>{x.quality_issues.map(agentIssueLabel).join(', ')}</div>
+                          ) : null}
+                        </td>
+                        <td style={s.td}>
+                          <span style={agentSmsStatusTone(x)}>{agentSmsStatusLabel(x)}</span>
+                          {x.sms_status?.confirmation_at ? (
+                            <div style={s.auditBy}>Potw.: {formatAgentDate(x.sms_status.confirmation_at)}</div>
+                          ) : null}
+                          {x.sms_status?.reminder_at ? (
+                            <div style={s.auditBy}>Przyp.: {formatAgentDate(x.sms_status.reminder_at)}</div>
                           ) : null}
                         </td>
                         <td style={s.td}>
@@ -1052,6 +1594,27 @@ export default function Telefonia() {
                     ))}
                   </tbody>
                 </table>
+                <div style={s.pagination}>
+                  <button
+                    type="button"
+                    style={s.pageBtn}
+                    onClick={() => setAgentHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={agentHistoryPage <= 1 || agentIntakesLoading}
+                  >
+                    Poprzednia
+                  </button>
+                  <span style={s.pageInfo}>
+                    Strona {agentHistoryPage} z {agentHistoryTotalPages} · rekordy {filteredAgentIntakes.length} / {agentIntakesTotal}
+                  </span>
+                  <button
+                    type="button"
+                    style={s.pageBtn}
+                    onClick={() => setAgentHistoryPage((p) => Math.min(agentHistoryTotalPages, p + 1))}
+                    disabled={agentHistoryPage >= agentHistoryTotalPages || agentIntakesLoading}
+                  >
+                    Nastepna
+                  </button>
+                </div>
               </div>
             ) : null}
             {selectedAgentIntake ? (
@@ -1097,6 +1660,24 @@ export default function Telefonia() {
                   <div>
                     <div style={s.copyLabel}>Transkrypt</div>
                     <div style={s.agentDetailText}>{selectedAgentIntake.transcript || 'Brak transkryptu.'}</div>
+                  </div>
+                  <div>
+                    <div style={s.copyLabel}>SMS</div>
+                    <div style={s.agentDetailText}>
+                      <div>{agentSmsStatusLabel(selectedAgentIntake)}</div>
+                      {selectedAgentIntake.sms_status?.confirmation_at ? (
+                        <div>Potwierdzenie: {formatAgentDate(selectedAgentIntake.sms_status.confirmation_at)}</div>
+                      ) : null}
+                      {selectedAgentIntake.sms_status?.reminder_at ? (
+                        <div>Przypomnienie: {formatAgentDate(selectedAgentIntake.sms_status.reminder_at)}</div>
+                      ) : null}
+                      {selectedAgentIntake.sms_status?.confirmation_error ? (
+                        <div>Blad potwierdzenia: {selectedAgentIntake.sms_status.confirmation_error}</div>
+                      ) : null}
+                      {selectedAgentIntake.sms_status?.reminder_error ? (
+                        <div>Blad przypomnienia: {selectedAgentIntake.sms_status.reminder_error}</div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 <form style={s.agentFixForm} onSubmit={saveAgentIntakeFix}>
@@ -1174,6 +1755,28 @@ export default function Telefonia() {
                     </button>
                   </div>
                 </form>
+                <div style={s.agentSmsBox}>
+                  <div style={s.manualTitle}>SMS potwierdzajacy</div>
+                  <div style={s.agentSmsPreview}>
+                    {buildAgentSmsConfirmation(selectedAgentIntake)}
+                  </div>
+                  <div style={s.inlineActions}>
+                    <span style={s.agentHistoryMeta}>
+                      Nadawca SMS zostanie dobrany z oddzialu {oddzialLabel(selectedAgentIntake.oddzial_id)}.
+                    </span>
+                    <button
+                      type="button"
+                      style={{
+                        ...s.sendBtn,
+                        opacity: (!selectedAgentIntake.caller_phone || !selectedAgentIntake.appointment_at || agentSmsSending) ? 0.55 : 1,
+                      }}
+                      disabled={!selectedAgentIntake.caller_phone || !selectedAgentIntake.appointment_at || agentSmsSending}
+                      onClick={sendAgentConfirmationSms}
+                    >
+                      {agentSmsSending ? 'Wysylanie...' : 'Wyslij SMS'}
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>
@@ -1439,7 +2042,7 @@ export default function Telefonia() {
         )}
 
         {tab === 'sms' && (
-        <div style={s.panel}>
+        <div style={{ ...s.panel, ...(isNarrow ? s.panelNarrow : null) }}>
           <form style={s.manualBox} onSubmit={sendManualSms}>
             <div style={s.manualTitle}>Szybki SMS (reczny)</div>
             <div style={s.manualGrid}>
@@ -1669,6 +2272,8 @@ const s = {
     minHeight: '100vh',
     background: 'var(--bg)',
     color: 'var(--text)',
+    width: '100%',
+    overflowX: 'hidden',
   },
   content: {
     flex: 1,
@@ -1676,12 +2281,23 @@ const s = {
     padding: '22px 24px',
     overflowX: 'hidden',
   },
+  contentNarrow: {
+    width: '100%',
+    padding: '12px 10px 18px',
+  },
   panel: {
     background: 'var(--surface-glass)',
     border: '1px solid var(--glass-border)',
     borderRadius: 8,
     boxShadow: 'var(--shadow-md)',
     padding: 14,
+    minWidth: 0,
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+  },
+  panelNarrow: {
+    padding: 10,
   },
   manualBox: {
     background: 'var(--surface-field)',
@@ -1780,7 +2396,7 @@ const s = {
   },
   search: {
     width: '100%',
-    minWidth: 260,
+    minWidth: 0,
     padding: '10px 12px',
     borderRadius: 8,
     border: '1px solid var(--border)',
@@ -1796,7 +2412,7 @@ const s = {
     alignItems: 'center',
   },
   select: {
-    minWidth: 180,
+    minWidth: 0,
     padding: '10px 12px',
     borderRadius: 8,
     border: '1px solid var(--border)',
@@ -1804,6 +2420,7 @@ const s = {
     color: 'var(--text)',
   },
   date: {
+    minWidth: 0,
     padding: '9px 10px',
     borderRadius: 8,
     border: '1px solid var(--border)',
@@ -1817,6 +2434,7 @@ const s = {
     background: 'var(--surface-field)',
     color: 'var(--text)',
     cursor: 'pointer',
+    maxWidth: '100%',
   },
   table: {
     width: '100%',
@@ -1863,12 +2481,24 @@ const s = {
     fontSize: 12,
     cursor: 'pointer',
     textDecoration: 'none',
+    maxWidth: '100%',
   },
   rowBtnActive: {
     padding: '5px 8px',
     border: '1px solid var(--accent)',
     background: 'rgba(34,197,94,0.12)',
     color: 'var(--accent)',
+    borderRadius: 8,
+    fontSize: 12,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    fontWeight: 700,
+  },
+  dangerBtn: {
+    padding: '5px 8px',
+    border: '1px solid rgba(239,68,68,0.45)',
+    background: 'rgba(239,68,68,0.1)',
+    color: 'var(--danger)',
     borderRadius: 8,
     fontSize: 12,
     cursor: 'pointer',
@@ -1917,6 +2547,7 @@ const s = {
     alignItems: 'center',
     gap: 8,
     marginTop: 10,
+    flexWrap: 'wrap',
   },
   pageBtn: {
     padding: '6px 10px',
@@ -1954,6 +2585,11 @@ const s = {
     gap: 8,
     marginBottom: 14,
   },
+  tabRowNarrow: {
+    overflowX: 'auto',
+    paddingBottom: 4,
+    WebkitOverflowScrolling: 'touch',
+  },
   tab: {
     padding: '8px 14px',
     borderRadius: 10,
@@ -1963,6 +2599,7 @@ const s = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,
+    whiteSpace: 'nowrap',
   },
   tabActive: {
     padding: '8px 14px',
@@ -1973,6 +2610,7 @@ const s = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 700,
+    whiteSpace: 'nowrap',
   },
   callsIntro: {
     fontSize: 12,
@@ -2003,7 +2641,7 @@ const s = {
   },
   inline2: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
     gap: 8,
   },
   inlineActions: {
@@ -2014,7 +2652,7 @@ const s = {
   },
   copyRow: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
     gap: 8,
     alignItems: 'center',
   },
@@ -2043,9 +2681,110 @@ const s = {
     marginTop: 12,
     marginBottom: 8,
   },
+  agentFilterRow: {
+    display: 'flex',
+    gap: 8,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  agentSearch: {
+    flex: '1 1 260px',
+    minWidth: 220,
+    padding: '8px 10px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+    color: 'var(--text)',
+  },
   agentHistoryMeta: {
     fontSize: 12,
     color: 'var(--text-muted)',
+  },
+  agentHealthBox: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+  },
+  agentHealthGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+    gap: 8,
+  },
+  agentHealthItem: {
+    minWidth: 0,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-glass)',
+  },
+  agentHealthTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    marginBottom: 6,
+  },
+  agentHealthDot: {
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
+  agentHealthValue: {
+    display: 'block',
+    color: 'var(--text)',
+    fontSize: 16,
+    lineHeight: 1.25,
+    marginBottom: 4,
+    overflowWrap: 'anywhere',
+  },
+  agentReminderBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-field)',
+  },
+  agentReminderSummary: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '8px 10px',
+    borderRadius: 8,
+    background: 'var(--surface-glass)',
+    color: 'var(--text-sub)',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  agentReminderList: {
+    display: 'grid',
+    gap: 8,
+  },
+  agentReminderItem: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 10,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-glass)',
+  },
+  agentReminderText: {
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    lineHeight: 1.4,
+  },
+  branchSmsTestBox: {
+    marginTop: 4,
+    paddingTop: 10,
+    borderTop: '1px solid var(--border)',
   },
   agentLinks: {
     display: 'flex',
@@ -2071,6 +2810,16 @@ const s = {
     borderRadius: 999,
     background: 'rgba(245,158,11,0.14)',
     color: '#b45309',
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  neutralBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    borderRadius: 999,
+    background: 'var(--surface-glass)',
+    color: 'var(--text-muted)',
     fontSize: 12,
     fontWeight: 800,
   },
@@ -2120,6 +2869,21 @@ const s = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
     gap: 8,
+    marginBottom: 8,
+  },
+  agentSmsBox: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTop: '1px solid var(--border)',
+  },
+  agentSmsPreview: {
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-glass)',
+    color: 'var(--text-sub)',
+    fontSize: 13,
+    lineHeight: 1.45,
     marginBottom: 8,
   },
   telLink: {

@@ -70,6 +70,7 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
           : (
             <div className="modern-data-stack" style={{ overflowY: 'auto', maxHeight: '60vh', padding: 12 }}>
               {tasks.map(t => {
+                const hasFinancials = Boolean(t.financials);
                 const fin = t.financials || {};
                 const sources = Array.isArray(fin.cost_sources) ? fin.cost_sources : [];
                 return (
@@ -86,9 +87,9 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
                       metrics={[
                         { label: 'Data', value: t.data_planowana?.slice(0,10) || '---' },
                         { label: 'Ekipa', value: t.ekipa_nazwa || '---', mono: false },
-                        { label: 'Przychod', value: pln(fin.revenue_net ?? t.wartosc_planowana), tone: 'success' },
-                        { label: 'Koszt znany', value: pln(fin.total_known_cost), tone: 'warning' },
-                        { label: 'Marza', value: `${pln(fin.gross_margin)} / ${pct(fin.margin_pct)}`, tone: fin.margin_pct >= 30 ? 'success' : 'danger' },
+                        { label: 'Przychod', value: hasFinancials ? pln(fin.revenue_net ?? t.wartosc_planowana) : 'Ukryte', tone: hasFinancials ? 'success' : 'info' },
+                        { label: 'Koszt znany', value: hasFinancials ? pln(fin.total_known_cost) : 'Ukryte', tone: hasFinancials ? 'warning' : 'info' },
+                        { label: 'Marza', value: hasFinancials ? `${pln(fin.gross_margin)} / ${pct(fin.margin_pct)}` : 'Ukryte', tone: hasFinancials && fin.margin_pct >= 30 ? 'success' : hasFinancials ? 'danger' : 'info' },
                       ]}
                     />
                     <div style={dm.actions}>
@@ -96,6 +97,7 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
                         Otworz zlecenie
                       </button>
                     </div>
+                    {hasFinancials ? (
                     <div style={dm.breakdown}>
                       {sources.map(src => (
                         <div key={src.key} style={dm.costPill}>
@@ -105,6 +107,9 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
                         </div>
                       ))}
                     </div>
+                    ) : (
+                      <div style={dm.redacted}>Finanse ukryte dla tej roli. Widzisz operacyjny drill-down bez kosztow i marzy.</div>
+                    )}
                     {fin.note && <div style={dm.finNote}>{fin.note}</div>}
                   </div>
                 );
@@ -141,6 +146,7 @@ const dm = {
   costValue: { fontSize: 13, color: 'var(--text)' },
   costOk: { fontSize: 10, color: '#15803d', fontWeight: 800 },
   costMissing: { fontSize: 10, color: '#c2410c', fontWeight: 800 },
+  redacted: { padding: '10px 12px', borderTop: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', padding: '0 12px 10px' },
   openTaskBtn: { padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 800 },

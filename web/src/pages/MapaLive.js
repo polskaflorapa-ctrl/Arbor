@@ -482,8 +482,9 @@ function roleLabel(row) {
 }
 
 function mapHref(row) {
-  const lat = toNumber(row.lat);
-  const lng = toNumber(row.lng);
+  if (!row) return '';
+  const lat = toNumber(row.lat ?? row.pin_lat);
+  const lng = toNumber(row.lng ?? row.pin_lng);
   return lat != null && lng != null
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`
     : '';
@@ -1979,7 +1980,7 @@ function OfficeAlertColumn({ title, subtitle, tone, tasks, empty, onOpen, meta }
 
 function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
   const fresh = live ? getFreshness(live) : { label: 'Brak GPS', color: '#BE123C', key: 'missing' };
-  const liveHref = live ? mapHref(live) : '';
+  const liveHref = live ? mapHref(live) : mapHref(task);
   const isRisk = !live || ['stale', 'offline'].includes(fresh.key);
   const photos = taskPhotoSummary(task);
   const issues = taskIssueSummary(task);
@@ -2022,7 +2023,7 @@ function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
         {liveHref ? (
           <a href={liveHref} target="_blank" rel="noreferrer" style={S.mapBtn}>
             <NavigationOutlined style={{ fontSize: 16 }} />
-            GPS
+            {live ? 'GPS' : 'Mapa'}
           </a>
         ) : null}
       </div>
@@ -2179,10 +2180,10 @@ function CommandCenter({
             Zadzwoń
           </a>
         ) : null}
-        {selectedLive ? (
-          <a href={mapHref(selectedLive)} target="_blank" rel="noreferrer" style={S.secondaryBtn}>
+        {mapHref(selectedLive || selected) ? (
+          <a href={mapHref(selectedLive || selected)} target="_blank" rel="noreferrer" style={S.secondaryBtn}>
             <NavigationOutlined style={{ fontSize: 16 }} />
-            GPS
+            {selectedLive ? 'GPS' : 'Mapa'}
           </a>
         ) : null}
         <button type="button" style={S.secondaryBtn} onClick={() => onOpenTask(selected)}>

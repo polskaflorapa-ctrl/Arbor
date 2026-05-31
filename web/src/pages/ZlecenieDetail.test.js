@@ -184,6 +184,44 @@ test('loads task GPS history and refreshes it for a selected date', async () => 
   });
 });
 
+test('hides finance, SMS and Kommo actions for crew roles', async () => {
+  localStorage.setItem('user', JSON.stringify({
+    id: 9,
+    imie: 'Jan',
+    rola: 'Brygadzista',
+    oddzial_id: 1,
+  }));
+  localStorage.setItem('permissions', JSON.stringify({
+    canViewFinance: false,
+  }));
+  mockApi();
+
+  await act(async () => {
+    renderDetail();
+  });
+
+  expect(await screen.findByText('Historia trasy dnia')).toBeInTheDocument();
+  expect(screen.queryByText('SMS do klienta')).not.toBeInTheDocument();
+  expect(screen.queryByText('Kommo (CRM) — to zlecenie')).not.toBeInTheDocument();
+  expect(screen.queryByText('1 500 zł')).not.toBeInTheDocument();
+  expect(screen.queryByText('1 100 zł')).not.toBeInTheDocument();
+});
+
+test('keeps SMS and Kommo visible for office roles while finance follows permission', async () => {
+  localStorage.setItem('permissions', JSON.stringify({
+    canViewFinance: false,
+  }));
+  mockApi();
+
+  await act(async () => {
+    renderDetail();
+  });
+
+  expect(await screen.findByText('SMS do klienta')).toBeInTheDocument();
+  expect(screen.getByText('Kommo (CRM) — to zlecenie')).toBeInTheDocument();
+  expect(screen.queryByText('1 500 zł')).not.toBeInTheDocument();
+});
+
 test('submits finish with material and operational costs', async () => {
   localStorage.setItem('user', JSON.stringify({
     id: 9,

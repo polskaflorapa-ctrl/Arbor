@@ -49,29 +49,13 @@ function formatScore(value) {
   return Number(value || 0).toLocaleString('pl-PL', { maximumFractionDigits: 1 });
 }
 
+function formatHours(value) {
+  return `${(Number(value) || 0).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} h`;
+}
+
 function teamScopeLabel(row) {
-  const home = row?.ekipa_oddzial_nazwa || '';
-  const target = row?.oddzial_nazwa || '';
-  if ((row?.delegowane_zadania || 0) > 0 && home && target && home !== target) {
-    return `${home} -> ${target}`;
-  }
-  return target || home || 'Brak oddzialu';
-}
-
-function delegationNote(row) {
-  const count = Number(row?.delegowane_zadania || 0);
-  if (!count) return '';
-  return `${count} zlecen delegowanych`;
-}
-
-function pickActiveWeek(ranking, year, month, now) {
-  const weeks = ranking?.weeks || [];
-  if (!weeks.length) return null;
-  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  if (Number(year) === now.getFullYear() && Number(month) === now.getMonth() + 1) {
-    return weeks.find((week) => week.start <= current && week.end >= current) || weeks.find((week) => week.winner) || weeks[0];
-  }
-  return [...weeks].reverse().find((week) => week.winner) || weeks[0];
+  const branch = row?.oddzial_nazwa || 'Brak oddzialu';
+  return row?.brygadzista_nazwa ? `${branch} · ${row.brygadzista_nazwa}` : branch;
 }
 
 function WinnerCard({ title, subtitle, winner, Icon }) {
@@ -85,9 +69,9 @@ function WinnerCard({ title, subtitle, winner, Icon }) {
         {winner && (
           <div style={S.metricLine}>
             <span>{formatScore(winner.score)} pkt</span>
-            <span>{winner.zakonczone}/{winner.zadania} zakonczone</span>
-            <span>{formatCurrency(winner.wartosc)}</span>
-            {delegationNote(winner) && <span style={S.delegationText}>{delegationNote(winner)}</span>}
+            <span>{winner.completed_tasks}/{winner.total_tasks} z raportow</span>
+            <span>{formatCurrency(winner.revenue)}</span>
+            <span>{formatHours(winner.logged_hours || winner.planned_hours)}</span>
           </div>
         )}
       </div>
@@ -105,19 +89,20 @@ function RankingTable({ rows }) {
         <ModernDataRow
           key={row.ekipa_id}
           idLabel="Ranking"
-          idValue={`#${row.miejsce}`}
+          idValue={`#${row.rank}`}
           title={row.ekipa_nazwa}
           subtitle={teamScopeLabel(row)}
-          tone={row.delegowany ? 'warning' : row.miejsce <= 3 ? 'success' : 'info'}
-          status={row.delegowany ? 'DELEGACJA' : row.miejsce <= 3 ? 'TOP TEAM' : 'TRACKED'}
-          statusValue={row.delegowany ? 'warning' : row.miejsce <= 3 ? 'success' : 'info'}
-          statusState={row.delegowany ? 'warning' : row.miejsce <= 3 ? 'success' : 'info'}
+          tone={row.rank <= 3 ? 'success' : 'info'}
+          status={row.rank <= 3 ? 'TOP TEAM' : 'TRACKED'}
+          statusValue={row.rank <= 3 ? 'success' : 'info'}
+          statusState={row.rank <= 3 ? 'success' : 'info'}
           metrics={[
-            { label: 'Punkty', value: formatScore(row.score), tone: row.miejsce <= 3 ? 'success' : undefined },
-            { label: 'Zlecenia', value: `${row.zakonczone}/${row.zadania}` },
-            { label: 'Skutecznosc', value: `${row.skutecznosc}%`, tone: Number(row.skutecznosc) >= 80 ? 'success' : 'warning' },
-            { label: 'Wartosc', value: formatCurrency(row.wartosc), tone: 'info' },
-            { label: 'Delegacje', value: row.delegowane_zadania || 0, tone: row.delegowane_zadania ? 'warning' : undefined },
+            { label: 'Punkty', value: formatScore(row.score), tone: row.rank <= 3 ? 'success' : undefined },
+            { label: 'Raporty', value: row.reports_count || 0 },
+            { label: 'Zlecenia', value: `${row.completed_tasks}/${row.total_tasks}` },
+            { label: 'Skutecznosc', value: `${row.completion_rate}%`, tone: Number(row.completion_rate) >= 80 ? 'success' : 'warning' },
+            { label: 'Wartosc', value: formatCurrency(row.revenue), tone: 'info' },
+            { label: 'Godziny', value: formatHours(row.logged_hours || row.planned_hours) },
           ]}
         />
       ))}
@@ -145,9 +130,9 @@ export default function RankingBrygad() {
     try {
       const token = getStoredToken();
       const headers = authHeaders(token);
-      const params = { rok, miesiac };
+      const params = { as_of: `${rok}-${String(miesiac).padStart(2, '0')}-15` };
       if (oddzialId) params.oddzial_id = oddzialId;
-      const rankingReq = api.get('/ekipy/ranking', { headers, params, dedupe: false });
+      const rankingReq = api.get('/raporty/ranking-brygad', { headers, params, dedupe: false });
       const branchesReq = api.get('/oddzialy', { headers }).catch(() => ({ data: [] }));
       const [rankingRes, branchesRes] = await Promise.all([rankingReq, branchesReq]);
       setRanking(rankingRes.data);
@@ -181,9 +166,10 @@ export default function RankingBrygad() {
   }, [currentUser, loadRanking]);
 
   const globalView = canSeeAllBranches(currentUser);
-  const monthlyRows = ranking?.month?.ranking || [];
-  const activeWeek = useMemo(() => pickActiveWeek(ranking, rok, miesiac, now), [miesiac, now, ranking, rok]);
-  const delegatedTasks = monthlyRows.reduce((sum, row) => sum + Number(row.delegowane_zadania || 0), 0);
+  const monthlyRows = ranking?.periods?.month?.items || [];
+  const activeWeek = ranking?.periods?.week || null;
+  const branchRows = ranking?.branches?.month || [];
+  const reportCount = monthlyRows.reduce((sum, row) => sum + Number(row.reports_count || 0), 0);
   const compact = viewportWidth < 720;
 
   return (
@@ -194,7 +180,7 @@ export default function RankingBrygad() {
           variant="hero"
           showBack={!compact}
           title="Ranking brygad"
-          subtitle={compact ? 'Ranking okresow.' : 'Najlepsza brygada tygodnia, miesiaca, polrocza i roku wedlug zakonczonych zlecen, wartosci i planowanych godzin.'}
+          subtitle={compact ? 'Liga z raportow dziennych.' : 'Liga brygad miedzy oddzialami liczona z raportow dziennych: raporty, wykonane zlecenia, czas, wartosc, zdjecia i problemy.'}
           icon={<EmojiEventsOutlined style={{ fontSize: 28 }} />}
           actions={
             <div style={{ ...S.actions, ...(compact ? S.actionsCompact : null) }}>
@@ -222,43 +208,41 @@ export default function RankingBrygad() {
           <>
             <section style={{ ...S.winnerGrid, ...(compact ? S.singleColumnGrid : null) }}>
               <WinnerCard title="Najlepsza ekipa tygodnia" subtitle={activeWeek?.label || ''} winner={activeWeek?.winner} Icon={CalendarMonthOutlined} />
-              <WinnerCard title="Najlepsza ekipa miesiaca" subtitle={ranking?.month?.label || ''} winner={ranking?.month?.winner} Icon={EmojiEventsOutlined} />
-              <WinnerCard title="Najlepsza ekipa polrocza" subtitle={ranking?.halfYear?.label || ''} winner={ranking?.halfYear?.winner} Icon={TrendingUpOutlined} />
-              <WinnerCard title="Najlepsza ekipa roku" subtitle={ranking?.year?.label || ''} winner={ranking?.year?.winner} Icon={GroupsOutlined} />
+              <WinnerCard title="Najlepsza ekipa miesiaca" subtitle={ranking?.periods?.month?.label || ''} winner={ranking?.periods?.month?.winner} Icon={EmojiEventsOutlined} />
+              <WinnerCard title="Najlepsza ekipa polrocza" subtitle={ranking?.periods?.half_year?.label || ''} winner={ranking?.periods?.half_year?.winner} Icon={TrendingUpOutlined} />
+              <WinnerCard title="Najlepsza ekipa roku" subtitle={ranking?.periods?.year?.label || ''} winner={ranking?.periods?.year?.winner} Icon={GroupsOutlined} />
             </section>
 
             <section style={S.summaryBar}>
               <div>
                 <span style={S.summaryLabel}>Zakres</span>
-                <strong>{ranking?.scope?.oddzial_nazwa || 'Wszystkie oddzialy'}</strong>
+                <strong>{oddzialId ? oddzialy.find((o) => String(o.id) === String(oddzialId))?.nazwa : 'Wszystkie oddzialy'}</strong>
               </div>
               <div>
                 <span style={S.summaryLabel}>Ekipy w rankingu</span>
                 <strong>{monthlyRows.length}</strong>
               </div>
               <div>
-                <span style={S.summaryLabel}>Zlecenia delegowane</span>
-                <strong>{delegatedTasks}</strong>
+                <span style={S.summaryLabel}>Raporty dzienne</span>
+                <strong>{reportCount}</strong>
               </div>
             </section>
 
             <section style={S.section}>
               <div style={{ ...S.sectionTitle, ...(compact ? S.sectionTitleCompact : null) }}>
                 <CalendarMonthOutlined style={{ fontSize: 20 }} />
-                {compact ? 'Tygodniowi liderzy miesiaca' : 'Najlepsza brygada w kazdym tygodniu miesiaca'}
+                {compact ? 'Liga oddzialow' : 'Liga oddzialow z raportow dziennych'}
               </div>
               <div style={{ ...S.weekGrid, ...(compact ? S.singleColumnGrid : null) }}>
-                {(ranking?.weeks || []).map((week) => (
-                  <div key={week.key} style={S.weekCard}>
-                    <div style={S.cardLabel}>{week.label}</div>
-                    <div style={S.weekWinner}>{week.winner?.ekipa_nazwa || 'Brak danych'}</div>
-                    {week.winner && (
-                      <div style={S.metricLine}>
-                        <span>{formatScore(week.winner.score)} pkt</span>
-                        <span>{formatCurrency(week.winner.wartosc)}</span>
-                        {delegationNote(week.winner) && <span style={S.delegationText}>{delegationNote(week.winner)}</span>}
-                      </div>
-                    )}
+                {branchRows.map((branch) => (
+                  <div key={branch.oddzial_id || branch.oddzial_nazwa} style={S.weekCard}>
+                    <div style={S.cardLabel}>#{branch.rank} · {branch.teams_count} ekip</div>
+                    <div style={S.weekWinner}>{branch.oddzial_nazwa}</div>
+                    <div style={S.metricLine}>
+                      <span>{formatScore(branch.score)} pkt</span>
+                      <span>{branch.completed_tasks}/{branch.total_tasks} zlecen</span>
+                      <span>{formatCurrency(branch.revenue)}</span>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -19,6 +19,7 @@ import SmsOutlined from '@mui/icons-material/SmsOutlined';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getRoleDisplayName } from '../utils/roleDisplay';
+import { canSendTaskSms, canViewFinance, readPermissions } from '../utils/permissions';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 import {
@@ -3744,6 +3745,9 @@ export default function Zlecenia() {
   const isDyspozytor = currentUser?.rola === 'Dyspozytor';
   const isSpecjalista = currentUser?.rola === 'Specjalista';
   const isWyceniajacy = currentUser?.rola === 'Wyceniający' || currentUser?.rola === 'Wyceniajacy';
+  const permissions = readPermissions();
+  const canSeeFinance = canViewFinance(currentUser, permissions);
+  const canUseTaskSms = canSendTaskSms(currentUser);
   const mozeTworzyc = canManageAllBranches || isKierownik || isDyspozytor || isSpecjalista || isWyceniajacy;
   const mozeEdytowac = canManageAllBranches || isKierownik || isDyspozytor || isSpecjalista || isWyceniajacy;
   const mozePlanowacBiuro = canManageAllBranches || isKierownik || isDyspozytor || isSpecjalista;
@@ -4861,7 +4865,7 @@ export default function Zlecenia() {
 
     // 4) Opcjonalny SMS dla klienta (jeśli backend wspiera endpoint).
     const smsType = smsTemplateForStatus(nextStatus);
-    if (workflowConfig.smsEnabled && smsType) {
+    if (canUseTaskSms && workflowConfig.smsEnabled && smsType) {
       operations.push(api.post(`/sms/zlecenie/${task.id}`, { typ: smsType }, { headers }));
     }
 
@@ -6680,10 +6684,10 @@ export default function Zlecenia() {
   ];
  
   return (
-    <div className="app-shell">
+    <div className="app-shell zlecenia-shell">
       <Sidebar />
-      <main className="app-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={s.main}>
+      <main className="app-main zlecenia-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div className="zlecenia-surface" style={s.main}>
  
         <StatusMessage
           message={komunikat.tekst || ''}
@@ -7878,10 +7882,12 @@ export default function Zlecenia() {
                               Brak tel.
                             </span>
                           )}
-                          <button type="button" style={s.fieldOpsBtn} onClick={() => copyClientMessage(z, diagnostics)} title="Skopiuj SMS do klienta">
-                            <SmsOutlined style={s.fieldOpsIcon} aria-hidden />
-                            SMS
-                          </button>
+                          {canUseTaskSms && (
+                            <button type="button" style={s.fieldOpsBtn} onClick={() => copyClientMessage(z, diagnostics)} title="Skopiuj SMS do klienta">
+                              <SmsOutlined style={s.fieldOpsIcon} aria-hidden />
+                              SMS
+                            </button>
+                          )}
                           {mapsHref ? (
                             <a href={mapsHref} target="_blank" rel="noreferrer" style={s.fieldOpsBtn} title="Otwórz trasę w mapie">
                               <RouteOutlined style={s.fieldOpsIcon} aria-hidden />
@@ -8015,7 +8021,7 @@ export default function Zlecenia() {
                         </div>
                         <div style={s.listTaskFooter}>
                           <span style={s.listTaskDate}>{z.data_planowana ? z.data_planowana.split('T')[0] : '—'}</span>
-                          <span style={s.listTaskValue}>{formatCurrency(z.wartosc_planowana)}</span>
+                          {canSeeFinance && <span style={s.listTaskValue}>{formatCurrency(z.wartosc_planowana)}</span>}
                         </div>
                       </div>
                       );
@@ -8105,6 +8111,7 @@ export default function Zlecenia() {
                   <input
                     type="checkbox"
                     checked={workflowConfig.smsEnabled}
+                    disabled={!canUseTaskSms}
                     onChange={(e) => setWorkflowConfig((cfg) => ({ ...cfg, smsEnabled: e.target.checked }))}
                   />
                   SMS do klienta (jeśli endpoint dostępny)
@@ -8208,7 +8215,7 @@ export default function Zlecenia() {
                             </div>
                             <div style={s.kanbanCardFooter}>
                               <TelemetryStatus state={z.priorytet === 'Pilny' ? 'warning' : 'info'} label={z.priorytet} />
-                              <span style={s.kanbanValue}>{formatCurrency(z.wartosc_planowana)}</span>
+                              {canSeeFinance && <span style={s.kanbanValue}>{formatCurrency(z.wartosc_planowana)}</span>}
                             </div>
                             <div style={s.kanbanActions} onClick={(e) => e.stopPropagation()}>
                               <button style={s.kanbanActionBtn} onClick={() => otworzSzczegoly(z)} title={t('common.details')} aria-label={t('common.details')}>
@@ -9709,7 +9716,16 @@ export default function Zlecenia() {
 }
  
 const s = {
-  main: { flex: 1, minWidth: 0, overflowX: 'hidden', position: 'relative' },
+  main: {
+    flex: 1,
+    minWidth: 0,
+    overflowX: 'hidden',
+    position: 'relative',
+    maxWidth: 1560,
+    width: '100%',
+    margin: '0 auto',
+    padding: '22px clamp(16px, 2.4vw, 30px) 32px',
+  },
   headerRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: 12 },
   title: { fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 'bold', color: 'var(--accent)', margin: 0 },
@@ -9717,9 +9733,11 @@ const s = {
   backBtn: { padding: '6px 14px', backgroundColor: 'var(--surface-field)', color: 'var(--accent)', border: '1px solid #A5D6A7', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: '500' },
   filtryRow: {
     display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center',
-    background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
-    padding: '12px 14px', borderRadius: 8, border: '1px solid var(--glass-border)',
-    boxShadow: 'var(--shadow-sm)', flexWrap: 'wrap'
+    background:
+      'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))',
+    backgroundSize: '32px 32px, 32px 32px, auto',
+    padding: '13px 14px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.14)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)', flexWrap: 'wrap'
   },
   searchInput: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, minWidth: 220, flex: 1, backgroundColor: 'var(--surface-field)' },
   filtrInput: { padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
@@ -14722,22 +14740,22 @@ const s = {
     gap: 10,
   },
   listCardsHeader: {
-    background: 'linear-gradient(135deg, var(--glass-bg-strong), var(--glass-bg))',
-    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    padding: '10px 12px',
-    boxShadow: 'var(--shadow-sm)',
+    padding: '11px 13px',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
   },
-  listCardsHeaderText: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 },
+  listCardsHeaderText: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 800 },
   listCardsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))',
-    gap: 12,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 390px), 1fr))',
+    gap: 14,
   },
   listEmptyPanel: {
     display: 'grid',
@@ -14834,17 +14852,18 @@ const s = {
     lineHeight: 1.3,
   },
   listTaskCard: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderLeft: '5px solid var(--accent)',
     borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
     padding: 14,
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
     cursor: 'pointer',
     minHeight: 320,
-    backdropFilter: 'blur(20px)',
+    backdropFilter: 'none',
   },
   listTaskTop: {
     display: 'flex',
@@ -14852,8 +14871,8 @@ const s = {
     alignItems: 'center',
     gap: 8,
   },
-  listTaskClient: { fontSize: 16, fontWeight: 900, color: 'var(--text)', lineHeight: 1.25, overflowWrap: 'anywhere' },
-  listTaskMeta: { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.35, overflowWrap: 'anywhere' },
+  listTaskClient: { fontSize: 17, fontWeight: 950, color: 'var(--text)', lineHeight: 1.2, overflowWrap: 'anywhere' },
+  listTaskMeta: { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.35, overflowWrap: 'anywhere', fontWeight: 650 },
   contactMini: {
     display: 'inline-flex',
     alignItems: 'center',
