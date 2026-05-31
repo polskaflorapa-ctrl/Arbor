@@ -7,10 +7,14 @@ afterEach(() => {
   localStorage.clear();
 });
 
-test('renders login screen by default', () => {
+test('renders landing page by default with a login entrypoint', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { name: /ARBOR-OS/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Zaloguj/i })).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', {
+      name: /Prowadź operacje terenowe z jednego spokojnego centrum dowodzenia/i,
+    })
+  ).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Zaloguj/i })).toHaveAttribute('href', '#/login');
 });
 
 test('preserves clean production paths by converting them to hash routes', () => {

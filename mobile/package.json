@@ -81,7 +81,8 @@
   "expo": {
     "install": {
       "exclude": [
-        "react-native"
+        "react-native",
+        "@react-navigation/native"
       ]
     }
   }
