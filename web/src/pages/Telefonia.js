@@ -94,6 +94,7 @@ export default function Telefonia() {
   const [branchIntegrationStatusesLoading, setBranchIntegrationStatusesLoading] = useState(false);
   const [branchStatusFilter, setBranchStatusFilter] = useState('all');
   const [branchStatusQuery, setBranchStatusQuery] = useState('');
+  const [branchStatusSort, setBranchStatusSort] = useState('needs');
   const [integrationTestLogs, setIntegrationTestLogs] = useState([]);
   const [integrationTestLogsLoading, setIntegrationTestLogsLoading] = useState(false);
   const [selectedAgentIntake, setSelectedAgentIntake] = useState(null);
@@ -1419,6 +1420,15 @@ export default function Telefonia() {
       row.provider_account_id,
       branchIntegrationStatusLabel(row),
     ].some((value) => String(value || '').toLowerCase().includes(q));
+  }).sort((a, b) => {
+    const ar = branchReadiness(a);
+    const br = branchReadiness(b);
+    if (branchStatusSort === 'name') return String(a.oddzial_name || '').localeCompare(String(b.oddzial_name || ''), 'pl');
+    if (branchStatusSort === 'ready') return br.percent - ar.percent;
+    if (branchStatusSort === 'activity') return Number(b.intakes_total || 0) - Number(a.intakes_total || 0);
+    const aScore = ar.blockers.length * 10 + (ar.hasErrors ? 5 : 0) + (ar.needsReview ? 3 : 0) - ar.percent / 100;
+    const bScore = br.blockers.length * 10 + (br.hasErrors ? 5 : 0) + (br.needsReview ? 3 : 0) - br.percent / 100;
+    return bScore - aScore;
   });
   const buildBranchReadinessReport = () => {
     const lines = [
@@ -1688,6 +1698,12 @@ export default function Telefonia() {
                       placeholder="Szukaj oddzialu, miasta, numeru, providera..."
                       style={s.agentSearch}
                     />
+                    <select value={branchStatusSort} onChange={(e) => setBranchStatusSort(e.target.value)} style={s.select}>
+                      <option value="needs">Sortuj: najpierw braki</option>
+                      <option value="ready">Sortuj: gotowosc malejaco</option>
+                      <option value="activity">Sortuj: aktywnosc rozmow</option>
+                      <option value="name">Sortuj: nazwa A-Z</option>
+                    </select>
                     {(branchStatusQuery || branchStatusFilter !== 'all') ? (
                       <button type="button" style={s.rowBtn} onClick={() => { setBranchStatusFilter('all'); setBranchStatusQuery(''); }}>
                         Wyczyść
