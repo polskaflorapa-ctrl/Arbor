@@ -52,11 +52,16 @@ const oddzialCreateSchema = z.object({
   miasto: z.string().max(100).optional().nullable(),
   kod_pocztowy: z.string().max(10).optional().nullable(),
   telefon: z.string().max(30).optional().nullable(),
+  sms_sender_id: z.string().max(64).optional().nullable(),
   email: z.string().max(255).optional().nullable(),
   kierownik_id: z.coerce.number().int().positive().optional().nullable(),
 });
 
 const oddzialUpdateSchema = oddzialCreateSchema.partial();
+
+async function ensureBranchTelephonyColumns() {
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS sms_sender_id VARCHAR(64)');
+}
 
 const przeniesPracownikSchema = z.object({
   oddzial_id: z.coerce.number().int().positive(),
@@ -498,11 +503,12 @@ router.get('/:id', authMiddleware, validateParams(oddzialIdParamsSchema), async 
 router.post('/', authMiddleware, validateBody(oddzialCreateSchema), async (req, res) => {
   try {
     if (!isDyrektor(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
-    const { nazwa, adres, miasto, kod_pocztowy, telefon, email, kierownik_id } = req.body;
+    await ensureBranchTelephonyColumns();
+    const { nazwa, adres, miasto, kod_pocztowy, telefon, sms_sender_id, email, kierownik_id } = req.body;
     const result = await pool.query(
-      `INSERT INTO branches (nazwa, adres, miasto, kod_pocztowy, telefon, email, kierownik_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [nazwa, adres, miasto, kod_pocztowy, telefon || null, email || null, kierownik_id || null]
+      `INSERT INTO branches (nazwa, adres, miasto, kod_pocztowy, telefon, sms_sender_id, email, kierownik_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [nazwa, adres, miasto, kod_pocztowy, telefon || null, sms_sender_id || null, email || null, kierownik_id || null]
     );
     res.json({ id: result.rows[0].id, message: 'Oddzial utworzony' });
   } catch (err) {
@@ -514,11 +520,12 @@ router.post('/', authMiddleware, validateBody(oddzialCreateSchema), async (req, 
 router.put('/:id', authMiddleware, validateParams(oddzialIdParamsSchema), validateBody(oddzialUpdateSchema), async (req, res) => {
   try {
     if (!isDyrektor(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
-    const { nazwa, adres, miasto, kod_pocztowy, telefon, email, kierownik_id } = req.body;
+    await ensureBranchTelephonyColumns();
+    const { nazwa, adres, miasto, kod_pocztowy, telefon, sms_sender_id, email, kierownik_id } = req.body;
     await pool.query(
       `UPDATE branches SET nazwa=COALESCE($1,nazwa), adres=COALESCE($2,adres), miasto=COALESCE($3,miasto), kod_pocztowy=COALESCE($4,kod_pocztowy),
-       telefon=COALESCE($5,telefon), email=COALESCE($6,email), kierownik_id=COALESCE($7,kierownik_id) WHERE id=$8`,
-      [nazwa ?? null, adres ?? null, miasto ?? null, kod_pocztowy ?? null, telefon ?? null, email ?? null, kierownik_id ?? null, req.params.id]
+       telefon=COALESCE($5,telefon), sms_sender_id=COALESCE($6,sms_sender_id), email=COALESCE($7,email), kierownik_id=COALESCE($8,kierownik_id) WHERE id=$9`,
+      [nazwa ?? null, adres ?? null, miasto ?? null, kod_pocztowy ?? null, telefon ?? null, sms_sender_id ?? null, email ?? null, kierownik_id ?? null, req.params.id]
     );
     res.json({ message: 'Zaktualizowano' });
   } catch (err) {

@@ -106,4 +106,31 @@ describe('Task access scope policy', () => {
     expect(res.body.error).toBe('Brak uprawnien');
     expect(res.body.code).toBe('TASK_ACCESS_DENIED');
   });
+
+  it('blocks assigned crew roles from pushing task data to Kommo', async () => {
+    const token = jwt.sign({ id: 77, rola: 'Brygadzista', oddzial_id: 2 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 999 }] }); // requireTaskAccess passes
+
+    const res = await request(app)
+      .post('/api/tasks/999/kommo-push')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+    expect(pool.query.mock.calls[0][0]).toContain('SELECT id FROM tasks');
+  });
+
+  it('blocks assigned crew roles from retrying Kommo sync', async () => {
+    const token = jwt.sign({ id: 77, rola: 'Pomocnik', oddzial_id: 2 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 999 }] }); // requireTaskAccess passes
+
+    const res = await request(app)
+      .post('/api/tasks/999/kommo-retry')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ force: true });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+    expect(pool.query.mock.calls[0][0]).toContain('SELECT id FROM tasks');
+  });
 });

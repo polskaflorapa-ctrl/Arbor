@@ -372,6 +372,48 @@ describe('GET /api/bi/drill', () => {
       missing_cost_fields: [],
     });
   });
+
+  it('keeps branch drilldown operational for kierownik but redacts task financials', async () => {
+    pool.query.mockResolvedValue({
+      rows: [
+        {
+          id: 12,
+          status: 'Zakonczone',
+          typ_uslugi: 'Wycinka',
+          wartosc_planowana: '3000',
+          wartosc_rzeczywista: '3200',
+          wartosc_netto_do_rozliczenia: '2601',
+          revenue_net: '2601',
+          rozliczenie_id: 7,
+          koszt_pomocnikow: '200',
+          wynagrodzenie_brygadzisty: '270',
+          koszt_sprzetu: '100',
+          koszt_sprzetu_count: '1',
+          adres: 'Lesna 1, Krakow',
+          ekipa_nazwa: 'Ekipa A',
+          oddzial_nazwa: 'Krakow',
+        },
+      ],
+      rowCount: 1,
+    });
+    const token = jwt.sign({ id: 3, rola: 'Kierownik', oddzial_id: 2 }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      id: 12,
+      typ_uslugi: 'Wycinka',
+      adres: 'Lesna 1, Krakow',
+      financials: null,
+    }));
+    expect(res.body[0]).not.toHaveProperty('wartosc_planowana');
+    expect(res.body[0]).not.toHaveProperty('revenue_net');
+    expect(res.body[0]).not.toHaveProperty('koszt_pomocnikow');
+    expect(res.body[0]).not.toHaveProperty('rozliczenie_id');
+  });
 });
 
 describe('GET /api/bi/plan-vs-real', () => {

@@ -25,11 +25,18 @@ describe('Audit routes', () => {
     expect(res.body.code).toBe('AUTH_MISSING_TOKEN');
   });
 
-  it('returns 403 for Kierownik', async () => {
+  it('returns branch-scoped audit for Kierownik', async () => {
     const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 1, login: 'k' }, env.JWT_SECRET);
+    pool.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ c: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
     const res = await request(app).get('/api/audit').set('Authorization', `Bearer ${token}`);
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('AUTH_FORBIDDEN');
+    expect(res.status).toBe(200);
+    expect(pool.query.mock.calls[2][0]).toContain('metadata->>\'oddzial_id\' = $1::text');
+    expect(pool.query.mock.calls[2][1]).toEqual([1]);
   });
 
   it('returns paginated audit for Dyrektor', async () => {

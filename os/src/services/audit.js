@@ -28,7 +28,10 @@ const ensureTable = async (pool) => {
 /**
  * Lista wpisów audytu (filtry opcjonalne).
  */
-const listAuditLogs = async (pool, q) => {
+const isDirectorAuditViewer = (user) => ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
+const isBranchAuditViewer = (user) => user?.rola === 'Kierownik';
+
+const listAuditLogs = async (pool, q, viewer = null) => {
   await ensureTable(pool);
   const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
   const offset = Math.max(0, Number(q.offset) || 0);
@@ -49,6 +52,14 @@ const listAuditLogs = async (pool, q) => {
   if (q.to) {
     params.push(q.to);
     clauses.push(`created_at <= $${params.length}::timestamptz`);
+  }
+  if (!isDirectorAuditViewer(viewer) && isBranchAuditViewer(viewer)) {
+    params.push(viewer.oddzial_id ?? null);
+    clauses.push(`(
+      oddzial_id = $${params.length}
+      OR metadata->>'oddzial_id' = $${params.length}::text
+      OR metadata->>'task_oddzial_id' = $${params.length}::text
+    )`);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const countR = await pool.query(`SELECT COUNT(*)::int AS c FROM audit_log ${where}`, params);

@@ -24,6 +24,48 @@ function canViewBI(user) {
   return isDyrektorOrAdmin(user) || isKierownik(user) || String(user?.rola || '') === 'Dyspozytor';
 }
 
+function canViewTaskFinance(user) {
+  return isDyrektorOrAdmin(user);
+}
+
+const TASK_FINANCIAL_FIELDS = [
+  'wartosc_planowana',
+  'wartosc_rzeczywista',
+  'wartosc_netto_do_rozliczenia',
+  'revenue_net',
+  'rozliczenie_id',
+  'rozliczenie_wartosc_brutto',
+  'rozliczenie_wartosc_netto',
+  'koszt_pomocnikow',
+  'wynagrodzenie_brygadzisty',
+  'koszt_sprzetu',
+  'koszt_paliwa',
+  'koszt_materialow',
+  'koszt_utylizacji',
+  'koszt_inne',
+  'koszt_sprzetu_count',
+  'koszt_paliwa_count',
+  'koszt_materialow_count',
+  'koszt_utylizacji_count',
+  'koszt_inne_count',
+];
+
+function buildTaskDrilldownRow(row, user) {
+  const result = {
+    ...row,
+    wartosc_planowana: row.wartosc_planowana == null ? null : Number(row.wartosc_planowana),
+    wartosc_rzeczywista: row.wartosc_rzeczywista == null ? null : Number(row.wartosc_rzeczywista),
+    wartosc_netto_do_rozliczenia: row.wartosc_netto_do_rozliczenia == null ? null : Number(row.wartosc_netto_do_rozliczenia),
+    financials: buildTaskFinancialDrilldown(row),
+  };
+
+  if (canViewTaskFinance(user)) return result;
+
+  for (const key of TASK_FINANCIAL_FIELDS) delete result[key];
+  result.financials = null;
+  return result;
+}
+
 function scopeClause(branchId, paramIndex, alias = 't') {
   if (!branchId) return { clause: '', params: [] };
   return { clause: ` AND ${alias}.oddzial_id = $${paramIndex}`, params: [branchId] };
@@ -785,13 +827,7 @@ router.get('/drill', async (req, res) => {
        LIMIT 100`,
       params
     );
-    res.json(r.rows.map(row => ({
-      ...row,
-      wartosc_planowana: row.wartosc_planowana == null ? null : Number(row.wartosc_planowana),
-      wartosc_rzeczywista: row.wartosc_rzeczywista == null ? null : Number(row.wartosc_rzeczywista),
-      wartosc_netto_do_rozliczenia: row.wartosc_netto_do_rozliczenia == null ? null : Number(row.wartosc_netto_do_rozliczenia),
-      financials: buildTaskFinancialDrilldown(row),
-    })));
+    res.json(r.rows.map(row => buildTaskDrilldownRow(row, req.user)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

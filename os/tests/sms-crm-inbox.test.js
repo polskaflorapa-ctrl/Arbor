@@ -24,8 +24,8 @@ const { env } = require('../src/config/env');
 describe('SMS CRM inbox bridge', () => {
   const app = createTestApp('/api/sms', smsRoutes);
 
-  const token = () =>
-    jwt.sign({ id: 7, login: 'tester', rola: 'Dyrektor', oddzial_id: 1 }, env.JWT_SECRET, { expiresIn: '1h' });
+  const token = (overrides = {}) =>
+    jwt.sign({ id: 7, login: 'tester', rola: 'Dyrektor', oddzial_id: 1, ...overrides }, env.JWT_SECRET, { expiresIn: '1h' });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,6 +57,29 @@ describe('SMS CRM inbox bridge', () => {
       metadata: { task_id: 55, provider: 'mock', source: 'sms.manual' },
       createdBy: 7,
     }));
+  });
+
+  it('sends branch test SMS through the requested branch sender', async () => {
+    const res = await request(app)
+      .post('/api/sms/oddzial-test')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ oddzial_id: 4, telefon: '+48111222333' });
+
+    expect(res.status).toBe(200);
+    expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
+      to: '+48111222333',
+      oddzialId: 4,
+    }));
+  });
+
+  it('blocks managers from testing another branch sender', async () => {
+    const res = await request(app)
+      .post('/api/sms/oddzial-test')
+      .set('Authorization', `Bearer ${token({ rola: 'Kierownik', oddzial_id: 2 })}`)
+      .send({ oddzial_id: 4, telefon: '+48111222333' });
+
+    expect(res.status).toBe(403);
+    expect(sendSmsGateway).not.toHaveBeenCalled();
   });
 
   it('mirrors templated task SMS into CRM lead inbox', async () => {
@@ -99,6 +122,54 @@ describe('SMS CRM inbox bridge', () => {
       metadata: { task_id: 77, provider: 'mock', source: 'sms.task' },
       createdBy: 7,
     }));
+  });
+
+  it('blocks manual SMS for crew roles before sending', async () => {
+    const res = await request(app)
+      .post('/api/sms/wyslij')
+      .set('Authorization', `Bearer ${token({ rola: 'Brygadzista' })}`)
+      .send({ telefon: '+48111222333', tresc: 'Test SMS' });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).not.toHaveBeenCalled();
+    expect(sendSmsGateway).not.toHaveBeenCalled();
+  });
+
+  it('blocks kierownik from sending manual task SMS outside own branch', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ oddzial_id: 9, klient_telefon: '+48111222333', klient_email: 'jan@example.com' }],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .post('/api/sms/wyslij')
+      .set('Authorization', `Bearer ${token({ rola: 'Kierownik', oddzial_id: 3 })}`)
+      .send({ telefon: '+48111222333', tresc: 'Test SMS', task_id: 55 });
+
+    expect(res.status).toBe(403);
+    expect(sendSmsGateway).not.toHaveBeenCalled();
+    expect(appendCrmMessageForContact).not.toHaveBeenCalled();
+  });
+
+  it('blocks templated task SMS outside kierownik branch', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 77,
+        oddzial_id: 9,
+        klient_telefon: '+48999111222',
+        typ_uslugi: 'Wycinka',
+      }],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .post('/api/sms/zlecenie/77')
+      .set('Authorization', `Bearer ${token({ rola: 'Kierownik', oddzial_id: 3 })}`)
+      .send({ typ: 'potwierdzenie' });
+
+    expect(res.status).toBe(403);
+    expect(sendSmsGateway).not.toHaveBeenCalled();
+    expect(appendCrmMessageForContact).not.toHaveBeenCalled();
   });
 
   it('lists default and configured SMS templates for managers', async () => {

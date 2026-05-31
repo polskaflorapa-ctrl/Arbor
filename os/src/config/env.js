@@ -129,6 +129,10 @@ const envSchema = z.object({
   CRM_MESSAGE_QUEUE_INTERVAL_MS: z.coerce.number().int().positive().default(60000),
   /** Cron: GET /api/ops/quotation-sla-tick?secret=… */
   OPS_CRON_SECRET: z.string().optional(),
+  /** Telegram bot for weekly team league reports. */
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_CHAT_ID: z.string().optional(),
+  TELEGRAM_PARSE_MODE: z.enum(['HTML', 'MarkdownV2', 'Markdown']).optional().default('HTML'),
   /** F11.8 — opcjonalnie Bearer do Expo Push API (wyższe limity); https://expo.dev/accounts/[account]/settings/access-tokens */
   EXPO_ACCESS_TOKEN: z.string().optional(),
   /** F11.8 — `0` / `false` wyłącza wysyłkę push przy zatwierdzeniu raportu dnia (in-app zostaje) */

@@ -244,6 +244,14 @@ router.post('/zadanie/:taskId', async (req, res) => {
     try {
       await client.query('BEGIN');
 
+      const previousSettlement = await client.query(
+        `SELECT wartosc_brutto, vat_stawka, wartosc_netto,
+                koszt_pomocnikow, podstawa_brygadzisty,
+                procent_brygadzisty, wynagrodzenie_brygadzisty
+           FROM task_rozliczenie WHERE task_id = $1`,
+        [taskId],
+      );
+
       // Koszt pomocników
       const g = await client.query(
         `SELECT COALESCE(SUM(godziny * stawka_godzinowa), 0) AS koszt
@@ -278,6 +286,25 @@ router.post('/zadanie/:taskId', async (req, res) => {
       );
 
       await client.query('COMMIT');
+      await req.auditLog?.({
+        action: 'task.financial_settlement_upsert',
+        entityType: 'task',
+        entityId: taskId,
+        metadata: {
+          oddzial_id: req.user.oddzial_id ?? null,
+          previous: previousSettlement.rows[0] || null,
+          next: rows[0],
+          changed_fields: [
+            'wartosc_brutto',
+            'vat_stawka',
+            'wartosc_netto',
+            'koszt_pomocnikow',
+            'podstawa_brygadzisty',
+            'procent_brygadzisty',
+            'wynagrodzenie_brygadzisty',
+          ],
+        },
+      });
       res.json(rows[0]);
     } catch (e) {
       await client.query('ROLLBACK');

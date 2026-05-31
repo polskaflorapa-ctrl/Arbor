@@ -1,0 +1,56 @@
+name: Weekly team league
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron is UTC. Guard keeps Monday 07:00 Europe/Warsaw.
+    - cron: "0 5 * * 1"
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-team-league-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  send-team-league:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Warsaw time guard
+        id: guard
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          warsaw_time="$(TZ=Europe/Warsaw date +'%u %H:%M')"
+          echo "Warsaw time: ${warsaw_time}"
+          if [[ "$warsaw_time" == "1 07:00" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.run == 'true'
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Trigger ARBOR-OS weekly team league
+        if: steps.guard.outputs.run == 'true'
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+          OPS_CRON_SECRET: ${{ secrets.OPS_CRON_SECRET }}
+        run: node os/scripts/trigger-weekly-team-league.js
+
+      - name: Skip duplicate DST slot
+        if: steps.guard.outputs.run != 'true'
+        run: echo "Skipped because this UTC slot is not Monday 07:00 in Europe/Warsaw."

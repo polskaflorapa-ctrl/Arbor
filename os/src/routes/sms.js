@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const logger = require('../config/logger');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, isDyrektorOrAdmin, isKierownik } = require('../middleware/auth');
 const { env } = require('../config/env');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { z } = require('zod');
@@ -22,6 +22,12 @@ const smsWyslijSchema = z.object({
   telefon: z.string().trim().min(1, 'Podaj telefon i tresc SMS'),
   tresc: z.string().trim().min(1, 'Podaj telefon i tresc SMS'),
   task_id: z.coerce.number().int().positive().optional().nullable(),
+});
+
+const smsOddzialTestSchema = z.object({
+  oddzial_id: z.coerce.number().int().positive(),
+  telefon: z.string().trim().min(1).max(30),
+  tresc: z.string().trim().max(480).optional().nullable(),
 });
 
 const smsZlecenieBodySchema = z.object({
@@ -123,6 +129,16 @@ function canManageSmsTemplates(user) {
   return ['Prezes', 'Dyrektor', 'Administrator', 'Kierownik'].includes(user?.rola);
 }
 
+function canSendSms(user) {
+  return isDyrektorOrAdmin(user) || isKierownik(user);
+}
+
+function canAccessSmsTask(user, task) {
+  if (isDyrektorOrAdmin(user)) return true;
+  if (isKierownik(user)) return String(user?.oddzial_id || '') === String(task?.oddzial_id || '');
+  return false;
+}
+
 function templateScopeForUser(user, requestedOddzialId) {
   if (user?.rola === 'Kierownik') return user.oddzial_id || null;
   return requestedOddzialId || null;
@@ -175,6 +191,7 @@ router.put(
 
 // POST /api/sms/wyslij
 router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req, res) => {
+  if (!canSendSms(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   const { telefon, tresc, task_id } = req.body;
   let smsOddzialId = req.user?.oddzial_id || null;
   let smsTask = null;
@@ -182,9 +199,12 @@ router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req
     try {
       const taskResult = await pool.query('SELECT oddzial_id, klient_telefon, klient_email FROM tasks WHERE id = $1', [task_id]);
       smsTask = taskResult.rows[0] || null;
+      if (!smsTask) return res.status(404).json({ error: req.t('errors.sms.taskNotFound') });
+      if (!canAccessSmsTask(req.user, smsTask)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
       smsOddzialId = smsTask?.oddzial_id || smsOddzialId;
     } catch (taskErr) {
       logger.warn('sms.taskLookup.manual', { message: taskErr.message, task_id });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   }
   const result = await sendSmsGateway({ to: telefon, body: tresc, taskId: task_id, oddzialId: smsOddzialId });
@@ -217,8 +237,35 @@ router.post('/wyslij', authMiddleware, validateBody(smsWyslijSchema), async (req
   res.json({ success: true, message: 'SMS wysłany', provider: result.provider, sid: result.sid || result.id });
 });
 
+router.post('/oddzial-test', authMiddleware, validateBody(smsOddzialTestSchema), async (req, res) => {
+  if (!canSendSms(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  const oddzialId = Number(req.body.oddzial_id);
+  if (isKierownik(req.user) && Number(req.user.oddzial_id) !== oddzialId) {
+    return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+  }
+  const body = req.body.tresc
+    || `Test SMS ARBOR-OS dla oddzialu #${oddzialId}. Jesli widzisz te wiadomosc, konfiguracja nadawcy dziala.`;
+  const result = await sendSmsGateway({
+    to: req.body.telefon,
+    body,
+    oddzialId,
+  });
+  if (!result.ok) {
+    logger.error('Blad SMS /oddzial-test', { error: result.error, oddzialId, requestId: req.requestId });
+    return res.status(500).json({ error: result.error || 'SMS test failed' });
+  }
+  res.json({
+    success: true,
+    message: 'Test SMS wyslany',
+    provider: result.provider,
+    sid: result.sid || result.id || null,
+    oddzial_id: oddzialId,
+  });
+});
+
 // POST /api/sms/zlecenie/:id
 router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchema), validateBody(smsZlecenieBodySchema), async (req, res) => {
+  if (!canSendSms(req.user)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
   try {
     // ensureTableExists removed — handled by smsGateway on first send
     const { typ, powod } = req.body;
@@ -230,6 +277,7 @@ router.post('/zlecenie/:id', authMiddleware, validateParams(smsTaskIdParamsSchem
     );
     if (zRes.rows.length === 0) return res.status(404).json({ error: req.t('errors.sms.taskNotFound') });
     const z = zRes.rows[0];
+    if (!canAccessSmsTask(req.user, z)) return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     if (!z.klient_telefon) return res.status(400).json({ error: req.t('errors.sms.clientPhoneMissing') });
     if (!knownSmsTemplateKey(typ)) return res.status(400).json({ error: req.tv('errors.sms.unknownType', { typ }) });
     const data = z.data_planowana ? new Date(z.data_planowana).toLocaleDateString('pl-PL') : '-';

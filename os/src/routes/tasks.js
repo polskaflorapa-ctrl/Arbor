@@ -2777,6 +2777,9 @@ router.get(
   validateParams(taskIdParamsSchema),
   requireTaskAccess,
   async (req, res) => {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     await ensureKommoTaskColumns();
     try {
       const result = await pool.query(taskKommoPayloadSql(), [req.params.id]);
@@ -2816,6 +2819,9 @@ router.post(
   validateParams(taskIdParamsSchema),
   requireTaskAccess,
   async (req, res) => {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     await ensureKommoTaskColumns();
     try {
       const result = await pool.query(taskKommoPayloadSql(), [req.params.id]);
@@ -2904,6 +2910,9 @@ router.post(
   validateBody(taskKommoRetrySchema),
   requireTaskAccess,
   async (req, res) => {
+    if (!canManageTaskBackoffice(req.user)) {
+      return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+    }
     await ensureKommoTaskColumns();
     try {
       const result = await pool.query(taskKommoPayloadSql(), [req.params.id]);
@@ -4777,6 +4786,20 @@ router.post(
         [taskId, req.user.id]
       );
       await client.query('COMMIT');
+      await req.auditLog?.({
+        action: 'task.finish',
+        entityType: 'task',
+        entityId: taskId,
+        metadata: {
+          from: task.status,
+          to: 'Zakonczone',
+          oddzial_id: task.oddzial_id,
+          wartosc_netto_do_rozliczenia: net,
+          gross_value: grossVal,
+          payment_method: payment?.forma_platnosc ?? null,
+          team_scoped: isTeamScoped(req.user),
+        },
+      });
       try {
         await tryAutoTeamDayCloseAfterTaskFinish(pool, taskId);
       } catch (e) {

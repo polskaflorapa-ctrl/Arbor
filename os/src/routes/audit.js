@@ -20,11 +20,11 @@ const auditListQuerySchema = z.object({
 router.get(
   '/',
   authMiddleware,
-  requireRole('Prezes', 'Dyrektor'),
+  requireRole('Prezes', 'Dyrektor', 'Administrator', 'Kierownik'),
   validateQuery(auditListQuerySchema),
   async (req, res) => {
     try {
-      const data = await listAuditLogs(pool, req.query);
+      const data = await listAuditLogs(pool, req.query, req.user);
       res.json({
         items: data.items,
         total: data.total,

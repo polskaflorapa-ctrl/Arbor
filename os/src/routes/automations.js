@@ -11,8 +11,20 @@ const {
   runOperationalDigest,
   saveDigestSettings,
 } = require('../services/opsDigest');
+const {
+  buildWeeklyTeamLeague,
+  publishWeeklyTeamLeague,
+} = require('../services/teamLeagueTelegram');
+const { sendSmsGateway } = require('../services/smsGateway');
+const { appendCrmLeadMessage } = require('../services/crmInbox');
 
 const router = express.Router();
+
+const parsePositiveInt = (value) => {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
 
 const sendOverdueReminders = async () => {
   const overdue = await pool.query(
@@ -41,6 +53,151 @@ const sendOverdueReminders = async () => {
   }
   return { scanned: overdue.rows.length, remindersCreated: inserted };
 };
+
+function formatInspectionReminderDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pl-PL', {
+    timeZone: 'Europe/Warsaw',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function buildInspectionReminderSms(row) {
+  const when = formatInspectionReminderDate(row.appointment_at);
+  const address = [row.inspection_address, row.city].filter(Boolean).join(', ');
+  const parts = ['Dzien dobry, przypominamy o jutrzejszych bezplatnych ogledzinach Polska Flora'];
+  if (when) parts.push(`termin: ${when}`);
+  if (address) parts.push(`adres: ${address}`);
+  return `${parts.join(', ')}. Do zobaczenia.`;
+}
+
+async function listInspectionSmsReminderCandidates({ branchId = null } = {}) {
+  const params = [];
+  const branchSql = branchId ? `AND v.oddzial_id = $${params.push(branchId)}` : '';
+  const due = await pool.query(
+    `SELECT v.id,
+            v.oddzial_id,
+            v.crm_lead_id,
+            v.ogledziny_id,
+            v.caller_phone,
+            v.customer_name,
+            v.inspection_address,
+            v.city,
+            v.appointment_at,
+            v.raw_payload
+     FROM voice_agent_intakes v
+     INNER JOIN voice_agent_integrations vai
+       ON vai.agent_id = v.agent_id
+      AND vai.oddzial_id = v.oddzial_id
+      AND vai.status = 'active'
+     WHERE v.agent_id = 'polska-flora-ania'
+       AND v.appointment_at::date = (CURRENT_DATE + INTERVAL '1 day')::date
+       AND COALESCE(v.caller_phone, '') <> ''
+       AND COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_reminder_for' IS DISTINCT FROM v.appointment_at::date::text
+       ${branchSql}
+     ORDER BY v.appointment_at ASC
+     LIMIT 200`,
+    params
+  );
+  return due.rows.map((row) => ({
+    ...row,
+    sms_body: buildInspectionReminderSms(row).slice(0, 480),
+  }));
+}
+
+const sendInspectionSmsReminders = async () => {
+  const rows = await listInspectionSmsReminderCandidates();
+  let sent = 0;
+  const failed = [];
+  for (const row of rows) {
+    const body = row.sms_body || buildInspectionReminderSms(row).slice(0, 480);
+    const result = await sendSmsGateway({
+      to: row.caller_phone,
+      body,
+      oddzialId: row.oddzial_id,
+    });
+    if (!result.ok) {
+      failed.push({ intake_id: row.id, phone: row.caller_phone, error: result.error });
+      await pool.query(
+        `UPDATE voice_agent_intakes
+         SET raw_payload = COALESCE(raw_payload, '{}'::jsonb) || $2::jsonb
+         WHERE id = $1`,
+        [
+          row.id,
+          JSON.stringify({
+            last_sms_reminder_attempt_at: new Date().toISOString(),
+            last_sms_reminder_error: result.error || 'sms_failed',
+          }),
+        ]
+      );
+      continue;
+    }
+
+    sent += 1;
+    const messageId = result.sid || result.id || null;
+    if (row.crm_lead_id) {
+      await appendCrmLeadMessage({
+        leadId: row.crm_lead_id,
+        channel: 'sms',
+        direction: 'outbound',
+        recipientHandle: row.caller_phone,
+        subject: 'Przypomnienie o ogledzinach SMS',
+        body,
+        status: messageId ? 'sent' : 'queued',
+        externalMessageId: messageId,
+        templateKey: 'polska_flora_ogledziny_reminder',
+        metadata: {
+          source: 'automation.inspection_sms_reminder',
+          intake_id: row.id,
+          ogledziny_id: row.ogledziny_id || null,
+          provider: result.provider || null,
+        },
+      });
+    }
+    await pool.query(
+      `UPDATE voice_agent_intakes
+       SET raw_payload = COALESCE(raw_payload, '{}'::jsonb) || $2::jsonb
+       WHERE id = $1`,
+      [
+        row.id,
+        JSON.stringify({
+          last_sms_reminder_at: new Date().toISOString(),
+          last_sms_reminder_for: String(row.appointment_at || '').slice(0, 10),
+          last_sms_reminder_id: messageId,
+        }),
+      ]
+    );
+  }
+
+  return { scanned: rows.length, sent, failed };
+};
+
+router.get(
+  '/inspection-sms-reminders/preview',
+  authMiddleware,
+  requireRole('Prezes', 'Dyrektor', 'Administrator', 'Kierownik'),
+  async (req, res) => {
+    try {
+      const requestedBranch = parsePositiveInt(req.query.oddzial_id);
+      const branchId = scopedOddzialId(req.user, requestedBranch);
+      const items = await listInspectionSmsReminderCandidates({ branchId });
+      res.json({
+        total: items.length,
+        branch_id: branchId,
+        items,
+      });
+    } catch (e) {
+      logger.error('Blad podgladu SMS przypomnien ogledzin', { message: e.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
 
 router.get(
   '/daily-digest/preview',
@@ -138,6 +295,7 @@ router.post(
   async (req, res) => {
     try {
       const reminders = await sendOverdueReminders();
+      const inspectionSmsReminders = await sendInspectionSmsReminders();
       const digestOptions = {
         date: req.body?.date,
         horizonDays: req.body?.horizon_days,
@@ -153,6 +311,7 @@ router.post(
         'automation.daily.executed',
         {
           reminders,
+          inspectionSmsReminders,
           operationalDigest: {
             global: operationalDigest.global?.summary || null,
             branches: (operationalDigest.branches || []).map((branch) => ({
@@ -171,6 +330,7 @@ router.post(
         entityId: 'daily',
         metadata: {
           reminders,
+          inspectionSmsReminders,
           operationalDigest: {
             global: operationalDigest.global?.summary || null,
             branches: (operationalDigest.branches || []).map((branch) => ({
@@ -183,6 +343,7 @@ router.post(
       res.json({
         success: true,
         reminders,
+        inspectionSmsReminders,
         operationalDigest,
         executedAt: new Date().toISOString(),
       });
@@ -196,18 +357,81 @@ router.post(
   }
 );
 
+router.get(
+  '/team-league/preview',
+  authMiddleware,
+  requireRole('Prezes', 'Dyrektor', 'Administrator', 'Kierownik'),
+  async (req, res) => {
+    try {
+      const requestedBranch = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+      const branchId = scopedOddzialId(req.user, requestedBranch);
+      const payload = await buildWeeklyTeamLeague(pool, req.user, {
+        as_of: req.query.as_of,
+        oddzial_id: branchId,
+        limit: req.query.limit,
+        branchLimit: req.query.branch_limit,
+      });
+      res.json(payload);
+    } catch (e) {
+      logger.error('Blad podgladu ligi brygad Telegram', { message: e.message, requestId: req.requestId });
+      res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  }
+);
+
+router.post(
+  '/team-league/send',
+  authMiddleware,
+  requireRole('Prezes', 'Dyrektor', 'Administrator'),
+  async (req, res) => {
+    try {
+      const requestedBranch = req.body?.oddzial_id ? Number(req.body.oddzial_id) : null;
+      const branchId = scopedOddzialId(req.user, requestedBranch);
+      const payload = await publishWeeklyTeamLeague(pool, req.user, {
+        as_of: req.body?.as_of,
+        oddzial_id: branchId,
+        limit: req.body?.limit,
+        branchLimit: req.body?.branch_limit,
+        dryRun: req.body?.dry_run === true,
+      });
+      await logAudit(pool, req, {
+        action: payload.dryRun ? 'team_league_preview' : 'team_league_telegram_sent',
+        entityType: 'automation',
+        entityId: 'team-league-weekly',
+        metadata: {
+          as_of: req.body?.as_of || null,
+          oddzial_id: branchId || null,
+          dry_run: payload.dryRun,
+        },
+      });
+      res.json({
+        success: true,
+        dryRun: payload.dryRun,
+        text: payload.text,
+        telegram: payload.telegram,
+        generated_at: payload.ranking?.generated_at,
+      });
+    } catch (e) {
+      logger.error('Blad wysylki ligi brygad Telegram', { message: e.message, requestId: req.requestId });
+      res.status(500).json({ error: e.message });
+    }
+  }
+);
+
 router.get('/daily-digest/tick', async (req, res) => {
   const secret = String(process.env.OPS_CRON_SECRET || '').trim();
   if (!secret || String(req.query.secret || '') !== secret) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
+    const inspectionSmsReminders = await sendInspectionSmsReminders();
     const operationalDigest = await runOperationalDigest(pool, {
       date: req.query.date,
       triggerType: 'cron',
       respectEnabled: true,
     });
     await dispatchWebhook('automation.daily_digest.cron', {
+      inspectionSmsReminders,
       operationalDigest: {
         global: operationalDigest.global?.summary || null,
         branches: (operationalDigest.branches || []).map((branch) => ({
@@ -217,9 +441,50 @@ router.get('/daily-digest/tick', async (req, res) => {
         })),
       },
     }, { retries: 3 });
-    res.json({ success: true, operationalDigest, executedAt: new Date().toISOString() });
+    res.json({ success: true, inspectionSmsReminders, operationalDigest, executedAt: new Date().toISOString() });
   } catch (e) {
     logger.error('Blad cron digestu operacyjnego', { message: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/team-league/tick', async (req, res) => {
+  const secret = String(process.env.OPS_CRON_SECRET || '').trim();
+  if (!secret || String(req.query.secret || '') !== secret) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const payload = await publishWeeklyTeamLeague(
+      pool,
+      { id: null, rola: 'Administrator', oddzial_id: null },
+      {
+        as_of: req.query.as_of,
+        oddzial_id: req.query.oddzial_id ? Number(req.query.oddzial_id) : null,
+        limit: req.query.limit,
+        branchLimit: req.query.branch_limit,
+        dryRun: req.query.dry_run === '1' || req.query.dry_run === 'true',
+      }
+    );
+    await dispatchWebhook('automation.team_league.weekly', {
+      dryRun: payload.dryRun,
+      generatedAt: payload.ranking?.generated_at,
+      asOf: payload.ranking?.as_of,
+      week: payload.ranking?.periods?.week
+        ? {
+            from: payload.ranking.periods.week.from,
+            to: payload.ranking.periods.week.to,
+            winner: payload.ranking.periods.week.winner || null,
+          }
+        : null,
+    }, { retries: 3 });
+    res.json({
+      success: true,
+      dryRun: payload.dryRun,
+      generated_at: payload.ranking?.generated_at,
+      telegram: payload.telegram,
+    });
+  } catch (e) {
+    logger.error('Blad cron ligi brygad Telegram', { message: e.message });
     res.status(500).json({ error: e.message });
   }
 });

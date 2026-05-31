@@ -31,6 +31,7 @@
     "smoke:office": "node scripts/smoke-office-plan-flow.js",
     "smoke:signature": "node scripts/smoke-signature-protocol.js",
     "automations:daily": "node scripts/trigger-daily-automations.js",
+    "automations:team-league": "node scripts/trigger-weekly-team-league.js",
     "smoke:full": "npm run smoke:user && npm run smoke:auth && npm run smoke:basic:auth",
     "smoke:operational": "node scripts/smoke-operational-flow.js",
     "smoke:f03": "node scripts/smoke-f0-3-m11.js",

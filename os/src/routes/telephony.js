@@ -7,6 +7,7 @@ const { env } = require('../config/env');
 const { authMiddleware } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../services/crmInbox');
+const { sendSmsGateway } = require('../services/smsGateway');
 const {
   buildPolskaFloraLeadNotes,
   buildPolskaFloraVoiceAgentConfig,
@@ -89,6 +90,8 @@ const voiceAgentIntakesQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+  filter: z.enum(['all', 'needs_review', 'sms_missing', 'sms_error', 'scheduled']).optional(),
+  q: z.string().trim().max(200).optional(),
 });
 
 const voiceAgentIntakeParamsSchema = z.object({
@@ -105,6 +108,10 @@ const voiceAgentIntakeFixSchema = z.object({
   notes: z.string().max(4000).optional().nullable(),
   transcript: z.string().max(12000).optional().nullable(),
   create_missing_inspection: z.boolean().optional(),
+});
+
+const voiceAgentIntakeSmsSchema = z.object({
+  body: z.string().trim().min(1).max(480).optional().nullable(),
 });
 
 const voiceAgentIntegrationSaveSchema = z.object({
@@ -451,9 +458,22 @@ function voiceAgentQuality(row) {
 
 function enrichVoiceAgentIntake(row) {
   if (!row) return null;
+  const raw = row.raw_payload && typeof row.raw_payload === 'object' && !Array.isArray(row.raw_payload)
+    ? row.raw_payload
+    : {};
   return {
     ...row,
     ...voiceAgentQuality(row),
+    sms_status: {
+      confirmation_at: raw.last_sms_confirmation_at || null,
+      confirmation_id: raw.last_sms_confirmation_id || null,
+      confirmation_error: raw.last_sms_confirmation_error || null,
+      reminder_at: raw.last_sms_reminder_at || null,
+      reminder_for: raw.last_sms_reminder_for || null,
+      reminder_id: raw.last_sms_reminder_id || null,
+      reminder_error: raw.last_sms_reminder_error || null,
+      reminder_attempt_at: raw.last_sms_reminder_attempt_at || null,
+    },
   };
 }
 
@@ -525,6 +545,29 @@ function parseAppointment(value) {
   if (!raw) return null;
   const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function formatPolskaFloraSmsDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pl-PL', {
+    timeZone: 'Europe/Warsaw',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function buildVoiceAgentSmsConfirmation(row) {
+  const when = formatPolskaFloraSmsDate(row?.appointment_at);
+  const address = [row?.inspection_address, row?.city].filter(Boolean).join(', ');
+  const parts = ['Dzien dobry, potwierdzamy bezplatne ogledziny Polska Flora'];
+  if (when) parts.push(`termin: ${when}`);
+  if (address) parts.push(`adres: ${address}`);
+  return `${parts.join(', ')}. W razie pytan prosimy o kontakt.`;
 }
 
 function splitCustomerName(value) {
@@ -735,11 +778,90 @@ router.get(
       }
       const limit = Number(req.query.limit || 20);
       const offset = Number(req.query.offset || 0);
+      const filter = req.query.filter || 'all';
+      const q = String(req.query.q || '').trim();
+      const params = [oddzialId];
+      const baseWhereParts = [
+        `v.agent_id = 'polska-flora-ania'`,
+        `v.oddzial_id = $1`,
+      ];
+      const whereParts = [
+        `v.agent_id = 'polska-flora-ania'`,
+        `v.oddzial_id = $1`,
+      ];
+      if (filter === 'needs_review') {
+        whereParts.push(`(
+          COALESCE(v.caller_phone, '') = ''
+          OR COALESCE(v.inspection_address, '') = ''
+          OR v.appointment_at IS NULL
+          OR v.crm_lead_id IS NULL
+          OR (v.appointment_at IS NOT NULL AND v.ogledziny_id IS NULL)
+          OR (COALESCE(v.notes, '') = '' AND COALESCE(v.transcript, '') = '')
+        )`);
+      } else if (filter === 'sms_missing') {
+        whereParts.push(`(
+          COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_confirmation_at' IS NULL
+          AND COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_reminder_at' IS NULL
+        )`);
+      } else if (filter === 'sms_error') {
+        whereParts.push(`(
+          COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_confirmation_error' IS NOT NULL
+          OR COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_reminder_error' IS NOT NULL
+        )`);
+      } else if (filter === 'scheduled') {
+        whereParts.push('v.appointment_at IS NOT NULL');
+      }
+      if (q) {
+        params.push(`%${q.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
+        const idx = params.length;
+        const qWhere = `(
+          COALESCE(v.customer_name, '') ILIKE $${idx} ESCAPE E'\\\\'
+          OR COALESCE(v.caller_phone, '') ILIKE $${idx} ESCAPE E'\\\\'
+          OR COALESCE(v.inspection_address, '') ILIKE $${idx} ESCAPE E'\\\\'
+          OR COALESCE(v.city, '') ILIKE $${idx} ESCAPE E'\\\\'
+          OR COALESCE(v.service_type, '') ILIKE $${idx} ESCAPE E'\\\\'
+          OR COALESCE(v.notes, '') ILIKE $${idx} ESCAPE E'\\\\'
+        )`;
+        baseWhereParts.push(qWhere);
+        whereParts.push(qWhere);
+      }
+      const needsReviewSql = `(
+          COALESCE(v.caller_phone, '') = ''
+          OR COALESCE(v.inspection_address, '') = ''
+          OR v.appointment_at IS NULL
+          OR v.crm_lead_id IS NULL
+          OR (v.appointment_at IS NOT NULL AND v.ogledziny_id IS NULL)
+          OR (COALESCE(v.notes, '') = '' AND COALESCE(v.transcript, '') = '')
+        )`;
+      const smsMissingSql = `(
+          COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_confirmation_at' IS NULL
+          AND COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_reminder_at' IS NULL
+        )`;
+      const smsErrorSql = `(
+          COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_confirmation_error' IS NOT NULL
+          OR COALESCE(v.raw_payload, '{}'::jsonb)->>'last_sms_reminder_error' IS NOT NULL
+        )`;
+      const whereSql = `WHERE ${whereParts.join(' AND ')}`;
+      const baseWhereSql = `WHERE ${baseWhereParts.join(' AND ')}`;
+      const fromSql = `FROM voice_agent_intakes v
+         LEFT JOIN crm_leads l ON l.id = v.crm_lead_id
+         LEFT JOIN ogledziny o ON o.id = v.ogledziny_id`;
+      const summaryResult = await pool.query(
+        `SELECT
+           COUNT(*)::int AS all_count,
+           COUNT(*) FILTER (WHERE ${needsReviewSql})::int AS needs_review,
+           COUNT(*) FILTER (WHERE ${smsMissingSql})::int AS sms_missing,
+           COUNT(*) FILTER (WHERE ${smsErrorSql})::int AS sms_error,
+           COUNT(*) FILTER (WHERE v.appointment_at IS NOT NULL)::int AS scheduled
+         ${fromSql}
+         ${baseWhereSql}`,
+        params,
+      );
       const countResult = await pool.query(
         `SELECT COUNT(*)::int AS total
-         FROM voice_agent_intakes
-         WHERE agent_id = 'polska-flora-ania' AND oddzial_id = $1`,
-        [oddzialId],
+         ${fromSql}
+         ${whereSql}`,
+        params,
       );
       const rowsResult = await pool.query(
         `SELECT
@@ -760,22 +882,29 @@ router.get(
            v.source,
            v.notes,
            v.transcript,
+           v.raw_payload,
            v.created_at,
            l.stage AS crm_stage,
            o.status AS ogledziny_status
-         FROM voice_agent_intakes v
-         LEFT JOIN crm_leads l ON l.id = v.crm_lead_id
-         LEFT JOIN ogledziny o ON o.id = v.ogledziny_id
-         WHERE v.agent_id = 'polska-flora-ania' AND v.oddzial_id = $1
+         ${fromSql}
+         ${whereSql}
          ORDER BY v.created_at DESC
-         LIMIT $2 OFFSET $3`,
-        [oddzialId, limit, offset],
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset],
       );
       return res.json({
         items: rowsResult.rows.map(enrichVoiceAgentIntake),
         total: countResult.rows[0]?.total || 0,
+        summary: {
+          all: Number(summaryResult.rows[0]?.all_count || 0),
+          needs_review: Number(summaryResult.rows[0]?.needs_review || 0),
+          sms_missing: Number(summaryResult.rows[0]?.sms_missing || 0),
+          sms_error: Number(summaryResult.rows[0]?.sms_error || 0),
+          scheduled: Number(summaryResult.rows[0]?.scheduled || 0),
+        },
         limit,
         offset,
+        filter,
       });
     } catch (err) {
       logger.error('telephony.voiceAgent.intakes.list', { message: err.message, requestId: req.requestId });
@@ -920,6 +1049,96 @@ router.patch(
       return res.json({ ok: true, intake: enrichVoiceAgentIntake({ ...saved, klient_id: saved?.klient_id || clientId }) });
     } catch (err) {
       logger.error('telephony.voiceAgent.intakes.fix', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.post(
+  '/voice-agent/polska-flora/intakes/:id/sms',
+  authMiddleware,
+  validateParams(voiceAgentIntakeParamsSchema),
+  validateBody(voiceAgentIntakeSmsSchema),
+  async (req, res) => {
+    try {
+      await ensureVoiceAgentIntakesTable();
+      const intake = await findVoiceAgentIntakeById(req.params.id);
+      if (!intake) return res.status(404).json({ error: 'Rozmowa agenta nie znaleziona' });
+      if (!isManagementRole(req.user) && Number(req.user?.oddzial_id) !== Number(intake.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      if (!intake.caller_phone) {
+        return res.status(400).json({ error: 'Brak numeru telefonu klienta.' });
+      }
+      if (!intake.appointment_at) {
+        return res.status(400).json({ error: 'Brak terminu ogledzin do potwierdzenia.' });
+      }
+
+      const body = (req.body.body || buildVoiceAgentSmsConfirmation(intake)).trim().slice(0, 480);
+      const smsResult = await sendSmsGateway({
+        to: intake.caller_phone,
+        body,
+        oddzialId: intake.oddzial_id,
+      });
+      const messageId = smsResult.sid || smsResult.id || smsResult.external_id || null;
+      if (!smsResult.ok) {
+        await pool.query(
+          `UPDATE voice_agent_intakes
+           SET raw_payload = COALESCE(raw_payload, '{}'::jsonb) || $2::jsonb
+           WHERE id = $1`,
+          [
+            intake.id,
+            JSON.stringify({
+              last_sms_confirmation_at: new Date().toISOString(),
+              last_sms_confirmation_error: smsResult.error || 'sms_failed',
+            }),
+          ],
+        );
+        return res.status(502).json({ error: smsResult.error || 'Nie udalo sie wyslac SMS.' });
+      }
+
+      if (intake.crm_lead_id) {
+        await appendCrmLeadMessage({
+          leadId: intake.crm_lead_id,
+          channel: 'sms',
+          direction: 'outbound',
+          recipientHandle: intake.caller_phone,
+          subject: 'Potwierdzenie ogledzin SMS',
+          body,
+          status: 'sent',
+          externalMessageId: messageId,
+          templateKey: 'polska_flora_ogledziny_confirmation',
+          metadata: {
+            source: 'voice_agent.sms_confirmation',
+            intake_id: intake.id,
+            ogledziny_id: intake.ogledziny_id || null,
+            provider: smsResult.provider || null,
+          },
+          createdBy: req.user.id,
+        });
+      }
+
+      await pool.query(
+        `UPDATE voice_agent_intakes
+         SET raw_payload = COALESCE(raw_payload, '{}'::jsonb) || $2::jsonb
+         WHERE id = $1`,
+        [
+          intake.id,
+          JSON.stringify({
+            last_sms_confirmation_at: new Date().toISOString(),
+            last_sms_confirmation_id: messageId,
+          }),
+        ],
+      );
+
+      return res.json({
+        ok: true,
+        provider: smsResult.provider || null,
+        sid: messageId,
+        text: body,
+      });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.intakes.sms', { message: err.message, requestId: req.requestId });
       return res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   },

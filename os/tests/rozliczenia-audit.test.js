@@ -1,0 +1,90 @@
+const express = require('express');
+const request = require('supertest');
+const jwt = require('jsonwebtoken');
+
+jest.mock('../src/config/database', () => ({
+  query: jest.fn(),
+  connect: jest.fn(),
+}));
+
+const pool = require('../src/config/database');
+const rozliczeniaRoutes = require('../src/routes/rozliczenia');
+const { requestContext } = require('../src/middleware/request-context');
+const { localeMiddleware } = require('../src/middleware/locale');
+const { errorHandler, notFoundHandler } = require('../src/middleware/error-handler');
+const { env } = require('../src/config/env');
+
+describe('Rozliczenia audit', () => {
+  let auditSpy;
+  let app;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    auditSpy = jest.fn().mockResolvedValue();
+    app = express();
+    app.use(requestContext);
+    app.use(localeMiddleware);
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      req.auditLog = auditSpy;
+      next();
+    });
+    app.use('/api/rozliczenia', rozliczeniaRoutes);
+    app.use(notFoundHandler);
+    app.use(errorHandler);
+  });
+
+  it('audits financial settlement upsert with previous and next values', async () => {
+    const client = {
+      query: jest.fn()
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{
+            wartosc_brutto: '2000',
+            vat_stawka: '8',
+            wartosc_netto: '1851.85',
+            koszt_pomocnikow: '100',
+            podstawa_brygadzisty: '1751.85',
+            procent_brygadzisty: '15',
+            wynagrodzenie_brygadzisty: '262.78',
+          }],
+        })
+        .mockResolvedValueOnce({ rows: [{ koszt: '200' }] })
+        .mockResolvedValueOnce({
+          rows: [{
+            task_id: 44,
+            wartosc_brutto: 2160,
+            vat_stawka: 8,
+            wartosc_netto: 2000,
+            koszt_pomocnikow: 200,
+            podstawa_brygadzisty: 1800,
+            procent_brygadzisty: 15,
+            wynagrodzenie_brygadzisty: 270,
+          }],
+        })
+        .mockResolvedValueOnce({ rows: [] }), // COMMIT
+      release: jest.fn(),
+    };
+    pool.connect.mockResolvedValue(client);
+    const token = jwt.sign({ id: 8, rola: 'Kierownik', oddzial_id: 3, login: 'k' }, env.JWT_SECRET);
+
+    const res = await request(app)
+      .post('/api/rozliczenia/zadanie/44')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ wartosc_brutto: 2160, vat_stawka: 8, procent_brygadzisty: 15 });
+
+    expect(res.status).toBe(200);
+    expect(auditSpy).toHaveBeenCalledWith({
+      action: 'task.financial_settlement_upsert',
+      entityType: 'task',
+      entityId: 44,
+      metadata: expect.objectContaining({
+        oddzial_id: 3,
+        previous: expect.objectContaining({ wartosc_brutto: '2000' }),
+        next: expect.objectContaining({ wartosc_brutto: 2160, wartosc_netto: 2000 }),
+        changed_fields: expect.arrayContaining(['wartosc_brutto', 'wynagrodzenie_brygadzisty']),
+      }),
+    });
+    expect(client.release).toHaveBeenCalled();
+  });
+});

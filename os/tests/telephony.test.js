@@ -10,8 +10,13 @@ jest.mock('../src/services/crmInbox', () => ({
   appendCrmMessageForContact: jest.fn(),
 }));
 
+jest.mock('../src/services/smsGateway', () => ({
+  sendSmsGateway: jest.fn(),
+}));
+
 const pool = require('../src/config/database');
 const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../src/services/crmInbox');
+const { sendSmsGateway } = require('../src/services/smsGateway');
 const telephonyRoutes = require('../src/routes/telephony');
 const { createTestApp } = require('./helpers/create-test-app');
 const { env } = require('../src/config/env');
@@ -29,6 +34,7 @@ describe('Telephony routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     env.VOICE_AGENT_WEBHOOK_SECRET = 'voice-secret';
+    sendSmsGateway.mockResolvedValue({ ok: true, provider: 'mock-sms', sid: 'SM-VOICE-1' });
     pool.query.mockImplementation(async (sql, params = []) => {
       const text = String(sql);
       if (text.includes('CREATE TABLE') || text.includes('CREATE INDEX')) {
@@ -114,7 +120,60 @@ describe('Telephony routes', () => {
       if (text.includes('INSERT INTO ogledziny')) {
         return { rows: [{ id: 601 }], rowCount: 1 };
       }
+      if (text.includes('COUNT(*)::int AS all_count')) {
+        return {
+          rows: [{
+            all_count: 4,
+            needs_review: 1,
+            sms_missing: 2,
+            sms_error: 0,
+            scheduled: 3,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('SELECT COUNT(*)::int AS total') && text.includes('FROM voice_agent_intakes v')) {
+        return { rows: [{ total: 1 }], rowCount: 1 };
+      }
+      if (text.includes('SELECT') && text.includes('v.id,') && text.includes('FROM voice_agent_intakes v')) {
+        return {
+          rows: [{
+            id: 303,
+            agent_id: 'polska-flora-ania',
+            provider: 'test-agent',
+            oddzial_id: 2,
+            crm_lead_id: 101,
+            klient_id: 501,
+            caller_phone: '+48500111222',
+            customer_name: 'Jan Flora',
+            inspection_address: '',
+            city: 'Krakow',
+            service_type: 'ogrod',
+            appointment_at: null,
+            source: 'telefon_przychodzacy',
+            raw_payload: {},
+          }],
+          rowCount: 1,
+        };
+      }
       if (text.includes('SELECT v.*') && text.includes('FROM voice_agent_intakes v') && text.includes('v.id = $1')) {
+        if (Number(params[0]) === 304) {
+          return {
+            rows: [{
+              id: params[0],
+              agent_id: 'polska-flora-ania',
+              provider: 'test-agent',
+              oddzial_id: 2,
+              crm_lead_id: 101,
+              klient_id: 501,
+              caller_phone: '+48500111222',
+              customer_name: 'Jan Flora',
+              service_type: 'ogrod',
+              source: 'telefon_przychodzacy',
+            }],
+            rowCount: 1,
+          };
+        }
         return {
           rows: [{
             id: params[0],
@@ -125,8 +184,19 @@ describe('Telephony routes', () => {
             klient_id: 501,
             caller_phone: '+48500111222',
             customer_name: 'Jan Flora',
+            inspection_address: 'ul. Lesna 4',
+            city: 'Krakow',
             service_type: 'ogrod',
+            appointment_at: '2026-06-03T09:00:00.000Z',
             source: 'telefon_przychodzacy',
+            ogledziny_id: 601,
+            raw_payload: {
+              last_sms_confirmation_at: '2026-06-02T09:00:00.000Z',
+              last_sms_confirmation_id: 'SM-CONF-1',
+              last_sms_reminder_at: '2026-06-02T18:00:00.000Z',
+              last_sms_reminder_id: 'SM-REM-1',
+              last_sms_reminder_for: '2026-06-03',
+            },
           }],
           rowCount: 1,
         };
@@ -493,6 +563,34 @@ describe('Telephony routes', () => {
     expect(res.body.config.system_prompt).toContain('Polska Flora');
   });
 
+  it('lists voice agent intakes with server-side operational filters', async () => {
+    const res = await request(app)
+      .get('/api/telephony/voice-agent/polska-flora/intakes?oddzial_id=2&filter=needs_review&limit=50')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 2 })}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      total: 1,
+      limit: 50,
+      filter: 'needs_review',
+      summary: {
+        all: 4,
+        needs_review: 1,
+        sms_missing: 2,
+        sms_error: 0,
+        scheduled: 3,
+      },
+    });
+    expect(res.body.items[0]).toMatchObject({
+      id: 303,
+      quality_status: 'needs_review',
+    });
+    const countSql = String(pool.query.mock.calls.find(([sql]) => String(sql).includes('COUNT(*)::int AS total'))?.[0] || '');
+    expect(countSql).toContain("v.agent_id = 'polska-flora-ania'");
+    expect(countSql).toContain('v.oddzial_id = $1');
+    expect(countSql).toContain('v.appointment_at IS NULL');
+  });
+
   it('allows voice agent intake with branch integration secret from panel', async () => {
     env.VOICE_AGENT_WEBHOOK_SECRET = '';
     appendCrmLeadMessage.mockResolvedValue({ id: 202 });
@@ -597,7 +695,7 @@ describe('Telephony routes', () => {
 
   it('allows manager to fix voice agent intake and create missing inspection', async () => {
     const res = await request(app)
-      .patch('/api/telephony/voice-agent/polska-flora/intakes/303')
+      .patch('/api/telephony/voice-agent/polska-flora/intakes/304')
       .set('Authorization', `Bearer ${token({ oddzial_id: 2 })}`)
       .send({
         inspection_address: 'ul. Naprawiona 4',
@@ -611,7 +709,7 @@ describe('Telephony routes', () => {
     expect(res.body).toMatchObject({
       ok: true,
       intake: expect.objectContaining({
-        id: 303,
+        id: 304,
         crm_lead_id: 101,
         klient_id: 501,
       }),
@@ -619,6 +717,57 @@ describe('Telephony routes', () => {
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE crm_leads'))).toBe(true);
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO ogledziny'))).toBe(true);
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE voice_agent_intakes'))).toBe(true);
+  });
+
+  it('sends branch-scoped SMS confirmation for voice agent inspection', async () => {
+    appendCrmLeadMessage.mockResolvedValue({ id: 909 });
+
+    const res = await request(app)
+      .post('/api/telephony/voice-agent/polska-flora/intakes/303/sms')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 2 })}`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      ok: true,
+      provider: 'mock-sms',
+      sid: 'SM-VOICE-1',
+    });
+    expect(res.body.text).toContain('potwierdzamy bezplatne ogledziny');
+    expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
+      to: '+48500111222',
+      oddzialId: 2,
+    }));
+    expect(appendCrmLeadMessage).toHaveBeenCalledWith(expect.objectContaining({
+      leadId: 101,
+      channel: 'sms',
+      direction: 'outbound',
+      recipientHandle: '+48500111222',
+      templateKey: 'polska_flora_ogledziny_confirmation',
+      metadata: expect.objectContaining({
+        source: 'voice_agent.sms_confirmation',
+        intake_id: 303,
+        ogledziny_id: 601,
+      }),
+    }));
+  });
+
+  it('exposes SMS status from voice agent intake payload', async () => {
+    const res = await request(app)
+      .patch('/api/telephony/voice-agent/polska-flora/intakes/303')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 2 })}`)
+      .send({
+        notes: 'Bez zmian.',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intake.sms_status).toMatchObject({
+      confirmation_at: '2026-06-02T09:00:00.000Z',
+      confirmation_id: 'SM-CONF-1',
+      reminder_at: '2026-06-02T18:00:00.000Z',
+      reminder_id: 'SM-REM-1',
+      reminder_for: '2026-06-03',
+    });
   });
 
   it('rejects voice agent intake with invalid secret', async () => {
