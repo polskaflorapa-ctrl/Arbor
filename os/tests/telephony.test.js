@@ -266,6 +266,46 @@ describe('Telephony routes', () => {
       if (text.includes('UPDATE voice_agent_integrations')) {
         return { rows: [], rowCount: 1 };
       }
+      if (text.includes('FROM branches b') && text.includes('voice_agent_integrations i')) {
+        return {
+          rows: [
+            {
+              oddzial_id: 2,
+              oddzial_name: 'Krakow',
+              telefon: '+48111111111',
+              sms_sender_id: '+48221234567',
+              integration_id: 55,
+              provider: 'vapi',
+              integration_status: 'active',
+              intakes_total: 4,
+              needs_review: 1,
+              sms_errors: 0,
+              last_test_type: 'sms',
+              last_test_action: 'branch_sender_test',
+              last_test_log_status: 'ok',
+              last_test_log_at: '2026-05-31T18:00:00.000Z',
+            },
+          ],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('FROM integration_test_logs l')) {
+        return {
+          rows: [{
+            id: 901,
+            oddzial_id: 2,
+            integration_type: 'sms',
+            action: 'branch_sender_test',
+            status: 'ok',
+            provider: 'mock',
+            target: '+48111222333',
+            message: 'Test SMS oddzialu wyslany',
+            created_by: 7,
+            created_at: '2026-05-31T18:00:00.000Z',
+          }],
+          rowCount: 1,
+        };
+      }
       if (text.includes('INSERT INTO telephony_callbacks')) {
         return {
           rows: [{
@@ -561,6 +601,39 @@ describe('Telephony routes', () => {
     });
     expect(res.body.integration.webhook_secret).toMatch(/^vf_/);
     expect(res.body.config.system_prompt).toContain('Polska Flora');
+  });
+
+  it('lists integration test logs for selected branch', async () => {
+    const res = await request(app)
+      .get('/api/telephony/integration-test-logs?oddzial_id=2')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      oddzial_id: 2,
+      integration_type: 'sms',
+      status: 'ok',
+    });
+  });
+
+  it('lists branch voice agent integration statuses', async () => {
+    const res = await request(app)
+      .get('/api/telephony/voice-agent/polska-flora/integrations/status')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      oddzial_id: 2,
+      oddzial_name: 'Krakow',
+      sms_sender_id: '+48221234567',
+      integration_status: 'active',
+      provider: 'vapi',
+      last_test_log_status: 'ok',
+    });
+    const statusCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM branches b') && String(sql).includes('voice_agent_integrations i'));
+    expect(statusCall[0]).toContain('WHERE COALESCE(b.aktywny, true)');
   });
 
   it('lists voice agent intakes with server-side operational filters', async () => {

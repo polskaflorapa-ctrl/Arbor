@@ -1255,10 +1255,10 @@ export default function MapaLive() {
   );
 
   return (
-    <div className="app-shell">
+    <div className="app-shell mapa-live-shell">
       <Sidebar />
-      <main className="app-main" style={{ ...S.main, ...(isNarrow ? S.mainNarrow : null) }}>
-        <section style={{ ...S.hero, ...(isNarrow ? S.heroNarrow : null) }}>
+      <main className="app-main mapa-live-main" style={{ ...S.main, ...(isNarrow ? S.mainNarrow : null) }}>
+        <section className="mapa-live-hero" style={{ ...S.hero, ...(isNarrow ? S.heroNarrow : null) }}>
           <div style={{ ...S.heroIcon, ...(isNarrow ? S.heroIconNarrow : null) }}><MapOutlined /></div>
           <div style={{ ...S.heroCopy, ...(isNarrow ? S.fullWidth : null) }}>
             <div style={S.eyebrow}>Live operations</div>
@@ -1277,7 +1277,7 @@ export default function MapaLive() {
 
         {isNarrow ? commandCenter : null}
 
-        <section style={{ ...S.toolbar, ...(isNarrow ? S.toolbarNarrow : null) }}>
+        <section className="mapa-live-toolbar" style={{ ...S.toolbar, ...(isNarrow ? S.toolbarNarrow : null) }}>
           <div style={{ ...S.filterGroup, ...(isNarrow ? S.fullWidth : null) }}>
             <label style={S.label}>Oddział</label>
             <select
@@ -1307,7 +1307,7 @@ export default function MapaLive() {
 
         {!isNarrow ? commandCenter : null}
 
-        <section style={S.kpiGrid}>
+        <section className="mapa-live-kpis" style={S.kpiGrid}>
           <Kpi label="Wszystkie sygnały" value={stats.total} tone="#0E7490" />
           <Kpi label="Online ≤ 5 min" value={stats.online || 0} tone="#14834F" />
           <Kpi label="Opóźnione" value={stats.stale || 0} tone="#B7791F" />
@@ -1321,7 +1321,7 @@ export default function MapaLive() {
           <Kpi label="Problemy" value={problemTasks.length} tone="#BE123C" />
         </section>
 
-        <section style={S.officeLivePanel}>
+        <section className="mapa-live-office-panel" style={S.officeLivePanel}>
           <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
             <div>
               <div style={S.panelTitle}>Biuro na zywo</div>
@@ -1389,7 +1389,7 @@ export default function MapaLive() {
           </div>
         </section>
 
-        <section style={S.dispatchPanel}>
+        <section className="mapa-live-dispatch-panel" style={S.dispatchPanel}>
           <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
             <div>
               <div style={S.panelTitle}>Dyspozytornia dnia</div>
@@ -1847,7 +1847,7 @@ export default function MapaLive() {
         </section>
 
         {historyTarget ? (
-          <section style={S.historyPanel}>
+          <section className="mapa-live-history-panel" style={S.historyPanel}>
             <div style={{ ...S.panelHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
               <div>
                 <div style={S.panelTitle}>Historia GPS dnia</div>
@@ -2447,9 +2447,13 @@ const glass = {
 
 const S = {
   main: {
-    padding: 28,
+    padding: '22px clamp(16px, 2.4vw, 30px) 32px',
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, rgba(246,251,247,0.96), rgba(255,255,255,0.9) 44%, rgba(229,246,236,0.78))',
+    background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
+    maxWidth: 1560,
+    width: '100%',
+    margin: '0 auto',
+    overflowX: 'hidden',
   },
   mainNarrow: {
     padding: 12,
@@ -2474,9 +2478,11 @@ const S = {
     gap: 16,
     flexWrap: 'wrap',
     marginBottom: 14,
-    background: 'linear-gradient(135deg, #0B3825 0%, #0F5F3A 58%, #168A4A 100%)',
-    border: '1px solid rgba(15,95,58,0.18)',
-    boxShadow: '0 22px 46px rgba(11,56,37,0.18)',
+    background:
+      'linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(135deg, #07301f 0%, #0f5f3a 58%, #168a4a 100%)',
+    backgroundSize: '32px 32px, 32px 32px, auto',
+    border: '1px solid rgba(255,255,255,0.2)',
+    boxShadow: '0 22px 46px rgba(11,56,37,0.17)',
   },
   heroNarrow: {
     alignItems: 'flex-start',
@@ -2562,6 +2568,9 @@ const S = {
     gap: 12,
     flexWrap: 'wrap',
     marginBottom: 14,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   toolbarNarrow: {
     display: 'grid',
@@ -3118,6 +3127,9 @@ const S = {
     borderRadius: 8,
     padding: 16,
     marginBottom: 14,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
   },
   officeLiveStamp: {
     borderRadius: 8,
@@ -3238,6 +3250,9 @@ const S = {
     borderRadius: 8,
     padding: 16,
     marginBottom: 14,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
   },
   queueSection: {
     borderRadius: 8,
@@ -3640,6 +3655,9 @@ const S = {
     borderRadius: 8,
     padding: 16,
     minHeight: 540,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
   },
   radarPanelNarrow: {
     padding: 12,
@@ -3649,6 +3667,9 @@ const S = {
     ...glass,
     borderRadius: 8,
     padding: 16,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
   },
   panelNarrow: {
     padding: 12,
@@ -3856,6 +3877,9 @@ const S = {
     borderRadius: 8,
     padding: 16,
     marginTop: 14,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
   },
   historySummary: {
     display: 'grid',

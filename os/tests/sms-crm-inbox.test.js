@@ -30,6 +30,7 @@ describe('SMS CRM inbox bridge', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     sendSmsGateway.mockResolvedValue({ ok: true, provider: 'mock', sid: 'SM123' });
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
   });
 
   it('mirrors manual task SMS into CRM lead inbox', async () => {

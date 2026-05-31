@@ -4297,3 +4297,118 @@ body.theme-dark pre {
     max-width: 100%;
   }
 }
+
+/* ARBOR-OS telefonia polish: phone ops surfaces in the same calm shell. */
+.telefonia-main > .module-page-header-hero,
+.telefonia-main > .module-page-header-plain {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.telefonia-panel,
+.telefonia-manual-box,
+.telefonia-tabs,
+.telefonia-kpis > *,
+.telefonia-filters {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.telefonia-panel button:hover,
+.telefonia-manual-box button:hover,
+.telefonia-tabs button:hover,
+.telefonia-filters button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.telefonia-filters {
+  padding: 12px 14px;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.94));
+  background-size: 32px 32px, 32px 32px, auto;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055);
+}
+
+@media (max-width: 900px) {
+  .telefonia-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .telefonia-tabs {
+    overflow-x: auto;
+  }
+
+  .telefonia-kpis,
+  .telefonia-panel [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ARBOR-OS mapa live polish: real-time operations aligned with dispatch flow. */
+.mapa-live-hero,
+.mapa-live-toolbar,
+.mapa-live-office-panel,
+.mapa-live-dispatch-panel,
+.mapa-live-history-panel,
+.mapa-live-kpis > * {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.mapa-live-hero {
+  isolation: isolate;
+}
+
+.mapa-live-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto auto;
+  width: 38%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 65% 18%, rgba(255, 255, 255, 0.18), transparent 30%),
+    linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.1) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mapa-live-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mapa-live-toolbar button:hover,
+.mapa-live-office-panel button:hover,
+.mapa-live-dispatch-panel button:hover,
+.mapa-live-history-panel button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+@media (max-width: 900px) {
+  .mapa-live-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .mapa-live-hero::after {
+    display: none;
+  }
+
+  .mapa-live-toolbar,
+  .mapa-live-office-panel [style*="display: flex"],
+  .mapa-live-dispatch-panel [style*="display: flex"] {
+    align-items: stretch !important;
+  }
+
+  .mapa-live-kpis,
+  .mapa-live-office-panel [style*="grid-template-columns"],
+  .mapa-live-dispatch-panel [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

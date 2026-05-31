@@ -89,6 +89,10 @@ export default function Telefonia() {
   const [agentHistoryPage, setAgentHistoryPage] = useState(1);
   const [agentReminderPreview, setAgentReminderPreview] = useState({ total: 0, items: [] });
   const [agentReminderLoading, setAgentReminderLoading] = useState(false);
+  const [branchIntegrationStatuses, setBranchIntegrationStatuses] = useState([]);
+  const [branchIntegrationStatusesLoading, setBranchIntegrationStatusesLoading] = useState(false);
+  const [integrationTestLogs, setIntegrationTestLogs] = useState([]);
+  const [integrationTestLogsLoading, setIntegrationTestLogsLoading] = useState(false);
   const [selectedAgentIntake, setSelectedAgentIntake] = useState(null);
   const [agentFixSaving, setAgentFixSaving] = useState(false);
   const [agentSmsSending, setAgentSmsSending] = useState(false);
@@ -422,13 +426,47 @@ export default function Telefonia() {
     }
   }, [agentForm.oddzial_id]);
 
+  const loadIntegrationTestLogs = useCallback(async (oddzialIdArg) => {
+    const oddzialId = oddzialIdArg || agentForm.oddzial_id;
+    if (!oddzialId) return;
+    setIntegrationTestLogsLoading(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get(`/telephony/integration-test-logs?oddzial_id=${encodeURIComponent(oddzialId)}&limit=8`, {
+        headers: authHeaders(token),
+      });
+      setIntegrationTestLogs(Array.isArray(data.items) ? data.items : []);
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie pobrac historii testow integracji.'));
+    } finally {
+      setIntegrationTestLogsLoading(false);
+    }
+  }, [agentForm.oddzial_id]);
+
+  const loadBranchIntegrationStatuses = useCallback(async () => {
+    setBranchIntegrationStatusesLoading(true);
+    try {
+      const token = getStoredToken();
+      const { data } = await api.get('/telephony/voice-agent/polska-flora/integrations/status', {
+        headers: authHeaders(token),
+      });
+      setBranchIntegrationStatuses(Array.isArray(data.items) ? data.items : []);
+    } catch (e) {
+      setAgentError(getApiErrorMessage(e, 'Nie udalo sie pobrac statusow podpiecia oddzialow.'));
+    } finally {
+      setBranchIntegrationStatusesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (tab === 'agent' && agentForm.oddzial_id) {
+      loadBranchIntegrationStatuses();
       loadVoiceAgentIntegration(agentForm.oddzial_id);
       loadVoiceAgentIntakes(agentForm.oddzial_id);
       loadAgentReminderPreview(agentForm.oddzial_id);
+      loadIntegrationTestLogs(agentForm.oddzial_id);
     }
-  }, [tab, agentForm.oddzial_id, loadVoiceAgentIntegration, loadVoiceAgentIntakes, loadAgentReminderPreview]);
+  }, [tab, agentForm.oddzial_id, loadBranchIntegrationStatuses, loadVoiceAgentIntegration, loadVoiceAgentIntakes, loadAgentReminderPreview, loadIntegrationTestLogs]);
 
   useEffect(() => {
     setAgentHistoryPage(1);
@@ -458,6 +496,7 @@ export default function Telefonia() {
       setAgentMessage('Agent Ania jest wlaczony dla oddzialu. Webhook i sekret sa gotowe do wklejenia u providera.');
       await loadVoiceAgentIntakes(agentForm.oddzial_id);
       await loadAgentReminderPreview(agentForm.oddzial_id);
+      await loadBranchIntegrationStatuses();
     } catch (e2) {
       setAgentError(getApiErrorMessage(e2, 'Nie udalo sie wlaczyc agenta.'));
     } finally {
@@ -477,8 +516,10 @@ export default function Telefonia() {
       }, { headers: authHeaders(token) });
       setAgentMessage(data.message || 'Test konfiguracji OK.');
       await loadVoiceAgentIntegration(agentForm.oddzial_id);
+      await loadIntegrationTestLogs(agentForm.oddzial_id);
       await loadVoiceAgentIntakes(agentForm.oddzial_id);
       await loadAgentReminderPreview(agentForm.oddzial_id);
+      await loadBranchIntegrationStatuses();
     } catch (e) {
       setAgentError(getApiErrorMessage(e, 'Test konfiguracji nie przeszedl.'));
     } finally {
@@ -540,6 +581,7 @@ export default function Telefonia() {
       await Promise.all([
         loadVoiceAgentIntegration(agentForm.oddzial_id),
         loadAgentReminderPreview(agentForm.oddzial_id),
+        loadBranchIntegrationStatuses(),
       ]);
     } catch (e) {
       setAgentError(getApiErrorMessage(e, 'Nie udalo sie zmienic statusu agenta.'));
@@ -591,6 +633,7 @@ export default function Telefonia() {
       await Promise.all([
         loadTelephonyExtras(),
         loadVoiceAgentIntegration(agentForm.oddzial_id),
+        loadBranchIntegrationStatuses(),
       ]);
     } catch (err) {
       setAgentError(getApiErrorMessage(err, 'Nie udalo sie zapisac numerow oddzialu.'));
@@ -622,6 +665,8 @@ export default function Telefonia() {
         telefon: normalizePhone(branchTelephonyForm.test_phone.trim()),
       }, { headers: authHeaders(token) });
       setAgentMessage(`Test SMS wyslany z oddzialu ${oddzialLabel(agentForm.oddzial_id)} (${data.provider || 'provider'}).`);
+      await loadIntegrationTestLogs(agentForm.oddzial_id);
+      await loadBranchIntegrationStatuses();
       await loadSms(1);
     } catch (err) {
       setAgentError(getApiErrorMessage(err, 'Nie udalo sie wyslac testowego SMS oddzialu.'));
@@ -1099,6 +1144,14 @@ export default function Telefonia() {
     if (sms.confirmation_at || sms.reminder_at) return s.okBadge;
     return s.neutralBadge;
   };
+  const integrationTypeLabel = (value) => ({
+    sms: 'SMS',
+    voice_agent: 'Agent AI',
+  }[value] || value || 'Integracja');
+  const integrationActionLabel = (value) => ({
+    branch_sender_test: 'Test nadawcy oddzialu',
+    webhook_config_test: 'Test webhooka',
+  }[value] || value || 'Test');
   const agentNeedsReviewCount = Number(agentIntakesSummary.needs_review || 0);
   const agentSmsMissingCount = Number(agentIntakesSummary.sms_missing || 0);
   const agentSmsErrorCount = Number(agentIntakesSummary.sms_error || 0);
@@ -1200,9 +1253,9 @@ export default function Telefonia() {
       : `Log polaczen: ${callRows.length} | kolejka oddzwonien: ${callbacks.filter((x) => x.status === 'open').length}`;
 
   return (
-    <div style={s.root}>
+    <div className="app-shell telefonia-shell" style={s.root}>
       <Sidebar />
-      <div style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
+      <div className="app-main telefonia-main" style={{ ...s.content, ...(isNarrow ? s.contentNarrow : null) }}>
         <PageHeader
           icon={
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1244,7 +1297,7 @@ export default function Telefonia() {
           }
         />
 
-        <div style={{ ...s.tabRow, ...(isNarrow ? s.tabRowNarrow : null) }}>
+        <div className="telefonia-tabs" style={{ ...s.tabRow, ...(isNarrow ? s.tabRowNarrow : null) }}>
           <button type="button" style={tab === 'sms' ? s.tabActive : s.tab} onClick={() => setTab('sms')}>
             SMS
           </button>
@@ -1278,7 +1331,7 @@ export default function Telefonia() {
         )}
 
         {tab === 'agent' && (
-          <div style={s.panel}>
+          <div className="telefonia-panel telefonia-agent-panel" style={s.panel}>
             <div style={s.callsIntro}>
               Podpiecie bez kodu: wybierz oddzial, wlacz agenta, skopiuj webhook i sekret do providera telefonii AI. Agent zapisuje rozmowy w CRM i historii telefonii w tym panelu.
             </div>
@@ -1321,6 +1374,45 @@ export default function Telefonia() {
                   </div>
                 ))}
               </div>
+            </div>
+            <div style={s.integrationLogBox}>
+              <div style={s.agentHistoryHeader}>
+                <div>
+                  <div style={s.manualTitle}>Ostatnie testy integracji</div>
+                  <div style={s.agentHistoryMeta}>
+                    Historia testow dla oddzialu {oddzialLabel(agentForm.oddzial_id)}: SMS, webhook i kolejne podpiecia.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={() => loadIntegrationTestLogs(agentForm.oddzial_id)}
+                  disabled={integrationTestLogsLoading || !agentForm.oddzial_id}
+                >
+                  {integrationTestLogsLoading ? 'Odswiezanie...' : 'Odswiez'}
+                </button>
+              </div>
+              {integrationTestLogs.length ? (
+                <div style={s.integrationLogList}>
+                  {integrationTestLogs.map((log) => (
+                    <div key={log.id} style={s.integrationLogItem}>
+                      <span style={log.status === 'ok' ? s.okBadge : s.reviewBadge}>{log.status === 'ok' ? 'OK' : 'Blad'}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <strong>{integrationTypeLabel(log.integration_type)} / {integrationActionLabel(log.action)}</strong>
+                        <div style={s.agentHistoryMeta}>
+                          {formatAgentDate(log.created_at)} · {log.provider || 'provider'}{log.target ? ` · ${log.target}` : ''}
+                        </div>
+                        {log.error ? <div style={s.issueList}>{log.error}</div> : null}
+                        {!log.error && log.message ? <div style={s.agentHistoryMeta}>{log.message}</div> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={s.emptyMuted}>
+                  {integrationTestLogsLoading ? 'Ladowanie testow...' : 'Brak zapisanych testow integracji dla tego oddzialu.'}
+                </div>
+              )}
             </div>
             <div style={s.agentGrid}>
               <form style={s.callForm} onSubmit={saveVoiceAgentIntegration}>
@@ -1826,7 +1918,7 @@ export default function Telefonia() {
         )}
 
         {tab === 'calls' && (
-          <div style={s.panel}>
+          <div className="telefonia-panel telefonia-calls-panel" style={s.panel}>
             <div style={s.callsIntro}>
               Kliknięcie „Zadzwoń” otwiera aplikację telefonu (<code>tel:</code>) — działa na komputerze z softphone lub na telefonie. Zapis połączenia i kolejka oddzwonień są w bazie aplikacji (integracja VoIP możliwa później).
             </div>
@@ -2086,7 +2178,7 @@ export default function Telefonia() {
 
         {tab === 'sms' && (
         <div style={{ ...s.panel, ...(isNarrow ? s.panelNarrow : null) }}>
-          <form style={s.manualBox} onSubmit={sendManualSms}>
+          <form className="telefonia-manual-box" style={s.manualBox} onSubmit={sendManualSms}>
             <div style={s.manualTitle}>Szybki SMS (reczny)</div>
             <div style={s.manualGrid}>
               <input
@@ -2139,7 +2231,7 @@ export default function Telefonia() {
             </button>
           </form>
 
-          <div style={s.kpis}>
+          <div className="telefonia-kpis" style={s.kpis}>
             <div style={s.kpiCard}>
               <div style={s.kpiLabel}>Wpisy</div>
               <div style={s.kpiValue}>{stats.total}</div>
@@ -2165,7 +2257,7 @@ export default function Telefonia() {
             </div>
           </div>
 
-          <div style={s.filters}>
+          <div className="telefonia-filters" style={s.filters}>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -2313,7 +2405,7 @@ const s = {
   root: {
     display: 'flex',
     minHeight: '100vh',
-    background: 'var(--bg)',
+    background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)',
     color: 'var(--text)',
     width: '100%',
     overflowX: 'hidden',
@@ -2321,18 +2413,21 @@ const s = {
   content: {
     flex: 1,
     minWidth: 0,
-    padding: '22px 24px',
+    padding: '22px clamp(16px, 2.4vw, 30px) 32px',
     overflowX: 'hidden',
+    maxWidth: 1560,
+    width: '100%',
+    margin: '0 auto',
   },
   contentNarrow: {
     width: '100%',
     padding: '12px 10px 18px',
   },
   panel: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.07)',
     padding: 14,
     minWidth: 0,
     maxWidth: '100%',
@@ -2343,16 +2438,17 @@ const s = {
     padding: 10,
   },
   manualBox: {
-    background: 'var(--surface-field)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
     padding: 12,
     marginBottom: 12,
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   manualTitle: {
     fontSize: 13,
-    fontWeight: 700,
-    color: 'var(--text)',
+    fontWeight: 900,
+    color: '#12251a',
     marginBottom: 8,
   },
   manualGrid: {
@@ -2419,16 +2515,17 @@ const s = {
     marginBottom: 12,
   },
   kpiCard: {
-    background: 'var(--surface-field)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
     padding: '10px 12px',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   kpiLabel: {
     fontSize: 11,
     color: 'var(--text-muted)',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
     marginBottom: 4,
   },
   kpiValue: {
@@ -2442,8 +2539,8 @@ const s = {
     minWidth: 0,
     padding: '10px 12px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
     color: 'var(--text)',
     outline: 'none',
   },
@@ -2458,23 +2555,23 @@ const s = {
     minWidth: 0,
     padding: '10px 12px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
     color: 'var(--text)',
   },
   date: {
     minWidth: 0,
     padding: '9px 10px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
     color: 'var(--text)',
   },
   refreshBtn: {
     padding: '8px 12px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
     color: 'var(--text)',
     cursor: 'pointer',
     maxWidth: '100%',
@@ -2627,6 +2724,11 @@ const s = {
     display: 'flex',
     gap: 8,
     marginBottom: 14,
+    padding: 6,
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   tabRowNarrow: {
     overflowX: 'auto',
@@ -2635,9 +2737,9 @@ const s = {
   },
   tab: {
     padding: '8px 14px',
-    borderRadius: 10,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
     color: 'var(--text-sub)',
     cursor: 'pointer',
     fontSize: 13,
@@ -2646,7 +2748,7 @@ const s = {
   },
   tabActive: {
     padding: '8px 14px',
-    borderRadius: 10,
+    borderRadius: 8,
     border: '1px solid var(--accent)',
     background: 'rgba(34,197,94,0.12)',
     color: 'var(--text)',
@@ -2674,13 +2776,14 @@ const s = {
     marginBottom: 4,
   },
   callForm: {
-    background: 'var(--surface-field)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderRadius: 8,
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   inline2: {
     display: 'grid',
@@ -2703,7 +2806,7 @@ const s = {
     fontSize: 11,
     color: 'var(--text-muted)',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
     marginTop: 4,
   },
   agentStatusRow: {
@@ -2736,8 +2839,8 @@ const s = {
     minWidth: 220,
     padding: '8px 10px',
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
     color: 'var(--text)',
   },
   agentHistoryMeta: {
@@ -2748,8 +2851,9 @@ const s = {
     marginBottom: 12,
     padding: 12,
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   agentHealthGrid: {
     display: 'grid',
@@ -2760,8 +2864,8 @@ const s = {
     minWidth: 0,
     padding: 10,
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-glass)',
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
   },
   agentHealthTop: {
     display: 'flex',
@@ -2788,12 +2892,34 @@ const s = {
     marginBottom: 4,
     overflowWrap: 'anywhere',
   },
+  integrationLogBox: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: 'var(--surface-field)',
+  },
+  integrationLogList: {
+    display: 'grid',
+    gap: 8,
+  },
+  integrationLogItem: {
+    display: 'grid',
+    gridTemplateColumns: 'auto minmax(0, 1fr)',
+    alignItems: 'start',
+    gap: 10,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-glass)',
+  },
   agentReminderBox: {
     marginTop: 12,
     padding: 12,
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-field)',
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: '#ffffff',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
   },
   agentReminderSummary: {
     display: 'flex',
@@ -2801,7 +2927,7 @@ const s = {
     gap: 10,
     padding: '8px 10px',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
+    background: 'rgba(15,107,63,0.045)',
     color: 'var(--text-sub)',
     fontSize: 13,
     marginBottom: 8,
@@ -2816,8 +2942,8 @@ const s = {
     gap: 10,
     padding: 10,
     borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--surface-glass)',
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
   },
   agentReminderText: {
     color: 'var(--text-sub)',

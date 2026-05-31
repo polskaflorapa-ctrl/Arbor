@@ -15,6 +15,7 @@ const {
 } = require('../services/smsTemplates');
 const { sendSmsGateway, activeSmsProvider } = require('../services/smsGateway');
 const { appendCrmMessageForContact } = require('../services/crmInbox');
+const { recordIntegrationTestLog } = require('../services/integrationTestLogs');
 
 const router = express.Router();
 
@@ -251,9 +252,31 @@ router.post('/oddzial-test', authMiddleware, validateBody(smsOddzialTestSchema),
     oddzialId,
   });
   if (!result.ok) {
+    await recordIntegrationTestLog(pool, {
+      oddzialId,
+      integrationType: 'sms',
+      action: 'branch_sender_test',
+      status: 'error',
+      provider: result.provider || null,
+      target: req.body.telefon,
+      message: 'Test SMS oddzialu nie powiodl sie',
+      error: result.error || 'SMS test failed',
+      createdBy: req.user.id,
+    });
     logger.error('Blad SMS /oddzial-test', { error: result.error, oddzialId, requestId: req.requestId });
     return res.status(500).json({ error: result.error || 'SMS test failed' });
   }
+  await recordIntegrationTestLog(pool, {
+    oddzialId,
+    integrationType: 'sms',
+    action: 'branch_sender_test',
+    status: 'ok',
+    provider: result.provider || null,
+    target: req.body.telefon,
+    message: 'Test SMS oddzialu wyslany',
+    metadata: { sid: result.sid || result.id || null },
+    createdBy: req.user.id,
+  });
   res.json({
     success: true,
     message: 'Test SMS wyslany',

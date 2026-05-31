@@ -8,6 +8,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../services/crmInbox');
 const { sendSmsGateway } = require('../services/smsGateway');
+const { ensureIntegrationTestLogsTable, listIntegrationTestLogs, recordIntegrationTestLog } = require('../services/integrationTestLogs');
 const {
   buildPolskaFloraLeadNotes,
   buildPolskaFloraVoiceAgentConfig,
@@ -84,6 +85,11 @@ const voiceAgentIntakeSchema = z.object({
 
 const voiceAgentIntegrationQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive(),
+});
+
+const integrationTestLogsQuerySchema = z.object({
+  oddzial_id: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 const voiceAgentIntakesQuerySchema = z.object({
@@ -651,6 +657,90 @@ router.get('/voice-agent/polska-flora/config', authMiddleware, validateQuery(voi
 });
 
 router.get(
+  '/voice-agent/polska-flora/integrations/status',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS sms_sender_id VARCHAR(64)');
+      await ensureVoiceAgentIntegrationsTable();
+      await ensureVoiceAgentIntakesTable();
+      await ensureIntegrationTestLogsTable(pool);
+      const params = [];
+      const branchWhere = isManagementRole(req.user)
+        ? 'WHERE COALESCE(b.aktywny, true)'
+        : 'WHERE COALESCE(b.aktywny, true) AND b.id = $1';
+      if (!isManagementRole(req.user)) params.push(Number(req.user?.oddzial_id || 0));
+      const { rows } = await pool.query(
+        `WITH latest_logs AS (
+           SELECT DISTINCT ON (oddzial_id)
+             oddzial_id, integration_type, action, status AS log_status, provider AS log_provider,
+             target AS log_target, message AS log_message, error AS log_error, created_at AS log_created_at
+           FROM integration_test_logs
+           ORDER BY oddzial_id, created_at DESC
+         ),
+         intake_counts AS (
+           SELECT
+             oddzial_id,
+             COUNT(*)::int AS intakes_total,
+             COUNT(*) FILTER (WHERE (
+               COALESCE(caller_phone, '') = ''
+               OR COALESCE(inspection_address, '') = ''
+               OR appointment_at IS NULL
+               OR crm_lead_id IS NULL
+               OR (appointment_at IS NOT NULL AND ogledziny_id IS NULL)
+               OR (COALESCE(notes, '') = '' AND COALESCE(transcript, '') = '')
+             ))::int AS needs_review,
+             COUNT(*) FILTER (WHERE (
+               COALESCE(raw_payload, '{}'::jsonb)->>'last_sms_confirmation_error' IS NOT NULL
+               OR COALESCE(raw_payload, '{}'::jsonb)->>'last_sms_reminder_error' IS NOT NULL
+             ))::int AS sms_errors
+           FROM voice_agent_intakes
+           WHERE agent_id = 'polska-flora-ania'
+           GROUP BY oddzial_id
+         )
+         SELECT
+           b.id AS oddzial_id,
+           b.nazwa AS oddzial_name,
+           b.miasto,
+           b.telefon,
+           b.sms_sender_id,
+           i.id AS integration_id,
+           i.provider,
+           i.provider_account_id,
+           i.status AS integration_status,
+           i.last_test_at,
+           i.last_test_status,
+           i.last_error,
+           i.updated_at AS integration_updated_at,
+           COALESCE(c.intakes_total, 0)::int AS intakes_total,
+           COALESCE(c.needs_review, 0)::int AS needs_review,
+           COALESCE(c.sms_errors, 0)::int AS sms_errors,
+           l.integration_type AS last_test_type,
+           l.action AS last_test_action,
+           l.log_status AS last_test_log_status,
+           l.log_provider AS last_test_provider,
+           l.log_target AS last_test_target,
+           l.log_message AS last_test_message,
+           l.log_error AS last_test_error,
+           l.log_created_at AS last_test_log_at
+         FROM branches b
+         LEFT JOIN voice_agent_integrations i
+           ON i.agent_id = 'polska-flora-ania' AND i.oddzial_id = b.id
+         LEFT JOIN intake_counts c ON c.oddzial_id = b.id
+         LEFT JOIN latest_logs l ON l.oddzial_id = b.id
+         ${branchWhere}
+         ORDER BY b.nazwa NULLS LAST, b.id`,
+        params,
+      );
+      return res.json({ items: rows, total: rows.length });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.integrations.status', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.get(
   '/voice-agent/polska-flora/integration',
   authMiddleware,
   validateQuery(voiceAgentIntegrationQuerySchema),
@@ -751,6 +841,17 @@ router.post(
          WHERE id = $1`,
         [integration.id, req.user.id],
       );
+      await recordIntegrationTestLog(pool, {
+        oddzialId,
+        integrationType: 'voice_agent',
+        action: 'webhook_config_test',
+        status: 'ok',
+        provider: integration.provider || null,
+        target: integration.webhook_url || '/api/telephony/voice-agent/polska-flora/intake',
+        message: 'Konfiguracja webhooka agenta jest gotowa',
+        metadata: { agent_id: 'polska-flora-ania', integration_id: integration.id },
+        createdBy: req.user.id,
+      });
       return res.json({
         ok: true,
         message: 'Konfiguracja agenta jest gotowa do podpiecia u providera.',
@@ -760,6 +861,29 @@ router.post(
       });
     } catch (err) {
       logger.error('telephony.voiceAgent.integration.test', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.get(
+  '/integration-test-logs',
+  authMiddleware,
+  validateQuery(integrationTestLogsQuerySchema),
+  async (req, res) => {
+    try {
+      const requestedOddzialId = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+      const oddzialId = isManagementRole(req.user) ? requestedOddzialId : Number(req.user?.oddzial_id || 0);
+      if (requestedOddzialId && !isManagementRole(req.user) && Number(req.user?.oddzial_id) !== requestedOddzialId) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
+      const items = await listIntegrationTestLogs(pool, {
+        oddzialId,
+        limit: req.query.limit || 20,
+      });
+      return res.json({ items, total: items.length });
+    } catch (err) {
+      logger.error('telephony.integrationTestLogs.list', { message: err.message, requestId: req.requestId });
       return res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   },
