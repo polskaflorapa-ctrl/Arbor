@@ -81,6 +81,7 @@ Po deployu API:
 
 ```powershell
 npm run smoke:render -- https://<arbor-os-url>
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Po utworzeniu admina:
@@ -89,9 +90,11 @@ Po utworzeniu admina:
 $env:SMOKE_LOGIN="admin"
 $env:SMOKE_PASSWORD="<same-password-used-for-bootstrap>"
 npm run smoke:render -- https://<arbor-os-url>
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Authenticated smoke musi obejmowac `/api/ops/smoke` i `/api/ops/storage-smoke`.
+Authenticated p95 smoke mierzy dodatkowo `/api/auth/me`, `/api/tasks/wszystkie`, `/api/ops/kierownik-today` i `/api/bi/drill`. Domyslny prog PASS/FAIL to 500 ms.
 
 ## 6. Prosty alert operacyjny
 
@@ -119,6 +122,7 @@ GO:
 
 - `npm run verify:observability` przechodzi.
 - `/api/health`, `/api/ready` i publiczny `smoke:render` przechodza.
+- `npm run smoke:p95 -- https://<arbor-os-url>` przechodzi pod progiem 500 ms.
 - `METRICS_ENABLED=true` i `METRICS_TOKEN` sa ustawione w produkcji.
 - Znamy wlasciciela alertow P1/P2.
 - Backup i `restore:db:check` sa aktualne.

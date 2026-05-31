@@ -4541,3 +4541,166 @@ body.theme-dark pre {
     width: 100%;
   }
 }
+
+/* ARBOR-OS kontrola operacyjna polish: audit screens share the command-center language. */
+.kontrola-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.kontrola-main {
+  background: transparent !important;
+}
+
+.kontrola-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.kontrola-filters,
+.kontrola-panel,
+.kontrola-kpis > * {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.kontrola-filters button:hover,
+.kontrola-panel button:hover,
+.kontrola-main > .module-page-header-hero button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.kontrola-kpis > *:hover,
+.kontrola-panel:hover {
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+.kontrola-register tbody tr:hover td {
+  background: rgba(15, 107, 63, 0.035);
+}
+
+@media (max-width: 900px) {
+  .kontrola-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .kontrola-filters,
+  .kontrola-panel [style*="justify-content: space-between"] {
+    align-items: stretch !important;
+  }
+
+  .kontrola-filters > *,
+  .kontrola-panel [style*="justify-content: space-between"] > * {
+    width: 100%;
+  }
+
+  .kontrola-kpis,
+  .kontrola-panel [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ARBOR-OS raporty centrum polish: report launcher aligned with operational modules. */
+.raporty-centrum-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.raporty-centrum-main {
+  background: transparent !important;
+}
+
+.raporty-centrum-hero,
+.raporty-centrum-section,
+.raporty-centrum-card,
+.raporty-centrum-hero [style*="min-height: 76px"] {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.raporty-centrum-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+.raporty-centrum-card:focus-visible {
+  outline: 3px solid rgba(15, 107, 63, 0.22);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .raporty-centrum-main {
+    padding: 14px 12px 28px !important;
+  }
+
+  .raporty-centrum-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .raporty-centrum-grid,
+  .raporty-centrum-compact-grid,
+  .raporty-centrum-hero [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ARBOR-OS raporty analytics polish: dense reporting without losing the command-center feel. */
+.raporty-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.raporty-main {
+  min-width: 0;
+  background: transparent !important;
+}
+
+.raporty-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.raporty-filters,
+.raporty-tabs,
+.raporty-kpis > *,
+.raporty-main [style*="box-shadow"] {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.raporty-filters button:hover,
+.raporty-tabs button:hover,
+.raporty-main button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.raporty-kpis > *:hover,
+.raporty-main [style*="cursor: pointer"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+@media (max-width: 900px) {
+  .raporty-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .raporty-filters,
+  .raporty-tabs {
+    align-items: stretch !important;
+  }
+
+  .raporty-filters > *,
+  .raporty-tabs > * {
+    min-width: 0;
+  }
+
+  .raporty-kpis,
+  .raporty-main [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

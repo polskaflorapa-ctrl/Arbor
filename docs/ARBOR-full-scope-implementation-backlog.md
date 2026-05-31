@@ -69,7 +69,9 @@
 - [x] **P0 production deploy dry-run**: `docs/PRODUCTION-DEPLOY-DRY-RUN.md` opisuje suchy przebieg env, migracji, admin bootstrap, backup/restore dry-run i smoke po publicznym URL; `npm run deploy:prod:dry-run` pilnuje skryptow, runbookow i komend GO/NO-GO.
 - [x] **P0 SLO/observability minimum**: `docs/OBSERVABILITY-SLO-RUNBOOK.md` definiuje health/ready/metrics, progi 5xx/p95, storage smoke, DB pool i prosty alert P1/P2; `npm run verify:observability` pilnuje endpointow, metryk Prometheus i komend operacyjnych.
 - [x] **P0 production incident runbook**: `docs/PRODUCTION-INCIDENT-RUNBOOK.md` opisuje pierwsze 30 minut reakcji na down API, wolne p95/5xx, storage fail, Kommo/SMS dead-letter i awaryjny restore; `npm run verify:incident-runbook` pilnuje scenariuszy, skryptow i guardow restore.
-- [ ] **Nastepny pakiet**: p95 smoke script - lekki pomiar krytycznych endpointow po publicznym URL i raport PASS/FAIL pod prog 500 ms.
+- [x] **P0 p95 smoke script**: `npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5` mierzy p95 bezpiecznych krytycznych endpointow po publicznym URL, rozszerza probe po tokenie/loginie i raportuje PASS/FAIL dla progu 500 ms.
+- [x] **P0 Kommo/SMS incident drill**: `docs/KOMMO-SMS-INCIDENT-DRILL.md` opisuje kontrolowany test `dead_letter`, retry pojedynczego zlecenia, SMS delivery fail i fallback Zadarma; `npm run verify:kommo-sms-drill` pilnuje diagnostyki, guardow `force=true`, delivery events i UI Integracje/Telefonia/Kierownik.
+- [ ] **Nastepny pakiet**: backup RPO/RTO hardening - mierzalne RPO/RTO, harmonogram, restore drill na bazie wymiennej i artefakty potwierdzenia.
 
 ---
 
@@ -191,7 +193,7 @@ flowchart LR
 ## EPIC 9 — Wymagania niefunkcjonalne (Executive §6)
 
 - [ ] **9.1** Test wydajności panelu (<3 s TTI na referencyjnym sprzęcie — zdefiniować).
-- [ ] **9.2** Test API p95 (<500 ms na krytycznych listach — zdefiniować zestaw).
+- [x] **9.2** Test API p95 (<500 ms na krytycznych listach — zdefiniować zestaw). `smoke:p95` mierzy `/api/ready`, `/api/health`, auth-boundary list oraz po zalogowaniu `/api/auth/me`, `/api/tasks/wszystkie`, `/api/ops/kierownik-today`, `/api/bi/drill`.
 - [ ] **9.3** Strategia backupów RPO/RTO (procedura + infrastruktura).
 - [ ] **9.4** Skalowanie horyzontalne (sesje, uploady, worker dispatch).
 

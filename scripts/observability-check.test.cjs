@@ -34,7 +34,7 @@ test("observability check validates files, scripts, runbook, and metric hooks", 
     writeFixtureFile(
       root,
       "docs/OBSERVABILITY-SLO-RUNBOOK.md",
-      "/api/health /api/ready /api/metrics /api/ops/smoke /api/ops/storage-smoke METRICS_ENABLED=true METRICS_TOKEN 5xx p95 500 ms arbor_http_requests_total arbor_http_duration_seconds_bucket arbor_db_pool_waiting restore:db:check GO NO-GO",
+      "/api/health /api/ready /api/metrics /api/ops/smoke /api/ops/storage-smoke METRICS_ENABLED=true METRICS_TOKEN 5xx p95 500 ms arbor_http_requests_total arbor_http_duration_seconds_bucket arbor_db_pool_waiting restore:db:check smoke:p95 GO NO-GO",
     );
     writeFixtureFile(root, "os/src/app.js", "/api/health /api/ready /api/metrics METRICS_TOKEN");
     writeFixtureFile(root, "os/src/metrics.js", "arbor_http_requests_total arbor_http_duration_seconds arbor_db_pool_waiting metricsMiddleware");

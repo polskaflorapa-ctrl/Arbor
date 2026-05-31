@@ -16,6 +16,7 @@ cd C:\Users\paha1\arbor
 npm run health
 npm run status:json:strict
 npm run verify:observability
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 npm run deploy:prod:doctor -- --skip-storage
 ```
 
@@ -23,6 +24,7 @@ Po publicznym URL:
 
 ```powershell
 npm run smoke:render -- https://<arbor-os-url>
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Z adminem produkcyjnym:
@@ -91,6 +93,7 @@ histogram_quantile(
 5. Jesli waiting pool rosnie, obniz konkurencje workerow/retry i sprawdz zapytania DB.
 
 Kryterium zamkniecia: p95 < 500 ms przez 15 min, 5xx < 1%, `arbor_db_pool_waiting = 0`.
+Szybki dowod po naprawie: `npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5`.
 
 ## 5. Storage fail
 
@@ -117,6 +120,8 @@ npm run smoke:render -- https://<arbor-os-url>
 Kryterium zamkniecia: `storage-smoke` 200, publiczny odczyt pliku testowego OK, nowe zdjecie z mobile widoczne w web.
 
 ## 6. Kommo dead-letter albo retry stoi
+
+Kontrolowany drill dla Kommo i SMS jest opisany w `docs/KOMMO-SMS-INCIDENT-DRILL.md`.
 
 Objawy:
 

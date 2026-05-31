@@ -69,7 +69,12 @@
           "color": "#ffffff"
         }
       ],
-      "@sentry/react-native/expo",
+      [
+        "@sentry/react-native/expo",
+        {
+          "disableAutoUpload": true
+        }
+      ],
       "./plugins/with-react-native-node-modules-dir.cjs",
       [
         "expo-location",

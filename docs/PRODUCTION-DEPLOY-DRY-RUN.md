@@ -102,6 +102,7 @@ Po wdrozeniu API:
 ```powershell
 npm run deploy:free:check -- https://<arbor-os-url>
 npm run smoke:render -- https://<arbor-os-url>
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Po utworzeniu admina dodaj authenticated smoke:
@@ -110,6 +111,7 @@ Po utworzeniu admina dodaj authenticated smoke:
 $env:SMOKE_LOGIN="admin"
 $env:SMOKE_PASSWORD="<same-password-used-for-bootstrap>"
 npm run smoke:render -- https://<arbor-os-url>
+npm run smoke:p95 -- https://<arbor-os-url> --threshold 500 --samples 5
 ```
 
 Authenticated smoke sprawdza `/api/auth/me`, `/api/ops/smoke` oraz `/api/ops/storage-smoke`. Przy `UPLOAD_STORAGE=s3` wykrywa zle klucze, prywatny bucket albo uszkodzony `S3_PUBLIC_BASE_URL` zanim realne zdjecia trafia do klientow.
@@ -123,6 +125,7 @@ GO:
 - Migracje przeszly na produkcyjnym `DATABASE_URL`.
 - Admin produkcyjny loguje sie tylko znanym, silnym haslem.
 - `backup:db`, `restore:db:check` i publiczny `smoke:render` sa zielone.
+- `smoke:p95` przechodzi pod progiem 500 ms dla krytycznych GET endpointow.
 - `PUBLIC_BASE_URL`, `CORS_ORIGINS`, `VITE_API_URL`, `EXPO_PUBLIC_API_URL` wskazuja publiczne HTTPS hosty.
 
 NO-GO:

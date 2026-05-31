@@ -49,7 +49,9 @@ Check release metadata:
 Crash/error monitoring:
 
 - [ ] `EXPO_PUBLIC_SENTRY_DSN` is set for production builds, or the owner explicitly accepts local-only crash fallback for preview.
+- [ ] Sentry sourcemap auto-upload is intentionally disabled for preview builds in `app.json`, so EAS preview builds do not require production Sentry secrets.
 - [ ] `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are set in the EAS build environment before production if Sentry sourcemaps should be uploaded.
+- [ ] Sentry sourcemap auto-upload is re-enabled in the Sentry Expo plugin before production if sourcemap upload is required.
 - [ ] EAS project is linked to the matching Sentry project, or the Sentry organization/project are configured in the Sentry workflow.
 - [ ] API Diagnostics shows `Sentry: wlaczone (...)` in the target build.
 

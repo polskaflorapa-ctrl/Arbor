@@ -4,64 +4,55 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 
 const requiredFiles = [
-  "docs/OBSERVABILITY-SLO-RUNBOOK.md",
+  "docs/KOMMO-SMS-INCIDENT-DRILL.md",
+  "docs/PRODUCTION-INCIDENT-RUNBOOK.md",
   "docs/ENVIRONMENT-RUNBOOK.md",
-  "docs/PRODUCTION-DEPLOY-DRY-RUN.md",
-  "os/src/app.js",
-  "os/src/metrics.js",
-  "os/src/config/env.js",
-  "os/.env.example",
-  "os/scripts/smoke-production-check.js",
-  "os/scripts/smoke-p95-check.js",
-  "os/scripts/production-doctor.js",
-  "scripts/health-check.cjs",
+  "os/src/routes/tasks.js",
+  "os/src/routes/sms.js",
+  "os/src/routes/sms-webhooks.js",
+  "os/src/routes/ops.js",
+  "os/src/services/smsGateway.js",
+  "os/src/services/kommo.js",
+  "web/src/pages/Integracje.js",
+  "web/src/pages/Telefonia.js",
+  "web/src/pages/Kierownik.js",
 ];
 
 const requiredScripts = {
-  "package.json": [
-    "health",
-    "verify:observability",
-    "deploy:prod:doctor",
-    "smoke:render",
-    "smoke:p95",
-    "backup:db:check",
-    "restore:db:check",
-  ],
-  "os/package.json": ["prod:doctor", "smoke:prod", "smoke:p95", "backup:db:check", "restore:db:check"],
+  "package.json": ["verify:kommo-sms-drill", "verify:incident-runbook", "check"],
 };
 
-const runbookNeedles = [
-  "/api/health",
-  "/api/ready",
-  "/api/metrics",
-  "/api/ops/smoke",
-  "/api/ops/storage-smoke",
-  "METRICS_ENABLED=true",
-  "METRICS_TOKEN",
-  "5xx",
-  "p95",
-  "500 ms",
-  "arbor_http_requests_total",
-  "arbor_http_duration_seconds_bucket",
-  "arbor_db_pool_waiting",
-  "restore:db:check",
-  "smoke:p95",
+const drillNeedles = [
+  "kommo-sync/diagnostics",
+  "status=dead_letter",
+  "kommo-retry",
+  "force",
+  "409",
+  "queue_errors",
+  "retry_count",
+  "last_error",
+  "sms_history",
+  "sms_delivery_events",
+  "delivery_error_code",
+  "provider_status",
+  "resend_zadarma_sms",
+  "queue_zadarma_call",
+  "ops_action_events",
+  "PUBLIC_BASE_URL",
   "GO",
   "NO-GO",
 ];
 
 const codeNeedles = {
-  "os/src/app.js": ["/api/health", "/api/ready", "/api/metrics", "METRICS_TOKEN"],
-  "os/src/metrics.js": [
-    "arbor_http_requests_total",
-    "arbor_http_duration_seconds",
-    "arbor_db_pool_waiting",
-    "metricsMiddleware",
-  ],
-  "os/src/config/env.js": ["METRICS_ENABLED"],
-  "os/.env.example": ["METRICS_ENABLED", "METRICS_TOKEN"],
-  "os/scripts/smoke-production-check.js": ["/api/ops/smoke", "/api/ops/storage-smoke"],
-  "os/scripts/smoke-p95-check.js": ["DEFAULT_THRESHOLD_MS = 500", "p95_ms", "/api/tasks/wszystkie", "/api/ops/kierownik-today"],
+  "os/src/routes/tasks.js": ["kommo-sync/diagnostics", "kommo-retry", "dead_letter", "force", "queue_errors"],
+  "os/src/routes/sms.js": ["sms_history", "historia"],
+  "os/src/routes/sms-webhooks.js": ["sms_delivery_events", "delivery_error_code", "provider_status"],
+  "os/src/routes/ops.js": ["sms_delivery", "resend_zadarma_sms", "queue_zadarma_call", "ops_action_events"],
+  "os/src/services/kommo.js": ["dead_letter", "retry_count", "next_retry_at"],
+  "os/src/services/smsGateway.js": ["Zadarma", "sms_history", "provider_status"],
+  "web/src/pages/Integracje.js": ["kommo-sync/diagnostics", "dead_letter", "retry_count"],
+  "web/src/pages/Telefonia.js": ["Zadarma", "delivery"],
+  "web/src/pages/Kierownik.js": ["resend_zadarma_sms", "queue_zadarma_call"],
 };
 
 function readJson(relPath, baseDir = root) {
@@ -71,7 +62,7 @@ function readJson(relPath, baseDir = root) {
 function assertFilesExist(files = requiredFiles, baseDir = root) {
   const missing = files.filter((file) => !fs.existsSync(path.join(baseDir, file)));
   if (missing.length) {
-    throw new Error(`Missing observability files: ${missing.join(", ")}`);
+    throw new Error(`Missing Kommo/SMS drill files: ${missing.join(", ")}`);
   }
 }
 
@@ -100,15 +91,11 @@ function assertCodeNeedles(needlesByFile = codeNeedles, baseDir = root) {
   }
 }
 
-function runObservabilityCheck(options = {}) {
+function runKommoSmsDrillCheck(options = {}) {
   const baseDir = options.root || root;
   assertFilesExist(options.requiredFiles || requiredFiles, baseDir);
   assertPackageScripts(options.requiredScripts || requiredScripts, baseDir);
-  assertTextIncludes(
-    "docs/OBSERVABILITY-SLO-RUNBOOK.md",
-    options.runbookNeedles || runbookNeedles,
-    baseDir,
-  );
+  assertTextIncludes("docs/KOMMO-SMS-INCIDENT-DRILL.md", options.drillNeedles || drillNeedles, baseDir);
   assertCodeNeedles(options.codeNeedles || codeNeedles, baseDir);
 
   return {
@@ -120,18 +107,16 @@ function runObservabilityCheck(options = {}) {
 
 if (require.main === module) {
   try {
-    const result = runObservabilityCheck();
-    console.log(
-      `[observability-check] OK (${result.checkedFiles} files, ${result.checkedPackages} package files)`,
-    );
+    const result = runKommoSmsDrillCheck();
+    console.log(`[kommo-sms-drill-check] OK (${result.checkedFiles} files, ${result.checkedPackages} package files)`);
   } catch (error) {
-    console.error(`[observability-check] FAILED: ${error.message}`);
+    console.error(`[kommo-sms-drill-check] FAILED: ${error.message}`);
     process.exit(1);
   }
 }
 
 module.exports = {
-  runObservabilityCheck,
+  runKommoSmsDrillCheck,
   assertFilesExist,
   assertPackageScripts,
   assertTextIncludes,

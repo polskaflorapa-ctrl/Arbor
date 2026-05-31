@@ -242,10 +242,11 @@ export default function KontrolaOperacyjna() {
     .reduce((sum, item) => sum + Number(item.count || 0), 0);
 
   return (
-    <div style={s.layout}>
+    <div className="app-shell kontrola-shell" style={s.layout}>
       <Sidebar />
-      <main style={s.main}>
+      <main className="app-main kontrola-main" style={s.main}>
         <PageHeader
+          variant="hero"
           title="Kontrola operacyjna"
           subtitle="Historia decyzji kierownikow: ryzyka dnia, Zadarma, przepiecia ekip i sprzetu."
           icon={<AssessmentOutlined />}
@@ -269,7 +270,7 @@ export default function KontrolaOperacyjna() {
 
         {error ? <StatusMessage tone="error" message={error} /> : null}
 
-        <section style={s.filters}>
+        <section className="kontrola-filters" style={s.filters}>
           <label style={s.field}>
             <span style={s.label}>Data koncowa</span>
             <input style={s.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -306,7 +307,7 @@ export default function KontrolaOperacyjna() {
           </label>
         </section>
 
-        <section style={s.kpis}>
+        <section className="kontrola-kpis" style={s.kpis}>
           <div style={s.kpi}>
             <span style={s.kpiLabel}>Decyzje</span>
             <strong style={s.kpiValue}>{history.total || items.length}</strong>
@@ -326,7 +327,7 @@ export default function KontrolaOperacyjna() {
         </section>
 
         {digest ? (
-          <section style={s.digestPanel}>
+          <section className="kontrola-panel kontrola-digest-preview" style={s.digestPanel}>
             <div style={s.panelHeader}>
               <div>
                 <h2 style={s.h2}>Digest dyrektora</h2>
@@ -353,7 +354,7 @@ export default function KontrolaOperacyjna() {
         ) : null}
 
         {canChooseBranch ? (
-          <section style={s.digestPanel}>
+          <section className="kontrola-panel kontrola-digest-config" style={s.digestPanel}>
             <div style={s.panelHeader}>
               <div>
                 <h2 style={s.h2}>Konfiguracja digestu</h2>
@@ -404,7 +405,7 @@ export default function KontrolaOperacyjna() {
           </section>
         ) : null}
 
-        <section style={s.digestPanel}>
+        <section className="kontrola-panel kontrola-digest-history" style={s.digestPanel}>
           <div style={s.panelHeader}>
             <div>
               <h2 style={s.h2}>Historia digestu</h2>
@@ -430,7 +431,7 @@ export default function KontrolaOperacyjna() {
           </div>
         </section>
 
-        <section style={s.panel}>
+        <section className="kontrola-panel kontrola-register" style={s.panel}>
           <div style={s.panelHeader}>
             <div>
               <h2 style={s.h2}>Rejestr decyzji</h2>
@@ -483,40 +484,40 @@ export default function KontrolaOperacyjna() {
 }
 
 const s = {
-  layout: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  main: { flex: 1, padding: '24px clamp(14px, 3vw, 34px)', minWidth: 0 },
+  layout: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  main: { flex: 1, width: '100%', maxWidth: 1480, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', minWidth: 0 },
   headerActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  primaryBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--accent)', background: 'var(--accent)', color: '#fff', borderRadius: 7, padding: '9px 13px', fontWeight: 700, cursor: 'pointer' },
-  secondaryBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', borderRadius: 7, padding: '9px 13px', fontWeight: 700, cursor: 'pointer' },
-  iconBtn: { width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', borderRadius: 7, cursor: 'pointer' },
-  filters: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end', marginBottom: 18, padding: 16, border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 8 },
+  primaryBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', borderRadius: 8, padding: '9px 13px', fontWeight: 850, cursor: 'pointer', boxShadow: '0 8px 18px rgba(20,131,79,0.16)' },
+  secondaryBtn: { display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid rgba(15,95,58,0.16)', background: '#ffffff', color: 'var(--text)', borderRadius: 8, padding: '9px 13px', fontWeight: 800, cursor: 'pointer' },
+  iconBtn: { width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(15,95,58,0.16)', background: '#ffffff', color: 'var(--text)', borderRadius: 8, cursor: 'pointer' },
+  filters: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end', marginBottom: 18, padding: 16, border: '1px solid rgba(15,95,58,0.13)', background: 'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))', backgroundSize: '32px 32px, 32px 32px, auto', borderRadius: 8, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   field: { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 150 },
   label: { color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' },
-  input: { minHeight: 40, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface-field)', color: 'var(--text)', padding: '0 10px', fontSize: 14 },
+  input: { minHeight: 40, border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8, background: '#ffffff', color: 'var(--text)', padding: '0 10px', fontSize: 14 },
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 },
-  kpi: { border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 8, padding: 15 },
+  kpi: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, padding: 15, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   kpiLabel: { display: 'block', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 },
   kpiValue: { fontSize: 28, lineHeight: 1, color: 'var(--text)' },
-  digestPanel: { border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 8, overflow: 'hidden', marginBottom: 18 },
-  digestGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: 16, borderBottom: '1px solid var(--border)' },
-  digestMetric: { border: '1px solid var(--border)', borderRadius: 7, padding: 12, background: 'var(--surface-field)' },
+  digestPanel: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, overflow: 'hidden', marginBottom: 18, boxShadow: '0 12px 30px rgba(31,79,50,0.065)' },
+  digestGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, padding: 16, borderBottom: '1px solid rgba(15,95,58,0.1)' },
+  digestMetric: { border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, padding: 12, background: 'rgba(241,249,244,0.68)' },
   digestList: { display: 'grid', gap: 8, padding: 16 },
-  digestAlert: { display: 'grid', gap: 4, padding: 12, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)' },
+  digestAlert: { display: 'grid', gap: 4, padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.58)' },
   settingsForm: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end', padding: 16 },
   checkField: { display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 40, color: 'var(--text)', fontWeight: 700 },
   runList: { display: 'grid', gap: 8, padding: 16 },
-  runItem: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 12, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--bg)' },
+  runItem: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.5)' },
   runNumbers: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700 },
   emptyLine: { color: 'var(--text-sub)', fontSize: 13 },
-  panel: { border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 8, overflow: 'hidden' },
-  panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', padding: 18, borderBottom: '1px solid var(--border)' },
+  panel: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(31,79,50,0.065)' },
+  panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', padding: 18, borderBottom: '1px solid rgba(15,95,58,0.1)' },
   h2: { margin: 0, fontSize: 19 },
   muted: { margin: '5px 0 0', color: 'var(--text-sub)', fontSize: 13 },
-  badge: { border: '1px solid var(--border)', borderRadius: 999, padding: '5px 10px', fontSize: 12, color: 'var(--text-sub)', whiteSpace: 'nowrap' },
+  badge: { border: '1px solid rgba(15,95,58,0.14)', borderRadius: 999, padding: '5px 10px', fontSize: 12, color: 'var(--accent)', background: 'var(--accent-surface)', fontWeight: 800, whiteSpace: 'nowrap' },
   tableWrap: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', minWidth: 860 },
-  th: { textAlign: 'left', padding: '11px 14px', fontSize: 12, color: 'var(--text-sub)', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', background: 'var(--surface-field)' },
-  tr: { borderBottom: '1px solid var(--border)' },
+  th: { textAlign: 'left', padding: '11px 14px', fontSize: 12, color: 'var(--text-sub)', textTransform: 'uppercase', borderBottom: '1px solid rgba(15,95,58,0.1)', background: 'rgba(241,249,244,0.76)' },
+  tr: { borderBottom: '1px solid rgba(15,95,58,0.09)' },
   td: { padding: '13px 14px', verticalAlign: 'top', color: 'var(--text)', fontSize: 14 },
   subLine: { marginTop: 3, color: 'var(--text-sub)', fontSize: 12 },
   link: { color: 'var(--accent)', fontWeight: 700, textDecoration: 'none' },

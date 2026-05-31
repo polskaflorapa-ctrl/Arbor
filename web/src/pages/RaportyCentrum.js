@@ -87,10 +87,10 @@ export default function RaportyCentrum() {
   const operational = REPORT_MODULES.slice(3);
 
   return (
-    <div style={S.wrap}>
+    <div className="app-shell raporty-centrum-shell" style={S.wrap}>
       <Sidebar />
-      <main style={S.main}>
-        <section style={S.hero}>
+      <main className="app-main raporty-centrum-main" style={S.main}>
+        <section className="raporty-centrum-hero" style={S.hero}>
           <div>
             <div style={S.eyebrow}>Centrum raportow</div>
             <h1 style={S.title}>Jedno miejsce na wyniki, raport dnia i KPI</h1>
@@ -110,16 +110,16 @@ export default function RaportyCentrum() {
           </div>
         </section>
 
-        <section style={S.section}>
+        <section className="raporty-centrum-section" style={S.section}>
           <div style={S.sectionHead}>
             <div>
               <div style={S.eyebrow}>Najwazniejsze</div>
               <h2 style={S.sectionTitle}>Raporty do decyzji</h2>
             </div>
           </div>
-          <div style={S.grid}>
+          <div className="raporty-centrum-grid" style={S.grid}>
             {primary.map((item) => (
-              <button key={item.path} type="button" style={{ ...S.card, ...S[item.tone] }} onClick={() => navigate(item.path)}>
+              <button key={item.path} type="button" className="raporty-centrum-card" style={{ ...S.card, ...S[item.tone] }} onClick={() => navigate(item.path)}>
                 <span style={S.cardEyebrow}>{item.eyebrow}</span>
                 <span style={S.cardTop}>
                   <strong style={S.cardTitle}>{item.label}</strong>
@@ -131,16 +131,16 @@ export default function RaportyCentrum() {
           </div>
         </section>
 
-        <section style={S.section}>
+        <section className="raporty-centrum-section" style={S.section}>
           <div style={S.sectionHead}>
             <div>
               <div style={S.eyebrow}>Operacyjnie</div>
               <h2 style={S.sectionTitle}>Plan dnia i kontrola wykonania</h2>
             </div>
           </div>
-          <div style={S.compactGrid}>
+          <div className="raporty-centrum-compact-grid" style={S.compactGrid}>
             {operational.map((item) => (
-              <button key={item.path} type="button" style={S.compactCard} onClick={() => navigate(item.path)}>
+              <button key={item.path} type="button" className="raporty-centrum-card" style={S.compactCard} onClick={() => navigate(item.path)}>
                 <span style={S.cardEyebrow}>{item.eyebrow}</span>
                 <strong style={S.cardTitle}>{item.label}</strong>
                 <span style={S.cardText}>{item.description}</span>
@@ -154,18 +154,19 @@ export default function RaportyCentrum() {
 }
 
 const S = {
-  wrap: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
-  main: { flex: 1, padding: '24px 28px 48px', maxWidth: 1180, minWidth: 0 },
+  wrap: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  main: { flex: 1, width: '100%', padding: '22px clamp(16px, 2.4vw, 30px) 40px', maxWidth: 1240, margin: '0 auto', minWidth: 0 },
   hero: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) auto',
     gap: 18,
     alignItems: 'center',
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(15,95,58,0.14)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
-    boxShadow: 'var(--shadow-md)',
-    padding: 18,
+    background: 'linear-gradient(90deg, rgba(15,107,63,0.045) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.95))',
+    backgroundSize: '34px 34px, 34px 34px, auto',
+    boxShadow: '0 16px 40px rgba(31,79,50,0.09)',
+    padding: '18px clamp(16px, 2.2vw, 24px)',
     marginBottom: 14,
   },
   eyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
@@ -173,9 +174,9 @@ const S = {
   subtitle: { margin: 0, color: 'var(--text-sub)', fontSize: 14, lineHeight: 1.5, maxWidth: 680, fontWeight: 650 },
   heroStats: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(92px, 1fr))', gap: 10 },
   statBox: {
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-field)',
+    background: '#ffffff',
     padding: '12px 14px',
     minHeight: 76,
     display: 'grid',
@@ -184,10 +185,10 @@ const S = {
   statLabel: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   statValue: { color: 'var(--accent)', fontSize: 24, fontWeight: 950 },
   section: {
-    border: '1px solid var(--glass-border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-glass)',
-    boxShadow: 'var(--shadow-md)',
+    background: '#ffffff',
+    boxShadow: '0 12px 30px rgba(31,79,50,0.065)',
     padding: 14,
     marginBottom: 14,
   },
@@ -198,11 +199,12 @@ const S = {
   card: {
     minHeight: 158,
     textAlign: 'left',
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-field)',
+    background: '#ffffff',
     color: 'var(--text)',
     padding: 13,
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
     display: 'grid',
     gap: 9,
     cursor: 'pointer',
@@ -211,27 +213,28 @@ const S = {
   compactCard: {
     minHeight: 126,
     textAlign: 'left',
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-field)',
+    background: '#ffffff',
     color: 'var(--text)',
     padding: 12,
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
     display: 'grid',
     gap: 7,
     cursor: 'pointer',
     fontFamily: 'inherit',
   },
-  green: { border: '1px solid rgba(52,211,153,0.28)', background: 'rgba(52,211,153,0.07)' },
-  blue: { border: '1px solid rgba(96,165,250,0.28)', background: 'rgba(96,165,250,0.07)' },
-  cyan: { border: '1px solid rgba(34,211,238,0.25)', background: 'rgba(34,211,238,0.06)' },
-  amber: { border: '1px solid rgba(249,168,37,0.3)', background: 'rgba(249,168,37,0.08)' },
+  green: { border: '1px solid rgba(52,211,153,0.28)', background: 'linear-gradient(135deg, #ffffff, rgba(52,211,153,0.08))' },
+  blue: { border: '1px solid rgba(96,165,250,0.28)', background: 'linear-gradient(135deg, #ffffff, rgba(96,165,250,0.08))' },
+  cyan: { border: '1px solid rgba(34,211,238,0.25)', background: 'linear-gradient(135deg, #ffffff, rgba(34,211,238,0.07))' },
+  amber: { border: '1px solid rgba(249,168,37,0.3)', background: 'linear-gradient(135deg, #ffffff, rgba(249,168,37,0.09))' },
   cardEyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   cardTop: { display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between' },
   cardTitle: { color: 'var(--text)', fontSize: 16, lineHeight: 1.25, fontWeight: 900 },
   metric: {
-    border: '1px solid var(--border)',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    background: 'var(--surface-field)',
+    background: '#ffffff',
     color: 'var(--accent)',
     padding: '4px 8px',
     fontSize: 12,

@@ -670,18 +670,18 @@ export default function Raporty() {
   };
  
   return (
-    <div className="app-shell" style={styles.container}>
+    <div className="app-shell raporty-shell" style={styles.container}>
       <Sidebar />
-      <main className="app-main" style={styles.main}>
+      <main className="app-main raporty-main" style={styles.main}>
         <PageHeader
-          variant="plain"
+          variant="hero"
           title={t('pages.raporty.title')}
           subtitle={t('pages.raporty.subtitle')}
           icon={<AssessmentOutlined style={{ fontSize: 26 }} />}
         />
  
         {/* Filtry */}
-        <div style={styles.filtryRow}>
+        <div className="raporty-filters" style={styles.filtryRow}>
           <div style={styles.filtrGroup}>
             <label style={styles.filtrLabel}>{t('common.year')}:</label>
             <select style={styles.filtrInput} value={filtrRok} onChange={e => setFiltrRok(parseInt(e.target.value))}>
@@ -719,7 +719,7 @@ export default function Raporty() {
         </div>
  
         {/* KPI */}
-        <div style={styles.kpiRow}>
+        <div className="raporty-kpis" style={styles.kpiRow}>
           <div style={{ ...styles.kpi, borderTopColor: 'var(--accent)' }}>
             <div style={styles.kpiIcon}><AssignmentOutlined sx={{ fontSize: 26, color: 'var(--accent)' }} /></div>
             <div style={styles.kpiNum}>{filtrowane.length}</div>
@@ -755,7 +755,7 @@ export default function Raporty() {
         </div>
  
         {/* Tabs */}
-        <div style={styles.tabs}>
+        <div className="raporty-tabs" style={styles.tabs}>
           <button type="button" style={{...styles.tab, ...(activeTab === 'podsumowanie' ? styles.tabActive : {})}} onClick={() => setActiveTab('podsumowanie')}>
             {t('pages.raporty.tabSummary')}
           </button>
@@ -1394,23 +1394,23 @@ function getStatusColor(status) {
 }
  
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' },
-  main: { flex: 1, padding: '24px', overflowX: 'hidden' },
-  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', background: 'var(--surface-glass)', padding: '12px 20px', borderRadius: 8, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)', flexWrap: 'wrap' },
+  container: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
+  main: { flex: 1, width: '100%', maxWidth: 1560, margin: '0 auto', padding: '22px clamp(16px, 2.4vw, 30px) 32px', overflowX: 'hidden' },
+  filtryRow: { display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', background: 'linear-gradient(90deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.94))', backgroundSize: '32px 32px, 32px 32px, auto', padding: '12px 20px', borderRadius: 8, boxShadow: '0 10px 24px rgba(31,79,50,0.055)', border: '1px solid rgba(15,95,58,0.13)', flexWrap: 'wrap' },
   filtrGroup: { display: 'flex', alignItems: 'center', gap: 8 },
   filtrLabel: { fontSize: 13, fontWeight: '600', color: 'var(--text-sub)' },
-  filtrInput: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, backgroundColor: 'var(--surface-field)' },
+  filtrInput: { padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.16)', fontSize: 13, backgroundColor: '#ffffff', color: 'var(--text)' },
   clearBtn: { padding: '7px 14px', backgroundColor: 'rgba(248,113,113,0.1)', color: 'var(--danger)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: '500' },
   kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 },
-  kpi: { background: 'var(--surface-glass)', borderRadius: 8, padding: '14px 16px', boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
+  kpi: { background: '#ffffff', borderRadius: 8, padding: '14px 16px', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', border: '1px solid rgba(15,95,58,0.13)', borderTopWidth: 3, borderTopStyle: 'solid', textAlign: 'center' },
   kpiIcon: { display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   kpiNum: { fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 'bold', color: 'var(--text)' },
   kpiLabel: { fontSize: 11, color: 'var(--text-muted)', marginTop: 4 },
-  tabs: { display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--border)', flexWrap: 'wrap' },
-  tab: { padding: '10px 20px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '500', color: 'var(--text-muted)', borderBottom: '2px solid transparent', marginBottom: -2, transition: 'all 0.2s' },
-  tabActive: { color: 'var(--accent)', borderBottom: '2px solid var(--accent)' },
+  tabs: { display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid rgba(15,95,58,0.13)', flexWrap: 'wrap', background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 6, boxShadow: '0 10px 24px rgba(31,79,50,0.045)' },
+  tab: { padding: '9px 14px', border: '1px solid transparent', backgroundColor: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: '700', color: 'var(--text-muted)', borderRadius: 8, transition: 'all 0.2s' },
+  tabActive: { color: 'var(--accent)', border: '1px solid rgba(20,131,79,0.22)', background: 'var(--accent-surface)' },
   twoCol: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 },
-  card: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 20, boxShadow: 'var(--shadow-md)', marginBottom: 20 },
+  card: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 20, boxShadow: '0 12px 30px rgba(31,79,50,0.065)', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16, paddingBottom: 10, borderBottom: '1px solid var(--border)' },
   sumWartosc: { fontSize: 13, fontWeight: 'normal', color: 'var(--text-muted)', marginLeft: 8 },
   statusRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' },
@@ -1441,10 +1441,10 @@ const styles = {
   emptyIcon: { marginBottom: 12, display: 'flex', justifyContent: 'center' },
   reportCardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 },
   reportTaskCard: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -1452,10 +1452,10 @@ const styles = {
     cursor: 'pointer',
   },
   reportMetricCard: {
-    background: 'var(--surface-glass)',
-    border: '1px solid var(--glass-border)',
+    background: '#ffffff',
+    border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
-    boxShadow: 'var(--shadow-md)',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
     padding: 12,
     display: 'flex',
     flexDirection: 'column',
@@ -1489,10 +1489,10 @@ const styles = {
   analyticsDayCell: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--surface-field)', color: 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' },
   analyticsDayCellActive: { display: 'grid', placeItems: 'center', gap: 2, minHeight: 34, padding: '4px 6px', borderRadius: 8, background: 'var(--accent-surface)', color: 'var(--accent)', fontSize: 10, fontFamily: 'var(--font-mono)', boxShadow: '0 0 0 2px rgba(20,131,79,0.1)' },
   analyticsGoalsGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 },
-  goalCard: { background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 10, boxShadow: 'var(--shadow-md)' },
+  goalCard: { background: '#ffffff', border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, padding: 10, boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   goalTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 },
   goalFields: { display: 'grid', gap: 8 },
-  goalInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
+  goalInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.16)', fontSize: 12, backgroundColor: '#ffffff', color: 'var(--text)' },
   goalSaveBtn: { marginTop: 8, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.24)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   telephonyGrid: { marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 10 },
   btnRowInline: { display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' },

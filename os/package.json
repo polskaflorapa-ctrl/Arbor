@@ -20,6 +20,7 @@
     "smoke:basic": "powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -BaseUrl http://127.0.0.1:3000",
     "smoke:basic:auth": "powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1 -BaseUrl http://127.0.0.1:3000 -Login smoke_admin -Password Smoke123!",
     "smoke:prod": "node scripts/smoke-production-check.js",
+    "smoke:p95": "node scripts/smoke-p95-check.js",
     "bootstrap:admin": "node scripts/bootstrap-admin.js",
     "prod:doctor": "node scripts/production-doctor.js",
     "backup:db": "node scripts/db-backup.js",

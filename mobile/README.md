@@ -73,7 +73,7 @@ Adres API jest centralnie skonfigurowany w `constants/api.js`.
 
 - Ustaw `EXPO_PUBLIC_SENTRY_DSN`, aby włączyć Sentry w buildzie mobilnym.
 - Opcjonalnie ustaw `EXPO_PUBLIC_SENTRY_ENVIRONMENT` i `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
-- Dla uploadu sourcemap w EAS ustaw `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` i `SENTRY_PROJECT` oraz połącz projekt Expo z projektem Sentry w EAS/Sentry.
+- Upload sourcemap w EAS jest domyslnie wylaczony w `app.json`, zeby preview build nie wymagal sekretow Sentry. Przed buildem produkcyjnym ustaw `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` i `SENTRY_PROJECT`, polacz projekt Expo z projektem Sentry w EAS/Sentry i wlacz upload w konfiguracji pluginu Sentry.
 - Bez DSN aplikacja zostaje przy lokalnym fallbacku w ekranie API Diagnostics.
 
 ## Runbook: Funkcje Oddziałów (Admin)
