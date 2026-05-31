@@ -7,6 +7,10 @@ const steps = [
   ['typecheck', [npmCommand, [...npmArgsPrefix, 'run', 'typecheck']]],
   ['lint', [npmCommand, [...npmArgsPrefix, 'run', 'lint']]],
   ['offline queue tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:offline-queue']]],
+  ['notification deep link tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:notification-deeplink']]],
+  ['app error report tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:app-error-report']]],
+  ['error monitoring tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:error-monitoring']]],
+  ['release QA status tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:release-qa-status']]],
 ];
 
 if (process.env.SMOKE_API === '1') {

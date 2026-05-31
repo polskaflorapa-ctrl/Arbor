@@ -33,6 +33,7 @@ Use this before TestFlight, App Store review, or Google Play internal testing.
 - [ ] Photos/media are declared if uploaded as job evidence.
 - [ ] User identifiers/account data are declared.
 - [ ] Diagnostics/crash data are declared if crash reporting is enabled.
+- [ ] Sentry or another crash destination is named in review/release notes if enabled.
 - [ ] Data linked to user is reviewed with backend/API owner.
 - [ ] Data retention and deletion process is documented.
 
@@ -50,5 +51,8 @@ Use this before TestFlight, App Store review, or Google Play internal testing.
 - [ ] `npm run release:eas-doctor` passed.
 - [ ] Preview build completed and was installed on a real iPhone.
 - [ ] `docs/mobile-device-smoke-checklist.md` passed.
+- [ ] API Diagnostics Release QA summary was copied into the preview release note.
+- [ ] `docs/mobile-offline-field-flow-checklist.md` passed for the target backend environment.
+- [ ] Crash/error reporting is covered by Sentry/another external destination for production, or the local API Diagnostics fallback was checked and accepted for preview only.
 - [ ] `docs/mobile-preview-release-template.md` has a go decision.
 - [ ] Production blockers in `docs/mobile-release-risks.md` are resolved or explicitly accepted by the owner.

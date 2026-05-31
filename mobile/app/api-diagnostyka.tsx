@@ -15,6 +15,26 @@ import { triggerHaptic } from '../utils/haptics';
 import { flushOfflineQueue, getOfflineQueueSize } from '../utils/offline-queue';
 import { fetchAndApplyMobileRemoteConfig, getLastReportedApiVersion } from '../utils/mobile-remote-config';
 import { getStoredSession } from '../utils/session';
+import {
+  clearLastAppErrorReport,
+  formatAppErrorReport,
+  getLastAppErrorReport,
+  saveAppErrorReport,
+  type AppErrorReport,
+} from '../utils/app-error-report';
+import { captureAppMessage, getErrorMonitoringConfig } from '../utils/error-monitoring';
+import {
+  buildReleaseQaItems,
+  formatReleaseQaReport,
+  releaseQaSummary,
+  type ReleaseQaItem,
+  type ReleaseQaState,
+} from '../utils/release-qa-status';
+import {
+  getLiveGpsStatusSnapshot,
+  isLiveGpsEnabled,
+  type LiveGpsStatusSnapshot,
+} from '../components/live-gps-heartbeat';
 
 type DiagnosticResult = {
   name: string;
@@ -133,6 +153,9 @@ export default function ApiDiagnostykaScreen() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [autoSyncQueueEnabled, setAutoSyncQueueEnabled] = useState(false);
   const [lastQueueSyncInfo, setLastQueueSyncInfo] = useState<{ flushed: number; left: number } | null>(null);
+  const [lastAppError, setLastAppError] = useState<AppErrorReport | null>(null);
+  const [liveGpsEnabled, setLiveGpsEnabledState] = useState(true);
+  const [liveGpsStatus, setLiveGpsStatus] = useState<LiveGpsStatusSnapshot | null>(null);
   const [results, setResults] = useState<DiagnosticResult[]>([
     makeInitialProbe('apiDiag.probe.backend'),
     makeInitialProbe('apiDiag.probe.auth'),
@@ -153,6 +176,7 @@ export default function ApiDiagnostykaScreen() {
   const averageLatency = useMemo(() => calcAverageLatency(results), [results]);
   const globalLatency = useMemo(() => evaluateLatency(averageLatency, t), [averageLatency, t]);
   const latencySparkline = useMemo(() => buildLatencySparkline(history, t), [history, t]);
+  const errorMonitoringConfig = useMemo(() => getErrorMonitoringConfig(), []);
 
   const runSingle = useCallback(async (
     nameKey: string,
@@ -285,6 +309,58 @@ export default function ApiDiagnostykaScreen() {
     }
   }, [autoSyncQueueEnabled, runSingle, t]);
 
+  const refreshLastAppError = useCallback(async () => {
+    setLastAppError(await getLastAppErrorReport());
+  }, []);
+
+  const refreshReleaseQaInputs = useCallback(async () => {
+    const [enabled, status, queueSize] = await Promise.all([
+      isLiveGpsEnabled(),
+      getLiveGpsStatusSnapshot(),
+      getOfflineQueueSize(),
+    ]);
+    setLiveGpsEnabledState(enabled);
+    setLiveGpsStatus(status);
+    setOfflineQueueSize(queueSize);
+  }, []);
+
+  const copyLastAppError = async () => {
+    if (!lastAppError) return;
+    await Clipboard.setStringAsync(formatAppErrorReport(lastAppError));
+    void triggerHaptic('success');
+    Alert.alert('Skopiowano raport', 'Raport bledu aplikacji jest w schowku.');
+  };
+
+  const copyReleaseQaReport = async (items: ReleaseQaItem[]) => {
+    await Clipboard.setStringAsync(formatReleaseQaReport(items));
+    void triggerHaptic('success');
+    Alert.alert('Skopiowano QA status', 'Status release QA jest w schowku.');
+  };
+
+  const clearLastAppError = async () => {
+    await clearLastAppErrorReport();
+    setLastAppError(null);
+    void triggerHaptic('warning');
+    Alert.alert('Wyczyszczono raport', 'Lokalny raport bledu zostal usuniety.');
+  };
+
+  const createTestAppErrorReport = async () => {
+    const report = await saveAppErrorReport({
+      source: 'manual-test',
+      name: 'ManualDiagnosticsError',
+      message: 'Testowy raport bledu zapisany z ekranu diagnostyki API.',
+      stack: 'ManualDiagnosticsError: Testowy raport\n    at ApiDiagnostykaScreen',
+      appRoute: '/api-diagnostyka',
+    });
+    captureAppMessage('Manual mobile diagnostics error report test', {
+      source: 'api-diagnostyka',
+      reportId: report.id,
+    });
+    setLastAppError(report);
+    void triggerHaptic('success');
+    Alert.alert('Zapisano test', 'Testowy raport bledu jest widoczny w diagnostyce.');
+  };
+
   useEffect(() => {
     void getLastReportedApiVersion().then(setServerApiVer);
   }, []);
@@ -317,8 +393,10 @@ export default function ApiDiagnostykaScreen() {
     AsyncStorage.getItem(AUTO_SYNC_QUEUE_KEY).then((raw) => {
       setAutoSyncQueueEnabled(raw === 'true');
     });
+    void refreshLastAppError();
+    void refreshReleaseQaInputs();
     void runDiagnostics();
-  }, [runDiagnostics]);
+  }, [refreshLastAppError, refreshReleaseQaInputs, runDiagnostics]);
 
   useEffect(() => {
     AsyncStorage.setItem(AUTO_REFRESH_ENABLED_KEY, autoRefreshEnabled ? 'true' : 'false');
@@ -524,12 +602,33 @@ export default function ApiDiagnostykaScreen() {
     { label: 'Panel web', value: WEB_APP_URL },
     { label: 'Token', value: tokenPresent ? t('apiDiag.token.yes') : t('apiDiag.token.no') },
     { label: 'Kolejka offline', value: String(offlineQueueSize) },
+    { label: 'Sentry', value: errorMonitoringConfig.enabled ? `wlaczone (${errorMonitoringConfig.environment})` : 'brak DSN - lokalny fallback' },
   ];
   const heroStats = [
     { label: 'OK', value: String(okCount), icon: 'checkmark-circle' as const, color: theme.success, bg: theme.successBg },
     { label: 'Błędy', value: String(errorCount), icon: 'alert-circle' as const, color: theme.danger, bg: theme.dangerBg },
     { label: 'Opóźnienie', value: averageLatency === null ? '-' : `${averageLatency} ms`, icon: 'speedometer-outline' as const, color: globalLatencyColor, bg: globalLatencyBg },
   ];
+  const lastAppErrorDate = lastAppError ? new Date(lastAppError.createdAt).toLocaleString(dateLocale) : null;
+  const lastAppErrorStackPreview = lastAppError?.stack || lastAppError?.componentStack || '';
+  const releaseQaItems = buildReleaseQaItems({
+    tokenPresent,
+    apiHealthLevel: health.level,
+    apiVersionMismatch,
+    offlineQueueSize,
+    sentryEnabled: errorMonitoringConfig.enabled,
+    liveGpsEnabled,
+    liveGpsKind: liveGpsStatus?.kind,
+    liveGpsReason: liveGpsStatus?.reason,
+    lastAppErrorPresent: Boolean(lastAppError),
+  });
+  const releaseQaState = releaseQaSummary(releaseQaItems);
+  const releaseQaColor = releaseQaState === 'ok' ? theme.success : releaseQaState === 'warn' ? theme.warning : theme.danger;
+  const releaseQaBg = releaseQaState === 'ok' ? theme.successBg : releaseQaState === 'warn' ? theme.warningBg : theme.dangerBg;
+  const releaseQaLabel = releaseQaState === 'ok' ? 'Gotowe do QA' : releaseQaState === 'warn' ? 'Wymaga uwagi' : 'Blokuje release';
+  const releaseQaIcon = releaseQaState === 'ok' ? 'checkmark-done-circle-outline' : releaseQaState === 'warn' ? 'warning-outline' : 'close-circle-outline';
+  const releaseQaItemColor = (state: ReleaseQaState) => state === 'ok' ? theme.success : state === 'warn' ? theme.warning : theme.danger;
+  const releaseQaItemBg = (state: ReleaseQaState) => state === 'ok' ? theme.successBg : state === 'warn' ? theme.warningBg : theme.dangerBg;
 
   return (
     <View style={S.root}>
@@ -548,6 +647,7 @@ export default function ApiDiagnostykaScreen() {
         <TouchableOpacity
           onPress={() => {
             void triggerHaptic('light');
+            void refreshReleaseQaInputs();
             void runDiagnostics();
           }}
           style={S.refreshBtn}
@@ -564,6 +664,7 @@ export default function ApiDiagnostykaScreen() {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
+              void refreshReleaseQaInputs();
               void runDiagnostics();
             }}
             tintColor={theme.accent}
@@ -586,6 +687,7 @@ export default function ApiDiagnostykaScreen() {
             <TouchableOpacity
               onPress={() => {
                 void triggerHaptic('light');
+                void refreshReleaseQaInputs();
                 void runDiagnostics();
               }}
               style={S.heroRefresh}
@@ -613,6 +715,39 @@ export default function ApiDiagnostykaScreen() {
             <Text style={S.actionEyebrow}>{t('apiDiag.action.eyebrow')}</Text>
             <Text style={[S.actionTitle, { color: actionState.color }]}>{actionState.title}</Text>
             <Text style={S.actionSub}>{actionState.sub}</Text>
+          </View>
+        </View>
+
+        <View style={S.releaseQaBox}>
+          <View style={S.releaseQaHeader}>
+            <View style={[S.releaseQaIcon, { backgroundColor: releaseQaBg, borderColor: releaseQaColor + '44' }]}>
+              <Ionicons name={releaseQaIcon} size={20} color={releaseQaColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.releaseQaEyebrow}>RELEASE QA</Text>
+              <Text style={[S.releaseQaTitle, { color: releaseQaColor }]}>{releaseQaLabel}</Text>
+              <Text style={S.releaseQaSub}>Build, API, offline, GPS i monitoring w jednym miejscu.</Text>
+            </View>
+            <TouchableOpacity style={S.releaseQaCopyBtn} onPress={() => void copyReleaseQaReport(releaseQaItems)}>
+              <Ionicons name="copy-outline" size={15} color={theme.accentText} />
+            </TouchableOpacity>
+          </View>
+          <View style={S.releaseQaGrid}>
+            {releaseQaItems.map((item) => {
+              const color = releaseQaItemColor(item.state);
+              return (
+                <View key={item.key} style={[S.releaseQaItem, { backgroundColor: releaseQaItemBg(item.state), borderColor: color + '44' }]}>
+                  <View style={S.releaseQaItemTop}>
+                    <Text style={[S.releaseQaItemLabel, { color }]}>{item.label}</Text>
+                    <View style={[S.releaseQaPill, { backgroundColor: color + '18' }]}>
+                      <Text style={[S.releaseQaPillText, { color }]}>{item.state.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <Text style={S.releaseQaValue} numberOfLines={1}>{item.value}</Text>
+                  <Text style={S.releaseQaNote} numberOfLines={2}>{item.note}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -733,6 +868,60 @@ export default function ApiDiagnostykaScreen() {
               <Text style={S.copyBtnText}>{t('apiDiag.shareReport')}</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={S.errorReportBox}>
+          <View style={S.errorReportHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={S.errorReportTitle}>Monitoring bledow</Text>
+              <Text style={S.errorReportSub}>
+                {lastAppError
+                  ? `Ostatni lokalny raport aplikacji. Sentry: ${errorMonitoringConfig.enabled ? 'wlaczone' : 'brak DSN'}`
+                  : `Brak lokalnego raportu. Sentry: ${errorMonitoringConfig.enabled ? 'wlaczone' : 'brak DSN - lokalny fallback'}.`}
+              </Text>
+            </View>
+            <Ionicons
+              name={lastAppError ? 'bug-outline' : 'shield-checkmark-outline'}
+              size={20}
+              color={lastAppError ? theme.warning : theme.success}
+            />
+          </View>
+          {lastAppError ? (
+            <>
+              <View style={S.configRow}>
+                <Text style={S.configLabel}>Czas</Text>
+                <Text style={S.configValue} selectable>{lastAppErrorDate}</Text>
+              </View>
+              <View style={S.configRow}>
+                <Text style={S.configLabel}>Zrodlo</Text>
+                <Text style={S.configValue}>{lastAppError.source}</Text>
+              </View>
+              <View style={S.configRow}>
+                <Text style={S.configLabel}>Blad</Text>
+                <Text style={S.configValue} selectable>{lastAppError.name ? `${lastAppError.name}: ` : ''}{lastAppError.message}</Text>
+              </View>
+              {lastAppErrorStackPreview ? (
+                <Text style={S.errorReportStack} selectable numberOfLines={6}>
+                  {lastAppErrorStackPreview}
+                </Text>
+              ) : null}
+              <View style={S.actionsRow}>
+                <TouchableOpacity style={S.copyBtn} onPress={() => void copyLastAppError()}>
+                  <Ionicons name="copy-outline" size={14} color={theme.accentText} />
+                  <Text style={S.copyBtnText}>Kopiuj raport bledu</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.clearBtn} onPress={() => void clearLastAppError()}>
+                  <Ionicons name="trash-outline" size={13} color={theme.danger} />
+                  <Text style={[S.clearBtnText, { color: theme.danger }]}>Wyczysc</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <TouchableOpacity style={S.testErrorBtn} onPress={() => void createTestAppErrorReport()}>
+              <Ionicons name="flask-outline" size={14} color={theme.accentText} />
+              <Text style={S.copyBtnText}>Zapisz testowy raport</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {results.map((item) => {
@@ -923,6 +1112,49 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   actionTitle: { fontSize: 15, fontWeight: '900', marginTop: 2 },
   actionSub: { color: t.textSub, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 2 },
+  releaseQaBox: {
+    backgroundColor: t.surface,
+    borderColor: t.cardBorder,
+    borderWidth: 1,
+    borderRadius: t.radiusXl,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
+  },
+  releaseQaHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  releaseQaIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  releaseQaEyebrow: { color: t.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0 },
+  releaseQaTitle: { fontSize: 16, fontWeight: '900', marginTop: 2 },
+  releaseQaSub: { color: t.textSub, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 2 },
+  releaseQaCopyBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: t.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  releaseQaGrid: { gap: 8 },
+  releaseQaItem: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  releaseQaItemTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  releaseQaItemLabel: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  releaseQaPill: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  releaseQaPillText: { fontSize: 9, fontWeight: '900' },
+  releaseQaValue: { color: t.text, fontSize: 13, fontWeight: '900' },
+  releaseQaNote: { color: t.textSub, fontSize: 11, fontWeight: '700', lineHeight: 15 },
   infoBox: {
     backgroundColor: t.surface,
     borderColor: t.cardBorder,
@@ -1023,6 +1255,39 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 7,
   },
   healthBadgeText: { fontSize: 12, fontWeight: '900' },
+  errorReportBox: {
+    backgroundColor: t.surface,
+    borderColor: t.cardBorder,
+    borderWidth: 1,
+    borderRadius: t.radiusXl,
+    padding: 14,
+    marginBottom: 12,
+    gap: 8,
+  },
+  errorReportHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  errorReportTitle: { color: t.text, fontSize: 15, fontWeight: '900' },
+  errorReportSub: { color: t.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2, lineHeight: 17 },
+  errorReportStack: {
+    color: t.textSub,
+    backgroundColor: t.surface2,
+    borderColor: t.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  testErrorBtn: {
+    alignSelf: 'stretch',
+    backgroundColor: t.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
   card: {
     backgroundColor: t.cardBg,
     borderColor: t.cardBorder,

@@ -25,6 +25,8 @@ import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
+import { formatTaskListCacheTime, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
+import { getOfflineQueueStatus, type OfflineQueueStatus } from '../utils/offline-queue';
 import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
 const FIELD_PHOTO_REQUIREMENTS = [
@@ -769,6 +771,12 @@ export default function ZleceniaScreen() {
   const [filtrStatus, setFiltrStatus] = useState('');
   const [quickMode, setQuickMode] = useState<OrderQuickMode>(() => normalizeOrderQuickMode(params.mode) || 'all');
   const [error, setError] = useState<string | null>(null);
+  const [offlineQueueStatus, setOfflineQueueStatus] = useState<OfflineQueueStatus>({
+    count: 0,
+    retryBlocked: 0,
+    lastError: '',
+    oldestCreatedAt: '',
+  });
 
   const statusKolor = useMemo(() => makeTaskStatusColorMap(theme), [theme]);
 
@@ -790,14 +798,41 @@ export default function ZleceniaScreen() {
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
         const list = (Array.isArray(d) ? d : []).filter((task) => isAssignedToEstimator(task, parsedUser));
+        await saveTaskListCache({ endpoint, user: parsedUser, tasks: list }).catch(() => undefined);
         setZlecenia(list);
         setFiltered(list);
       } else {
-        setError(t('zlecenia.errorServer', { status: res.status, detail: d.error || '—' }));
+        const cached = await loadTodayTaskListCache({ endpoint, user: parsedUser }).catch(() => null);
+        if (cached) {
+          const list = cached.tasks.filter((task) => isAssignedToEstimator(task, parsedUser));
+          setZlecenia(list);
+          setFiltered(list);
+          setQuickMode('today');
+          const saved = formatTaskListCacheTime(cached.savedAt);
+          setError(`Brak polaczenia z API. Pokazuje dzisiejsze zlecenia z cache${saved ? ` z ${saved}` : ''}.`);
+        } else {
+          setError(t('zlecenia.errorServer', { status: res.status, detail: d.error || '—' }));
+        }
       }
     } catch (e: any) {
-      setError(t('zlecenia.errorConnection', { detail: e.message || '' }));
+      const { user: cachedUser } = await getStoredSession().catch(() => ({ user: null as StoredUser | null }));
+      const rola = cachedUser?.rola;
+      const endpoint = isCrewRoleValue(rola)
+        ? `${API_URL}/tasks/moje` : `${API_URL}/tasks/wszystkie`;
+      const cached = await loadTodayTaskListCache({ endpoint, user: cachedUser }).catch(() => null);
+      if (cached) {
+        const list = cached.tasks.filter((task) => isAssignedToEstimator(task, cachedUser));
+        setZlecenia(list);
+        setFiltered(list);
+        setQuickMode('today');
+        const saved = formatTaskListCacheTime(cached.savedAt);
+        setError(`Brak sieci. Pokazuje dzisiejsze zlecenia z cache${saved ? ` z ${saved}` : ''}.`);
+      } else {
+        setError(t('zlecenia.errorConnection', { detail: e.message || '' }));
+      }
     } finally {
+      const queueStatus = await getOfflineQueueStatus().catch(() => null);
+      if (queueStatus) setOfflineQueueStatus(queueStatus);
       setLoading(false);
       setRefreshing(false);
     }
@@ -812,6 +847,11 @@ export default function ZleceniaScreen() {
 
   useEffect(() => {
     const unsubscribe = subscribeOfflineFlushDone((d) => {
+      setOfflineQueueStatus((current) => ({
+        ...current,
+        count: d.left,
+        retryBlocked: d.left > 0 ? current.retryBlocked : 0,
+      }));
       if (d.flushed > 0) void loadData();
     });
     return unsubscribe;
@@ -1422,6 +1462,23 @@ export default function ZleceniaScreen() {
       ) : null}
 
       {error ? <ErrorBanner message={error} /> : null}
+
+      {offlineQueueStatus.count > 0 ? (
+        <View style={[S.offlineQueueBanner, { borderColor: theme.warning, backgroundColor: theme.warningBg }]}>
+          <PlatinumIconBadge icon="cloud-upload-outline" color={theme.warning} size={16} style={S.offlineQueueIcon} />
+          <View style={{ flex: 1 }}>
+            <Text style={[S.offlineQueueTitle, { color: theme.warning }]}>
+              Offline: {offlineQueueStatus.count} {offlineQueueStatus.count === 1 ? 'akcja czeka' : 'akcje czekaja'} na wyslanie
+            </Text>
+            <Text style={S.offlineQueueSub}>
+              {offlineQueueStatus.retryBlocked > 0
+                ? `${offlineQueueStatus.retryBlocked} pozycje czekaja na kolejne retry.`
+                : 'Synchronizacja ruszy automatycznie po odzyskaniu polaczenia.'}
+              {offlineQueueStatus.lastError ? ` Ostatni blad: ${offlineQueueStatus.lastError}` : ''}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {isCrew ? (
         <View style={S.crewTodayCard}>
@@ -2750,6 +2807,21 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingVertical: 6,
   },
   counterText: { fontSize: 12, color: t.textMuted, fontWeight: '600' },
+  offlineQueueBanner: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  offlineQueueIcon: { width: 30, height: 30, borderRadius: 10 },
+  offlineQueueTitle: { fontSize: 12.5, fontWeight: '900' },
+  offlineQueueSub: { color: t.textSub, fontSize: 10.5, fontWeight: '700', lineHeight: 15, marginTop: 1 },
   list: { flex: 1, paddingHorizontal: 14, paddingTop: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: t.text },

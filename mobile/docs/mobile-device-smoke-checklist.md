@@ -40,14 +40,19 @@ SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 
 - [ ] Open Profile.
 - [ ] GPS live switch is visible for field roles.
+- [ ] Confirm Profile explains GPS works only while the app is foreground/active, not 24/7 in background.
 - [ ] Turn GPS live off.
 - [ ] GPS status changes to disabled and the GPS banner disappears.
 - [ ] Confirm no new `/mobile/me/location` requests are sent.
 - [ ] Turn GPS live on.
 - [ ] Status changes to ready/active after permission and location are available.
 - [ ] Last sync time updates after a successful location send.
+- [ ] Put app in background; confirm no foreground heartbeat continues from the app.
+- [ ] Reopen app; status returns to ready/active after permission and location are available.
+- [ ] Deny location permission on a fresh install; Profile shows missing permission / blocked guidance.
 - [ ] Revoke location permission in iOS Settings and reopen app.
-- [ ] GPS status shows missing permission / blocked state.
+- [ ] GPS status shows revoked permission / blocked state and tells the tester to enable location in system settings.
+- [ ] Disable network while GPS permission remains granted; status shows offline/sync warning without crashing.
 
 ## Task Flow
 
@@ -75,6 +80,8 @@ SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 - [ ] Confirm offline sync banner appears.
 - [ ] Confirm action reaches backend exactly once.
 - [ ] Confirm duplicate retry does not duplicate server state.
+- [ ] Run the full offline field flow checklist in `docs/mobile-offline-field-flow-checklist.md`.
+- [ ] Confirm cached list, cached task detail, pending photos, pending problems, check-in, START, and finish survive app restart while offline.
 
 ## Finish Task
 
@@ -88,9 +95,29 @@ SMOKE_API=1 AUTH_TOKEN=... npm run smoke:mobile
 
 - [ ] Register push token after login.
 - [ ] Send a test notification to the device.
+- [ ] Send a test notification with payload `{ "taskId": <today_test_task_id> }`.
 - [ ] Tap notification while app is foreground/background.
+- [ ] App opens `/zlecenie/<today_test_task_id>`.
+- [ ] Send a test notification with payload `{ "task_id": <today_test_task_id>, "tab": "problemy" }`.
+- [ ] App opens the task detail problem tab.
+- [ ] Send a test notification with payload `{ "path": "/harmonogram" }`.
 - [ ] App opens the expected screen.
+- [ ] Send a test notification without route/task payload.
+- [ ] App falls back to `/powiadomienia`.
 - [ ] Old notification tap does not navigate to stale context.
+
+## Crash/Error Report Fallback
+
+- [ ] Open API Diagnostics.
+- [ ] Confirm Release QA section is visible and copy button exports the summary into QA notes.
+- [ ] Confirm Release QA shows expected states for session, API, API version, offline queue, Sentry, GPS live, and app errors.
+- [ ] Confirm the Monitoring bledow section is visible.
+- [ ] Confirm Sentry status matches the build intent: `wlaczone` for Sentry-enabled builds or `brak DSN` for local fallback preview.
+- [ ] If no report exists, tap Zapisz testowy raport.
+- [ ] Confirm the report shows time, source, error message, and stack preview.
+- [ ] Tap Kopiuj raport bledu and paste it into QA notes.
+- [ ] Tap Wyczysc and confirm the section returns to no-report state.
+- [ ] If a real crash/error happened, copy the local report before reinstalling the app.
 
 ## Privacy Lock
 

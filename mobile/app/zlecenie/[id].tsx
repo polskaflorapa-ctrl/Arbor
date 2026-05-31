@@ -36,6 +36,7 @@ import { emitTaskSync, subscribeOfflineFlushDone } from '../../utils/offline-que
 import { openAddressInMaps } from '../../utils/maps-link';
 import { getStoredSession, type StoredUser } from '../../utils/session';
 import { getTaskFieldExecutionSummary } from '../../utils/task-field-execution';
+import { formatTaskListCacheTime, loadTaskDetailCache, saveTaskDetailCache } from '../../utils/task-list-cache';
 import {
   TASK_STATUS,
   TASK_STATUSES,
@@ -172,7 +173,13 @@ function isCheckinWorkLog(log: unknown) {
 function absolutePhotoUrl(pathMaybe: unknown) {
   const raw = String(pathMaybe || '');
   if (!raw) return '';
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (
+    raw.startsWith('http://') ||
+    raw.startsWith('https://') ||
+    raw.startsWith('file://') ||
+    raw.startsWith('content://') ||
+    raw.startsWith('blob:')
+  ) return raw;
   return `${API_BASE_URL}${raw.startsWith('/') ? raw : `/${raw}`}`;
 }
 
@@ -484,6 +491,7 @@ export default function ZlecenieDetailScreen() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [cacheNotice, setCacheNotice] = useState('');
   const [cmrLista, setCmrLista] = useState<any[]>([]);
   /** Minimalna liczba zdjęć na typ przy wymogu finish — zgodnie z `FINISH_PHOTO_MIN` w os/taskSettlement.js */
   const MIN_FINISH_TYP_PHOTOS = 2;
@@ -620,6 +628,7 @@ export default function ZlecenieDetailScreen() {
     try {
       const authToken = tokenOverride ?? token;
       if (!authToken) { router.replace('/login'); return; }
+      const currentUser = user;
       const h = { Authorization: `Bearer ${authToken}` };
       const [zRes, lRes, pRes, zdRes] = await Promise.all([
         fetch(`${API_URL}/tasks/${id}`, { headers: h }),
@@ -627,15 +636,31 @@ export default function ZlecenieDetailScreen() {
         fetch(`${API_URL}/tasks/${id}/problemy`, { headers: h }),
         fetch(`${API_URL}/tasks/${id}/zdjecia`, { headers: h }),
       ]);
+      let taskData: any = null;
+      let logRows: any[] = [];
+      let problemRows: any[] = [];
+      let photoRows: any[] = [];
       if (zRes.ok) {
-        const d = await zRes.json();
-        setZlecenie(d);
-        setPomocnicy(d.pomocnicy || []);
-        setClientSignature(d.client_signature || null);
+        taskData = await zRes.json();
+        setZlecenie(taskData);
+        setPomocnicy(taskData.pomocnicy || []);
+        setClientSignature(taskData.client_signature || null);
       }
-      if (lRes.ok) setLogi(await lRes.json());
-      if (pRes.ok) setProblemy(await pRes.json());
-      if (zdRes.ok) setZdjecia(await zdRes.json());
+      if (lRes.ok) {
+        const data = await lRes.json();
+        logRows = Array.isArray(data) ? data : [];
+        setLogi(logRows);
+      }
+      if (pRes.ok) {
+        const data = await pRes.json();
+        problemRows = Array.isArray(data) ? data : [];
+        setProblemy(problemRows);
+      }
+      if (zdRes.ok) {
+        const data = await zdRes.json();
+        photoRows = Array.isArray(data) ? data : [];
+        setZdjecia(photoRows);
+      }
       let cmrRows: any[] = [];
       try {
         const cmrRes = await fetch(`${API_URL}/cmr?task_id=${id}`, { headers: h });
@@ -645,16 +670,54 @@ export default function ZlecenieDetailScreen() {
         }
       } catch { /* brak CMR / sieć */ }
       setCmrLista(cmrRows);
+      if (taskData) {
+        setCacheNotice('');
+        await saveTaskDetailCache({
+          taskId: id,
+          user: currentUser,
+          task: taskData,
+          logi: logRows,
+          problemy: problemRows,
+          zdjecia: photoRows,
+          cmrLista: cmrRows,
+        }).catch(() => undefined);
+      } else {
+        const cached = await loadTaskDetailCache({ taskId: id, user: currentUser }).catch(() => null);
+        if (cached) {
+          setZlecenie(cached.task);
+          setPomocnicy((cached.task as any)?.pomocnicy || []);
+          setClientSignature((cached.task as any)?.client_signature || null);
+          setLogi(cached.logi);
+          setProblemy(cached.problemy);
+          setZdjecia(cached.zdjecia);
+          setCmrLista(cached.cmrLista);
+          const saved = formatTaskListCacheTime(cached.savedAt);
+          setCacheNotice(`Offline: szczegoly zlecenia z cache${saved ? ` z ${saved}` : ''}.`);
+        }
+      }
     } catch {
-      setCmrLista([]);
-      setClientSignature(null);
-      Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      const cached = await loadTaskDetailCache({ taskId: id, user }).catch(() => null);
+      if (cached) {
+        setZlecenie(cached.task);
+        setPomocnicy((cached.task as any)?.pomocnicy || []);
+        setClientSignature((cached.task as any)?.client_signature || null);
+        setLogi(cached.logi);
+        setProblemy(cached.problemy);
+        setZdjecia(cached.zdjecia);
+        setCmrLista(cached.cmrLista);
+        const saved = formatTaskListCacheTime(cached.savedAt);
+        setCacheNotice(`Brak sieci. Szczegoly zlecenia z cache${saved ? ` z ${saved}` : ''}.`);
+      } else {
+        setCmrLista([]);
+        setClientSignature(null);
+        Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
+      }
       setOfflineQueueCount(await getOfflineQueueSize());
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [id, token, t]);
+  }, [id, token, t, user]);
 
   const loadOfficePlanRefs = async (authToken?: string | null) => {
     const auth = authToken ?? token;
@@ -1331,6 +1394,7 @@ export default function ZlecenieDetailScreen() {
           body: startBody,
         });
         setOfflineQueueCount(queued);
+        await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'start', body: startBody });
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
       } else {
         void triggerHaptic('warning');
@@ -1367,6 +1431,7 @@ export default function ZlecenieDetailScreen() {
         body: startBody,
       });
       setOfflineQueueCount(queued);
+      await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'start', body: startBody });
       Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineStartQueued'));
     }
     finally { setChangingStatus(false); }
@@ -1619,6 +1684,7 @@ export default function ZlecenieDetailScreen() {
           body: finishBody,
         });
         setOfflineQueueCount(queued);
+        await addPendingOfflineFinish({ idempotencyKey, body: finishBody });
         setFinishModal(false);
         setFinishNotatki('');
         setFinishUsageNazwa('');
@@ -1642,6 +1708,7 @@ export default function ZlecenieDetailScreen() {
             body: finishBody,
           });
           setOfflineQueueCount(queued);
+          await addPendingOfflineFinish({ idempotencyKey, body: finishBody });
           setFinishModal(false);
           setFinishNotatki('');
           setFinishUsageNazwa('');
@@ -1833,6 +1900,166 @@ export default function ZlecenieDetailScreen() {
     return null;
   };
 
+  const addPendingOfflinePhoto = async (args: {
+    idempotencyKey: string;
+    uri: string;
+    typ: string;
+    coords: GpsCoords | null;
+    opis?: string;
+    tagi?: string;
+  }) => {
+    const pendingPhoto = {
+      id: args.idempotencyKey,
+      url: args.uri,
+      sciezka: args.uri,
+      typ: args.typ,
+      opis: args.opis || 'Zdjecie czeka na synchronizacje.',
+      tagi: args.tagi ? args.tagi.split(/[,;]/).map((tag) => tag.trim()).filter(Boolean) : ['offline'],
+      data_dodania: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      lokalizacja: args.coords ? `${args.coords.lat.toFixed(5)}, ${args.coords.lng.toFixed(5)}` : '',
+      offline_pending: true,
+    };
+    const nextPhotos = [pendingPhoto, ...zdjecia.filter((photo) => String(photo?.id) !== args.idempotencyKey)];
+    setZdjecia(nextPhotos);
+    await saveTaskDetailCache({
+      taskId: id,
+      user,
+      task: zlecenie,
+      logi,
+      problemy,
+      zdjecia: nextPhotos,
+      cmrLista,
+    }).catch(() => undefined);
+  };
+
+  const addPendingOfflineProblem = async (args: {
+    idempotencyKey: string;
+    payload: { typ?: string; opis?: string };
+  }) => {
+    const pendingProblem = {
+      id: args.idempotencyKey,
+      typ: args.payload.typ || 'usterka',
+      opis: args.payload.opis || '',
+      status: 'Czeka na sync',
+      zglaszajacy: user ? [user.imie, user.nazwisko].filter(Boolean).join(' ') || user.login || 'Mobilka' : 'Mobilka',
+      created_at: new Date().toISOString(),
+      offline_pending: true,
+    };
+    const nextProblems = [
+      pendingProblem,
+      ...problemy.filter((problem) => String(problem?.id) !== args.idempotencyKey),
+    ];
+    setProblemy(nextProblems);
+    await saveTaskDetailCache({
+      taskId: id,
+      user,
+      task: zlecenie,
+      logi,
+      problemy: nextProblems,
+      zdjecia,
+      cmrLista,
+    }).catch(() => undefined);
+  };
+
+  const addPendingOfflineWorkSignal = async (args: {
+    idempotencyKey: string;
+    kind: 'start' | 'checkin';
+    body?: Record<string, unknown>;
+  }) => {
+    const now = new Date().toISOString();
+    const workerName = user ? [user.imie, user.nazwisko].filter(Boolean).join(' ') || user.login || 'Mobilka' : 'Mobilka';
+    const pendingLog = {
+      id: args.idempotencyKey,
+      pracownik: workerName,
+      start_time: now,
+      status: args.kind === 'checkin' ? 'check_in' : 'start',
+      bhp_checklista: args.body?.bhp_checklista,
+      bhp_potwierdzone: args.body?.bhp_potwierdzone,
+      offline_pending: true,
+    };
+    const nextLogs = [
+      pendingLog,
+      ...logi.filter((log) => String(log?.id) !== args.idempotencyKey),
+    ];
+    const nextTask = {
+      ...zlecenie,
+      ...(args.kind === 'start'
+        ? {
+            status: TASK_STATUS.W_REALIZACJI,
+            active_work_count: Math.max(1, Number(zlecenie?.active_work_count || 0)),
+            active_work_started_at: now,
+            started_at: now,
+          }
+        : {
+            last_checkin_at: now,
+          }),
+    };
+    setLogi(nextLogs);
+    setZlecenie(nextTask);
+    await saveTaskDetailCache({
+      taskId: id,
+      user,
+      task: nextTask,
+      logi: nextLogs,
+      problemy,
+      zdjecia,
+      cmrLista,
+    }).catch(() => undefined);
+  };
+
+  const addPendingOfflineFinish = async (args: {
+    idempotencyKey: string;
+    body?: Record<string, unknown> | null;
+  }) => {
+    const now = new Date().toISOString();
+    const workerName = user ? [user.imie, user.nazwisko].filter(Boolean).join(' ') || user.login || 'Mobilka' : 'Mobilka';
+    let closedActiveLog = false;
+    const nextLogs = logi.map((log) => {
+      if (!closedActiveLog && !log?.end_time && (log?.status !== 'check_in')) {
+        closedActiveLog = true;
+        return {
+          ...log,
+          end_time: now,
+          offline_finish_pending: true,
+        };
+      }
+      return log;
+    });
+    if (!closedActiveLog) {
+      nextLogs.unshift({
+        id: args.idempotencyKey,
+        pracownik: workerName,
+        start_time: zlecenie?.active_work_started_at || zlecenie?.started_at || now,
+        end_time: now,
+        status: 'finish',
+        offline_pending: true,
+        offline_finish_pending: true,
+      });
+    }
+    const nextTask = {
+      ...zlecenie,
+      status: TASK_STATUS.ZAKONCZONE,
+      active_work_count: 0,
+      active_work_started_at: null,
+      last_work_finished_at: now,
+      data_zakonczenia: now,
+      mobile_finish_pending: true,
+      mobile_finish_payload: args.body || null,
+    };
+    setLogi(nextLogs);
+    setZlecenie(nextTask);
+    await saveTaskDetailCache({
+      taskId: id,
+      user,
+      task: nextTask,
+      logi: nextLogs,
+      problemy,
+      zdjecia,
+      cmrLista,
+    }).catch(() => undefined);
+  };
+
   const zrobZdjecie = async (typ: string, opisNote?: string, tagiNote?: string) => {
     const opisTrimmed = (opisNote ?? '').trim().slice(0, 4000);
     const tagiTrimmed = (tagiNote ?? '').trim().slice(0, 2000);
@@ -1891,6 +2118,7 @@ export default function ZlecenieDetailScreen() {
             tagi: tagiTrimmed || undefined,
           });
           setOfflineQueueCount(n);
+          await addPendingOfflinePhoto({ idempotencyKey, uri, typ, coords, opis: opisTrimmed, tagi: tagiTrimmed });
           setPhotoOpisDraft('');
           setPhotoTagiDraft('');
           setZdjecieModal(false);
@@ -1914,6 +2142,7 @@ export default function ZlecenieDetailScreen() {
             tagi: tagiTrimmed || undefined,
           });
           setOfflineQueueCount(n);
+          await addPendingOfflinePhoto({ idempotencyKey, uri, typ, coords, opis: opisTrimmed, tagi: tagiTrimmed });
           setPhotoOpisDraft('');
           setPhotoTagiDraft('');
           setZdjecieModal(false);
@@ -1980,6 +2209,7 @@ export default function ZlecenieDetailScreen() {
           body: checkinBody,
         });
         setOfflineQueueCount(queued);
+        await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'checkin', body: checkinBody });
         Alert.alert(t('notif.alert.offlineTitle'), 'Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
       } else {
         void triggerHaptic('warning');
@@ -1996,6 +2226,7 @@ export default function ZlecenieDetailScreen() {
           body: checkinBody,
         });
         setOfflineQueueCount(queued);
+        await addPendingOfflineWorkSignal({ idempotencyKey, kind: 'checkin', body: checkinBody });
         Alert.alert(t('notif.alert.offlineTitle'), 'Check-in GPS zapisano lokalnie. Wysle sie po odzyskaniu polaczenia.');
       } else {
         Alert.alert(t('notif.alert.errorTitle'), 'Nie udalo sie zapisac check-in GPS.');
@@ -2008,6 +2239,10 @@ export default function ZlecenieDetailScreen() {
   const zglosProblem = async () => {
     if (!problemForm.opis.trim()) { void triggerHaptic('warning'); Alert.alert(t('notif.alert.errorTitle'), t('order.problemDescRequired')); return; }
     const idempotencyKey = createOfflineRequestId(`task-${id}-problem`);
+    const problemPayload = {
+      typ: problemForm.typ,
+      opis: problemForm.opis.trim(),
+    };
     try {
       if (!token) { router.replace('/login'); return; }
       const res = await fetch(`${API_URL}/tasks/${id}/problemy`, {
@@ -2017,7 +2252,7 @@ export default function ZlecenieDetailScreen() {
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
         },
-        body: JSON.stringify(problemForm),
+        body: JSON.stringify(problemPayload),
       });
       if (res.ok) {
         setProblemModal(false);
@@ -2031,9 +2266,10 @@ export default function ZlecenieDetailScreen() {
           id: idempotencyKey,
           url: `${API_URL}/tasks/${id}/problemy`,
           method: 'POST',
-          body: problemForm as Record<string, unknown>,
+          body: problemPayload,
         });
         setOfflineQueueCount(queued);
+        await addPendingOfflineProblem({ idempotencyKey, payload: problemPayload });
         setProblemModal(false);
         setProblemForm({ typ: 'usterka', opis: '' });
         Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
@@ -2048,9 +2284,10 @@ export default function ZlecenieDetailScreen() {
         id: idempotencyKey,
         url: `${API_URL}/tasks/${id}/problemy`,
         method: 'POST',
-        body: problemForm as Record<string, unknown>,
+        body: problemPayload,
       });
       setOfflineQueueCount(queued);
+      await addPendingOfflineProblem({ idempotencyKey, payload: problemPayload });
       setProblemModal(false);
       setProblemForm({ typ: 'usterka', opis: '' });
       Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineProblemQueued'));
@@ -4225,6 +4462,12 @@ export default function ZlecenieDetailScreen() {
         warningBackgroundColor={theme.warningBg}
         borderColor={theme.border}
       />
+      {cacheNotice ? (
+        <View style={[S.cacheNotice, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
+          <Ionicons name="file-tray-full-outline" size={15} color={theme.info} />
+          <Text style={[S.cacheNoticeText, { color: theme.info }]}>{cacheNotice}</Text>
+        </View>
+      ) : null}
 
       <View style={S.taskHero}>
         <View style={S.taskHeroTop}>
@@ -6397,7 +6640,7 @@ export default function ZlecenieDetailScreen() {
                 </View>
               )
               : logi.map((log: any) => (
-                <View key={log.id} style={[S.logCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+                <View key={log.id} style={[S.logCard, { backgroundColor: log.offline_pending ? theme.warningBg : theme.cardBg, borderColor: log.offline_pending ? theme.warning : theme.cardBorder }]}>
                   <View style={S.logTop}>
                     <View style={S.metaRow}>
                       <PlatinumIconBadge icon="person-outline" color={theme.accent} size={10} style={{ width: 22, height: 22, borderRadius: 7 }} />
@@ -6425,12 +6668,28 @@ export default function ZlecenieDetailScreen() {
                       </Text>
                     </View>
                   )}
-                  {!log.end_time && (
-                    <View style={S.metaRow}>
-                      <PlatinumIconBadge icon="ellipse" color={theme.warning} size={6} style={{ width: 16, height: 16, borderRadius: 5 }} />
-                      <Text style={[S.logTime, { color: theme.warning }]}> W trakcie...</Text>
+                   {!log.end_time && (
+                     <View style={S.metaRow}>
+                       <PlatinumIconBadge icon="ellipse" color={theme.warning} size={6} style={{ width: 16, height: 16, borderRadius: 5 }} />
+                      <Text style={[S.logTime, { color: theme.warning }]}> {log.offline_pending ? 'Czeka na sync...' : 'W trakcie...'}</Text>
+                     </View>
+                   )}
+                  {log.offline_pending === true ? (
+                    <View style={S.pendingProblemRow}>
+                      <Ionicons name="cloud-upload-outline" size={13} color={theme.warning} />
+                      <Text style={[S.pendingProblemText, { color: theme.warning }]}>
+                        {log.status === 'check_in' ? 'Check-in czeka na synchronizacje.' : 'START czeka na synchronizacje.'}
+                      </Text>
                     </View>
-                  )}
+                  ) : null}
+                  {log.offline_finish_pending === true ? (
+                    <View style={S.pendingProblemRow}>
+                      <Ionicons name="cloud-upload-outline" size={13} color={theme.warning} />
+                      <Text style={[S.pendingProblemText, { color: theme.warning }]}>
+                        Finish czeka na synchronizacje.
+                      </Text>
+                    </View>
+                  ) : null}
                   {(() => {
                     const safetyRows = parseSafetyLogRows(log.bhp_checklista);
                     const legacyConfirmed = log.bhp_potwierdzone === true || log.bhp_potwierdzone === 'true';
@@ -6502,6 +6761,12 @@ export default function ZlecenieDetailScreen() {
                     </View>
                   </View>
                   <Text style={[S.problemOpis, { color: theme.textSub }]}>{p.opis}</Text>
+                  {p.offline_pending === true ? (
+                    <View style={S.pendingProblemRow}>
+                      <Ionicons name="cloud-upload-outline" size={13} color={theme.warning} />
+                      <Text style={[S.pendingProblemText, { color: theme.warning }]}>Zgloszenie czeka na synchronizacje.</Text>
+                    </View>
+                  ) : null}
                   <Text style={[S.problemMeta, { color: theme.textMuted }]}>
                     {p.zglaszajacy} • {new Date(p.created_at).toLocaleDateString('pl-PL')}
                   </Text>
@@ -6868,7 +7133,7 @@ export default function ZlecenieDetailScreen() {
                   <View style={S.grid}>
                     {grupa.map((z: any) => (
                       <TouchableOpacity
-                        key={z.id}
+                        key={z.id || z.url || z.sciezka}
                         style={[
                           S.zdjecieCard,
                           {
@@ -6881,7 +7146,15 @@ export default function ZlecenieDetailScreen() {
                           setPhotoPreview(z);
                         }}
                       >
-                        <Image source={{ uri: absolutePhotoUrl(z.url || z.sciezka) }} style={S.zdjecieImg} />
+                        <View>
+                          <Image source={{ uri: absolutePhotoUrl(z.url || z.sciezka) }} style={S.zdjecieImg} />
+                          {z.offline_pending ? (
+                            <View style={[S.pendingPhotoBadge, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
+                              <Ionicons name="cloud-upload-outline" size={12} color={theme.warning} />
+                              <Text style={[S.pendingPhotoText, { color: theme.warning }]}>czeka na sync</Text>
+                            </View>
+                          ) : null}
+                        </View>
                         {z.opis && <Text style={[S.zdjecieOpis, { color: theme.textSub }]}>{z.opis}</Text>}
                         {Array.isArray(z.tagi) && z.tagi.length > 0 ? (
                           <Text style={[S.zdjecieOpis, { color: theme.textMuted, fontSize: 11 }]} numberOfLines={2}>
@@ -7910,6 +8183,18 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   headerCenter: { flex: 1 },
   headerTitle: { color: t.headerText, fontSize: 18, fontWeight: '800' },
+  cacheNotice: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cacheNoticeText: { flex: 1, fontSize: 12, fontWeight: '900', lineHeight: 16 },
   statusBadgeH: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
   statusTextH: { fontSize: 11, fontWeight: '700' },
   linkRow: {
@@ -9793,6 +10078,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   problemBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   problemBadgeTxt: { fontSize: 11, fontWeight: '600' },
   problemOpis: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
+  pendingProblemRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  pendingProblemText: { fontSize: 11.5, lineHeight: 16, fontWeight: '900' },
   problemMeta: { fontSize: 11 },
   problemPhotoBtn: {
     minHeight: 50,
@@ -9814,6 +10101,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   zdjecieCard: { width: '48%', borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
   zdjecieImg: { width: '100%', height: 158 },
+  pendingPhotoBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pendingPhotoText: { fontSize: 10, fontWeight: '900' },
   zdjecieOpis: { fontSize: 12, padding: 8 },
   zdjecieMeta: { fontSize: 11, paddingHorizontal: 8, paddingBottom: 4 },
   zdjecieGps: { fontSize: 10, paddingHorizontal: 8, paddingBottom: 8 },

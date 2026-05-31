@@ -258,6 +258,7 @@ const cameraPlugin = getPluginConfig(appConfig, 'expo-camera');
 const imagePickerPlugin = getPluginConfig(appConfig, 'expo-image-picker');
 const localAuthPlugin = getPluginConfig(appConfig, 'expo-local-authentication');
 const notificationPlugin = getPluginConfig(appConfig, 'expo-notifications');
+getPluginConfig(appConfig, '@sentry/react-native/expo');
 const locationPlugin = getPluginConfig(appConfig, 'expo-location');
 const splashPlugin = getPluginConfig(appConfig, 'expo-splash-screen');
 getPluginConfig(appConfig, 'expo-secure-store');

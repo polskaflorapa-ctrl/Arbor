@@ -69,6 +69,7 @@
           "color": "#ffffff"
         }
       ],
+      "@sentry/react-native/expo",
       "./plugins/with-react-native-node-modules-dir.cjs",
       [
         "expo-location",

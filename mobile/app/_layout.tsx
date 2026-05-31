@@ -6,7 +6,7 @@ import { ThemeProvider } from '../constants/ThemeContext';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
-import { Component, type ReactNode, useEffect, useState } from 'react';
+import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react';
 import { InteractionManager, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { hydrateAppRemoteFlags } from '../utils/app-remote-flags';
@@ -15,6 +15,9 @@ import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { getStoredSession } from '../utils/session';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setRuntimeApiUrl, CUSTOM_API_URL_STORAGE_KEY } from '../constants/api';
+import { getNotificationDeepLink as resolveNotificationDeepLink } from '../utils/notification-deeplink';
+import { saveAppErrorReport } from '../utils/app-error-report';
+import { captureAppError, initErrorMonitoring } from '../utils/error-monitoring';
 import {
   installMobileTestModeFetchInterceptor,
   installMobileTestModeAxiosAdapter,
@@ -22,6 +25,18 @@ import {
 
 /** Maks. wiek powiadomienia przy zimnym starcie — unikamy nawigacji „w tyle”. */
 const NOTIFICATION_COLD_START_MAX_AGE_MS = 45 * 60 * 1000;
+
+initErrorMonitoring();
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 // ─── Global error boundary ────────────────────────────────────────────────────
 // Catches render-phase exceptions anywhere in the tree. Without this, any
@@ -35,6 +50,20 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   static getDerivedStateFromError(err: unknown): EBState {
     const msg = err instanceof Error ? err.message : String(err ?? 'Nieznany błąd');
     return { hasError: true, message: msg };
+  }
+  override componentDidCatch(error: unknown, info: ErrorInfo) {
+    const err = error instanceof Error ? error : new Error(String(error ?? 'Unknown error'));
+    void saveAppErrorReport({
+      source: 'error-boundary',
+      message: err.message,
+      name: err.name,
+      stack: err.stack,
+      componentStack: info.componentStack ?? '',
+    });
+    captureAppError(err, {
+      source: 'error-boundary',
+      componentStack: info.componentStack ?? '',
+    });
   }
   override render() {
     if (!this.state.hasError) return this.props.children;
@@ -93,20 +122,12 @@ async function canUseNotifications() {
 }
 
 /** Ścieżka Expo Router z `data` powiadomienia (tap / cold start). */
-function getNotificationDeepLink(data: Record<string, unknown> | undefined): string | null {
-  if (!data) return null;
-  const type = typeof data.type === 'string' ? data.type : '';
-  const screen = typeof data.screen === 'string' ? data.screen : '';
-  if (type === 'autoplan_daily_brief' || screen === '/autoplan-dnia') return '/autoplan-dnia';
-  if (type === 'quotation_approval' || screen === '/wyceny-terenowe') return '/wyceny-terenowe';
-  if (type === 'reservation_day_end' || screen === '/rezerwacje-sprzetu') return '/rezerwacje-sprzetu';
-  if (type === 'raport_dnia_ekipy' || type === 'payroll_team_day_approved') return '/powiadomienia';
-  if (screen.startsWith('/')) return screen;
-  return null;
-}
-
 function navigateFromNotification(path: string) {
   router.push(path as never);
+}
+
+function notificationPath(data: Record<string, unknown> | undefined) {
+  return resolveNotificationDeepLink(data);
 }
 
 export default function Layout() {
@@ -159,8 +180,8 @@ export default function Layout() {
     try {
       sub = Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-        const path = getNotificationDeepLink(data);
-        if (path) navigateFromNotification(path);
+        const path = notificationPath(data);
+        navigateFromNotification(path);
       });
     } catch {
       return;
@@ -176,8 +197,7 @@ export default function Layout() {
         const response = await Notifications.getLastNotificationResponseAsync();
         if (!response) return;
         const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-        const path = getNotificationDeepLink(data);
-        if (!path) return;
+        const path = notificationPath(data);
         const sent = response.notification.date;
         if (typeof sent === 'number' && Number.isFinite(sent) && Date.now() - sent > NOTIFICATION_COLD_START_MAX_AGE_MS) {
           return;

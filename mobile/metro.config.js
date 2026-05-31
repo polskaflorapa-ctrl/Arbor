@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { getDefaultConfig } = require('expo/metro-config');
+const { withSentryConfig } = require('@sentry/react-native/metro');
 
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, '..');
@@ -49,4 +50,9 @@ if (fs.existsSync(mobileRn) && fs.existsSync(rootRnAbs)) {
   config.resolver.blockList = list;
 }
 
-module.exports = config;
+const sentrySourceMapsEnabled =
+  Boolean(process.env.SENTRY_AUTH_TOKEN) &&
+  Boolean(process.env.SENTRY_ORG) &&
+  Boolean(process.env.SENTRY_PROJECT);
+
+module.exports = sentrySourceMapsEnabled ? withSentryConfig(config) : config;

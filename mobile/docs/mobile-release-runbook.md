@@ -46,6 +46,13 @@ Check release metadata:
 - [ ] `config/release-environments.json` contains only `development`, `preview`, and `production`, with `apiUrl`, `expectedApiVersion`, and `purpose` filled in.
 - [ ] `npm run release:eas-doctor` passes on the release operator machine.
 
+Crash/error monitoring:
+
+- [ ] `EXPO_PUBLIC_SENTRY_DSN` is set for production builds, or the owner explicitly accepts local-only crash fallback for preview.
+- [ ] `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are set in the EAS build environment before production if Sentry sourcemaps should be uploaded.
+- [ ] EAS project is linked to the matching Sentry project, or the Sentry organization/project are configured in the Sentry workflow.
+- [ ] API Diagnostics shows `Sentry: wlaczone (...)` in the target build.
+
 Security dependency check:
 
 ```bash
@@ -121,6 +128,7 @@ Before submit:
 - [ ] `npm audit --omit=dev` output is reviewed; any Expo SDK major-upgrade findings are accepted or handled in a dedicated SDK upgrade branch.
 - [ ] API URL and build profile are confirmed.
 - [ ] Crash/error monitoring destination is confirmed.
+- [ ] Sentry DSN, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are confirmed for production, if Sentry is the selected destination.
 - [ ] Rollback plan is written in the release note.
 
 Submit when ready:

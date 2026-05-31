@@ -26,6 +26,7 @@ import { getOfflineQueueSize } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
+import { formatTaskListCacheTime, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
 
 type TaskItem = {
   id: number;
@@ -344,6 +345,7 @@ export default function MisjaDniaScreen() {
   const [userRole, setUserRole] = useState('');
   const [userId, setUserId] = useState('');
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [cacheNotice, setCacheNotice] = useState('');
   type DayPreview = {
     cash_by_forma: { forma_platnosc?: string | null; sum_kwota?: string | number; cnt?: number }[];
     issues_count?: number;
@@ -408,12 +410,31 @@ export default function MisjaDniaScreen() {
       const endpoint = isCrewRole(ur)
         ? `${API_URL}/tasks/moje`
         : `${API_URL}/tasks/wszystkie`;
-      const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(Array.isArray(data) ? data : []);
+      try {
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          setTasks(list);
+          setCacheNotice('');
+          await saveTaskListCache({ endpoint, user, tasks: list }).catch(() => undefined);
+        } else {
+          const cached = await loadTodayTaskListCache({ endpoint, user }).catch(() => null);
+          if (cached) {
+            setTasks(cached.tasks as TaskItem[]);
+            const saved = formatTaskListCacheTime(cached.savedAt);
+            setCacheNotice(`Pokazuje plan dnia z cache${saved ? ` z ${saved}` : ''}.`);
+          }
+        }
+      } catch {
+        const cached = await loadTodayTaskListCache({ endpoint, user }).catch(() => null);
+        if (cached) {
+          setTasks(cached.tasks as TaskItem[]);
+          const saved = formatTaskListCacheTime(cached.savedAt);
+          setCacheNotice(`Brak sieci. Pokazuje plan dnia z cache${saved ? ` z ${saved}` : ''}.`);
+        }
       }
       if (canCloseTeamDayReport(ur)) {
         await fetchTeamDayReport(ur);
@@ -722,6 +743,18 @@ export default function MisjaDniaScreen() {
               <Text style={S.offlineNoticeText}>
                 {offlineQueueCount} zmian czeka w kolejce. Dane zostana wyslane po powrocie sieci.
               </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {cacheNotice ? (
+          <View style={S.offlineNotice}>
+            <View style={S.offlineNoticeIcon}>
+              <Ionicons name="file-tray-full-outline" size={17} color={theme.info} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={S.offlineNoticeTitle}>Plan offline</Text>
+              <Text style={S.offlineNoticeText}>{cacheNotice}</Text>
             </View>
           </View>
         ) : null}

@@ -24,6 +24,7 @@ export type LiveGpsStatusSnapshot = {
   message: string;
   updatedAt: string;
   sentAt?: string;
+  reason?: 'disabled' | 'foreground_only' | 'permission_denied' | 'permission_revoked' | 'no_fix' | 'offline' | 'server' | 'role_or_session';
 };
 
 export async function isLiveGpsEnabled(): Promise<boolean> {
@@ -71,10 +72,10 @@ export function subscribeLiveGpsStatusSnapshot(listener: (status: LiveGpsStatusS
 
 type GpsStatus =
   | { kind: 'hidden'; message: '' }
-  | { kind: 'starting'; message: string }
+  | { kind: 'starting'; message: string; reason?: LiveGpsStatusSnapshot['reason'] }
   | { kind: 'active'; message: string; sentAt: number }
-  | { kind: 'warning'; message: string }
-  | { kind: 'blocked'; message: string };
+  | { kind: 'warning'; message: string; reason?: LiveGpsStatusSnapshot['reason'] }
+  | { kind: 'blocked'; message: string; reason?: LiveGpsStatusSnapshot['reason'] };
 
 function normalizeRoleName(role: unknown) {
   return String(role || '')
@@ -155,6 +156,7 @@ export function LiveGpsHeartbeat() {
       kind: next.kind,
       message: next.message,
       updatedAt: new Date().toISOString(),
+      ...('reason' in next && next.reason ? { reason: next.reason } : {}),
       ...(next.kind === 'active' ? { sentAt: new Date(next.sentAt).toISOString() } : {}),
     });
   };
@@ -179,12 +181,12 @@ export function LiveGpsHeartbeat() {
         const ok = await sendLocationHeartbeat(token, location);
         if (!ok) {
           tokenRef.current = null;
-          setGpsStatus({ kind: 'warning', message: 'GPS LIVE: serwer nie przyjal pozycji' });
+          setGpsStatus({ kind: 'warning', message: 'GPS LIVE: serwer nie przyjal pozycji', reason: 'server' });
           return;
         }
         setGpsStatus({ kind: 'active', message: `GPS LIVE - sync ${formatSyncTime(now)}`, sentAt: now });
       } catch {
-        setGpsStatus({ kind: 'warning', message: 'GPS LIVE: brak polaczenia' });
+        setGpsStatus({ kind: 'warning', message: 'GPS LIVE: brak polaczenia', reason: 'offline' });
         return;
       }
     };
@@ -207,8 +209,7 @@ export function LiveGpsHeartbeat() {
           return;
         }
         tokenRef.current = token;
-        setStatus((current) => (current.kind === 'active' ? current : { kind: 'starting', message: 'GPS LIVE: przygotowanie' }));
-        if (locationSubRef.current || permissionDeniedRef.current) return;
+        setGpsStatus({ kind: 'starting', message: 'GPS LIVE: foreground', reason: 'foreground_only' });
 
         let permission = await Location.getForegroundPermissionsAsync();
         if (!permission.granted && permission.canAskAgain) {
@@ -216,9 +217,12 @@ export function LiveGpsHeartbeat() {
         }
         if (!permission.granted) {
           permissionDeniedRef.current = true;
-          setGpsStatus({ kind: 'blocked', message: 'GPS LIVE: wlacz zgode lokalizacji' });
+          const reason = permission.canAskAgain ? 'permission_denied' : 'permission_revoked';
+          setGpsStatus({ kind: 'blocked', message: permission.canAskAgain ? 'GPS LIVE: zgoda lokalizacji wymagana' : 'GPS LIVE: zgoda cofnieta w systemie', reason });
           return;
         }
+        permissionDeniedRef.current = false;
+        if (locationSubRef.current) return;
 
         const lastKnown = await Location.getLastKnownPositionAsync({
           maxAge: 120000,
@@ -231,6 +235,7 @@ export function LiveGpsHeartbeat() {
             accuracy: Location.Accuracy.Balanced,
           }).catch(() => null);
           if (current) void sendIfAllowed(current, true);
+          else setGpsStatus({ kind: 'warning', message: 'GPS LIVE: czekam na sygnal GPS', reason: 'no_fix' });
         }
 
         locationSubRef.current = await Location.watchPositionAsync(
@@ -254,9 +259,13 @@ export function LiveGpsHeartbeat() {
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       appStateRef.current = nextState;
       if (nextState === 'active') {
+        permissionDeniedRef.current = false;
         void ensureTracking();
       } else {
         stopTracking();
+        if (tokenRef.current) {
+          setGpsStatus({ kind: 'starting', message: 'GPS LIVE: tylko gdy appka aktywna', reason: 'foreground_only' });
+        }
       }
     });
 

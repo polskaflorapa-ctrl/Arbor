@@ -1,4 +1,4 @@
-export type ThemeName = 'tech' | 'emerald' | 'pulsar';
+export type ThemeName = 'light' | 'dark';
 
 export interface Theme {
   name: ThemeName;
@@ -78,72 +78,110 @@ const SHAPE = {
   fontMicro: 11,
 } as const;
 
-const DEEP_SPACE_TECH = {
-  bg: '#060913',
-  surface: 'rgba(18,24,41,0.92)',
-  surface2: 'rgba(13,18,30,0.88)',
-  surface3: '#121829',
-  border: 'rgba(255,255,255,0.05)',
-  text: '#F1F5F9',
-  textSub: '#CBD5E1',
-  textMuted: '#64748B',
-  accent: '#00E5FF',
-  accentDark: '#00A6D6',
-  accentLight: 'rgba(0,229,255,0.12)',
-  accentText: '#060913',
-  success: '#00E676',
-  successBg: 'rgba(0,230,118,0.1)',
-  warning: '#FF9100',
-  warningBg: 'rgba(255,145,0,0.1)',
-  danger: '#FF3D71',
-  dangerBg: 'rgba(255,61,113,0.1)',
-  info: '#00E5FF',
-  infoBg: 'rgba(0,229,255,0.1)',
-  headerBg: '#060913',
-  headerText: '#F1F5F9',
-  headerSub: '#64748B',
-  navBg: '#060913',
-  navActive: '#00E5FF',
-  navInactive: '#64748B',
-  navBorder: 'rgba(255,255,255,0.05)',
-  cardBg: 'rgba(18,24,41,0.92)',
-  cardBorder: 'rgba(255,255,255,0.05)',
-  inputBg: 'rgba(13,18,30,0.8)',
-  inputBorder: 'rgba(255,255,255,0.05)',
-  inputText: '#F1F5F9',
-  inputPlaceholder: '#64748B',
+// Wspólny kształt (promienie + cienie) dla obu motywów — większe, miękkie karty.
+const PLATINUM_SHAPE = {
   ...SHAPE,
   radiusSm: 10,
   radiusMd: 12,
   radiusLg: 16,
   radiusXl: 20,
+} as const;
+
+/**
+ * Wariant C — Emerald Aurora (ciemny).
+ * Głęboka zieleń z emerald-akcentem; chrome (header + nav) prawie czarno-zielony.
+ */
+const DARK_AURORA = {
+  bg: '#04130c',
+  surface: '#0c2016',
+  surface2: '#0a1b12',
+  surface3: '#10261a',
+  border: 'rgba(52,232,158,0.14)',
+  text: '#EAFFF3',
+  textSub: '#A7D8BF',
+  textMuted: '#6B9580',
+  accent: '#34E89E',
+  accentDark: '#0BD9B3',
+  accentLight: 'rgba(52,232,158,0.12)',
+  accentText: '#04130C',
+  success: '#34E89E',
+  successBg: 'rgba(52,232,158,0.12)',
+  warning: '#FFD479',
+  warningBg: 'rgba(255,212,121,0.12)',
+  danger: '#FF6B81',
+  dangerBg: 'rgba(255,107,129,0.12)',
+  info: '#7CC4FF',
+  infoBg: 'rgba(124,196,255,0.12)',
+  headerBg: '#06140D',
+  headerText: '#EAFFF3',
+  headerSub: '#6B9580',
+  navBg: '#06140D',
+  navActive: '#34E89E',
+  navInactive: '#6B9580',
+  navBorder: 'rgba(52,232,158,0.12)',
+  cardBg: '#0c2016',
+  cardBorder: 'rgba(52,232,158,0.14)',
+  inputBg: '#0a1b12',
+  inputBorder: 'rgba(52,232,158,0.18)',
+  inputText: '#EAFFF3',
+  inputPlaceholder: '#6B9580',
+  ...PLATINUM_SHAPE,
   shadowColor: '#000000',
-  shadowOpacity: 0.42,
+  shadowOpacity: 0.5,
   shadowRadius: 22,
   shadowOffsetY: 9,
   cardElevation: 5,
-  chartSecondary: '#00E676',
-  chartCyan: '#00E5FF',
+  chartSecondary: '#0BD9B3',
+  chartCyan: '#34E89E',
 } as const satisfies Omit<Theme, 'name'>;
 
-const DEEP_SPACE_EMERALD = {
-  ...DEEP_SPACE_TECH,
-  accent: '#00E676',
-  accentDark: '#00A86B',
-  accentLight: 'rgba(0,230,118,0.12)',
-  navActive: '#00E676',
-} as const satisfies Omit<Theme, 'name'>;
-
-const DEEP_SPACE_PULSAR = {
-  ...DEEP_SPACE_TECH,
-  // Distinct true-blue accent so "Pulsar Blue" differs from "tech" (cyan).
-  accent: '#3B82F6',
-  accentDark: '#2563EB',
-  accentLight: 'rgba(59,130,246,0.12)',
-  navActive: '#3B82F6',
-  info: '#3B82F6',
-  infoBg: 'rgba(59,130,246,0.1)',
-  chartCyan: '#3B82F6',
+/**
+ * Wariant A — Leśny premium (jasny).
+ * Jasna treść (biel + leśna zieleń) z ciemnozielonym chrome (header + nav),
+ * dzięki czemu status bar 'light-content' pozostaje poprawny w obu motywach.
+ */
+const LIGHT_LESNY = {
+  bg: '#f6faf7',
+  surface: '#ffffff',
+  surface2: '#f9fcfa',
+  surface3: '#edf6f0',
+  border: 'rgba(15,95,58,0.14)',
+  text: '#12251A',
+  textSub: '#3E5A48',
+  textMuted: '#6E8175',
+  accent: '#0F6B3F',
+  accentDark: '#0A4F31',
+  accentLight: 'rgba(15,107,63,0.10)',
+  accentText: '#FFFFFF',
+  success: '#12824D',
+  successBg: 'rgba(18,130,77,0.10)',
+  warning: '#B87514',
+  warningBg: 'rgba(184,117,20,0.12)',
+  danger: '#C92D39',
+  dangerBg: 'rgba(201,45,57,0.10)',
+  info: '#126E90',
+  infoBg: 'rgba(18,110,144,0.10)',
+  headerBg: '#0B3825',
+  headerText: '#F6FFF9',
+  headerSub: 'rgba(246,255,249,0.70)',
+  navBg: '#0B3825',
+  navActive: '#2FBE72',
+  navInactive: 'rgba(246,255,249,0.60)',
+  navBorder: 'rgba(255,255,255,0.10)',
+  cardBg: '#ffffff',
+  cardBorder: 'rgba(15,95,58,0.14)',
+  inputBg: '#ffffff',
+  inputBorder: 'rgba(15,95,58,0.18)',
+  inputText: '#12251A',
+  inputPlaceholder: '#6E8175',
+  ...PLATINUM_SHAPE,
+  shadowColor: '#1F4F32',
+  shadowOpacity: 0.12,
+  shadowRadius: 18,
+  shadowOffsetY: 7,
+  cardElevation: 3,
+  chartSecondary: '#2FBE72',
+  chartCyan: '#0F6B3F',
 } as const satisfies Omit<Theme, 'name'>;
 
 /**
@@ -177,22 +215,17 @@ export function getRolaColor(rola: string): string {
 }
 
 export const themes: Record<ThemeName, Theme> = {
-  tech: {
-    name: 'tech',
-    ...DEEP_SPACE_TECH,
+  light: {
+    name: 'light',
+    ...LIGHT_LESNY,
   },
-  emerald: {
-    name: 'emerald',
-    ...DEEP_SPACE_EMERALD,
-  },
-  pulsar: {
-    name: 'pulsar',
-    ...DEEP_SPACE_PULSAR,
+  dark: {
+    name: 'dark',
+    ...DARK_AURORA,
   },
 };
 
 export const THEME_LABELS: Record<ThemeName, string> = {
-  tech: 'Deep Space Tech',
-  emerald: 'Laser Emerald',
-  pulsar: 'Pulsar Blue',
+  light: 'Jasny · Leśny premium',
+  dark: 'Ciemny · Emerald aurora',
 };

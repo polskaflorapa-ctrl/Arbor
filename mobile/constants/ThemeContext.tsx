@@ -17,7 +17,7 @@ import { Theme, ThemeName, themes } from './theme';
 
 const STORAGE_KEY = 'arbor_theme';
 const DESIGN_VERSION_KEY = 'arbor_theme_design_version';
-const CURRENT_DESIGN_VERSION = 'deep_space_tech_2026_05b';
+const CURRENT_DESIGN_VERSION = 'forest_aurora_2026_05c';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -25,7 +25,13 @@ interface ThemeContextValue {
   setTheme: (name: ThemeName) => void;
 }
 
-const DEFAULT_THEME: ThemeName = 'tech';
+const DEFAULT_THEME: ThemeName = 'dark';
+
+function normalizeStoredTheme(saved: string | null): ThemeName | null {
+  if (saved === 'light' || saved === 'dark') return saved;
+  if (saved === 'tech' || saved === 'emerald' || saved === 'pulsar') return 'dark';
+  return null;
+}
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: themes[DEFAULT_THEME],
@@ -48,8 +54,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         ]);
         return;
       }
-      if (saved === 'tech' || saved === 'emerald' || saved === 'pulsar') {
-        setThemeName(saved);
+      const normalized = normalizeStoredTheme(saved);
+      if (normalized) {
+        setThemeName(normalized);
       }
     });
   }, []);

@@ -12,6 +12,7 @@ Copy this section into the release note for every internal preview build.
 - EAS build URL:
 - API environment:
 - Expected API version:
+- Sentry status / DSN configured:
 - Commit / branch:
 - Release owner:
 - Date:
@@ -44,6 +45,9 @@ Copy this section into the release note for every internal preview build.
 - [ ] Offline queue replay reached backend exactly once.
 - [ ] Finish task validation and submit passed.
 - [ ] Push notification deep link passed.
+- [ ] Release QA summary from API Diagnostics pasted into notes.
+- [ ] Local crash/error report fallback passed.
+- [ ] Sentry status in API Diagnostics matches release intent.
 - [ ] Privacy lock / Face ID passed.
 - [ ] No redbox, uncaught exception, or stuck spinner observed.
 

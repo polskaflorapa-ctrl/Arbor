@@ -34,6 +34,13 @@ export interface OfflineQueueItem {
   lastError?: string;
 }
 
+export interface OfflineQueueStatus {
+  count: number;
+  retryBlocked: number;
+  lastError: string;
+  oldestCreatedAt: string;
+}
+
 type OfflineQueueInput = Omit<OfflineQueueItem, 'id' | 'createdAt'> & {
   id?: string;
 };
@@ -81,6 +88,15 @@ const markAttemptFailed = (item: OfflineQueueItem, error: string, now: number): 
   lastError: error.slice(0, 240),
 });
 
+const responseReason = (text: string): string => {
+  try {
+    const parsed = JSON.parse(text) as { reason?: string; code?: string };
+    return String(parsed?.reason || parsed?.code || '');
+  } catch {
+    return '';
+  }
+};
+
 export const enqueueOfflineRequest = async (
   item: OfflineQueueInput,
 ): Promise<void> => {
@@ -103,6 +119,20 @@ export const enqueueOfflineRequest = async (
 export const getOfflineQueueSize = async (): Promise<number> => {
   const queue = await readQueue();
   return queue.length;
+};
+
+export const getOfflineQueueStatus = async (): Promise<OfflineQueueStatus> => {
+  const queue = await readQueue();
+  const now = Date.now();
+  const retryBlocked = queue.filter((item) => !canRetryNow(item, now)).length;
+  const withErrors = queue.filter((item) => item.lastError);
+  const oldest = [...queue].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))[0];
+  return {
+    count: queue.length,
+    retryBlocked,
+    lastError: withErrors[withErrors.length - 1]?.lastError || '',
+    oldestCreatedAt: oldest?.createdAt || '',
+  };
 };
 
 export const queueRequestWithOfflineFallback = async (
@@ -157,16 +187,10 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
 
       if (res.ok) {
         flushed += 1;
-      } else if (res.status === 400) {
+      } else if (res.status === 400 || res.status === 409) {
         const text = await res.text().catch(() => '');
-        let dropAsDone = false;
-        try {
-          const j = JSON.parse(text) as { reason?: string };
-          if (j?.reason === 'TASK_ALREADY_FINISHED') dropAsDone = true;
-        } catch {
-          /* ignore */
-        }
-        if (dropAsDone) flushed += 1;
+        const reason = responseReason(text);
+        if (reason === 'TASK_ALREADY_FINISHED') flushed += 1;
         else remaining.push(markAttemptFailed(item, text || `HTTP ${res.status}`, now));
       } else {
         const text = await res.text().catch(() => '');

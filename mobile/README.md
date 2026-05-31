@@ -69,6 +69,13 @@ Adres API jest centralnie skonfigurowany w `constants/api.js`.
 - Ustaw `EXPO_PUBLIC_EXPECTED_API_VERSION`, aby diagnostyka mogła ostrzec o niezgodnej wersji backendu.
 - Ustaw `EXPO_PUBLIC_WEB_APP_URL`, jeśli linki do panelu web mają prowadzić na inny host niż API.
 
+## Monitoring błędów
+
+- Ustaw `EXPO_PUBLIC_SENTRY_DSN`, aby włączyć Sentry w buildzie mobilnym.
+- Opcjonalnie ustaw `EXPO_PUBLIC_SENTRY_ENVIRONMENT` i `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
+- Dla uploadu sourcemap w EAS ustaw `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` i `SENTRY_PROJECT` oraz połącz projekt Expo z projektem Sentry w EAS/Sentry.
+- Bez DSN aplikacja zostaje przy lokalnym fallbacku w ekranie API Diagnostics.
+
 ## Runbook: Funkcje Oddziałów (Admin)
 
 Ten runbook opisuje bezpieczne zarządzanie konfiguracją funkcji oddziałów z poziomu aplikacji.

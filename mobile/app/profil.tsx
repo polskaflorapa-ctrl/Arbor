@@ -111,9 +111,15 @@ export default function ProfilScreen() {
     : liveGpsStatus?.kind === 'active'
       ? 'Aktywny'
       : liveGpsStatus?.kind === 'blocked'
-        ? 'Brak zgody'
+        ? liveGpsStatus.reason === 'permission_revoked'
+          ? 'Zgoda cofnieta'
+          : 'Brak zgody'
         : liveGpsStatus?.kind === 'warning'
-          ? 'Problem z synchronizacja'
+          ? liveGpsStatus.reason === 'no_fix'
+            ? 'Brak sygnalu GPS'
+            : liveGpsStatus.reason === 'offline'
+              ? 'Offline'
+              : 'Problem z synchronizacja'
           : 'Gotowy';
   const liveGpsStatusColor = !liveGpsOn
     ? theme.textMuted
@@ -127,6 +133,7 @@ export default function ProfilScreen() {
   const liveGpsLastSync = liveGpsStatus?.sentAt
     ? new Date(liveGpsStatus.sentAt).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     : 'brak';
+  const liveGpsPrivacyNote = 'GPS live dziala tylko w foreground: gdy aplikacja jest otwarta i aktywna. Nie wlacza sledzenia 24/7 w tle.';
   const profileStats = [
     { key: 'role', label: 'Rola', value: rolaLabel },
     { key: 'branch', label: 'Oddział', value: user?.oddzial_nazwa || 'Nieustawiony' },
@@ -299,7 +306,7 @@ export default function ProfilScreen() {
         <View style={S.section}>
           <Text style={S.sectionTitle}>{t('profile.title.theme')}</Text>
           <View style={S.themeRow}>
-            {(['tech', 'emerald', 'pulsar'] as ThemeName[]).map((themeKey) => {
+            {(['light', 'dark'] as const satisfies ThemeName[]).map((themeKey) => {
               const active = themeName === themeKey;
               const preview = themes[themeKey];
               return (
@@ -378,13 +385,13 @@ export default function ProfilScreen() {
           <View style={S.section}>
             <Text style={S.sectionTitle}>GPS live</Text>
             <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 12 }}>
-              Pozycja brygady jest widoczna w harmonogramie tylko wtedy, gdy aplikacja jest aktywna.
+              {liveGpsPrivacyNote}
             </Text>
             <View style={[S.settingRow, { borderColor: theme.border, backgroundColor: theme.cardBg }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[S.settingTitle, { color: theme.text }]}>Wysylaj pozycje podczas pracy</Text>
                 <Text style={[S.settingSub, { color: theme.textMuted }]}>
-                  Wylaczenie zatrzymuje lokalizacje bez zmiany zgod systemowych iPhone.
+                  Wylaczenie zatrzymuje wysylke pozycji bez zmiany zgod systemowych telefonu.
                 </Text>
                 <View style={S.gpsStatusRow}>
                   <View style={[S.gpsStatusDot, { backgroundColor: liveGpsStatusColor }]} />
@@ -394,6 +401,11 @@ export default function ProfilScreen() {
                 {liveGpsOn && liveGpsStatus?.message ? (
                   <Text style={[S.settingSub, { color: theme.textMuted }]} numberOfLines={2}>
                     {liveGpsStatus.message}
+                  </Text>
+                ) : null}
+                {liveGpsOn && liveGpsStatus?.kind === 'blocked' ? (
+                  <Text style={[S.settingSub, { color: theme.danger }]} numberOfLines={3}>
+                    Otworz ustawienia systemowe aplikacji i wlacz dostep do lokalizacji podczas uzywania aplikacji.
                   </Text>
                 ) : null}
               </View>
