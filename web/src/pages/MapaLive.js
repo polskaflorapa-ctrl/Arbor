@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import MapOutlined from '@mui/icons-material/MapOutlined';
 import MyLocationOutlined from '@mui/icons-material/MyLocationOutlined';
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
@@ -7,6 +7,8 @@ import WarningAmberOutlined from '@mui/icons-material/WarningAmberOutlined';
 import NavigationOutlined from '@mui/icons-material/NavigationOutlined';
 import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined';
+import PhoneOutlined from '@mui/icons-material/PhoneOutlined';
 import Sidebar from '../components/Sidebar';
 import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -22,6 +24,40 @@ const STANDARD_DAY_END_MINUTES = 18 * 60;
 const DAY_END_MINUTES = 22 * 60;
 const STANDARD_WORKDAY_LABEL = '08:00-18:00';
 const PLANNING_DAY_LABEL = '08:00-22:00';
+const COMMAND_MOBILE_VIEWS = new Set(['map', 'decisions', 'timeline']);
+
+function normalizeCommandView(value) {
+  return COMMAND_MOBILE_VIEWS.has(value) ? value : 'map';
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (e) {
+      // Fall back below for browsers that expose Clipboard API but block it.
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    const copied = document.execCommand?.('copy');
+    if (!copied) throw new Error('Fallback copy failed');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
 
 function toNumber(value) {
   const next = Number(value);
@@ -593,8 +629,31 @@ function pointPosition(row, bounds) {
   };
 }
 
+function percentValue(value) {
+  return Number(String(value || '0').replace('%', '')) || 0;
+}
+
+function taskMapPoint(task) {
+  const lat = toNumber(task?.pin_lat ?? task?.lat ?? task?.latitude);
+  const lng = toNumber(task?.pin_lng ?? task?.lng ?? task?.longitude);
+  return lat != null && lng != null ? { lat, lng } : null;
+}
+
+function plannedValue(task) {
+  const value = Number(task?.wartosc_planowana || task?.wartosc_rzeczywista || task?.budzet || 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function moneyCompact(value) {
+  const amount = Number(value) || 0;
+  if (amount >= 1000000) return `${(amount / 1000000).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} mln`;
+  if (amount >= 1000) return `${Math.round(amount / 1000).toLocaleString('pl-PL')} tys.`;
+  return amount ? `${amount.toLocaleString('pl-PL')} PLN` : 'brak';
+}
+
 export default function MapaLive() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isNarrow = useNarrowViewport();
   const [rows, setRows] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -618,9 +677,60 @@ export default function MapaLive() {
   const [historyRows, setHistoryRows] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
+  const [selectedCommandTaskId, setSelectedCommandTaskId] = useState(() => searchParams.get('task') || '');
+  const [commandMobileView, setCommandMobileView] = useState(() => normalizeCommandView(searchParams.get('view')));
+  const [commandCopyMsg, setCommandCopyMsg] = useState('');
 
   const user = useMemo(() => getLocalStorageJson('user', {}), []);
   const canSeeAll = ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
+
+  useEffect(() => {
+    const nextTaskId = searchParams.get('task') || '';
+    const nextView = normalizeCommandView(searchParams.get('view'));
+    setSelectedCommandTaskId((prev) => (prev === nextTaskId ? prev : nextTaskId));
+    setCommandMobileView((prev) => (prev === nextView ? prev : nextView));
+  }, [searchParams]);
+
+  const updateCommandUrl = useCallback((updates) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value == null || value === '') {
+          next.delete(key);
+        } else {
+          next.set(key, String(value));
+        }
+      });
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const selectCommandTask = useCallback((task) => {
+    const taskId = task?.id ? String(task.id) : '';
+    setSelectedCommandTaskId(taskId);
+    updateCommandUrl({ task: taskId });
+  }, [updateCommandUrl]);
+
+  const changeCommandMobileView = useCallback((view) => {
+    const nextView = normalizeCommandView(view);
+    setCommandMobileView(nextView);
+    updateCommandUrl({ view: nextView });
+  }, [updateCommandUrl]);
+
+  const copyCommandLink = useCallback(async (task) => {
+    if (!task?.id || typeof window === 'undefined') return;
+    const params = new URLSearchParams(searchParams);
+    params.set('task', String(task.id));
+    params.set('view', commandMobileView);
+    const url = `${window.location.origin}${window.location.pathname}#/mapa-live?${params.toString()}`;
+    try {
+      await copyTextToClipboard(url);
+      setCommandCopyMsg('Link skopiowany');
+    } catch (err) {
+      setCommandCopyMsg('Nie udało się skopiować');
+    }
+    window.setTimeout(() => setCommandCopyMsg(''), 4000);
+  }, [commandMobileView, searchParams]);
 
   const load = useCallback(async ({ refresh = false } = {}) => {
     const token = getStoredToken();
@@ -793,6 +903,19 @@ export default function MapaLive() {
     [branchTasks],
   );
 
+  const commandTaskIds = useMemo(() => new Set([
+    ...activeTasks,
+    ...planningQueue,
+    ...tasksWithoutGps,
+    ...staleTaskGps,
+    ...problemTasks,
+  ].map((task) => String(task.id))), [activeTasks, planningQueue, problemTasks, staleTaskGps, tasksWithoutGps]);
+
+  useEffect(() => {
+    if (loading || !selectedCommandTaskId || !tasks.length) return;
+    if (!commandTaskIds.has(String(selectedCommandTaskId))) selectCommandTask(null);
+  }, [commandTaskIds, loading, selectCommandTask, selectedCommandTaskId, tasks.length]);
+
   const bounds = useMemo(() => {
     if (!filteredRows.length) return null;
     return filteredRows.reduce((acc, row) => ({
@@ -816,6 +939,23 @@ export default function MapaLive() {
     if (row.provider === 'juwentus') acc.vehicles += 1;
     return acc;
   }, { total: 0, online: 0, stale: 0, offline: 0, unknown: 0, mobile: 0, vehicles: 0 }), [filteredRows]);
+
+  const taskBounds = useMemo(() => {
+    const taskPoints = activeTasks.map(taskMapPoint).filter(Boolean);
+    const allPoints = [...filteredRows, ...taskPoints];
+    if (!allPoints.length) return bounds;
+    return allPoints.reduce((acc, row) => ({
+      minLat: Math.min(acc.minLat, row.lat),
+      maxLat: Math.max(acc.maxLat, row.lat),
+      minLng: Math.min(acc.minLng, row.lng),
+      maxLng: Math.max(acc.maxLng, row.lng),
+    }), {
+      minLat: allPoints[0].lat,
+      maxLat: allPoints[0].lat,
+      minLng: allPoints[0].lng,
+      maxLng: allPoints[0].lng,
+    });
+  }, [activeTasks, bounds, filteredRows]);
 
   const branchName = useCallback((id) => {
     const branch = branches.find((item) => String(item.id) === String(id));
@@ -1085,6 +1225,34 @@ export default function MapaLive() {
     }
   }, [load, quickPlan, quickPlanHasHardConflicts, quickPlanMissing, quickPlanReservationsErr, quickPlanReservationsLoading, quickPlanTask]);
 
+  const commandCenter = (
+    <CommandCenter
+      isNarrow={isNarrow}
+      rows={filteredRows}
+      activeTasks={activeTasks}
+      planningQueue={planningQueue}
+      tasksWithoutGps={tasksWithoutGps}
+      staleTaskGps={staleTaskGps}
+      checkinGapTasks={checkinGapTasks}
+      photoGapTasks={photoGapTasks}
+      problemTasks={problemTasks}
+      stats={stats}
+      bounds={taskBounds}
+      lastLoadAt={lastLoadAt}
+      taskLiveRow={taskLiveRow}
+      branchName={branchName}
+      selectedTaskId={selectedCommandTaskId}
+      mobileView={commandMobileView}
+      copyMessage={commandCopyMsg}
+      onSelectTask={selectCommandTask}
+      onMobileViewChange={changeCommandMobileView}
+      onCopyLink={copyCommandLink}
+      onOpenTask={(task) => navigate(`/zlecenia/${task.id}`)}
+      onOpenPlan={(task) => openQuickPlan(task)}
+      onOpenSchedule={() => navigate('/harmonogram')}
+    />
+  );
+
   return (
     <div className="app-shell">
       <Sidebar />
@@ -1105,6 +1273,8 @@ export default function MapaLive() {
         </section>
 
         {error ? <div style={S.error}><WarningAmberOutlined style={{ fontSize: 18 }} />{error}</div> : null}
+
+        {isNarrow ? commandCenter : null}
 
         <section style={{ ...S.toolbar, ...(isNarrow ? S.toolbarNarrow : null) }}>
           <div style={{ ...S.filterGroup, ...(isNarrow ? S.fullWidth : null) }}>
@@ -1133,6 +1303,8 @@ export default function MapaLive() {
             Ostatnie odświeżenie: <strong>{lastLoadAt ? formatClock(lastLoadAt.toISOString()) : '--:--'}</strong>
           </div>
         </section>
+
+        {!isNarrow ? commandCenter : null}
 
         <section style={S.kpiGrid}>
           <Kpi label="Wszystkie sygnały" value={stats.total} tone="#0E7490" />
@@ -1233,11 +1405,11 @@ export default function MapaLive() {
           <div style={S.queueSection}>
             <div style={{ ...S.queueHead, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
               <div>
-                <div style={S.queueTitle}>Kolejka do dopiecia</div>
+                <div style={S.queueTitle}>Kolejka do dopięcia</div>
                 <div style={S.panelSub}>Bez ekipy, bez terminu, bez czasu pracy albo do zatwierdzenia po ogledzinach.</div>
               </div>
               <span style={{ ...S.badge, borderColor: '#B7791F', color: '#B7791F' }}>
-                {planningQueue.length} tematow
+                {planningQueue.length} tematów
               </span>
             </div>
             <div style={S.queueList}>
@@ -1893,6 +2065,378 @@ function PlanningTaskCard({ task, onOpen, onSchedule }) {
   );
 }
 
+function CommandCenter({
+  isNarrow,
+  rows,
+  activeTasks,
+  planningQueue,
+  tasksWithoutGps,
+  staleTaskGps,
+  checkinGapTasks,
+  photoGapTasks,
+  problemTasks,
+  stats,
+  bounds,
+  lastLoadAt,
+  taskLiveRow,
+  branchName,
+  selectedTaskId,
+  mobileView,
+  copyMessage,
+  onSelectTask,
+  onMobileViewChange,
+  onCopyLink,
+  onOpenTask,
+  onOpenPlan,
+  onOpenSchedule,
+}) {
+  const riskValue = activeTasks.reduce((sum, task) => {
+    const risky = !taskLiveRow(task) || problemTasks.some((row) => String(row.id) === String(task.id));
+    return risky ? sum + plannedValue(task) : sum;
+  }, 0);
+  const critical = [
+    ...tasksWithoutGps.map((task) => ({ task, tone: '#BE123C', reason: 'Brak GPS przy planie' })),
+    ...staleTaskGps.map((task) => ({ task, tone: '#B7791F', reason: 'Stary sygnał GPS' })),
+    ...planningQueue.map((task) => ({ task, tone: '#B7791F', reason: `Braki: ${planningMissingLabels(task).join(', ') || 'plan'}` })),
+    ...problemTasks.map((task) => ({ task, tone: '#BE123C', reason: 'Otwarty problem z terenu' })),
+  ].filter((row, index, list) => list.findIndex((item) => String(item.task.id) === String(row.task.id)) === index).slice(0, 6);
+  const taskPool = [...critical.map((row) => row.task), ...activeTasks, ...planningQueue];
+  const selected = taskPool.find((task) => selectedTaskId && String(task.id) === String(selectedTaskId)) ||
+    critical[0]?.task ||
+    activeTasks[0] ||
+    planningQueue[0] ||
+    null;
+  const selectedLive = selected ? taskLiveRow(selected) : null;
+  const selectedFresh = selectedLive ? getFreshness(selectedLive) : null;
+  const timelineTasks = activeTasks
+    .slice()
+    .sort((a, b) => String(taskTime(a)).localeCompare(String(taskTime(b))) || Number(a.id || 0) - Number(b.id || 0))
+    .slice(0, isNarrow ? 8 : 18);
+  const routeLines = activeTasks.slice(0, 10).map((task) => {
+    const live = taskLiveRow(task);
+    const destination = taskMapPoint(task);
+    if (!live || !destination || !bounds) return null;
+    const from = pointPosition(live, bounds);
+    const to = pointPosition(destination, bounds);
+    return {
+      id: task.id,
+      x1: percentValue(from.left),
+      y1: percentValue(from.top),
+      x2: percentValue(to.left),
+      y2: percentValue(to.top),
+      color: String(task.id) === String(selected?.id) ? '#2563EB' : '#94A3B8',
+    };
+  }).filter(Boolean);
+  const commandKpis = [
+    { label: 'Aktywne dzisiaj', value: activeTasks.length, tone: '#0E7490' },
+    { label: 'Bez GPS', value: tasksWithoutGps.length, tone: tasksWithoutGps.length ? '#BE123C' : '#14834F' },
+    { label: 'Do dopięcia', value: planningQueue.length, tone: planningQueue.length ? '#B7791F' : '#14834F' },
+    { label: 'Ryzyko wartości', value: moneyCompact(riskValue), tone: riskValue ? '#BE123C' : '#14834F' },
+  ];
+  const mobileTabs = [
+    { id: 'map', label: 'Mapa', value: rows.length + activeTasks.length, icon: MapOutlined },
+    { id: 'decisions', label: 'Decyzje', value: critical.length, icon: AssignmentOutlined },
+    { id: 'timeline', label: 'Plan dnia', value: timelineTasks.length, icon: CalendarMonthOutlined },
+  ];
+  const kpiMarkup = (
+    <div style={{ ...S.commandKpis, ...(isNarrow ? S.commandKpisNarrow : null) }}>
+      {commandKpis.map((item) => (
+        <div key={item.label} style={S.commandKpi}>
+          <span style={S.commandKpiLabel}>{item.label}</span>
+          <strong style={{ ...S.commandKpiValue, color: item.tone }}>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+  const selectedCard = selected && (!isNarrow || selectedTaskId) ? (
+    <div style={{ ...S.commandSelected, ...(isNarrow ? S.commandMobileSheet : {}) }}>
+      <div style={S.commandSelectedTop}>
+        <div>
+          <div style={S.commandSelectedLabel}>{isNarrow ? 'Panel akcji' : 'Wybrany temat'}</div>
+          <strong>{taskClient(selected)}</strong>
+        </div>
+        {isNarrow ? (
+          <button type="button" style={S.commandSheetClose} onClick={() => onSelectTask?.(null)}>
+            Zamknij
+          </button>
+        ) : null}
+      </div>
+      <span>{taskAddress(selected)}</span>
+      <div style={S.commandSelectedFacts}>
+        <Metric label="Status" value={taskStatusLabel(selected.status)} />
+        <Metric label="GPS" value={selectedFresh ? `${selectedFresh.label} / ${formatAge(selectedLive.recorded_at)}` : 'brak'} />
+        <Metric label="Wartość" value={moneyCompact(plannedValue(selected))} />
+        <Metric label="Termin" value={`${taskDateOnly(selected) || 'brak'} ${taskTime(selected)}`} />
+      </div>
+      <div style={{ ...S.cardActions, ...(isNarrow ? S.commandSheetActions : {}) }}>
+        <button type="button" style={S.mapBtn} onClick={() => onOpenPlan(selected)}>
+          <CalendarMonthOutlined style={{ fontSize: 16 }} />
+          Dopnij plan
+        </button>
+        {selected.klient_telefon ? (
+          <a href={`tel:${selected.klient_telefon}`} style={S.secondaryBtn}>
+            <PhoneOutlined style={{ fontSize: 16 }} />
+            Zadzwoń
+          </a>
+        ) : null}
+        {selectedLive ? (
+          <a href={mapHref(selectedLive)} target="_blank" rel="noreferrer" style={S.secondaryBtn}>
+            <NavigationOutlined style={{ fontSize: 16 }} />
+            GPS
+          </a>
+        ) : null}
+        <button type="button" style={S.secondaryBtn} onClick={() => onOpenTask(selected)}>
+          <AssignmentOutlined style={{ fontSize: 16 }} />
+          Karta
+        </button>
+        <button type="button" style={S.secondaryBtn} onClick={() => onCopyLink?.(selected)}>
+          <ContentCopyOutlined style={{ fontSize: 16 }} />
+          Kopiuj link
+        </button>
+      </div>
+      {copyMessage ? <div style={S.commandCopyMsg}>{copyMessage}</div> : null}
+    </div>
+  ) : null;
+
+  return (
+    <section style={{ ...S.command, ...(isNarrow ? S.commandNarrow : null) }}>
+      <div style={{ ...S.commandHeader, ...(isNarrow ? S.panelHeaderNarrow : null) }}>
+        <div>
+          <div style={S.commandEyebrow}>Dyspozytornia operacyjna</div>
+          <h2 style={S.commandTitle}>Mapa decyzji: ekipa, trasa, termin i ryzyko</h2>
+          <p style={S.commandSub}>
+            Warstwa łączy sygnał live, plan dnia, blokady dispatchu i jakość danych w jednym widoku kierownika.
+          </p>
+        </div>
+        <div style={S.commandStatus}>
+          <span style={{ ...S.statusDot, background: stats.offline || stats.stale ? '#B7791F' : '#14834F' }} />
+          <span>{stats.online} online / {stats.stale + stats.offline} opóźnione</span>
+          <strong>{lastLoadAt ? formatClock(lastLoadAt.toISOString()) : '--:--'}</strong>
+        </div>
+      </div>
+
+      {isNarrow ? (
+        <div style={S.commandTabs} role="tablist" aria-label="Tryb widoku dyspozytorni">
+          {mobileTabs.map((tab) => {
+            const active = mobileView === tab.id;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                style={{ ...S.commandTab, ...(active ? S.commandTabActive : {}) }}
+                onClick={() => onMobileViewChange?.(tab.id)}
+              >
+                <span style={S.commandTabLabel}>
+                  <TabIcon style={{ fontSize: 15 }} />
+                  <span>{tab.label}</span>
+                </span>
+                <strong>{tab.value}</strong>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {isNarrow ? kpiMarkup : null}
+
+      {!isNarrow ? kpiMarkup : null}
+
+      {(!isNarrow || mobileView !== 'timeline') ? (
+      <div style={{ ...S.commandBody, ...(isNarrow ? S.commandBodyNarrow : null) }}>
+        {(!isNarrow || mobileView === 'map') ? (
+        <div style={S.commandMapPanel}>
+          <div style={S.commandMapTop}>
+            <div>
+              <strong style={S.commandMapTitle}>Warstwa terenowa</strong>
+              <span style={S.commandMapSub}>Trasy są schematyczne, punkty GPS pozostają źródłowe.</span>
+            </div>
+            <button type="button" style={S.secondaryBtn} onClick={onOpenSchedule}>
+              <CalendarMonthOutlined style={{ fontSize: 16 }} />
+              Harmonogram
+            </button>
+          </div>
+          <div style={{ ...S.commandMap, ...(isNarrow ? S.commandMapNarrow : null) }}>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={S.commandRouteLayer} aria-hidden="true">
+              {routeLines.map((line) => (
+                <line
+                  key={line.id}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke={line.color}
+                  strokeWidth={String(line.id) === String(selected?.id) ? 0.85 : 0.45}
+                  strokeDasharray={String(line.id) === String(selected?.id) ? '0' : '2 2'}
+                  strokeLinecap="round"
+                  opacity={String(line.id) === String(selected?.id) ? 0.92 : 0.5}
+                />
+              ))}
+            </svg>
+            <div style={S.commandMapGrid} />
+            {rows.slice(0, 18).map((row, index) => {
+              const fresh = getFreshness(row);
+              const pos = pointPosition(row, bounds);
+              const active = selectedLive && String(selectedLive.recorded_at) === String(row.recorded_at);
+              const rowTask = activeTasks.find((task) => {
+                const live = taskLiveRow(task);
+                return live && String(live.recorded_at) === String(row.recorded_at);
+              });
+              return (
+                <a
+                  key={`${row.provider}-${row.user_id || row.vehicle_id || row.nr_rejestracyjny}-${index}`}
+                  href={mapHref(row)}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => {
+                    if (!rowTask) return;
+                    event.preventDefault();
+                    onSelectTask?.(rowTask);
+                  }}
+                  style={{
+                    ...S.commandCrewPoint,
+                    ...pos,
+                    borderColor: fresh.color,
+                    color: fresh.color,
+                    ...(active ? S.commandCrewPointActive : {}),
+                  }}
+                  title={`${subjectLabel(row)} / ${fresh.label} / ${formatAge(row.recorded_at)}`}
+                >
+                  {row.provider === 'juwentus' ? 'A' : 'M'}
+                </a>
+              );
+            })}
+            {activeTasks.slice(0, 18).map((task) => {
+              const point = taskMapPoint(task);
+              if (!point || !bounds) return null;
+              const pos = pointPosition(point, bounds);
+              const active = String(task.id) === String(selected?.id);
+              return (
+                <button
+                  key={`task-${task.id}`}
+                  type="button"
+                  onClick={() => onSelectTask?.(task)}
+                  style={{
+                    ...S.commandTaskPoint,
+                    ...pos,
+                    borderColor: taskStatusColor(task.status),
+                    ...(active ? S.commandTaskPointActive : {}),
+                  }}
+                  title={`${taskClient(task)} / ${taskStatusLabel(task.status)}`}
+                >
+                  #{task.id}
+                </button>
+              );
+            })}
+            {!rows.length && !activeTasks.some(taskMapPoint) ? (
+              <div style={S.emptyRadar}>Brak punktów do narysowania dla filtra</div>
+            ) : null}
+            <div style={S.commandMapLegend}>
+              <span><i style={{ background: '#14834F' }} /> live</span>
+              <span><i style={{ background: '#B7791F' }} /> opóźnione</span>
+              <span><i style={{ background: '#BE123C' }} /> blokada</span>
+              <span><i style={{ background: '#2563EB' }} /> wybrana trasa</span>
+            </div>
+          </div>
+        </div>
+        ) : null}
+
+        {(!isNarrow || mobileView === 'decisions') ? (
+        <aside style={S.commandQueue}>
+          <div style={S.commandQueueHead}>
+            <strong>Następne decyzje</strong>
+            <span>{critical.length || 0} tematów</span>
+          </div>
+          {critical.length ? critical.map(({ task, tone, reason }) => {
+            const active = String(task.id) === String(selected?.id);
+            return (
+              <button
+                key={task.id}
+                type="button"
+                aria-pressed={active}
+                style={{
+                  ...S.commandDecision,
+                  ...(active ? S.commandDecisionActive : {}),
+                }}
+                onClick={() => onSelectTask?.(task)}
+              >
+                <span style={{ ...S.commandDecisionRail, background: tone }} />
+                <span style={S.commandDecisionBody}>
+                  <span style={S.commandDecisionTitleRow}>
+                    <strong>{taskClient(task)}</strong>
+                    {active ? <span style={S.commandSelectedBadge}>Wybrane</span> : null}
+                  </span>
+                  <small>{reason}</small>
+                  <span>{taskTime(task)} / {task.ekipa_nazwa || 'bez ekipy'} / {branchName(task.oddzial_id)}</span>
+                </span>
+              </button>
+            );
+          }) : (
+            <div style={S.commandEmpty}>Nie widzę krytycznych blokad w aktualnym filtrze.</div>
+          )}
+
+          {!isNarrow ? selectedCard : null}
+        </aside>
+        ) : null}
+      </div>
+      ) : null}
+
+      {isNarrow ? selectedCard : null}
+
+      {(!isNarrow || mobileView === 'timeline') ? (
+      <div style={{ ...S.commandTimeline, ...(isNarrow ? S.commandTimelineNarrow : {}) }}>
+        <div style={S.commandTimelineHead}>
+          <strong>Plan dnia ekip</strong>
+          <span>{PLANNING_DAY_LABEL}</span>
+        </div>
+        <div style={S.commandTimelineRows}>
+          {timelineTasks.length ? timelineTasks.map((task) => {
+            const range = planRangeMinutes({
+              godzina_rozpoczecia: task.godzina_rozpoczecia,
+              czas_planowany_godziny: task.czas_planowany_godziny || task.czas_realizacji_godz,
+            }, task);
+            const risky = !taskLiveRow(task) || problemTasks.some((row) => String(row.id) === String(task.id));
+            return (
+              <button
+                key={task.id}
+                type="button"
+                style={{
+                  ...S.commandTimelineRow,
+                  ...(isNarrow ? S.commandTimelineRowNarrow : {}),
+                  ...(String(task.id) === String(selected?.id) ? S.commandTimelineRowActive : {}),
+                }}
+                onClick={() => onSelectTask?.(task)}
+              >
+                <span style={{ ...S.commandTimelineTeam, ...(isNarrow ? S.commandTimelineTeamNarrow : {}) }}>
+                  {task.ekipa_nazwa || 'Bez ekipy'}
+                </span>
+                <span style={S.commandTimelineTrack}>
+                  <span
+                    style={{
+                      ...S.commandTimelineBlock,
+                      ...timelineBlockStyle(range),
+                      background: risky ? 'rgba(190,18,60,0.18)' : 'rgba(37,99,235,0.16)',
+                      borderColor: risky ? 'rgba(190,18,60,0.34)' : 'rgba(37,99,235,0.32)',
+                      color: risky ? '#9F1239' : '#1D4ED8',
+                    }}
+                  >
+                    {taskTime(task)} #{task.id}
+                  </span>
+                </span>
+              </button>
+            );
+          }) : (
+            <div style={S.commandEmpty}>Brak zleceń w planie dnia dla tego filtra.</div>
+          )}
+        </div>
+      </div>
+      ) : null}
+    </section>
+  );
+}
+
 const glass = {
   background: 'rgba(255,255,255,0.88)',
   border: '1px solid rgba(20,131,79,0.14)',
@@ -2097,6 +2641,476 @@ const S = {
     fontSize: 26,
     fontWeight: 900,
     fontVariantNumeric: 'tabular-nums',
+  },
+  command: {
+    ...glass,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 14,
+    background: '#F8FAF9',
+    border: '1px solid rgba(37,99,235,0.12)',
+    boxShadow: '0 18px 42px rgba(15,35,58,0.08)',
+  },
+  commandNarrow: {
+    padding: 12,
+  },
+  commandHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 14,
+    marginBottom: 12,
+  },
+  commandEyebrow: {
+    color: '#2563EB',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    fontWeight: 950,
+  },
+  commandTitle: {
+    margin: '4px 0 0',
+    color: '#111827',
+    fontSize: 22,
+    lineHeight: 1.12,
+    fontWeight: 950,
+  },
+  commandSub: {
+    margin: '5px 0 0',
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 1.45,
+    fontWeight: 700,
+    maxWidth: 760,
+  },
+  commandStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    border: '1px solid rgba(15,23,42,0.1)',
+    background: '#FFFFFF',
+    borderRadius: 8,
+    padding: '8px 10px',
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: 850,
+    whiteSpace: 'nowrap',
+  },
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: '50%',
+    boxShadow: '0 0 0 4px rgba(20,131,79,0.12)',
+  },
+  commandTabs: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: 6,
+    margin: '0 0 10px',
+    padding: 4,
+    borderRadius: 8,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: '#FFFFFF',
+  },
+  commandTab: {
+    minWidth: 0,
+    minHeight: 42,
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    alignItems: 'center',
+    gap: 6,
+    border: '1px solid transparent',
+    borderRadius: 8,
+    background: 'transparent',
+    color: '#475569',
+    padding: '7px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  },
+  commandTabActive: {
+    borderColor: 'rgba(37,99,235,0.28)',
+    background: '#EFF6FF',
+    color: '#1D4ED8',
+    boxShadow: '0 8px 18px rgba(37,99,235,0.08)',
+  },
+  commandTabLabel: {
+    minWidth: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+  },
+  commandKpis: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: 10,
+    marginBottom: 12,
+  },
+  commandKpisNarrow: {
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    marginBottom: 10,
+  },
+  commandKpi: {
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: '#FFFFFF',
+    borderRadius: 8,
+    padding: 11,
+    minHeight: 70,
+  },
+  commandKpiLabel: {
+    display: 'block',
+    color: '#64748B',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    fontWeight: 950,
+  },
+  commandKpiValue: {
+    display: 'block',
+    marginTop: 8,
+    fontSize: 20,
+    lineHeight: 1,
+    fontWeight: 950,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  commandBody: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.45fr) minmax(300px, 0.55fr)',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  commandBodyNarrow: {
+    gridTemplateColumns: '1fr',
+  },
+  commandMapPanel: {
+    minWidth: 0,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+  },
+  commandMapTop: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 10,
+    color: '#111827',
+    fontSize: 13,
+    fontWeight: 900,
+  },
+  commandMapTitle: {
+    display: 'block',
+    color: '#111827',
+    fontSize: 13,
+    lineHeight: 1.25,
+  },
+  commandMapSub: {
+    display: 'block',
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 1.35,
+    marginTop: 2,
+    fontWeight: 750,
+  },
+  commandMap: {
+    position: 'relative',
+    minHeight: 390,
+    overflow: 'hidden',
+    borderRadius: 8,
+    border: '1px solid rgba(37,99,235,0.12)',
+    background: 'linear-gradient(135deg, #F8FAFC, #ECFDF5 48%, #EFF6FF)',
+  },
+  commandMapNarrow: {
+    minHeight: 340,
+  },
+  commandMapGrid: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage: 'linear-gradient(rgba(15,23,42,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.055) 1px, transparent 1px)',
+    backgroundSize: '48px 48px',
+    maskImage: 'radial-gradient(circle at 50% 50%, black, transparent 82%)',
+  },
+  commandRouteLayer: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    pointerEvents: 'none',
+    zIndex: 1,
+  },
+  commandCrewPoint: {
+    position: 'absolute',
+    zIndex: 3,
+    transform: 'translate(-50%, -50%)',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    border: '2px solid currentColor',
+    display: 'grid',
+    placeItems: 'center',
+    background: '#FFFFFF',
+    color: '#14834F',
+    textDecoration: 'none',
+    fontSize: 11,
+    fontWeight: 950,
+    boxShadow: '0 10px 22px rgba(15,23,42,0.12)',
+  },
+  commandCrewPointActive: {
+    width: 40,
+    height: 40,
+    borderColor: '#2563EB',
+    color: '#2563EB',
+    boxShadow: '0 0 0 5px rgba(37,99,235,0.12), 0 14px 28px rgba(37,99,235,0.18)',
+  },
+  commandTaskPoint: {
+    position: 'absolute',
+    zIndex: 4,
+    transform: 'translate(-50%, -50%)',
+    minWidth: 42,
+    height: 25,
+    borderRadius: 8,
+    border: '1px solid currentColor',
+    display: 'grid',
+    placeItems: 'center',
+    background: '#111827',
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 950,
+    cursor: 'pointer',
+  },
+  commandTaskPointActive: {
+    background: '#2563EB',
+    boxShadow: '0 0 0 5px rgba(37,99,235,0.14), 0 16px 30px rgba(37,99,235,0.18)',
+  },
+  commandMapLegend: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    zIndex: 5,
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: 'rgba(255,255,255,0.92)',
+    borderRadius: 8,
+    padding: '8px 9px',
+    color: '#334155',
+    fontSize: 11,
+    fontWeight: 850,
+  },
+  commandQueue: {
+    minWidth: 0,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  commandQueueHead: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 10,
+    color: '#111827',
+    fontSize: 13,
+    fontWeight: 950,
+    marginBottom: 2,
+  },
+  commandDecision: {
+    position: 'relative',
+    overflow: 'hidden',
+    width: '100%',
+    display: 'grid',
+    gridTemplateColumns: '3px minmax(0, 1fr)',
+    gap: 9,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: '#F8FAFC',
+    borderRadius: 8,
+    padding: 10,
+    color: '#111827',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  commandDecisionActive: {
+    borderColor: 'rgba(37,99,235,0.3)',
+    background: '#EFF6FF',
+    boxShadow: '0 10px 24px rgba(37,99,235,0.08)',
+  },
+  commandDecisionRail: {
+    width: 3,
+    borderRadius: 8,
+  },
+  commandDecisionBody: {
+    minWidth: 0,
+    display: 'grid',
+    gap: 3,
+  },
+  commandDecisionTitleRow: {
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  commandSelectedBadge: {
+    flex: '0 0 auto',
+    border: '1px solid rgba(37,99,235,0.22)',
+    background: '#FFFFFF',
+    color: '#1D4ED8',
+    borderRadius: 8,
+    padding: '3px 6px',
+    fontSize: 9,
+    lineHeight: 1,
+    fontWeight: 950,
+    textTransform: 'uppercase',
+  },
+  commandSelected: {
+    marginTop: 4,
+    border: '1px solid rgba(37,99,235,0.18)',
+    background: '#EFF6FF',
+    borderRadius: 8,
+    padding: 12,
+    color: '#111827',
+  },
+  commandMobileSheet: {
+    position: 'sticky',
+    bottom: 10,
+    zIndex: 20,
+    marginTop: 12,
+    boxShadow: '0 -18px 38px rgba(15,23,42,0.18)',
+  },
+  commandSelectedTop: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 3,
+  },
+  commandSelectedLabel: {
+    color: '#2563EB',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    fontWeight: 950,
+    marginBottom: 5,
+  },
+  commandSheetClose: {
+    border: '1px solid rgba(37,99,235,0.18)',
+    background: '#FFFFFF',
+    color: '#1D4ED8',
+    borderRadius: 8,
+    padding: '6px 8px',
+    fontSize: 11,
+    fontWeight: 900,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  commandSelectedFacts: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: 9,
+    marginTop: 10,
+  },
+  commandSheetActions: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  },
+  commandCopyMsg: {
+    marginTop: 8,
+    color: '#1D4ED8',
+    fontSize: 11,
+    fontWeight: 900,
+  },
+  commandEmpty: {
+    border: '1px dashed rgba(15,23,42,0.14)',
+    borderRadius: 8,
+    color: '#64748B',
+    padding: 12,
+    fontSize: 12,
+    fontWeight: 800,
+    textAlign: 'center',
+  },
+  commandTimeline: {
+    marginTop: 12,
+    border: '1px solid rgba(15,23,42,0.08)',
+    background: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+  },
+  commandTimelineNarrow: {
+    marginTop: 0,
+  },
+  commandTimelineHead: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 10,
+    color: '#111827',
+    fontSize: 13,
+    fontWeight: 950,
+    marginBottom: 9,
+  },
+  commandTimelineRows: {
+    display: 'grid',
+    gap: 7,
+  },
+  commandTimelineRow: {
+    display: 'grid',
+    gridTemplateColumns: '150px minmax(0, 1fr)',
+    gap: 10,
+    alignItems: 'center',
+    width: '100%',
+    border: 'none',
+    background: 'transparent',
+    padding: 0,
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  commandTimelineRowNarrow: {
+    gridTemplateColumns: '1fr',
+    gap: 5,
+    padding: '2px 0',
+  },
+  commandTimelineRowActive: {
+    filter: 'drop-shadow(0 8px 16px rgba(37,99,235,0.12))',
+  },
+  commandTimelineTeam: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: 900,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  commandTimelineTeamNarrow: {
+    whiteSpace: 'normal',
+    lineHeight: 1.2,
+  },
+  commandTimelineTrack: {
+    position: 'relative',
+    height: 28,
+    borderRadius: 8,
+    overflow: 'hidden',
+    background: '#F1F5F9',
+    border: '1px solid rgba(15,23,42,0.07)',
+  },
+  commandTimelineBlock: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 6,
+    border: '1px solid rgba(37,99,235,0.24)',
+    fontSize: 10,
+    fontWeight: 950,
+    whiteSpace: 'nowrap',
+    minWidth: 72,
   },
   officeLivePanel: {
     ...glass,
@@ -2833,6 +3847,8 @@ const S = {
     fontWeight: 800,
     fontSize: 12,
     cursor: 'pointer',
+    textDecoration: 'none',
+    fontFamily: 'inherit',
   },
   historyPanel: {
     ...glass,
