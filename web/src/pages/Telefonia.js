@@ -1212,6 +1212,39 @@ export default function Telefonia() {
     setAgentExporting(false);
   };
 
+  const exportBranchStatusCsv = () => {
+    const rows = [
+      ['oddzial', 'miasto', 'gotowosc_pct', 'status_agenta', 'telefon', 'sms_sender', 'provider', 'rozmowy', 'do_sprawdzenia', 'bledy_sms', 'ostatni_test', 'braki'],
+      ...filteredBranchIntegrationStatuses.map((row) => {
+        const readiness = branchReadiness(row);
+        return [
+          row.oddzial_name || `Oddzial #${row.oddzial_id}`,
+          row.miasto || '',
+          readiness.percent,
+          branchIntegrationStatusLabel(row),
+          row.telefon || '',
+          row.sms_sender_id || row.telefon || '',
+          row.provider || '',
+          Number(row.intakes_total || 0),
+          Number(row.needs_review || 0),
+          Number(row.sms_errors || 0),
+          row.last_test_log_at ? `${row.last_test_log_status || ''} ${formatAgentDate(row.last_test_log_at)}` : '',
+          readiness.blockers.join('; '),
+        ];
+      }),
+    ];
+    const csv = rows
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `telefonia-oddzialy-status-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const resendSms = async (row) => {
     if (!row?.task_id) return;
     setSendingId(row.id);
@@ -1661,6 +1694,14 @@ export default function Telefonia() {
                   disabled={!branchIntegrationStatuses.length}
                 >
                   Kopiuj raport
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={exportBranchStatusCsv}
+                  disabled={!filteredBranchIntegrationStatuses.length}
+                >
+                  Eksport CSV
                 </button>
               </div>
               {branchIntegrationStatuses.length ? (
