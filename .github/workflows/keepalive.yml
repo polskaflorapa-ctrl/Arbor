@@ -14,7 +14,7 @@ jobs:
       - name: Ping arbor-os health
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-            "https://arbor-os-b7k6.onrender.com/api/ready")
+            "https://arbor-os-b7k6.onrender.com/api/ready" || true)
           echo "Health check status: $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "Warning: unexpected status $STATUS"
