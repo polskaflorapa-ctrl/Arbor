@@ -87,7 +87,8 @@
     "install": {
       "exclude": [
         "react-native",
-        "@react-navigation/native"
+        "@react-navigation/native",
+        "@sentry/react-native"
       ]
     }
   }
