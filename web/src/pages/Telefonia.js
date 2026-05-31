@@ -639,6 +639,39 @@ export default function Telefonia() {
     }
   };
 
+  const buildAgentProviderPackage = () => JSON.stringify({
+    provider: agentIntegration?.provider || agentForm.provider || 'external',
+    branch: {
+      oddzial_id: agentForm.oddzial_id ? Number(agentForm.oddzial_id) : null,
+      name: oddzialLabel(agentForm.oddzial_id),
+      phone: branchTelephonyForm.telefon || selectedAgentBranch?.telefon || null,
+      sms_sender_id: branchTelephonyForm.sms_sender_id || selectedAgentBranch?.sms_sender_id || null,
+    },
+    webhook: {
+      url: agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake',
+      method: 'POST',
+      secret_header: 'x-voice-agent-secret',
+      secret: agentIntegration?.webhook_secret || '',
+    },
+    payload_example: {
+      oddzial_id: agentForm.oddzial_id ? Number(agentForm.oddzial_id) : null,
+      call_sid: 'provider-call-id',
+      caller_phone: '+48123123123',
+      customer_name: 'Jan Kowalski',
+      inspection_address: 'ul. Przykladowa 1',
+      city: 'Krakow',
+      service_type: 'ogrod',
+      appointment_at: new Date(Date.now() + 86400000).toISOString(),
+      notes: 'Klient prosi o bezplatne ogledziny.',
+      transcript: 'Skrocony transkrypt rozmowy.',
+    },
+    notes: [
+      'Wysylaj sekret w headerze x-voice-agent-secret.',
+      'Oddzial decyduje o numerze i nadawcy SMS.',
+      'Nie podawaj cen przez telefon; umawiaj bezplatne ogledziny.',
+    ],
+  }, null, 2);
+
   const saveCallLog = async (e) => {
     e.preventDefault();
     const oid = toIntLocal(callForm.oddzial_id);
@@ -1378,6 +1411,16 @@ export default function Telefonia() {
                     Kopiuj
                   </button>
                 </div>
+                <label style={s.copyLabel}>Pakiet podpiecia JSON</label>
+                <textarea value={buildAgentProviderPackage()} readOnly rows={7} style={s.textarea} />
+                <button
+                  type="button"
+                  style={s.rowBtnActive}
+                  onClick={() => copyAgentText(buildAgentProviderPackage(), 'Pakiet podpiecia')}
+                  disabled={!agentForm.oddzial_id}
+                >
+                  Kopiuj pakiet
+                </button>
                 <label style={s.copyLabel}>Prompt systemowy</label>
                 <textarea value={agentConfig?.system_prompt || ''} readOnly rows={8} style={s.textarea} />
                 <button type="button" style={s.rowBtn} onClick={() => copyAgentText(agentConfig?.system_prompt || '', 'Prompt')} disabled={!agentConfig?.system_prompt}>
