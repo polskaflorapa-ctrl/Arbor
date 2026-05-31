@@ -198,18 +198,18 @@ export default function CrmInbox() {
   const ownerLabel = (owner) => [owner.imie, owner.nazwisko].filter(Boolean).join(' ') || owner.login || `#${owner.id}`;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell crm-inbox-shell">
       <Sidebar />
-      <main className="app-main">
+      <main className="app-main crm-inbox-main">
         <PageHeader
           title="Unified Inbox"
           subtitle="Wspolna skrzynka rozmow z leadow CRM."
           variant="hero"
         />
-        <div className="app-content">
+        <div className="app-content crm-inbox-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
 
-          <section className="ios-inset" style={{ marginBottom: 12, padding: 12 }}>
+          <section className="ios-inset crm-inbox-filters" style={{ marginBottom: 12, padding: 12 }}>
             <form onSubmit={applySearch} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, alignItems: 'end' }}>
               <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
                 Kanal
@@ -237,8 +237,8 @@ export default function CrmInbox() {
             </form>
           </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, .85fr) minmax(320px, 1.15fr)', gap: 12 }}>
-            <section className="ios-inset" style={{ padding: 12 }}>
+          <div className="crm-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, .85fr) minmax(320px, 1.15fr)', gap: 12 }}>
+            <section className="ios-inset crm-inbox-list-panel" style={{ padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
                 <strong>Rozmowy</strong>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{messages.length}</span>
@@ -248,7 +248,7 @@ export default function CrmInbox() {
                   <button
                     key={message.id}
                     type="button"
-                    className="ios-inset-row"
+                    className="ios-inset-row crm-inbox-message-row"
                     onClick={() => setSelectedId(message.id)}
                     style={{
                       width: '100%',
@@ -274,7 +274,7 @@ export default function CrmInbox() {
               </div>
             </section>
 
-            <section className="ios-inset" style={{ padding: 12 }}>
+            <section className="ios-inset crm-inbox-detail-panel" style={{ padding: 12 }}>
               {selected ? (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10 }}>
@@ -340,7 +340,7 @@ export default function CrmInbox() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+                  <div className="ios-inset crm-inbox-history" style={{ marginTop: 12, padding: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
                       <strong>Historia rozmowy</strong>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -365,7 +365,7 @@ export default function CrmInbox() {
                       ) : null}
                     </div>
                   </div>
-                  <form onSubmit={sendReply} className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+                  <form onSubmit={sendReply} className="ios-inset crm-inbox-reply" style={{ marginTop: 12, padding: 12 }}>
                     <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
                       Szablon
                       <select className="ios-field" value={replyTemplateId} onChange={(e) => applyReplyTemplate(e.target.value)}>

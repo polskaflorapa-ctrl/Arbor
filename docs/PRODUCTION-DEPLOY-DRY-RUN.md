@@ -12,6 +12,7 @@ Ta bramka sprawdza, czy repo ma komplet skryptow, runbookow i checklist do produ
 cd C:\Users\paha1\arbor
 npm run verify:observability
 npm run verify:incident-runbook
+npm run verify:backup-rpo
 npm run deploy:prod:dry-run
 npm run deploy:ready:check
 npm run check
@@ -94,6 +95,7 @@ npm run restore:db:check
 ```
 
 `restore:db:check` ma potwierdzic, ze najnowszy dump jest czytelny. Pelny restore wykonuj tylko na swiezej albo swiadomie wymiennej bazie i tylko z `CONFIRM_RESTORE=YES`, zgodnie z `docs/backup-restore.md`.
+Mierzalne RPO/RTO, harmonogram, restore drill na bazie replaceable i dowody opisuje `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
 
 ## 6. Deploy i publiczny smoke
 

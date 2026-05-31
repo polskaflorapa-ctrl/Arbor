@@ -131,23 +131,23 @@ export default function CrmDashboard() {
   }, {});
 
   return (
-    <div className="app-shell">
+    <div className="app-shell crm-dashboard-shell">
       <Sidebar />
-      <main className="app-main">
+      <main className="app-main crm-dashboard-main">
         <PageHeader
           title={t('crm.dashboard.title', { defaultValue: 'CRM Dashboard' })}
           subtitle={t('crm.dashboard.subtitle', { defaultValue: 'Pipeline, źródła leadów i follow-up w jednym miejscu.' })}
           variant="hero"
         />
-        <div className="app-content">
+        <div className="app-content crm-dashboard-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
-          <section className="ios-inset" style={{ marginBottom: 12, padding: 12 }}>
+          <section className="ios-inset crm-dashboard-action" style={{ marginBottom: 12, padding: 12 }}>
             <button className="ios-btn ios-btn-primary" type="button" onClick={() => navigate('/crm/pipeline')}>
               {t('crm.dashboard.openPipeline', { defaultValue: 'Otwórz pipeline leadów' })}
             </button>
           </section>
 
-          <section className="ios-inset" style={{ marginBottom: 12, padding: 12 }}>
+          <section className="ios-inset crm-dashboard-filters" style={{ marginBottom: 12, padding: 12 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                 {t('crm.dashboard.filterBranch', { defaultValue: 'Oddział' })}
@@ -169,6 +169,7 @@ export default function CrmDashboard() {
           </section>
 
           <section
+            className="crm-dashboard-kpis"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -184,8 +185,8 @@ export default function CrmDashboard() {
             ))}
           </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12 }}>
-            <section className="ios-inset" style={{ padding: 12 }}>
+          <div className="crm-dashboard-grid crm-dashboard-grid-primary" style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12 }}>
+            <section className="ios-inset crm-dashboard-panel" style={{ padding: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 10 }}>
                 {t('crm.dashboard.pipeline', { defaultValue: 'Pipeline' })}
               </div>
@@ -237,8 +238,8 @@ export default function CrmDashboard() {
             </section>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr', gap: 12, marginTop: 12 }}>
-            <section className="ios-inset" style={{ padding: 12 }}>
+          <div className="crm-dashboard-grid crm-dashboard-grid-secondary" style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.2fr', gap: 12, marginTop: 12 }}>
+            <section className="ios-inset crm-dashboard-panel" style={{ padding: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 10 }}>
                 {t('crm.dashboard.conversion', { defaultValue: 'Konwersja CRM' })}
               </div>
@@ -257,7 +258,7 @@ export default function CrmDashboard() {
               </div>
             </section>
 
-            <section className="ios-inset" style={{ padding: 12 }}>
+            <section className="ios-inset crm-dashboard-panel" style={{ padding: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 10 }}>
                 {t('crm.dashboard.ownerPerformance', { defaultValue: 'Aktywność ownerów' })}
               </div>
@@ -285,7 +286,7 @@ export default function CrmDashboard() {
             </section>
           </div>
 
-          <section className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+          <section className="ios-inset crm-dashboard-panel crm-dashboard-nps" style={{ marginTop: 12, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
               <div style={{ fontWeight: 700 }}>
                 {t('crm.dashboard.npsTitle', { defaultValue: 'Satysfakcja klientów' })}
@@ -310,7 +311,7 @@ export default function CrmDashboard() {
             </div>
           </section>
 
-          <section className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+          <section className="ios-inset crm-dashboard-panel crm-dashboard-queue" style={{ marginTop: 12, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 700 }}>
@@ -398,7 +399,7 @@ export default function CrmDashboard() {
             </div>
           </section>
 
-          <section className="ios-inset" style={{ marginTop: 12, padding: 12 }}>
+          <section className="ios-inset crm-dashboard-panel crm-dashboard-followups" style={{ marginTop: 12, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
               <div style={{ fontWeight: 700 }}>
                 {t('crm.dashboard.followups', { defaultValue: 'Najbliższe follow-up' })}

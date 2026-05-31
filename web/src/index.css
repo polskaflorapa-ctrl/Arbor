@@ -4764,7 +4764,438 @@ body.theme-dark pre {
     align-items: stretch;
   }
 
-  .raport-dzienny-actions > button {
+.raport-dzienny-actions > button {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS CRM dashboard polish: sales command view for pipeline and follow-up. */
+.crm-dashboard-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.crm-dashboard-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.crm-dashboard-content {
+  padding: 0 !important;
+}
+
+.crm-dashboard-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.crm-dashboard-main .ios-inset:not(.arbor-sidebar .ios-inset) {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.crm-dashboard-action,
+.crm-dashboard-filters,
+.crm-dashboard-panel,
+.crm-dashboard-kpis > .ios-inset {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crm-dashboard-kpis > .ios-inset:hover,
+.crm-dashboard-panel:hover {
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+.crm-dashboard-main .ios-inset-row {
+  border-color: rgba(15, 95, 58, 0.09) !important;
+}
+
+.crm-dashboard-main .ios-inset-row:hover {
+  background: rgba(15, 107, 63, 0.035) !important;
+}
+
+.crm-dashboard-main .ios-btn:hover,
+.crm-dashboard-main button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.crm-dashboard-main .ios-btn-primary {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+  border-color: rgba(20, 131, 79, 0.24) !important;
+  box-shadow: 0 8px 18px rgba(20, 131, 79, 0.16);
+}
+
+.crm-dashboard-main .ios-btn-primary:hover {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+}
+
+.crm-dashboard-main .ios-field {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+@media (max-width: 900px) {
+  .crm-dashboard-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .crm-dashboard-grid,
+  .crm-dashboard-kpis {
+    grid-template-columns: 1fr !important;
+  }
+
+  .crm-dashboard-queue > div:first-child,
+  .crm-dashboard-followups > div:first-child {
+    align-items: stretch !important;
+  }
+
+  .crm-dashboard-queue .ios-btn,
+  .crm-dashboard-queue .ios-field {
+    width: 100%;
+    max-width: none !important;
+  }
+}
+
+/* ARBOR-OS CRM pipeline polish: lead board aligned with the CRM dashboard. */
+.crm-pipeline-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.crm-pipeline-main {
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.crm-pipeline-content {
+  padding: 0 !important;
+}
+
+.crm-pipeline-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.crm-pipeline-main .ios-inset:not(.arbor-sidebar .ios-inset) {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.crm-pipeline-create,
+.crm-pipeline-filters,
+.crm-pipeline-panel,
+.crm-pipeline-column,
+.crm-pipeline-lead-card {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crm-pipeline-create,
+.crm-pipeline-filters {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.94)) !important;
+  background-size: 32px 32px, 32px 32px, auto !important;
+}
+
+.crm-pipeline-board {
+  padding-bottom: 18px;
+  scrollbar-color: rgba(15, 95, 58, 0.28) rgba(15, 95, 58, 0.06);
+}
+
+.crm-pipeline-column {
+  min-width: 220px;
+}
+
+.crm-pipeline-lead-card {
+  background: rgba(241, 249, 244, 0.42) !important;
+  border-color: rgba(15, 95, 58, 0.1) !important;
+}
+
+.crm-pipeline-lead-card:hover,
+.crm-pipeline-panel:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+.crm-pipeline-main .ios-inset-row {
+  border-color: rgba(15, 95, 58, 0.09) !important;
+}
+
+.crm-pipeline-main .ios-inset-row:hover {
+  background: rgba(15, 107, 63, 0.035) !important;
+}
+
+.crm-pipeline-main .ios-field {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.crm-pipeline-main .ios-btn-primary {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+  border-color: rgba(20, 131, 79, 0.24) !important;
+  box-shadow: 0 8px 18px rgba(20, 131, 79, 0.16);
+}
+
+.crm-pipeline-main .ios-btn:hover,
+.crm-pipeline-main button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.crm-pipeline-main .ios-btn-primary:hover {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+}
+
+@media (max-width: 900px) {
+  .crm-pipeline-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .crm-pipeline-create [style*="grid-template-columns"],
+  .crm-pipeline-filters [style*="grid-template-columns"],
+  .crm-pipeline-templates [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .crm-pipeline-workflows > div:first-child,
+  .crm-pipeline-templates > div:first-child {
+    align-items: stretch !important;
+  }
+
+  .crm-pipeline-workflows .ios-btn,
+  .crm-pipeline-create .ios-btn-primary {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS CRM inbox polish: shared conversation workspace. */
+.crm-inbox-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.crm-inbox-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.crm-inbox-content {
+  padding: 0 !important;
+}
+
+.crm-inbox-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.crm-inbox-main .ios-inset:not(.arbor-sidebar .ios-inset) {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.crm-inbox-filters,
+.crm-inbox-list-panel,
+.crm-inbox-detail-panel,
+.crm-inbox-history,
+.crm-inbox-reply,
+.crm-inbox-message-row {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crm-inbox-filters {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.94)) !important;
+  background-size: 32px 32px, 32px 32px, auto !important;
+}
+
+.crm-inbox-message-row {
+  background: rgba(241, 249, 244, 0.42) !important;
+  border-color: rgba(15, 95, 58, 0.1) !important;
+}
+
+.crm-inbox-message-row:hover,
+.crm-inbox-detail-panel:hover,
+.crm-inbox-list-panel:hover {
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
+}
+
+.crm-inbox-main .ios-field {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.crm-inbox-main .ios-btn-primary {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+  border-color: rgba(20, 131, 79, 0.24) !important;
+  box-shadow: 0 8px 18px rgba(20, 131, 79, 0.16);
+}
+
+.crm-inbox-main .ios-btn:hover,
+.crm-inbox-main button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+.crm-inbox-main .ios-btn-primary:hover {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+}
+
+@media (max-width: 900px) {
+  .crm-inbox-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .crm-inbox-grid,
+  .crm-inbox-filters form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .crm-inbox-filters .ios-btn {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS CRM inbox polish: unified conversations in the CRM visual language. */
+.crm-inbox-shell {
+  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
+}
+
+.crm-inbox-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.crm-inbox-content {
+  padding: 0 !important;
+}
+
+.crm-inbox-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.crm-inbox-main .ios-inset:not(.arbor-sidebar .ios-inset) {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.crm-inbox-filters {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.94)) !important;
+  background-size: 32px 32px, 32px 32px, auto !important;
+}
+
+.crm-inbox-filters,
+.crm-inbox-list-panel,
+.crm-inbox-detail-panel,
+.crm-inbox-history,
+.crm-inbox-reply,
+.crm-inbox-message-row {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.crm-inbox-message-row {
+  background: rgba(241, 249, 244, 0.32) !important;
+}
+
+.crm-inbox-message-row:hover,
+.crm-inbox-history:hover,
+.crm-inbox-reply:hover {
+  box-shadow: 0 14px 30px rgba(31, 79, 50, 0.08) !important;
+}
+
+.crm-inbox-main .ios-inset-row {
+  border-color: rgba(15, 95, 58, 0.09) !important;
+}
+
+.crm-inbox-main .ios-inset-row:hover {
+  background: rgba(15, 107, 63, 0.035) !important;
+}
+
+.crm-inbox-main .ios-field {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.crm-inbox-main .ios-btn-primary {
+  background: var(--accent-gradient) !important;
+  color: var(--on-accent) !important;
+  border-color: rgba(20, 131, 79, 0.24) !important;
+  box-shadow: 0 8px 18px rgba(20, 131, 79, 0.16);
+}
+
+.crm-inbox-main .ios-btn:hover,
+.crm-inbox-main button:hover {
+  background: rgba(15, 107, 63, 0.045) !important;
+}
+
+@media (max-width: 900px) {
+  .crm-inbox-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .crm-inbox-grid,
+  .crm-inbox-filters form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .crm-inbox-detail-panel > div:first-child,
+  .crm-inbox-detail-panel > div:nth-child(2) {
+    align-items: stretch !important;
+  }
+
+  .crm-inbox-detail-panel .ios-btn,
+  .crm-inbox-reply .ios-btn {
     width: 100%;
   }
 }

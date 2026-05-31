@@ -53,6 +53,7 @@
     "verify:observability": "node ./scripts/observability-check.cjs",
     "verify:incident-runbook": "node ./scripts/incident-runbook-check.cjs",
     "verify:kommo-sms-drill": "node ./scripts/kommo-sms-drill-check.cjs",
+    "verify:backup-rpo": "node ./scripts/backup-rpo-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

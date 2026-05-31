@@ -13,6 +13,9 @@ import { normalizeSmsHistoryRow } from '../utils/smsHistoryNormalize';
 
 /** Rozmiar strony dla GET /api/sms/historia?limit=&offset= (ARBOR-OS). */
 const SMS_HIST_PAGE_SIZE = 15;
+const BRANCH_STATUS_VIEW_KEY = 'arbor_telefonia_branch_status_view_v1';
+const BRANCH_STATUS_FILTERS = new Set(['all', 'ready', 'todo', 'attention']);
+const BRANCH_STATUS_SORTS = new Set(['needs', 'ready', 'activity', 'name']);
 
 function useNarrowViewport(maxWidth = 760) {
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -34,6 +37,7 @@ export default function Telefonia() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isNarrow = useNarrowViewport();
+  const savedBranchStatusView = useMemo(() => getLocalStorageJson(BRANCH_STATUS_VIEW_KEY, {}), []);
   const [sms, setSms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -92,9 +96,13 @@ export default function Telefonia() {
   const [agentReminderLoading, setAgentReminderLoading] = useState(false);
   const [branchIntegrationStatuses, setBranchIntegrationStatuses] = useState([]);
   const [branchIntegrationStatusesLoading, setBranchIntegrationStatusesLoading] = useState(false);
-  const [branchStatusFilter, setBranchStatusFilter] = useState('all');
-  const [branchStatusQuery, setBranchStatusQuery] = useState('');
-  const [branchStatusSort, setBranchStatusSort] = useState('needs');
+  const [branchStatusFilter, setBranchStatusFilter] = useState(
+    BRANCH_STATUS_FILTERS.has(savedBranchStatusView.filter) ? savedBranchStatusView.filter : 'all'
+  );
+  const [branchStatusQuery, setBranchStatusQuery] = useState(savedBranchStatusView.query || '');
+  const [branchStatusSort, setBranchStatusSort] = useState(
+    BRANCH_STATUS_SORTS.has(savedBranchStatusView.sort) ? savedBranchStatusView.sort : 'needs'
+  );
   const [integrationTestLogs, setIntegrationTestLogs] = useState([]);
   const [integrationTestLogsLoading, setIntegrationTestLogsLoading] = useState(false);
   const [selectedAgentIntake, setSelectedAgentIntake] = useState(null);
@@ -183,6 +191,18 @@ export default function Telefonia() {
       navigate('/');
     }
   }, [navigate]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(BRANCH_STATUS_VIEW_KEY, JSON.stringify({
+        filter: branchStatusFilter,
+        query: branchStatusQuery,
+        sort: branchStatusSort,
+      }));
+    } catch {
+      /* localStorage can be unavailable in private mode */
+    }
+  }, [branchStatusFilter, branchStatusQuery, branchStatusSort]);
 
   const loadSms = useCallback(
     async (pageArg) => {
@@ -1428,6 +1448,27 @@ export default function Telefonia() {
       needsReview: Number(row?.needs_review || 0) > 0,
     };
   };
+  const branchNextAction = (row) => {
+    const readiness = branchReadiness(row);
+    if (!row?.integration_id) return 'Nastepny krok: wlacz agenta dla oddzialu.';
+    if (row.integration_status !== 'active') return 'Nastepny krok: wznow agenta.';
+    if (!row.telefon) return 'Nastepny krok: wpisz numer telefonu oddzialu.';
+    if (!(row.sms_sender_id || row.telefon)) return 'Nastepny krok: ustaw nadawce SMS.';
+    if (row.last_test_log_status !== 'ok') return 'Nastepny krok: wykonaj test calosci oddzialu.';
+    if (readiness.hasErrors) return 'Nastepny krok: sprawdz bledy SMS.';
+    if (readiness.needsReview) return 'Nastepny krok: popraw rozmowy do sprawdzenia.';
+    return 'Nastepny krok: oddzial gotowy.';
+  };
+  const resetBranchStatusView = () => {
+    setBranchStatusFilter('all');
+    setBranchStatusQuery('');
+    setBranchStatusSort('needs');
+    try {
+      localStorage.removeItem(BRANCH_STATUS_VIEW_KEY);
+    } catch {
+      /* localStorage can be unavailable in private mode */
+    }
+  };
   const branchReadinessSummary = branchIntegrationStatuses.reduce((acc, row) => {
     const readiness = branchReadiness(row);
     if (readiness.percent >= 100 && !readiness.hasErrors) acc.ready += 1;
@@ -1463,6 +1504,14 @@ export default function Telefonia() {
     const bScore = br.blockers.length * 10 + (br.hasErrors ? 5 : 0) + (br.needsReview ? 3 : 0) - br.percent / 100;
     return bScore - aScore;
   });
+  const nextBranchToFix = branchIntegrationStatuses
+    .map((row) => ({ row, readiness: branchReadiness(row) }))
+    .filter(({ readiness }) => readiness.percent < 100 || readiness.hasErrors || readiness.needsReview)
+    .sort((a, b) => {
+      const aScore = a.readiness.blockers.length * 10 + (a.readiness.hasErrors ? 5 : 0) + (a.readiness.needsReview ? 3 : 0) - a.readiness.percent / 100;
+      const bScore = b.readiness.blockers.length * 10 + (b.readiness.hasErrors ? 5 : 0) + (b.readiness.needsReview ? 3 : 0) - b.readiness.percent / 100;
+      return bScore - aScore;
+    })[0]?.row || null;
   const buildBranchReadinessReport = () => {
     const lines = [
       'Raport podpiecia Agent AI / SMS - oddzialy',
@@ -1690,6 +1739,14 @@ export default function Telefonia() {
                 <button
                   type="button"
                   style={s.rowBtnActive}
+                  onClick={() => setAgentForm((f) => ({ ...f, oddzial_id: String(nextBranchToFix.oddzial_id) }))}
+                  disabled={!nextBranchToFix}
+                >
+                  Otworz najpilniejszy
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtnActive}
                   onClick={() => copyAgentText(buildBranchReadinessReport(), 'Raport oddzialow')}
                   disabled={!branchIntegrationStatuses.length}
                 >
@@ -1745,8 +1802,13 @@ export default function Telefonia() {
                       <option value="activity">Sortuj: aktywnosc rozmow</option>
                       <option value="name">Sortuj: nazwa A-Z</option>
                     </select>
+                    {branchStatusSort !== 'needs' && !branchStatusQuery && branchStatusFilter === 'all' ? (
+                      <button type="button" style={s.rowBtn} onClick={resetBranchStatusView}>
+                        Resetuj widok
+                      </button>
+                    ) : null}
                     {(branchStatusQuery || branchStatusFilter !== 'all') ? (
-                      <button type="button" style={s.rowBtn} onClick={() => { setBranchStatusFilter('all'); setBranchStatusQuery(''); }}>
+                      <button type="button" style={s.rowBtn} onClick={resetBranchStatusView}>
                         Wyczyść
                       </button>
                     ) : null}
@@ -1795,6 +1857,7 @@ export default function Telefonia() {
                           {readiness.blockers.length ? (
                             <div style={s.branchBlockers}>Braki: {readiness.blockers.join(', ')}</div>
                           ) : null}
+                          <div style={s.branchNextAction}>{branchNextAction(row)}</div>
                         </button>
                       );
                     })}
@@ -3499,6 +3562,16 @@ const s = {
     color: '#92400e',
     fontSize: 11,
     lineHeight: 1.35,
+  },
+  branchNextAction: {
+    marginTop: 7,
+    padding: 7,
+    borderRadius: 8,
+    background: 'rgba(15,95,58,0.08)',
+    color: '#0f5f3a',
+    fontSize: 11,
+    lineHeight: 1.35,
+    fontWeight: 800,
   },
   agentHealthGrid: {
     display: 'grid',

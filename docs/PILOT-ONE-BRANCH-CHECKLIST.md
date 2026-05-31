@@ -13,6 +13,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:observability` potwierdza health/ready/metrics, progi 5xx/p95 i storage smoke.
 - [ ] `npm run verify:incident-runbook` potwierdza reakcje na down API, p95, storage, Kommo/SMS i restore.
 - [ ] `npm run verify:kommo-sms-drill` potwierdza drill Kommo dead-letter, retry i SMS delivery fallback.
+- [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
 - [ ] `npm run deploy:prod:dry-run` potwierdza suchy przebieg env, migracji, backup/restore i smoke produkcyjnego.
 - [ ] Backend `os` jest zrodlem prawdy dla API produkcyjnego.
 - [ ] Jest utworzony admin, kierownik oddzialu i brygadzista testowy.
@@ -25,6 +26,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna produkcyjny dry-run: `docs/PRODUCTION-DEPLOY-DRY-RUN.md`.
 - [ ] Zespol zna minimum SLO i alertow: `docs/OBSERVABILITY-SLO-RUNBOOK.md`.
 - [ ] Zespol zna runbook incydentow: `docs/PRODUCTION-INCIDENT-RUNBOOK.md`.
+- [ ] Zespol zna RPO/RTO i restore drill: `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
 - [ ] Zespol zna drill integracji: `docs/KOMMO-SMS-INCIDENT-DRILL.md`.
 - [ ] Przebieg rolowy jest opisany w `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md`.
 

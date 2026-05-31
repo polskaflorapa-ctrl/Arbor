@@ -179,6 +179,7 @@ Kryterium zamkniecia: nowy SMS ma status dostarczenia albo znany, zaakceptowany 
 ## 8. Awaryjny restore
 
 Restore jest P1/P0 i wymaga potwierdzenia wlasciciela incydentu.
+Cele RPO/RTO, restore drill i wymagane dowody opisuje `docs/BACKUP-RPO-RTO-RUNBOOK.md`. Wpis incydentu musi zawierac zmierzone RPO i RTO albo powod, dla ktorego nie da sie ich policzyc.
 
 Najpierw sprawdz backup:
 

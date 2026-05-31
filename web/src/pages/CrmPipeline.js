@@ -679,18 +679,18 @@ export default function CrmPipeline() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell crm-pipeline-shell">
       <Sidebar />
-      <main className="app-main">
+      <main className="app-main crm-pipeline-main">
         <PageHeader
           title={t('crm.pipeline.title', { defaultValue: 'Pipeline leadów' })}
           subtitle={t('crm.pipeline.subtitle', { defaultValue: 'Zarządzaj etapami, ownerami i wartością szans sprzedaży.' })}
           variant="hero"
         />
-        <div className="app-content">
+        <div className="app-content crm-pipeline-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
 
-          <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
+          <section className="ios-inset crm-pipeline-create" style={{ padding: 12, marginBottom: 12 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>
               <input
                 className="ios-field"
@@ -736,7 +736,7 @@ export default function CrmPipeline() {
             </div>
           </section>
 
-          <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
+          <section className="ios-inset crm-pipeline-filters" style={{ padding: 12, marginBottom: 12 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 }}>
               <select
                 className="ios-field"
@@ -771,7 +771,7 @@ export default function CrmPipeline() {
             </div>
           </section>
 
-          <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
+          <section className="ios-inset crm-pipeline-panel crm-pipeline-templates" style={{ padding: 12, marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 800 }}>{t('crm.pipeline.templates.title', { defaultValue: 'Szablony wiadomości' })}</div>
@@ -837,7 +837,7 @@ export default function CrmPipeline() {
             </div>
           </section>
 
-          <section className="ios-inset" style={{ padding: 12, marginBottom: 12 }}>
+          <section className="ios-inset crm-pipeline-panel crm-pipeline-workflows" style={{ padding: 12, marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontWeight: 800 }}>{t('crm.pipeline.workflows.title', { defaultValue: 'Automatyzacje' })}</div>
@@ -900,11 +900,11 @@ export default function CrmPipeline() {
             </div>
           </section>
 
-          <section style={{ display: 'grid', gridTemplateColumns: `repeat(${STAGES.length}, minmax(220px, 1fr))`, gap: 10, overflowX: 'auto' }}>
+          <section className="crm-pipeline-board" style={{ display: 'grid', gridTemplateColumns: `repeat(${STAGES.length}, minmax(220px, 1fr))`, gap: 10, overflowX: 'auto' }}>
             {STAGES.map((stage) => (
               <div
                 key={stage}
-                className="ios-inset"
+                className="ios-inset crm-pipeline-column"
                 style={{ minHeight: 280, padding: 10 }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={async () => {
@@ -922,7 +922,7 @@ export default function CrmPipeline() {
                 </div>
                 <div className="ios-inset-list">
                   {(leadsByStage[stage] || []).map((lead) => (
-                    <div key={lead.id} className="ios-inset-row" style={{ display: 'grid', gap: 8 }}>
+                    <div key={lead.id} className="ios-inset-row crm-pipeline-lead-card" style={{ display: 'grid', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                         <span
                           draggable

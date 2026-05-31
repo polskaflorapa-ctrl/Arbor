@@ -43,6 +43,14 @@ npm run backup:db
 
 Encrypted output uses `latest.dump.enc`.
 
+## RPO/RTO targets
+
+Operational RPO/RTO is defined in `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
+Minimum pilot targets are RPO <= 24h and RTO <= 4h. After migration, import,
+admin bootstrap or other major production change, take a backup within 15 min
+and verify it with a restore dry-run. Run a monthly restore drill on a fresh or
+intentionally replaceable database and record the evidence.
+
 ## Verify a backup before restore
 
 ```powershell
