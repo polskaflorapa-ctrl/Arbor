@@ -41,12 +41,15 @@ const {
   buildFinishMaterialUsage,
   buildFinishOperationalCostRows,
   buildFinishProtocolNotes,
+  buildPhotoGalleryFilters,
   compactLines,
   createOfficePlanForm,
   extractNoteValue,
+  filterBriefingPhotos,
   filterPhotosByGalleryFilter,
   formatApiWorkflowError,
   isCheckinWorkLog,
+  hasMinimumFinishPhotos,
   noteHasClientAccepted,
   parseOptionalFinishMoney,
   parseSafetyLogRows,
@@ -87,6 +90,9 @@ function run() {
   });
   assert.deepEqual(filterPhotosByGalleryFilter(photoRows, 'inne').map((row) => row.id), [6, 7]);
   assert.deepEqual(filterPhotosByGalleryFilter(photoRows, 'all').map((row) => row.id), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(filterBriefingPhotos(photoRows).map((row) => row.id), [1, 2, 4]);
+  assert.equal(hasMinimumFinishPhotos([{ typ: 'po' }, { typ: 'after' }], 'after', 2), true);
+  assert.equal(hasMinimumFinishPhotos([{ typ: 'przed' }], 'before', 2), false);
   assert.deepEqual(photoGalleryGroupKeys('po'), ['po']);
   assert.deepEqual(photoPreviewState(photoRows, [photoRows[4]], null), {
     activePhoto: photoRows[4],
@@ -107,6 +113,28 @@ function run() {
   assert.equal(photoTypeKey('unknown'), 'inne');
   assert.equal(photoTypeLabel('szkic'), 'Szkic zakresu');
   assert.equal(photoTypeLabel('unknown'), 'Inne');
+  const themeForPhotos = {
+    accent: '#1',
+    info: '#2',
+    warning: '#3',
+    success: '#4',
+    textSub: '#5',
+    textMuted: '#6',
+  };
+  assert.deepEqual(buildPhotoGalleryFilters(photoRows, themeForPhotos).map((filter) => ({
+    key: filter.key,
+    count: filter.count,
+    icon: filter.icon,
+  })), [
+    { key: 'all', count: 7, icon: 'images-outline' },
+    { key: 'wycena', count: 1, icon: 'clipboard' },
+    { key: 'szkic', count: 1, icon: 'create' },
+    { key: 'dojazd', count: 0, icon: 'navigate' },
+    { key: 'checkin', count: 1, icon: 'location' },
+    { key: 'przed', count: 0, icon: 'camera' },
+    { key: 'po', count: 1, icon: 'checkmark-circle' },
+    { key: 'inne', count: 2, icon: 'images' },
+  ]);
 
   assert.equal(absolutePhotoUrl('file:///tmp/photo.jpg'), 'file:///tmp/photo.jpg');
   assert.equal(absolutePhotoUrl('content://media/photo'), 'content://media/photo');

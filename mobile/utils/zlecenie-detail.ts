@@ -217,6 +217,14 @@ export type PhotoPreviewState<T> = {
   counter: string;
 };
 
+export type PhotoGalleryFilter = {
+  key: PhotoFilterKey;
+  label: string;
+  count: number;
+  icon: IoniconName;
+  color: string;
+};
+
 export const EMPTY_FINISH_OPERATIONAL_COSTS: FinishOperationalCosts = {
   sprzet: '',
   paliwo: '',
@@ -279,6 +287,19 @@ export function taskPhotoEvidenceCounts(photos: unknown[]): PhotoEvidenceCounts 
   };
 }
 
+export function hasMinimumFinishPhotos(photos: unknown[], kind: 'before' | 'after', minimum: number) {
+  const allowed = kind === 'after' ? ['po', 'after'] : ['przed', 'before', 'checkin'];
+  return countPhotosByTypes(photos, allowed) >= minimum;
+}
+
+export function isBriefingPhoto(photo: unknown) {
+  return photoTypMatches((photo as any)?.typ, ['wycena', 'szkic', 'dojazd', 'przed', 'checkin']);
+}
+
+export function filterBriefingPhotos<T>(photos: T[]): T[] {
+  return photos.filter(isBriefingPhoto);
+}
+
 export function photoMatchesFilter(photo: unknown, filter: PhotoFilterKey) {
   if (filter === 'all') return true;
   if (filter === 'inne') return photoTypMatches((photo as any)?.typ, ['inne', 'other', '']);
@@ -332,6 +353,20 @@ export function nextPreviewPhoto<T>(photoList: T[], safeIndex: number, direction
   if (!photoList.length) return null;
   const nextIndex = (safeIndex + direction + photoList.length) % photoList.length;
   return photoList[nextIndex] || null;
+}
+
+export function buildPhotoGalleryFilters(photos: unknown[], theme: Theme): PhotoGalleryFilter[] {
+  const meta = orderPhotoTypeMeta(theme);
+  return [
+    { key: 'all', label: 'Wszystkie', count: photos.length, icon: 'images-outline', color: theme.accent },
+    ...TYP_ZDJECIA_KEYS.map((key) => ({
+      key,
+      label: PHOTO_TYPE_LABELS[key] || key,
+      count: filterPhotosByGalleryFilter(photos, key).length,
+      icon: meta[key].icon,
+      color: meta[key].color,
+    })),
+  ];
 }
 
 export function isCheckinWorkLog(log: unknown) {

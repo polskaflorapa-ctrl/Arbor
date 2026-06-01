@@ -14,6 +14,8 @@ import ViewShot from 'react-native-view-shot';
 import Svg, { Path as SvgPath } from 'react-native-svg';
 import { OfflineQueueBanner } from '../../components/ui/app-state';
 import { InfoRow } from '../../components/task-info-row';
+import { TaskPhotoFilterStrip } from '../../components/task-photo-filter-strip';
+import { TaskPhotoHeroPreview } from '../../components/task-photo-hero-preview';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../../components/ui/platinum-cta';
 import { PlatinumIconBadge } from '../../components/ui/platinum-icon-badge';
@@ -63,6 +65,7 @@ import {
   buildFinishMaterialUsage,
   buildFinishOperationalCostRows,
   buildFinishProtocolNotes,
+  buildPhotoGalleryFilters,
   compactLines,
   createOfficePlanForm,
   DEFAULT_FIELD_SETTLEMENT,
@@ -70,12 +73,14 @@ import {
   equipmentIdFromReservation,
   estimatorDisplayName,
   extractNoteValue,
+  filterBriefingPhotos,
   filterPhotosByGalleryFilter,
   formatApiWorkflowError,
   isCheckinWorkLog,
   isCrewRole,
   isHhMm,
   isYmd,
+  hasMinimumFinishPhotos,
   normalizeWorkflowMatch,
   noteHasClientAccepted,
   orderPhotoTypeMeta,
@@ -85,9 +90,7 @@ import {
   parseSafetyLogRows,
   photoGalleryGroupKeys,
   photoPreviewState,
-  photoTypeKey,
   photoTypeLabel,
-  photoTypMatches,
   positiveNumber,
   readApiErrorBody,
   SAFETY_CHECKLIST_ITEMS,
@@ -171,14 +174,8 @@ export default function ZlecenieDetailScreen() {
   const MIN_FINISH_TYP_PHOTOS = 2;
   const finishRequirements: FinishRequirements = useMemo(() => {
     const raw = zlecenie?.finish_requirements as Partial<FinishRequirements> | undefined;
-    const countPoLocal = zdjecia.filter((z: { typ?: string }) =>
-      photoTypMatches(z?.typ, ['po', 'after']),
-    ).length;
-    const countPrzedLocal = zdjecia.filter((z: { typ?: string }) =>
-      photoTypMatches(z?.typ, ['przed', 'before', 'checkin']),
-    ).length;
-    const hasPoLocal = countPoLocal >= MIN_FINISH_TYP_PHOTOS;
-    const hasPrzedLocal = countPrzedLocal >= MIN_FINISH_TYP_PHOTOS;
+    const hasPoLocal = hasMinimumFinishPhotos(zdjecia, 'after', MIN_FINISH_TYP_PHOTOS);
+    const hasPrzedLocal = hasMinimumFinishPhotos(zdjecia, 'before', MIN_FINISH_TYP_PHOTOS);
     if (raw && typeof raw.require_po_photo === 'boolean') {
       return {
         require_po_photo: !!raw.require_po_photo,
@@ -2228,8 +2225,7 @@ export default function ZlecenieDetailScreen() {
     zlecenie.arborysta ? 'Arborysta' : '',
   ];
   const taskEquipmentList = uniqueStrings([...equipmentFromTask, ...equipmentFromBrief, ...equipmentFromOfficePlan]);
-  const briefingPhotos = zdjecia
-    .filter((photo: any) => photoTypMatches(photo?.typ, ['wycena', 'szkic', 'dojazd', 'przed', 'checkin']))
+  const briefingPhotos = filterBriefingPhotos(zdjecia)
     .slice(0, 4);
   const safetyChecklistRows = SAFETY_CHECKLIST_ITEMS.map((item) => ({
     ...item,
@@ -2924,26 +2920,7 @@ export default function ZlecenieDetailScreen() {
       icon: 'people-outline' as IoniconName,
     },
   ];
-  const photoGalleryFilters: {
-    key: PhotoFilterKey;
-    label: string;
-    count: number;
-    icon: IoniconName;
-    color: string;
-  }[] = [
-    { key: 'all', label: 'Wszystkie', count: zdjecia.length, icon: 'images-outline', color: theme.accent },
-    ...TYP_ZDJECIA_KEYS.map((key) => {
-      const meta = photoTypeMeta[key];
-      const count = filterPhotosByGalleryFilter(zdjecia, key).length;
-      return {
-        key,
-        label: PHOTO_TYPE_LABELS[key] || key,
-        count,
-        icon: meta.icon,
-        color: meta.color,
-      };
-    }),
-  ];
+  const photoGalleryFilters = buildPhotoGalleryFilters(zdjecia, theme);
   const filteredGalleryPhotos = filterPhotosByGalleryFilter(zdjecia, photoFilter);
   const galleryGroupKeys = photoGalleryGroupKeys(photoFilter);
   const {
@@ -6631,78 +6608,25 @@ export default function ZlecenieDetailScreen() {
                 </View>
               </View>
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.photoFilterStrip}>
-                {photoGalleryFilters.map((filter) => {
-                  const active = photoFilter === filter.key;
-                  const disabled = filter.count === 0 && filter.key !== 'all';
-                  return (
-                    <TouchableOpacity
-                      key={filter.key}
-                      style={[
-                        S.photoFilterChip,
-                        {
-                          borderColor: active ? filter.color : theme.border,
-                          backgroundColor: active ? filter.color + '18' : theme.surface2,
-                          opacity: disabled ? 0.45 : 1,
-                        },
-                      ]}
-                      onPress={() => {
-                        void triggerHaptic('light');
-                        setPhotoFilter(filter.key);
-                        setPhotoPreview(null);
-                      }}
-                      disabled={disabled}
-                    >
-                      <Ionicons name={filter.icon} size={14} color={active ? filter.color : theme.textMuted} />
-                      <Text style={[S.photoFilterText, { color: active ? filter.color : theme.textSub }]} numberOfLines={1}>
-                        {filter.label}
-                      </Text>
-                      <Text style={[S.photoFilterCount, { color: active ? filter.color : theme.textMuted }]}>
-                        {filter.count}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              <TaskPhotoFilterStrip
+                filters={photoGalleryFilters}
+                activeFilter={photoFilter}
+                theme={theme}
+                onSelect={(filter) => {
+                  void triggerHaptic('light');
+                  setPhotoFilter(filter);
+                  setPhotoPreview(null);
+                }}
+              />
 
-              {activePreviewPhoto ? (
-                <TouchableOpacity
-                  style={[S.photoHeroCard, { backgroundColor: theme.surface2, borderColor: theme.border }]}
-                  onPress={() => {
-                    void triggerHaptic('light');
-                    setPhotoPreview(activePreviewPhoto);
-                  }}
-                >
-                  <Image source={{ uri: absolutePhotoUrl(activePreviewPhoto.url || activePreviewPhoto.sciezka) }} style={S.photoHeroImage} />
-                  <View style={S.photoHeroOverlay}>
-                    <View style={[S.photoHeroTypeBadge, { backgroundColor: theme.cardBg + 'EE' }]}>
-                      <Ionicons
-                        name={photoTypeMeta[photoTypeKey(activePreviewPhoto.typ)]?.icon || 'image-outline'}
-                        size={14}
-                        color={theme.accent}
-                      />
-                      <Text style={[S.photoHeroTypeText, { color: theme.text }]} numberOfLines={1}>
-                        {photoTypeLabel(activePreviewPhoto.typ)}
-                      </Text>
-                    </View>
-                    <Text style={S.photoHeroOpen}>Podgląd</Text>
-                  </View>
-                  <View style={S.photoHeroCaption}>
-                    <Text style={[S.photoHeroTitle, { color: theme.text }]} numberOfLines={2}>
-                      {activePreviewPhoto.opis || 'Bez opisu - kliknij, żeby pokazać większy podgląd.'}
-                    </Text>
-                    <Text style={[S.photoHeroMeta, { color: theme.textMuted }]} numberOfLines={1}>
-                      {new Date(activePreviewPhoto.data_dodania || activePreviewPhoto.created_at || Date.now()).toLocaleString('pl-PL')}
-                      {activePreviewPhoto.lokalizacja ? ` · GPS: ${activePreviewPhoto.lokalizacja}` : ''}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ) : (
-                <View style={[S.photoGalleryEmpty, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
-                  <Ionicons name="images-outline" size={22} color={theme.textMuted} />
-                  <Text style={[S.photoGalleryEmptyText, { color: theme.textMuted }]}>Brak zdjęć w tym filtrze.</Text>
-                </View>
-              )}
+              <TaskPhotoHeroPreview
+                photo={activePreviewPhoto}
+                theme={theme}
+                onPress={(photo) => {
+                  void triggerHaptic('light');
+                  setPhotoPreview(photo);
+                }}
+              />
             </View>
 
             {isFieldDraft ? (
@@ -9781,68 +9705,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     paddingHorizontal: 8,
   },
   photoGalleryScoreText: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  photoFilterStrip: { gap: 8, paddingRight: 4 },
-  photoFilterChip: {
-    minHeight: 38,
-    maxWidth: 148,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  photoFilterText: { fontSize: 11.5, fontWeight: '900', maxWidth: 82 },
-  photoFilterCount: { fontSize: 11, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  photoHeroCard: {
-    borderWidth: 1,
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  photoHeroImage: { width: '100%', height: 230 },
-  photoHeroOverlay: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    top: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  photoHeroTypeBadge: {
-    maxWidth: '70%',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  photoHeroTypeText: { fontSize: 11, fontWeight: '900' },
-  photoHeroOpen: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '900',
-    backgroundColor: 'rgba(0,0,0,0.48)',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    overflow: 'hidden',
-  },
-  photoHeroCaption: { padding: 11, gap: 3 },
-  photoHeroTitle: { fontSize: 13, fontWeight: '800', lineHeight: 18 },
-  photoHeroMeta: { fontSize: 10.5, lineHeight: 15 },
-  photoGalleryEmpty: {
-    minHeight: 118,
-    borderWidth: 1,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  photoGalleryEmptyText: { fontSize: 12, fontWeight: '800' },
   photoPreviewOverlay: {
     flex: 1,
     backgroundColor: 'rgba(4,8,16,0.9)',
