@@ -919,6 +919,38 @@ CREATE INDEX IF NOT EXISTS idx_task_finish_usage_task ON task_finish_material_us
 ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS koszt_jednostkowy NUMERIC(12,2);
 ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS koszt_laczny NUMERIC(12,2);
 
+-- EPIC 6.3 - magazyn materialow eksploatacyjnych: stany, przyjecia i rozchod na zlecenie
+CREATE TABLE IF NOT EXISTS inventory_materials (
+  id               SERIAL PRIMARY KEY,
+  oddzial_id       INTEGER REFERENCES oddzialy(id) ON DELETE SET NULL,
+  nazwa            VARCHAR(200) NOT NULL,
+  jednostka        VARCHAR(24) NOT NULL DEFAULT 'szt',
+  sku              VARCHAR(80),
+  min_stan         NUMERIC(14,4) NOT NULL DEFAULT 0,
+  koszt_jednostkowy NUMERIC(12,2),
+  stan             NUMERIC(14,4) NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (oddzial_id, sku)
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_materials_branch ON inventory_materials (oddzial_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_materials_name ON inventory_materials (nazwa);
+
+CREATE TABLE IF NOT EXISTS inventory_movements (
+  id               SERIAL PRIMARY KEY,
+  material_id      INTEGER NOT NULL REFERENCES inventory_materials(id) ON DELETE CASCADE,
+  oddzial_id       INTEGER REFERENCES oddzialy(id) ON DELETE SET NULL,
+  typ              VARCHAR(20) NOT NULL CHECK (typ IN ('przyjecie', 'rozchod')),
+  ilosc            NUMERIC(14,4) NOT NULL CHECK (ilosc > 0),
+  task_id          INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  koszt_jednostkowy NUMERIC(12,2),
+  notatka          TEXT,
+  user_id          INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_material ON inventory_movements (material_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_task ON inventory_movements (task_id);
+
 CREATE TABLE IF NOT EXISTS task_operational_costs (
   id            SERIAL PRIMARY KEY,
   task_id       INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

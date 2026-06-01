@@ -24,6 +24,7 @@ const uzytkownicyRoutes = require('./routes/uzytkownicy');
 const oddzialyRoutes = require('./routes/oddzialy');
 const ekipyRoutes = require('./routes/ekipy');
 const flotaRoutes = require('./routes/flota');
+const magazynRoutes = require('./routes/magazyn');
 const notificationsRoutes = require('./routes/notifications');
 const raportyRoutes = require('./routes/raporty');
 const wycenyRoutes = require('./routes/wyceny');
@@ -137,6 +138,7 @@ const createApp = () => {
   app.use('/api/oddzialy', oddzialyRoutes);
   app.use('/api/ekipy', ekipyRoutes);
   app.use('/api/flota', flotaRoutes);
+  app.use('/api/magazyn', magazynRoutes);
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/raporty', raportyRoutes);
   app.use('/api/wyceny', wycenyRoutes);

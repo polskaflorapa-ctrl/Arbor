@@ -25,6 +25,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:dispatcher-day-plan` potwierdza wczytanie zapisanego planu dispatchera do harmonogramu/cockpitu i zastosowanie go w panelu kierownika.
 - [ ] `npm run verify:machine-cards-crud` potwierdza CRUD kart maszyn, przypisanie do ekipy/oddzialu i scope oddzialu.
 - [ ] `npm run verify:machine-usage-blocks` potwierdza `MACHINE-USAGE-BLOCKS-CONTRACT.md`: przypomnienia przegladow/OC/motogodzin i blokade uzycia sprzetu po terminie.
+- [ ] `npm run verify:material-inventory` potwierdza `MATERIAL-INVENTORY-CONTRACT.md`: stany materialow, przyjecia i rozchod na zlecenie.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.

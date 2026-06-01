@@ -72,6 +72,7 @@
     "verify:dispatcher-day-plan": "node ./scripts/dispatcher-day-plan-check.cjs",
     "verify:machine-cards-crud": "node ./scripts/machine-cards-crud-check.cjs",
     "verify:machine-usage-blocks": "node ./scripts/machine-usage-blocks-check.cjs",
+    "verify:material-inventory": "node ./scripts/material-inventory-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
