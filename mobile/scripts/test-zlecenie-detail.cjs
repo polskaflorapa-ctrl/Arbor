@@ -37,8 +37,10 @@ fn(localRequire, moduleRef.exports, moduleRef);
 
 const {
   absolutePhotoUrl,
+  buildFinishBody,
   buildFinishMaterialUsage,
   buildFinishOperationalCostRows,
+  buildFinishProtocolNotes,
   compactLines,
   createOfficePlanForm,
   extractNoteValue,
@@ -49,6 +51,7 @@ const {
   parseSafetyLogRows,
   photoTypMatches,
   suggestedFinishOperationalCosts,
+  validateFinishPayment,
   workflowPhotoFilterFor,
   workflowTargetFor,
 } = moduleRef.exports;
@@ -95,6 +98,100 @@ function run() {
       { category: 'inne', label: 'Inne', amount: 12.5 },
     ],
   }), { sprzet: '150', paliwo: '', utylizacja: '', inne: '12.5' });
+  assert.deepEqual(validateFinishPayment({
+    forma_platnosc: 'Gotowka',
+    kwota_odebrana: '120,50',
+    faktura_vat: false,
+    nip: '',
+  }), { ok: true, cashAmount: 120.5, nip: null });
+  assert.deepEqual(validateFinishPayment({
+    forma_platnosc: 'Gotowka',
+    kwota_odebrana: '-1',
+    faktura_vat: false,
+    nip: '',
+  }), { ok: false, reason: 'cash_amount' });
+  assert.deepEqual(validateFinishPayment({
+    forma_platnosc: 'Faktura_VAT',
+    kwota_odebrana: '',
+    faktura_vat: true,
+    nip: '123 456 7890',
+  }), { ok: true, cashAmount: null, nip: '1234567890' });
+  assert.deepEqual(validateFinishPayment({
+    forma_platnosc: 'Faktura_VAT',
+    kwota_odebrana: '',
+    faktura_vat: true,
+    nip: '123',
+  }), { ok: false, reason: 'nip' });
+  assert.deepEqual(buildFinishProtocolNotes({
+    paymentNote: 'Platnosc przy odbiorze',
+    safetyRows: [
+      { done: true, label: 'Strefa pracy' },
+      { done: false, label: 'Sprzet' },
+    ],
+    afterPhotosCount: 3,
+    unresolvedIssuesCount: 1,
+    hasClientSignature: true,
+    clientSignerName: 'Jan',
+    finishClientAccepted: false,
+    usageName: 'Olej',
+    materialUsage: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt' }],
+  }), {
+    safetyProtocolNote: 'BHP przed startem: 1/2 punktow.\nOK Strefa pracy\nBRAK Sprzet',
+    closeProtocolNote: 'BHP przed startem: 1/2 punktow.\nOK Strefa pracy\nBRAK Sprzet\nZamknięcie mobilne: zdjęcia po 3; problemy otwarte 1.\nOdbiór klienta: podpis Jan.\nMateriały: Olej (2 szt.).',
+    noteTrim: 'Platnosc przy odbiorze\nBHP przed startem: 1/2 punktow.\nOK Strefa pracy\nBRAK Sprzet\nZamknięcie mobilne: zdjęcia po 3; problemy otwarte 1.\nOdbiór klienta: podpis Jan.\nMateriały: Olej (2 szt.).',
+  });
+  assert.deepEqual(buildFinishBody({
+    coords: { lat: 52.1, lng: 21 },
+    notes: {
+      safetyProtocolNote: 'BHP',
+      closeProtocolNote: 'Close',
+      noteTrim: 'Platnosc\nClose',
+    },
+    materialUsage: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 }],
+    operationalCostRows: [{ category: 'paliwo', label: 'Paliwo', amount: 45.5 }],
+    paymentForm: { forma_platnosc: 'Gotowka', faktura_vat: false },
+    paymentValidation: { ok: true, cashAmount: 120.5, nip: null },
+    paymentNote: 'Platnosc',
+  }), {
+    lat: 52.1,
+    lng: 21,
+    notatki: 'Platnosc\nClose',
+    zuzyte_materialy: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 }],
+    koszty_operacyjne: [{ category: 'paliwo', label: 'Paliwo', amount: 45.5 }],
+    payment: {
+      forma_platnosc: 'Gotowka',
+      kwota_odebrana: 120.5,
+      faktura_vat: false,
+      nip: null,
+      notatki: 'Platnosc',
+    },
+  });
+  assert.deepEqual(buildFinishBody({
+    coords: { lat: 52.1, lng: 21.2 },
+    notes: {
+      safetyProtocolNote: 'BHP',
+      closeProtocolNote: 'Zamkniecie',
+      noteTrim: 'Platnosc\nZamkniecie',
+    },
+    materialUsage: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt', koszt_laczny: 30 }],
+    operationalCostRows: [{ category: 'paliwo', amount: 20, label: 'paliwo', source: 'mobile_finish' }],
+    paymentForm: { forma_platnosc: 'Gotowka', faktura_vat: false },
+    paymentValidation: { ok: true, cashAmount: 120.5, nip: null },
+    paymentNote: 'Platnosc',
+  }), {
+    lat: 52.1,
+    lng: 21.2,
+    notatki: 'Platnosc\nZamkniecie',
+    zuzyte_materialy: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt', koszt_laczny: 30 }],
+    koszty_operacyjne: [{ category: 'paliwo', amount: 20, label: 'paliwo', source: 'mobile_finish' }],
+    payment: {
+      forma_platnosc: 'Gotowka',
+      kwota_odebrana: 120.5,
+      faktura_vat: false,
+      nip: null,
+      notatki: 'Platnosc',
+    },
+  });
 
   assert.deepEqual(parseSafetyLogRows('[{"key":"zone","label":"Strefa","done":true}]'), [
     { key: 'zone', label: 'Strefa', hint: null, done: true },

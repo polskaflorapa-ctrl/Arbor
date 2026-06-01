@@ -329,7 +329,14 @@ async function testTaskDetailCachePreservesPendingOfflineFieldFlow() {
       active_work_started_at: null,
       last_work_finished_at: '2026-05-31T10:30:00.000Z',
       mobile_finish_pending: true,
-      mobile_finish_payload: { payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 1200 } },
+      mobile_finish_payload: {
+        payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 1200 },
+        zuzyte_materialy: [{ nazwa: 'Olej do pilarki', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 }],
+        koszty_operacyjne: [
+          { category: 'paliwo', amount: 45.5, label: 'paliwo', source: 'mobile_finish' },
+          { category: 'utylizacja', amount: 120, label: 'utylizacja', source: 'mobile_finish' },
+        ],
+      },
     },
     logi: [
       {
@@ -375,6 +382,11 @@ async function testTaskDetailCachePreservesPendingOfflineFieldFlow() {
   assert.ok(cached);
   assert.equal(cached.task.mobile_finish_pending, true);
   assert.equal(cached.task.mobile_finish_payload.payment.kwota_odebrana, 1200);
+  assert.deepEqual(cached.task.mobile_finish_payload.zuzyte_materialy, [
+    { nazwa: 'Olej do pilarki', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 },
+  ]);
+  assert.deepEqual(cached.task.mobile_finish_payload.koszty_operacyjne.map((row) => row.category), ['paliwo', 'utylizacja']);
+  assert.equal(cached.task.mobile_finish_payload.koszty_operacyjne[0].amount, 45.5);
   assert.equal(cached.logi.some((row) => row.offline_pending === true), true);
   assert.equal(cached.logi.some((row) => row.offline_finish_pending === true), true);
   assert.equal(cached.problemy[0].offline_pending, true);
@@ -412,6 +424,43 @@ async function testQueueTaskProblemOfflineUsesStableIdAndDedupe() {
   });
 }
 
+async function testQueueTaskFinishOfflinePreservesMaterialsCostsAndDedupe() {
+  const { api, readQueue } = createHarness();
+  const body = {
+    lat: 52.1,
+    lng: 21,
+    payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 1200 },
+    zuzyte_materialy: [{ nazwa: 'Olej do pilarki', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 }],
+    koszty_operacyjne: [
+      { category: 'paliwo', amount: 45.5, label: 'paliwo', source: 'mobile_finish' },
+      { category: 'utylizacja', amount: 120, label: 'utylizacja', source: 'mobile_finish' },
+    ],
+  };
+
+  const count = await api.queueTaskFinishOffline({
+    id: 'finish-offline-1',
+    url: 'https://api.example.test/tasks/101/finish',
+    body,
+  });
+  await api.queueTaskFinishOffline({
+    id: 'finish-offline-1',
+    url: 'https://api.example.test/tasks/101/finish',
+    body: { ...body, notatki: 'updated' },
+  });
+
+  const queue = readQueue();
+  assert.equal(count, 1);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].id, 'finish-offline-1');
+  assert.equal(queue[0].dedupeKey, 'finish:finish-offline-1');
+  assert.equal(queue[0].url, 'https://api.example.test/tasks/101/finish');
+  assert.equal(queue[0].method, 'POST');
+  assert.equal(queue[0].body.notatki, 'updated');
+  assert.deepEqual(queue[0].body.zuzyte_materialy, body.zuzyte_materialy);
+  assert.deepEqual(queue[0].body.koszty_operacyjne.map((row) => row.category), ['paliwo', 'utylizacja']);
+  assert.equal(queue[0].body.payment.kwota_odebrana, 1200);
+}
+
 async function run() {
   const tests = [
     testDedupeAndLimit,
@@ -425,6 +474,7 @@ async function run() {
     testTaskDetailCacheRoundTrip,
     testTaskDetailCachePreservesPendingOfflineFieldFlow,
     testQueueTaskProblemOfflineUsesStableIdAndDedupe,
+    testQueueTaskFinishOfflinePreservesMaterialsCostsAndDedupe,
   ];
   for (const test of tests) {
     await test();

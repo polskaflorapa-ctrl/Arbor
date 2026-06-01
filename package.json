@@ -61,6 +61,7 @@
     "verify:mobile-problem-flow": "node ./scripts/mobile-problem-flow-check.cjs",
     "verify:mobile-before-after-photo": "node ./scripts/mobile-before-after-photo-check.cjs",
     "verify:mobile-photo-enforcement": "node ./scripts/mobile-photo-enforcement-check.cjs",
+    "verify:mobile-material-cost-flow": "node ./scripts/mobile-material-cost-flow-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

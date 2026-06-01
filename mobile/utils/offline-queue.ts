@@ -258,3 +258,19 @@ export async function queueTaskProblemOffline(args: {
   });
   return getOfflineQueueSize();
 }
+
+/** Kolejka zakonczenia zlecenia (POST `/tasks/:id/finish`) po powrocie online. */
+export async function queueTaskFinishOffline(args: {
+  id?: string;
+  url: string;
+  body: Record<string, unknown>;
+}): Promise<number> {
+  await enqueueOfflineRequest({
+    id: args.id,
+    dedupeKey: args.id ? `finish:${args.id}` : undefined,
+    url: args.url,
+    method: 'POST',
+    body: args.body,
+  });
+  return getOfflineQueueSize();
+}

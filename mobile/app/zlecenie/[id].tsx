@@ -30,6 +30,7 @@ import {
   flushOfflineQueue,
   getOfflineQueueSize,
   queueRequestWithOfflineFallback,
+  queueTaskFinishOffline,
   queueTaskPhotoOffline,
   queueTaskProblemOffline,
 } from '../../utils/offline-queue';
@@ -57,11 +58,14 @@ import {
 import { triggerHaptic } from '../../utils/haptics';
 import {
   absolutePhotoUrl,
+  buildFinishBody,
   buildFinishMaterialUsage,
   buildFinishOperationalCostRows,
+  buildFinishProtocolNotes,
   compactLines,
   createOfficePlanForm,
   DEFAULT_FIELD_SETTLEMENT,
+  EMPTY_FINISH_OPERATIONAL_COSTS,
   equipmentIdFromReservation,
   estimatorDisplayName,
   extractNoteValue,
@@ -87,6 +91,7 @@ import {
   todayKey,
   TYP_ZDJECIA_KEYS,
   uniqueStrings,
+  validateFinishPayment,
   workflowPhotoFilterFor,
   workflowTargetFor,
   ymdFromValue,
@@ -1152,7 +1157,7 @@ export default function ZlecenieDetailScreen() {
       return;
     }
     setFinishUsageKoszt('');
-    setFinishOperationalCosts({ sprzet: '', paliwo: '', utylizacja: '', inne: '' });
+    setFinishOperationalCosts(EMPTY_FINISH_OPERATIONAL_COSTS);
     setFinishCostSuggestions(null);
     setFinishModal(true);
     void loadFinishCostSuggestions().then((data) => {
@@ -1162,20 +1167,16 @@ export default function ZlecenieDetailScreen() {
   };
 
   const submitFinish = async () => {
-    const { forma_platnosc, kwota_odebrana, faktura_vat, nip } = payForm;
-    if (forma_platnosc === 'Gotowka') {
-      const k = parseFloat(String(kwota_odebrana).replace(',', '.'));
-      if (!Number.isFinite(k) || k < 0) {
-        Alert.alert('Uwaga', 'Podaj kwotę odebraną (gotówka).');
-        return;
-      }
-    }
-    if (faktura_vat || forma_platnosc === 'Faktura_VAT') {
-      const n = String(nip || '').replace(/\s/g, '');
-      if (n.length < 10) {
-        Alert.alert('Uwaga', 'Podaj NIP przy fakturze VAT.');
-        return;
-      }
+    const { forma_platnosc, faktura_vat } = payForm;
+    const paymentValidation = validateFinishPayment(payForm);
+    if (!paymentValidation.ok) {
+      Alert.alert(
+        'Uwaga',
+        paymentValidation.reason === 'cash_amount'
+          ? 'Podaj kwotę odebraną (gotówka).'
+          : 'Podaj NIP przy fakturze VAT.',
+      );
+      return;
     }
     if (finishRequirements.require_material_usage && !finishUsageNazwa.trim()) {
       void triggerHaptic('warning');
@@ -1264,35 +1265,26 @@ export default function ZlecenieDetailScreen() {
       const usageNazwa = finishUsageNazwa.trim();
       const zuzyte_materialy = buildFinishMaterialUsage(usageNazwa, finishUsageIlosc, usageCost.amount);
       const paymentNote = finishNotatki.trim();
-      const safetyProtocolNote = [
-        `BHP przed startem: ${safetyDoneCount}/${safetyChecklistRows.length} punktow.`,
-        ...safetyChecklistRows.map((row) => `${row.done ? 'OK' : 'BRAK'} ${row.label}`),
-      ].join('\n');
-      const closeProtocolNote = [
-        safetyProtocolNote,
-        `Zamknięcie mobilne: zdjęcia po ${afterPhotosCount}; problemy otwarte ${unresolvedIssuesCount}.`,
-        hasClientSignature
-          ? `Odbiór klienta: podpis ${clientSignature?.signer_name || 'dodany'}.`
-          : finishClientAccepted
-            ? 'Odbiór klienta: potwierdzony bez podpisu.'
-            : 'Odbiór klienta: brak potwierdzenia.',
-        usageNazwa ? `Materiały: ${usageNazwa}${zuzyte_materialy?.[0]?.ilosc != null ? ` (${zuzyte_materialy[0].ilosc} szt.)` : ''}.` : '',
-      ].filter(Boolean).join('\n');
-      const noteTrim = [paymentNote, closeProtocolNote].filter(Boolean).join('\n');
-      finishBody = {
-        lat: coords?.lat ?? null,
-        lng: coords?.lng ?? null,
-        notatki: noteTrim,
-        ...(zuzyte_materialy ? { zuzyte_materialy } : {}),
-        ...(operationalCostRows.length ? { koszty_operacyjne: operationalCostRows } : {}),
-        payment: {
-          forma_platnosc,
-          kwota_odebrana: forma_platnosc === 'Gotowka' ? parseFloat(String(kwota_odebrana).replace(',', '.')) : null,
-          faktura_vat: !!faktura_vat,
-          nip: nip || null,
-          ...(paymentNote ? { notatki: paymentNote } : {}),
-        },
-      };
+      const notes = buildFinishProtocolNotes({
+        paymentNote,
+        safetyRows: safetyChecklistRows,
+        afterPhotosCount,
+        unresolvedIssuesCount,
+        hasClientSignature,
+        clientSignerName: clientSignature?.signer_name,
+        finishClientAccepted,
+        usageName: usageNazwa,
+        materialUsage: zuzyte_materialy,
+      });
+      finishBody = buildFinishBody({
+        coords,
+        notes,
+        materialUsage: zuzyte_materialy,
+        operationalCostRows,
+        paymentForm: { forma_platnosc, faktura_vat },
+        paymentValidation,
+        paymentNote,
+      });
       const res = await fetch(`${API_URL}/tasks/${id}/finish`, {
         method: 'POST',
         headers: {
@@ -1315,10 +1307,9 @@ export default function ZlecenieDetailScreen() {
         Alert.alert(t('common.ok'), t('order.finishedTitle'));
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
-        const queued = await queueRequestWithOfflineFallback({
+        const queued = await queueTaskFinishOffline({
           id: idempotencyKey,
           url: `${API_URL}/tasks/${id}/finish`,
-          method: 'POST',
           body: finishBody,
         });
         setOfflineQueueCount(queued);
@@ -1339,10 +1330,9 @@ export default function ZlecenieDetailScreen() {
       void triggerHaptic('warning');
       if (finishBody) {
         try {
-          const queued = await queueRequestWithOfflineFallback({
+          const queued = await queueTaskFinishOffline({
             id: idempotencyKey,
             url: `${API_URL}/tasks/${id}/finish`,
-            method: 'POST',
             body: finishBody,
           });
           setOfflineQueueCount(queued);

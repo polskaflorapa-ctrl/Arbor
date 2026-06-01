@@ -144,6 +144,17 @@ export type FinishCostSuggestions = {
   validation_limits?: Record<string, number>;
 };
 
+export type FinishPaymentForm = {
+  forma_platnosc: 'Gotowka' | 'Przelew' | 'Faktura_VAT' | 'Brak';
+  kwota_odebrana: unknown;
+  faktura_vat: boolean;
+  nip: unknown;
+};
+
+export type FinishPaymentValidation =
+  | { ok: true; cashAmount: number | null; nip: string | null }
+  | { ok: false; reason: 'cash_amount' | 'nip' };
+
 export type FinishMoneyParseResult =
   | { ok: true; amount: number | null }
   | { ok: false };
@@ -160,6 +171,34 @@ export type FinishMaterialUsageRow = {
   ilosc?: number;
   jednostka?: 'szt';
   koszt_laczny?: number;
+};
+
+export type FinishProtocolNoteInput = {
+  paymentNote: unknown;
+  safetyRows: Pick<SafetyLogRow, 'done' | 'label'>[];
+  afterPhotosCount: number;
+  unresolvedIssuesCount: number;
+  hasClientSignature: boolean;
+  clientSignerName?: unknown;
+  finishClientAccepted: boolean;
+  usageName: unknown;
+  materialUsage?: FinishMaterialUsageRow[];
+};
+
+export type FinishProtocolNotes = {
+  safetyProtocolNote: string;
+  closeProtocolNote: string;
+  noteTrim: string;
+};
+
+export type FinishBodyInput = {
+  coords?: { lat?: number | null; lng?: number | null } | null;
+  notes: FinishProtocolNotes;
+  materialUsage?: FinishMaterialUsageRow[];
+  operationalCostRows: FinishOperationalCostRow[];
+  paymentForm: Pick<FinishPaymentForm, 'forma_platnosc' | 'faktura_vat'>;
+  paymentValidation: Extract<FinishPaymentValidation, { ok: true }>;
+  paymentNote: unknown;
 };
 
 export const EMPTY_FINISH_OPERATIONAL_COSTS: FinishOperationalCosts = {
@@ -406,6 +445,21 @@ export function parseOptionalFinishMoney(value: unknown): FinishMoneyParseResult
   return { ok: true, amount: Math.round(parsed * 100) / 100 };
 }
 
+export function validateFinishPayment(form: FinishPaymentForm): FinishPaymentValidation {
+  const { forma_platnosc, kwota_odebrana, faktura_vat, nip } = form;
+  let cashAmount: number | null = null;
+  if (forma_platnosc === 'Gotowka') {
+    const parsed = parseFloat(String(kwota_odebrana).replace(',', '.'));
+    if (!Number.isFinite(parsed) || parsed < 0) return { ok: false, reason: 'cash_amount' };
+    cashAmount = parsed;
+  }
+  const cleanNip = String(nip || '').replace(/\s/g, '');
+  if ((faktura_vat || forma_platnosc === 'Faktura_VAT') && cleanNip.length < 10) {
+    return { ok: false, reason: 'nip' };
+  }
+  return { ok: true, cashAmount, nip: cleanNip || null };
+}
+
 export function buildFinishOperationalCostRows(
   costs: Partial<Record<FinishCostCategory, unknown>>,
   labels: Record<FinishCostCategory, string> = FINISH_OPERATIONAL_COST_LABELS,
@@ -441,6 +495,49 @@ export function buildFinishMaterialUsage(
       ...(cost != null ? { koszt_laczny: cost } : {}),
     },
   ];
+}
+
+export function buildFinishProtocolNotes(input: FinishProtocolNoteInput): FinishProtocolNotes {
+  const paymentNote = String(input.paymentNote || '').trim();
+  const safetyProtocolNote = [
+    `BHP przed startem: ${input.safetyRows.filter((row) => row.done).length}/${input.safetyRows.length} punktow.`,
+    ...input.safetyRows.map((row) => `${row.done ? 'OK' : 'BRAK'} ${row.label}`),
+  ].join('\n');
+  const usageName = String(input.usageName || '').trim();
+  const usageQuantity = input.materialUsage?.[0]?.ilosc;
+  const closeProtocolNote = [
+    safetyProtocolNote,
+    `Zamknięcie mobilne: zdjęcia po ${input.afterPhotosCount}; problemy otwarte ${input.unresolvedIssuesCount}.`,
+    input.hasClientSignature
+      ? `Odbiór klienta: podpis ${String(input.clientSignerName || 'dodany')}.`
+      : input.finishClientAccepted
+        ? 'Odbiór klienta: potwierdzony bez podpisu.'
+        : 'Odbiór klienta: brak potwierdzenia.',
+    usageName ? `Materiały: ${usageName}${usageQuantity != null ? ` (${usageQuantity} szt.)` : ''}.` : '',
+  ].filter(Boolean).join('\n');
+  return {
+    safetyProtocolNote,
+    closeProtocolNote,
+    noteTrim: [paymentNote, closeProtocolNote].filter(Boolean).join('\n'),
+  };
+}
+
+export function buildFinishBody(input: FinishBodyInput): Record<string, unknown> {
+  const paymentNote = String(input.paymentNote || '').trim();
+  return {
+    lat: input.coords?.lat ?? null,
+    lng: input.coords?.lng ?? null,
+    notatki: input.notes.noteTrim,
+    ...(input.materialUsage ? { zuzyte_materialy: input.materialUsage } : {}),
+    ...(input.operationalCostRows.length ? { koszty_operacyjne: input.operationalCostRows } : {}),
+    payment: {
+      forma_platnosc: input.paymentForm.forma_platnosc,
+      kwota_odebrana: input.paymentValidation.cashAmount,
+      faktura_vat: !!input.paymentForm.faktura_vat,
+      nip: input.paymentValidation.nip,
+      ...(paymentNote ? { notatki: paymentNote } : {}),
+    },
+  };
 }
 
 export function suggestedFinishOperationalCosts(
