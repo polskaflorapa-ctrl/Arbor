@@ -645,6 +645,16 @@ function plannedValue(task) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function planningCalendarPath(task = null) {
+  if (!task?.id) return '/kalendarz-zasobow';
+  const params = new URLSearchParams();
+  const day = taskDateOnly(task);
+  if (day) params.set('date', day);
+  params.set('task', String(task.id));
+  params.set('modal', '1');
+  return `/kalendarz-zasobow?${params.toString()}`;
+}
+
 function moneyCompact(value) {
   const amount = Number(value) || 0;
   if (amount >= 1000000) return `${(amount / 1000000).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} mln`;
@@ -1250,7 +1260,7 @@ export default function MapaLive() {
       onCopyLink={copyCommandLink}
       onOpenTask={(task) => navigate(`/zlecenia/${task.id}`)}
       onOpenPlan={(task) => openQuickPlan(task)}
-      onOpenSchedule={() => navigate('/harmonogram')}
+      onOpenSchedule={(task) => navigate(planningCalendarPath(task))}
     />
   );
 
@@ -1397,9 +1407,9 @@ export default function MapaLive() {
                 Dzisiejsze zlecenia z przypisanym sygnalem GPS, statusem pracy i szybkimi akcjami.
               </div>
             </div>
-            <button type="button" style={S.secondaryBtn} onClick={() => navigate('/harmonogram')}>
+            <button type="button" style={S.secondaryBtn} onClick={() => navigate(planningCalendarPath())}>
               <CalendarMonthOutlined style={{ fontSize: 16 }} />
-              Harmonogram
+              Kalendarz zasobow
             </button>
           </div>
 
@@ -1742,7 +1752,7 @@ export default function MapaLive() {
                   task={task}
                   live={taskLiveRow(task)}
                   onOpen={() => navigate(`/zlecenia/${task.id}`)}
-                  onSchedule={() => navigate('/harmonogram')}
+                  onSchedule={() => navigate(planningCalendarPath(task))}
                 />
               )) : (
                 <div style={S.emptyList}>
@@ -1782,7 +1792,17 @@ export default function MapaLive() {
                   </a>
                 );
               })}
-              {!filteredRows.length ? <div style={S.emptyRadar}>Brak sygnałów GPS dla filtra</div> : null}
+              {!filteredRows.length ? (
+                <div style={S.emptyRadar}>
+                  <div style={S.emptyRadarCard}>
+                    <strong>Brak sygnalow GPS dla filtra</strong>
+                    <span>Odswiez GPS albo sprawdz, czy mobilka/auto wysyla pozycje dla tego oddzialu.</span>
+                    <button type="button" style={S.secondaryBtn} onClick={() => load({ refresh: true })} disabled={loading}>
+                      {loading ? 'Odswiezam...' : 'Odswiez GPS'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -1829,8 +1849,8 @@ export default function MapaLive() {
                         </a>
                       ) : null}
                       {row.ekipa_id ? (
-                        <button type="button" style={S.secondaryBtn} onClick={() => navigate('/harmonogram')}>
-                          Harmonogram
+                        <button type="button" style={S.secondaryBtn} onClick={() => navigate(planningCalendarPath())}>
+                          Kalendarz
                         </button>
                       ) : null}
                       <button type="button" style={S.secondaryBtn} onClick={() => openGpsHistory(row)}>
@@ -1840,7 +1860,13 @@ export default function MapaLive() {
                   </article>
                 );
               }) : (
-                <div style={S.emptyList}>Brak aktualnych pozycji. Mobilka wyśle sygnał, gdy brygadzista albo wyceniający ma aktywną aplikację.</div>
+                <div style={S.emptyList}>
+                  <strong>Brak aktualnych pozycji.</strong>
+                  <span>Mobilka wysle sygnal, gdy brygadzista albo wyceniajacy ma aktywna aplikacje. Dla aut kliknij odswiez GPS.</span>
+                  <button type="button" style={S.secondaryBtn} onClick={() => load({ refresh: true })} disabled={loading}>
+                    {loading ? 'Odswiezam...' : 'Odswiez GPS'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -2017,8 +2043,8 @@ function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
         <button type="button" style={S.secondaryBtn} onClick={onOpen}>
           Zlecenie
         </button>
-        <button type="button" style={S.secondaryBtn} onClick={onSchedule}>
-          Plan
+        <button type="button" style={S.secondaryBtn} onClick={() => onSchedule?.(task)}>
+          Kalendarz
         </button>
         {liveHref ? (
           <a href={liveHref} target="_blank" rel="noreferrer" style={S.mapBtn}>
@@ -2190,6 +2216,15 @@ function CommandCenter({
           <AssignmentOutlined style={{ fontSize: 16 }} />
           Karta
         </button>
+        <button
+          type="button"
+          aria-label={`Otworz w kalendarzu ${taskClient(selected)}`}
+          style={S.secondaryBtn}
+          onClick={() => onOpenSchedule?.(selected)}
+        >
+          <CalendarMonthOutlined style={{ fontSize: 16 }} />
+          Kalendarz
+        </button>
         <button type="button" style={S.secondaryBtn} onClick={() => onCopyLink?.(selected)}>
           <ContentCopyOutlined style={{ fontSize: 16 }} />
           Kopiuj link
@@ -2254,9 +2289,9 @@ function CommandCenter({
               <strong style={S.commandMapTitle}>Warstwa terenowa</strong>
               <span style={S.commandMapSub}>Trasy są schematyczne, punkty GPS pozostają źródłowe.</span>
             </div>
-            <button type="button" style={S.secondaryBtn} onClick={onOpenSchedule}>
+            <button type="button" style={S.secondaryBtn} onClick={() => onOpenSchedule?.()}>
               <CalendarMonthOutlined style={{ fontSize: 16 }} />
-              Harmonogram
+              Kalendarz zasobow
             </button>
           </div>
           <div style={{ ...S.commandMap, ...(isNarrow ? S.commandMapNarrow : null) }}>
@@ -2288,6 +2323,7 @@ function CommandCenter({
               return (
                 <a
                   key={`${row.provider}-${row.user_id || row.vehicle_id || row.nr_rejestracyjny}-${index}`}
+                  data-testid={`planning-live-pin-${row.provider}-${row.ekipa_id || row.user_id || row.vehicle_id || index}`}
                   href={mapHref(row)}
                   target="_blank"
                   rel="noreferrer"
@@ -2318,6 +2354,7 @@ function CommandCenter({
                 <button
                   key={`task-${task.id}`}
                   type="button"
+                  data-testid={`planning-task-pin-${task.id}`}
                   onClick={() => onSelectTask?.(task)}
                   style={{
                     ...S.commandTaskPoint,
@@ -3752,6 +3789,19 @@ const S = {
     placeItems: 'center',
     color: 'var(--text-muted)',
     fontWeight: 800,
+    padding: 16,
+    textAlign: 'center',
+  },
+  emptyRadarCard: {
+    display: 'grid',
+    gap: 8,
+    justifyItems: 'center',
+    maxWidth: 360,
+    border: '1px solid rgba(15,95,58,0.14)',
+    borderRadius: 8,
+    padding: 14,
+    background: 'rgba(255,255,255,0.9)',
+    boxShadow: '0 14px 30px rgba(15,95,58,0.08)',
   },
   locationList: {
     display: 'flex',
@@ -3950,6 +4000,9 @@ const S = {
     overflowWrap: 'anywhere',
   },
   emptyList: {
+    display: 'grid',
+    gap: 8,
+    justifyItems: 'center',
     borderRadius: 14,
     border: '1px dashed rgba(20,131,79,0.18)',
     color: 'var(--text-muted)',

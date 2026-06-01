@@ -84,7 +84,8 @@
 - [x] **P0 mobile START/STOP work log edge cases**: `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md` opisuje aktywny work log, brak GPS, podwojny START/STOP, statusy i backend tests EPIC 2.1; `npm run verify:mobile-start-stop-edge` pilnuje kontraktu.
 - [x] **P0 resource calendar weekly contract**: `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` opisuje jeden tygodniowy widok ekip, krytycznego sprzetu i rezerwacji; `npm run verify:resource-calendar-week` pilnuje route, API, web testow i blokad kolizji.
 - [x] **P0 resource calendar drag & drop**: `docs/RESOURCE-CALENDAR-DRAG-DROP-CONTRACT.md` opisuje przenoszenie zlecen miedzy slotami; web blokuje lokalne kolizje, a `PATCH /api/tasks/:id/plan` zapisuje termin, godzine, ekipe i waliduje konflikt/okno klienta/nieobecnosc. `npm run verify:resource-calendar-dnd` pilnuje kontraktu.
-- [ ] **Nastepny pakiet**: EPIC 3.3 - mapa planistyczna: pinezki zlecen i pozycje ekip live tam, gdzie dostepne.
+- [x] **P0 planning map contract**: `docs/PLANNING-MAP-CONTRACT.md` opisuje mape planistyczna; `MapaLive` rysuje pinezki zlecen, pozycje ekip live, schematyczne linie ekipa -> zlecenie i przejscie do `KalendarzZasobow` z `date/task/modal`. `npm run verify:planning-map` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: EPIC 3.4 - karty sprzetu: przeglad, ubezpieczenie i alerty powiazane z zasobami.
 
 ---
 
@@ -151,7 +152,7 @@ flowchart LR
 
 - [x] **3.1** Kalendarz zasobów (ekipy + krytyczny sprzęt) — jeden widok tygodnia. `KalendarzZasobow` laczy ekipy, dzien/zakres, sprzet, rezerwacje, odprawy i alerty kolizji; kontrakt pilnuje `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` + `verify:resource-calendar-week`.
 - [x] **3.2** Drag & drop przeniesienia zlecenia między slotami (zapis do API + walidacja kolizji). Web zapisuje drop przez `PATCH /api/tasks/:id/plan`, blokuje lokalna kolizje aktywnego zlecenia tej samej ekipy, wymaga override dla nieobecnej ekipy, a backend dopisuje `godzina_rozpoczecia`, przesuwa rezerwacje sprzetu i zwraca `TASK_PLAN_CONFLICT`.
-- [ ] **3.3** Mapa planistyczna: pinezki zleceń + pozycje ekip (live gdzie dostępne).
+- [x] **3.3** Mapa planistyczna: pinezki zleceń + pozycje ekip (live gdzie dostępne). `MapaLive` laczy `GET /api/tasks/wszystkie` z `GET /api/ekipy/live-locations`, pokazuje pinezki i live GPS oraz prowadzi z wybranego zlecenia do `#/kalendarz-zasobow?date=...&task=...&modal=1`.
 - [ ] **3.4** Karty sprzętu: przegląd, ubezpieczenie, alerty (powiązanie z EPIC 6).
 - [ ] **3.5** Integracja z wynikiem dispatchera (wczytanie planu dnia).
 

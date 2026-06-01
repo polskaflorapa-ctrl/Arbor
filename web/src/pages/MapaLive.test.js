@@ -121,19 +121,24 @@ function renderMapaLive(initialEntry = '/mapa-live') {
       initialEntries={[initialEntry]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
+      <LocationProbe />
       <Routes>
         <Route
           path="/mapa-live"
-          element={(
-            <>
-              <LocationProbe />
-              <MapaLive />
-            </>
-          )}
+          element={<MapaLive />}
         />
         <Route path="/" element={<div>Login</div>} />
         <Route path="/zlecenia/:id" element={<div>Karta zlecenia</div>} />
         <Route path="/harmonogram" element={<div>Harmonogram</div>} />
+        <Route
+          path="/kalendarz-zasobow"
+          element={(
+            <>
+              <LocationProbe />
+              <div>Kalendarz zasobow</div>
+            </>
+          )}
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -231,4 +236,29 @@ test('renders the selected command task from the URL on desktop', async () => {
   expect(screen.getByRole('button', { name: /Kopiuj link/i })).toBeInTheDocument();
   expect(screen.getByTestId('location-search')).toHaveTextContent('view=decisions');
   expect(screen.getByTestId('location-search')).toHaveTextContent('task=102');
+});
+
+test('renders planning task pins, live team pins, and opens resource calendar for a task', async () => {
+  mediaMatches = false;
+  mockMapaLiveApi();
+
+  renderMapaLive('/mapa-live');
+
+  const taskPin = await screen.findByTestId('planning-task-pin-102', {}, { timeout: 10000 });
+  expect(taskPin).toHaveTextContent('#102');
+  expect(await screen.findByTestId('planning-live-pin-mobile-5')).toHaveTextContent('M');
+
+  await userEvent.click(taskPin);
+  expect(screen.getByText('Wybrany temat')).toBeInTheDocument();
+  expect(screen.getAllByText('Osiedle Lesne Tarasy').length).toBeGreaterThan(0);
+
+  await userEvent.click(screen.getByRole('button', { name: /Otworz w kalendarzu Osiedle Lesne Tarasy/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText('Kalendarz zasobow')).toBeInTheDocument();
+  });
+  const finalSearch = screen.getAllByTestId('location-search').at(-1);
+  expect(finalSearch).toHaveTextContent('date=');
+  expect(finalSearch).toHaveTextContent('task=102');
+  expect(finalSearch).toHaveTextContent('modal=1');
 });
