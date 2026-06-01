@@ -14,6 +14,7 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isKierownik, scopedOddzialId } = require('../middleware/auth');
 const { solve } = require('../services/vrp');
+const { assertTeamCompetenciesForTask } = require('../services/taskCompetencies');
 const { pushToUser } = require('./notifications');
 
 const router = express.Router();
@@ -23,6 +24,13 @@ router.use(authMiddleware);
 
 function canDispatch(user) {
   return isDyrektorOrAdmin(user) || isKierownik(user);
+}
+
+function competencyBlockResponse(result) {
+  return result.payload || {
+    error: 'Ekipa nie ma wymaganych kompetencji.',
+    code: 'TEAM_COMPETENCY_MISSING',
+  };
 }
 
 let teamAttendanceTablesReady = false;
@@ -389,6 +397,19 @@ router.post('/apply/:id', async (req, res) => {
           absent: absentTeams,
         },
       });
+    }
+
+    for (const route of plan.routes || []) {
+      for (const stop of route.stops || []) {
+        const competencyCheck = await assertTeamCompetenciesForTask(client, {
+          taskId: stop.task_id,
+          teamId: route.team_id,
+          plannedDate: planR.rows[0].data,
+        });
+        if (!competencyCheck.ok) {
+          return res.status(competencyCheck.status || 409).json(competencyBlockResponse(competencyCheck));
+        }
+      }
     }
 
     await client.query('BEGIN');

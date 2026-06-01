@@ -2397,6 +2397,41 @@ describe('Tasks routes', () => {
     pool.query.mockReset();
   });
 
+  it('blocks PATCH /tasks/:id/plan when assigned team lacks required competency', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: null, oddzial_id: null, czas_planowany_godziny: 2 }] };
+      }
+      if (s.includes('COALESCE(wymagane_kompetencje')) {
+        return { rows: [{ wymagane_kompetencje: ['SEP', 'Arborysta'] }] };
+      }
+      if (s.includes('FROM user_competencies uc') && s.includes('JOIN team_members')) {
+        return { rows: [{ nazwa: 'Arborysta' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10T09:00:00.000Z', ekipa_id: 9 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({
+      code: 'TEAM_COMPETENCY_MISSING',
+      task_id: 1,
+      team_id: 9,
+      missing_competencies: ['SEP'],
+    });
+    const updateCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('UPDATE tasks'));
+    expect(updateCall).toBeUndefined();
+    pool.query.mockReset();
+  });
+
   it('updates planned datetime, start hour and team via PATCH /tasks/:id/plan for DnD', async () => {
     const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockImplementation(async (sql) => {

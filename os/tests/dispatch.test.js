@@ -311,6 +311,44 @@ describe('POST /api/dispatch/apply/:id', () => {
     expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
     expect(mockClient.release).toHaveBeenCalled();
   });
+
+  it('409 when applying a saved plan with missing team competency', async () => {
+    const mockClient = setupMockClient();
+    const planJson = {
+      routes: [{ team_id: 10, stops: [{ task_id: 101 }] }],
+      unassigned: [],
+    };
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT * FROM dispatch_plans')) {
+        return { rows: [{ id: 1, plan_json: planJson, oddzial_id: 3, data: '2025-06-15' }], rowCount: 1 };
+      }
+      if (s.includes('JOIN team_attendance')) return { rows: [], rowCount: 0 };
+      if (s.includes('COALESCE(wymagane_kompetencje')) {
+        return { rows: [{ wymagane_kompetencje: ['SEP'] }], rowCount: 1 };
+      }
+      if (s.includes('FROM user_competencies uc') && s.includes('JOIN team_members')) {
+        return { rows: [{ nazwa: 'Arborysta' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/dispatch/apply/1')
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({
+      code: 'TEAM_COMPETENCY_MISSING',
+      task_id: 101,
+      team_id: 10,
+      missing_competencies: ['SEP'],
+    });
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE tasks SET ekipa_id = $1'), [10, 101]);
+    expect(mockClient.release).toHaveBeenCalled();
+  });
 });
 
 // ─── GET /api/dispatch/plans ──────────────────────────────────────────────────
