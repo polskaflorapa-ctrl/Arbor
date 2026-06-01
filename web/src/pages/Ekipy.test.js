@@ -142,6 +142,31 @@ test('reports equipment repair from team asset list', async () => {
   });
 });
 
+test('closes equipment repair from team asset history', async () => {
+  mockEkipyApi();
+
+  const { container } = renderEkipy();
+
+  await screen.findByText('Brygada Alfa');
+  await waitFor(() => expect(container.querySelector('.ekipy-team-card')).toBeTruthy());
+  await userEvent.click(container.querySelector('.ekipy-team-card'));
+
+  expect(await screen.findByText(/2026-06-01 - Noze do wymiany/i)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Zakoncz' }));
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/flota/naprawy/91',
+      expect.objectContaining({
+        id: 91,
+        status: 'Zakonczona',
+        opis_naprawy: 'Zakonczono naprawe',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
 afterEach(() => {
   localStorage.clear();
   vi.clearAllMocks();

@@ -28,6 +28,14 @@ function formatRepairDate(value) {
   return String(value).slice(0, 10);
 }
 
+function repairIsClosed(status) {
+  return String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .includes('zakoncz');
+}
+
 export default function Ekipy() {
   const { t } = useTranslation();
   const [ekipy, setEkipy] = useState([]);
@@ -311,6 +319,25 @@ export default function Ekipy() {
       await refreshAfterAssetChange();
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac naprawy.')));
+    } finally {
+      setRepairSaving(false);
+    }
+  };
+
+  const closeRepair = async (repair) => {
+    if (!repair || repairSaving) return;
+    setRepairSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.put(`/flota/naprawy/${repair.id}`, {
+        ...repair,
+        status: 'Zakonczona',
+        opis_naprawy: repair.opis_naprawy || 'Zakonczono naprawe',
+      }, { headers: authHeaders(token) });
+      showMsg(successMessage('Naprawa zakonczona. Zasob jest dostepny.'));
+      await refreshAfterAssetChange();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zakonczyc naprawy.')));
     } finally {
       setRepairSaving(false);
     }
@@ -869,10 +896,12 @@ export default function Ekipy() {
                     renderMeta={(p) => [p.nr_rejestracyjny, p.typ, p.status].filter(Boolean).join(' / ')}
                     canEdit={canEdit}
                     saving={assetSaving}
+                    repairSaving={repairSaving}
                     getRepairs={(p) => getAssetRepairs('pojazd', p)}
                     onUnassign={(p) => updateTeamAsset('pojazd', p, '')}
                     onRepair={(p) => updateTeamAsset('pojazd', p, selectedEkipa.id, { status: 'W naprawie' })}
                     onReportRepair={(p) => openRepairDraft('pojazd', p)}
+                    onCloseRepair={closeRepair}
                   />
                   <AssetList
                     title="Sprzet"
@@ -882,10 +911,12 @@ export default function Ekipy() {
                     renderMeta={(s) => [s.typ, s.nr_seryjny, s.status].filter(Boolean).join(' / ')}
                     canEdit={canEdit}
                     saving={assetSaving}
+                    repairSaving={repairSaving}
                     getRepairs={(s) => getAssetRepairs('sprzet', s)}
                     onUnassign={(s) => updateTeamAsset('sprzet', s, '')}
                     onRepair={(s) => updateTeamAsset('sprzet', s, selectedEkipa.id, { status: 'W naprawie' })}
                     onReportRepair={(s) => openRepairDraft('sprzet', s)}
+                    onCloseRepair={closeRepair}
                   />
                 </div>
               </div>
@@ -1014,7 +1045,7 @@ function Field({ label, children }) {
   );
 }
 
-function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, getRepairs, onUnassign, onRepair, onReportRepair }) {
+function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, repairSaving, getRepairs, onUnassign, onRepair, onReportRepair, onCloseRepair }) {
   return (
     <div style={S.assetPanel}>
       <div style={S.assetPanelTitle}>{title}</div>
@@ -1036,6 +1067,11 @@ function AssetList({ title, empty, items, renderName, renderMeta, canEdit, savin
                     <span style={S.assetRepairHistoryText}>
                       {formatRepairDate(lastRepair.data_naprawy)} - {lastRepair.opis_usterki || lastRepair.opis_naprawy || 'Bez opisu'}
                     </span>
+                    {canEdit && !repairIsClosed(lastRepair.status) && (
+                      <button type="button" style={S.assetCloseRepairBtn} disabled={repairSaving} onClick={() => onCloseRepair(lastRepair)}>
+                        {repairSaving ? '...' : 'Zakoncz'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1124,6 +1160,7 @@ const S = {
   assetRepairHistory: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '5px 7px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.22)', background: 'rgba(245,158,11,0.08)' },
   assetRepairHistoryStatus: { fontSize: 10, color: '#b45309', fontWeight: 900, textTransform: 'uppercase' },
   assetRepairHistoryText: { minWidth: 0, fontSize: 11, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  assetCloseRepairBtn: { marginLeft: 'auto', padding: '3px 7px', borderRadius: 7, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 10, fontWeight: 900 },
   assetActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
