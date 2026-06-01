@@ -6720,3 +6720,227 @@ body.theme-dark pre {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ARBOR-OS KPI week polish: league table for crews and planning trace. */
+.kpi-week-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.kpi-week-main {
+  max-width: 1320px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background: transparent !important;
+}
+
+.kpi-week-main > .module-page-header,
+.kpi-week-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.kpi-week-period-card,
+.kpi-week-history-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.kpi-week-period-card:hover,
+.kpi-week-history-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.kpi-week-winner {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    rgba(241, 249, 244, 0.82) !important;
+  background-size: 28px 28px, 28px 28px, auto !important;
+  border-color: rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+}
+
+.kpi-week-period-card .MuiLinearProgress-root {
+  background: rgba(15, 95, 58, 0.11) !important;
+  border-radius: 8px !important;
+}
+
+.kpi-week-period-card .MuiLinearProgress-bar {
+  background: var(--accent-gradient) !important;
+  border-radius: 8px !important;
+}
+
+.kpi-week-period-card .MuiChip-root,
+.kpi-week-history-card .MuiChip-root {
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  background: rgba(241, 249, 244, 0.72);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.kpi-week-period-card table thead {
+  background: rgba(241, 249, 244, 0.86) !important;
+}
+
+.kpi-week-period-card th {
+  color: var(--text-sub);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.kpi-week-period-card tr:hover td {
+  background: rgba(15, 107, 63, 0.035);
+}
+
+.kpi-week-history-log {
+  background: #f7fbf8 !important;
+  border: 1px solid rgba(15, 95, 58, 0.1);
+  color: #244434;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (max-width: 900px) {
+  .kpi-week-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .kpi-week-periods {
+    flex-direction: column !important;
+  }
+
+  .kpi-week-period-card {
+    flex-basis: auto !important;
+  }
+}
+
+/* ARBOR-OS accounting polish: invoices and company settings. */
+.accounting-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.accounting-main {
+  max-width: 1320px !important;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background: transparent !important;
+}
+
+.accounting-main > .module-page-header,
+.accounting-main > .module-page-header-plain,
+.accounting-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.accounting-kpi-card,
+.accounting-tabs,
+.accounting-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.accounting-kpi-card,
+.accounting-card {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.accounting-kpi-card:hover,
+.accounting-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.accounting-kpi-card [style*="font-weight: bold"] {
+  color: #0b3825 !important;
+}
+
+.accounting-tabs {
+  padding: 8px !important;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.accounting-tabs button {
+  border-radius: 8px !important;
+  margin-bottom: 0 !important;
+  font-weight: 800 !important;
+}
+
+.accounting-tabs button:hover,
+.accounting-card button:hover,
+.accounting-main > .module-page-header button:hover {
+  background: rgba(241, 249, 244, 0.9) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.accounting-filters {
+  padding: 10px;
+  background: rgba(241, 249, 244, 0.64);
+  border: 1px solid rgba(15, 95, 58, 0.1);
+  border-radius: 8px;
+}
+
+.accounting-main input,
+.accounting-main select,
+.accounting-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.accounting-main input:focus,
+.accounting-main select:focus,
+.accounting-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.accounting-card .modern-data-row {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.accounting-card .modern-data-row:hover {
+  box-shadow: 0 12px 24px rgba(31, 79, 50, 0.07);
+}
+
+.accounting-form .modern-data-row__metric-grid {
+  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(88px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .accounting-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .accounting-tabs,
+  .accounting-filters {
+    align-items: stretch !important;
+  }
+
+  .accounting-tabs button,
+  .accounting-filters > *,
+  .accounting-card button {
+    width: 100%;
+  }
+
+  .accounting-form .modern-data-row__metric-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

@@ -57,7 +57,7 @@ function PeriodCard({ period }) {
   const winner = period?.winner;
   const items = Array.isArray(period?.items) ? period.items.slice(0, 5) : [];
   return (
-    <Card variant="outlined" sx={{ flex: '1 1 420px', borderRadius: 1.5 }}>
+    <Card className="kpi-week-period-card" variant="outlined" sx={{ flex: '1 1 420px', borderRadius: 1.5 }}>
       <CardContent>
         <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1} sx={{ mb: 1 }}>
           <Box>
@@ -75,7 +75,7 @@ function PeriodCard({ period }) {
         </Stack>
 
         {winner ? (
-          <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 1.5 }}>
+          <Box className="kpi-week-winner" sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 1.5 }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
               <Box>
                 <Typography variant="subtitle1" fontWeight={800}>
@@ -188,9 +188,9 @@ export default function KpiTydzien() {
   const periods = ranking?.periods || {};
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box className="kpi-week-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       <Sidebar />
-      <Box sx={{ flex: 1, p: 2, maxWidth: 1280, mx: 'auto', width: '100%' }}>
+      <Box className="kpi-week-main" sx={{ flex: 1, p: 2, maxWidth: 1280, mx: 'auto', width: '100%' }}>
         <PageHeader
           title="Liga brygad"
           subtitle="Ranking najlepszych ekip tygodnia, miesiąca, półrocza i roku"
@@ -205,14 +205,14 @@ export default function KpiTydzien() {
             {error}
           </Alert>
         ) : (
-          <Stack direction="row" flexWrap="wrap" gap={1.5} sx={{ mb: 2 }}>
+          <Stack className="kpi-week-periods" direction="row" flexWrap="wrap" gap={1.5} sx={{ mb: 2 }}>
             {PERIOD_ORDER.map((key) => (
               <PeriodCard key={key} period={periods[key] || { key, label: PERIOD_SHORT[key], items: [] }} />
             ))}
           </Stack>
         )}
 
-        <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
+        <Card className="kpi-week-history-card" variant="outlined" sx={{ borderRadius: 1.5 }}>
           <CardContent>
             <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>
               Ślad autoplanu w tym tygodniu
@@ -230,7 +230,7 @@ export default function KpiTydzien() {
             {historyStats.filtered.length === 0 ? (
               <Typography color="text.secondary">Brak wpisów w tym tygodniu.</Typography>
             ) : (
-              <Box component="pre" sx={{ m: 0, p: 1.5, borderRadius: 1, bgcolor: 'action.hover', fontSize: 12, overflow: 'auto', maxHeight: 220 }}>
+              <Box className="kpi-week-history-log" component="pre" sx={{ m: 0, p: 1.5, borderRadius: 1, bgcolor: 'action.hover', fontSize: 12, overflow: 'auto', maxHeight: 220 }}>
                 {historyStats.filtered.slice(0, 30).map((h) => (
                   <div key={h.id}>
                     {h.at.slice(0, 16).replace('T', ' ')} · {h.action} · {h.mode} · {h.changed}/{h.ok}+{h.queued}

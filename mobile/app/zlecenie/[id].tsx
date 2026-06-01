@@ -55,21 +55,47 @@ import {
   appendUniqueLine,
 } from '../../constants/task-form';
 import { triggerHaptic } from '../../utils/haptics';
-import { ymdFromValue } from '../../utils/zlecenie-detail';
+import {
+  absolutePhotoUrl,
+  buildFinishMaterialUsage,
+  buildFinishOperationalCostRows,
+  compactLines,
+  createOfficePlanForm,
+  equipmentIdFromReservation,
+  estimatorDisplayName,
+  extractNoteValue,
+  formatApiWorkflowError,
+  isCheckinWorkLog,
+  isCrewRole,
+  isHhMm,
+  isYmd,
+  normalizeWorkflowMatch,
+  noteHasClientAccepted,
+  orderPhotoTypeMeta,
+  orderPrioColors,
+  parseOptionalFinishMoney,
+  parseSafetyLogRows,
+  photoTypMatches,
+  positiveNumber,
+  readApiErrorBody,
+  suggestedFinishOperationalCosts,
+  taskWorkflowMissingItems,
+  timeFromTask,
+  todayKey,
+  uniqueStrings,
+  workflowPhotoFilterFor,
+  workflowTargetFor,
+  ymdFromValue,
+  type FinishRequirements,
+  type FinishCostSuggestions,
+  type InspectionDispatchForm,
+  type InspectionEstimator,
+  type OfficePlanEquipment,
+  type OfficePlanForm,
+  type OfficePlanTeam,
+} from '../../utils/zlecenie-detail';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-type FinishCostSuggestion = {
-  category: 'sprzet' | 'paliwo' | 'utylizacja' | 'inne';
-  label: string;
-  amount: number;
-  source?: string;
-  basis?: string;
-};
-type FinishCostSuggestions = {
-  suggestions?: FinishCostSuggestion[];
-  rates?: Record<string, number>;
-  validation_limits?: Record<string, number>;
-};
 
 const TYP_ZDJECIA_KEYS = ['wycena', 'szkic', 'dojazd', 'checkin', 'przed', 'po', 'inne'] as const;
 const PHOTO_TYPE_LABELS: Record<(typeof TYP_ZDJECIA_KEYS)[number], string> = {
@@ -116,27 +142,6 @@ const SAFETY_CHECKLIST_ITEMS = [
 const DEFAULT_FIELD_SETTLEMENT = TASK_SETTLEMENT_OPTIONS[0]?.note || '';
 type PhotoTypeKey = (typeof TYP_ZDJECIA_KEYS)[number];
 type PhotoFilterKey = 'all' | PhotoTypeKey;
-
-function orderPrioColors(theme: Theme) {
-  return {
-    Pilny: theme.danger,
-    Wysoki: theme.warning,
-    Normalny: theme.info,
-    Niski: theme.textMuted,
-  };
-}
-
-function orderPhotoTypeMeta(theme: Theme): Record<(typeof TYP_ZDJECIA_KEYS)[number], { icon: IoniconName; color: string }> {
-  return {
-    wycena: { icon: 'clipboard', color: theme.accent },
-    szkic: { icon: 'create', color: theme.info },
-    dojazd: { icon: 'navigate', color: theme.warning },
-    checkin: { icon: 'location', color: theme.info },
-    przed: { icon: 'camera', color: theme.warning },
-    po: { icon: 'checkmark-circle', color: theme.success },
-    inne: { icon: 'images', color: theme.textSub },
-  };
-}
 
 interface GpsCoords {
   lat: number;
