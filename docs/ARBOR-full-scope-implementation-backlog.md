@@ -91,7 +91,8 @@
 - [x] **P0 machine usage blocks**: `docs/MACHINE-USAGE-BLOCKS-CONTRACT.md` opisuje przypomnienia przegladow/OC/motogodzin i blokade rezerwacji sprzetu po terminie lub w statusie serwisowym; `npm run verify:machine-usage-blocks` pilnuje backendu, UI i checklist.
 - [x] **P0 material inventory**: `docs/MATERIAL-INVENTORY-CONTRACT.md` opisuje magazyn materialow eksploatacyjnych, stany, przyjecia i rozchod na zlecenie; `npm run verify:material-inventory` pilnuje backendu, UI, migracji i checklist.
 - [x] **P0 mobile inventory usage**: `docs/MOBILE-INVENTORY-USAGE-CONTRACT.md` opisuje finish z `zuzyte_materialy[].material_id`, rozchod magazynu w transakcji i blokade braku stanu; `npm run verify:mobile-inventory-usage` pilnuje backendu, web, mobile helpera i checklist.
-- [ ] **Nastepny pakiet**: EPIC 7.1 - profile pracownikow: kompetencje, uprawnienia i stawki.
+- [x] **P0 worklog time ledger**: `docs/WORKLOG-TIME-LEDGER-CONTRACT.md` opisuje automatyczna ECP z zamknietych work logow, branch scope i robocza regule nadgodzin; `npm run verify:worklog-time-ledger` pilnuje endpointu, testow i checklist.
+- [ ] **Nastepny pakiet**: EPIC 7.2 - monitoring waznosci uprawnien na kartach pracownika.
 
 ---
 
@@ -194,7 +195,7 @@ flowchart LR
 
 ## EPIC 7 — HR / kadry
 
-- [ ] **7.1** Automatyczna ewidencja czasu pracy z work logów (reguły nadgodzin — prawnie zweryfikować).
+- [x] **7.1** Automatyczna ewidencja czasu pracy z work logów (reguły nadgodzin — prawnie zweryfikować). `GET /api/godziny/ecp` liczy dzienna ECP z `work_logs`, pokazuje normatyw/nadgodziny > 8h, branch scope i `legal_note`; kontrakt pilnuje `docs/WORKLOG-TIME-LEDGER-CONTRACT.md` + `verify:worklog-time-ledger`.
 - [ ] **7.2** Monitoring ważności uprawnień (karty pracownika).
 - [ ] **7.3** Blokada przypisania do zlecenia bez wymaganych kompetencji (API + UI).
 - [ ] **7.4** Integracja z dispatcherm: EPIC 1.5 + EPIC 7.3 muszą być spójne.
