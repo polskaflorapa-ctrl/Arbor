@@ -103,22 +103,22 @@ export default function NowyPracownik() {
   const todayDate = new Date().toISOString().split('T')[0];
 
   if (!canEdit) {
-    return <div style={styles.container}><Sidebar /><div style={styles.main}>{t('pages.nowyPracownik.noPermission')}</div></div>;
+    return <div className="new-employee-shell" style={styles.container}><Sidebar /><div className="new-employee-main" style={styles.main}>{t('pages.nowyPracownik.noPermission')}</div></div>;
   }
 
   return (
-    <div style={styles.container}>
+    <div className="new-employee-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
-        <div style={styles.topBar}>
+      <div className="new-employee-main" style={styles.main}>
+        <div className="new-employee-topbar" style={styles.topBar}>
           <button style={styles.backBtn} onClick={() => navigate('/uzytkownicy')}>← {t('common.back')}</button>
           <h1 style={styles.title}>{t('pages.nowyPracownik.title')}</h1>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionPersonal')}</div>
-            <div style={styles.grid}>
+        <form className="new-employee-form" onSubmit={handleSubmit}>
+          <div className="new-employee-section" style={styles.section}>
+            <div className="new-employee-section-title" style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionPersonal')}</div>
+            <div className="new-employee-grid" style={styles.grid}>
               <div style={styles.field}><label>{t('pages.nowyPracownik.firstName')}</label><input style={styles.input} value={form.imie} onChange={setField('imie')} required /></div>
               <div style={styles.field}><label>{t('pages.nowyPracownik.lastName')}</label><input style={styles.input} value={form.nazwisko} onChange={setField('nazwisko')} required /></div>
               <div style={styles.field}><label>{t('pages.nowyPracownik.phone')}</label><input style={styles.input} value={form.telefon} onChange={setField('telefon')} /></div>
@@ -128,17 +128,17 @@ export default function NowyPracownik() {
             </div>
           </div>
 
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionLogin')}</div>
-            <div style={styles.grid}>
+          <div className="new-employee-section" style={styles.section}>
+            <div className="new-employee-section-title" style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionLogin')}</div>
+            <div className="new-employee-grid" style={styles.grid}>
               <div style={styles.field}><label>{t('pages.nowyPracownik.login')}</label><input style={styles.input} value={form.login} onChange={setField('login')} required /></div>
               <div style={styles.field}><label>{t('pages.nowyPracownik.password')}</label><input style={styles.input} type="password" value={form.haslo} onChange={setField('haslo')} required /></div>
             </div>
           </div>
 
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionRole')}</div>
-            <div style={styles.grid}>
+          <div className="new-employee-section" style={styles.section}>
+            <div className="new-employee-section-title" style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionRole')}</div>
+            <div className="new-employee-grid" style={styles.grid}>
               <div style={styles.field}><label>{t('pages.nowyPracownik.role')}</label>
                 <select style={styles.input} value={form.rola} onChange={setField('rola')}>
                   <optgroup label={t('pages.nowyPracownik.optgroupMgmt')}>
@@ -179,9 +179,9 @@ export default function NowyPracownik() {
             )}
           </div>
 
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionPay')}</div>
-            <div style={styles.grid}>
+          <div className="new-employee-section" style={styles.section}>
+            <div className="new-employee-section-title" style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionPay')}</div>
+            <div className="new-employee-grid" style={styles.grid}>
               {isBrygadzista ? (
                 <>
                   <div style={styles.field}><label>{t('pages.nowyPracownik.rateHelpers')}</label><input style={styles.input} type="number" step="0.5" value={form.stawka_godzinowa} onChange={setField('stawka_godzinowa')} /></div>
@@ -193,22 +193,22 @@ export default function NowyPracownik() {
             </div>
           </div>
 
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionEmergency')}</div>
-            <div style={styles.grid}>
+          <div className="new-employee-section" style={styles.section}>
+            <div className="new-employee-section-title" style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionEmergency')}</div>
+            <div className="new-employee-grid" style={styles.grid}>
               <div style={styles.field}><label>{t('pages.nowyPracownik.emergencyName')}</label><input style={styles.input} value={form.kontakt_awaryjny_imie} onChange={setField('kontakt_awaryjny_imie')} /></div>
               <div style={styles.field}><label>{t('pages.nowyPracownik.emergencyPhone')}</label><input style={styles.input} value={form.kontakt_awaryjny_telefon} onChange={setField('kontakt_awaryjny_telefon')} /></div>
             </div>
           </div>
 
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionNotes')}</div>
+          <div className="new-employee-section" style={styles.section}>
+            <div className="new-employee-section-title" style={styles.sectionTitle}>{t('pages.nowyPracownik.sectionNotes')}</div>
             <textarea style={styles.textarea} value={form.notatki} onChange={setField('notatki')} rows={3} />
           </div>
 
           <StatusMessage message={msg} />
 
-          <div style={styles.btnRow}>
+          <div className="new-employee-actions" style={styles.btnRow}>
             <button type="button" style={styles.cancelBtn} onClick={() => navigate('/uzytkownicy')}>{t('common.cancel')}</button>
             <button type="submit" style={styles.submitBtn} disabled={saving}>{saving ? t('common.creating') : t('pages.nowyPracownik.createAccount')}</button>
           </div>

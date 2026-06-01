@@ -193,9 +193,9 @@ export default function Powiadomienia() {
   const routeBriefPendingCount = powiadomienia.filter((n) => isRouteBriefNotification(n) && n.status === 'Nowe').length;
 
   return (
-    <div style={styles.container}>
+    <div className="notifications-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
+      <div className="notifications-main" style={styles.main}>
         {/* Nagłówek */}
         <PageHeader
           variant="plain"
@@ -222,13 +222,13 @@ export default function Powiadomienia() {
 
         {/* Formularz nowego zgłoszenia */}
         {showForm && (
-          <div style={styles.formBox}>
+          <div className="notifications-form" style={styles.formBox}>
             <h3 style={styles.formTitle}>{t('pages.powiadomienia.formTitle')}</h3>
             <form onSubmit={wyslij}>
               <div style={styles.grid}>
                 <div style={styles.field}>
                   <label style={styles.label}>{t('pages.powiadomienia.typeLabel')}</label>
-                  <div style={styles.typyGrid}>
+                  <div className="notifications-type-grid" style={styles.typyGrid}>
                     {typChoices.map((typRow) => (
                       <div
                         key={typRow.value}
@@ -287,14 +287,14 @@ export default function Powiadomienia() {
         )}
 
         {routeBriefPendingCount > 0 && (
-          <div style={styles.routeBriefNotice}>
+          <div className="notifications-route-brief-notice" style={styles.routeBriefNotice}>
             <strong>Odprawy do potwierdzenia: {routeBriefPendingCount}</strong>
             <span>Nie zamykam ich przyciskiem "oznacz wszystkie", zeby przypadkiem nie potwierdzic odprawy bez przeczytania.</span>
           </div>
         )}
 
         {/* Lista powiadomień */}
-        <div style={styles.card}>
+        <div className="notifications-card" style={styles.card}>
           <div style={styles.cardHeader}>
             <div style={styles.cardTitle}>
               {t('pages.powiadomienia.historyTitle', { count: powiadomienia.length })}
@@ -317,6 +317,7 @@ export default function Powiadomienia() {
                 const isRouteBrief = isRouteBriefNotification(n);
                 return (
                   <div
+                    className="notifications-item"
                     key={n.id}
                     style={{
                       ...styles.notifItem,

@@ -4411,17 +4411,55 @@ body.theme-dark pre {
 }
 
 @media (max-width: 900px) {
+  .telefonia-shell,
+  .mapa-live-shell {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
   .telefonia-main {
     padding: 14px 12px 24px !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .telefonia-tabs {
     overflow-x: auto;
+    max-width: 100% !important;
+    scrollbar-width: thin;
   }
 
   .telefonia-kpis,
   .telefonia-panel [style*="grid-template-columns"] {
     grid-template-columns: 1fr !important;
+  }
+
+  .telefonia-panel,
+  .telefonia-manual-box,
+  .telefonia-filters {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .telefonia-panel input,
+  .telefonia-panel select,
+  .telefonia-panel textarea,
+  .telefonia-manual-box input,
+  .telefonia-manual-box textarea {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .telefonia-panel table {
+    min-width: 720px !important;
+  }
+
+  .telefonia-panel [style*="overflow-x: auto"],
+  .telefonia-panel [style*="overflowX: auto"] {
+    max-width: 100% !important;
   }
 }
 
@@ -4467,6 +4505,10 @@ body.theme-dark pre {
 @media (max-width: 900px) {
   .mapa-live-main {
     padding: 14px 12px 24px !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .mapa-live-hero::after {
@@ -4483,6 +4525,26 @@ body.theme-dark pre {
   .mapa-live-office-panel [style*="grid-template-columns"],
   .mapa-live-dispatch-panel [style*="grid-template-columns"] {
     grid-template-columns: 1fr !important;
+  }
+
+  .mapa-live-hero,
+  .mapa-live-toolbar,
+  .mapa-live-office-panel,
+  .mapa-live-dispatch-panel,
+  .mapa-live-history-panel {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .mapa-live-toolbar select,
+  .mapa-live-toolbar button,
+  .mapa-live-dispatch-panel input,
+  .mapa-live-dispatch-panel select,
+  .mapa-live-dispatch-panel textarea {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 }
 
@@ -5127,106 +5189,6 @@ body.theme-dark pre {
 
   .crm-pipeline-workflows .ios-btn,
   .crm-pipeline-create .ios-btn-primary {
-    width: 100%;
-  }
-}
-
-/* ARBOR-OS CRM inbox polish: shared conversation workspace. */
-.crm-inbox-shell {
-  background: linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%) !important;
-}
-
-.crm-inbox-main {
-  width: 100%;
-  max-width: 1480px;
-  margin: 0 auto;
-  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
-  background: transparent !important;
-}
-
-.crm-inbox-content {
-  padding: 0 !important;
-}
-
-.crm-inbox-main > .module-page-header-hero {
-  background:
-    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
-  background-size: 34px 34px, 34px 34px, auto !important;
-  border: 1px solid rgba(15, 95, 58, 0.14) !important;
-  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
-}
-
-.crm-inbox-main .ios-inset:not(.arbor-sidebar .ios-inset) {
-  background: #ffffff !important;
-  border-color: rgba(15, 95, 58, 0.13) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
-}
-
-.crm-inbox-filters,
-.crm-inbox-list-panel,
-.crm-inbox-detail-panel,
-.crm-inbox-history,
-.crm-inbox-reply,
-.crm-inbox-message-row {
-  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-.crm-inbox-filters {
-  background:
-    linear-gradient(90deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(15, 107, 63, 0.035) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.94)) !important;
-  background-size: 32px 32px, 32px 32px, auto !important;
-}
-
-.crm-inbox-message-row {
-  background: rgba(241, 249, 244, 0.42) !important;
-  border-color: rgba(15, 95, 58, 0.1) !important;
-}
-
-.crm-inbox-message-row:hover,
-.crm-inbox-detail-panel:hover,
-.crm-inbox-list-panel:hover {
-  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.085) !important;
-}
-
-.crm-inbox-main .ios-field {
-  background: #ffffff !important;
-  border-color: rgba(15, 95, 58, 0.16) !important;
-  border-radius: 8px !important;
-}
-
-.crm-inbox-main .ios-btn-primary {
-  background: var(--accent-gradient) !important;
-  color: var(--on-accent) !important;
-  border-color: rgba(20, 131, 79, 0.24) !important;
-  box-shadow: 0 8px 18px rgba(20, 131, 79, 0.16);
-}
-
-.crm-inbox-main .ios-btn:hover,
-.crm-inbox-main button:hover {
-  background: rgba(15, 107, 63, 0.045) !important;
-}
-
-.crm-inbox-main .ios-btn-primary:hover {
-  background: var(--accent-gradient) !important;
-  color: var(--on-accent) !important;
-}
-
-@media (max-width: 900px) {
-  .crm-inbox-main {
-    padding: 14px 12px 24px !important;
-  }
-
-  .crm-inbox-grid,
-  .crm-inbox-filters form {
-    grid-template-columns: 1fr !important;
-  }
-
-  .crm-inbox-filters .ios-btn {
     width: 100%;
   }
 }
@@ -7057,5 +7019,2033 @@ body.theme-dark pre {
   .hr-panel-actions input,
   .hr-panel-tabs button {
     width: 100%;
+  }
+}
+
+/* ARBOR-OS HR documents polish: position-card register. */
+.hr-docs-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.hr-docs-main {
+  max-width: 1320px !important;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background: transparent !important;
+}
+
+.hr-docs-header {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.hr-docs-header h1 {
+  color: #0b3825 !important;
+}
+
+.hr-docs-stats > *,
+.hr-docs-panel {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.hr-docs-stats > *:hover,
+.hr-docs-panel:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.hr-docs-toolbar {
+  padding: 10px;
+  background: rgba(241, 249, 244, 0.64);
+  border: 1px solid rgba(15, 95, 58, 0.1);
+  border-radius: 8px;
+}
+
+.hr-docs-actions button,
+.hr-docs-toolbar button {
+  border-radius: 8px !important;
+  font-weight: 850 !important;
+}
+
+.hr-docs-actions button:hover,
+.hr-docs-toolbar button:hover,
+.hr-docs-panel button:hover {
+  background: rgba(241, 249, 244, 0.9) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.hr-docs-main input,
+.hr-docs-main select {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.hr-docs-main input:focus,
+.hr-docs-main select:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.hr-docs-panel .modern-data-row {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+@media (max-width: 900px) {
+  .hr-docs-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .hr-docs-header,
+  .hr-docs-actions {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .hr-docs-actions button,
+  .hr-docs-toolbar > * {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS payroll M11 polish: exports, approvals, and correction logs. */
+.payroll-m11-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.payroll-m11-main {
+  max-width: 1320px !important;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background: transparent !important;
+}
+
+.payroll-m11-main > .module-page-header,
+.payroll-m11-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.payroll-m11-card,
+.payroll-m11-report-card {
+  max-width: none !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.payroll-m11-card:hover,
+.payroll-m11-report-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.payroll-m11-warning {
+  border-color: rgba(202, 138, 4, 0.28) !important;
+  background: #fffbeb !important;
+}
+
+.payroll-m11-main button {
+  border-radius: 8px !important;
+}
+
+.payroll-m11-main button:hover {
+  background: rgba(241, 249, 244, 0.9) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.payroll-m11-main input {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.payroll-m11-main input:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.payroll-m11-report-card {
+  padding: 14px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+}
+
+.payroll-m11-card .modern-data-row {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.payroll-m11-card .modern-data-row:hover {
+  box-shadow: 0 12px 24px rgba(31, 79, 50, 0.07);
+}
+
+@media (max-width: 900px) {
+  .payroll-m11-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .payroll-m11-card [style*="grid-template-columns: 160px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .payroll-m11-main button,
+  .payroll-m11-main input {
+    max-width: 100% !important;
+  }
+}
+
+/* ARBOR-OS notifications polish: requests, route briefs, and inbox. */
+.notifications-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.notifications-main {
+  max-width: 1180px !important;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background: transparent !important;
+}
+
+.notifications-main > .module-page-header,
+.notifications-main > .module-page-header-plain,
+.notifications-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.notifications-form,
+.notifications-card,
+.notifications-route-brief-notice {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.notifications-form,
+.notifications-card,
+.notifications-item {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.notifications-form:hover,
+.notifications-card:hover,
+.notifications-item:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.notifications-item:hover {
+  transform: translateY(-1px);
+}
+
+.notifications-type-grid > * {
+  border-radius: 8px !important;
+}
+
+.notifications-type-grid > *:hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.notifications-main button {
+  border-radius: 8px !important;
+}
+
+.notifications-main button:hover {
+  background: rgba(241, 249, 244, 0.9) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.notifications-main input,
+.notifications-main select,
+.notifications-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.notifications-main input:focus,
+.notifications-main select:focus,
+.notifications-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.notifications-route-brief-notice {
+  background: #f0fdfa !important;
+  border-color: #99f6e4 !important;
+}
+
+.notifications-card .notifications-item {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+@media (max-width: 900px) {
+  .notifications-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .notifications-main > .module-page-header,
+  .notifications-main > .module-page-header-plain,
+  .notifications-main > .module-page-header-hero {
+    align-items: stretch !important;
+  }
+
+  .notifications-main button,
+  .notifications-main select,
+  .notifications-main input {
+    width: 100%;
+  }
+
+  .notifications-item,
+  .notifications-route-brief-notice {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+}
+/* ARBOR-OS roles admin polish: role permissions workbench. */
+.roles-admin-shell {
+  min-height: 100vh;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(20, 131, 79, 0.08), transparent 28%),
+    linear-gradient(135deg, #f5faf7 0%, #ffffff 50%, #eaf4ee 100%) !important;
+  color: var(--text);
+}
+
+.roles-admin-shell > .module-page-header,
+.roles-admin-shell > .module-page-header-plain,
+.roles-admin-shell > .module-page-header-hero {
+  max-width: 1320px;
+  margin: 0 auto 18px;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.roles-admin-layout {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.roles-admin-sidebar,
+.roles-admin-editor,
+.roles-admin-empty,
+.roles-admin-summary,
+.roles-admin-perm-group {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.roles-admin-sidebar {
+  overflow: hidden;
+}
+
+.roles-admin-sidebar-header {
+  background: rgba(241, 249, 244, 0.78) !important;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.1) !important;
+}
+
+.roles-admin-role-row,
+.roles-admin-perm-group,
+.roles-admin-editor {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.roles-admin-role-row:hover,
+.roles-admin-perm-group:hover {
+  background: rgba(241, 249, 244, 0.6) !important;
+  box-shadow: inset 0 0 0 1px rgba(20, 131, 79, 0.08);
+}
+
+.roles-admin-editor {
+  min-width: 0;
+}
+
+.roles-admin-editor:hover {
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.roles-admin-empty {
+  box-shadow: none !important;
+  background: rgba(248, 252, 249, 0.72) !important;
+}
+
+.roles-admin-editor-header {
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.1);
+}
+
+.roles-admin-form-row {
+  gap: 16px;
+}
+
+.roles-admin-shell input {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.roles-admin-shell input:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.roles-admin-shell input[type='color'] {
+  min-width: 44px;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+}
+
+.roles-admin-shell button {
+  border-radius: 8px !important;
+}
+
+.roles-admin-shell button:hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.roles-admin-perms {
+  margin-top: 22px !important;
+}
+
+.roles-admin-perms-grid {
+  align-items: stretch;
+}
+
+.roles-admin-perm-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.roles-admin-perm-row {
+  margin: 1px -4px;
+  padding-inline: 4px !important;
+  border-radius: 7px;
+}
+
+.roles-admin-perm-row:hover {
+  background: rgba(15, 107, 63, 0.045);
+}
+
+.roles-admin-summary {
+  margin-top: 20px;
+  background: rgba(248, 252, 249, 0.86) !important;
+}
+
+.roles-admin-toggle {
+  box-shadow: inset 0 0 0 1px rgba(15, 95, 58, 0.12);
+}
+
+.roles-admin-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 980px) {
+  .roles-admin-layout {
+    flex-direction: column !important;
+  }
+
+  .roles-admin-sidebar {
+    width: 100% !important;
+  }
+
+  .roles-admin-form-row {
+    flex-direction: column !important;
+  }
+
+  .roles-admin-actions {
+    flex-direction: column;
+  }
+
+  .roles-admin-actions button,
+  .roles-admin-shell > .module-page-header button,
+  .roles-admin-shell > .module-page-header-plain button,
+  .roles-admin-shell > .module-page-header-hero button {
+    width: 100%;
+  }
+}
+/* ARBOR-OS integrations polish: admin control room for sync, retries and denylist. */
+.integrations-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #eef6f1 100%) !important;
+}
+
+.integrations-main {
+  padding: 22px clamp(16px, 2.2vw, 30px) 34px !important;
+  min-width: 0;
+}
+
+.integrations-main > .module-page-header,
+.integrations-main > .module-page-header-plain,
+.integrations-main > .module-page-header-hero {
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.integrations-metrics {
+  gap: 12px !important;
+}
+
+.integrations-metric-card,
+.integrations-main > div[style*='box-shadow'] {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.integrations-metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.integrations-metric-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #14834f, #8bc34a);
+}
+
+.integrations-main > div[style*='box-shadow'] {
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.integrations-main > div[style*='box-shadow']:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.integrations-filters {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(15, 95, 58, 0.11);
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(31, 79, 50, 0.045);
+}
+
+.integrations-main input,
+.integrations-main select,
+.integrations-main textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.integrations-main input:focus,
+.integrations-main select:focus,
+.integrations-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.integrations-main button {
+  border-radius: 8px !important;
+}
+
+.integrations-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.integrations-main .modern-data-row,
+.integrations-main .modern-data-empty {
+  border-radius: 8px;
+}
+
+.integrations-main .modern-data-stack {
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .integrations-main {
+    padding-inline: 14px !important;
+  }
+
+  .integrations-main > div[style*='grid-template-columns'],
+  .integrations-filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .integrations-main button,
+  .integrations-main input,
+  .integrations-main select {
+    width: 100%;
+  }
+}
+/* ARBOR-OS demo requests polish: landing leads triage for sales/admin. */
+.demo-requests-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 14% 9%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.demo-requests-main {
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  min-width: 0;
+}
+
+.demo-requests-main > .module-page-header,
+.demo-requests-main > .module-page-header-plain,
+.demo-requests-main > .module-page-header-hero {
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.demo-requests-stats {
+  gap: 12px !important;
+}
+
+.demo-requests-stat-card,
+.demo-requests-panel {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.demo-requests-stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.demo-requests-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #14834f, #8bc34a);
+}
+
+.demo-requests-panel {
+  overflow: hidden;
+}
+
+.demo-requests-panel-header {
+  background: rgba(241, 249, 244, 0.78) !important;
+  border-bottom-color: rgba(15, 95, 58, 0.1) !important;
+}
+
+.demo-requests-table-wrap {
+  background: #fff;
+}
+
+.demo-requests-table th {
+  background: rgba(248, 252, 249, 0.92);
+  border-bottom-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.demo-requests-table tbody tr {
+  transition: background 0.14s ease;
+}
+
+.demo-requests-table tbody tr:hover {
+  background: rgba(241, 249, 244, 0.58);
+}
+
+.demo-requests-main input,
+.demo-requests-main select,
+.demo-requests-main textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.demo-requests-main input:focus,
+.demo-requests-main select:focus,
+.demo-requests-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.demo-requests-main button {
+  border-radius: 8px !important;
+}
+
+.demo-requests-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+@media (max-width: 860px) {
+  .demo-requests-main {
+    padding-inline: 14px !important;
+  }
+
+  .demo-requests-main > .module-page-header button,
+  .demo-requests-main > .module-page-header-plain button,
+  .demo-requests-main > .module-page-header-hero button,
+  .demo-requests-main button,
+  .demo-requests-main select,
+  .demo-requests-main textarea {
+    width: 100%;
+  }
+}
+/* ARBOR-OS new employee polish: compact HR onboarding form. */
+.new-employee-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.new-employee-main {
+  max-width: 980px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+}
+
+.new-employee-topbar {
+  padding: 16px 18px;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86));
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07);
+}
+
+.new-employee-topbar h1 {
+  color: var(--text) !important;
+  font-size: clamp(22px, 2.2vw, 30px) !important;
+}
+
+.new-employee-form {
+  display: grid;
+  gap: 14px;
+}
+
+.new-employee-section {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.new-employee-section:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.new-employee-section-title {
+  color: var(--text) !important;
+  border-bottom-color: rgba(15, 95, 58, 0.1) !important;
+}
+
+.new-employee-section label {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.new-employee-main input,
+.new-employee-main select,
+.new-employee-main textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.new-employee-main input:focus,
+.new-employee-main select:focus,
+.new-employee-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.new-employee-main button {
+  border-radius: 8px !important;
+}
+
+.new-employee-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.new-employee-actions {
+  padding-top: 4px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .new-employee-main {
+    padding-inline: 14px !important;
+  }
+
+  .new-employee-topbar {
+    align-items: stretch !important;
+  }
+
+  .new-employee-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .new-employee-actions,
+  .new-employee-topbar {
+    flex-direction: column;
+  }
+
+  .new-employee-main button,
+  .new-employee-main input,
+  .new-employee-main select,
+  .new-employee-main textarea {
+    width: 100%;
+  }
+}
+/* ARBOR-OS estimator payout polish: finance-grade commission calculator. */
+.estimator-pay-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f7faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.estimator-pay-main {
+  padding: 22px clamp(16px, 2.4vw, 30px) 38px !important;
+  min-width: 0;
+}
+
+.estimator-pay-main > .module-page-header,
+.estimator-pay-main > .module-page-header-plain,
+.estimator-pay-main > .module-page-header-hero {
+  max-width: 980px;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.estimator-pay-card {
+  max-width: 980px !important;
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.estimator-pay-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.estimator-pay-card-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.1);
+}
+
+.estimator-pay-main label {
+  color: var(--text-sub) !important;
+  font-weight: 800 !important;
+}
+
+.estimator-pay-main input,
+.estimator-pay-main select {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.estimator-pay-main input:focus,
+.estimator-pay-main select:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.estimator-pay-main button {
+  border-radius: 8px !important;
+}
+
+.estimator-pay-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.estimator-pay-main .modern-data-stack {
+  gap: 10px;
+}
+
+.estimator-pay-main .modern-data-row {
+  border-radius: 8px;
+}
+
+@media (max-width: 820px) {
+  .estimator-pay-main {
+    padding-inline: 14px !important;
+  }
+
+  .estimator-pay-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .estimator-pay-grid > div,
+  .estimator-pay-card-header,
+  .estimator-pay-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .estimator-pay-main button,
+  .estimator-pay-main input,
+  .estimator-pay-main select {
+    width: 100%;
+  }
+}
+/* ARBOR-OS field settlements polish: crew hours, gross/net calculator and day summary. */
+.field-settlements-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.field-settlements-main {
+  max-width: 980px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 38px !important;
+}
+
+.field-settlements-header,
+.field-settlements-taskbar,
+.field-settlements-tabs,
+.field-settlements-panel {
+  background: #fff;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055);
+}
+
+.field-settlements-header {
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86));
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07);
+}
+
+.field-settlements-taskbar {
+  padding: 12px;
+  flex-wrap: wrap;
+}
+
+.field-settlements-tabs {
+  padding: 6px;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.field-settlements-tabs button {
+  border-radius: 7px !important;
+}
+
+.field-settlements-panel {
+  padding: 16px;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.field-settlements-panel:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075);
+}
+
+.field-settlements-worker-card,
+.field-settlements-panel [style*='background: var(--surface-glass)'] {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+}
+
+.field-settlements-main input {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.field-settlements-main input:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.field-settlements-main button {
+  border-radius: 8px !important;
+}
+
+.field-settlements-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.field-settlements-main .modern-data-stack {
+  gap: 10px;
+}
+
+.field-settlements-main .modern-data-row {
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  .field-settlements-main {
+    padding-inline: 14px !important;
+  }
+
+  .field-settlements-taskbar,
+  .field-settlements-tabs,
+  .field-settlements-worker-card [style*='display: flex'] {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .field-settlements-main button,
+  .field-settlements-main input {
+    width: 100% !important;
+  }
+}
+/* ARBOR-OS quote approval polish: acceptance queue with calm operational cards. */
+.quote-approval-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.quote-approval-main {
+  padding: 22px clamp(16px, 2.4vw, 30px) 38px !important;
+}
+
+.quote-approval-header,
+.quote-approval-tabs,
+.quote-approval-card,
+.quote-approval-empty,
+.quote-approval-modal {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.quote-approval-header {
+  max-width: 920px;
+  margin: 0 auto 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.quote-approval-tabs {
+  max-width: 920px;
+  margin: 12px auto 0;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.quote-approval-tabs button {
+  border-radius: 7px !important;
+}
+
+.quote-approval-list {
+  max-width: 920px !important;
+}
+
+.quote-approval-card {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.quote-approval-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.quote-approval-empty {
+  margin-top: 14px;
+}
+
+.quote-approval-modal {
+  background: #fff !important;
+}
+
+.quote-approval-main input,
+.quote-approval-main select,
+.quote-approval-main textarea,
+.quote-approval-modal input,
+.quote-approval-modal select,
+.quote-approval-modal textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.quote-approval-main input:focus,
+.quote-approval-main select:focus,
+.quote-approval-main textarea:focus,
+.quote-approval-modal input:focus,
+.quote-approval-modal select:focus,
+.quote-approval-modal textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.quote-approval-main button,
+.quote-approval-modal button {
+  border-radius: 8px !important;
+}
+
+.quote-approval-main button:hover:not(:disabled),
+.quote-approval-modal button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+@media (max-width: 760px) {
+  .quote-approval-main {
+    padding-inline: 14px !important;
+  }
+
+  .quote-approval-header,
+  .quote-approval-card [style*='display: flex'],
+  .quote-approval-modal [style*='grid-template-columns'] {
+    flex-direction: column;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+  }
+
+  .quote-approval-main button,
+  .quote-approval-modal button,
+  .quote-approval-modal input,
+  .quote-approval-modal select,
+  .quote-approval-modal textarea {
+    width: 100%;
+  }
+}
+/* ARBOR-OS estimator hub polish: compact command surface for quoting work. */
+.estimator-hub-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.estimator-hub-main {
+  max-width: 900px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 38px !important;
+}
+
+.estimator-hub-hero,
+.estimator-hub-section,
+.estimator-hub-kpi-card,
+.estimator-hub-hint,
+.estimator-hub-platinum,
+.estimator-hub-error {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.estimator-hub-hero {
+  padding: 18px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.estimator-hub-hero h1 {
+  font-size: clamp(24px, 2.5vw, 32px) !important;
+}
+
+.estimator-hub-platinum,
+.estimator-hub-hint {
+  border-color: rgba(20, 131, 79, 0.2) !important;
+}
+
+.estimator-hub-kpis {
+  gap: 12px !important;
+}
+
+.estimator-hub-kpi-card,
+.estimator-hub-section,
+.estimator-hub-tile {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.estimator-hub-kpi-card:hover,
+.estimator-hub-section:hover,
+.estimator-hub-tile:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.estimator-hub-tile {
+  background: rgba(248, 252, 249, 0.92) !important;
+  border-color: rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+}
+
+.estimator-hub-main button {
+  border-radius: 8px !important;
+}
+
+.estimator-hub-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+@media (max-width: 720px) {
+  .estimator-hub-main {
+    padding-inline: 14px !important;
+  }
+
+  .estimator-hub-kpis {
+    flex-direction: column;
+  }
+
+  .estimator-hub-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* ARBOR-OS quote drawing polish: annotation workspace with stable canvas framing. */
+.quote-draw-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.quote-draw-main {
+  padding: 0 clamp(14px, 2vw, 24px) 28px !important;
+}
+
+.quote-draw-topbar,
+.quote-draw-workbench,
+.quote-draw-toolbar {
+  background: #fff;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055);
+}
+
+.quote-draw-topbar {
+  margin: 18px auto 10px;
+  max-width: 980px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86));
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.quote-draw-workbench {
+  max-width: 980px !important;
+}
+
+.quote-draw-toolbar {
+  padding: 10px;
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+}
+
+.quote-draw-toolbar button,
+.quote-draw-topbar button,
+.quote-draw-toolbar select {
+  border-radius: 8px !important;
+}
+
+.quote-draw-toolbar button:hover:not(:disabled),
+.quote-draw-topbar button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.quote-draw-toolbar select {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  color: var(--text) !important;
+}
+
+.quote-draw-toolbar select:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.quote-draw-canvas-frame {
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%),
+    #101612 !important;
+  background-size: 18px 18px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 14px 32px rgba(31, 79, 50, 0.075);
+}
+
+@media (max-width: 720px) {
+  .quote-draw-main {
+    padding-inline: 12px !important;
+  }
+
+  .quote-draw-topbar,
+  .quote-draw-toolbar {
+    align-items: stretch !important;
+  }
+
+  .quote-draw-topbar button,
+  .quote-draw-toolbar button,
+  .quote-draw-toolbar select {
+    width: 100%;
+  }
+}
+/* ARBOR-OS inspection documentation polish: capture and annotate field media. */
+.inspection-doc-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.inspection-doc-main {
+  max-width: 820px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 38px !important;
+}
+
+.inspection-doc-hero,
+.inspection-doc-card {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.inspection-doc-hero {
+  padding: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+}
+
+.inspection-doc-hero h1 {
+  font-size: clamp(24px, 2.5vw, 32px) !important;
+}
+
+.inspection-doc-card {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.inspection-doc-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.inspection-doc-main button {
+  border-radius: 8px !important;
+}
+
+.inspection-doc-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+@media (max-width: 720px) {
+  .inspection-doc-main {
+    padding-inline: 14px !important;
+  }
+
+  .inspection-doc-main button {
+    width: 100%;
+  }
+}
+/* ARBOR-OS position card print polish: screen preview for HR documents. */
+.position-card-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.position-card-page .no-print {
+  padding: 4px;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055);
+}
+
+.position-card-page .no-print button {
+  border-radius: 8px !important;
+}
+
+.position-card-page .no-print button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.position-card-sheet {
+  border-color: rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(20, 31, 22, 0.12) !important;
+}
+
+.position-card-sheet .print-avoid-break {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.position-card-sheet [style*='border: 1px solid #D8DED6'],
+.position-card-sheet [style*='border: 1px solid #BFDAC7'],
+.position-card-sheet [style*='border: 1px dashed #C8D1C8'] {
+  border-radius: 8px !important;
+}
+
+@media screen and (max-width: 820px) {
+  .position-card-page {
+    padding-inline: 12px !important;
+  }
+
+  .position-card-page .no-print,
+  .position-card-sheet header,
+  .position-card-sheet [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+    flex-direction: column;
+  }
+
+  .position-card-page .no-print button {
+    width: 100%;
+  }
+}
+/* ARBOR-OS operator tasks polish: team todo board and delegation inbox. */
+.operator-tasks-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.operator-tasks-main {
+  padding: 22px clamp(16px, 2.4vw, 30px) 38px !important;
+}
+
+.operator-tasks-header,
+.operator-tasks-stats > div,
+.operator-tasks-panel {
+  background: #fff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.operator-tasks-header {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.operator-tasks-stats > div,
+.operator-tasks-panel {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.operator-tasks-stats > div:hover,
+.operator-tasks-panel:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.operator-tasks-toolbar {
+  padding: 10px;
+  background: rgba(248, 252, 249, 0.86);
+  border: 1px solid rgba(15, 95, 58, 0.1);
+  border-radius: 8px;
+}
+
+.operator-tasks-main input,
+.operator-tasks-main select,
+.operator-tasks-main textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.operator-tasks-main input:focus,
+.operator-tasks-main select:focus,
+.operator-tasks-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.operator-tasks-main button {
+  border-radius: 8px !important;
+}
+
+.operator-tasks-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.operator-tasks-list .modern-data-stack {
+  gap: 10px;
+}
+
+.operator-tasks-list .modern-data-row,
+.operator-tasks-list .modern-data-empty {
+  border-radius: 8px;
+}
+
+@media (max-width: 980px) {
+  .operator-tasks-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .operator-tasks-header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 720px) {
+  .operator-tasks-main {
+    padding-inline: 14px !important;
+  }
+
+  .operator-tasks-toolbar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .operator-tasks-main button,
+  .operator-tasks-main input,
+  .operator-tasks-main select,
+  .operator-tasks-main textarea {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS explore polish: operational launcher with dense, scannable modules. */
+.explore-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 6%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.explore-main {
+  padding: 22px clamp(16px, 2.4vw, 30px) 42px !important;
+}
+
+.explore-header {
+  padding: 20px 22px;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 249, 244, 0.86));
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07);
+}
+
+.explore-header h1 {
+  font-size: clamp(22px, 2.2vw, 30px) !important;
+  letter-spacing: 0 !important;
+}
+
+.explore-search {
+  max-width: 560px !important;
+}
+
+.explore-search-box {
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055);
+}
+
+.explore-search input {
+  min-height: 44px;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+}
+
+.explore-search input:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.explore-group {
+  padding: 2px 0 4px;
+}
+
+.explore-group h2 {
+  letter-spacing: 0 !important;
+}
+
+.explore-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.explore-tile {
+  min-height: 126px;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease !important;
+}
+
+.explore-tile:hover,
+.explore-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(20, 131, 79, 0.3) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(237, 247, 242, 0.9)) !important;
+  box-shadow: 0 16px 34px rgba(31, 79, 50, 0.09) !important;
+  outline: none;
+}
+
+.explore-empty {
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055);
+}
+
+@media (max-width: 720px) {
+  .explore-main {
+    padding-inline: 14px !important;
+  }
+
+  .explore-header {
+    padding: 18px;
+  }
+
+  .explore-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ARBOR-OS field quotes polish: assignment queue and client offer detail. */
+.field-quotes-shell,
+.field-quote-detail-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.field-quotes-main {
+  padding: 22px clamp(16px, 2.4vw, 30px) 42px !important;
+}
+
+.field-quote-detail-main {
+  max-width: 980px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 42px !important;
+}
+
+.field-quotes-main > .module-page-header,
+.field-quotes-main > .module-page-header-plain,
+.field-quotes-main > .module-page-header-hero,
+.field-quote-detail-main > .module-page-header,
+.field-quote-detail-main > .module-page-header-plain,
+.field-quote-detail-main > .module-page-header-hero {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.field-quotes-tabs,
+.field-quotes-card,
+.field-quotes-grid > div,
+.field-quote-detail-card {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.field-quotes-tabs {
+  padding: 5px !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+}
+
+.field-quotes-card,
+.field-quote-detail-card {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.field-quotes-card:hover,
+.field-quote-detail-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.field-quotes-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)) !important;
+  gap: 14px !important;
+}
+
+.field-quotes-main select,
+.field-quote-detail-main input,
+.field-quote-detail-main select,
+.field-quote-detail-main textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.field-quotes-main select:focus,
+.field-quote-detail-main input:focus,
+.field-quote-detail-main select:focus,
+.field-quote-detail-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.field-quotes-main button,
+.field-quote-detail-main button {
+  border-radius: 8px !important;
+}
+
+.field-quotes-main button:hover:not(:disabled),
+.field-quote-detail-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.field-quotes-main a,
+.field-quote-detail-main a {
+  text-underline-offset: 3px;
+}
+
+.field-quote-detail-main > button:first-child {
+  margin-bottom: 14px !important;
+  color: var(--accent) !important;
+  font-weight: 800 !important;
+}
+
+.field-quote-detail-sketch [style*='borderTop'] {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+@media (max-width: 720px) {
+  .field-quotes-main,
+  .field-quote-detail-main {
+    padding-inline: 14px !important;
+  }
+
+  .field-quotes-tabs,
+  .field-quotes-card [style*='display: flex'],
+  .field-quote-detail-card [style*='display: flex'] {
+    width: 100% !important;
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .field-quotes-main button,
+  .field-quotes-main select,
+  .field-quote-detail-main button {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS mobile reports polish: compact KPI summary from field app data. */
+.mobile-reports-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.mobile-reports-main {
+  max-width: 1080px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 42px !important;
+}
+
+.mobile-reports-main > .module-page-header,
+.mobile-reports-main > .module-page-header-plain,
+.mobile-reports-main > .module-page-header-hero {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.mobile-reports-actions {
+  padding: 10px;
+  border: 1px solid rgba(15, 95, 58, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.045);
+}
+
+.mobile-reports-kpi-card,
+.mobile-reports-summary {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.mobile-reports-kpi-card:hover,
+.mobile-reports-summary:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.mobile-reports-kpi-card .MuiTypography-h5 {
+  color: var(--text) !important;
+  letter-spacing: 0 !important;
+}
+
+.mobile-reports-summary .MuiStack-root > .MuiStack-root {
+  padding: 8px 0;
+}
+
+.mobile-reports-main button {
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+  text-transform: none !important;
+}
+
+.mobile-reports-main button:hover:not(:disabled) {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+@media (max-width: 720px) {
+  .mobile-reports-main {
+    padding-inline: 14px !important;
+  }
+
+  .mobile-reports-actions,
+  .mobile-reports-actions button {
+    width: 100%;
+  }
+}
+
+/* ARBOR-OS profile polish: operator identity, HR documents and personal task center. */
+.profile-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(20, 131, 79, 0.08), transparent 30%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+}
+
+.profile-main {
+  max-width: 1240px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 42px !important;
+}
+
+.profile-header,
+.profile-stat,
+.profile-panel {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.profile-header {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 249, 244, 0.86)) !important;
+  box-shadow: 0 12px 30px rgba(31, 79, 50, 0.07) !important;
+}
+
+.profile-stat,
+.profile-panel {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.profile-stat:hover,
+.profile-panel:hover {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.22) !important;
+  box-shadow: 0 14px 32px rgba(31, 79, 50, 0.075) !important;
+}
+
+.profile-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.profile-grid {
+  gap: 16px !important;
+}
+
+.profile-main input,
+.profile-main select,
+.profile-main textarea {
+  background: #fff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.profile-main input:focus,
+.profile-main select:focus,
+.profile-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.profile-main button,
+.profile-main a[style*='border'] {
+  border-radius: 8px !important;
+}
+
+.profile-main button:hover:not(:disabled),
+.profile-main a[style*='border']:hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.profile-task-form,
+.profile-position-form,
+.profile-rows > div {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+  background: rgba(248, 252, 249, 0.86) !important;
+}
+
+.profile-rows {
+  gap: 10px !important;
+}
+
+@media (max-width: 980px) {
+  .profile-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .profile-header {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .profile-main {
+    padding-inline: 14px !important;
+  }
+
+  .profile-main button,
+  .profile-main input,
+  .profile-main select,
+  .profile-main textarea {
+    width: 100%;
+  }
+
+  .profile-header [style*='display: flex'],
+  .profile-panel [style*='display: flex'] {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+}
+
+/* ARBOR-OS login polish: calm first-contact screen for operators. */
+.login-shell {
+  background:
+    linear-gradient(90deg, rgba(20, 107, 67, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(20, 107, 67, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 18% 12%, rgba(20, 131, 79, 0.14), transparent 34%),
+    linear-gradient(135deg, #f6faf8 0%, #ffffff 52%, #edf6f1 100%) !important;
+  background-size: 36px 36px, 36px 36px, auto, auto !important;
+}
+
+.login-glow {
+  opacity: 0.6 !important;
+}
+
+.login-card {
+  max-width: 440px !important;
+  border-color: rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 18px 48px rgba(20, 31, 22, 0.12) !important;
+}
+
+.login-logo-icon {
+  border-radius: 8px !important;
+  box-shadow: 0 10px 22px rgba(20, 131, 79, 0.2);
+}
+
+.login-demo-panel,
+.login-input-wrap,
+.login-error {
+  border-radius: 8px !important;
+}
+
+.login-demo-panel {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+  background: rgba(241, 249, 244, 0.86) !important;
+}
+
+.login-demo-btn {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.login-demo-btn:hover,
+.login-demo-btn:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(20, 131, 79, 0.28) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.09);
+  outline: none;
+}
+
+.login-field input {
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+}
+
+.login-field input:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.login-submit {
+  border-radius: 8px !important;
+  box-shadow: 0 12px 22px rgba(20, 131, 79, 0.2);
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.03);
+}
+
+@media (max-width: 560px) {
+  .login-shell {
+    padding: 16px !important;
+    align-items: stretch !important;
+  }
+
+  .login-card {
+    margin: auto 0;
+    padding: 28px 20px !important;
+  }
+
+  .login-demo-panel [style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
   }
 }

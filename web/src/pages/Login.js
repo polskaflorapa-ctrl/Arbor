@@ -78,15 +78,15 @@ export default function Login() {
   };
 
   return (
-    <div style={s.root}>
+    <div className="login-shell" style={s.root}>
       {/* Tlo z efektem */}
-      <div style={s.bgGlow1} />
-      <div style={s.bgGlow2} />
+      <div className="login-glow login-glow-primary" style={s.bgGlow1} />
+      <div className="login-glow login-glow-side" style={s.bgGlow2} />
 
-      <div style={s.card}>
+      <div className="login-card" style={s.card}>
         {/* Logo */}
-        <div style={s.logoRow}>
-          <div style={s.logoIcon}>
+        <div className="login-logo-row" style={s.logoRow}>
+          <div className="login-logo-icon" style={s.logoIcon}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22V12M12 12C12 7 7 3 3 3c0 4 2 8 5 10M12 12C12 7 17 3 21 3c0 4-2 8-5 10"/>
             </svg>
@@ -95,16 +95,17 @@ export default function Login() {
         </div>
         <p style={s.subtitle}>{t('login.subtitle')}</p>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+        <div className="login-language" style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
           <LanguageSwitcher />
         </div>
 
         {SHOW_DEMO_ACCOUNTS && (
-          <div style={s.demoPanel} aria-label="Konta demo">
+          <div className="login-demo-panel" style={s.demoPanel} aria-label="Konta demo">
             <div style={s.demoTitle}>Konta demo</div>
             <div style={s.demoGrid}>
               {DEMO_ACCOUNTS.map((account) => (
                 <button
+                  className="login-demo-btn"
                   key={account.login}
                   type="button"
                   style={s.demoBtn}
@@ -118,11 +119,11 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} style={s.form}>
+        <form className="login-form" onSubmit={handleLogin} style={s.form}>
           {/* Login */}
-          <div style={s.field}>
+          <div className="login-field" style={s.field}>
             <label htmlFor={loginInputId} style={s.label}>{t('login.loginLabel')}</label>
-            <div style={s.inputWrap}>
+            <div className="login-input-wrap" style={s.inputWrap}>
               <svg style={s.inputIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
                 <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
               </svg>
@@ -139,9 +140,9 @@ export default function Login() {
           </div>
 
           {/* Haslo */}
-          <div style={s.field}>
+          <div className="login-field" style={s.field}>
             <label htmlFor={passwordInputId} style={s.label}>{t('login.passwordLabel')}</label>
-            <div style={s.inputWrap}>
+            <div className="login-input-wrap" style={s.inputWrap}>
               <svg style={s.inputIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
@@ -169,7 +170,7 @@ export default function Login() {
           </div>
 
           {/* Opcje */}
-          <div style={s.optRow}>
+          <div className="login-options" style={s.optRow}>
             <label htmlFor={rememberInputId} style={s.checkRow}>
               <input
                 id={rememberInputId}
@@ -183,13 +184,14 @@ export default function Login() {
           </div>
 
           {error && (
-            <div style={s.errBox}>
+            <div className="login-error" style={s.errBox}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span style={s.errText}>{error}</span>
             </div>
           )}
 
           <button
+            className="login-submit"
             style={{ ...s.btn, ...(loading ? { opacity: 0.7 } : {}) }}
             type="submit"
             disabled={loading || !login.trim() || !haslo.trim()}

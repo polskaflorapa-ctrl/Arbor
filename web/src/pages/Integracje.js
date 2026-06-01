@@ -12,6 +12,14 @@ import useTimedMessage from '../hooks/useTimedMessage';
 
 const EMPTY_STATS = { total: 0, sent_demo: 0, byChannel: { sms: 0, email: 0, push: 0 } };
 const ROLLBACK_MAX_AGE_DAYS = 14;
+const CRM_CHANNEL_OPTIONS = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'messenger', label: 'Facebook Messenger' },
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'webchat', label: 'Webchat' },
+];
 const KOMMO_DEFAULT_CONFIG = {
   account_key: 'default',
   status_map: {},
@@ -30,6 +38,10 @@ function parseJsonObject(text, fallback = {}) {
   } catch {
     return fallback;
   }
+}
+
+function csvCell(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 
 export default function Integracje() {
@@ -57,7 +69,20 @@ export default function Integracje() {
   const [rollbackConfirmId, setRollbackConfirmId] = useState(null);
   const [crmApps, setCrmApps] = useState([]);
   const [crmEvents, setCrmEvents] = useState([]);
+  const [branchSetupStatuses, setBranchSetupStatuses] = useState([]);
   const [crmAppForm, setCrmAppForm] = useState({ name: 'Landing widget', type: 'widget', oddzial_id: '' });
+  const [crmChannelForm, setCrmChannelForm] = useState({
+    channel: 'whatsapp',
+    provider: 'meta',
+    oddzial_id: '',
+    handle: '',
+  });
+  const [latestCrmChannelPackage, setLatestCrmChannelPackage] = useState('');
+  const [crmChannelTestingId, setCrmChannelTestingId] = useState(null);
+  const [crmChannelTogglingId, setCrmChannelTogglingId] = useState(null);
+  const [branchInboxCreatingId, setBranchInboxCreatingId] = useState(null);
+  const [branchSetupFilter, setBranchSetupFilter] = useState('todo');
+  const [branchSetupShowAll, setBranchSetupShowAll] = useState(false);
   const [kommoSync, setKommoSync] = useState({ queue: [], inbound_events: [], summary: {} });
   const [kommoConfig, setKommoConfig] = useState(KOMMO_DEFAULT_CONFIG);
   const [kommoConfigForm, setKommoConfigForm] = useState({
@@ -93,9 +118,12 @@ export default function Integracje() {
         api.get('/uzytkownicy', { headers }).catch(() => ({ data: [] })),
       ]);
       const [crmAppsRes, crmEventsRes] = await Promise.all([
-        api.get('/crm/integrations/apps', { headers }).catch(() => ({ data: [] })),
+        api.get('/crm/integrations/apps', { headers, params: { include_inactive: true } }).catch(() => ({ data: [] })),
         api.get('/crm/integrations/events', { headers }).catch(() => ({ data: [] })),
       ]);
+      const branchSetupRes = await api.get('/telephony/voice-agent/polska-flora/integrations/status', { headers }).catch(() => ({
+        data: { items: [] },
+      }));
       const kommoSyncRes = await api.get('/tasks/kommo-sync/diagnostics', { headers }).catch(() => ({
         data: { queue: [], inbound_events: [], summary: {} },
       }));
@@ -116,6 +144,7 @@ export default function Integracje() {
       });
       setCrmApps(Array.isArray(crmAppsRes.data) ? crmAppsRes.data : []);
       setCrmEvents(Array.isArray(crmEventsRes.data) ? crmEventsRes.data : []);
+      setBranchSetupStatuses(Array.isArray(branchSetupRes.data?.items) ? branchSetupRes.data.items : []);
       setKommoSync({
         queue: Array.isArray(kommoSyncRes.data?.queue) ? kommoSyncRes.data.queue : [],
         inbound_events: Array.isArray(kommoSyncRes.data?.inbound_events) ? kommoSyncRes.data.inbound_events : [],
@@ -246,6 +275,389 @@ export default function Integracje() {
     }
   };
 
+  const buildCrmChannelPackage = (app, form = crmChannelForm) => JSON.stringify({
+    channel: form.channel,
+    provider: form.provider || 'external',
+    oddzial_id: form.oddzial_id ? Number(form.oddzial_id) : null,
+    handle: form.handle || null,
+    webhook: {
+      url: app?.webhook_path || '',
+      method: 'POST',
+      token: app?.token || '',
+      token_note: app?.token ? 'Token zwrocony przy tworzeniu kanalu.' : 'Token jest zaszyty w URL webhooka albo do pobrania przez administratora.',
+    },
+    unified_inbox_payload: {
+      event_type: 'message.received',
+      external_id: 'provider-message-id',
+      channel: form.channel,
+      title: 'Nowa rozmowa z klientem',
+      client_name: 'Jan Kowalski',
+      phone: '+48123123123',
+      email: form.channel === 'email' ? 'jan@example.com' : '',
+      sender_name: 'Jan Kowalski',
+      sender_handle: '+48123123123',
+      message: 'Prosze o kontakt w sprawie wyceny.',
+      source: `${form.channel}.${form.provider || 'external'}`,
+      tags: ['unified-inbox', form.channel],
+    },
+    notes: [
+      'Kazdy oddzial moze miec osobny webhook/token dla tego samego kanalu.',
+      'Wysylaj inbound message na webhook po odebraniu wiadomosci od klienta.',
+      'Pole channel decyduje, w ktorej sciezce Unified Inbox pojawi sie rozmowa.',
+      'external_id powinien byc unikalny po stronie providera.',
+    ],
+  }, null, 2);
+
+  const copyCrmChannelPackage = async (text = latestCrmChannelPackage) => {
+    if (!text) {
+      showMessage(errorMessage('Najpierw utworz kanal Unified Inbox.'));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showMessage(successMessage('Paczka kanalu skopiowana.'));
+    } catch {
+      showMessage(errorMessage('Nie udalo sie skopiowac paczki kanalu.'));
+    }
+  };
+
+  const getCrmChannelFormFromApp = (app) => {
+    const config = app?.config && typeof app.config === 'object' ? app.config : {};
+    return {
+      channel: String(config.channel || 'webchat').toLowerCase(),
+      provider: config.provider || app?.type || 'external',
+      oddzial_id: app?.oddzial_id ? String(app.oddzial_id) : '',
+      handle: config.handle || '',
+    };
+  };
+
+  const copyCrmChannelPackageForApp = async (app) => {
+    const pack = buildCrmChannelPackage(app, getCrmChannelFormFromApp(app));
+    setLatestCrmChannelPackage(pack);
+    await copyCrmChannelPackage(pack);
+  };
+
+  const formatCrmAppHealth = (app) => {
+    const count = Number(app?.event_count || 0);
+    if (!count) return 'brak eventow';
+    const lastAt = app?.last_event_at ? new Date(app.last_event_at).toLocaleString('pl-PL') : 'brak daty';
+    const status = app?.last_event_status || 'status nieznany';
+    return `${count} eventow / ostatni: ${status} / ${lastAt}`;
+  };
+
+  const branchSetupRows = useMemo(() => branchSetupStatuses.map((branch) => {
+    const oddzialId = Number(branch.oddzial_id || 0);
+    const crmChannels = crmApps.filter((app) => app?.config?.unified_inbox && Number(app.oddzial_id || 0) === oddzialId);
+    const activeCrmChannels = crmChannels.filter((app) => app.active === true);
+    const hasAgent = branch.integration_status === 'active';
+    const hasPhone = Boolean(String(branch.telefon || '').trim());
+    const hasSms = Boolean(String(branch.sms_sender_id || branch.telefon || '').trim());
+    const rawLastTest = String(branch.last_test_log_status || branch.last_test_status || '').toLowerCase();
+    const lastTestOk = rawLastTest === 'ok';
+    const testStatusLabel = lastTestOk ? 'Test wyslany' : (rawLastTest ? 'Test nieudany' : 'Brak testu');
+    const testStatusTone = lastTestOk ? 'success' : (rawLastTest ? 'danger' : 'warning');
+    const blockers = [
+      hasAgent ? null : 'agent AI',
+      hasPhone ? null : 'telefon oddzialu',
+      hasSms ? null : 'SMS sender',
+      activeCrmChannels.length ? null : 'kanal inbox',
+      lastTestOk ? null : 'test',
+    ].filter(Boolean);
+    const ready = blockers.length === 0;
+    return {
+      ...branch,
+      ready,
+      blockers,
+      crmChannels,
+      activeCrmChannels,
+      readyCount: [hasAgent, hasPhone, hasSms, activeCrmChannels.length > 0, lastTestOk].filter(Boolean).length,
+      testStatusLabel,
+      testStatusTone,
+    };
+  }).sort((a, b) => {
+    if (a.ready !== b.ready) return a.ready ? 1 : -1;
+    if (a.readyCount !== b.readyCount) return a.readyCount - b.readyCount;
+    if (a.blockers.length !== b.blockers.length) return b.blockers.length - a.blockers.length;
+    return String(a.oddzial_name || '').localeCompare(String(b.oddzial_name || ''), 'pl');
+  }), [branchSetupStatuses, crmApps]);
+
+  const branchSetupSummary = useMemo(() => branchSetupRows.reduce((acc, row) => {
+    acc.total += 1;
+    if (row.ready) acc.ready += 1;
+    else acc.todo += 1;
+    if (row.blockers.includes('kanal inbox')) acc.missingInbox += 1;
+    if (row.blockers.includes('test')) acc.missingTest += 1;
+    return acc;
+  }, { total: 0, ready: 0, todo: 0, missingInbox: 0, missingTest: 0 }), [branchSetupRows]);
+
+  const filteredBranchSetupRows = useMemo(() => {
+    if (branchSetupFilter === 'ready') return branchSetupRows.filter((row) => row.ready);
+    if (branchSetupFilter === 'todo') return branchSetupRows.filter((row) => !row.ready);
+    if (branchSetupFilter === 'missing_inbox') return branchSetupRows.filter((row) => row.blockers.includes('kanal inbox'));
+    if (branchSetupFilter === 'missing_test') return branchSetupRows.filter((row) => row.blockers.includes('test'));
+    return branchSetupRows;
+  }, [branchSetupFilter, branchSetupRows]);
+
+  const visibleBranchSetupRows = branchSetupShowAll ? filteredBranchSetupRows : filteredBranchSetupRows.slice(0, 8);
+
+  const copyBranchSetupGaps = async () => {
+    const rows = filteredBranchSetupRows.filter((row) => !row.ready);
+    if (!rows.length) {
+      showMessage(successMessage('Brak brakow w aktualnym filtrze.'));
+      return;
+    }
+    const text = [
+      'Checklisty podpiecia oddzialow - braki',
+      `Filtr: ${branchSetupFilter}`,
+      ...rows.map((row) => [
+        '',
+        `${row.oddzial_name || `Oddzial #${row.oddzial_id}`}`,
+        `- Gotowe: ${row.readyCount}/5`,
+        `- Braki: ${row.blockers.join(', ')}`,
+        `- Inbox: ${row.activeCrmChannels.length}/${row.crmChannels.length}`,
+        `- Agent: ${row.integration_status || 'brak'}`,
+        `- Ostatni test: ${row.last_test_log_status || row.last_test_status || 'brak'}`,
+      ].join('\n')),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      showMessage(successMessage('Braki oddzialow skopiowane.'));
+    } catch {
+      showMessage(errorMessage('Nie udalo sie skopiowac brakow oddzialow.'));
+    }
+  };
+
+  const buildBranchSetupPackage = (row) => {
+    const channels = row.crmChannels.length
+      ? row.crmChannels.map((app) => {
+        const config = app?.config && typeof app.config === 'object' ? app.config : {};
+        return `- ${app.name || config.channel || 'kanal'} / ${app.active ? 'aktywny' : 'pauza'} / ${app.webhook_path || 'brak webhooka'}`;
+      })
+      : ['- brak kanalow Unified Inbox'];
+    return [
+      `Paczka podpiecia oddzialu: ${row.oddzial_name || `Oddzial #${row.oddzial_id}`}`,
+      `Oddzial ID: ${row.oddzial_id || '-'}`,
+      `Status: ${row.ready ? 'gotowy' : 'do dopiecia'}`,
+      `Gotowe: ${row.readyCount}/5`,
+      `Braki: ${row.blockers.length ? row.blockers.join(', ') : 'brak'}`,
+      `Telefon oddzialu: ${row.telefon || 'brak'}`,
+      `SMS sender: ${row.sms_sender_id || row.telefon || 'brak'}`,
+      `Agent AI: ${row.integration_status || 'brak'}`,
+      `Test: ${row.testStatusLabel}`,
+      `Ostatni test techniczny: ${row.last_test_log_status || row.last_test_status || 'brak'}`,
+      '',
+      'Kanaly Unified Inbox:',
+      ...channels,
+      '',
+      'Nastepne kroki:',
+      ...(row.blockers.length ? row.blockers.map((item) => `- Dopiac: ${item}`) : ['- Oddzial gotowy do pracy end-to-end']),
+    ].join('\n');
+  };
+
+  const copyBranchSetupPackage = async (row) => {
+    if (!row) return;
+    const text = buildBranchSetupPackage(row);
+    try {
+      await navigator.clipboard.writeText(text);
+      showMessage(successMessage(`Paczka podpiecia skopiowana dla ${row.oddzial_name || 'oddzialu'}.`));
+    } catch {
+      showMessage(errorMessage('Nie udalo sie skopiowac paczki podpiecia oddzialu.'));
+    }
+  };
+
+  const copyVisibleBranchSetupPackages = async () => {
+    const rows = visibleBranchSetupRows;
+    if (!rows.length) {
+      showMessage(errorMessage('Brak widocznych oddzialow do skopiowania.'));
+      return;
+    }
+    const text = [
+      'Zbiorcze paczki podpiecia oddzialow',
+      `Filtr: ${branchSetupFilter}`,
+      `Widoczne oddzialy: ${rows.length}/${filteredBranchSetupRows.length}`,
+      '',
+      ...rows.map(buildBranchSetupPackage),
+    ].join('\n\n---\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      showMessage(successMessage(`Skopiowano komplety podpiecia dla ${rows.length} oddzialow.`));
+    } catch {
+      showMessage(errorMessage('Nie udalo sie skopiowac kompletow podpiecia oddzialow.'));
+    }
+  };
+
+  const exportBranchSetupCsv = () => {
+    const rows = filteredBranchSetupRows;
+    if (!rows.length) {
+      showMessage(errorMessage('Brak danych checklisty do eksportu.'));
+      return;
+    }
+    const header = ['oddzial_id', 'oddzial', 'gotowe', 'status', 'braki', 'inbox_aktywny', 'inbox_wszystkie', 'agent', 'telefon', 'sms_sender', 'ostatni_test'];
+    const lines = [
+      header.map(csvCell).join(';'),
+      ...rows.map((row) => [
+        row.oddzial_id,
+        row.oddzial_name || '',
+        `${row.readyCount}/5`,
+        row.ready ? 'gotowy' : 'do_dopiecia',
+        row.blockers.join(', '),
+        row.activeCrmChannels.length,
+        row.crmChannels.length,
+        row.integration_status || '',
+        row.telefon || '',
+        row.sms_sender_id || '',
+        row.last_test_log_status || row.last_test_status || '',
+      ].map(csvCell).join(';')),
+    ];
+    const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `checklista-oddzialow-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showMessage(successMessage('Eksport checklisty gotowy.'));
+  };
+
+  const prepareInboxChannelForBranch = (row) => {
+    setCrmChannelForm((prev) => ({
+      ...prev,
+      channel: 'whatsapp',
+      provider: prev.provider || 'meta',
+      oddzial_id: row?.oddzial_id ? String(row.oddzial_id) : '',
+      handle: row?.telefon || prev.handle || '',
+    }));
+    showMessage(successMessage(`Formularz kanalu Inbox ustawiony dla ${row?.oddzial_name || 'oddzialu'}.`));
+  };
+
+  const createCrmChannelApp = async () => {
+    try {
+      const token = getStoredToken();
+      const channelLabel = CRM_CHANNEL_OPTIONS.find((item) => item.value === crmChannelForm.channel)?.label || crmChannelForm.channel;
+      const body = {
+        name: `${channelLabel} / ${crmChannelForm.handle || 'Unified Inbox'}`,
+        type: 'webhook',
+        oddzial_id: crmChannelForm.oddzial_id ? Number(crmChannelForm.oddzial_id) : undefined,
+        config: {
+          source: 'unified-inbox-channel-wizard',
+          channel: crmChannelForm.channel,
+          provider: crmChannelForm.provider || 'external',
+          handle: crmChannelForm.handle || null,
+          unified_inbox: true,
+        },
+      };
+      const res = await api.post('/crm/integrations/apps', body, { headers: authHeaders(token) });
+      const pack = buildCrmChannelPackage(res.data, crmChannelForm);
+      setLatestCrmChannelPackage(pack);
+      await navigator.clipboard.writeText(pack).catch(() => {});
+      showMessage(successMessage(`Kanal ${channelLabel} utworzony. Paczka do providera jest gotowa.`));
+      loadData();
+    } catch (err) {
+      showMessage(errorMessage('Nie udalo sie utworzyc kanalu Unified Inbox.'));
+    }
+  };
+
+  const createInboxChannelForBranch = async (row) => {
+    if (!row?.oddzial_id) return;
+    const form = {
+      channel: 'whatsapp',
+      provider: 'meta',
+      oddzial_id: String(row.oddzial_id),
+      handle: row.telefon || '',
+    };
+    setBranchInboxCreatingId(row.oddzial_id);
+    try {
+      const token = getStoredToken();
+      const body = {
+        name: `WhatsApp / ${row.telefon || row.oddzial_name || 'Unified Inbox'}`,
+        type: 'webhook',
+        oddzial_id: Number(row.oddzial_id),
+        config: {
+          source: 'unified-inbox-channel-wizard',
+          channel: form.channel,
+          provider: form.provider,
+          handle: form.handle || null,
+          unified_inbox: true,
+        },
+      };
+      const res = await api.post('/crm/integrations/apps', body, { headers: authHeaders(token) });
+      const createdApp = {
+        ...res.data,
+        name: body.name,
+        type: body.type,
+        config: body.config,
+      };
+      const pack = buildCrmChannelPackage(createdApp, form);
+      const webhookPath = String(createdApp.webhook_path || '').replace(/^\/api(?=\/|$)/, '');
+      const testRes = webhookPath ? await api.post(webhookPath, buildCrmChannelTestPayload(createdApp)) : null;
+      setCrmChannelForm(form);
+      setLatestCrmChannelPackage(pack);
+      await navigator.clipboard.writeText(pack).catch(() => {});
+      showMessage(successMessage(`Kanal Inbox utworzony i przetestowany dla ${row.oddzial_name || 'oddzialu'}. Lead #${testRes?.data?.lead_id || '-'}. Paczka skopiowana.`));
+      loadData();
+    } catch (err) {
+      showMessage(errorMessage('Nie udalo sie utworzyc albo przetestowac kanalu Inbox dla oddzialu.'));
+    } finally {
+      setBranchInboxCreatingId(null);
+    }
+  };
+
+  const buildCrmChannelTestPayload = (app) => {
+    const config = app?.config && typeof app.config === 'object' ? app.config : {};
+    const channel = String(config.channel || 'webchat').toLowerCase();
+    const handle = config.handle || (channel === 'email' ? 'jan.test@example.com' : '+48123123123');
+    return {
+      event_type: 'message.received',
+      external_id: `test-${channel}-${Date.now()}`,
+      channel,
+      title: `Test ${channel} / ${app?.name || 'Unified Inbox'}`,
+      client_name: 'Jan Testowy',
+      phone: channel === 'email' ? '' : '+48123123123',
+      email: channel === 'email' ? handle : '',
+      sender_name: 'Jan Testowy',
+      sender_handle: handle,
+      message: `Testowa wiadomosc z kanalu ${channel}.`,
+      source: `${channel}.${config.provider || app?.type || 'webhook'}.test`,
+      tags: ['unified-inbox', 'test', channel],
+    };
+  };
+
+  const sendCrmChannelTest = async (app) => {
+    if (!app?.webhook_path) {
+      showMessage(errorMessage('Brak webhooka dla kanalu.'));
+      return;
+    }
+    setCrmChannelTestingId(app.id);
+    try {
+      const webhookPath = String(app.webhook_path).replace(/^\/api(?=\/|$)/, '');
+      const payload = buildCrmChannelTestPayload(app);
+      const res = await api.post(webhookPath, payload);
+      showMessage(successMessage(`Test wyslany do Unified Inbox. Lead #${res.data?.lead_id || '-'}.`));
+      loadData();
+    } catch (err) {
+      showMessage(errorMessage('Nie udalo sie wyslac testowej wiadomosci do Unified Inbox.'));
+    } finally {
+      setCrmChannelTestingId(null);
+    }
+  };
+
+  const toggleCrmChannelApp = async (app) => {
+    if (!app?.id) return;
+    setCrmChannelTogglingId(app.id);
+    try {
+      const token = getStoredToken();
+      await api.patch(`/crm/integrations/apps/${app.id}`, { active: app.active !== true }, { headers: authHeaders(token) });
+      showMessage(successMessage(app.active ? 'Kanal Unified Inbox zatrzymany.' : 'Kanal Unified Inbox wlaczony.'));
+      loadData();
+    } catch (err) {
+      showMessage(errorMessage('Nie udalo sie zmienic statusu kanalu Unified Inbox.'));
+    } finally {
+      setCrmChannelTogglingId(null);
+    }
+  };
+
   const saveKommoConfig = async () => {
     try {
       const token = getStoredToken();
@@ -371,15 +783,15 @@ export default function Integracje() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="integrations-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
+      <div className="integrations-main" style={styles.main}>
         <PageHeader title="Integracje" subtitle="Globalny dashboard logów i retry" />
         <StatusMessage message={message} />
 
-        <div style={styles.metrics}>
+        <div className="integrations-metrics" style={styles.metrics}>
           {metrics.map((m) => (
-            <div key={m.label} style={styles.metricCard}>
+            <div className="integrations-metric-card" key={m.label} style={styles.metricCard}>
               <div style={styles.metricValue}>{m.value}</div>
               <div style={styles.metricLabel}>{m.label}</div>
             </div>
@@ -420,8 +832,42 @@ export default function Integracje() {
                 <ModernDataRow
                   key={app.id}
                   title={app.name}
-                  subtitle={`${app.type} · ${app.active ? 'aktywna' : 'pauza'} · ${app.webhook_path}`}
+                  subtitle={`${app.type} / ${app.active ? 'aktywna' : 'pauza'} / ${formatCrmAppHealth(app)} / ${app.webhook_path}`}
                   meta={`oddział ${app.oddzial_id || 'global'}`}
+                  actions={app.config?.unified_inbox ? (
+                    <>
+                    <button
+                      type="button"
+                      style={styles.btn}
+                      onClick={() => sendCrmChannelTest(app)}
+                      disabled={crmChannelTestingId === app.id || app.active !== true}
+                    >
+                      {crmChannelTestingId === app.id ? 'Wysylam...' : 'Wyslij test'}
+                    </button>
+                    <button
+                      type="button"
+                      style={styles.btn}
+                      onClick={() => toggleCrmChannelApp(app)}
+                      disabled={crmChannelTogglingId === app.id}
+                    >
+                      {crmChannelTogglingId === app.id ? 'Zapis...' : app.active ? 'Pauzuj' : 'Wlacz'}
+                    </button>
+                    <button
+                      type="button"
+                      style={styles.btn}
+                      onClick={() => copyCrmChannelPackageForApp(app)}
+                    >
+                      Kopiuj paczke
+                    </button>
+                    <button
+                      type="button"
+                      style={styles.btn}
+                      onClick={() => navigate('/crm/inbox')}
+                    >
+                      Otworz Inbox
+                    </button>
+                    </>
+                  ) : null}
                 />
               ))}
             </div>
@@ -436,6 +882,178 @@ export default function Integracje() {
                 />
               ))}
             </div>
+          </div>
+          <div style={{ ...styles.tableWrap, marginTop: 12, boxShadow: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 800 }}>Unified Inbox: kanaly per oddzial</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Kreator tworzy osobny webhook dla WhatsApp, Instagrama, Messengera, Telegrama, e-maila lub webchatu.
+                </div>
+              </div>
+              <button type="button" style={styles.btn} onClick={createCrmChannelApp}>Utworz kanal</button>
+            </div>
+            <div style={styles.grid3}>
+              <label style={styles.fieldBlock}>
+                <span style={styles.fieldLabel}>Kanal</span>
+                <select
+                  style={styles.input}
+                  value={crmChannelForm.channel}
+                  onChange={(e) => setCrmChannelForm((prev) => ({ ...prev, channel: e.target.value }))}
+                >
+                  {CRM_CHANNEL_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={styles.fieldBlock}>
+                <span style={styles.fieldLabel}>Provider</span>
+                <input
+                  style={styles.input}
+                  value={crmChannelForm.provider}
+                  onChange={(e) => setCrmChannelForm((prev) => ({ ...prev, provider: e.target.value }))}
+                  placeholder="meta, twilio, sendgrid, telegram..."
+                />
+              </label>
+              <label style={styles.fieldBlock}>
+                <span style={styles.fieldLabel}>Oddzial ID</span>
+                <input
+                  style={styles.input}
+                  value={crmChannelForm.oddzial_id}
+                  onChange={(e) => setCrmChannelForm((prev) => ({ ...prev, oddzial_id: e.target.value }))}
+                  placeholder="np. 2"
+                />
+              </label>
+              <label style={styles.fieldBlock}>
+                <span style={styles.fieldLabel}>Numer / handle</span>
+                <input
+                  style={styles.input}
+                  value={crmChannelForm.handle}
+                  onChange={(e) => setCrmChannelForm((prev) => ({ ...prev, handle: e.target.value }))}
+                  placeholder="+48..., @profil, email@firma.pl"
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+              <span style={styles.statusPill}>
+                {crmApps.filter((app) => app.config?.unified_inbox).length} aktywnych kanalow Unified Inbox
+              </span>
+              <button type="button" style={styles.btn} onClick={() => copyCrmChannelPackage()} disabled={!latestCrmChannelPackage}>
+                Kopiuj ostatnia paczke
+              </button>
+            </div>
+            {latestCrmChannelPackage ? (
+              <label style={{ ...styles.fieldBlock, marginTop: 10 }}>
+                <span style={styles.fieldLabel}>Ostatnia paczka do providera</span>
+                <textarea style={styles.textarea} value={latestCrmChannelPackage} readOnly />
+              </label>
+            ) : null}
+          </div>
+          <div style={{ ...styles.tableWrap, marginTop: 12, boxShadow: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 800 }}>Checklisty podpiecia oddzialow</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Telefonia, Agent AI, SMS i kanaly Unified Inbox w jednym miejscu.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span style={styles.statusPill}>Gotowe: {branchSetupSummary.ready}/{branchSetupSummary.total}</span>
+                <span style={styles.statusPill}>Do dopiecia: {branchSetupSummary.todo}</span>
+                <span style={styles.statusPill}>Brak Inbox: {branchSetupSummary.missingInbox}</span>
+                <span style={styles.statusPill}>Brak testu: {branchSetupSummary.missingTest}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+              <select
+                style={styles.input}
+                value={branchSetupFilter}
+                onChange={(e) => {
+                  setBranchSetupFilter(e.target.value);
+                  setBranchSetupShowAll(false);
+                }}
+              >
+                <option value="todo">Tylko do dopiecia</option>
+                <option value="all">Wszystkie oddzialy</option>
+                <option value="ready">Gotowe</option>
+                <option value="missing_inbox">Brak Inbox</option>
+                <option value="missing_test">Brak testu</option>
+              </select>
+              <button type="button" style={styles.btn} onClick={copyBranchSetupGaps}>
+                Kopiuj braki
+              </button>
+              <button type="button" style={styles.btn} onClick={copyVisibleBranchSetupPackages} disabled={!visibleBranchSetupRows.length}>
+                Kopiuj komplety
+              </button>
+              <button type="button" style={styles.btn} onClick={exportBranchSetupCsv}>
+                Eksport CSV
+              </button>
+              <button type="button" style={styles.btn} onClick={() => setBranchSetupShowAll((prev) => !prev)} disabled={filteredBranchSetupRows.length <= 8}>
+                {branchSetupShowAll ? 'Pokaz mniej' : `Pokaz wszystkie (${filteredBranchSetupRows.length})`}
+              </button>
+            </div>
+            {filteredBranchSetupRows.length ? (
+              <div style={styles.grid2}>
+                {visibleBranchSetupRows.map((row) => (
+                  <ModernDataRow
+                    key={row.oddzial_id}
+                    title={row.oddzial_name || `Oddzial #${row.oddzial_id}`}
+                    subtitle={`${row.readyCount}/5 gotowe / Inbox: ${row.activeCrmChannels.length}/${row.crmChannels.length} / Agent: ${row.integration_status || 'brak'}`}
+                    meta={row.ready ? 'Gotowy do pracy' : `Braki: ${row.blockers.join(', ')}`}
+                    metrics={[
+                      {
+                        label: row.ready ? 'Status' : 'Braki:',
+                        value: row.ready ? 'Gotowy do pracy' : row.blockers.join(', '),
+                        tone: row.ready ? 'success' : 'warning',
+                        mono: false,
+                      },
+                      {
+                        label: 'Test',
+                        value: row.testStatusLabel,
+                        tone: row.testStatusTone,
+                        mono: false,
+                      },
+                    ]}
+                    tone={row.ready ? 'success' : 'warning'}
+                    status={row.ready ? 'Gotowy' : 'Do dopiecia'}
+                    statusValue={row.ready ? 'ok' : 'todo'}
+                    statusState={row.ready ? 'success' : 'warning'}
+                    actions={(
+                      <>
+                        {row.blockers.includes('kanal inbox') ? (
+                          <button
+                            type="button"
+                            style={styles.btn}
+                            onClick={() => createInboxChannelForBranch(row)}
+                            disabled={branchInboxCreatingId === row.oddzial_id}
+                          >
+                            {branchInboxCreatingId === row.oddzial_id ? 'Tworze i testuje...' : 'Utworz i testuj Inbox'}
+                          </button>
+                        ) : null}
+                        {row.blockers.includes('kanal inbox') ? (
+                          <button type="button" style={styles.btn} onClick={() => prepareInboxChannelForBranch(row)}>
+                            Formularz
+                          </button>
+                        ) : null}
+                        <button type="button" style={styles.btn} onClick={() => copyBranchSetupPackage(row)}>
+                          Kopiuj komplet
+                        </button>
+                        <button type="button" style={styles.btn} onClick={() => navigate('/telefonia?tab=agent')}>
+                          Telefonia
+                        </button>
+                        <button type="button" style={styles.btn} onClick={() => navigate('/crm/inbox')}>
+                          Inbox
+                        </button>
+                      </>
+                    )}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={styles.empty}>
+                {branchSetupRows.length ? 'Brak oddzialow w tym filtrze.' : 'Brak statusow oddzialow. Odswiez integracje albo sprawdz uprawnienia.'}
+              </div>
+            )}
           </div>
         </div>
         <div style={styles.tableWrap}>
@@ -530,7 +1148,7 @@ export default function Integracje() {
           {retryLocked ? `Retry cooldown: ${Math.ceil(cooldownMsLeft / 1000)}s` : 'Retry gotowe'}
         </div>
 
-        <div style={styles.filters}>
+        <div className="integrations-filters" style={styles.filters}>
           <input
             style={styles.input}
             placeholder="ID zlecenia"

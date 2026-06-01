@@ -312,9 +312,9 @@ export default function ZatwierdzWyceny() {
 
   if (!allowed && !loading) {
     return (
-      <div className="app-shell">
+      <div className="app-shell quote-approval-shell">
         <Sidebar />
-        <main className="app-main" style={{ padding: 24 }}>
+        <main className="app-main quote-approval-main" style={{ padding: 24 }}>
           <StatusMessage message={msg} tone="warning" />
           <button type="button" style={S.btnGhost} onClick={() => navigate('/dashboard')}>
             {t('common.back')}
@@ -325,10 +325,10 @@ export default function ZatwierdzWyceny() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell quote-approval-shell">
       <Sidebar />
-      <main className="app-main" style={S.root}>
-        <div style={S.header}>
+      <main className="app-main quote-approval-main" style={S.root}>
+        <div className="quote-approval-header" style={S.header}>
           <button type="button" style={S.backBtn} onClick={() => navigate(-1)}>
             ←
           </button>
@@ -336,7 +336,7 @@ export default function ZatwierdzWyceny() {
         </div>
         <StatusMessage message={msg} style={{ margin: '12px 16px 0' }} />
 
-        <div style={S.tabs}>
+        <div className="quote-approval-tabs" style={S.tabs}>
           {TABS.map((k) => (
             <button
               key={k}
@@ -349,14 +349,14 @@ export default function ZatwierdzWyceny() {
           ))}
         </div>
 
-        <div style={S.main}>
+        <div className="quote-approval-list" style={S.main}>
           {loading ? (
-            <div style={S.empty}>{t('common.loading')}</div>
+            <div className="quote-approval-empty" style={S.empty}>{t('common.loading')}</div>
           ) : filtered.length === 0 ? (
-            <div style={S.empty}>{emptyLabel(tab)}</div>
+            <div className="quote-approval-empty" style={S.empty}>{emptyLabel(tab)}</div>
           ) : (
             filtered.map((w) => (
-              <div key={w.id} style={S.card}>
+              <div className="quote-approval-card" key={w.id} style={S.card}>
                 <div style={S.row}>
                   <div>
                     <div style={S.klient}>{w.klient_nazwa || t('approve.card.unknownAddress')}</div>
@@ -388,8 +388,8 @@ export default function ZatwierdzWyceny() {
         </div>
 
         {approving && (
-          <div style={S.overlay} onMouseDown={() => !saving && setApproving(null)} role="presentation">
-            <div style={S.modal} onMouseDown={(e) => e.stopPropagation()} role="dialog">
+          <div className="quote-approval-overlay" style={S.overlay} onMouseDown={() => !saving && setApproving(null)} role="presentation">
+            <div className="quote-approval-modal" style={S.modal} onMouseDown={(e) => e.stopPropagation()} role="dialog">
               <div style={S.modalTitle}>{t('approve.modalApproveTitle')}</div>
               <div style={S.field}>
                 <div style={S.lbl}>{t('approve.label.team')} {t('approve.teamRequired')}</div>
@@ -458,8 +458,8 @@ export default function ZatwierdzWyceny() {
         )}
 
         {rejecting && (
-          <div style={S.overlay} onMouseDown={() => !saving && setRejecting(null)} role="presentation">
-            <div style={S.modal} onMouseDown={(e) => e.stopPropagation()} role="dialog">
+          <div className="quote-approval-overlay" style={S.overlay} onMouseDown={() => !saving && setRejecting(null)} role="presentation">
+            <div className="quote-approval-modal" style={S.modal} onMouseDown={(e) => e.stopPropagation()} role="dialog">
               <div style={S.modalTitle}>{t('approve.rejectModalTitle')}</div>
               <div style={S.field}>
                 <div style={S.lbl}>{t('approve.rejectReasonLabel')}</div>

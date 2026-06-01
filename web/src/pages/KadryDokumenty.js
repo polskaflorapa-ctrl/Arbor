@@ -153,10 +153,10 @@ export default function KadryDokumenty() {
   };
 
   return (
-    <div className="app-shell" style={S.wrap}>
+    <div className="app-shell hr-docs-shell" style={S.wrap}>
       <Sidebar />
-      <main className="app-main" style={S.main}>
-        <header style={S.header}>
+      <main className="app-main hr-docs-main" style={S.main}>
+        <header className="hr-docs-header" style={S.header}>
           <div>
             <div style={S.eyebrow}>Kadry i dokumenty</div>
             <h1 style={S.title}>Rejestr kart stanowiskowych</h1>
@@ -164,19 +164,19 @@ export default function KadryDokumenty() {
               Kontrola wersji kart, podpisów pracowników i warunków rozliczenia w jednym miejscu.
             </p>
           </div>
-          <div style={S.headerActions}>
+          <div className="hr-docs-actions" style={S.headerActions}>
             <button type="button" style={S.secondaryBtn} onClick={loadCards}>Odśwież</button>
             <button type="button" style={S.primaryBtn} onClick={() => navigate('/profil')}>Edytuj kartę</button>
           </div>
         </header>
 
         {!allowed ? (
-          <section style={S.panel}>
+          <section className="hr-docs-panel" style={S.panel}>
             <div style={S.empty}>Ten widok jest dostępny dla Administratora, Dyrektora i Kierownika.</div>
           </section>
         ) : (
           <>
-            <section style={S.stats}>
+            <section className="hr-docs-stats" style={S.stats}>
               <div style={S.stat}><span style={S.statLabel}>Zapisane karty</span><strong style={S.statValue}>{summary.saved.length}</strong><small style={S.statHint}>{cards.length} pracowników w rejestrze</small></div>
               <div style={S.stat}><span style={S.statLabel}>Do podpisu</span><strong style={S.statValue}>{summary.pending.length}</strong><small style={S.statHint}>wymagają reakcji pracownika</small></div>
               <div style={S.stat}><span style={S.statLabel}>Podpisane</span><strong style={S.statValue}>{summary.confirmed.length}</strong><small style={S.statHint}>wersje potwierdzone</small></div>
@@ -184,8 +184,8 @@ export default function KadryDokumenty() {
               <div style={S.stat}><span style={S.statLabel}>Teren / BHP</span><strong style={S.statValue}>{summary.field.length}</strong><small style={S.statHint}>role z checklistą terenową</small></div>
             </section>
 
-            <section style={S.panel}>
-              <div style={S.toolbar}>
+            <section className="hr-docs-panel" style={S.panel}>
+              <div className="hr-docs-toolbar" style={S.toolbar}>
                 <input
                   style={S.input}
                   value={query}

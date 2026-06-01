@@ -149,9 +149,9 @@ export default function DemoRequests() {
   }, [items, total]);
 
   return (
-    <div style={styles.shell}>
+    <div className="demo-requests-shell" style={styles.shell}>
       <Sidebar />
-      <main style={styles.main}>
+      <main className="demo-requests-main" style={styles.main}>
         <PageHeader
           title="Zgłoszenia demo"
           subtitle="Leady z publicznego formularza na landing page Arbor OS."
@@ -165,17 +165,17 @@ export default function DemoRequests() {
         />
         <StatusMessage message={message} />
 
-        <section style={styles.statsGrid}>
+        <section className="demo-requests-stats" style={styles.statsGrid}>
           {stats.map((stat) => (
-            <article style={styles.statCard} key={stat.label}>
+            <article className="demo-requests-stat-card" style={styles.statCard} key={stat.label}>
               <span style={styles.statLabel}>{stat.label}</span>
               <strong style={styles.statValue}>{stat.value}</strong>
             </article>
           ))}
         </section>
 
-        <section style={styles.panel}>
-          <div style={styles.panelHeader}>
+        <section className="demo-requests-panel" style={styles.panel}>
+          <div className="demo-requests-panel-header" style={styles.panelHeader}>
             <strong>Lista zgłoszeń</strong>
             <span>{loading ? 'Ładowanie...' : `${items.length} widocznych`}</span>
           </div>
@@ -185,8 +185,8 @@ export default function DemoRequests() {
           ) : items.length === 0 ? (
             <div style={styles.emptyState}>Nie ma jeszcze zgłoszeń z landing page.</div>
           ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
+            <div className="demo-requests-table-wrap" style={styles.tableWrap}>
+              <table className="demo-requests-table" style={styles.table}>
                 <thead>
                   <tr>
                     <th style={styles.th}>Data</th>

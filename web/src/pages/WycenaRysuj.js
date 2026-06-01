@@ -209,10 +209,11 @@ export default function WycenaRysuj() {
   const hasTarget = Boolean(taskId || wycenaId || (quotationId && itemId));
 
   return (
-    <div className="app-shell">
+    <div className="app-shell quote-draw-shell">
       <Sidebar />
-      <main className="app-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <main className="app-main quote-draw-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div
+          className="quote-draw-topbar"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -252,14 +253,14 @@ export default function WycenaRysuj() {
         </div>
         <StatusMessage message={msg} style={{ margin: '8px 16px 0' }} />
 
-        <div style={{ padding: 16, maxWidth: 900, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        <div className="quote-draw-workbench" style={{ padding: 16, maxWidth: 900, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
           {!hasTarget && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>{t('draw.noTargetHint')}</p>
           )}
           {loadErr && (
             <p style={{ color: '#F87171', marginBottom: 12 }}>{t('draw.loadError')}</p>
           )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+          <div className="quote-draw-toolbar" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12, alignItems: 'center' }}>
             {COLORS.map((c) => (
               <button
                 key={c}
@@ -336,7 +337,7 @@ export default function WycenaRysuj() {
             </button>
           </div>
 
-          <div style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 12, background: '#111' }}>
+          <div className="quote-draw-canvas-frame" style={{ overflow: 'auto', border: '1px solid var(--border)', borderRadius: 12, background: '#111' }}>
             <canvas
               ref={canvasRef}
               style={{ display: 'block', width: '100%', height: 'auto', maxHeight: '70vh', touchAction: 'none' }}

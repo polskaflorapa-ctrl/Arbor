@@ -211,9 +211,9 @@ export default function WynagrodzenieWyceniajacych() {
 
   if (!canSee) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div className="estimator-pay-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
         <Sidebar />
-        <div style={{ padding: 32 }}>
+        <div className="estimator-pay-main" style={{ padding: 32 }}>
           <PageHeader title="Rozliczenie specjalistów ds. wyceny" subtitle="Brak uprawnień" />
         </div>
       </div>
@@ -221,17 +221,17 @@ export default function WynagrodzenieWyceniajacych() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="estimator-pay-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
+      <div className="estimator-pay-main" style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
         <PageHeader
           title="Rozliczenie specjalistów ds. wyceny"
           subtitle="Stawka dzienna + % od zrealizowanych zleceń (wyceniajacy_id po zatwierdzeniu wyceny) + dodatki. API: backend_routes_arbor_wyceny.js + sql/arbor_wyceny_wynagrodzenie_media.sql"
         />
         <StatusMessage message={msg} />
 
-        <div style={card}>
-          <div style={grid}>
+        <div className="estimator-pay-card estimator-pay-config" style={card}>
+          <div className="estimator-pay-grid" style={grid}>
             <label style={lab}>Specjalista ds. wyceny</label>
             <select
               style={inp}
@@ -282,15 +282,15 @@ export default function WynagrodzenieWyceniajacych() {
             />
           </div>
 
-          <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div className="estimator-pay-actions" style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" style={btnPri} onClick={zapiszReguly} disabled={!wybranyId}>Zapisz reguły (serwer + lokalnie)</button>
           </div>
         </div>
 
         {/* ===== Sekcja kontraktowa (wyceniajacy-finanse parity) ===== */}
         {wybranyId && (
-          <div style={{ ...card, marginTop: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          <div className="estimator-pay-card estimator-pay-contract" style={{ ...card, marginTop: 16 }}>
+            <div className="estimator-pay-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <h3 style={{ margin: 0, fontSize: 16 }}>Prowizje — widok kontraktowy</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button type="button" style={{ ...btnPri, padding: '6px 12px', fontSize: 13 }} onClick={() => setContractMonthYm((m) => shiftMonth(m, -1))}>‹</button>
@@ -385,7 +385,7 @@ export default function WynagrodzenieWyceniajacych() {
           </div>
         )}
 
-        <div style={{ ...card, marginTop: 16 }}>
+        <div className="estimator-pay-card estimator-pay-summary" style={{ ...card, marginTop: 16 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Podsumowanie</h3>
           <div className="modern-data-stack">
             {[

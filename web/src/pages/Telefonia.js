@@ -87,6 +87,7 @@ export default function Telefonia() {
   const [agentSaving, setAgentSaving] = useState(false);
   const [agentTestLoading, setAgentTestLoading] = useState(false);
   const [branchSetupTesting, setBranchSetupTesting] = useState(false);
+  const [branchQuickConnectingId, setBranchQuickConnectingId] = useState(null);
   const [agentMessage, setAgentMessage] = useState('');
   const [agentError, setAgentError] = useState('');
   const [agentConfig, setAgentConfig] = useState(null);
@@ -760,6 +761,91 @@ export default function Telefonia() {
       ]);
     } finally {
       setBranchSetupTesting(false);
+    }
+  };
+
+  const buildPreparedProviderPackage = ({ integration, row }) => JSON.stringify({
+    provider: integration?.provider || agentForm.provider || row?.provider || 'external',
+    provider_account_id: integration?.provider_account_id || agentForm.provider_account_id || row?.provider_account_id || null,
+    branch: {
+      oddzial_id: row?.oddzial_id ? Number(row.oddzial_id) : null,
+      name: row?.oddzial_name || oddzialLabel(row?.oddzial_id),
+      city: row?.miasto || null,
+      phone: row?.telefon || branchTelephonyForm.telefon || null,
+      sms_sender_id: row?.sms_sender_id || branchTelephonyForm.sms_sender_id || row?.telefon || null,
+    },
+    webhook: {
+      url: integration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake',
+      method: 'POST',
+      secret_header: 'x-voice-agent-secret',
+      secret: integration?.webhook_secret || '',
+    },
+    one_click_notes: [
+      'Ta paczka jest oddzialowa - nie mieszaj sekretow ani numerow pomiedzy oddzialami.',
+      'W panelu providera ustaw webhook POST i header x-voice-agent-secret.',
+      'Payload musi wysylac oddzial_id oraz dane rozmowy klienta.',
+      'Po zapisaniu w providerze uruchom w ARBOR-OS Test calosci oddzialu.',
+    ],
+    payload_example: {
+      oddzial_id: row?.oddzial_id ? Number(row.oddzial_id) : null,
+      call_sid: 'provider-call-id',
+      caller_phone: '+48123123123',
+      customer_name: 'Jan Kowalski',
+      inspection_address: 'ul. Przykladowa 1',
+      city: row?.miasto || 'Krakow',
+      service_type: 'ogrod',
+      appointment_at: new Date(Date.now() + 86400000).toISOString(),
+      notes: 'Klient prosi o bezplatne ogledziny.',
+      transcript: 'Skrocony transkrypt rozmowy.',
+    },
+  }, null, 2);
+
+  const prepareBranchProviderConnection = async (row = selectedBranchStatus) => {
+    if (!row?.oddzial_id) {
+      setAgentError('Wybierz oddzial do podpiecia.');
+      return;
+    }
+    setBranchQuickConnectingId(row.oddzial_id);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const body = {
+        oddzial_id: Number(row.oddzial_id),
+        provider: row.provider || agentForm.provider || 'external',
+        provider_account_id: row.provider_account_id || agentForm.provider_account_id || null,
+        provider_api_key: null,
+        status: row.integration_status === 'paused' ? 'paused' : 'active',
+      };
+      const { data } = await api.post('/telephony/voice-agent/polska-flora/integration', body, { headers: authHeaders(token) });
+      const integration = data.integration || null;
+      setAgentIntegration(integration);
+      setAgentConfig(data.config || agentConfig);
+      setAgentForm((f) => ({
+        ...f,
+        oddzial_id: String(row.oddzial_id),
+        provider: integration?.provider || body.provider,
+        provider_account_id: integration?.provider_account_id || body.provider_account_id || '',
+        provider_api_key: '',
+        status: integration?.status || body.status,
+      }));
+      setBranchTelephonyForm((f) => ({
+        ...f,
+        telefon: row.telefon || f.telefon,
+        sms_sender_id: row.sms_sender_id || f.sms_sender_id,
+      }));
+      await navigator.clipboard.writeText(buildPreparedProviderPackage({ integration, row }));
+      setAgentMessage(`Podpiecie oddzialu ${row.oddzial_name || `#${row.oddzial_id}`} gotowe i skopiowane. Wklej paczke u providera, potem uruchom Test calosci oddzialu.`);
+      await Promise.all([
+        loadVoiceAgentIntegration(row.oddzial_id),
+        loadIntegrationTestLogs(row.oddzial_id),
+        loadAgentReminderPreview(row.oddzial_id),
+        loadBranchIntegrationStatuses(),
+      ]);
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Nie udalo sie przygotowac podpiecia oddzialu.'));
+    } finally {
+      setBranchQuickConnectingId(null);
     }
   };
 
@@ -2311,6 +2397,14 @@ export default function Telefonia() {
                           <button
                             type="button"
                             style={s.rowBtnActive}
+                            onClick={() => prepareBranchProviderConnection(selectedBranchStatus)}
+                            disabled={branchQuickConnectingId === selectedBranchStatus.oddzial_id}
+                          >
+                            {branchQuickConnectingId === selectedBranchStatus.oddzial_id ? 'Przygotowuje...' : 'Przygotuj podpiecie'}
+                          </button>
+                          <button
+                            type="button"
+                            style={s.rowBtnActive}
                             onClick={() => copyAgentText(buildSingleBranchReadinessReport(selectedBranchStatus), 'Raport oddzialu')}
                           >
                             Kopiuj status oddzialu
@@ -2505,6 +2599,14 @@ export default function Telefonia() {
                   ) : null}
                   <button type="button" style={s.rowBtn} onClick={testVoiceAgentIntegration} disabled={agentTestLoading || !agentIntegration}>
                     {agentTestLoading ? 'Test...' : 'Test konfiguracji'}
+                  </button>
+                  <button
+                    type="button"
+                    style={s.rowBtnActive}
+                    onClick={() => prepareBranchProviderConnection(selectedBranchStatus)}
+                    disabled={!selectedBranchStatus || branchQuickConnectingId === Number(agentForm.oddzial_id)}
+                  >
+                    {branchQuickConnectingId === Number(agentForm.oddzial_id) ? 'Przygotowuje...' : 'Przygotuj jednym kliknieciem'}
                   </button>
                   <button
                     type="button"

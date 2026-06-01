@@ -106,9 +106,9 @@ export default function OgledzinyDokumentacja() {
 
   if (!ogledzinyId) {
     return (
-      <div style={S.wrap}>
+      <div className="inspection-doc-shell" style={S.wrap}>
         <Sidebar />
-        <main style={S.main}>
+        <main className="inspection-doc-main" style={S.main}>
           <button type="button" style={S.back} onClick={() => navigate('/ogledziny')}>
             ← {t('inspectionDoc.back')}
           </button>
@@ -121,19 +121,21 @@ export default function OgledzinyDokumentacja() {
   }
 
   return (
-    <div style={S.wrap}>
+    <div className="inspection-doc-shell" style={S.wrap}>
       <Sidebar />
-      <main style={S.main}>
+      <main className="inspection-doc-main" style={S.main}>
         <button type="button" style={S.back} onClick={() => navigate('/ogledziny')}>
           ← {t('inspectionDoc.back')}
         </button>
-        <h1 style={S.title}>{t('inspectionDoc.screenTitle')}</h1>
-        <p style={S.sub}>{subtitle}</p>
+        <div className="inspection-doc-hero">
+          <h1 style={S.title}>{t('inspectionDoc.screenTitle')}</h1>
+          <p style={S.sub}>{subtitle}</p>
+        </div>
 
         <input ref={filePhotoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onPhoto} />
         <input ref={fileVideoRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={onVideo} />
 
-        <div style={S.card}>
+        <div className="inspection-doc-card" style={S.card}>
           <h2 style={S.cardTitle}>{t('inspectionDoc.photoCardTitle')}</h2>
           <p style={S.cardBody}>{t('inspectionDoc.photoCardBody')}</p>
           <button type="button" style={S.btn} onClick={pickPhoto}>
@@ -142,7 +144,7 @@ export default function OgledzinyDokumentacja() {
           {!wycenaId ? <p style={S.warn}>{t('inspectionDoc.noQuoteInline')}</p> : null}
         </div>
 
-        <div style={S.card}>
+        <div className="inspection-doc-card" style={S.card}>
           <h2 style={S.cardTitle}>{t('inspectionDoc.videoCardTitle')}</h2>
           <p style={S.cardBody}>{t('inspectionDoc.videoCardBody')}</p>
           <p style={{ ...S.cardBody, marginBottom: 8 }}>{t('inspectionDoc.videoOfflineHint')}</p>

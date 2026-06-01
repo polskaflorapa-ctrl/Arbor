@@ -181,7 +181,7 @@ export default function ZarzadzajRolami() {
   const canSaveRole = Boolean(form?.nazwa?.trim());
 
   return (
-    <div style={S.page}>
+    <div className="roles-admin-shell" style={S.page}>
       <PageHeader
         variant="plain"
         title={t('pages.role.title')}
@@ -197,10 +197,10 @@ export default function ZarzadzajRolami() {
 
       <StatusMessage message={msg} style={S.msgBar} />
 
-      <div style={S.layout}>
+      <div className="roles-admin-layout" style={S.layout}>
         {/* ─── LISTA RÓL ────────────────────────────────────── */}
-        <div style={S.sidebar}>
-          <div style={S.sidebarHeader}>
+        <div className="roles-admin-sidebar" style={S.sidebar}>
+          <div className="roles-admin-sidebar-header" style={S.sidebarHeader}>
             <span style={S.sidebarTitle}>Role ({role.length})</span>
           </div>
 
@@ -211,6 +211,7 @@ export default function ZarzadzajRolami() {
               const color = r.kolor || DEFAULT_ROLE_COLORS[r.nazwa] || '#94A3B8';
               return (
                 <div
+                  className="roles-admin-role-row"
                   key={r.id}
                   style={{
                     ...S.roleRow,
@@ -251,9 +252,9 @@ export default function ZarzadzajRolami() {
         </div>
 
         {/* ─── EDYTOR ──────────────────────────────────────── */}
-        <div style={S.editor}>
+        <div className="roles-admin-editor" style={S.editor}>
           {!form ? (
-            <div style={S.emptyEditor}>
+            <div className="roles-admin-empty" style={S.emptyEditor}>
               <SettingsOutlined sx={{ fontSize: 48, color: '#64748B' }} />
               <p style={{ color: '#64748B', marginTop: 12 }}>
                 {t('pages.role.pickOrCreate')}
@@ -261,7 +262,7 @@ export default function ZarzadzajRolami() {
             </div>
           ) : (
             <>
-              <div style={S.editorHeader}>
+              <div className="roles-admin-editor-header" style={S.editorHeader}>
                 <h2 style={S.editorTitle}>
                   {selected ? `Edytuj: ${selected.nazwa}` : 'Nowa rola'}
                 </h2>
@@ -271,7 +272,7 @@ export default function ZarzadzajRolami() {
               </div>
 
               {/* ── Podstawowe dane ── */}
-              <div style={S.formRow}>
+              <div className="roles-admin-form-row" style={S.formRow}>
                 <div style={S.formGroup}>
                   <label style={S.label}>Nazwa roli *</label>
                   <input
@@ -302,7 +303,7 @@ export default function ZarzadzajRolami() {
                 </div>
               </div>
 
-              <div style={S.formRow}>
+              <div className="roles-admin-form-row" style={S.formRow}>
                 <div style={{ ...S.formGroup, flex: 2 }}>
                   <label style={S.label}>Opis</label>
                   <input
@@ -337,7 +338,7 @@ export default function ZarzadzajRolami() {
               </div>
 
               {/* ── Uprawnienia ── */}
-              <div style={S.permsSection}>
+              <div className="roles-admin-perms" style={S.permsSection}>
                 <div style={S.permsSectionHeader}>
                   <span style={S.permsSectionTitle}>Uprawnienia</span>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -352,11 +353,11 @@ export default function ZarzadzajRolami() {
                   </div>
                 </div>
 
-                <div style={S.permsGrid}>
+                <div className="roles-admin-perms-grid" style={S.permsGrid}>
                   {PERMISSIONS_SCHEMA.map(group => {
                     const allOn = group.perms.every(p => form.uprawnienia[p.key]);
                     return (
-                      <div key={group.group} style={S.permGroup}>
+                      <div className="roles-admin-perm-group" key={group.group} style={S.permGroup}>
                         <div style={S.permGroupHeader}>
                           <span style={S.permGroupTitle}>{group.group}</span>
                           <button
@@ -367,7 +368,7 @@ export default function ZarzadzajRolami() {
                           </button>
                         </div>
                         {group.perms.map(p => (
-                          <label key={p.key} style={S.permRow}>
+                          <label className="roles-admin-perm-row" key={p.key} style={S.permRow}>
                             <input
                               type="checkbox"
                               checked={!!form.uprawnienia[p.key]}
@@ -395,7 +396,7 @@ export default function ZarzadzajRolami() {
               <PermissionSummary uprawnienia={form.uprawnienia} kolor={form.kolor} />
 
               {/* ── Akcje ── */}
-              <div style={S.actions}>
+              <div className="roles-admin-actions" style={S.actions}>
                 <button
                   style={S.btnCancel}
                   onClick={() => { setSelected(null); setNewForm(null); }}
@@ -432,13 +433,13 @@ function PermissionSummary({ uprawnienia, kolor }) {
     });
 
   if (!active.length) return (
-    <div style={S.summaryBox}>
+    <div className="roles-admin-summary" style={S.summaryBox}>
       <span style={{ color: '#EF4444', fontSize: 13 }}>{t('pages.role.noPermsWarning')}</span>
     </div>
   );
 
   return (
-    <div style={S.summaryBox}>
+    <div className="roles-admin-summary" style={S.summaryBox}>
       <span style={{ color: '#94A3B8', fontSize: 12, marginBottom: 6, display: 'block' }}>
         Aktywne uprawnienia ({active.length}):
       </span>
@@ -457,6 +458,7 @@ function PermissionSummary({ uprawnienia, kolor }) {
 function ToggleSwitch({ value, onChange, disabled }) {
   return (
     <div
+      className="roles-admin-toggle"
       onClick={() => !disabled && onChange(!value)}
       style={{
         width: 44, height: 24, borderRadius: 12,

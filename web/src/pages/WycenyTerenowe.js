@@ -139,9 +139,9 @@ export default function WycenyTerenowe() {
 
   if (!user || !['Kierownik', 'Prezes', 'Dyrektor', 'Specjalista', 'Wyceniający', 'Wyceniajacy'].includes(user.rola)) {
     return (
-      <div style={S.wrap}>
+      <div className="field-quotes-shell" style={S.wrap}>
         <Sidebar />
-        <main style={S.main}>
+        <main className="field-quotes-main" style={S.main}>
           <PageHeader variant="hero" title={t('nav.fieldQuotes')} subtitle="" />
           <p style={{ color: 'var(--text-muted)' }}>Brak uprawnień do tego modułu.</p>
         </main>
@@ -150,11 +150,11 @@ export default function WycenyTerenowe() {
   }
 
   return (
-    <div style={S.wrap}>
+    <div className="field-quotes-shell" style={S.wrap}>
       <Sidebar />
-      <main style={S.main}>
+      <main className="field-quotes-main" style={S.main}>
         <PageHeader variant="hero" title={t('nav.fieldQuotes')} subtitle="Lead z Kommo -> przypisanie -> zatwierdzenia (M1)" />
-        <div style={S.tabs}>
+        <div className="field-quotes-tabs" style={S.tabs}>
           <button type="button" style={S.tab(tab === 'assign')} onClick={() => setTab('assign')}>
             Wyceny do umówienia
           </button>
@@ -164,12 +164,12 @@ export default function WycenyTerenowe() {
         </div>
         {err ? <div style={S.err}>{err}</div> : null}
         {tab === 'assign' && (
-          <div style={S.grid}>
+          <div className="field-quotes-grid" style={S.grid}>
             {rows.length === 0 ? (
               <div style={S.empty}>Brak leadów oczekujących na przypisanie.</div>
             ) : (
               rows.map((q) => (
-                <div key={q.id} style={{ ...S.card, borderColor: String(preId) === String(q.id) ? 'var(--accent)' : undefined }}>
+                <div key={q.id} className="field-quotes-card" style={{ ...S.card, borderColor: String(preId) === String(q.id) ? 'var(--accent)' : undefined }}>
                   <div style={{ fontWeight: 600 }}>
                     #{q.id} {q.klient_nazwa || '—'}
                   </div>
@@ -218,12 +218,12 @@ export default function WycenyTerenowe() {
           </div>
         )}
         {tab === 'queue' && (
-          <div style={S.grid}>
+          <div className="field-quotes-grid" style={S.grid}>
             {queue.length === 0 ? (
               <div style={S.empty}>Brak pozycji w Twojej kolejce.</div>
             ) : (
               queue.map((q) => (
-                <div key={`${q.id}-${q.approval_id}`} style={S.card}>
+                <div key={`${q.id}-${q.approval_id}`} className="field-quotes-card" style={S.card}>
                   <div style={{ fontWeight: 600 }}>
                     Wycena #{q.id} · rola: {q.wymagany_typ}
                   </div>

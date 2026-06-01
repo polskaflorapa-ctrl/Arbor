@@ -332,9 +332,9 @@ export default function PayrollM11() {
 
   if (roleReady && !canSee) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div className="payroll-m11-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
         <Sidebar />
-        <div style={{ flex: 1, padding: '20px 24px 40px' }}>
+        <div className="payroll-m11-main" style={{ flex: 1, padding: '20px 24px 40px' }}>
           <PageHeader title={t('payrollM11.title')} subtitle={t('payrollM11.noAccess')} />
         </div>
       </div>
@@ -343,9 +343,9 @@ export default function PayrollM11() {
 
   if (!canSee) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      <div className="payroll-m11-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
         <Sidebar />
-        <div style={{ flex: 1, padding: '20px 24px 40px' }}>
+        <div className="payroll-m11-main" style={{ flex: 1, padding: '20px 24px 40px' }}>
           <PageHeader title={t('payrollM11.title')} subtitle={t('payrollM11.loading')} />
         </div>
       </div>
@@ -353,14 +353,15 @@ export default function PayrollM11() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="payroll-m11-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
+      <div className="payroll-m11-main" style={{ flex: 1, padding: '20px 24px 40px', overflow: 'auto' }}>
         <PageHeader title={t('payrollM11.title')} subtitle={t('payrollM11.subtitle')} />
         <StatusMessage message={msg} />
 
         {!exportStatus.export_allowed && !exportStatus.skip_check_active ? (
           <div
+            className="payroll-m11-card payroll-m11-warning"
             style={{
               ...card,
               marginBottom: 16,
@@ -391,7 +392,7 @@ export default function PayrollM11() {
           </p>
         ) : null}
 
-        <div style={card}>
+        <div className="payroll-m11-card payroll-m11-export" style={card}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>{t('payrollM11.exportSection')}</h3>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 0, marginBottom: 16 }}>
             {t('payrollM11.exportHint')}
@@ -431,7 +432,7 @@ export default function PayrollM11() {
           </p>
         </div>
 
-        <div style={{ ...card, marginTop: 16 }}>
+        <div className="payroll-m11-card payroll-m11-day-reports" style={{ ...card, marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('payrollM11.dayReportsSection')}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -459,6 +460,7 @@ export default function PayrollM11() {
             visibleDayReports.map((rep) => (
               <div
                 key={rep.id}
+                className="payroll-m11-report-card"
                 style={{
                   border: '1px solid var(--border)',
                   borderRadius: 10,
@@ -506,7 +508,7 @@ export default function PayrollM11() {
           )}
         </div>
 
-        <div style={{ ...card, marginTop: 16 }}>
+        <div className="payroll-m11-card payroll-m11-corrections" style={{ ...card, marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('payrollM11.correctionLogSection')}</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -550,7 +552,7 @@ export default function PayrollM11() {
           )}
         </div>
 
-        <div style={{ ...card, marginTop: 16 }}>
+        <div className="payroll-m11-card payroll-m11-estimators" style={{ ...card, marginTop: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('payrollM11.estimatorSection')}</h3>
             <button type="button" style={btnSec} onClick={loadAccrual} disabled={loadingAccrual}>

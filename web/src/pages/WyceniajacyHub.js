@@ -213,58 +213,58 @@ export default function WyceniajacyHub() {
 
   if (loading) {
     return (
-      <div style={S.wrap}>
+      <div className="estimator-hub-shell" style={S.wrap}>
         <Sidebar />
-        <main style={{ ...S.main, color: 'var(--text-muted)' }}>{t('hub.loading')}</main>
+        <main className="estimator-hub-main" style={{ ...S.main, color: 'var(--text-muted)' }}>{t('hub.loading')}</main>
       </div>
     );
   }
 
   return (
-    <div style={S.wrap}>
+    <div className="estimator-hub-shell" style={S.wrap}>
       <Sidebar />
-      <main style={S.main}>
-        <div style={S.hero}>
+      <main className="estimator-hub-main" style={S.main}>
+        <div className="estimator-hub-hero" style={S.hero}>
           <h1 style={S.title}>{t('hub.title')}</h1>
           <p style={S.sub}>{t('hub.subtitle')}</p>
         </div>
 
-        <div style={S.platinum}>{t('hub.platinumBar')}</div>
+        <div className="estimator-hub-platinum" style={S.platinum}>{t('hub.platinumBar')}</div>
 
-        {runtimeError ? <div style={S.error}>{runtimeError}</div> : null}
+        {runtimeError ? <div className="estimator-hub-error" style={S.error}>{runtimeError}</div> : null}
 
-        <div style={S.kpiRow}>
-          <div style={S.kpiCard}>
+        <div className="estimator-hub-kpis" style={S.kpiRow}>
+          <div className="estimator-hub-kpi-card" style={S.kpiCard}>
             <div style={S.kpiNum}>{todayPlanned}</div>
             <div style={S.kpiLabel}>{t('hub.kpi.today')}</div>
           </div>
-          <div style={S.kpiCard}>
+          <div className="estimator-hub-kpi-card" style={S.kpiCard}>
             <div style={S.kpiNum}>{todayLeft}</div>
             <div style={S.kpiLabel}>{t('hub.kpi.left')}</div>
           </div>
-          <div style={S.kpiCard}>
+          <div className="estimator-hub-kpi-card" style={S.kpiCard}>
             <div style={S.kpiNum}>{todayDone.length}</div>
             <div style={S.kpiLabel}>{t('hub.kpi.done')}</div>
           </div>
         </div>
 
-        <div style={S.hintBox}>
+        <div className="estimator-hub-hint" style={S.hintBox}>
           {todayTargetHint}
           {sessionUser?.oddzial_nazwa ? ` · ${sessionUser.oddzial_nazwa}` : ''}
         </div>
 
-        <div style={S.section}>
+        <div className="estimator-hub-section estimator-hub-actions" style={S.section}>
           <h2 style={S.secTitle}>{t('hub.quickActions')}</h2>
-          <div style={S.grid}>
+          <div className="estimator-hub-grid" style={S.grid}>
             {quickActions.map((a) => (
-              <button key={a.key} type="button" style={S.tile} onClick={a.onClick}>
+              <button className="estimator-hub-tile" key={a.key} type="button" style={S.tile} onClick={a.onClick}>
                 {a.label}
               </button>
             ))}
           </div>
         </div>
 
-        <div style={S.section}>
+        <div className="estimator-hub-section estimator-hub-workflow" style={S.section}>
           <h2 style={S.secTitle}>{t('hub.workflowTitle')}</h2>
           <p style={S.flowTxt}>{t('hub.flow1')}</p>
           <p style={S.flowTxt}>{t('hub.flow2')}</p>

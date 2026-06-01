@@ -217,12 +217,12 @@ export default function RozliczeniaFieldEntry() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="field-settlements-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <main style={{ flex: 1, padding: '28px 28px 48px', minWidth: 0, maxWidth: 860 }}>
+      <main className="field-settlements-main" style={{ flex: 1, padding: '28px 28px 48px', minWidth: 0, maxWidth: 860 }}>
 
         {/* Nagłówek */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="field-settlements-header" style={{ marginBottom: 20 }}>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: 'var(--text)' }}>
             Rozliczenia ekip
           </h1>
@@ -244,7 +244,7 @@ export default function RozliczeniaFieldEntry() {
         )}
 
         {/* ID zadania */}
-        <div style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="field-settlements-taskbar" style={{ marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
           <label style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
             ID zadania:
           </label>
@@ -279,7 +279,7 @@ export default function RozliczeniaFieldEntry() {
         </div>
 
         {/* Zakładki */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 18, borderBottom: '1px solid var(--border)' }}>
+        <div className="field-settlements-tabs" style={{ display: 'flex', gap: 4, marginBottom: 18, borderBottom: '1px solid var(--border)' }}>
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -300,7 +300,7 @@ export default function RozliczeniaFieldEntry() {
 
         {/* ═══ GODZINY ════════════════════════════════════════════════════════ */}
         {tab === 'godziny' && (
-          <div>
+          <div className="field-settlements-panel field-settlements-hours">
             {!taskData && !loadingTask && (
               <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>⏱</div>
@@ -315,7 +315,7 @@ export default function RozliczeniaFieldEntry() {
             )}
 
             {formGodziny.map((p, idx) => (
-              <div key={p.pomocnik_id} style={{
+              <div className="field-settlements-worker-card" key={p.pomocnik_id} style={{
                 background: 'var(--surface-glass)', border: '1px solid var(--border)',
                 borderLeft: '3px solid var(--accent)',
                 borderRadius: 10, padding: 16, marginBottom: 12,
@@ -466,7 +466,7 @@ export default function RozliczeniaFieldEntry() {
 
         {/* ═══ KALKULATOR ══════════════════════════════════════════════════════ */}
         {tab === 'kalkulator' && (
-          <div>
+          <div className="field-settlements-panel field-settlements-calculator">
             {taskData?.task && (
               <div style={{ background: 'var(--accent-surface)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
                 <strong>{taskData.task.klient_nazwa}</strong>
@@ -573,7 +573,7 @@ export default function RozliczeniaFieldEntry() {
 
         {/* ═══ DZIEŃ ═══════════════════════════════════════════════════════════ */}
         {tab === 'dzien' && (
-          <div>
+          <div className="field-settlements-panel field-settlements-day">
             {/* Picker daty */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
               <label style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>Data:</label>

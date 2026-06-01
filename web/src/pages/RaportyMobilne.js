@@ -97,12 +97,12 @@ export default function RaportyMobilne() {
   ];
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
+    <Box className="mobile-reports-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
       <Sidebar />
-      <Box sx={{ flex: 1, p: { xs: 2, sm: 3 }, maxWidth: 960 }}>
+      <Box className="mobile-reports-main" sx={{ flex: 1, p: { xs: 2, sm: 3 }, maxWidth: 960 }}>
         <PageHeader title={t('pages.mobileReports.title')} subtitle={t('pages.mobileReports.subtitle')} />
         <StatusMessage message={err} tone="error" />
-        <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+        <Stack className="mobile-reports-actions" direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
           <Button startIcon={<Refresh />} onClick={() => load()} disabled={loading} variant="outlined" size="small">
             {t('pages.mobileReports.refresh')}
           </Button>
@@ -111,10 +111,10 @@ export default function RaportyMobilne() {
           <Typography color="text.secondary">{t('pages.mobileReports.loading')}</Typography>
         ) : (
           <>
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid className="mobile-reports-kpis" container spacing={2} sx={{ mb: 3 }}>
               {kpi.map((item) => (
                 <Grid size={{ xs: 12, sm: 6, md: 3 }} key={item.key}>
-                  <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                  <Card className="mobile-reports-kpi-card" variant="outlined" sx={{ borderRadius: 2 }}>
                     <CardContent>
                       <Typography variant="caption" color="text.secondary">
                         {item.label}
@@ -127,7 +127,7 @@ export default function RaportyMobilne() {
                 </Grid>
               ))}
             </Grid>
-            <Card variant="outlined" sx={{ borderRadius: 2 }}>
+            <Card className="mobile-reports-summary" variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
                   {t('pages.mobileReports.summary')}

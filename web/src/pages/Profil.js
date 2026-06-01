@@ -1440,10 +1440,10 @@ export default function Profil() {
   };
 
   return (
-    <div className="app-shell" style={S.wrap}>
+    <div className="profile-shell app-shell" style={S.wrap}>
       <Sidebar />
-      <main className="app-main" style={S.main}>
-        <header style={S.header}>
+      <main className="profile-main app-main" style={S.main}>
+        <header className="profile-header" style={S.header}>
           <div style={S.avatar}>{initials}</div>
           <div style={{ minWidth: 0 }}>
             <div style={S.eyebrow}>Centrum operatora</div>
@@ -1481,47 +1481,47 @@ export default function Profil() {
           {profileAccessMessage ? <div style={S.inlineNotice}>{profileAccessMessage}</div> : null}
         </header>
 
-        <section style={S.statGrid}>
-          <div style={S.stat}>
+        <section className="profile-stat-grid" style={S.statGrid}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Aktywne zadania</span>
             <strong style={S.statValue}>{dashboard.activeTasks.length}</strong>
             <span style={S.statHint}>{dashboard.todayTasks.length} w kolejce na dziś lub zaległe</span>
           </div>
-          <div style={S.stat}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Zadania Todo</span>
             <strong style={S.statValue}>{dashboard.openOperatorTasks.length}</strong>
             <span style={S.statHint}>{dashboard.overdueOperatorTasks.length} po terminie</span>
           </div>
-          <div style={S.stat}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Karty stanowiskowe</span>
             <strong style={S.statValue}>{dashboard.pendingPositionCards.length}</strong>
             <span style={S.statHint}>{dashboard.savedPositionCards.length} zapisane, {dashboard.pendingPositionCards.length} czeka na podpis</span>
           </div>
-          <div style={S.stat}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Dokumenty akt</span>
             <strong style={S.statValue}>{employeeDocumentSummary.needsAttention}</strong>
             <span style={S.statHint}>{ownEmployeeDocuments.length} w teczce, {dashboard.employeeDocumentAlerts.length} alertow widocznych</span>
           </div>
-          <div style={S.stat}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Follow-up po terminie</span>
             <strong style={S.statValue}>{dashboard.dueContacts.length}</strong>
             <span style={S.statHint}>kontakty wymagające reakcji</span>
           </div>
-          <div style={S.stat}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Moje decyzje</span>
             <strong style={S.statValue}>{dashboard.decisionsCount}</strong>
             <span style={S.statHint}>{dashboard.repairCount} zleceń z blokadą lub poprawką</span>
           </div>
-          <div style={S.stat}>
+          <div className="profile-stat" style={S.stat}>
             <span style={S.statLabel}>Sesja</span>
             <strong style={S.statValue}>{getStoredToken() ? 'OK' : 'Brak'}</strong>
             <span style={S.statHint}>{ops.loading ? 'synchronizacja danych' : `stan na ${formatDateTime(new Date())}`}</span>
           </div>
         </section>
 
-        <div style={S.grid}>
-          <div style={S.column}>
-            <section style={S.panel}>
+        <div className="profile-grid" style={S.grid}>
+          <div className="profile-column" style={S.column}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Kim jestem i co mogę</div>
@@ -1563,7 +1563,7 @@ export default function Profil() {
               </div>
             </section>
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Pracownik 360</div>
@@ -1717,7 +1717,7 @@ export default function Profil() {
                 </form>
               ) : null}
 
-              <div style={S.rows}>
+              <div className="profile-rows" style={S.rows}>
                 {ownEmployeeDocuments.length === 0 ? (
                   <div style={S.empty}>Brak dokumentow w teczce tego pracownika.</div>
                 ) : ownEmployeeDocuments.map((doc) => {
@@ -1757,7 +1757,7 @@ export default function Profil() {
               </div>
             </section>
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Moje zadania na dziś</div>
@@ -1767,7 +1767,7 @@ export default function Profil() {
                   Otwórz zlecenia
                 </button>
               </div>
-              <div style={S.rows}>
+              <div className="profile-rows" style={S.rows}>
                 {dashboard.todayTasks.length === 0 ? (
                   <div style={S.empty}>Brak zadań zaległych lub zaplanowanych na dziś.</div>
                 ) : dashboard.todayTasks.map((task) => (
@@ -1784,7 +1784,7 @@ export default function Profil() {
               </div>
             </section>
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Zadania Todo</div>
@@ -1795,7 +1795,7 @@ export default function Profil() {
                 </span>
               </div>
               {canAssignTasks ? (
-                <form style={S.taskForm} onSubmit={createOperatorTask}>
+                <form className="profile-task-form" style={S.taskForm} onSubmit={createOperatorTask}>
                   <select
                     style={S.input}
                     value={assignmentDraft.assigned_to}
@@ -1844,7 +1844,7 @@ export default function Profil() {
                 </form>
               ) : null}
 
-              <div style={S.rows}>
+              <div className="profile-rows" style={S.rows}>
                 {dashboard.operatorTaskQueue.length === 0 ? (
                   <div style={S.empty}>Brak aktywnych zadań Todo.</div>
                 ) : dashboard.operatorTaskQueue.map((task) => {
@@ -1875,7 +1875,7 @@ export default function Profil() {
               </div>
             </section>
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Moje decyzje</div>
@@ -1885,7 +1885,7 @@ export default function Profil() {
                   Audyt
                 </button>
               </div>
-              <div style={S.rows}>
+              <div className="profile-rows" style={S.rows}>
                 {dashboard.visibleEvents.length === 0 ? (
                   <div style={S.empty}>Brak decyzji operatora w rejestrze.</div>
                 ) : dashboard.visibleEvents.map((event, index) => (
@@ -1903,9 +1903,9 @@ export default function Profil() {
             </section>
           </div>
 
-          <aside style={S.column}>
+          <aside className="profile-column" style={S.column}>
             {canAssignTasks ? (
-              <section style={S.panel}>
+              <section className="profile-panel" style={S.panel}>
                 <div style={S.panelHeader}>
                   <div>
                     <div style={S.eyebrow}>Karta stanowiska</div>
@@ -1915,7 +1915,7 @@ export default function Profil() {
                     Szablon kierownik brygad
                   </button>
                 </div>
-                <form style={S.positionForm} onSubmit={savePositionCard}>
+                <form className="profile-position-form" style={S.positionForm} onSubmit={savePositionCard}>
                   <label style={S.fieldGroup}>
                     <span style={S.identityLabel}>Pracownik</span>
                     <select
@@ -2078,7 +2078,7 @@ export default function Profil() {
               </section>
             ) : null}
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>{fieldWorker ? 'Bezpieczeństwo pracy' : 'Dokument stanowiskowy'}</div>
@@ -2127,7 +2127,7 @@ export default function Profil() {
               {positionAckMessage ? <div style={{ ...S.formHint, marginTop: 8 }}>{positionAckMessage}</div> : null}
             </section>
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Preferencje</div>
@@ -2151,7 +2151,7 @@ export default function Profil() {
               </div>
             </section>
 
-            <section style={S.panel}>
+            <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Skróty</div>

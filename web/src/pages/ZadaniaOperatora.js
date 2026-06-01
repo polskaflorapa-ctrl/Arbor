@@ -254,10 +254,10 @@ export default function ZadaniaOperatora() {
   };
 
   return (
-    <div style={S.wrap}>
+    <div className="operator-tasks-shell" style={S.wrap}>
       <Sidebar />
-      <main style={S.main}>
-        <header style={S.header}>
+      <main className="operator-tasks-main" style={S.main}>
+        <header className="operator-tasks-header" style={S.header}>
           <div>
             <div style={S.eyebrow}>Zadania zespołu</div>
             <h1 style={S.title}>Panel Todo ARBOR-OS</h1>
@@ -271,23 +271,23 @@ export default function ZadaniaOperatora() {
           </div>
         </header>
 
-        <section style={S.stats}>
+        <section className="operator-tasks-stats" style={S.stats}>
           <div style={S.stat}><span style={S.statLabel}>Moje aktywne</span><strong style={S.statValue}>{stats.ownOpen.length}</strong><small style={S.statHint}>zadania przypisane do mnie</small></div>
           <div style={S.stat}><span style={S.statLabel}>Wysłane przeze mnie</span><strong style={S.statValue}>{stats.delegatedOpen.length}</strong><small style={S.statHint}>otwarte polecenia</small></div>
           <div style={S.stat}><span style={S.statLabel}>Po terminie</span><strong style={S.statValue}>{stats.overdue.length}</strong><small style={S.statHint}>wymagają reakcji</small></div>
           <div style={S.stat}><span style={S.statLabel}>Gotowe</span><strong style={S.statValue}>{stats.done.length}</strong><small style={S.statHint}>zamknięte w rejestrze</small></div>
         </section>
 
-        <div style={S.grid}>
+        <div className="operator-tasks-grid" style={S.grid}>
           {canManage ? (
-            <section style={S.panel}>
+            <section className="operator-tasks-panel operator-tasks-create" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>
                   <div style={S.eyebrow}>Nowe polecenie</div>
                   <div style={S.panelTitle}>Wyślij do profilu pracownika</div>
                 </div>
               </div>
-              <form style={S.form} onSubmit={createTask}>
+              <form className="operator-tasks-form" style={S.form} onSubmit={createTask}>
                 <label style={S.field}>
                   <span style={S.label}>Pracownik</span>
                   <select
@@ -349,14 +349,14 @@ export default function ZadaniaOperatora() {
             </section>
           ) : null}
 
-          <section style={{ ...S.panel, ...S.listPanel }}>
+          <section className="operator-tasks-panel operator-tasks-list" style={{ ...S.panel, ...S.listPanel }}>
             <div style={S.panelHeader}>
               <div>
                 <div style={S.eyebrow}>Rejestr zadań</div>
                 <div style={S.panelTitle}>{visibleTasks.length} pozycji</div>
               </div>
             </div>
-            <div style={S.toolbar}>
+            <div className="operator-tasks-toolbar" style={S.toolbar}>
               <input
                 style={S.input}
                 value={query}

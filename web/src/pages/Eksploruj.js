@@ -130,11 +130,11 @@ export default function Eksploruj() {
   );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="explore-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <main style={{ flex: 1, padding: '28px 28px 48px', minWidth: 0 }}>
+      <main className="explore-main" style={{ flex: 1, padding: '28px 28px 48px', minWidth: 0 }}>
         {/* Nagłówek */}
-        <div style={{ marginBottom: 24 }}>
+        <div className="explore-header" style={{ marginBottom: 24 }}>
           <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: 'var(--text)' }}>
             Eksploruj system
           </h1>
@@ -144,8 +144,8 @@ export default function Eksploruj() {
         </div>
 
         {/* Szukajka */}
-        <div style={{ marginBottom: 24, maxWidth: 420 }}>
-          <div style={{ position: 'relative' }}>
+        <div className="explore-search" style={{ marginBottom: 24, maxWidth: 420 }}>
+          <div className="explore-search-box" style={{ position: 'relative' }}>
             <svg
               width="16" height="16" viewBox="0 0 24 24" fill="none"
               stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"
@@ -180,7 +180,7 @@ export default function Eksploruj() {
 
         {/* Grupy z kafelkami */}
         {filteredGroups.map((group) => (
-          <section key={group.key} style={{ marginBottom: 32 }}>
+          <section key={group.key} className="explore-group" style={{ marginBottom: 32 }}>
             <h2 style={{
               margin: '0 0 12px',
               fontSize: 13,
@@ -195,7 +195,7 @@ export default function Eksploruj() {
               <span>{group.emoji}</span>
               <span>{group.label}</span>
             </h2>
-            <div style={{
+            <div className="explore-grid" style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
               gap: 10,
@@ -206,6 +206,7 @@ export default function Eksploruj() {
                   <button
                     key={tile.path}
                     type="button"
+                    className="explore-tile"
                     onClick={() => navigate(tile.path)}
                     onMouseEnter={() => setHoveredPath(tile.path)}
                     onMouseLeave={() => setHoveredPath(null)}
@@ -261,7 +262,7 @@ export default function Eksploruj() {
         ))}
 
         {filteredGroups.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text-muted)' }}>
+          <div className="explore-empty" style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text-muted)' }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
             <p style={{ fontSize: 15, margin: 0 }}>Brak modułów pasujących do „{search}"</p>
             <p style={{ fontSize: 13, margin: '6px 0 0' }}>Spróbuj innej frazy</p>

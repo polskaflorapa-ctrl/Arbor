@@ -10,6 +10,18 @@ import { getApiErrorMessage } from '../utils/apiError';
 const CHANNELS = ['', 'whatsapp', 'sms', 'email', 'instagram', 'facebook', 'messenger', 'telegram', 'webchat', 'other'];
 const DIRECTIONS = ['', 'inbound', 'outbound'];
 const STATUSES = ['', 'received', 'queued', 'processing', 'sent', 'delivered', 'read', 'failed'];
+const CHANNEL_LABELS = {
+  whatsapp: 'WhatsApp',
+  sms: 'SMS',
+  email: 'E-mail',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  messenger: 'Messenger',
+  telegram: 'Telegram',
+  webchat: 'Webchat',
+  other: 'Inne',
+};
+const OPEN_STATUSES = new Set(['received', 'queued', 'processing', 'failed']);
 
 function formatDate(value) {
   if (!value) return '-';
@@ -28,6 +40,7 @@ export default function CrmInbox() {
   const [timelineMessages, setTimelineMessages] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState([]);
+  const [channelSources, setChannelSources] = useState([]);
   const [owners, setOwners] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [replyBody, setReplyBody] = useState('');
@@ -41,6 +54,41 @@ export default function CrmInbox() {
     () => messages.find((message) => String(message.id) === String(selectedId)) || messages[0] || null,
     [messages, selectedId]
   );
+  const inboxStats = useMemo(() => {
+    const stats = { inbound: 0, queued: 0, failed: 0, byChannel: {} };
+    messages.forEach((message) => {
+      const status = String(message.status || '').toLowerCase();
+      const direction = String(message.direction || '').toLowerCase();
+      const channel = String(message.channel || 'other').toLowerCase();
+      if (OPEN_STATUSES.has(status) && direction === 'inbound') stats.inbound += 1;
+      if (status === 'failed') stats.failed += 1;
+      if (status === 'queued') stats.queued += 1;
+      stats.byChannel[channel] = (stats.byChannel[channel] || 0) + 1;
+    });
+    return stats;
+  }, [messages]);
+  const activeFiltersCount = useMemo(
+    () => Object.values(filters).filter((value) => String(value || '').trim()).length,
+    [filters]
+  );
+  const unifiedInboxSources = useMemo(
+    () => channelSources.filter((source) => source?.config?.unified_inbox),
+    [channelSources]
+  );
+  const sourceStats = useMemo(() => {
+    const stats = {};
+    messages.forEach((message) => {
+      const channel = String(message.channel || 'other').toLowerCase();
+      const current = stats[channel] || { count: 0, lastAt: null };
+      const createdAtMs = new Date(message.created_at || 0).getTime();
+      const lastAtMs = current.lastAt ? new Date(current.lastAt).getTime() : 0;
+      stats[channel] = {
+        count: current.count + 1,
+        lastAt: createdAtMs > lastAtMs ? message.created_at : current.lastAt,
+      };
+    });
+    return stats;
+  }, [messages]);
 
   const loadInbox = async () => {
     try {
@@ -79,6 +127,16 @@ export default function CrmInbox() {
     }
   };
 
+  const loadChannelSources = async () => {
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/crm/integrations/apps', { headers: authHeaders(token), params: { include_inactive: true } });
+      setChannelSources(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setChannelSources([]);
+    }
+  };
+
   const loadTimeline = async (leadId) => {
     if (!leadId) {
       setTimelineMessages([]);
@@ -104,6 +162,7 @@ export default function CrmInbox() {
   useEffect(() => {
     loadTemplates();
     loadOwners();
+    loadChannelSources();
   }, []);
 
   useEffect(() => {
@@ -113,6 +172,22 @@ export default function CrmInbox() {
   const applySearch = (event) => {
     event.preventDefault();
     loadInbox();
+  };
+
+  const resetFilters = () => {
+    setFilters({ channel: '', direction: '', status: '', q: '' });
+  };
+
+  const applyPreset = (patch) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
+
+  const refreshInboxWorkspace = async () => {
+    await Promise.all([
+      loadInbox(),
+      loadChannelSources(),
+      selected?.lead_id ? loadTimeline(selected.lead_id) : Promise.resolve(),
+    ]);
   };
 
   const sendReply = async (event) => {
@@ -233,8 +308,98 @@ export default function CrmInbox() {
                 Szukaj
                 <input className="ios-field" value={filters.q} onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))} placeholder="Lead, klient, tresc..." />
               </label>
-              <button className="ios-btn ios-btn-primary" type="submit">Filtruj</button>
+              <button className="ios-btn ios-btn-primary" type="submit" disabled={loading}>{loading ? 'Laduje...' : 'Filtruj'}</button>
             </form>
+          </section>
+
+          <section className="ios-inset crm-inbox-summary" style={{ marginBottom: 12, padding: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+              <button className="ios-inset-row" type="button" onClick={() => applyPreset({ direction: '', status: '' })} style={{ textAlign: 'left', cursor: 'pointer' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Wszystkie</div>
+                <strong>{messages.length}</strong>
+              </button>
+              <button className="ios-inset-row" type="button" onClick={() => applyPreset({ direction: 'inbound', status: 'received' })} style={{ textAlign: 'left', cursor: 'pointer' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nowe od klientow</div>
+                <strong>{inboxStats.inbound}</strong>
+              </button>
+              <button className="ios-inset-row" type="button" onClick={() => applyPreset({ direction: 'outbound', status: 'queued' })} style={{ textAlign: 'left', cursor: 'pointer' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>W kolejce</div>
+                <strong>{inboxStats.queued}</strong>
+              </button>
+              <button className="ios-inset-row" type="button" onClick={() => applyPreset({ status: 'failed' })} style={{ textAlign: 'left', cursor: 'pointer' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Do poprawy</div>
+                <strong>{inboxStats.failed}</strong>
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' }}>
+              {Object.entries(inboxStats.byChannel).slice(0, 6).map(([channel, count]) => (
+                <button key={channel} className="ios-btn" type="button" onClick={() => applyPreset({ channel })} style={{ minHeight: 34 }}>
+                  {CHANNEL_LABELS[channel] || channel}: {count}
+                </button>
+              ))}
+              {activeFiltersCount ? <button className="ios-btn" type="button" onClick={resetFilters}>Wyczysc filtry</button> : null}
+              <button className="ios-btn" type="button" onClick={loadInbox} disabled={loading}>Odswiez</button>
+              <button className="ios-btn ios-btn-primary" type="button" onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
+                Odswiez wszystko
+              </button>
+            </div>
+          </section>
+
+          <section className="ios-inset crm-inbox-sources" style={{ marginBottom: 12, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+              <div>
+                <strong>Zrodla kanalow</strong>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Podpiete webhooki Unified Inbox per oddzial.
+                </div>
+              </div>
+              <button className="ios-btn" type="button" onClick={() => navigate('/integracje')}>
+                Konfiguruj
+              </button>
+              <button className="ios-btn" type="button" onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
+                Odswiez zrodla
+              </button>
+            </div>
+            {unifiedInboxSources.length ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+                {unifiedInboxSources.map((source) => {
+                  const channel = String(source.config?.channel || 'webchat').toLowerCase();
+                  const label = CHANNEL_LABELS[channel] || channel;
+                  return (
+                    <button
+                      key={source.id}
+                      type="button"
+                      className="ios-inset-row"
+                      onClick={() => applyPreset({ channel })}
+                      style={{ textAlign: 'left', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                        <strong>{label}</strong>
+                        <span style={{ fontSize: 12, color: source.active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                          {source.active ? 'Aktywny' : 'Pauza'}
+                        </span>
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                        Oddzial {source.oddzial_id || 'global'} / {source.config?.provider || source.type || 'webhook'}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                        Rozmowy w widoku: {sourceStats[channel]?.count || 0}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                        Eventy: {Number(source.event_count || 0)} / ostatni {source.last_event_status || 'brak'}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+                        Ostatnio: {formatDate(source.last_event_at || sourceStats[channel]?.lastAt)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="ios-inset-row muted">
+                Brak podpietych kanalow Unified Inbox. Dodaj je w Integracjach.
+              </div>
+            )}
           </section>
 
           <div className="crm-inbox-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, .85fr) minmax(320px, 1.15fr)', gap: 12 }}>
@@ -266,11 +431,18 @@ export default function CrmInbox() {
                       {message.direction === 'outbound' ? 'Wychodzaca' : 'Przychodzaca'}: {message.body}
                     </div>
                     <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>
-                      {message.status} · {formatDate(message.created_at)}
+                      {message.status} / {formatDate(message.created_at)}
                     </div>
                   </button>
                 ))}
-                {!loading && messages.length === 0 ? <div className="ios-inset-row muted">Brak wiadomosci.</div> : null}
+                {loading ? <div className="ios-inset-row muted">Laduje rozmowy...</div> : null}
+                {!loading && messages.length === 0 ? (
+                  <div className="ios-inset-row muted">
+                    {activeFiltersCount
+                      ? 'Brak rozmow dla tych filtrow. Wyczysc filtry albo odswiez skrzynke.'
+                      : 'Brak wiadomosci. Nowe rozmowy z WhatsApp, SMS, e-maila i webchatu pojawia sie tutaj po podpieciu kanalow.'}
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -281,7 +453,7 @@ export default function CrmInbox() {
                     <div>
                       <div style={{ fontWeight: 700 }}>{selected.lead_title || selected.client_name || `Lead #${selected.lead_id}`}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        {selected.channel} · {selected.direction} · {selected.status}
+                        {selected.channel} / {selected.direction} / {selected.status}
                       </div>
                     </div>
                     <button className="ios-btn" type="button" onClick={() => navigate('/crm/pipeline')}>Pipeline</button>
@@ -352,7 +524,7 @@ export default function CrmInbox() {
                         <div key={message.id} className="ios-inset-row">
                           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
                             <strong>{message.direction === 'outbound' ? 'Handlowiec' : 'Klient'}</strong>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{message.channel} · {message.status}</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{message.channel} / {message.status}</span>
                           </div>
                           <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45 }}>{message.body}</div>
                           <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)' }}>

@@ -215,9 +215,9 @@ export default function WycenaTerenowaDetail() {
     Boolean(q.client_acceptance_token);
 
   return (
-    <div style={S.wrap}>
+    <div className="field-quote-detail-shell" style={S.wrap}>
       <Sidebar />
-      <main style={S.main}>
+      <main className="field-quote-detail-main" style={S.main}>
         <button type="button" style={S.back} onClick={() => navigate(-1)}>
           ← Wróć
         </button>
@@ -231,7 +231,7 @@ export default function WycenaTerenowaDetail() {
           <p style={S.muted}>Brak danych.</p>
         ) : (
           <>
-            <div style={S.card}>
+            <div className="field-quote-detail-card field-quote-detail-summary" style={S.card}>
               <div style={S.badge}>#{q.id}</div>
               <div style={S.title}>{q.klient_nazwa || '—'}</div>
               <div style={S.muted}>{[q.adres, q.miasto].filter(Boolean).join(', ') || '—'}</div>
@@ -251,7 +251,7 @@ export default function WycenaTerenowaDetail() {
               </div>
             </div>
 
-            <div ref={sketchSectionRef} style={S.card}>
+            <div ref={sketchSectionRef} className="field-quote-detail-card field-quote-detail-sketch" style={S.card}>
               <div style={S.h2}>{t('fieldQuotesSketch.sectionTitle')}</div>
               <div style={{ ...S.muted, marginBottom: 10 }}>{t('fieldQuotesSketch.hint')}</div>
               {itemsErr ? <div style={S.err}>{itemsErr}</div> : null}
@@ -280,7 +280,7 @@ export default function WycenaTerenowaDetail() {
             </div>
 
             {showOfferBlock ? (
-              <div style={S.card}>
+              <div className="field-quote-detail-card field-quote-detail-offer" style={S.card}>
                 <div style={S.h2}>Wysyłka oferty do klienta</div>
                 {showResend ? (
                   <div style={{ marginBottom: 14 }}>
@@ -369,7 +369,7 @@ export default function WycenaTerenowaDetail() {
                 ) : null}
               </div>
             ) : (
-              <div style={{ ...S.card, ...S.muted }}>
+              <div className="field-quote-detail-card field-quote-detail-empty" style={{ ...S.card, ...S.muted }}>
                 Oferta nie została jeszcze wysłana do klienta (brak rekordu wysyłki). Po pełnym zatwierdzeniu pojawią się tu
                 PDF, SMS/e-mail i link akceptacji.
               </div>

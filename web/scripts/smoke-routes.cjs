@@ -198,7 +198,7 @@ async function main() {
             heading: document.querySelector('h1,h2,[role="heading"]')?.textContent?.trim() || '',
             textLength: allText.length,
             login: /Zaloguj|Login|Password|Haslo/.test(allText),
-            loading: /Ladowanie|Loading/.test(allText),
+            loading: /Ładowanie|Ladowanie|Loading/i.test(allText),
             overflowX: document.body ? document.body.scrollWidth > window.innerWidth + 2 : false,
             snippet: allText.replace(/\\s+/g, ' ').slice(0, 180),
           };

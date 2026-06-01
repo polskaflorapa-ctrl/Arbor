@@ -53,6 +53,30 @@ beforeEach(() => {
         ],
       });
     }
+    if (url === '/crm/integrations/apps') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 41,
+            oddzial_id: 7,
+            name: 'WhatsApp / Krakow',
+            type: 'webhook',
+            active: true,
+            webhook_path: '/api/webhooks/crm/tok_wa',
+            config: { unified_inbox: true, channel: 'whatsapp', provider: 'meta' },
+          },
+          {
+            id: 42,
+            oddzial_id: 8,
+            name: 'E-mail / Warszawa',
+            type: 'webhook',
+            active: true,
+            webhook_path: '/api/webhooks/crm/tok_mail',
+            config: { unified_inbox: true, channel: 'email', provider: 'sendgrid' },
+          },
+        ],
+      });
+    }
     if (url === '/uzytkownicy') {
       return Promise.resolve({
         data: [
@@ -124,6 +148,9 @@ test('renders unified CRM inbox and applies filters', async () => {
   expect(screen.getAllByText('Prosze o szybka wycene.').length).toBeGreaterThan(0);
   expect(await screen.findByText('Historia rozmowy')).toBeInTheDocument();
   expect(await screen.findByText('Dzien dobry, przygotujemy wycene.')).toBeInTheDocument();
+  expect(await screen.findByText('Zrodla kanalow')).toBeInTheDocument();
+  expect(screen.getByText('Oddzial 7 / meta')).toBeInTheDocument();
+  expect(screen.getByText('Rozmowy w widoku: 1')).toBeInTheDocument();
 
   fireEvent.change(screen.getAllByDisplayValue('Wszystkie')[0], { target: { value: 'whatsapp' } });
 
@@ -134,6 +161,43 @@ test('renders unified CRM inbox and applies filters', async () => {
         params: expect.objectContaining({ channel: 'whatsapp' }),
       })
     );
+  });
+});
+
+test('filters inbox from configured channel sources', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByText('E-mail'));
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      '/crm/messages/inbox',
+      expect.objectContaining({
+        params: expect.objectContaining({ channel: 'email' }),
+      })
+    );
+  });
+});
+
+test('refreshes channel sources from unified inbox', async () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Zrodla kanalow');
+  const initialCalls = api.get.mock.calls.filter(([url]) => url === '/crm/integrations/apps').length;
+
+  fireEvent.click(screen.getByRole('button', { name: 'Odswiez zrodla' }));
+
+  await waitFor(() => {
+    const nextCalls = api.get.mock.calls.filter(([url]) => url === '/crm/integrations/apps').length;
+    expect(nextCalls).toBeGreaterThan(initialCalls);
   });
 });
 

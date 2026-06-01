@@ -177,6 +177,13 @@ function buildAuthScript() {
   `;
 }
 
+function buildPageInitScript(authScript) {
+  return `
+    window.__arborTtiStart = performance.now();
+    ${authScript}
+  `;
+}
+
 async function evaluateRoute(send, route) {
   const evaluated = await send('Runtime.evaluate', {
     awaitPromise: true,
@@ -184,9 +191,10 @@ async function evaluateRoute(send, route) {
     expression: `(() => {
       const text = document.body?.innerText || '';
       const allText = text.trim();
-      const loading = /Ladowanie|Loading/.test(allText);
+      const loading = /Ładowanie|Ladowanie|Loading/i.test(allText);
       const login = /Zaloguj|Login|Password|Haslo/.test(allText);
       const overlay = /Failed to load|Error:|Unhandled Runtime Error|Vite|webpack/i.test(allText);
+      const routeStart = Number(window.__arborTtiStart);
       return {
         route: ${JSON.stringify(route)},
         hash: location.hash,
@@ -197,7 +205,7 @@ async function evaluateRoute(send, route) {
         login,
         overlay,
         overflowX: document.body ? document.body.scrollWidth > window.innerWidth + 2 : false,
-        tti_ms: Math.round(performance.now()),
+        tti_ms: Math.round(performance.now() - (Number.isFinite(routeStart) ? routeStart : 0)),
         snippet: allText.replace(/\\s+/g, ' ').slice(0, 180),
       };
     })()`,
@@ -296,7 +304,7 @@ async function runTtiSmoke(options = {}, deps = {}) {
     await send('Log.enable');
     await send('Page.enable');
     await send('Network.enable');
-    await send('Page.addScriptToEvaluateOnNewDocument', { source: authScript });
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: buildPageInitScript(authScript) });
     await send('Runtime.evaluate', { expression: authScript, awaitPromise: true });
 
     const results = [];

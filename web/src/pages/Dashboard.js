@@ -238,23 +238,26 @@ export default function Dashboard() {
       setAllTasks(taskRows);
       setOstatnie(taskRows.slice(0, 8));
       setTeamRankingApi(rRes.data || null);
-      try {
-        const month = new Date().toISOString().slice(0, 7);
-        const pRes = await api.get('/payroll/month-close-status', {
-          headers: h,
-          params: { month },
+      setLoading(false);
+
+      const month = new Date().toISOString().slice(0, 7);
+      api.get('/payroll/month-close-status', {
+        headers: h,
+        params: { month },
+      })
+        .then((pRes) => {
+          setPayrollClose({
+            export_allowed: pRes.data?.export_allowed !== false,
+            pending_count: Number(pRes.data?.pending_count) || 0,
+          });
+        })
+        .catch(() => {
+          setPayrollClose({ export_allowed: true, pending_count: 0 });
         });
-        setPayrollClose({
-          export_allowed: pRes.data?.export_allowed !== false,
-          pending_count: Number(pRes.data?.pending_count) || 0,
-        });
-      } catch {
-        setPayrollClose({ export_allowed: true, pending_count: 0 });
-      }
     } catch (err) {
       setError(getApiErrorMessage(err, 'Nie udało się załadować danych dashboardu.'));
+      setLoading(false);
     }
-    finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
