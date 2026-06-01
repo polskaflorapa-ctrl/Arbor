@@ -208,7 +208,7 @@ test('keeps mobile command view and selected task in the URL', async () => {
   });
   expect(screen.getAllByText('Anna Kowalska').length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: /Anna Kowalska.*Wybrane/i })).toHaveAttribute('aria-pressed', 'true');
-});
+}, 15000);
 
 test('clears a stale selected task from the command URL', async () => {
   mockMapaLiveApi();

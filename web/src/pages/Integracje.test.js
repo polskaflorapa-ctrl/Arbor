@@ -287,7 +287,8 @@ describe('Integracje (integration-style)', () => {
         entity_type: 'crm_integration_app',
         entity_id: '7',
         created_at: '2026-06-01T10:00:00.000Z',
-        metadata: { oddzial_id: 2 },
+        user_login: 'manager',
+        metadata: { oddzial_id: 2, webhook_path: '/api/webhooks/crm/tok_wa', lead_id: 101 },
       }],
     });
     api.patch.mockResolvedValueOnce({ data: { id: 7, active: false } });
@@ -322,6 +323,15 @@ describe('Integracje (integration-style)', () => {
           provider: 'meta',
         },
       }],
+      auditItems: [{
+        id: 900,
+        action: 'crm.integration.app_created',
+        entity_type: 'crm_integration_app',
+        entity_id: '7',
+        created_at: '2026-06-01T10:00:00.000Z',
+        user_login: 'manager',
+        metadata: { oddzial_id: 2, webhook_path: '/api/webhooks/crm/tok_wa', lead_id: 101 },
+      }],
     });
 
     renderIntegracje();
@@ -333,6 +343,27 @@ describe('Integracje (integration-style)', () => {
     expect(screen.getByText(/5\/5 gotowe/i)).toBeInTheDocument();
     expect(await screen.findByText(/Utworzono kanal/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Gotowy/i).length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Historia' }));
+    expect(await screen.findByText('Historia podpiecia')).toBeInTheDocument();
+    expect(screen.getByText(/manager/i)).toBeInTheDocument();
+    expect(screen.getByText(/Webhook: \/api\/webhooks\/crm\/tok_wa/i)).toBeInTheDocument();
+    expect(screen.getByText(/Lead testowy: #101/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Kopiuj historie/i }));
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Historia podpiecia: Oddzial Krakow'));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Webhook: /api/webhooks/crm/tok_wa'));
+      expect(api.post).toHaveBeenCalledWith(
+        '/audit/client-event',
+        expect.objectContaining({
+          action: 'crm.integration.branch_history_copied',
+          entity_type: 'crm_branch_setup',
+          entity_id: '2',
+        }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
   });
 
   test('copies checklist gaps and prepares missing Inbox channel for a branch', async () => {

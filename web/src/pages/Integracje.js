@@ -151,10 +151,14 @@ export default function Integracje() {
       });
       setCrmApps(Array.isArray(crmAppsRes.data) ? crmAppsRes.data : []);
       setCrmEvents(Array.isArray(crmEventsRes.data) ? crmEventsRes.data : []);
-      setCrmIntegrationAudits([
+      const mergedAudits = [
         ...(Array.isArray(crmBranchAuditRes.data?.items) ? crmBranchAuditRes.data.items : []),
         ...(Array.isArray(crmAppAuditRes.data?.items) ? crmAppAuditRes.data.items : []),
-      ].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
+      ];
+      setCrmIntegrationAudits(Array.from(new Map(mergedAudits.map((item) => [
+        item.id != null ? `id:${item.id}` : `${item.entity_type || ''}:${item.entity_id || ''}:${item.action || ''}:${item.created_at || ''}`,
+        item,
+      ])).values()).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
       setBranchSetupStatuses(Array.isArray(branchSetupRes.data?.items) ? branchSetupRes.data.items : []);
       setKommoSync({
         queue: Array.isArray(kommoSyncRes.data?.queue) ? kommoSyncRes.data.queue : [],
@@ -1630,6 +1634,11 @@ const styles = {
   tableWrap: { background: 'var(--surface-glass)', borderRadius: 8, padding: 12, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', marginBottom: 12 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 },
   grid3: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 },
+  branchHistoryWrap: { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 },
+  branchHistoryPanel: { border: '1px solid var(--glass-border)', borderRadius: 8, background: 'var(--surface-glass)', padding: 10, boxShadow: 'var(--shadow-sm)' },
+  branchHistoryHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 },
+  branchHistoryItem: { borderTop: '1px solid var(--glass-border)', paddingTop: 8, marginTop: 8 },
+  branchHistoryMeta: { fontSize: 12, color: 'var(--text-sub)', marginTop: 4, overflowWrap: 'anywhere' },
   fieldBlock: { display: 'grid', gap: 6 },
   fieldLabel: { fontSize: 12, color: 'var(--text-muted)', fontWeight: 800 },
   textarea: { minHeight: 132, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', backgroundColor: 'var(--surface-field)', color: 'var(--text)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 12, resize: 'vertical' },
