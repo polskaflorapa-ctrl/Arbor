@@ -5647,3 +5647,509 @@ body.theme-dark pre {
     width: 100%;
   }
 }
+
+/* ARBOR-OS branches polish: regional command center and delegation board. */
+.branches-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.branches-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.branches-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.branches-tabs,
+.branches-form-panel,
+.branches-card,
+.branches-delegation-card,
+.branches-empty {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.branches-tabs {
+  padding: 6px !important;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+  flex-wrap: wrap;
+}
+
+.branches-tabs button {
+  border-radius: 8px !important;
+}
+
+.branches-form-panel,
+.branches-card,
+.branches-delegation-card,
+.branches-empty {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.branches-card:hover,
+.branches-delegation-card:hover,
+.branches-form-panel:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.branches-card:hover,
+.branches-delegation-card:hover {
+  transform: translateY(-1px);
+}
+
+.branches-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important;
+}
+
+.branches-delegations-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)) !important;
+}
+
+.branches-main input,
+.branches-main select,
+.branches-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.branches-main input:focus,
+.branches-main select:focus,
+.branches-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.branches-main button:not([style*="rgba(248,113,113"]):hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.14) !important;
+}
+
+@media (max-width: 900px) {
+  .branches-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .branches-tabs button,
+  .branches-form-panel button {
+    width: 100%;
+  }
+
+  .branches-form-panel > form > div:first-child {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ARBOR-OS branch detail polish: branch cockpit matched to branch list. */
+.branch-detail-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.branch-detail-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.branch-detail-breadcrumb,
+.branch-detail-hero,
+.branch-detail-kpi,
+.branch-detail-summary-card,
+.branch-detail-tabs,
+.branch-detail-panel,
+.branch-detail-form-panel,
+.branch-detail-team-card,
+.branch-detail-inline-form,
+.branch-detail-feature-row {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.branch-detail-breadcrumb {
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  padding: 10px 12px;
+}
+
+.branch-detail-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.branch-detail-hero h1,
+.branch-detail-hero div[style*="font-size: 22"] {
+  color: var(--text) !important;
+}
+
+.branch-detail-hero p,
+.branch-detail-hero div[style*="font-size: 11"] {
+  color: var(--text-sub) !important;
+}
+
+.branch-detail-kpi,
+.branch-detail-summary-card,
+.branch-detail-tabs,
+.branch-detail-panel,
+.branch-detail-form-panel,
+.branch-detail-team-card,
+.branch-detail-inline-form,
+.branch-detail-feature-row,
+.branch-detail-member-row {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.branch-detail-kpi:hover,
+.branch-detail-summary-card:hover,
+.branch-detail-panel:hover,
+.branch-detail-form-panel:hover,
+.branch-detail-team-card:hover,
+.branch-detail-feature-row:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.branch-detail-team-card:hover,
+.branch-detail-feature-row:hover {
+  transform: translateY(-1px);
+}
+
+.branch-detail-tabs {
+  padding: 6px !important;
+  border-bottom: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.branch-detail-tabs button {
+  border-radius: 8px !important;
+}
+
+.branch-detail-summary-grid {
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr) !important;
+}
+
+.branch-detail-team-grid {
+  grid-template-columns: minmax(320px, 1fr) minmax(0, 1.5fr) !important;
+}
+
+.branch-detail-data-stack .modern-data-row {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.branch-detail-member-row {
+  border: 1px solid transparent;
+}
+
+.branch-detail-member-row:hover {
+  border-color: rgba(15, 95, 58, 0.1);
+}
+
+.branch-detail-inline-form {
+  background: rgba(241, 249, 244, 0.72) !important;
+}
+
+.branch-detail-salary-calculator {
+  border-top-color: rgba(15, 95, 58, 0.13) !important;
+}
+
+.branch-detail-main input,
+.branch-detail-main select,
+.branch-detail-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.branch-detail-main input:focus,
+.branch-detail-main select:focus,
+.branch-detail-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.branch-detail-main button:not([style*="rgba(248,113,113"]):hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.14) !important;
+}
+
+@media (max-width: 900px) {
+  .branch-detail-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .branch-detail-summary-grid,
+  .branch-detail-team-grid,
+  .branch-detail-salary-calculator > div:nth-child(2) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .branch-detail-tabs > div:last-child,
+  .branch-detail-tabs button,
+  .branch-detail-form-panel button {
+    width: 100%;
+  }
+
+  .branch-detail-hero {
+    align-items: flex-start !important;
+  }
+}
+
+/* ARBOR-OS fleet polish: vehicles, tools, and repair register. */
+.fleet-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.fleet-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.fleet-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.fleet-kpi-grid,
+.fleet-tabs,
+.fleet-form-panel,
+.fleet-list-panel,
+.fleet-state-panel,
+.fleet-repair-card {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.fleet-kpi-card {
+  background: #ffffff !important;
+}
+
+.fleet-tabs {
+  padding: 6px !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+}
+
+.fleet-tabs button {
+  border-radius: 8px !important;
+}
+
+.fleet-form-panel,
+.fleet-list-panel,
+.fleet-resource-row,
+.fleet-state-panel,
+.fleet-repair-card {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.fleet-form-panel:hover,
+.fleet-list-panel:hover,
+.fleet-resource-row:hover,
+.fleet-state-panel:hover,
+.fleet-repair-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.fleet-resource-row:hover,
+.fleet-repair-card:hover {
+  transform: translateY(-1px);
+}
+
+.fleet-resource-row {
+  background: #ffffff !important;
+}
+
+.fleet-repairs-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)) !important;
+}
+
+.fleet-repairs-header {
+  background: #ffffff;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.045);
+}
+
+.fleet-main input,
+.fleet-main select,
+.fleet-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.fleet-main input:focus,
+.fleet-main select:focus,
+.fleet-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.fleet-main button:not([style*="rgba(248,113,113"]):hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.14) !important;
+}
+
+@media (max-width: 900px) {
+  .fleet-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .fleet-tabs button,
+  .fleet-form-panel button {
+    width: 100%;
+  }
+
+  .fleet-form-panel > form > div:first-child,
+  .fleet-resource-row > div > div:nth-child(2) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .fleet-resource-row,
+  .fleet-resource-row > div > div:first-child {
+    align-items: stretch !important;
+  }
+}
+
+/* ARBOR-OS equipment reservations polish: booking ledger paired with fleet. */
+.equipment-res-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.equipment-res-main {
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.equipment-res-main > .module-page-header,
+.equipment-res-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.equipment-res-monthbar,
+.equipment-res-kpis,
+.equipment-res-filters,
+.equipment-res-table {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.equipment-res-monthbar {
+  padding: 10px !important;
+  flex-wrap: wrap;
+}
+
+.equipment-res-kpis {
+  padding: 8px;
+}
+
+.equipment-res-kpi-card {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.13) !important;
+  box-shadow: 0 8px 18px rgba(31, 79, 50, 0.045);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.equipment-res-kpi-card:hover {
+  box-shadow: 0 14px 28px rgba(31, 79, 50, 0.08);
+  transform: translateY(-1px);
+}
+
+.equipment-res-filters {
+  padding: 12px !important;
+}
+
+.equipment-res-table {
+  display: table !important;
+  overflow: hidden;
+}
+
+.equipment-res-table .MuiTableCell-head {
+  background: rgba(241, 249, 244, 0.86);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.equipment-res-table .MuiTableRow-root:hover .MuiTableCell-root {
+  background: rgba(15, 107, 63, 0.035);
+}
+
+.equipment-res-main .MuiInputBase-root {
+  background: #ffffff !important;
+  border-radius: 8px !important;
+}
+
+.equipment-res-main .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(15, 95, 58, 0.16) !important;
+}
+
+.equipment-res-main .Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.equipment-res-dialog .MuiPaper-root {
+  border-radius: 8px;
+  border: 1px solid rgba(15, 95, 58, 0.13);
+  box-shadow: 0 24px 54px rgba(31, 79, 50, 0.16);
+}
+
+@media (max-width: 900px) {
+  .equipment-res-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .equipment-res-monthbar > *,
+  .equipment-res-filters .MuiFormControl-root,
+  .equipment-res-filters .MuiTextField-root,
+  .equipment-res-filters button {
+    width: 100%;
+    max-width: none;
+  }
+
+  .equipment-res-table {
+    display: block !important;
+    overflow-x: auto;
+  }
+}

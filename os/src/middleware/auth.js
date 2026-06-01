@@ -127,7 +127,7 @@ const requireOddzial = (req, res, next) => {
   if (!req.user) {
     return forbidden(res, req, 'errors.auth.branchAccessDenied', AUTH_BRANCH_ACCESS_DENIED);
   }
-  if (!isDyrektor(req.user) && req.query.oddzial_id && req.query.oddzial_id !== req.user.oddzial_id?.toString()) {
+  if (!isDyrektorOrAdmin(req.user) && req.query.oddzial_id && req.query.oddzial_id !== req.user.oddzial_id?.toString()) {
     return forbidden(res, req, 'errors.auth.branchAccessDenied', AUTH_BRANCH_ACCESS_DENIED);
   }
   next();

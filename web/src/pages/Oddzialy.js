@@ -224,9 +224,9 @@ export default function Oddzialy() {
   const isPrzeniesFormValid = Boolean(formPrzenies.user_id && formPrzenies.oddzial_id);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div className="branches-shell" style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
+      <div className="branches-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
 
         <PageHeader
           variant="hero"
@@ -275,7 +275,7 @@ export default function Oddzialy() {
         />
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
+        <div className="branches-tabs" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
           {[
             { key: 'oddzialy', label: t('pages.oddzialy.tabBranches', { count: oddzialy.length }) },
             { key: 'delegacje', label: t('pages.oddzialy.tabDelegations', { count: delegacje.length }) },
@@ -293,7 +293,7 @@ export default function Oddzialy() {
 
         {/* Formularz oddziału */}
         {showForm && isDyrektor && (
-          <div style={S.formBox}>
+          <div className="branches-form-panel" style={S.formBox}>
             <h3 style={S.formTitle}>{editOddzial ? t('pages.oddzialy.formEditTitle') : t('pages.oddzialy.formNewTitle')}</h3>
             <form onSubmit={handleSubmit}>
               <div style={S.grid}>
@@ -328,7 +328,7 @@ export default function Oddzialy() {
 
         {/* Formularz delegacji */}
         {showDelegacja && isDyrektor && (
-          <div style={S.formBox}>
+          <div className="branches-form-panel branches-delegation-form" style={S.formBox}>
             <h3 style={S.formTitle}>{t('pages.oddzialy.newDelegationTitle')}</h3>
             <form onSubmit={handleDelegacja}>
               <div style={S.grid}>
@@ -381,7 +381,7 @@ export default function Oddzialy() {
 
         {/* Formularz przeniesienia */}
         {showPrzenies && isDyrektor && (
-          <div style={S.formBox}>
+          <div className="branches-form-panel branches-transfer-form" style={S.formBox}>
             <h3 style={S.formTitle}>{t('pages.oddzialy.transferFormTitle')}</h3>
             <form onSubmit={handlePrzenies}>
               <div style={S.grid}>
@@ -408,16 +408,16 @@ export default function Oddzialy() {
 
         {/* TAB: Oddziały */}
         {activeTab === 'oddzialy' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+          <div className="branches-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
             {oddzialy.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', gridColumn: '1/-1' }}>
+              <div className="branches-empty" style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', gridColumn: '1/-1' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
                   <BusinessOutlined sx={{ fontSize: 48, opacity: 0.45 }} />
                 </div>
                 <p>{t('pages.oddzialy.emptyBranches')}</p>
               </div>
             ) : oddzialy.map((o, i) => (
-              <div key={o.id} style={{
+              <div className="branches-card" key={o.id} style={{
                 background: 'var(--surface-glass)', borderRadius: 8, padding: 20,
                 boxShadow: 'var(--shadow-md)',
                 border: '1px solid var(--glass-border)',
@@ -478,18 +478,18 @@ export default function Oddzialy() {
 
         {/* TAB: Delegacje */}
         {activeTab === 'delegacje' && (
-          <div style={S.delegacjeWrap}>
+          <div className="branches-delegations-wrap" style={S.delegacjeWrap}>
             {delegacje.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
+              <div className="branches-empty" style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', backgroundColor: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
                   <DriveEtaOutlined sx={{ fontSize: 48, opacity: 0.45 }} />
                 </div>
                 <p>{t('pages.oddzialy.emptyDelegations')}</p>
               </div>
             ) : (
-              <div style={S.delegacjeGrid}>
+              <div className="branches-delegations-grid" style={S.delegacjeGrid}>
                 {delegacje.map((d) => (
-                  <div key={d.id} style={S.delegacjaCard}>
+                  <div className="branches-delegation-card" key={d.id} style={S.delegacjaCard}>
                     <div style={S.delegacjaTop}>
                       <strong style={{ fontSize: 14, color: 'var(--text)' }}>
                         {d.zasob_nazwa || d.ekipa_nazwa || d.user_nazwa || '-'}

@@ -13,6 +13,7 @@ cd C:\Users\paha1\arbor
 npm run verify:observability
 npm run verify:incident-runbook
 npm run verify:backup-rpo
+npm run verify:rbac-scope
 npm run verify:scale-readiness
 npm run deploy:prod:dry-run
 npm run deploy:ready:check

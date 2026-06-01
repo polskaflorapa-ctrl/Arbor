@@ -27,6 +27,9 @@ Aplikacja mobilna Expo/React Native dla zespołu Arbor OS.
 - `npm run codex:android` - uruchamia Expo i otwiera Androida przez runner Codex
 - `npm run codex:ios` - uruchamia Expo i otwiera iOS przez runner Codex
 - `npm run codex:doctor` - sprawdza projekt Expo przez ten sam runner
+- `npm run install:android:preview` - pokazuje link instalacji Android preview i sprawdza lokalne `adb`
+- `npm run release:status` - pokazuje gotowosc Android/iOS preview i nastepne kroki QA
+- `npm run qa:note -- --tester=Jan --device=Pixel-8 --os=Android-15 --role=Brygadzista` - tworzy notatke QA dla testu urzadzenia
 - `npm run android` - uruchamia Expo na Androidzie
 - `npm run ios` - uruchamia Expo na iOS
 - `npm run web` - uruchamia Expo w przeglądarce

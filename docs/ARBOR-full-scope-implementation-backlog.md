@@ -74,7 +74,8 @@
 - [x] **P0 backup RPO/RTO hardening**: `docs/BACKUP-RPO-RTO-RUNBOOK.md` definiuje mierzalne RPO/RTO, harmonogram backupow, restore drill na bazie replaceable, retencje i artefakty potwierdzenia; `npm run verify:backup-rpo` pilnuje runbookow, skryptow backup/restore i guardow `CONFIRM_RESTORE`.
 - [x] **P0 web TTI smoke**: `docs/WEB-TTI-SMOKE-RUNBOOK.md` opisuje referencyjny pomiar panelu, prog TTI <= 3000 ms, trasy krytyczne i artefakt JSON; `npm run smoke:web:tti` mierzy render SPA przez Chrome/CDP, a `npm run verify:web-tti` pilnuje komend i runbooka.
 - [x] **P0 horizontal scaling readiness**: `docs/HORIZONTAL-SCALING-READINESS.md` opisuje stateless JWT, wspolny `JWT_SECRET`, `UPLOAD_STORAGE=s3`, Redis login limiter, limity DB pool, pojedyncze crony/workery, SSE best-effort i dispatcher; `npm run verify:scale-readiness` pilnuje guardow i checklist.
-- [ ] **Nastepny pakiet**: RBAC branch scope audit - domknac EPIC 0.2/0.3 przez statyczny gate rol, oddzial_id i testy najwazniejszych zapisow.
+- [x] **P0 RBAC branch scope audit**: `docs/RBAC-BRANCH-SCOPE-AUDIT.md` definiuje macierz Prezes/Dyrektor/Admin/Kierownik/Brygadzista, branch scope, team scope i finansowe NO-GO; `npm run verify:rbac-scope` pilnuje JWT, `oddzial_id`, `ekipa_id`, guardow backendu, BI redakcji finansow i web route guards.
+- [ ] **Nastepny pakiet**: dispatcher architecture decision - Google Routes / Mapbox Optimization / OR-Tools, koszt API, limity i decyzja dla EPIC 1.2.
 
 ---
 
@@ -105,8 +106,8 @@ flowchart LR
 ## EPIC 0 — Fundamenty produktowe (wszystkie moduły na tym stoją)
 
 - [x] **0.1** Jedna „prawda” środowiskowa: `.env.example` + dokumentacja dla `os`, `web`, `mobile` (API URL, Kommo, mapy, SMS). Dodano `docs/ENVIRONMENT-RUNBOOK.md`, poprawiono szablony web/mobile/deploy i checker `verify:env-runbook`.
-- [ ] **0.2** RBAC spójny: Dyrektor Produkcji / Kierownik Oddziału / Brygadzista — mapowanie ról w JWT, guardy na endpointach, ukrywanie akcji w UI.
-- [ ] **0.3** Model `oddzial_id` konsekwentnie na zleceniach, ekipach, raportach (filtry BI).
+- [x] **0.2** RBAC spójny: Dyrektor Produkcji / Kierownik Oddziału / Brygadzista — mapowanie ról w JWT, guardy na endpointach, ukrywanie akcji w UI. `docs/RBAC-BRANCH-SCOPE-AUDIT.md` + `verify:rbac-scope` pilnuja macierzy rol, web route guards i finansow.
+- [x] **0.3** Model `oddzial_id` konsekwentnie na zleceniach, ekipach, raportach (filtry BI). `scopedOddzialId`, `getTaskScope`, BI branch filters i audit scope sa objete bramka `verify:rbac-scope`.
 - [x] **0.4** Audyt: kto zmienił status zlecenia / dane finansowe (tabela + UI minimalny).
 - [x] **0.5** SLO: logi, metryki czasu API, alert na 5xx (nawet prosty). Minimum operacyjne opisuje `docs/OBSERVABILITY-SLO-RUNBOOK.md`, a `verify:observability` pilnuje `/api/health`, `/api/ready`, `/api/metrics`, p95, 5xx i storage smoke.
 

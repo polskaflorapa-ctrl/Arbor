@@ -62,3 +62,38 @@
 - Decision: Android preview ready for device QA.
 - Approver:
 - Notes: Install from the EAS build URL above, then complete `docs/mobile-device-smoke-checklist.md`.
+
+## iOS Follow-Up
+
+Preflight is available and passes EAS CLI/account/project checks:
+
+```bash
+npm run release:ios:preflight
+```
+
+iOS preview remains blocked until the release operator completes the interactive Apple/EAS credentials flow:
+
+```bash
+npm run release:ios:credentials
+npm run release:build:ios:preview
+```
+
+## Install Helper
+
+Run this from `mobile/` on the release/tester machine:
+
+```bash
+npm run install:android:preview
+```
+
+If `adb` is available and an Android device is connected, the helper confirms the device. If not, it prints the manual EAS install link and the exact fallback steps.
+
+## Device QA Note Helper
+
+Create a per-device QA note before testing:
+
+```bash
+npm run qa:note -- --tester=Jan --device=Pixel-8 --os=Android-15 --role=Brygadzista
+```
+
+The generated file lands in `docs/` and includes build metadata, required release checks, and a place to paste the Release QA summary from API Diagnostics.

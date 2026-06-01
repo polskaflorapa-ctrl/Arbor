@@ -358,9 +358,9 @@ export default function RezerwacjeSprzetu() {
   };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
+    <Box className="equipment-res-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'var(--bg)' }}>
       <Sidebar />
-      <Box component="main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+      <Box component="main" className="equipment-res-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <PageHeader
           title={t('pages.equipmentReservations.title')}
           subtitle={t('pages.equipmentReservations.subtitle')}
@@ -379,7 +379,7 @@ export default function RezerwacjeSprzetu() {
           )}
         />
         <StatusMessage message={msg} />
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+        <Stack className="equipment-res-monthbar" direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <Button size="small" onClick={prevMonth} startIcon={<ChevronLeft />}>
             {t('pages.equipmentReservations.prevMonth')}
           </Button>
@@ -394,6 +394,7 @@ export default function RezerwacjeSprzetu() {
         </Stack>
 
         <Box
+          className="equipment-res-kpis"
           sx={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
@@ -409,6 +410,7 @@ export default function RezerwacjeSprzetu() {
             ['Kolizje', summary.conflicts],
           ].map(([label, value]) => (
             <Box
+              className="equipment-res-kpi-card"
               key={label}
               sx={{
                 border: '1px solid var(--border)',
@@ -426,6 +428,7 @@ export default function RezerwacjeSprzetu() {
         </Box>
 
         <Stack
+          className="equipment-res-filters"
           direction={{ xs: 'column', md: 'row' }}
           spacing={1}
           alignItems={{ xs: 'stretch', md: 'center' }}
@@ -475,7 +478,7 @@ export default function RezerwacjeSprzetu() {
         ) : filteredRows.length === 0 ? (
           <Typography color="text.secondary">{t('pages.equipmentReservations.empty')}</Typography>
         ) : (
-          <Table size="small">
+          <Table className="equipment-res-table" size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Okres</TableCell>
@@ -545,7 +548,7 @@ export default function RezerwacjeSprzetu() {
           </Table>
         )}
 
-        <Dialog open={modalOpen} onClose={() => !saving && setModalOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog className="equipment-res-dialog" open={modalOpen} onClose={() => !saving && setModalOpen(false)} maxWidth="sm" fullWidth>
           <form onSubmit={submitNew}>
             <DialogTitle>{t('pages.equipmentReservations.modalTitle')}</DialogTitle>
             <DialogContent>

@@ -187,9 +187,9 @@ export default function Flota() {
   const isSprzetFormValid = Boolean(formSprzet.nazwa.trim());
 
   return (
-    <div className="app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
+    <div className="app-shell fleet-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
       <Sidebar />
-      <main className="app-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
+      <main className="app-main fleet-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
 
         <PageHeader
           variant="hero"
@@ -243,9 +243,9 @@ export default function Flota() {
         />
 
         {/* KPI */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 0, marginBottom: 24, border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
+        <div className="fleet-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 0, marginBottom: 24, border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
           {kpiItems.map((k, i, arr) => (
-            <div key={k.key} style={{
+            <div className="fleet-kpi-card" key={k.key} style={{
               background: 'var(--surface-field)', padding: '14px 16px',
               borderLeft: `3px solid ${k.color}`,
               borderRight: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
@@ -257,7 +257,7 @@ export default function Flota() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
+        <div className="fleet-tabs" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
           {tabDefs.map((tab) => (
             <button key={tab.key}
               type="button"
@@ -276,7 +276,7 @@ export default function Flota() {
 
         {/* Formularz pojazdu */}
         {showForm && canEdit && activeTab === 'pojazdy' && (
-          <div style={S.formBox}>
+          <div className="fleet-form-panel" style={S.formBox}>
             <h3 style={S.formTitle}>{t('pages.flota.newVehicleTitle')}</h3>
             <form onSubmit={handleAddPojazd}>
               <div style={S.grid}>
@@ -317,7 +317,7 @@ export default function Flota() {
 
         {/* Formularz sprzętu */}
         {showForm && canEdit && activeTab === 'sprzet' && (
-          <div style={S.formBox}>
+          <div className="fleet-form-panel" style={S.formBox}>
             <h3 style={S.formTitle}>{t('pages.flota.newEquipmentTitle')}</h3>
             <form onSubmit={handleAddSprzet}>
               <div style={S.grid}>
@@ -359,9 +359,9 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filtrPojazdy.length === 0 ? (
             <EmptyBox icon={<DirectionsCarOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyVehicles')} sub={canEdit ? t('pages.flota.emptyVehiclesHint') : ''} />
           ) : (
-            <div style={{ border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
+            <div className="fleet-list-panel" style={{ border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
               {filtrPojazdy.map((p, i, arr) => (
-                <div key={p.id} style={{
+                <div className="fleet-resource-row" key={p.id} style={{
                   background: 'var(--surface-field)', padding: '14px 20px',
                   borderLeft: `4px solid ${STATUS_KOLOR[p.status] || 'var(--border)'}`,
                   borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
@@ -421,9 +421,9 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filtrSprzet.length === 0 ? (
             <EmptyBox icon={<BuildOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyEquipment')} sub={canEdit ? t('pages.flota.emptyEquipmentHint') : ''} />
           ) : (
-            <div style={{ border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
+            <div className="fleet-list-panel" style={{ border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
               {filtrSprzet.map((s, i, arr) => (
-                <div key={s.id} style={{
+                <div className="fleet-resource-row" key={s.id} style={{
                   background: 'var(--surface-field)', padding: '14px 20px',
                   borderLeft: `4px solid ${STATUS_KOLOR[s.status] || 'var(--border)'}`,
                   borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
@@ -475,15 +475,15 @@ export default function Flota() {
           loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : naprawy.length === 0 ? (
             <EmptyBox icon={<ConstructionOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyRepairs')} />
           ) : (
-            <div style={S.repairsWrap}>
-              <div style={S.repairsHeader}>
+            <div className="fleet-repairs-wrap" style={S.repairsWrap}>
+              <div className="fleet-repairs-header" style={S.repairsHeader}>
                 {(repairHeaders.length ? repairHeaders : ['Typ', 'Zasób', 'Data', 'Koszt', 'Usterka', 'Wykonawca', 'Status']).slice(0, 7).map((h) => (
                   <span key={h} style={S.repairsHeaderChip}>{h}</span>
                 ))}
               </div>
-              <div style={S.repairsGrid}>
+              <div className="fleet-repairs-grid" style={S.repairsGrid}>
                 {naprawy.map((n) => (
-                  <div key={n.id} style={S.repairCard}>
+                  <div className="fleet-repair-card" key={n.id} style={S.repairCard}>
                     <div style={S.repairTop}>
                       <span style={S.repairType}>{n.typ_zasobu}</span>
                       <span style={{ ...S.repairStatus, backgroundColor: n.status === 'Zakończona' ? '#166534' : '#b45309' }}>
@@ -525,7 +525,7 @@ export default function Flota() {
 
 function LoadingBox({ text }) {
   return (
-    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+    <div className="fleet-state-panel" style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
         <AutorenewOutlined sx={{ fontSize: 40, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
       </div>
@@ -536,7 +536,7 @@ function LoadingBox({ text }) {
 
 function EmptyBox({ icon, text, sub }) {
   return (
-    <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
+    <div className="fleet-state-panel" style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--text-muted)' }}>{icon}</div>
       <p style={{ fontWeight: '600', color: 'var(--text-sub)' }}>{text}</p>
       {sub && <p style={{ fontSize: 13 }}>{sub}</p>}

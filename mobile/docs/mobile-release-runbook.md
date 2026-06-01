@@ -16,6 +16,12 @@ For a faster local sanity check while iterating, use:
 npm run release:check:quick
 ```
 
+To print the current Android/iOS preview status and next operator actions:
+
+```bash
+npm run release:status
+```
+
 Check the EAS operator environment before cloud builds:
 
 ```bash
@@ -45,6 +51,16 @@ Check release metadata:
 - [ ] `eas.json` profile `EXPO_PUBLIC_EXPECTED_API_VERSION` matches the backend release note or is intentionally left as profile default.
 - [ ] `config/release-environments.json` contains only `development`, `preview`, and `production`, with `apiUrl`, `expectedApiVersion`, and `purpose` filled in.
 - [ ] `npm run release:eas-doctor` passes on the release operator machine.
+
+iOS preview credential setup:
+
+```bash
+npm run release:ios:preflight
+npm run release:ios:credentials
+npm run release:build:ios:preview
+```
+
+`release:ios:preflight` verifies EAS CLI, account login, and project access. `release:ios:credentials` intentionally starts the interactive EAS credentials flow, because Apple distribution credentials and provisioning may require account choices and 2FA. Run it only when the release operator is present at the terminal.
 
 Crash/error monitoring:
 
@@ -95,7 +111,7 @@ node ./scripts/eas-release-build.cjs ios development
 
 ## 3. Device QA
 
-Install the build on a real iPhone and run:
+Install the build on a real Android device or iPhone and run:
 
 - `docs/mobile-device-smoke-checklist.md`
 

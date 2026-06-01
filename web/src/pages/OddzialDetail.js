@@ -337,12 +337,12 @@ export default function OddzialDetail() {
   if (!oddzial) return <div style={{ padding: 40, textAlign: 'center' }}>Nie znaleziono oddziału</div>;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="branch-detail-shell" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <div style={{ flex: 1, padding: 28, overflowX: 'hidden', position: 'relative' }}>
+      <div className="branch-detail-main" style={{ flex: 1, padding: 28, overflowX: 'hidden', position: 'relative' }}>
 
         {/* Breadcrumb */}
-        <div style={{ display: 'flex', gap: 8, fontSize: 14, marginBottom: 20, alignItems: 'center' }}>
+        <div className="branch-detail-breadcrumb" style={{ display: 'flex', gap: 8, fontSize: 14, marginBottom: 20, alignItems: 'center' }}>
           <span style={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: '500' }}
             onClick={() => navigate('/oddzialy')}>← Oddziały</span>
           <span style={{ color: 'var(--text-muted)' }}>/</span>
@@ -350,7 +350,7 @@ export default function OddzialDetail() {
         </div>
 
         {/* Hero */}
-        <div style={{
+        <div className="branch-detail-hero" style={{
           background: 'linear-gradient(135deg, #0f5f3a, #28b66c)',
           borderRadius: 8, padding: '24px 28px', marginBottom: 20,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -388,14 +388,14 @@ export default function OddzialDetail() {
         </div>
 
         {/* KPI */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <div className="branch-detail-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
           {[
             { label: '📋 Nowe', value: statsByStatus(TASK_STATUS.NOWE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
             { label: '📅 Zaplanowane', value: statsByStatus(TASK_STATUS.ZAPLANOWANE), color: 'var(--accent)', bg: 'var(--accent-surface)' },
             { label: '⚡ W realizacji', value: statsByStatus(TASK_STATUS.W_REALIZACJI), color: '#F9A825', bg: '#FFF8E1' },
             { label: '✅ Zakończone', value: statsByStatus(TASK_STATUS.ZAKONCZONE), color: 'var(--accent)', bg: 'rgba(52,211,153,0.1)' },
           ].map(k => (
-            <div key={k.label} style={{
+            <div className="branch-detail-kpi" key={k.label} style={{
               background: 'var(--surface-glass)', borderRadius: 8, padding: '14px 16px',
               borderTop: `3px solid ${k.color}`,
               border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)',
@@ -406,12 +406,12 @@ export default function OddzialDetail() {
             </div>
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr .7fr', gap: 12, marginBottom: 16 }}>
-          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
+        <div className="branch-detail-summary-grid" style={{ display: 'grid', gridTemplateColumns: '1.3fr .7fr', gap: 12, marginBottom: 16 }}>
+          <div className="branch-detail-summary-card" style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum oddziału</div>
             <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-sub)' }}>Nowe: <strong style={{ color: 'var(--text)' }}>{statsByStatus(TASK_STATUS.NOWE)}</strong> · W realizacji: <strong style={{ color: 'var(--text)' }}>{statsByStatus(TASK_STATUS.W_REALIZACJI)}</strong> · Pracownicy: <strong style={{ color: 'var(--text)' }}>{pracownicy.length}</strong></div>
           </div>
-          <div style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
+          <div className="branch-detail-summary-card" style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Szybkie akcje</div>
             <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button style={S.addBtn} onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
@@ -425,7 +425,7 @@ export default function OddzialDetail() {
         />
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, alignItems: 'center', borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
+        <div className="branch-detail-tabs" style={{ display: 'flex', gap: 4, marginBottom: 20, alignItems: 'center', borderBottom: '1px solid var(--glass-border)', flexWrap: 'wrap' }}>
           {[
             { key: 'zlecenia', label: `📋 Zlecenia (${zlecenia.length})` },
             { key: 'ekipy', label: `👷 Ekipy (${ekipy.length})` },
@@ -465,14 +465,14 @@ export default function OddzialDetail() {
 
         {/* ===== ZLECENIA ===== */}
         {activeTab === 'zlecenia' && (
-          <div style={{ background: 'var(--surface-glass)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
+          <div className="branch-detail-panel branch-detail-orders" style={{ background: 'var(--surface-glass)', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
             {zlecenia.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
                 <p>Brak zleceń w tym oddziale</p>
               </div>
             ) : (
-              <div className="modern-data-stack" style={{ padding: 14 }}>
+              <div className="modern-data-stack branch-detail-data-stack" style={{ padding: 14 }}>
                 {zlecenia.map((z) => (
                   <ModernDataRow
                     key={z.id}
@@ -506,7 +506,7 @@ export default function OddzialDetail() {
         {activeTab === 'ekipy' && (
           <>
             {showEkipaForm && canEdit && (
-              <div style={S.formBox}>
+              <div className="branch-detail-form-panel" style={S.formBox}>
                 <h3 style={S.formTitle}>{editEkipa ? '✏️ Edytuj ekipę' : '➕ Nowa ekipa'}</h3>
                 <form onSubmit={handleEkipaSubmit}>
                   <div style={S.grid}>
@@ -530,15 +530,15 @@ export default function OddzialDetail() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 20, alignItems: 'start' }}>
-              <div>
+            <div className="branch-detail-team-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 20, alignItems: 'start' }}>
+              <div className="branch-detail-team-list">
                 {ekipy.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
+                  <div className="branch-detail-panel branch-detail-empty" style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)' }}>
                     <div style={{ fontSize: 48, marginBottom: 12 }}>👷</div>
                     <p>Brak ekip w tym oddziale</p>
                   </div>
                 ) : ekipy.map((e, i) => (
-                  <div key={e.id}
+                  <div className="branch-detail-team-card" key={e.id}
                     onClick={() => { setSelectedEkipa(e); loadEkipaDetail(e.id); setShowAddCzlonek(false); }}
                     style={{
                       background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 10,
@@ -572,7 +572,7 @@ export default function OddzialDetail() {
               </div>
 
               {selectedEkipa && ekipaDetail ? (
-                <div style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 24, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', animation: 'fadeIn 0.3s ease forwards' }}>
+                <div className="branch-detail-panel branch-detail-team-detail" style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 24, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', animation: 'fadeIn 0.3s ease forwards' }}>
                   <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
                     <h3 style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--accent)', margin: 0 }}>{ekipaDetail.nazwa}</h3>
                   </div>
@@ -634,7 +634,7 @@ export default function OddzialDetail() {
                     </div>
 
                     {showAddCzlonek && (
-                      <form onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, marginBottom: 12, border: '1px solid var(--border)' }}>
+                      <form className="branch-detail-inline-form" onSubmit={handleAddCzlonek} style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 14, marginBottom: 12, border: '1px solid var(--border)' }}>
                         <Field label="Pracownik *">
                           <select style={S.input} value={formCzlonek.user_id} onChange={e => setFormCzlonek({ ...formCzlonek, user_id: e.target.value })} required>
                             <option value="">-- wybierz --</option>
@@ -660,7 +660,7 @@ export default function OddzialDetail() {
                     {!ekipaDetail.czlonkowie?.length ? (
                       <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 16, fontSize: 13 }}>Brak pomocników</p>
                     ) : ekipaDetail.czlonkowie.map((c, i) => (
-                      <div key={c.id}
+                      <div className="branch-detail-member-row" key={c.id}
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 8, marginBottom: 4, transition: 'background 0.15s', animation: `slideIn 0.2s ease ${i * 0.05}s forwards`, opacity: 0 }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-field)'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -682,7 +682,7 @@ export default function OddzialDetail() {
                   {ekipaDetail.brygadzista_imie && <KalkulatorWynagrodzenia ekipa={ekipaDetail} />}
                 </div>
               ) : (
-                <div style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 60, textAlign: 'center', color: 'var(--text-muted)', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
+                <div className="branch-detail-panel branch-detail-empty" style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 60, textAlign: 'center', color: 'var(--text-muted)', border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12, animation: 'treeSway 3s ease-in-out infinite' }}>🌳</div>
                   <p style={{ fontWeight: '600', color: 'var(--text-sub)' }}>Wybierz ekipę</p>
                   <p style={{ fontSize: 13 }}>Kliknij na ekipę aby zobaczyć szczegóły</p>
@@ -709,7 +709,7 @@ export default function OddzialDetail() {
         {activeTab === 'pracownicy' && (
           <>
             {showPracownikForm && isDyrektor && (
-              <div style={S.formBox}>
+              <div className="branch-detail-form-panel" style={S.formBox}>
                 <h3 style={S.formTitle}>➕ Nowy pracownik — {oddzial.nazwa}</h3>
                 <form onSubmit={handlePracownikSubmit}>
                   <div style={S.grid}>
@@ -755,14 +755,14 @@ export default function OddzialDetail() {
               </div>
             )}
 
-            <div style={{ borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
+            <div className="branch-detail-panel branch-detail-workers" style={{ borderRadius: 8, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
               {pracownicy.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
                   <p>Brak pracowników w tym oddziale</p>
                 </div>
               ) : (
-                <div className="modern-data-stack">
+                <div className="modern-data-stack branch-detail-data-stack">
                   {pracownicy.map((p) => (
                     <ModernDataRow
                       key={p.id}
@@ -855,7 +855,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
   const overrideCount = Object.keys(oddzialOverrides).length;
 
   return (
-    <div style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
+    <div className="branch-detail-panel branch-detail-features" style={{ background: 'var(--surface-glass)', borderRadius: 8, padding: 20, border: '1px solid var(--glass-border)', boxShadow: 'var(--shadow-md)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, fontSize: 13, color: 'var(--text-muted)' }}>
           {t('pages.branchAdmin.hint', { defaultValue: 'Włącz lub wyłącz funkcje mobilne dla tego oddziału (zapisywane lokalnie).' })}
@@ -877,6 +877,7 @@ function FunkcjeTab({ oddzialId, overrides, onOverridesChange, t }) {
           const enabled = isEnabled(feature);
           return (
             <div
+              className="branch-detail-feature-row"
               key={feature}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -941,7 +942,7 @@ function KalkulatorWynagrodzenia({ ekipa }) {
   };
 
   return (
-    <div style={{ borderTop: '2px solid var(--border)', paddingTop: 16 }}>
+    <div className="branch-detail-salary-calculator" style={{ borderTop: '2px solid var(--border)', paddingTop: 16 }}>
       <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text-sub)', marginBottom: 12 }}>💰 Kalkulator wynagrodzenia</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
         {[

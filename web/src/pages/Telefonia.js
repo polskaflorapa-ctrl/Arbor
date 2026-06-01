@@ -1612,6 +1612,16 @@ export default function Telefonia() {
     const bScore = br.blockers.length * 10 + (br.hasErrors ? 5 : 0) + (br.needsReview ? 3 : 0) - br.percent / 100;
     return bScore - aScore;
   });
+  const firstVisibleBranchStatus = filteredBranchIntegrationStatuses[0] || null;
+  const selectedVisibleBranchIndex = filteredBranchIntegrationStatuses.findIndex((row) => String(row.oddzial_id) === String(agentForm.oddzial_id));
+  const selectedVisibleBranchPosition = selectedVisibleBranchIndex >= 0 ? selectedVisibleBranchIndex + 1 : 0;
+  const previousVisibleBranchStatus = selectedVisibleBranchIndex > 0
+    ? (filteredBranchIntegrationStatuses[selectedVisibleBranchIndex - 1] || null)
+    : null;
+  const nextVisibleBranchStatus = selectedVisibleBranchIndex >= 0
+    ? (filteredBranchIntegrationStatuses[selectedVisibleBranchIndex + 1] || null)
+    : firstVisibleBranchStatus;
+  const visibleBranchWorkQueue = filteredBranchIntegrationStatuses.slice(0, 3);
   const nextBranchToFix = branchIntegrationStatuses
     .map((row) => ({ row, readiness: branchReadiness(row) }))
     .filter(({ readiness }) => readiness.percent < 100 || readiness.hasErrors || readiness.needsReview)
@@ -1658,6 +1668,40 @@ export default function Telefonia() {
       lines.push(`- Braki: ${readiness.blockers.length ? readiness.blockers.join(', ') : 'brak'}`);
       lines.push('');
     });
+    return lines.join('\n');
+  };
+  const buildFilteredBranchWorkPlan = () => {
+    const lines = [
+      'Plan pracy - podpiecie telefonii oddzialow',
+      `Widoczne oddzialy: ${filteredBranchIntegrationStatuses.length} / ${branchIntegrationStatuses.length}`,
+      `Filtr statusu: ${branchStatusFilter === 'all' ? 'wszystkie' : branchStatusFilter}`,
+      `Filtr etapu: ${branchStageFilter === 'all' ? 'wszystkie' : branchStageFilter}`,
+      `Szukaj: ${branchStatusQuery.trim() || 'brak'}`,
+      '',
+    ];
+    filteredBranchIntegrationStatuses.forEach((row, index) => {
+      const readiness = branchReadiness(row);
+      lines.push(`${index + 1}. ${row.oddzial_name || `Oddzial #${row.oddzial_id}`} - ${branchLaunchStage(row).label} / ${readiness.percent}%`);
+      lines.push(`   ${branchNextAction(row)}`);
+      if (readiness.blockers.length) lines.push(`   Braki: ${readiness.blockers.join(', ')}`);
+      if (Number(row.sms_errors || 0) > 0) lines.push(`   Bledy SMS: ${Number(row.sms_errors || 0)}`);
+      if (Number(row.needs_review || 0) > 0) lines.push(`   Rozmowy do sprawdzenia: ${Number(row.needs_review || 0)}`);
+    });
+    if (!filteredBranchIntegrationStatuses.length) lines.push('Brak oddzialow w aktualnym widoku.');
+    return lines.join('\n');
+  };
+  const buildVisibleBranchQueueText = () => {
+    const lines = [
+      'Nastepne 3 oddzialy do pracy',
+      `Widok: ${branchStageFilter === 'all' ? 'wszystkie etapy' : branchStageFilter}`,
+      '',
+    ];
+    visibleBranchWorkQueue.forEach((row, index) => {
+      const readiness = branchReadiness(row);
+      lines.push(`${index + 1}. ${row.oddzial_name || `Oddzial #${row.oddzial_id}`} - ${branchLaunchStage(row).label} / ${readiness.percent}%`);
+      lines.push(`   ${branchNextAction(row)}`);
+    });
+    if (!visibleBranchWorkQueue.length) lines.push('Brak oddzialow w aktualnym widoku.');
     return lines.join('\n');
   };
   const agentNeedsReviewCount = Number(agentIntakesSummary.needs_review || 0);
@@ -1874,11 +1918,52 @@ export default function Telefonia() {
                 </button>
                 <button
                   type="button"
+                  style={s.rowBtn}
+                  onClick={() => {
+                    if (!firstVisibleBranchStatus) return;
+                    setAgentForm((f) => ({ ...f, oddzial_id: String(firstVisibleBranchStatus.oddzial_id) }));
+                  }}
+                  disabled={!firstVisibleBranchStatus}
+                >
+                  Otworz pierwszy z widoku
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={() => {
+                    if (!previousVisibleBranchStatus) return;
+                    setAgentForm((f) => ({ ...f, oddzial_id: String(previousVisibleBranchStatus.oddzial_id) }));
+                  }}
+                  disabled={!previousVisibleBranchStatus}
+                >
+                  Otworz poprzedni z widoku
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={() => {
+                    if (!nextVisibleBranchStatus) return;
+                    setAgentForm((f) => ({ ...f, oddzial_id: String(nextVisibleBranchStatus.oddzial_id) }));
+                  }}
+                  disabled={!nextVisibleBranchStatus}
+                >
+                  Otworz nastepny z widoku
+                </button>
+                <button
+                  type="button"
                   style={s.rowBtnActive}
                   onClick={() => copyAgentText(buildBranchReadinessReport(), 'Raport oddzialow')}
                   disabled={!branchIntegrationStatuses.length}
                 >
                   Kopiuj raport
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtnActive}
+                  onClick={() => copyAgentText(buildFilteredBranchWorkPlan(), 'Plan pracy oddzialow')}
+                  disabled={!filteredBranchIntegrationStatuses.length}
+                >
+                  Kopiuj plan pracy
                 </button>
                 <button
                   type="button"
@@ -1958,6 +2043,38 @@ export default function Telefonia() {
                       </span>
                     </div>
                   ) : null}
+                  {visibleBranchWorkQueue.length ? (
+                    <div style={s.branchQueueBox}>
+                      <div style={s.branchQueueHeader}>
+                        <div style={s.agentHistoryMeta}>Nastepne z aktualnego widoku</div>
+                        <button
+                          type="button"
+                          style={s.rowBtn}
+                          onClick={() => copyAgentText(buildVisibleBranchQueueText(), 'Kolejka oddzialow')}
+                        >
+                          Kopiuj kolejke
+                        </button>
+                      </div>
+                      <div style={s.branchQueueList}>
+                        {visibleBranchWorkQueue.map((row, index) => {
+                          const readiness = branchReadiness(row);
+                          const stage = branchLaunchStage(row);
+                          return (
+                            <button
+                              key={row.oddzial_id}
+                              type="button"
+                              style={s.branchQueueItem}
+                              onClick={() => setAgentForm((f) => ({ ...f, oddzial_id: String(row.oddzial_id) }))}
+                            >
+                              <strong>{index + 1}. {row.oddzial_name || `Oddzial #${row.oddzial_id}`}</strong>
+                              <span>{stage.label} / {readiness.percent}%</span>
+                              <small>{branchNextAction(row)}</small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                   <div style={s.branchStatusGrid}>
                     {filteredBranchIntegrationStatuses.map((row) => {
                       const tone = branchIntegrationTone(row);
@@ -2027,7 +2144,12 @@ export default function Telefonia() {
                                 {stage.label}
                               </span>
                             </div>
-                            <div style={s.agentHistoryMeta}>{branchNextAction(selectedBranchStatus)}</div>
+                            <div style={s.agentHistoryMeta}>
+                              {selectedVisibleBranchPosition
+                                ? `Pozycja w widoku: ${selectedVisibleBranchPosition} / ${filteredBranchIntegrationStatuses.length}. `
+                                : ''}
+                              {branchNextAction(selectedBranchStatus)}
+                            </div>
                           </div>
                           <button
                             type="button"
@@ -3737,6 +3859,39 @@ const s = {
     color: 'var(--text-sub)',
     fontSize: 12,
     marginBottom: 10,
+  },
+  branchQueueBox: {
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: 'rgba(15,95,58,0.045)',
+  },
+  branchQueueHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  branchQueueList: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+    gap: 8,
+    marginTop: 7,
+  },
+  branchQueueItem: {
+    minWidth: 0,
+    textAlign: 'left',
+    display: 'grid',
+    gap: 3,
+    padding: 9,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
+    color: 'var(--text)',
+    cursor: 'pointer',
+    fontSize: 12,
   },
   branchStatusCard: {
     minWidth: 0,
