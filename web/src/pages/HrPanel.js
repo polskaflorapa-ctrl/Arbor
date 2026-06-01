@@ -168,16 +168,16 @@ export default function HrPanel() {
   }, {});
 
   return (
-    <div style={s.shell}>
+    <div className="hr-panel-shell" style={s.shell}>
       <Sidebar />
-      <main style={s.main}>
+      <main className="hr-panel-main" style={s.main}>
         {/* Header */}
-        <div style={s.topbar}>
+        <div className="hr-panel-topbar" style={s.topbar}>
           <div>
             <h1 style={s.title}>👥 {t('hrPanel.title')}</h1>
             <p style={s.sub}>{t('hrPanel.subtitle')}</p>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="hr-panel-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {(tab === 'timesheet' || tab === 'absences') && (
               <input type="month" value={month} onChange={e => setMonth(e.target.value)}
                 style={s.monthInput} />
@@ -196,7 +196,7 @@ export default function HrPanel() {
         {error && <div style={s.errorBox}>{error}</div>}
 
         {/* Tabs */}
-        <div style={s.tabs}>
+        <div className="hr-panel-tabs" style={s.tabs}>
           {TABS.map(tabItem => (
             <button key={tabItem.key} type="button" onClick={() => setTab(tabItem.key)}
               style={{ ...s.tab, ...(tab === tabItem.key ? s.tabActive : {}) }}>
@@ -209,7 +209,7 @@ export default function HrPanel() {
 
         {/* ── TIMESHEET TAB ── */}
         {tab === 'timesheet' && !loading && (
-          <div style={s.card}>
+          <div className="hr-panel-card" style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.timesheet.title')} — {month}</div>
             {timesheet.length === 0 ? (
               <div className="modern-data-empty">{t('hrPanel.timesheet.noData')} {month}</div>
@@ -241,7 +241,7 @@ export default function HrPanel() {
 
         {/* ── ABSENCES TAB ── */}
         {tab === 'absences' && !loading && (
-          <div style={s.card}>
+          <div className="hr-panel-card" style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.absences.title')} — {month}</div>
             {absences.length === 0 ? (
               <div className="modern-data-empty">{t('hrPanel.absences.noData')} {month}</div>
@@ -280,7 +280,7 @@ export default function HrPanel() {
 
         {/* ── COMPETENCY TAB ── */}
         {tab === 'competency' && !loading && (
-          <div style={s.card}>
+          <div className="hr-panel-card" style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.competency.title')}</div>
             {competency.length === 0 ? (
               <div style={s.empty}>
@@ -315,10 +315,10 @@ export default function HrPanel() {
 
         {/* ── HEADCOUNT TAB ── */}
         {tab === 'headcount' && !loading && (
-          <div style={s.card}>
+          <div className="hr-panel-card hr-panel-headcount" style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.headcount.title')}</div>
             {Object.entries(hcByBranch).map(([branch, data]) => (
-              <div key={branch} style={s.hcBranch}>
+              <div className="hr-panel-branch" key={branch} style={s.hcBranch}>
                 <div style={s.hcBranchHeader}>
                   <span style={{ fontWeight: 700 }}>{branch}</span>
                   <span style={s.hcTotal}>{data.total} os.</span>

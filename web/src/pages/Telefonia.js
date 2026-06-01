@@ -98,6 +98,7 @@ export default function Telefonia() {
   const [agentExporting, setAgentExporting] = useState(false);
   const [branchTelephonySaving, setBranchTelephonySaving] = useState(false);
   const [branchSmsTesting, setBranchSmsTesting] = useState(false);
+  const [branchRetestCreating, setBranchRetestCreating] = useState(false);
   const [agentHistoryFilter, setAgentHistoryFilter] = useState('all');
   const [agentHistoryQuery, setAgentHistoryQuery] = useState('');
   const [agentHistoryPage, setAgentHistoryPage] = useState(1);
@@ -768,6 +769,26 @@ export default function Telefonia() {
       setAgentMessage(`${label} skopiowane.`);
     } catch {
       setAgentError(`Nie udalo sie skopiowac: ${label}.`);
+    }
+  };
+
+  const createBranchRetestNotifications = async () => {
+    setBranchRetestCreating(true);
+    setAgentError('');
+    setAgentMessage('');
+    try {
+      const token = getStoredToken();
+      const { data } = await api.post('/telephony/voice-agent/polska-flora/retests/notifications', {
+        max_age_days: BRANCH_TEST_STALE_DAYS,
+      }, { headers: authHeaders(token) });
+      setAgentMessage(
+        `Retesty: utworzono ${Number(data.notifications_created || 0)} powiadomien dla ${Number(data.branches_total || 0)} oddzialow. Pominieto duplikaty: ${Number(data.duplicates_skipped || 0)}.`
+      );
+      await loadBranchIntegrationStatuses();
+    } catch (err) {
+      setAgentError(getApiErrorMessage(err, 'Nie udalo sie utworzyc powiadomien retestu.'));
+    } finally {
+      setBranchRetestCreating(false);
     }
   };
 
@@ -2055,6 +2076,14 @@ export default function Telefonia() {
                   disabled={!staleTestBranchStatuses.length}
                 >
                   Kopiuj retesty
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtnActive}
+                  onClick={createBranchRetestNotifications}
+                  disabled={branchRetestCreating || !staleTestBranchStatuses.length}
+                >
+                  {branchRetestCreating ? 'Tworze retesty...' : 'Utworz zadania retestu'}
                 </button>
                 <button
                   type="button"

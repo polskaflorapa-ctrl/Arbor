@@ -224,9 +224,9 @@ export default function Ksiegowosc() {
   }, {});
 
   return (
-    <div style={styles.container}>
+    <div className="accounting-shell" style={styles.container}>
       <Sidebar />
-      <div style={styles.main}>
+      <div className="accounting-main" style={styles.main}>
         {/* Nagłówek */}
         <PageHeader
           variant="plain"
@@ -244,28 +244,28 @@ export default function Ksiegowosc() {
         />
 
         {/* KPI */}
-        <div style={styles.kpiRow}>
-          <div style={styles.kpi}>
+        <div className="accounting-kpis" style={styles.kpiRow}>
+          <div className="accounting-kpi-card" style={styles.kpi}>
             <div style={styles.kpiIcon}><DescriptionOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{stats.total || 0}</div>
             <div style={styles.kpiLabel}>Wszystkich faktur</div>
           </div>
-          <div style={styles.kpi}>
+          <div className="accounting-kpi-card" style={styles.kpi}>
             <div style={styles.kpiIcon}><PaymentsOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.przychod_total)} PLN</div>
             <div style={styles.kpiLabel}>Łączny przychód</div>
           </div>
-          <div style={{...styles.kpi, borderTop: '4px solid #4CAF50'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #4CAF50'}}>
             <div style={styles.kpiIcon}><CheckCircleOutline style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.oplacone)} PLN</div>
             <div style={styles.kpiLabel}>Opłacone</div>
           </div>
-          <div style={{...styles.kpi, borderTop: '4px solid #F9A825'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #F9A825'}}>
             <div style={styles.kpiIcon}><HourglassEmptyOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.nieoplacone)} PLN</div>
             <div style={styles.kpiLabel}>Nieopłacone</div>
           </div>
-          <div style={{...styles.kpi, borderTop: '4px solid #EF5350'}}>
+          <div className="accounting-kpi-card" style={{...styles.kpi, borderTop: '4px solid #EF5350'}}>
             <div style={styles.kpiIcon}><WarningAmberOutlined style={{ fontSize: 22 }} /></div>
             <div style={styles.kpiNum}>{fmt(stats.przeterminowane)} PLN</div>
             <div style={styles.kpiLabel}>Przeterminowane</div>
@@ -273,7 +273,7 @@ export default function Ksiegowosc() {
         </div>
 
         {/* Tabs */}
-        <div style={styles.tabs}>
+        <div className="accounting-tabs" style={styles.tabs}>
           {[
             { key: 'faktury', label: `${t('pages.ksiegowosc.tabInvoices')} (${faktury.length})` },
             { key: 'nowa', label: t('pages.ksiegowosc.tabNewInvoice') },
@@ -291,8 +291,8 @@ export default function Ksiegowosc() {
 
         {/* LISTA FAKTUR */}
         {tab === 'faktury' && (
-          <div style={styles.card}>
-            <div style={styles.filtryRow}>
+          <div className="accounting-card accounting-invoices-card" style={styles.card}>
+            <div className="accounting-filters" style={styles.filtryRow}>
               <div style={styles.filtrGroup}>
                 <label style={styles.filtrLabel}>Status:</label>
                 <select style={styles.filtrSelect} value={filtrStatus} onChange={e => setFiltrStatus(e.target.value)}>
@@ -381,8 +381,8 @@ export default function Ksiegowosc() {
 
         {/* NOWA FAKTURA */}
         {tab === 'nowa' && (
-          <form onSubmit={handleSaveFaktura}>
-            <div style={styles.card}>
+          <form className="accounting-form" onSubmit={handleSaveFaktura}>
+            <div className="accounting-card" style={styles.card}>
               <div style={styles.cardTitle}>📌 Powiąż ze zleceniem (opcjonalnie)</div>
               <select style={styles.input} value={form.task_id} onChange={e => wypelnijZZlecenia(e.target.value)}>
                 <option value="">-- wybierz zlecenie --</option>
@@ -394,7 +394,7 @@ export default function Ksiegowosc() {
               </select>
             </div>
 
-            <div style={styles.card}>
+            <div className="accounting-card" style={styles.card}>
               <div style={styles.cardTitle}>👤 Dane klienta</div>
               <div style={styles.grid}>
                 <div style={styles.field}>
@@ -433,7 +433,7 @@ export default function Ksiegowosc() {
               </div>
             </div>
 
-            <div style={styles.card}>
+            <div className="accounting-card" style={styles.card}>
               <div style={styles.cardTitle}>{t('pages.ksiegowosc.invoiceDataTitle')}</div>
               <div style={styles.grid}>
                 <div style={styles.field}>
@@ -463,7 +463,7 @@ export default function Ksiegowosc() {
               </div>
             </div>
 
-            <div style={styles.card}>
+            <div className="accounting-card" style={styles.card}>
               <div style={{...styles.cardTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                 <span>📦 Pozycje faktury</span>
                 <button type="button" style={styles.addPozBtn} onClick={dodajPozycje}>+ Dodaj pozycję</button>
@@ -537,7 +537,7 @@ export default function Ksiegowosc() {
               </div>
             </div>
 
-            <div style={styles.card}>
+            <div className="accounting-card" style={styles.card}>
               <div style={styles.field}>
                 <label style={styles.label}>📝 Uwagi / Notatka na fakturze</label>
                 <textarea style={{...styles.input, height: 80}}
@@ -558,7 +558,7 @@ export default function Ksiegowosc() {
 
         {/* USTAWIENIA FIRMY */}
         {tab === 'ustawienia' && (
-          <div style={styles.card}>
+          <div className="accounting-card accounting-settings-card" style={styles.card}>
             <div style={styles.cardTitle}>🏢 Dane firmy (będą drukowane na fakturach)</div>
             <div style={styles.grid}>
               <div style={styles.field}>

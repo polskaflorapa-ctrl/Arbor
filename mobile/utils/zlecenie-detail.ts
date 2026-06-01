@@ -126,6 +126,60 @@ export type WorkflowMissingItem = {
   required: boolean;
 };
 
+export type FinishCostCategory = 'sprzet' | 'paliwo' | 'utylizacja' | 'inne';
+
+export type FinishOperationalCosts = Record<FinishCostCategory, string>;
+
+export type FinishCostSuggestion = {
+  category: FinishCostCategory;
+  label: string;
+  amount: number;
+  source?: string;
+  basis?: string;
+};
+
+export type FinishCostSuggestions = {
+  suggestions?: FinishCostSuggestion[];
+  rates?: Record<string, number>;
+  validation_limits?: Record<string, number>;
+};
+
+export type FinishMoneyParseResult =
+  | { ok: true; amount: number | null }
+  | { ok: false };
+
+export type FinishOperationalCostRow = {
+  category: FinishCostCategory;
+  amount: number;
+  label: string;
+  source: 'mobile_finish';
+};
+
+export type FinishMaterialUsageRow = {
+  nazwa: string;
+  ilosc?: number;
+  jednostka?: 'szt';
+  koszt_laczny?: number;
+};
+
+export const EMPTY_FINISH_OPERATIONAL_COSTS: FinishOperationalCosts = {
+  sprzet: '',
+  paliwo: '',
+  utylizacja: '',
+  inne: '',
+};
+
+export const FINISH_OPERATIONAL_COST_LABELS: Record<FinishCostCategory, string> = {
+  sprzet: 'sprzet',
+  paliwo: 'paliwo',
+  utylizacja: 'utylizacja',
+  inne: 'inne',
+};
+
+export const FINISH_OPERATIONAL_COST_CATEGORIES = Object.keys(
+  EMPTY_FINISH_OPERATIONAL_COSTS,
+) as FinishCostCategory[];
+
 export function parseSafetyLogRows(value: unknown): SafetyLogRow[] {
   const raw = typeof value === 'string'
     ? (() => {
@@ -342,6 +396,64 @@ export async function readApiErrorBody(res: Response) {
   } catch {
     return { data: {}, text };
   }
+}
+
+export function parseOptionalFinishMoney(value: unknown): FinishMoneyParseResult {
+  const raw = String(value || '').trim().replace(',', '.');
+  if (!raw) return { ok: true, amount: null };
+  const parsed = parseFloat(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return { ok: false };
+  return { ok: true, amount: Math.round(parsed * 100) / 100 };
+}
+
+export function buildFinishOperationalCostRows(
+  costs: Partial<Record<FinishCostCategory, unknown>>,
+  labels: Record<FinishCostCategory, string> = FINISH_OPERATIONAL_COST_LABELS,
+): { ok: true; rows: FinishOperationalCostRow[] } | { ok: false; label: string } {
+  const rows: FinishOperationalCostRow[] = [];
+  for (const category of FINISH_OPERATIONAL_COST_CATEGORIES) {
+    const parsed = parseOptionalFinishMoney(costs[category]);
+    if (!parsed.ok) return { ok: false, label: labels[category] };
+    if (parsed.amount == null) continue;
+    rows.push({
+      category,
+      amount: parsed.amount,
+      label: labels[category],
+      source: 'mobile_finish',
+    });
+  }
+  return { ok: true, rows };
+}
+
+export function buildFinishMaterialUsage(
+  name: unknown,
+  quantity: unknown,
+  cost: number | null,
+): FinishMaterialUsageRow[] | undefined {
+  const usageName = String(name || '').trim();
+  if (!usageName) return undefined;
+  const quantityRaw = String(quantity || '').trim().replace(',', '.');
+  const usageQuantity = quantityRaw ? parseFloat(quantityRaw) : NaN;
+  return [
+    {
+      nazwa: usageName.slice(0, 200),
+      ...(Number.isFinite(usageQuantity) ? { ilosc: usageQuantity, jednostka: 'szt' as const } : {}),
+      ...(cost != null ? { koszt_laczny: cost } : {}),
+    },
+  ];
+}
+
+export function suggestedFinishOperationalCosts(
+  suggestions: FinishCostSuggestions | null | undefined,
+): FinishOperationalCosts {
+  const next = { ...EMPTY_FINISH_OPERATIONAL_COSTS };
+  for (const item of suggestions?.suggestions || []) {
+    const amount = Number(item.amount);
+    if (item.category in next && Number.isFinite(amount) && amount > 0) {
+      next[item.category] = String(amount);
+    }
+  }
+  return next;
 }
 
 export function workflowTargetFor(item?: WorkflowMissingItem) {

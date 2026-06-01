@@ -306,6 +306,40 @@ describe('Telephony routes', () => {
           rowCount: 1,
         };
       }
+      if (text.includes('WITH latest_ok_logs')) {
+        return {
+          rows: [{
+            oddzial_id: 2,
+            oddzial_name: 'Krakow',
+            miasto: 'Krakow',
+            telefon: '+48111111111',
+            sms_sender_id: '+48221234567',
+            integration_id: 55,
+            provider: 'vapi',
+            provider_account_id: 'assistant-1',
+            last_ok_test_at: '2026-05-01T08:00:00.000Z',
+            age_days: 31,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('SELECT id') && text.includes('FROM users') && text.includes("rola IN ('Prezes', 'Dyrektor', 'Administrator', 'Kierownik')")) {
+        return { rows: [{ id: 8 }, { id: 9 }], rowCount: 2 };
+      }
+      if (text.includes('INSERT INTO notifications') && text.includes("'Retest telefonii'")) {
+        return {
+          rows: [{
+            id: 700 + Number(params[1]),
+            to_user_id: params[1],
+            typ: 'Retest telefonii',
+            tresc: params[2],
+            task_id: null,
+            status: 'Nowe',
+            data_utworzenia: '2026-06-01T09:00:00.000Z',
+          }],
+          rowCount: 1,
+        };
+      }
       if (text.includes('INSERT INTO telephony_callbacks')) {
         return {
           rows: [{
@@ -634,6 +668,38 @@ describe('Telephony routes', () => {
     });
     const statusCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('FROM branches b') && String(sql).includes('voice_agent_integrations i'));
     expect(statusCall[0]).toContain('WHERE COALESCE(b.aktywny, true)');
+  });
+
+  it('creates manager notifications for stale branch retests', async () => {
+    const res = await request(app)
+      .post('/api/telephony/voice-agent/polska-flora/retests/notifications')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ max_age_days: 14 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      ok: true,
+      max_age_days: 14,
+      branches_total: 1,
+      recipients_total: 2,
+      notifications_created: 2,
+      duplicates_skipped: 0,
+    });
+    const staleCall = pool.query.mock.calls.find(([sql]) => String(sql).includes('WITH latest_ok_logs'));
+    expect(staleCall[1]).toEqual([14]);
+    const notificationCalls = pool.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO notifications') && String(sql).includes("'Retest telefonii'"));
+    expect(notificationCalls).toHaveLength(2);
+    expect(notificationCalls[0][1][2]).toContain('Retest telefonii wymagany: Krakow');
+  });
+
+  it('blocks non-management users from creating retest notifications', async () => {
+    const res = await request(app)
+      .post('/api/telephony/voice-agent/polska-flora/retests/notifications')
+      .set('Authorization', `Bearer ${token({ rola: 'Brygadzista', oddzial_id: 2 })}`)
+      .send({ max_age_days: 14 });
+
+    expect(res.status).toBe(403);
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('WITH latest_ok_logs'))).toBe(false);
   });
 
   it('lists voice agent intakes with server-side operational filters', async () => {

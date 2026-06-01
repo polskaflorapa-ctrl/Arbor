@@ -37,14 +37,18 @@ fn(localRequire, moduleRef.exports, moduleRef);
 
 const {
   absolutePhotoUrl,
+  buildFinishMaterialUsage,
+  buildFinishOperationalCostRows,
   compactLines,
   createOfficePlanForm,
   extractNoteValue,
   formatApiWorkflowError,
   isCheckinWorkLog,
   noteHasClientAccepted,
+  parseOptionalFinishMoney,
   parseSafetyLogRows,
   photoTypMatches,
+  suggestedFinishOperationalCosts,
   workflowPhotoFilterFor,
   workflowTargetFor,
 } = moduleRef.exports;
@@ -62,6 +66,35 @@ function run() {
   assert.deepEqual(compactLines(' A \n\n B '), ['A', 'B']);
   assert.equal(extractNoteValue('Ryzyka: linia\nWarunki rozliczenia: gotowka', ['Ryzyka']), 'linia');
   assert.equal(noteHasClientAccepted('Klient zaakceptowal: tak'), true);
+
+  assert.deepEqual(parseOptionalFinishMoney('12,345'), { ok: true, amount: 12.35 });
+  assert.deepEqual(parseOptionalFinishMoney(''), { ok: true, amount: null });
+  assert.deepEqual(parseOptionalFinishMoney('-1'), { ok: false });
+  assert.deepEqual(buildFinishOperationalCostRows({
+    sprzet: '100',
+    paliwo: '20,5',
+    utylizacja: '',
+    inne: '0',
+  }), {
+    ok: true,
+    rows: [
+      { category: 'sprzet', amount: 100, label: 'sprzet', source: 'mobile_finish' },
+      { category: 'paliwo', amount: 20.5, label: 'paliwo', source: 'mobile_finish' },
+      { category: 'inne', amount: 0, label: 'inne', source: 'mobile_finish' },
+    ],
+  });
+  assert.deepEqual(buildFinishOperationalCostRows({ sprzet: 'x' }), { ok: false, label: 'sprzet' });
+  assert.deepEqual(buildFinishMaterialUsage('  Olej  ', '2,5', 30), [
+    { nazwa: 'Olej', ilosc: 2.5, jednostka: 'szt', koszt_laczny: 30 },
+  ]);
+  assert.equal(buildFinishMaterialUsage('', '2', null), undefined);
+  assert.deepEqual(suggestedFinishOperationalCosts({
+    suggestions: [
+      { category: 'sprzet', label: 'Sprzet', amount: 150 },
+      { category: 'paliwo', label: 'Paliwo', amount: 0 },
+      { category: 'inne', label: 'Inne', amount: 12.5 },
+    ],
+  }), { sprzet: '150', paliwo: '', utylizacja: '', inne: '12.5' });
 
   assert.deepEqual(parseSafetyLogRows('[{"key":"zone","label":"Strefa","done":true}]'), [
     { key: 'zone', label: 'Strefa', hint: null, done: true },

@@ -61,6 +61,7 @@ import {
   buildFinishOperationalCostRows,
   compactLines,
   createOfficePlanForm,
+  DEFAULT_FIELD_SETTLEMENT,
   equipmentIdFromReservation,
   estimatorDisplayName,
   extractNoteValue,
@@ -73,15 +74,18 @@ import {
   noteHasClientAccepted,
   orderPhotoTypeMeta,
   orderPrioColors,
+  PHOTO_TYPE_LABELS,
   parseOptionalFinishMoney,
   parseSafetyLogRows,
   photoTypMatches,
   positiveNumber,
   readApiErrorBody,
+  SAFETY_CHECKLIST_ITEMS,
   suggestedFinishOperationalCosts,
   taskWorkflowMissingItems,
   timeFromTask,
   todayKey,
+  TYP_ZDJECIA_KEYS,
   uniqueStrings,
   workflowPhotoFilterFor,
   workflowTargetFor,
@@ -93,55 +97,12 @@ import {
   type OfficePlanEquipment,
   type OfficePlanForm,
   type OfficePlanTeam,
+  type PhotoFilterKey,
+  type PhotoTypeKey,
 } from '../../utils/zlecenie-detail';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const TYP_ZDJECIA_KEYS = ['wycena', 'szkic', 'dojazd', 'checkin', 'przed', 'po', 'inne'] as const;
-const PHOTO_TYPE_LABELS: Record<(typeof TYP_ZDJECIA_KEYS)[number], string> = {
-  wycena: 'Wycena u klienta',
-  szkic: 'Szkic zakresu',
-  dojazd: 'Dojazd / posesja',
-  checkin: 'Check-in',
-  przed: 'Przed pracą',
-  po: 'Po pracy',
-  inne: 'Inne',
-};
-const SAFETY_CHECKLIST_ITEMS = [
-  {
-    key: 'zone',
-    label: 'Strefa pracy',
-    hint: 'Odgradzona, klient i osoby postronne poza zasiegiem.',
-    icon: 'alert-circle-outline',
-  },
-  {
-    key: 'power',
-    label: 'Linie i przeszkody',
-    hint: 'Sprawdzone przewody, ogrodzenia, auta, dachy i szkody ryzyka.',
-    icon: 'flash-outline',
-  },
-  {
-    key: 'ppe',
-    label: 'Sprzęt i PPE',
-    hint: 'Kaski, uprzęże, piła, rębak i komunikacja ekipy gotowe.',
-    icon: 'construct-outline',
-  },
-  {
-    key: 'escape',
-    label: 'Droga ucieczki',
-    hint: 'Ustalona strefa zrzutu, kierunek obalenia i awaryjny odwrót.',
-    icon: 'walk-outline',
-  },
-  {
-    key: 'client',
-    label: 'Klient poinformowany',
-    hint: 'Zakres, ryzyka, odpady i ograniczenia uzgodnione na miejscu.',
-    icon: 'chatbubble-ellipses-outline',
-  },
-] as const;
-const DEFAULT_FIELD_SETTLEMENT = TASK_SETTLEMENT_OPTIONS[0]?.note || '';
-type PhotoTypeKey = (typeof TYP_ZDJECIA_KEYS)[number];
-type PhotoFilterKey = 'all' | PhotoTypeKey;
 
 interface GpsCoords {
   lat: number;
@@ -1139,14 +1100,7 @@ export default function ZlecenieDetailScreen() {
 
   /** M3 F3.9 — ekran płatności przed zakończeniem (ekipa). F3.5–F3.7 — zgodność z regułami serwera. */
   const suggestedFinishCosts = (suggestions: FinishCostSuggestions | null = finishCostSuggestions) => {
-    const next = { sprzet: '', paliwo: '', utylizacja: '', inne: '' };
-    for (const item of suggestions?.suggestions || []) {
-      const amount = Number(item.amount);
-      if (item.category in next && Number.isFinite(amount) && amount > 0) {
-        next[item.category] = String(amount);
-      }
-    }
-    return next;
+    return suggestedFinishOperationalCosts(suggestions);
   };
 
   const loadFinishCostSuggestions = async () => {
@@ -1228,39 +1182,19 @@ export default function ZlecenieDetailScreen() {
       Alert.alert(t('notif.alert.errorTitle'), t('order.finishMaterialRequired'));
       return;
     }
-    const parseOptionalFinishMoney = (value: string, label: string): number | false | null => {
-      const raw = String(value || '').trim().replace(',', '.');
-      if (!raw) return null;
-      const parsed = parseFloat(raw);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        void triggerHaptic('warning');
-        Alert.alert('Uwaga', `Podaj poprawny koszt: ${label}.`);
-        return false;
-      }
-      return Math.round(parsed * 100) / 100;
-    };
-    const usageCost = parseOptionalFinishMoney(finishUsageKoszt, 'materialy');
-    if (usageCost === false) return;
-    const costLabels: Record<string, string> = {
-      sprzet: 'sprzet',
-      paliwo: 'paliwo',
-      utylizacja: 'utylizacja',
-      inne: 'inne',
-    };
-    const koszty_operacyjne = Object.entries(finishOperationalCosts)
-      .map(([category, value]) => {
-        const amount = parseOptionalFinishMoney(value, costLabels[category] || category);
-        if (amount === false) return false;
-        if (amount == null) return null;
-        return {
-          category,
-          amount,
-          label: costLabels[category] || category,
-          source: 'mobile_finish',
-        };
-      });
-    if (koszty_operacyjne.some((row) => row === false)) return;
-    const operationalCostRows = koszty_operacyjne.filter(Boolean);
+    const usageCost = parseOptionalFinishMoney(finishUsageKoszt);
+    if (!usageCost.ok) {
+      void triggerHaptic('warning');
+      Alert.alert('Uwaga', 'Podaj poprawny koszt: materialy.');
+      return;
+    }
+    const operationalCosts = buildFinishOperationalCostRows(finishOperationalCosts);
+    if (!operationalCosts.ok) {
+      void triggerHaptic('warning');
+      Alert.alert('Uwaga', `Podaj poprawny koszt: ${operationalCosts.label}.`);
+      return;
+    }
+    const operationalCostRows = operationalCosts.rows;
     if (!finishBeforePhotoReady) {
       void triggerHaptic('warning');
       Alert.alert('Brakuje zdjec przed praca', 'Dodaj wymagane zdjecia przed praca albo check-in, zeby zamknac zlecenie z kompletnym protokolem.', [
@@ -1328,18 +1262,7 @@ export default function ZlecenieDetailScreen() {
     try {
       const coords = await pobierzLokalizacje();
       const usageNazwa = finishUsageNazwa.trim();
-      const usageIloscRaw = finishUsageIlosc.trim().replace(',', '.');
-      const usageIlosc = usageNazwa && usageIloscRaw ? parseFloat(usageIloscRaw) : NaN;
-      const zuzyte_materialy =
-        usageNazwa.length > 0
-          ? [
-              {
-                nazwa: usageNazwa.slice(0, 200),
-                ...(Number.isFinite(usageIlosc) ? { ilosc: usageIlosc, jednostka: 'szt' } : {}),
-                ...(usageCost != null ? { koszt_laczny: usageCost } : {}),
-              },
-            ]
-          : undefined;
+      const zuzyte_materialy = buildFinishMaterialUsage(usageNazwa, finishUsageIlosc, usageCost.amount);
       const paymentNote = finishNotatki.trim();
       const safetyProtocolNote = [
         `BHP przed startem: ${safetyDoneCount}/${safetyChecklistRows.length} punktow.`,
@@ -1353,7 +1276,7 @@ export default function ZlecenieDetailScreen() {
           : finishClientAccepted
             ? 'Odbiór klienta: potwierdzony bez podpisu.'
             : 'Odbiór klienta: brak potwierdzenia.',
-        usageNazwa ? `Materiały: ${usageNazwa}${Number.isFinite(usageIlosc) ? ` (${usageIlosc} szt.)` : ''}.` : '',
+        usageNazwa ? `Materiały: ${usageNazwa}${zuzyte_materialy?.[0]?.ilosc != null ? ` (${zuzyte_materialy[0].ilosc} szt.)` : ''}.` : '',
       ].filter(Boolean).join('\n');
       const noteTrim = [paymentNote, closeProtocolNote].filter(Boolean).join('\n');
       finishBody = {

@@ -6,6 +6,7 @@ const logger = require('../config/logger');
 const { env } = require('../config/env');
 const { authMiddleware } = require('../middleware/auth');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
+const { pushToUser } = require('./notifications');
 const { appendCrmLeadMessage, appendCrmMessageForContact } = require('../services/crmInbox');
 const { sendSmsGateway } = require('../services/smsGateway');
 const { ensureIntegrationTestLogsTable, listIntegrationTestLogs, recordIntegrationTestLog } = require('../services/integrationTestLogs');
@@ -127,6 +128,12 @@ const voiceAgentIntegrationSaveSchema = z.object({
   provider_api_key: z.string().trim().max(500).optional().nullable(),
   status: z.enum(['active', 'paused']).optional(),
 });
+
+const voiceAgentRetestNotificationsSchema = z.object({
+  max_age_days: z.coerce.number().int().min(1).max(90).optional(),
+});
+
+const DEFAULT_RETEST_MAX_AGE_DAYS = 14;
 
 const isManagementRole = (user) =>
   user?.rola === 'Dyrektor' || user?.rola === 'Administrator' || user?.rola === 'Kierownik';
@@ -374,6 +381,54 @@ function publicIntegration(row, { includeSecret = false } = {}) {
     last_error: row.last_error,
     updated_at: row.updated_at,
   };
+}
+
+async function listStaleVoiceAgentBranches({ user, maxAgeDays = DEFAULT_RETEST_MAX_AGE_DAYS } = {}) {
+  await ensureVoiceAgentIntegrationsTable();
+  await ensureIntegrationTestLogsTable(pool);
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS sms_sender_id VARCHAR(64)');
+  const params = [Number(maxAgeDays)];
+  const branchScope = isManagementRole(user)
+    ? ''
+    : 'AND b.id = $2';
+  if (!isManagementRole(user)) params.push(Number(user?.oddzial_id || 0));
+  const { rows } = await pool.query(
+    `WITH latest_ok_logs AS (
+       SELECT DISTINCT ON (oddzial_id)
+         oddzial_id,
+         integration_type,
+         action,
+         provider,
+         target,
+         created_at
+       FROM integration_test_logs
+       WHERE status = 'ok'
+       ORDER BY oddzial_id, created_at DESC
+     )
+     SELECT
+       b.id AS oddzial_id,
+       b.nazwa AS oddzial_name,
+       b.miasto,
+       b.telefon,
+       b.sms_sender_id,
+       i.id AS integration_id,
+       i.provider,
+       i.provider_account_id,
+       l.created_at AS last_ok_test_at,
+       FLOOR(EXTRACT(EPOCH FROM (NOW() - l.created_at)) / 86400)::int AS age_days
+     FROM branches b
+     JOIN voice_agent_integrations i
+       ON i.agent_id = 'polska-flora-ania'
+      AND i.oddzial_id = b.id
+      AND i.status = 'active'
+     JOIN latest_ok_logs l ON l.oddzial_id = b.id
+     WHERE COALESCE(b.aktywny, true)
+       AND l.created_at < NOW() - ($1::int * INTERVAL '1 day')
+       ${branchScope}
+     ORDER BY l.created_at ASC, b.nazwa NULLS LAST, b.id`,
+    params,
+  );
+  return rows;
 }
 
 async function findVoiceAgentIntegration({ oddzialId, secret } = {}) {
@@ -735,6 +790,86 @@ router.get(
       return res.json({ items: rows, total: rows.length });
     } catch (err) {
       logger.error('telephony.voiceAgent.integrations.status', { message: err.message, requestId: req.requestId });
+      return res.status(500).json({ error: req.t('errors.http.serverError') });
+    }
+  },
+);
+
+router.post(
+  '/voice-agent/polska-flora/retests/notifications',
+  authMiddleware,
+  validateBody(voiceAgentRetestNotificationsSchema),
+  async (req, res) => {
+    try {
+      if (!isManagementRole(req.user)) {
+        return res.status(403).json({ error: req.t('errors.auth.forbidden') });
+      }
+      const maxAgeDays = Number(req.body.max_age_days || DEFAULT_RETEST_MAX_AGE_DAYS);
+      const staleBranches = await listStaleVoiceAgentBranches({ user: req.user, maxAgeDays });
+      const notifications = [];
+      let recipientsTotal = 0;
+
+      for (const branch of staleBranches) {
+        const message = [
+          `Retest telefonii wymagany: ${branch.oddzial_name || `Oddzial #${branch.oddzial_id}`}.`,
+          `Ostatni test OK: ${branch.last_ok_test_at ? new Date(branch.last_ok_test_at).toISOString() : 'brak'}`,
+          `Wiek testu: ${Number(branch.age_days || 0)} dni; limit: ${maxAgeDays} dni.`,
+          'Wykonaj Test calosci oddzialu w panelu Telefonia.',
+        ].join(' ');
+        const recipientsResult = await pool.query(
+          `SELECT id
+             FROM users
+            WHERE id <> $1
+              AND rola IN ('Prezes', 'Dyrektor', 'Administrator', 'Kierownik')
+              AND (
+                rola IN ('Prezes', 'Dyrektor', 'Administrator')
+                OR oddzial_id = $2
+              )`,
+          [req.user.id, branch.oddzial_id],
+        );
+        recipientsTotal += recipientsResult.rows.length;
+        for (const recipient of recipientsResult.rows) {
+          const inserted = await pool.query(
+            `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
+             SELECT $1, $2, NULL, 'Retest telefonii', $3, 'Nowe'
+             WHERE NOT EXISTS (
+               SELECT 1
+                 FROM notifications n
+                WHERE n.to_user_id = $2
+                  AND n.typ = 'Retest telefonii'
+                  AND n.status = 'Nowe'
+                  AND n.tresc = $3
+             )
+             RETURNING id, to_user_id, typ, tresc, task_id, status, data_utworzenia`,
+            [req.user.id, recipient.id, message],
+          );
+          if (inserted.rows[0]) notifications.push({
+            ...inserted.rows[0],
+            oddzial_id: branch.oddzial_id,
+            oddzial_name: branch.oddzial_name,
+          });
+        }
+      }
+
+      for (const notification of notifications) {
+        pushToUser(notification.to_user_id, {
+          event: 'notification',
+          notification,
+          tab: 'telefonia',
+        });
+      }
+
+      return res.json({
+        ok: true,
+        max_age_days: maxAgeDays,
+        branches_total: staleBranches.length,
+        recipients_total: recipientsTotal,
+        notifications_created: notifications.length,
+        duplicates_skipped: Math.max(0, recipientsTotal - notifications.length),
+        branches: staleBranches,
+      });
+    } catch (err) {
+      logger.error('telephony.voiceAgent.retests.notifications', { message: err.message, requestId: req.requestId });
       return res.status(500).json({ error: req.t('errors.http.serverError') });
     }
   },

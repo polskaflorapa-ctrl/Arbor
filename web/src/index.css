@@ -6944,3 +6944,118 @@ body.theme-dark pre {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ARBOR-OS HR panel polish: people operations overview. */
+.hr-panel-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.hr-panel-main {
+  max-width: 1320px !important;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 34px !important;
+  background: transparent !important;
+}
+
+.hr-panel-topbar {
+  padding: 18px 20px !important;
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.hr-panel-topbar h1 {
+  color: #0b3825 !important;
+}
+
+.hr-panel-tabs,
+.hr-panel-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.hr-panel-tabs {
+  padding: 8px !important;
+}
+
+.hr-panel-tabs button,
+.hr-panel-actions button {
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+}
+
+.hr-panel-card {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.hr-panel-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.hr-panel-tabs button:hover,
+.hr-panel-actions button:hover,
+.hr-panel-card button:hover {
+  background: rgba(241, 249, 244, 0.9) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.1) !important;
+}
+
+.hr-panel-main input,
+.hr-panel-main select,
+.hr-panel-main textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.hr-panel-main input:focus,
+.hr-panel-main select:focus,
+.hr-panel-main textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+  outline: none;
+}
+
+.hr-panel-card .modern-data-row {
+  border-color: rgba(15, 95, 58, 0.12) !important;
+}
+
+.hr-panel-branch {
+  padding: 14px;
+  background: rgba(241, 249, 244, 0.52);
+  border: 1px solid rgba(15, 95, 58, 0.1);
+  border-radius: 8px;
+}
+
+.hr-panel-headcount [style*="background: var(--border)"] {
+  background: rgba(15, 95, 58, 0.12) !important;
+}
+
+.hr-panel-headcount [style*="background: var(--accent)"] {
+  background: var(--accent-gradient) !important;
+}
+
+@media (max-width: 900px) {
+  .hr-panel-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .hr-panel-topbar,
+  .hr-panel-actions {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .hr-panel-actions button,
+  .hr-panel-actions input,
+  .hr-panel-tabs button {
+    width: 100%;
+  }
+}
