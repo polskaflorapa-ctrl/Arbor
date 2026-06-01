@@ -24,6 +24,7 @@ const BRANCH_STAGE_ORDER = {
   'Do dopiecia': 3,
   Gotowy: 4,
 };
+const BRANCH_TEST_STALE_DAYS = 14;
 
 function useNarrowViewport(maxWidth = 760) {
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -1574,6 +1575,9 @@ export default function Telefonia() {
     acc[stage] = Number(acc[stage] || 0) + 1;
     return acc;
   }, {});
+  const branchRolloutPercent = branchIntegrationStatuses.length
+    ? Math.round(branchIntegrationStatuses.reduce((sum, row) => sum + branchReadiness(row).percent, 0) / branchIntegrationStatuses.length)
+    : 0;
   const filteredBranchIntegrationStatuses = branchIntegrationStatuses.filter((row) => {
     const readiness = branchReadiness(row);
     if (branchStatusFilter === 'ready') return readiness.percent >= 100 && !readiness.hasErrors;
@@ -2027,6 +2031,20 @@ export default function Telefonia() {
               ) : null}
               {branchIntegrationStatuses.length ? (
                 <>
+                  <div style={s.branchRolloutBox}>
+                    <div style={s.branchRolloutTop}>
+                      <span>Postep podpiecia telefonii oddzialow</span>
+                      <strong>{branchRolloutPercent}%</strong>
+                    </div>
+                    <div style={s.branchRolloutBar} aria-label={`Postep podpiecia telefonii ${branchRolloutPercent}%`}>
+                      <div style={{ ...s.branchRolloutFill, width: `${branchRolloutPercent}%` }} />
+                    </div>
+                    <div style={s.branchRolloutMeta}>
+                      <span>Gotowy: {branchStageSummary.Gotowy || 0}</span>
+                      <span>Do testu: {branchStageSummary['Do testu'] || 0}</span>
+                      <span>Do danych: {branchStageSummary['Do danych'] || 0}</span>
+                    </div>
+                  </div>
                   <div style={s.branchStatusSummary}>
                     <button
                       type="button"
@@ -3911,6 +3929,41 @@ const s = {
     color: 'var(--text-sub)',
     fontSize: 12,
     marginBottom: 10,
+  },
+  branchRolloutBox: {
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: '#ffffff',
+  },
+  branchRolloutTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    color: 'var(--text)',
+    fontSize: 13,
+  },
+  branchRolloutBar: {
+    height: 8,
+    marginTop: 8,
+    borderRadius: 999,
+    background: 'rgba(15,95,58,0.10)',
+    overflow: 'hidden',
+  },
+  branchRolloutFill: {
+    height: '100%',
+    borderRadius: 999,
+    background: 'linear-gradient(90deg, #0f5f3a, #22c55e)',
+  },
+  branchRolloutMeta: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 7,
+    color: 'var(--text-sub)',
+    fontSize: 12,
   },
   branchNavHint: {
     display: 'flex',
