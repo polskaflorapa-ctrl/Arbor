@@ -1679,6 +1679,56 @@ describe('Tasks routes', () => {
     );
   });
 
+  it('POST /tasks/:id/problemy notifies branch managers and returns issue metadata', async () => {
+    const token = jwt.sign({ id: 8, rola: 'Brygadzista', oddzial_id: 5, ekipa_id: 3 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 44, oddzial_id: 5, ekipa_id: 3 }] });
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('INSERT INTO api_idempotency_log')) return { rows: [{ idempotency_key: 'problem-notify-1' }] };
+      if (s.includes('INSERT INTO issues')) {
+        return {
+          rows: [{
+            id: 501,
+            task_id: 44,
+            typ: 'Brak_Dostepu',
+            opis: 'Brama zamknieta',
+            status: 'Zgloszony',
+            data_zgloszenia: '2026-06-01T08:00:00.000Z',
+          }],
+        };
+      }
+      if (s.includes('SELECT id, numer, oddzial_id')) {
+        return { rows: [{ id: 44, numer: 'ZLE-44', oddzial_id: 5 }] };
+      }
+      if (s.includes('INSERT INTO notifications')) {
+        return {
+          rows: [
+            { id: 700, to_user_id: 2, typ: 'Problem', tresc: 'Nowy problem w zleceniu ZLE-44', task_id: 44, status: 'Nowe' },
+          ],
+        };
+      }
+      if (s.includes('COMMIT')) return {};
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release: jest.fn() });
+
+    const res = await request(app)
+      .post('/api/tasks/44/problemy')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', 'problem-notify-1')
+      .send({ typ: 'brak_dostepu', opis: 'Brama zamknieta' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.issue).toMatchObject({ id: 501, typ: 'Brak_Dostepu' });
+    expect(res.body.notifications_created).toBe(1);
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO notifications'),
+      [8, 44, expect.stringContaining('Brak_Dostepu'), 5]
+    );
+  });
+
   it('POST /tasks/:id/zdjecia skips duplicate offline photo replay', async () => {
     const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });

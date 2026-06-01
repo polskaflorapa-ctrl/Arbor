@@ -5030,13 +5030,52 @@ const postTaskProblem = async (req, res) => {
     const opis = req.body.opis != null && String(req.body.opis).trim()
       ? String(req.body.opis).trim()
       : null;
-    await client.query(
+    const issueResult = await client.query(
       `INSERT INTO issues (task_id, user_id, typ, opis, data_zgloszenia)
-       VALUES ($1, $2, $3, $4, NOW())`,
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id, task_id, typ, opis, status, data_zgloszenia`,
       [taskId, req.user.id, typ, opis]
     );
+    const issue = issueResult.rows[0] || null;
+    const taskResult = await client.query(
+      `SELECT id, numer, oddzial_id
+         FROM tasks
+        WHERE id = $1`,
+      [taskId]
+    );
+    const task = taskResult.rows[0] || null;
+    let notifications = [];
+    if (task) {
+      const message = `Nowy problem w zleceniu ${task.numer || `#${taskId}`}: ${typ}${opis ? ` - ${opis.slice(0, 180)}` : ''}`;
+      const notificationResult = await client.query(
+        `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
+         SELECT $1, u.id, $2, 'Problem', $3, 'Nowe'
+           FROM users u
+          WHERE u.id <> $1
+            AND u.rola IN ('Prezes', 'Dyrektor', 'Administrator', 'Kierownik')
+            AND (
+              u.rola IN ('Prezes', 'Dyrektor', 'Administrator')
+              OR u.oddzial_id = $4
+            )
+         RETURNING id, to_user_id, typ, tresc, task_id, status, data_utworzenia`,
+        [req.user.id, taskId, message, task.oddzial_id || null]
+      );
+      notifications = notificationResult.rows || [];
+    }
     await client.query('COMMIT');
-    res.json({ message: 'Problem zgloszony' });
+    for (const notification of notifications) {
+      pushToUser(notification.to_user_id, {
+        event: 'notification',
+        notification,
+        task_id: taskId,
+        tab: 'problemy',
+      });
+    }
+    res.json({
+      message: 'Problem zgloszony',
+      issue,
+      notifications_created: notifications.length,
+    });
   } catch (err) {
     if (client) {
       try {

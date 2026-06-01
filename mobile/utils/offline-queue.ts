@@ -238,3 +238,23 @@ export async function queueTaskPhotoOffline(args: {
   });
   return getOfflineQueueSize();
 }
+
+/** Kolejka zgloszenia problemu z terenu (POST `/tasks/:id/problemy`) po powrocie online. */
+export async function queueTaskProblemOffline(args: {
+  id?: string;
+  url: string;
+  typ: string;
+  opis: string;
+}): Promise<number> {
+  await enqueueOfflineRequest({
+    id: args.id,
+    dedupeKey: args.id ? `problem:${args.id}` : undefined,
+    url: args.url,
+    method: 'POST',
+    body: {
+      typ: String(args.typ || 'usterka').slice(0, 80),
+      opis: String(args.opis || '').trim().slice(0, 4000),
+    },
+  });
+  return getOfflineQueueSize();
+}

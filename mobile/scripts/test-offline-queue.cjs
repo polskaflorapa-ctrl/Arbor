@@ -376,6 +376,35 @@ async function testTaskDetailCachePreservesPendingOfflineFieldFlow() {
   assert.equal(cached.zdjecia[0].url, 'file:///tmp/photo.jpg');
 }
 
+async function testQueueTaskProblemOfflineUsesStableIdAndDedupe() {
+  const { api, readQueue } = createHarness();
+
+  const count = await api.queueTaskProblemOffline({
+    id: 'problem-offline-1',
+    url: 'https://api.example.test/tasks/101/problemy',
+    typ: 'brak_dostepu',
+    opis: 'Brama zamknieta',
+  });
+  await api.queueTaskProblemOffline({
+    id: 'problem-offline-1',
+    url: 'https://api.example.test/tasks/101/problemy',
+    typ: 'brak_dostepu',
+    opis: 'Brama nadal zamknieta',
+  });
+
+  const queue = readQueue();
+  assert.equal(count, 1);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].id, 'problem-offline-1');
+  assert.equal(queue[0].dedupeKey, 'problem:problem-offline-1');
+  assert.equal(queue[0].url, 'https://api.example.test/tasks/101/problemy');
+  assert.equal(queue[0].method, 'POST');
+  assert.deepEqual(queue[0].body, {
+    typ: 'brak_dostepu',
+    opis: 'Brama nadal zamknieta',
+  });
+}
+
 async function run() {
   const tests = [
     testDedupeAndLimit,
@@ -388,6 +417,7 @@ async function run() {
     testTaskListCacheReturnsOnlyToday,
     testTaskDetailCacheRoundTrip,
     testTaskDetailCachePreservesPendingOfflineFieldFlow,
+    testQueueTaskProblemOfflineUsesStableIdAndDedupe,
   ];
   for (const test of tests) {
     await test();

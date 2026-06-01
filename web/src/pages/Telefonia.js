@@ -831,6 +831,9 @@ export default function Telefonia() {
           ? {
               status: row.last_test_log_status || null,
               at: row.last_test_log_at,
+              age_days: branchLastTestAgeDays(row),
+              max_age_days: BRANCH_TEST_STALE_DAYS,
+              fresh_ok: branchHasFreshOkTest(row),
             }
           : null,
         sms_errors: Number(row?.sms_errors || 0),
@@ -1517,13 +1520,30 @@ export default function Telefonia() {
     if (row.integration_status === 'paused') return 'Pauza';
     return row.integration_status || 'Nieznany';
   };
+  const branchLastTestAgeDays = (row) => {
+    if (!row?.last_test_log_at) return null;
+    const timestamp = new Date(row.last_test_log_at).getTime();
+    if (!Number.isFinite(timestamp)) return null;
+    return Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
+  };
+  const branchHasFreshOkTest = (row) => {
+    const ageDays = branchLastTestAgeDays(row);
+    return row?.last_test_log_status === 'ok' && ageDays !== null && ageDays <= BRANCH_TEST_STALE_DAYS;
+  };
+  const branchLastTestLabel = (row) => {
+    if (!row?.last_test_log_at) return 'Brak testu integracji.';
+    const status = row.last_test_log_status === 'ok' ? 'OK' : 'Blad';
+    const ageDays = branchLastTestAgeDays(row);
+    const ageText = ageDays === null ? '' : `, ${ageDays} dni temu`;
+    return `Ostatni test: ${status} / ${formatAgentDate(row.last_test_log_at)}${ageText}`;
+  };
   const branchReadiness = (row) => {
     const checks = [
       { ok: !!row?.integration_id, label: 'brak agenta' },
       { ok: row?.integration_status === 'active', label: 'agent nieaktywny' },
       { ok: !!row?.telefon, label: 'brak telefonu' },
       { ok: !!(row?.sms_sender_id || row?.telefon), label: 'brak nadawcy SMS' },
-      { ok: row?.last_test_log_status === 'ok', label: 'brak testu OK' },
+      { ok: branchHasFreshOkTest(row), label: row?.last_test_log_status === 'ok' ? `test OK starszy niz ${BRANCH_TEST_STALE_DAYS} dni` : 'brak testu OK' },
     ];
     const okCount = checks.filter((x) => x.ok).length;
     return {
@@ -1540,6 +1560,7 @@ export default function Telefonia() {
     if (!row.telefon) return 'Nastepny krok: wpisz numer telefonu oddzialu.';
     if (!(row.sms_sender_id || row.telefon)) return 'Nastepny krok: ustaw nadawce SMS.';
     if (row.last_test_log_status !== 'ok') return 'Nastepny krok: wykonaj test calosci oddzialu.';
+    if (!branchHasFreshOkTest(row)) return `Nastepny krok: ponow test calosci oddzialu, bo OK jest starszy niz ${BRANCH_TEST_STALE_DAYS} dni.`;
     if (readiness.hasErrors) return 'Nastepny krok: sprawdz bledy SMS.';
     if (readiness.needsReview) return 'Nastepny krok: popraw rozmowy do sprawdzenia.';
     return 'Nastepny krok: oddzial gotowy.';
@@ -1548,7 +1569,7 @@ export default function Telefonia() {
     const readiness = branchReadiness(row);
     if (readiness.hasErrors || readiness.needsReview) return { label: 'Uwagi', tone: 'warn' };
     if (!row?.integration_id || !row?.telefon || !(row?.sms_sender_id || row?.telefon)) return { label: 'Do danych', tone: 'bad' };
-    if (row.integration_status !== 'active' || row.last_test_log_status !== 'ok') return { label: 'Do testu', tone: 'warn' };
+    if (row.integration_status !== 'active' || !branchHasFreshOkTest(row)) return { label: 'Do testu', tone: 'warn' };
     if (readiness.percent >= 100) return { label: 'Gotowy', tone: 'ok' };
     return { label: 'Do dopiecia', tone: 'warn' };
   };
@@ -2184,9 +2205,7 @@ export default function Telefonia() {
                             <span>Do sprawdzenia: {Number(row.needs_review || 0)}</span>
                           </div>
                           <div style={s.agentHistoryMeta}>
-                            {row.last_test_log_at
-                              ? `Ostatni test: ${row.last_test_log_status === 'ok' ? 'OK' : 'Blad'} / ${formatAgentDate(row.last_test_log_at)}`
-                              : 'Brak testu integracji.'}
+                            {branchLastTestLabel(row)}
                           </div>
                           {readiness.blockers.length ? (
                             <div style={s.branchBlockers}>Braki: {readiness.blockers.join(', ')}</div>
@@ -2263,6 +2282,11 @@ export default function Telefonia() {
                                 ? `${selectedBranchStatus.last_test_log_status === 'ok' ? 'OK' : 'Blad'}`
                                 : 'brak'}
                             </strong>
+                            <div style={s.agentHistoryMeta}>
+                              {branchLastTestAgeDays(selectedBranchStatus) === null
+                                ? `Wymagany test co ${BRANCH_TEST_STALE_DAYS} dni.`
+                                : `${branchLastTestAgeDays(selectedBranchStatus)} dni temu, wazny do ${BRANCH_TEST_STALE_DAYS} dni.`}
+                            </div>
                           </div>
                         </div>
                         <div style={readiness.blockers.length ? s.branchBlockers : s.providerReadyNote}>

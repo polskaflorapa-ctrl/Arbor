@@ -216,17 +216,17 @@ export default function MisjaDnia() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+      <Box className="mission-day-loading" sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box className="mission-day-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       <Sidebar />
-      <Box sx={{ flex: 1, p: 2, maxWidth: 960, mx: 'auto', width: '100%' }}>
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 2 }}>
+      <Box className="mission-day-main" sx={{ flex: 1, p: 2, maxWidth: 960, mx: 'auto', width: '100%' }}>
+        <Stack className="mission-day-header-row" direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 2 }}>
           <PageHeader title={t('pages.missionToday.title')} subtitle={t('pages.missionToday.subtitle')} />
           <Button
             size="small"
@@ -244,7 +244,7 @@ export default function MisjaDnia() {
         <StatusMessage message={err} tone="error" />
         <StatusMessage message={infoMsg} tone="success" />
 
-        <Grid container spacing={1} sx={{ mb: 2 }}>
+        <Grid className="mission-day-kpis" container spacing={1} sx={{ mb: 2 }}>
           {[
             { label: t('pages.missionToday.kpi.tasksToday'), value: todayTasks.length },
             { label: t('pages.missionToday.kpi.inProgress'), value: activeNow.length },
@@ -252,7 +252,7 @@ export default function MisjaDnia() {
             { label: t('pages.missionToday.kpi.dayProgress'), value: `${completion}%` },
           ].map((x) => (
             <Grid size={{ xs: 6, sm: 3 }} key={x.label}>
-              <Card variant="outlined">
+              <Card className="mission-day-kpi-card" variant="outlined">
                 <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                   <Typography variant="h5">{x.value}</Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -267,7 +267,7 @@ export default function MisjaDnia() {
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('pages.missionToday.section.dayProgress')}
         </Typography>
-        <LinearProgress variant="determinate" value={completion} sx={{ height: 10, borderRadius: 1, mb: 1 }} />
+        <LinearProgress className="mission-day-progress" variant="determinate" value={completion} sx={{ height: 10, borderRadius: 1, mb: 1 }} />
         <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
           <Typography variant="caption" color="text.secondary">
             {t('pages.missionToday.progress.completed', {
@@ -278,7 +278,7 @@ export default function MisjaDnia() {
           <Typography variant="caption">{completion}%</Typography>
         </Stack>
 
-        <Card variant="outlined" sx={{ mb: 2, bgcolor: 'action.hover' }}>
+        <Card className="mission-day-eta-card" variant="outlined" sx={{ mb: 2, bgcolor: 'action.hover' }}>
           <CardContent>
             <Typography variant="subtitle2" color="info.main">
               {t('pages.missionToday.eta.title')}
@@ -293,7 +293,7 @@ export default function MisjaDnia() {
         </Card>
 
         {(userRole === 'Brygadzista' || userRole === 'Pomocnik') && (
-          <Card variant="outlined" sx={{ mb: 2 }}>
+          <Card className="mission-day-team-card" variant="outlined" sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="subtitle2">{t('pages.missionToday.teamDay.cashTitle')}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -338,7 +338,7 @@ export default function MisjaDnia() {
         )}
 
         {(userRole === 'Brygadzista' || userRole === 'Pomocnik') && todayTasks.length > 0 && completion === 100 ? (
-          <Card variant="outlined" sx={{ mb: 2 }}>
+          <Card className="mission-day-team-card" variant="outlined" sx={{ mb: 2 }}>
             <CardContent>
               <Typography variant="subtitle2">{t('pages.missionToday.teamDay.title')}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -367,13 +367,14 @@ export default function MisjaDnia() {
           {t('pages.missionToday.section.now')}
         </Typography>
         {activeNow.length === 0 ? (
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
+          <Typography className="mission-day-empty" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.missionToday.emptyActive')}
           </Typography>
         ) : (
-          <Stack spacing={1} sx={{ mb: 2 }}>
+          <Stack className="mission-day-active-list" spacing={1} sx={{ mb: 2 }}>
             {activeNow.slice(0, 3).map((task) => (
               <Card
+                className="mission-day-task-card"
                 key={task.id}
                 variant="outlined"
                 sx={{ cursor: 'pointer' }}
@@ -396,13 +397,14 @@ export default function MisjaDnia() {
           {t('pages.missionToday.section.todayPlan')}
         </Typography>
         {todayTasks.length === 0 ? (
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
+          <Typography className="mission-day-empty" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.missionToday.emptyToday')}
           </Typography>
         ) : (
-          <Stack spacing={1} sx={{ mb: 2 }}>
+          <Stack className="mission-day-plan-list" spacing={1} sx={{ mb: 2 }}>
             {todayTasks.slice(0, 8).map((task) => (
               <Card
+                className="mission-day-task-card"
                 key={task.id}
                 variant="outlined"
                 sx={{ cursor: 'pointer' }}
@@ -434,7 +436,7 @@ export default function MisjaDnia() {
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('pages.missionToday.section.quickActions')}
         </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
+        <Stack className="mission-day-actions" direction="row" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
           <Button variant="outlined" onClick={() => navigate('/zlecenia')}>
             {t('pages.missionToday.action.orders')}
           </Button>
@@ -443,7 +445,7 @@ export default function MisjaDnia() {
           </Button>
         </Stack>
         {['Kierownik', 'Dyrektor', 'Administrator'].includes(userRole) ? (
-          <Stack direction="row" flexWrap="wrap" gap={1}>
+          <Stack className="mission-day-actions" direction="row" flexWrap="wrap" gap={1}>
             <Button variant="outlined" onClick={() => navigate('/harmonogram')}>
               {t('pages.missionToday.action.schedule')}
             </Button>

@@ -6468,3 +6468,118 @@ body.theme-dark pre {
     width: 100%;
   }
 }
+
+/* ARBOR-OS mission day polish: daily field command surface. */
+.mission-day-loading,
+.mission-day-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.mission-day-main {
+  max-width: 1180px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.mission-day-header-row {
+  gap: 12px;
+}
+
+.mission-day-main > .mission-day-header-row > .module-page-header,
+.mission-day-main > .mission-day-header-row > .module-page-header-hero {
+  flex: 1;
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.mission-day-kpi-card,
+.mission-day-eta-card,
+.mission-day-team-card,
+.mission-day-task-card,
+.mission-day-empty,
+.mission-day-actions {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.mission-day-empty {
+  display: block;
+  padding: 22px;
+}
+
+.mission-day-actions {
+  padding: 10px;
+}
+
+.mission-day-kpi-card,
+.mission-day-team-card,
+.mission-day-task-card {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.mission-day-kpi-card:hover,
+.mission-day-team-card:hover,
+.mission-day-task-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.mission-day-kpi-card .MuiTypography-h5,
+.mission-day-eta-card .MuiTypography-h5 {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.mission-day-progress {
+  background: rgba(15, 95, 58, 0.11) !important;
+  border-radius: 8px !important;
+}
+
+.mission-day-progress .MuiLinearProgress-bar {
+  background: var(--accent-gradient) !important;
+  border-radius: 8px !important;
+}
+
+.mission-day-task-card .MuiTypography-caption {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.mission-day-main .MuiButton-root {
+  border-radius: 8px !important;
+  font-weight: 700;
+}
+
+.mission-day-main .MuiButton-outlined {
+  border-color: rgba(15, 95, 58, 0.2) !important;
+  color: var(--accent) !important;
+}
+
+.mission-day-main .MuiButton-outlined:hover {
+  background: rgba(241, 249, 244, 0.86) !important;
+  border-color: rgba(20, 131, 79, 0.4) !important;
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.12) !important;
+}
+
+@media (max-width: 900px) {
+  .mission-day-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .mission-day-header-row {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .mission-day-header-row > .MuiButton-root,
+  .mission-day-actions button {
+    width: 100%;
+  }
+}

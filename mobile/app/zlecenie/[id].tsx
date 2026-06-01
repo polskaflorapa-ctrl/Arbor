@@ -31,6 +31,7 @@ import {
   getOfflineQueueSize,
   queueRequestWithOfflineFallback,
   queueTaskPhotoOffline,
+  queueTaskProblemOffline,
 } from '../../utils/offline-queue';
 import { emitTaskSync, subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
@@ -2262,11 +2263,11 @@ export default function ZlecenieDetailScreen() {
         Alert.alert('OK', 'Problem zgłoszony');
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
-        const queued = await queueRequestWithOfflineFallback({
+        const queued = await queueTaskProblemOffline({
           id: idempotencyKey,
           url: `${API_URL}/tasks/${id}/problemy`,
-          method: 'POST',
-          body: problemPayload,
+          typ: problemPayload.typ,
+          opis: problemPayload.opis,
         });
         setOfflineQueueCount(queued);
         await addPendingOfflineProblem({ idempotencyKey, payload: problemPayload });
@@ -2280,11 +2281,11 @@ export default function ZlecenieDetailScreen() {
       }
     } catch {
       void triggerHaptic('warning');
-      const queued = await queueRequestWithOfflineFallback({
+      const queued = await queueTaskProblemOffline({
         id: idempotencyKey,
         url: `${API_URL}/tasks/${id}/problemy`,
-        method: 'POST',
-        body: problemPayload,
+        typ: problemPayload.typ,
+        opis: problemPayload.opis,
       });
       setOfflineQueueCount(queued);
       await addPendingOfflineProblem({ idempotencyKey, payload: problemPayload });
