@@ -545,25 +545,25 @@ export default function Flota() {
             <h3 style={S.formTitle}>{editingSprzetId ? 'Edytuj sprzet' : t('pages.flota.newEquipmentTitle')}</h3>
             <form onSubmit={handleAddSprzet}>
               <div style={S.grid}>
-                <Field label={t('pages.flota.fieldName')}><input style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet({ ...formSprzet, nazwa: e.target.value })} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
+                <Field label={t('pages.flota.fieldName')}><input style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet((prev) => ({ ...prev, nazwa: e.target.value }))} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
                 <Field label={t('pages.flota.fieldType')}>
-                  <select style={S.input} value={formSprzet.typ} onChange={e => setFormSprzet({ ...formSprzet, typ: e.target.value })}>
+                  <select style={S.input} value={formSprzet.typ} onChange={e => setFormSprzet((prev) => ({ ...prev, typ: e.target.value }))}>
                     {['Piłarka', 'Rębak', 'Podnośnik', 'Narzędzie', 'Inne'].map((typOption) => <option key={typOption} value={typOption}>{typOption}</option>)}
                   </select>
                 </Field>
-                <Field label={t('pages.flota.fieldSerial')}><input style={S.input} value={formSprzet.nr_seryjny} onChange={e => setFormSprzet({ ...formSprzet, nr_seryjny: e.target.value })} /></Field>
-                <Field label={t('pages.flota.fieldYear')}><input style={S.input} type="number" value={formSprzet.rok_produkcji} onChange={e => setFormSprzet({ ...formSprzet, rok_produkcji: e.target.value })} /></Field>
-                <Field label={t('pages.flota.fieldInspection')}><input style={S.input} type="date" value={formSprzet.data_przegladu} onChange={e => setFormSprzet({ ...formSprzet, data_przegladu: e.target.value })} /></Field>
-                <Field label={t('pages.flota.fieldMotohour')}><input style={S.input} type="number" step="0.5" value={formSprzet.koszt_motogodziny} onChange={e => setFormSprzet({ ...formSprzet, koszt_motogodziny: e.target.value })} placeholder="np. 25" /></Field>
+                <Field label={t('pages.flota.fieldSerial')}><input style={S.input} value={formSprzet.nr_seryjny} onChange={e => setFormSprzet((prev) => ({ ...prev, nr_seryjny: e.target.value }))} /></Field>
+                <Field label={t('pages.flota.fieldYear')}><input style={S.input} type="number" value={formSprzet.rok_produkcji} onChange={e => setFormSprzet((prev) => ({ ...prev, rok_produkcji: e.target.value }))} /></Field>
+                <Field label={t('pages.flota.fieldInspection')}><input style={S.input} type="date" value={formSprzet.data_przegladu} onChange={e => setFormSprzet((prev) => ({ ...prev, data_przegladu: e.target.value }))} /></Field>
+                <Field label={t('pages.flota.fieldMotohour')}><input style={S.input} type="number" step="0.5" value={formSprzet.koszt_motogodziny} onChange={e => setFormSprzet((prev) => ({ ...prev, koszt_motogodziny: e.target.value }))} placeholder="np. 25" /></Field>
                 <Field label={t('pages.flota.fieldTeam')}>
-                  <select style={S.input} value={formSprzet.ekipa_id} onChange={e => setFormSprzet({ ...formSprzet, ekipa_id: e.target.value })}>
+                  <select style={S.input} value={formSprzet.ekipa_id} onChange={e => setFormSprzet((prev) => ({ ...prev, ekipa_id: e.target.value }))}>
                     <option value="">{t('common.noneShort')}</option>
                     {ekipy.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
                   </select>
                 </Field>
                 {isDyrektor && (
                   <Field label={t('pages.flota.fieldBranch')}>
-                    <select style={S.input} value={formSprzet.oddzial_id} onChange={e => setFormSprzet({ ...formSprzet, oddzial_id: e.target.value })}>
+                    <select style={S.input} value={formSprzet.oddzial_id} onChange={e => setFormSprzet((prev) => ({ ...prev, oddzial_id: e.target.value }))}>
                       <option value="">{t('common.choose')}</option>
                       {oddzialy.map(o => <option key={o.id} value={o.id}>{o.nazwa}</option>)}
                     </select>
