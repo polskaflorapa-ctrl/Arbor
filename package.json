@@ -58,6 +58,7 @@
     "verify:scale-readiness": "node ./scripts/scale-readiness-check.cjs",
     "verify:rbac-scope": "node ./scripts/rbac-scope-check.cjs",
     "verify:dispatcher-adr": "node ./scripts/dispatcher-adr-check.cjs",
+    "verify:mobile-problem-flow": "node ./scripts/mobile-problem-flow-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

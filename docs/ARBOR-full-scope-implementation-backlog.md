@@ -76,7 +76,8 @@
 - [x] **P0 horizontal scaling readiness**: `docs/HORIZONTAL-SCALING-READINESS.md` opisuje stateless JWT, wspolny `JWT_SECRET`, `UPLOAD_STORAGE=s3`, Redis login limiter, limity DB pool, pojedyncze crony/workery, SSE best-effort i dispatcher; `npm run verify:scale-readiness` pilnuje guardow i checklist.
 - [x] **P0 RBAC branch scope audit**: `docs/RBAC-BRANCH-SCOPE-AUDIT.md` definiuje macierz Prezes/Dyrektor/Admin/Kierownik/Brygadzista, branch scope, team scope i finansowe NO-GO; `npm run verify:rbac-scope` pilnuje JWT, `oddzial_id`, `ekipa_id`, guardow backendu, BI redakcji finansow i web route guards.
 - [x] **P0 dispatcher architecture decision**: `docs/DISPATCHER-ARCHITECTURE-DECISION.md` wybiera OR-Tools/self-hosted jako docelowy solver, zostawia `arbor-clarke-wright` jako fallback pilota, ogranicza Google/Mapbox do macierzy czasu/ETA i koszt API; `npm run verify:dispatcher-adr` pilnuje ADR, runtime `solver_engine`, limitow i checklist.
-- [ ] **Nastepny pakiet**: mobile problem/offline incident flow - przycisk PROBLEM, zdjecie/notatka, sync offline, powiadomienie kierownika i testy EPIC 2.2/2.7.
+- [x] **P0 mobile problem/offline incident flow**: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` opisuje PROBLEM z notatka/zdjeciem, pending offline, `queueTaskProblemOffline`, idempotentny flush, backendowe `notifications` dla kierownika i testy; `npm run verify:mobile-problem-flow` pilnuje kontraktu mobile/backend.
+- [ ] **Nastepny pakiet**: mobile before/after photo enforcement - konfigurowalna blokada finish bez zdjec Przed/Po, offline UX i smoke EPIC 2.3.
 
 ---
 
@@ -130,12 +131,12 @@ flowchart LR
 ## EPIC 2 — Aplikacja mobilna brygadzisty
 
 - [ ] **2.1** START / STOP powiązane z `work_logs` + GPS (zgodność z `os` — już częściowo; dopracować edge cases).
-- [ ] **2.2** Przycisk PROBLEM: typ zgłoszenia, zdjęcie, notatka, powiadomienie do kierownika.
+- [x] **2.2** Przycisk PROBLEM: typ zgloszenia, zdjecie, notatka, powiadomienie do kierownika. `mobile/app/zlecenie/[id].tsx`, `queueTaskProblemOffline`, backendowe `notifications` i `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` domykaja flow.
 - [ ] **2.3** Wymuszone zdjęcia „Przed / Po” (blokada zakończenia bez zdjęć — reguła konfigurowalna per oddział).
 - [ ] **2.4** Raport zużycia (paliwo / materiał — pola + sync).
 - [ ] **2.5** Offline-first **v2**: lokalna kolejka + **idempotency-key** na serwerze + rozstrzyganie konfliktów po sync.
 - [ ] **2.6** Pobranie listy dzisiejszych zleceń offline (cache + TTL).
-- [ ] **2.7** Testy na słabej sieci / airplane mode (checklist QA).
+- [x] **2.7** Testy na slabej sieci / airplane mode (checklist QA). `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` ma manualny smoke online/offline, a `mobile/scripts/test-offline-queue.cjs` pokrywa pending problem/photo i dedupe kolejki problemu.
 
 ---
 
