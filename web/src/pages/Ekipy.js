@@ -23,6 +23,11 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatRepairDate(value) {
+  if (!value) return '-';
+  return String(value).slice(0, 10);
+}
+
 export default function Ekipy() {
   const { t } = useTranslation();
   const [ekipy, setEkipy] = useState([]);
@@ -30,6 +35,7 @@ export default function Ekipy() {
   const [oddzialy, setOddzialy] = useState([]);
   const [pojazdy, setPojazdy] = useState([]);
   const [sprzet, setSprzet] = useState([]);
+  const [naprawy, setNaprawy] = useState([]);
   const { message: msg, showMessage: showMsg } = useTimedMessage();
   const [saving, setSaving] = useState(false);
   const [memberSaving, setMemberSaving] = useState(false);
@@ -59,18 +65,20 @@ export default function Ekipy() {
   const loadAll = useCallback(async () => {
     const token = getStoredToken();
     const h = authHeaders(token);
-    const [eRes, uRes, oRes, pRes, sRes] = await Promise.all([
+    const [eRes, uRes, oRes, pRes, sRes, nRes] = await Promise.all([
       api.get(`/ekipy`, { headers: h }),
       api.get(`/uzytkownicy`, { headers: h }),
       api.get(`/oddzialy`, { headers: h }),
       api.get(`/flota/pojazdy`, { headers: h }),
       api.get(`/flota/sprzet`, { headers: h }),
+      api.get(`/flota/naprawy`, { headers: h }),
     ]);
     setEkipy(eRes.data);
     setUzytkownicy(uRes.data);
     setOddzialy(oRes.data);
     setPojazdy(pRes.data);
     setSprzet(sRes.data);
+    setNaprawy(Array.isArray(nRes.data) ? nRes.data : (nRes.data?.items || []));
   }, []);
   const handleLoadAllError = useCallback((err) => {
     devWarn('ekipy', 'loadAll failed', err);
@@ -349,6 +357,19 @@ export default function Ekipy() {
       sprzet: sprzet.filter((item) => String(item.ekipa_id || '') === String(teamId)),
     };
   }, [pojazdy, selectedEkipa, sprzet]);
+  const naprawyPoZasobie = useMemo(() => {
+    const map = new Map();
+    naprawy.forEach((repair) => {
+      const key = `${repair.typ_zasobu}:${repair.zasob_id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(repair);
+    });
+    return map;
+  }, [naprawy]);
+  const getAssetRepairs = useCallback((kind, item) => {
+    const type = kind === 'pojazd' ? 'Pojazd' : 'Sprzet';
+    return naprawyPoZasobie.get(`${type}:${item.id}`) || [];
+  }, [naprawyPoZasobie]);
   const dostepneZasoby = useMemo(() => {
     const teamId = selectedEkipa?.id;
     const branchId = selectedEkipa?.oddzial_id || ekipaDetail?.oddzial_id;
@@ -848,6 +869,7 @@ export default function Ekipy() {
                     renderMeta={(p) => [p.nr_rejestracyjny, p.typ, p.status].filter(Boolean).join(' / ')}
                     canEdit={canEdit}
                     saving={assetSaving}
+                    getRepairs={(p) => getAssetRepairs('pojazd', p)}
                     onUnassign={(p) => updateTeamAsset('pojazd', p, '')}
                     onRepair={(p) => updateTeamAsset('pojazd', p, selectedEkipa.id, { status: 'W naprawie' })}
                     onReportRepair={(p) => openRepairDraft('pojazd', p)}
@@ -860,6 +882,7 @@ export default function Ekipy() {
                     renderMeta={(s) => [s.typ, s.nr_seryjny, s.status].filter(Boolean).join(' / ')}
                     canEdit={canEdit}
                     saving={assetSaving}
+                    getRepairs={(s) => getAssetRepairs('sprzet', s)}
                     onUnassign={(s) => updateTeamAsset('sprzet', s, '')}
                     onRepair={(s) => updateTeamAsset('sprzet', s, selectedEkipa.id, { status: 'W naprawie' })}
                     onReportRepair={(s) => openRepairDraft('sprzet', s)}
@@ -991,7 +1014,7 @@ function Field({ label, children }) {
   );
 }
 
-function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, onUnassign, onRepair, onReportRepair }) {
+function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, getRepairs, onUnassign, onRepair, onReportRepair }) {
   return (
     <div style={S.assetPanel}>
       <div style={S.assetPanelTitle}>{title}</div>
@@ -1000,11 +1023,21 @@ function AssetList({ title, empty, items, renderName, renderMeta, canEdit, savin
       ) : (
         items.map((item) => {
           const inRepair = String(item.status || '').toLowerCase().includes('napraw');
+          const repairs = getRepairs?.(item) || [];
+          const lastRepair = repairs[0];
           return (
             <div key={item.id} style={{ ...S.assetRow, borderLeftColor: inRepair ? '#e2445c' : '#00c875' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={S.assetName}>{renderName(item)}</div>
                 <div style={S.assetMeta}>{renderMeta(item) || 'bez szczegolow'}</div>
+                {lastRepair && (
+                  <div style={S.assetRepairHistory}>
+                    <span style={S.assetRepairHistoryStatus}>{lastRepair.status || 'Naprawa'}</span>
+                    <span style={S.assetRepairHistoryText}>
+                      {formatRepairDate(lastRepair.data_naprawy)} - {lastRepair.opis_usterki || lastRepair.opis_naprawy || 'Bez opisu'}
+                    </span>
+                  </div>
+                )}
               </div>
               {canEdit && (
                 <div style={S.assetActions}>
@@ -1088,6 +1121,9 @@ const S = {
   assetRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: 10, borderRadius: 8, border: '1px solid var(--border)', borderLeft: '4px solid #00c875', marginBottom: 8, background: 'var(--surface-glass)' },
   assetName: { fontSize: 13, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  assetRepairHistory: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 7, padding: '5px 7px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.22)', background: 'rgba(245,158,11,0.08)' },
+  assetRepairHistoryStatus: { fontSize: 10, color: '#b45309', fontWeight: 900, textTransform: 'uppercase' },
+  assetRepairHistoryText: { minWidth: 0, fontSize: 11, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', cursor: 'pointer', fontSize: 11, fontWeight: 800 },

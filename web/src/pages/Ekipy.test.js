@@ -71,6 +71,20 @@ function mockEkipyApi() {
         ],
       });
     }
+    if (url === '/flota/naprawy') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 91,
+            typ_zasobu: 'Sprzet',
+            zasob_id: 11,
+            data_naprawy: '2026-06-01',
+            opis_usterki: 'Noze do wymiany',
+            status: 'W toku',
+          },
+        ],
+      });
+    }
     return Promise.resolve({ data: [] });
   });
 }
@@ -146,6 +160,7 @@ test('shows and updates team vehicles and equipment in team detail', async () =>
   expect(screen.getAllByText(/Mercedes Sprinter KR12345/i).length).toBeGreaterThan(0);
   expect(screen.getByText('Mercedes Sprinter')).toBeInTheDocument();
   expect(screen.getByText('Rebak Forst')).toBeInTheDocument();
+  expect(screen.getByText(/2026-06-01 - Noze do wymiany/i)).toBeInTheDocument();
 
   await userEvent.click(screen.getAllByRole('button', { name: 'W naprawie' })[1]);
 
