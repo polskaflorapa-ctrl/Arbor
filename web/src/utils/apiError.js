@@ -7,6 +7,13 @@ export function getApiErrorMessage(error, fallback = 'Wystąpił błąd. Spróbu
     const base = data.error || 'Nie mozna przejsc dalej bez wymaganych danych.';
     return `${base} Brakuje: ${missingLabels.join(', ')}.`;
   }
+  const missingCompetencies = Array.isArray(data?.missing_competencies)
+    ? data.missing_competencies.map((label) => String(label || '').trim()).filter(Boolean)
+    : [];
+  if (data?.code === 'TEAM_COMPETENCY_BLOCKED' && missingCompetencies.length) {
+    const base = data.error || 'Nie mozna przypisac ekipy bez wymaganych kompetencji.';
+    return `${base} Brakuje: ${missingCompetencies.join(', ')}.`;
+  }
   const details =
     data?.details ||
     data?.detail ||

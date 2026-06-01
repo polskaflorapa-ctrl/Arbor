@@ -787,6 +787,30 @@ const normalizeIdList = (val) => {
   return [...new Set(val.map((item) => toInt(item)).filter(Boolean))];
 };
 
+function normalizeTextList(value) {
+  if (Array.isArray(value)) return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try {
+      return normalizeTextList(JSON.parse(raw));
+    } catch {
+      // fall through to delimiter parsing
+    }
+  }
+  return [...new Set(
+    raw
+      .replace(/^[{[]|[}\]]$/g, '')
+      .split(/[,\n;]+/)
+      .map((item) => item.replace(/^"+|"+$/g, '').trim())
+      .filter(Boolean)
+  )];
+}
+
+function normalizeCompetencyKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 const toStr = (val) => {
   if (val === '' || val === null || val === undefined) return null;
   return val;
@@ -951,6 +975,35 @@ function planWindowViolation({ oknoOd, oknoDo, plannedDateTime, godzinaRozpoczec
     };
   }
   return null;
+}
+
+async function assertTeamHasRequiredCompetencies(db, teamId, requiredCompetencies) {
+  const required = normalizeTextList(requiredCompetencies);
+  if (!teamId || required.length === 0) return { ok: true, required: [], missing: [] };
+
+  const requiredKeys = [...new Set(required.map(normalizeCompetencyKey).filter(Boolean))];
+  if (requiredKeys.length === 0) return { ok: true, required: [], missing: [] };
+
+  const { rows } = await db.query(
+    `SELECT DISTINCT LOWER(TRIM(uc.nazwa)) AS competency_key
+       FROM user_competencies uc
+       JOIN team_members tm ON tm.user_id = uc.user_id
+      WHERE tm.team_id = $1
+        AND LOWER(TRIM(uc.nazwa)) = ANY($2::text[])
+        AND (uc.data_waznosci IS NULL OR uc.data_waznosci >= CURRENT_DATE)`,
+    [Number(teamId), requiredKeys]
+  );
+  const available = new Set(rows.map((row) => normalizeCompetencyKey(row.competency_key)));
+  const missing = required.filter((name) => !available.has(normalizeCompetencyKey(name)));
+  if (!missing.length) return { ok: true, required, missing: [] };
+  return {
+    ok: false,
+    status: 409,
+    code: 'TEAM_COMPETENCY_BLOCKED',
+    error: `Nie mozna przypisac ekipy bez wymaganych kompetencji: ${missing.join(', ')}.`,
+    required_competencies: required,
+    missing_competencies: missing,
+  };
 }
 
 let _teamAttendanceTablesForTasks = false;
@@ -3829,6 +3882,10 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, nextPlannedDateTime);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
+    if (nextTeamId) {
+      const competencyCheck = await assertTeamHasRequiredCompetencies(pool, nextTeamId, cur.wymagane_kompetencje);
+      if (!competencyCheck.ok) return res.status(competencyCheck.status || 409).json(competencyCheck);
+    }
     if (nextEstimatorId && nextOddzialId) {
       const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, nextPlannedDateTime);
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
@@ -4066,7 +4123,7 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
     const shouldSyncEquipment = Object.prototype.hasOwnProperty.call(req.body, 'sprzet_ids');
     const selectedEquipmentIds = shouldSyncEquipment ? normalizeIdList(sprzet_ids) : [];
     const taskR = await pool.query(
-      'SELECT id, status, oddzial_id, notatki_wewnetrzne, okno_od, okno_do FROM tasks WHERE id = $1',
+      'SELECT id, status, oddzial_id, notatki_wewnetrzne, okno_od, okno_do, wymagane_kompetencje FROM tasks WHERE id = $1',
       [taskId]
     );
     if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -4094,6 +4151,8 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
       teamCheckRow = teamCheck.row || null;
     }
+    const competencyCheck = await assertTeamHasRequiredCompetencies(pool, teamId, task.wymagane_kompetencje);
+    if (!competencyCheck.ok) return res.status(competencyCheck.status || 409).json(competencyCheck);
     const teamAttendance = await getTeamAttendanceForPlan(teamId, plannedDateTime);
     if (teamAttendance?.present === false && absence_override !== true) {
       return res.status(409).json({
@@ -4217,7 +4276,7 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
     }
     const { ekipa_id, absence_override } = req.body;
     const taskR = await pool.query(
-      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status, notatki_wewnetrzne FROM tasks WHERE id = $1',
+      'SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status, notatki_wewnetrzne, wymagane_kompetencje FROM tasks WHERE id = $1',
       [req.params.id]
     );
     if (!taskR.rows.length) return res.status(404).json({ error: req.t('errors.generic.notFound') });
@@ -4229,6 +4288,8 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
       const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, task.oddzial_id, task.data_planowana);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
+    const competencyCheck = await assertTeamHasRequiredCompetencies(pool, ekipa_id, task.wymagane_kompetencje);
+    if (!competencyCheck.ok) return res.status(competencyCheck.status || 409).json(competencyCheck);
     const teamAttendance = await getTeamAttendanceForPlan(Number(ekipa_id), task.data_planowana);
     if (teamAttendance?.present === false && absence_override !== true) {
       return res.status(409).json({

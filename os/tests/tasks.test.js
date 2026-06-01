@@ -1203,7 +1203,7 @@ describe('Tasks routes', () => {
       const s = String(sql);
       if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
       if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
-      if (s.includes('SELECT id, oddzial_id, data_planowana') && s.includes('notatki_wewnetrzne FROM tasks')) {
+      if (s.includes('SELECT id, oddzial_id, data_planowana') && s.includes('notatki_wewnetrzne') && s.includes('FROM tasks')) {
         return {
           rows: [{
             id: 12,
@@ -1263,6 +1263,49 @@ describe('Tasks routes', () => {
     expect(res.body.workflow_missing_labels).not.toContain('ekipa');
   });
 
+  it('PUT /tasks/:id/przypisz blocks teams without required competencies', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, oddzial_id, data_planowana') && s.includes('wymagane_kompetencje FROM tasks')) {
+        return {
+          rows: [{
+            id: 12,
+            oddzial_id: 5,
+            data_planowana: '2026-06-01T08:00:00.000Z',
+            czas_planowany_godziny: 3,
+            status: 'Do_Zatwierdzenia',
+            notatki_wewnetrzne: '',
+            wymagane_kompetencje: ['Arborysta', 'Pilarz'],
+          }],
+        };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('FROM user_competencies uc') && s.includes('team_members tm')) {
+        return { rows: [{ competency_key: 'pilarz' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/przypisz')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ekipa_id: 9 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_COMPETENCY_BLOCKED');
+    expect(res.body.missing_competencies).toEqual(['Arborysta']);
+    expect(res.body.required_competencies).toEqual(['Arborysta', 'Pilarz']);
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
+  });
+
   it('PUT /tasks/:id/przypisz allows an absent crew with manager override', async () => {
     const token = jwt.sign(
       { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
@@ -1272,7 +1315,7 @@ describe('Tasks routes', () => {
       const s = String(sql);
       if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
       if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
-      if (s.includes('SELECT id, oddzial_id, data_planowana, czas_planowany_godziny, status, notatki_wewnetrzne FROM tasks')) {
+      if (s.includes('SELECT id, oddzial_id, data_planowana') && s.includes('notatki_wewnetrzne') && s.includes('FROM tasks')) {
         return {
           rows: [{
             id: 12,
