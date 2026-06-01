@@ -85,7 +85,7 @@
 - [x] **P0 resource calendar weekly contract**: `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` opisuje jeden tygodniowy widok ekip, krytycznego sprzetu i rezerwacji; `npm run verify:resource-calendar-week` pilnuje route, API, web testow i blokad kolizji.
 - [x] **P0 resource calendar drag & drop**: `docs/RESOURCE-CALENDAR-DRAG-DROP-CONTRACT.md` opisuje przenoszenie zlecen miedzy slotami; web blokuje lokalne kolizje, a `PATCH /api/tasks/:id/plan` zapisuje termin, godzine, ekipe i waliduje konflikt/okno klienta/nieobecnosc. `npm run verify:resource-calendar-dnd` pilnuje kontraktu.
 - [x] **P0 planning map contract**: `docs/PLANNING-MAP-CONTRACT.md` opisuje mape planistyczna; `MapaLive` rysuje pinezki zlecen, pozycje ekip live, schematyczne linie ekipa -> zlecenie i przejscie do `KalendarzZasobow` z `date/task/modal`. `npm run verify:planning-map` pilnuje kontraktu.
-- [x] **P0 equipment cards contract**: `docs/EQUIPMENT-CARDS-CONTRACT.md` opisuje karty pojazdow i sprzetu z przegladem, OC, alertami 30 dni i przejsciem do kalendarza zasobow; `npm run verify:equipment-cards` pilnuje UI, testu i checklist.
+- [x] **P0 equipment cards contract**: `docs/EQUIPMENT-CARDS-CONTRACT.md` opisuje karty pojazdow i sprzetu z przegladem, OC, alertami 30 dni, najblizsza rezerwacja sprzetu i przejsciem do kalendarza zasobow; `npm run verify:equipment-cards` pilnuje API, UI, testu i checklist.
 - [ ] **Nastepny pakiet**: EPIC 3.5 - integracja z wynikiem dispatchera i wczytanie planu dnia do panelu kierownika.
 
 ---
@@ -154,7 +154,7 @@ flowchart LR
 - [x] **3.1** Kalendarz zasobów (ekipy + krytyczny sprzęt) — jeden widok tygodnia. `KalendarzZasobow` laczy ekipy, dzien/zakres, sprzet, rezerwacje, odprawy i alerty kolizji; kontrakt pilnuje `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` + `verify:resource-calendar-week`.
 - [x] **3.2** Drag & drop przeniesienia zlecenia między slotami (zapis do API + walidacja kolizji). Web zapisuje drop przez `PATCH /api/tasks/:id/plan`, blokuje lokalna kolizje aktywnego zlecenia tej samej ekipy, wymaga override dla nieobecnej ekipy, a backend dopisuje `godzina_rozpoczecia`, przesuwa rezerwacje sprzetu i zwraca `TASK_PLAN_CONFLICT`.
 - [x] **3.3** Mapa planistyczna: pinezki zleceń + pozycje ekip (live gdzie dostępne). `MapaLive` laczy `GET /api/tasks/wszystkie` z `GET /api/ekipy/live-locations`, pokazuje pinezki i live GPS oraz prowadzi z wybranego zlecenia do `#/kalendarz-zasobow?date=...&task=...&modal=1`.
-- [x] **3.4** Karty sprzętu: przegląd, ubezpieczenie, alerty (powiązanie z EPIC 6). `Flota` ma panel kart zasobow z alertami przegladu/OC, KPI alertow i przejsciem do `KalendarzZasobow`; kontrakt pilnuje `docs/EQUIPMENT-CARDS-CONTRACT.md` + `verify:equipment-cards`.
+- [x] **3.4** Karty sprzętu: przegląd, ubezpieczenie, alerty (powiązanie z EPIC 6). `Flota` ma panel kart zasobow z alertami przegladu/OC, najblizsza rezerwacja sprzetu, KPI alertow i przejsciem do `KalendarzZasobow`; kontrakt pilnuje `docs/EQUIPMENT-CARDS-CONTRACT.md` + `verify:equipment-cards`.
 - [ ] **3.5** Integracja z wynikiem dispatchera (wczytanie planu dnia).
 
 ---
