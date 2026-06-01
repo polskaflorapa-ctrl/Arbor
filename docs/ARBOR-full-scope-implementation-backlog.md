@@ -93,7 +93,8 @@
 - [x] **P0 mobile inventory usage**: `docs/MOBILE-INVENTORY-USAGE-CONTRACT.md` opisuje finish z `zuzyte_materialy[].material_id`, rozchod magazynu w transakcji i blokade braku stanu; `npm run verify:mobile-inventory-usage` pilnuje backendu, web, mobile helpera i checklist.
 - [x] **P0 worklog time ledger**: `docs/WORKLOG-TIME-LEDGER-CONTRACT.md` opisuje automatyczna ECP z zamknietych work logow, branch scope i robocza regule nadgodzin; `npm run verify:worklog-time-ledger` pilnuje endpointu, testow i checklist.
 - [x] **P0 credential expiry cards**: `docs/CREDENTIAL-EXPIRY-CARDS-CONTRACT.md` opisuje monitoring waznosci uprawnien na kartach pracownika i summary w HR; `npm run verify:credential-expiry-cards` pilnuje backendu, panelu HR, testow i checklist.
-- [ ] **Nastepny pakiet**: EPIC 7.3 - blokada przypisania do zlecenia bez wymaganych kompetencji.
+- [x] **P0 competency assignment guard**: `docs/COMPETENCY-ASSIGNMENT-GUARD-CONTRACT.md` opisuje twarda blokade recznego przypisania zlecenia do ekipy bez aktywnych wymaganych kompetencji; `npm run verify:competency-assignment-guard` pilnuje API, testu i UI helpera.
+- [ ] **Nastepny pakiet**: EPIC 7.4 - integracja dispatchera z twarda blokada kompetencji.
 
 ---
 
@@ -198,7 +199,7 @@ flowchart LR
 
 - [x] **7.1** Automatyczna ewidencja czasu pracy z work logów (reguły nadgodzin — prawnie zweryfikować). `GET /api/godziny/ecp` liczy dzienna ECP z `work_logs`, pokazuje normatyw/nadgodziny > 8h, branch scope i `legal_note`; kontrakt pilnuje `docs/WORKLOG-TIME-LEDGER-CONTRACT.md` + `verify:worklog-time-ledger`.
 - [x] **7.2** Monitoring ważności uprawnień (karty pracownika). `GET /api/hr/position-cards` zwraca `credential_status`, liczniki wygaslych/wygasajacych i najblizszy termin, a `/api/hr/competency-expiry` zwraca `items + summary`; kontrakt pilnuje `docs/CREDENTIAL-EXPIRY-CARDS-CONTRACT.md` + `verify:credential-expiry-cards`.
-- [ ] **7.3** Blokada przypisania do zlecenia bez wymaganych kompetencji (API + UI).
+- [x] **7.3** Blokada przypisania do zlecenia bez wymaganych kompetencji (API + UI). `PUT /api/tasks/:id/przypisz`, `/office-plan` i ogolna edycja sprawdzaja `tasks.wymagane_kompetencje` przeciw aktywnym `user_competencies` czlonkow ekipy; blokada zwraca `TEAM_COMPETENCY_BLOCKED` + `missing_competencies`, a UI helper pokazuje braki.
 - [ ] **7.4** Integracja z dispatcherm: EPIC 1.5 + EPIC 7.3 muszą być spójne.
 
 ---

@@ -76,6 +76,7 @@
     "verify:mobile-inventory-usage": "node ./scripts/mobile-inventory-usage-check.cjs",
     "verify:worklog-time-ledger": "node ./scripts/worklog-time-ledger-check.cjs",
     "verify:credential-expiry-cards": "node ./scripts/credential-expiry-cards-check.cjs",
+    "verify:competency-assignment-guard": "node ./scripts/competency-assignment-guard-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
