@@ -5,6 +5,8 @@ import { emitOfflineFlushDone } from './offline-queue-sync-events';
 const OFFLINE_QUEUE_KEY = 'offline_queue_v1';
 const MAX_QUEUE_ITEMS = 250;
 const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
+const SAFE_REPLAY_REASONS = new Set(['TASK_ALREADY_FINISHED']);
+const RETRYABLE_CONFLICT_REASONS = new Set(['IDEMPOTENCY_INCOMPLETE']);
 
 type HttpMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -190,7 +192,8 @@ export const flushOfflineQueue = async (token: string): Promise<{ flushed: numbe
       } else if (res.status === 400 || res.status === 409) {
         const text = await res.text().catch(() => '');
         const reason = responseReason(text);
-        if (reason === 'TASK_ALREADY_FINISHED') flushed += 1;
+        if (SAFE_REPLAY_REASONS.has(reason)) flushed += 1;
+        else if (RETRYABLE_CONFLICT_REASONS.has(reason)) remaining.push(markAttemptFailed(item, reason, now));
         else remaining.push(markAttemptFailed(item, text || `HTTP ${res.status}`, now));
       } else {
         const text = await res.text().catch(() => '');
@@ -228,6 +231,7 @@ export async function queueTaskPhotoOffline(args: {
   if (tg) fields.tagi = tg.slice(0, 2000);
   await enqueueOfflineRequest({
     id: args.id,
+    dedupeKey: args.id ? `photo:${args.id}` : undefined,
     url: args.url,
     method: 'POST',
     multipart: {
@@ -235,6 +239,24 @@ export async function queueTaskPhotoOffline(args: {
       fieldName: 'zdjecie',
       fields,
     },
+  });
+  return getOfflineQueueSize();
+}
+
+/** Kolejka sygnalu pracy: START / check-in / legacy STOP. */
+export async function queueTaskWorkSignalOffline(args: {
+  id?: string;
+  url: string;
+  method?: HttpMethod;
+  kind: 'start' | 'checkin' | 'stop';
+  body: Record<string, unknown>;
+}): Promise<number> {
+  await enqueueOfflineRequest({
+    id: args.id,
+    dedupeKey: args.id ? `work:${args.kind}:${args.id}` : undefined,
+    url: args.url,
+    method: args.method || 'POST',
+    body: args.body,
   });
   return getOfflineQueueSize();
 }

@@ -80,7 +80,8 @@
 - [x] **P0 mobile before/after photo enforcement**: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md` opisuje konfigurowalna blokade finish bez zdjec Przed/Po, mobile respektuje `finish_requirements`, a backend egzekwuje globalne i per-oddzialowe `TASK_FINISH_REQUIRE_*_PHOTO_BRANCHES`; `npm run verify:mobile-before-after-photo` i `npm run verify:mobile-photo-enforcement` pilnuja kontraktu.
 - [x] **P0 mobile material usage/offline cost flow**: `docs/MOBILE-MATERIAL-OFFLINE-COST-FLOW.md` spina raport zuzycia materialow, paliwa i utylizacji z mobile finish, pending offline, backend persistence, BI/Kommo i smoke; `npm run verify:mobile-material-cost-flow` pilnuje kontraktu.
 - [x] **P0 mobile today's tasks offline cache**: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md` opisuje cache listy dnia, TTL 18h, stale hint 15 min i recache po sync; `formatTaskListCacheNotice`, `loadTodayTaskListCache` i `npm run verify:mobile-today-cache` pilnuja flow w `zlecenia.tsx` oraz `misja-dnia.tsx`.
-- [ ] **Nastepny pakiet**: mobile offline conflict/idempotency coverage - START/STOP/zdjecia/problem/finish na slabej sieci, retry policy i czytelne konflikty EPIC 2.5.
+- [x] **P0 mobile offline conflict/idempotency coverage**: `docs/MOBILE-OFFLINE-CONFLICT-IDEMPOTENCY.md` opisuje START/check-in/STOP, zdjecia, PROBLEM i finish na slabej sieci; `queueTaskWorkSignalOffline`, dedupe zdjec, retry backoff, `TASK_ALREADY_FINISHED` i `IDEMPOTENCY_INCOMPLETE` sa pilnowane przez `npm run verify:mobile-offline-conflicts`.
+- [ ] **Nastepny pakiet**: mobile START/STOP edge cases - aktywny work log, brak GPS, podwojny START/STOP, statusy i backend tests EPIC 2.1.
 
 ---
 
@@ -137,7 +138,7 @@ flowchart LR
 - [x] **2.2** Przycisk PROBLEM: typ zgloszenia, zdjecie, notatka, powiadomienie do kierownika. `mobile/app/zlecenie/[id].tsx`, `queueTaskProblemOffline`, backendowe `notifications` i `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` domykaja flow.
 - [x] **2.3** Wymuszone zdjecia "Przed / Po" (blokada zakonczenia bez zdjec - regula konfigurowalna per oddzial). `finish_requirements`, `TASK_FINISH_REQUIRE_PRZED_PHOTO_BRANCHES`, `TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES`, test backendu i `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md` domykaja flow.
 - [x] **2.4** Raport zużycia (paliwo / materiał — pola + sync). Mobile finish wysyla `zuzyte_materialy` i `koszty_operacyjne`, offline cache zachowuje pending payload, backend zapisuje dane do tabel kosztowych, a `docs/MOBILE-MATERIAL-OFFLINE-COST-FLOW.md` + `verify:mobile-material-cost-flow` pilnuja flow.
-- [ ] **2.5** Offline-first **v2**: lokalna kolejka + **idempotency-key** na serwerze + rozstrzyganie konfliktów po sync.
+- [x] **2.5** Offline-first **v2**: lokalna kolejka + **idempotency-key** na serwerze + rozstrzyganie konfliktów po sync. `flushOfflineQueue` rozdziela `TASK_ALREADY_FINISHED` i `IDEMPOTENCY_INCOMPLETE`, mobile ma helpery `queueTaskWorkSignalOffline`, `queueTaskPhotoOffline`, `queueTaskProblemOffline`, `queueTaskFinishOffline`, a `docs/MOBILE-OFFLINE-CONFLICT-IDEMPOTENCY.md` + `verify:mobile-offline-conflicts` pilnuja kontraktu.
 - [x] **2.6** Pobranie listy dzisiejszych zlecen offline (cache + TTL). `saveTaskListCache`, `loadTodayTaskListCache`, TTL 18h, stale hint 15 min, `zlecenia.tsx`, `misja-dnia.tsx` i `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md` domykaja flow.
 - [x] **2.7** Testy na slabej sieci / airplane mode (checklist QA). `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` ma manualny smoke online/offline, a `mobile/scripts/test-offline-queue.cjs` pokrywa pending problem/photo i dedupe kolejki problemu.
 

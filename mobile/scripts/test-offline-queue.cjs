@@ -453,6 +453,66 @@ async function testQueueTaskProblemOfflineUsesStableIdAndDedupe() {
   });
 }
 
+async function testQueueTaskPhotoOfflineUsesStableIdAndDedupe() {
+  const { api, readQueue } = createHarness();
+
+  const count = await api.queueTaskPhotoOffline({
+    id: 'photo-offline-1',
+    url: 'https://api.example.test/tasks/101/zdjecia',
+    fileUri: 'file:///tmp/before-1.jpg',
+    typ: 'przed',
+    lat: 52.1,
+    lng: 21.2,
+    opis: 'Przed startem',
+    tagi: 'przed,zakres',
+  });
+  await api.queueTaskPhotoOffline({
+    id: 'photo-offline-1',
+    url: 'https://api.example.test/tasks/101/zdjecia',
+    fileUri: 'file:///tmp/before-2.jpg',
+    typ: 'przed',
+    opis: 'Przed startem - poprawka',
+  });
+
+  const queue = readQueue();
+  assert.equal(count, 1);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].id, 'photo-offline-1');
+  assert.equal(queue[0].dedupeKey, 'photo:photo-offline-1');
+  assert.equal(queue[0].method, 'POST');
+  assert.equal(queue[0].multipart.fileUri, 'file:///tmp/before-2.jpg');
+  assert.deepEqual(queue[0].multipart.fields, {
+    typ: 'przed',
+    opis: 'Przed startem - poprawka',
+  });
+}
+
+async function testQueueTaskWorkSignalOfflineUsesStableIdAndDedupe() {
+  const { api, readQueue } = createHarness();
+
+  const count = await api.queueTaskWorkSignalOffline({
+    id: 'start-offline-1',
+    url: 'https://api.example.test/tasks/101/start',
+    kind: 'start',
+    body: { lat: 52.1, lng: 21.2 },
+  });
+  await api.queueTaskWorkSignalOffline({
+    id: 'start-offline-1',
+    url: 'https://api.example.test/tasks/101/start',
+    kind: 'start',
+    body: { lat: 52.11, lng: 21.21 },
+  });
+
+  const queue = readQueue();
+  assert.equal(count, 1);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].id, 'start-offline-1');
+  assert.equal(queue[0].dedupeKey, 'work:start:start-offline-1');
+  assert.equal(queue[0].url, 'https://api.example.test/tasks/101/start');
+  assert.equal(queue[0].method, 'POST');
+  assert.deepEqual(queue[0].body, { lat: 52.11, lng: 21.21 });
+}
+
 async function testQueueTaskFinishOfflinePreservesMaterialsCostsAndDedupe() {
   const { api, readQueue } = createHarness();
   const body = {
@@ -504,6 +564,8 @@ async function run() {
     testTaskDetailCacheRoundTrip,
     testTaskDetailCachePreservesPendingOfflineFieldFlow,
     testQueueTaskProblemOfflineUsesStableIdAndDedupe,
+    testQueueTaskPhotoOfflineUsesStableIdAndDedupe,
+    testQueueTaskWorkSignalOfflineUsesStableIdAndDedupe,
     testQueueTaskFinishOfflinePreservesMaterialsCostsAndDedupe,
   ];
   for (const test of tests) {

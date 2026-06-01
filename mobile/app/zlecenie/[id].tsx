@@ -33,6 +33,7 @@ import {
   queueTaskFinishOffline,
   queueTaskPhotoOffline,
   queueTaskProblemOffline,
+  queueTaskWorkSignalOffline,
 } from '../../utils/offline-queue';
 import { emitTaskSync, subscribeOfflineFlushDone } from '../../utils/offline-queue-sync-events';
 import { openAddressInMaps } from '../../utils/maps-link';
@@ -69,6 +70,7 @@ import {
   equipmentIdFromReservation,
   estimatorDisplayName,
   extractNoteValue,
+  filterPhotosByGalleryFilter,
   formatApiWorkflowError,
   isCheckinWorkLog,
   isCrewRole,
@@ -81,15 +83,19 @@ import {
   PHOTO_TYPE_LABELS,
   parseOptionalFinishMoney,
   parseSafetyLogRows,
+  photoGalleryGroupKeys,
+  photoPreviewState,
   photoTypMatches,
   positiveNumber,
   readApiErrorBody,
   SAFETY_CHECKLIST_ITEMS,
   suggestedFinishOperationalCosts,
+  nextPreviewPhoto,
   taskWorkflowMissingItems,
   timeFromTask,
   todayKey,
   TYP_ZDJECIA_KEYS,
+  taskPhotoEvidenceCounts,
   uniqueStrings,
   validateFinishPayment,
   workflowPhotoFilterFor,
@@ -1053,10 +1059,10 @@ export default function ZlecenieDetailScreen() {
       }
       else if (res.status >= 500) {
         void triggerHaptic('warning');
-        const queued = await queueRequestWithOfflineFallback({
+        const queued = await queueTaskWorkSignalOffline({
           id: idempotencyKey,
           url: `${API_URL}/tasks/${id}/start`,
-          method: 'POST',
+          kind: 'start',
           body: startBody,
         });
         setOfflineQueueCount(queued);
@@ -1090,10 +1096,10 @@ export default function ZlecenieDetailScreen() {
             }
           : startBody;
       }
-      const queued = await queueRequestWithOfflineFallback({
+      const queued = await queueTaskWorkSignalOffline({
         id: idempotencyKey,
         url: `${API_URL}/tasks/${id}/start`,
-        method: 'POST',
+        kind: 'start',
         body: startBody,
       });
       setOfflineQueueCount(queued);
@@ -1164,6 +1170,27 @@ export default function ZlecenieDetailScreen() {
       const next = suggestedFinishCosts(data);
       if (Object.values(next).some(Boolean)) setFinishOperationalCosts(next);
     });
+  };
+
+  const resetFinishDraft = () => {
+    setFinishModal(false);
+    setFinishNotatki('');
+    setFinishUsageNazwa('');
+    setFinishUsageIlosc('');
+    setFinishIssuesReviewed(false);
+    setFinishClientAccepted(false);
+  };
+
+  const queueFinishOffline = async (idempotencyKey: string, body: Record<string, unknown>) => {
+    const queued = await queueTaskFinishOffline({
+      id: idempotencyKey,
+      url: `${API_URL}/tasks/${id}/finish`,
+      body,
+    });
+    setOfflineQueueCount(queued);
+    await addPendingOfflineFinish({ idempotencyKey, body });
+    resetFinishDraft();
+    Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
   };
 
   const submitFinish = async () => {
@@ -1296,31 +1323,13 @@ export default function ZlecenieDetailScreen() {
       });
       if (res.ok) {
         void triggerHaptic('success');
-        setFinishModal(false);
-        setFinishNotatki('');
-        setFinishUsageNazwa('');
-        setFinishUsageIlosc('');
-        setFinishIssuesReviewed(false);
-        setFinishClientAccepted(false);
+        resetFinishDraft();
         await loadAll();
         emitTaskSync({ taskId: id, reason: 'finish' });
         Alert.alert(t('common.ok'), t('order.finishedTitle'));
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
-        const queued = await queueTaskFinishOffline({
-          id: idempotencyKey,
-          url: `${API_URL}/tasks/${id}/finish`,
-          body: finishBody,
-        });
-        setOfflineQueueCount(queued);
-        await addPendingOfflineFinish({ idempotencyKey, body: finishBody });
-        setFinishModal(false);
-        setFinishNotatki('');
-        setFinishUsageNazwa('');
-        setFinishUsageIlosc('');
-        setFinishIssuesReviewed(false);
-        setFinishClientAccepted(false);
-        Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
+        await queueFinishOffline(idempotencyKey, finishBody);
       } else {
         const j = await res.json().catch(() => ({}));
         void triggerHaptic('warning');
@@ -1330,20 +1339,7 @@ export default function ZlecenieDetailScreen() {
       void triggerHaptic('warning');
       if (finishBody) {
         try {
-          const queued = await queueTaskFinishOffline({
-            id: idempotencyKey,
-            url: `${API_URL}/tasks/${id}/finish`,
-            body: finishBody,
-          });
-          setOfflineQueueCount(queued);
-          await addPendingOfflineFinish({ idempotencyKey, body: finishBody });
-          setFinishModal(false);
-          setFinishNotatki('');
-          setFinishUsageNazwa('');
-          setFinishUsageIlosc('');
-          setFinishIssuesReviewed(false);
-          setFinishClientAccepted(false);
-          Alert.alert(t('notif.alert.offlineTitle'), t('order.offlineFinishQueued'));
+          await queueFinishOffline(idempotencyKey, finishBody);
         } catch {
           Alert.alert(t('notif.alert.errorTitle'), t('order.loadFail'));
         }
@@ -1830,10 +1826,10 @@ export default function ZlecenieDetailScreen() {
         Alert.alert('Dojechalismy', 'GPS przyjazdu zapisany. Biuro widzi, ze ekipa jest na miejscu.');
       } else if (res.status >= 500) {
         void triggerHaptic('warning');
-        const queued = await queueRequestWithOfflineFallback({
+        const queued = await queueTaskWorkSignalOffline({
           id: idempotencyKey,
           url: `${API_URL}/tasks/${id}/checkin`,
-          method: 'POST',
+          kind: 'checkin',
           body: checkinBody,
         });
         setOfflineQueueCount(queued);
@@ -1847,10 +1843,10 @@ export default function ZlecenieDetailScreen() {
     } catch {
       void triggerHaptic('warning');
       if (checkinBody.lat != null && checkinBody.lng != null) {
-        const queued = await queueRequestWithOfflineFallback({
+        const queued = await queueTaskWorkSignalOffline({
           id: idempotencyKey,
           url: `${API_URL}/tasks/${id}/checkin`,
-          method: 'POST',
+          kind: 'checkin',
           body: checkinBody,
         });
         setOfflineQueueCount(queued);
@@ -2052,11 +2048,12 @@ export default function ZlecenieDetailScreen() {
   const hasPhotoCheckin = zdjecia.some((z: any) => z.typ === 'checkin');
   const hasGpsCheckin = logi.some((log: any) => isCheckinWorkLog(log));
   const hasCheckin = hasPhotoCheckin || hasGpsCheckin;
-  const fieldWycenaPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['wycena', 'przed', 'checkin'])).length;
-  const fieldSketchPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['szkic', 'sketch'])).length;
-  const fieldAccessPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['dojazd', 'posesja', 'dojazd_posesja'])).length;
-  const beforePhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['przed', 'before', 'checkin'])).length;
-  const afterPhotosCount = zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['po', 'after'])).length;
+  const photoEvidenceCounts = taskPhotoEvidenceCounts(zdjecia);
+  const fieldWycenaPhotosCount = photoEvidenceCounts.fieldWycena;
+  const fieldSketchPhotosCount = photoEvidenceCounts.fieldSketch;
+  const fieldAccessPhotosCount = photoEvidenceCounts.fieldAccess;
+  const beforePhotosCount = photoEvidenceCounts.before;
+  const afterPhotosCount = photoEvidenceCounts.after;
   const unresolvedIssuesCount = problemy.filter((p: any) => p.status !== 'Rozwiązany').length;
   const lastCheckinLog = logi.find((log: any) => isCheckinWorkLog(log));
   const fieldSignalSummary = getTaskFieldExecutionSummary({
@@ -2809,7 +2806,7 @@ export default function ZlecenieDetailScreen() {
       type: 'inne',
       label: 'Inne',
       hint: 'Dodatkowy dowód lub uwaga.',
-      count: zdjecia.filter((z: any) => photoTypMatches(z?.typ, ['inne', 'other', ''])).length,
+      count: photoEvidenceCounts.other,
       required: false,
       tags: 'inne',
     },
@@ -2935,11 +2932,7 @@ export default function ZlecenieDetailScreen() {
     { key: 'all', label: 'Wszystkie', count: zdjecia.length, icon: 'images-outline', color: theme.accent },
     ...TYP_ZDJECIA_KEYS.map((key) => {
       const meta = photoTypeMeta[key];
-      const count = zdjecia.filter((photo: any) =>
-        key === 'inne'
-          ? photoTypMatches(photo?.typ, ['inne', 'other', ''])
-          : photoTypMatches(photo?.typ, [key]),
-      ).length;
+      const count = filterPhotosByGalleryFilter(zdjecia, key).length;
       return {
         key,
         label: PHOTO_TYPE_LABELS[key] || key,
@@ -2949,28 +2942,18 @@ export default function ZlecenieDetailScreen() {
       };
     }),
   ];
-  const filteredGalleryPhotos = zdjecia.filter((photo: any) => {
-    if (photoFilter === 'all') return true;
-    if (photoFilter === 'inne') return photoTypMatches(photo?.typ, ['inne', 'other', '']);
-    return photoTypMatches(photo?.typ, [photoFilter]);
-  });
-  const photoGalleryGroupKeys: readonly PhotoTypeKey[] = photoFilter === 'all'
-    ? TYP_ZDJECIA_KEYS
-    : [photoFilter as PhotoTypeKey];
-  const activePreviewPhoto = photoPreview || filteredGalleryPhotos[0] || zdjecia[0] || null;
-  const previewPhotoList = filteredGalleryPhotos.length ? filteredGalleryPhotos : zdjecia;
-  const activePreviewIndex = activePreviewPhoto
-    ? previewPhotoList.findIndex((photo: any) =>
-        String(photo?.id || photo?.url || photo?.sciezka) ===
-        String(activePreviewPhoto?.id || activePreviewPhoto?.url || activePreviewPhoto?.sciezka),
-      )
-    : -1;
-  const safePreviewIndex = activePreviewIndex >= 0 ? activePreviewIndex : 0;
-  const previewCounter = previewPhotoList.length ? `${safePreviewIndex + 1}/${previewPhotoList.length}` : '0/0';
+  const filteredGalleryPhotos = filterPhotosByGalleryFilter(zdjecia, photoFilter);
+  const galleryGroupKeys = photoGalleryGroupKeys(photoFilter);
+  const {
+    activePhoto: activePreviewPhoto,
+    photoList: previewPhotoList,
+    safeIndex: safePreviewIndex,
+    counter: previewCounter,
+  } = photoPreviewState(zdjecia, filteredGalleryPhotos, photoPreview);
   const goToPreviewPhoto = (direction: -1 | 1) => {
-    if (previewPhotoList.length === 0) return;
-    const nextIndex = (safePreviewIndex + direction + previewPhotoList.length) % previewPhotoList.length;
-    setPhotoPreview(previewPhotoList[nextIndex]);
+    const nextPhoto = nextPreviewPhoto(previewPhotoList, safePreviewIndex, direction);
+    if (!nextPhoto) return;
+    setPhotoPreview(nextPhoto);
     void triggerHaptic('light');
   };
   const officeHandoffReady = fieldDraftPhotosReady &&
@@ -6767,7 +6750,7 @@ export default function ZlecenieDetailScreen() {
             )}
 
             {/* Grupuj zdjęcia wg typu */}
-            {photoGalleryGroupKeys.map((key) => {
+            {galleryGroupKeys.map((key) => {
               const typ = { key, ...photoTypeMeta[key], label: PHOTO_TYPE_LABELS[key] || t(`order.photoType.${key}`) };
               const grupa = filteredGalleryPhotos.filter((z: any) => z.typ === typ.key || (!z.typ && typ.key === 'inne'));
               if (grupa.length === 0) return null;
