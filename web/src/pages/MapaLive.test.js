@@ -252,7 +252,7 @@ test('renders planning task pins, live team pins, and opens resource calendar fo
   expect(screen.getByText('Wybrany temat')).toBeInTheDocument();
   expect(screen.getAllByText('Osiedle Lesne Tarasy').length).toBeGreaterThan(0);
 
-  await userEvent.click(screen.getByRole('button', { name: /Otworz w kalendarzu Osiedle Lesne Tarasy/i }));
+  await userEvent.click(screen.getAllByRole('button', { name: /Otworz w kalendarzu Osiedle Lesne Tarasy/i })[0]);
 
   await waitFor(() => {
     expect(screen.getByText('Kalendarz zasobow')).toBeInTheDocument();

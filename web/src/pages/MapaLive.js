@@ -2043,7 +2043,12 @@ function DispatchTaskCard({ task, live, onOpen, onSchedule }) {
         <button type="button" style={S.secondaryBtn} onClick={onOpen}>
           Zlecenie
         </button>
-        <button type="button" style={S.secondaryBtn} onClick={() => onSchedule?.(task)}>
+        <button
+          type="button"
+          style={S.secondaryBtn}
+          aria-label={`Otworz w kalendarzu ${taskClient(task)}`}
+          onClick={() => onSchedule?.(task)}
+        >
           Kalendarz
         </button>
         {liveHref ? (
