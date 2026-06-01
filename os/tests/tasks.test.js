@@ -2170,6 +2170,141 @@ describe('Tasks routes', () => {
     }
   });
 
+  it('POST /tasks/:id/finish posts inventory movement when material_id is provided', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 99,
+                status: 'W_Realizacji',
+                oddzial_id: 5,
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('work_logs') && s.includes('end_time IS NULL')) {
+          return { rows: [{ id: 909 }] };
+        }
+        if (s.includes('UPDATE inventory_materials')) {
+          return { rows: [{ id: 12, oddzial_id: 5, koszt_jednostkowy: '18.00' }] };
+        }
+        if (s.includes('COMMIT')) return {};
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/99/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 100, faktura_vat: false },
+          zuzyte_materialy: [
+            { material_id: 12, nazwa: 'Olej do pilarki', ilosc: 2, jednostka: 'szt', koszt_laczny: 36 },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(clientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE inventory_materials'),
+        [2, 12, 99]
+      );
+      expect(clientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO inventory_movements'),
+        [12, 5, 2, 99, '18.00', 'finish material usage', 2]
+      );
+      expect(clientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO task_finish_material_usage'),
+        [99, 2, 'Olej do pilarki', 2, 'szt', null, 36, null]
+      );
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
+  it('POST /tasks/:id/finish blocks inventory issue without enough stock', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 99,
+                status: 'W_Realizacji',
+                oddzial_id: 5,
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('work_logs') && s.includes('end_time IS NULL')) {
+          return { rows: [{ id: 909 }] };
+        }
+        if (s.includes('UPDATE inventory_materials')) {
+          return { rows: [] };
+        }
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/99/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 100, faktura_vat: false },
+          zuzyte_materialy: [
+            { material_id: 12, nazwa: 'Olej do pilarki', ilosc: 20, jednostka: 'szt', koszt_laczny: 360 },
+          ],
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe('stan_magazynu_za_maly');
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
   it('POST /tasks/:id/finish returns 400 PAYMENT_NOTE_REQUIRED_OVER_5_PCT when cash differs >5% from gross without note (ekipa)', async () => {
     const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
     const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;

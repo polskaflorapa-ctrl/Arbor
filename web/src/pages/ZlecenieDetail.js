@@ -332,6 +332,8 @@ export default function ZlecenieDetail() {
     nip: '',
   });
   const [finishNotatki, setFinishNotatki] = useState('');
+  const [finishInventoryMaterials, setFinishInventoryMaterials] = useState([]);
+  const [finishUsageMaterialId, setFinishUsageMaterialId] = useState('');
   const [finishUsageNazwa, setFinishUsageNazwa] = useState('');
   const [finishUsageIlosc, setFinishUsageIlosc] = useState('');
   const [finishUsageKoszt, setFinishUsageKoszt] = useState('');
@@ -369,7 +371,7 @@ export default function ZlecenieDetail() {
     try {
       const token = getStoredToken();
       const h = authHeaders(token);
-      const [zRes, wRes, iRes, pRes, vRes, dRes, wfRes, docsRes, intRes, liveRes] = await Promise.all([
+      const [zRes, wRes, iRes, pRes, vRes, dRes, wfRes, docsRes, intRes, liveRes, invRes] = await Promise.all([
         api.get(`/tasks/${id}`, { headers: h }),
         api.get(`/tasks/${id}/logi`, { headers: h }).catch(() => ({ data: [] })),
         api.get(`/tasks/${id}/problemy`, { headers: h }).catch(() => ({ data: [] })),
@@ -380,6 +382,7 @@ export default function ZlecenieDetail() {
         api.get(`/tasks/${id}/dokumenty`, { headers: h }).catch(() => ({ data: [] })),
         api.get(`/tasks/${id}/integrations`, { headers: h }).catch(() => ({ data: { settings: { sms: true, email: true, push: true, auto_on_status: true, auto_on_reminder: true }, logs: [] } })),
         api.get('/ekipy/live-locations', { headers: h, dedupe: false }).catch(() => ({ data: { items: [] } })),
+        api.get('/magazyn/materialy', { headers: h }).catch(() => ({ data: [] })),
       ]);
       const taskData = zRes.data;
       const liveRows = Array.isArray(liveRes.data) ? liveRes.data : liveRes.data?.items || [];
@@ -402,6 +405,7 @@ export default function ZlecenieDetail() {
       setDokumenty(Array.isArray(docsRes.data) ? docsRes.data : []);
       setIntegrationSettings(intRes.data?.settings || { sms: true, email: true, push: true, auto_on_status: true, auto_on_reminder: true });
       setIntegrationLogs(Array.isArray(intRes.data?.logs) ? intRes.data.logs : []);
+      setFinishInventoryMaterials(Array.isArray(invRes.data) ? invRes.data : invRes.data?.items || []);
     } catch (err) {
       console.error('Błąd ładowania:', err);
       setLiveLocation(null);
@@ -1106,12 +1110,14 @@ export default function ZlecenieDetail() {
       }
       const noteTrim = finishNotatki.trim();
       const usageNazwa = finishUsageNazwa.trim();
+      const usageMaterialId = finishUsageMaterialId ? Number(finishUsageMaterialId) : null;
       const usageIloscRaw = finishUsageIlosc.trim().replace(',', '.');
       const usageIlosc = usageNazwa && usageIloscRaw ? parseFloat(usageIloscRaw) : NaN;
       const zuzyte_materialy =
         usageNazwa.length > 0
           ? [
               {
+                ...(Number.isInteger(usageMaterialId) && usageMaterialId > 0 ? { material_id: usageMaterialId } : {}),
                 nazwa: usageNazwa.slice(0, 200),
                 ...(Number.isFinite(usageIlosc) ? { ilosc: usageIlosc, jednostka: 'szt' } : {}),
                 ...(usageCost != null ? { koszt_laczny: usageCost } : {}),
@@ -2461,6 +2467,28 @@ export default function ZlecenieDetail() {
                 value={finishUsageNazwa}
                 onChange={(e) => setFinishUsageNazwa(e.target.value)}
               />
+              {finishInventoryMaterials.length > 0 && (
+                <select
+                  style={{ ...styles.editInput, marginBottom: 8 }}
+                  value={finishUsageMaterialId}
+                  onChange={(e) => {
+                    const materialId = e.target.value;
+                    setFinishUsageMaterialId(materialId);
+                    const material = finishInventoryMaterials.find((item) => String(item.id) === String(materialId));
+                    if (material) {
+                      setFinishUsageNazwa(material.nazwa || '');
+                      if (material.koszt_jednostkowy && !finishUsageKoszt) setFinishUsageKoszt(String(material.koszt_jednostkowy));
+                    }
+                  }}
+                >
+                  <option value="">Material spoza magazynu</option>
+                  {finishInventoryMaterials.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {material.nazwa} - stan {Number(material.stan || 0).toLocaleString('pl-PL')} {material.jednostka || 'szt'}
+                    </option>
+                  ))}
+                </select>
+              )}
               <input
                 style={{ ...styles.editInput, marginBottom: 14 }}
                 placeholder="Ilość (opcjonalnie)"

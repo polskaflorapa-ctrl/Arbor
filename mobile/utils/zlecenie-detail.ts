@@ -167,6 +167,7 @@ export type FinishOperationalCostRow = {
 };
 
 export type FinishMaterialUsageRow = {
+  material_id?: number;
   nazwa: string;
   ilosc?: number;
   jednostka?: 'szt';
@@ -569,13 +570,16 @@ export function buildFinishMaterialUsage(
   name: unknown,
   quantity: unknown,
   cost: number | null,
+  materialId?: unknown,
 ): FinishMaterialUsageRow[] | undefined {
   const usageName = String(name || '').trim();
   if (!usageName) return undefined;
   const quantityRaw = String(quantity || '').trim().replace(',', '.');
   const usageQuantity = quantityRaw ? parseFloat(quantityRaw) : NaN;
+  const parsedMaterialId = materialId != null && materialId !== '' ? Number(materialId) : NaN;
   return [
     {
+      ...(Number.isInteger(parsedMaterialId) && parsedMaterialId > 0 ? { material_id: parsedMaterialId } : {}),
       nazwa: usageName.slice(0, 200),
       ...(Number.isFinite(usageQuantity) ? { ilosc: usageQuantity, jednostka: 'szt' as const } : {}),
       ...(cost != null ? { koszt_laczny: cost } : {}),

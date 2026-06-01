@@ -450,7 +450,39 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
     const totalCost = row.koszt_laczny != null && row.koszt_laczny !== ''
       ? Number(row.koszt_laczny)
       : (Number.isFinite(ilosc) && Number.isFinite(unitCost) ? ilosc * unitCost : null);
+    const materialId = row.material_id != null && row.material_id !== '' ? Number(row.material_id) : null;
     try {
+      if (Number.isInteger(materialId) && materialId > 0 && Number.isFinite(ilosc) && ilosc > 0) {
+        const stock = await client.query(
+          `UPDATE inventory_materials
+              SET stan = stan - $1::numeric, updated_at = NOW()
+            WHERE id = $2
+              AND (oddzial_id IS NULL OR oddzial_id = (SELECT oddzial_id FROM tasks WHERE id = $3))
+              AND stan >= $1::numeric
+            RETURNING id, oddzial_id, koszt_jednostkowy`,
+          [ilosc, materialId, taskId]
+        );
+        if (!stock.rows[0]) {
+          const e = new Error('inventory stock too low');
+          e.code = 'TASK_FINISH_INVENTORY_STOCK_TOO_LOW';
+          throw e;
+        }
+        await client.query(
+          `INSERT INTO inventory_movements (
+             material_id, oddzial_id, typ, ilosc, task_id, koszt_jednostkowy, notatka, user_id
+           )
+           VALUES ($1,$2,'rozchod',$3,$4,$5,$6,$7)`,
+          [
+            materialId,
+            stock.rows[0].oddzial_id,
+            ilosc,
+            taskId,
+            Number.isFinite(unitCost) ? unitCost : stock.rows[0].koszt_jednostkowy,
+            row.notatka ? String(row.notatka).trim().slice(0, 500) : 'finish material usage',
+            userId,
+          ]
+        );
+      }
       await client.query(
         `INSERT INTO task_finish_material_usage (
            task_id, recorded_by, nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka
@@ -471,6 +503,11 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
       if (String(err.message || '').includes('task_finish_material_usage')) {
         const e = new Error('migration');
         e.code = 'TASK_FINISH_USAGE_TABLE_MISSING';
+        throw e;
+      }
+      if (String(err.message || '').includes('inventory_materials') || String(err.message || '').includes('inventory_movements')) {
+        const e = new Error('migration');
+        e.code = 'TASK_FINISH_INVENTORY_TABLE_MISSING';
         throw e;
       }
       throw err;
@@ -1854,6 +1891,7 @@ const paymentCloseSchema = z.object({
 });
 
 const taskFinishMaterialRowSchema = z.object({
+  material_id: z.coerce.number().int().positive().optional().nullable(),
   nazwa: z.string().trim().min(1).max(200),
   ilosc: z.coerce.number().optional().nullable(),
   jednostka: z.string().trim().max(24).optional().nullable(),
@@ -4825,6 +4863,21 @@ router.post(
             await client.query('ROLLBACK');
             return res.status(503).json({
               error: 'Uruchom migrację (task_finish_material_usage).',
+              requestId: req.requestId,
+            });
+          }
+          if (e.code === 'TASK_FINISH_INVENTORY_TABLE_MISSING') {
+            await client.query('ROLLBACK');
+            return res.status(503).json({
+              error: 'Uruchom migrację magazynu (inventory_materials, inventory_movements).',
+              requestId: req.requestId,
+            });
+          }
+          if (e.code === 'TASK_FINISH_INVENTORY_STOCK_TOO_LOW') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+              error: 'stan_magazynu_za_maly',
+              code: e.code,
               requestId: req.requestId,
             });
           }
