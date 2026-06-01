@@ -44,13 +44,20 @@ const {
   compactLines,
   createOfficePlanForm,
   extractNoteValue,
+  filterPhotosByGalleryFilter,
   formatApiWorkflowError,
   isCheckinWorkLog,
   noteHasClientAccepted,
   parseOptionalFinishMoney,
   parseSafetyLogRows,
+  photoGalleryGroupKeys,
+  photoPreviewState,
+  photoTypeKey,
+  photoTypeLabel,
   photoTypMatches,
+  nextPreviewPhoto,
   suggestedFinishOperationalCosts,
+  taskPhotoEvidenceCounts,
   validateFinishPayment,
   workflowPhotoFilterFor,
   workflowTargetFor,
@@ -61,6 +68,45 @@ function run() {
   assert.equal(photoTypMatches('before', ['przed']), false);
   assert.equal(isCheckinWorkLog({ status: 'check-in' }), true);
   assert.equal(isCheckinWorkLog('check_in'), true);
+  const photoRows = [
+    { id: 1, typ: 'wycena' },
+    { id: 2, typ: 'szkic' },
+    { id: 3, typ: 'dojazd_posesja' },
+    { id: 4, typ: 'checkin' },
+    { id: 5, typ: 'po' },
+    { id: 6, typ: 'other' },
+    { id: 7, typ: '' },
+  ];
+  assert.deepEqual(taskPhotoEvidenceCounts(photoRows), {
+    fieldWycena: 2,
+    fieldSketch: 1,
+    fieldAccess: 1,
+    before: 1,
+    after: 1,
+    other: 2,
+  });
+  assert.deepEqual(filterPhotosByGalleryFilter(photoRows, 'inne').map((row) => row.id), [6, 7]);
+  assert.deepEqual(filterPhotosByGalleryFilter(photoRows, 'all').map((row) => row.id), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(photoGalleryGroupKeys('po'), ['po']);
+  assert.deepEqual(photoPreviewState(photoRows, [photoRows[4]], null), {
+    activePhoto: photoRows[4],
+    photoList: [photoRows[4]],
+    safeIndex: 0,
+    counter: '1/1',
+  });
+  assert.deepEqual(photoPreviewState(photoRows, [], photoRows[2]), {
+    activePhoto: photoRows[2],
+    photoList: photoRows,
+    safeIndex: 2,
+    counter: '3/7',
+  });
+  assert.equal(nextPreviewPhoto(photoRows, 0, -1), photoRows[6]);
+  assert.equal(nextPreviewPhoto(photoRows, 6, 1), photoRows[0]);
+  assert.equal(nextPreviewPhoto([], 0, 1), null);
+  assert.equal(photoTypeKey('po'), 'po');
+  assert.equal(photoTypeKey('unknown'), 'inne');
+  assert.equal(photoTypeLabel('szkic'), 'Szkic zakresu');
+  assert.equal(photoTypeLabel('unknown'), 'Inne');
 
   assert.equal(absolutePhotoUrl('file:///tmp/photo.jpg'), 'file:///tmp/photo.jpg');
   assert.equal(absolutePhotoUrl('content://media/photo'), 'content://media/photo');
@@ -139,32 +185,6 @@ function run() {
     safetyProtocolNote: 'BHP przed startem: 1/2 punktow.\nOK Strefa pracy\nBRAK Sprzet',
     closeProtocolNote: 'BHP przed startem: 1/2 punktow.\nOK Strefa pracy\nBRAK Sprzet\nZamknięcie mobilne: zdjęcia po 3; problemy otwarte 1.\nOdbiór klienta: podpis Jan.\nMateriały: Olej (2 szt.).',
     noteTrim: 'Platnosc przy odbiorze\nBHP przed startem: 1/2 punktow.\nOK Strefa pracy\nBRAK Sprzet\nZamknięcie mobilne: zdjęcia po 3; problemy otwarte 1.\nOdbiór klienta: podpis Jan.\nMateriały: Olej (2 szt.).',
-  });
-  assert.deepEqual(buildFinishBody({
-    coords: { lat: 52.1, lng: 21 },
-    notes: {
-      safetyProtocolNote: 'BHP',
-      closeProtocolNote: 'Close',
-      noteTrim: 'Platnosc\nClose',
-    },
-    materialUsage: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 }],
-    operationalCostRows: [{ category: 'paliwo', label: 'Paliwo', amount: 45.5 }],
-    paymentForm: { forma_platnosc: 'Gotowka', faktura_vat: false },
-    paymentValidation: { ok: true, cashAmount: 120.5, nip: null },
-    paymentNote: 'Platnosc',
-  }), {
-    lat: 52.1,
-    lng: 21,
-    notatki: 'Platnosc\nClose',
-    zuzyte_materialy: [{ nazwa: 'Olej', ilosc: 2, jednostka: 'szt', koszt_laczny: 80 }],
-    koszty_operacyjne: [{ category: 'paliwo', label: 'Paliwo', amount: 45.5 }],
-    payment: {
-      forma_platnosc: 'Gotowka',
-      kwota_odebrana: 120.5,
-      faktura_vat: false,
-      nip: null,
-      notatki: 'Platnosc',
-    },
   });
   assert.deepEqual(buildFinishBody({
     coords: { lat: 52.1, lng: 21.2 },

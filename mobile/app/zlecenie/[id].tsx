@@ -85,6 +85,8 @@ import {
   parseSafetyLogRows,
   photoGalleryGroupKeys,
   photoPreviewState,
+  photoTypeKey,
+  photoTypeLabel,
   photoTypMatches,
   positiveNumber,
   readApiErrorBody,
@@ -3387,7 +3389,7 @@ export default function ZlecenieDetailScreen() {
       : '';
     const photoLines = briefingPhotos.slice(0, 6).map((photo: any, index: number) => {
       const url = absolutePhotoUrl(photo.url || photo.sciezka);
-      const label = PHOTO_TYPE_LABELS[String(photo.typ || 'inne') as PhotoTypeKey] || String(photo.typ || 'Zdjecie');
+      const label = photoTypeLabel(photo.typ, String(photo.typ || 'Zdjecie'));
       const note = photo.opis ? ` - ${photo.opis}` : '';
       return `${index + 1}. ${label}${note}${url ? ` | ${url}` : ''}`;
     });
@@ -5589,7 +5591,7 @@ export default function ZlecenieDetailScreen() {
                 <TouchableOpacity key={photo.id || photo.url || photo.sciezka} style={[S.crewPhotoCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]} onPress={() => setActiveTab('zdjecia')}>
                   <Image source={{ uri: absolutePhotoUrl(photo.url || photo.sciezka) }} style={S.crewPhotoImage} />
                   <Text style={[S.crewPhotoLabel, { color: theme.textSub }]} numberOfLines={1}>
-                    {PHOTO_TYPE_LABELS[String(photo.typ || 'inne') as keyof typeof PHOTO_TYPE_LABELS] || 'Zdjęcie'}
+                    {photoTypeLabel(photo.typ)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -6675,12 +6677,12 @@ export default function ZlecenieDetailScreen() {
                   <View style={S.photoHeroOverlay}>
                     <View style={[S.photoHeroTypeBadge, { backgroundColor: theme.cardBg + 'EE' }]}>
                       <Ionicons
-                        name={photoTypeMeta[String(activePreviewPhoto.typ || 'inne') as PhotoTypeKey]?.icon || 'image-outline'}
+                        name={photoTypeMeta[photoTypeKey(activePreviewPhoto.typ)]?.icon || 'image-outline'}
                         size={14}
                         color={theme.accent}
                       />
                       <Text style={[S.photoHeroTypeText, { color: theme.text }]} numberOfLines={1}>
-                        {PHOTO_TYPE_LABELS[String(activePreviewPhoto.typ || 'inne') as PhotoTypeKey] || 'Zdjęcie'}
+                        {photoTypeLabel(activePreviewPhoto.typ)}
                       </Text>
                     </View>
                     <Text style={S.photoHeroOpen}>Podgląd</Text>
@@ -7083,7 +7085,7 @@ export default function ZlecenieDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={[S.photoPreviewTitle, { color: theme.text }]}>Podgląd zdjęcia</Text>
                   <Text style={[S.photoPreviewSub, { color: theme.textMuted }]}>
-                    {PHOTO_TYPE_LABELS[String(photoPreview.typ || 'inne') as PhotoTypeKey] || 'Zdjęcie'}
+                    {photoTypeLabel(photoPreview.typ)}
                   </Text>
                 </View>
                 <View style={[S.photoPreviewCounter, { backgroundColor: theme.surface2, borderColor: theme.border }]}>

@@ -201,6 +201,22 @@ export type FinishBodyInput = {
   paymentNote: unknown;
 };
 
+export type PhotoEvidenceCounts = {
+  fieldWycena: number;
+  fieldSketch: number;
+  fieldAccess: number;
+  before: number;
+  after: number;
+  other: number;
+};
+
+export type PhotoPreviewState<T> = {
+  activePhoto: T | null;
+  photoList: T[];
+  safeIndex: number;
+  counter: string;
+};
+
 export const EMPTY_FINISH_OPERATIONAL_COSTS: FinishOperationalCosts = {
   sprzet: '',
   paliwo: '',
@@ -246,6 +262,76 @@ export function photoTypMatches(typ: unknown, allowed: string[]) {
     .toLowerCase()
     .trim();
   return allowed.includes(k);
+}
+
+export function countPhotosByTypes(photos: unknown[], allowed: string[]) {
+  return photos.filter((photo: any) => photoTypMatches(photo?.typ, allowed)).length;
+}
+
+export function taskPhotoEvidenceCounts(photos: unknown[]): PhotoEvidenceCounts {
+  return {
+    fieldWycena: countPhotosByTypes(photos, ['wycena', 'przed', 'checkin']),
+    fieldSketch: countPhotosByTypes(photos, ['szkic', 'sketch']),
+    fieldAccess: countPhotosByTypes(photos, ['dojazd', 'posesja', 'dojazd_posesja']),
+    before: countPhotosByTypes(photos, ['przed', 'before', 'checkin']),
+    after: countPhotosByTypes(photos, ['po', 'after']),
+    other: countPhotosByTypes(photos, ['inne', 'other', '']),
+  };
+}
+
+export function photoMatchesFilter(photo: unknown, filter: PhotoFilterKey) {
+  if (filter === 'all') return true;
+  if (filter === 'inne') return photoTypMatches((photo as any)?.typ, ['inne', 'other', '']);
+  return photoTypMatches((photo as any)?.typ, [filter]);
+}
+
+export function filterPhotosByGalleryFilter<T>(photos: T[], filter: PhotoFilterKey): T[] {
+  return photos.filter((photo) => photoMatchesFilter(photo, filter));
+}
+
+export function photoGalleryGroupKeys(filter: PhotoFilterKey): readonly PhotoTypeKey[] {
+  return filter === 'all' ? TYP_ZDJECIA_KEYS : [filter];
+}
+
+export function photoIdentity(value: unknown) {
+  const photo = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return String(photo.id || photo.url || photo.sciezka || '');
+}
+
+export function photoTypeKey(value: unknown): PhotoTypeKey {
+  const raw = String(value || 'inne').trim();
+  return TYP_ZDJECIA_KEYS.includes(raw as PhotoTypeKey) ? raw as PhotoTypeKey : 'inne';
+}
+
+export function photoTypeLabel(value: unknown, fallback = 'Zdjęcie') {
+  const key = photoTypeKey(value);
+  return PHOTO_TYPE_LABELS[key] || fallback;
+}
+
+export function photoPreviewState<T>(
+  allPhotos: T[],
+  filteredPhotos: T[],
+  previewPhoto?: T | null,
+): PhotoPreviewState<T> {
+  const activePhoto = previewPhoto || filteredPhotos[0] || allPhotos[0] || null;
+  const photoList = filteredPhotos.length ? filteredPhotos : allPhotos;
+  const activeId = photoIdentity(activePhoto);
+  const activeIndex = activePhoto
+    ? photoList.findIndex((photo) => photoIdentity(photo) === activeId)
+    : -1;
+  const safeIndex = activeIndex >= 0 ? activeIndex : 0;
+  return {
+    activePhoto,
+    photoList,
+    safeIndex,
+    counter: photoList.length ? `${safeIndex + 1}/${photoList.length}` : '0/0',
+  };
+}
+
+export function nextPreviewPhoto<T>(photoList: T[], safeIndex: number, direction: -1 | 1): T | null {
+  if (!photoList.length) return null;
+  const nextIndex = (safeIndex + direction + photoList.length) % photoList.length;
+  return photoList[nextIndex] || null;
 }
 
 export function isCheckinWorkLog(log: unknown) {
