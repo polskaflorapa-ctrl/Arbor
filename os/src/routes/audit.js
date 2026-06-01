@@ -5,6 +5,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const { validateQuery } = require('../middleware/validate');
 const { z } = require('zod');
 const { listAuditLogs } = require('../services/audit');
+const { validateBody } = require('../middleware/validate');
 
 const router = express.Router();
 
@@ -15,6 +16,13 @@ const auditListQuerySchema = z.object({
   entity_type: z.string().max(120).optional(),
   from: z.string().max(40).optional(),
   to: z.string().max(40).optional(),
+});
+
+const clientEventSchema = z.object({
+  action: z.string().trim().min(1).max(120).regex(/^crm\.integration\./),
+  entity_type: z.enum(['crm_integration_app', 'crm_branch_setup']),
+  entity_id: z.string().max(120).optional().nullable(),
+  metadata: z.any().optional().nullable(),
 });
 
 router.get(
@@ -35,6 +43,25 @@ router.get(
       logger.error('Blad listy audytu', { message: e.message, requestId: req.requestId });
       res.status(500).json({ error: req.t('errors.http.serverError') });
     }
+  }
+);
+
+router.post(
+  '/client-event',
+  authMiddleware,
+  requireRole('Prezes', 'Dyrektor', 'Administrator', 'Kierownik'),
+  validateBody(clientEventSchema),
+  async (req, res) => {
+    const metadata = req.body.metadata && typeof req.body.metadata === 'object' && !Array.isArray(req.body.metadata)
+      ? req.body.metadata
+      : {};
+    await req.auditLog?.({
+      action: req.body.action,
+      entityType: req.body.entity_type,
+      entityId: req.body.entity_id || null,
+      metadata,
+    });
+    res.status(202).json({ ok: true });
   }
 );
 

@@ -5,11 +5,12 @@ const logger = require('../config/logger');
 const { authMiddleware, isDyrektorOrAdmin, isSalesDirector, scopedOddzialId } = require('../middleware/auth');
 const { validateBody } = require('../middleware/validate');
 const { createWorkflowRule, listWorkflowEventsForLead, listWorkflowRules, runWorkflowRules } = require('../services/crmWorkflows');
-const { createIntegrationApp, listIntegrationApps, listIntegrationEvents } = require('../services/crmIntegrations');
+const { createIntegrationApp, getIntegrationAppById, listIntegrationApps, listIntegrationEvents, updateIntegrationApp } = require('../services/crmIntegrations');
 const { generateLeadAssistant } = require('../services/crmAiAssistant');
 const { createTemplate, listTemplates, renderTemplateById } = require('../services/crmMessageTemplates');
 const { createNpsSurvey, getNpsSummary, listNpsSurveys } = require('../services/crmNps');
 const { getMessageProviderStatus, processMessageQueue } = require('../services/crmMessageQueue');
+const { ensureCrmLeadMessagesTable } = require('../services/crmInbox');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -198,6 +199,10 @@ const createIntegrationAppSchema = z.object({
   name:       z.string().trim().min(1, 'name jest wymagany').max(200),
   type:       optStr(100),
   config:     objLike,
+});
+
+const patchIntegrationAppSchema = z.object({
+  active: z.boolean(),
 });
 
 const createTemplateSchema = z.object({
@@ -829,10 +834,56 @@ router.post('/integrations/apps', validateBody(createIntegrationAppSchema), asyn
       config: b.config,
       userId: req.user.id,
     });
+    await req.auditLog?.({
+      action: 'crm.integration.app_created',
+      entityType: 'crm_integration_app',
+      entityId: app.id,
+      metadata: {
+        oddzial_id: oddzialId,
+        name: b.name,
+        type: b.type,
+        channel: b.config?.channel || null,
+        provider: b.config?.provider || null,
+        unified_inbox: b.config?.unified_inbox === true,
+      },
+    });
     res.status(201).json(app);
   } catch (err) {
     logger.error('crm.integrations.apps.create', { message: err.message });
     res.status(500).json({ error: 'Nie udalo sie utworzyc aplikacji integracyjnej CRM' });
+  }
+});
+
+router.patch('/integrations/apps/:id', validateBody(patchIntegrationAppSchema), async (req, res) => {
+  const appId = toInt(req.params.id);
+  if (!appId) return res.status(400).json({ error: 'Nieprawidlowe id aplikacji CRM' });
+  try {
+    const existing = await getIntegrationAppById(appId);
+    if (!existing) return res.status(404).json({ error: 'Aplikacja integracyjna CRM nie znaleziona' });
+    if (!canAccessOddzial(req.user, existing.oddzial_id)) return res.status(403).json({ error: 'Brak dostepu do oddzialu' });
+    const app = await updateIntegrationApp({
+      id: appId,
+      active: req.body.active === true,
+      userId: req.user.id,
+    });
+    await req.auditLog?.({
+      action: app.active ? 'crm.integration.app_enabled' : 'crm.integration.app_paused',
+      entityType: 'crm_integration_app',
+      entityId: app.id,
+      metadata: {
+        oddzial_id: app.oddzial_id,
+        name: app.name,
+        type: app.type,
+        active: app.active === true,
+        channel: app.config?.channel || null,
+        provider: app.config?.provider || null,
+        previous_active: existing.active === true,
+      },
+    });
+    res.json(app);
+  } catch (err) {
+    logger.error('crm.integrations.apps.patch', { message: err.message });
+    res.status(500).json({ error: 'Nie udalo sie zaktualizowac aplikacji integracyjnej CRM' });
   }
 });
 
@@ -1033,6 +1084,7 @@ function safeJsonObject(value) {
 
 async function ensureMessageQueueSchema() {
   if (messageQueueSchemaReady) return;
+  await ensureCrmLeadMessagesTable();
   await pool.query('ALTER TABLE crm_lead_messages ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0');
   await pool.query('ALTER TABLE crm_lead_messages ADD COLUMN IF NOT EXISTS last_error TEXT');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_lead_messages_queue ON crm_lead_messages(status, created_at DESC)');

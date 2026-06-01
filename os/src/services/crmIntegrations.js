@@ -61,6 +61,10 @@ function mapApp(row, { includeToken = false } = {}) {
     token: includeToken ? row.token : undefined,
     webhook_path: `/api/webhooks/crm/${row.token}`,
     config: row.config || {},
+    event_count: Number(row.event_count || 0),
+    last_event_at: row.last_event_at || null,
+    last_event_status: row.last_event_status || null,
+    last_event_type: row.last_event_type || null,
     created_by: row.created_by,
     created_at: row.created_at,
     updated_by: row.updated_by,
@@ -74,11 +78,30 @@ async function listIntegrationApps({ oddzialId = null, includeInactive = false }
   const where = [];
   if (oddzialId) {
     params.push(oddzialId);
-    where.push(`oddzial_id = $${params.length}`);
+    where.push(`a.oddzial_id = $${params.length}`);
   }
-  if (!includeInactive) where.push('active = true');
+  if (!includeInactive) where.push('a.active = true');
   const { rows } = await pool.query(
-    `SELECT * FROM crm_integration_apps ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY active DESC, updated_at DESC, id DESC`,
+    `SELECT a.*,
+            COALESCE(stats.event_count, 0)::int AS event_count,
+            stats.last_event_at,
+            last_event.status AS last_event_status,
+            last_event.event_type AS last_event_type
+     FROM crm_integration_apps a
+     LEFT JOIN (
+       SELECT app_id, COUNT(*) AS event_count, MAX(created_at) AS last_event_at
+       FROM crm_integration_events
+       GROUP BY app_id
+     ) stats ON stats.app_id = a.id
+     LEFT JOIN LATERAL (
+       SELECT status, event_type
+       FROM crm_integration_events e
+       WHERE e.app_id = a.id
+       ORDER BY e.created_at DESC, e.id DESC
+       LIMIT 1
+     ) last_event ON true
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY a.active DESC, a.updated_at DESC, a.id DESC`,
     params
   );
   return rows.map((row) => mapApp(row));
@@ -105,6 +128,26 @@ async function createIntegrationApp({ oddzialId, name, type, config, userId }) {
     ]
   );
   return mapApp(rows[0], { includeToken: true });
+}
+
+async function getIntegrationAppById(id) {
+  await ensureCrmIntegrationTables();
+  const { rows } = await pool.query('SELECT * FROM crm_integration_apps WHERE id = $1', [id]);
+  return rows[0] ? mapApp(rows[0]) : null;
+}
+
+async function updateIntegrationApp({ id, active, userId }) {
+  await ensureCrmIntegrationTables();
+  const { rows } = await pool.query(
+    `UPDATE crm_integration_apps
+     SET active = $2,
+         updated_by = $3,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [id, active, userId || null]
+  );
+  return rows[0] ? mapApp(rows[0]) : null;
 }
 
 async function listIntegrationEvents({ oddzialId = null, limit = 100 } = {}) {
@@ -144,8 +187,11 @@ async function ingestWebhook({ token, payload }) {
   const app = (await pool.query('SELECT * FROM crm_integration_apps WHERE token = $1 AND active = true', [token])).rows[0];
   if (!app) return { status: 404, body: { error: 'integration not found' } };
   const body = safeObject(payload);
+  const appConfig = safeObject(app.config);
   const externalId = String(body.external_id || body.id || '').trim() || null;
   const eventType = String(body.event_type || body.type || 'lead.created').trim().slice(0, 80);
+  const channel = String(body.channel || appConfig.channel || 'webchat').trim().toLowerCase().slice(0, 32) || 'webchat';
+  const source = String(body.source || appConfig.source || app.name || 'webhook').trim().slice(0, 50) || 'webhook';
   try {
     const leadTitle = String(body.title || body.name || body.client_name || '').trim();
     const messageText = String(body.message || body.body || '').trim();
@@ -162,7 +208,7 @@ async function ingestWebhook({ token, payload }) {
           leadTitle,
           app.oddzial_id,
           null,
-          String(body.source || app.name || 'webhook').trim().slice(0, 50) || 'webhook',
+          source,
           Number(body.value || 0) || 0,
           String(body.phone || '').trim() || null,
           String(body.email || '').trim() || null,
@@ -180,7 +226,7 @@ async function ingestWebhook({ token, payload }) {
         ) VALUES ($1,$2,'inbound',$3,$4,$5,'received',$6,$7::jsonb,NOW())`,
         [
           leadId,
-          String(body.channel || 'webchat').trim().toLowerCase().slice(0, 32),
+          channel,
           String(body.sender_name || body.client_name || '').trim() || null,
           String(body.sender_handle || body.phone || body.email || '').trim() || null,
           messageText,
@@ -203,7 +249,9 @@ async function ingestWebhook({ token, payload }) {
 module.exports = {
   createIntegrationApp,
   ensureCrmIntegrationTables,
+  getIntegrationAppById,
   ingestWebhook,
   listIntegrationApps,
   listIntegrationEvents,
+  updateIntegrationApp,
 };

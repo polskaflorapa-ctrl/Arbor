@@ -12,6 +12,7 @@ import useTimedMessage from '../hooks/useTimedMessage';
 
 const EMPTY_STATS = { total: 0, sent_demo: 0, byChannel: { sms: 0, email: 0, push: 0 } };
 const ROLLBACK_MAX_AGE_DAYS = 14;
+const CRM_REACTION_AUDIT_MAX_AGE_DAYS = 30;
 const CRM_CHANNEL_OPTIONS = [
   { value: 'whatsapp', label: 'WhatsApp' },
   { value: 'instagram', label: 'Instagram' },
@@ -69,6 +70,7 @@ export default function Integracje() {
   const [rollbackConfirmId, setRollbackConfirmId] = useState(null);
   const [crmApps, setCrmApps] = useState([]);
   const [crmEvents, setCrmEvents] = useState([]);
+  const [crmIntegrationAudits, setCrmIntegrationAudits] = useState([]);
   const [branchSetupStatuses, setBranchSetupStatuses] = useState([]);
   const [crmAppForm, setCrmAppForm] = useState({ name: 'Landing widget', type: 'widget', oddzial_id: '' });
   const [crmChannelForm, setCrmChannelForm] = useState({
@@ -83,6 +85,7 @@ export default function Integracje() {
   const [branchInboxCreatingId, setBranchInboxCreatingId] = useState(null);
   const [branchSetupFilter, setBranchSetupFilter] = useState('todo');
   const [branchSetupShowAll, setBranchSetupShowAll] = useState(false);
+  const [expandedBranchHistoryId, setExpandedBranchHistoryId] = useState(null);
   const [kommoSync, setKommoSync] = useState({ queue: [], inbound_events: [], summary: {} });
   const [kommoConfig, setKommoConfig] = useState(KOMMO_DEFAULT_CONFIG);
   const [kommoConfigForm, setKommoConfigForm] = useState({
@@ -121,6 +124,10 @@ export default function Integracje() {
         api.get('/crm/integrations/apps', { headers, params: { include_inactive: true } }).catch(() => ({ data: [] })),
         api.get('/crm/integrations/events', { headers }).catch(() => ({ data: [] })),
       ]);
+      const [crmBranchAuditRes, crmAppAuditRes] = await Promise.all([
+        api.get('/audit', { headers, params: { entity_type: 'crm_branch_setup', limit: 100 } }).catch(() => ({ data: { items: [] } })),
+        api.get('/audit', { headers, params: { entity_type: 'crm_integration_app', limit: 100 } }).catch(() => ({ data: { items: [] } })),
+      ]);
       const branchSetupRes = await api.get('/telephony/voice-agent/polska-flora/integrations/status', { headers }).catch(() => ({
         data: { items: [] },
       }));
@@ -144,6 +151,10 @@ export default function Integracje() {
       });
       setCrmApps(Array.isArray(crmAppsRes.data) ? crmAppsRes.data : []);
       setCrmEvents(Array.isArray(crmEventsRes.data) ? crmEventsRes.data : []);
+      setCrmIntegrationAudits([
+        ...(Array.isArray(crmBranchAuditRes.data?.items) ? crmBranchAuditRes.data.items : []),
+        ...(Array.isArray(crmAppAuditRes.data?.items) ? crmAppAuditRes.data.items : []),
+      ].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()));
       setBranchSetupStatuses(Array.isArray(branchSetupRes.data?.items) ? branchSetupRes.data.items : []);
       setKommoSync({
         queue: Array.isArray(kommoSyncRes.data?.queue) ? kommoSyncRes.data.queue : [],
@@ -345,10 +356,51 @@ export default function Integracje() {
     return `${count} eventow / ostatni: ${status} / ${lastAt}`;
   };
 
+  const formatCrmAuditAction = (action) => ({
+    'crm.integration.app_created': 'Utworzono kanal',
+    'crm.integration.app_enabled': 'Wlaczono kanal',
+    'crm.integration.app_paused': 'Wstrzymano kanal',
+    'crm.integration.branch_inbox_created_and_tested': 'Utworzono i przetestowano Inbox',
+    'crm.integration.branch_history_copied': 'Skopiowano historie',
+    'crm.integration.branch_package_copied': 'Skopiowano komplet',
+    'crm.integration.branch_packages_copied': 'Skopiowano komplety',
+  }[action] || action || 'Brak audytu');
+
+  const logCrmIntegrationAudit = async ({ action, entityType = 'crm_branch_setup', entityId, metadata }) => {
+    try {
+      const token = getStoredToken();
+      if (!token) return;
+      await api.post('/audit/client-event', {
+        action,
+        entity_type: entityType,
+        entity_id: entityId != null ? String(entityId) : null,
+        metadata,
+      }, { headers: authHeaders(token) });
+    } catch {
+      // Audyt panelowy nie blokuje pracy operatora.
+    }
+  };
+
   const branchSetupRows = useMemo(() => branchSetupStatuses.map((branch) => {
     const oddzialId = Number(branch.oddzial_id || 0);
     const crmChannels = crmApps.filter((app) => app?.config?.unified_inbox && Number(app.oddzial_id || 0) === oddzialId);
     const activeCrmChannels = crmChannels.filter((app) => app.active === true);
+    const channelIds = new Set(crmChannels.map((app) => String(app.id)));
+    const audits = crmIntegrationAudits.filter((item) => {
+      const metaOddzial = item?.metadata?.oddzial_id ?? item?.oddzial_id;
+      if (String(metaOddzial || '') === String(oddzialId)) return true;
+      return item?.entity_type === 'crm_integration_app' && channelIds.has(String(item.entity_id || ''));
+    });
+    const lastAudit = audits[0] || (
+      crmChannels[0]
+        ? {
+          action: 'crm.integration.app_created',
+          created_at: crmChannels[0].created_at || crmChannels[0].updated_at || null,
+        }
+        : null
+    );
+    const lastAuditAtMs = lastAudit?.created_at ? new Date(lastAudit.created_at).getTime() : 0;
+    const auditIsStale = !lastAuditAtMs || Number.isNaN(lastAuditAtMs) || (Date.now() - lastAuditAtMs > CRM_REACTION_AUDIT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
     const hasAgent = branch.integration_status === 'active';
     const hasPhone = Boolean(String(branch.telefon || '').trim());
     const hasSms = Boolean(String(branch.sms_sender_id || branch.telefon || '').trim());
@@ -363,6 +415,11 @@ export default function Integracje() {
       activeCrmChannels.length ? null : 'kanal inbox',
       lastTestOk ? null : 'test',
     ].filter(Boolean);
+    const reactionReasons = [
+      ...blockers,
+      crmChannels.length > activeCrmChannels.length ? 'kanal w pauzie' : null,
+      auditIsStale ? 'audyt podpiecia' : null,
+    ].filter(Boolean);
     const ready = blockers.length === 0;
     return {
       ...branch,
@@ -370,6 +427,10 @@ export default function Integracje() {
       blockers,
       crmChannels,
       activeCrmChannels,
+      audits,
+      lastAudit,
+      reactionReasons,
+      requiresReaction: reactionReasons.length > 0,
       readyCount: [hasAgent, hasPhone, hasSms, activeCrmChannels.length > 0, lastTestOk].filter(Boolean).length,
       testStatusLabel,
       testStatusTone,
@@ -379,7 +440,7 @@ export default function Integracje() {
     if (a.readyCount !== b.readyCount) return a.readyCount - b.readyCount;
     if (a.blockers.length !== b.blockers.length) return b.blockers.length - a.blockers.length;
     return String(a.oddzial_name || '').localeCompare(String(b.oddzial_name || ''), 'pl');
-  }), [branchSetupStatuses, crmApps]);
+  }), [branchSetupStatuses, crmApps, crmIntegrationAudits]);
 
   const branchSetupSummary = useMemo(() => branchSetupRows.reduce((acc, row) => {
     acc.total += 1;
@@ -387,12 +448,14 @@ export default function Integracje() {
     else acc.todo += 1;
     if (row.blockers.includes('kanal inbox')) acc.missingInbox += 1;
     if (row.blockers.includes('test')) acc.missingTest += 1;
+    if (row.requiresReaction) acc.requiresReaction += 1;
     return acc;
-  }, { total: 0, ready: 0, todo: 0, missingInbox: 0, missingTest: 0 }), [branchSetupRows]);
+  }, { total: 0, ready: 0, todo: 0, missingInbox: 0, missingTest: 0, requiresReaction: 0 }), [branchSetupRows]);
 
   const filteredBranchSetupRows = useMemo(() => {
     if (branchSetupFilter === 'ready') return branchSetupRows.filter((row) => row.ready);
     if (branchSetupFilter === 'todo') return branchSetupRows.filter((row) => !row.ready);
+    if (branchSetupFilter === 'requires_reaction') return branchSetupRows.filter((row) => row.requiresReaction);
     if (branchSetupFilter === 'missing_inbox') return branchSetupRows.filter((row) => row.blockers.includes('kanal inbox'));
     if (branchSetupFilter === 'missing_test') return branchSetupRows.filter((row) => row.blockers.includes('test'));
     return branchSetupRows;
@@ -454,11 +517,63 @@ export default function Integracje() {
     ].join('\n');
   };
 
+  const buildBranchSetupHistory = (row) => {
+    if (!row) return '';
+    const auditLines = row.audits.length
+      ? row.audits.map((item) => [
+        `- ${item.created_at ? new Date(item.created_at).toLocaleString('pl-PL') : 'brak daty'} / ${formatCrmAuditAction(item.action)}`,
+        `  Uzytkownik: ${item.user_login || item.user_id || 'system'}`,
+        item.metadata?.webhook_path ? `  Webhook: ${item.metadata.webhook_path}` : null,
+        item.metadata?.lead_id ? `  Lead testowy: #${item.metadata.lead_id}` : null,
+        item.metadata?.blockers ? `  Braki: ${Array.isArray(item.metadata.blockers) ? item.metadata.blockers.join(', ') : item.metadata.blockers}` : null,
+      ].filter(Boolean).join('\n'))
+      : ['- Brak historii audytu dla oddzialu'];
+    return [
+      `Historia podpiecia: ${row.oddzial_name || `Oddzial #${row.oddzial_id}`}`,
+      `Oddzial ID: ${row.oddzial_id || '-'}`,
+      `Status teraz: ${row.ready ? 'gotowy' : 'do dopiecia'}`,
+      `Reakcja: ${row.requiresReaction ? row.reactionReasons.join(', ') : 'nie wymaga'}`,
+      '',
+      ...auditLines,
+    ].join('\n');
+  };
+
+  const copyBranchSetupHistory = async (row) => {
+    const text = buildBranchSetupHistory(row);
+    try {
+      await navigator.clipboard.writeText(text);
+      await logCrmIntegrationAudit({
+        action: 'crm.integration.branch_history_copied',
+        entityId: row.oddzial_id,
+        metadata: {
+          oddzial_id: row.oddzial_id,
+          oddzial_name: row.oddzial_name || null,
+          audit_count: row.audits.length,
+        },
+      });
+      showMessage(successMessage(`Historia podpiecia skopiowana dla ${row.oddzial_name || 'oddzialu'}.`));
+    } catch {
+      showMessage(errorMessage('Nie udalo sie skopiowac historii podpiecia oddzialu.'));
+    }
+  };
+
   const copyBranchSetupPackage = async (row) => {
     if (!row) return;
     const text = buildBranchSetupPackage(row);
     try {
       await navigator.clipboard.writeText(text);
+      await logCrmIntegrationAudit({
+        action: 'crm.integration.branch_package_copied',
+        entityId: row.oddzial_id,
+        metadata: {
+          oddzial_id: row.oddzial_id,
+          oddzial_name: row.oddzial_name || null,
+          ready: row.ready,
+          ready_count: row.readyCount,
+          blockers: row.blockers,
+          channels: row.crmChannels.map((app) => ({ id: app.id, name: app.name, active: app.active, webhook_path: app.webhook_path })),
+        },
+      });
       showMessage(successMessage(`Paczka podpiecia skopiowana dla ${row.oddzial_name || 'oddzialu'}.`));
     } catch {
       showMessage(errorMessage('Nie udalo sie skopiowac paczki podpiecia oddzialu.'));
@@ -480,6 +595,16 @@ export default function Integracje() {
     ].join('\n\n---\n\n');
     try {
       await navigator.clipboard.writeText(text);
+      await logCrmIntegrationAudit({
+        action: 'crm.integration.branch_packages_copied',
+        entityId: 'visible',
+        metadata: {
+          filter: branchSetupFilter,
+          visible_count: rows.length,
+          total_in_filter: filteredBranchSetupRows.length,
+          oddzial_ids: rows.map((row) => row.oddzial_id),
+        },
+      });
       showMessage(successMessage(`Skopiowano komplety podpiecia dla ${rows.length} oddzialow.`));
     } catch {
       showMessage(errorMessage('Nie udalo sie skopiowac kompletow podpiecia oddzialow.'));
@@ -595,6 +720,19 @@ export default function Integracje() {
       setCrmChannelForm(form);
       setLatestCrmChannelPackage(pack);
       await navigator.clipboard.writeText(pack).catch(() => {});
+      await logCrmIntegrationAudit({
+        action: 'crm.integration.branch_inbox_created_and_tested',
+        entityId: row.oddzial_id,
+        metadata: {
+          oddzial_id: row.oddzial_id,
+          oddzial_name: row.oddzial_name || null,
+          app_id: createdApp.id || null,
+          webhook_path: createdApp.webhook_path || null,
+          lead_id: testRes?.data?.lead_id || null,
+          channel: form.channel,
+          provider: form.provider,
+        },
+      });
       showMessage(successMessage(`Kanal Inbox utworzony i przetestowany dla ${row.oddzial_name || 'oddzialu'}. Lead #${testRes?.data?.lead_id || '-'}. Paczka skopiowana.`));
       loadData();
     } catch (err) {
@@ -959,6 +1097,7 @@ export default function Integracje() {
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={styles.statusPill}>Gotowe: {branchSetupSummary.ready}/{branchSetupSummary.total}</span>
+                <span style={styles.statusPill}>Wymaga reakcji: {branchSetupSummary.requiresReaction}</span>
                 <span style={styles.statusPill}>Do dopiecia: {branchSetupSummary.todo}</span>
                 <span style={styles.statusPill}>Brak Inbox: {branchSetupSummary.missingInbox}</span>
                 <span style={styles.statusPill}>Brak testu: {branchSetupSummary.missingTest}</span>
@@ -974,6 +1113,7 @@ export default function Integracje() {
                 }}
               >
                 <option value="todo">Tylko do dopiecia</option>
+                <option value="requires_reaction">Wymaga reakcji</option>
                 <option value="all">Wszystkie oddzialy</option>
                 <option value="ready">Gotowe</option>
                 <option value="missing_inbox">Brak Inbox</option>
@@ -995,58 +1135,99 @@ export default function Integracje() {
             {filteredBranchSetupRows.length ? (
               <div style={styles.grid2}>
                 {visibleBranchSetupRows.map((row) => (
-                  <ModernDataRow
-                    key={row.oddzial_id}
-                    title={row.oddzial_name || `Oddzial #${row.oddzial_id}`}
-                    subtitle={`${row.readyCount}/5 gotowe / Inbox: ${row.activeCrmChannels.length}/${row.crmChannels.length} / Agent: ${row.integration_status || 'brak'}`}
-                    meta={row.ready ? 'Gotowy do pracy' : `Braki: ${row.blockers.join(', ')}`}
-                    metrics={[
-                      {
-                        label: row.ready ? 'Status' : 'Braki:',
-                        value: row.ready ? 'Gotowy do pracy' : row.blockers.join(', '),
-                        tone: row.ready ? 'success' : 'warning',
-                        mono: false,
-                      },
-                      {
-                        label: 'Test',
-                        value: row.testStatusLabel,
-                        tone: row.testStatusTone,
-                        mono: false,
-                      },
-                    ]}
-                    tone={row.ready ? 'success' : 'warning'}
-                    status={row.ready ? 'Gotowy' : 'Do dopiecia'}
-                    statusValue={row.ready ? 'ok' : 'todo'}
-                    statusState={row.ready ? 'success' : 'warning'}
-                    actions={(
-                      <>
-                        {row.blockers.includes('kanal inbox') ? (
-                          <button
-                            type="button"
-                            style={styles.btn}
-                            onClick={() => createInboxChannelForBranch(row)}
-                            disabled={branchInboxCreatingId === row.oddzial_id}
-                          >
-                            {branchInboxCreatingId === row.oddzial_id ? 'Tworze i testuje...' : 'Utworz i testuj Inbox'}
+                  <div key={row.oddzial_id} style={styles.branchHistoryWrap}>
+                    <ModernDataRow
+                      title={row.oddzial_name || `Oddzial #${row.oddzial_id}`}
+                      subtitle={`${row.readyCount}/5 gotowe / Inbox: ${row.activeCrmChannels.length}/${row.crmChannels.length} / Agent: ${row.integration_status || 'brak'}`}
+                      meta={row.ready ? 'Gotowy do pracy' : `Braki: ${row.blockers.join(', ')}`}
+                      metrics={[
+                        {
+                          label: row.ready ? 'Status' : 'Braki:',
+                          value: row.ready ? 'Gotowy do pracy' : row.blockers.join(', '),
+                          tone: row.ready ? 'success' : 'warning',
+                          mono: false,
+                        },
+                        {
+                          label: 'Test',
+                          value: row.testStatusLabel,
+                          tone: row.testStatusTone,
+                          mono: false,
+                        },
+                        {
+                          label: 'Ostatnia akcja',
+                          value: row.lastAudit
+                            ? `${formatCrmAuditAction(row.lastAudit.action)} / ${row.lastAudit.created_at ? new Date(row.lastAudit.created_at).toLocaleString('pl-PL') : 'brak daty'}`
+                            : 'Brak audytu',
+                          tone: row.lastAudit ? 'info' : 'warning',
+                          mono: false,
+                        },
+                        {
+                          label: 'Reakcja',
+                          value: row.requiresReaction ? row.reactionReasons.join(', ') : 'Nie wymaga',
+                          tone: row.requiresReaction ? 'danger' : 'success',
+                          mono: false,
+                        },
+                      ]}
+                      tone={row.ready ? 'success' : 'warning'}
+                      status={row.ready ? 'Gotowy' : 'Do dopiecia'}
+                      statusValue={row.ready ? 'ok' : 'todo'}
+                      statusState={row.ready ? 'success' : 'warning'}
+                      actions={(
+                        <>
+                          {row.blockers.includes('kanal inbox') ? (
+                            <button
+                              type="button"
+                              style={styles.btn}
+                              onClick={() => createInboxChannelForBranch(row)}
+                              disabled={branchInboxCreatingId === row.oddzial_id}
+                            >
+                              {branchInboxCreatingId === row.oddzial_id ? 'Tworze i testuje...' : 'Utworz i testuj Inbox'}
+                            </button>
+                          ) : null}
+                          {row.blockers.includes('kanal inbox') ? (
+                            <button type="button" style={styles.btn} onClick={() => prepareInboxChannelForBranch(row)}>
+                              Formularz
+                            </button>
+                          ) : null}
+                          <button type="button" style={styles.btn} onClick={() => setExpandedBranchHistoryId((prev) => (prev === row.oddzial_id ? null : row.oddzial_id))}>
+                            Historia
                           </button>
-                        ) : null}
-                        {row.blockers.includes('kanal inbox') ? (
-                          <button type="button" style={styles.btn} onClick={() => prepareInboxChannelForBranch(row)}>
-                            Formularz
+                          <button type="button" style={styles.btn} onClick={() => copyBranchSetupPackage(row)}>
+                            Kopiuj komplet
                           </button>
-                        ) : null}
-                        <button type="button" style={styles.btn} onClick={() => copyBranchSetupPackage(row)}>
-                          Kopiuj komplet
-                        </button>
-                        <button type="button" style={styles.btn} onClick={() => navigate('/telefonia?tab=agent')}>
-                          Telefonia
-                        </button>
-                        <button type="button" style={styles.btn} onClick={() => navigate('/crm/inbox')}>
-                          Inbox
-                        </button>
-                      </>
-                    )}
-                  />
+                          <button type="button" style={styles.btn} onClick={() => navigate('/telefonia?tab=agent')}>
+                            Telefonia
+                          </button>
+                          <button type="button" style={styles.btn} onClick={() => navigate('/crm/inbox')}>
+                            Inbox
+                          </button>
+                        </>
+                      )}
+                    />
+                    {expandedBranchHistoryId === row.oddzial_id ? (
+                      <div style={styles.branchHistoryPanel}>
+                        <div style={styles.branchHistoryHeader}>
+                          <strong>Historia podpiecia</strong>
+                          <button type="button" style={styles.btn} onClick={() => copyBranchSetupHistory(row)}>
+                            Kopiuj historie
+                          </button>
+                        </div>
+                        {row.audits.length ? row.audits.slice(0, 8).map((item) => (
+                          <div key={item.id || `${item.action}-${item.created_at}`} style={styles.branchHistoryItem}>
+                            <div style={{ fontWeight: 800 }}>{formatCrmAuditAction(item.action)}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                              {(item.created_at ? new Date(item.created_at).toLocaleString('pl-PL') : 'brak daty')} / {item.user_login || item.user_id || 'system'}
+                            </div>
+                            {item.metadata?.webhook_path ? <div style={styles.branchHistoryMeta}>Webhook: {item.metadata.webhook_path}</div> : null}
+                            {item.metadata?.lead_id ? <div style={styles.branchHistoryMeta}>Lead testowy: #{item.metadata.lead_id}</div> : null}
+                            {item.metadata?.blockers ? <div style={styles.branchHistoryMeta}>Braki: {Array.isArray(item.metadata.blockers) ? item.metadata.blockers.join(', ') : item.metadata.blockers}</div> : null}
+                          </div>
+                        )) : (
+                          <div style={styles.empty}>Brak historii audytu dla oddzialu.</div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             ) : (

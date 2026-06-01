@@ -24,7 +24,7 @@ vi.mock('../api', () => ({
 
 const USER_JSON = JSON.stringify({ rola: 'Dyrektor', imie: 'Test', nazwisko: 'User' });
 
-function setupGetMocks({ crmApps = [], branchStatuses = null } = {}) {
+function setupGetMocks({ crmApps = [], branchStatuses = null, auditItems = [] } = {}) {
   api.get.mockImplementation((url) => {
     const path = String(url).split('?')[0];
     if (path === '/notifications') {
@@ -73,6 +73,9 @@ function setupGetMocks({ crmApps = [], branchStatuses = null } = {}) {
     }
     if (path === '/crm/integrations/events') {
       return Promise.resolve({ data: [] });
+    }
+    if (path === '/audit') {
+      return Promise.resolve({ data: { items: auditItems } });
     }
     if (path === '/tasks/kommo-sync/diagnostics') {
       return Promise.resolve({
@@ -278,6 +281,14 @@ describe('Integracje (integration-style)', () => {
           provider: 'meta',
         },
       }],
+      auditItems: [{
+        id: 900,
+        action: 'crm.integration.app_created',
+        entity_type: 'crm_integration_app',
+        entity_id: '7',
+        created_at: '2026-06-01T10:00:00.000Z',
+        metadata: { oddzial_id: 2 },
+      }],
     });
     api.patch.mockResolvedValueOnce({ data: { id: 7, active: false } });
 
@@ -320,6 +331,7 @@ describe('Integracje (integration-style)', () => {
     expect(await screen.findByText('Oddzial Krakow')).toBeInTheDocument();
     expect(screen.getByText(/Gotowe: 1\/1/i)).toBeInTheDocument();
     expect(screen.getByText(/5\/5 gotowe/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Utworzono kanal/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Gotowy/i).length).toBeGreaterThan(0);
   });
 
@@ -351,6 +363,15 @@ describe('Integracje (integration-style)', () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Paczka podpiecia oddzialu: Oddzial Gdansk'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Telefon oddzialu: +48555111222'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('- Dopiac: kanal inbox'));
+      expect(api.post).toHaveBeenCalledWith(
+        '/audit/client-event',
+        expect.objectContaining({
+          action: 'crm.integration.branch_package_copied',
+          entity_type: 'crm_branch_setup',
+          entity_id: '3',
+        }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Kopiuj komplety' }));
@@ -358,6 +379,14 @@ describe('Integracje (integration-style)', () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Zbiorcze paczki podpiecia oddzialow'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Widoczne oddzialy: 1/1'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('Paczka podpiecia oddzialu: Oddzial Gdansk'));
+      expect(api.post).toHaveBeenCalledWith(
+        '/audit/client-event',
+        expect.objectContaining({
+          action: 'crm.integration.branch_packages_copied',
+          entity_id: 'visible',
+        }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
     });
 
     await userEvent.click(screen.getByRole('button', { name: /Formularz/i }));
@@ -414,6 +443,55 @@ describe('Integracje (integration-style)', () => {
     expect(screen.getAllByText('Brak testu').length).toBeGreaterThan(0);
     expect(screen.getByText('Test nieudany')).toBeInTheDocument();
     expect(screen.getByText('Test wyslany')).toBeInTheDocument();
+  });
+
+  test('filters branch setup checklist by required reaction reasons', async () => {
+    setupGetMocks({
+      crmApps: [
+        {
+          id: 11,
+          oddzial_id: 8,
+          active: true,
+          created_at: '2026-06-01T10:00:00.000Z',
+          config: { unified_inbox: true, channel: 'whatsapp' },
+        },
+        {
+          id: 12,
+          oddzial_id: 9,
+          active: false,
+          created_at: '2026-04-01T10:00:00.000Z',
+          config: { unified_inbox: true, channel: 'whatsapp' },
+        },
+      ],
+      branchStatuses: [
+        {
+          oddzial_id: 8,
+          oddzial_name: 'Oddzial Zdrowy',
+          telefon: '+48111000000',
+          sms_sender_id: 'ARBOR',
+          integration_status: 'active',
+          last_test_log_status: 'ok',
+        },
+        {
+          oddzial_id: 9,
+          oddzial_name: 'Oddzial Reakcja',
+          telefon: '+48222000000',
+          sms_sender_id: 'ARBOR',
+          integration_status: 'active',
+          last_test_log_status: 'ok',
+        },
+      ],
+    });
+
+    renderIntegracje();
+
+    await userEvent.selectOptions(screen.getByDisplayValue('Tylko do dopiecia'), 'requires_reaction');
+
+    expect(await screen.findByText('Oddzial Reakcja')).toBeInTheDocument();
+    expect(screen.queryByText('Oddzial Zdrowy')).not.toBeInTheDocument();
+    expect(screen.getByText(/kanal w pauzie/i)).toBeInTheDocument();
+    expect(screen.getByText(/audyt podpiecia/i)).toBeInTheDocument();
+    expect(screen.getByText(/Wymaga reakcji: 1/i)).toBeInTheDocument();
   });
 
   test('creates and tests a missing Inbox channel directly from branch checklist', async () => {
