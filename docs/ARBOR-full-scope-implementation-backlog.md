@@ -77,7 +77,8 @@
 - [x] **P0 RBAC branch scope audit**: `docs/RBAC-BRANCH-SCOPE-AUDIT.md` definiuje macierz Prezes/Dyrektor/Admin/Kierownik/Brygadzista, branch scope, team scope i finansowe NO-GO; `npm run verify:rbac-scope` pilnuje JWT, `oddzial_id`, `ekipa_id`, guardow backendu, BI redakcji finansow i web route guards.
 - [x] **P0 dispatcher architecture decision**: `docs/DISPATCHER-ARCHITECTURE-DECISION.md` wybiera OR-Tools/self-hosted jako docelowy solver, zostawia `arbor-clarke-wright` jako fallback pilota, ogranicza Google/Mapbox do macierzy czasu/ETA i koszt API; `npm run verify:dispatcher-adr` pilnuje ADR, runtime `solver_engine`, limitow i checklist.
 - [x] **P0 mobile problem/offline incident flow**: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` opisuje PROBLEM z notatka/zdjeciem, pending offline, `queueTaskProblemOffline`, idempotentny flush, backendowe `notifications` dla kierownika i testy; `npm run verify:mobile-problem-flow` pilnuje kontraktu mobile/backend.
-- [ ] **Nastepny pakiet**: mobile before/after photo enforcement - konfigurowalna blokada finish bez zdjec Przed/Po, offline UX i smoke EPIC 2.3.
+- [x] **P0 mobile before/after photo enforcement**: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md` opisuje konfigurowalna blokade finish bez zdjec Przed/Po, mobile respektuje `finish_requirements`, a backend egzekwuje globalne i per-oddzialowe `TASK_FINISH_REQUIRE_*_PHOTO_BRANCHES`; `npm run verify:mobile-before-after-photo` i `npm run verify:mobile-photo-enforcement` pilnuja kontraktu.
+- [ ] **Nastepny pakiet**: mobile material usage/offline cost flow - raport zuzycia paliwo/material/odpady, pending offline i smoke EPIC 2.4.
 
 ---
 
@@ -132,7 +133,7 @@ flowchart LR
 
 - [ ] **2.1** START / STOP powiązane z `work_logs` + GPS (zgodność z `os` — już częściowo; dopracować edge cases).
 - [x] **2.2** Przycisk PROBLEM: typ zgloszenia, zdjecie, notatka, powiadomienie do kierownika. `mobile/app/zlecenie/[id].tsx`, `queueTaskProblemOffline`, backendowe `notifications` i `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` domykaja flow.
-- [ ] **2.3** Wymuszone zdjęcia „Przed / Po” (blokada zakończenia bez zdjęć — reguła konfigurowalna per oddział).
+- [x] **2.3** Wymuszone zdjecia "Przed / Po" (blokada zakonczenia bez zdjec - regula konfigurowalna per oddzial). `finish_requirements`, `TASK_FINISH_REQUIRE_PRZED_PHOTO_BRANCHES`, `TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES`, test backendu i `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md` domykaja flow.
 - [ ] **2.4** Raport zużycia (paliwo / materiał — pola + sync).
 - [ ] **2.5** Offline-first **v2**: lokalna kolejka + **idempotency-key** na serwerze + rozstrzyganie konfliktów po sync.
 - [ ] **2.6** Pobranie listy dzisiejszych zleceń offline (cache + TTL).

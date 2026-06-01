@@ -12,6 +12,7 @@ const steps = [
   ['error monitoring tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:error-monitoring']]],
   ['release QA status tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:release-qa-status']]],
   ['device QA note tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:device-qa-note']]],
+  ['zlecenie detail helper tests', [npmCommand, [...npmArgsPrefix, 'run', 'test:zlecenie-detail']]],
 ];
 
 if (process.env.SMOKE_API === '1') {

@@ -356,9 +356,15 @@ async function testTaskDetailCachePreservesPendingOfflineFieldFlow() {
     ],
     zdjecia: [
       {
-        id: 'task-101-photo-pending',
+        id: 'task-101-photo-before-pending',
+        typ: 'przed',
+        url: 'file:///tmp/photo-before.jpg',
+        offline_pending: true,
+      },
+      {
+        id: 'task-101-photo-after-pending',
         typ: 'po',
-        url: 'file:///tmp/photo.jpg',
+        url: 'file:///tmp/photo-after.jpg',
         offline_pending: true,
       },
     ],
@@ -372,8 +378,9 @@ async function testTaskDetailCachePreservesPendingOfflineFieldFlow() {
   assert.equal(cached.logi.some((row) => row.offline_pending === true), true);
   assert.equal(cached.logi.some((row) => row.offline_finish_pending === true), true);
   assert.equal(cached.problemy[0].offline_pending, true);
-  assert.equal(cached.zdjecia[0].offline_pending, true);
-  assert.equal(cached.zdjecia[0].url, 'file:///tmp/photo.jpg');
+  assert.equal(cached.zdjecia.every((row) => row.offline_pending === true), true);
+  assert.deepEqual(cached.zdjecia.map((row) => row.typ), ['przed', 'po']);
+  assert.deepEqual(cached.zdjecia.map((row) => row.url), ['file:///tmp/photo-before.jpg', 'file:///tmp/photo-after.jpg']);
 }
 
 async function testQueueTaskProblemOfflineUsesStableIdAndDedupe() {

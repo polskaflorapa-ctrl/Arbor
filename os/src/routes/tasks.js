@@ -381,14 +381,36 @@ const isEstimator = (user) => user.rola === 'Wyceniający' || user.rola === 'Wyc
 const canSeeAllTasks = (user) => isDyrektorOrAdmin(user) || isSalesDirector(user);
 const canManageTaskBackoffice = (user) => isDyrektorOrAdmin(user) || isKierownik(user) || isSpecjalista(user);
 
-/** F3.5 — wymuszenie zdjęcia „Po” przy finish (ekipa): ustaw `TASK_FINISH_REQUIRE_PO_PHOTO=1` na serwerze. */
-function finishRequirePoPhoto() {
-  return process.env.TASK_FINISH_REQUIRE_PO_PHOTO === '1';
+function envBranchList(name) {
+  return String(process.env[name] || '')
+    .split(/[,\s;]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
 }
 
-/** F3.6 — opcjonalnie wymagane zdjęcie „Przed” lub check-in: `TASK_FINISH_REQUIRE_PRZED_PHOTO=1`. */
-function finishRequirePrzedPhoto() {
-  return process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO === '1';
+function envFlagForBranch(globalName, branchListName, oddzialId) {
+  if (process.env[globalName] === '1') return true;
+  const branches = envBranchList(branchListName);
+  if (!branches.length || oddzialId == null) return false;
+  return branches.includes(String(oddzialId));
+}
+
+/** F3.5 — wymuszenie zdjecia "Po" przy finish (ekipa): globalnie albo lista oddzialow. */
+function finishRequirePoPhoto(oddzialId = null) {
+  return envFlagForBranch(
+    'TASK_FINISH_REQUIRE_PO_PHOTO',
+    'TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES',
+    oddzialId
+  );
+}
+
+/** F3.6 — wymagane zdjecie "Przed" lub check-in: globalnie albo lista oddzialow. */
+function finishRequirePrzedPhoto(oddzialId = null) {
+  return envFlagForBranch(
+    'TASK_FINISH_REQUIRE_PRZED_PHOTO',
+    'TASK_FINISH_REQUIRE_PRZED_PHOTO_BRANCHES',
+    oddzialId
+  );
 }
 
 /** F3.7 — wymuszenie listy `zuzyte_materialy` przy finish (ekipa): `TASK_FINISH_REQUIRE_MATERIAL_USAGE=1`. */
@@ -397,16 +419,18 @@ function finishRequireMaterialUsage() {
 }
 
 /** @param {import('pg').PoolClient} client */
-async function assertTeamFinishPhotoRules(client, taskId) {
-  if (!finishRequirePoPhoto()) return;
+async function assertTeamFinishPhotoRules(client, task) {
+  const taskId = task?.id;
+  const requirePo = finishRequirePoPhoto(task?.oddzial_id);
+  const requirePrzed = finishRequirePrzedPhoto(task?.oddzial_id);
+  if (!requirePo && !requirePrzed) return;
   const counts = await countTaskFinishPhotos(client, taskId);
-  if (counts.po < FINISH_PHOTO_MIN.po) {
+  if (requirePo && counts.po < FINISH_PHOTO_MIN.po) {
     const e = new Error('po');
     e.code = 'TASK_FINISH_PO_PHOTO_REQUIRED';
     throw e;
   }
-  if (!finishRequirePrzedPhoto()) return;
-  if (counts.przed < FINISH_PHOTO_MIN.przed) {
+  if (requirePrzed && counts.przed < FINISH_PHOTO_MIN.przed) {
     const e = new Error('przed');
     e.code = 'TASK_FINISH_PRZED_PHOTO_REQUIRED';
     throw e;
@@ -3662,8 +3686,8 @@ router.get('/:id', authMiddleware, validateParams(taskIdParamsSchema), requireTa
     const tid = req.params.id;
     const { po: poCount, przed: prCount } = await countTaskFinishPhotos(pool, tid);
     row.finish_requirements = {
-      require_po_photo: finishRequirePoPhoto(),
-      require_przed_photo: finishRequirePrzedPhoto(),
+      require_po_photo: finishRequirePoPhoto(row.oddzial_id),
+      require_przed_photo: finishRequirePrzedPhoto(row.oddzial_id),
       require_material_usage: finishRequireMaterialUsage(),
       has_po_photo: poCount >= FINISH_PHOTO_MIN.po,
       has_przed_photo: prCount >= FINISH_PHOTO_MIN.przed,
@@ -4600,7 +4624,7 @@ router.post(
       }
       if (isTeamScoped(req.user)) {
         try {
-          await assertTeamFinishPhotoRules(client, taskId);
+          await assertTeamFinishPhotoRules(client, task);
         } catch (e) {
           await client.query('ROLLBACK');
           if (e.code === 'TASK_FINISH_PO_PHOTO_REQUIRED') {

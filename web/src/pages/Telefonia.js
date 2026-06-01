@@ -14,7 +14,7 @@ import { normalizeSmsHistoryRow } from '../utils/smsHistoryNormalize';
 /** Rozmiar strony dla GET /api/sms/historia?limit=&offset= (ARBOR-OS). */
 const SMS_HIST_PAGE_SIZE = 15;
 const BRANCH_STATUS_VIEW_KEY = 'arbor_telefonia_branch_status_view_v1';
-const BRANCH_STATUS_FILTERS = new Set(['all', 'ready', 'todo', 'attention']);
+const BRANCH_STATUS_FILTERS = new Set(['all', 'ready', 'todo', 'attention', 'retest']);
 const BRANCH_STATUS_SORTS = new Set(['needs', 'stage', 'ready', 'activity', 'name']);
 const BRANCH_STAGE_FILTERS = new Set(['all', 'Do danych', 'Do testu', 'Uwagi', 'Do dopiecia', 'Gotowy']);
 const BRANCH_STAGE_ORDER = {
@@ -1589,8 +1589,9 @@ export default function Telefonia() {
     if (readiness.percent >= 100 && !readiness.hasErrors) acc.ready += 1;
     else acc.todo += 1;
     if (readiness.hasErrors || readiness.needsReview) acc.attention += 1;
+    if (row?.last_test_log_status === 'ok' && !branchHasFreshOkTest(row)) acc.retest += 1;
     return acc;
-  }, { ready: 0, todo: 0, attention: 0 });
+  }, { ready: 0, todo: 0, attention: 0, retest: 0 });
   const branchStageSummary = branchIntegrationStatuses.reduce((acc, row) => {
     const stage = branchLaunchStage(row).label;
     acc[stage] = Number(acc[stage] || 0) + 1;
@@ -1604,6 +1605,7 @@ export default function Telefonia() {
     if (branchStatusFilter === 'ready') return readiness.percent >= 100 && !readiness.hasErrors;
     if (branchStatusFilter === 'todo') return readiness.percent < 100 || readiness.hasErrors;
     if (branchStatusFilter === 'attention') return readiness.hasErrors || readiness.needsReview;
+    if (branchStatusFilter === 'retest') return row?.last_test_log_status === 'ok' && !branchHasFreshOkTest(row);
     return true;
   }).filter((row) => {
     if (branchStageFilter === 'all') return true;
@@ -1648,6 +1650,9 @@ export default function Telefonia() {
     : firstVisibleBranchStatus;
   const branchStatusName = (row) => row?.oddzial_name || (row?.oddzial_id ? `Oddzial #${row.oddzial_id}` : 'brak');
   const visibleBranchWorkQueue = filteredBranchIntegrationStatuses.slice(0, 3);
+  const staleTestBranchStatuses = branchIntegrationStatuses
+    .filter((row) => row?.last_test_log_status === 'ok' && !branchHasFreshOkTest(row))
+    .sort((a, b) => Number(branchLastTestAgeDays(b) || 0) - Number(branchLastTestAgeDays(a) || 0));
   const nextBranchToFix = branchIntegrationStatuses
     .map((row) => ({ row, readiness: branchReadiness(row) }))
     .filter(({ readiness }) => readiness.percent < 100 || readiness.hasErrors || readiness.needsReview)
@@ -1681,6 +1686,7 @@ export default function Telefonia() {
       `Gotowe: ${branchReadinessSummary.ready}`,
       `Do dopiecia: ${branchReadinessSummary.todo}`,
       `Uwagi operacyjne: ${branchReadinessSummary.attention}`,
+      `Do ponownego testu: ${branchReadinessSummary.retest}`,
       '',
     ];
     branchIntegrationStatuses.forEach((row) => {
@@ -1746,6 +1752,22 @@ export default function Telefonia() {
       lines.push(`   Nastepny krok: ${branchNextAction(row)}`);
     });
     if (!rowsWithBlockers.length) lines.push('Brak brakow w aktualnym widoku.');
+    return lines.join('\n');
+  };
+  const buildStaleBranchTestsText = () => {
+    const lines = [
+      `Oddzialy do ponownego testu - test OK starszy niz ${BRANCH_TEST_STALE_DAYS} dni`,
+      `Liczba oddzialow: ${staleTestBranchStatuses.length}`,
+      '',
+    ];
+    staleTestBranchStatuses.forEach((row, index) => {
+      const ageDays = branchLastTestAgeDays(row);
+      lines.push(`${index + 1}. ${branchStatusName(row)} - ${ageDays ?? 'brak'} dni od testu OK`);
+      lines.push(`   Telefon: ${row.telefon || 'brak'}, SMS: ${row.sms_sender_id || row.telefon || 'globalny/brak'}`);
+      lines.push(`   Ostatni test: ${row.last_test_log_at ? formatAgentDate(row.last_test_log_at) : 'brak'}`);
+      lines.push(`   ${branchNextAction(row)}`);
+    });
+    if (!staleTestBranchStatuses.length) lines.push('Brak oddzialow do ponownego testu.');
     return lines.join('\n');
   };
   const buildBranchStageSummaryText = () => [
@@ -2029,6 +2051,14 @@ export default function Telefonia() {
                 <button
                   type="button"
                   style={s.rowBtn}
+                  onClick={() => copyAgentText(buildStaleBranchTestsText(), 'Oddzialy do ponownego testu')}
+                  disabled={!staleTestBranchStatuses.length}
+                >
+                  Kopiuj retesty
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtn}
                   onClick={() => copyAgentText(buildBranchStageSummaryText(), 'Podsumowanie etapow')}
                   disabled={!branchIntegrationStatuses.length}
                 >
@@ -2063,6 +2093,7 @@ export default function Telefonia() {
                     <div style={s.branchRolloutMeta}>
                       <span>Gotowy: {branchStageSummary.Gotowy || 0}</span>
                       <span>Do testu: {branchStageSummary['Do testu'] || 0}</span>
+                      <span>Retest: {branchReadinessSummary.retest}</span>
                       <span>Do danych: {branchStageSummary['Do danych'] || 0}</span>
                     </div>
                   </div>
@@ -2090,6 +2121,14 @@ export default function Telefonia() {
                     >
                       <span>Uwagi operacyjne</span>
                       <strong>{branchReadinessSummary.attention}</strong>
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...s.branchStatusKpi, ...(branchStatusFilter === 'retest' ? s.branchStatusKpiActive : null) }}
+                      onClick={() => setBranchStatusFilter(branchStatusFilter === 'retest' ? 'all' : 'retest')}
+                    >
+                      <span>Do ponownego testu</span>
+                      <strong>{branchReadinessSummary.retest}</strong>
                     </button>
                   </div>
                   <div style={s.branchSearchRow}>
@@ -2129,7 +2168,7 @@ export default function Telefonia() {
                     <div style={s.branchFilterNotice}>
                       Wyniki: {filteredBranchIntegrationStatuses.length} / {branchIntegrationStatuses.length}
                       <span>
-                        {branchStatusFilter === 'all' ? 'Wszystkie statusy' : branchStatusFilter === 'ready' ? 'Gotowe' : branchStatusFilter === 'todo' ? 'Do dopiecia' : 'Uwagi operacyjne'}
+                        {branchStatusFilter === 'all' ? 'Wszystkie statusy' : branchStatusFilter === 'ready' ? 'Gotowe' : branchStatusFilter === 'todo' ? 'Do dopiecia' : branchStatusFilter === 'retest' ? 'Do ponownego testu' : 'Uwagi operacyjne'}
                         {branchStageFilter !== 'all' ? ` / etap: ${branchStageFilter}` : ''}
                       </span>
                     </div>

@@ -55,6 +55,7 @@ import {
   appendUniqueLine,
 } from '../../constants/task-form';
 import { triggerHaptic } from '../../utils/haptics';
+import { ymdFromValue } from '../../utils/zlecenie-detail';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 type FinishCostSuggestion = {
@@ -115,313 +116,6 @@ const SAFETY_CHECKLIST_ITEMS = [
 const DEFAULT_FIELD_SETTLEMENT = TASK_SETTLEMENT_OPTIONS[0]?.note || '';
 type PhotoTypeKey = (typeof TYP_ZDJECIA_KEYS)[number];
 type PhotoFilterKey = 'all' | PhotoTypeKey;
-
-type FinishRequirements = {
-  require_po_photo: boolean;
-  require_przed_photo: boolean;
-  require_material_usage: boolean;
-  has_po_photo: boolean;
-  has_przed_photo: boolean;
-};
-
-type SafetyLogRow = {
-  key: string;
-  label: string;
-  hint: string | null;
-  done: boolean;
-};
-
-function parseSafetyLogRows(value: unknown): SafetyLogRow[] {
-  const raw = typeof value === 'string'
-    ? (() => {
-      try { return JSON.parse(value); } catch { return []; }
-    })()
-    : value;
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((row, index) => {
-      const item = row && typeof row === 'object' ? row as Record<string, unknown> : {};
-      const label = String(item.label || item.key || '').trim();
-      if (!label) return null;
-      return {
-        key: String(item.key || `bhp-${index}`).trim(),
-        label,
-        hint: item.hint == null ? null : String(item.hint).trim(),
-        done: item.done === true,
-      };
-    })
-    .filter((row): row is SafetyLogRow => Boolean(row));
-}
-
-function photoTypMatches(typ: unknown, allowed: string[]) {
-  const k = String(typ ?? '')
-    .toLowerCase()
-    .trim();
-  return allowed.includes(k);
-}
-
-function isCheckinWorkLog(log: unknown) {
-  const status = typeof log === 'object' && log !== null
-    ? (log as Record<string, unknown>).status
-    : log;
-  const key = String(status ?? '')
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
-    .trim();
-  return key === 'check_in' || key === 'checkin';
-}
-
-function absolutePhotoUrl(pathMaybe: unknown) {
-  const raw = String(pathMaybe || '');
-  if (!raw) return '';
-  if (
-    raw.startsWith('http://') ||
-    raw.startsWith('https://') ||
-    raw.startsWith('file://') ||
-    raw.startsWith('content://') ||
-    raw.startsWith('blob:')
-  ) return raw;
-  return `${API_BASE_URL}${raw.startsWith('/') ? raw : `/${raw}`}`;
-}
-
-function compactLines(value: unknown) {
-  return String(value || '')
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function normalizeWorkflowMatch(value: unknown) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/ä…/g, 'a')
-    .replace(/ä‡/g, 'c')
-    .replace(/ä™/g, 'e')
-    .replace(/å‚/g, 'l')
-    .replace(/å„/g, 'n')
-    .replace(/ã³/g, 'o')
-    .replace(/å›/g, 's')
-    .replace(/åº/g, 'z')
-    .replace(/å¼/g, 'z')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ł/g, 'l')
-    .trim();
-}
-
-function extractNoteValue(value: unknown, prefixes: string[]) {
-  const lowerPrefixes = prefixes.map((prefix) => normalizeWorkflowMatch(prefix));
-  const line = compactLines(value).find((item) => {
-    const lower = normalizeWorkflowMatch(item);
-    return lowerPrefixes.some((prefix) => lower.startsWith(`${prefix}:`) || lower.startsWith(prefix));
-  });
-  if (!line) return '';
-  const valuePart = line.includes(':') ? line.split(':').slice(1).join(':') : line;
-  const clean = valuePart.trim();
-  return clean === '-' ? '' : clean;
-}
-
-function noteHasClientAccepted(value: unknown) {
-  const accepted = extractNoteValue(value, ['Klient zaakceptowal', 'Klient zaakceptował']);
-  return /^(tak|yes|true|1)$/i.test(accepted);
-}
-
-function uniqueStrings(values: string[]) {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
-}
-
-type OfficePlanTeam = {
-  id: string | number;
-  nazwa: string;
-  oddzial_id?: string | number | null;
-  oddzial_nazwa?: string | null;
-  delegowany?: boolean;
-  natywny_oddzial?: boolean;
-  zajete_minuty?: string | number | null;
-  wolne_minuty?: string | number | null;
-};
-
-type OfficePlanEquipment = {
-  id: string | number;
-  nazwa: string;
-  typ?: string | null;
-  status?: string | null;
-  oddzial_id?: string | number | null;
-  ekipa_id?: string | number | null;
-};
-
-type OfficePlanForm = {
-  data: string;
-  godzina: string;
-  czas: string;
-  ekipaId: string;
-  sprzetIds: string[];
-  note: string;
-};
-
-type InspectionEstimator = {
-  id: string | number;
-  nazwa: string;
-  imie?: string | null;
-  nazwisko?: string | null;
-  rola?: string | null;
-  telefon?: string | null;
-  oddzial_id?: string | number | null;
-  oddzial_nazwa?: string | null;
-  delegowany?: boolean;
-  natywny_oddzial?: boolean;
-};
-
-type InspectionDispatchForm = {
-  estimatorId: string;
-  data: string;
-  godzina: string;
-  note: string;
-};
-
-function todayKey() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function ymdFromValue(value: unknown) {
-  const raw = String(value || '');
-  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return '';
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function timeFromTask(task: any) {
-  const direct = String(task?.godzina_rozpoczecia || '').slice(0, 5);
-  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(direct)) return direct;
-  const raw = String(task?.data_planowana || '');
-  const fromDate = raw.includes('T') ? raw.split('T')[1]?.slice(0, 5) || '' : '';
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(fromDate) ? fromDate : '08:00';
-}
-
-function isYmd(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function isHhMm(value: string) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
-function positiveNumber(value: unknown) {
-  const n = Number(String(value ?? '').replace(',', '.'));
-  return Number.isFinite(n) ? n : 0;
-}
-
-function equipmentIdFromReservation(row: any) {
-  return String(row?.sprzet_id ?? row?.sprzetId ?? row?.equipment_id ?? '').trim();
-}
-
-function createOfficePlanForm(task: any): OfficePlanForm {
-  const reserved = Array.isArray(task?.equipment_reservations)
-    ? task.equipment_reservations
-    : Array.isArray(task?.rezerwacje_sprzetu)
-      ? task.rezerwacje_sprzetu
-      : [];
-  return {
-    data: ymdFromValue(task?.data_planowana) || todayKey(),
-    godzina: timeFromTask(task),
-    czas: task?.czas_planowany_godziny != null && String(task.czas_planowany_godziny).trim()
-      ? String(task.czas_planowany_godziny)
-      : '2',
-    ekipaId: task?.ekipa_id != null ? String(task.ekipa_id) : '',
-    sprzetIds: uniqueStrings(reserved.map(equipmentIdFromReservation).filter(Boolean)),
-    note: '',
-  };
-}
-
-function isCrewRole(role: unknown) {
-  const value = String(role || '').toLowerCase();
-  return value === 'brygadzista' || value.includes('pomocnik');
-}
-
-function estimatorDisplayName(row: any) {
-  return String(
-    row?.nazwa ||
-    [row?.imie, row?.nazwisko].filter(Boolean).join(' ') ||
-    row?.login ||
-    `Specjalista #${row?.id || '-'}`,
-  ).trim();
-}
-
-type WorkflowMissingItem = {
-  key: string;
-  label: string;
-  required: boolean;
-};
-
-function taskWorkflowMissingItems(task: any): WorkflowMissingItem[] {
-  const rawItems = Array.isArray(task?.workflow_missing_items) ? task.workflow_missing_items : [];
-  const labels = Array.isArray(task?.workflow_missing_labels) ? task.workflow_missing_labels : [];
-  const items = [
-    ...rawItems.map((item: any) => ({
-      key: String(item?.key || item?.label || '').trim(),
-      label: String(item?.label || item?.key || '').trim(),
-      required: item?.required !== false,
-    })),
-    ...labels.map((label: unknown) => ({
-      key: String(label || '').trim(),
-      label: String(label || '').trim(),
-      required: true,
-    })),
-  ].filter((item) => item.label);
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = `${item.key || item.label}`.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function formatApiWorkflowError(data: any, fallback = 'Nie udało się wykonać akcji.') {
-  const labels = Array.isArray(data?.missing_labels)
-    ? data.missing_labels.map((label: unknown) => String(label || '').trim()).filter(Boolean)
-    : [];
-  const base = String(data?.error || fallback).trim();
-  if (!labels.length) return base;
-  return `${base}\n\nBrakuje:\n- ${labels.join('\n- ')}`;
-}
-
-async function readApiErrorBody(res: Response) {
-  const text = await res.text().catch(() => '');
-  if (!text) return { data: {}, text: '' };
-  try {
-    return { data: JSON.parse(text), text };
-  } catch {
-    return { data: {}, text };
-  }
-}
-
-function workflowTargetFor(item?: WorkflowMissingItem) {
-  const key = String(item?.key || item?.label || '').toLowerCase();
-  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję') || key.includes('sketch') || key.includes('szkic') || key.includes('dojazd')) {
-    return 'photos';
-  }
-  if (key.includes('brief') || key.includes('opis') || key.includes('zakres') || key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('budżet') || key.includes('hours') || key.includes('czas')) {
-    return 'field';
-  }
-  return 'details';
-}
-
-function workflowPhotoFilterFor(item?: WorkflowMissingItem): PhotoFilterKey {
-  const key = String(item?.key || item?.label || '').toLowerCase();
-  if (key.includes('szkic') || key.includes('sketch')) return 'szkic';
-  if (key.includes('dojazd') || key.includes('posesja')) return 'dojazd';
-  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdję') || key.includes('wycena')) return 'wycena';
-  return 'all';
-}
 
 function orderPrioColors(theme: Theme) {
   return {
@@ -1472,19 +1166,6 @@ export default function ZlecenieDetailScreen() {
   const zakoncz = () => {
     void triggerHaptic('light');
     const fr = finishRequirements;
-    if (fr.require_po_photo && !fr.has_po_photo) {
-      Alert.alert(t('order.finishBlockedPoTitle'), t('order.finishBlockedPoBody'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('order.takePhoto'),
-          onPress: () => {
-            setActiveTab('zdjecia');
-            setZdjecieModal(true);
-          },
-        },
-      ]);
-      return;
-    }
     if (fr.require_przed_photo && !fr.has_przed_photo) {
       Alert.alert(t('order.finishBlockedPrzedTitle'), t('order.finishBlockedPrzedBody'), [
         { text: t('common.cancel'), style: 'cancel' },
@@ -1492,7 +1173,20 @@ export default function ZlecenieDetailScreen() {
           text: t('order.takePhoto'),
           onPress: () => {
             setActiveTab('zdjecia');
-            setZdjecieModal(true);
+            void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+          },
+        },
+      ]);
+      return;
+    }
+    if (fr.require_po_photo && !fr.has_po_photo) {
+      Alert.alert(t('order.finishBlockedPoTitle'), t('order.finishBlockedPoBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('order.takePhoto'),
+          onPress: () => {
+            setActiveTab('zdjecia');
+            void zrobZdjecie('po', 'Zdjecie po zakonczeniu pracy', 'po,odbior');
           },
         },
       ]);
@@ -1562,6 +1256,21 @@ export default function ZlecenieDetailScreen() {
       });
     if (koszty_operacyjne.some((row) => row === false)) return;
     const operationalCostRows = koszty_operacyjne.filter(Boolean);
+    if (!finishBeforePhotoReady) {
+      void triggerHaptic('warning');
+      Alert.alert('Brakuje zdjec przed praca', 'Dodaj wymagane zdjecia przed praca albo check-in, zeby zamknac zlecenie z kompletnym protokolem.', [
+        { text: 'Anuluj', style: 'cancel' },
+        {
+          text: 'Zrob zdjecie przed',
+          onPress: () => {
+            setFinishModal(false);
+            setActiveTab('zdjecia');
+            void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+          },
+        },
+      ]);
+      return;
+    }
     if (!finishAfterPhotoReady) {
       void triggerHaptic('warning');
       Alert.alert('Brakuje zdjęć po pracy', 'Dodaj minimum jedno zdjęcie po zakończeniu, żeby biuro i klient mieli jasny protokół odbioru.', [
@@ -2455,6 +2164,9 @@ export default function ZlecenieDetailScreen() {
   const hasClientSignature = !!clientSignature?.signer_name;
   const hasClientPayment = !!zlecenie.client_payment?.forma_platnosc;
   const finishCashAmount = parseFloat(String(payForm.kwota_odebrana).replace(',', '.'));
+  const finishBeforePhotoReady = finishRequirements.require_przed_photo
+    ? finishRequirements.has_przed_photo
+    : beforePhotosCount > 0;
   const finishAfterPhotoReady = finishRequirements.require_po_photo
     ? finishRequirements.has_po_photo
     : afterPhotosCount > 0;
@@ -2465,6 +2177,22 @@ export default function ZlecenieDetailScreen() {
   const finishIssuesReady = unresolvedIssuesCount === 0 || finishIssuesReviewed;
   const finishClientReady = finishClientAccepted || hasClientSignature;
   const finishChecklist = [
+    {
+      key: 'photos-before',
+      label: 'Zdjecia przed praca',
+      done: finishBeforePhotoReady,
+      hint: finishBeforePhotoReady
+        ? `${beforePhotosCount} zdjec przed praca`
+        : finishRequirements.require_przed_photo
+          ? `Dodaj min. ${MIN_FINISH_TYP_PHOTOS} zdjecia przed praca albo check-in.`
+          : 'Dodaj zdjecie stanu przed praca.',
+      icon: 'camera-outline' as IoniconName,
+      action: () => {
+        setFinishModal(false);
+        setActiveTab('zdjecia');
+        void zrobZdjecie('przed', 'Zdjecie przed rozpoczeciem pracy', 'przed,zakres');
+      },
+    },
     {
       key: 'photos',
       label: 'Zdjęcia po pracy',

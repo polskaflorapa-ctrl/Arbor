@@ -1649,6 +1649,116 @@ describe('Tasks routes', () => {
     }
   });
 
+  it('POST /tasks/:id/finish returns 400 when only TASK_FINISH_REQUIRE_PRZED_PHOTO=1 and no Przed photo', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = '1';
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 98 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 98,
+                status: 'W_Realizacji',
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('FROM photos')) return { rows: [] };
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/98/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 10, faktura_vat: false },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TASK_FINISH_PRZED_PHOTO_REQUIRED');
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
+  it('POST /tasks/:id/finish enforces Po photo only for configured branch', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPoBranches = process.env.TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    process.env.TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES = '5,7';
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 97 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return {
+            rows: [
+              {
+                id: 97,
+                oddzial_id: 5,
+                status: 'W_Realizacji',
+                wartosc_planowana: 100,
+                wartosc_rzeczywista: null,
+                wyceniajacy_id: null,
+              },
+            ],
+          };
+        }
+        if (s.includes('FROM photos')) return { rows: [] };
+        if (s.includes('ROLLBACK')) return {};
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/97/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 10, faktura_vat: false },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('TASK_FINISH_PO_PHOTO_REQUIRED');
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPoBranches === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES = prevPoBranches;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
   it('POST /tasks/:id/problemy accepts payload like /problem', async () => {
     const token = jwt.sign({ id: 1, rola: 'Administrator', oddzial_id: 5 }, env.JWT_SECRET);
     pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });

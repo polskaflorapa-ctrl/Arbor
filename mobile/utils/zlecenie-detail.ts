@@ -169,21 +169,45 @@ export function isCheckinWorkLog(log: unknown) {
 export function absolutePhotoUrl(pathMaybe: unknown) {
   const raw = String(pathMaybe || '');
   if (!raw) return '';
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (
+    raw.startsWith('http://') ||
+    raw.startsWith('https://') ||
+    raw.startsWith('file://') ||
+    raw.startsWith('content://') ||
+    raw.startsWith('blob:')
+  ) return raw;
   return `${API_BASE_URL}${raw.startsWith('/') ? raw : `/${raw}`}`;
 }
 
-function compactLines(value: unknown) {
+export function compactLines(value: unknown) {
   return String(value || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 }
 
+export function normalizeWorkflowMatch(value: unknown) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/Ă¤â€¦/g, 'a')
+    .replace(/Ă¤â€ˇ/g, 'c')
+    .replace(/Ă¤â„˘/g, 'e')
+    .replace(/ĂĄâ€š/g, 'l')
+    .replace(/ĂĄâ€ž/g, 'n')
+    .replace(/ĂŁÂł/g, 'o')
+    .replace(/ĂĄâ€ş/g, 's')
+    .replace(/ĂĄÂş/g, 'z')
+    .replace(/ĂĄÂĽ/g, 'z')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/g, 'l')
+    .trim();
+}
+
 export function extractNoteValue(value: unknown, prefixes: string[]) {
-  const lowerPrefixes = prefixes.map((prefix) => prefix.toLowerCase());
+  const lowerPrefixes = prefixes.map((prefix) => normalizeWorkflowMatch(prefix));
   const line = compactLines(value).find((item) => {
-    const lower = item.toLowerCase();
+    const lower = normalizeWorkflowMatch(item);
     return lowerPrefixes.some((prefix) => lower.startsWith(`${prefix}:`) || lower.startsWith(prefix));
   });
   if (!line) return '';
@@ -193,7 +217,7 @@ export function extractNoteValue(value: unknown, prefixes: string[]) {
 }
 
 export function noteHasClientAccepted(value: unknown) {
-  const accepted = extractNoteValue(value, ['Klient zaakceptowal']);
+  const accepted = extractNoteValue(value, ['Klient zaakceptowal', 'Klient zaakceptował']);
   return /^(tak|yes|true|1)$/i.test(accepted);
 }
 
@@ -321,8 +345,8 @@ export async function readApiErrorBody(res: Response) {
 }
 
 export function workflowTargetFor(item?: WorkflowMissingItem) {
-  const key = String(item?.key || item?.label || '').toLowerCase();
-  if (key.includes('photo') || key.includes('zdjec') || key.includes('sketch') || key.includes('szkic') || key.includes('dojazd')) {
+  const key = normalizeWorkflowMatch(item?.key || item?.label || '');
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdje') || key.includes('sketch') || key.includes('szkic') || key.includes('dojazd')) {
     return 'photos';
   }
   if (key.includes('brief') || key.includes('opis') || key.includes('zakres') || key.includes('price') || key.includes('cena') || key.includes('budzet') || key.includes('hours') || key.includes('czas')) {
@@ -332,10 +356,10 @@ export function workflowTargetFor(item?: WorkflowMissingItem) {
 }
 
 export function workflowPhotoFilterFor(item?: WorkflowMissingItem): PhotoFilterKey {
-  const key = String(item?.key || item?.label || '').toLowerCase();
+  const key = normalizeWorkflowMatch(item?.key || item?.label || '');
   if (key.includes('szkic') || key.includes('sketch')) return 'szkic';
   if (key.includes('dojazd') || key.includes('posesja')) return 'dojazd';
-  if (key.includes('photo') || key.includes('zdjec') || key.includes('wycena')) return 'wycena';
+  if (key.includes('photo') || key.includes('zdjec') || key.includes('zdje') || key.includes('wycena')) return 'wycena';
   return 'all';
 }
 

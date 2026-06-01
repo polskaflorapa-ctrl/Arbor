@@ -251,7 +251,7 @@ function KpiCard({ label, value, sub, tone, deltaPct }) {
   const fg = tone === 'ok' ? '#16a34a' : tone === 'warn' ? '#ca8a04' : tone === 'bad' ? '#dc2626' : 'var(--text)';
   const d = delta(deltaPct);
   return (
-    <div style={{ ...s.kpiCard, background: bg }}>
+    <div className="bi-kpi-card" style={{ ...s.kpiCard, background: bg }}>
       <div style={{ ...s.kpiValue, color: fg }}>{value}</div>
       {d && <div style={{ fontSize: 11, color: d.color, fontWeight: 700 }}>{d.label} {t('biDashboard.kpi.vsPrevious')}</div>}
       <div style={s.kpiLabel}>{label}</div>
@@ -375,17 +375,17 @@ export default function BiDashboard() {
   const ov = overview;
 
   return (
-    <div style={s.shell}>
+    <div className="bi-dashboard-shell" style={s.shell}>
       <Sidebar />
-      <main style={s.main}>
+      <main className="bi-dashboard-main" style={s.main}>
         {/* Header */}
-        <div style={s.topbar}>
+        <div className="bi-dashboard-topbar" style={s.topbar}>
           <div>
             <h1 style={s.title}>📊 {t('biDashboard.title')}</h1>
             <p style={s.sub}>{t('biDashboard.subtitle')}</p>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={s.periodRow}>
+          <div className="bi-dashboard-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div className="bi-dashboard-periods" style={s.periodRow}>
               {PERIODS.map(p => (
                 <button key={p.days} type="button"
                   onClick={() => setDays(p.days)}
@@ -412,7 +412,7 @@ export default function BiDashboard() {
         {error && <div style={s.errorBox}>{error}</div>}
 
         {/* Tabs */}
-        <div style={s.tabs}>
+        <div className="bi-dashboard-tabs" style={s.tabs}>
           {TABS.map(tab => (
             <button key={tab.key} type="button"
               onClick={() => setActiveTab(tab.key)}
@@ -424,9 +424,9 @@ export default function BiDashboard() {
 
         {/* ── OVERVIEW TAB ── */}
         {activeTab === 'overview' && (
-          <div style={s.content}>
+          <div className="bi-dashboard-content" style={s.content}>
             {/* KPI row */}
-            <div style={s.kpiRow}>
+            <div className="bi-dashboard-kpis" style={s.kpiRow}>
               <KpiCard label={t('biDashboard.kpi.revenuePlan')} value={pln(ov?.revenue_planned)}
                 deltaPct={ov?.revenue_delta_pct} tone={ov?.revenue_delta_pct >= 0 ? 'ok' : 'warn'} />
               <KpiCard label={t('biDashboard.kpi.revenueActual')} value={pln(ov?.revenue_actual)} />
@@ -441,20 +441,20 @@ export default function BiDashboard() {
             </div>
 
             {/* Revenue trend */}
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.revenueTrend')}</div>
               <BarChart data={trend} valueKey="revenue_planned" labelKey="month"
                 color="var(--accent)" height={140} />
             </div>
 
             {/* Two-col: tasks by month + service mix */}
-            <div style={s.twoCol}>
-              <div style={s.card}>
+            <div className="bi-dashboard-two-col" style={s.twoCol}>
+              <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>{t('biDashboard.charts.tasksMonthly')}</div>
                 <BarChart data={trend} valueKey="tasks_count" labelKey="month"
                   color="#2563eb" height={120} />
               </div>
-              <div style={s.card}>
+              <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>{t('biDashboard.charts.serviceMixTop')}</div>
                 <DonutChart data={serviceMix} valueKey="revenue" labelKey="typ_uslugi" />
               </div>
@@ -464,8 +464,8 @@ export default function BiDashboard() {
 
         {/* ── BRANCHES TAB ── */}
         {activeTab === 'branches' && (
-          <div style={s.content}>
-            <div style={s.card}>
+          <div className="bi-dashboard-content" style={s.content}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.branchComparison')} — ostatnie {days} dni</div>
               <div className="modern-data-stack">
                 {branches.map(b => (
@@ -497,7 +497,7 @@ export default function BiDashboard() {
               </div>
             </div>
 
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.revenueByBranch')}</div>
               <BarChart data={branches} valueKey="revenue_planned" labelKey="oddzial_nazwa"
                 color="var(--accent)" height={140}
@@ -508,8 +508,8 @@ export default function BiDashboard() {
 
         {/* ── TEAMS TAB ── */}
         {activeTab === 'teams' && (
-          <div style={s.content}>
-            <div style={s.card}>
+          <div className="bi-dashboard-content" style={s.content}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.teamRanking')} — ostatnie {days} dni</div>
               <div className="modern-data-stack">
                 {teams.map(tm => (
@@ -540,7 +540,7 @@ export default function BiDashboard() {
                 {teams.length === 0 && <div className="modern-data-empty">Brak danych</div>}
               </div>
             </div>
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>Top 10 ekip wg score</div>
               <BarChart data={teams.slice(0, 10)} valueKey="score" labelKey="team_name"
                 color="#7c3aed" height={140}
@@ -551,18 +551,18 @@ export default function BiDashboard() {
 
         {/* ── SERVICES TAB ── */}
         {activeTab === 'services' && (
-          <div style={s.content}>
-            <div style={s.card}>
+          <div className="bi-dashboard-content" style={s.content}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.serviceMix')} — ostatnie {days} dni</div>
               <DonutChart data={serviceMix} valueKey="revenue" labelKey="typ_uslugi" size={200} />
             </div>
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>Przychód wg usługi</div>
               <BarChart data={serviceMix} valueKey="revenue" labelKey="typ_uslugi"
                 color="#d97706" height={140}
                 onBarClick={sm => openDrill({ title: `Zlecenia — ${sm.typ_uslugi}`, dim: 'usluga', val: sm.typ_uslugi })} />
             </div>
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.serviceDetails')}</div>
               <div className="modern-data-stack">
                 {serviceMix.map((sm, i) => (
@@ -591,8 +591,8 @@ export default function BiDashboard() {
 
         {/* ── FUNNEL TAB ── */}
         {activeTab === 'funnel' && funnel && (
-          <div style={s.content}>
-            <div style={s.kpiRow}>
+          <div className="bi-dashboard-content" style={s.content}>
+            <div className="bi-dashboard-kpis" style={s.kpiRow}>
               <KpiCard label={t('biDashboard.kpi.quotesTotal')}    value={num(funnel.quotes_total)} />
               <KpiCard label={t('biDashboard.kpi.quotesAccepted')} value={num(funnel.quotes_accepted)}
                 sub={`Wskaźnik: ${pct(funnel.acceptance_rate)}`}
@@ -606,7 +606,7 @@ export default function BiDashboard() {
             </div>
 
             {/* Visual funnel */}
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>{t('biDashboard.charts.funnel')}</div>
               <div style={s.funnelWrap}>
                 {[
@@ -631,8 +631,8 @@ export default function BiDashboard() {
         )}
 
         {activeTab === 'plan' && planVsReal && (
-          <div style={s.content}>
-            <div style={s.kpiRow}>
+          <div className="bi-dashboard-content" style={s.content}>
+            <div className="bi-dashboard-kpis" style={s.kpiRow}>
               <KpiCard label="Godziny plan" value={hours(planVsReal.planned_hours)} />
               <KpiCard label="Godziny real" value={hours(planVsReal.actual_hours)}
                 tone={planVsReal.time_variance_minutes > 0 ? 'warn' : 'ok'} />
@@ -646,8 +646,8 @@ export default function BiDashboard() {
                 tone={planVsReal.missing_worklog_tasks > 0 ? 'warn' : 'ok'} />
             </div>
 
-            <div style={s.twoCol}>
-              <div style={s.card}>
+            <div className="bi-dashboard-two-col" style={s.twoCol}>
+              <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>Czas: plan vs real</div>
                 <div style={s.compareGrid}>
                   <div style={s.compareBlock}>
@@ -664,7 +664,7 @@ export default function BiDashboard() {
                   </div>
                 </div>
               </div>
-              <div style={s.card}>
+              <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>Wartość i koszty</div>
                 <div style={s.compareGrid}>
                   <div style={s.compareBlock}>
@@ -683,7 +683,7 @@ export default function BiDashboard() {
               </div>
             </div>
 
-            <div style={s.card}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>Największe odchylenia zleceń</div>
               <div className="modern-data-stack">
                 {(planVsReal.tasks || []).map(task => (
@@ -716,8 +716,8 @@ export default function BiDashboard() {
 
         {/* ── ALERTS TAB ── */}
         {activeTab === 'alerts' && (
-          <div style={s.content}>
-            <div style={s.card}>
+          <div className="bi-dashboard-content" style={s.content}>
+            <div className="bi-card" style={s.card}>
               <div style={s.cardTitle}>⚡ Konfiguracja alertów KPI</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 480 }}>
                 <div>
@@ -754,7 +754,7 @@ export default function BiDashboard() {
             </div>
 
             {alertResult && !alertResult.error && (
-              <div style={s.card}>
+              <div className="bi-card" style={s.card}>
                 <div style={s.cardTitle}>Wynik sprawdzenia — {alertResult.checked_at?.slice(0,19)?.replace('T',' ')}</div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
                   <div style={al.stat}><span style={al.statN}>{alertResult.completion_pct}%</span><span style={al.statL}>Ukończenie</span></div>
