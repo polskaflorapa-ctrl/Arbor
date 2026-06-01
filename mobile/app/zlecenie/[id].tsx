@@ -1,3 +1,4 @@
+import { safeBack } from '../../utils/navigation';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
@@ -116,6 +117,7 @@ import {
   type PhotoFilterKey,
   type PhotoTypeKey,
 } from '../../utils/zlecenie-detail';
+
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -2027,7 +2029,7 @@ export default function ZlecenieDetailScreen() {
     <View style={S.center}>
       <PlatinumIconBadge icon="alert-circle-outline" color={theme.textMuted} size={20} style={{ width: 48, height: 48, borderRadius: 14 }} />
       <Text style={S.notFoundTxt}>{t('order.notFound')}</Text>
-      <TouchableOpacity onPress={() => router.back()} style={S.backLink}>
+      <TouchableOpacity onPress={() => safeBack()} style={S.backLink}>
         <Text style={[S.backLinkTxt, { color: theme.accent }]}>{t('order.back')}</Text>
       </TouchableOpacity>
     </View>
@@ -4055,7 +4057,7 @@ export default function ZlecenieDetailScreen() {
 
       {/* ── HEADER ── */}
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.accent} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={S.headerCenter}>

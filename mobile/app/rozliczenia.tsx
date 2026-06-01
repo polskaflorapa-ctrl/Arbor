@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession, type StoredUser } from '../utils/session';
+
 
 function hourStatusLabel(status: string, tr: (key: string) => string) {
   const k = `settlements.hourStatus.${status}`;
@@ -307,7 +309,7 @@ export default function RozliczeniaScreen() {
     <KeyboardSafeScreen style={[S.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={[S.header, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <Text style={[S.headerTitle, { color: theme.headerText }]}>{t('settlements.title')}</Text>

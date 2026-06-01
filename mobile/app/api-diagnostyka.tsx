@@ -1,8 +1,8 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, Share, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
@@ -637,7 +637,7 @@ export default function ApiDiagnostykaScreen() {
         <TouchableOpacity
           onPress={() => {
             void triggerHaptic('light');
-            router.back();
+            safeBack();
           }}
           style={S.backBtn}
         >

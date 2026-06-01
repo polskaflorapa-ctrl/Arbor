@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -24,6 +25,7 @@ import { enqueueOfflineRequest, flushOfflineQueue } from '../utils/offline-queue
 import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute, currentNewOrderDateTime } from '../utils/new-order-route';
+
 
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'] as const;
 type Status = typeof STATUSY[number];
@@ -500,7 +502,7 @@ export default function OgledzinyScreen() {
       />
 
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
         <View style={S.headerIcon}>

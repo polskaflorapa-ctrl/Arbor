@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 /**
  * Ekran testowy dla aplikacji mobilnej - dostępny z menu deweloperskiego.
  */
@@ -171,7 +172,7 @@ export default function TestModeScreen() {
 
       <TouchableOpacity
         style={[styles.backButton, { backgroundColor: theme.accent }]}
-        onPress={() => router.back()}
+        onPress={() => safeBack()}
       >
         <Text style={styles.backButtonText}>← Wróć</Text>
       </TouchableOpacity>

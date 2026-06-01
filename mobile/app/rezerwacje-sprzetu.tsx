@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
@@ -45,6 +46,7 @@ import {
   type SprzetRezerwacjaRow,
   updateLocalStatus,
 } from '../utils/sprzet-rezerwacje';
+
 
 const CREATE_ALLOWED_STATUSES: RezerwacjaStatus[] = ['Zarezerwowane', 'Wydane'];
 
@@ -569,7 +571,7 @@ export default function RezerwacjeSprzetuScreen() {
     <View style={S.root}>
       <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
         <View style={S.headerIcon}>

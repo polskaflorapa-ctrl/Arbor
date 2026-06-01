@@ -1,3 +1,4 @@
+import { safeBack } from '../../utils/navigation';
 /**
  * Lista paczek oględzin dla specjalisty ds. wyceny.
  * To jest mobilny odpowiednik jednej ścieżki: telefon w biurze -> teren -> pakiet dla biura.
@@ -494,7 +495,7 @@ export default function WycenyTerenoweScreen() {
     <KeyboardSafeScreen style={s.screen}>
       <StatusBar barStyle={'light-content'} />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Wróć">
+        <TouchableOpacity onPress={() => safeBack()} style={s.backBtn} accessibilityLabel="Wróć">
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </TouchableOpacity>
         <Text style={s.title}>Oględziny terenowe</Text>

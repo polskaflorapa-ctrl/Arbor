@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,6 +28,7 @@ import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
+
 
 type TaskItem = {
   id: number;
@@ -680,7 +682,7 @@ export default function MisjaDniaScreen() {
       />
 
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>

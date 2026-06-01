@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -12,6 +13,7 @@ import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
+
 
 interface ReportStats {
   total_tasks: number;
@@ -98,7 +100,7 @@ export default function RaportyMobilneScreen() {
       />
 
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
         <View style={S.headerIcon}>

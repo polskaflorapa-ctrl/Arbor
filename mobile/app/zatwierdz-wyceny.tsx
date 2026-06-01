@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -20,6 +21,7 @@ import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
 import { PlatinumPressable } from '../components/ui/platinum-pressable';
 import { PLATINUM_MOTION } from '../constants/motion';
 import { triggerHaptic } from '../utils/haptics';
+
 
 const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
 
@@ -102,8 +104,7 @@ export default function ZatwierdzWycenyScreen() {
     const role = typeof u?.rola === 'string' ? u.rola : '';
     if (!u || !APPROVE_ROLES.includes(role)) {
       Alert.alert(t('approve.accessDeniedTitle'), t('approve.accessDeniedBody'));
-      if (router.canGoBack()) router.back();
-      else router.replace('/');
+      safeBack();
       return;
     }
     await loadAll(storedToken);
@@ -235,8 +236,7 @@ export default function ZatwierdzWycenyScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => {
-          if (router.canGoBack()) router.back();
-          else router.replace('/');
+          safeBack();
         }} style={S.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>

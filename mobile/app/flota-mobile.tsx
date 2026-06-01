@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -15,6 +16,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { apiFetch, apiJsonFetch, readApiError } from '../utils/api-client';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { isFeatureEnabledForOddzial } from '../utils/oddzial-features';
+
 
 const FLEET_STATUS_ORDER = ['Dostępny', 'W_Użyciu', 'Naprawa', 'Wycofany'] as const;
 
@@ -246,7 +248,7 @@ export default function FlotaMobileScreen() {
 
       {/* Header */}
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.accent} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={S.headerIcon}>

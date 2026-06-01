@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -44,6 +45,7 @@ import {
 } from '../utils/field-protocol-draft';
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
+
 
 type UploadEntry = {
   kind: 'photo' | 'video' | 'draft';
@@ -689,7 +691,7 @@ export default function OgledzinyDokumentacjaScreen() {
           style={S.backBtn}
           onPress={() => {
             void triggerHaptic('light');
-            router.back();
+            safeBack();
           }}
         >
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

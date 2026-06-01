@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -15,6 +16,7 @@ import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 import { isTaskInProgress, makeTaskStatusColorMap } from '../constants/task-workflow';
+
 
 interface Oddzial {
   id?: number;
@@ -272,7 +274,7 @@ export default function OddzialyScreen() {
         backgroundColor={theme.headerBg}
       />
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
         <View style={S.headerIcon}>

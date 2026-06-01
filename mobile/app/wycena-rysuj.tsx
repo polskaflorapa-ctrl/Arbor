@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 /**
  * Ekran rysowania na zdjęciu wyceny
  * Nawigacja: router.push(`/wycena-rysuj?uri=${encodeURIComponent(photoUri)}&wycenaId=${id}`)
@@ -187,7 +188,7 @@ export default function WycenaRysujScreen() {
         if (res.ok) {
           void triggerHaptic('success');
           Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
-            { text: t('common.ok'), onPress: () => router.back() },
+            { text: t('common.ok'), onPress: () => safeBack() },
           ]);
         } else {
           void triggerHaptic('error');
@@ -292,7 +293,7 @@ export default function WycenaRysujScreen() {
         if (res.ok) {
           void triggerHaptic('success');
           Alert.alert(t('draw.alert.addedTitle'), t('draw.alert.addedBody'), [
-            { text: t('common.ok'), onPress: () => router.back() },
+            { text: t('common.ok'), onPress: () => safeBack() },
           ]);
         } else {
           void triggerHaptic('error');
@@ -302,7 +303,7 @@ export default function WycenaRysujScreen() {
         void triggerHaptic('success');
         // Zwróć URI do ekranu który otworzył rysowanie
         Alert.alert(t('draw.alert.localTitle'), t('draw.alert.localBody'), [
-          { text: t('common.ok'), onPress: () => router.back() },
+          { text: t('common.ok'), onPress: () => safeBack() },
         ]);
       }
     } catch {
@@ -365,7 +366,7 @@ export default function WycenaRysujScreen() {
         <TouchableOpacity
           onPress={() => {
             void triggerHaptic('light');
-            router.back();
+            safeBack();
           }}
           style={s.toolBtn}
         >

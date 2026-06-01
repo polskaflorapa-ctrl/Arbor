@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,6 +22,7 @@ import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { elevationCard, shadowStyle } from '../constants/elevation';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
+
 
 const WYCENA_ROLES = ['Wyceniający', 'Kierownik', 'Administrator', 'Dyrektor'];
 
@@ -570,7 +572,7 @@ export default function WycenaKalendarzScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{t('wyceny.calendarTitle')}</Text>

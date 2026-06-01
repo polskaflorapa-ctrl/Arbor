@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ import { getApiUrl } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
+
 
 export default function PomocnikScreen() {
   const { theme } = useTheme();
@@ -69,7 +71,7 @@ export default function PomocnikScreen() {
         <TouchableOpacity
           onPress={() => {
             void triggerHaptic('light');
-            router.back();
+            safeBack();
           }}
           style={S.backBtn}
         >

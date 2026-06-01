@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -14,6 +15,7 @@ import { getRolaColor, type Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
+
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -114,7 +116,7 @@ export default function UzytkownicyScreen() {
 
       {/* Header */}
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
         <View style={S.headerIcon}>

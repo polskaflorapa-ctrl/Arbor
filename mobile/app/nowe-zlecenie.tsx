@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -51,6 +52,7 @@ import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { isPositiveNumber, isValidIsoDate, isValidPolishPhone, isValidTimeHHMM } from '../utils/validators';
+
 
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
@@ -1504,7 +1506,7 @@ export default function NoweZlecenieScreen() {
             ]);
           } else {
             Alert.alert(t('newOrder.alert.createdTitle'), `${t('newOrder.alert.createdBody', { id: createdId || data.id })}${photoLine}${inspectionLine}`, [
-              { text: t('common.ok'), onPress: () => router.back() }
+              { text: t('common.ok'), onPress: () => safeBack() }
             ]);
           }
           return;
@@ -1515,7 +1517,7 @@ export default function NoweZlecenieScreen() {
           ]);
         } else {
           Alert.alert(t('newOrder.alert.createdTitle'), `${t('newOrder.alert.createdBody', { id: createdId || data.id })}${inspectionLine}`, [
-            { text: t('common.ok'), onPress: () => router.back() }
+            { text: t('common.ok'), onPress: () => safeBack() }
           ]);
         }
       } else {
@@ -1575,7 +1577,7 @@ export default function NoweZlecenieScreen() {
           ? 'Zlecenie zapisane w kolejce offline. Zdjęcia dodasz po synchronizacji.'
           : t('newOrder.alert.offlineBody')
       );
-      router.back();
+      safeBack();
     } finally {
       setSaving(false);
     }
@@ -1609,7 +1611,7 @@ export default function NoweZlecenieScreen() {
       >
         {error ? <ErrorBanner message={error} /> : null}
         <View style={S.header}>
-          <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+          <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
             <Ionicons name="arrow-back" size={21} color={theme.accent} />
           </TouchableOpacity>
           <View style={S.headerIcon}>
@@ -2909,7 +2911,7 @@ export default function NoweZlecenieScreen() {
             </View>
 
             <View style={S.fieldSubmitActions}>
-              <TouchableOpacity style={S.fieldSubmitCancel} onPress={() => router.back()} disabled={saving}>
+              <TouchableOpacity style={S.fieldSubmitCancel} onPress={() => safeBack()} disabled={saving}>
                 <Ionicons name="close-outline" size={16} color={theme.textMuted} />
                 <Text style={S.fieldSubmitCancelText}>Anuluj</Text>
               </TouchableOpacity>
@@ -2938,7 +2940,7 @@ export default function NoweZlecenieScreen() {
         )}
         {!fieldQuoteMode && (
           <View style={S.btnRow}>
-            <TouchableOpacity style={S.cancelBtn} onPress={() => router.back()}>
+            <TouchableOpacity style={S.cancelBtn} onPress={() => safeBack()}>
               <Text style={S.cancelText}>Anuluj</Text>
             </TouchableOpacity>
             <PlatinumCTA

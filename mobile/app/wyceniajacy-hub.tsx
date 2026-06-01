@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,6 +24,7 @@ import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
+
 
 type OgledzinyLite = {
   id: number;
@@ -239,7 +241,7 @@ export default function WyceniajacyHubScreen() {
     <View style={S.root}>
       <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>

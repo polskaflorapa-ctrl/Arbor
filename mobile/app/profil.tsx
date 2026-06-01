@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
@@ -21,6 +22,7 @@ import { fetchAndApplyMobileRemoteConfig } from '../utils/mobile-remote-config';
 import { getRoleDisplayName } from '../utils/role-display';
 import { clearStoredSession, getStoredSession, type StoredUser } from '../utils/session';
 import { unregisterExpoPushTokenWithBackend } from '../utils/expo-push-backend';
+
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -169,7 +171,7 @@ export default function ProfilScreen() {
 
       {/* Header z awatarem */}
       <View style={S.heroHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.accent} />
         </TouchableOpacity>
         <View style={S.heroLeaf}>

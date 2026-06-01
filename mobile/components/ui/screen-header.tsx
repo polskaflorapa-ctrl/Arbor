@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../../utils/navigation';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -34,7 +34,7 @@ export function ScreenHeader({
     [theme, paddingTop, edgeSlotWidth],
   );
 
-  const goBack = onBackPress ?? (() => router.back());
+  const goBack = onBackPress ?? (() => safeBack());
 
   return (
     <View style={styles.header}>

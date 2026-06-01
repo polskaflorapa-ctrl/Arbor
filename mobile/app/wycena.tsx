@@ -33,6 +33,7 @@ import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
+import { safeBack } from '../utils/navigation';
 
 // ─── Typy ─────────────────────────────────────────────────────────────────────
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -157,8 +158,7 @@ export default function WycenaScreen() {
       const role = typeof u?.rola === 'string' ? u.rola : '';
       const canAccess = ['Wyceniający','Dyrektor','Administrator','Kierownik'].includes(role);
       if (!canAccess) {
-        if (router.canGoBack()) router.back();
-        else router.replace('/');
+        safeBack();
         return;
       }
 
@@ -280,8 +280,7 @@ export default function WycenaScreen() {
       {/* Header */}
       <View style={S.header}>
         <TouchableOpacity onPress={() => {
-          if (router.canGoBack()) router.back();
-          else router.replace('/');
+          safeBack();
         }} style={S.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>

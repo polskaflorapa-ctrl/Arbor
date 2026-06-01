@@ -1,3 +1,4 @@
+import { safeBack } from '../../utils/navigation';
 /**
  * M1 — szczegóły wyceny terenowej: wizyta GPS, obiekty, zdjęcia (ogólne + adnotacje), ważność, zakończenie wizyty.
  */
@@ -320,7 +321,7 @@ export default function WycenaTerenowaDetailScreen() {
       <KeyboardSafeScreen style={s.screen}>
         <StatusBar barStyle={'light-content'} />
         <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
           </TouchableOpacity>
           <Text style={s.title}>Wycena</Text>
@@ -353,7 +354,7 @@ export default function WycenaTerenowaDetailScreen() {
     <KeyboardSafeScreen style={s.screen}>
       <StatusBar barStyle={'light-content'} />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </TouchableOpacity>
         <Text style={s.title}>#{q.id}</Text>

@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
@@ -35,6 +36,7 @@ import {
   type OddzialFeatureKey,
 } from '../utils/oddzial-features';
 import { getStoredSession } from '../utils/session';
+
 
 export default function OddzialFunkcjeAdminScreen() {
   const { theme } = useTheme();
@@ -178,7 +180,7 @@ export default function OddzialFunkcjeAdminScreen() {
     <KeyboardSafeScreen style={S.root}>
       <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />
         </TouchableOpacity>
         <Text style={S.title}>Funkcje oddziałów (Admin)</Text>

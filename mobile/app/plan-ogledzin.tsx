@@ -1,3 +1,4 @@
+import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -27,6 +28,7 @@ import { createOfflineRequestId, queueRequestWithOfflineFallback } from '../util
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession } from '../utils/session';
 import { getRoleDisplayName } from '../utils/role-display';
+
 
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
@@ -569,7 +571,7 @@ export default function PlanOgledzinScreen() {
     <KeyboardSafeScreen style={styles.root}>
       <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => safeBack()}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />
         </TouchableOpacity>
         <View style={styles.headerIcon}>
