@@ -37,6 +37,7 @@ const { sendSmsOptional } = require('../services/twilioSms');
 const { sendSmsGateway } = require('../services/smsGateway');
 const { renderSmsStatusTemplate } = require('../services/smsTemplates');
 const { getTaskFinishCostSuggestions, validateFinishCostPayload } = require('../services/taskFinishCosts');
+const { assertTeamCompetenciesForTask } = require('../services/taskCompetencies');
 const { tryConsumeIdempotencyKey } = require('../lib/idempotency');
 const { getTeamBusyRanges, planRangeConflicts } = require('../services/taskScheduling');
 const { assertTeamAvailableForBranch, assertEstimatorAvailableForBranch } = require('../services/branchResources');
@@ -68,6 +69,13 @@ function publicStatusUrl(token) {
 function publicTaskTimeWindowUrl(token) {
   const base = publicStatusBaseUrl();
   return base && token ? `${base}/api/tasks/time-window/${token}` : null;
+}
+
+function sendCompetencyBlock(res, result) {
+  return res.status(result.status || 409).json(result.payload || {
+    error: 'Ekipa nie ma wymaganych kompetencji.',
+    code: 'TEAM_COMPETENCY_MISSING',
+  });
 }
 
 async function ensurePublicStatusLinkTables(db = pool) {
@@ -3131,6 +3139,12 @@ router.patch(
           const teamCheck = await assertTeamAvailableForBranch(pool, teamId, row.oddzial_id, planDay);
           if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
         }
+        const competencyCheck = await assertTeamCompetenciesForTask(pool, {
+          taskId,
+          teamId,
+          plannedDate: plannedDateTime,
+        });
+        if (!competencyCheck.ok) return sendCompetencyBlock(res, competencyCheck);
         teamAttendance = await getTeamAttendanceForPlan(teamId, plannedDateTime);
         if (teamAttendance?.present === false && req.body.absence_override !== true) {
           return res.status(409).json({
@@ -3848,6 +3862,14 @@ router.put('/:id', authMiddleware, validateParams(taskIdParamsSchema), validateB
       const teamCheck = await assertTeamAvailableForBranch(pool, nextTeamId, nextOddzialId, nextPlannedDateTime);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
+    if (nextTeamId) {
+      const competencyCheck = await assertTeamCompetenciesForTask(pool, {
+        taskId: Number(req.params.id),
+        teamId: Number(nextTeamId),
+        plannedDate: nextPlannedDateTime,
+      });
+      if (!competencyCheck.ok) return sendCompetencyBlock(res, competencyCheck);
+    }
     if (nextEstimatorId && nextOddzialId) {
       const estimatorCheck = await assertEstimatorAvailableForBranch(pool, nextEstimatorId, nextOddzialId, nextPlannedDateTime);
       if (!estimatorCheck.ok) return res.status(estimatorCheck.status || 409).json({ error: estimatorCheck.error });
@@ -4113,6 +4135,12 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
       teamCheckRow = teamCheck.row || null;
     }
+    const competencyCheck = await assertTeamCompetenciesForTask(pool, {
+      taskId,
+      teamId,
+      plannedDate: plannedDateTime,
+    });
+    if (!competencyCheck.ok) return sendCompetencyBlock(res, competencyCheck);
     const teamAttendance = await getTeamAttendanceForPlan(teamId, plannedDateTime);
     if (teamAttendance?.present === false && absence_override !== true) {
       return res.status(409).json({
@@ -4248,6 +4276,12 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
       const teamCheck = await assertTeamAvailableForBranch(pool, ekipa_id, task.oddzial_id, task.data_planowana);
       if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
     }
+    const competencyCheck = await assertTeamCompetenciesForTask(pool, {
+      taskId: Number(req.params.id),
+      teamId: Number(ekipa_id),
+      plannedDate: task.data_planowana,
+    });
+    if (!competencyCheck.ok) return sendCompetencyBlock(res, competencyCheck);
     const teamAttendance = await getTeamAttendanceForPlan(Number(ekipa_id), task.data_planowana);
     if (teamAttendance?.present === false && absence_override !== true) {
       return res.status(409).json({
