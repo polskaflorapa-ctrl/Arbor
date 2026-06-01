@@ -82,7 +82,8 @@
 - [x] **P0 mobile today's tasks offline cache**: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md` opisuje cache listy dnia, TTL 18h, stale hint 15 min i recache po sync; `formatTaskListCacheNotice`, `loadTodayTaskListCache` i `npm run verify:mobile-today-cache` pilnuja flow w `zlecenia.tsx` oraz `misja-dnia.tsx`.
 - [x] **P0 mobile offline conflict/idempotency coverage**: `docs/MOBILE-OFFLINE-CONFLICT-IDEMPOTENCY.md` opisuje START/check-in/STOP, zdjecia, PROBLEM i finish na slabej sieci; `queueTaskWorkSignalOffline`, dedupe zdjec, retry backoff, `TASK_ALREADY_FINISHED` i `IDEMPOTENCY_INCOMPLETE` sa pilnowane przez `npm run verify:mobile-offline-conflicts`.
 - [x] **P0 mobile START/STOP work log edge cases**: `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md` opisuje aktywny work log, brak GPS, podwojny START/STOP, statusy i backend tests EPIC 2.1; `npm run verify:mobile-start-stop-edge` pilnuje kontraktu.
-- [ ] **Nastepny pakiet**: EPIC 3.1 - kalendarz zasobow ekip i krytycznego sprzetu w widoku tygodnia.
+- [x] **P0 resource calendar weekly contract**: `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` opisuje jeden tygodniowy widok ekip, krytycznego sprzetu i rezerwacji; `npm run verify:resource-calendar-week` pilnuje route, API, web testow i blokad kolizji.
+- [ ] **Nastepny pakiet**: EPIC 3.2 - drag & drop przeniesienia zlecenia miedzy slotami z walidacja kolizji.
 
 ---
 
@@ -147,7 +148,7 @@ flowchart LR
 
 ## EPIC 3 — Panel Kierownika Oddziału
 
-- [ ] **3.1** Kalendarz zasobów (ekipy + krytyczny sprzęt) — jeden widok tygodnia.
+- [x] **3.1** Kalendarz zasobów (ekipy + krytyczny sprzęt) — jeden widok tygodnia. `KalendarzZasobow` laczy ekipy, dzien/zakres, sprzet, rezerwacje, odprawy i alerty kolizji; kontrakt pilnuje `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` + `verify:resource-calendar-week`.
 - [ ] **3.2** Drag & drop przeniesienia zlecenia między slotami (zapis do API + walidacja kolizji).
 - [ ] **3.3** Mapa planistyczna: pinezki zleceń + pozycje ekip (live gdzie dostępne).
 - [ ] **3.4** Karty sprzętu: przegląd, ubezpieczenie, alerty (powiązanie z EPIC 6).

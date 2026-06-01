@@ -106,9 +106,12 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
             sprzet_id: 11,
             sprzet_nazwa: 'Rebak Forst',
             ekipa_id: 3,
+            ekipa_nazwa: 'Brygada Alfa',
             status: 'Zarezerwowane',
             data_od: TEST_DATE,
             data_do: TEST_DATE,
+            task_klient_nazwa: 'Jan Kowalski',
+            task_adres: 'Lesna 12',
           },
         ],
       });
@@ -117,10 +120,10 @@ function mockCalendarApi({ attendanceItems, tasks } = {}) {
   });
 }
 
-function renderCalendar() {
+function renderCalendar(search = `date=${TEST_DATE}&modal=0`) {
   return render(
     <MemoryRouter
-      initialEntries={[`/kalendarz-zasobow?date=${TEST_DATE}&modal=0`]}
+      initialEntries={[`/kalendarz-zasobow?${search}`]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
@@ -196,6 +199,24 @@ test('copies a team-only day brief from the team header', async () => {
   expect(copied).not.toContain('Brygada Beta');
   expect(copied).not.toContain('Anna Nowak');
   expect(await screen.findByText('Odprawa ekipy Brygada Alfa skopiowana.')).toBeInTheDocument();
+});
+
+test('renders the equipment week board with task-linked reservation context', async () => {
+  mockCalendarApi();
+
+  renderCalendar(`date=${TEST_DATE}&modal=0&tab=equipment`);
+
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/flota\/rezerwacje\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/),
+      expect.any(Object)
+    );
+  });
+
+  expect(await screen.findByText('Rebak Forst')).toBeInTheDocument();
+  expect(await screen.findByText('#42 Jan Kowalski')).toBeInTheDocument();
+  expect(screen.getByText('2 tygodnie')).toBeInTheDocument();
+  expect(screen.getByText('4 tygodnie')).toBeInTheDocument();
 });
 
 test('keeps an empty team brief tied to the selected team', async () => {
