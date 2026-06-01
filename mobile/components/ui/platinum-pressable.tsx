@@ -54,7 +54,7 @@ export function PlatinumPressable({ children, style, onPressIn, onPressOut, ...p
       <Animated.View style={[styles.base, style, { opacity, transform: [{ scale }] }]}>
         {children}
       </Animated.View>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.pressedLayer, { backgroundColor: pressedBg, opacity: Animated.subtract(1, opacity) }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, styles.pressedLayer, { backgroundColor: pressedBg, opacity: Animated.subtract(1, opacity) }]} />
     </Pressable>
   );
 }
@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
   },
   pressedLayer: {
     borderRadius: 12,
+    pointerEvents: 'none',
   },
 });
 
