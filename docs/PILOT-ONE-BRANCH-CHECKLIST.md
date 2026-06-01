@@ -28,6 +28,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:material-inventory` potwierdza `MATERIAL-INVENTORY-CONTRACT.md`: stany materialow, przyjecia i rozchod na zlecenie.
 - [ ] `npm run verify:mobile-inventory-usage` potwierdza `MOBILE-INVENTORY-USAGE-CONTRACT.md`: finish z `material_id` robi rozchod magazynu i blokuje brak stanu.
 - [ ] `npm run verify:worklog-time-ledger` potwierdza `WORKLOG-TIME-LEDGER-CONTRACT.md`: automatyczna ECP z work logow, branch scope i robocza regule nadgodzin.
+- [ ] `npm run verify:credential-expiry-cards` potwierdza `CREDENTIAL-EXPIRY-CARDS-CONTRACT.md`: karty pracownika i HR pokazują wygasle/wygasajace uprawnienia.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.

@@ -110,6 +110,7 @@ export default function HrPanel() {
   const [timesheet, setTimesheet]   = useState([]);
   const [absences, setAbsences]     = useState([]);
   const [competency, setCompetency] = useState([]);
+  const [competencySummary, setCompetencySummary] = useState({ expired: 0, critical: 0, warning: 0, total: 0 });
   const [headcount, setHeadcount]   = useState([]);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
@@ -136,7 +137,8 @@ export default function HrPanel() {
         setAbsences(Array.isArray(r.data) ? r.data : []);
       } else if (tab === 'competency') {
         const r = await api.get('/hr/competency-expiry?days=90', h);
-        setCompetency(Array.isArray(r.data) ? r.data : []);
+        setCompetency(Array.isArray(r.data) ? r.data : r.data?.items || []);
+        setCompetencySummary(Array.isArray(r.data) ? { expired: 0, critical: 0, warning: 0, total: r.data.length } : r.data?.summary || { expired: 0, critical: 0, warning: 0, total: 0 });
       } else if (tab === 'headcount') {
         const r = await api.get('/hr/headcount', h);
         setHeadcount(Array.isArray(r.data) ? r.data : []);
@@ -282,6 +284,12 @@ export default function HrPanel() {
         {tab === 'competency' && !loading && (
           <div className="hr-panel-card" style={s.card}>
             <div style={s.cardTitle}>{t('hrPanel.competency.title')}</div>
+            <div style={s.summaryStrip}>
+              <span>Razem: {competencySummary.total || competency.length}</span>
+              <span style={{ color: '#ef4444' }}>Wygasle: {competencySummary.expired || 0}</span>
+              <span style={{ color: '#f59e0b' }}>Do 14 dni: {competencySummary.critical || 0}</span>
+              <span>Do odnowienia: {competencySummary.warning || 0}</span>
+            </div>
             {competency.length === 0 ? (
               <div style={s.empty}>
                 <div style={{ fontSize: 36, marginBottom: 8 }}>🏅</div>
@@ -296,15 +304,15 @@ export default function HrPanel() {
                     idValue={`COMP-${row.id}`}
                     title={row.employee_name}
                     subtitle={`${getRoleDisplayName(row.rola)} · ${row.oddzial_nazwa || 'brak oddziału'}`}
-                    tone={row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success'}
+                    tone={row.expiry_status === 'expired' ? 'danger' : row.expiry_status === 'critical' ? 'warning' : 'success'}
                     status={row.expired ? 'Wygasłe' : `${row.days_left}d`}
-                    statusValue={row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success'}
-                    statusState={row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success'}
+                    statusValue={row.expiry_status || (row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success')}
+                    statusState={row.expiry_status === 'expired' ? 'danger' : row.expiry_status === 'critical' ? 'warning' : 'success'}
                     metrics={[
                       { label: 'Kompetencja', value: row.competency_name, mono: false },
                       { label: 'Typ', value: row.typ, mono: false },
                       { label: 'Nr dokumentu', value: row.nr_dokumentu || 'brak' },
-                      { label: 'Ważność', value: fmtDate(row.data_waznosci), tone: row.expired ? 'danger' : row.days_left <= 14 ? 'warning' : 'success' },
+                      { label: 'Ważność', value: fmtDate(row.data_waznosci), tone: row.expiry_status === 'expired' ? 'danger' : row.expiry_status === 'critical' ? 'warning' : 'success' },
                     ]}
                   />
                 ))}
@@ -368,6 +376,7 @@ const s = {
   tabActive:  { background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--accent)', fontWeight: 700 },
   card:       { background: 'var(--surface-glass)', borderRadius: 8, border: '1px solid var(--glass-border)', padding: '16px 18px', boxShadow: 'var(--shadow-md)' },
   cardTitle:  { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 },
+  summaryStrip: { display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14, fontSize: 12, fontWeight: 700, color: 'var(--text-sub)' },
   loading:    { textAlign: 'center', padding: 40, color: 'var(--text-sub)' },
   empty:      { textAlign: 'center', padding: '40px 20px', color: 'var(--text-sub)' },
   table:      { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
