@@ -90,7 +90,8 @@
 - [x] **P0 machine cards CRUD**: `docs/MACHINE-CARDS-CRUD-CONTRACT.md` opisuje pelny CRUD kart pojazdow/sprzetu, przypisanie do ekipy/oddzialu, branch scope i testy; `npm run verify:machine-cards-crud` pilnuje backendu, UI i checklist.
 - [x] **P0 machine usage blocks**: `docs/MACHINE-USAGE-BLOCKS-CONTRACT.md` opisuje przypomnienia przegladow/OC/motogodzin i blokade rezerwacji sprzetu po terminie lub w statusie serwisowym; `npm run verify:machine-usage-blocks` pilnuje backendu, UI i checklist.
 - [x] **P0 material inventory**: `docs/MATERIAL-INVENTORY-CONTRACT.md` opisuje magazyn materialow eksploatacyjnych, stany, przyjecia i rozchod na zlecenie; `npm run verify:material-inventory` pilnuje backendu, UI, migracji i checklist.
-- [ ] **Nastepny pakiet**: EPIC 6.4 - integracja magazynu z raportem zuzycia z mobilki.
+- [x] **P0 mobile inventory usage**: `docs/MOBILE-INVENTORY-USAGE-CONTRACT.md` opisuje finish z `zuzyte_materialy[].material_id`, rozchod magazynu w transakcji i blokade braku stanu; `npm run verify:mobile-inventory-usage` pilnuje backendu, web, mobile helpera i checklist.
+- [ ] **Nastepny pakiet**: EPIC 7.1 - profile pracownikow: kompetencje, uprawnienia i stawki.
 
 ---
 
@@ -187,7 +188,7 @@ flowchart LR
 - [x] **6.1** Karty maszyn: pełny CRUD + przypisanie do ekipy / oddziału. `Flota` edytuje/usuwa karty pojazdow i sprzetu, backend ma `PUT/DELETE /flota/pojazdy/:id` oraz `PUT/DELETE /flota/sprzet/:id` z branch scope; kontrakt pilnuje `docs/MACHINE-CARDS-CRUD-CONTRACT.md` + `verify:machine-cards-crud`.
 - [x] **6.2** Przeglądy, ubezpieczenia, motogodziny — przypomnienia i blokada użycia po terminie. `Flota` pokazuje `BLOKADA` dla kart po terminie/statusie serwisowym, a `POST/PATCH /flota/rezerwacje` zwraca `sprzet_przeglad_po_terminie` albo `sprzet_niedostepny`; kontrakt pilnuje `docs/MACHINE-USAGE-BLOCKS-CONTRACT.md` + `verify:machine-usage-blocks`.
 - [x] **6.3** Magazyn materiałów eksploatacyjnych: stany, przyjęcia, rozchód na zlecenie. `/api/magazyn/materialy` i `/api/magazyn/ruchy` obsluguja kartoteki, przyjecia i rozchod z blokada ujemnego stanu, a `#/magazyn` pokazuje KPI, formularze i liste stanow; kontrakt pilnuje `docs/MATERIAL-INVENTORY-CONTRACT.md` + `verify:material-inventory`.
-- [ ] **6.4** Integracja z raportem zużycia z mobilki (EPIC 2).
+- [x] **6.4** Integracja z raportem zużycia z mobilki (EPIC 2). Finish z `material_id` ksieguje rozchod w `inventory_materials`/`inventory_movements`, zwraca `stan_magazynu_za_maly` przy braku stanu, a web/mobile potrafia przeniesc `material_id`; kontrakt pilnuje `docs/MOBILE-INVENTORY-USAGE-CONTRACT.md` + `verify:mobile-inventory-usage`.
 
 ---
 
