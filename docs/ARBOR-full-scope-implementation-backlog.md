@@ -81,7 +81,8 @@
 - [x] **P0 mobile material usage/offline cost flow**: `docs/MOBILE-MATERIAL-OFFLINE-COST-FLOW.md` spina raport zuzycia materialow, paliwa i utylizacji z mobile finish, pending offline, backend persistence, BI/Kommo i smoke; `npm run verify:mobile-material-cost-flow` pilnuje kontraktu.
 - [x] **P0 mobile today's tasks offline cache**: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md` opisuje cache listy dnia, TTL 18h, stale hint 15 min i recache po sync; `formatTaskListCacheNotice`, `loadTodayTaskListCache` i `npm run verify:mobile-today-cache` pilnuja flow w `zlecenia.tsx` oraz `misja-dnia.tsx`.
 - [x] **P0 mobile offline conflict/idempotency coverage**: `docs/MOBILE-OFFLINE-CONFLICT-IDEMPOTENCY.md` opisuje START/check-in/STOP, zdjecia, PROBLEM i finish na slabej sieci; `queueTaskWorkSignalOffline`, dedupe zdjec, retry backoff, `TASK_ALREADY_FINISHED` i `IDEMPOTENCY_INCOMPLETE` sa pilnowane przez `npm run verify:mobile-offline-conflicts`.
-- [ ] **Nastepny pakiet**: mobile START/STOP edge cases - aktywny work log, brak GPS, podwojny START/STOP, statusy i backend tests EPIC 2.1.
+- [x] **P0 mobile START/STOP work log edge cases**: `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md` opisuje aktywny work log, brak GPS, podwojny START/STOP, statusy i backend tests EPIC 2.1; `npm run verify:mobile-start-stop-edge` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: EPIC 3.1 - kalendarz zasobow ekip i krytycznego sprzetu w widoku tygodnia.
 
 ---
 
@@ -134,7 +135,7 @@ flowchart LR
 
 ## EPIC 2 — Aplikacja mobilna brygadzisty
 
-- [ ] **2.1** START / STOP powiązane z `work_logs` + GPS (zgodność z `os` — już częściowo; dopracować edge cases).
+- [x] **2.1** START / STOP powiązane z `work_logs` + GPS. Backend odrzuca zamkniete zlecenie, drugi aktywny START, STOP bez GPS dla ekipy, STOP bez aktywnego logu i drugi STOP; `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md` + `verify:mobile-start-stop-edge` pilnuja edge cases.
 - [x] **2.2** Przycisk PROBLEM: typ zgloszenia, zdjecie, notatka, powiadomienie do kierownika. `mobile/app/zlecenie/[id].tsx`, `queueTaskProblemOffline`, backendowe `notifications` i `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md` domykaja flow.
 - [x] **2.3** Wymuszone zdjecia "Przed / Po" (blokada zakonczenia bez zdjec - regula konfigurowalna per oddzial). `finish_requirements`, `TASK_FINISH_REQUIRE_PRZED_PHOTO_BRANCHES`, `TASK_FINISH_REQUIRE_PO_PHOTO_BRANCHES`, test backendu i `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md` domykaja flow.
 - [x] **2.4** Raport zużycia (paliwo / materiał — pola + sync). Mobile finish wysyla `zuzyte_materialy` i `koszty_operacyjne`, offline cache zachowuje pending payload, backend zapisuje dane do tabel kosztowych, a `docs/MOBILE-MATERIAL-OFFLINE-COST-FLOW.md` + `verify:mobile-material-cost-flow` pilnuja flow.

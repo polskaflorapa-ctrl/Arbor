@@ -24,6 +24,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:mobile-material-cost-flow` potwierdza raport materialow, paliwa/utylizacji i pending offline finish.
 - [ ] `npm run verify:mobile-today-cache` potwierdza liste dzisiejszych zlecen offline, TTL i recache po sync.
 - [ ] `npm run verify:mobile-offline-conflicts` potwierdza idempotency, retry i konflikty kolejki offline.
+- [ ] `npm run verify:mobile-start-stop-edge` potwierdza START/STOP work log, GPS, aktywny log i podwojne START/STOP.
 - [ ] `npm run deploy:prod:dry-run` potwierdza suchy przebieg env, migracji, backup/restore i smoke produkcyjnego.
 - [ ] Backend `os` jest zrodlem prawdy dla API produkcyjnego.
 - [ ] Jest utworzony admin, kierownik oddzialu i brygadzista testowy.
@@ -43,6 +44,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna cache listy dnia: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md`.
 - [ ] Zespol zna raport zuzycia materialow/kosztow offline: `docs/MOBILE-MATERIAL-OFFLINE-COST-FLOW.md`.
 - [ ] Zespol zna konflikty/idempotency mobile offline: `docs/MOBILE-OFFLINE-CONFLICT-IDEMPOTENCY.md`.
+- [ ] Zespol zna START/STOP work log edge cases: `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md`.
 - [ ] Zespol zna RPO/RTO i restore drill: `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
 - [ ] Zespol zna drill integracji: `docs/KOMMO-SMS-INCIDENT-DRILL.md`.
 - [ ] Przebieg rolowy jest opisany w `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md`.
@@ -121,6 +123,7 @@ npm run verify:mobile-photo-enforcement
 npm run verify:mobile-material-cost-flow
 npm run verify:mobile-today-cache
 npm run verify:mobile-offline-conflicts
+npm run verify:mobile-start-stop-edge
 npm run verify:rbac-scope
 npm run verify:pilot-hardening
 npm run check

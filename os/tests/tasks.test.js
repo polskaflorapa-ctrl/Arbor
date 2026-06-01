@@ -623,6 +623,115 @@ describe('Tasks routes', () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
 
+  it('rejects team stop without GPS before touching work logs', async () => {
+    const token = jwt.sign(
+      { id: 2, rola: 'Brygadzista', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 12 }] });
+
+    const res = await request(app)
+      .post('/api/tasks/12/stop')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ work_log_id: 501 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_FAILED');
+    expect(res.body.error).toBe('Dla ekipy w terenie wymagane sa wspolrzedne GPS (lat, lng) przy rozpoczeciu zlecenia');
+    expect(pool.connect).not.toHaveBeenCalled();
+  });
+
+  it('rejects stop for missing active work log', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 12 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('SELECT id, end_time FROM work_logs')) return { rows: [] };
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/12/stop')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 52.2, lng: 21.0, work_log_id: 501 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.reason).toBe('TASK_WORK_LOG_NOT_FOUND');
+    expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(clientQuery).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE work_logs'), expect.any(Array));
+    expect(release).toHaveBeenCalled();
+  });
+
+  it('rejects duplicate stop for already closed work log', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 12 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('SELECT id, end_time FROM work_logs')) {
+        return { rows: [{ id: 501, end_time: '2026-06-01T08:00:00.000Z' }] };
+      }
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/12/stop')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 52.2, lng: 21.0, work_log_id: 501 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.reason).toBe('TASK_WORK_LOG_ALREADY_STOPPED');
+    expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(clientQuery).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE work_logs'), expect.any(Array));
+    expect(release).toHaveBeenCalled();
+  });
+
+  it('stores stop GPS and closes task date for active work log', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Administrator', oddzial_id: 5 },
+      env.JWT_SECRET
+    );
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 12 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('SELECT id, end_time FROM work_logs')) return { rows: [{ id: 501, end_time: null }] };
+      if (s.includes('UPDATE work_logs')) return { rows: [] };
+      if (s.includes("UPDATE tasks SET status = 'Zakonczone'")) return { rows: [] };
+      if (s.includes('INSERT INTO task_public_status_events')) return { rows: [{ id: 1 }] };
+      if (s.includes('COMMIT')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/12/stop')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 52.2, lng: 21.0, work_log_id: 501 });
+
+    expect(res.status).toBe(200);
+    expect(clientQuery).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE work_logs SET end_time = NOW()'),
+      [52.2, 21, 501]
+    );
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes('data_zakonczenia'))).toBe(true);
+    expect(release).toHaveBeenCalled();
+  });
+
   it('rejects invalid task id in params', async () => {
     const token = jwt.sign(
       { id: 1, rola: 'Administrator', oddzial_id: 5 },
@@ -1580,6 +1689,68 @@ describe('Tasks routes', () => {
       });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ work_log_id: 501 });
+  });
+
+  it('POST /tasks/:id/start rejects duplicate active work log', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('SELECT status FROM tasks')) return { rows: [{ status: 'W_Realizacji' }] };
+      if (s.includes('SELECT id, user_id, start_time FROM work_logs')) {
+        return { rows: [{ id: 501, user_id: 2, start_time: '2026-06-01T08:00:00.000Z' }] };
+      }
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/1/start')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        lat: 52.1,
+        lng: 21.0,
+        dmuchawa_filtr_ok: true,
+        rebak_zatankowany: true,
+        kaski_zespol: true,
+        bhp_potwierdzone: true,
+        bhp_checklista: [{ key: 'ppe', label: 'Kaski', done: true }],
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.reason).toBe('TASK_WORK_LOG_ACTIVE');
+    expect(res.body.work_log_id).toBe(501);
+    expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(clientQuery).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO work_logs'), expect.any(Array));
+    expect(release).toHaveBeenCalled();
+  });
+
+  it('POST /tasks/:id/start rejects closed task status', async () => {
+    const token = jwt.sign({ id: 3, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+    const release = jest.fn();
+    const clientQuery = jest.fn(async (sql) => {
+      const s = String(sql);
+      if (s.includes('BEGIN')) return {};
+      if (s.includes('SELECT status FROM tasks')) return { rows: [{ status: 'Zakonczone' }] };
+      if (s.includes('ROLLBACK')) return {};
+      return { rows: [] };
+    });
+    pool.connect.mockResolvedValueOnce({ query: clientQuery, release });
+
+    const res = await request(app)
+      .post('/api/tasks/1/start')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body.reason).toBe('TASK_NOT_STARTABLE');
+    expect(clientQuery).toHaveBeenCalledWith('ROLLBACK');
+    expect(clientQuery).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO work_logs'), expect.any(Array));
+    expect(release).toHaveBeenCalled();
   });
 
   it('POST /tasks/:id/start allows kierownik without checklist fields', async () => {

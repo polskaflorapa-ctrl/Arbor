@@ -4478,6 +4478,33 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
       await client.query('ROLLBACK');
       return res.json({ work_log_id: wl.rows[0]?.id ?? null, idempotent_replay: true });
     }
+    const taskRow = await client.query(
+      `SELECT status FROM tasks WHERE id = $1 FOR UPDATE`,
+      [taskId]
+    );
+    if (['Zakonczone', 'Anulowane'].includes(String(taskRow.rows[0]?.status || ''))) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Zlecenie jest juz zamkniete.',
+        code: VALIDATION_FAILED,
+        reason: 'TASK_NOT_STARTABLE',
+        requestId: req.requestId,
+      });
+    }
+    const activeWorkLog = await client.query(
+      `SELECT id, user_id, start_time FROM work_logs WHERE task_id = $1 AND end_time IS NULL ORDER BY start_time DESC LIMIT 1`,
+      [taskId]
+    );
+    if (activeWorkLog.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Praca na tym zleceniu jest juz rozpoczeta.',
+        code: VALIDATION_FAILED,
+        reason: 'TASK_WORK_LOG_ACTIVE',
+        work_log_id: activeWorkLog.rows[0].id,
+        requestId: req.requestId,
+      });
+    }
     const result = await client.query(
       `INSERT INTO work_logs (
         task_id, user_id, start_time, start_lat, start_lng, status,
@@ -4522,6 +4549,18 @@ router.post('/:id/start', authMiddleware, validateParams(taskIdParamsSchema), va
 
 router.post('/:id/stop', authMiddleware, validateParams(taskIdParamsSchema), validateBody(taskStopSchema), requireTaskAccess, async (req, res) => {
   const taskId = Number(req.params.id);
+  const { lat, lng, work_log_id } = req.body;
+  const latN = toNum(lat);
+  const lngN = toNum(lng);
+
+  if (isTeamScoped(req.user) && (latN == null || lngN == null)) {
+    return res.status(400).json({
+      error: req.t('errors.tasks.startLocationRequired'),
+      code: VALIDATION_FAILED,
+      requestId: req.requestId,
+    });
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -4530,15 +4569,39 @@ router.post('/:id/stop', authMiddleware, validateParams(taskIdParamsSchema), val
       await client.query('ROLLBACK');
       return res.json({ message: 'Czas zapisany', idempotent_replay: true });
     }
-    const { lat, lng, work_log_id } = req.body;
+    const activeWorkLog = await client.query(
+      `SELECT id, end_time FROM work_logs WHERE id = $1 AND task_id = $2 FOR UPDATE`,
+      [work_log_id, taskId]
+    );
+    if (!activeWorkLog.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Nie znaleziono aktywnego czasu pracy dla tego zlecenia.',
+        code: VALIDATION_FAILED,
+        reason: 'TASK_WORK_LOG_NOT_FOUND',
+        requestId: req.requestId,
+      });
+    }
+    if (activeWorkLog.rows[0].end_time) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Ten czas pracy jest juz zakonczony.',
+        code: VALIDATION_FAILED,
+        reason: 'TASK_WORK_LOG_ALREADY_STOPPED',
+        requestId: req.requestId,
+      });
+    }
     await client.query(
       `UPDATE work_logs SET end_time = NOW(), end_lat = $1, end_lng = $2,
        status = 'Zakończony',
        czas_pracy_minuty = EXTRACT(EPOCH FROM (NOW() - start_time))/60
        WHERE id = $3`,
-      [toNum(lat), toNum(lng), work_log_id]
+      [latN, lngN, work_log_id]
     );
-    await client.query("UPDATE tasks SET status = 'Zakonczone' WHERE id = $1", [req.params.id]);
+    await client.query(
+      "UPDATE tasks SET status = 'Zakonczone', data_zakonczenia = COALESCE(data_zakonczenia, NOW()) WHERE id = $1",
+      [req.params.id]
+    );
     await recordTaskPublicStatusEvent(client, {
       taskId,
       toStatus: 'Zakonczone',
