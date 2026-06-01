@@ -1094,7 +1094,7 @@ export default function ZleceniaScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
 
       <ScreenHeader
         title={t('zlecenia.title')}
@@ -1804,6 +1804,30 @@ export default function ZleceniaScreen() {
                     <PlatinumIconBadge icon="location-outline" color={theme.textSub} size={11} style={S.metaIconBadge} />
                     <Text style={S.metaText}> {z.adres}, {z.miasto}</Text>
                   </View>
+                  <View style={S.cardQuickActions}>
+                    <TouchableOpacity
+                      style={[S.cardQuickAction, !z.klient_telefon && S.cardQuickActionDisabled]}
+                      disabled={!z.klient_telefon}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        if (z.klient_telefon) void Linking.openURL(`tel:${z.klient_telefon}`);
+                      }}
+                    >
+                      <Ionicons name="call-outline" size={13} color={z.klient_telefon ? theme.accent : theme.textMuted} />
+                      <Text style={[S.cardQuickActionText, !z.klient_telefon && { color: theme.textMuted }]}>Dzwoń</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[S.cardQuickAction, (!z.adres && !z.miasto) && S.cardQuickActionDisabled]}
+                      disabled={!z.adres && !z.miasto}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        void openAddressInMaps(z.adres || '', z.miasto || '');
+                      }}
+                    >
+                      <Ionicons name="map-outline" size={13} color={(z.adres || z.miasto) ? theme.accent : theme.textMuted} />
+                      <Text style={[S.cardQuickActionText, (!z.adres && !z.miasto) && { color: theme.textMuted }]}>Mapa</Text>
+                    </TouchableOpacity>
+                  </View>
                   <View style={S.cardBottom}>
                     {z.typ_uslugi ? <View style={S.typChip}><Text style={S.typText}>{z.typ_uslugi}</Text></View> : null}
                     {z.data_planowana ? (
@@ -2145,9 +2169,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   headerAddBtn: {
     minWidth: 42,
-    minHeight: 40,
+    minHeight: 42,
     paddingHorizontal: 0,
-    borderRadius: 12,
+    borderRadius: 999,
   },
   platinumBar: {
     marginHorizontal: 14,
@@ -2178,19 +2202,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     textTransform: 'uppercase',
   },
   ordersHero: {
-    marginHorizontal: 14,
-    marginTop: 12,
-    borderRadius: t.radiusXl,
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
-    padding: 15,
-    gap: 13,
+    padding: 14,
+    gap: 12,
     ...shadowStyle(t, {
-      opacity: t.shadowOpacity,
-      radius: t.shadowRadius,
-      offsetY: t.shadowOffsetY,
-      elevation: t.cardElevation,
+      opacity: t.shadowOpacity * 0.45,
+      radius: t.shadowRadius * 0.75,
+      offsetY: Math.max(1, Math.round(t.shadowOffsetY * 0.55)),
+      elevation: Math.max(1, t.cardElevation - 1),
     }),
   },
   ordersHeroTop: {
@@ -2199,39 +2223,39 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     gap: 11,
   },
   ordersHeroIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 13,
     backgroundColor: t.accentLight,
     borderWidth: 1,
     borderColor: t.accent + '44',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ordersHeroIconBadge: { width: 34, height: 34, borderRadius: 11 },
+  ordersHeroIconBadge: { width: 32, height: 32, borderRadius: 10 },
   ordersHeroEyebrow: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
-  ordersHeroTitle: { color: t.text, fontSize: 20, fontWeight: '900', marginTop: 2 },
+  ordersHeroTitle: { color: t.text, fontSize: 18, fontWeight: '900', marginTop: 2 },
   ordersHeroSub: { color: t.textSub, fontSize: 12, fontWeight: '700', marginTop: 3, lineHeight: 17 },
   ordersHeroStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   ordersHeroStat: {
     flexGrow: 1,
-    flexBasis: '47%',
-    minHeight: 62,
+    flexBasis: '30%',
+    minHeight: 54,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 9,
     justifyContent: 'center',
   },
-  ordersHeroStatValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  ordersHeroStatLabel: { color: t.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', marginTop: 2 },
+  ordersHeroStatValue: { fontSize: 17, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  ordersHeroStatLabel: { color: t.textMuted, fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase', marginTop: 2 },
   modeScroll: { marginTop: 9 },
-  modeContent: { paddingHorizontal: 14, paddingVertical: 4, gap: 8, flexDirection: 'row' },
+  modeContent: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, flexDirection: 'row' },
   modeChip: {
-    minHeight: 38,
+    minHeight: 40,
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2820,17 +2844,17 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   offlineQueueIcon: { width: 30, height: 30, borderRadius: 10 },
   offlineQueueTitle: { fontSize: 12.5, fontWeight: '900' },
   offlineQueueSub: { color: t.textSub, fontSize: 10.5, fontWeight: '700', lineHeight: 15, marginTop: 1 },
-  list: { flex: 1, paddingHorizontal: 14, paddingTop: 10 },
+  list: { flex: 1, paddingHorizontal: 14, paddingTop: 8 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: t.text },
   emptySub: { fontSize: 13, color: t.textMuted },
   card: {
     flexDirection: 'row', backgroundColor: t.cardBg,
-    borderRadius: 16, marginBottom: 12,
+    borderRadius: 14, marginBottom: 10,
     borderWidth: 1, borderColor: t.cardBorder, overflow: 'hidden',
     ...shadowStyle(t, {
-      opacity: t.shadowOpacity * 0.1,
-      radius: t.shadowRadius * 0.36,
+      opacity: t.shadowOpacity * 0.06,
+      radius: t.shadowRadius * 0.24,
       offsetY: 1,
       elevation: Math.max(1, t.cardElevation - 1),
     }),
@@ -2848,8 +2872,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   crewCardRailDot: { width: 10, height: 10, borderRadius: 5 },
   crewCardRailTime: { color: t.text, fontSize: 11.5, fontWeight: '900', fontVariant: ['tabular-nums'] },
   crewCardRailToday: { color: t.textMuted, fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
-  cardContent: { flex: 1, padding: 14 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 7 },
+  cardContent: { flex: 1, padding: 12 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 },
   cardId: { fontSize: 11.5, color: t.textMuted, fontWeight: '900' },
   cardBadges: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', flexShrink: 1 },
   badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
@@ -2872,11 +2896,30 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldBadgeIcon: { width: 16, height: 16, borderRadius: 6 },
   fieldBadgeText: { fontSize: 10, fontWeight: '800' },
-  cardKlient: { fontSize: 16, fontWeight: '900', color: t.text, marginBottom: 5 },
+  cardKlient: { fontSize: 16, fontWeight: '900', color: t.text, marginBottom: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   metaIconBadge: { width: 20, height: 20, borderRadius: 7 },
   metaText: { fontSize: 12, color: t.textSub, flex: 1 },
   metaSmall: { fontSize: 11, color: t.textMuted },
+  cardQuickActions: { flexDirection: 'row', gap: 7, marginTop: 5, marginBottom: 2, flexWrap: 'wrap' },
+  cardQuickAction: {
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: t.accent + '44',
+    backgroundColor: t.accentLight,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  cardQuickActionDisabled: {
+    borderColor: t.border,
+    backgroundColor: t.surface2,
+    opacity: 0.72,
+  },
+  cardQuickActionText: { color: t.accent, fontSize: 11, fontWeight: '900' },
   cardBottom: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 },
   typChip: { backgroundColor: t.surface2, borderRadius: 999, borderWidth: 1, borderColor: t.border, paddingHorizontal: 8, paddingVertical: 4 },
   typText: { fontSize: 11, color: t.textSub, fontWeight: '800' },

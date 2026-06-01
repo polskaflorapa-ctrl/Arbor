@@ -86,6 +86,10 @@ describe('GET /api/hr/position-cards', () => {
           hourly_rate_pln: '42',
           acknowledged_at: null,
           acknowledgement_status: null,
+          expired_competencies_count: '1',
+          expiring_competencies_count: '2',
+          nearest_competency_expiry: '2026-06-12',
+          competency_status: 'expired',
         }],
         rowCount: 1,
       });
@@ -104,6 +108,10 @@ describe('GET /api/hr/position-cards', () => {
       procent_wynagrodzenia: 8.25,
       hourly_rate_pln: 42,
       acknowledgement_status: 'Brak',
+      expired_competencies_count: 1,
+      expiring_competencies_count: 2,
+      nearest_competency_expiry: '2026-06-12',
+      competency_status: 'expired',
     }));
   });
 });
@@ -174,6 +182,7 @@ describe('GET /api/hr/absences', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
+
 });
 
 // ─── /api/hr/absences (POST) ─────────────────────────────────────────────────
@@ -281,6 +290,40 @@ describe('GET /api/hr/competency-expiry', () => {
       .set('Authorization', `Bearer ${dyrektorToken()}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
+  });
+  it('adds status and source for expiring competency alerts', async () => {
+    pool.query.mockResolvedValue({
+      rows: [{
+        id: 77,
+        user_id: 11,
+        employee_name: 'Jan Kowalski',
+        rola: 'Specjalista',
+        oddzial_nazwa: 'Warszawa',
+        competency_name: 'Pilarka',
+        typ: 'BHP',
+        nr_dokumentu: 'BHP-77',
+        data_uzyskania: '2025-01-01',
+        data_waznosci: '2026-06-20',
+        days_left: 19,
+      }],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .get(`${PATH}?days=90`)
+      .set('Authorization', `Bearer ${dyrektorToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      user_id: 11,
+      competency_name: 'Pilarka',
+      days_left: 19,
+      expired: false,
+      status: 'expiring',
+      severity: 'warning',
+      renewal_required: true,
+      source: 'user_competencies',
+    }));
   });
 });
 

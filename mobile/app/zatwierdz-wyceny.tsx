@@ -102,7 +102,8 @@ export default function ZatwierdzWycenyScreen() {
     const role = typeof u?.rola === 'string' ? u.rola : '';
     if (!u || !APPROVE_ROLES.includes(role)) {
       Alert.alert(t('approve.accessDeniedTitle'), t('approve.accessDeniedBody'));
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace('/');
       return;
     }
     await loadAll(storedToken);
@@ -233,7 +234,10 @@ export default function ZatwierdzWycenyScreen() {
 
       {/* Header */}
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/');
+        }} style={S.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <Text style={S.headerTitle}>{t('approve.screenTitle')}</Text>

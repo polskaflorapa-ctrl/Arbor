@@ -70,6 +70,10 @@ const FLEET_STATUS_OPTIONS = ['Dostepny', 'W uzyciu', 'W naprawie', 'Niedostepny
 const VEHICLE_TYPE_OPTIONS = ['Samochod', 'Bus', 'Ciezarowka', 'Przyczepa', 'Maszyna'];
 const EQUIPMENT_TYPE_OPTIONS = ['Pilarka', 'Rebak', 'Podnosnik', 'Narzedzie', 'Inne'];
 
+function todayYmd() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function Flota() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -87,6 +91,8 @@ export default function Flota() {
   const [filtrOddzial, setFiltrOddzial] = useState('');
   const [editingPojazdId, setEditingPojazdId] = useState(null);
   const [editingSprzetId, setEditingSprzetId] = useState(null);
+  const [repairDraft, setRepairDraft] = useState(null);
+  const [repairSaving, setRepairSaving] = useState(false);
 
   const [formPojazd, setFormPojazd] = useState({
     marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '',
@@ -283,6 +289,52 @@ export default function Flota() {
       loadAll();
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, `Nie udalo sie usunac ${label}.`)));
+    }
+  };
+
+  const openRepairDraft = (kind, item) => {
+    setRepairDraft({
+      kind,
+      item,
+      typ_zasobu: kind === 'pojazd' ? 'Pojazd' : 'Sprzet',
+      zasob_id: item.id,
+      label: kind === 'pojazd'
+        ? [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ')
+        : [item.nazwa, item.typ].filter(Boolean).join(' / '),
+      data_naprawy: todayYmd(),
+      opis_usterki: '',
+      opis_naprawy: '',
+      wykonawca: '',
+      koszt: '',
+      status: 'W toku',
+      oddzial_id: item.oddzial_id || currentUser?.oddzial_id || '',
+    });
+  };
+
+  const submitRepairDraft = async (event) => {
+    event.preventDefault();
+    if (!repairDraft || !repairDraft.opis_usterki.trim()) return;
+    setRepairSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.post('/flota/naprawy', {
+        typ_zasobu: repairDraft.typ_zasobu,
+        zasob_id: repairDraft.zasob_id,
+        data_naprawy: repairDraft.data_naprawy,
+        opis_usterki: repairDraft.opis_usterki.trim(),
+        opis_naprawy: repairDraft.opis_naprawy.trim() || null,
+        wykonawca: repairDraft.wykonawca.trim() || null,
+        koszt: repairDraft.koszt || null,
+        status: repairDraft.status,
+        oddzial_id: repairDraft.oddzial_id || currentUser?.oddzial_id,
+      }, { headers: authHeaders(token) });
+      showMsg(successMessage('Naprawa zapisana.'));
+      setRepairDraft(null);
+      await loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac naprawy.')));
+    } finally {
+      setRepairSaving(false);
     }
   };
 
@@ -634,6 +686,7 @@ export default function Flota() {
                     </select>
                     {canEdit && (
                       <div style={S.cardActions}>
+                        <button type="button" style={S.warningBtn} onClick={() => openRepairDraft('pojazd', p)}>Zglos naprawe</button>
                         <button type="button" style={S.ghostBtn} onClick={() => startEditPojazd(p)}>Edytuj</button>
                         <button type="button" style={S.dangerBtn} onClick={() => deleteFleetItem('pojazdy', p.id)}>Usun</button>
                       </div>
@@ -702,6 +755,7 @@ export default function Flota() {
                     </select>
                     {canEdit && (
                       <div style={S.cardActions}>
+                        <button type="button" style={S.warningBtn} onClick={() => openRepairDraft('sprzet', s)}>Zglos naprawe</button>
                         <button type="button" style={S.ghostBtn} onClick={() => startEditSprzet(s)}>Edytuj</button>
                         <button type="button" style={S.dangerBtn} onClick={() => deleteFleetItem('sprzet', s.id)}>Usun</button>
                       </div>
@@ -780,6 +834,14 @@ export default function Flota() {
             </div>
           )
         )}
+
+        <RepairDialog
+          draft={repairDraft}
+          saving={repairSaving}
+          onChange={setRepairDraft}
+          onSubmit={submitRepairDraft}
+          onClose={() => setRepairDraft(null)}
+        />
       </main>
     </div>
   );
@@ -900,6 +962,54 @@ function Field({ label, children }) {
   );
 }
 
+function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
+  if (!draft) return null;
+  const setField = (field, value) => onChange((prev) => ({ ...prev, [field]: value }));
+  return (
+    <div style={S.modalBackdrop} role="dialog" aria-modal="true" aria-label="Zglos naprawe">
+      <form style={S.modalPanel} onSubmit={onSubmit}>
+        <div style={S.modalHeader}>
+          <div>
+            <div style={S.modalEyebrow}>Naprawa zasobu</div>
+            <h3 style={S.modalTitle}>Zglos naprawe</h3>
+            <p style={S.modalSubtitle}>{draft.label || `Zasob #${draft.zasob_id}`}</p>
+          </div>
+          <button type="button" style={S.modalCloseBtn} onClick={onClose}>x</button>
+        </div>
+        <div style={S.modalGrid}>
+          <Field label="Data">
+            <input style={S.input} type="date" value={draft.data_naprawy} onChange={(e) => setField('data_naprawy', e.target.value)} required />
+          </Field>
+          <Field label="Status">
+            <select style={S.input} value={draft.status} onChange={(e) => setField('status', e.target.value)}>
+              <option value="W toku">W toku</option>
+              <option value="Zakonczona">Zakonczona</option>
+            </select>
+          </Field>
+          <Field label="Serwis / wykonawca">
+            <input style={S.input} value={draft.wykonawca} onChange={(e) => setField('wykonawca', e.target.value)} placeholder="np. serwis lokalny" />
+          </Field>
+          <Field label="Koszt">
+            <input style={S.input} type="number" step="0.01" value={draft.koszt} onChange={(e) => setField('koszt', e.target.value)} placeholder="0.00" />
+          </Field>
+        </div>
+        <Field label="Co sie stalo *">
+          <textarea style={{ ...S.input, minHeight: 84, resize: 'vertical' }} value={draft.opis_usterki} onChange={(e) => setField('opis_usterki', e.target.value)} required placeholder="Opis usterki dla biura/serwisu" />
+        </Field>
+        <Field label="Opis naprawy">
+          <textarea style={{ ...S.input, minHeight: 70, resize: 'vertical' }} value={draft.opis_naprawy} onChange={(e) => setField('opis_naprawy', e.target.value)} placeholder="Opcjonalnie, gdy naprawa jest zakonczona" />
+        </Field>
+        <div style={S.modalActions}>
+          <button type="button" style={S.cancelBtn} onClick={onClose}>Anuluj</button>
+          <button type="submit" style={S.submitBtn} disabled={saving || !draft.opis_usterki.trim()}>
+            {saving ? 'Zapisywanie...' : 'Zapisz naprawe'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 const S = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
@@ -913,6 +1023,16 @@ const S = {
   cardActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   ghostBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   dangerBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  warningBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 },
+  modalEyebrow: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  modalTitle: { margin: '3px 0 2px', fontSize: 20, color: 'var(--text)' },
+  modalSubtitle: { margin: 0, fontSize: 13, color: 'var(--text-muted)' },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 18, lineHeight: 1 },
+  modalGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 },
+  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 },
   repairsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 8px', background: 'var(--surface-field)' },

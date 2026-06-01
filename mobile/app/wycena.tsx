@@ -156,7 +156,11 @@ export default function WycenaScreen() {
 
       const role = typeof u?.rola === 'string' ? u.rola : '';
       const canAccess = ['Wyceniający','Dyrektor','Administrator','Kierownik'].includes(role);
-      if (!canAccess) { router.back(); return; }
+      if (!canAccess) {
+        if (router.canGoBack()) router.back();
+        else router.replace('/');
+        return;
+      }
 
       await Promise.all([fetchWyceny(storedToken, u), fetchOddzialy(storedToken)]);
     } catch { }
@@ -275,7 +279,10 @@ export default function WycenaScreen() {
 
       {/* Header */}
       <View style={S.header}>
-        <TouchableOpacity onPress={() => router.back()} style={S.backBtn}>
+        <TouchableOpacity onPress={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace('/');
+        }} style={S.backBtn}>
           <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>

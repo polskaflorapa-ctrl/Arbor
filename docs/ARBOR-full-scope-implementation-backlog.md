@@ -91,7 +91,9 @@
 - [x] **P0 equipment usage rules**: `docs/EQUIPMENT-USAGE-RULES-CONTRACT.md` opisuje przypomnienia przegladow, motogodziny w karcie sprzetu i blokade rezerwacji po terminie; `npm run verify:equipment-usage-rules` pilnuje API, UI, testu i checklist.
 - [x] **P0 warehouse materials**: `docs/WAREHOUSE-MATERIALS-CONTRACT.md` opisuje magazyn materialow, stany liczone z ruchow, przyjecia i rozchod na zlecenie; `npm run verify:warehouse-materials` pilnuje API, migracji, UI, testu i checklist.
 - [x] **P0 warehouse mobile usage**: `docs/WAREHOUSE-MOBILE-USAGE-INTEGRATION.md` opisuje automatyczny rozchod magazynu z `zuzyte_materialy` przy finish mobile/web; `npm run verify:warehouse-mobile-usage` pilnuje transakcji, blokady stanu i checklist.
-- [ ] **Nastepny pakiet**: EPIC 7.1 - automatyczna ewidencja czasu pracy z work logow.
+- [x] **P0 worklog timesheet**: `docs/WORKLOG-TIMESHEET-CONTRACT.md` opisuje automatyczna ECP z `work_logs`, branch scope, nadgodziny informacyjne i endpoint `/api/payroll/worklog-timesheet`; `npm run verify:worklog-timesheet` pilnuje kontraktu.
+- [x] **P0 competency expiry monitoring**: karty kadrowe pokazuja wygasle i wygasajace uprawnienia z `user_competencies`, CSV eksportuje liczniki i najblizsza date waznosci, a `/api/hr/competency-expiry` oznacza `status`, `severity` i `renewal_required`.
+- [ ] **Nastepny pakiet**: EPIC 7.3 - blokada przypisania do zlecenia bez wymaganych kompetencji.
 
 ---
 
@@ -194,8 +196,8 @@ flowchart LR
 
 ## EPIC 7 — HR / kadry
 
-- [ ] **7.1** Automatyczna ewidencja czasu pracy z work logów (reguły nadgodzin — prawnie zweryfikować).
-- [ ] **7.2** Monitoring ważności uprawnień (karty pracownika).
+- [x] **7.1** Automatyczna ewidencja czasu pracy z work logow. `GET /payroll/worklog-timesheet?month=YYYY-MM` liczy ECP z `work_logs`, pokazuje `hours_total`, `hours_regular`, `hours_overtime`, `hours_night`, dni i zadania, z branch scope dla Kierownika i informacyjna regula nadgodzin wymagajaca weryfikacji prawnej; kontrakt pilnuje `docs/WORKLOG-TIMESHEET-CONTRACT.md` + `verify:worklog-timesheet`.
+- [x] **7.2** Monitoring waznosci uprawnien (karty pracownika). Backend `position-cards` zwraca `expired_competencies_count`, `expiring_competencies_count`, `nearest_competency_expiry` i `competency_status`; `GET /hr/competency-expiry?days=90` zwraca status/severity/renewal flag, a `KadryDokumenty` pokazuje alerty i eksportuje je do CSV.
 - [ ] **7.3** Blokada przypisania do zlecenia bez wymaganych kompetencji (API + UI).
 - [ ] **7.4** Integracja z dispatcherm: EPIC 1.5 + EPIC 7.3 muszą być spójne.
 

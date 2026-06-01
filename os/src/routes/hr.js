@@ -41,6 +41,10 @@ function mapPositionCardRow(row) {
     hourly_rate_pln: row.hourly_rate_pln ? Number(row.hourly_rate_pln) : null,
     acknowledged_at: row.acknowledged_at || null,
     acknowledgement_status: row.acknowledgement_status || 'Brak',
+    expired_competencies_count: Number(row.expired_competencies_count || 0),
+    expiring_competencies_count: Number(row.expiring_competencies_count || 0),
+    nearest_competency_expiry: row.nearest_competency_expiry || null,
+    competency_status: row.competency_status || 'ok',
   };
 }
 
@@ -83,7 +87,38 @@ async function positionCardsHandler(req, res) {
         FROM position_card_acknowledgements pck
         WHERE pck.user_id = u.id
         ORDER BY pck.acknowledged_at DESC
-        LIMIT 1)                             AS acknowledgement_status
+        LIMIT 1)                             AS acknowledgement_status,
+       -- Competency validity monitoring for employee cards
+       (SELECT COUNT(*)
+        FROM user_competencies uc
+        WHERE uc.user_id = u.id
+          AND uc.data_waznosci IS NOT NULL
+          AND uc.data_waznosci < CURRENT_DATE) AS expired_competencies_count,
+       (SELECT COUNT(*)
+        FROM user_competencies uc
+        WHERE uc.user_id = u.id
+          AND uc.data_waznosci IS NOT NULL
+          AND uc.data_waznosci >= CURRENT_DATE
+          AND uc.data_waznosci <= CURRENT_DATE + INTERVAL '30 days') AS expiring_competencies_count,
+       (SELECT MIN(uc.data_waznosci)
+        FROM user_competencies uc
+        WHERE uc.user_id = u.id
+          AND uc.data_waznosci IS NOT NULL) AS nearest_competency_expiry,
+       CASE
+         WHEN EXISTS (
+           SELECT 1 FROM user_competencies uc
+           WHERE uc.user_id = u.id
+             AND uc.data_waznosci IS NOT NULL
+             AND uc.data_waznosci < CURRENT_DATE
+         ) THEN 'expired'
+         WHEN EXISTS (
+           SELECT 1 FROM user_competencies uc
+           WHERE uc.user_id = u.id
+             AND uc.data_waznosci IS NOT NULL
+             AND uc.data_waznosci <= CURRENT_DATE + INTERVAL '30 days'
+         ) THEN 'expiring'
+         ELSE 'ok'
+       END AS competency_status
      FROM users u
      ${withOddzialJoin ? 'LEFT JOIN branches o ON o.id = u.oddzial_id' : ''}
      WHERE ${where}
@@ -220,6 +255,10 @@ router.get('/competency-expiry', async (req, res) => {
       data_waznosci:    row.data_waznosci,
       days_left:        Number(row.days_left),
       expired:          Number(row.days_left) < 0,
+      status:           Number(row.days_left) < 0 ? 'expired' : 'expiring',
+      severity:         Number(row.days_left) < 0 ? 'danger' : Number(row.days_left) <= 30 ? 'warning' : 'notice',
+      renewal_required: Number(row.days_left) <= 30,
+      source:           'user_competencies',
     })));
   } catch (err) {
     logger.error('hr.competency-expiry error', { message: err.message });

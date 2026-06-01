@@ -19,6 +19,10 @@ import { getRoleDisplayName } from '../utils/roleDisplay';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { telHref } from '../utils/telLink';
 
+function todayYmd() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function Ekipy() {
   const { t } = useTranslation();
   const [ekipy, setEkipy] = useState([]);
@@ -30,6 +34,7 @@ export default function Ekipy() {
   const [saving, setSaving] = useState(false);
   const [memberSaving, setMemberSaving] = useState(false);
   const [assetSaving, setAssetSaving] = useState(false);
+  const [repairSaving, setRepairSaving] = useState(false);
   const [rateSaving, setRateSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedEkipa, setSelectedEkipa] = useState(null);
@@ -48,6 +53,7 @@ export default function Ekipy() {
   const [form, setForm] = useState({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#22C55E' });
   const [formCzlonek, setFormCzlonek] = useState({ user_id: '', rola: 'Pomocnik' });
   const [formZasoby, setFormZasoby] = useState({ pojazd_id: '', sprzet_id: '' });
+  const [repairDraft, setRepairDraft] = useState(null);
   const navigate = useNavigate();
 
   const loadAll = useCallback(async () => {
@@ -254,6 +260,52 @@ export default function Ekipy() {
     const collection = kind === 'pojazd' ? pojazdy : sprzet;
     const item = collection.find((row) => String(row.id) === String(id));
     await updateTeamAsset(kind, item, selectedEkipa.id);
+  };
+
+  const openRepairDraft = (kind, item) => {
+    setRepairDraft({
+      kind,
+      item,
+      typ_zasobu: kind === 'pojazd' ? 'Pojazd' : 'Sprzet',
+      zasob_id: item.id,
+      label: kind === 'pojazd'
+        ? [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ')
+        : [item.nazwa, item.typ].filter(Boolean).join(' / '),
+      data_naprawy: todayYmd(),
+      opis_usterki: '',
+      opis_naprawy: '',
+      wykonawca: '',
+      koszt: '',
+      status: 'W toku',
+      oddzial_id: item.oddzial_id || selectedEkipa?.oddzial_id || currentUser?.oddzial_id || '',
+    });
+  };
+
+  const submitRepairDraft = async (event) => {
+    event.preventDefault();
+    if (!repairDraft || !repairDraft.opis_usterki.trim()) return;
+    setRepairSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.post('/flota/naprawy', {
+        typ_zasobu: repairDraft.typ_zasobu,
+        zasob_id: repairDraft.zasob_id,
+        data_naprawy: repairDraft.data_naprawy,
+        opis_usterki: repairDraft.opis_usterki.trim(),
+        opis_naprawy: repairDraft.opis_naprawy.trim() || null,
+        wykonawca: repairDraft.wykonawca.trim() || null,
+        koszt: repairDraft.koszt || null,
+        status: repairDraft.status,
+        oddzial_id: repairDraft.oddzial_id || selectedEkipa?.oddzial_id || currentUser?.oddzial_id,
+      }, { headers: authHeaders(token) });
+      showMsg(successMessage('Naprawa zapisana.'));
+      setRepairDraft(null);
+      await refreshAfterAssetChange();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac naprawy.')));
+    } finally {
+      setRepairSaving(false);
+    }
   };
 
   const zmienProcent = async (userId, procent) => {
@@ -798,6 +850,7 @@ export default function Ekipy() {
                     saving={assetSaving}
                     onUnassign={(p) => updateTeamAsset('pojazd', p, '')}
                     onRepair={(p) => updateTeamAsset('pojazd', p, selectedEkipa.id, { status: 'W naprawie' })}
+                    onReportRepair={(p) => openRepairDraft('pojazd', p)}
                   />
                   <AssetList
                     title="Sprzet"
@@ -809,6 +862,7 @@ export default function Ekipy() {
                     saving={assetSaving}
                     onUnassign={(s) => updateTeamAsset('sprzet', s, '')}
                     onRepair={(s) => updateTeamAsset('sprzet', s, selectedEkipa.id, { status: 'W naprawie' })}
+                    onReportRepair={(s) => openRepairDraft('sprzet', s)}
                   />
                 </div>
               </div>
@@ -833,6 +887,13 @@ export default function Ekipy() {
             </div>
           )}
         </div>
+        <RepairDialog
+          draft={repairDraft}
+          saving={repairSaving}
+          onChange={setRepairDraft}
+          onSubmit={submitRepairDraft}
+          onClose={() => setRepairDraft(null)}
+        />
       </main>
     </div>
   );
@@ -930,7 +991,7 @@ function Field({ label, children }) {
   );
 }
 
-function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, onUnassign, onRepair }) {
+function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, onUnassign, onRepair, onReportRepair }) {
   return (
     <div style={S.assetPanel}>
       <div style={S.assetPanelTitle}>{title}</div>
@@ -947,6 +1008,9 @@ function AssetList({ title, empty, items, renderName, renderMeta, canEdit, savin
               </div>
               {canEdit && (
                 <div style={S.assetActions}>
+                  <button type="button" style={S.assetReportRepairBtn} disabled={saving} onClick={() => onReportRepair(item)}>
+                    Zglos naprawe
+                  </button>
                   <button type="button" style={S.assetRepairBtn} disabled={saving || inRepair} onClick={() => onRepair(item)}>
                     W naprawie
                   </button>
@@ -959,6 +1023,54 @@ function AssetList({ title, empty, items, renderName, renderMeta, canEdit, savin
           );
         })
       )}
+    </div>
+  );
+}
+
+function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
+  if (!draft) return null;
+  const setField = (field, value) => onChange((prev) => ({ ...prev, [field]: value }));
+  return (
+    <div style={S.modalBackdrop} role="dialog" aria-modal="true" aria-label="Zglos naprawe">
+      <form style={S.modalPanel} onSubmit={onSubmit}>
+        <div style={S.modalHeader}>
+          <div>
+            <div style={S.modalEyebrow}>Naprawa zasobu</div>
+            <h3 style={S.modalTitle}>Zglos naprawe</h3>
+            <p style={S.modalSubtitle}>{draft.label || `Zasob #${draft.zasob_id}`}</p>
+          </div>
+          <button type="button" style={S.modalCloseBtn} onClick={onClose}>x</button>
+        </div>
+        <div style={S.modalGrid}>
+          <Field label="Data">
+            <input style={S.input} type="date" value={draft.data_naprawy} onChange={(e) => setField('data_naprawy', e.target.value)} required />
+          </Field>
+          <Field label="Status">
+            <select style={S.input} value={draft.status} onChange={(e) => setField('status', e.target.value)}>
+              <option value="W toku">W toku</option>
+              <option value="Zakonczona">Zakonczona</option>
+            </select>
+          </Field>
+          <Field label="Serwis / wykonawca">
+            <input style={S.input} value={draft.wykonawca} onChange={(e) => setField('wykonawca', e.target.value)} placeholder="np. serwis lokalny" />
+          </Field>
+          <Field label="Koszt">
+            <input style={S.input} type="number" step="0.01" value={draft.koszt} onChange={(e) => setField('koszt', e.target.value)} placeholder="0.00" />
+          </Field>
+        </div>
+        <Field label="Co sie stalo *">
+          <textarea style={{ ...S.input, minHeight: 84, resize: 'vertical' }} value={draft.opis_usterki} onChange={(e) => setField('opis_usterki', e.target.value)} required placeholder="Opis usterki dla biura/serwisu" />
+        </Field>
+        <Field label="Opis naprawy">
+          <textarea style={{ ...S.input, minHeight: 70, resize: 'vertical' }} value={draft.opis_naprawy} onChange={(e) => setField('opis_naprawy', e.target.value)} placeholder="Opcjonalnie, gdy naprawa jest zakonczona" />
+        </Field>
+        <div style={S.modalActions}>
+          <button type="button" style={S.cancelBtn} onClick={onClose}>Anuluj</button>
+          <button type="submit" style={S.submitBtn} disabled={saving || !draft.opis_usterki.trim()}>
+            {saving ? 'Zapisywanie...' : 'Zapisz naprawe'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -977,8 +1089,18 @@ const S = {
   assetName: { fontSize: 13, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   assetActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  assetReportRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(180,83,9,0.35)', background: 'rgba(245,158,11,0.1)', color: '#b45309', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   assetUnassignBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   teamAssetWarning: { display: 'inline-flex', maxWidth: '100%', padding: '4px 8px', marginBottom: 8, borderRadius: 7, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   detailAssetWarning: { display: 'flex', flexDirection: 'column', gap: 4, padding: 12, marginBottom: 18, borderRadius: 8, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', fontSize: 13, fontWeight: 700 },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalPanel: { width: 'min(680px, 100%)', maxHeight: '92vh', overflow: 'auto', background: 'var(--surface-glass)', color: 'var(--text)', border: '1px solid var(--glass-border)', borderRadius: 8, boxShadow: 'var(--shadow-lg)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 },
+  modalEyebrow: { fontSize: 11, color: 'var(--text-muted)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 },
+  modalTitle: { margin: '3px 0 2px', fontSize: 20, color: 'var(--text)' },
+  modalSubtitle: { margin: 0, fontSize: 13, color: 'var(--text-muted)' },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 18, lineHeight: 1 },
+  modalGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 },
+  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 },
 };

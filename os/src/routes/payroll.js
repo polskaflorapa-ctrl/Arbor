@@ -116,6 +116,11 @@ const dayCloseSchema = z.object({
   report_date: z.string().max(32),
 });
 
+const worklogTimesheetQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+  team_id: z.coerce.number().int().positive().optional(),
+});
+
 const cashPickupSchema = z.object({
   oddzial_id: z.coerce.number().int().positive(),
   team_id: z.coerce.number().int().positive(),
@@ -503,6 +508,90 @@ router.post('/team-day-report/:id/approve', validateParams(idParam), async (req,
 });
 
 /** F11.4 — lista raportów dnia w miesiącu (z liniami) — kierownik / dyrektor. */
+router.get('/worklog-timesheet', validateQuery(worklogTimesheetQuerySchema), async (req, res) => {
+  try {
+    if (!isDyrektor(req.user) && !isKierownik(req.user)) {
+      return res.status(403).json({ error: 'Brak uprawnien' });
+    }
+    const month = req.query.month || new Date().toISOString().slice(0, 7);
+    const params = [`${month}-01`];
+    const where = [
+      "wl.end_time IS NOT NULL",
+      "(wl.start_time AT TIME ZONE 'Europe/Warsaw')::date >= $1::date",
+      "(wl.start_time AT TIME ZONE 'Europe/Warsaw')::date < ($1::date + INTERVAL '1 month')",
+    ];
+    if (req.query.team_id) {
+      params.push(Number(req.query.team_id));
+      where.push(`t.ekipa_id = $${params.length}`);
+    }
+    if (isKierownik(req.user)) {
+      params.push(req.user.oddzial_id);
+      where.push(`t.oddzial_id = $${params.length}`);
+    }
+    const { rows } = await pool.query(
+      `WITH raw AS (
+         SELECT wl.user_id, t.ekipa_id, t.oddzial_id,
+                (wl.start_time AT TIME ZONE 'Europe/Warsaw')::date AS work_date,
+                t.id AS task_id,
+                COALESCE(NULLIF(wl.duration_hours, 0), NULLIF(wl.czas_pracy_minuty, 0)::numeric / 60,
+                  EXTRACT(EPOCH FROM (wl.end_time - wl.start_time)) / 3600.0, 0)::numeric(14,6) AS hours,
+                CASE WHEN EXTRACT(HOUR FROM (wl.start_time AT TIME ZONE 'Europe/Warsaw')) >= 22
+                       OR EXTRACT(HOUR FROM (wl.start_time AT TIME ZONE 'Europe/Warsaw')) < 6
+                  THEN COALESCE(NULLIF(wl.duration_hours, 0), NULLIF(wl.czas_pracy_minuty, 0)::numeric / 60,
+                    EXTRACT(EPOCH FROM (wl.end_time - wl.start_time)) / 3600.0, 0)::numeric(14,6)
+                  ELSE 0::numeric END AS night_hours
+           FROM work_logs wl
+           JOIN tasks t ON t.id = wl.task_id
+          WHERE ${where.join(' AND ')}
+       ),
+       daily AS (
+         SELECT user_id, work_date, MIN(oddzial_id) AS oddzial_id,
+                SUM(hours)::numeric(12,4) AS hours_total,
+                SUM(night_hours)::numeric(12,4) AS hours_night,
+                COUNT(DISTINCT task_id)::int AS tasks_count,
+                ARRAY_AGG(DISTINCT ekipa_id) AS team_ids
+           FROM raw
+          GROUP BY user_id, work_date
+       )
+       SELECT d.user_id, u.imie AS user_imie, u.nazwisko AS user_nazwisko, u.rola AS user_rola,
+              d.oddzial_id, b.nazwa AS oddzial_nazwa,
+              COUNT(*)::int AS days_count,
+              COALESCE(SUM(d.hours_total), 0)::numeric(12,2) AS hours_total,
+              COALESCE(SUM(LEAST(d.hours_total, 8)), 0)::numeric(12,2) AS hours_regular,
+              COALESCE(SUM(GREATEST(d.hours_total - 8, 0)), 0)::numeric(12,2) AS hours_overtime,
+              COALESCE(SUM(d.hours_night), 0)::numeric(12,2) AS hours_night,
+              COALESCE(SUM(d.tasks_count), 0)::int AS tasks_count,
+              JSON_AGG(JSON_BUILD_OBJECT(
+                'date', d.work_date,
+                'hours_total', d.hours_total,
+                'hours_regular', LEAST(d.hours_total, 8),
+                'hours_overtime', GREATEST(d.hours_total - 8, 0),
+                'hours_night', d.hours_night,
+                'tasks_count', d.tasks_count,
+                'team_ids', d.team_ids
+              ) ORDER BY d.work_date) AS days
+         FROM daily d
+         LEFT JOIN users u ON u.id = d.user_id
+         LEFT JOIN branches b ON b.id = d.oddzial_id
+        GROUP BY d.user_id, u.imie, u.nazwisko, u.rola, d.oddzial_id, b.nazwa
+        ORDER BY user_nazwisko NULLS LAST, user_imie NULLS LAST, d.user_id`,
+      params
+    );
+    res.json({
+      source: 'work_logs',
+      month,
+      overtime_rule: 'Informacyjnie: nadgodziny = suma godzin powyzej 8h na dzien; finalne reguly wymagaja weryfikacji prawnej.',
+      items: rows,
+    });
+  } catch (e) {
+    if (String(e.message || '').includes('work_logs')) {
+      return res.status(503).json({ error: 'Uruchom migracje work_logs.' });
+    }
+    logger.error('payroll.worklog-timesheet', { message: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/team-day-reports', validateQuery(monthQuerySchema), async (req, res) => {
   try {
     if (!isDyrektor(req.user) && !isKierownik(req.user)) {

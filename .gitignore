@@ -46,6 +46,8 @@ tmp_*.py
 # Codex / Claude agent runtime artifacts
 .netlify/
 .codex/
+!.circleci/
+!.circleci/config.yml
 .codex-*.log
 .codex-*.pid
 .claude/

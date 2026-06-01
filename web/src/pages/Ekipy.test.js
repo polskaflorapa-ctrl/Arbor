@@ -96,6 +96,36 @@ beforeEach(() => {
   api.post.mockReset();
   api.delete.mockReset();
   api.put.mockResolvedValue({ data: { message: 'ok' } });
+  api.post.mockResolvedValue({ data: { id: 501 } });
+});
+
+test('reports equipment repair from team asset list', async () => {
+  mockEkipyApi();
+
+  const { container } = renderEkipy();
+
+  await screen.findByText('Brygada Alfa');
+  await waitFor(() => expect(container.querySelector('.ekipy-team-card')).toBeTruthy());
+  await userEvent.click(container.querySelector('.ekipy-team-card'));
+  expect(await screen.findByText('Sprzet i auta ekipy')).toBeInTheDocument();
+  const repairButtons = await screen.findAllByRole('button', { name: 'Zglos naprawe' });
+  await userEvent.click(repairButtons[1]);
+  await userEvent.type(screen.getByPlaceholderText('Opis usterki dla biura/serwisu'), 'Nie odpala po zalaniu');
+  await userEvent.click(screen.getByRole('button', { name: 'Zapisz naprawe' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/flota/naprawy',
+      expect.objectContaining({
+        typ_zasobu: 'Sprzet',
+        zasob_id: 11,
+        opis_usterki: 'Nie odpala po zalaniu',
+        status: 'W toku',
+        oddzial_id: 1,
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 });
 
 afterEach(() => {
@@ -106,10 +136,11 @@ afterEach(() => {
 test('shows and updates team vehicles and equipment in team detail', async () => {
   mockEkipyApi();
 
-  renderEkipy();
+  const { container } = renderEkipy();
 
   expect(await screen.findByText(/1 zasob w naprawie/i)).toBeInTheDocument();
-  await userEvent.click(await screen.findByText('Brygada Alfa'));
+  await waitFor(() => expect(container.querySelector('.ekipy-team-card')).toBeTruthy());
+  await userEvent.click(container.querySelector('.ekipy-team-card'));
 
   expect(await screen.findByText('Sprzet i auta ekipy')).toBeInTheDocument();
   expect(screen.getAllByText(/Mercedes Sprinter KR12345/i).length).toBeGreaterThan(0);

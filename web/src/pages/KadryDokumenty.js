@@ -31,6 +31,13 @@ function formatDateTime(value) {
   });
 }
 
+function formatDate(value) {
+  if (!value) return 'brak';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'brak';
+  return date.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function fullName(row) {
   return row?.employee_name || [row?.imie, row?.nazwisko].filter(Boolean).join(' ') || row?.login || 'Pracownik';
 }
@@ -63,8 +70,29 @@ function statusMeta(card) {
   return { key: 'pending', label: 'Do podpisu', tone: 'warn' };
 }
 
+function competencyMeta(card, alerts = []) {
+  const expired = Number(card?.expired_competencies_count || 0);
+  const expiring = Number(card?.expiring_competencies_count || 0);
+  const nearest = card?.nearest_competency_expiry;
+  if (expired > 0) {
+    return {
+      label: `${expired} wygasle`,
+      detail: nearest ? `najblizej: ${formatDate(nearest)}` : 'wymaga odnowienia',
+      tone: 'danger',
+    };
+  }
+  if (expiring > 0 || alerts.length > 0) {
+    return {
+      label: `${expiring || alerts.length} do odnowienia`,
+      detail: nearest ? `najblizej: ${formatDate(nearest)}` : 'w horyzoncie 90 dni',
+      tone: 'warning',
+    };
+  }
+  return { label: 'OK', detail: nearest ? `najblizej: ${formatDate(nearest)}` : 'brak terminow', tone: 'success' };
+}
+
 function buildCsv(cards) {
-  const header = ['Pracownik', 'Rola', 'Stanowisko', 'Status', 'Aktualizacja', 'Podpis', 'Rozliczenie'];
+  const header = ['Pracownik', 'Rola', 'Stanowisko', 'Status', 'Aktualizacja', 'Podpis', 'Rozliczenie', 'Wygasle uprawnienia', 'Do odnowienia 30 dni', 'Najblizsza waznosc'];
   const rows = cards.map((card) => [
     fullName(card),
     card.employee_role || '',
@@ -73,6 +101,9 @@ function buildCsv(cards) {
     formatDateTime(card.updated_at),
     formatDateTime(card.acknowledged_at),
     formatSettlement(card),
+    card.expired_competencies_count || 0,
+    card.expiring_competencies_count || 0,
+    formatDate(card.nearest_competency_expiry),
   ]);
   return [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';'))
@@ -83,6 +114,7 @@ export default function KadryDokumenty() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [cards, setCards] = useState([]);
+  const [competencyAlerts, setCompetencyAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -103,8 +135,12 @@ export default function KadryDokumenty() {
     setLoading(true);
     setMessage('');
     try {
-      const res = await api.get('/position-cards');
-      setCards(Array.isArray(res.data?.cards) ? res.data.cards : []);
+      const [cardsRes, expiryRes] = await Promise.all([
+        api.get('/position-cards'),
+        api.get('/hr/competency-expiry?days=90'),
+      ]);
+      setCards(Array.isArray(cardsRes.data?.cards) ? cardsRes.data.cards : []);
+      setCompetencyAlerts(Array.isArray(expiryRes.data) ? expiryRes.data : []);
     } catch (err) {
       setMessage(err?.response?.data?.error || 'Nie udało się załadować dokumentów kadrowych.');
     } finally {
@@ -137,8 +173,20 @@ export default function KadryDokumenty() {
     const pending = saved.filter((card) => card.acknowledgement_status !== 'confirmed');
     const missing = cards.filter((card) => !card.updated_at);
     const field = cards.filter(isFieldWorker);
-    return { saved, confirmed, pending, missing, field };
+    const expiredCompetencies = cards.reduce((sum, card) => sum + Number(card.expired_competencies_count || 0), 0);
+    const expiringCompetencies = cards.reduce((sum, card) => sum + Number(card.expiring_competencies_count || 0), 0);
+    return { saved, confirmed, pending, missing, field, expiredCompetencies, expiringCompetencies };
   }, [cards]);
+
+  const alertsByUser = useMemo(() => {
+    const map = new Map();
+    competencyAlerts.forEach((alert) => {
+      const key = Number(alert.user_id);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(alert);
+    });
+    return map;
+  }, [competencyAlerts]);
 
   const exportCsv = () => {
     const blob = new Blob([`\uFEFF${buildCsv(filteredCards)}`], { type: 'text/csv;charset=utf-8' });
@@ -182,6 +230,8 @@ export default function KadryDokumenty() {
               <div style={S.stat}><span style={S.statLabel}>Podpisane</span><strong style={S.statValue}>{summary.confirmed.length}</strong><small style={S.statHint}>wersje potwierdzone</small></div>
               <div style={S.stat}><span style={S.statLabel}>Braki</span><strong style={S.statValue}>{summary.missing.length}</strong><small style={S.statHint}>bez opublikowanej karty</small></div>
               <div style={S.stat}><span style={S.statLabel}>Teren / BHP</span><strong style={S.statValue}>{summary.field.length}</strong><small style={S.statHint}>role z checklistą terenową</small></div>
+              <div style={S.stat}><span style={S.statLabel}>Wygasle uprawnienia</span><strong style={S.statValueDanger}>{summary.expiredCompetencies}</strong><small style={S.statHint}>blokery do odnowienia</small></div>
+              <div style={S.stat}><span style={S.statLabel}>Do odnowienia</span><strong style={S.statValueWarn}>{summary.expiringCompetencies || competencyAlerts.filter((item) => item.status === 'expiring').length}</strong><small style={S.statHint}>alert 30/90 dni</small></div>
             </section>
 
             <section className="hr-docs-panel" style={S.panel}>
@@ -216,6 +266,7 @@ export default function KadryDokumenty() {
                 <div className="modern-data-stack">
                   {filteredCards.map((card) => {
                     const meta = statusMeta(card);
+                    const competency = competencyMeta(card, alertsByUser.get(Number(card.user_id)) || []);
                     return (
                       <ModernDataRow
                         key={card.user_id}
@@ -230,6 +281,7 @@ export default function KadryDokumenty() {
                         metrics={[
                           { label: 'Dokument', value: card.stanowisko || 'Brak stanowiska', mono: false },
                           { label: 'Typ', value: isFieldWorker(card) ? 'Karta + BHP terenowe' : 'Karta stanowiska', mono: false },
+                          { label: 'Uprawnienia', value: competency.label, hint: competency.detail, tone: competency.tone, mono: false },
                           { label: 'Rozliczenie', value: formatSettlement(card), mono: false },
                           { label: 'Wersja', value: formatDateTime(card.updated_at) },
                           { label: 'Podpis', value: formatDateTime(card.acknowledged_at), tone: card.acknowledged_at ? 'success' : 'warning' },
@@ -315,6 +367,8 @@ const S = {
   },
   statLabel: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   statValue: { color: 'var(--accent)', fontSize: 24, fontWeight: 950, lineHeight: 1.1 },
+  statValueDanger: { color: 'var(--danger)', fontSize: 24, fontWeight: 950, lineHeight: 1.1 },
+  statValueWarn: { color: 'var(--warning)', fontSize: 24, fontWeight: 950, lineHeight: 1.1 },
   statHint: { color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, lineHeight: 1.35 },
   panel: {
     border: '1px solid var(--glass-border)',
