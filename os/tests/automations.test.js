@@ -123,6 +123,9 @@ describe('Automations routes', () => {
         rows: [{ id: 5, klient_nazwa: 'Test', data_planowana: '2026-05-20', status: 'Nowe' }],
       })
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     runOperationalDigest.mockResolvedValue({
       date: '2026-05-25',
@@ -139,6 +142,13 @@ describe('Automations routes', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.reminders).toEqual({ scanned: 1, remindersCreated: 1 });
     expect(res.body.inspectionSmsReminders).toEqual({ scanned: 0, sent: 0, failed: [] });
+    expect(res.body.telephonyRetests).toEqual({
+      max_age_days: 14,
+      branches_total: 0,
+      recipients_total: 0,
+      notifications_created: 0,
+      duplicates_skipped: 0,
+    });
     expect(runOperationalDigest).toHaveBeenCalledWith(
       pool,
       expect.objectContaining({ date: '2026-05-25', horizonDays: 2, actorUserId: 10, triggerType: 'manual' })
@@ -163,7 +173,10 @@ describe('Automations routes', () => {
         }],
       })
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] });
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
     appendCrmLeadMessage.mockResolvedValue({ id: 777 });
     runOperationalDigest.mockResolvedValue({
       date: '2026-05-31',
@@ -178,6 +191,7 @@ describe('Automations routes', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.inspectionSmsReminders).toEqual({ scanned: 1, sent: 1, failed: [] });
+    expect(res.body.telephonyRetests).toEqual(expect.objectContaining({ branches_total: 0 }));
     expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
       to: '+48500111222',
       oddzialId: 2,
@@ -249,7 +263,11 @@ describe('Automations routes', () => {
 
   it('runs operational digest from cron secret and respects enabled settings', async () => {
     process.env.OPS_CRON_SECRET = 'cron-secret';
-    pool.query.mockResolvedValueOnce({ rows: [] });
+    pool.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
     runOperationalDigest.mockResolvedValue({
       date: '2026-05-25',
       global: { summary: { total_alerts: 1 } },
@@ -260,6 +278,7 @@ describe('Automations routes', () => {
       .get('/api/automations/daily-digest/tick?secret=cron-secret&date=2026-05-25');
 
     expect(res.status).toBe(200);
+    expect(res.body.telephonyRetests).toEqual(expect.objectContaining({ branches_total: 0 }));
     expect(runOperationalDigest).toHaveBeenCalledWith(
       pool,
       expect.objectContaining({ date: '2026-05-25', triggerType: 'cron', respectEnabled: true })

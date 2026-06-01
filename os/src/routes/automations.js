@@ -17,8 +17,10 @@ const {
 } = require('../services/teamLeagueTelegram');
 const { sendSmsGateway } = require('../services/smsGateway');
 const { appendCrmLeadMessage } = require('../services/crmInbox');
+const { pushToUser } = require('./notifications');
 
 const router = express.Router();
+const TELEPHONY_RETEST_MAX_AGE_DAYS = 14;
 
 const parsePositiveInt = (value) => {
   if (value == null || value === '') return null;
@@ -178,6 +180,120 @@ const sendInspectionSmsReminders = async () => {
   return { scanned: rows.length, sent, failed };
 };
 
+async function listTelephonyRetestCandidates({ maxAgeDays = TELEPHONY_RETEST_MAX_AGE_DAYS } = {}) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS voice_agent_integrations (
+      id SERIAL PRIMARY KEY,
+      agent_id VARCHAR(80) NOT NULL DEFAULT 'polska-flora-ania',
+      oddzial_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      provider VARCHAR(40) NOT NULL DEFAULT 'external',
+      provider_account_id VARCHAR(120),
+      webhook_secret VARCHAR(120) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(agent_id, oddzial_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS integration_test_logs (
+      id SERIAL PRIMARY KEY,
+      oddzial_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+      integration_type VARCHAR(40) NOT NULL,
+      action VARCHAR(80) NOT NULL,
+      status VARCHAR(20) NOT NULL,
+      provider VARCHAR(40),
+      target TEXT,
+      message TEXT,
+      error TEXT,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  const { rows } = await pool.query(
+    `WITH latest_ok_logs AS (
+       SELECT DISTINCT ON (oddzial_id)
+         oddzial_id, created_at
+       FROM integration_test_logs
+       WHERE status = 'ok'
+       ORDER BY oddzial_id, created_at DESC
+     )
+     SELECT
+       b.id AS oddzial_id,
+       b.nazwa AS oddzial_name,
+       b.telefon,
+       b.sms_sender_id,
+       l.created_at AS last_ok_test_at,
+       FLOOR(EXTRACT(EPOCH FROM (NOW() - l.created_at)) / 86400)::int AS age_days
+     FROM branches b
+     JOIN voice_agent_integrations i
+       ON i.agent_id = 'polska-flora-ania'
+      AND i.oddzial_id = b.id
+      AND i.status = 'active'
+     JOIN latest_ok_logs l ON l.oddzial_id = b.id
+     WHERE COALESCE(b.aktywny, true)
+       AND l.created_at < NOW() - ($1::int * INTERVAL '1 day')
+     ORDER BY l.created_at ASC, b.nazwa NULLS LAST, b.id`,
+    [Number(maxAgeDays)]
+  );
+  return rows;
+}
+
+async function createTelephonyRetestNotifications({ actorUserId = null, maxAgeDays = TELEPHONY_RETEST_MAX_AGE_DAYS } = {}) {
+  const branches = await listTelephonyRetestCandidates({ maxAgeDays });
+  let recipientsTotal = 0;
+  const notifications = [];
+  for (const branch of branches) {
+    const message = [
+      `Retest telefonii wymagany: ${branch.oddzial_name || `Oddzial #${branch.oddzial_id}`}.`,
+      `Ostatni test OK: ${branch.last_ok_test_at ? new Date(branch.last_ok_test_at).toISOString() : 'brak'}`,
+      `Wiek testu: ${Number(branch.age_days || 0)} dni; limit: ${maxAgeDays} dni.`,
+      'Wykonaj Test calosci oddzialu w panelu Telefonia.',
+    ].join(' ');
+    const recipients = await pool.query(
+      `SELECT id
+         FROM users
+        WHERE ($1::int IS NULL OR id <> $1)
+          AND rola IN ('Prezes', 'Dyrektor', 'Administrator', 'Kierownik')
+          AND (
+            rola IN ('Prezes', 'Dyrektor', 'Administrator')
+            OR oddzial_id = $2
+          )`,
+      [actorUserId, branch.oddzial_id]
+    );
+    recipientsTotal += recipients.rows.length;
+    for (const recipient of recipients.rows) {
+      const inserted = await pool.query(
+        `INSERT INTO notifications (from_user_id, to_user_id, task_id, typ, tresc, status)
+         SELECT $1, $2, NULL, 'Retest telefonii', $3, 'Nowe'
+         WHERE NOT EXISTS (
+           SELECT 1
+             FROM notifications n
+            WHERE n.to_user_id = $2
+              AND n.typ = 'Retest telefonii'
+              AND n.status = 'Nowe'
+              AND n.tresc = $3
+         )
+         RETURNING id, to_user_id, typ, tresc, task_id, status, data_utworzenia`,
+        [actorUserId, recipient.id, message]
+      );
+      if (inserted.rows[0]) {
+        notifications.push({ ...inserted.rows[0], oddzial_id: branch.oddzial_id });
+      }
+    }
+  }
+  for (const notification of notifications) {
+    pushToUser(notification.to_user_id, { event: 'notification', notification, tab: 'telefonia' });
+  }
+  return {
+    max_age_days: Number(maxAgeDays),
+    branches_total: branches.length,
+    recipients_total: recipientsTotal,
+    notifications_created: notifications.length,
+    duplicates_skipped: Math.max(0, recipientsTotal - notifications.length),
+  };
+}
+
 router.get(
   '/inspection-sms-reminders/preview',
   authMiddleware,
@@ -296,6 +412,10 @@ router.post(
     try {
       const reminders = await sendOverdueReminders();
       const inspectionSmsReminders = await sendInspectionSmsReminders();
+      const telephonyRetests = await createTelephonyRetestNotifications({
+        actorUserId: req.user?.id || null,
+        maxAgeDays: req.body?.telephony_retest_max_age_days || TELEPHONY_RETEST_MAX_AGE_DAYS,
+      });
       const digestOptions = {
         date: req.body?.date,
         horizonDays: req.body?.horizon_days,
@@ -312,6 +432,7 @@ router.post(
         {
           reminders,
           inspectionSmsReminders,
+          telephonyRetests,
           operationalDigest: {
             global: operationalDigest.global?.summary || null,
             branches: (operationalDigest.branches || []).map((branch) => ({
@@ -331,6 +452,7 @@ router.post(
         metadata: {
           reminders,
           inspectionSmsReminders,
+          telephonyRetests,
           operationalDigest: {
             global: operationalDigest.global?.summary || null,
             branches: (operationalDigest.branches || []).map((branch) => ({
@@ -344,6 +466,7 @@ router.post(
         success: true,
         reminders,
         inspectionSmsReminders,
+        telephonyRetests,
         operationalDigest,
         executedAt: new Date().toISOString(),
       });
@@ -425,6 +548,10 @@ router.get('/daily-digest/tick', async (req, res) => {
   }
   try {
     const inspectionSmsReminders = await sendInspectionSmsReminders();
+    const telephonyRetests = await createTelephonyRetestNotifications({
+      actorUserId: null,
+      maxAgeDays: req.query.telephony_retest_max_age_days || TELEPHONY_RETEST_MAX_AGE_DAYS,
+    });
     const operationalDigest = await runOperationalDigest(pool, {
       date: req.query.date,
       triggerType: 'cron',
@@ -432,6 +559,7 @@ router.get('/daily-digest/tick', async (req, res) => {
     });
     await dispatchWebhook('automation.daily_digest.cron', {
       inspectionSmsReminders,
+      telephonyRetests,
       operationalDigest: {
         global: operationalDigest.global?.summary || null,
         branches: (operationalDigest.branches || []).map((branch) => ({
@@ -441,7 +569,7 @@ router.get('/daily-digest/tick', async (req, res) => {
         })),
       },
     }, { retries: 3 });
-    res.json({ success: true, inspectionSmsReminders, operationalDigest, executedAt: new Date().toISOString() });
+    res.json({ success: true, inspectionSmsReminders, telephonyRetests, operationalDigest, executedAt: new Date().toISOString() });
   } catch (e) {
     logger.error('Blad cron digestu operacyjnego', { message: e.message });
     res.status(500).json({ error: e.message });
