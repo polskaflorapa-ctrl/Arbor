@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 type SmsRow = {
@@ -101,15 +101,9 @@ export default function TelefoniaMobileScreen() {
       try {
         const callbacksQs = oddzialId ? `?oddzial_id=${oddzialId}` : '';
         const [callsRes, smsRes, callbacksRes] = await Promise.all([
-          fetch(`${API_URL}/telefon/rozmowy?limit=25&offset=0`, {
-            headers: { Authorization: `Bearer ${tokenToUse}` },
-          }),
-          fetch(`${API_URL}/sms/historia?limit=25&offset=0`, {
-            headers: { Authorization: `Bearer ${tokenToUse}` },
-          }),
-          fetch(`${API_URL}/telephony/callbacks${callbacksQs}`, {
-            headers: { Authorization: `Bearer ${tokenToUse}` },
-          }),
+          apiFetch('/telefon/rozmowy?limit=25&offset=0', { token: tokenToUse }),
+          apiFetch('/sms/historia?limit=25&offset=0', { token: tokenToUse }),
+          apiFetch(`/telephony/callbacks${callbacksQs}`, { token: tokenToUse }),
         ]);
         const callsData = await parseResponse(callsRes);
         const smsData = await parseResponse(smsRes);
@@ -168,12 +162,9 @@ export default function TelefoniaMobileScreen() {
         do: callPhone.trim(),
         ...(Number.isFinite(taskId) && taskId > 0 ? { task_id: taskId } : {}),
       };
-      const res = await fetch(`${API_URL}/telefon/polacz-do-klienta`, {
+      const res = await apiJsonFetch('/telefon/polacz-do-klienta', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify(payload),
       });
       const data = await parseResponse(res);
@@ -204,12 +195,9 @@ export default function TelefoniaMobileScreen() {
     }
     setBusySms(true);
     try {
-      const res = await fetch(`${API_URL}/sms/wyslij`, {
+      const res = await apiJsonFetch('/sms/wyslij', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify({
           telefon: smsPhone.trim(),
           tresc: smsText.trim(),
@@ -259,12 +247,9 @@ export default function TelefoniaMobileScreen() {
         due_at: dueAt && !Number.isNaN(dueAt.getTime()) ? dueAt.toISOString() : null,
         notes: callbackNotes.trim() || null,
       };
-      const res = await fetch(`${API_URL}/telephony/callbacks`, {
+      const res = await apiJsonFetch('/telephony/callbacks', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify(payload),
       });
       const data = await parseResponse(res);
@@ -294,12 +279,9 @@ export default function TelefoniaMobileScreen() {
   const updateCallbackStatus = async (id: number, status: 'open' | 'in_progress' | 'done' | 'cancelled') => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/telephony/callbacks/${id}/status`, {
+      const res = await apiJsonFetch(`/telephony/callbacks/${id}/status`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify({ status }),
       });
       const data = await parseResponse(res);

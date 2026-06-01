@@ -11,6 +11,7 @@ import { API_URL, CUSTOM_API_URL_STORAGE_KEY, EXPECTED_API_VERSION, WEB_APP_URL,
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiUrl } from '../utils/api-client';
 import { triggerHaptic } from '../utils/haptics';
 import { flushOfflineQueue, getOfflineQueueSize } from '../utils/offline-queue';
 import { fetchAndApplyMobileRemoteConfig, getLastReportedApiVersion } from '../utils/mobile-remote-config';
@@ -225,30 +226,20 @@ export default function ApiDiagnostykaScreen() {
       setOfflineQueueSize(await getOfflineQueueSize());
 
       const nextResults: DiagnosticResult[] = [];
-      nextResults.push(await runSingle('apiDiag.probe.backend', () => fetch(`${API_URL}/health`)));
-      nextResults.push(await runSingle('apiDiag.probe.auth', () => fetch(`${API_URL}/auth/me`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }), {
+      nextResults.push(await runSingle('apiDiag.probe.backend', () => apiFetch('/health')));
+      nextResults.push(await runSingle('apiDiag.probe.auth', () => apiFetch('/auth/me', { token }), {
         authRequiredStatusCodes: [401, 403],
       }));
-      nextResults.push(await runSingle('apiDiag.probe.tasks', () => fetch(`${API_URL}/tasks/wszystkie`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }), {
+      nextResults.push(await runSingle('apiDiag.probe.tasks', () => apiFetch('/tasks/wszystkie', { token }), {
         authRequiredStatusCodes: [401, 403],
       }));
-      nextResults.push(await runSingle('apiDiag.probe.quotationPanel', () => fetch(`${API_URL}/quotations/panel/do-przypisania`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }), {
+      nextResults.push(await runSingle('apiDiag.probe.quotationPanel', () => apiFetch('/quotations/panel/do-przypisania', { token }), {
         authRequiredStatusCodes: [401, 403],
       }));
-      nextResults.push(await runSingle('apiDiag.probe.quotationApprovals', () => fetch(`${API_URL}/quotations/panel/moje-zatwierdzenia`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }), {
+      nextResults.push(await runSingle('apiDiag.probe.quotationApprovals', () => apiFetch('/quotations/panel/moje-zatwierdzenia', { token }), {
         authRequiredStatusCodes: [401, 403],
       }));
-      nextResults.push(await runSingle('apiDiag.probe.mobileConfig', () => fetch(`${API_URL}/mobile-config`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }), {
+      nextResults.push(await runSingle('apiDiag.probe.mobileConfig', () => apiFetch('/mobile-config', { token }), {
         okStatusCodes: [404],
         authRequiredStatusCodes: [401, 403],
       }));
@@ -259,10 +250,8 @@ export default function ApiDiagnostykaScreen() {
       const fromYmd = `${y}-${pad(m0 + 1)}-01`;
       const lastDay = new Date(y, m0 + 1, 0).getDate();
       const toYmd = `${y}-${pad(m0 + 1)}-${pad(lastDay)}`;
-      const rezerwacjeUrl = `${API_URL}/flota/rezerwacje?from=${encodeURIComponent(fromYmd)}&to=${encodeURIComponent(toYmd)}`;
-      nextResults.push(await runSingle('apiDiag.probe.fleetReservations', () => fetch(rezerwacjeUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }), {
+      const rezerwacjeUrl = apiUrl(`/flota/rezerwacje?from=${encodeURIComponent(fromYmd)}&to=${encodeURIComponent(toYmd)}`);
+      nextResults.push(await runSingle('apiDiag.probe.fleetReservations', () => apiFetch(rezerwacjeUrl, { token }), {
         okStatusCodes: [404],
         authRequiredStatusCodes: [401, 403],
       }));

@@ -15,10 +15,10 @@ import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiJsonFetch, apiUrl } from '../utils/api-client';
 import { supportsQuotationsModule } from '../utils/api-capabilities';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
@@ -197,11 +197,10 @@ export default function Powiadomienia() {
       setToken(storedToken);
       const flushInfo = await flushOfflineQueue(storedToken);
       setOfflineQueueCount(flushInfo.left);
-      const h = { Authorization: `Bearer ${storedToken}` } as Record<string, string>;
       const [zRes, uRes, nRes] = await Promise.all([
-        fetch(`${API_URL}/tasks/moje`, { headers: h }),
-        fetch(`${API_URL}/uzytkownicy`, { headers: h }),
-        fetch(`${API_URL}/notifications`, { headers: h }),
+        apiFetch('/tasks/moje', { token: storedToken }),
+        apiFetch('/uzytkownicy', { token: storedToken }),
+        apiFetch('/notifications', { token: storedToken }),
       ]);
       if (zRes.ok) { const d = await zRes.json(); setZlecenia(Array.isArray(d) ? d : []); }
       if (uRes.ok) {
@@ -218,7 +217,7 @@ export default function Powiadomienia() {
         setApprovalQueue([]);
       } else {
         try {
-          const aRes = await fetch(`${API_URL}/quotations/panel/moje-zatwierdzenia`, { headers: h });
+          const aRes = await apiFetch('/quotations/panel/moje-zatwierdzenia', { token: storedToken });
           if (aRes.ok) {
             const approvals = await aRes.json();
             setApprovalQueue(Array.isArray(approvals) ? approvals : []);
@@ -251,11 +250,11 @@ export default function Powiadomienia() {
     async (notificationId: number | string) => {
       const parsedId = Number(notificationId);
       if (!Number.isFinite(parsedId) || !token) return;
-      const path = `${API_URL}/notifications/${parsedId}/odczytaj`;
+      const path = apiUrl(`/notifications/${parsedId}/odczytaj`);
       try {
-        const res = await fetch(path, {
+        const res = await apiFetch(path, {
           method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` },
+          token,
         });
         if (res.ok) {
           setPowiadomienia((prev) =>
@@ -290,11 +289,11 @@ export default function Powiadomienia() {
 
   const markAllAsRead = useCallback(async () => {
     if (!token || unreadCount <= 0) return;
-    const path = `${API_URL}/notifications/odczytaj-wszystkie`;
+    const path = apiUrl('/notifications/odczytaj-wszystkie');
     try {
-      const res = await fetch(path, {
+      const res = await apiFetch(path, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
+        token,
       });
       if (res.ok) {
         void triggerHaptic('success');
@@ -341,12 +340,12 @@ export default function Powiadomienia() {
         decyzja === 'Returned'
           ? { decyzja, komentarz: 'Zwrot z mobile inbox — uzupełnij dane i wyślij ponownie.' }
           : { decyzja };
-      const endpoint = `${API_URL}/quotations/${quotationId}/approvals/${approvalId}/decision`;
+      const endpoint = apiUrl(`/quotations/${quotationId}/approvals/${approvalId}/decision`);
       setApprovalBusyId(approvalId);
       try {
-        const res = await fetch(endpoint, {
+        const res = await apiJsonFetch(endpoint, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          token,
           body: JSON.stringify(payload),
         });
         if (res.ok) {
@@ -403,9 +402,10 @@ export default function Powiadomienia() {
     try {
       if (!token) { router.replace('/login'); return; }
       const payload = { to_user_id: selectedKierownik, task_id: selectedTask || null, typ: selectedTyp, tresc };
-      const res = await fetch(`${API_URL}/notifications`, {
+      const notificationsUrl = apiUrl('/notifications');
+      const res = await apiJsonFetch(notificationsUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -415,7 +415,7 @@ export default function Powiadomienia() {
         loadData();
       } else {
         const queued = await queueRequestWithOfflineFallback({
-          url: `${API_URL}/notifications`,
+          url: notificationsUrl,
           method: 'POST',
           body: payload as Record<string, unknown>,
         });
@@ -425,7 +425,7 @@ export default function Powiadomienia() {
       }
     } catch {
       const queued = await queueRequestWithOfflineFallback({
-        url: `${API_URL}/notifications`,
+        url: apiUrl('/notifications'),
         method: 'POST',
         body: { to_user_id: selectedKierownik, task_id: selectedTask || null, typ: selectedTyp, tresc },
       });
