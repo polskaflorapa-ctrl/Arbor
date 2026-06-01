@@ -319,6 +319,7 @@ export default function Flota() {
         team: p.ekipa_nazwa || 'bez ekipy',
         status: p.status || 'Dostepny',
         alerts,
+        blocked: alerts.some((alert) => alert.state === 'expired'),
         meta: p.przebieg ? `${parseInt(p.przebieg, 10).toLocaleString(localeNum)} km` : p.typ,
       };
     });
@@ -346,6 +347,7 @@ export default function Flota() {
         team: s.ekipa_nazwa || 'bez ekipy',
         status: s.status || 'Dostepny',
         alerts,
+        blocked: alerts.some((alert) => alert.state === 'expired') || String(s.status || '').toLowerCase().includes('napraw'),
         meta: s.next_task_id ? `Zlecenie #${s.next_task_id}` : (s.koszt_motogodziny ? `Motogodzina ${s.koszt_motogodziny} PLN` : 'stawka nieustawiona'),
       };
     });
@@ -804,7 +806,7 @@ function ResourceCardsPanel({ cards, total, alertCount, onOpenCalendar }) {
                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{card.subtitle}</div>
                   </div>
                   <span style={{ border: `1px solid ${worst.color}`, color: worst.color, borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap' }}>
-                    {worst.state === 'expired' ? 'STOP' : worst.state === 'soon' ? 'UWAGA' : 'KARTA'}
+                    {card.blocked ? 'BLOKADA' : worst.state === 'soon' ? 'UWAGA' : 'KARTA'}
                   </span>
                 </div>
 
@@ -814,6 +816,12 @@ function ResourceCardsPanel({ cards, total, alertCount, onOpenCalendar }) {
                   <span>{card.status}</span>
                   <span style={{ textAlign: 'right' }}>{card.meta || '-'}</span>
                 </div>
+
+                {card.blocked && (
+                  <div style={{ marginTop: 10, border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 8, padding: '7px 9px', fontSize: 12, fontWeight: 800 }}>
+                    Blokuje uzycie po terminie albo statusem serwisowym
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                   {card.alerts.map((alert) => (

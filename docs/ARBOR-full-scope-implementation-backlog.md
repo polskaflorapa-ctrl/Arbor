@@ -88,7 +88,8 @@
 - [x] **P0 equipment cards contract**: `docs/EQUIPMENT-CARDS-CONTRACT.md` opisuje karty pojazdow i sprzetu z przegladem, OC, alertami 30 dni, najblizsza rezerwacja sprzetu i przejsciem do kalendarza zasobow; `npm run verify:equipment-cards` pilnuje API, UI, testu i checklist.
 - [x] **P0 dispatcher day plan load**: `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md` opisuje wczytanie zapisanego wyniku dispatchera do `Harmonogram` i cockpit Kierownika, podglad tras/stopow/pokrycia i zastosowanie przez `/dispatch/apply/:id`; `npm run verify:dispatcher-day-plan` pilnuje UI, API, testow i checklist.
 - [x] **P0 machine cards CRUD**: `docs/MACHINE-CARDS-CRUD-CONTRACT.md` opisuje pelny CRUD kart pojazdow/sprzetu, przypisanie do ekipy/oddzialu, branch scope i testy; `npm run verify:machine-cards-crud` pilnuje backendu, UI i checklist.
-- [ ] **Nastepny pakiet**: EPIC 6.2 - przeglady, ubezpieczenia, motogodziny: przypomnienia i blokada uzycia po terminie.
+- [x] **P0 machine usage blocks**: `docs/MACHINE-USAGE-BLOCKS-CONTRACT.md` opisuje przypomnienia przegladow/OC/motogodzin i blokade rezerwacji sprzetu po terminie lub w statusie serwisowym; `npm run verify:machine-usage-blocks` pilnuje backendu, UI i checklist.
+- [ ] **Nastepny pakiet**: EPIC 6.3 - magazyn materialow eksploatacyjnych: stany, przyjecia, rozchod na zlecenie.
 
 ---
 
@@ -183,7 +184,7 @@ flowchart LR
 ## EPIC 6 — Zarządzanie zasobami
 
 - [x] **6.1** Karty maszyn: pełny CRUD + przypisanie do ekipy / oddziału. `Flota` edytuje/usuwa karty pojazdow i sprzetu, backend ma `PUT/DELETE /flota/pojazdy/:id` oraz `PUT/DELETE /flota/sprzet/:id` z branch scope; kontrakt pilnuje `docs/MACHINE-CARDS-CRUD-CONTRACT.md` + `verify:machine-cards-crud`.
-- [ ] **6.2** Przeglądy, ubezpieczenia, motogodziny — przypomnienia i blokada użycia po terminie (reguła).
+- [x] **6.2** Przeglądy, ubezpieczenia, motogodziny — przypomnienia i blokada użycia po terminie. `Flota` pokazuje `BLOKADA` dla kart po terminie/statusie serwisowym, a `POST/PATCH /flota/rezerwacje` zwraca `sprzet_przeglad_po_terminie` albo `sprzet_niedostepny`; kontrakt pilnuje `docs/MACHINE-USAGE-BLOCKS-CONTRACT.md` + `verify:machine-usage-blocks`.
 - [ ] **6.3** Magazyn materiałów eksploatacyjnych: stany, przyjęcia, rozchód na zlecenie.
 - [ ] **6.4** Integracja z raportem zużycia z mobilki (EPIC 2).
 

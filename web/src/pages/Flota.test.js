@@ -147,6 +147,8 @@ test('renders resource cards with inspection, insurance, reservation alerts, and
   expect(screen.getByTestId('fleet-resource-card-vehicle-5')).toBeInTheDocument();
   expect(screen.getAllByText('Mercedes Sprinter').length).toBeGreaterThan(0);
   expect(screen.getByTestId('fleet-alert-card-vehicle-5-insurance')).toHaveTextContent(/OC/i);
+  expect(within(screen.getByTestId('fleet-resource-card-vehicle-5')).getByText('BLOKADA')).toBeInTheDocument();
+  expect(screen.getAllByText(/Blokuje uzycie/i).length).toBeGreaterThan(0);
 
   await userEvent.click(within(screen.getByTestId('fleet-resource-card-equipment-11')).getByRole('button', { name: /Kalendarz zasobow/i }));
 

@@ -21,6 +21,27 @@ async function ensureEquipmentReservationTaskColumns() {
   equipmentReservationTaskColumnsReady = true;
 }
 
+function dateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function equipmentUsageBlock(row, usageStartDate) {
+  const status = String(row?.status || '').toLowerCase();
+  if (status.includes('napraw') || status.includes('niedost') || status.includes('serwis')) {
+    return { error: 'sprzet_niedostepny' };
+  }
+  const inspectionDate = dateOnly(row?.data_przegladu);
+  if (inspectionDate && inspectionDate < usageStartDate) {
+    return {
+      error: 'sprzet_przeglad_po_terminie',
+      data_przegladu: inspectionDate,
+    };
+  }
+  return null;
+}
+
 const flotaOddzialQuerySchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional(),
   include_delegacje: z
@@ -572,7 +593,7 @@ router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema
     if (data_do < data_od) {
       return res.status(400).json({ error: 'data_do_przed_data_od' });
     }
-    const sRow = await pool.query('SELECT id, oddzial_id FROM equipment_items WHERE id = $1', [sprzet_id]);
+    const sRow = await pool.query('SELECT id, oddzial_id, status, data_przegladu FROM equipment_items WHERE id = $1', [sprzet_id]);
     if (!sRow.rows[0]) return res.status(404).json({ error: 'sprzet_nieznaleziony' });
     const tRow = await pool.query('SELECT id, oddzial_id FROM teams WHERE id = $1', [ekipa_id]);
     if (!tRow.rows[0]) return res.status(404).json({ error: 'ekipa_nieznaleziona' });
@@ -585,6 +606,10 @@ router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema
       if (req.user.oddzial_id !== sprOdd || req.user.oddzial_id !== teamOdd) {
         return res.status(403).json({ error: 'brak_dostepu_oddzial' });
       }
+    }
+    const usageBlock = equipmentUsageBlock(sRow.rows[0], data_od);
+    if (usageBlock && status !== 'Anulowane') {
+      return res.status(409).json(usageBlock);
     }
     const oddzialId = sprOdd || teamOdd || req.user.oddzial_id;
     const taskId = task_id == null ? null : Number(task_id);
@@ -696,13 +721,17 @@ router.patch(
       }
       // Sprawdź kolizję z innymi rezerwacjami (wyklucz siebie)
       const existing = await pool.query(
-        `SELECT r.sprzet_id FROM equipment_reservations r
+        `SELECT r.sprzet_id, e.status, e.data_przegladu FROM equipment_reservations r
            JOIN equipment_items e ON e.id = r.sprzet_id
           WHERE r.id = $1 ${!isDyrektorOrAdmin(req.user) ? 'AND e.oddzial_id = $2' : ''}`,
         !isDyrektorOrAdmin(req.user) ? [id, req.user.oddzial_id] : [id]
       );
       if (!existing.rows[0]) return res.status(404).json({ error: 'nie_znaleziono' });
       const sprzetId = existing.rows[0].sprzet_id;
+      const usageBlock = equipmentUsageBlock(existing.rows[0], data_od);
+      if (usageBlock) {
+        return res.status(409).json(usageBlock);
+      }
       const clash = await pool.query(
         `SELECT id FROM equipment_reservations
           WHERE sprzet_id = $1 AND id != $2
