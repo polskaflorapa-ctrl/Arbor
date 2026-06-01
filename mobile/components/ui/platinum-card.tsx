@@ -17,11 +17,11 @@ export function PlatinumCard({ style, elevated = true, glow = false, children, .
         {
           backgroundColor: theme.cardBg,
           borderColor: glow ? theme.accent : theme.cardBorder,
-          borderRadius: theme.radiusXl,
+          borderRadius: theme.radiusLg,
           ...shadowStyle(theme, {
-            opacity: elevated ? theme.shadowOpacity * 0.55 : 0,
-            radius: theme.shadowRadius * 0.75,
-            offsetY: Math.max(1, Math.round(theme.shadowOffsetY * 0.65)),
+            opacity: elevated ? theme.shadowOpacity * 0.45 : 0,
+            radius: theme.shadowRadius * 0.65,
+            offsetY: Math.max(1, Math.round(theme.shadowOffsetY * 0.5)),
             elevation: elevated ? theme.cardElevation : 0,
           }),
         },
@@ -37,7 +37,7 @@ export function PlatinumCard({ style, elevated = true, glow = false, children, .
 const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
-    padding: 14,
+    padding: 12,
     overflow: 'hidden',
   },
 });

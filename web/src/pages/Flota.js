@@ -74,6 +74,14 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function repairIsClosed(status) {
+  return String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .includes('zakoncz');
+}
+
 export default function Flota() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -333,6 +341,25 @@ export default function Flota() {
       await loadAll();
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac naprawy.')));
+    } finally {
+      setRepairSaving(false);
+    }
+  };
+
+  const closeRepair = async (repair) => {
+    if (!repair || repairSaving) return;
+    setRepairSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.put(`/flota/naprawy/${repair.id}`, {
+        ...repair,
+        status: 'Zakonczona',
+        opis_naprawy: repair.opis_naprawy || 'Zakonczono naprawe',
+      }, { headers: authHeaders(token) });
+      showMsg(successMessage('Naprawa zakonczona. Zasob jest dostepny.'));
+      await loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zakonczyc naprawy.')));
     } finally {
       setRepairSaving(false);
     }
@@ -828,6 +855,11 @@ export default function Flota() {
                       <span style={S.repairLabel}>Wykonawca</span>
                       <span style={S.repairValue}>{n.wykonawca || '-'}</span>
                     </div>
+                    {!repairIsClosed(n.status) && canEdit && (
+                      <button type="button" style={S.repairCloseBtn} disabled={repairSaving} onClick={() => closeRepair(n)}>
+                        {repairSaving ? 'Zapisywanie...' : 'Zakoncz naprawe'}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1053,4 +1085,5 @@ const S = {
   repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   repairLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0, fontWeight: 700 },
   repairValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
+  repairCloseBtn: { marginTop: 4, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
 };

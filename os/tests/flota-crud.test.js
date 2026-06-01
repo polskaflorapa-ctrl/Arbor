@@ -162,4 +162,41 @@ describe('Flota CRUD kart zasobow', () => {
       ['W naprawie', 5]
     );
   });
+
+  it('closes existing equipment repair and makes equipment available', async () => {
+    pool.query
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 91,
+          typ_zasobu: 'Sprzet',
+          zasob_id: 11,
+          oddzial_id: 1,
+          data_naprawy: '2026-06-01',
+          opis_usterki: 'Noze do wymiany',
+          status: 'W toku',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ id: 91 }] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    const res = await request(app)
+      .put('/api/flota/naprawy/91')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        status: 'Zakonczona',
+        opis_naprawy: 'Wymieniono noze',
+      });
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('UPDATE repairs'),
+      expect.arrayContaining(['Sprzet', 11, 1, undefined, '2026-06-01', undefined, 'Noze do wymiany', 'Wymieniono noze', undefined, 'Zakonczona', 91])
+    );
+    expect(pool.query).toHaveBeenNthCalledWith(
+      3,
+      'UPDATE equipment_items SET status = $1, updated_at = NOW() WHERE id = $2',
+      ['Dostepny', 11]
+    );
+  });
 });

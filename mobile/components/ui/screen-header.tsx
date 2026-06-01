@@ -24,8 +24,8 @@ export function ScreenHeader({
   onBackPress,
   right,
   backIconSize = 24,
-  paddingTop = 52,
-  edgeSlotWidth = 42,
+  paddingTop = 46,
+  edgeSlotWidth = 40,
 }: ScreenHeaderProps) {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -70,14 +70,14 @@ function makeStyles(
       backgroundColor: t.headerBg,
       paddingHorizontal: 16,
       paddingTop: opts.paddingTop,
-      paddingBottom: 10,
+      paddingBottom: 8,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.navBorder,
       ...shadowStyle(t, {
-        opacity: t.name === 'light' ? 0.04 : t.shadowOpacity * 0.08,
+        opacity: t.name === 'light' ? 0.025 : t.shadowOpacity * 0.06,
         radius: Math.max(3, t.shadowRadius * 0.18),
         offsetY: 1,
         elevation: t.name === 'light' ? 0 : Math.max(1, t.cardElevation - 1),
@@ -88,7 +88,7 @@ function makeStyles(
       borderRadius: 999,
       backgroundColor: t.name === 'light' ? t.surface2 : t.surface,
       borderWidth: 1,
-      borderColor: t.border,
+      borderColor: t.cardBorder,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -106,8 +106,8 @@ function makeStyles(
       alignItems: 'flex-end',
     },
     backIconBadge: {
-      width: 28,
-      height: 28,
+      width: 26,
+      height: 26,
       borderRadius: 999,
     },
   });

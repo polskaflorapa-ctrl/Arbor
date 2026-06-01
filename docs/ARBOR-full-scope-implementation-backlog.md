@@ -93,7 +93,8 @@
 - [x] **P0 warehouse mobile usage**: `docs/WAREHOUSE-MOBILE-USAGE-INTEGRATION.md` opisuje automatyczny rozchod magazynu z `zuzyte_materialy` przy finish mobile/web; `npm run verify:warehouse-mobile-usage` pilnuje transakcji, blokady stanu i checklist.
 - [x] **P0 worklog timesheet**: `docs/WORKLOG-TIMESHEET-CONTRACT.md` opisuje automatyczna ECP z `work_logs`, branch scope, nadgodziny informacyjne i endpoint `/api/payroll/worklog-timesheet`; `npm run verify:worklog-timesheet` pilnuje kontraktu.
 - [x] **P0 competency expiry monitoring**: `docs/COMPETENCY-EXPIRY-MONITORING-CONTRACT.md` opisuje alerty uprawnien; karty kadrowe pokazuja wygasle i wygasajace uprawnienia z `user_competencies`, CSV eksportuje liczniki i najblizsza date waznosci, a `npm run verify:competency-expiry-monitoring` pilnuje API, UI, testu i checklist.
-- [ ] **Nastepny pakiet**: EPIC 7.3 - blokada przypisania do zlecenia bez wymaganych kompetencji.
+- [x] **P0 team competency assignment block**: `docs/TEAM-COMPETENCY-ASSIGNMENT-BLOCK-CONTRACT.md` opisuje twarda blokade przypisania zlecenia do ekipy bez wymaganych `tasks.wymagane_kompetencje`; `npm run verify:team-competency-assignment-block` pilnuje API, UI, testow i dispatch apply.
+- [ ] **Nastepny pakiet**: EPIC 7.4 - integracja z dispatcherem: EPIC 1.5 + EPIC 7.3 spójne w UI i kontraktach.
 
 ---
 
@@ -198,7 +199,7 @@ flowchart LR
 
 - [x] **7.1** Automatyczna ewidencja czasu pracy z work logow. `GET /payroll/worklog-timesheet?month=YYYY-MM` liczy ECP z `work_logs`, pokazuje `hours_total`, `hours_regular`, `hours_overtime`, `hours_night`, dni i zadania, z branch scope dla Kierownika i informacyjna regula nadgodzin wymagajaca weryfikacji prawnej; kontrakt pilnuje `docs/WORKLOG-TIMESHEET-CONTRACT.md` + `verify:worklog-timesheet`.
 - [x] **7.2** Monitoring waznosci uprawnien (karty pracownika). Backend `position-cards` zwraca `expired_competencies_count`, `expiring_competencies_count`, `nearest_competency_expiry` i `competency_status`; `GET /hr/competency-expiry?days=90` zwraca status/severity/renewal flag, a `KadryDokumenty` pokazuje alerty i eksportuje je do CSV. Kontrakt: `docs/COMPETENCY-EXPIRY-MONITORING-CONTRACT.md`.
-- [ ] **7.3** Blokada przypisania do zlecenia bez wymaganych kompetencji (API + UI).
+- [x] **7.3** Blokada przypisania do zlecenia bez wymaganych kompetencji (API + UI). Wspolny serwis `assertTeamCompetenciesForTask` blokuje `PATCH /tasks/:id/plan`, `PUT /tasks/:id`, `PUT /tasks/:id/office-plan`, `PUT /tasks/:id/przypisz` oraz `POST /dispatch/apply/:id` kodem `TEAM_COMPETENCY_MISSING`; web pokazuje `missing_competencies`; kontrakt pilnuje `docs/TEAM-COMPETENCY-ASSIGNMENT-BLOCK-CONTRACT.md` + `verify:team-competency-assignment-block`.
 - [ ] **7.4** Integracja z dispatcherm: EPIC 1.5 + EPIC 7.3 muszą być spójne.
 
 ---

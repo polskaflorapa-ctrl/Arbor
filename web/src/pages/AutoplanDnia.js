@@ -21,6 +21,7 @@ import StatusMessage from '../components/StatusMessage';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
+import { getApiErrorMessage } from '../utils/apiError';
 import { getAppFlagSync } from '../utils/appRemoteFlagsWeb';
 import { isTaskClosed } from '../utils/taskWorkflow';
 import {
@@ -234,6 +235,7 @@ export default function AutoplanDnia() {
     setApplying(true);
     let ok = 0;
     let queued = 0;
+    let competencyBlocked = 0;
     const appliedSnapshot = [];
     const headers = authHeaders(token);
     for (const row of actionable) {
@@ -277,6 +279,10 @@ export default function AutoplanDnia() {
             }
           }
         }
+        if (payload.code === 'TEAM_COMPETENCY_MISSING') {
+          competencyBlocked += 1;
+          setErr(getApiErrorMessage(err, 'Autoplan zatrzymal przypisanie: brakuje kompetencji w ekipie.'));
+        }
         queued += 1;
       }
     }
@@ -292,7 +298,8 @@ export default function AutoplanDnia() {
       actor,
     });
     setHistory(hist);
-    window.alert(t('pages.autoplanDay.applyResultBody', { ok, queued }));
+    const competencyNote = competencyBlocked ? `\nBlokady kompetencji: ${competencyBlocked}.` : '';
+    window.alert(`${t('pages.autoplanDay.applyResultBody', { ok, queued })}${competencyNote}`);
     await load();
   };
 

@@ -88,6 +88,8 @@ const naprawaCreateSchema = z.object({
   oddzial_id: z.coerce.number().int().positive().optional().nullable(),
 });
 
+const naprawaUpdateSchema = naprawaCreateSchema.partial();
+
 const flotaStatusBodySchema = z.object({
   status: z.string().trim().min(1).max(50),
 });
@@ -507,6 +509,54 @@ router.post('/naprawy', authMiddleware, validateBody(naprawaCreateSchema), async
     res.json({ id: result.rows[0].id });
   } catch (err) {
     logger.error('Blad dodawania naprawy', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put('/naprawy/:id', authMiddleware, validateParams(flotaIdParamsSchema), validateBody(naprawaUpdateSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentR = await pool.query('SELECT * FROM repairs WHERE id = $1', [id]);
+    const current = currentR.rows[0];
+    if (!current) return res.status(404).json({ error: 'Naprawa nie znaleziona' });
+    if (!isDyrektor(req.user) && Number(current.oddzial_id) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.http.forbidden') });
+    }
+
+    const next = {
+      ...current,
+      ...req.body,
+      oddzial_id: fleetBranchForWrite(req.user, req.body.oddzial_id, current.oddzial_id),
+    };
+    const result = await pool.query(
+      `UPDATE repairs
+       SET typ_zasobu = $1, zasob_id = $2, oddzial_id = $3, nr_faktury = $4, data_naprawy = $5,
+           koszt = $6, opis_usterki = $7, opis_naprawy = $8, wykonawca = $9, status = $10
+       WHERE id = $11
+       RETURNING id`,
+      [
+        next.typ_zasobu,
+        next.zasob_id,
+        next.oddzial_id,
+        next.nr_faktury,
+        next.data_naprawy,
+        next.koszt,
+        next.opis_usterki,
+        next.opis_naprawy,
+        next.wykonawca,
+        next.status || 'W toku',
+        id,
+      ]
+    );
+
+    const table = repairResourceTable(next.typ_zasobu);
+    if (table) {
+      const resourceStatus = repairClosesResource(next.status) ? 'Dostepny' : 'W naprawie';
+      await pool.query(`UPDATE ${table} SET status = $1, updated_at = NOW() WHERE id = $2`, [resourceStatus, next.zasob_id]);
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    logger.error('Blad aktualizacji naprawy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

@@ -86,7 +86,22 @@ function mockFlotaApi() {
         ],
       });
     }
-    if (url === '/flota/naprawy') return Promise.resolve({ data: [] });
+    if (url === '/flota/naprawy') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 91,
+            typ_zasobu: 'Sprzet',
+            zasob_id: 11,
+            data_naprawy: ymd(0),
+            koszt: 500,
+            opis_usterki: 'Noze do wymiany',
+            wykonawca: 'Serwis Forst',
+            status: 'W toku',
+          },
+        ],
+      });
+    }
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 1, nazwa: 'Krakow' }] });
     if (url === '/ekipy') return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa' }] });
     return Promise.resolve({ data: [] });
@@ -191,6 +206,27 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
   await waitFor(() => {
     expect(api.delete).toHaveBeenCalledWith(
       '/flota/sprzet/11',
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+test('closes an open repair from fleet repairs tab', async () => {
+  mockFlotaApi();
+
+  renderFlota();
+
+  await userEvent.click(await screen.findByRole('button', { name: /Naprawy/i }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Zakoncz naprawe' }));
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/flota/naprawy/91',
+      expect.objectContaining({
+        id: 91,
+        status: 'Zakonczona',
+        opis_naprawy: 'Zakonczono naprawe',
+      }),
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });

@@ -299,7 +299,7 @@ export default function Kierownik() {
           return;
         }
       }
-      showMsg(errorMessage(payload.error || 'Błąd zapisu'));
+      showMsg(errorMessage(getApiErrorMessage(err, payload.error || 'Blad zapisu')));
     }
   };
 
