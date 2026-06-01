@@ -90,6 +90,20 @@ const flotaStatusBodySchema = z.object({
   status: z.string().trim().min(1).max(50),
 });
 
+async function getFleetResource(table, id) {
+  const result = await pool.query(`SELECT id, oddzial_id FROM ${table} WHERE id = $1`, [id]);
+  return result.rows[0] || null;
+}
+
+function canAccessFleetResource(user, row) {
+  return Boolean(row) && (isDyrektor(user) || Number(row.oddzial_id) === Number(user.oddzial_id));
+}
+
+function fleetBranchForWrite(user, requestedBranchId, currentBranchId) {
+  if (isDyrektor(user)) return requestedBranchId || currentBranchId || user.oddzial_id || null;
+  return user.oddzial_id;
+}
+
 /**
  * GET /api/flota/katalog-pojazdow
  * Statyczny katalog z `data/flota-pojazdy-katalog.json` (generowany skryptem z Excela) — do listy wyboru przy dodawaniu pojazdu.
@@ -189,6 +203,70 @@ router.post('/pojazdy', authMiddleware, validateBody(pojazdCreateSchema), async 
   }
 });
 
+router.put('/pojazdy/:id', authMiddleware, validateParams(flotaIdParamsSchema), validateBody(pojazdCreateSchema), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const current = await getFleetResource('vehicles', id);
+    if (!current) return res.status(404).json({ error: 'Pojazd nie istnieje' });
+    if (!canAccessFleetResource(req.user, current)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+    const data = req.body || {};
+    const nextOddzialId = fleetBranchForWrite(req.user, data.oddzial_id, current.oddzial_id);
+    const result = await pool.query(
+      `UPDATE vehicles
+          SET oddzial_id = $1,
+              marka = COALESCE($2, marka),
+              model = COALESCE($3, model),
+              nr_rejestracyjny = COALESCE($4, nr_rejestracyjny),
+              rok_produkcji = $5,
+              typ = COALESCE($6, typ),
+              ekipa_id = $7,
+              data_przegladu = $8,
+              data_ubezpieczenia = $9,
+              przebieg = COALESCE($10, przebieg),
+              notatki = COALESCE($11, notatki),
+              updated_at = NOW()
+        WHERE id = $12
+        RETURNING id`,
+      [
+        nextOddzialId,
+        data.marka ?? null,
+        data.model ?? null,
+        data.nr_rejestracyjny ?? null,
+        data.rok_produkcji ?? null,
+        data.typ ?? null,
+        data.ekipa_id || null,
+        data.data_przegladu || null,
+        data.data_ubezpieczenia || null,
+        data.przebieg ?? null,
+        data.notatki ?? null,
+        id,
+      ]
+    );
+    res.json({ id: result.rows[0]?.id || id, message: 'Pojazd zapisany' });
+  } catch (err) {
+    logger.error('Blad aktualizacji pojazdu', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: err.code === '23505' ? req.t('errors.flota.duplicatePlate') : req.t('errors.http.serverError') });
+  }
+});
+
+router.delete('/pojazdy/:id', authMiddleware, validateParams(flotaIdParamsSchema), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const current = await getFleetResource('vehicles', id);
+    if (!current) return res.status(404).json({ error: 'Pojazd nie istnieje' });
+    if (!canAccessFleetResource(req.user, current)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+    await pool.query('DELETE FROM vehicles WHERE id = $1', [id]);
+    res.json({ message: 'Pojazd usuniety' });
+  } catch (err) {
+    logger.error('Blad usuwania pojazdu', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
 router.get('/sprzet', authMiddleware, validateQuery(flotaOddzialQuerySchema), async (req, res) => {
   try {
     const { oddzial_id, include_delegacje, date, limit, offset } = req.query;
@@ -280,6 +358,66 @@ router.post('/sprzet', authMiddleware, validateBody(sprzetCreateSchema), async (
     res.json({ id: result.rows[0].id });
   } catch (err) {
     logger.error('Blad dodawania sprzetu', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.put('/sprzet/:id', authMiddleware, validateParams(flotaIdParamsSchema), validateBody(sprzetCreateSchema), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const current = await getFleetResource('equipment_items', id);
+    if (!current) return res.status(404).json({ error: 'Sprzet nie istnieje' });
+    if (!canAccessFleetResource(req.user, current)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+    const data = req.body || {};
+    const nextOddzialId = fleetBranchForWrite(req.user, data.oddzial_id, current.oddzial_id);
+    const result = await pool.query(
+      `UPDATE equipment_items
+          SET oddzial_id = $1,
+              nazwa = COALESCE($2, nazwa),
+              typ = COALESCE($3, typ),
+              nr_seryjny = $4,
+              rok_produkcji = $5,
+              ekipa_id = $6,
+              data_przegladu = $7,
+              koszt_motogodziny = COALESCE($8, koszt_motogodziny),
+              notatki = COALESCE($9, notatki),
+              updated_at = NOW()
+        WHERE id = $10
+        RETURNING id`,
+      [
+        nextOddzialId,
+        data.nazwa ?? null,
+        data.typ ?? null,
+        data.nr_seryjny ?? null,
+        data.rok_produkcji ?? null,
+        data.ekipa_id || null,
+        data.data_przegladu || null,
+        data.koszt_motogodziny ?? null,
+        data.notatki ?? null,
+        id,
+      ]
+    );
+    res.json({ id: result.rows[0]?.id || id, message: 'Sprzet zapisany' });
+  } catch (err) {
+    logger.error('Blad aktualizacji sprzetu', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.delete('/sprzet/:id', authMiddleware, validateParams(flotaIdParamsSchema), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const current = await getFleetResource('equipment_items', id);
+    if (!current) return res.status(404).json({ error: 'Sprzet nie istnieje' });
+    if (!canAccessFleetResource(req.user, current)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
+    await pool.query('DELETE FROM equipment_items WHERE id = $1', [id]);
+    res.json({ message: 'Sprzet usuniety' });
+  } catch (err) {
+    logger.error('Blad usuwania sprzetu', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });
