@@ -6387,7 +6387,7 @@ export default function Zlecenia() {
         const sameBranch = !wybraneZlecenie.oddzial_id || !item.oddzial_id || String(item.oddzial_id) === String(wybraneZlecenie.oddzial_id);
         const assignedToSelectedTeam = isEquipmentAssignedToTeam(item, officePlan.ekipa_id);
         const status = String(item.status || '').toLowerCase();
-        const unavailable = status.includes('serwis') || status.includes('awari') || status.includes('wycof');
+        const unavailable = status.includes('serwis') || status.includes('awari') || status.includes('wycof') || status.includes('napraw');
         return selected || ((sameBranch || assignedToSelectedTeam) && !unavailable);
       })
       .sort((a, b) => {

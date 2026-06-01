@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../constants/api';
+import { apiFetch } from './api-client';
 import { mergeAppRemoteFlags } from './app-remote-flags';
 import { mergeRemoteOddzialFeatureOverrides, type OverrideMap } from './oddzial-feature-overrides';
 
@@ -38,13 +38,11 @@ export async function fetchAndApplyMobileRemoteConfig(token: string | null): Pro
   applied: boolean;
   detail: string;
 }> {
-  const paths = [`${API_URL}/mobile-config`, `${API_URL}/config/mobile`];
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const paths = ['/mobile-config', '/config/mobile'];
 
   for (const url of paths) {
     try {
-      const res = await fetch(url, { headers });
+      const res = await apiFetch(url, { token });
       const ver = res.headers.get('x-api-version') || res.headers.get('X-Api-Version');
       if (ver) await AsyncStorage.setItem(LAST_API_VERSION_KEY, ver);
 

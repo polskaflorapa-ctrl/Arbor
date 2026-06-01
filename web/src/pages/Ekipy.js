@@ -24,9 +24,12 @@ export default function Ekipy() {
   const [ekipy, setEkipy] = useState([]);
   const [uzytkownicy, setUzytkownicy] = useState([]);
   const [oddzialy, setOddzialy] = useState([]);
+  const [pojazdy, setPojazdy] = useState([]);
+  const [sprzet, setSprzet] = useState([]);
   const { message: msg, showMessage: showMsg } = useTimedMessage();
   const [saving, setSaving] = useState(false);
   const [memberSaving, setMemberSaving] = useState(false);
+  const [assetSaving, setAssetSaving] = useState(false);
   const [rateSaving, setRateSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedEkipa, setSelectedEkipa] = useState(null);
@@ -44,19 +47,24 @@ export default function Ekipy() {
   ];
   const [form, setForm] = useState({ nazwa: '', brygadzista_id: '', oddzial_id: '', kolor: '#22C55E' });
   const [formCzlonek, setFormCzlonek] = useState({ user_id: '', rola: 'Pomocnik' });
+  const [formZasoby, setFormZasoby] = useState({ pojazd_id: '', sprzet_id: '' });
   const navigate = useNavigate();
 
   const loadAll = useCallback(async () => {
     const token = getStoredToken();
     const h = authHeaders(token);
-    const [eRes, uRes, oRes] = await Promise.all([
+    const [eRes, uRes, oRes, pRes, sRes] = await Promise.all([
       api.get(`/ekipy`, { headers: h }),
       api.get(`/uzytkownicy`, { headers: h }),
       api.get(`/oddzialy`, { headers: h }),
+      api.get(`/flota/pojazdy`, { headers: h }),
+      api.get(`/flota/sprzet`, { headers: h }),
     ]);
     setEkipy(eRes.data);
     setUzytkownicy(uRes.data);
     setOddzialy(oRes.data);
+    setPojazdy(pRes.data);
+    setSprzet(sRes.data);
   }, []);
   const handleLoadAllError = useCallback((err) => {
     devWarn('ekipy', 'loadAll failed', err);
@@ -105,6 +113,7 @@ export default function Ekipy() {
     setSelectedEkipa(e);
     loadEkipaDetail(e.id);
     setShowAddCzlonek(false);
+    setFormZasoby({ pojazd_id: '', sprzet_id: '' });
   };
 
   const handleSubmit = async (ev) => {
@@ -211,6 +220,42 @@ export default function Ekipy() {
     }
   };
 
+  const refreshAfterAssetChange = useCallback(async () => {
+    await reloadAll();
+    if (selectedEkipa?.id) await loadEkipaDetail(selectedEkipa.id);
+  }, [loadEkipaDetail, reloadAll, selectedEkipa]);
+
+  const updateTeamAsset = async (kind, item, nextTeamId, extra = {}) => {
+    if (!item || assetSaving) return;
+    setAssetSaving(true);
+    try {
+      const token = getStoredToken();
+      const endpoint = kind === 'pojazd' ? `/flota/pojazdy/${item.id}` : `/flota/sprzet/${item.id}`;
+      const payload = {
+        ...item,
+        ...extra,
+        ekipa_id: nextTeamId || '',
+        oddzial_id: item.oddzial_id || selectedEkipa?.oddzial_id || currentUser?.oddzial_id,
+      };
+      await api.put(endpoint, payload, { headers: authHeaders(token) });
+      showMsg(successMessage(nextTeamId ? 'Zasob przypisany do ekipy.' : 'Zasob odpiety od ekipy.'));
+      setFormZasoby({ pojazd_id: '', sprzet_id: '' });
+      await refreshAfterAssetChange();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zapisac zasobu ekipy.')));
+    } finally {
+      setAssetSaving(false);
+    }
+  };
+
+  const handleAssignAsset = async (kind) => {
+    if (!selectedEkipa?.id) return;
+    const id = kind === 'pojazd' ? formZasoby.pojazd_id : formZasoby.sprzet_id;
+    const collection = kind === 'pojazd' ? pojazdy : sprzet;
+    const item = collection.find((row) => String(row.id) === String(id));
+    await updateTeamAsset(kind, item, selectedEkipa.id);
+  };
+
   const zmienProcent = async (userId, procent) => {
     if (rateSaving) return;
     setRateSaving(true);
@@ -244,6 +289,41 @@ export default function Ekipy() {
         !assignedIds.has(u.id)
     );
   }, [uzytkownicy, ekipaDetail]);
+  const zasobyEkipy = useMemo(() => {
+    const teamId = selectedEkipa?.id;
+    if (!teamId) return { pojazdy: [], sprzet: [] };
+    return {
+      pojazdy: pojazdy.filter((item) => String(item.ekipa_id || '') === String(teamId)),
+      sprzet: sprzet.filter((item) => String(item.ekipa_id || '') === String(teamId)),
+    };
+  }, [pojazdy, selectedEkipa, sprzet]);
+  const dostepneZasoby = useMemo(() => {
+    const teamId = selectedEkipa?.id;
+    const branchId = selectedEkipa?.oddzial_id || ekipaDetail?.oddzial_id;
+    const matchesScope = (item) =>
+      (!branchId || !item.oddzial_id || String(item.oddzial_id) === String(branchId)) &&
+      (!item.ekipa_id || String(item.ekipa_id) === String(teamId));
+    return {
+      pojazdy: pojazdy.filter(matchesScope),
+      sprzet: sprzet.filter(matchesScope),
+    };
+  }, [ekipaDetail, pojazdy, selectedEkipa, sprzet]);
+  const problemyZasobowEkip = useMemo(() => {
+    const map = new Map();
+    const add = (item, kind) => {
+      if (!item.ekipa_id || !String(item.status || '').toLowerCase().includes('napraw')) return;
+      const key = String(item.ekipa_id);
+      const label = kind === 'pojazd'
+        ? [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ')
+        : [item.nazwa, item.typ].filter(Boolean).join(' ');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push({ id: item.id, kind, label: label || `${kind} #${item.id}` });
+    };
+    pojazdy.forEach((item) => add(item, 'pojazd'));
+    sprzet.forEach((item) => add(item, 'sprzet'));
+    return map;
+  }, [pojazdy, sprzet]);
+  const selectedAssetProblems = selectedEkipa?.id ? (problemyZasobowEkip.get(String(selectedEkipa.id)) || []) : [];
   const isEkipaFormValid = Boolean(form.nazwa.trim() && (!isDyrektor || form.oddzial_id));
   const isAddCzlonekValid = Boolean(formCzlonek.user_id);
 
@@ -405,7 +485,9 @@ export default function Ekipy() {
                 <p style={{ fontWeight: '600' }}>Brak ekip</p>
                 {canEdit && <p style={{ fontSize: 13 }}>Kliknij "+ Nowa ekipa" aby dodać</p>}
               </div>
-            ) : filtrowaneEkipy.map((e, i) => (
+            ) : filtrowaneEkipy.map((e, i) => {
+              const assetProblems = problemyZasobowEkip.get(String(e.id)) || [];
+              return (
               <div
                 className="ekipy-team-card"
                 key={e.id}
@@ -415,7 +497,7 @@ export default function Ekipy() {
                 style={{
                   background: 'var(--surface-glass)', borderRadius: 8, padding: 16, marginBottom: 10,
                   boxShadow: hoveredEkipa === e.id ? `0 6px 20px ${(e.kolor || '#22C55E')}33` : 'var(--shadow-md)',
-                  borderLeft: `4px solid ${e.kolor || (selectedEkipa?.id === e.id ? 'var(--accent)' : '#334155')}`,
+                  borderLeft: `4px solid ${assetProblems.length ? '#e2445c' : (e.kolor || (selectedEkipa?.id === e.id ? 'var(--accent)' : '#334155'))}`,
                   cursor: 'pointer',
                   transform: hoveredEkipa === e.id ? 'translateX(4px)' : 'none',
                   transition: 'all 0.2s ease',
@@ -426,8 +508,8 @@ export default function Ekipy() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 14, height: 14, borderRadius: '50%',
-                      backgroundColor: e.kolor || '#6B7280',
-                      boxShadow: `0 0 8px ${e.kolor || '#6B7280'}88`,
+                      backgroundColor: assetProblems.length ? '#e2445c' : (e.kolor || '#6B7280'),
+                      boxShadow: `0 0 8px ${assetProblems.length ? '#e2445c' : (e.kolor || '#6B7280')}88`,
                       flexShrink: 0,
                     }} />
                     <div>
@@ -466,6 +548,11 @@ export default function Ekipy() {
                     </div>
                   )}
                 </div>
+                {assetProblems.length > 0 && (
+                  <div style={S.teamAssetWarning}>
+                    {assetProblems.length} zasob w naprawie: {assetProblems.slice(0, 2).map((item) => item.label).join(', ')}
+                  </div>
+                )}
                 {e.brygadzista_imie && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-sub)', marginBottom: 6 }}>
                     <span style={{ backgroundColor: '#66BB6A', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
@@ -479,7 +566,8 @@ export default function Ekipy() {
                 )}
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{e.liczba_czlonkow || 0} pomocników</div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Szczegóły */}
@@ -495,6 +583,13 @@ export default function Ekipy() {
                 </h2>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{ekipaDetail.oddzial_nazwa}</span>
               </div>
+
+              {selectedAssetProblems.length > 0 && (
+                <div style={S.detailAssetWarning}>
+                  <strong>{selectedAssetProblems.length} zasob w naprawie.</strong>
+                  <span>{selectedAssetProblems.map((item) => item.label).join(', ')}</span>
+                </div>
+              )}
 
               {/* Brygadzista */}
               {ekipaDetail.brygadzista_imie && (
@@ -646,6 +741,78 @@ export default function Ekipy() {
                 ))}
               </div>
 
+              <div style={{ marginBottom: 20, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 'bold', color: 'var(--text-sub)' }}>Sprzet i auta ekipy</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {zasobyEkipy.pojazdy.length} aut / {zasobyEkipy.sprzet.length} sprzetu przypisane do tej ekipy.
+                    </div>
+                  </div>
+                  <button type="button" style={S.cancelBtn} onClick={() => navigate('/flota')}>Otworz flote</button>
+                </div>
+
+                {canEdit && (
+                  <div className="ekipy-assets-assign" style={S.assetAssignGrid}>
+                    <Field label="Przypisz samochod">
+                      <div style={S.assetAssignRow}>
+                        <select style={S.input} value={formZasoby.pojazd_id} onChange={(e) => setFormZasoby((prev) => ({ ...prev, pojazd_id: e.target.value }))}>
+                          <option value="">-- wybierz auto --</option>
+                          {dostepneZasoby.pojazdy.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {[p.marka, p.model, p.nr_rejestracyjny, p.status].filter(Boolean).join(' / ')}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="button" style={S.submitBtn} disabled={assetSaving || !formZasoby.pojazd_id} onClick={() => handleAssignAsset('pojazd')}>
+                          Przypisz
+                        </button>
+                      </div>
+                    </Field>
+                    <Field label="Przypisz sprzet">
+                      <div style={S.assetAssignRow}>
+                        <select style={S.input} value={formZasoby.sprzet_id} onChange={(e) => setFormZasoby((prev) => ({ ...prev, sprzet_id: e.target.value }))}>
+                          <option value="">-- wybierz sprzet --</option>
+                          {dostepneZasoby.sprzet.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {[s.nazwa, s.typ, s.status].filter(Boolean).join(' / ')}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="button" style={S.submitBtn} disabled={assetSaving || !formZasoby.sprzet_id} onClick={() => handleAssignAsset('sprzet')}>
+                          Przypisz
+                        </button>
+                      </div>
+                    </Field>
+                  </div>
+                )}
+
+                <div style={S.assetListGrid}>
+                  <AssetList
+                    title="Auta"
+                    empty="Brak auta przypisanego do ekipy."
+                    items={zasobyEkipy.pojazdy}
+                    renderName={(p) => [p.marka, p.model].filter(Boolean).join(' ') || `Pojazd #${p.id}`}
+                    renderMeta={(p) => [p.nr_rejestracyjny, p.typ, p.status].filter(Boolean).join(' / ')}
+                    canEdit={canEdit}
+                    saving={assetSaving}
+                    onUnassign={(p) => updateTeamAsset('pojazd', p, '')}
+                    onRepair={(p) => updateTeamAsset('pojazd', p, selectedEkipa.id, { status: 'W naprawie' })}
+                  />
+                  <AssetList
+                    title="Sprzet"
+                    empty="Brak sprzetu przypisanego do ekipy."
+                    items={zasobyEkipy.sprzet}
+                    renderName={(s) => s.nazwa || `Sprzet #${s.id}`}
+                    renderMeta={(s) => [s.typ, s.nr_seryjny, s.status].filter(Boolean).join(' / ')}
+                    canEdit={canEdit}
+                    saving={assetSaving}
+                    onUnassign={(s) => updateTeamAsset('sprzet', s, '')}
+                    onRepair={(s) => updateTeamAsset('sprzet', s, selectedEkipa.id, { status: 'W naprawie' })}
+                  />
+                </div>
+              </div>
+
               {/* Kalkulator */}
               {ekipaDetail.brygadzista_imie && (
                 <KalkulatorWynagrodzenia ekipa={ekipaDetail} />
@@ -763,8 +930,55 @@ function Field({ label, children }) {
   );
 }
 
+function AssetList({ title, empty, items, renderName, renderMeta, canEdit, saving, onUnassign, onRepair }) {
+  return (
+    <div style={S.assetPanel}>
+      <div style={S.assetPanelTitle}>{title}</div>
+      {!items.length ? (
+        <div style={S.assetEmpty}>{empty}</div>
+      ) : (
+        items.map((item) => {
+          const inRepair = String(item.status || '').toLowerCase().includes('napraw');
+          return (
+            <div key={item.id} style={{ ...S.assetRow, borderLeftColor: inRepair ? '#e2445c' : '#00c875' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={S.assetName}>{renderName(item)}</div>
+                <div style={S.assetMeta}>{renderMeta(item) || 'bez szczegolow'}</div>
+              </div>
+              {canEdit && (
+                <div style={S.assetActions}>
+                  <button type="button" style={S.assetRepairBtn} disabled={saving || inRepair} onClick={() => onRepair(item)}>
+                    W naprawie
+                  </button>
+                  <button type="button" style={S.assetUnassignBtn} disabled={saving} onClick={() => onUnassign(item)}>
+                    Odepnij
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 const S = {
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.24)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  assetAssignGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12, marginBottom: 14, padding: 12, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)' },
+  assetAssignRow: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' },
+  assetListGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 },
+  assetPanel: { border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-field)', padding: 12 },
+  assetPanelTitle: { fontSize: 13, color: 'var(--text)', fontWeight: 800, marginBottom: 10 },
+  assetEmpty: { fontSize: 12, color: 'var(--text-muted)', padding: 12, borderRadius: 8, border: '1px dashed var(--border)' },
+  assetRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: 10, borderRadius: 8, border: '1px solid var(--border)', borderLeft: '4px solid #00c875', marginBottom: 8, background: 'var(--surface-glass)' },
+  assetName: { fontSize: 13, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  assetMeta: { fontSize: 11, color: 'var(--text-muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  assetActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  assetRepairBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  assetUnassignBtn: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  teamAssetWarning: { display: 'inline-flex', maxWidth: '100%', padding: '4px 8px', marginBottom: 8, borderRadius: 7, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', fontSize: 11, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  detailAssetWarning: { display: 'flex', flexDirection: 'column', gap: 4, padding: 12, marginBottom: 18, borderRadius: 8, border: '1px solid rgba(226,68,92,0.32)', background: 'rgba(226,68,92,0.08)', color: '#e2445c', fontSize: 13, fontWeight: 700 },
 };

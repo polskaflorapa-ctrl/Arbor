@@ -66,6 +66,9 @@ function priorityWeight(state) {
   return 3;
 }
 
+const FLEET_STATUS_OPTIONS = ['Dostepny', 'W uzyciu', 'W naprawie', 'Niedostepny'];
+const VEHICLE_TYPE_OPTIONS = ['Samochod', 'Bus', 'Ciezarowka', 'Przyczepa', 'Maszyna'];
+const EQUIPMENT_TYPE_OPTIONS = ['Pilarka', 'Rebak', 'Podnosnik', 'Narzedzie', 'Inne'];
 
 export default function Flota() {
   const { t, i18n } = useTranslation();
@@ -87,12 +90,12 @@ export default function Flota() {
 
   const [formPojazd, setFormPojazd] = useState({
     marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '',
-    typ: 'Samochód', ekipa_id: '', data_przegladu: '',
+    typ: 'Samochod', status: 'Dostepny', ekipa_id: '', data_przegladu: '',
     data_ubezpieczenia: '', przebieg: '', notatki: '', oddzial_id: ''
   });
 
   const [formSprzet, setFormSprzet] = useState({
-    nazwa: '', typ: 'Piłarka', nr_seryjny: '', rok_produkcji: '',
+    nazwa: '', typ: 'Pilarka', status: 'Dostepny', nr_seryjny: '', rok_produkcji: '',
     ekipa_id: '', data_przegladu: '', koszt_motogodziny: '',
     notatki: '', oddzial_id: ''
   });
@@ -138,12 +141,12 @@ export default function Flota() {
 
   const resetPojazdForm = () => {
     setEditingPojazdId(null);
-    setFormPojazd({ marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '', typ: 'Samochód', ekipa_id: '', data_przegladu: '', data_ubezpieczenia: '', przebieg: '', notatki: '', oddzial_id: '' });
+    setFormPojazd({ marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '', typ: 'Samochod', status: 'Dostepny', ekipa_id: '', data_przegladu: '', data_ubezpieczenia: '', przebieg: '', notatki: '', oddzial_id: '' });
   };
 
   const resetSprzetForm = () => {
     setEditingSprzetId(null);
-    setFormSprzet({ nazwa: '', typ: 'Piłarka', nr_seryjny: '', rok_produkcji: '', ekipa_id: '', data_przegladu: '', koszt_motogodziny: '', notatki: '', oddzial_id: '' });
+    setFormSprzet({ nazwa: '', typ: 'Pilarka', status: 'Dostepny', nr_seryjny: '', rok_produkcji: '', ekipa_id: '', data_przegladu: '', koszt_motogodziny: '', notatki: '', oddzial_id: '' });
   };
 
   const handleToggleForm = () => {
@@ -239,7 +242,8 @@ export default function Flota() {
       model: p.model || '',
       nr_rejestracyjny: p.nr_rejestracyjny || '',
       rok_produkcji: p.rok_produkcji || '',
-      typ: p.typ || 'Samochód',
+      typ: p.typ || 'Samochod',
+      status: p.status || 'Dostepny',
       ekipa_id: p.ekipa_id || '',
       data_przegladu: formDate(p.data_przegladu),
       data_ubezpieczenia: formDate(p.data_ubezpieczenia),
@@ -256,7 +260,8 @@ export default function Flota() {
     setShowForm(true);
     setFormSprzet({
       nazwa: s.nazwa || '',
-      typ: s.typ || 'Piłarka',
+      typ: s.typ || 'Pilarka',
+      status: s.status || 'Dostepny',
       nr_seryjny: s.nr_seryjny || '',
       rok_produkcji: s.rok_produkcji || '',
       ekipa_id: s.ekipa_id || '',
@@ -285,6 +290,9 @@ export default function Flota() {
   const isExpired = (d) => dateHealth(d).state === 'expired';
 
   const STATUS_KOLOR = {
+    Dostepny: '#00c875',
+    'W uzyciu': '#fdab3d',
+    Niedostepny: '#676879',
     'Dostępny':    '#00c875',
     'W użyciu':    '#fdab3d',
     'W naprawie':  '#e2445c',
@@ -382,7 +390,7 @@ export default function Flota() {
     { key: 'eq',    label: t('pages.flota.kpiEquipment'), value: filtrSprzet.length,  color: '#579bfc' },
     { key: 'alerts', label: 'Alerty zasobow', value: resourceAlertCount, color: resourceAlertCount ? '#e2445c' : '#00c875' },
     { key: 'overdue', label: 'Po terminie', value: overdueResourceCount, color: overdueResourceCount ? '#e2445c' : '#00c875' },
-    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => x.status === 'Dostępny').length, color: '#00c875' },
+    { key: 'avail', label: t('pages.flota.kpiAvailable'), value: [...filtrPojazdy, ...filtrSprzet].filter(x => ['Dostepny', 'Dostępny'].includes(x.status)).length, color: '#00c875' },
     { key: 'rep',   label: t('pages.flota.kpiInRepair'),  value: naprawy.length,       color: '#e2445c' },
   ]), [t, filtrPojazdy, filtrSprzet, naprawy.length, resourceAlertCount, overdueResourceCount]);
 
@@ -503,6 +511,10 @@ export default function Flota() {
           <div className="fleet-form-panel" style={S.formBox}>
             <h3 style={S.formTitle}>{editingPojazdId ? 'Edytuj pojazd' : t('pages.flota.newVehicleTitle')}</h3>
             <form onSubmit={handleAddPojazd}>
+              <div style={S.quickRow}>
+                <button type="button" style={S.ghostBtn} onClick={() => setFormPojazd((prev) => ({ ...prev, typ: 'Samochod', status: 'W naprawie' }))}>Samochod w naprawie</button>
+                <button type="button" style={S.ghostBtn} onClick={() => setFormPojazd((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</button>
+              </div>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldBrand')}><input style={S.input} value={formPojazd.marka} onChange={e => setFormPojazd({ ...formPojazd, marka: e.target.value })} required placeholder="np. Mercedes" /></Field>
                 <Field label={t('pages.flota.fieldModel')}><input style={S.input} value={formPojazd.model} onChange={e => setFormPojazd({ ...formPojazd, model: e.target.value })} required placeholder="np. Sprinter" /></Field>
@@ -510,7 +522,12 @@ export default function Flota() {
                 <Field label={t('pages.flota.fieldYear')}><input style={S.input} type="number" value={formPojazd.rok_produkcji} onChange={e => setFormPojazd({ ...formPojazd, rok_produkcji: e.target.value })} placeholder="np. 2020" /></Field>
                 <Field label={t('pages.flota.fieldType')}>
                   <select style={S.input} value={formPojazd.typ} onChange={e => setFormPojazd({ ...formPojazd, typ: e.target.value })}>
-                    {['Samochód', 'Bus', 'Ciężarówka', 'Przyczepa', 'Maszyna'].map((typOption) => <option key={typOption} value={typOption}>{typOption}</option>)}
+                    {VEHICLE_TYPE_OPTIONS.map((typOption) => <option key={typOption} value={typOption}>{typOption}</option>)}
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select style={S.input} value={formPojazd.status} onChange={e => setFormPojazd({ ...formPojazd, status: e.target.value })}>
+                    {FLEET_STATUS_OPTIONS.map((statusOption) => <option key={statusOption} value={statusOption}>{fleetStatusLabel(statusOption)}</option>)}
                   </select>
                 </Field>
                 <Field label={t('pages.flota.fieldTeam')}>
@@ -544,11 +561,20 @@ export default function Flota() {
           <div className="fleet-form-panel" style={S.formBox}>
             <h3 style={S.formTitle}>{editingSprzetId ? 'Edytuj sprzet' : t('pages.flota.newEquipmentTitle')}</h3>
             <form onSubmit={handleAddSprzet}>
+              <div style={S.quickRow}>
+                <button type="button" style={S.ghostBtn} onClick={() => setFormSprzet((prev) => ({ ...prev, typ: 'Rebak', status: 'W naprawie' }))}>Rebak w naprawie</button>
+                <button type="button" style={S.ghostBtn} onClick={() => setFormSprzet((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</button>
+              </div>
               <div style={S.grid}>
-                <Field label={t('pages.flota.fieldName')}><input style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet((prev) => ({ ...prev, nazwa: e.target.value }))} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
+                <Field label={t('pages.flota.fieldName')}><input aria-label={t('pages.flota.fieldName')} style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet((prev) => ({ ...prev, nazwa: e.target.value }))} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
                 <Field label={t('pages.flota.fieldType')}>
                   <select style={S.input} value={formSprzet.typ} onChange={e => setFormSprzet((prev) => ({ ...prev, typ: e.target.value }))}>
-                    {['Piłarka', 'Rębak', 'Podnośnik', 'Narzędzie', 'Inne'].map((typOption) => <option key={typOption} value={typOption}>{typOption}</option>)}
+                    {EQUIPMENT_TYPE_OPTIONS.map((typOption) => <option key={typOption} value={typOption}>{typOption}</option>)}
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select style={S.input} value={formSprzet.status} onChange={e => setFormSprzet((prev) => ({ ...prev, status: e.target.value }))}>
+                    {FLEET_STATUS_OPTIONS.map((statusOption) => <option key={statusOption} value={statusOption}>{fleetStatusLabel(statusOption)}</option>)}
                   </select>
                 </Field>
                 <Field label={t('pages.flota.fieldSerial')}><input style={S.input} value={formSprzet.nr_seryjny} onChange={e => setFormSprzet((prev) => ({ ...prev, nr_seryjny: e.target.value }))} /></Field>
@@ -556,7 +582,7 @@ export default function Flota() {
                 <Field label={t('pages.flota.fieldInspection')}><input style={S.input} type="date" value={formSprzet.data_przegladu} onChange={e => setFormSprzet((prev) => ({ ...prev, data_przegladu: e.target.value }))} /></Field>
                 <Field label={t('pages.flota.fieldMotohour')}><input style={S.input} type="number" step="0.5" value={formSprzet.koszt_motogodziny} onChange={e => setFormSprzet((prev) => ({ ...prev, koszt_motogodziny: e.target.value }))} placeholder="np. 25" /></Field>
                 <Field label={t('pages.flota.fieldTeam')}>
-                  <select style={S.input} value={formSprzet.ekipa_id} onChange={e => setFormSprzet((prev) => ({ ...prev, ekipa_id: e.target.value }))}>
+                  <select aria-label={t('pages.flota.fieldTeam')} style={S.input} value={formSprzet.ekipa_id} onChange={e => setFormSprzet((prev) => ({ ...prev, ekipa_id: e.target.value }))}>
                     <option value="">{t('common.noneShort')}</option>
                     {ekipy.map(e => <option key={e.id} value={e.id}>{e.nazwa}</option>)}
                   </select>
@@ -601,10 +627,10 @@ export default function Flota() {
                       <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{p.nr_rejestracyjny}</div>
                     </div>
                     <select
-                      value={p.status || 'Dostępny'}
+                      value={p.status || 'Dostepny'}
                       onChange={e => zmienStatus('pojazdy', p.id, e.target.value)}
                       style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: STATUS_KOLOR[p.status] || 'var(--text-muted)', fontWeight: '600' }}>
-                      {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
+                      {FLEET_STATUS_OPTIONS.map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
                     {canEdit && (
                       <div style={S.cardActions}>
@@ -669,10 +695,10 @@ export default function Flota() {
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{s.typ}</div>
                     </div>
                     <select
-                      value={s.status || 'Dostępny'}
+                      value={s.status || 'Dostepny'}
                       onChange={e => zmienStatus('sprzet', s.id, e.target.value)}
                       style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: STATUS_KOLOR[s.status] || 'var(--text-muted)', fontWeight: '600' }}>
-                      {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
+                      {FLEET_STATUS_OPTIONS.map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
                     {canEdit && (
                       <div style={S.cardActions}>
@@ -878,6 +904,7 @@ const S = {
   td: { padding: '11px 14px', fontSize: 13, color: 'var(--text-sub)', borderBottom: '1px solid var(--border)' },
   formBox: { background: 'var(--surface-glass)', borderRadius: 8, padding: 24, marginBottom: 20, boxShadow: 'var(--shadow-md)', border: '1px solid var(--glass-border)' },
   formTitle: { fontSize: 17, fontWeight: 'bold', color: 'var(--accent)', marginBottom: 16 },
+  quickRow: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 8 },
   input: { padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--surface-field)', color: 'var(--text)' },
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },

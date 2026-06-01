@@ -88,7 +88,10 @@
 - [x] **P0 equipment cards contract**: `docs/EQUIPMENT-CARDS-CONTRACT.md` opisuje karty pojazdow i sprzetu z przegladem, OC, alertami 30 dni, najblizsza rezerwacja sprzetu i przejsciem do kalendarza zasobow; `npm run verify:equipment-cards` pilnuje API, UI, testu i checklist.
 - [x] **P0 dispatcher day plan load**: `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md` opisuje wczytanie zapisanego wyniku dispatchera do `Harmonogram` i cockpit Kierownika, podglad tras/stopow/pokrycia i zastosowanie przez `/dispatch/apply/:id`; `npm run verify:dispatcher-day-plan` pilnuje UI, API, testow i checklist.
 - [x] **P0 machine cards CRUD**: `docs/MACHINE-CARDS-CRUD-CONTRACT.md` opisuje pelny CRUD kart pojazdow/sprzetu, przypisanie do ekipy/oddzialu, branch scope i testy; `npm run verify:machine-cards-crud` pilnuje backendu, UI i checklist.
-- [ ] **Nastepny pakiet**: EPIC 6.2 - przeglady, ubezpieczenia, motogodziny: przypomnienia i blokada uzycia po terminie.
+- [x] **P0 equipment usage rules**: `docs/EQUIPMENT-USAGE-RULES-CONTRACT.md` opisuje przypomnienia przegladow, motogodziny w karcie sprzetu i blokade rezerwacji po terminie; `npm run verify:equipment-usage-rules` pilnuje API, UI, testu i checklist.
+- [x] **P0 warehouse materials**: `docs/WAREHOUSE-MATERIALS-CONTRACT.md` opisuje magazyn materialow, stany liczone z ruchow, przyjecia i rozchod na zlecenie; `npm run verify:warehouse-materials` pilnuje API, migracji, UI, testu i checklist.
+- [x] **P0 warehouse mobile usage**: `docs/WAREHOUSE-MOBILE-USAGE-INTEGRATION.md` opisuje automatyczny rozchod magazynu z `zuzyte_materialy` przy finish mobile/web; `npm run verify:warehouse-mobile-usage` pilnuje transakcji, blokady stanu i checklist.
+- [ ] **Nastepny pakiet**: EPIC 7.1 - automatyczna ewidencja czasu pracy z work logow.
 
 ---
 
@@ -183,9 +186,9 @@ flowchart LR
 ## EPIC 6 — Zarządzanie zasobami
 
 - [x] **6.1** Karty maszyn: pełny CRUD + przypisanie do ekipy / oddziału. `Flota` edytuje/usuwa karty pojazdow i sprzetu, backend ma `PUT/DELETE /flota/pojazdy/:id` oraz `PUT/DELETE /flota/sprzet/:id` z branch scope; kontrakt pilnuje `docs/MACHINE-CARDS-CRUD-CONTRACT.md` + `verify:machine-cards-crud`.
-- [ ] **6.2** Przeglądy, ubezpieczenia, motogodziny — przypomnienia i blokada użycia po terminie (reguła).
-- [ ] **6.3** Magazyn materiałów eksploatacyjnych: stany, przyjęcia, rozchód na zlecenie.
-- [ ] **6.4** Integracja z raportem zużycia z mobilki (EPIC 2).
+- [x] **6.2** Przeglady, ubezpieczenia, motogodziny - przypomnienia i blokada uzycia po terminie. `GET /flota/sprzet` daje `przeglad_alert` i `koszt_motogodziny`, `POST /flota/rezerwacje` blokuje sprzet po terminie kodem `EQUIPMENT_INSPECTION_OVERDUE`, a `RezerwacjeSprzetu` oznacza i blokuje taki wybor; kontrakt pilnuje `docs/EQUIPMENT-USAGE-RULES-CONTRACT.md` + `verify:equipment-usage-rules`.
+- [x] **6.3** Magazyn materialow eksploatacyjnych: stany, przyjecia, rozchod na zlecenie. Backend ma `warehouse_materials`, `warehouse_material_movements`, `/api/magazyn/materialy`, `/api/magazyn/przyjecia`, `/api/magazyn/rozchody` z blokada `WAREHOUSE_STOCK_UNDERFLOW`, a `MagazynWeb` obsluguje materialy, przyjecia, rozchod i niskie stany; kontrakt pilnuje `docs/WAREHOUSE-MATERIALS-CONTRACT.md` + `verify:warehouse-materials`.
+- [x] **6.4** Integracja z raportem zuzycia z mobilki (EPIC 2). `POST /tasks/:id/finish` dopasowuje `zuzyte_materialy` do `warehouse_materials` po `material_id` albo nazwie w oddziale, zapisuje `warehouse_material_movements` jako rozchod na zlecenie i blokuje finish kodem `WAREHOUSE_STOCK_UNDERFLOW`, gdy stan jest za niski; kontrakt pilnuje `docs/WAREHOUSE-MOBILE-USAGE-INTEGRATION.md` + `verify:warehouse-mobile-usage`.
 
 ---
 

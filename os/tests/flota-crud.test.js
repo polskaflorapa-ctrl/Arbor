@@ -19,6 +19,28 @@ describe('Flota CRUD kart zasobow', () => {
     jest.clearAllMocks();
   });
 
+  it('creates broken equipment with team assignment in one request', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+
+    const res = await request(app)
+      .post('/api/flota/sprzet')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        nazwa: 'Rebak awaryjny',
+        typ: 'Rebak',
+        status: 'W naprawie',
+        ekipa_id: 3,
+        oddzial_id: 99,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: 99 });
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO equipment_items'),
+      [1, 'Rebak awaryjny', 'Rebak', 'W naprawie', undefined, undefined, 3, null, 0, undefined]
+    );
+  });
+
   it('updates an equipment card in manager branch scope', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 1 }] })
@@ -30,6 +52,7 @@ describe('Flota CRUD kart zasobow', () => {
       .send({
         nazwa: 'Rebak Forst ST8',
         typ: 'Rebak',
+        status: 'W naprawie',
         nr_seryjny: 'RF-11',
         rok_produkcji: 2022,
         ekipa_id: 3,
@@ -42,7 +65,7 @@ describe('Flota CRUD kart zasobow', () => {
     expect(res.status).toBe(200);
     expect(pool.query).toHaveBeenLastCalledWith(
       expect.stringContaining('UPDATE equipment_items'),
-      expect.arrayContaining([1, 'Rebak Forst ST8', 'Rebak', 'RF-11', 2022, 3, '2026-07-01', 90, 'Po serwisie', 11])
+      expect.arrayContaining([1, 'Rebak Forst ST8', 'Rebak', 'W naprawie', 'RF-11', 2022, 3, '2026-07-01', 90, 'Po serwisie', 11])
     );
   });
 
@@ -90,5 +113,53 @@ describe('Flota CRUD kart zasobow', () => {
 
     expect(del.status).toBe(200);
     expect(pool.query).toHaveBeenLastCalledWith('DELETE FROM vehicles WHERE id = $1', [5]);
+  });
+
+  it('marks repaired equipment as available after completed repair entry', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 501 }] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    const res = await request(app)
+      .post('/api/flota/naprawy')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        typ_zasobu: 'Sprzet',
+        zasob_id: 11,
+        data_naprawy: '2026-06-01',
+        opis_usterki: 'Wymiana nozy',
+        status: 'Zakonczona',
+      });
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenNthCalledWith(
+      2,
+      'UPDATE equipment_items SET status = $1, updated_at = NOW() WHERE id = $2',
+      ['Dostepny', 11]
+    );
+  });
+
+  it('keeps vehicle blocked when repair entry is still open', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 502 }] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    const res = await request(app)
+      .post('/api/flota/naprawy')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        typ_zasobu: 'Pojazd',
+        zasob_id: 5,
+        data_naprawy: '2026-06-01',
+        opis_usterki: 'Auto w serwisie',
+        status: 'W toku',
+      });
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenNthCalledWith(
+      2,
+      'UPDATE vehicles SET status = $1, updated_at = NOW() WHERE id = $2',
+      ['W naprawie', 5]
+    );
   });
 });

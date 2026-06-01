@@ -33,7 +33,7 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
 
   const bg = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: [theme.surface2, tint + '2E'],
+    outputRange: [theme.surface, tint + '18'],
   });
   const border = anim.interpolate({
     inputRange: [0, 1],
@@ -53,8 +53,8 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
             backgroundColor: bg,
             borderColor: border,
             ...shadowStyle(theme, {
-              opacity: active ? theme.shadowOpacity * 0.16 : 0,
-              radius: theme.shadowRadius * 0.35,
+              opacity: active ? theme.shadowOpacity * 0.08 : 0,
+              radius: theme.shadowRadius * 0.25,
               offsetY: 1,
               elevation: active ? 1 : 0,
             }),
@@ -70,13 +70,15 @@ export function PlatinumFilterChip({ label, active, color, onPress, style }: Pla
 
 const styles = StyleSheet.create({
   chip: {
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 10,
+    minHeight: 38,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
     borderWidth: 1,
+    justifyContent: 'center',
   },
   label: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0,
   },

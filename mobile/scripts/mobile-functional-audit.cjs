@@ -48,6 +48,8 @@ const lineStats = files
   .sort((a, b) => b.lines - a.lines);
 
 const largeFiles = lineStats.filter((item) => item.lines >= 1000);
+const fetchHotspots = lineStats.filter((item) => item.fetches > 0).sort((a, b) => b.fetches - a.fetches);
+const alertHotspots = lineStats.filter((item) => item.alerts > 0).sort((a, b) => b.alerts - a.alerts);
 const directFetchCount = lineStats.reduce((sum, item) => sum + item.fetches, 0);
 const routerPushCount = lineStats.reduce((sum, item) => sum + item.routerPushes, 0);
 const alertCount = lineStats.reduce((sum, item) => sum + item.alerts, 0);
@@ -68,6 +70,37 @@ console.log("Largest files");
 console.log("-------------");
 for (const item of lineStats.slice(0, 12)) {
   console.log(`${String(item.lines).padStart(5)}  ${item.file}`);
+}
+console.log("");
+
+console.log("Direct fetch() hotspots");
+console.log("-----------------------");
+for (const item of fetchHotspots.slice(0, 12)) {
+  console.log(`${String(item.fetches).padStart(3)}  ${item.file}`);
+}
+if (fetchHotspots.length === 0) {
+  console.log("none");
+}
+console.log("");
+
+console.log("Alert hotspots");
+console.log("--------------");
+for (const item of alertHotspots.slice(0, 8)) {
+  console.log(`${String(item.alerts).padStart(3)}  ${item.file}`);
+}
+if (alertHotspots.length === 0) {
+  console.log("none");
+}
+console.log("");
+
+console.log("*-mobile routes");
+console.log("---------------");
+if (mobileScreens.length > 0) {
+  for (const route of mobileScreens) {
+    console.log(route);
+  }
+} else {
+  console.log("none");
 }
 console.log("");
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require("node:child_process");
+const { getAndroidPreviewUrl } = require("./release-builds.cjs");
 
-const buildUrl =
-  process.env.EAS_ANDROID_PREVIEW_URL ||
-  "https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/11b7dd68-da12-424d-a893-1f403d7d29ea";
+const buildUrl = getAndroidPreviewUrl();
 
 function run(command, args) {
   return spawnSync(command, args, {

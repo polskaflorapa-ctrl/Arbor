@@ -24,8 +24,8 @@ export function ScreenHeader({
   onBackPress,
   right,
   backIconSize = 24,
-  paddingTop = 56,
-  edgeSlotWidth = 44,
+  paddingTop = 52,
+  edgeSlotWidth = 42,
 }: ScreenHeaderProps) {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -68,32 +68,32 @@ function makeStyles(
   return StyleSheet.create({
     header: {
       backgroundColor: t.headerBg,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
       paddingTop: opts.paddingTop,
-      paddingBottom: 12,
+      paddingBottom: 10,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.navBorder,
       ...shadowStyle(t, {
-        opacity: t.shadowOpacity * 0.08,
-        radius: Math.max(4, t.shadowRadius * 0.24),
+        opacity: t.name === 'light' ? 0.04 : t.shadowOpacity * 0.08,
+        radius: Math.max(3, t.shadowRadius * 0.18),
         offsetY: 1,
-        elevation: Math.max(1, t.cardElevation - 1),
+        elevation: t.name === 'light' ? 0 : Math.max(1, t.cardElevation - 1),
       }),
     },
     edgeSlot: {
       minHeight: opts.edgeSlotWidth,
-      borderRadius: 14,
-      backgroundColor: t.surface2,
+      borderRadius: 999,
+      backgroundColor: t.name === 'light' ? t.surface2 : t.surface,
       borderWidth: 1,
-      borderColor: t.navBorder,
+      borderColor: t.border,
       justifyContent: 'center',
       alignItems: 'center',
     },
     title: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: '900',
       letterSpacing: 0,
       color: t.headerText,
@@ -106,9 +106,9 @@ function makeStyles(
       alignItems: 'flex-end',
     },
     backIconBadge: {
-      width: 30,
-      height: 30,
-      borderRadius: 10,
+      width: 28,
+      height: 28,
+      borderRadius: 999,
     },
   });
 }

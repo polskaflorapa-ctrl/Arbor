@@ -53,6 +53,7 @@ const pojazdCreateSchema = z.object({
   nr_rejestracyjny: z.string().trim().min(1),
   rok_produkcji: z.coerce.number().int().optional().nullable(),
   typ: z.string().max(50).optional().nullable(),
+  status: z.string().max(50).optional().nullable(),
   ekipa_id: z.coerce.number().int().positive().optional().nullable(),
   data_przegladu: z.string().max(20).optional().nullable(),
   data_ubezpieczenia: z.string().max(20).optional().nullable(),
@@ -64,6 +65,7 @@ const pojazdCreateSchema = z.object({
 const sprzetCreateSchema = z.object({
   nazwa: z.string().trim().min(1),
   typ: z.string().max(50).optional().nullable(),
+  status: z.string().max(50).optional().nullable(),
   nr_seryjny: z.string().max(80).optional().nullable(),
   rok_produkcji: z.coerce.number().int().optional().nullable(),
   ekipa_id: z.coerce.number().int().positive().optional().nullable(),
@@ -102,6 +104,24 @@ function canAccessFleetResource(user, row) {
 function fleetBranchForWrite(user, requestedBranchId, currentBranchId) {
   if (isDyrektor(user)) return requestedBranchId || currentBranchId || user.oddzial_id || null;
   return user.oddzial_id;
+}
+
+function repairResourceTable(typZasobu) {
+  const normalized = String(typZasobu || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized.includes('pojazd') || normalized.includes('auto') || normalized.includes('samochod')) return 'vehicles';
+  if (normalized.includes('sprzet') || normalized.includes('equipment') || normalized.includes('narzed')) return 'equipment_items';
+  return null;
+}
+
+function repairClosesResource(status) {
+  const normalized = String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return normalized.includes('zakoncz') || normalized.includes('gotow') || normalized.includes('dostep');
 }
 
 /**
@@ -189,12 +209,12 @@ router.get('/pojazdy', authMiddleware, validateQuery(flotaOddzialQuerySchema), a
 
 router.post('/pojazdy', authMiddleware, validateBody(pojazdCreateSchema), async (req, res) => {
   try {
-    const { marka, model, nr_rejestracyjny, rok_produkcji, typ, ekipa_id, data_przegladu, data_ubezpieczenia, przebieg, notatki, oddzial_id } = req.body;
+    const { marka, model, nr_rejestracyjny, rok_produkcji, typ, status, ekipa_id, data_przegladu, data_ubezpieczenia, przebieg, notatki, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
     const result = await pool.query(
-      `INSERT INTO vehicles (oddzial_id, marka, model, nr_rejestracyjny, rok_produkcji, typ, ekipa_id, data_przegladu, data_ubezpieczenia, przebieg, notatki)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-      [finalOddzialId, marka, model, nr_rejestracyjny, rok_produkcji, typ, ekipa_id || null, data_przegladu || null, data_ubezpieczenia || null, przebieg || 0, notatki]
+      `INSERT INTO vehicles (oddzial_id, marka, model, nr_rejestracyjny, rok_produkcji, typ, status, ekipa_id, data_przegladu, data_ubezpieczenia, przebieg, notatki)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [finalOddzialId, marka, model, nr_rejestracyjny, rok_produkcji, typ, status || 'Dostepny', ekipa_id || null, data_przegladu || null, data_ubezpieczenia || null, przebieg || 0, notatki]
     );
     res.json({ id: result.rows[0].id });
   } catch (err) {
@@ -221,13 +241,14 @@ router.put('/pojazdy/:id', authMiddleware, validateParams(flotaIdParamsSchema), 
               nr_rejestracyjny = COALESCE($4, nr_rejestracyjny),
               rok_produkcji = $5,
               typ = COALESCE($6, typ),
-              ekipa_id = $7,
-              data_przegladu = $8,
-              data_ubezpieczenia = $9,
-              przebieg = COALESCE($10, przebieg),
-              notatki = COALESCE($11, notatki),
+              status = COALESCE($7, status),
+              ekipa_id = $8,
+              data_przegladu = $9,
+              data_ubezpieczenia = $10,
+              przebieg = COALESCE($11, przebieg),
+              notatki = COALESCE($12, notatki),
               updated_at = NOW()
-        WHERE id = $12
+        WHERE id = $13
         RETURNING id`,
       [
         nextOddzialId,
@@ -236,6 +257,7 @@ router.put('/pojazdy/:id', authMiddleware, validateParams(flotaIdParamsSchema), 
         data.nr_rejestracyjny ?? null,
         data.rok_produkcji ?? null,
         data.typ ?? null,
+        data.status ?? null,
         data.ekipa_id || null,
         data.data_przegladu || null,
         data.data_ubezpieczenia || null,
@@ -348,12 +370,12 @@ router.get('/sprzet', authMiddleware, validateQuery(flotaOddzialQuerySchema), as
 
 router.post('/sprzet', authMiddleware, validateBody(sprzetCreateSchema), async (req, res) => {
   try {
-    const { nazwa, typ, nr_seryjny, rok_produkcji, ekipa_id, data_przegladu, koszt_motogodziny, notatki, oddzial_id } = req.body;
+    const { nazwa, typ, status, nr_seryjny, rok_produkcji, ekipa_id, data_przegladu, koszt_motogodziny, notatki, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
     const result = await pool.query(
-      `INSERT INTO equipment_items (oddzial_id, nazwa, typ, nr_seryjny, rok_produkcji, ekipa_id, data_przegladu, koszt_motogodziny, notatki)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-      [finalOddzialId, nazwa, typ, nr_seryjny, rok_produkcji, ekipa_id || null, data_przegladu || null, koszt_motogodziny || 0, notatki]
+      `INSERT INTO equipment_items (oddzial_id, nazwa, typ, status, nr_seryjny, rok_produkcji, ekipa_id, data_przegladu, koszt_motogodziny, notatki)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [finalOddzialId, nazwa, typ, status || 'Dostepny', nr_seryjny, rok_produkcji, ekipa_id || null, data_przegladu || null, koszt_motogodziny || 0, notatki]
     );
     res.json({ id: result.rows[0].id });
   } catch (err) {
@@ -377,19 +399,21 @@ router.put('/sprzet/:id', authMiddleware, validateParams(flotaIdParamsSchema), v
           SET oddzial_id = $1,
               nazwa = COALESCE($2, nazwa),
               typ = COALESCE($3, typ),
-              nr_seryjny = $4,
-              rok_produkcji = $5,
-              ekipa_id = $6,
-              data_przegladu = $7,
-              koszt_motogodziny = COALESCE($8, koszt_motogodziny),
-              notatki = COALESCE($9, notatki),
+              status = COALESCE($4, status),
+              nr_seryjny = $5,
+              rok_produkcji = $6,
+              ekipa_id = $7,
+              data_przegladu = $8,
+              koszt_motogodziny = COALESCE($9, koszt_motogodziny),
+              notatki = COALESCE($10, notatki),
               updated_at = NOW()
-        WHERE id = $10
+        WHERE id = $11
         RETURNING id`,
       [
         nextOddzialId,
         data.nazwa ?? null,
         data.typ ?? null,
+        data.status ?? null,
         data.nr_seryjny ?? null,
         data.rok_produkcji ?? null,
         data.ekipa_id || null,
@@ -469,11 +493,17 @@ router.post('/naprawy', authMiddleware, validateBody(naprawaCreateSchema), async
   try {
     const { typ_zasobu, zasob_id, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, status, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
+    const finalStatus = status || 'Zakonczona';
     const result = await pool.query(
       `INSERT INTO repairs (typ_zasobu, zasob_id, oddzial_id, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, status, user_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-      [typ_zasobu, zasob_id, finalOddzialId, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, status || 'Zakonczona', req.user.id]
+      [typ_zasobu, zasob_id, finalOddzialId, nr_faktury, data_naprawy, koszt, opis_usterki, opis_naprawy, wykonawca, finalStatus, req.user.id]
     );
+    const table = repairResourceTable(typ_zasobu);
+    if (table) {
+      const resourceStatus = repairClosesResource(finalStatus) ? 'Dostepny' : 'W naprawie';
+      await pool.query(`UPDATE ${table} SET status = $1, updated_at = NOW() WHERE id = $2`, [resourceStatus, zasob_id]);
+    }
     res.json({ id: result.rows[0].id });
   } catch (err) {
     logger.error('Blad dodawania naprawy', { message: err.message, requestId: req.requestId });
@@ -522,6 +552,37 @@ const rezerwacjaPostBodySchema = z.object({
 const rezerwacjaStatusBodySchema = z.object({
   status: z.enum(['Zarezerwowane', 'Wydane', 'Zwrócone', 'Anulowane']),
 });
+
+function reservationInspectionBlock(sprzet, dataDo) {
+  const due = String(sprzet?.data_przegladu || '').slice(0, 10);
+  if (!due || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return null;
+  if (due >= dataDo) return null;
+  return {
+    error: 'sprzet_przeglad_po_terminie',
+    code: 'EQUIPMENT_INSPECTION_OVERDUE',
+    sprzet: {
+      id: sprzet.id,
+      nazwa: sprzet.nazwa,
+      data_przegladu: due,
+    },
+  };
+}
+
+function reservationStatusBlock(sprzet) {
+  const status = String(sprzet?.status || '').toLowerCase();
+  if (!status.includes('napraw') && !status.includes('serwis') && !status.includes('awari') && !status.includes('wycof')) {
+    return null;
+  }
+  return {
+    error: 'sprzet_niedostepny',
+    code: 'EQUIPMENT_UNAVAILABLE',
+    sprzet: {
+      id: sprzet.id,
+      nazwa: sprzet.nazwa,
+      status: sprzet.status,
+    },
+  };
+}
 
 /** GET /flota/rezerwacje?from=YYYY-MM-DD&to=YYYY-MM-DD */
 router.get('/rezerwacje', authMiddleware, validateQuery(rezerwacjeRangeQuerySchema), async (req, res) => {
@@ -572,8 +633,12 @@ router.post('/rezerwacje', authMiddleware, validateBody(rezerwacjaPostBodySchema
     if (data_do < data_od) {
       return res.status(400).json({ error: 'data_do_przed_data_od' });
     }
-    const sRow = await pool.query('SELECT id, oddzial_id FROM equipment_items WHERE id = $1', [sprzet_id]);
+    const sRow = await pool.query('SELECT id, oddzial_id, nazwa, status, data_przegladu FROM equipment_items WHERE id = $1', [sprzet_id]);
     if (!sRow.rows[0]) return res.status(404).json({ error: 'sprzet_nieznaleziony' });
+    const statusBlock = reservationStatusBlock(sRow.rows[0]);
+    if (statusBlock) return res.status(409).json(statusBlock);
+    const inspectionBlock = reservationInspectionBlock(sRow.rows[0], data_do);
+    if (inspectionBlock) return res.status(409).json(inspectionBlock);
     const tRow = await pool.query('SELECT id, oddzial_id FROM teams WHERE id = $1', [ekipa_id]);
     if (!tRow.rows[0]) return res.status(404).json({ error: 'ekipa_nieznaleziona' });
     const sprOdd = sRow.rows[0].oddzial_id;

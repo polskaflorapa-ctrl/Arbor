@@ -647,7 +647,7 @@ export default function DashboardScreen() {
   return (
     <View style={S.root}>
       <StatusBar
-        barStyle={'light-content'}
+        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={ARBOR_UI.paper}
       />
 
@@ -656,13 +656,14 @@ export default function DashboardScreen() {
         <View style={S.headerLeft}>
           <Text style={S.greeting}>{t('dashboard.greeting', { name: user?.imie || '' })}</Text>
           <Text style={S.date}>{dzisiajLocalized || dzisiaj}</Text>
-          <View style={[S.rolaBadge, { backgroundColor: (rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent) + '33' }]}>
-            <Text style={[S.rolaText, { color: rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent }]}>
-              {rolaLabel}
-            </Text>
+          <View style={S.headerMetaRow}>
+            <View style={[S.rolaBadge, { backgroundColor: (rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent) + '20' }]}>
+              <Text style={[S.rolaText, { color: rolaKolor[user?.rola as keyof typeof rolaKolor] || theme.accent }]}>
+                {rolaLabel}
+              </Text>
+            </View>
+            <Text style={S.oddzialText} numberOfLines={1}>{oddzialConfig.name}</Text>
           </View>
-          <Text style={S.oddzialText}>{oddzialConfig.name}</Text>
-          <Text style={S.oddzialSub}>{oddzialConfig.mission}</Text>
         </View>
         <View style={S.headerRight}>
           <TouchableOpacity
@@ -748,6 +749,25 @@ export default function DashboardScreen() {
             </View>
           </View>
         </View>
+
+        {focusActions.length > 0 ? (
+          <View style={S.todayRail}>
+            {focusActions.slice(0, 3).map((action, index) => (
+              <TouchableOpacity
+                key={`rail-${action.path}-${index}`}
+                style={[S.todayRailAction, index === 0 && S.todayRailPrimary]}
+                onPress={() => {
+                  void openWithContext(action.path, quickActionListLabel(action.label), 'dashboard-today-rail');
+                }}
+              >
+                <Ionicons name={action.icon} size={18} color={index === 0 ? ARBOR_UI.onAccent : action.color} />
+                <Text style={[S.todayRailText, index === 0 && S.todayRailPrimaryText]} numberOfLines={2}>
+                  {quickActionListLabel(action.label)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
 
         {(zlecenia.length > 0 || isCrew || isWyceniajacy) ? (
           <TouchableOpacity

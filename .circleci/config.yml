@@ -1,0 +1,142 @@
+version: 2.1
+
+executors:
+  node:
+    docker:
+      - image: cimg/node:22.12
+    working_directory: ~/project
+
+commands:
+  checkout_and_install:
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - npm-v1-node-22.12-{{ checksum "package-lock.json" }}-{{ checksum "web/package-lock.json" }}-{{ checksum "os/package-lock.json" }}-{{ checksum "mobile/package-lock.json" }}
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - save_cache:
+          key: npm-v1-node-22.12-{{ checksum "package-lock.json" }}-{{ checksum "web/package-lock.json" }}-{{ checksum "os/package-lock.json" }}-{{ checksum "mobile/package-lock.json" }}
+          paths:
+            - ~/.npm
+
+jobs:
+  scripts:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Verify repository scripts
+          command: npm run verify:scripts
+
+  mobile:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Verify mobile
+          command: npm run verify:mobile
+      - run:
+          name: Expo Doctor
+          command: cd mobile && EXPO_NO_TELEMETRY=1 npx expo-doctor
+
+  web:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Test web
+          command: |
+            mkdir -p test-results/vitest
+            npm test -w arbor-web -- --reporter=default --reporter=junit --outputFile.junit=../test-results/vitest/results.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+      - run:
+          name: Build web
+          command: npm run verify:web
+
+  os:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Verify Arbor OS
+          command: npm run verify:os
+
+  os-tests:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Test Arbor OS
+          command: |
+            mkdir -p test-results/jest
+            JEST_JUNIT_OUTPUT_DIR=../test-results/jest JEST_JUNIT_OUTPUT_NAME=results.xml npm test -w arbor-os -- --reporters=default --reporters=jest-junit
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+  deploy-ready:
+    executor: node
+    steps:
+      - checkout_and_install
+      - run:
+          name: Deploy preflight and backend syntax
+          command: npm run deploy:ready:check
+      - run:
+          name: Web production build
+          command: npm run build -w arbor-web
+      - run:
+          name: Mobile typecheck
+          command: npm run typecheck -w arbor-mobile
+
+  verify-green:
+    executor: node
+    steps:
+      - run:
+          name: Verify static OK
+          command: echo "verify-static OK"
+
+  deploy-ready-green:
+    executor: node
+    steps:
+      - run:
+          name: Deploy ready OK
+          command: echo "deploy-ready OK"
+
+workflows:
+  verify:
+    jobs:
+      - scripts
+      - mobile
+      - web
+      - os
+      - os-tests
+      - verify-green:
+          requires:
+            - scripts
+            - mobile
+            - web
+            - os
+            - os-tests
+
+  deploy-ready:
+    jobs:
+      - deploy-ready:
+          filters:
+            branches:
+              only:
+                - main
+                - master
+      - deploy-ready-green:
+          requires:
+            - deploy-ready
+          filters:
+            branches:
+              only:
+                - main
+                - master

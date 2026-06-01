@@ -164,7 +164,7 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
 
   renderFlota();
 
-  await userEvent.click(await screen.findByRole('button', { name: /Sprzęt/i }));
+  await userEvent.click(await screen.findByRole('button', { name: /Sprz/i }));
   await userEvent.click(screen.getByRole('button', { name: 'Edytuj' }));
 
   expect(screen.getByText('Edytuj sprzet')).toBeInTheDocument();
@@ -178,6 +178,7 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
       '/flota/sprzet/11',
       expect.objectContaining({
         nazwa: 'Rebak Forst ST8',
+        status: 'W naprawie',
         ekipa_id: 3,
         oddzial_id: 1,
       }),
@@ -190,6 +191,33 @@ test('edits and deletes equipment from fleet cards CRUD flow', async () => {
   await waitFor(() => {
     expect(api.delete).toHaveBeenCalledWith(
       '/flota/sprzet/11',
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});
+
+test('adds broken chipper assigned to a team in one form submit', async () => {
+  mockFlotaApi();
+
+  renderFlota();
+
+  await userEvent.click(await screen.findByRole('button', { name: /Sprz/i }));
+  await userEvent.click(screen.getByRole('button', { name: /\+ .*Dodaj/i }));
+  await userEvent.click(screen.getByRole('button', { name: /Rebak w naprawie/i }));
+  await userEvent.type(screen.getByLabelText(/Nazwa/i), 'Rebak awaryjny');
+  await userEvent.selectOptions(screen.getByLabelText(/Ekipa/i), '3');
+  await userEvent.click(screen.getByRole('button', { name: /Dodaj/i }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/flota/sprzet',
+      expect.objectContaining({
+        nazwa: 'Rebak awaryjny',
+        typ: 'Rebak',
+        status: 'W naprawie',
+        ekipa_id: '3',
+        oddzial_id: 1,
+      }),
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });

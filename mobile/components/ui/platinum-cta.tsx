@@ -29,9 +29,9 @@ export function PlatinumCTA({ label, loading = false, disabled, style, ...props 
           borderWidth: 1,
           borderColor: theme.accentDark,
           ...shadowStyle(theme, {
-            opacity: blocked ? 0 : theme.shadowOpacity,
-            radius: theme.shadowRadius,
-            offsetY: Math.max(1, theme.shadowOffsetY),
+            opacity: blocked ? 0 : theme.shadowOpacity * 0.7,
+            radius: theme.shadowRadius * 0.85,
+            offsetY: Math.max(1, Math.round(theme.shadowOffsetY * 0.75)),
             elevation: blocked ? 0 : theme.cardElevation,
           }),
         },
@@ -47,14 +47,14 @@ export function PlatinumCTA({ label, loading = false, disabled, style, ...props 
 
 const styles = StyleSheet.create({
   btn: {
-    minHeight: 52,
-    borderRadius: 14,
+    minHeight: 54,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
   },
   label: {
-    fontWeight: '800',
+    fontWeight: '900',
     fontSize: 15,
     letterSpacing: 0,
   },

@@ -59,6 +59,7 @@ const biRoutes = require('./routes/bi');
 const hrRoutes = require('./routes/hr');
 const trackRoutes = require('./routes/track');
 const demoRequestsRoutes = require('./routes/demoRequests');
+const magazynRoutes = require('./routes/magazyn');
 
 const createApp = () => {
   const app = express();
@@ -165,6 +166,7 @@ const createApp = () => {
   app.use('/api/dispatch', dispatchRoutes);
   app.use('/api/bi', biRoutes);
   app.use('/api/hr', hrRoutes);
+  app.use('/api/magazyn', magazynRoutes);
   // Alias: KadryDokumenty.js calls /api/position-cards — serve from hr router
   app.use('/api/position-cards', hrRoutes);
   app.use('/api/public', quotationPublicRoutes);

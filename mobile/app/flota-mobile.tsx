@@ -9,10 +9,10 @@ import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiJsonFetch, readApiError } from '../utils/api-client';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { isFeatureEnabledForOddzial } from '../utils/oddzial-features';
 
@@ -78,11 +78,10 @@ export default function FlotaMobileScreen() {
     try {
       const authToken = tokenOverride ?? token;
       if (!authToken) { router.replace('/login'); return; }
-      const h = { Authorization: `Bearer ${authToken}` };
       const [pRes, sRes, nRes] = await Promise.all([
-        fetch(`${API_URL}/flota/pojazdy`, { headers: h }),
-        fetch(`${API_URL}/flota/sprzet`, { headers: h }),
-        fetch(`${API_URL}/flota/naprawy`, { headers: h }),
+        apiFetch('/flota/pojazdy', { token: authToken }),
+        apiFetch('/flota/sprzet', { token: authToken }),
+        apiFetch('/flota/naprawy', { token: authToken }),
       ]);
       if (pRes.ok) setPojazdy(await pRes.json());
       if (sRes.ok) setSprzet(await sRes.json());
@@ -111,9 +110,9 @@ export default function FlotaMobileScreen() {
   const zmienStatusPojazdu = async (id: number, status: string) => {
     try {
       if (!token) { router.replace('/login'); return; }
-      await fetch(`${API_URL}/flota/pojazdy/${id}/status`, {
+      await apiJsonFetch(`/flota/pojazdy/${id}/status`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify({ status }),
       });
       await loadAll();
@@ -123,9 +122,9 @@ export default function FlotaMobileScreen() {
   const zmienStatusSprzetu = async (id: number, status: string) => {
     try {
       if (!token) { router.replace('/login'); return; }
-      await fetch(`${API_URL}/flota/sprzet/${id}/status`, {
+      await apiJsonFetch(`/flota/sprzet/${id}/status`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify({ status }),
       });
       await loadAll();
@@ -139,9 +138,9 @@ export default function FlotaMobileScreen() {
     }
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/flota/pojazdy`, {
+      const res = await apiJsonFetch('/flota/pojazdy', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(formPojazd),
       });
       if (res.ok) {
@@ -150,8 +149,7 @@ export default function FlotaMobileScreen() {
         await loadAll();
         Alert.alert(t('wyceny.alert.savedTitle'), t('fleet.alert.vehicleAdded'));
       } else {
-        const e = await res.json();
-        Alert.alert(t('wyceny.alert.saveFail'), e.error || t('fleet.alert.vehicleFail'));
+        Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.vehicleFail')));
       }
     } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.connection')); }
   };
@@ -160,9 +158,9 @@ export default function FlotaMobileScreen() {
     if (!formSprzet.nazwa) { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.equipmentName')); return; }
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/flota/sprzet`, {
+      const res = await apiJsonFetch('/flota/sprzet', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(formSprzet),
       });
       if (res.ok) {
@@ -171,8 +169,7 @@ export default function FlotaMobileScreen() {
         await loadAll();
         Alert.alert(t('wyceny.alert.savedTitle'), t('fleet.alert.equipmentAdded'));
       } else {
-        const e = await res.json();
-        Alert.alert(t('wyceny.alert.saveFail'), e.error || t('fleet.alert.equipmentFail'));
+        Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.equipmentFail')));
       }
     } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.connection')); }
   };
@@ -184,9 +181,9 @@ export default function FlotaMobileScreen() {
     }
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/flota/naprawy`, {
+      const res = await apiJsonFetch('/flota/naprawy', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(formNaprawa),
       });
       if (res.ok) {
@@ -195,8 +192,7 @@ export default function FlotaMobileScreen() {
         await loadAll();
         Alert.alert(t('wyceny.alert.savedTitle'), t('fleet.alert.repairAdded'));
       } else {
-        const e = await res.json();
-        Alert.alert(t('wyceny.alert.saveFail'), e.error || t('fleet.alert.repairFail'));
+        Alert.alert(t('wyceny.alert.saveFail'), await readApiError(res, t('fleet.alert.repairFail')));
       }
     } catch { Alert.alert(t('wyceny.alert.saveFail'), t('fleet.alert.connection')); }
   };

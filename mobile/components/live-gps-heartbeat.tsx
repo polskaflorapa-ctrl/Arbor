@@ -4,9 +4,9 @@ import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View, type AppStateStatus } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_URL } from '../constants/api';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
+import { apiJsonFetch } from '../utils/api-client';
 import { getStoredSession, type StoredUser } from '../utils/session';
 
 const SEND_INTERVAL_MS = 55000;
@@ -119,12 +119,9 @@ function locationPayload(location: Location.LocationObject) {
 }
 
 async function sendLocationHeartbeat(token: string, location: Location.LocationObject) {
-  const response = await fetch(`${API_URL}/mobile/me/location`, {
+  const response = await apiJsonFetch('/mobile/me/location', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    token,
     body: JSON.stringify(locationPayload(location)),
   });
 

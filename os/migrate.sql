@@ -229,6 +229,38 @@ CREATE INDEX IF NOT EXISTS idx_task_kommo_inbound_events_status_created
   ON task_kommo_inbound_events (status, created_at DESC);
 
 -- Kolumny używane przez POST /tasks/nowe (API)
+CREATE TABLE IF NOT EXISTS warehouse_materials (
+  id                SERIAL PRIMARY KEY,
+  oddzial_id        INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  nazwa             VARCHAR(160) NOT NULL,
+  kod               VARCHAR(80),
+  kategoria         VARCHAR(80),
+  jednostka         VARCHAR(20) NOT NULL DEFAULT 'szt',
+  min_stan          DECIMAL(12,3) NOT NULL DEFAULT 0,
+  koszt_jednostkowy DECIMAL(12,2) NOT NULL DEFAULT 0,
+  aktywny           BOOLEAN NOT NULL DEFAULT true,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_warehouse_materials_oddzial ON warehouse_materials(oddzial_id, aktywny);
+CREATE INDEX IF NOT EXISTS idx_warehouse_materials_name ON warehouse_materials(nazwa);
+
+CREATE TABLE IF NOT EXISTS warehouse_material_movements (
+  id                SERIAL PRIMARY KEY,
+  oddzial_id        INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  material_id       INTEGER NOT NULL REFERENCES warehouse_materials(id) ON DELETE CASCADE,
+  typ               VARCHAR(30) NOT NULL,
+  ilosc             DECIMAL(12,3) NOT NULL CHECK (ilosc > 0),
+  koszt_jednostkowy DECIMAL(12,2) NOT NULL DEFAULT 0,
+  task_id           INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  notatki           TEXT,
+  user_id           INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_warehouse_movements_material ON warehouse_material_movements(material_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_warehouse_movements_task ON warehouse_material_movements(task_id);
+CREATE INDEX IF NOT EXISTS idx_warehouse_movements_oddzial ON warehouse_material_movements(oddzial_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS task_documents (
   id                 SERIAL PRIMARY KEY,
   task_id            INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -918,6 +950,8 @@ CREATE TABLE IF NOT EXISTS task_finish_material_usage (
 CREATE INDEX IF NOT EXISTS idx_task_finish_usage_task ON task_finish_material_usage (task_id);
 ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS koszt_jednostkowy NUMERIC(12,2);
 ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS koszt_laczny NUMERIC(12,2);
+ALTER TABLE task_finish_material_usage ADD COLUMN IF NOT EXISTS material_id INTEGER REFERENCES warehouse_materials(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_task_finish_material_usage_material ON task_finish_material_usage(material_id);
 
 CREATE TABLE IF NOT EXISTS task_operational_costs (
   id            SERIAL PRIMARY KEY,

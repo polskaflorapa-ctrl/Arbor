@@ -450,15 +450,17 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
     const totalCost = row.koszt_laczny != null && row.koszt_laczny !== ''
       ? Number(row.koszt_laczny)
       : (Number.isFinite(ilosc) && Number.isFinite(unitCost) ? ilosc * unitCost : null);
+    const materialId = row?.material_id != null && row.material_id !== '' ? Number(row.material_id) : null;
     try {
       await client.query(
         `INSERT INTO task_finish_material_usage (
-           task_id, recorded_by, nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka
+           task_id, recorded_by, material_id, nazwa, ilosc, jednostka, koszt_jednostkowy, koszt_laczny, notatka
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           taskId,
           userId,
+          Number.isFinite(materialId) ? materialId : null,
           nazwa.slice(0, 200),
           ilosc,
           row.jednostka ? String(row.jednostka).trim().slice(0, 24) : null,
@@ -475,6 +477,60 @@ async function insertFinishMaterialUsageRows(client, taskId, userId, rows) {
       }
       throw err;
     }
+  }
+}
+
+/** @param {import('pg').PoolClient} client */
+async function insertWarehouseIssuesForFinish(client, task, taskId, userId, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  for (const row of rows.slice(0, 50)) {
+    const nazwa = row?.nazwa != null ? String(row.nazwa).trim() : '';
+    const ilosc = row?.ilosc != null && row.ilosc !== '' ? Number(row.ilosc) : null;
+    if (!Number.isFinite(ilosc) || ilosc <= 0) continue;
+    const materialId = row?.material_id != null && row.material_id !== '' ? Number(row.material_id) : null;
+    const materialParams = Number.isFinite(materialId)
+      ? [materialId, task.oddzial_id]
+      : [nazwa, task.oddzial_id];
+    const materialSql = Number.isFinite(materialId)
+      ? 'SELECT id, oddzial_id, nazwa, koszt_jednostkowy FROM warehouse_materials WHERE id = $1 AND oddzial_id = $2'
+      : 'SELECT id, oddzial_id, nazwa, koszt_jednostkowy FROM warehouse_materials WHERE lower(nazwa) = lower($1) AND oddzial_id = $2 AND aktywny = true ORDER BY id LIMIT 1';
+    const materialResult = await client.query(materialSql, materialParams);
+    const material = materialResult.rows[0];
+    if (!material) continue;
+    const stockResult = await client.query(
+      `SELECT COALESCE(SUM(CASE
+          WHEN typ IN ('przyjecie', 'korekta_plus') THEN ilosc
+          WHEN typ IN ('rozchod', 'korekta_minus') THEN -ilosc
+          ELSE 0
+        END), 0)::numeric AS stan
+       FROM warehouse_material_movements
+      WHERE material_id = $1`,
+      [material.id]
+    );
+    const stock = Number(stockResult.rows[0]?.stan || 0);
+    if (stock < ilosc) {
+      const e = new Error('warehouse stock underflow');
+      e.code = 'WAREHOUSE_STOCK_UNDERFLOW';
+      e.details = { material_id: material.id, nazwa: material.nazwa, stan: stock, requested: ilosc };
+      throw e;
+    }
+    const unitCost = row.koszt_jednostkowy != null && row.koszt_jednostkowy !== ''
+      ? Number(row.koszt_jednostkowy)
+      : Number(material.koszt_jednostkowy || 0);
+    await client.query(
+      `INSERT INTO warehouse_material_movements
+        (oddzial_id, material_id, typ, ilosc, koszt_jednostkowy, task_id, notatki, user_id)
+       VALUES ($1,$2,'rozchod',$3,$4,$5,$6,$7)`,
+      [
+        material.oddzial_id,
+        material.id,
+        ilosc,
+        Number.isFinite(unitCost) ? unitCost : 0,
+        taskId,
+        `Finish zlecenia #${taskId}`,
+        userId,
+      ]
+    );
   }
 }
 
@@ -1854,6 +1910,7 @@ const paymentCloseSchema = z.object({
 });
 
 const taskFinishMaterialRowSchema = z.object({
+  material_id: z.coerce.number().int().positive().optional().nullable(),
   nazwa: z.string().trim().min(1).max(200),
   ilosc: z.coerce.number().optional().nullable(),
   jednostka: z.string().trim().max(24).optional().nullable(),
@@ -4820,11 +4877,21 @@ router.post(
       if (isTeamScoped(req.user) && Array.isArray(req.body.zuzyte_materialy)) {
         try {
           await insertFinishMaterialUsageRows(client, taskId, req.user.id, req.body.zuzyte_materialy);
+          await insertWarehouseIssuesForFinish(client, task, taskId, req.user.id, req.body.zuzyte_materialy);
         } catch (e) {
           if (e.code === 'TASK_FINISH_USAGE_TABLE_MISSING') {
             await client.query('ROLLBACK');
             return res.status(503).json({
               error: 'Uruchom migrację (task_finish_material_usage).',
+              requestId: req.requestId,
+            });
+          }
+          if (e.code === 'WAREHOUSE_STOCK_UNDERFLOW') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+              error: 'magazyn_brak_stanu',
+              code: 'WAREHOUSE_STOCK_UNDERFLOW',
+              details: e.details,
               requestId: req.requestId,
             });
           }

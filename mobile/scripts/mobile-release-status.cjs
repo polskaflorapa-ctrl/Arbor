@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { getAndroidPreviewUrl } = require("./release-builds.cjs");
 
 const rootDir = path.resolve(__dirname, "..");
 const appConfig = JSON.parse(fs.readFileSync(path.join(rootDir, "app.json"), "utf8")).expo;
@@ -9,9 +10,7 @@ const environments = JSON.parse(
   fs.readFileSync(path.join(rootDir, "config", "release-environments.json"), "utf8")
 );
 
-const androidPreviewUrl =
-  process.env.EAS_ANDROID_PREVIEW_URL ||
-  "https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/11b7dd68-da12-424d-a893-1f403d7d29ea";
+const androidPreviewUrl = getAndroidPreviewUrl();
 
 function hasSentryAutoUploadDisabled() {
   return (appConfig.plugins || []).some((plugin) => {

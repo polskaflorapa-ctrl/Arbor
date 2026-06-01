@@ -73,6 +73,7 @@ describe('Flota rezerwacje sprzetu', () => {
       .send({
         nazwa: 'Rebak Forst ST8',
         typ: 'Rebak',
+        status: 'W naprawie',
         nr_seryjny: 'RF-11',
         rok_produkcji: 2023,
         ekipa_id: 3,
@@ -88,7 +89,7 @@ describe('Flota rezerwacje sprzetu', () => {
     expect(pool.query).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining('UPDATE equipment_items'),
-      [1, 'Rebak Forst ST8', 'Rebak', 'RF-11', 2023, 3, '2026-07-01', 42, 'Po przegladzie', 11]
+      [1, 'Rebak Forst ST8', 'Rebak', 'W naprawie', 'RF-11', 2023, 3, '2026-07-01', 42, 'Po przegladzie', 11]
     );
   });
 
@@ -216,6 +217,54 @@ describe('Flota rezerwacje sprzetu', () => {
       });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('brak_dostepu_oddzial');
+  });
+
+  it('POST blocks equipment reservation when inspection expires before reservation end', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: 1, oddzial_id: 1, nazwa: 'Rebak Forst', data_przegladu: '2026-06-09' }],
+    });
+    const res = await request(app)
+      .post('/api/flota/rezerwacje')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        sprzet_id: 1,
+        ekipa_id: 3,
+        data_od: '2026-06-10',
+        data_do: '2026-06-11',
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('sprzet_przeglad_po_terminie');
+    expect(res.body.code).toBe('EQUIPMENT_INSPECTION_OVERDUE');
+    expect(res.body.sprzet).toEqual({
+      id: 1,
+      nazwa: 'Rebak Forst',
+      data_przegladu: '2026-06-09',
+    });
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('POST blocks equipment reservation when equipment is in repair', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: 1, oddzial_id: 1, nazwa: 'Rebak Forst', status: 'W naprawie', data_przegladu: '2026-07-01' }],
+    });
+    const res = await request(app)
+      .post('/api/flota/rezerwacje')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        sprzet_id: 1,
+        ekipa_id: 3,
+        data_od: '2026-06-10',
+        data_do: '2026-06-11',
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('sprzet_niedostepny');
+    expect(res.body.code).toBe('EQUIPMENT_UNAVAILABLE');
+    expect(res.body.sprzet).toEqual({
+      id: 1,
+      nazwa: 'Rebak Forst',
+      status: 'W naprawie',
+    });
+    expect(pool.query).toHaveBeenCalledTimes(1);
   });
 
   it('POST returns 409 on overlapping active reservation', async () => {

@@ -2149,7 +2149,7 @@ describe('Tasks routes', () => {
       expect(res.status).toBe(200);
       expect(clientQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO task_finish_material_usage'),
-        [99, 2, 'Olej do pilarki', 2, 'szt', null, 80, null]
+        [99, 2, null, 'Olej do pilarki', 2, 'szt', null, 80, null]
       );
       expect(clientQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO task_operational_costs'),
@@ -2160,6 +2160,113 @@ describe('Tasks routes', () => {
         [99, 2, 'utylizacja', 'Utylizacja', 120, 'mobile_finish', null]
       );
       expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('COMMIT'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
+  it('POST /tasks/:id/finish creates warehouse issue for matching material usage', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN') || s.includes('COMMIT') || s.includes('ROLLBACK')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return { rows: [{ id: 99, status: 'W_Realizacji', oddzial_id: 5, wartosc_planowana: 100 }] };
+        }
+        if (s.includes('work_logs') && s.includes('end_time IS NULL')) return { rows: [{ id: 909 }] };
+        if (s.includes('FROM warehouse_materials')) {
+          return { rows: [{ id: 33, oddzial_id: 5, nazwa: 'Olej do pilarki', koszt_jednostkowy: '18.50' }] };
+        }
+        if (s.includes('FROM warehouse_material_movements') && s.includes('SUM(CASE')) {
+          return { rows: [{ stan: '10' }] };
+        }
+        if (s.includes('INSERT INTO warehouse_material_movements')) return { rows: [{ id: 77 }] };
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/99/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 100, faktura_vat: false },
+          zuzyte_materialy: [
+            { nazwa: 'Olej do pilarki', ilosc: 2, jednostka: 'l', koszt_laczny: 37 },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(clientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO warehouse_material_movements'),
+        [5, 33, 2, 18.5, 99, 'Finish zlecenia #99', 2]
+      );
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('COMMIT'));
+    } finally {
+      if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;
+      if (prevPrzed === undefined) delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+      else process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO = prevPrzed;
+      if (prevMat === undefined) delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+      else process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE = prevMat;
+    }
+  });
+
+  it('POST /tasks/:id/finish rolls back when warehouse stock is too low', async () => {
+    const prevPo = process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    const prevPrzed = process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    const prevMat = process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_PRZED_PHOTO;
+    delete process.env.TASK_FINISH_REQUIRE_MATERIAL_USAGE;
+    try {
+      const token = jwt.sign({ id: 2, rola: 'Brygadzista', oddzial_id: 5 }, env.JWT_SECRET);
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+
+      const clientQuery = jest.fn(async (sql) => {
+        const s = String(sql);
+        if (s.includes('BEGIN') || s.includes('ROLLBACK')) return {};
+        if (s.includes('FOR UPDATE')) {
+          return { rows: [{ id: 99, status: 'W_Realizacji', oddzial_id: 5, wartosc_planowana: 100 }] };
+        }
+        if (s.includes('work_logs') && s.includes('end_time IS NULL')) return { rows: [{ id: 909 }] };
+        if (s.includes('FROM warehouse_materials')) {
+          return { rows: [{ id: 33, oddzial_id: 5, nazwa: 'Olej do pilarki', koszt_jednostkowy: '18.50' }] };
+        }
+        if (s.includes('FROM warehouse_material_movements') && s.includes('SUM(CASE')) {
+          return { rows: [{ stan: '1' }] };
+        }
+        return { rows: [] };
+      });
+      pool.connect.mockResolvedValue({ query: clientQuery, release: jest.fn() });
+
+      const res = await request(app)
+        .post('/api/tasks/99/finish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          payment: { forma_platnosc: 'Gotowka', kwota_odebrana: 100, faktura_vat: false },
+          zuzyte_materialy: [
+            { nazwa: 'Olej do pilarki', ilosc: 2, jednostka: 'l', koszt_laczny: 37 },
+          ],
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe('WAREHOUSE_STOCK_UNDERFLOW');
+      expect(clientQuery).toHaveBeenCalledWith(expect.stringContaining('ROLLBACK'));
+      expect(clientQuery).not.toHaveBeenCalledWith(expect.stringContaining('COMMIT'));
     } finally {
       if (prevPo === undefined) delete process.env.TASK_FINISH_REQUIRE_PO_PHOTO;
       else process.env.TASK_FINISH_REQUIRE_PO_PHOTO = prevPo;

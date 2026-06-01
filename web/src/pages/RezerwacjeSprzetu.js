@@ -44,6 +44,38 @@ function isYmd(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 }
 
+function ymd(value) {
+  return String(value || '').slice(0, 10);
+}
+
+function equipmentInspectionBlocked(item, reservationEnd = todayYmd()) {
+  const due = ymd(item?.data_przegladu);
+  if (item?.przeglad_alert === 'overdue') return true;
+  return isYmd(due) && due < reservationEnd;
+}
+
+function equipmentUnavailableBlocked(item) {
+  const status = String(item?.status || '').toLowerCase();
+  return status.includes('napraw') || status.includes('serwis') || status.includes('awari') || status.includes('wycof');
+}
+
+function equipmentUsageBlocked(item, reservationEnd = todayYmd()) {
+  return equipmentUnavailableBlocked(item) || equipmentInspectionBlocked(item, reservationEnd);
+}
+
+function equipmentLabel(item, reservationEnd = todayYmd()) {
+  const base = item?.nazwa || `#${item?.id}`;
+  if (equipmentUnavailableBlocked(item)) {
+    return `${base} - niedostepny (${item.status})`;
+  }
+  if (equipmentInspectionBlocked(item, reservationEnd)) {
+    const due = ymd(item?.data_przegladu);
+    return `${base} - przeglad po terminie${due ? ` (${due})` : ''}`;
+  }
+  if (item?.przeglad_alert === 'soon') return `${base} - przeglad wkrotce`;
+  return base;
+}
+
 function rowStart(row) {
   return String(row?.data_od || row?.data || '').slice(0, 10);
 }
@@ -319,6 +351,15 @@ export default function RezerwacjeSprzetu() {
       showMsg(errorMessage(t('pages.equipmentReservations.fillRequired')));
       return;
     }
+    const selectedEquipment = sprzet.find((s) => String(s.id) === String(form.sprzet_id));
+    if (equipmentUnavailableBlocked(selectedEquipment)) {
+      showMsg(errorMessage('Sprzet jest oznaczony jako niedostepny albo w naprawie. Wybierz inny zasob.'));
+      return;
+    }
+    if (equipmentInspectionBlocked(selectedEquipment, form.data)) {
+      showMsg(errorMessage('Sprzet ma przeglad po terminie. Najpierw odnow przeglad w karcie sprzetu.'));
+      return;
+    }
     setSaving(true);
     try {
       const token = getStoredToken();
@@ -345,7 +386,11 @@ export default function RezerwacjeSprzetu() {
     } catch (err) {
       console.error(err);
       const code = err.response?.data?.error;
-      if (err.response?.status === 409) {
+      if (code === 'sprzet_niedostepny' || err.response?.data?.code === 'EQUIPMENT_UNAVAILABLE') {
+        showMsg(errorMessage('Sprzet jest w naprawie albo niedostepny. Wybierz inny zasob.'));
+      } else if (code === 'sprzet_przeglad_po_terminie' || err.response?.data?.code === 'EQUIPMENT_INSPECTION_OVERDUE') {
+        showMsg(errorMessage('Sprzet ma przeglad po terminie i nie moze byc uzyty w tym terminie.'));
+      } else if (err.response?.status === 409) {
         showMsg(errorMessage(t('pages.equipmentReservations.conflict')));
       } else if (err.response?.status === 404) {
         showMsg(errorMessage(t('pages.equipmentReservations.notMigrated')));
@@ -577,8 +622,13 @@ export default function RezerwacjeSprzetu() {
                   >
                     <MenuItem value="">{t('pages.equipmentReservations.selectEquipment')}</MenuItem>
                     {sprzet.map((s) => (
-                      <MenuItem key={s.id} value={String(s.id)}>
-                        {s.nazwa || `#${s.id}`}
+                      <MenuItem
+                        key={s.id}
+                        value={String(s.id)}
+                        disabled={equipmentUsageBlocked(s, form.data)}
+                        data-testid={`equipment-option-${s.id}`}
+                      >
+                        {equipmentLabel(s, form.data)}
                       </MenuItem>
                     ))}
                   </Select>

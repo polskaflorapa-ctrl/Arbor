@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { API_URL } from '../constants/api';
+import { apiJsonFetch } from './api-client';
 
 const STORAGE_KEY = 'arbor_expo_push_token_last_registered_v1';
 
@@ -15,9 +15,9 @@ function platformLabel(): 'ios' | 'android' | 'unknown' {
 
 /** Zapisuje token w OS (UPSERT). Zwraca true przy HTTP 201. */
 export async function registerExpoPushTokenWithBackend(jwt: string, expoToken: string): Promise<boolean> {
-  const res = await fetch(`${API_URL}/mobile/me/push-token`, {
+  const res = await apiJsonFetch('/mobile/me/push-token', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+    token: jwt,
     body: JSON.stringify({ expo_token: expoToken, platform: platformLabel() }),
   });
   if (res.ok) {
@@ -32,9 +32,9 @@ export async function unregisterExpoPushTokenWithBackend(jwt: string): Promise<v
   const stored = await AsyncStorage.getItem(STORAGE_KEY);
   if (!stored) return;
   try {
-    await fetch(`${API_URL}/mobile/me/push-token`, {
+    await apiJsonFetch('/mobile/me/push-token', {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+      token: jwt,
       body: JSON.stringify({ expo_token: stored }),
     });
   } catch {

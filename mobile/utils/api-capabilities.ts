@@ -1,4 +1,4 @@
-import { API_URL } from '../constants/api';
+import { apiFetch } from './api-client';
 
 type ApiHealthPayload = {
   wersja?: unknown;
@@ -18,7 +18,7 @@ export function healthSupportsQuotations(payload: ApiHealthPayload | null): bool
 }
 
 export async function fetchApiHealth(): Promise<ApiHealthPayload | null> {
-  const response = await fetch(`${API_URL}/health`);
+  const response = await apiFetch('/health');
   if (!response.ok) return null;
   return response.json().catch(() => null);
 }
