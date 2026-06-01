@@ -290,6 +290,35 @@ async function testTaskListCacheReturnsOnlyToday() {
   assert.ok(cached);
   assert.deepEqual(cached.tasks.map((task) => task.id), [1]);
   assert.equal(typeof api.formatTaskListCacheTime(cached.savedAt), 'string');
+  assert.equal(api.formatTaskListCacheNotice('Cache', cached).startsWith('Cache z '), true);
+}
+
+async function testTaskListCacheMarksStaleAndExpiresAfterTtl() {
+  const { api, storage } = createTaskCacheHarness();
+  const endpoint = 'https://api.test/api/tasks/moje';
+  const user = { id: 8, rola: 'Brygadzista' };
+  const now = new Date();
+  const savedAt = new Date(now.getTime() - 16 * 60 * 1000).toISOString();
+  const todayIso = now.toISOString();
+
+  await api.saveTaskListCache({
+    endpoint,
+    user,
+    tasks: [{ id: 10, data_planowana: todayIso }],
+  });
+  const [key] = Array.from(storage.keys());
+  const payload = JSON.parse(storage.get(key));
+  payload.savedAt = savedAt;
+  storage.set(key, JSON.stringify(payload));
+
+  const stale = await api.loadTodayTaskListCache({ endpoint, user });
+  assert.ok(stale);
+  assert.equal(stale.stale, true);
+  assert.match(api.formatTaskListCacheNotice('Brak sieci. Pokazuje dzisiejsze zlecenia z cache', stale), /starsze niz 15 min/);
+
+  payload.savedAt = new Date(now.getTime() - api.TASK_LIST_CACHE_TTL_MS - 1000).toISOString();
+  storage.set(key, JSON.stringify(payload));
+  assert.equal(await api.loadTodayTaskListCache({ endpoint, user }), null);
 }
 
 async function testTaskDetailCacheRoundTrip() {
@@ -471,6 +500,7 @@ async function run() {
     testFailuresBackoffAndRetryLater,
     testQueueStatusExposesRetryAndErrors,
     testTaskListCacheReturnsOnlyToday,
+    testTaskListCacheMarksStaleAndExpiresAfterTtl,
     testTaskDetailCacheRoundTrip,
     testTaskDetailCachePreservesPendingOfflineFieldFlow,
     testQueueTaskProblemOfflineUsesStableIdAndDedupe,

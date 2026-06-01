@@ -22,6 +22,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.
 - [ ] `npm run verify:mobile-material-cost-flow` potwierdza raport materialow, paliwa/utylizacji i pending offline finish.
+- [ ] `npm run verify:mobile-today-cache` potwierdza liste dzisiejszych zlecen offline, TTL i recache po sync.
 - [ ] `npm run deploy:prod:dry-run` potwierdza suchy przebieg env, migracji, backup/restore i smoke produkcyjnego.
 - [ ] Backend `os` jest zrodlem prawdy dla API produkcyjnego.
 - [ ] Jest utworzony admin, kierownik oddzialu i brygadzista testowy.
@@ -38,6 +39,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna decyzje dispatchera: `docs/DISPATCHER-ARCHITECTURE-DECISION.md`.
 - [ ] Zespol zna flow PROBLEM/offline: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md`.
 - [ ] Zespol zna blokade zdjec Przed/Po: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md`.
+- [ ] Zespol zna cache listy dnia: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md`.
 - [ ] Zespol zna raport zuzycia materialow/kosztow offline: `docs/MOBILE-MATERIAL-OFFLINE-COST-FLOW.md`.
 - [ ] Zespol zna RPO/RTO i restore drill: `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
 - [ ] Zespol zna drill integracji: `docs/KOMMO-SMS-INCIDENT-DRILL.md`.
@@ -115,6 +117,7 @@ npm run verify:mobile-problem-flow
 npm run verify:mobile-before-after-photo
 npm run verify:mobile-photo-enforcement
 npm run verify:mobile-material-cost-flow
+npm run verify:mobile-today-cache
 npm run verify:rbac-scope
 npm run verify:pilot-hardening
 npm run check

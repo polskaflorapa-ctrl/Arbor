@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TASK_LIST_CACHE_PREFIX = 'task_list_cache_v1';
 const TASK_DETAIL_CACHE_PREFIX = 'task_detail_cache_v1';
-const TASK_LIST_CACHE_TTL_MS = 18 * 60 * 60 * 1000;
+export const TASK_LIST_CACHE_TTL_MS = 18 * 60 * 60 * 1000;
+export const TASK_LIST_CACHE_STALE_MS = 15 * 60 * 1000;
 
 type TaskListCachePayload = {
   savedAt: string;
@@ -110,7 +111,7 @@ export async function loadTodayTaskListCache(args: TaskListCacheArgs): Promise<T
     return {
       tasks: todayTasks,
       savedAt: parsed.savedAt,
-      stale: ageMs > 15 * 60 * 1000,
+      stale: ageMs > TASK_LIST_CACHE_STALE_MS,
     };
   } catch {
     return null;
@@ -158,7 +159,7 @@ export async function loadTaskDetailCache(args: TaskDetailCacheArgs): Promise<Ta
       problemy: Array.isArray(parsed.problemy) ? parsed.problemy : [],
       zdjecia: Array.isArray(parsed.zdjecia) ? parsed.zdjecia : [],
       cmrLista: Array.isArray(parsed.cmrLista) ? parsed.cmrLista : [],
-      stale: ageMs > 15 * 60 * 1000,
+      stale: ageMs > TASK_LIST_CACHE_STALE_MS,
     };
   } catch {
     return null;
@@ -169,4 +170,12 @@ export function formatTaskListCacheTime(savedAt: string) {
   const date = new Date(savedAt);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+export function formatTaskListCacheNotice(prefix: string, hit: { savedAt: string; stale?: boolean }) {
+  const saved = formatTaskListCacheTime(hit.savedAt);
+  const parts = [prefix.trim()];
+  if (saved) parts.push(`z ${saved}`);
+  if (hit.stale) parts.push('starsze niz 15 min - odswiez po powrocie sieci');
+  return parts.filter(Boolean).join(' ');
 }

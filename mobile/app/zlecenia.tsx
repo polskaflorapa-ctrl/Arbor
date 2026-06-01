@@ -25,7 +25,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
-import { formatTaskListCacheTime, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
+import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
 import { getOfflineQueueStatus, type OfflineQueueStatus } from '../utils/offline-queue';
 import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
@@ -808,8 +808,7 @@ export default function ZleceniaScreen() {
           setZlecenia(list);
           setFiltered(list);
           setQuickMode('today');
-          const saved = formatTaskListCacheTime(cached.savedAt);
-          setError(`Brak polaczenia z API. Pokazuje dzisiejsze zlecenia z cache${saved ? ` z ${saved}` : ''}.`);
+          setError(formatTaskListCacheNotice('Brak polaczenia z API. Pokazuje dzisiejsze zlecenia z cache', cached));
         } else {
           setError(t('zlecenia.errorServer', { status: res.status, detail: d.error || '—' }));
         }
@@ -825,8 +824,7 @@ export default function ZleceniaScreen() {
         setZlecenia(list);
         setFiltered(list);
         setQuickMode('today');
-        const saved = formatTaskListCacheTime(cached.savedAt);
-        setError(`Brak sieci. Pokazuje dzisiejsze zlecenia z cache${saved ? ` z ${saved}` : ''}.`);
+        setError(formatTaskListCacheNotice('Brak sieci. Pokazuje dzisiejsze zlecenia z cache', cached));
       } else {
         setError(t('zlecenia.errorConnection', { detail: e.message || '' }));
       }

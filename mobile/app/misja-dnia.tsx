@@ -26,7 +26,7 @@ import { getOfflineQueueSize } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
-import { formatTaskListCacheTime, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
+import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
 
 type TaskItem = {
   id: number;
@@ -424,16 +424,14 @@ export default function MisjaDniaScreen() {
           const cached = await loadTodayTaskListCache({ endpoint, user }).catch(() => null);
           if (cached) {
             setTasks(cached.tasks as TaskItem[]);
-            const saved = formatTaskListCacheTime(cached.savedAt);
-            setCacheNotice(`Pokazuje plan dnia z cache${saved ? ` z ${saved}` : ''}.`);
+            setCacheNotice(formatTaskListCacheNotice('Pokazuje plan dnia z cache', cached));
           }
         }
       } catch {
         const cached = await loadTodayTaskListCache({ endpoint, user }).catch(() => null);
         if (cached) {
           setTasks(cached.tasks as TaskItem[]);
-          const saved = formatTaskListCacheTime(cached.savedAt);
-          setCacheNotice(`Brak sieci. Pokazuje plan dnia z cache${saved ? ` z ${saved}` : ''}.`);
+          setCacheNotice(formatTaskListCacheNotice('Brak sieci. Pokazuje plan dnia z cache', cached));
         }
       }
       if (canCloseTeamDayReport(ur)) {
