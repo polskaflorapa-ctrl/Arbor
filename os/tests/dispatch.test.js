@@ -315,6 +315,57 @@ describe('POST /api/dispatch/apply/:id', () => {
 
 // ─── GET /api/dispatch/plans ──────────────────────────────────────────────────
 
+describe('GET /api/dispatch/plans', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+    pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+  });
+
+  it('filters saved plans by day for manager cockpit handoff', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 77,
+        data: '2026-06-02',
+        oddzial_id: 3,
+        status: 'saved',
+        solver_ms: 180,
+        created_at: '2026-06-01T10:00:00Z',
+        created_by_name: 'Anna Kierownik',
+        stats: { tasks_assigned: 4, tasks_total: 5, teams_used: 2, coverage_pct: 80 },
+        routes_count: 2,
+        unassigned_count: 1,
+      }],
+      rowCount: 1,
+    });
+
+    const res = await request(app)
+      .get('/api/dispatch/plans?date=2026-06-02&limit=1')
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({
+      id: 77,
+      status: 'saved',
+      routes_count: 2,
+      unassigned_count: 1,
+      stats: expect.objectContaining({ coverage_pct: 80 }),
+    });
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('dp.data = $2::date'),
+      [3, '2026-06-02', 1, 0]
+    );
+  });
+
+  it('rejects invalid date filter', async () => {
+    const res = await request(app)
+      .get('/api/dispatch/plans?date=jutro')
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(400);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/dispatch/route-brief/send', () => {
   const PATH = '/api/dispatch/route-brief/send';
 

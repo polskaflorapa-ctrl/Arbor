@@ -86,7 +86,7 @@
 - [x] **P0 resource calendar drag & drop**: `docs/RESOURCE-CALENDAR-DRAG-DROP-CONTRACT.md` opisuje przenoszenie zlecen miedzy slotami; web blokuje lokalne kolizje, a `PATCH /api/tasks/:id/plan` zapisuje termin, godzine, ekipe i waliduje konflikt/okno klienta/nieobecnosc. `npm run verify:resource-calendar-dnd` pilnuje kontraktu.
 - [x] **P0 planning map contract**: `docs/PLANNING-MAP-CONTRACT.md` opisuje mape planistyczna; `MapaLive` rysuje pinezki zlecen, pozycje ekip live, schematyczne linie ekipa -> zlecenie i przejscie do `KalendarzZasobow` z `date/task/modal`. `npm run verify:planning-map` pilnuje kontraktu.
 - [x] **P0 equipment cards contract**: `docs/EQUIPMENT-CARDS-CONTRACT.md` opisuje karty pojazdow i sprzetu z przegladem, OC, alertami 30 dni, najblizsza rezerwacja sprzetu i przejsciem do kalendarza zasobow; `npm run verify:equipment-cards` pilnuje API, UI, testu i checklist.
-- [x] **P0 dispatcher day plan load**: `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md` opisuje wczytanie zapisanego wyniku dispatchera do `Harmonogram`, podglad tras/stopow i zastosowanie przez `/dispatch/apply/:id`; `npm run verify:dispatcher-day-plan` pilnuje UI, testu i checklist.
+- [x] **P0 dispatcher day plan load**: `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md` opisuje wczytanie zapisanego wyniku dispatchera do `Harmonogram` i cockpit Kierownika, podglad tras/stopow/pokrycia i zastosowanie przez `/dispatch/apply/:id`; `npm run verify:dispatcher-day-plan` pilnuje UI, API, testow i checklist.
 - [ ] **Nastepny pakiet**: EPIC 6.1 - karty maszyn: pelny CRUD + przypisanie do ekipy / oddzialu.
 
 ---
@@ -156,7 +156,7 @@ flowchart LR
 - [x] **3.2** Drag & drop przeniesienia zlecenia między slotami (zapis do API + walidacja kolizji). Web zapisuje drop przez `PATCH /api/tasks/:id/plan`, blokuje lokalna kolizje aktywnego zlecenia tej samej ekipy, wymaga override dla nieobecnej ekipy, a backend dopisuje `godzina_rozpoczecia`, przesuwa rezerwacje sprzetu i zwraca `TASK_PLAN_CONFLICT`.
 - [x] **3.3** Mapa planistyczna: pinezki zleceń + pozycje ekip (live gdzie dostępne). `MapaLive` laczy `GET /api/tasks/wszystkie` z `GET /api/ekipy/live-locations`, pokazuje pinezki i live GPS oraz prowadzi z wybranego zlecenia do `#/kalendarz-zasobow?date=...&task=...&modal=1`.
 - [x] **3.4** Karty sprzętu: przegląd, ubezpieczenie, alerty (powiązanie z EPIC 6). `Flota` ma panel kart zasobow z alertami przegladu/OC, najblizsza rezerwacja sprzetu, KPI alertow i przejsciem do `KalendarzZasobow`; kontrakt pilnuje `docs/EQUIPMENT-CARDS-CONTRACT.md` + `verify:equipment-cards`.
-- [x] **3.5** Integracja z wynikiem dispatchera (wczytanie planu dnia). `Harmonogram` wczytuje zapisany plan przez `/dispatch/plans`, pokazuje trasy/stop count/coverage i stosuje plan przez `/dispatch/apply/:id`; kontrakt pilnuje `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md` + `verify:dispatcher-day-plan`.
+- [x] **3.5** Integracja z wynikiem dispatchera (wczytanie planu dnia). `Harmonogram` i cockpit Kierownika wczytuja zapisany plan przez `/dispatch/plans?date=...`, pokazuja trasy/stop count/coverage i stosuja plan przez `/dispatch/apply/:id`; kontrakt pilnuje `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md` + `verify:dispatcher-day-plan`.
 
 ---
 

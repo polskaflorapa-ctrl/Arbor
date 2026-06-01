@@ -30,6 +30,7 @@ function renderPage() {
         <Route path="/" element={<div>Login</div>} />
         <Route path="/kierownik" element={<Kierownik />} />
         <Route path="/zlecenia/:id" element={<div>Szczegoly zlecenia</div>} />
+        <Route path="/auto-dispatch" element={<div>Auto dispatch page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -145,6 +146,26 @@ beforeEach(() => {
     if (path === '/oddzialy') return { data: BRANCHES };
     if (path === '/ops/kierownik-today') return { data: COCKPIT };
     if (path === '/ops/plan-vs-real') return { data: PLAN_REAL };
+    if (path === '/dispatch/plans') {
+      return {
+        data: [{
+          id: 77,
+          data: '2026-06-01',
+          status: 'saved',
+          created_at: '2026-06-01T07:30:00.000Z',
+          created_by_name: 'Anna Kierownik',
+          routes_count: 2,
+          unassigned_count: 1,
+          stats: {
+            tasks_assigned: 4,
+            tasks_total: 5,
+            teams_used: 2,
+            coverage_pct: 80,
+            tasks_unassigned: 1,
+          },
+        }],
+      };
+    }
     if (path === '/ops/action-insights') return { data: ACTION_INSIGHTS };
     if (path === '/ops/action-recommendations') return { data: createRecommendationState(recommendationHidden) };
     return { data: null };
@@ -172,6 +193,13 @@ beforeEach(() => {
             decision: body?.decision,
             date: body?.date,
           },
+        },
+      };
+    }
+    if (path === '/dispatch/apply/77') {
+      return {
+        data: {
+          message: 'Plan zastosowany - 4 zlecen przypisanych',
         },
       };
     }
@@ -247,4 +275,22 @@ test('runs recommendation actions through the backend apply contract', async () 
     );
   });
   expect(await screen.findByText('Szczegoly zlecenia')).toBeInTheDocument();
+});
+
+test('loads the latest dispatcher plan into manager cockpit and applies it', async () => {
+  renderPage();
+
+  expect(await screen.findByTestId('manager-dispatch-plan-panel')).toHaveTextContent('Wynik dispatchera dnia');
+  expect(screen.getByText('Plan #77')).toBeInTheDocument();
+  expect(screen.getByText('80%')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Zastosuj plan' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/dispatch/apply/77',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 });

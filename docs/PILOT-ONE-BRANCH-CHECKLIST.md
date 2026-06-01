@@ -22,7 +22,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:resource-calendar-dnd` potwierdza drag & drop zlecen miedzy slotami, zapis planu do API i blokady kolizji.
 - [ ] `npm run verify:planning-map` potwierdza mape planistyczna z pinezkami zlecen, pozycjami ekip live i przejsciem do kalendarza zasobow.
 - [ ] `npm run verify:equipment-cards` potwierdza karty pojazdow/sprzetu z przegladem, OC, alertami i najblizsza rezerwacja w Flocie.
-- [ ] `npm run verify:dispatcher-day-plan` potwierdza wczytanie zapisanego planu dispatchera do harmonogramu i zastosowanie go w panelu kierownika.
+- [ ] `npm run verify:dispatcher-day-plan` potwierdza wczytanie zapisanego planu dispatchera do harmonogramu/cockpitu i zastosowanie go w panelu kierownika.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.

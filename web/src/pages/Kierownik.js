@@ -150,6 +150,7 @@ export default function Kierownik() {
   const [cockpitLoading, setCockpitLoading] = useState(false);
   const [cockpitError, setCockpitError] = useState('');
   const [planReal, setPlanReal] = useState(null);
+  const [dispatchPlans, setDispatchPlans] = useState([]);
   const [actionInsights, setActionInsights] = useState(null);
   const [actionHistory, setActionHistory] = useState(null);
   const [actionHistoryFilter, setActionHistoryFilter] = useState('risk');
@@ -201,7 +202,7 @@ export default function Kierownik() {
         ...(actionHistoryFilter === 'risk' ? { q: 'risk_' } : {}),
         ...(actionHistoryFilter && actionHistoryFilter !== 'all' && actionHistoryFilter !== 'risk' ? { action_type: actionHistoryFilter } : {}),
       };
-      const [cockpitResponse, planRealResponse, insightsResponse, actionHistoryResponse, recommendationsResponse] = await Promise.all([
+      const [cockpitResponse, planRealResponse, dispatchPlansResponse, insightsResponse, actionHistoryResponse, recommendationsResponse] = await Promise.all([
         api.get('/ops/kierownik-today', {
           params,
           headers: authHeaders(token),
@@ -209,6 +210,11 @@ export default function Kierownik() {
         }),
         api.get('/ops/plan-vs-real', {
           params,
+          headers: authHeaders(token),
+          dedupe: false,
+        }),
+        api.get('/dispatch/plans', {
+          params: { ...params, limit: 1 },
           headers: authHeaders(token),
           dedupe: false,
         }),
@@ -230,6 +236,7 @@ export default function Kierownik() {
       ]);
       setCockpit(cockpitResponse.data);
       setPlanReal(planRealResponse.data);
+      setDispatchPlans(Array.isArray(dispatchPlansResponse.data) ? dispatchPlansResponse.data : []);
       setActionInsights(insightsResponse.data);
       setActionHistory(actionHistoryResponse.data);
       setActionRecommendations(recommendationsResponse.data);
@@ -550,6 +557,28 @@ export default function Kierownik() {
     }
   }, [cockpitDate, filtrOddzial, loadCockpit, loadData, showMsg, user]);
 
+  const applyDispatchPlan = useCallback(async (planRow) => {
+    if (!planRow?.id) return;
+    const key = `dispatch-plan:${planRow.id}`;
+    setPlanActionSaving(key);
+    try {
+      const token = getStoredToken();
+      const result = await api.post(`/dispatch/apply/${planRow.id}`, {}, {
+        headers: authHeaders(token),
+      });
+      showMsg(successMessage(result.data?.message || 'Plan dispatchera zastosowany.'));
+      const oddzialForCockpit = ['Prezes', 'Dyrektor'].includes(user?.rola) ? filtrOddzial : user?.oddzial_id;
+      await Promise.all([
+        loadCockpit(user, cockpitDate, oddzialForCockpit),
+        loadData(user),
+      ]);
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zastosowac planu dispatchera.')));
+    } finally {
+      setPlanActionSaving('');
+    }
+  }, [cockpitDate, filtrOddzial, loadCockpit, loadData, showMsg, user]);
+
   const filtrowane = zlecenia.filter(z => {
     if (filtrOddzial && z.oddzial_id?.toString() !== filtrOddzial) return false;
     if (filtrStatus && z.status !== filtrStatus) return false;
@@ -595,6 +624,9 @@ export default function Kierownik() {
   const planRealTasks = planReal?.tasks || [];
   const planRealDelta = Number(planRealSummary.delta_minutes || 0);
   const planRealDeltaTone = planRealDelta > 30 ? 'danger' : planRealDelta < -30 ? 'warning' : 'ok';
+  const latestDispatchPlan = dispatchPlans[0] || null;
+  const latestDispatchStats = latestDispatchPlan?.stats || {};
+  const latestDispatchSaving = latestDispatchPlan?.id ? planActionSaving === `dispatch-plan:${latestDispatchPlan.id}` : false;
   const actionInsightSummary = actionInsights?.summary || {};
   const actionInsightReasons = actionInsights?.reasons || [];
   const actionInsightIssues = actionInsights?.issues || [];
@@ -701,6 +733,73 @@ export default function Kierownik() {
               detail={`${cockpitSummary.gps_attention ?? 0} do sprawdzenia`}
               tone={(cockpitSummary.gps_attention ?? 0) > 0 ? 'warning' : 'ok'}
             />
+          </div>
+
+          <div
+            data-testid="manager-dispatch-plan-panel"
+            style={styles.dispatchPlanBand}
+          >
+            <div style={styles.planRealHeader}>
+              <div style={styles.cockpitSectionTitle}>
+                <BoltOutlined sx={{ fontSize: 18, color: 'var(--accent)' }} />
+                Wynik dispatchera dnia
+              </div>
+              <span style={styles.planRealDate}>{cockpitDate}</span>
+            </div>
+            {!latestDispatchPlan ? (
+              <div style={styles.dispatchPlanEmpty}>
+                Brak zapisanego planu dispatchera dla tej daty.
+                <button
+                  type="button"
+                  style={styles.planActionGhost}
+                  onClick={() => navigate(`/auto-dispatch?date=${cockpitDate}`)}
+                >
+                  Generuj plan
+                </button>
+              </div>
+            ) : (
+              <div style={styles.dispatchPlanRow}>
+                <span style={styles.dispatchPlanMain}>
+                  <strong>Plan #{latestDispatchPlan.id}</strong>
+                  <small>
+                    {latestDispatchPlan.created_by_name || 'AI Dispatcher'} / {String(latestDispatchPlan.created_at || '').slice(0, 16).replace('T', ' ')}
+                  </small>
+                </span>
+                <span style={styles.dispatchPlanStat}>
+                  {latestDispatchStats.tasks_assigned ?? 0}/{latestDispatchStats.tasks_total ?? 0}
+                  <small>zlecen</small>
+                </span>
+                <span style={styles.dispatchPlanStat}>
+                  {latestDispatchStats.teams_used ?? latestDispatchPlan.routes_count ?? 0}
+                  <small>ekip</small>
+                </span>
+                <span style={styles.dispatchPlanStat}>
+                  {latestDispatchStats.coverage_pct ?? 0}%
+                  <small>pokrycia</small>
+                </span>
+                <span style={styles.dispatchPlanStat}>
+                  {latestDispatchPlan.unassigned_count ?? latestDispatchStats.tasks_unassigned ?? 0}
+                  <small>bez przydzialu</small>
+                </span>
+                <span style={styles.dispatchPlanActions}>
+                  <button
+                    type="button"
+                    style={styles.planActionGhost}
+                    onClick={() => navigate(`/auto-dispatch?date=${cockpitDate}`)}
+                  >
+                    Wczytaj w Auto-dispatch
+                  </button>
+                  <button
+                    type="button"
+                    style={styles.planActionBtn}
+                    onClick={() => applyDispatchPlan(latestDispatchPlan)}
+                    disabled={Boolean(planActionSaving) || latestDispatchPlan.status === 'applied'}
+                  >
+                    {latestDispatchPlan.status === 'applied' ? 'Zastosowany' : latestDispatchSaving ? 'Stosuje' : 'Zastosuj plan'}
+                  </button>
+                </span>
+              </div>
+            )}
           </div>
 
           <div style={styles.riskReportBand}>
@@ -1481,6 +1580,12 @@ const styles = {
   planRealBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
   planRealHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   planRealDate: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 800 },
+  dispatchPlanBand: { marginBottom: 14, paddingTop: 14, borderTop: '1px solid var(--border)' },
+  dispatchPlanEmpty: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', padding: '10px 0 2px', color: 'var(--text-muted)', fontSize: 12 },
+  dispatchPlanRow: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: 10, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: '#ffffff', boxShadow: '0 8px 20px rgba(31,79,50,0.045)' },
+  dispatchPlanMain: { minWidth: 180, flex: '1 1 220px', display: 'grid', gap: 2, color: 'var(--text)', fontSize: 13 },
+  dispatchPlanStat: { minWidth: 72, display: 'grid', gap: 2, justifyItems: 'center', color: 'var(--text)', fontSize: 16, fontWeight: 900 },
+  dispatchPlanActions: { display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' },
   planRealMetrics: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 8 },
   planRealList: { display: 'grid', gap: 0, borderTop: '1px solid var(--border)' },
   planRealRow: { width: '100%', minHeight: 48, display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', border: 0, borderBottom: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', textAlign: 'left', flexWrap: 'wrap' },

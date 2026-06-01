@@ -884,13 +884,23 @@ router.get('/plans', async (req, res) => {
   const params = [];
   let where = "dp.status != 'archived'";
   if (branchId) { params.push(branchId); where += ` AND dp.oddzial_id = $${params.length}`; }
+  if (req.query.date) {
+    const date = toDateYmd(req.query.date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Parametr date musi miec format YYYY-MM-DD' });
+    }
+    params.push(date);
+    where += ` AND dp.data = $${params.length}::date`;
+  }
   params.push(Number(req.query.limit) || 20);
   params.push(Number(req.query.offset) || 0);
 
   const r = await pool.query(
     `SELECT dp.id, dp.data, dp.oddzial_id, dp.status, dp.solver_ms, dp.created_at,
             u.imie || ' ' || u.nazwisko AS created_by_name,
-            dp.plan_json->'stats' AS stats
+            dp.plan_json->'stats' AS stats,
+            jsonb_array_length(COALESCE(dp.plan_json->'routes', '[]'::jsonb)) AS routes_count,
+            jsonb_array_length(COALESCE(dp.plan_json->'unassigned', '[]'::jsonb)) AS unassigned_count
      FROM dispatch_plans dp
      LEFT JOIN users u ON u.id = dp.created_by
      WHERE ${where}

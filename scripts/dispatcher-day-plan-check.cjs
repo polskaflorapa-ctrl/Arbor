@@ -16,9 +16,11 @@ function assertIncludes(file, needles) {
 assertIncludes('docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md', [
   '#/harmonogram?date=YYYY-MM-DD&view=dzien',
   'GET /api/dispatch/plans',
+  'GET /api/dispatch/plans?date=YYYY-MM-DD&limit=1',
   'GET /api/dispatch/plans/:id',
   'POST /api/dispatch/apply/:id',
   'Wczytaj plan dispatchera',
+  'Wynik dispatchera dnia',
   'GO',
   'NO-GO',
 ]);
@@ -39,6 +41,39 @@ assertIncludes('web/src/pages/Harmonogram.test.js', [
   '/dispatch/plans/91',
   '/dispatch/apply/91',
   'harmonogram-dispatch-loaded-plan',
+]);
+
+assertIncludes('web/src/pages/Kierownik.js', [
+  'dispatchPlans',
+  "api.get('/dispatch/plans'",
+  'manager-dispatch-plan-panel',
+  'Wynik dispatchera dnia',
+  'latestDispatchStats.coverage_pct',
+  'applyDispatchPlan',
+  "api.post(`/dispatch/apply/${planRow.id}`",
+  'Wczytaj w Auto-dispatch',
+]);
+
+assertIncludes('web/src/pages/Kierownik.test.js', [
+  'loads the latest dispatcher plan into manager cockpit and applies it',
+  'manager-dispatch-plan-panel',
+  'Plan #77',
+  '/dispatch/apply/77',
+]);
+
+assertIncludes('os/src/routes/dispatch.js', [
+  'Parametr date musi miec format YYYY-MM-DD',
+  'dp.data = $',
+  'routes_count',
+  'unassigned_count',
+]);
+
+assertIncludes('os/tests/dispatch.test.js', [
+  'filters saved plans by day for manager cockpit handoff',
+  'dp.data = $2::date',
+  'routes_count',
+  'unassigned_count',
+  'rejects invalid date filter',
 ]);
 
 assertIncludes('docs/PILOT-ONE-BRANCH-CHECKLIST.md', [
