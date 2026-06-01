@@ -75,6 +75,7 @@
     "verify:warehouse-materials": "node ./scripts/warehouse-materials-check.cjs",
     "verify:warehouse-mobile-usage": "node ./scripts/warehouse-mobile-usage-check.cjs",
     "verify:worklog-timesheet": "node ./scripts/worklog-timesheet-check.cjs",
+    "verify:competency-expiry-monitoring": "node ./scripts/competency-expiry-monitoring-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

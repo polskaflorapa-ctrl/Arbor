@@ -26,6 +26,36 @@ function copyIfMissing(packageName, fileName) {
   console.log(`[postinstall] Restored ${packageName}/${fileName} for Metro resolution.`);
 }
 
+function copyDirIfMissing(packageName, dirName, sentinelFile) {
+  const mobilePackageDir = path.join(mobileRoot, 'node_modules', packageName);
+  const hoistedPackageDir = path.join(repoRoot, 'node_modules', packageName);
+  const targetDir = path.join(mobilePackageDir, dirName);
+  const sourceDir = path.join(hoistedPackageDir, dirName);
+  const sentinel = path.join(targetDir, sentinelFile);
+
+  if (fs.existsSync(sentinel)) {
+    return;
+  }
+
+  if (!fs.existsSync(sourceDir)) {
+    console.warn(`[postinstall] Cannot patch ${packageName}: ${sourceDir} is missing.`);
+    return;
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.cpSync(sourceDir, targetDir, { recursive: true });
+  for (const fileName of ['package.json', 'LICENSE', 'README.md', 'CHANGELOG.md']) {
+    const sourceFile = path.join(hoistedPackageDir, fileName);
+    const targetFile = path.join(mobilePackageDir, fileName);
+    if (fs.existsSync(sourceFile) && !fs.existsSync(targetFile)) {
+      fs.copyFileSync(sourceFile, targetFile);
+    }
+  }
+  console.log(`[postinstall] Restored ${packageName}/${dirName} for Metro resolution.`);
+}
+
 copyIfMissing('split-on-first', 'index.js');
 copyIfMissing('split-on-first', 'license');
 copyIfMissing('split-on-first', 'readme.md');
+copyDirIfMissing('css-in-js-utils', 'es', 'index.js');
+copyDirIfMissing('css-in-js-utils', 'lib', 'index.js');
