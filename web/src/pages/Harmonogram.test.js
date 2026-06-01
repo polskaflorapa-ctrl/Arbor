@@ -13,6 +13,7 @@ vi.mock('../api', () => ({
   __esModule: true,
   default: {
     get: vi.fn(),
+    post: vi.fn(),
     patch: vi.fn(),
   },
 }));
@@ -109,6 +110,7 @@ beforeEach(() => {
   localStorage.setItem('token', 'test-jwt');
   localStorage.setItem('user', USER_JSON);
   api.get.mockReset();
+  api.post.mockReset();
   api.patch.mockReset();
 });
 
@@ -142,6 +144,73 @@ test('links selected day to dispatcher preflight', async () => {
 
   expect(await screen.findByText('Auto-dispatch route: /auto-dispatch?date=2026-05-26&refresh=advisor')).toBeInTheDocument();
 });
+
+test('loads and applies a saved dispatcher day plan from the manager schedule', async () => {
+  mockHarmonogramApi();
+  api.get.mockImplementation((url) => {
+    if (url === '/tasks/wszystkie') return Promise.resolve({ data: [TASK] });
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
+    if (url === '/ekipy') return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa', oddzial_id: 7, kolor: '#168A4A' }] });
+    if (String(url).startsWith('/flota/rezerwacje')) return Promise.resolve({ data: [] });
+    if (url === '/ekipy/live-locations') return Promise.resolve({ data: { items: [] } });
+    if (url === '/dispatch/plans') {
+      return Promise.resolve({
+        data: [
+          {
+            id: 91,
+            data: '2026-05-26',
+            oddzial_id: 7,
+            status: 'saved',
+            stats: { tasks_assigned: 2, tasks_total: 2 },
+          },
+        ],
+      });
+    }
+    if (url === '/dispatch/plans/91') {
+      return Promise.resolve({
+        data: {
+          id: 91,
+          data: '2026-05-26',
+          status: 'saved',
+          routes: [
+            {
+              team_id: 3,
+              team_name: 'Brygada Alfa',
+              total_min: 150,
+              distance_km: 18.4,
+              stops: [{ task_id: 42 }, { task_id: 43 }],
+            },
+          ],
+          stats: { tasks_assigned: 2, tasks_total: 2 },
+        },
+      });
+    }
+    if (url === '/tasks/42/zdjecia') return Promise.resolve({ data: [] });
+    if (String(url).startsWith('/tasks/42/')) return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+  api.post.mockResolvedValueOnce({ data: { message: 'Plan zastosowany - 2 zlecen przypisanych' } });
+
+  renderRoute('/harmonogram?date=2026-05-26&view=dzien');
+
+  expect(await screen.findByText(/Dispatch dnia:/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Wczytaj plan dispatchera' }));
+
+  const loadedPlan = await screen.findByTestId('harmonogram-dispatch-loaded-plan');
+  expect(loadedPlan).toHaveTextContent('Plan #91');
+  expect(loadedPlan).toHaveTextContent('2 stopow');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Zastosuj plan' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/dispatch/apply/91',
+      {},
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(await screen.findByText(/Plan zastosowany - 2 zlecen przypisanych/)).toBeInTheDocument();
+}, 15000);
 
 test('clears deep-link quick panel state after navigating to bare harmonogram route', async () => {
   mockHarmonogramApi();

@@ -480,6 +480,36 @@ function buildDayCrewBrief({ dayLabel, dayISO, tasks = [], dispatchRows = [], li
   ].join('\n');
 }
 
+function dispatchPlanDate(plan) {
+  return String(plan?.data || plan?.date || plan?.day || '').slice(0, 10);
+}
+
+function dispatchPlanRoutes(plan) {
+  if (Array.isArray(plan?.routes)) return plan.routes;
+  if (Array.isArray(plan?.plan_json?.routes)) return plan.plan_json.routes;
+  return [];
+}
+
+function dispatchPlanStats(plan) {
+  return plan?.stats || plan?.plan_json?.stats || {};
+}
+
+function dispatchPlanStopCount(plan) {
+  return dispatchPlanRoutes(plan).reduce((sum, route) => sum + (Array.isArray(route?.stops) ? route.stops.length : 0), 0);
+}
+
+function dispatchPlanRouteLabel(route) {
+  const stops = Array.isArray(route?.stops) ? route.stops.length : 0;
+  const minutes = Number(route?.total_min || 0);
+  const distance = Number(route?.distance_km || 0);
+  const parts = [
+    `${stops} stopow`,
+    minutes > 0 ? formatMinutesAsHours(minutes) : null,
+    distance > 0 ? `${distance.toLocaleString('pl-PL', { maximumFractionDigits: 1 })} km` : null,
+  ].filter(Boolean);
+  return parts.join(' / ') || 'bez stopow';
+}
+
 function gpsAgeMinutes(row) {
   const raw = row?.recorded_at || row?.last_seen_at || row?.timestamp;
   if (!raw) return null;
@@ -560,6 +590,9 @@ export default function Harmonogram() {
   const [selectedTaskLogi, setSelectedTaskLogi] = useState([]);
   const [selectedTaskPhotos, setSelectedTaskPhotos] = useState([]);
   const [selectedTaskTelemetryLoading, setSelectedTaskTelemetryLoading] = useState(false);
+  const [dispatchPlanLoading, setDispatchPlanLoading] = useState(false);
+  const [dispatchPlanApplying, setDispatchPlanApplying] = useState(false);
+  const [loadedDispatchPlan, setLoadedDispatchPlan] = useState(null);
   const isBrygadzista = currentUser?.rola === 'Brygadzista';
   const dateRange = useMemo(() => visibleDateRange(currentDate, widok), [currentDate, widok]);
   const rezerwacjeByTask = useMemo(() => {
@@ -741,6 +774,9 @@ export default function Harmonogram() {
     day: '2-digit',
     month: 'long',
   });
+  const loadedDispatchRoutes = useMemo(() => dispatchPlanRoutes(loadedDispatchPlan), [loadedDispatchPlan]);
+  const loadedDispatchStats = useMemo(() => dispatchPlanStats(loadedDispatchPlan), [loadedDispatchPlan]);
+  const loadedDispatchStopCount = useMemo(() => dispatchPlanStopCount(loadedDispatchPlan), [loadedDispatchPlan]);
   const selectedTask = useMemo(
     () => zlecenia.find((task) => String(task.id) === String(selectedTaskId)) || null,
     [zlecenia, selectedTaskId]
@@ -970,6 +1006,57 @@ export default function Harmonogram() {
     }
     return stats;
   }, [dispatchRows, liveByTeam]);
+
+  useEffect(() => {
+    setLoadedDispatchPlan(null);
+  }, [selectedDayISO, filtrOddzial]);
+
+  const loadDispatcherDayPlan = useCallback(async () => {
+    setPlanErr('');
+    setPlanMsg('');
+    setDispatchPlanLoading(true);
+    try {
+      const token = getStoredToken();
+      const h = authHeaders(token);
+      const branchId = filtrOddzial || currentUser?.oddzial_id || '';
+      const params = { limit: 50 };
+      if (branchId) params.oddzial_id = branchId;
+      const listRes = await api.get('/dispatch/plans', { params, headers: h });
+      const rows = Array.isArray(listRes.data) ? listRes.data : [];
+      const match = rows.find((plan) => dispatchPlanDate(plan) === selectedDayISO);
+      if (!match?.id) {
+        setLoadedDispatchPlan(null);
+        setPlanErr(`Brak zapisanego planu dispatchera dla ${selectedDayISO}.`);
+        return;
+      }
+      const detailRes = await api.get(`/dispatch/plans/${match.id}`, { headers: h });
+      const detail = detailRes.data || {};
+      setLoadedDispatchPlan({ ...match, ...detail, id: detail.id || match.id });
+      setPlanMsg(`Wczytano plan dispatchera #${match.id} dla ${selectedDayISO}.`);
+    } catch (err) {
+      setPlanErr(getApiErrorMessage(err));
+    } finally {
+      setDispatchPlanLoading(false);
+    }
+  }, [currentUser?.oddzial_id, filtrOddzial, selectedDayISO]);
+
+  const applyLoadedDispatcherPlan = useCallback(async () => {
+    if (!loadedDispatchPlan?.id) return;
+    setPlanErr('');
+    setPlanMsg('');
+    setDispatchPlanApplying(true);
+    try {
+      const token = getStoredToken();
+      const res = await api.post(`/dispatch/apply/${loadedDispatchPlan.id}`, {}, { headers: authHeaders(token) });
+      setLoadedDispatchPlan((prev) => prev ? { ...prev, status: 'applied' } : prev);
+      setPlanMsg(res.data?.message || 'Plan dispatchera zastosowany.');
+      await loadData();
+    } catch (err) {
+      setPlanErr(getApiErrorMessage(err));
+    } finally {
+      setDispatchPlanApplying(false);
+    }
+  }, [loadData, loadedDispatchPlan?.id]);
 
   const copyTextToClipboard = useCallback(async (text, successMessage) => {
     setPlanErr('');
@@ -1448,6 +1535,14 @@ export default function Harmonogram() {
                 <button
                   type="button"
                   style={styles.dispatchLinkBtn}
+                  onClick={loadDispatcherDayPlan}
+                  disabled={dispatchPlanLoading}
+                >
+                  {dispatchPlanLoading ? 'Wczytuje plan...' : 'Wczytaj plan dispatchera'}
+                </button>
+                <button
+                  type="button"
+                  style={styles.dispatchLinkBtn}
                   onClick={copySelectedDayBrief}
                 >
                   Kopiuj odprawe dnia
@@ -1468,6 +1563,46 @@ export default function Harmonogram() {
                 </button>
               </div>
             </div>
+
+            {loadedDispatchPlan ? (
+              <div style={styles.dispatchLoadedPlan} data-testid="harmonogram-dispatch-loaded-plan">
+                <div style={styles.dispatchLoadedPlanHead}>
+                  <div>
+                    <div style={styles.dispatchEyebrow}>Wynik dispatchera</div>
+                    <strong style={styles.dispatchLoadedPlanTitle}>
+                      Plan #{loadedDispatchPlan.id} / {loadedDispatchPlan.status || 'saved'}
+                    </strong>
+                    <p style={styles.dispatchSubtitle}>
+                      {loadedDispatchRoutes.length} tras / {loadedDispatchStopCount} stopow / {loadedDispatchStats.tasks_assigned ?? 0}{' '}
+                      z {loadedDispatchStats.tasks_total ?? 0} zlecen przypisanych.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    style={styles.dispatchApplyPlanBtn}
+                    onClick={applyLoadedDispatcherPlan}
+                    disabled={dispatchPlanApplying || loadedDispatchPlan.status === 'applied'}
+                  >
+                    {dispatchPlanApplying
+                      ? 'Stosuje...'
+                      : loadedDispatchPlan.status === 'applied'
+                        ? 'Plan zastosowany'
+                        : 'Zastosuj plan'}
+                  </button>
+                </div>
+                <div style={styles.dispatchLoadedRoutes}>
+                  {loadedDispatchRoutes.slice(0, 4).map((route) => (
+                    <div key={route.team_id || route.team_name} style={styles.dispatchLoadedRoute}>
+                      <strong>{route.team_name || `Ekipa #${route.team_id || '-'}`}</strong>
+                      <span>{dispatchPlanRouteLabel(route)}</span>
+                    </div>
+                  ))}
+                  {loadedDispatchRoutes.length > 4 ? (
+                    <div style={styles.dispatchLoadedRouteMuted}>+{loadedDispatchRoutes.length - 4} tras dalej</div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
             <div className="harmonogram-dispatch-kpis" style={styles.dispatchKpis}>
               <div style={styles.dispatchKpi}>
@@ -1999,6 +2134,13 @@ const styles = {
   dispatchSubtitle: { margin: 0, color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, maxWidth: 720, lineHeight: 1.45 },
   dispatchHeadActions: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' },
   dispatchLinkBtn: { minHeight: 34, border: '1px solid rgba(15,95,58,0.16)', borderRadius: 8, background: '#ffffff', color: 'var(--accent)', fontWeight: 900, fontSize: 12, padding: '7px 11px', cursor: 'pointer' },
+  dispatchLoadedPlan: { border: '1px solid rgba(34,197,94,0.24)', borderRadius: 8, background: 'rgba(34,197,94,0.08)', padding: 12, marginBottom: 12 },
+  dispatchLoadedPlanHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 },
+  dispatchLoadedPlanTitle: { display: 'block', color: 'var(--text)', fontSize: 14, fontWeight: 950, marginTop: 2 },
+  dispatchApplyPlanBtn: { minHeight: 34, border: '1px solid rgba(20,131,79,0.25)', borderRadius: 8, background: 'var(--accent-gradient)', color: 'var(--on-accent)', fontWeight: 950, fontSize: 12, padding: '7px 12px', cursor: 'pointer' },
+  dispatchLoadedRoutes: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 },
+  dispatchLoadedRoute: { border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: '#ffffff', padding: '8px 10px', display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
+  dispatchLoadedRouteMuted: { border: '1px dashed rgba(15,95,58,0.18)', borderRadius: 8, background: 'rgba(255,255,255,0.7)', padding: '8px 10px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 900 },
   dispatchKpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 },
   dispatchKpi: { minHeight: 62, border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   dispatchKpiWarn: { borderColor: 'rgba(245,158,11,0.42)', background: 'rgba(245,158,11,0.09)' },
