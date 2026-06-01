@@ -218,6 +218,42 @@ describe('Flota rezerwacje sprzetu', () => {
     expect(res.body.error).toBe('brak_dostepu_oddzial');
   });
 
+  it('POST blocks equipment reservation after inspection deadline', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, oddzial_id: 1, status: 'Dostepny', data_przegladu: '2026-06-09' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] });
+    const res = await request(app)
+      .post('/api/flota/rezerwacje')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        sprzet_id: 1,
+        ekipa_id: 3,
+        data_od: '2026-06-10',
+        data_do: '2026-06-11',
+      });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: 'sprzet_przeglad_po_terminie', data_przegladu: '2026-06-09' });
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  it('POST blocks equipment reservation when equipment is unavailable', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1, oddzial_id: 1, status: 'W naprawie', data_przegladu: '2026-07-01' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] });
+    const res = await request(app)
+      .post('/api/flota/rezerwacje')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        sprzet_id: 1,
+        ekipa_id: 3,
+        data_od: '2026-06-10',
+        data_do: '2026-06-11',
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('sprzet_niedostepny');
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
   it('POST returns 409 on overlapping active reservation', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 1, oddzial_id: 1 }] })
@@ -338,5 +374,17 @@ describe('Flota rezerwacje sprzetu', () => {
       .send({ status: 'Anulowane' });
     expect(res.status).toBe(200);
     expect(pool.query).toHaveBeenCalledWith(expect.any(String), ['Anulowane', 5]);
+  });
+
+  it('PATCH blocks moving reservation after inspection deadline', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ sprzet_id: 1, status: 'Dostepny', data_przegladu: '2026-06-09' }] });
+    const res = await request(app)
+      .patch('/api/flota/rezerwacje/5')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 1 })}`)
+      .send({ data_od: '2026-06-10', data_do: '2026-06-11' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('sprzet_przeglad_po_terminie');
+    expect(pool.query).toHaveBeenCalledTimes(1);
   });
 });
