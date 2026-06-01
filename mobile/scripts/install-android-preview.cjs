@@ -4,7 +4,7 @@ const { spawnSync } = require("node:child_process");
 
 const buildUrl =
   process.env.EAS_ANDROID_PREVIEW_URL ||
-  "https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/ab74ce21-f56a-48b1-9f22-5b19e3663d3c";
+  "https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/11b7dd68-da12-424d-a893-1f403d7d29ea";
 
 function run(command, args) {
   return spawnSync(command, args, {

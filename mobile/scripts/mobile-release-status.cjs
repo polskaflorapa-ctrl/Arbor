@@ -11,7 +11,7 @@ const environments = JSON.parse(
 
 const androidPreviewUrl =
   process.env.EAS_ANDROID_PREVIEW_URL ||
-  "https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/ab74ce21-f56a-48b1-9f22-5b19e3663d3c";
+  "https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/11b7dd68-da12-424d-a893-1f403d7d29ea";
 
 function hasSentryAutoUploadDisabled() {
   return (appConfig.plugins || []).some((plugin) => {
@@ -69,6 +69,6 @@ console.log("");
 
 console.log("QA docs");
 console.log("-------");
-console.log("docs/mobile-preview-release-2026-05-31-android.md");
+console.log("docs/mobile-preview-release-2026-06-01-android.md");
 console.log("docs/mobile-device-smoke-checklist.md");
 console.log("docs/mobile-store-readiness-checklist.md");
