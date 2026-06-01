@@ -26,6 +26,22 @@ const godzinyListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
+const ecpQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  user_id: z.coerce.number().int().positive().optional(),
+  oddzial_id: z.coerce.number().int().positive().optional(),
+});
+
+function canSeeAllBranches(user) {
+  return ['Prezes', 'Dyrektor', 'Administrator'].includes(user?.rola);
+}
+
+function ecpBranchScope(user, requestedBranchId) {
+  if (canSeeAllBranches(user)) return requestedBranchId ?? null;
+  return user.oddzial_id ?? null;
+}
+
 // POST /api/godziny
 router.post('/', authMiddleware, validateBody(godzinyCreateSchema), async (req, res) => {
   try {
@@ -58,6 +74,84 @@ router.post('/', authMiddleware, validateBody(godzinyCreateSchema), async (req, 
     res.json({ success: true, message: 'Zgłoszenie wysłane do brygadzisty' });
   } catch (err) {
     logger.error('Blad zapisywania godzin', { message: err.message, requestId: req.requestId });
+    res.status(500).json({ error: req.t('errors.http.serverError') });
+  }
+});
+
+router.get('/ecp', authMiddleware, validateQuery(ecpQuerySchema), async (req, res) => {
+  try {
+    const { from, to, user_id } = req.query;
+    if (to < from) return res.status(400).json({ error: 'data_do_przed_data_od' });
+    const branchId = ecpBranchScope(req.user, req.query.oddzial_id ? Number(req.query.oddzial_id) : null);
+    const params = [from, to];
+    const filters = [];
+    if (branchId != null) {
+      params.push(branchId);
+      filters.push(`COALESCE(t.oddzial_id, u.oddzial_id) = $${params.length}`);
+    }
+    if (user_id != null) {
+      params.push(Number(user_id));
+      filters.push(`wl.user_id = $${params.length}`);
+    }
+    const where = filters.length ? `AND ${filters.join(' AND ')}` : '';
+    const result = await pool.query(
+      `WITH logs AS (
+         SELECT wl.user_id,
+                (wl.start_time AT TIME ZONE 'Europe/Warsaw')::date AS data_pracy,
+                COALESCE(u.imie || ' ' || u.nazwisko, 'Pracownik #' || wl.user_id) AS pracownik,
+                COALESCE(t.oddzial_id, u.oddzial_id) AS oddzial_id,
+                COALESCE(o.nazwa, b.nazwa) AS oddzial_nazwa,
+                wl.task_id,
+                COALESCE(NULLIF(wl.czas_pracy_minuty, 0)::numeric,
+                  EXTRACT(EPOCH FROM (wl.end_time - wl.start_time)) / 60.0
+                ) AS minutes
+           FROM work_logs wl
+           LEFT JOIN tasks t ON t.id = wl.task_id
+           LEFT JOIN users u ON u.id = wl.user_id
+           LEFT JOIN oddzialy o ON o.id = COALESCE(t.oddzial_id, u.oddzial_id)
+           LEFT JOIN branches b ON b.id = COALESCE(t.oddzial_id, u.oddzial_id)
+          WHERE wl.end_time IS NOT NULL
+            AND (wl.start_time AT TIME ZONE 'Europe/Warsaw')::date BETWEEN $1::date AND $2::date
+            ${where}
+       ),
+       daily AS (
+         SELECT user_id, data_pracy, pracownik, oddzial_id, oddzial_nazwa,
+                ROUND((SUM(minutes) / 60.0)::numeric, 2) AS godziny,
+                ROUND((GREATEST(SUM(minutes) - 480, 0) / 60.0)::numeric, 2) AS nadgodziny,
+                COUNT(DISTINCT task_id)::int AS zlecenia_count,
+                COUNT(*)::int AS work_logs_count
+           FROM logs
+          GROUP BY user_id, data_pracy, pracownik, oddzial_id, oddzial_nazwa
+       )
+       SELECT *,
+              ROUND((godziny - nadgodziny)::numeric, 2) AS godziny_normatywne
+         FROM daily
+        ORDER BY data_pracy DESC, pracownik ASC`,
+      params
+    );
+    const summary = result.rows.reduce((acc, row) => {
+      acc.godziny += Number(row.godziny) || 0;
+      acc.nadgodziny += Number(row.nadgodziny) || 0;
+      acc.dni += 1;
+      acc.work_logs_count += Number(row.work_logs_count) || 0;
+      return acc;
+    }, { godziny: 0, nadgodziny: 0, dni: 0, work_logs_count: 0 });
+    res.json({
+      from,
+      to,
+      oddzial_id: branchId,
+      items: result.rows,
+      summary: {
+        ...summary,
+        godziny: Math.round(summary.godziny * 100) / 100,
+        nadgodziny: Math.round(summary.nadgodziny * 100) / 100,
+      },
+      overtime_rule: 'daily_minutes_over_480',
+      legal_note: 'Regula nadgodzin jest robocza i wymaga weryfikacji prawnej przed payroll.',
+    });
+  } catch (err) {
+    if (err.code === '42P01') return res.status(404).json({ error: 'ecp_not_migrated' });
+    logger.error('Blad automatycznej ewidencji czasu pracy', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });
   }
 });

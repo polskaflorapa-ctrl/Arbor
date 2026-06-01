@@ -74,6 +74,7 @@
     "verify:machine-usage-blocks": "node ./scripts/machine-usage-blocks-check.cjs",
     "verify:material-inventory": "node ./scripts/material-inventory-check.cjs",
     "verify:mobile-inventory-usage": "node ./scripts/mobile-inventory-usage-check.cjs",
+    "verify:worklog-time-ledger": "node ./scripts/worklog-time-ledger-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
