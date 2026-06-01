@@ -23,6 +23,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:planning-map` potwierdza mape planistyczna z pinezkami zlecen, pozycjami ekip live i przejsciem do kalendarza zasobow.
 - [ ] `npm run verify:equipment-cards` potwierdza karty pojazdow/sprzetu z przegladem, OC, alertami i najblizsza rezerwacja w Flocie.
 - [ ] `npm run verify:dispatcher-day-plan` potwierdza wczytanie zapisanego planu dispatchera do harmonogramu/cockpitu i zastosowanie go w panelu kierownika.
+- [ ] `npm run verify:machine-cards-crud` potwierdza CRUD kart maszyn, przypisanie do ekipy/oddzialu i scope oddzialu.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.
@@ -49,6 +50,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna mape planistyczna: `docs/PLANNING-MAP-CONTRACT.md`.
 - [ ] Zespol zna karty zasobow: `docs/EQUIPMENT-CARDS-CONTRACT.md`.
 - [ ] Zespol zna wczytanie planu dispatchera: `docs/DISPATCHER-DAY-PLAN-LOAD-CONTRACT.md`.
+- [ ] Zespol zna CRUD kart maszyn: `docs/MACHINE-CARDS-CRUD-CONTRACT.md`.
 - [ ] Zespol zna flow PROBLEM/offline: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md`.
 - [ ] Zespol zna blokade zdjec Przed/Po: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md`.
 - [ ] Zespol zna cache listy dnia: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md`.
@@ -132,6 +134,7 @@ npm run verify:resource-calendar-dnd
 npm run verify:planning-map
 npm run verify:equipment-cards
 npm run verify:dispatcher-day-plan
+npm run verify:machine-cards-crud
 npm run verify:mobile-problem-flow
 npm run verify:mobile-before-after-photo
 npm run verify:mobile-photo-enforcement

@@ -62,6 +62,62 @@ describe('Flota rezerwacje sprzetu', () => {
     expect(pool.query.mock.calls[0][0]).toContain('LEFT JOIN LATERAL');
   });
 
+  it('PUT /sprzet updates equipment card assignment inside branch scope', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 11 }] });
+
+    const res = await request(app)
+      .put('/api/flota/sprzet/11')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 1 })}`)
+      .send({
+        nazwa: 'Rebak Forst ST8',
+        typ: 'Rebak',
+        nr_seryjny: 'RF-11',
+        rok_produkcji: 2023,
+        ekipa_id: 3,
+        oddzial_id: 9,
+        data_przegladu: '2026-07-01',
+        koszt_motogodziny: 42,
+        notatki: 'Po przegladzie',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({ id: 11, message: 'Sprzet zapisany' }));
+    expect(pool.query).toHaveBeenNthCalledWith(1, 'SELECT id, oddzial_id FROM equipment_items WHERE id = $1', [11]);
+    expect(pool.query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('UPDATE equipment_items'),
+      [1, 'Rebak Forst ST8', 'Rebak', 'RF-11', 2023, 3, '2026-07-01', 42, 'Po przegladzie', 11]
+    );
+  });
+
+  it('PUT /sprzet rejects equipment outside manager branch', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 2 }] });
+
+    const res = await request(app)
+      .put('/api/flota/sprzet/11')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 1 })}`)
+      .send({ nazwa: 'Rebak Forst', typ: 'Rebak' });
+
+    expect(res.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('DELETE /sprzet removes equipment card inside branch scope', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    const res = await request(app)
+      .delete('/api/flota/sprzet/11')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 1 })}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ message: 'Sprzet usuniety' });
+    expect(pool.query).toHaveBeenLastCalledWith('DELETE FROM equipment_items WHERE id = $1', [11]);
+  });
+
   it('returns 404 rezerwacje_not_migrated when table is missing', async () => {
     pool.query.mockRejectedValueOnce(Object.assign(new Error('relation does not exist'), { code: '42P01' }));
     const res = await request(app)
