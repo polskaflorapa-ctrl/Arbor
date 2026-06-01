@@ -68,6 +68,7 @@
     "verify:resource-calendar-week": "node ./scripts/resource-calendar-week-check.cjs",
     "verify:resource-calendar-dnd": "node ./scripts/resource-calendar-dnd-check.cjs",
     "verify:planning-map": "node ./scripts/planning-map-check.cjs",
+    "verify:equipment-cards": "node ./scripts/equipment-cards-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

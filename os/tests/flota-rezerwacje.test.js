@@ -33,6 +33,35 @@ describe('Flota rezerwacje sprzetu', () => {
     expect(res.status).toBe(400);
   });
 
+  it('GET /sprzet returns inspection alert and next reservation context', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 11,
+          nazwa: 'Rebak Forst',
+          przeglad_alert: 'soon',
+          next_reservation_from: '2026-06-10',
+          next_task_id: 42,
+          next_task_client: 'Jan Kowalski',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .get('/api/flota/sprzet')
+      .set('Authorization', `Bearer ${token({ oddzial_id: 7 })}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toEqual(expect.objectContaining({
+      przeglad_alert: 'soon',
+      next_reservation_from: '2026-06-10',
+      next_task_id: 42,
+      next_task_client: 'Jan Kowalski',
+    }));
+    expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('AS przeglad_alert'), [7]);
+    expect(pool.query.mock.calls[0][0]).toContain('LEFT JOIN LATERAL');
+  });
+
   it('returns 404 rezerwacje_not_migrated when table is missing', async () => {
     pool.query.mockRejectedValueOnce(Object.assign(new Error('relation does not exist'), { code: '42P01' }));
     const res = await request(app)

@@ -219,10 +219,32 @@ router.get('/sprzet', authMiddleware, validateQuery(flotaOddzialQuerySchema), as
       where = where ? `${where} OR ${delegatedClause}` : `WHERE ${delegatedClause}`;
       params.push(delegatedTeamIds);
     }
-    const selectList = `SELECT e.*, b.nazwa as oddzial_nazwa, t.nazwa as ekipa_nazwa
+    const selectList = `SELECT e.*, b.nazwa as oddzial_nazwa, t.nazwa as ekipa_nazwa,
+         CASE
+           WHEN e.data_przegladu IS NULL THEN 'missing'
+           WHEN e.data_przegladu < CURRENT_DATE THEN 'overdue'
+           WHEN e.data_przegladu <= CURRENT_DATE + INTERVAL '30 days' THEN 'soon'
+           ELSE 'ok'
+         END AS przeglad_alert,
+         nr.data_od AS next_reservation_from,
+         nr.data_do AS next_reservation_to,
+         nr.task_id AS next_task_id,
+         nr.task_klient_nazwa AS next_task_client,
+         nr.ekipa_nazwa AS next_reservation_team
        FROM equipment_items e
        LEFT JOIN branches b ON e.oddzial_id = b.id
        LEFT JOIN teams t ON e.ekipa_id = t.id
+       LEFT JOIN LATERAL (
+         SELECT r.data_od, r.data_do, r.task_id, tk.klient_nazwa AS task_klient_nazwa, rt.nazwa AS ekipa_nazwa
+           FROM equipment_reservations r
+           LEFT JOIN tasks tk ON tk.id = r.task_id
+           LEFT JOIN teams rt ON rt.id = r.ekipa_id
+          WHERE r.sprzet_id = e.id
+            AND LOWER(COALESCE(r.status, '')) NOT LIKE 'anul%'
+            AND r.data_do >= CURRENT_DATE
+          ORDER BY r.data_od ASC
+          LIMIT 1
+       ) nr ON true
        ${where}
        ORDER BY e.typ, e.nazwa`;
     if (limit != null) {
