@@ -30,6 +30,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:worklog-timesheet` potwierdza automatyczna ECP z work logow START/STOP i branch scope.
 - [ ] `npm run verify:competency-expiry-monitoring` potwierdza monitoring waznosci uprawnien w kartach pracownika.
 - [ ] `npm run verify:team-competency-assignment-block` potwierdza twarda blokade przypisania ekipy bez wymaganych kompetencji.
+- [ ] `npm run verify:dispatcher-competency-consistency` potwierdza spojnosc dispatchera z blokada kompetencji.
 - [ ] Kadry pokazują wygasle i wygasajace uprawnienia w kartach pracownika oraz w eksporcie CSV.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
@@ -64,6 +65,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna ECP z work logow: `docs/WORKLOG-TIMESHEET-CONTRACT.md`.
 - [ ] Zespol zna monitoring waznosci uprawnien: `docs/COMPETENCY-EXPIRY-MONITORING-CONTRACT.md`.
 - [ ] Zespol zna blokade przypisan bez kompetencji: `docs/TEAM-COMPETENCY-ASSIGNMENT-BLOCK-CONTRACT.md`.
+- [ ] Zespol zna spojnosc dispatchera z kompetencjami: `docs/DISPATCHER-COMPETENCY-CONSISTENCY-CONTRACT.md`.
 - [ ] Zespol zna flow PROBLEM/offline: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md`.
 - [ ] Zespol zna blokade zdjec Przed/Po: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md`.
 - [ ] Zespol zna cache listy dnia: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md`.
@@ -154,6 +156,7 @@ npm run verify:warehouse-mobile-usage
 npm run verify:worklog-timesheet
 npm run verify:competency-expiry-monitoring
 npm run verify:team-competency-assignment-block
+npm run verify:dispatcher-competency-consistency
 npm run verify:mobile-problem-flow
 npm run verify:mobile-before-after-photo
 npm run verify:mobile-photo-enforcement

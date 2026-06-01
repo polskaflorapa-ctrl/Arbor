@@ -30,6 +30,7 @@ function competencyBlockResponse(result) {
   return result.payload || {
     error: 'Ekipa nie ma wymaganych kompetencji.',
     code: 'TEAM_COMPETENCY_MISSING',
+    missing_competencies: [],
   };
 }
 
@@ -215,7 +216,8 @@ async function fetchTeamsForDispatch(client, oddzialId, date) {
               (SELECT array_agg(DISTINCT uc.nazwa)
                FROM user_competencies uc
                JOIN team_members tm ON tm.user_id = uc.user_id
-               WHERE tm.team_id = e.id),
+               WHERE tm.team_id = e.id
+                 AND (uc.data_waznosci IS NULL OR uc.data_waznosci >= $1::date)),
               '{}'
              ) AS kompetencje
      FROM teams e

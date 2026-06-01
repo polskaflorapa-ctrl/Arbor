@@ -153,6 +153,7 @@ describe('POST /api/dispatch/plan', () => {
     expect(res.status).toBe(200);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('FROM teams e'))).toBe(true);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('equipment_reservations er'))).toBe(true);
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('uc.data_waznosci IS NULL OR uc.data_waznosci >= $1::date'))).toBe(true);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('tm.aktywny'))).toBe(false);
     expect(solve).toHaveBeenCalledWith(expect.objectContaining({
       teams: [expect.objectContaining({

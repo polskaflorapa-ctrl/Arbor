@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const TEAM_COLORS = [
   '#16a34a','#2563eb','#dc2626','#d97706','#7c3aed',
@@ -606,7 +607,20 @@ export default function AutoDispatch() {
         setError(`${payload.error || e.message}${names ? ` Nieobecne: ${names}.` : ''}`);
         return;
       }
-      setError(payload.error || e.message);
+      if (payload.code === 'TEAM_COMPETENCY_MISSING') {
+        setPlan(prev => ({
+          ...(prev || {}),
+          competency_block: {
+            task_id: payload.task_id,
+            team_id: payload.team_id,
+            missing_competencies: payload.missing_competencies || [],
+            required_competencies: payload.required_competencies || [],
+          },
+        }));
+        setError(getApiErrorMessage(e, 'Plan dispatchera wymaga aktualizacji kompetencji ekipy.'));
+        return;
+      }
+      setError(getApiErrorMessage(e, payload.error || e.message));
     } finally { setApplying(false); }
   }, [fetchAdvisorBrief, savedPlanId]);
 
@@ -1103,6 +1117,16 @@ export default function AutoDispatch() {
             )}
           </div>
         </div>
+
+        {plan?.competency_block && (
+          <section className="autodispatch-competency-block" style={s.competencyBlock}>
+            <strong style={s.competencyBlockTitle}>Blokada kompetencji</strong>
+            <span style={s.competencyBlockText}>
+              Zlecenie #{plan.competency_block.task_id} nie moze zostac przypisane do ekipy #{plan.competency_block.team_id}.
+              {' '}Brakuje: {(plan.competency_block.missing_competencies || []).join(', ') || 'wymaganych kompetencji'}.
+            </span>
+          </section>
+        )}
 
         <section className="autodispatch-workflow" style={s.workflowStrip} aria-label="Postep dyspozycji dnia">
           {workflowSteps.map((step, idx) => (
@@ -1839,6 +1863,9 @@ const s = {
   availabilityNote:{ margin: '8px 0 0', color: 'var(--text-sub)', fontSize: 12 },
   absentTeamList:{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 8, marginTop: 10 },
   absentTeamItem:{ display: 'grid', gap: 3, padding: '9px 10px', borderRadius: 8, border: '1px solid #fed7aa', background: '#fff', color: '#7c2d12', fontSize: 12 },
+  competencyBlock:{ marginBottom: 18, padding: '12px 14px', borderRadius: 8, border: '1px solid #fecaca', background: '#fff1f2', color: '#991b1b', display: 'grid', gap: 4, boxShadow: '0 10px 24px rgba(127,29,29,0.06)' },
+  competencyBlockTitle:{ fontSize: 12, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0 },
+  competencyBlockText:{ fontSize: 13, lineHeight: 1.4, fontWeight: 750 },
   handoffPanel:{ marginBottom: 18, padding: '13px 14px', borderRadius: 8, border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   handoffPanelReady:{ borderColor: '#86efac', background: '#f0fdf4' },
   handoffHeader:{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
