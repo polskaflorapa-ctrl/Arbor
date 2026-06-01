@@ -65,6 +65,41 @@ describe('GET /api/hr/position-cards', () => {
     expect(res.status).toBe(200);
   });
 
+  it('adds credential expiry status to employee cards', async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        id: 11,
+        employee_name: 'Jan Kowalski',
+        rola: 'Specjalista',
+        stanowisko: 'Technik',
+        oddzial_id: 3,
+        oddzial_nazwa: 'Krakow',
+        data_zatrudnienia: '2025-01-15',
+        stawka_godzinowa: '31.50',
+        procent_wynagrodzenia: '8.25',
+        hourly_rate_pln: '42',
+        acknowledged_at: null,
+        acknowledgement_status: null,
+        credential_expired_count: 1,
+        credential_expiring_count: 2,
+        credential_next_expiry: '2026-06-01',
+      }],
+      rowCount: 1,
+    });
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${dyrektorToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.cards[0]).toEqual(expect.objectContaining({
+      credential_expired_count: 1,
+      credential_expiring_count: 2,
+      credential_next_expiry: '2026-06-01',
+      credential_status: 'expired',
+    }));
+    expect(pool.query.mock.calls[0][0]).toContain('credential_expired_count');
+    expect(pool.query.mock.calls[0][0]).toContain('user_competencies');
+  });
+
   it('falls back when oddzialy relation is missing', async () => {
     pool.query.mockReset();
     const missingOddzialy = new Error('relacja "oddzialy" nie istnieje');
@@ -280,7 +315,28 @@ describe('GET /api/hr/competency-expiry', () => {
       .get(PATH)
       .set('Authorization', `Bearer ${dyrektorToken()}`);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toEqual(expect.objectContaining({
+      items: expect.any(Array),
+      summary: expect.any(Object),
+      horizon_days: expect.any(Number),
+    }));
+  });
+
+  it('summarizes expired and critical credentials', async () => {
+    pool.query.mockResolvedValue({
+      rows: [
+        { id: 1, user_id: 2, employee_name: 'A', rola: 'Brygadzista', oddzial_nazwa: 'Krakow', competency_name: 'Pilarz', typ: 'uprawnienia', nr_dokumentu: 'P/1', data_uzyskania: '2025-01-01', data_waznosci: '2026-05-20', days_left: '-2' },
+        { id: 2, user_id: 3, employee_name: 'B', rola: 'Pomocnik', oddzial_nazwa: 'Krakow', competency_name: 'BHP', typ: 'certyfikat', nr_dokumentu: 'B/1', data_uzyskania: '2025-01-01', data_waznosci: '2026-06-10', days_left: '9' },
+      ],
+      rowCount: 2,
+    });
+    const res = await request(app)
+      .get(PATH)
+      .set('Authorization', `Bearer ${dyrektorToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(2);
+    expect(res.body.summary).toEqual({ expired: 1, critical: 1, warning: 0, total: 2 });
+    expect(res.body.items[0].expiry_status).toBe('expired');
   });
 });
 

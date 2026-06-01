@@ -41,6 +41,14 @@ function mapPositionCardRow(row) {
     hourly_rate_pln: row.hourly_rate_pln ? Number(row.hourly_rate_pln) : null,
     acknowledged_at: row.acknowledged_at || null,
     acknowledgement_status: row.acknowledgement_status || 'Brak',
+    credential_expired_count: Number(row.credential_expired_count || 0),
+    credential_expiring_count: Number(row.credential_expiring_count || 0),
+    credential_next_expiry: row.credential_next_expiry || null,
+    credential_status: Number(row.credential_expired_count || 0) > 0
+      ? 'expired'
+      : Number(row.credential_expiring_count || 0) > 0
+        ? 'expiring'
+        : 'ok',
   };
 }
 
@@ -83,7 +91,22 @@ async function positionCardsHandler(req, res) {
         FROM position_card_acknowledgements pck
         WHERE pck.user_id = u.id
         ORDER BY pck.acknowledged_at DESC
-        LIMIT 1)                             AS acknowledgement_status
+        LIMIT 1)                             AS acknowledgement_status,
+       (SELECT COUNT(*)::int
+        FROM user_competencies uc
+        WHERE uc.user_id = u.id
+          AND uc.data_waznosci IS NOT NULL
+          AND uc.data_waznosci < CURRENT_DATE) AS credential_expired_count,
+       (SELECT COUNT(*)::int
+        FROM user_competencies uc
+        WHERE uc.user_id = u.id
+          AND uc.data_waznosci IS NOT NULL
+          AND uc.data_waznosci >= CURRENT_DATE
+          AND uc.data_waznosci <= CURRENT_DATE + INTERVAL '30 days') AS credential_expiring_count,
+       (SELECT MIN(uc.data_waznosci)
+        FROM user_competencies uc
+        WHERE uc.user_id = u.id
+          AND uc.data_waznosci IS NOT NULL) AS credential_next_expiry
      FROM users u
      ${withOddzialJoin ? 'LEFT JOIN branches o ON o.id = u.oddzial_id' : ''}
      WHERE ${where}
@@ -207,7 +230,7 @@ router.get('/competency-expiry', async (req, res) => {
       params
     );
 
-    res.json(r.rows.map(row => ({
+    const items = r.rows.map(row => ({
       id:               row.id,
       user_id:          row.user_id,
       employee_name:    row.employee_name,
@@ -220,7 +243,15 @@ router.get('/competency-expiry', async (req, res) => {
       data_waznosci:    row.data_waznosci,
       days_left:        Number(row.days_left),
       expired:          Number(row.days_left) < 0,
-    })));
+      expiry_status:    Number(row.days_left) < 0 ? 'expired' : Number(row.days_left) <= 14 ? 'critical' : 'warning',
+    }));
+    const summary = items.reduce((acc, row) => {
+      if (row.expired) acc.expired += 1;
+      else if (row.days_left <= 14) acc.critical += 1;
+      else acc.warning += 1;
+      return acc;
+    }, { expired: 0, critical: 0, warning: 0, total: items.length });
+    res.json({ items, summary, horizon_days: days });
   } catch (err) {
     logger.error('hr.competency-expiry error', { message: err.message });
     res.status(500).json({ error: err.message });
