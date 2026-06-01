@@ -12,6 +12,7 @@ vi.mock('../api', () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -71,6 +72,7 @@ function mockFlotaApi() {
             status: 'W naprawie',
             oddzial_id: 1,
             oddzial_nazwa: 'Krakow',
+            ekipa_id: 3,
             ekipa_nazwa: 'Brygada Alfa',
             data_przegladu: ymd(7),
             koszt_motogodziny: 35,
@@ -122,6 +124,10 @@ beforeEach(() => {
   api.get.mockReset();
   api.post.mockReset();
   api.put.mockReset();
+  api.delete.mockReset();
+  api.post.mockResolvedValue({ data: { id: 999 } });
+  api.put.mockResolvedValue({ data: { id: 999 } });
+  api.delete.mockResolvedValue({ data: { message: 'ok' } });
 });
 
 afterEach(() => {
@@ -150,4 +156,41 @@ test('renders resource cards with inspection, insurance, reservation alerts, and
   const finalSearch = screen.getAllByTestId('location-search').at(-1);
   expect(finalSearch).toHaveTextContent('tab=equipment');
   expect(finalSearch).toHaveTextContent('equipment=11');
+});
+
+test('edits and deletes equipment from fleet cards CRUD flow', async () => {
+  mockFlotaApi();
+  window.confirm = vi.fn().mockReturnValue(true);
+
+  renderFlota();
+
+  await userEvent.click(await screen.findByRole('button', { name: /Sprzęt/i }));
+  await userEvent.click(screen.getByRole('button', { name: 'Edytuj' }));
+
+  expect(screen.getByText('Edytuj sprzet')).toBeInTheDocument();
+  const nameInput = screen.getByDisplayValue('Rebak Forst');
+  await userEvent.clear(nameInput);
+  await userEvent.type(nameInput, 'Rebak Forst ST8');
+  await userEvent.click(screen.getByRole('button', { name: 'Zapisz sprzet' }));
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/flota/sprzet/11',
+      expect.objectContaining({
+        nazwa: 'Rebak Forst ST8',
+        ekipa_id: 3,
+        oddzial_id: 1,
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  await userEvent.click(screen.getByRole('button', { name: 'Usun' }));
+
+  await waitFor(() => {
+    expect(api.delete).toHaveBeenCalledWith(
+      '/flota/sprzet/11',
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 });

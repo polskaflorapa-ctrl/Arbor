@@ -29,6 +29,10 @@ function fmtDate(value) {
   return value ? String(value).split('T')[0] : '-';
 }
 
+function formDate(value) {
+  return value ? String(value).split('T')[0] : '';
+}
+
 function dateHealth(value, now = new Date()) {
   if (!value) return { state: 'missing', days: null };
   const due = new Date(value);
@@ -78,6 +82,8 @@ export default function Flota() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [filtrOddzial, setFiltrOddzial] = useState('');
+  const [editingPojazdId, setEditingPojazdId] = useState(null);
+  const [editingSprzetId, setEditingSprzetId] = useState(null);
 
   const [formPojazd, setFormPojazd] = useState({
     marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '',
@@ -130,22 +136,51 @@ export default function Flota() {
   const isDyrektor = ['Prezes', 'Dyrektor'].includes(currentUser?.rola);
   const canEdit = isDyrektor || currentUser?.rola === 'Kierownik';
 
+  const resetPojazdForm = () => {
+    setEditingPojazdId(null);
+    setFormPojazd({ marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '', typ: 'Samochód', ekipa_id: '', data_przegladu: '', data_ubezpieczenia: '', przebieg: '', notatki: '', oddzial_id: '' });
+  };
+
+  const resetSprzetForm = () => {
+    setEditingSprzetId(null);
+    setFormSprzet({ nazwa: '', typ: 'Piłarka', nr_seryjny: '', rok_produkcji: '', ekipa_id: '', data_przegladu: '', koszt_motogodziny: '', notatki: '', oddzial_id: '' });
+  };
+
+  const handleToggleForm = () => {
+    if (showForm) {
+      setShowForm(false);
+      resetPojazdForm();
+      resetSprzetForm();
+      return;
+    }
+    if (activeTab === 'sprzet') resetSprzetForm();
+    else resetPojazdForm();
+    setShowForm(true);
+  };
+
   const handleAddPojazd = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
       const token = getStoredToken();
-      await api.post(`/flota/pojazdy`, {
+      const existingPojazd = editingPojazdId ? pojazdy.find((item) => item.id === editingPojazdId) : null;
+      const payload = {
         ...formPojazd,
         marka: formPojazd.marka.trim(),
         model: formPojazd.model.trim(),
         nr_rejestracyjny: formPojazd.nr_rejestracyjny.trim().toUpperCase(),
         notatki: formPojazd.notatki.trim(),
-        oddzial_id: formPojazd.oddzial_id || currentUser?.oddzial_id
-      }, { headers: authHeaders(token) });
-      showMsg(successMessage(t('pages.flota.toastVehicleAdded')));
+        ekipa_id: formPojazd.ekipa_id || existingPojazd?.ekipa_id || '',
+        oddzial_id: formPojazd.oddzial_id || existingPojazd?.oddzial_id || currentUser?.oddzial_id
+      };
+      if (editingPojazdId) {
+        await api.put(`/flota/pojazdy/${editingPojazdId}`, payload, { headers: authHeaders(token) });
+      } else {
+        await api.post(`/flota/pojazdy`, payload, { headers: authHeaders(token) });
+      }
+      showMsg(successMessage(editingPojazdId ? 'Pojazd zapisany' : t('pages.flota.toastVehicleAdded')));
       setShowForm(false);
-      setFormPojazd({ marka: '', model: '', nr_rejestracyjny: '', rok_produkcji: '', typ: 'Samochód', ekipa_id: '', data_przegladu: '', data_ubezpieczenia: '', przebieg: '', notatki: '', oddzial_id: '' });
+      resetPojazdForm();
       loadAll();
     } catch (err) {
       showMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, 'nieznany')}`));
@@ -159,16 +194,23 @@ export default function Flota() {
     setSaving(true);
     try {
       const token = getStoredToken();
-      await api.post(`/flota/sprzet`, {
+      const existingSprzet = editingSprzetId ? sprzet.find((item) => item.id === editingSprzetId) : null;
+      const payload = {
         ...formSprzet,
         nazwa: formSprzet.nazwa.trim(),
         nr_seryjny: formSprzet.nr_seryjny.trim(),
         notatki: formSprzet.notatki.trim(),
-        oddzial_id: formSprzet.oddzial_id || currentUser?.oddzial_id
-      }, { headers: authHeaders(token) });
-      showMsg(successMessage(t('pages.flota.toastEquipmentAdded')));
+        ekipa_id: formSprzet.ekipa_id || existingSprzet?.ekipa_id || '',
+        oddzial_id: formSprzet.oddzial_id || existingSprzet?.oddzial_id || currentUser?.oddzial_id
+      };
+      if (editingSprzetId) {
+        await api.put(`/flota/sprzet/${editingSprzetId}`, payload, { headers: authHeaders(token) });
+      } else {
+        await api.post(`/flota/sprzet`, payload, { headers: authHeaders(token) });
+      }
+      showMsg(successMessage(editingSprzetId ? 'Sprzet zapisany' : t('pages.flota.toastEquipmentAdded')));
       setShowForm(false);
-      setFormSprzet({ nazwa: '', typ: 'Piłarka', nr_seryjny: '', rok_produkcji: '', ekipa_id: '', data_przegladu: '', koszt_motogodziny: '', notatki: '', oddzial_id: '' });
+      resetSprzetForm();
       loadAll();
     } catch (err) {
       showMsg(errorMessage(`Błąd: ${getApiErrorMessage(err, 'nieznany')}`));
@@ -185,6 +227,58 @@ export default function Flota() {
       });
       loadAll();
     } catch (err) { console.error(err); }
+  };
+
+  const startEditPojazd = (p) => {
+    setActiveTab('pojazdy');
+    setEditingSprzetId(null);
+    setEditingPojazdId(p.id);
+    setShowForm(true);
+    setFormPojazd({
+      marka: p.marka || '',
+      model: p.model || '',
+      nr_rejestracyjny: p.nr_rejestracyjny || '',
+      rok_produkcji: p.rok_produkcji || '',
+      typ: p.typ || 'Samochód',
+      ekipa_id: p.ekipa_id || '',
+      data_przegladu: formDate(p.data_przegladu),
+      data_ubezpieczenia: formDate(p.data_ubezpieczenia),
+      przebieg: p.przebieg || '',
+      notatki: p.notatki || '',
+      oddzial_id: p.oddzial_id || '',
+    });
+  };
+
+  const startEditSprzet = (s) => {
+    setActiveTab('sprzet');
+    setEditingPojazdId(null);
+    setEditingSprzetId(s.id);
+    setShowForm(true);
+    setFormSprzet({
+      nazwa: s.nazwa || '',
+      typ: s.typ || 'Piłarka',
+      nr_seryjny: s.nr_seryjny || '',
+      rok_produkcji: s.rok_produkcji || '',
+      ekipa_id: s.ekipa_id || '',
+      data_przegladu: formDate(s.data_przegladu),
+      koszt_motogodziny: s.koszt_motogodziny || '',
+      notatki: s.notatki || '',
+      oddzial_id: s.oddzial_id || '',
+    });
+  };
+
+  const deleteFleetItem = async (type, id) => {
+    const label = type === 'pojazdy' ? 'pojazd' : 'sprzet';
+    const ok = typeof window !== 'undefined' && window.confirm ? window.confirm(`Usunac ${label}?`) : true;
+    if (!ok) return;
+    try {
+      const token = getStoredToken();
+      await api.delete(`/flota/${type}/${id}`, { headers: authHeaders(token) });
+      showMsg(successMessage(type === 'pojazdy' ? 'Pojazd usuniety' : 'Sprzet usuniety'));
+      loadAll();
+    } catch (err) {
+      showMsg(errorMessage(getApiErrorMessage(err, `Nie udalo sie usunac ${label}.`)));
+    }
   };
 
   const fmt = fmtDate;
@@ -334,7 +428,7 @@ export default function Flota() {
               {canEdit && (
                 <button
                   type="button"
-                  onClick={() => setShowForm(!showForm)}
+                  onClick={handleToggleForm}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-2px)';
                   }}
@@ -386,7 +480,12 @@ export default function Flota() {
           {tabDefs.map((tab) => (
             <button key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                setActiveTab(tab.key);
+                setShowForm(false);
+                resetPojazdForm();
+                resetSprzetForm();
+              }}
               style={{
                 padding: '10px 18px', border: 'none', backgroundColor: 'transparent',
                 cursor: 'pointer', fontSize: 14, fontWeight: '500',
@@ -402,7 +501,7 @@ export default function Flota() {
         {/* Formularz pojazdu */}
         {showForm && canEdit && activeTab === 'pojazdy' && (
           <div className="fleet-form-panel" style={S.formBox}>
-            <h3 style={S.formTitle}>{t('pages.flota.newVehicleTitle')}</h3>
+            <h3 style={S.formTitle}>{editingPojazdId ? 'Edytuj pojazd' : t('pages.flota.newVehicleTitle')}</h3>
             <form onSubmit={handleAddPojazd}>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldBrand')}><input style={S.input} value={formPojazd.marka} onChange={e => setFormPojazd({ ...formPojazd, marka: e.target.value })} required placeholder="np. Mercedes" /></Field>
@@ -433,8 +532,8 @@ export default function Flota() {
                 )}
               </div>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isPojazdFormValid}>{saving ? t('common.saving') : t('pages.flota.addVehicle')}</button>
+                <button type="button" style={S.cancelBtn} onClick={() => { setShowForm(false); resetPojazdForm(); }}>{t('common.cancel')}</button>
+                <button type="submit" style={S.submitBtn} disabled={saving || !isPojazdFormValid}>{saving ? t('common.saving') : (editingPojazdId ? 'Zapisz pojazd' : t('pages.flota.addVehicle'))}</button>
               </div>
             </form>
           </div>
@@ -443,7 +542,7 @@ export default function Flota() {
         {/* Formularz sprzętu */}
         {showForm && canEdit && activeTab === 'sprzet' && (
           <div className="fleet-form-panel" style={S.formBox}>
-            <h3 style={S.formTitle}>{t('pages.flota.newEquipmentTitle')}</h3>
+            <h3 style={S.formTitle}>{editingSprzetId ? 'Edytuj sprzet' : t('pages.flota.newEquipmentTitle')}</h3>
             <form onSubmit={handleAddSprzet}>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldName')}><input style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet({ ...formSprzet, nazwa: e.target.value })} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
@@ -472,8 +571,8 @@ export default function Flota() {
                 )}
               </div>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isSprzetFormValid}>{saving ? t('common.saving') : t('pages.flota.addEquipment')}</button>
+                <button type="button" style={S.cancelBtn} onClick={() => { setShowForm(false); resetSprzetForm(); }}>{t('common.cancel')}</button>
+                <button type="submit" style={S.submitBtn} disabled={saving || !isSprzetFormValid}>{saving ? t('common.saving') : (editingSprzetId ? 'Zapisz sprzet' : t('pages.flota.addEquipment'))}</button>
               </div>
             </form>
           </div>
@@ -507,6 +606,12 @@ export default function Flota() {
                       style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[p.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: STATUS_KOLOR[p.status] || 'var(--text-muted)', fontWeight: '600' }}>
                       {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
+                    {canEdit && (
+                      <div style={S.cardActions}>
+                        <button type="button" style={S.ghostBtn} onClick={() => startEditPojazd(p)}>Edytuj</button>
+                        <button type="button" style={S.dangerBtn} onClick={() => deleteFleetItem('pojazdy', p.id)}>Usun</button>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12, color: 'var(--text-muted)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -569,6 +674,12 @@ export default function Flota() {
                       style={{ padding: '4px 8px', borderRadius: 8, border: `2px solid ${STATUS_KOLOR[s.status] || 'var(--text-muted)'}`, fontSize: 12, cursor: 'pointer', backgroundColor: 'var(--surface-field)', color: STATUS_KOLOR[s.status] || 'var(--text-muted)', fontWeight: '600' }}>
                       {Object.keys(STATUS_KOLOR).map((st) => <option key={st} value={st}>{fleetStatusLabel(st)}</option>)}
                     </select>
+                    {canEdit && (
+                      <div style={S.cardActions}>
+                        <button type="button" style={S.ghostBtn} onClick={() => startEditSprzet(s)}>Edytuj</button>
+                        <button type="button" style={S.dangerBtn} onClick={() => deleteFleetItem('sprzet', s.id)}>Usun</button>
+                      </div>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                     {s.nr_seryjny && <div>{s.nr_seryjny}</div>}
@@ -772,6 +883,9 @@ const S = {
   btnRow: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 12 },
   cancelBtn: { padding: '9px 18px', backgroundColor: 'var(--surface-field)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   submitBtn: { padding: '9px 18px', background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 'bold' },
+  cardActions: { display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  ghostBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
+  dangerBtn: { padding: '5px 9px', borderRadius: 7, border: '1px solid rgba(226,68,92,0.35)', background: 'rgba(226,68,92,0.08)', color: 'var(--danger)', cursor: 'pointer', fontSize: 11, fontWeight: 800 },
   repairsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
   repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 8px', background: 'var(--surface-field)' },
