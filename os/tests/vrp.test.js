@@ -28,6 +28,7 @@ describe('VRP solver output', () => {
     });
 
     expect(result.routes).toHaveLength(1);
+    expect(result.stats.solver_engine).toBe('arbor-clarke-wright');
     expect(result.routes[0].stops[0]).toEqual(expect.objectContaining({
       client: 'Anna Nowak',
       client_phone: '+48500111222',

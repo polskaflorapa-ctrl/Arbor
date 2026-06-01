@@ -30,6 +30,8 @@ Aplikacja mobilna Expo/React Native dla zespołu Arbor OS.
 - `npm run install:android:preview` - pokazuje link instalacji Android preview i sprawdza lokalne `adb`
 - `npm run release:status` - pokazuje gotowosc Android/iOS preview i nastepne kroki QA
 - `npm run qa:note -- --tester=Jan --device=Pixel-8 --os=Android-15 --role=Brygadzista` - tworzy notatke QA dla testu urzadzenia
+- `npm run qa:validate -- docs/mobile-device-qa-YYYY-MM-DD-android-pixel-8.md` - sprawdza wypelniona notatke QA pod GO/NO-GO
+- `npm run qa:review` - sprawdza wszystkie notatki QA urzadzen przed decyzja release
 - `npm run android` - uruchamia Expo na Androidzie
 - `npm run ios` - uruchamia Expo na iOS
 - `npm run web` - uruchamia Expo w przeglądarce

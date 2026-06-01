@@ -75,7 +75,8 @@
 - [x] **P0 web TTI smoke**: `docs/WEB-TTI-SMOKE-RUNBOOK.md` opisuje referencyjny pomiar panelu, prog TTI <= 3000 ms, trasy krytyczne i artefakt JSON; `npm run smoke:web:tti` mierzy render SPA przez Chrome/CDP, a `npm run verify:web-tti` pilnuje komend i runbooka.
 - [x] **P0 horizontal scaling readiness**: `docs/HORIZONTAL-SCALING-READINESS.md` opisuje stateless JWT, wspolny `JWT_SECRET`, `UPLOAD_STORAGE=s3`, Redis login limiter, limity DB pool, pojedyncze crony/workery, SSE best-effort i dispatcher; `npm run verify:scale-readiness` pilnuje guardow i checklist.
 - [x] **P0 RBAC branch scope audit**: `docs/RBAC-BRANCH-SCOPE-AUDIT.md` definiuje macierz Prezes/Dyrektor/Admin/Kierownik/Brygadzista, branch scope, team scope i finansowe NO-GO; `npm run verify:rbac-scope` pilnuje JWT, `oddzial_id`, `ekipa_id`, guardow backendu, BI redakcji finansow i web route guards.
-- [ ] **Nastepny pakiet**: dispatcher architecture decision - Google Routes / Mapbox Optimization / OR-Tools, koszt API, limity i decyzja dla EPIC 1.2.
+- [x] **P0 dispatcher architecture decision**: `docs/DISPATCHER-ARCHITECTURE-DECISION.md` wybiera OR-Tools/self-hosted jako docelowy solver, zostawia `arbor-clarke-wright` jako fallback pilota, ogranicza Google/Mapbox do macierzy czasu/ETA i koszt API; `npm run verify:dispatcher-adr` pilnuje ADR, runtime `solver_engine`, limitow i checklist.
+- [ ] **Nastepny pakiet**: mobile problem/offline incident flow - przycisk PROBLEM, zdjecie/notatka, sync offline, powiadomienie kierownika i testy EPIC 2.2/2.7.
 
 ---
 
@@ -116,7 +117,7 @@ flowchart LR
 ## EPIC 1 — AI Dispatcher (VRP, okna, kompetencje, sprzęt, auto-dispatch)
 
 - [x] **1.1** Model danych: okno czasowe klienta, czas obslugi zlecenia, priorytet, wymagany sprzet, wymagane kompetencje (schemat + migracja).
-- [ ] **1.2** Decyzja architektoniczna: **Google Routes / Mapbox Optimization** vs **OR-Tools** self-hosted — dokument + szacunek kosztu API.
+- [x] **1.2** Decyzja architektoniczna: **Google Routes / Mapbox Optimization** vs **OR-Tools** self-hosted. `docs/DISPATCHER-ARCHITECTURE-DECISION.md` wybiera OR-Tools/self-hosted + fallback `arbor-clarke-wright`; Google/Mapbox zostaja opcjonalna macierza czasu/ETA z quota i kosztem API, a `verify:dispatcher-adr` pilnuje decyzji.
 - [x] **1.3** Serwis `POST /api/dispatch/plan` (wejscie: zestaw zlecen + ekipy + dzien; wyjscie: przypisania + kolejnosc + ETA).
 - [x] **1.4** Ograniczenia: okna czasowe, przerwy, max godzin prowadzenia, niedostepnosc pojazdu/sprzetu. Solver respektuje okna, limity dnia, nieobecnosc ekip, przerwy (`przerwa_od`/`przerwa_do`) oraz wyklucza sprzet niedostepny statusem lub rezerwacja na inna ekipe.
 - [x] **1.5** Ograniczenia kompetencji i sprzetu w solverze (filtrowanie ekip przed VRP).

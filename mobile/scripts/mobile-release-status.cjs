@@ -60,6 +60,8 @@ console.log("Next commands");
 console.log("-------------");
 console.log("npm run install:android:preview");
 console.log("npm run qa:note -- --tester=Jan --device=Pixel-8 --os=Android-15 --role=Brygadzista");
+console.log("npm run qa:validate -- docs/mobile-device-qa-YYYY-MM-DD-android-pixel-8.md");
+console.log("npm run qa:review");
 console.log("npm run release:ios:preflight");
 console.log("npm run release:ios:credentials");
 console.log("npm run release:build:ios:preview");

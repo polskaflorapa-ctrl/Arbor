@@ -4525,6 +4525,72 @@ body.theme-dark pre {
   overflow: hidden;
 }
 
+.zasoby-header,
+.zasoby-legend,
+.zasoby-ops-panel,
+.zasoby-queue-panel {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+}
+
+.zasoby-header:hover,
+.zasoby-ops-panel:hover,
+.zasoby-queue-panel:hover,
+.zasoby-calendar-board:hover {
+  box-shadow: 0 16px 36px rgba(31, 79, 50, 0.085) !important;
+}
+
+.zasoby-header select,
+.zasoby-header button,
+.zasoby-ops-panel button,
+.zasoby-queue-panel button {
+  border-radius: 8px !important;
+}
+
+.zasoby-calendar-board [style*="position: sticky"] {
+  backdrop-filter: blur(8px);
+}
+
+.zasoby-calendar-board [style*="border-right"],
+.zasoby-calendar-board [style*="border-bottom"] {
+  border-color: rgba(15, 95, 58, 0.1) !important;
+}
+
+.zasoby-calendar-board [style*="background: var(--surface-field)"],
+.zasoby-calendar-board [style*="backgroundColor: var(--surface-field)"] {
+  background: rgba(241, 249, 244, 0.62) !important;
+}
+
+.zasoby-calendar-board [role="button"],
+.zasoby-calendar-board button {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.zasoby-calendar-board [role="button"]:hover,
+.zasoby-calendar-board button:hover {
+  box-shadow: 0 8px 18px rgba(31, 79, 50, 0.08) !important;
+}
+
+.zasoby-queue-panel [style*="border: 1px"],
+.zasoby-ops-panel [style*="border: 1px"] {
+  border-color: rgba(15, 95, 58, 0.13) !important;
+}
+
+.zasoby-shell input,
+.zasoby-shell select,
+.zasoby-shell textarea {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+  color: var(--text) !important;
+}
+
+.zasoby-shell input:focus,
+.zasoby-shell select:focus,
+.zasoby-shell textarea:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
 @media (max-width: 900px) {
   .zasoby-header,
   .zasoby-legend,
@@ -6151,5 +6217,254 @@ body.theme-dark pre {
   .equipment-res-table {
     display: block !important;
     overflow-x: auto;
+  }
+}
+
+/* ARBOR-OS warehouse polish: compact equipment inventory surface. */
+.warehouse-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.warehouse-main {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.warehouse-main > .module-page-header,
+.warehouse-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.warehouse-list {
+  max-width: 860px !important;
+}
+
+.warehouse-card,
+.warehouse-state-panel {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.warehouse-card {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.warehouse-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.warehouse-state-panel {
+  display: block;
+  padding: 24px;
+  color: var(--text-sub) !important;
+}
+
+.warehouse-main .MuiChip-root {
+  border-color: rgba(15, 95, 58, 0.18) !important;
+  background: rgba(241, 249, 244, 0.72);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .warehouse-main {
+    padding: 14px 12px 24px !important;
+  }
+}
+
+/* ARBOR-OS calendar blocks polish: lightweight scheduling exception panel. */
+.calendar-blocks-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.calendar-blocks-main {
+  background: transparent !important;
+  min-width: 0;
+}
+
+.calendar-blocks-header {
+  margin: 22px clamp(16px, 2.4vw, 30px) 0 !important;
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.calendar-blocks-content {
+  max-width: 760px !important;
+}
+
+.calendar-blocks-card,
+.calendar-blocks-empty,
+.calendar-blocks-modal {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.calendar-blocks-card,
+.calendar-blocks-modal {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.calendar-blocks-card:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+  transform: translateY(-1px);
+}
+
+.calendar-blocks-empty {
+  padding: 24px;
+  color: var(--text-sub) !important;
+}
+
+.calendar-blocks-overlay {
+  background: rgba(8, 28, 18, 0.48) !important;
+  backdrop-filter: blur(5px);
+}
+
+.calendar-blocks-main input {
+  background: #ffffff !important;
+  border-color: rgba(15, 95, 58, 0.16) !important;
+  border-radius: 8px !important;
+}
+
+.calendar-blocks-main input:focus {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+.calendar-blocks-main button:hover {
+  box-shadow: 0 10px 18px rgba(20, 131, 79, 0.14) !important;
+}
+
+@media (max-width: 900px) {
+  .calendar-blocks-header {
+    margin: 14px 12px 0 !important;
+    align-items: stretch !important;
+  }
+
+  .calendar-blocks-content {
+    padding: 16px 12px 24px !important;
+  }
+}
+
+/* ARBOR-OS autoplan polish: planning scenario workbench. */
+.autoplan-shell {
+  background: linear-gradient(135deg, #f5faf7 0%, #ffffff 48%, #eaf4ee 100%) !important;
+}
+
+.autoplan-main {
+  max-width: 1280px !important;
+  padding: 22px clamp(16px, 2.4vw, 30px) 32px !important;
+  background: transparent !important;
+}
+
+.autoplan-main > .module-page-header,
+.autoplan-main > .module-page-header-hero {
+  background:
+    linear-gradient(90deg, rgba(15, 107, 63, 0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15, 107, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 249, 244, 0.95)) !important;
+  background-size: 34px 34px, 34px 34px, auto !important;
+  border: 1px solid rgba(15, 95, 58, 0.14) !important;
+  box-shadow: 0 16px 40px rgba(31, 79, 50, 0.09) !important;
+}
+
+.autoplan-rules-card,
+.autoplan-risk-card,
+.autoplan-compare-card,
+.autoplan-table-wrap,
+.autoplan-history,
+.autoplan-tabs,
+.autoplan-actions {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 95, 58, 0.13) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(31, 79, 50, 0.055) !important;
+}
+
+.autoplan-tabs,
+.autoplan-actions {
+  padding: 8px;
+}
+
+.autoplan-rules-card,
+.autoplan-risk-card,
+.autoplan-compare-card,
+.autoplan-table-wrap,
+.autoplan-history {
+  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.autoplan-rules-card:hover,
+.autoplan-risk-card:hover,
+.autoplan-compare-card:hover,
+.autoplan-table-wrap:hover {
+  box-shadow: 0 16px 32px rgba(31, 79, 50, 0.085) !important;
+}
+
+.autoplan-compare-card:hover {
+  transform: translateY(-1px);
+}
+
+.autoplan-table-wrap table thead {
+  background: rgba(241, 249, 244, 0.86) !important;
+}
+
+.autoplan-table-wrap th {
+  color: var(--text-sub);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.autoplan-table-wrap tr:hover td {
+  background: rgba(15, 107, 63, 0.035);
+}
+
+.autoplan-history {
+  color: var(--text-sub);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.autoplan-main .MuiInputBase-root {
+  background: #ffffff !important;
+  border-radius: 8px !important;
+}
+
+.autoplan-main .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(15, 95, 58, 0.16) !important;
+}
+
+.autoplan-main .Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(20, 131, 79, 0.46) !important;
+  box-shadow: 0 0 0 3px rgba(20, 131, 79, 0.11) !important;
+}
+
+@media (max-width: 900px) {
+  .autoplan-main {
+    padding: 14px 12px 24px !important;
+  }
+
+  .autoplan-actions button,
+  .autoplan-rules-card button,
+  .autoplan-rules-card .MuiTextField-root {
+    width: 100%;
   }
 }

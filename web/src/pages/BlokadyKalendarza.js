@@ -181,10 +181,10 @@ export default function BlokadyKalendarza() {
   if (loading) return null;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell calendar-blocks-shell">
       <Sidebar />
-      <main className="app-main" style={S.root}>
-        <div style={S.header}>
+      <main className="app-main calendar-blocks-main" style={S.root}>
+        <div className="calendar-blocks-header" style={S.header}>
           <button type="button" style={S.backBtn} onClick={() => navigate(-1)} aria-label="back">
             ←
           </button>
@@ -194,13 +194,13 @@ export default function BlokadyKalendarza() {
           </button>
         </div>
         <StatusMessage message={msg} tone={msg ? 'warning' : undefined} style={{ margin: '12px 20px 0' }} />
-        <div style={S.main}>
+        <div className="calendar-blocks-content" style={S.main}>
           <p style={S.hint}>{t('calendarBlocks.hint')}</p>
           {blocks.length === 0 ? (
-            <div style={S.empty}>{t('calendarBlocks.empty')}</div>
+            <div className="calendar-blocks-empty" style={S.empty}>{t('calendarBlocks.empty')}</div>
           ) : (
             blocks.map((b) => (
-              <div key={b.id} style={S.card}>
+              <div className="calendar-blocks-card" key={b.id} style={S.card}>
                 <div style={S.cardTop}>
                   <div style={S.cardTitle}>{b.label}</div>
                   <button type="button" style={S.trash} onClick={() => remove(b.id)} title="Usuń">
@@ -216,8 +216,8 @@ export default function BlokadyKalendarza() {
         </div>
 
         {modal && (
-          <div style={S.overlay} onMouseDown={() => setModal(false)} role="presentation">
-            <div style={S.modal} onMouseDown={(e) => e.stopPropagation()} role="dialog">
+          <div className="calendar-blocks-overlay" style={S.overlay} onMouseDown={() => setModal(false)} role="presentation">
+            <div className="calendar-blocks-modal" style={S.modal} onMouseDown={(e) => e.stopPropagation()} role="dialog">
               <div style={S.modalTitle}>{t('calendarBlocks.addTitle')}</div>
               <div style={S.lbl}>{t('calendarBlocks.from')}</div>
               <input style={S.inp} value={from} onChange={(e) => setFrom(e.target.value)} placeholder="2026-05-06" />

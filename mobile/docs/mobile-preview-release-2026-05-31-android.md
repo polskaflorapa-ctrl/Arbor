@@ -97,3 +97,9 @@ npm run qa:note -- --tester=Jan --device=Pixel-8 --os=Android-15 --role=Brygadzi
 ```
 
 The generated file lands in `docs/` and includes build metadata, required release checks, and a place to paste the Release QA summary from API Diagnostics.
+
+Validate the filled note before promotion review:
+
+```bash
+npm run qa:validate -- docs/mobile-device-qa-YYYY-MM-DD-android-pixel-8.md
+```

@@ -81,7 +81,7 @@ Cron endpointy (`OPS_CRON_SECRET`) i skrypty automatyzacji powinny byc uruchamia
 
 ### Dispatcher
 
-`POST /api/dispatch/plan` liczy plan synchronicznie w procesie API. Dla pilota to OK. Przy wiekszej skali dlugie planowanie powinno przejsc do kolejki/workerow albo miec limit `DISPATCH_SOLVER_TARGET_MS` i rate limit.
+`POST /api/dispatch/plan` liczy plan synchronicznie w procesie API. Dla pilota to OK, bo `arbor-clarke-wright` dziala jako lokalny fallback bez Google/Mapbox. Decyzja docelowa jest w `docs/DISPATCHER-ARCHITECTURE-DECISION.md`: OR-Tools w workerze jako glowny solver, a zewnetrzne API tylko pomocniczo dla macierzy czasu/ETA. Przy wiekszej skali dlugie planowanie powinno przejsc do kolejki/workerow albo miec limit `DISPATCH_SOLVER_TARGET_MS` i rate limit.
 
 ## 5. Smoke po podniesieniu drugiej instancji
 

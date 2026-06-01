@@ -16,7 +16,7 @@ const SMS_HIST_PAGE_SIZE = 15;
 const BRANCH_STATUS_VIEW_KEY = 'arbor_telefonia_branch_status_view_v1';
 const BRANCH_STATUS_FILTERS = new Set(['all', 'ready', 'todo', 'attention']);
 const BRANCH_STATUS_SORTS = new Set(['needs', 'stage', 'ready', 'activity', 'name']);
-const BRANCH_STAGE_FILTERS = new Set(['all', 'Do danych', 'Do testu', 'Uwagi', 'Gotowy']);
+const BRANCH_STAGE_FILTERS = new Set(['all', 'Do danych', 'Do testu', 'Uwagi', 'Do dopiecia', 'Gotowy']);
 const BRANCH_STAGE_ORDER = {
   'Do danych': 0,
   'Do testu': 1,
@@ -1621,6 +1621,7 @@ export default function Telefonia() {
   const nextVisibleBranchStatus = selectedVisibleBranchIndex >= 0
     ? (filteredBranchIntegrationStatuses[selectedVisibleBranchIndex + 1] || null)
     : firstVisibleBranchStatus;
+  const branchStatusName = (row) => row?.oddzial_name || (row?.oddzial_id ? `Oddzial #${row.oddzial_id}` : 'brak');
   const visibleBranchWorkQueue = filteredBranchIntegrationStatuses.slice(0, 3);
   const nextBranchToFix = branchIntegrationStatuses
     .map((row) => ({ row, readiness: branchReadiness(row) }))
@@ -1704,6 +1705,33 @@ export default function Telefonia() {
     if (!visibleBranchWorkQueue.length) lines.push('Brak oddzialow w aktualnym widoku.');
     return lines.join('\n');
   };
+  const buildVisibleBranchBlockersText = () => {
+    const rowsWithBlockers = filteredBranchIntegrationStatuses
+      .map((row) => ({ row, readiness: branchReadiness(row), stage: branchLaunchStage(row) }))
+      .filter(({ readiness }) => readiness.blockers.length);
+    const lines = [
+      'Braki do domkniecia - aktualny widok',
+      `Widoczne oddzialy: ${filteredBranchIntegrationStatuses.length} / ${branchIntegrationStatuses.length}`,
+      `Filtr etapu: ${branchStageFilter === 'all' ? 'wszystkie' : branchStageFilter}`,
+      '',
+    ];
+    rowsWithBlockers.forEach(({ row, readiness, stage }, index) => {
+      lines.push(`${index + 1}. ${branchStatusName(row)} - ${stage.label} / ${readiness.percent}%`);
+      lines.push(`   Braki: ${readiness.blockers.join(', ')}`);
+      lines.push(`   Nastepny krok: ${branchNextAction(row)}`);
+    });
+    if (!rowsWithBlockers.length) lines.push('Brak brakow w aktualnym widoku.');
+    return lines.join('\n');
+  };
+  const buildBranchStageSummaryText = () => [
+    'Status etapow podpiecia telefonii',
+    `Do danych: ${branchStageSummary['Do danych'] || 0}`,
+    `Do testu: ${branchStageSummary['Do testu'] || 0}`,
+    `Uwagi: ${branchStageSummary.Uwagi || 0}`,
+    `Do dopiecia: ${branchStageSummary['Do dopiecia'] || 0}`,
+    `Gotowy: ${branchStageSummary.Gotowy || 0}`,
+    `Razem: ${branchIntegrationStatuses.length}`,
+  ].join('\n');
   const agentNeedsReviewCount = Number(agentIntakesSummary.needs_review || 0);
   const agentSmsMissingCount = Number(agentIntakesSummary.sms_missing || 0);
   const agentSmsErrorCount = Number(agentIntakesSummary.sms_error || 0);
@@ -1967,6 +1995,22 @@ export default function Telefonia() {
                 </button>
                 <button
                   type="button"
+                  style={s.rowBtnActive}
+                  onClick={() => copyAgentText(buildVisibleBranchBlockersText(), 'Braki oddzialow')}
+                  disabled={!filteredBranchIntegrationStatuses.length}
+                >
+                  Kopiuj braki
+                </button>
+                <button
+                  type="button"
+                  style={s.rowBtn}
+                  onClick={() => copyAgentText(buildBranchStageSummaryText(), 'Podsumowanie etapow')}
+                  disabled={!branchIntegrationStatuses.length}
+                >
+                  Kopiuj etapy
+                </button>
+                <button
+                  type="button"
                   style={s.rowBtn}
                   onClick={exportBranchStatusCsv}
                   disabled={!filteredBranchIntegrationStatuses.length}
@@ -1974,6 +2018,13 @@ export default function Telefonia() {
                   Eksport CSV
                 </button>
               </div>
+              {branchIntegrationStatuses.length ? (
+                <div style={s.branchNavHint}>
+                  <span>Poprzedni: <strong>{branchStatusName(previousVisibleBranchStatus)}</strong></span>
+                  <span>Aktualny: <strong>{selectedBranchStatus ? branchStatusName(selectedBranchStatus) : 'nie wybrano'}</strong></span>
+                  <span>Nastepny: <strong>{branchStatusName(nextVisibleBranchStatus)}</strong></span>
+                </div>
+              ) : null}
               {branchIntegrationStatuses.length ? (
                 <>
                   <div style={s.branchStatusSummary}>
@@ -2014,6 +2065,7 @@ export default function Telefonia() {
                       <option value="Do danych">Do danych ({branchStageSummary['Do danych'] || 0})</option>
                       <option value="Do testu">Do testu ({branchStageSummary['Do testu'] || 0})</option>
                       <option value="Uwagi">Uwagi ({branchStageSummary.Uwagi || 0})</option>
+                      <option value="Do dopiecia">Do dopiecia ({branchStageSummary['Do dopiecia'] || 0})</option>
                       <option value="Gotowy">Gotowy ({branchStageSummary.Gotowy || 0})</option>
                     </select>
                     <select value={branchStatusSort} onChange={(e) => setBranchStatusSort(e.target.value)} style={s.select}>
@@ -3859,6 +3911,18 @@ const s = {
     color: 'var(--text-sub)',
     fontSize: 12,
     marginBottom: 10,
+  },
+  branchNavHint: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+    padding: 8,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.13)',
+    background: 'rgba(15,95,58,0.045)',
+    color: 'var(--text-sub)',
+    fontSize: 12,
   },
   branchQueueBox: {
     marginBottom: 10,

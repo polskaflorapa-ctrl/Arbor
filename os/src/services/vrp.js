@@ -433,6 +433,7 @@ function solve(input) {
     routes,
     unassigned,
     stats: {
+      solver_engine:   'arbor-clarke-wright',
       solver_ms:       solverMs,
       tasks_total:     eligibleTasks.length,
       tasks_assigned:  assigned.size,

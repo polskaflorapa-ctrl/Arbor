@@ -51,19 +51,19 @@ export default function MagazynWeb() {
   }, [navigate, load]);
 
   return (
-    <Box className="app-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
+    <Box className="app-shell warehouse-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'transparent' }}>
       <Sidebar />
-      <Box component="main" className="app-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+      <Box component="main" className="app-main warehouse-main" sx={{ flex: 1, p: 3, overflow: 'auto' }}>
         <PageHeader title={t('pages.warehouse.title')} subtitle={t('pages.warehouse.subtitle')} />
         <StatusMessage message={msg} />
         {loading ? (
-          <Typography>{t('pages.warehouse.loading')}</Typography>
+          <Typography className="warehouse-state-panel">{t('pages.warehouse.loading')}</Typography>
         ) : items.length === 0 ? (
-          <Typography color="text.secondary">{t('pages.warehouse.empty')}</Typography>
+          <Typography className="warehouse-state-panel" color="text.secondary">{t('pages.warehouse.empty')}</Typography>
         ) : (
-          <Stack spacing={2} sx={{ maxWidth: 640 }}>
+          <Stack className="warehouse-list" spacing={2} sx={{ maxWidth: 640 }}>
             {items.map((it) => (
-              <Card key={it.id} variant="outlined">
+              <Card className="warehouse-card" key={it.id} variant="outlined">
                 <CardContent>
                   <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
                     <Typography fontWeight={600}>{it.nazwa}</Typography>

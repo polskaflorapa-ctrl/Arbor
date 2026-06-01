@@ -17,6 +17,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
 - [ ] `npm run verify:web-tti` potwierdza prog TTI panelu i komendy smoke web.
 - [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.
+- [ ] `npm run verify:dispatcher-adr` potwierdza decyzje OR-Tools/self-hosted, fallback `arbor-clarke-wright`, koszt API i limity Google/Mapbox.
 - [ ] `npm run deploy:prod:dry-run` potwierdza suchy przebieg env, migracji, backup/restore i smoke produkcyjnego.
 - [ ] Backend `os` jest zrodlem prawdy dla API produkcyjnego.
 - [ ] Jest utworzony admin, kierownik oddzialu i brygadzista testowy.
@@ -30,6 +31,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna minimum SLO i alertow: `docs/OBSERVABILITY-SLO-RUNBOOK.md`.
 - [ ] Zespol zna runbook incydentow: `docs/PRODUCTION-INCIDENT-RUNBOOK.md`.
 - [ ] Zespol zna RBAC/branch scope: `docs/RBAC-BRANCH-SCOPE-AUDIT.md`.
+- [ ] Zespol zna decyzje dispatchera: `docs/DISPATCHER-ARCHITECTURE-DECISION.md`.
 - [ ] Zespol zna RPO/RTO i restore drill: `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
 - [ ] Zespol zna drill integracji: `docs/KOMMO-SMS-INCIDENT-DRILL.md`.
 - [ ] Przebieg rolowy jest opisany w `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md`.
@@ -101,6 +103,7 @@ Minimalna bramka przed dniem pilota:
 ```powershell
 cd C:\Users\paha1\arbor
 npm run status:json:strict
+npm run verify:dispatcher-adr
 npm run verify:rbac-scope
 npm run verify:pilot-hardening
 npm run check

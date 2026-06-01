@@ -390,9 +390,9 @@ export default function AutoplanDnia() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box className="autoplan-shell" sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       <Sidebar />
-      <Box sx={{ flex: 1, p: 2, maxWidth: 1100, mx: 'auto', width: '100%' }}>
+      <Box className="autoplan-main" sx={{ flex: 1, p: 2, maxWidth: 1100, mx: 'auto', width: '100%' }}>
         <PageHeader title={t('pages.autoplanDay.title')} subtitle={t('pages.autoplanDay.subtitle')} />
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.autoplanDay.hint')}
@@ -408,7 +408,7 @@ export default function AutoplanDnia() {
         <StatusMessage message={err} tone="error" />
         <StatusMessage message={info} tone="success" />
 
-        <Card variant="outlined" sx={{ mb: 2 }}>
+        <Card className="autoplan-rules-card" variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2">{t('pages.autoplanDay.rulesTitle')}</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1, alignItems: 'center' }}>
@@ -432,7 +432,7 @@ export default function AutoplanDnia() {
           </CardContent>
         </Card>
 
-        <Tabs value={mode} onChange={(_, v) => setMode(v)} sx={{ mb: 2 }}>
+        <Tabs className="autoplan-tabs" value={mode} onChange={(_, v) => setMode(v)} sx={{ mb: 2 }}>
           <Tab label={`${t('pages.autoplanDay.mode.cost')} (${modeKpi.cost.score})`} value="cost" />
           <Tab label={`${t('pages.autoplanDay.mode.balanced')} (${modeKpi.balanced.score})`} value="balanced" />
           <Tab label={`${t('pages.autoplanDay.mode.fast')} (${modeKpi.fast.score})`} value="fast" />
@@ -441,7 +441,7 @@ export default function AutoplanDnia() {
           {t('pages.autoplanDay.bestMode', { mode: t(`pages.autoplanDay.mode.${bestMode}`) })}
         </Typography>
 
-        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
+        <Stack className="autoplan-actions" direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
           <Button variant="contained" disabled={!canApplyPlan || applying} onClick={() => void applyCurrentPlan()}>
             {applying ? <CircularProgress size={20} color="inherit" /> : t('pages.autoplanDay.applyCta')}
           </Button>
@@ -454,7 +454,7 @@ export default function AutoplanDnia() {
         </Stack>
 
         {todayKpi.total > 0 ? (
-          <Card variant="outlined" sx={{ mb: 2, bgcolor: 'action.hover' }}>
+          <Card className="autoplan-risk-card" variant="outlined" sx={{ mb: 2, bgcolor: 'action.hover' }}>
             <CardContent>
               <Typography variant="subtitle2">{t('pages.autoplanDay.riskTitle')}</Typography>
               <Chip
@@ -481,9 +481,9 @@ export default function AutoplanDnia() {
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('pages.autoplanDay.compareTitle')}
         </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
+        <Stack className="autoplan-compare" direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
           {['cost', 'balanced', 'fast'].map((m) => (
-            <Card key={m} variant={m === bestMode ? 'elevation' : 'outlined'} sx={{ flex: 1, minWidth: 160 }}>
+            <Card className="autoplan-compare-card" key={m} variant={m === bestMode ? 'elevation' : 'outlined'} sx={{ flex: 1, minWidth: 160 }}>
               <CardContent sx={{ py: 1 }}>
                 <Typography variant="caption">{t(`pages.autoplanDay.mode.${m}`)}</Typography>
                 <Typography variant="body2">
@@ -503,7 +503,7 @@ export default function AutoplanDnia() {
             {t('pages.autoplanDay.empty')}
           </Typography>
         ) : (
-          <Box sx={{ overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 2 }}>
+          <Box className="autoplan-table-wrap" sx={{ overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 2 }}>
             <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <Box component="thead" sx={{ bgcolor: 'action.hover' }}>
                 <Box component="tr">
@@ -546,7 +546,7 @@ export default function AutoplanDnia() {
             {t('pages.autoplanDay.exportCta')}
           </Button>
         </Stack>
-        <Box component="pre" sx={{ m: 0, mt: 1, p: 2, bgcolor: 'action.hover', borderRadius: 1, fontSize: 11, maxHeight: 200, overflow: 'auto' }}>
+        <Box className="autoplan-history" component="pre" sx={{ m: 0, mt: 1, p: 2, bgcolor: 'action.hover', borderRadius: 1, fontSize: 11, maxHeight: 200, overflow: 'auto' }}>
           {history.slice(0, 20).map((h) => (
             <div key={h.id}>
               {h.at} {h.action} {h.mode} ok={h.ok} q={h.queued}
