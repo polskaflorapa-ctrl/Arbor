@@ -83,7 +83,8 @@
 - [x] **P0 mobile offline conflict/idempotency coverage**: `docs/MOBILE-OFFLINE-CONFLICT-IDEMPOTENCY.md` opisuje START/check-in/STOP, zdjecia, PROBLEM i finish na slabej sieci; `queueTaskWorkSignalOffline`, dedupe zdjec, retry backoff, `TASK_ALREADY_FINISHED` i `IDEMPOTENCY_INCOMPLETE` sa pilnowane przez `npm run verify:mobile-offline-conflicts`.
 - [x] **P0 mobile START/STOP work log edge cases**: `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md` opisuje aktywny work log, brak GPS, podwojny START/STOP, statusy i backend tests EPIC 2.1; `npm run verify:mobile-start-stop-edge` pilnuje kontraktu.
 - [x] **P0 resource calendar weekly contract**: `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` opisuje jeden tygodniowy widok ekip, krytycznego sprzetu i rezerwacji; `npm run verify:resource-calendar-week` pilnuje route, API, web testow i blokad kolizji.
-- [ ] **Nastepny pakiet**: EPIC 3.2 - drag & drop przeniesienia zlecenia miedzy slotami z walidacja kolizji.
+- [x] **P0 resource calendar drag & drop**: `docs/RESOURCE-CALENDAR-DRAG-DROP-CONTRACT.md` opisuje przenoszenie zlecen miedzy slotami; web blokuje lokalne kolizje, a `PATCH /api/tasks/:id/plan` zapisuje termin, godzine, ekipe i waliduje konflikt/okno klienta/nieobecnosc. `npm run verify:resource-calendar-dnd` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: EPIC 3.3 - mapa planistyczna: pinezki zlecen i pozycje ekip live tam, gdzie dostepne.
 
 ---
 
@@ -149,7 +150,7 @@ flowchart LR
 ## EPIC 3 — Panel Kierownika Oddziału
 
 - [x] **3.1** Kalendarz zasobów (ekipy + krytyczny sprzęt) — jeden widok tygodnia. `KalendarzZasobow` laczy ekipy, dzien/zakres, sprzet, rezerwacje, odprawy i alerty kolizji; kontrakt pilnuje `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md` + `verify:resource-calendar-week`.
-- [ ] **3.2** Drag & drop przeniesienia zlecenia między slotami (zapis do API + walidacja kolizji).
+- [x] **3.2** Drag & drop przeniesienia zlecenia między slotami (zapis do API + walidacja kolizji). Web zapisuje drop przez `PATCH /api/tasks/:id/plan`, blokuje lokalna kolizje aktywnego zlecenia tej samej ekipy, wymaga override dla nieobecnej ekipy, a backend dopisuje `godzina_rozpoczecia`, przesuwa rezerwacje sprzetu i zwraca `TASK_PLAN_CONFLICT`.
 - [ ] **3.3** Mapa planistyczna: pinezki zleceń + pozycje ekip (live gdzie dostępne).
 - [ ] **3.4** Karty sprzętu: przegląd, ubezpieczenie, alerty (powiązanie z EPIC 6).
 - [ ] **3.5** Integracja z wynikiem dispatchera (wczytanie planu dnia).

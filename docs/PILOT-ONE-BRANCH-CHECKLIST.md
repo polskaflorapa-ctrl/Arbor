@@ -19,6 +19,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.
 - [ ] `npm run verify:dispatcher-adr` potwierdza decyzje OR-Tools/self-hosted, fallback `arbor-clarke-wright`, koszt API i limity Google/Mapbox.
 - [ ] `npm run verify:resource-calendar-week` potwierdza tygodniowy kalendarz ekip, krytycznego sprzetu i rezerwacji.
+- [ ] `npm run verify:resource-calendar-dnd` potwierdza drag & drop zlecen miedzy slotami, zapis planu do API i blokady kolizji.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.
@@ -41,6 +42,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna RBAC/branch scope: `docs/RBAC-BRANCH-SCOPE-AUDIT.md`.
 - [ ] Zespol zna decyzje dispatchera: `docs/DISPATCHER-ARCHITECTURE-DECISION.md`.
 - [ ] Zespol zna kalendarz zasobow: `docs/RESOURCE-CALENDAR-WEEKLY-CONTRACT.md`.
+- [ ] Zespol zna drag & drop kalendarza: `docs/RESOURCE-CALENDAR-DRAG-DROP-CONTRACT.md`.
 - [ ] Zespol zna flow PROBLEM/offline: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md`.
 - [ ] Zespol zna blokade zdjec Przed/Po: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md`.
 - [ ] Zespol zna cache listy dnia: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md`.
@@ -120,6 +122,7 @@ cd C:\Users\paha1\arbor
 npm run status:json:strict
 npm run verify:dispatcher-adr
 npm run verify:resource-calendar-week
+npm run verify:resource-calendar-dnd
 npm run verify:mobile-problem-flow
 npm run verify:mobile-before-after-photo
 npm run verify:mobile-photo-enforcement

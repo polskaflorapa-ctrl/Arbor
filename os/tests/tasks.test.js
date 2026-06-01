@@ -2284,9 +2284,39 @@ describe('Tasks routes', () => {
     expect(res.body.message).toMatch(/^Plan zaktualizowany/);
     const updateCall = pool.query.mock.calls.find(([sql]) => {
       const s = String(sql);
-      return s.includes('UPDATE tasks') && s.includes('data_planowana = $1::timestamptz');
+      return s.includes('UPDATE tasks') && s.includes('godzina_rozpoczecia = COALESCE($5::time');
     });
-    expect(updateCall?.[1]).toEqual(['2026-05-10T09:00:00.000Z', 9, 1, null]);
+    expect(updateCall?.[1]).toEqual(['2026-05-10T09:00:00.000Z', 9, 1, null, null]);
+    pool.query.mockReset();
+  });
+
+  it('updates planned datetime, start hour and team via PATCH /tasks/:id/plan for DnD', async () => {
+    const token = jwt.sign({ id: 2, rola: 'Kierownik', oddzial_id: 5 }, env.JWT_SECRET);
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 1 }] };
+      if (s.includes('SELECT id, status, ekipa_id, oddzial_id, czas_planowany_godziny, data_planowana FROM tasks')) {
+        return { rows: [{ id: 1, status: 'Zaplanowane', ekipa_id: 5, oddzial_id: null, czas_planowany_godziny: 2, data_planowana: '2026-05-09T08:00:00.000Z' }] };
+      }
+      if (s.includes('LEFT JOIN team_attendance')) {
+        return { rows: [{ team_id: 9, team_name: 'Ekipa A', present: true }] };
+      }
+      if (s.includes('FROM tasks') && s.includes('data_planowana::date')) return { rows: [] };
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .patch('/api/tasks/1/plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ data_planowana: '2026-05-10', godzina_rozpoczecia: '11:30', ekipa_id: 9 });
+
+    expect(res.status).toBe(200);
+    const updateCall = pool.query.mock.calls.find(([sql]) => {
+      const s = String(sql);
+      return s.includes('UPDATE tasks') && s.includes('godzina_rozpoczecia = COALESCE($5::time');
+    });
+    expect(updateCall?.[1]).toEqual(['2026-05-10 11:30:00', 9, 1, null, '11:30']);
     pool.query.mockReset();
   });
 

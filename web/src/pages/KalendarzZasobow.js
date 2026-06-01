@@ -94,6 +94,11 @@ function minutesToTime(minutes) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+function planDateTimeForSlot(dayISO, time) {
+  const safeTime = String(time || '08:00').slice(0, 5);
+  return `${dayISO}T${safeTime}:00`;
+}
+
 function durationLabel(minutes) {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
@@ -2164,6 +2169,21 @@ export default function KalendarzZasobow() {
     const nextTime = time || taskTime(task);
     const nextHours = taskHours(task);
     if (String(task.ekipa_id || '') === String(teamId) && taskDate(task) === dayISO && taskTime(task) === nextTime) return;
+    const warnings = buildPlanWarnings(tasks, task, {
+      ekipa_id: teamId,
+      data_planowana: dayISO,
+      godzina_rozpoczecia: nextTime,
+      czas_planowany_godziny: nextHours,
+    });
+    if (warnings.outsideWorkday) {
+      showMsg('Nie mozna przesunac zlecenia poza dzien roboczy kalendarza.', 'err');
+      return;
+    }
+    if (warnings.conflicts.length) {
+      const conflict = warnings.conflicts[0];
+      showMsg(`Konflikt terminu: ${taskClientLabel(conflict)} ma juz slot ${taskTime(conflict)}-${taskEndTime(conflict)}.`, 'err');
+      return;
+    }
     const targetAttendance = attendanceByTeam.get(String(teamId));
     let absenceOverride = false;
     if (targetAttendance?.present === false) {
@@ -2181,14 +2201,10 @@ export default function KalendarzZasobow() {
     setSaving(true);
     try {
       const token = getStoredToken();
-      const existingEquipmentIds = taskReservationEquipmentIds(rezerwacje, task.id);
-      await api.put(`/tasks/${task.id}/office-plan`, {
-        data_planowana: dayISO,
+      await api.patch(`/tasks/${task.id}/plan`, {
+        data_planowana: planDateTimeForSlot(dayISO, nextTime),
         godzina_rozpoczecia: nextTime,
-        czas_planowany_godziny: nextHours,
         ekipa_id: teamId,
-        sprzet_ids: existingEquipmentIds,
-        sprzet_notatka: 'Przesunieto w harmonogramie ekip.',
         absence_override: absenceOverride,
       }, { headers: authHeaders(token) });
       showMsg(`Zlecenie #${task.id} zaplanowane: ${dayISO} ${nextTime}.`);

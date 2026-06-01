@@ -1317,6 +1317,7 @@ const taskUpdateSchema = z.object({
 /** PATCH /tasks/:id/plan — tylko termin (`data_planowana`). */
 const taskPlanPatchSchema = z.object({
   data_planowana: z.string().trim().min(1, 'data_planowana jest wymagana'),
+  godzina_rozpoczecia: z.string().trim().optional().nullable(),
   ekipa_id: z.union([z.number().int().positive(), z.string().trim()]).optional().nullable(),
   absence_override: z.boolean().optional(),
 });
@@ -3056,10 +3057,11 @@ router.patch(
       }
       const windowR = await pool.query('SELECT okno_od, okno_do FROM tasks WHERE id = $1', [taskId]);
       const windowRow = windowR.rows[0] || {};
+      const plannedDateTime = buildTaskPlannedDateTime(req.body.data_planowana, req.body.godzina_rozpoczecia);
       const windowConflict = planWindowViolation({
         oknoOd: windowRow.okno_od,
         oknoDo: windowRow.okno_do,
-        plannedDateTime: req.body.data_planowana,
+        plannedDateTime,
         durationHours: row.czas_planowany_godziny || 2,
       });
       if (windowConflict) return res.status(409).json(windowConflict);
@@ -3067,12 +3069,12 @@ router.patch(
       const teamId = hasTeamBody ? toNum(req.body.ekipa_id) : (row.ekipa_id != null ? Number(row.ekipa_id) : null);
       let teamAttendance = null;
       if (teamId) {
-        const planDay = String(req.body.data_planowana).slice(0, 10);
+        const planDay = String(plannedDateTime).slice(0, 10);
         if (row.oddzial_id) {
           const teamCheck = await assertTeamAvailableForBranch(pool, teamId, row.oddzial_id, planDay);
           if (!teamCheck.ok) return res.status(teamCheck.status || 409).json({ error: teamCheck.error });
         }
-        teamAttendance = await getTeamAttendanceForPlan(teamId, req.body.data_planowana);
+        teamAttendance = await getTeamAttendanceForPlan(teamId, plannedDateTime);
         if (teamAttendance?.present === false && req.body.absence_override !== true) {
           return res.status(409).json({
             error: `Ekipa ${teamAttendance.teamName} jest oznaczona jako nieobecna w dniu ${teamAttendance.day}. Wymagane potwierdzenie kierownika.`,
@@ -3088,7 +3090,7 @@ router.patch(
           });
         }
         const busyRanges = await getTeamBusyRanges(pool, teamId, planDay, null, taskId);
-        const d = new Date(req.body.data_planowana);
+        const d = new Date(plannedDateTime);
         const startMin = d.getHours() * 60 + d.getMinutes();
         const durMin = Math.max(15, Math.round(Number(row.czas_planowany_godziny || 2) * 60));
         if (planRangeConflicts(busyRanges, startMin, durMin)) {
@@ -3112,6 +3114,7 @@ router.patch(
         `UPDATE tasks
             SET data_planowana = $1::timestamptz,
                 ekipa_id = $2,
+                godzina_rozpoczecia = COALESCE($5::time, godzina_rozpoczecia),
                 notatki_wewnetrzne = CASE
                   WHEN $4::text IS NULL THEN notatki_wewnetrzne
                   ELSE CONCAT_WS(E'\n\n', NULLIF(BTRIM(COALESCE(notatki_wewnetrzne, '')), ''), $4::text)
@@ -3119,14 +3122,15 @@ router.patch(
                 updated_at = NOW()
           WHERE id = $3`,
         [
-          req.body.data_planowana,
+          plannedDateTime,
           teamId,
           taskId,
           absenceNote,
+          toStr(req.body.godzina_rozpoczecia) || null,
         ]
       );
       const oldDay = row.data_planowana ? String(row.data_planowana).slice(0, 10) : '';
-      const nextDay = String(req.body.data_planowana || '').slice(0, 10);
+      const nextDay = String(plannedDateTime || '').slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(nextDay)) {
         if (/^\d{4}-\d{2}-\d{2}$/.test(oldDay)) {
           await pool.query(
@@ -3158,7 +3162,8 @@ router.patch(
       let workflow = decorateTaskWorkflow(workflowRow || {
         ...row,
         id: taskId,
-        data_planowana: req.body.data_planowana,
+        data_planowana: plannedDateTime,
+        godzina_rozpoczecia: req.body.godzina_rozpoczecia || row.godzina_rozpoczecia,
         ekipa_id: teamId,
       });
       let promoted = false;
@@ -3181,7 +3186,8 @@ router.patch(
         workflow = decorateTaskWorkflow(workflowRow || {
           ...workflow,
           status: 'Zaplanowane',
-          data_planowana: req.body.data_planowana,
+          data_planowana: plannedDateTime,
+          godzina_rozpoczecia: req.body.godzina_rozpoczecia || workflow.godzina_rozpoczecia,
           ekipa_id: teamId,
         });
       }

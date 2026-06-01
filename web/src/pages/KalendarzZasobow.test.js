@@ -307,14 +307,14 @@ test('requires confirmation before dragging a task onto an absent team', async (
       { teamId: '4', teamName: 'Brygada Beta', dateYmd: TEST_DATE, present: true },
     ],
   });
-  api.put.mockResolvedValue({ data: {} });
+  api.patch.mockResolvedValue({ data: {} });
   const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
 
   try {
     renderCalendar();
 
     await screen.findByTestId('day-task-43');
-    const targetSlot = screen.getByTestId(`team-slot-3-${TEST_DATE}-08:00`);
+    const targetSlot = screen.getByTestId(`team-slot-3-${TEST_DATE}-12:00`);
     const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() };
 
     fireEvent.dragStart(screen.getByTestId('day-task-43'), { dataTransfer });
@@ -323,18 +323,18 @@ test('requires confirmation before dragging a task onto an absent team', async (
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Brygada Alfa jest oznaczona jako Nieobecna - Auto w serwisie.'));
     });
-    expect(api.put).not.toHaveBeenCalled();
+    expect(api.patch).not.toHaveBeenCalled();
     expect(await screen.findByText('Planowanie przerwane: ekipa jest nieobecna.')).toBeInTheDocument();
 
     fireEvent.dragStart(screen.getByTestId('day-task-43'), { dataTransfer });
     fireEvent.drop(targetSlot, { dataTransfer });
 
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith(
-        '/tasks/43/office-plan',
+      expect(api.patch).toHaveBeenCalledWith(
+        '/tasks/43/plan',
         expect.objectContaining({
-          data_planowana: TEST_DATE,
-          godzina_rozpoczecia: '08:00',
+          data_planowana: `${TEST_DATE}T12:00:00`,
+          godzina_rozpoczecia: '12:00',
           ekipa_id: 3,
           absence_override: true,
         }),
@@ -344,4 +344,21 @@ test('requires confirmation before dragging a task onto an absent team', async (
   } finally {
     confirmSpy.mockRestore();
   }
+});
+
+test('blocks drag and drop when the target team slot already has a task', async () => {
+  mockCalendarApi();
+  api.patch.mockResolvedValue({ data: {} });
+
+  renderCalendar();
+
+  await screen.findByTestId('day-task-43');
+  const targetSlot = screen.getByTestId(`team-slot-3-${TEST_DATE}-09:00`);
+  const dataTransfer = { effectAllowed: '', dropEffect: '', setData: vi.fn() };
+
+  fireEvent.dragStart(screen.getByTestId('day-task-43'), { dataTransfer });
+  fireEvent.drop(targetSlot, { dataTransfer });
+
+  expect(await screen.findByText(/Konflikt terminu: Jan Kowalski/i)).toBeInTheDocument();
+  expect(api.patch).not.toHaveBeenCalled();
 });
