@@ -8,6 +8,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 
 - [ ] `npm run status:json:strict` przechodzi na srodowisku testowym albo produkcyjnym.
 - [ ] `npm run check` przechodzi lokalnie przed wydaniem.
+- [ ] `npm run pilot:run:prepare -- --date YYYY-MM-DD` tworzy raport decyzji i wskazuje raport automatycznych bramek.
 - [ ] `npm run pilot:run:new -- --date YYYY-MM-DD` tworzy raport decyzji w `docs/pilot-runs/` przed realna proba.
 - [ ] `npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail` zapisuje automatyczne PASS/FAIL do `docs/pilot-runs/`.
 - [ ] `npm run verify:pilot-closure` potwierdza `PILOT-CLOSURE-GO-LIVE-GATE.md`: finalny smoke end-to-end, GO/NO-GO i komplet dowodow pilota.
@@ -142,6 +143,7 @@ Minimalna bramka przed dniem pilota:
 
 ```powershell
 cd C:\Users\paha1\arbor
+npm run pilot:run:prepare -- --date YYYY-MM-DD
 npm run pilot:run:new -- --date YYYY-MM-DD
 npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail
 npm run status:json:strict

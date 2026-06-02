@@ -8,6 +8,7 @@ const {
   defaultGatesReport,
   parseArgs: parseReportArgs,
 } = require('./create-pilot-run-report.cjs');
+const { gateCommand, parseArgs: parsePrepareArgs, preparePilotRun } = require('./prepare-pilot-run.cjs');
 const { CORE_GATES, FULL_GATES, parseArgs: parseGateArgs, runPilotGates, writeReport } = require('./run-pilot-gates.cjs');
 
 const root = path.resolve(__dirname, '..');
@@ -60,6 +61,42 @@ test('pilot run report default gates report matches the selected date', () => {
     defaultGatesReport('2099-12-31'),
     'docs/pilot-runs/PILOT-AUTOMATED-GATES-2099-12-31.md',
   );
+});
+
+test('pilot prepare command creates decision artifact and points to gates command', () => {
+  cleanup();
+  try {
+    const result = preparePilotRun({
+      date: '2099-12-31',
+      force: false,
+      runGates: false,
+      dryRun: false,
+      full: true,
+      continueOnFail: true,
+    });
+    const text = fs.readFileSync(result.decisionPath, 'utf8');
+
+    assert.equal(result.decisionPath, decisionReportPath);
+    assert.equal(result.gatesReport, 'docs/pilot-runs/PILOT-AUTOMATED-GATES-2099-12-31.md');
+    assert.equal(result.gatesCommand, 'npm run pilot:gates:run -- --date 2099-12-31 --full --continue-on-fail');
+    assert.match(text, /PILOT-AUTOMATED-GATES-2099-12-31\.md/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('pilot prepare parser and gate command support execution flags', () => {
+  const options = parsePrepareArgs(['--date=2099-12-31', '--force', '--run-gates', '--dry-run', '--full', '--stop-on-fail']);
+  assert.deepEqual(options, {
+    date: '2099-12-31',
+    force: true,
+    runGates: true,
+    dryRun: true,
+    full: true,
+    continueOnFail: false,
+  });
+  assert.equal(gateCommand(options), 'npm run pilot:gates:run -- --date 2099-12-31 --full');
+  assert.throws(() => parsePrepareArgs(['--date=nope']), /YYYY-MM-DD/);
 });
 
 test('pilot gates parser supports dry-run, full and continue-on-fail flags', () => {
