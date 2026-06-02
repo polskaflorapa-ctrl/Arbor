@@ -35,6 +35,7 @@ assertFiles([
   'docs/pilot-runs/.gitkeep',
   'scripts/create-pilot-run-report.cjs',
   'scripts/run-pilot-gates.cjs',
+  'scripts/pilot-run-tools.test.cjs',
 ]);
 
 assertPackageScripts('package.json', [
@@ -103,6 +104,16 @@ assertIncludes('scripts/run-pilot-gates.cjs', [
   '--full',
   '--continue-on-fail',
   'PILOT-AUTOMATED-GATES-',
+]);
+
+assertIncludes('scripts/pilot-run-tools.test.cjs', [
+  'createPilotRunReport',
+  'parseReportArgs',
+  'parseGateArgs',
+  'runPilotGates',
+  'writeReport',
+  'PILOT-GO-NO-GO-2099-12-31.md',
+  'PILOT-AUTOMATED-GATES-2099-12-31.md',
 ]);
 
 assertIncludes('docs/PILOT-CLOSURE-GO-LIVE-GATE.md', [
