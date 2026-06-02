@@ -20,10 +20,10 @@ async function checkRemoteApi(value) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45000);
   try {
-    const res = await fetch(`${host}/api/ready`, { signal: controller.signal });
+    const res = await fetch(`${host}/api/ready/`, { signal: controller.signal });
     const text = await res.text();
-    assert(res.ok, `Remote API /api/ready failed: ${res.status} ${text.slice(0, 200)}`);
-    console.log(`[deploy-koyeb] Remote API ready OK: ${host}/api/ready`);
+    assert(res.ok, `Remote API /api/ready/ failed: ${res.status} ${text.slice(0, 200)}`);
+    console.log(`[deploy-koyeb] Remote API ready OK: ${host}/api/ready/`);
   } finally {
     clearTimeout(timer);
   }

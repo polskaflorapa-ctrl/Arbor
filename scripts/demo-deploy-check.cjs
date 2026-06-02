@@ -15,7 +15,7 @@ function main() {
   assert(fs.existsSync('railway.json'), 'railway.json is missing.');
   assert(railway.build?.builder === 'NIXPACKS', 'railway.json should use Nixpacks.');
   assert(railway.deploy?.startCommand === 'npm run start:api:prod', 'Railway startCommand should run migrations and API.');
-  assert(railway.deploy?.healthcheckPath === '/api/ready', 'Railway healthcheck should use /api/ready.');
+  assert(railway.deploy?.healthcheckPath === '/api/ready/', 'Railway healthcheck should use /api/ready/.');
 
   assert(fs.existsSync('deploy/railway-arbor-os.env.example'), 'Railway env template is missing.');
   assert(fs.existsSync('deploy/cloudflare-pages.env.example'), 'Cloudflare Pages env template is missing.');

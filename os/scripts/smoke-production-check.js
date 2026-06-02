@@ -50,7 +50,7 @@ async function loginForSmoke() {
   const token = providedToken || await loginForSmoke();
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
   const checks = [];
-  checks.push({ name: 'ready', result: await check('/api/ready'), expected: [200] });
+  checks.push({ name: 'ready', result: await check('/api/ready/'), expected: [200] });
   checks.push({
     name: 'health',
     result: await check('/api/health'),

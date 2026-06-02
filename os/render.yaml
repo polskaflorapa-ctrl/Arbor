@@ -12,7 +12,7 @@ services:
     buildCommand: npm ci
     preDeployCommand: npm run db:migrate
     startCommand: npm start
-    healthCheckPath: /api/ready
+    healthCheckPath: /api/ready/
     autoDeployTrigger: commit
     maxShutdownDelaySeconds: 60
     envVars:
