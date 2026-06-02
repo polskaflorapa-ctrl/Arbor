@@ -1961,6 +1961,10 @@ CREATE TABLE IF NOT EXISTS demo_requests (
   converted_at TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'new';
+ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS sales_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS client_id INTEGER;
+ALTER TABLE demo_requests ADD COLUMN IF NOT EXISTS converted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_demo_requests_created_at ON demo_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_demo_requests_status ON demo_requests(status);
 
