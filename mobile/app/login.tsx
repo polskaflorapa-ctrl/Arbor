@@ -23,6 +23,12 @@ import { apiUrl } from '../utils/api-client';
 const LAST_LOGIN_KEY = 'last_login_value';
 const REMEMBER_LOGIN_KEY = 'remember_login_enabled';
 const SERVER_PROBE_TIMEOUT_MS = 8000;
+const LOGIN_TIMEOUT_MS = 20000;
+const LOGIN_RETRY_DELAY_MS = 900;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetriableLoginStatus = (status: number) => status >= 500 && status < 600;
 
 export default function Login() {
   const { theme } = useTheme();
@@ -115,6 +121,17 @@ export default function Login() {
     return () => clearInterval(intervalId);
   }, [isLocked, lockUntil]);
 
+  const postLogin = useCallback(async () => {
+    const loginController = new AbortController();
+    const loginTimeout = setTimeout(() => loginController.abort(), LOGIN_TIMEOUT_MS);
+    return fetch(apiUrl('/auth/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: login.trim(), haslo }),
+      signal: loginController.signal,
+    }).finally(() => clearTimeout(loginTimeout));
+  }, [haslo, login]);
+
   const handleLogin = async () => {
     if (isLocked) {
       void triggerHaptic('warning');
@@ -135,14 +152,11 @@ export default function Login() {
         setLockUntil(null);
       }
 
-      const loginController = new AbortController();
-      const loginTimeout = setTimeout(() => loginController.abort(), 20000);
-      const response = await fetch(apiUrl('/auth/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login: login.trim(), haslo }),
-        signal: loginController.signal,
-      }).finally(() => clearTimeout(loginTimeout));
+      let response = await postLogin();
+      if (isRetriableLoginStatus(response.status)) {
+        await sleep(LOGIN_RETRY_DELAY_MS);
+        response = await postLogin();
+      }
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
         if (!data?.token || !data?.user) {
@@ -169,9 +183,11 @@ export default function Login() {
           (typeof data?.error === 'string' && data.error) ||
           (typeof data?.message === 'string' && data.message) ||
           null;
+        const requestId = typeof data?.requestId === 'string' && data.requestId ? data.requestId : null;
         const defaultMessage = response.status === 401
           ? t('login.badCredentials')
           : t('login.serverError', { status: response.status });
+        const messageWithRequestId = requestId ? `${backendMessage || defaultMessage} ID: ${requestId}` : backendMessage || defaultMessage;
         const nextFailedAttempts = (response.status === 401 || response.status === 403)
           ? failedAttempts + 1
           : failedAttempts;
@@ -185,7 +201,7 @@ export default function Login() {
           setErrorMessage(t('login.locked30'));
         } else {
           void triggerHaptic('warning');
-          setErrorMessage(backendMessage || defaultMessage);
+          setErrorMessage(messageWithRequestId);
         }
       }
     } catch (err) {
