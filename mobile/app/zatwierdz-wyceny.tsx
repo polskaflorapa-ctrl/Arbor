@@ -29,6 +29,7 @@ import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
 import { PlatinumPressable } from '../components/ui/platinum-pressable';
+import { ScreenHeader } from '../components/ui/screen-header';
 import { PLATINUM_MOTION } from '../constants/motion';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -240,16 +241,7 @@ export default function ZatwierdzWycenyScreen() {
     <KeyboardSafeScreen style={S.root}>
       <AppStatusBar />
 
-      {/* Header */}
-      <View style={S.header}>
-        <TouchableOpacity onPress={() => {
-          safeBack();
-        }} style={S.backBtn}>
-          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
-        </TouchableOpacity>
-        <Text style={S.headerTitle}>{t('approve.screenTitle')}</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <ScreenHeader title={t('approve.screenTitle')} paddingTop={52} edgeSlotWidth={48} />
       {runtimeError ? (
         <View style={S.errorBar}>
           <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={S.platinumBarIcon} />
@@ -566,13 +558,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 12, paddingBottom: 40 },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-    backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: t.cardBorder,
-  },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: t.headerText, letterSpacing: 0 },
-  backBtn: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
   platinumBar: {
     marginHorizontal: 12,
     marginTop: 10,

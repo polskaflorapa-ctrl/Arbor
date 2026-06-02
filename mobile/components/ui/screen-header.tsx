@@ -10,6 +10,7 @@ import { PlatinumIconBadge } from './platinum-icon-badge';
 
 export type ScreenHeaderProps = {
   title: string;
+  subtitle?: string;
   titleIcon?: React.ReactNode;
   titleAlign?: 'center' | 'start';
   onBackPress?: () => void;
@@ -23,6 +24,7 @@ export type ScreenHeaderProps = {
 
 export function ScreenHeader({
   title,
+  subtitle,
   titleIcon,
   titleAlign = 'center',
   onBackPress,
@@ -57,9 +59,16 @@ export function ScreenHeader({
       </TouchableOpacity>
       <View style={[styles.titleWrap, titleAlign === 'start' && styles.titleWrapStart]}>
         {titleIcon ? <View style={styles.titleIcon}>{titleIcon}</View> : null}
-        <Text style={[styles.title, titleAlign === 'start' && styles.titleStart]} numberOfLines={1}>
-          {title}
-        </Text>
+        <View style={styles.titleTextWrap}>
+          <Text style={[styles.title, titleAlign === 'start' && styles.titleStart]} numberOfLines={1}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text style={[styles.subtitle, titleAlign === 'start' && styles.titleStart]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
       </View>
       <View style={[styles.rightWrap, { width: edgeSlotWidth }]}>
         {right ?? null}
@@ -109,6 +118,17 @@ function makeStyles(
     },
     titleStart: {
       textAlign: 'left',
+    },
+    subtitle: {
+      color: t.headerSub,
+      fontSize: 12,
+      fontWeight: '600',
+      opacity: 0.95,
+      textAlign: 'center',
+    },
+    titleTextWrap: {
+      flex: 1,
+      minWidth: 0,
     },
     titleWrap: {
       flex: 1,

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -77,14 +78,22 @@ export default function CrmMobileScreen() {
     <View style={S.root}>
       <AppStatusBar />
       <ScreenHeader title="CRM i klienci" />
-      <View style={S.content}>
-        <Text style={S.hint}>
-          Centrum relacji z klientem: jeden ekran do CRM, kontaktu i dziennika rozmow.
-        </Text>
+      <ScrollView style={S.scroll} contentContainerStyle={S.content} showsVerticalScrollIndicator={false}>
+        <View style={S.hero}>
+          <View>
+            <Text style={S.heroKicker}>Centrum relacji</Text>
+            <Text style={S.heroTitle}>CRM</Text>
+          </View>
+          <View style={S.heroStats}>
+            <Text style={S.heroStatValue}>{HUB_CARDS.length}</Text>
+            <Text style={S.heroStatLabel}>modulow</Text>
+          </View>
+        </View>
         {HUB_CARDS.map((card) => (
           <TouchableOpacity
             key={card.id}
             style={S.card}
+            activeOpacity={0.84}
             onPress={() => router.push(card.path as never)}
           >
             <View style={S.iconWrap}>
@@ -97,7 +106,7 @@ export default function CrmMobileScreen() {
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -106,12 +115,51 @@ const makeStyles = (t: Theme) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
-    content: { padding: 14, gap: 10 },
-    hint: {
+    scroll: { flex: 1 },
+    content: { padding: 12, gap: 10, paddingBottom: 24 },
+    hero: {
+      minHeight: 92,
+      borderRadius: 12,
+      padding: 14,
+      backgroundColor: t.cardBg,
+      borderWidth: 1,
+      borderColor: t.cardBorder,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 2,
+    },
+    heroKicker: {
       color: t.textSub,
-      fontSize: 13,
-      lineHeight: 18,
-      marginBottom: 6,
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+    },
+    heroTitle: {
+      color: t.text,
+      fontSize: 28,
+      fontWeight: '900',
+      marginTop: 2,
+    },
+    heroStats: {
+      minWidth: 72,
+      minHeight: 58,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.accentLight,
+      borderWidth: 1,
+      borderColor: t.accent + '44',
+    },
+    heroStatValue: {
+      color: t.accent,
+      fontSize: 20,
+      fontWeight: '900',
+    },
+    heroStatLabel: {
+      color: t.textSub,
+      fontSize: 11,
+      fontWeight: '800',
     },
     card: {
       flexDirection: 'row',
@@ -120,21 +168,22 @@ const makeStyles = (t: Theme) =>
       backgroundColor: t.cardBg,
       borderWidth: 1,
       borderColor: t.cardBorder,
-      borderRadius: 14,
+      borderRadius: 12,
+      minHeight: 72,
       paddingHorizontal: 12,
-      paddingVertical: 12,
+      paddingVertical: 11,
     },
     iconWrap: {
-      width: 38,
-      height: 38,
-      borderRadius: 11,
+      width: 42,
+      height: 42,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: t.accentLight,
       borderWidth: 1,
-      borderColor: t.cardBorder,
+      borderColor: t.accent + '33',
     },
     cardBody: { flex: 1 },
-    cardTitle: { color: t.text, fontWeight: '700', fontSize: 15 },
-    cardSubtitle: { color: t.textSub, fontSize: 12, marginTop: 2 },
+    cardTitle: { color: t.text, fontWeight: '900', fontSize: 15 },
+    cardSubtitle: { color: t.textSub, fontSize: 12, lineHeight: 16, marginTop: 2 },
   });

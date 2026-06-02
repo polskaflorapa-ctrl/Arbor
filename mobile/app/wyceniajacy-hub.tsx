@@ -1,4 +1,3 @@
-import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import { DashboardSkeleton } from '../components/ui/skeleton-block';
 import { PlatinumCard } from '../components/ui/platinum-card';
+import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -239,15 +239,13 @@ export default function WyceniajacyHubScreen() {
   return (
     <View style={S.root}>
       <AppStatusBar />
-      <View style={S.header}>
-        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={S.title}>{t('hub.screenEstimator')}</Text>
-          <Text style={S.subtitle}>{t('hub.subtitleEstimator')}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title={t('hub.screenEstimator')}
+        subtitle={t('hub.subtitleEstimator')}
+        titleAlign="start"
+        paddingTop={54}
+        edgeSlotWidth={48}
+      />
       {runtimeError ? (
         <View style={S.errorBar}>
           <Ionicons name="warning-outline" size={14} color={theme.warning} />
@@ -538,20 +536,6 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   scroll: { flex: 1 },
-  header: {
-    backgroundColor: t.headerBg,
-    paddingHorizontal: 14,
-    paddingTop: 54,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: t.cardBorder,
-  },
-  backBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 18, fontWeight: '800', color: t.headerText },
-  subtitle: { fontSize: 12, color: t.headerSub, opacity: 0.95 },
   errorBar: {
     marginHorizontal: 12,
     marginTop: 8,

@@ -1,4 +1,3 @@
-import { safeBack } from '../utils/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -26,6 +25,7 @@ import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { PlatinumModalSheet } from '../components/ui/platinum-modal-sheet';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
+import { ScreenHeader } from '../components/ui/screen-header';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
@@ -53,13 +53,6 @@ function makeCalendarStyles(t: Theme) {
     centerFull: { flex: 1, backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' },
     scroll: { paddingBottom: 40 },
 
-    header: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-      backgroundColor: t.headerBg, borderBottomWidth: 1, borderBottomColor: uiBorder,
-    },
-    headerTitle: { fontSize: t.fontSection + 2, fontWeight: '800', color: t.headerText, letterSpacing: 0 },
-    backBtn: { padding: 4 },
     addBtn: {
       width: 48, height: 48, alignItems: 'center', justifyContent: 'center',
       borderRadius: t.radiusSm, borderWidth: 1, borderColor: uiBorder, backgroundColor: t.surface2,
@@ -580,18 +573,16 @@ export default function WycenaKalendarzScreen() {
     <KeyboardSafeScreen style={s.root}>
       <AppStatusBar />
 
-      {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
-          <PlatinumIconBadge icon="arrow-back" color={theme.headerText} size={13} style={{ width: 26, height: 26, borderRadius: 9 }} />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>{t('wyceny.calendarTitle')}</Text>
-        {canAdd ? (
+      <ScreenHeader
+        title={t('wyceny.calendarTitle')}
+        paddingTop={52}
+        edgeSlotWidth={48}
+        right={canAdd ? (
           <TouchableOpacity onPress={openModal} style={s.addBtn}>
             <PlatinumIconBadge icon="add" color={theme.accent} size={12} style={s.addBtnIcon} />
           </TouchableOpacity>
-        ) : <View style={{ width: 48 }} />}
-      </View>
+        ) : null}
+      />
       {runtimeError ? (
         <View style={s.errorBar}>
           <PlatinumIconBadge icon="warning-outline" color={theme.warning} size={10} style={s.platinumBarIcon} />
