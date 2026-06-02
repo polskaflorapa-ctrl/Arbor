@@ -32,10 +32,13 @@ assertFiles([
   'docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
   'docs/PILOT-CLOSURE-GO-LIVE-GATE.md',
   'docs/PILOT-ONE-BRANCH-CHECKLIST.md',
+  'docs/pilot-runs/.gitkeep',
+  'scripts/create-pilot-run-report.cjs',
 ]);
 
 assertPackageScripts('package.json', [
   'verify:pilot-execution',
+  'pilot:run:new',
   'verify:pilot-closure',
   'status:json:strict',
   'check',
@@ -74,20 +77,33 @@ assertIncludes('docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md', [
   'minimum 3 zleceniach',
 ]);
 
+assertIncludes('scripts/create-pilot-run-report.cjs', [
+  'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
+  'docs',
+  'pilot-runs',
+  'PILOT-GO-NO-GO-',
+  '--date',
+  '--force',
+  'YYYY-MM-DD',
+]);
+
 assertIncludes('docs/PILOT-CLOSURE-GO-LIVE-GATE.md', [
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
   'docs/pilot-runs',
   'verify:pilot-execution',
+  'pilot:run:new',
 ]);
 
 assertIncludes('docs/PILOT-ONE-BRANCH-CHECKLIST.md', [
   'verify:pilot-execution',
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
+  'pilot:run:new',
 ]);
 
 assertIncludes('docs/ARBOR-full-scope-implementation-backlog.md', [
   'pilot execution evidence template',
   'verify:pilot-execution',
+  'pilot:run:new',
 ]);
 
 console.log('pilot execution evidence template check passed');
