@@ -606,6 +606,13 @@ export default function AutoDispatch() {
         setError(`${payload.error || e.message}${names ? ` Nieobecne: ${names}.` : ''}`);
         return;
       }
+      if (payload.code === 'TEAM_COMPETENCY_BLOCKED' && Array.isArray(payload.blocked_assignments)) {
+        const blocked = payload.blocked_assignments
+          .map((item) => `zlecenie #${item.task_id}: ${(item.missing_competencies || []).join(', ')}`)
+          .join('; ');
+        setError(`${payload.error || e.message}${blocked ? ` Braki: ${blocked}.` : ''}`);
+        return;
+      }
       setError(payload.error || e.message);
     } finally { setApplying(false); }
   }, [fetchAdvisorBrief, savedPlanId]);

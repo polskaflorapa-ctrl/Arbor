@@ -153,6 +153,7 @@ describe('POST /api/dispatch/plan', () => {
     expect(res.status).toBe(200);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('FROM teams e'))).toBe(true);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('equipment_reservations er'))).toBe(true);
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('uc.data_waznosci IS NULL OR uc.data_waznosci >= CURRENT_DATE'))).toBe(true);
     expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('tm.aktywny'))).toBe(false);
     expect(solve).toHaveBeenCalledWith(expect.objectContaining({
       teams: [expect.objectContaining({
@@ -309,6 +310,48 @@ describe('POST /api/dispatch/apply/:id', () => {
       expect.objectContaining({ team_id: 10, team_name: 'Ekipa A', note: 'Urlop' }),
     ]);
     expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
+  it('409 when applying a saved plan whose team lacks required competencies', async () => {
+    const mockClient = setupMockClient();
+    const planJson = {
+      routes: [{ team_id: 10, stops: [{ task_id: 101 }] }],
+      unassigned: [],
+    };
+    mockClient.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('CREATE INDEX')) return { rows: [], rowCount: 0 };
+      if (s.includes('SELECT * FROM dispatch_plans')) {
+        return { rows: [{ id: 1, plan_json: planJson, oddzial_id: 3, data: '2025-06-15' }], rowCount: 1 };
+      }
+      if (s.includes('JOIN team_attendance')) return { rows: [], rowCount: 0 };
+      if (s.includes('WITH assignments')) {
+        return {
+          rows: [{
+            task_id: 101,
+            team_id: 10,
+            wymagane_kompetencje: ['Arborysta', 'Pilarz'],
+            team_competencies: ['Pilarz'],
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/dispatch/apply/1')
+      .set('Authorization', `Bearer ${kierownikToken(3)}`);
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_COMPETENCY_BLOCKED');
+    expect(res.body.missing_competencies).toEqual(['Arborysta']);
+    expect(res.body.blocked_assignments).toEqual([
+      expect.objectContaining({ task_id: 101, team_id: 10, missing_competencies: ['Arborysta'] }),
+    ]);
+    expect(mockClient.query).not.toHaveBeenCalledWith('BEGIN');
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks SET ekipa_id'))).toBe(false);
     expect(mockClient.release).toHaveBeenCalled();
   });
 });
