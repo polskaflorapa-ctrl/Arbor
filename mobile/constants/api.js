@@ -19,28 +19,37 @@ export const CUSTOM_API_URL_STORAGE_KEY = 'arbor_custom_api_url';
  */
 let _runtimeApiUrl = resolveApiUrl();
 
+const resolveWebAppUrl = (apiBaseUrl) => {
+  const fromEnv = typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_WEB_APP_URL;
+  if (fromEnv && String(fromEnv).trim()) return trimTrailingSlash(String(fromEnv).trim());
+  return apiBaseUrl;
+};
+
+const applyApiUrl = (url) => {
+  _runtimeApiUrl = url;
+  API_URL = url;
+  API_BASE_URL = API_URL.replace(/\/api$/, '');
+  WEB_APP_URL = resolveWebAppUrl(API_BASE_URL);
+};
+
 /** Pobiera aktualny URL API (uwzględnia runtime override). */
 export const getApiUrl = () => _runtimeApiUrl;
 
 /** Ustawia runtime override — wywołaj po starcie z AsyncStorage. Wymaga restartu dla pełnego efektu. */
 export const setRuntimeApiUrl = (url) => {
   if (!url || !String(url).trim()) {
-    _runtimeApiUrl = resolveApiUrl();
+    applyApiUrl(resolveApiUrl());
   } else {
     const normalized = trimTrailingSlash(String(url).trim());
-    _runtimeApiUrl = normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+    applyApiUrl(normalized.endsWith('/api') ? normalized : `${normalized}/api`);
   }
 };
 
-export const API_URL = resolveApiUrl();
-export const API_BASE_URL = API_URL.replace(/\/api$/, '');
+export let API_URL = _runtimeApiUrl;
+export let API_BASE_URL = API_URL.replace(/\/api$/, '');
 
 /** Bazowy URL panelu web (CMR itd.). Domyslnie ten sam host co API bez `/api`. Nadpisz: EXPO_PUBLIC_WEB_APP_URL */
-export const WEB_APP_URL = (() => {
-  const fromEnv = typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_WEB_APP_URL;
-  if (fromEnv && String(fromEnv).trim()) return trimTrailingSlash(String(fromEnv).trim());
-  return API_BASE_URL;
-})();
+export let WEB_APP_URL = resolveWebAppUrl(API_BASE_URL);
 
 /** Opcjonalnie: EXPO_PUBLIC_EXPECTED_API_VERSION=1.2.0 - ostrzezenie w diagnostyce. */
 export const EXPECTED_API_VERSION =
