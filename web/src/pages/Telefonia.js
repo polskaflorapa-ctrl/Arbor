@@ -174,6 +174,10 @@ export default function Telefonia() {
     lead_name: '',
     task_id: '',
     status: 'answered',
+    inspection_address: '',
+    city: '',
+    service_type: '',
+    appointment_at: '',
     notes: '',
     create_lead: true,
     create_callback: false,
@@ -1339,6 +1343,10 @@ export default function Telefonia() {
             value: 0,
             notes: [
               `Telefon przychodzacy: ${incomingForm.status}`,
+              incomingForm.service_type ? `Typ uslugi: ${incomingForm.service_type}` : '',
+              incomingForm.inspection_address.trim() ? `Adres ogledzin: ${incomingForm.inspection_address.trim()}` : '',
+              incomingForm.city.trim() ? `Miasto: ${incomingForm.city.trim()}` : '',
+              incomingForm.appointment_at ? `Proponowany termin: ${incomingForm.appointment_at}` : '',
               incomingForm.notes.trim(),
               taskId ? `Powiazane zlecenie: #${taskId}` : '',
             ].filter(Boolean).join('\n'),
@@ -1371,6 +1379,10 @@ export default function Telefonia() {
         lead_name: '',
         task_id: '',
         status: 'answered',
+        inspection_address: '',
+        city: '',
+        service_type: '',
+        appointment_at: '',
         notes: '',
         create_lead: true,
         create_callback: false,
@@ -3463,6 +3475,40 @@ export default function Telefonia() {
                     placeholder="Nr zlecenia"
                     style={s.input}
                     inputMode="numeric"
+                  />
+                </div>
+                <div style={s.inline2}>
+                  <select
+                    value={incomingForm.service_type}
+                    onChange={(e) => setIncomingForm((f) => ({ ...f, service_type: e.target.value }))}
+                    style={s.input}
+                  >
+                    <option value="">Typ uslugi...</option>
+                    <option value="wycinka_pielegnacja">Drzewa</option>
+                    <option value="dach">Dach</option>
+                    <option value="elewacja_kostka">Elewacja / kostka</option>
+                    <option value="ogrod">Ogrod</option>
+                    <option value="inne">Inne</option>
+                  </select>
+                  <input
+                    type="datetime-local"
+                    value={incomingForm.appointment_at}
+                    onChange={(e) => setIncomingForm((f) => ({ ...f, appointment_at: e.target.value }))}
+                    style={s.input}
+                  />
+                </div>
+                <div style={s.inline2}>
+                  <input
+                    value={incomingForm.inspection_address}
+                    onChange={(e) => setIncomingForm((f) => ({ ...f, inspection_address: e.target.value }))}
+                    placeholder="Adres ogledzin"
+                    style={s.input}
+                  />
+                  <input
+                    value={incomingForm.city}
+                    onChange={(e) => setIncomingForm((f) => ({ ...f, city: e.target.value }))}
+                    placeholder="Miasto"
+                    style={s.input}
                   />
                 </div>
                 <textarea

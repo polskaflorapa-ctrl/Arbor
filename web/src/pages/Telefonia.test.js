@@ -215,6 +215,9 @@ test('specialist can register an incoming client call and create callback', asyn
   await userEvent.type(screen.getByPlaceholderText('Telefon klienta'), '+48600111222');
   await userEvent.type(screen.getByPlaceholderText('Klient / firma'), 'Jan Klient');
   await userEvent.selectOptions(selects[1], 'missed');
+  await userEvent.selectOptions(screen.getByDisplayValue('Typ uslugi...'), 'ogrod');
+  await userEvent.type(screen.getByPlaceholderText('Adres ogledzin'), 'Lesna 5');
+  await userEvent.type(screen.getByPlaceholderText('Miasto'), 'Krakow');
   await userEvent.type(screen.getByPlaceholderText('Co klient powiedzial / czego potrzebuje...'), 'Prosi o pilny kontakt');
   await userEvent.click(screen.getByRole('button', { name: 'Zapisz przychodzace' }));
 
@@ -244,6 +247,10 @@ test('specialist can register an incoming client call and create callback', asyn
     }),
     expect.objectContaining({ headers: expect.any(Object) })
   );
+  const crmLeadCall = api.post.mock.calls.find(([url]) => url === '/crm/leads');
+  expect(crmLeadCall?.[1].notes).toContain('Typ uslugi: ogrod');
+  expect(crmLeadCall?.[1].notes).toContain('Adres ogledzin: Lesna 5');
+  expect(crmLeadCall?.[1].notes).toContain('Miasto: Krakow');
   expect(api.post).toHaveBeenCalledWith(
     '/telephony/callbacks',
     expect.objectContaining({
