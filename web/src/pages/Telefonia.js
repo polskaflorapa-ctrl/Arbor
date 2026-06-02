@@ -794,7 +794,7 @@ export default function Telefonia() {
     },
     one_click_notes: [
       'Ta paczka jest oddzialowa - nie mieszaj sekretow ani numerow pomiedzy oddzialami.',
-      'W panelu providera ustaw webhook POST i header x-voice-agent-secret.',
+      'W panelu Zadarma ustaw webhook POST i header x-voice-agent-secret.',
       'Payload musi wysylac oddzial_id oraz dane rozmowy klienta.',
       'Po zapisaniu w providerze uruchom w ARBOR-OS Test calosci oddzialu.',
     ],
@@ -864,7 +864,7 @@ export default function Telefonia() {
         sms_sender_id: preparedRow.sms_sender_id || f.sms_sender_id,
       }));
       await navigator.clipboard.writeText(buildPreparedProviderPackage({ integration, row: preparedRow }));
-      setAgentMessage(`Podpiecie oddzialu ${preparedRow.oddzial_name || `#${preparedRow.oddzial_id}`} gotowe i skopiowane. Numery oddzialu sa zapisane, wklej paczke u providera, potem uruchom Test calosci oddzialu.`);
+      setAgentMessage(`Podpiecie oddzialu ${preparedRow.oddzial_name || `#${preparedRow.oddzial_id}`} gotowe i skopiowane. Numery oddzialu sa zapisane, wklej paczke w panelu Zadarma, potem uruchom Test calosci oddzialu.`);
       await Promise.all([
         hasBranchPatch ? loadTelephonyExtras() : Promise.resolve(),
         loadVoiceAgentIntegration(preparedRow.oddzial_id),
@@ -1002,7 +1002,7 @@ export default function Telefonia() {
       '- Header: x-voice-agent-secret',
       `- Sekret: ${agentIntegration?.webhook_secret || 'brak - wlacz agenta w panelu'}`,
       '',
-      'Wymagane po stronie providera:',
+      'Wymagane po stronie Zadarma:',
       '- ustaw webhook po rozmowie / po zebraniu danych klienta',
       '- wysylaj oddzial_id w payloadzie',
       '- przekazuj telefon klienta, imie/nazwisko, adres, miasto, typ uslugi, termin i transkrypt',
@@ -2020,10 +2020,10 @@ export default function Telefonia() {
         || 'Wpisz numer oddzialu, z ktorego beda wychodzic polaczenia.',
     },
     {
-      label: '2. Pakiet providera',
+      label: '2. Dane Zadarma',
       ready: !!agentIntegration?.webhook_secret,
       detail: agentIntegration?.webhook_secret
-        ? 'Webhook i sekret sa gotowe do skopiowania.'
+        ? 'Webhook i sekret sa gotowe do wklejenia w Zadarma.'
         : 'Kliknij Przygotuj jednym kliknieciem.',
     },
     {
@@ -2031,7 +2031,7 @@ export default function Telefonia() {
       ready: selectedBranchStatus ? branchHasFreshOkTest(selectedBranchStatus) : false,
       detail: selectedBranchStatus && branchHasFreshOkTest(selectedBranchStatus)
         ? branchLastTestLabel(selectedBranchStatus)
-        : 'Po wklejeniu danych u providera uruchom Test calosci oddzialu.',
+        : 'Po wklejeniu danych w Zadarma uruchom Test calosci oddzialu.',
     },
   ];
   const filteredAgentIntakes = agentIntakes.filter((x) => {
@@ -2499,14 +2499,14 @@ export default function Telefonia() {
                           <button
                             type="button"
                             style={s.rowBtn}
-                            onClick={() => copyAgentText(buildBranchProviderPackage(selectedBranchStatus), 'Pakiet providera oddzialu')}
+                            onClick={() => copyAgentText(buildBranchProviderPackage(selectedBranchStatus), 'Dane Zadarma oddzialu')}
                           >
-                            Kopiuj pakiet providera
+                            Kopiuj dane Zadarma
                           </button>
                           <button
                             type="button"
                             style={s.rowBtn}
-                            onClick={() => copyAgentText(buildBranchProviderBrief(selectedBranchStatus), 'Instrukcja providera oddzialu')}
+                            onClick={() => copyAgentText(buildBranchProviderBrief(selectedBranchStatus), 'Instrukcja Zadarma oddzialu')}
                           >
                             Kopiuj instrukcje
                           </button>
@@ -2635,7 +2635,7 @@ export default function Telefonia() {
                 <div>
                   <div style={s.manualTitle}>Szybki start oddzialu</div>
                   <div style={s.agentHistoryMeta}>
-                    Jeden przeplyw dla menadzerki: zapisz numery, przygotuj podpiecie, odpal test.
+                    Zadarma bez grzebania w kodzie: zapisz numery, skopiuj webhook, odpal test.
                   </div>
                 </div>
                 <button
@@ -2680,11 +2680,11 @@ export default function Telefonia() {
                   onChange={(e) => setAgentForm((f) => ({ ...f, provider: e.target.value }))}
                   style={s.input}
                 >
+                  <option value="zadarma">Zadarma</option>
                   <option value="external">Provider zewnetrzny / webhook</option>
                   <option value="vapi">Vapi</option>
                   <option value="elevenlabs">ElevenLabs</option>
                   <option value="twilio">Twilio</option>
-                  <option value="zadarma">Zadarma</option>
                 </select>
                 <input
                   value={agentForm.provider_account_id}
@@ -2715,14 +2715,6 @@ export default function Telefonia() {
                   ) : null}
                   <button type="button" style={s.rowBtn} onClick={testVoiceAgentIntegration} disabled={agentTestLoading || !agentIntegration}>
                     {agentTestLoading ? 'Test...' : 'Test konfiguracji'}
-                  </button>
-                  <button
-                    type="button"
-                    style={s.rowBtnActive}
-                    onClick={() => prepareBranchProviderConnection(selectedBranchStatus)}
-                    disabled={!selectedBranchStatus || branchQuickConnectingId === Number(agentForm.oddzial_id)}
-                  >
-                    {branchQuickConnectingId === Number(agentForm.oddzial_id) ? 'Przygotowuje...' : 'Przygotuj jednym kliknieciem'}
                   </button>
                   <button
                     type="button"
