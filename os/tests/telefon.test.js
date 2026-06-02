@@ -78,8 +78,8 @@ describe('Telefon (Twilio Voice)', () => {
     expect(res.body.code).toBe('TELEFON_STAFF_PHONE_MISSING');
   });
 
-  it('POST /polacz-do-klienta returns 200 and calls Twilio', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ telefon: '+48600111222' }] });
+  it('POST /polacz-do-klienta uses branch caller number when configured', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ staff_telefon: '+48600111222', oddzial_telefon: '+48555111222' }] });
     const res = await request(app)
       .post('/api/telefon/polacz-do-klienta')
       .set('Authorization', `Bearer ${bearerKierownik()}`)
@@ -92,13 +92,27 @@ describe('Telefon (Twilio Voice)', () => {
     const create = twilioFactory.__callsCreate;
     expect(create).toHaveBeenCalledTimes(1);
     expect(create.mock.calls[0][0].to).toBe('+48600111222');
-    expect(create.mock.calls[0][0].from).toBe('+48111222333');
+    expect(create.mock.calls[0][0].from).toBe('+48555111222');
     expect(create.mock.calls[0][0].url).toContain('/api/telefon/twiml/dial?t=');
+  });
+
+  it('POST /polacz-do-klienta falls back to global caller number without branch phone', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ staff_telefon: '+48600111222', oddzial_telefon: null }] });
+    const res = await request(app)
+      .post('/api/telefon/polacz-do-klienta')
+      .set('Authorization', `Bearer ${bearerKierownik()}`)
+      .send({ do: '791333444' });
+    expect(res.status).toBe(200);
+
+    const twilioFactory = require('twilio');
+    const create = twilioFactory.__callsCreate;
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][0].from).toBe('+48111222333');
   });
 
   it('GET /twiml/dial returns TwiML with Dial for valid token', async () => {
     const token = jwt.sign(
-      { typ: 'twilio-dial', do: '+48791234567', task_id: null, user_id: 1 },
+      { typ: 'twilio-dial', do: '+48791234567', task_id: null, user_id: 1, caller_id: '+48555111222' },
       env.JWT_SECRET,
       { expiresIn: '5m', audience: 'twilio-twiml' }
     );
@@ -109,6 +123,7 @@ describe('Telefon (Twilio Voice)', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/xml/);
     expect(res.text).toContain('<Dial');
+    expect(res.text).toContain('callerId="+48555111222"');
     expect(res.text).toContain('+48791234567');
     expect(res.text).toContain('record-from-answer-dual');
     expect(res.text).toContain('/api/telefon/webhooks/recording');
