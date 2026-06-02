@@ -3358,7 +3358,7 @@ router.get('/kommo-sync/diagnostics', authMiddleware, async (req, res) => {
     const [queueResult, inboundResult] = await Promise.all([
       pool.query(
         `SELECT
-           q.id, q.task_id, q.event, q.status, q.retry_count, q.next_retry_at,
+           q.id, q.task_id, q.event, q.idempotency_key, q.status, q.retry_count, q.next_retry_at,
            q.last_http_status, q.last_error, q.updated_at, q.last_attempt_at, q.sent_at,
            t.numer, t.klient_nazwa, t.status AS task_status, t.oddzial_id
          FROM task_kommo_sync_queue q

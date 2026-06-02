@@ -38,12 +38,26 @@ const KOMMO_CF_GOODS_SUMMARY_ID = toNum(process.env.KOMMO_CF_GOODS_SUMMARY_ID);
 const KOMMO_CF_KLIENT_RECORD_ID = toNum(process.env.KOMMO_CF_KLIENT_RECORD_ID);
 const KOMMO_TASK_SYNC_EVENT = 'task.sync';
 
+function kommoTaskSyncIdempotencyKey(taskId) {
+  return `arbor:${KOMMO_TASK_SYNC_EVENT}:task:${taskId}`;
+}
+
+function kommoPayloadIdempotencyKey(payload) {
+  return (
+    payload?.idempotency_key
+    || payload?.task?.sync_meta?.idempotency_key
+    || payload?.task?.idempotency_key
+    || null
+  );
+}
+
 async function ensureKommoTaskSyncQueue(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS task_kommo_sync_queue (
       id SERIAL PRIMARY KEY,
       task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
       event VARCHAR(40) NOT NULL DEFAULT 'task.sync',
+      idempotency_key VARCHAR(180),
       status VARCHAR(32) NOT NULL DEFAULT 'failed',
       retry_count INTEGER NOT NULL DEFAULT 0,
       next_retry_at TIMESTAMPTZ,
@@ -58,6 +72,7 @@ async function ensureKommoTaskSyncQueue(pool) {
       UNIQUE (task_id, event)
     )
   `);
+  await pool.query('ALTER TABLE task_kommo_sync_queue ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(180)');
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_task_kommo_sync_queue_status_retry
       ON task_kommo_sync_queue (status, next_retry_at)
@@ -82,14 +97,16 @@ async function recordKommoTaskSyncFailure(pool, {
   const nextRetryCount = Number(retryCount || 0) + 1;
   const status = nextRetryCount >= maxRetries ? 'dead_letter' : 'failed';
   const delay = retryDelayMinutes(nextRetryCount);
+  const idempotencyKey = kommoPayloadIdempotencyKey(payload) || kommoTaskSyncIdempotencyKey(taskId);
   const result = await pool.query(
     `INSERT INTO task_kommo_sync_queue (
-       task_id, event, status, retry_count, next_retry_at, last_http_status, last_error,
+       task_id, event, idempotency_key, status, retry_count, next_retry_at, last_http_status, last_error,
        payload_json, actor_json, last_attempt_at, updated_at
      )
-     VALUES ($1, $2, $3, $4, NOW() + ($5::text || ' minutes')::interval, $6, $7, $8::jsonb, $9::jsonb, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, NOW() + ($6::text || ' minutes')::interval, $7, $8, $9::jsonb, $10::jsonb, NOW(), NOW())
      ON CONFLICT (task_id, event)
      DO UPDATE SET
+       idempotency_key = EXCLUDED.idempotency_key,
        status = EXCLUDED.status,
        retry_count = EXCLUDED.retry_count,
        next_retry_at = EXCLUDED.next_retry_at,
@@ -104,6 +121,7 @@ async function recordKommoTaskSyncFailure(pool, {
     [
       taskId,
       KOMMO_TASK_SYNC_EVENT,
+      idempotencyKey,
       status,
       nextRetryCount,
       delay,
@@ -120,11 +138,12 @@ async function markKommoTaskSyncSuccess(pool, taskId) {
   await ensureKommoTaskSyncQueue(pool);
   const result = await pool.query(
     `INSERT INTO task_kommo_sync_queue (
-       task_id, event, status, retry_count, next_retry_at, last_error, last_attempt_at, sent_at, updated_at
+       task_id, event, idempotency_key, status, retry_count, next_retry_at, last_error, last_attempt_at, sent_at, updated_at
      )
-     VALUES ($1, $2, 'sent', 0, NULL, NULL, NOW(), NOW(), NOW())
+     VALUES ($1, $2, $3, 'sent', 0, NULL, NULL, NOW(), NOW(), NOW())
      ON CONFLICT (task_id, event)
      DO UPDATE SET
+       idempotency_key = EXCLUDED.idempotency_key,
        status = 'sent',
        retry_count = 0,
        next_retry_at = NULL,
@@ -134,7 +153,7 @@ async function markKommoTaskSyncSuccess(pool, taskId) {
        sent_at = NOW(),
        updated_at = NOW()
      RETURNING *`,
-    [taskId, KOMMO_TASK_SYNC_EVENT]
+    [taskId, KOMMO_TASK_SYNC_EVENT, kommoTaskSyncIdempotencyKey(taskId)]
   );
   return result.rows[0] || null;
 }
@@ -254,6 +273,7 @@ function buildKommoTaskPayload(row, actor = null) {
   return {
     source: 'arbor-os',
     event: 'task.sync',
+    idempotency_key: kommoTaskSyncIdempotencyKey(row.id),
     sent_at: new Date().toISOString(),
     integration: { provider: 'kommo', version: '1' },
     actor: actor || null,
@@ -358,6 +378,7 @@ function buildKommoTaskPayload(row, actor = null) {
       },
       notatki_wewnetrzne: toCompactText(row.notatki_wewnetrzne),
       sync_meta: {
+        idempotency_key: kommoTaskSyncIdempotencyKey(row.id),
         last_sync_at: row.kommo_last_sync_at || null,
         last_sync_status: row.kommo_last_sync_status || null,
       },
@@ -428,6 +449,11 @@ function kommoWebhookConfigured(kind) {
 async function postKommoWebhook(payload, kind = 'crm', { retries = 3 } = {}) {
   const url = resolveKommoWebhookUrl(kind);
   const headers = { 'content-type': 'application/json' };
+  const idempotencyKey = kommoPayloadIdempotencyKey(payload);
+  if (idempotencyKey) {
+    headers['idempotency-key'] = idempotencyKey;
+    headers['x-idempotency-key'] = idempotencyKey;
+  }
   if (KOMMO_WEBHOOK_SECRET_HEADER && KOMMO_WEBHOOK_SECRET) {
     headers[KOMMO_WEBHOOK_SECRET_HEADER] = KOMMO_WEBHOOK_SECRET;
   }
@@ -490,4 +516,5 @@ module.exports = {
   getKommoTaskSyncQueueRow,
   markKommoTaskSyncSuccess,
   recordKommoTaskSyncFailure,
+  kommoTaskSyncIdempotencyKey,
 };

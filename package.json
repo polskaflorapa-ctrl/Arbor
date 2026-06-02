@@ -78,6 +78,7 @@
     "verify:competency-expiry-monitoring": "node ./scripts/competency-expiry-monitoring-check.cjs",
     "verify:team-competency-assignment-block": "node ./scripts/team-competency-assignment-block-check.cjs",
     "verify:dispatcher-competency-consistency": "node ./scripts/dispatcher-competency-consistency-check.cjs",
+    "verify:kommo-idempotency-retry": "node ./scripts/kommo-idempotency-retry-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

@@ -14,6 +14,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:observability` potwierdza health/ready/metrics, progi 5xx/p95 i storage smoke.
 - [ ] `npm run verify:incident-runbook` potwierdza reakcje na down API, p95, storage, Kommo/SMS i restore.
 - [ ] `npm run verify:kommo-sms-drill` potwierdza drill Kommo dead-letter, retry i SMS delivery fallback.
+- [ ] `npm run verify:kommo-idempotency-retry` potwierdza idempotencje Kommo inbound/outbound, retry i dead-letter.
 - [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
 - [ ] `npm run verify:web-tti` potwierdza prog TTI panelu i komendy smoke web.
 - [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.
@@ -46,6 +47,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Publiczny `PUBLIC_BASE_URL` prowadzi do prawidlowej aplikacji.
 - [ ] Zadarma/SMS albo fallback SMS jest skonfigurowany i ma test dostarczenia.
 - [ ] Kommo jest skonfigurowane albo swiadomie wylaczone dla pilota.
+- [ ] Zespol zna kontrakt idempotencji Kommo: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md`.
 - [ ] Backup bazy jest wykonany po migracjach i bootstrapie admina.
 - [ ] Zespol wie, gdzie sa runbooki: `docs/ENVIRONMENT-RUNBOOK.md`, `docs/backup-restore.md`, `docs/MOBILE-OFFLINE-CONTRACT.md`.
 - [ ] Zespol zna produkcyjny dry-run: `docs/PRODUCTION-DEPLOY-DRY-RUN.md`.
@@ -66,6 +68,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna monitoring waznosci uprawnien: `docs/COMPETENCY-EXPIRY-MONITORING-CONTRACT.md`.
 - [ ] Zespol zna blokade przypisan bez kompetencji: `docs/TEAM-COMPETENCY-ASSIGNMENT-BLOCK-CONTRACT.md`.
 - [ ] Zespol zna spojnosc dispatchera z kompetencjami: `docs/DISPATCHER-COMPETENCY-CONSISTENCY-CONTRACT.md`.
+- [ ] Zespol zna idempotencje i retry Kommo: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md`.
 - [ ] Zespol zna flow PROBLEM/offline: `docs/MOBILE-PROBLEM-OFFLINE-FLOW.md`.
 - [ ] Zespol zna blokade zdjec Przed/Po: `docs/MOBILE-BEFORE-AFTER-PHOTO-ENFORCEMENT.md`.
 - [ ] Zespol zna cache listy dnia: `docs/MOBILE-TODAY-TASKS-OFFLINE-CACHE.md`.
@@ -157,6 +160,7 @@ npm run verify:worklog-timesheet
 npm run verify:competency-expiry-monitoring
 npm run verify:team-competency-assignment-block
 npm run verify:dispatcher-competency-consistency
+npm run verify:kommo-idempotency-retry
 npm run verify:mobile-problem-flow
 npm run verify:mobile-before-after-photo
 npm run verify:mobile-photo-enforcement

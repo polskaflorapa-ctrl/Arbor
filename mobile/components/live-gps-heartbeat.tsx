@@ -313,7 +313,7 @@ export function LiveGpsHeartbeat() {
       : 'navigate-circle-outline';
 
   return (
-    <View style={[styles.overlay, { top: Math.max(insets.top + 54, 72) }]} pointerEvents="none">
+    <View style={[styles.overlay, { top: Math.max(insets.top + 54, 72) }]}>
       <View
         style={[
           styles.pill,
@@ -347,6 +347,7 @@ const styles = StyleSheet.create({
     right: 12,
     zIndex: 9998,
     alignItems: 'flex-end',
+    pointerEvents: 'none',
   },
   pill: {
     maxWidth: '92%',

@@ -303,6 +303,49 @@ function isEquipmentAssignedToTeam(item, teamId) {
   return Boolean(teamId && item?.ekipa_id && String(item.ekipa_id) === String(teamId));
 }
 
+function resourceStatusBlocksPlanning(status) {
+  const text = String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return text.includes('napraw') || text.includes('serwis') || text.includes('awari') || text.includes('wycof');
+}
+
+function getTeamResourceRepairSummary(teamId, equipment = [], vehicles = []) {
+  const selectedTeamId = String(teamId || '').trim();
+  if (!selectedTeamId) {
+    return { readyToCheck: false, ok: true, hardConflict: false, items: [], label: 'Zasoby ekipy', detail: 'Wybierz ekipe, aby sprawdzic przypisany sprzet i auta.' };
+  }
+  const items = [
+    ...vehicles
+      .filter((item) => String(item.ekipa_id || '') === selectedTeamId && resourceStatusBlocksPlanning(item.status))
+      .map((item) => ({
+        id: item.id,
+        kind: 'Auto',
+        label: [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ') || `Auto #${item.id}`,
+        status: item.status,
+      })),
+    ...equipment
+      .filter((item) => String(item.ekipa_id || '') === selectedTeamId && resourceStatusBlocksPlanning(item.status))
+      .map((item) => ({
+        id: item.id,
+        kind: 'Sprzet',
+        label: [item.nazwa, item.typ].filter(Boolean).join(' / ') || `Sprzet #${item.id}`,
+        status: item.status,
+      })),
+  ];
+  return {
+    readyToCheck: true,
+    ok: items.length === 0,
+    hardConflict: items.length > 0,
+    items,
+    label: items.length ? `${items.length} zasob ekipy w naprawie` : 'Zasoby ekipy gotowe',
+    detail: items.length
+      ? items.slice(0, 3).map((item) => `${item.kind}: ${item.label} (${item.status || 'status'})`).join(' | ')
+      : 'Przypisane auta i sprzet wybranej ekipy nie sa oznaczone jako awaria/naprawa.',
+  };
+}
+
 function getEquipmentPlanLabel(item, { teamId = '', taskBranchId = '', getBranchLabel = null } = {}) {
   const name = item?.nazwa || `Sprzet #${item?.id || '-'}`;
   const parts = [item?.typ, name].filter(Boolean);
@@ -3662,6 +3705,7 @@ export default function Zlecenia() {
   const [oddzialy, setOddzialy] = useState([]);
   const [sprzetItems, setSprzetItems] = useState([]);
   const [branchEquipment, setBranchEquipment] = useState([]);
+  const [branchVehicles, setBranchVehicles] = useState([]);
   const [tryb, setTryb] = useState(() => {
     const v = localStorage.getItem(VIEW_MODE_KEY) || 'lista';
     return ZLECENIA_TRYBY.has(v) ? v : 'lista';
@@ -3952,6 +3996,7 @@ export default function Zlecenia() {
     if (!currentUser || !branchId) {
       setBranchTeams([]);
       setBranchEquipment([]);
+      setBranchVehicles([]);
       return undefined;
     }
 
@@ -3968,19 +4013,23 @@ export default function Zlecenia() {
           },
           dedupe: false,
         };
-        const [{ data }, equipmentRes] = await Promise.all([
+        const [{ data }, equipmentRes, vehiclesRes] = await Promise.all([
           api.get('/ekipy', requestConfig),
           api.get('/flota/sprzet', requestConfig).catch(() => ({ data: [] })),
+          api.get('/flota/pojazdy', requestConfig).catch(() => ({ data: [] })),
         ]);
         if (!cancelled) {
           setBranchTeams(Array.isArray(data) ? data : (data?.items || []));
           const equipmentData = equipmentRes.data;
+          const vehiclesData = vehiclesRes.data;
           setBranchEquipment(Array.isArray(equipmentData) ? equipmentData : (equipmentData?.items || []));
+          setBranchVehicles(Array.isArray(vehiclesData) ? vehiclesData : (vehiclesData?.items || []));
         }
       } catch {
         if (!cancelled) {
           setBranchTeams([]);
           setBranchEquipment([]);
+          setBranchVehicles([]);
         }
       }
     };
@@ -6380,14 +6429,16 @@ export default function Zlecenia() {
   const officePlanTeamConflictSummary = wybraneZlecenie
     ? getOfficePlanTeamConflictSummary(zlecenia, wybraneZlecenie, officePlan)
     : { readyToCheck: false, ok: false, hardConflict: false, warning: false, outsideWorkday: false, conflicts: [], label: '', detail: '' };
+  const officePlanTeamResourceSummary = wybraneZlecenie
+    ? getTeamResourceRepairSummary(officePlan.ekipa_id || wybraneZlecenie.ekipa_id, sprzetPlanowania, branchVehicles)
+    : { readyToCheck: false, ok: true, hardConflict: false, items: [], label: '', detail: '' };
   const detailEquipmentOptions = wybraneZlecenie
     ? [...sprzetPlanowania]
       .filter((item) => {
         const selected = (officePlan.sprzet_ids || []).some((id) => String(id) === String(item.id));
         const sameBranch = !wybraneZlecenie.oddzial_id || !item.oddzial_id || String(item.oddzial_id) === String(wybraneZlecenie.oddzial_id);
         const assignedToSelectedTeam = isEquipmentAssignedToTeam(item, officePlan.ekipa_id);
-        const status = String(item.status || '').toLowerCase();
-        const unavailable = status.includes('serwis') || status.includes('awari') || status.includes('wycof') || status.includes('napraw');
+        const unavailable = resourceStatusBlocksPlanning(item.status);
         return selected || ((sameBranch || assignedToSelectedTeam) && !unavailable);
       })
       .sort((a, b) => {
@@ -6452,6 +6503,13 @@ export default function Zlecenia() {
       ok: officePlanTeamConflictSummary.ok && !officePlanTeamConflictSummary.warning,
       required: officePlanTeamConflictSummary.hardConflict,
     } : null,
+    officePlanTeamResourceSummary.readyToCheck ? {
+      key: 'team-resources',
+      label: 'Zasoby ekipy',
+      detail: officePlanTeamResourceSummary.detail,
+      ok: officePlanTeamResourceSummary.ok,
+      required: officePlanTeamResourceSummary.hardConflict,
+    } : null,
     {
       key: 'photos',
       label: 'Zdjęcia / szkic',
@@ -6492,12 +6550,15 @@ export default function Zlecenia() {
   const officePlanRequiredMissing = officePlanReadinessItems.filter((item) => item.required && !item.ok);
   const officePlanWarningMissing = officePlanReadinessItems.filter((item) => !item.required && !item.ok);
   const officePlanHasScheduleConflict = officePlanTeamConflictSummary.hardConflict;
+  const officePlanHasTeamResourceConflict = officePlanTeamResourceSummary.hardConflict;
   const officePlanHasEquipmentConflict = officePlanEquipmentConflictSummary.hardConflict || officePlanEquipmentConflictSummary.pending;
-  const officePlanStatusTone = officePlanHasScheduleConflict || officePlanHasEquipmentConflict || officePlanRequiredMissing.length ? 'danger' : officePlanWarningMissing.length ? 'warning' : 'good';
+  const officePlanStatusTone = officePlanHasScheduleConflict || officePlanHasTeamResourceConflict || officePlanHasEquipmentConflict || officePlanRequiredMissing.length ? 'danger' : officePlanWarningMissing.length ? 'warning' : 'good';
   const officePlanStatusLabel = wybraneZlecenie?.status === TASK_STATUS.ZAPLANOWANE && !officePlanRequiredMissing.length
     ? 'Zaplanowane'
     : officePlanHasScheduleConflict
       ? 'Konflikt terminu'
+      : officePlanHasTeamResourceConflict
+        ? 'Zasoby w naprawie'
       : officePlanHasEquipmentConflict
         ? officePlanEquipmentConflictSummary.pending ? 'Sprawdzam sprzet' : 'Konflikt sprzetu'
       : officePlanRequiredMissing.length

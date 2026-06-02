@@ -1165,10 +1165,10 @@ export default function DashboardScreen() {
             <TouchableOpacity key={i} style={[S.navBtn, active && S.navBtnActive]} onPress={() => { void triggerHaptic('light'); router.push(n.path as any); }}>
               <Ionicons
                 name={n.icon}
-                size={24}
+                size={active ? 23 : 21}
                 color={active ? ARBOR_UI.forest : ARBOR_UI.inactive}
               />
-              <Text style={[S.navLabel, active && { color: theme.navActive }]}>
+              <Text style={[S.navLabel, active && S.navLabelActive]}>
                 {t(n.labelKey)}
               </Text>
             </TouchableOpacity>
@@ -1814,23 +1814,33 @@ const makeStyles = (t: Theme) => {
   // Dolna nawigacja
   nav: {
     flexDirection: 'row',
+    justifyContent: 'center',
     backgroundColor: ARBOR_UI.paper,
     borderTopWidth: 1, borderTopColor: ARBOR_UI.line,
-    paddingBottom: 28, paddingTop: 10,
+    paddingHorizontal: 8,
+    paddingBottom: 14,
+    paddingTop: 8,
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    ...shadowStyle(t, { opacity: 0.08, radius: 12, offsetY: -2, elevation: Math.max(1, t.cardElevation - 1) }),
+    ...shadowStyle(t, { opacity: 0.055, radius: 10, offsetY: -2, elevation: Math.max(1, t.cardElevation - 1) }),
   },
   navBtn: {
     flex: 1,
+    maxWidth: 116,
+    minWidth: 74,
     alignItems: 'center',
-    gap: 4,
-    borderRadius: 15,
-    paddingVertical: 6,
-    marginHorizontal: 3,
+    justifyContent: 'center',
+    gap: 3,
+    minHeight: 54,
+    borderRadius: 12,
+    paddingVertical: 5,
+    marginHorizontal: 2,
   },
   navBtnActive: {
     backgroundColor: ARBOR_UI.leafSoft,
+    borderWidth: 1,
+    borderColor: ARBOR_UI.leaf,
   },
-  navLabel: { fontSize: 10.5, color: ARBOR_UI.muted, fontWeight: '900', letterSpacing: 0 },
+  navLabel: { fontSize: 10, color: ARBOR_UI.muted, fontWeight: '900', letterSpacing: 0 },
+  navLabelActive: { color: ARBOR_UI.forest },
   });
 };

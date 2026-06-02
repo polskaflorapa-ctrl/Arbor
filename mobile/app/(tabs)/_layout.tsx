@@ -10,7 +10,7 @@ import { shadowStyle } from '../../constants/elevation';
 type IonName = ComponentProps<typeof Ionicons>['name'];
 
 /** Większe niż domyślne RN — czytelne na telefonie bez okularów. */
-const TAB_ICON_PX = Platform.select({ ios: 24, default: 25 }) ?? 24;
+const TAB_ICON_PX = Platform.select({ ios: 23, default: 22 }) ?? 22;
 
 function TabGlyph({
   outline,
@@ -24,7 +24,16 @@ function TabGlyph({
   focused: boolean;
 }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', height: TAB_ICON_PX + 8 }}>
+    <View
+      style={{
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 38,
+        height: 30,
+        borderRadius: 11,
+        backgroundColor: focused ? 'rgba(21,128,61,0.10)' : 'transparent',
+      }}
+    >
       <Ionicons name={focused ? solid : outline} size={TAB_ICON_PX} color={color} />
     </View>
   );
@@ -43,9 +52,9 @@ export default function TabLayout() {
         borderTopWidth: 1,
         borderTopColor: theme.navBorder,
         borderRadius: 0,
-        paddingBottom: Platform.select({ ios: 18, default: 10 }),
-        paddingTop: 8,
-        height: Platform.select({ ios: 82, default: 72 }),
+        paddingBottom: Platform.select({ ios: 14, default: 10 }),
+        paddingTop: 6,
+        height: Platform.select({ ios: 74, default: 66 }),
         position: 'absolute' as const,
         left: 0,
         right: 0,
@@ -58,15 +67,15 @@ export default function TabLayout() {
         }),
       },
       tabBarLabelStyle: {
-        fontSize: Math.max(12, theme.fontCaption),
+        fontSize: 11,
         fontWeight: '800' as const,
         letterSpacing: 0,
-        marginTop: 1,
+        marginTop: 0,
       },
       headerShown: false,
       tabBarItemStyle: {
-        borderRadius: 14,
-        marginHorizontal: 4,
+        borderRadius: 12,
+        marginHorizontal: 3,
       },
     }),
     [theme],

@@ -20,10 +20,10 @@ import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiJsonFetch, apiUrl } from '../utils/api-client';
 import { triggerHaptic } from '../utils/haptics';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
@@ -168,9 +168,7 @@ export default function RaportDzienny() {
     }
     setTeamDayLoading(true);
     try {
-      const res = await fetch(`${API_URL}/mobile/me/team-day-report?date=${dzisiaj}`, {
-        headers: { Authorization: `Bearer ${storedToken}` },
-      });
+      const res = await apiFetch(`/mobile/me/team-day-report?date=${dzisiaj}`, { token: storedToken });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setTeamDayPack(normalizeTeamDayPack(await res.json()));
     } catch {
@@ -189,14 +187,13 @@ export default function RaportDzienny() {
       setUserRole(role);
       const flushInfo = await flushOfflineQueue(storedToken);
       setOfflineQueueCount(flushInfo.left);
-      const h = { Authorization: `Bearer ${storedToken}` };
       const taskEndpoint = isCrewRole(role)
-        ? `${API_URL}/tasks/moje?data=${dzisiaj}`
-        : `${API_URL}/tasks/wszystkie`;
+        ? `/tasks/moje?data=${dzisiaj}`
+        : '/tasks/wszystkie';
 
       const [zData, rData] = await Promise.all([
-        fetch(taskEndpoint, { headers: h }).then(r => r.json()),
-        fetch(`${API_URL}/raporty-dzienne?data=${dzisiaj}`, { headers: h }).then(r => r.json()),
+        apiFetch(taskEndpoint, { token: storedToken }).then(r => r.json()),
+        apiFetch(`/raporty-dzienne?data=${dzisiaj}`, { token: storedToken }).then(r => r.json()),
       ]);
 
       const rawTasks: TaskLite[] = Array.isArray(zData)
@@ -211,7 +208,7 @@ export default function RaportDzienny() {
       if (Array.isArray(rData) && rData.length > 0) {
         const r = rData[0];
         setExistingReport(r);
-        const detail = await fetch(`${API_URL}/raporty-dzienne/${r.id}`, { headers: h }).then(res => res.json());
+        const detail = await apiFetch(`/raporty-dzienne/${r.id}`, { token: storedToken }).then(res => res.json());
         setForm({
           data_raportu: dzisiaj,
           opis_pracy: detail.opis_pracy || '',
@@ -302,9 +299,10 @@ export default function RaportDzienny() {
     setSaving(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const httpRes = await fetch(`${API_URL}/raporty-dzienne`, {
+      const reportUrl = apiUrl('/raporty-dzienne');
+      const httpRes = await apiJsonFetch(reportUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(payload),
       });
       if (!httpRes.ok) throw new Error(`HTTP ${httpRes.status}`);
@@ -314,7 +312,7 @@ export default function RaportDzienny() {
       Alert.alert(t('dailyReport.alert.savedTitle'), t('dailyReport.alert.savedBody'));
     } catch {
       const queued = await queueRequestWithOfflineFallback({
-        url: `${API_URL}/raporty-dzienne`,
+        url: apiUrl('/raporty-dzienne'),
         method: 'POST',
         body: payload as Record<string, unknown>,
       });
@@ -346,9 +344,10 @@ export default function RaportDzienny() {
             setSending(true);
             try {
               if (!token) { router.replace('/login'); return; }
-              const wysRes = await fetch(`${API_URL}/raporty-dzienne/${existingReport.id}/wyslij`, {
+              const sendUrl = apiUrl(`/raporty-dzienne/${existingReport.id}/wyslij`);
+              const wysRes = await apiJsonFetch(sendUrl, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                token,
                 body: JSON.stringify({}),
               });
               if (!wysRes.ok) throw new Error(`HTTP ${wysRes.status}`);
@@ -357,7 +356,7 @@ export default function RaportDzienny() {
               setExistingReport(r => (r ? { ...r, status: 'Wyslany' } : r));
             } catch {
               const queued = await queueRequestWithOfflineFallback({
-                url: `${API_URL}/raporty-dzienne/${existingReport.id}/wyslij`,
+                url: apiUrl(`/raporty-dzienne/${existingReport.id}/wyslij`),
                 method: 'POST',
                 body: {},
               });
@@ -378,9 +377,9 @@ export default function RaportDzienny() {
     if (!canCloseTeamDayReport(userRole)) return;
     setTeamDayBusy(true);
     try {
-      const closeRes = await fetch(`${API_URL}/mobile/me/team-day-close`, {
+      const closeRes = await apiJsonFetch('/mobile/me/team-day-close', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify({ report_date: dzisiaj }),
       });
       if (!closeRes.ok) {

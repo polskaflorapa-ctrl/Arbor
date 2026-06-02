@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..');
 const easCliPackage = 'eas-cli@19.1.0';
+const easExecDir = path.join(os.tmpdir(), 'arbor-eas-cli');
 
 const [, , platformArg, profileArg] = process.argv;
 const platform = platformArg || 'ios';
@@ -58,6 +61,8 @@ runStep('release:eas-doctor', runNpm(['run', 'release:eas-doctor']));
 const easArgs = [
   'exec',
   '--yes',
+  '--prefix',
+  easExecDir,
   '--package',
   easCliPackage,
   '--',
@@ -70,6 +75,7 @@ const easArgs = [
   '--non-interactive',
 ];
 
+fs.mkdirSync(easExecDir, { recursive: true });
 runStep(`EAS ${platform} ${profile} build`, runNpm(easArgs));
 
 console.log(`\nEAS ${platform} ${profile} build command completed.`);

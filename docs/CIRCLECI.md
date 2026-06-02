@@ -1,44 +1,118 @@
 # CircleCI
 
-This project uses `.circleci/config.yml` as the CircleCI pipeline definition.
+Projekt ma pipeline CircleCI w `.circleci/config.yml`.
 
-## Workflows
+## Co uruchamia CircleCI
 
-`verify` runs on normal branches and pull requests:
+Workflow `verify` działa na zwykłych branchach i pull requestach:
 
-- `scripts`: repository script tests with `npm run verify:scripts`.
-- `mobile`: mobile typecheck and lint with `npm run verify:mobile`, plus `expo-doctor`.
-- `web`: Vitest tests with JUnit output, then the web production build.
-- `os`: backend lint with `npm run verify:os`.
-- `os-tests`: backend Jest tests with JUnit output.
-- `verify-green`: final aggregate status after all verification jobs pass.
+- `scripts`: testy skryptów repo przez `npm run verify:scripts`.
+- `mobile`: typecheck i lint aplikacji mobilnej przez `npm run verify:mobile`, plus `expo-doctor`.
+- `web`: testy Vitest z raportem JUnit, potem produkcyjny build weba.
+- `os`: lint backendu przez `npm run verify:os`.
+- `os-tests`: testy backendu Jest z raportem JUnit.
+- `verify-green`: końcowy status zbiorczy po przejściu wszystkich jobów weryfikacyjnych.
 
-`deploy-ready` is filtered to `main` and `master` only:
+Workflow `deploy-ready` działa tylko na `main` i `master`:
 
-- `deploy-ready`: deploy preflight, web production build, and mobile typecheck.
-- `deploy-ready-green`: final deploy-preflight aggregate status.
+- `deploy-ready`: deploy preflight, build weba i typecheck mobile.
+- `deploy-ready-green`: końcowy status zbiorczy dla preflightu deployu.
+
+## Podłączenie repo w CircleCI
+
+1. Wejdź w CircleCI: `https://app.circleci.com/projects`.
+2. Wybierz GitHub organization z repo `polskaflorapa-ctrl/Arbor`.
+3. Kliknij `Set Up Project`.
+4. Wybierz opcję użycia istniejącej konfiguracji z repo.
+5. Upewnij się, że CircleCI wskazuje `.circleci/config.yml`.
+6. Uruchom pierwszy pipeline na branchu `master`.
 
 ## GitHub Branch Protection
 
-Use `verify-green` as the required CircleCI status for pull requests.
+Jako wymagany status dla pull requestów ustaw:
 
-Keep `deploy-ready-green` separate. It only runs on `main` and `master`, so requiring it on every pull request can leave feature branches waiting for a status that will never be created.
+- `verify-green`
 
-## First Run Checklist
+Nie ustawiaj `deploy-ready-green` jako wymaganego statusu dla każdego PR. Ten workflow działa tylko na `main` i `master`, więc feature branche mogą czekać na status, który nigdy nie powstanie.
 
-After connecting the repository in CircleCI, check:
+`deploy-ready-green` można traktować jako osobny status dla głównej gałęzi albo release flow.
 
-- The pipeline discovers `.circleci/config.yml`.
-- `npm ci` succeeds with Node `22.12`.
-- The `web` job uploads Vitest results under CircleCI's Tests tab.
-- The `os-tests` job uploads Jest results under CircleCI's Tests tab.
-- `expo-doctor` passes in the Linux CircleCI image.
-- `deploy-ready` runs on `main` or `master`, but not on feature branches.
+## Checklista Pierwszego Runu
 
-## Troubleshooting
+Po pierwszym uruchomieniu sprawdź:
 
-If dependency install is slow, inspect cache restore and save timings before changing the cache strategy. The current config caches `~/.npm`, not `node_modules`, because `npm ci` deletes `node_modules` during install.
+- CircleCI wykrył `.circleci/config.yml`.
+- `npm ci` przechodzi na obrazie Node `22.12`.
+- Job `web` pokazuje wyniki Vitest w zakładce `Tests`.
+- Job `os-tests` pokazuje wyniki Jest w zakładce `Tests`.
+- `expo-doctor` przechodzi w linuxowym środowisku CircleCI.
+- `deploy-ready` uruchamia się na `main` albo `master`.
+- `deploy-ready` nie uruchamia się na feature branchach.
 
-If test results do not appear, open the job artifacts and confirm that XML files exist under `test-results/vitest` or `test-results/jest`.
+## Jak Czytać Awarie
 
-If `expo-doctor` is noisy or slow on every pull request, consider moving it to a separate scheduled or mainline-only job after measuring the first few runs.
+Jeśli pada `scripts`, najpierw odpal lokalnie:
+
+```powershell
+npm run verify:scripts
+```
+
+Jeśli pada `mobile`, odpal:
+
+```powershell
+npm run verify:mobile
+cd mobile
+npx expo-doctor
+```
+
+Jeśli pada `web`, odpal:
+
+```powershell
+npm test -w arbor-web
+npm run verify:web
+```
+
+Jeśli pada `os`, odpal:
+
+```powershell
+npm run verify:os
+```
+
+Jeśli pada `os-tests`, odpal:
+
+```powershell
+npm run verify:os:test
+```
+
+## Raporty Testów
+
+CircleCI zbiera JUnit XML z:
+
+- `test-results/vitest/results.xml`
+- `test-results/jest/results.xml`
+
+Jeśli zakładka `Tests` jest pusta, sprawdź artifacts joba i upewnij się, że te pliki istnieją.
+
+## Cache
+
+Pipeline cache'uje `~/.npm`, nie `node_modules`.
+
+To jest celowe: `npm ci` usuwa `node_modules` przed instalacją, więc cache całego drzewa zależności zwykle zwiększa transfer bez realnego zysku.
+
+Klucz cache uwzględnia lockfile'e:
+
+- `package-lock.json`
+- `web/package-lock.json`
+- `os/package-lock.json`
+- `mobile/package-lock.json`
+
+Jeśli instalacja zależności jest wolna, najpierw sprawdź czasy `restore_cache`, `npm ci` i `save_cache` w CircleCI. Dopiero potem zmieniaj strategię cache.
+
+## Po Pierwszych Pipeline'ach
+
+Po 2-3 runach sprawdź najwolniejsze joby:
+
+- jeśli wolny jest `web`, rozważ split testów Vitest;
+- jeśli wolny jest `npm ci`, przeanalizuj cache albo workspace;
+- jeśli wolny lub niestabilny jest `mobile`, rozważ przeniesienie `expo-doctor` do osobnego joba;
+- jeśli `deploy-ready` jest zbyt ciężki, zostaw go tylko dla głównej gałęzi, tak jak obecnie.

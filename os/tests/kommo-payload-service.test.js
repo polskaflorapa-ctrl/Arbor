@@ -46,6 +46,8 @@ describe('Kommo task payload service', () => {
     });
 
     expect(payload.task.status_url).toBe('https://arbor.example.com/#/zlecenia/55');
+    expect(payload.idempotency_key).toBe('arbor:task.sync:task:55');
+    expect(payload.task.sync_meta.idempotency_key).toBe('arbor:task.sync:task:55');
     expect(payload.task.work_time).toMatchObject({
       logs_count: 1,
       total_minutes: 125,

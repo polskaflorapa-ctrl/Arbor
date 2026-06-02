@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 
 const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..');
 const easCliPackage = 'eas-cli@19.1.0';
+const easExecDir = path.join(os.tmpdir(), 'arbor-eas-cli');
 
 function runEas(args) {
+  fs.mkdirSync(easExecDir, { recursive: true });
   const npmCli = process.env.npm_execpath;
   const command = npmCli ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const npmArgs = npmCli
-    ? [npmCli, 'exec', '--yes', '--package', easCliPackage, '--', 'eas', ...args]
-    : ['exec', '--yes', '--package', easCliPackage, '--', 'eas', ...args];
+    ? [npmCli, 'exec', '--yes', '--prefix', easExecDir, '--package', easCliPackage, '--', 'eas', ...args]
+    : ['exec', '--yes', '--prefix', easExecDir, '--package', easCliPackage, '--', 'eas', ...args];
 
   return spawnSync(command, npmArgs, {
     cwd: rootDir,

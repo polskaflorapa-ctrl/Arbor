@@ -42,13 +42,17 @@ async function ensureCrmIntegrationTables() {
       status          VARCHAR(32) NOT NULL,
       lead_id         INTEGER REFERENCES crm_leads(id) ON DELETE SET NULL,
       external_id     VARCHAR(255),
+      idempotency_key VARCHAR(255),
       payload         JSONB NOT NULL DEFAULT '{}'::jsonb,
       error           TEXT,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query('ALTER TABLE crm_integration_events ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_integration_events_app_created ON crm_integration_events(app_id, created_at DESC)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_integration_events_external ON crm_integration_events(external_id)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_integration_events_idempotency ON crm_integration_events(app_id, event_type, idempotency_key) WHERE idempotency_key IS NOT NULL');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_crm_integration_events_external_event ON crm_integration_events(app_id, event_type, external_id) WHERE external_id IS NOT NULL');
 }
 
 function mapApp(row, { includeToken = false } = {}) {
@@ -171,28 +175,95 @@ async function listIntegrationEvents({ oddzialId = null, limit = 100 } = {}) {
   return rows;
 }
 
-async function logIntegrationEvent({ appId, eventType, status, leadId = null, externalId = null, payload = {}, error = null }) {
+async function logIntegrationEvent({
+  appId,
+  eventType,
+  status,
+  leadId = null,
+  externalId = null,
+  idempotencyKey = null,
+  payload = {},
+  error = null,
+}) {
   await ensureCrmIntegrationTables();
   const { rows } = await pool.query(
-    `INSERT INTO crm_integration_events (app_id, event_type, status, lead_id, external_id, payload, error, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,NOW())
+    `INSERT INTO crm_integration_events (
+       app_id, event_type, status, lead_id, external_id, idempotency_key, payload, error, created_at
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,NOW())
      RETURNING *`,
-    [appId || null, String(eventType || 'webhook.received').slice(0, 80), status, leadId, externalId, JSON.stringify(safeObject(payload)), error]
+    [
+      appId || null,
+      String(eventType || 'webhook.received').slice(0, 80),
+      status,
+      leadId,
+      externalId,
+      idempotencyKey,
+      JSON.stringify(safeObject(payload)),
+      error,
+    ]
   );
   return rows[0];
 }
 
-async function ingestWebhook({ token, payload }) {
+async function findIdempotentIntegrationEvent({ appId, eventType, externalId = null, idempotencyKey = null }) {
+  if (!externalId && !idempotencyKey) return null;
+  const params = [appId, eventType];
+  const checks = [];
+  if (idempotencyKey) {
+    params.push(idempotencyKey);
+    checks.push(`idempotency_key = $${params.length}`);
+  }
+  if (externalId) {
+    params.push(externalId);
+    checks.push(`external_id = $${params.length}`);
+  }
+  const { rows } = await pool.query(
+    `SELECT id, status, lead_id, external_id, idempotency_key, event_type
+     FROM crm_integration_events
+     WHERE app_id = $1
+       AND event_type = $2
+       AND (${checks.join(' OR ')})
+     ORDER BY created_at DESC, id DESC
+     LIMIT 1`,
+    params
+  );
+  return rows[0] || null;
+}
+
+async function ingestWebhook({ token, payload, idempotencyKey = null }) {
   await ensureCrmIntegrationTables();
   const app = (await pool.query('SELECT * FROM crm_integration_apps WHERE token = $1 AND active = true', [token])).rows[0];
   if (!app) return { status: 404, body: { error: 'integration not found' } };
   const body = safeObject(payload);
   const appConfig = safeObject(app.config);
-  const externalId = String(body.external_id || body.id || '').trim() || null;
+  const headerIdempotencyKey = String(idempotencyKey || '').trim();
+  const bodyIdempotencyKey = String(body.idempotency_key || body.idempotencyKey || '').trim();
+  const stableIdempotencyKey = (headerIdempotencyKey || bodyIdempotencyKey).slice(0, 255) || null;
+  const externalId = String(body.external_id || body.id || stableIdempotencyKey || '').trim().slice(0, 255) || null;
   const eventType = String(body.event_type || body.type || 'lead.created').trim().slice(0, 80);
   const channel = String(body.channel || appConfig.channel || 'webchat').trim().toLowerCase().slice(0, 32) || 'webchat';
   const source = String(body.source || appConfig.source || app.name || 'webhook').trim().slice(0, 50) || 'webhook';
   try {
+    const previous = await findIdempotentIntegrationEvent({
+      appId: app.id,
+      eventType,
+      externalId,
+      idempotencyKey: stableIdempotencyKey,
+    });
+    if (previous?.status === 'ok') {
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          duplicate: true,
+          idempotent_replay: true,
+          lead_id: previous.lead_id || null,
+          event_type: previous.event_type || eventType,
+        },
+      };
+    }
+
     const leadTitle = String(body.title || body.name || body.client_name || '').trim();
     const messageText = String(body.message || body.body || '').trim();
     let leadId = Number(body.lead_id || 0) || null;
@@ -237,11 +308,27 @@ async function ingestWebhook({ token, payload }) {
       await pool.query('UPDATE crm_leads SET updated_at = NOW() WHERE id = $1', [leadId]);
     }
 
-    await logIntegrationEvent({ appId: app.id, eventType, status: 'ok', leadId, externalId, payload: body });
-    return { status: 202, body: { ok: true, lead_id: leadId, event_type: eventType } };
+    await logIntegrationEvent({
+      appId: app.id,
+      eventType,
+      status: 'ok',
+      leadId,
+      externalId,
+      idempotencyKey: stableIdempotencyKey,
+      payload: body,
+    });
+    return { status: 202, body: { ok: true, lead_id: leadId, event_type: eventType, idempotency_key: stableIdempotencyKey } };
   } catch (err) {
     logger.warn('crm.integrations.ingest', { message: err.message, app_id: app.id });
-    await logIntegrationEvent({ appId: app.id, eventType, status: 'error', externalId, payload: body, error: err.message });
+    await logIntegrationEvent({
+      appId: app.id,
+      eventType,
+      status: 'error',
+      externalId,
+      idempotencyKey: stableIdempotencyKey,
+      payload: body,
+      error: err.message,
+    });
     return { status: 500, body: { error: 'webhook processing failed' } };
   }
 }

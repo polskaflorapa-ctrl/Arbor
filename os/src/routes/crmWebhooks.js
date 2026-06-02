@@ -7,7 +7,11 @@ router.post('/:token', async (req, res, next) => {
   try {
     const token = String(req.params.token || '').trim();
     if (!token) return res.status(400).json({ error: 'token required' });
-    const result = await ingestWebhook({ token, payload: req.body || {} });
+    const result = await ingestWebhook({
+      token,
+      payload: req.body || {},
+      idempotencyKey: req.get('Idempotency-Key') || req.get('X-Idempotency-Key') || null,
+    });
     return res.status(result.status).json(result.body);
   } catch (err) {
     next(err);

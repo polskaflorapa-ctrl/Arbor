@@ -81,13 +81,16 @@ function gpsRows(date = '2026-05-26') {
 
 function mockZleceniaApi(options = {}) {
   const task = options.task || TASK;
+  const vehicles = options.vehicles || [];
+  const equipment = options.equipment || [];
   api.get.mockImplementation((url) => {
     if (url === '/tasks/wszystkie') return Promise.resolve({ data: [task] });
     if (url === '/tasks/42') return Promise.resolve({ data: task });
     if (url === '/ekipy') return Promise.resolve({ data: [{ id: 3, nazwa: 'Brygada Alfa', oddzial_id: 7 }] });
     if (url === '/uzytkownicy') return Promise.resolve({ data: [] });
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
-    if (url === '/flota/sprzet') return Promise.resolve({ data: [] });
+    if (url === '/flota/sprzet') return Promise.resolve({ data: equipment });
+    if (url === '/flota/pojazdy') return Promise.resolve({ data: vehicles });
     if (url === '/tasks/client-contacts') return Promise.resolve({ data: null });
     if (url === '/tasks/closure-events') return Promise.resolve({ data: null });
     if (String(url).startsWith('/ekipy/gps-history?')) {
@@ -237,6 +240,48 @@ test('opens routed office planning focus links in task details', async () => {
   });
 }, 15000);
 
+test('blocks office plan when selected team vehicle is in repair', async () => {
+  mockZleceniaApi({
+    task: {
+      ...TASK,
+      ekipa_id: 3,
+      ekipa_nazwa: 'Brygada Alfa',
+      data_planowana: '2026-06-02T08:00:00.000Z',
+      godzina_rozpoczecia: '08:00',
+    },
+    vehicles: [
+      {
+        id: 5,
+        marka: 'Mercedes',
+        model: 'Sprinter',
+        nr_rejestracyjny: 'KR12345',
+        status: 'W naprawie',
+        ekipa_id: 3,
+        oddzial_id: 7,
+      },
+    ],
+    equipment: [
+      {
+        id: 11,
+        nazwa: 'Rebak Forst',
+        typ: 'Rebak',
+        status: 'W naprawie',
+        ekipa_id: 3,
+        oddzial_id: 7,
+      },
+    ],
+  });
+
+  renderRoute('/zlecenia/42?focus=officePlan');
+
+  expect(await screen.findByText('Do zaplanowania dla ekipy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  await waitFor(() => expect(screen.getAllByText('Zasoby ekipy').length).toBeGreaterThan(0), SLOW_FORM_RENDER);
+  await waitFor(() => {
+    expect(document.body.textContent).toContain('Auto: Mercedes Sprinter KR12345');
+    expect(document.body.textContent).toContain('Zasoby w naprawie');
+  }, SLOW_FORM_RENDER);
+}, 15000);
+
 test('shows routed task GPS history and refreshes the selected day', async () => {
   mockZleceniaApi({
     task: {
@@ -305,6 +350,8 @@ test('opens crew schedule deep link from task planning handoff', async () => {
 }, 15000);
 
 test('keeps task data visible when a secondary startup request fails', async () => {
+  const equipment = [];
+  const vehicles = [];
   api.get.mockImplementation((url) => {
     if (url === '/tasks/wszystkie') return Promise.resolve({ data: [TASK] });
     if (url === '/tasks/42') return Promise.resolve({ data: TASK });
@@ -316,7 +363,8 @@ test('keeps task data visible when a secondary startup request fails', async () 
       }));
     }
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
-    if (url === '/flota/sprzet') return Promise.resolve({ data: [] });
+    if (url === '/flota/sprzet') return Promise.resolve({ data: equipment });
+    if (url === '/flota/pojazdy') return Promise.resolve({ data: vehicles });
     if (url === '/tasks/client-contacts') return Promise.resolve({ data: null });
     if (url === '/tasks/closure-events') return Promise.resolve({ data: null });
     if (String(url).startsWith('/tasks/42/')) return Promise.resolve({ data: [] });

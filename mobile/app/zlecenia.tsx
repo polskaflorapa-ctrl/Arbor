@@ -12,7 +12,6 @@ import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumPressable } from '../components/ui/platinum-pressable';
 import { ScreenHeader } from '../components/ui/screen-header';
-import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL } from '../constants/api';
@@ -1100,14 +1099,17 @@ export default function ZleceniaScreen() {
         title={t('zlecenia.title')}
         right={
           !isCrew ? (
-            <PlatinumCTA
-              label="+"
+            <TouchableOpacity
               style={S.headerAddBtn}
               onPress={() => {
                 void triggerHaptic('light');
                 router.push(buildNewOrderRoute({ source: 'zlecenia' }) as never);
               }}
-            />
+              accessibilityRole="button"
+              accessibilityLabel="Dodaj zlecenie"
+            >
+              <Ionicons name="add" size={22} color={theme.accentText} />
+            </TouchableOpacity>
           ) : null
         }
       />
@@ -2168,10 +2170,20 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: t.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
   headerAddBtn: {
-    minWidth: 42,
-    minHeight: 42,
-    paddingHorizontal: 0,
+    width: 40,
+    height: 40,
     borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.accent,
+    borderWidth: 1,
+    borderColor: t.accentDark,
+    ...shadowStyle(t, {
+      opacity: t.shadowOpacity * 0.32,
+      radius: t.shadowRadius * 0.5,
+      offsetY: 2,
+      elevation: Math.max(1, t.cardElevation),
+    }),
   },
   platinumBar: {
     marginHorizontal: 14,

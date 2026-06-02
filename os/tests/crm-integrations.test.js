@@ -208,6 +208,7 @@ describe('CRM integrations', () => {
   it('ingests public webhook payloads into a lead and message', async () => {
     const res = await request(webhookApp)
       .post('/api/webhooks/crm/tok_1')
+      .set('Idempotency-Key', 'crm-inbound-ext-1')
       .send({
         event_type: 'lead.created',
         external_id: 'ext-1',
@@ -222,6 +223,62 @@ describe('CRM integrations', () => {
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_leads'))).toBe(true);
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_lead_messages'))).toBe(true);
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_integration_events'))).toBe(true);
+    const eventInsert = pool.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO crm_integration_events'));
+    expect(eventInsert[1]).toEqual(expect.arrayContaining(['ext-1', 'crm-inbound-ext-1']));
+  });
+
+  it('replays CRM webhooks idempotently without duplicating lead or message', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE') || text.includes('CREATE INDEX') || text.includes('ALTER TABLE')) return { rows: [], rowCount: 0 };
+      if (text.includes('SELECT * FROM crm_integration_apps WHERE token')) {
+        return {
+          rows: [{
+            id: 41,
+            oddzial_id: 7,
+            name: 'Landing widget',
+            token: params[0],
+            active: true,
+            config: {},
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('FROM crm_integration_events') && text.includes('idempotency_key')) {
+        return {
+          rows: [{
+            id: 201,
+            status: 'ok',
+            lead_id: 101,
+            external_id: 'ext-1',
+            idempotency_key: 'crm-inbound-ext-1',
+            event_type: 'lead.created',
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(webhookApp)
+      .post('/api/webhooks/crm/tok_1')
+      .set('Idempotency-Key', 'crm-inbound-ext-1')
+      .send({
+        event_type: 'lead.created',
+        external_id: 'ext-1',
+        title: 'Lead z widgetu',
+        message: 'Prosze o kontakt',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      ok: true,
+      duplicate: true,
+      idempotent_replay: true,
+      lead_id: 101,
+    }));
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_leads'))).toBe(false);
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO crm_lead_messages'))).toBe(false);
   });
 
   it('uses configured channel when webhook payload omits channel', async () => {

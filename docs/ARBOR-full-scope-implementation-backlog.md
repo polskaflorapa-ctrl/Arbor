@@ -32,6 +32,7 @@
 - [x] **P0 alerty marzy w kokpicie kierownika**: `/api/ops/kierownik-today` zwraca `margin_risks`, metryke i blocker `margin`, a webowy cockpit pokazuje liste z linkiem do zlecenia.
 - [x] **P0 Kommo retry/dead-letter**: `task.sync` zapisuje nieudane wysylki do kolejki, przechodzi do `dead_letter` po limicie prob i ma endpoint recznego retry.
 - [x] **P0 Kommo inbound status sync**: `/api/webhooks/kommo/task-sync` przyjmuje status z Kommo, ma idempotencje eventow i blokuje konflikty na zamknietych zleceniach.
+- [x] **P0 Kommo idempotency retry dead-letter**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` spina outbound `idempotency_key`, retry/dead-letter, inbound `event_key`, konflikty i diagnostyke; `npm run verify:kommo-idempotency-retry` pilnuje kontraktu.
 - [x] **P0 Kommo sync diagnostyka**: `/api/tasks/kommo-sync/diagnostics` oraz panel Integracje pokazuja outbound queue, dead-letter i inbound konflikty.
 - [x] **P0 Kommo inbound field mapping**: `task.sync` mapuje `status_id`, klienta, telefon, email, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke i linki zalacznikow do notatek.
 - [x] **P0 Kommo attachments as documents**: inbound `task.sync` zapisuje zalaczniki Kommo jako `task_documents`, a `/api/tasks/:id/dokumenty` obsluguje liste, upload, edycje, wersjonowanie i usuwanie dokumentow zlecenia.
@@ -95,7 +96,8 @@
 - [x] **P0 competency expiry monitoring**: `docs/COMPETENCY-EXPIRY-MONITORING-CONTRACT.md` opisuje alerty uprawnien; karty kadrowe pokazuja wygasle i wygasajace uprawnienia z `user_competencies`, CSV eksportuje liczniki i najblizsza date waznosci, a `npm run verify:competency-expiry-monitoring` pilnuje API, UI, testu i checklist.
 - [x] **P0 team competency assignment block**: `docs/TEAM-COMPETENCY-ASSIGNMENT-BLOCK-CONTRACT.md` opisuje twarda blokade przypisania zlecenia do ekipy bez wymaganych `tasks.wymagane_kompetencje`; `npm run verify:team-competency-assignment-block` pilnuje API, UI, testow i dispatch apply.
 - [x] **P0 dispatcher competency consistency**: `docs/DISPATCHER-COMPETENCY-CONSISTENCY-CONTRACT.md` opisuje spojnosc VRP/AutoDispatch/dispatch apply z twarda blokada kompetencji; `npm run verify:dispatcher-competency-consistency` pilnuje aktywnych `data_waznosci`, `unassigned.missing_competencies` i UI blokady.
-- [ ] **Nastepny pakiet**: EPIC 8.3 - domkniecie idempotencji Kommo inbound/outbound, retry i dead-letter jako jeden kontrakt.
+- [x] **P0 Kommo idempotency retry**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` opisuje idempotencje inbound/outbound Kommo, stabilny `idempotency_key`, kontrolowany retry i dead-letter; `npm run verify:kommo-idempotency-retry` pilnuje webhookow, kolejki i diagnostyki.
+- [ ] **Nastepny pakiet**: EPIC 9.5 - domkniecie operacyjnego ownership dla Kommo/SMS dead-letter i SLO alert owner.
 
 ---
 
@@ -209,7 +211,7 @@ flowchart LR
 
 - [x] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". Inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke, zapisuje zalaczniki jako dokumenty, potrafi kopiowac binaria do storage ARBOR oraz ma `/api/kommo/config` i panel Integracje dla mapowan per konto Kommo.
 - [x] **8.2** ARBOR -> Kommo: status, zdjecia, czas rzeczywisty, zuzycie, kosztorys z marza, link statusowy. `task.sync` buduje jedna paczke operacyjno-finansowa z `work_time`, `photos`, `documents`, `material_usage`, `financials`, `settlement` i `status_url`.
-- [ ] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. **Czesciowo:** ARBOR -> Kommo `task.sync` ma juz retry/dead-letter, a Kommo -> ARBOR ma idempotencje eventow.
+- [x] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. `task.sync` ma stabilny `idempotency_key` w payloadzie i headerach, outbound queue zapisuje `idempotency_key`/retry/dead-letter, inbound CRM webhook zwraca `idempotent_replay` bez duplikowania leadow/wiadomosci, inbound `task_kommo_inbound_events.event_key` deduplikuje replaye, konflikty trafiaja do diagnostyki, a `kommo-retry` wymaga `force=true` dla `dead_letter`. Kontrakt: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` + `verify:kommo-idempotency-retry`.
 - [x] **8.4** Panel diagnostyczny sync (ostatni blad, HTTP, payload): API diagnostyczne + panel Integracje dla kolejki outbound i inbound konfliktow.
 
 ---
