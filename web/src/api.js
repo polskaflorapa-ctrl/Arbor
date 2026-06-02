@@ -1915,77 +1915,6 @@ function getTestModeMockResponse(config) {
   }
 
   if (path === '/ops/owner-alerts/open' && method === 'get') {
-    const source = String(config?.params?.source || '').toLowerCase();
-    const now = Date.now();
-    const all = [
-      {
-        id: 'kommo_sync:501',
-        source_id: 501,
-        type: 'kommo_sync',
-        risk_id: 'kommo_sync:501',
-        task_id: 77,
-        numer: 'ARB-KOMMO',
-        klient_nazwa: 'Klient Kommo',
-        status: 'dead_letter',
-        error: 'Demo dead-letter Kommo',
-        created_at: new Date(now - 75 * 60 * 1000).toISOString(),
-        age_minutes: 75,
-        severity: 'critical',
-        owner_role: 'Dyspozytor/Admin',
-        owner_label: 'Owner: integracje Kommo',
-        escalation: 'P1',
-        sla_status: 'breach',
-        sla_minutes: 30,
-        action_path: '/integracje',
-      },
-      {
-        id: 'sms_delivery:55',
-        source_id: 55,
-        type: 'sms_delivery',
-        risk_id: 'sms_delivery:55',
-        task_id: 88,
-        numer: 'ARB-SMS',
-        klient_nazwa: 'Klient SMS',
-        status: 'failed',
-        provider_status: 'failed',
-        error: 'undelivered',
-        created_at: new Date(now - 45 * 60 * 1000).toISOString(),
-        age_minutes: 45,
-        severity: 'warning',
-        owner_role: 'Kierownik/Dyspozytor',
-        owner_label: 'Owner: kontakt z klientem',
-        escalation: 'P2',
-        sla_status: 'due',
-        sla_minutes: 30,
-        action_path: '/telefonia',
-      },
-    ];
-    const items = all.filter((item) => !source || source === 'all' || (source === 'kommo' && item.type === 'kommo_sync') || (source === 'sms' && item.type === 'sms_delivery'));
-    return {
-      data: {
-        oddzial_id: config?.params?.oddzial_id || null,
-        source: source || 'all',
-        total: items.length,
-        summary: {
-          kommo_sync: items.filter((item) => item.type === 'kommo_sync').length,
-          sms_delivery: items.filter((item) => item.type === 'sms_delivery').length,
-          p1: items.filter((item) => item.escalation === 'P1').length,
-          p2: items.filter((item) => item.escalation === 'P2').length,
-          breach: items.filter((item) => item.sla_status === 'breach').length,
-          due: items.filter((item) => item.sla_status === 'due').length,
-        },
-        items,
-        generated_at: new Date().toISOString(),
-      },
-      status: 200,
-      statusText: 'OK',
-      headers: {},
-      config,
-      request: {},
-    };
-  }
-
-  if (path === '/ops/owner-alerts/open' && method === 'get') {
     const date = getRequestDate(config);
     const oddzialId = config?.params?.oddzial_id || null;
     const now = Date.now();
@@ -2390,6 +2319,46 @@ function getTestModeMockResponse(config) {
             ? { sprzet_id: body.sprzet_id, sprzet_nazwa: `Sprzet ${body.sprzet_id}` }
             : null,
         event,
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/owner-alerts/actions' && method === 'post') {
+    const body = parseJsonData(config.data);
+    const items = Array.isArray(body.items)
+      ? body.items
+      : (Array.isArray(body.alerts) ? body.alerts : []);
+    const isEscalation = body.action === 'escalate' || body.action === 'bulk_escalate';
+    const saved = items.map((item) => {
+      const task = item.task_id ? getMockTaskDetail(item.task_id) : null;
+      return addMockOpsEvent({
+        task_id: item.task_id || null,
+        oddzial_id: task?.oddzial_id || null,
+        action_type: isEscalation ? 'risk_owner_escalate' : 'risk_acknowledge',
+        issue_key: item.risk_type || item.type || 'risk_report',
+        risk_type: item.risk_type || item.type || 'risk_report',
+        risk_id: item.risk_id,
+        numer: task?.numer || item.numer,
+        klient_nazwa: task?.klient_nazwa || item.klient_nazwa,
+        note: body.note || '',
+      });
+    });
+    return {
+      data: {
+        message: isEscalation ? 'Alerty ownerow eskalowane' : 'Alerty ownerow potwierdzone',
+        action: body.action,
+        normalized_action: isEscalation ? 'bulk_escalate' : 'bulk_acknowledge',
+        requested: items.length,
+        processed: saved.length,
+        saved: saved.length,
+        failed: 0,
+        failed_items: [],
+        results: saved.map((event, index) => ({ risk_id: items[index]?.risk_id, ok: true, event_id: event.id })),
       },
       status: 200,
       statusText: 'OK',

@@ -79,6 +79,7 @@ export default function KontrolaOperacyjna() {
   });
   const [loading, setLoading] = useState(false);
   const [ownerAlertsLoading, setOwnerAlertsLoading] = useState(false);
+  const [ownerBulkAction, setOwnerBulkAction] = useState('');
   const [digestLoading, setDigestLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -273,6 +274,36 @@ export default function KontrolaOperacyjna() {
     }
   };
 
+  const runOwnerBulkAction = async (action) => {
+    const selected = openOwnerItems.slice(0, 20);
+    if (!selected.length) return;
+    setOwnerBulkAction(action);
+    setError('');
+    try {
+      const token = getStoredToken();
+      const normalizedAction = action === 'acknowledge' ? 'bulk_acknowledge' : 'bulk_escalate';
+      await api.post('/ops/owner-alerts/actions', {
+        action: normalizedAction,
+        note: normalizedAction === 'bulk_acknowledge'
+          ? 'Masowe potwierdzenie z kontroli operacyjnej'
+          : 'Masowa eskalacja z kontroli operacyjnej',
+        items: selected.map((item) => ({
+          risk_id: item.risk_id,
+          risk_type: item.risk_type || item.type,
+          task_id: item.task_id || null,
+          escalation: item.escalation_level || item.escalation || null,
+          sla_status: item.sla_status || null,
+          source: item.source || null,
+        })),
+      }, { headers: authHeaders(token) });
+      await Promise.all([loadOpenOwnerAlerts(), loadHistory()]);
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Nie udalo sie zapisac akcji ownerow.'));
+    } finally {
+      setOwnerBulkAction('');
+    }
+  };
+
   const items = history.items || [];
   const actionSummary = history.summary?.actions || [];
   const issueSummary = history.summary?.issues || [];
@@ -410,7 +441,25 @@ export default function KontrolaOperacyjna() {
               <h2 style={s.h2}>Niedomkniete alerty ownerow</h2>
               <p style={s.muted}>Kommo/SMS bez potwierdzenia ownera, z agingiem SLA i eskalacja P1/P2.</p>
             </div>
-            <span style={s.badge}>{ownerAlertsLoading ? 'Ladowanie' : `${openOwnerSummary.open_total ?? openOwnerItems.length} otwarte`}</span>
+            <div style={s.panelActions}>
+              <button
+                type="button"
+                style={s.secondaryBtn}
+                onClick={() => runOwnerBulkAction('escalate')}
+                disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
+              >
+                {ownerBulkAction === 'escalate' ? 'Eskalacja...' : 'Eskaluj widoczne'}
+              </button>
+              <button
+                type="button"
+                style={s.primaryBtn}
+                onClick={() => runOwnerBulkAction('acknowledge')}
+                disabled={!openOwnerItems.length || Boolean(ownerBulkAction)}
+              >
+                {ownerBulkAction === 'acknowledge' ? 'Potwierdzanie...' : 'Potwierdz widoczne'}
+              </button>
+              <span style={s.badge}>{ownerAlertsLoading ? 'Ladowanie' : `${openOwnerSummary.open_total ?? openOwnerItems.length} otwarte`}</span>
+            </div>
           </div>
           <div style={s.ownerAlertSummary}>
             <div style={s.digestMetric}><span>Kommo</span><strong>{openOwnerSummary.kommo_sync || 0}</strong></div>
@@ -423,8 +472,8 @@ export default function KontrolaOperacyjna() {
             {openOwnerItems.slice(0, 8).map((item) => (
               <div key={item.id || item.risk_id} style={s.ownerAckItem}>
                 <div>
-                  <strong>{item.escalation || item.escalation_level || 'P2'} / {item.type || item.risk_type || 'alert'} / {item.sla_status || 'ok'}</strong>
-                  <div style={s.subLine}>{item.owner_label || 'Owner: operacje'} / {item.age_minutes ?? item.aging_minutes ?? '-'} min / {item.risk_id || '-'}</div>
+                  <strong>{item.escalation_level || item.escalation || 'P2'} / {item.type || item.risk_type || 'alert'} / {item.sla_status || 'ok'}</strong>
+                  <div style={s.subLine}>{item.owner_label || 'Owner: operacje'} / {item.aging_minutes ?? item.age_minutes ?? '-'} min / {item.risk_id || '-'}</div>
                 </div>
                 <div style={s.ownerAckMeta}>
                   <span>{item.numer || '-'}</span>
@@ -657,6 +706,7 @@ const s = {
   emptyLine: { color: 'var(--text-sub)', fontSize: 13 },
   panel: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(31,79,50,0.065)' },
   panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', padding: 18, borderBottom: '1px solid rgba(15,95,58,0.1)' },
+  panelActions: { display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' },
   h2: { margin: 0, fontSize: 19 },
   muted: { margin: '5px 0 0', color: 'var(--text-sub)', fontSize: 13 },
   badge: { border: '1px solid rgba(15,95,58,0.14)', borderRadius: 999, padding: '5px 10px', fontSize: 12, color: 'var(--accent)', background: 'var(--accent-surface)', fontWeight: 800, whiteSpace: 'nowrap' },

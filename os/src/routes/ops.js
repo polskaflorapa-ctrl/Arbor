@@ -44,6 +44,7 @@ const OPS_ACTION_LABELS = {
   risk_resend_sms: 'Ponowienie SMS ryzyka',
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
+  risk_owner_escalate: 'Eskalacja ownera ryzyka',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
   risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
   dispatch_auto_assign_team: 'Auto-przypisanie ekipy',
@@ -2049,6 +2050,94 @@ router.get('/owner-alerts/open', authMiddleware, requireRole(...MANAGER_ROLES), 
     });
   } catch (e) {
     logger.error('ops owner-alerts open', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.post('/owner-alerts/actions', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const action = cleanText(req.body?.action, 50);
+  const allowedActions = new Set(['acknowledge', 'escalate', 'bulk_acknowledge', 'bulk_escalate']);
+  if (!allowedActions.has(action)) {
+    return res.status(400).json({ error: 'Nieznana akcja owner alerts.' });
+  }
+  const isEscalation = action === 'escalate' || action === 'bulk_escalate';
+  const normalizedBulkAction = isEscalation ? 'bulk_escalate' : 'bulk_acknowledge';
+
+  const rawItems = Array.isArray(req.body?.items)
+    ? req.body.items
+    : (Array.isArray(req.body?.alerts) ? req.body.alerts : []);
+  const items = rawItems
+    .map((item) => ({
+      risk_id: cleanText(item?.risk_id, 120),
+      risk_type: cleanText(item?.risk_type || item?.type, 60),
+      task_id: Number(item?.task_id || 0),
+      escalation: cleanText(item?.escalation || item?.escalation_level, 20),
+      sla_status: cleanText(item?.sla_status, 20),
+    }))
+    .filter((item) => item.risk_id && ['kommo_sync', 'sms_delivery'].includes(item.risk_type))
+    .slice(0, 50);
+  if (!items.length) {
+    return res.status(400).json({ error: 'Brak prawidlowych alertow do zapisania.' });
+  }
+
+  const noteText = cleanText(req.body?.note, 800);
+
+  try {
+    await ensureOpsActionEventsTable();
+    const results = [];
+    for (const item of items) {
+      let task = null;
+      if (Number.isInteger(item.task_id) && item.task_id > 0) {
+        const resolved = await getRiskTask(item.task_id, req.user);
+        if (resolved.error) {
+          results.push({ risk_id: item.risk_id, ok: false, error: resolved.error.message });
+          continue;
+        }
+        task = resolved.task;
+      } else if (!isDyrektorOrAdmin(req.user)) {
+        results.push({ risk_id: item.risk_id, ok: false, error: 'Akcja bez task_id wymaga roli centralnej.' });
+        continue;
+      }
+
+      const owner = riskOwner(item.risk_type);
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: isEscalation ? 'risk_owner_escalate' : 'risk_acknowledge',
+        issueKey: item.risk_type,
+        note: noteText || (!isEscalation
+          ? `Masowo potwierdzono alert ownera ${item.risk_id}`
+          : `Masowo eskalowano alert ownera ${item.risk_id}`),
+        metadata: {
+          risk_id: item.risk_id,
+          risk_type: item.risk_type,
+          owner_label: owner.owner_label,
+          owner_role: owner.owner_role,
+          escalation: owner.escalation || null,
+          escalation_level: item.escalation || null,
+          sla_status: item.sla_status || null,
+          bulk_action: normalizedBulkAction,
+          requested_action: action,
+          bulk_owner_action: true,
+        },
+      });
+      results.push({ risk_id: item.risk_id, ok: true, event_id: event?.id || null });
+    }
+
+    return res.json({
+      message: !isEscalation ? 'Alerty ownerow potwierdzone' : 'Alerty ownerow eskalowane',
+      action,
+      normalized_action: normalizedBulkAction,
+      requested: items.length,
+      processed: results.filter((item) => item.ok).length,
+      saved: results.filter((item) => item.ok).length,
+      failed: results.filter((item) => !item.ok).length,
+      failed_items: results.filter((item) => !item.ok),
+      results,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops owner-alerts actions', { message: e.message, requestId: req.requestId });
     return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });

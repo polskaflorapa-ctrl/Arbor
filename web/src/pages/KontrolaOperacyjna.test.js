@@ -15,6 +15,7 @@ vi.mock('../api', () => ({
   __esModule: true,
   default: {
     get: vi.fn(),
+    post: vi.fn(),
     put: vi.fn(),
   },
 }));
@@ -36,6 +37,8 @@ beforeEach(() => {
   localStorage.setItem('token', 'test-jwt-kontrola');
   localStorage.setItem('user', JSON.stringify({ id: 1, rola: 'Dyrektor', imie: 'Anna', nazwisko: 'Kontrola' }));
   api.get.mockReset();
+  api.post.mockReset();
+  api.post.mockResolvedValue({ data: { saved: 2, failed: 0 } });
   api.put.mockReset();
   api.put.mockResolvedValue({ data: {} });
   api.get.mockImplementation((path, config = {}) => {
@@ -155,6 +158,36 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   expect(await screen.findByText(/P1 \/ kommo_sync \/ overdue/)).toBeInTheDocument();
   expect((await screen.findAllByText('kommo_sync')).length).toBeGreaterThan(0);
   expect((await screen.findAllByText('ARB-KOMMO')).length).toBeGreaterThan(0);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Eskaluj widoczne' }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/owner-alerts/actions',
+      expect.objectContaining({
+        action: 'bulk_escalate',
+        items: expect.arrayContaining([
+          expect.objectContaining({ risk_id: 'kommo_sync:501', risk_type: 'kommo_sync' }),
+          expect.objectContaining({ risk_id: 'sms_delivery:9', risk_type: 'sms_delivery' }),
+        ]),
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+
+  await userEvent.click(screen.getByRole('button', { name: 'Potwierdz widoczne' }));
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/owner-alerts/actions',
+      expect.objectContaining({
+        action: 'bulk_acknowledge',
+        items: expect.arrayContaining([
+          expect.objectContaining({ risk_id: 'kommo_sync:501', risk_type: 'kommo_sync' }),
+          expect.objectContaining({ risk_id: 'sms_delivery:9', risk_type: 'sms_delivery' }),
+        ]),
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 
   await userEvent.selectOptions(screen.getByLabelText('Filtr potwierdzen ownerow'), 'kommo_sync');
 
