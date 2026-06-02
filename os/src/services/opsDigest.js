@@ -15,6 +15,11 @@ const OPS_ACTION_LABELS = {
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
   risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
 };
+const OWNER_ACK_RISK_TYPES = ['kommo_sync', 'sms_delivery'];
+const OWNER_ACK_LABELS = {
+  kommo_sync: 'Kommo',
+  sms_delivery: 'SMS',
+};
 let digestRunsReady = false;
 let digestSettingsReady = false;
 
@@ -348,6 +353,14 @@ async function buildOperationalDigest(pool, options = {}) {
     SELECT
       COUNT(*)::int AS total_actions,
       COUNT(*) FILTER (WHERE e.action_type IN ('risk_resend_sms','risk_queue_call'))::int AS zadarma_actions,
+      COUNT(*) FILTER (
+        WHERE e.action_type = 'risk_acknowledge'
+          AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = 'kommo_sync'
+      )::int AS kommo_owner_acknowledgements,
+      COUNT(*) FILTER (
+        WHERE e.action_type = 'risk_acknowledge'
+          AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = 'sms_delivery'
+      )::int AS sms_owner_acknowledgements,
       COUNT(*) FILTER (WHERE e.action_type IN ('risk_reassign_team','risk_replace_equipment'))::int AS risk_resolution_actions,
       COUNT(*) FILTER (WHERE e.action_type = 'mark_reason')::int AS reason_actions
     FROM ops_action_events e
@@ -378,6 +391,19 @@ async function buildOperationalDigest(pool, options = {}) {
     ORDER BY e.created_at DESC
     LIMIT 8`;
 
+  const ownerAckSql = `
+    SELECT COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report') AS risk_type,
+           COUNT(*)::int AS count,
+           MAX(e.created_at) AS last_ack_at
+    FROM ops_action_events e
+    WHERE e.created_at >= $1::date
+      AND e.created_at < ($1::date + INTERVAL '1 day')
+      AND e.action_type = 'risk_acknowledge'
+      AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = ANY($${actionParams.length + 1}::text[])
+      ${actionBranch}
+    GROUP BY COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report')
+    ORDER BY count DESC`;
+
   const [
     taskSummaryResult,
     overdueResult,
@@ -390,6 +416,7 @@ async function buildOperationalDigest(pool, options = {}) {
     actionSummaryResult,
     actionTypeResult,
     recentActionResult,
+    ownerAckResult,
   ] = await Promise.all([
     safeQuery(pool, 'tasks.summary', taskSummarySql, taskParams, errors),
     safeQuery(pool, 'tasks.overdue', overdueSql, overdueParams, errors),
@@ -402,6 +429,7 @@ async function buildOperationalDigest(pool, options = {}) {
     safeQuery(pool, 'ops.actions.summary', actionSummarySql, actionParams, errors),
     safeQuery(pool, 'ops.actions.types', actionTypeSql, actionParams, errors),
     safeQuery(pool, 'ops.actions.recent', recentActionSql, actionParams, errors),
+    safeQuery(pool, 'ops.owner_acknowledgements', ownerAckSql, [...actionParams, OWNER_ACK_RISK_TYPES], errors),
   ]);
 
   const taskSummary = firstRow(taskSummaryResult);
@@ -466,6 +494,13 @@ async function buildOperationalDigest(pool, options = {}) {
     count: count(actionSummary, 'zadarma_actions'),
     action: 'Zweryfikuj, czy kontakty z klientami domknely ryzyka dnia.',
   });
+  addAlert(alerts, count(actionSummary, 'kommo_owner_acknowledgements') + count(actionSummary, 'sms_owner_acknowledgements') > 0, {
+    level: 'medium',
+    type: 'owner_acknowledgements',
+    title: 'Potwierdzenia ownerow Kommo/SMS',
+    count: count(actionSummary, 'kommo_owner_acknowledgements') + count(actionSummary, 'sms_owner_acknowledgements'),
+    action: 'Sprawdz, czy potwierdzone alerty sa domkniete w Integracjach i Telefonii.',
+  });
 
   const highAlerts = alerts.filter((a) => a.level === 'high').length;
   const mediumAlerts = alerts.filter((a) => a.level === 'medium').length;
@@ -491,6 +526,9 @@ async function buildOperationalDigest(pool, options = {}) {
       kommo_sync_errors: count(kommoSummary, 'sync_errors'),
       operational_decisions: count(actionSummary, 'total_actions'),
       zadarma_actions: count(actionSummary, 'zadarma_actions'),
+      owner_acknowledgements: count(actionSummary, 'kommo_owner_acknowledgements') + count(actionSummary, 'sms_owner_acknowledgements'),
+      kommo_owner_acknowledgements: count(actionSummary, 'kommo_owner_acknowledgements'),
+      sms_owner_acknowledgements: count(actionSummary, 'sms_owner_acknowledgements'),
       risk_resolution_actions: count(actionSummary, 'risk_resolution_actions'),
       reason_actions: count(actionSummary, 'reason_actions'),
       query_errors: errors.length,
@@ -528,6 +566,13 @@ async function buildOperationalDigest(pool, options = {}) {
       operational_actions: recentActionResult.rows.map((row) => ({
         ...row,
         label: OPS_ACTION_LABELS[row.action_type] || row.action_type,
+      })),
+      owner_acknowledgements: ownerAckResult.rows.map((row) => ({
+        risk_type: row.risk_type,
+        label: OWNER_ACK_LABELS[row.risk_type] || row.risk_type,
+        count: Number(row.count || 0),
+        last_ack_at: row.last_ack_at,
+        status: 'domkniete_w_kontroli',
       })),
     },
     errors,
@@ -584,6 +629,13 @@ function buildDigestText(digest) {
   const zadarma = Number(digest.summary.zadarma_actions || 0);
   if (zadarma > 0) {
     lines.push(`Zadarma/SMS: ${zadarma} akcji do sprawdzenia w kontroli operacyjnej.`);
+  }
+
+  const ownerAcks = Number(digest.summary.owner_acknowledgements || 0);
+  if (ownerAcks > 0) {
+    const kommo = Number(digest.summary.kommo_owner_acknowledgements || 0);
+    const sms = Number(digest.summary.sms_owner_acknowledgements || 0);
+    lines.push(`Potwierdzenia ownerow: ${ownerAcks} domkniete (Kommo: ${kommo}, SMS: ${sms}).`);
   }
 
   if (digest.summary.query_errors) {

@@ -1918,6 +1918,8 @@ function getTestModeMockResponse(config) {
     const date = getRequestDate(config);
     const events = getMockOpsEvents().filter((event) => String(event.created_at || '').slice(0, 10) === date);
     const zadarma = events.filter((event) => ['risk_resend_sms', 'risk_queue_call'].includes(event.action_type)).length;
+    const kommoOwnerAcks = events.filter((event) => event.action_type === 'risk_acknowledge' && (event.risk_type || event.issue_key) === 'kommo_sync').length;
+    const smsOwnerAcks = events.filter((event) => event.action_type === 'risk_acknowledge' && (event.risk_type || event.issue_key) === 'sms_delivery').length;
     return {
       data: {
         date,
@@ -1940,6 +1942,9 @@ function getTestModeMockResponse(config) {
           kommo_sync_errors: 0,
           operational_decisions: events.length,
           zadarma_actions: zadarma,
+          owner_acknowledgements: kommoOwnerAcks + smsOwnerAcks,
+          kommo_owner_acknowledgements: kommoOwnerAcks,
+          sms_owner_acknowledgements: smsOwnerAcks,
           risk_resolution_actions: events.filter((event) => ['risk_reassign_team', 'risk_replace_equipment'].includes(event.action_type)).length,
           reason_actions: events.filter((event) => event.action_type === 'mark_reason').length,
           query_errors: 0,

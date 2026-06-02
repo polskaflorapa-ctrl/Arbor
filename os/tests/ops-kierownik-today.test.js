@@ -1018,10 +1018,10 @@ describe('GET /api/ops/action-history', () => {
             task_id: 88,
             oddzial_id: 7,
             actor_id: 1,
-            action_type: 'risk_queue_call',
-            issue_key: 'sms_not_confirmed',
+            action_type: 'risk_acknowledge',
+            issue_key: 'sms_delivery',
             note: 'Telefon do klienta',
-            metadata: { risk_id: 'sms:88', zadarma_call: { ok: true } },
+            metadata: { risk_id: 'sms_delivery:88', risk_type: 'sms_delivery' },
             created_at: '2026-05-26T10:15:00.000Z',
             numer: 'ARB-88',
             klient_nazwa: 'Klient CSV',
@@ -1031,7 +1031,7 @@ describe('GET /api/ops/action-history', () => {
         };
       }
       if (text.includes('GROUP BY e.action_type')) {
-        return { rows: [{ action_type: 'risk_queue_call', count: 1 }] };
+        return { rows: [{ action_type: 'risk_acknowledge', count: 1 }] };
       }
       if (text.includes('GROUP BY e.issue_key')) {
         return { rows: [{ issue_key: 'sms_not_confirmed', count: 1 }] };
@@ -1047,7 +1047,10 @@ describe('GET /api/ops/action-history', () => {
     expect(res.headers['content-type']).toContain('text/csv');
     expect(res.headers['content-disposition']).toContain('arbor-decyzje-operacyjne');
     expect(res.text).toContain('Data decyzji;Oddzial;Operator;Decyzja');
-    expect(res.text).toContain('Telefon Zadarma z ryzyka');
+    expect(res.text).toContain('Owner;Status potwierdzenia');
+    expect(res.text).toContain('Potwierdzenie ryzyka');
+    expect(res.text).toContain('Owner: kontakt z klientem');
+    expect(res.text).toContain('Domkniete w kontroli');
     expect(res.text).toContain('Klient CSV');
   });
 });

@@ -411,6 +411,11 @@ export default function KontrolaOperacyjna() {
               <div style={s.digestMetric}><span>Ryzyka marzy</span><strong>{digest.summary?.margin_risks || 0}</strong></div>
               <div style={s.digestMetric}><span>Decyzje oper.</span><strong>{digest.summary?.operational_decisions || 0}</strong></div>
               <div style={s.digestMetric}><span>Zadarma/SMS</span><strong>{digest.summary?.zadarma_actions || 0}</strong></div>
+              <div style={s.digestMetric}>
+                <span>Potwierdzenia ownerow</span>
+                <strong>{digest.summary?.owner_acknowledgements || 0}</strong>
+                <small style={s.subLine}>Kommo {digest.summary?.kommo_owner_acknowledgements || 0} / SMS {digest.summary?.sms_owner_acknowledgements || 0}</small>
+              </div>
             </div>
             <div style={s.digestList}>
               {(digest.alerts || []).slice(0, 5).map((alert) => (

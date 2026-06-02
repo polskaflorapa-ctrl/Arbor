@@ -14,6 +14,7 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - Panel Integracje pokazuje ownera i eskalacje przy Kommo retry/dead-letter oraz inbound conflict, pozwala filtrowac po oddziale i potwierdzac alert.
 - Panel Telefonia pokazuje ownera i eskalacje przy historii SMS delivery, pozwala filtrowac po oddziale i potwierdzac bledy dostawy.
 - Kontrola operacyjna pokazuje rejestr potwierdzen ownerow, filtruje `risk_acknowledge` po `risk_type=kommo_sync` albo `risk_type=sms_delivery` i korzysta z tego samego `/ops/action-history`.
+- Dzienny digest pokazuje KPI domkniecia potwierdzen ownerow: lacznie, Kommo i SMS. CSV z `/ops/action-history?format=csv` eksportuje `Owner` oraz `Status potwierdzenia`.
 
 ## Kommo
 
@@ -43,6 +44,7 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - Panel Kierownika pokazuje ownera przy ryzyku i pozwala potwierdzic `kommo_sync`.
 - Panel Integracje i Panel Telefonia pozwalaja ownerowi zapisac potwierdzenie do `ops_action_events`.
 - Kontrola operacyjna pozwala dyrekcji filtrowac potwierdzenia ownerow Kommo/SMS.
+- Digest i CSV pozwalaja sprawdzic, ile potwierdzen Kommo/SMS zostalo domknietych danego dnia.
 - Kommo/SMS dead-letter nie zostaje bez ownera i zapisu w `ops_action_events`.
 
 ## NO-GO

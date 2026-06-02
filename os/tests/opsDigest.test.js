@@ -123,7 +123,24 @@ describe('opsDigest service', () => {
       if (sql.includes('FROM daily_reports r')) return { rows: [{ draft_total: 0, older_drafts: 0 }] };
       if (sql.includes('kommo_last_sync_status')) return { rows: [{ sync_errors: 0 }] };
       if (sql.includes('COUNT(*)::int AS total_actions')) {
-        return { rows: [{ total_actions: 3, zadarma_actions: 2, risk_resolution_actions: 1, reason_actions: 0 }] };
+        return {
+          rows: [{
+            total_actions: 5,
+            zadarma_actions: 2,
+            kommo_owner_acknowledgements: 1,
+            sms_owner_acknowledgements: 2,
+            risk_resolution_actions: 1,
+            reason_actions: 0,
+          }],
+        };
+      }
+      if (sql.includes('ops.owner_acknowledgements') || sql.includes("ANY($") && sql.includes("risk_acknowledge")) {
+        return {
+          rows: [
+            { risk_type: 'sms_delivery', count: 2, last_ack_at: '2026-05-25T10:00:00.000Z' },
+            { risk_type: 'kommo_sync', count: 1, last_ack_at: '2026-05-25T09:00:00.000Z' },
+          ],
+        };
       }
       if (sql.includes('FROM ops_action_events e') && sql.includes('GROUP BY e.action_type')) {
         return {
@@ -154,17 +171,26 @@ describe('opsDigest service', () => {
     const digest = await buildOperationalDigest(pool, { date: '2026-05-25' });
 
     expect(digest.summary).toEqual(expect.objectContaining({
-      operational_decisions: 3,
+      operational_decisions: 5,
       zadarma_actions: 2,
+      owner_acknowledgements: 3,
+      kommo_owner_acknowledgements: 1,
+      sms_owner_acknowledgements: 2,
       risk_resolution_actions: 1,
     }));
     expect(digest.alerts.map((a) => a.type)).toContain('zadarma_followups');
+    expect(digest.alerts.map((a) => a.type)).toContain('owner_acknowledgements');
+    expect(digest.details.owner_acknowledgements).toEqual([
+      expect.objectContaining({ risk_type: 'sms_delivery', label: 'SMS', count: 2, status: 'domkniete_w_kontroli' }),
+      expect.objectContaining({ risk_type: 'kommo_sync', label: 'Kommo', count: 1, status: 'domkniete_w_kontroli' }),
+    ]);
     expect(digest.details.operational_action_types[0]).toMatchObject({
       action_type: 'risk_queue_call',
       label: 'Telefon Zadarma z ryzyka',
       count: 1,
     });
     expect(buildDigestText(digest)).toContain('Zadarma/SMS: 2 akcji');
+    expect(buildDigestText(digest)).toContain('Potwierdzenia ownerow: 3 domkniete (Kommo: 1, SMS: 2).');
   });
 
   it('delivers one idempotent notification per recipient', async () => {

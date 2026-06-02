@@ -24,6 +24,11 @@ function main() {
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'sms_delivery', 'SMS owner filter');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', "risk_type: 'sms_delivery'", 'SMS owner filter test');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'risk_type=kommo_sync', 'backend risk_type alias test');
+  assertIncludes('os/src/services/opsDigest.js', 'kommo_owner_acknowledgements', 'Kommo owner acknowledgement digest KPI');
+  assertIncludes('os/src/services/opsDigest.js', 'sms_owner_acknowledgements', 'SMS owner acknowledgement digest KPI');
+  assertIncludes('os/src/routes/ops.js', 'owner_ack_status', 'CSV owner acknowledgement status');
+  assertIncludes('os/tests/opsDigest.test.js', 'Potwierdzenia ownerow: 3 domkniete', 'digest acknowledgement text test');
+  assertIncludes('os/tests/ops-kierownik-today.test.js', 'Status potwierdzenia', 'CSV acknowledgement status test');
   assertIncludes('docs/OPS-ALERT-OWNERSHIP-CONTRACT.md', 'Kontrola operacyjna', 'contract control note');
 
   console.log('ops owner control check passed');

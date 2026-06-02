@@ -42,6 +42,25 @@ beforeEach(() => {
     if (path === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Oddzial Krakow' }] });
     if (path === '/automations/daily-digest/history') return Promise.resolve({ data: { items: [], total: 0 } });
     if (path === '/automations/daily-digest/settings') return Promise.resolve({ data: { settings: [] } });
+    if (path === '/automations/daily-digest/preview') {
+      return Promise.resolve({
+        data: {
+          date: '2026-05-26',
+          summary: {
+            high_alerts: 0,
+            medium_alerts: 1,
+            today_tasks: 2,
+            margin_risks: 0,
+            operational_decisions: 4,
+            zadarma_actions: 1,
+            owner_acknowledgements: 3,
+            kommo_owner_acknowledgements: 1,
+            sms_owner_acknowledgements: 2,
+          },
+          alerts: [{ type: 'owner_acknowledgements', title: 'Potwierdzenia ownerow Kommo/SMS', count: 3, action: 'Sprawdz domkniecie.' }],
+        },
+      });
+    }
     if (path === '/ops/action-history') {
       const riskType = config.params?.risk_type || 'kommo_sync';
       return Promise.resolve({
@@ -115,4 +134,11 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
 
   expect((await screen.findAllByText('sms_delivery')).length).toBeGreaterThan(0);
   expect((await screen.findAllByText('ARB-SMS')).length).toBeGreaterThan(0);
+
+  await userEvent.click(screen.getByRole('button', { name: /Digest/i }));
+
+  await waitFor(() => {
+    expect(screen.getAllByText('Potwierdzenia ownerow').length).toBeGreaterThan(0);
+    expect(screen.getByText('Kommo 1 / SMS 2')).toBeInTheDocument();
+  });
 });

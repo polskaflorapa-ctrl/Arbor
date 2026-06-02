@@ -1157,6 +1157,8 @@ function actionHistoryCsv(items) {
     ['action_type', 'Kod decyzji'],
     ['risk_type', 'Typ ryzyka'],
     ['risk_id', 'ID ryzyka'],
+    ['owner_label', 'Owner'],
+    ['owner_ack_status', 'Status potwierdzenia'],
     ['numer', 'Zlecenie'],
     ['klient_nazwa', 'Klient'],
     ['outcome', 'Wynik'],
@@ -2004,6 +2006,10 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
         metadata,
         risk_id: metadata.risk_id || null,
         risk_type: metadata.risk_type || row.issue_key || null,
+        owner_label: row.action_type === 'risk_acknowledge'
+          ? riskOwner(metadata.risk_type || row.issue_key || null).owner_label
+          : null,
+        owner_ack_status: row.action_type === 'risk_acknowledge' ? 'Domkniete w kontroli' : null,
         outcome: decisionOutcome(row),
         created_at: row.created_at,
         action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/kierownik',
