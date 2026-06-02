@@ -7,11 +7,11 @@
 - Android version code: 1
 - EAS profile: preview
 - Platform: Android
-- EAS build URL: https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/4edddcd1-6109-48d4-ba8b-6e8960de5903
+- EAS build URL: https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/22618c72-6557-462d-8e24-018aba6274ff
 - APK artifact: `dist/arbor-mobile-1.0.0-preview-android-2026-06-02-latest.apk`
 - ZIP package: `dist/arbor-mobile-1.0.0-preview-android-2026-06-02-latest.zip`
-- APK SHA256: `888AF6ECB311BE83412702BCBC8A30AF0645B6693C98B5AA734337C2E0B492C9`
-- ZIP SHA256: `FC4B6C0739FDE89870DED98C53869F8876F4DDFAE84EAB212FBB336148DA6E09`
+- APK SHA256: `DFC22E8120BC7C30FE351E2FB2E74E5F0E0CE93FFA168242A43D8EC690152BFF`
+- ZIP SHA256: `396936202320A5693BC2BDD8B190F8A786B1D5825FFCD60E4A387295437175F6`
 - API environment: preview
 - Expected API version: from `eas.json` preview profile
 - Sentry status / DSN configured: runtime DSN supported; sourcemap auto-upload disabled for preview
