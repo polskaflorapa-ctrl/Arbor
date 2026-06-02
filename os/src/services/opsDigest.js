@@ -12,6 +12,9 @@ const OPS_ACTION_LABELS = {
   risk_resend_sms: 'Ponowienie SMS ryzyka',
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
+  risk_owner_escalate: 'Eskalacja ownera ryzyka',
+  risk_owner_auto_remediate: 'Auto-remediacja ownera',
+  risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
   risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
 };
@@ -404,6 +407,99 @@ async function buildOperationalDigest(pool, options = {}) {
     GROUP BY COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report')
     ORDER BY count DESC`;
 
+  const unresolvedOwnerParams = [date];
+  const unresolvedOwnerBranch = branchPredicate('t', branchId, unresolvedOwnerParams);
+  const unresolvedOwnerSql = `
+    WITH open_owner_alerts AS (
+      SELECT
+        ('kommo_sync:' || q.id::text) AS risk_id,
+        'kommo_sync' AS risk_type,
+        q.task_id,
+        t.numer,
+        t.klient_nazwa,
+        t.oddzial_id,
+        COALESCE(b.nazwa, 'Oddzial #' || t.oddzial_id) AS oddzial_nazwa,
+        'Owner: integracje Kommo' AS owner_label,
+        'Dyspozytor/Admin' AS owner_role,
+        CASE WHEN q.status = 'dead_letter' THEN 'P1' ELSE 'P2' END AS escalation_level,
+        COALESCE(q.updated_at, q.created_at, q.next_retry_at) AS alert_at
+      FROM task_kommo_sync_queue q
+      LEFT JOIN tasks t ON t.id = q.task_id
+      LEFT JOIN branches b ON b.id = t.oddzial_id
+      WHERE q.status IN ('failed', 'dead_letter')
+        ${unresolvedOwnerBranch}
+      UNION ALL
+      SELECT
+        ('sms_delivery:' || h.id::text) AS risk_id,
+        'sms_delivery' AS risk_type,
+        h.task_id,
+        t.numer,
+        t.klient_nazwa,
+        t.oddzial_id,
+        COALESCE(b.nazwa, 'Oddzial #' || t.oddzial_id) AS oddzial_nazwa,
+        'Owner: kontakt z klientem' AS owner_label,
+        'Kierownik/Dyspozytor' AS owner_role,
+        'P2' AS escalation_level,
+        h.created_at AS alert_at
+      FROM sms_history h
+      LEFT JOIN tasks t ON t.id = h.task_id
+      LEFT JOIN branches b ON b.id = t.oddzial_id
+      WHERE h.created_at >= $1::date - INTERVAL '7 days'
+        ${unresolvedOwnerBranch}
+        AND (
+          h.delivery_error_code IS NOT NULL
+          OR LOWER(COALESCE(h.status, '')) LIKE 'blad%'
+          OR LOWER(COALESCE(h.provider_status, '')) IN ('failed', 'undelivered', 'rejected', 'denied', 'error')
+          OR (
+            h.provider_status IS NULL
+            AND h.created_at < NOW() - INTERVAL '30 minutes'
+            AND LOWER(COALESCE(h.status, '')) NOT IN ('dostarczony', 'delivered')
+          )
+        )
+    )
+    SELECT oa.*,
+           rem.created_at AS last_remediation_at,
+           rem.metadata->>'remediation_action' AS remediation_action,
+           decision.action_type AS last_decision_type,
+           decision.note AS last_decision_note,
+           decision.created_at AS last_decision_at,
+           decision.actor_name AS last_actor_name
+    FROM open_owner_alerts oa
+    JOIN LATERAL (
+      SELECT ev.created_at, ev.metadata
+      FROM ops_action_events ev
+      WHERE ev.action_type = 'risk_owner_auto_remediate'
+        AND ev.metadata->>'risk_id' = oa.risk_id
+        AND COALESCE(ev.metadata->>'risk_type', ev.issue_key, '') = oa.risk_type
+        AND ev.created_at >= $1::date
+        AND ev.created_at < $1::date + INTERVAL '1 day'
+      ORDER BY ev.created_at DESC, ev.id DESC
+      LIMIT 1
+    ) rem ON true
+    LEFT JOIN LATERAL (
+      SELECT ev.action_type, ev.note, ev.created_at,
+             NULLIF(TRIM(CONCAT(COALESCE(u.imie, ''), ' ', COALESCE(u.nazwisko, ''))), '') AS actor_name
+      FROM ops_action_events ev
+      LEFT JOIN users u ON u.id = ev.actor_id
+      WHERE ev.metadata->>'risk_id' = oa.risk_id
+        AND COALESCE(ev.metadata->>'risk_type', ev.issue_key, '') = oa.risk_type
+        AND ev.action_type IN ('risk_owner_escalate', 'risk_owner_auto_remediate', 'risk_owner_remediation_blocked')
+      ORDER BY ev.created_at DESC, ev.id DESC
+      LIMIT 1
+    ) decision ON true
+    WHERE oa.escalation_level IN ('P1', 'P2')
+      AND NOT EXISTS (
+        SELECT 1
+        FROM ops_action_events ack
+        WHERE ack.action_type = 'risk_acknowledge'
+          AND ack.metadata->>'risk_id' = oa.risk_id
+          AND COALESCE(ack.metadata->>'risk_type', ack.issue_key, '') = oa.risk_type
+          AND ack.created_at >= $1::date
+          AND ack.created_at < $1::date + INTERVAL '1 day'
+      )
+    ORDER BY oa.escalation_level ASC, rem.created_at DESC
+    LIMIT 12`;
+
   const [
     taskSummaryResult,
     overdueResult,
@@ -417,6 +513,7 @@ async function buildOperationalDigest(pool, options = {}) {
     actionTypeResult,
     recentActionResult,
     ownerAckResult,
+    unresolvedOwnerResult,
   ] = await Promise.all([
     safeQuery(pool, 'tasks.summary', taskSummarySql, taskParams, errors),
     safeQuery(pool, 'tasks.overdue', overdueSql, overdueParams, errors),
@@ -430,6 +527,7 @@ async function buildOperationalDigest(pool, options = {}) {
     safeQuery(pool, 'ops.actions.types', actionTypeSql, actionParams, errors),
     safeQuery(pool, 'ops.actions.recent', recentActionSql, actionParams, errors),
     safeQuery(pool, 'ops.owner_acknowledgements', ownerAckSql, [...actionParams, OWNER_ACK_RISK_TYPES], errors),
+    safeQuery(pool, 'ops.owner_unresolved_after_remediation', unresolvedOwnerSql, unresolvedOwnerParams, errors),
   ]);
 
   const taskSummary = firstRow(taskSummaryResult);
@@ -501,6 +599,13 @@ async function buildOperationalDigest(pool, options = {}) {
     count: count(actionSummary, 'kommo_owner_acknowledgements') + count(actionSummary, 'sms_owner_acknowledgements'),
     action: 'Sprawdz, czy potwierdzone alerty sa domkniete w Integracjach i Telefonii.',
   });
+  addAlert(alerts, unresolvedOwnerResult.rows.length > 0, {
+    level: 'high',
+    type: 'owner_unresolved_after_remediation',
+    title: 'Nierozwiazane P1/P2 po remediacji',
+    count: unresolvedOwnerResult.rows.length,
+    action: 'Eskaluj do dyrektora: sprawdz ownerow, ostatnie decyzje i ponow remediacje tylko po nowej decyzji.',
+  });
 
   const highAlerts = alerts.filter((a) => a.level === 'high').length;
   const mediumAlerts = alerts.filter((a) => a.level === 'medium').length;
@@ -529,6 +634,9 @@ async function buildOperationalDigest(pool, options = {}) {
       owner_acknowledgements: count(actionSummary, 'kommo_owner_acknowledgements') + count(actionSummary, 'sms_owner_acknowledgements'),
       kommo_owner_acknowledgements: count(actionSummary, 'kommo_owner_acknowledgements'),
       sms_owner_acknowledgements: count(actionSummary, 'sms_owner_acknowledgements'),
+      owner_unresolved_after_remediation: unresolvedOwnerResult.rows.length,
+      owner_unresolved_p1: unresolvedOwnerResult.rows.filter((row) => row.escalation_level === 'P1').length,
+      owner_unresolved_p2: unresolvedOwnerResult.rows.filter((row) => row.escalation_level === 'P2').length,
       risk_resolution_actions: count(actionSummary, 'risk_resolution_actions'),
       reason_actions: count(actionSummary, 'reason_actions'),
       query_errors: errors.length,
@@ -573,6 +681,25 @@ async function buildOperationalDigest(pool, options = {}) {
         count: Number(row.count || 0),
         last_ack_at: row.last_ack_at,
         status: 'domkniete_w_kontroli',
+      })),
+      owner_unresolved_after_remediation: unresolvedOwnerResult.rows.map((row) => ({
+        risk_id: row.risk_id,
+        risk_type: row.risk_type,
+        escalation_level: row.escalation_level,
+        owner_label: row.owner_label,
+        owner_role: row.owner_role,
+        task_id: row.task_id,
+        numer: row.numer,
+        klient_nazwa: row.klient_nazwa,
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        remediation_action: row.remediation_action,
+        last_remediation_at: row.last_remediation_at,
+        last_decision_type: row.last_decision_type,
+        last_decision_label: OPS_ACTION_LABELS[row.last_decision_type] || row.last_decision_type,
+        last_decision_note: row.last_decision_note,
+        last_decision_at: row.last_decision_at,
+        last_actor_name: row.last_actor_name,
       })),
     },
     errors,
@@ -636,6 +763,16 @@ function buildDigestText(digest) {
     const kommo = Number(digest.summary.kommo_owner_acknowledgements || 0);
     const sms = Number(digest.summary.sms_owner_acknowledgements || 0);
     lines.push(`Potwierdzenia ownerow: ${ownerAcks} domkniete (Kommo: ${kommo}, SMS: ${sms}).`);
+  }
+
+  const unresolvedOwners = Number(digest.summary.owner_unresolved_after_remediation || 0);
+  if (unresolvedOwners > 0) {
+    const p1 = Number(digest.summary.owner_unresolved_p1 || 0);
+    const p2 = Number(digest.summary.owner_unresolved_p2 || 0);
+    const rows = (digest.details.owner_unresolved_after_remediation || [])
+      .slice(0, 3)
+      .map((row) => `${row.escalation_level}/${row.risk_type} ${row.numer || row.risk_id} (${row.owner_label || 'owner'})`);
+    lines.push(`Nierozwiazane P1/P2 po remediacji: ${unresolvedOwners} (P1: ${p1}, P2: ${p2}). ${rows.join('; ')}.`);
   }
 
   if (digest.summary.query_errors) {

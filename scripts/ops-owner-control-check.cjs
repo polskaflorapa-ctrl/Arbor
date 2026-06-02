@@ -27,6 +27,8 @@ function main() {
   assertIncludes('os/src/services/opsDigest.js', 'kommo_owner_acknowledgements', 'Kommo owner acknowledgement digest KPI');
   assertIncludes('os/src/services/opsDigest.js', 'sms_owner_acknowledgements', 'SMS owner acknowledgement digest KPI');
   assertIncludes('os/src/routes/ops.js', 'owner_ack_status', 'CSV owner acknowledgement status');
+  assertIncludes('os/src/services/opsDigest.js', 'owner_unresolved_after_remediation', 'owner unresolved remediation digest alert');
+  assertIncludes('os/src/services/opsDigest.js', 'Nierozwiazane P1/P2 po remediacji', 'owner unresolved remediation digest text');
   assertIncludes('os/src/routes/ops.js', "/owner-alerts/open", 'open owner alerts endpoint');
   assertIncludes('os/src/routes/ops.js', "/owner-alerts/actions", 'bulk owner alerts action endpoint');
   assertIncludes('os/src/routes/ops.js', "/owner-alerts/remediation", 'owner alert remediation endpoint');
@@ -34,12 +36,16 @@ function main() {
   assertIncludes('os/src/routes/ops.js', 'risk_owner_escalate', 'owner alert escalation audit');
   assertIncludes('os/src/routes/ops.js', 'risk_owner_auto_remediate', 'owner alert remediation audit');
   assertIncludes('os/src/routes/ops.js', 'risk_owner_remediation_blocked', 'owner alert remediation block audit');
+  assertIncludes('os/src/services/opsDigest.js', 'owner_unresolved_after_remediation', 'owner unresolved remediation digest alert');
+  assertIncludes('os/src/services/opsDigest.js', 'Nierozwiazane P1/P2 po remediacji', 'owner unresolved remediation digest text');
   assertIncludes('os/src/routes/ops.js', 'OPS_OWNER_REMEDIATION_DAILY_LIMIT', 'owner alert remediation daily limit');
   assertIncludes('os/src/routes/ops.js', 'ownerAlertSla', 'owner alert SLA aging');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'reports unacknowledged Kommo/SMS owner alerts with SLA aging', 'open owner alerts backend test');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'stores audited bulk owner alert actions', 'bulk owner alerts backend test');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'unlocks Kommo retry only after owner escalation', 'owner remediation backend test');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'reports owner remediation retry, success and daily limit blockers', 'owner remediation report backend test');
+  assertIncludes('os/tests/opsDigest.test.js', 'escalates unresolved P1/P2 owner alerts after remediation in the digest', 'owner unresolved remediation digest test');
+  assertIncludes('os/tests/opsDigest.test.js', 'escalates unresolved P1/P2 owner alerts after remediation in the digest', 'owner unresolved remediation digest test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Niedomkniete alerty ownerow', 'open owner alerts UI');
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Potwierdz widoczne', 'bulk acknowledge owner alerts UI');
   assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Eskaluj widoczne', 'bulk escalate owner alerts UI');
@@ -51,6 +57,7 @@ function main() {
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', "action: 'bulk_acknowledge'", 'bulk acknowledge UI test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', "action: 'bulk_escalate'", 'bulk escalate UI test');
   assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', 'Skutecznosc remediacji ownerow', 'owner remediation UI test');
+  assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', 'Nierozwiazane P1/P2 po remediacji', 'owner unresolved digest preview test');
   assertIncludes('os/tests/opsDigest.test.js', 'Potwierdzenia ownerow: 3 domkniete', 'digest acknowledgement text test');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'Status potwierdzenia', 'CSV acknowledgement status test');
   assertIncludes('docs/OPS-ALERT-OWNERSHIP-CONTRACT.md', 'Kontrola operacyjna', 'contract control note');

@@ -598,6 +598,11 @@ export default function KontrolaOperacyjna() {
                 <strong>{digest.summary?.owner_acknowledgements || 0}</strong>
                 <small style={s.subLine}>Kommo {digest.summary?.kommo_owner_acknowledgements || 0} / SMS {digest.summary?.sms_owner_acknowledgements || 0}</small>
               </div>
+              <div style={s.digestMetric}>
+                <span>Nierozwiazane P1/P2 po remediacji</span>
+                <strong>{digest.summary?.owner_unresolved_after_remediation || 0}</strong>
+                <small style={s.subLine}>P1 {digest.summary?.owner_unresolved_p1 || 0} / P2 {digest.summary?.owner_unresolved_p2 || 0}</small>
+              </div>
             </div>
             <div style={s.digestList}>
               {(digest.alerts || []).slice(0, 5).map((alert) => (

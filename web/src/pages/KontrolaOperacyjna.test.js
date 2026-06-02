@@ -136,8 +136,14 @@ beforeEach(() => {
             owner_acknowledgements: 3,
             kommo_owner_acknowledgements: 1,
             sms_owner_acknowledgements: 2,
+            owner_unresolved_after_remediation: 1,
+            owner_unresolved_p1: 1,
+            owner_unresolved_p2: 0,
           },
-          alerts: [{ type: 'owner_acknowledgements', title: 'Potwierdzenia ownerow Kommo/SMS', count: 3, action: 'Sprawdz domkniecie.' }],
+          alerts: [
+            { type: 'owner_unresolved_after_remediation', title: 'Nierozwiazane P1/P2 po remediacji', count: 1, action: 'Eskaluj do dyrektora.' },
+            { type: 'owner_acknowledgements', title: 'Potwierdzenia ownerow Kommo/SMS', count: 3, action: 'Sprawdz domkniecie.' },
+          ],
         },
       });
     }
@@ -282,5 +288,6 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   await waitFor(() => {
     expect(screen.getAllByText('Potwierdzenia ownerow').length).toBeGreaterThan(0);
     expect(screen.getByText('Kommo 1 / SMS 2')).toBeInTheDocument();
+    expect(screen.getAllByText(/Nierozwiazane P1\/P2 po remediacji/).length).toBeGreaterThan(0);
   });
 }, 15000);

@@ -193,6 +193,76 @@ describe('opsDigest service', () => {
     expect(buildDigestText(digest)).toContain('Potwierdzenia ownerow: 3 domkniete (Kommo: 1, SMS: 2).');
   });
 
+  it('escalates unresolved P1/P2 owner alerts after remediation in the digest', async () => {
+    const pool = createPool((sql) => {
+      if (sql.includes('AS today_total')) {
+        return { rows: [{ today_total: 1, horizon_total: 1, overdue_total: 0, unassigned_total: 0, in_progress_total: 0 }] };
+      }
+      if (sql.includes('FROM daily_reports r')) return { rows: [{ draft_total: 0, older_drafts: 0 }] };
+      if (sql.includes('kommo_last_sync_status')) return { rows: [{ sync_errors: 0 }] };
+      if (sql.includes('COUNT(*)::int AS total_actions')) {
+        return {
+          rows: [{
+            total_actions: 2,
+            zadarma_actions: 0,
+            kommo_owner_acknowledgements: 0,
+            sms_owner_acknowledgements: 0,
+            risk_resolution_actions: 0,
+            reason_actions: 0,
+          }],
+        };
+      }
+      if (sql.includes('open_owner_alerts')) {
+        return {
+          rows: [
+            {
+              risk_id: 'kommo_sync:501',
+              risk_type: 'kommo_sync',
+              escalation_level: 'P1',
+              owner_label: 'Owner: integracje Kommo',
+              owner_role: 'Dyspozytor/Admin',
+              task_id: 77,
+              numer: 'ARB-77',
+              klient_nazwa: 'Klient Kommo',
+              oddzial_id: 7,
+              oddzial_nazwa: 'Krakow',
+              remediation_action: 'retry_kommo',
+              last_remediation_at: '2026-05-25T10:30:00.000Z',
+              last_decision_type: 'risk_owner_auto_remediate',
+              last_decision_note: 'Retry po eskalacji',
+              last_decision_at: '2026-05-25T10:30:00.000Z',
+              last_actor_name: 'Anna Owner',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const digest = await buildOperationalDigest(pool, { date: '2026-05-25', branchId: 7 });
+
+    expect(digest.summary).toEqual(expect.objectContaining({
+      high_alerts: 1,
+      owner_unresolved_after_remediation: 1,
+      owner_unresolved_p1: 1,
+      owner_unresolved_p2: 0,
+    }));
+    expect(digest.alerts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'owner_unresolved_after_remediation',
+        level: 'high',
+        count: 1,
+      }),
+    ]));
+    expect(digest.details.owner_unresolved_after_remediation[0]).toMatchObject({
+      risk_id: 'kommo_sync:501',
+      owner_label: 'Owner: integracje Kommo',
+      last_decision_label: 'Auto-remediacja ownera',
+    });
+    expect(buildDigestText(digest)).toContain('Nierozwiazane P1/P2 po remediacji: 1');
+    expect(buildDigestText(digest)).toContain('P1/kommo_sync ARB-77');
+  });
+
   it('delivers one idempotent notification per recipient', async () => {
     const pool = createPool(() => ({ rows: [{ id: 1 }], rowCount: 1 }));
     const digest = {
