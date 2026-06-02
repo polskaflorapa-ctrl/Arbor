@@ -42,6 +42,21 @@ test("CircleCI config check requires web JUnit upload", () => {
   assert.throws(() => validateCircleciConfig(config), /web does not upload test results/);
 });
 
+test("CircleCI config check requires web test splitting", () => {
+  const config = clone(loadCurrentConfig());
+  config.jobs.web.parallelism = 1;
+
+  assert.throws(() => validateCircleciConfig(config), /Web job does not use expected parallelism/);
+});
+
+test("CircleCI config check requires per-node web JUnit output", () => {
+  const config = clone(loadCurrentConfig());
+  const testStep = config.jobs.web.steps.find((step) => step.run?.name === "Test web");
+  testStep.run.command = "npm test -w arbor-web -- --reporter=default --reporter=junit --outputFile.junit=../test-results/vitest/results.xml";
+
+  assert.throws(() => validateCircleciConfig(config), /Web job does not generate Vitest JUnit output/);
+});
+
 test("CircleCI config check requires OS tests to emit Jest JUnit", () => {
   const config = clone(loadCurrentConfig());
   const testStep = config.jobs["os-tests"].steps.find((step) => step.run?.name === "Test Arbor OS");

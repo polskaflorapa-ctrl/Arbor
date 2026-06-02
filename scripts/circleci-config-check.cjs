@@ -138,8 +138,17 @@ function validateCircleciConfig(config) {
   assertStoreTestResults("web", config.jobs.web);
   assertStoreTestResults("os-tests", config.jobs["os-tests"]);
 
+  if (config.jobs.web.parallelism !== 2) {
+    fail("Web job does not use expected parallelism");
+  }
+
   const webCommand = commandText(config.jobs.web, "Test web");
-  if (!webCommand.includes("--reporter=junit") || !webCommand.includes("test-results/vitest/results.xml")) {
+  if (
+    !webCommand.includes("circleci tests run")
+    || !webCommand.includes("--split-by=timings")
+    || !webCommand.includes("--reporter=junit")
+    || !webCommand.includes('results-${CIRCLE_NODE_INDEX}.xml')
+  ) {
     fail("Web job does not generate Vitest JUnit output");
   }
 

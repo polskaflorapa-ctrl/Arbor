@@ -43,13 +43,17 @@ jobs:
 
   web:
     executor: node
+    parallelism: 2
     steps:
       - checkout_and_install
       - run:
           name: Test web
           command: |
             mkdir -p test-results/vitest
-            npm test -w arbor-web -- --reporter=default --reporter=junit --outputFile.junit=../test-results/vitest/results.xml
+            cd web
+            circleci tests glob "src/**/*.test.js" | circleci tests run \
+              --command="xargs npm test -- --reporter=default --reporter=junit --outputFile.junit=../test-results/vitest/results-${CIRCLE_NODE_INDEX}.xml" \
+              --split-by=timings
       - store_test_results:
           path: test-results
       - store_artifacts:
