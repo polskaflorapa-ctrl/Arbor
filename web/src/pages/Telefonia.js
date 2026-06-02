@@ -84,6 +84,7 @@ export default function Telefonia() {
   const [telError, setTelError] = useState('');
   const [savingCall, setSavingCall] = useState(false);
   const [savingCb, setSavingCb] = useState(false);
+  const [startingCallKey, setStartingCallKey] = useState(null);
   const [updatingCbId, setUpdatingCbId] = useState(null);
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentSaving, setAgentSaving] = useState(false);
@@ -165,6 +166,16 @@ export default function Telefonia() {
     priority: 'normal',
     due_at: '',
     notes: '',
+  });
+  const [incomingForm, setIncomingForm] = useState({
+    oddzial_id: '',
+    phone: '',
+    lead_name: '',
+    task_id: '',
+    status: 'answered',
+    notes: '',
+    create_callback: false,
+    priority: 'high',
   });
 
   const SMS_LIMIT = 480;
@@ -1218,6 +1229,123 @@ export default function Telefonia() {
       await loadTelephonyExtras();
     } catch (e2) {
       setTelError(getApiErrorMessage(e2, 'Nie udało się zapisać połączenia.'));
+    } finally {
+      setSavingCall(false);
+    }
+  };
+
+  const startSpecialistCall = async ({ phone, oddzial_id, lead_name, task_id, notes, callbackId, key }) => {
+    const oid = toIntLocal(oddzial_id || callForm.oddzial_id || agentForm.oddzial_id);
+    const targetPhone = normalizePhone(phone);
+    const href = telHref(targetPhone);
+    if (!oid) {
+      setTelError('Wybierz oddzial przed polaczeniem.');
+      return;
+    }
+    if (!targetPhone || !href) {
+      setTelError('Podaj poprawny numer klienta.');
+      return;
+    }
+    const callKey = key || `${oid}:${targetPhone}:${callbackId || 'manual'}`;
+    setStartingCallKey(callKey);
+    setTelError('');
+    try {
+      const token = getStoredToken();
+      const taskId = toIntLocal(task_id);
+      await api.post(
+        '/telephony/calls',
+        {
+          oddzial_id: oid,
+          phone: targetPhone,
+          call_type: 'outbound',
+          status: 'dialing',
+          duration_sec: 0,
+          task_id: taskId || undefined,
+          lead_name: String(lead_name || '').trim() || null,
+          notes: String(notes || 'Specjalista rozpoczal polaczenie z panelu Telefonia.').trim(),
+        },
+        { headers: authHeaders(token) }
+      );
+      if (callbackId) {
+        await api.patch(`/telephony/callbacks/${callbackId}/status`, { status: 'in_progress' }, { headers: authHeaders(token) });
+      }
+      setCallForm((f) => ({
+        ...f,
+        oddzial_id: String(oid),
+        phone: targetPhone,
+        call_type: 'outbound',
+        status: 'answered',
+        task_id: taskId ? String(taskId) : '',
+        lead_name: String(lead_name || ''),
+        notes: '',
+      }));
+      await loadTelephonyExtras();
+      window.location.href = href;
+    } catch (e2) {
+      setTelError(getApiErrorMessage(e2, 'Nie udalo sie rozpoczac polaczenia specjalisty.'));
+    } finally {
+      setStartingCallKey(null);
+    }
+  };
+
+  const saveIncomingCall = async (e) => {
+    e.preventDefault();
+    const oid = toIntLocal(incomingForm.oddzial_id);
+    const phone = normalizePhone(incomingForm.phone);
+    if (!oid) {
+      setTelError('Wybierz oddzial dla telefonu przychodzacego.');
+      return;
+    }
+    if (!phone) {
+      setTelError('Podaj numer klienta.');
+      return;
+    }
+    setSavingCall(true);
+    setTelError('');
+    try {
+      const token = getStoredToken();
+      const taskId = toIntLocal(incomingForm.task_id);
+      await api.post(
+        '/telephony/calls',
+        {
+          oddzial_id: oid,
+          phone,
+          call_type: 'inbound',
+          status: incomingForm.status,
+          duration_sec: 0,
+          task_id: taskId || undefined,
+          lead_name: incomingForm.lead_name.trim() || null,
+          notes: incomingForm.notes.trim() || null,
+        },
+        { headers: authHeaders(token) }
+      );
+      if (incomingForm.create_callback || incomingForm.status === 'missed') {
+        await api.post(
+          '/telephony/callbacks',
+          {
+            oddzial_id: oid,
+            phone,
+            task_id: taskId || undefined,
+            lead_name: incomingForm.lead_name.trim() || null,
+            priority: incomingForm.priority,
+            due_at: null,
+            notes: incomingForm.notes.trim() || 'Oddzwonic po telefonie przychodzacym.',
+          },
+          { headers: authHeaders(token) }
+        );
+      }
+      setIncomingForm((f) => ({
+        ...f,
+        phone: '',
+        lead_name: '',
+        task_id: '',
+        status: 'answered',
+        notes: '',
+        create_callback: false,
+      }));
+      await loadTelephonyExtras();
+    } catch (e2) {
+      setTelError(getApiErrorMessage(e2, 'Nie udalo sie zapisac telefonu przychodzacego.'));
     } finally {
       setSavingCall(false);
     }
@@ -3242,7 +3370,77 @@ export default function Telefonia() {
               Kliknięcie „Zadzwoń” otwiera aplikację telefonu (<code>tel:</code>) — działa na komputerze z softphone lub na telefonie. Zapis połączenia i kolejka oddzwonień są w bazie aplikacji (integracja VoIP możliwa później).
             </div>
             {telLoading && <div style={s.empty}>Ładowanie…</div>}
+            <div style={s.callsIntro}>
+              Nowy przeplyw: specjalista klika "Zadzwon i zapisz", a przy telefonie od klienta zapisuje rozmowe jako przychodzaca i opcjonalnie tworzy oddzwonienie.
+            </div>
             <div style={s.callsGrid}>
+              <form style={s.callForm} onSubmit={saveIncomingCall}>
+                <div style={s.manualTitle}>Przyjmij telefon od klienta</div>
+                <select
+                  value={incomingForm.oddzial_id}
+                  onChange={(e) => setIncomingForm((f) => ({ ...f, oddzial_id: e.target.value }))}
+                  style={s.input}
+                  required
+                >
+                  <option value="">Oddzial...</option>
+                  {oddzialy.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nazwa || `Oddzial #${o.id}`}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={incomingForm.phone}
+                  onChange={(e) => setIncomingForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="Telefon klienta"
+                  style={s.input}
+                />
+                <input
+                  value={incomingForm.lead_name}
+                  onChange={(e) => setIncomingForm((f) => ({ ...f, lead_name: e.target.value }))}
+                  placeholder="Klient / firma"
+                  style={s.input}
+                />
+                <div style={s.inline2}>
+                  <select
+                    value={incomingForm.status}
+                    onChange={(e) => setIncomingForm((f) => ({ ...f, status: e.target.value, create_callback: e.target.value === 'missed' ? true : f.create_callback }))}
+                    style={s.input}
+                  >
+                    <option value="answered">Odebrany</option>
+                    <option value="missed">Nieodebrany</option>
+                    <option value="voicemail">Poczta glosowa</option>
+                  </select>
+                  <input
+                    value={incomingForm.task_id}
+                    onChange={(e) => setIncomingForm((f) => ({ ...f, task_id: e.target.value.replace(/\D/g, '') }))}
+                    placeholder="Nr zlecenia"
+                    style={s.input}
+                    inputMode="numeric"
+                  />
+                </div>
+                <textarea
+                  value={incomingForm.notes}
+                  onChange={(e) => setIncomingForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Co klient powiedzial / czego potrzebuje..."
+                  rows={2}
+                  style={s.textarea}
+                />
+                <div style={s.inlineActions}>
+                  <label style={s.checkboxWrap}>
+                    <input
+                      type="checkbox"
+                      checked={incomingForm.create_callback}
+                      onChange={(e) => setIncomingForm((f) => ({ ...f, create_callback: e.target.checked }))}
+                    />
+                    Dodaj oddzwonienie
+                  </label>
+                  <button type="submit" style={s.sendBtn} disabled={savingCall}>
+                    {savingCall ? 'Zapis...' : 'Zapisz przychodzace'}
+                  </button>
+                </div>
+              </form>
+
               <form style={s.callForm} onSubmit={saveCallLog}>
                 <div style={s.manualTitle}>Zarejestruj połączenie</div>
                 <select
@@ -3314,6 +3512,21 @@ export default function Telefonia() {
                 <div style={s.inlineActions}>
                   <button type="submit" style={s.sendBtn} disabled={savingCall}>
                     {savingCall ? 'Zapis…' : 'Zapisz w logu'}
+                  </button>
+                  <button
+                    type="button"
+                    style={s.rowBtnActive}
+                    disabled={savingCall || startingCallKey === 'manual-call'}
+                    onClick={() => startSpecialistCall({
+                      phone: callForm.phone,
+                      oddzial_id: callForm.oddzial_id,
+                      lead_name: callForm.lead_name,
+                      task_id: callForm.task_id,
+                      notes: callForm.notes || 'Specjalista oddzwania do klienta.',
+                      key: 'manual-call',
+                    })}
+                  >
+                    {startingCallKey === 'manual-call' ? 'Zapisuje...' : 'Zadzwon i zapisz'}
                   </button>
                   {telHref(callForm.phone) ? (
                     <a href={telHref(callForm.phone)} style={s.telLink}>
@@ -3418,9 +3631,22 @@ export default function Telefonia() {
                     actions={
                       <>
                         {telHref(x.phone) ? (
-                          <a href={telHref(x.phone)} style={s.rowBtn}>
-                            Zadzwon
-                          </a>
+                          <button
+                            type="button"
+                            style={s.rowBtnActive}
+                            disabled={startingCallKey === `cb-${x.id}`}
+                            onClick={() => startSpecialistCall({
+                              phone: x.phone,
+                              oddzial_id: x.oddzial_id,
+                              lead_name: x.lead_name,
+                              task_id: x.task_id,
+                              notes: x.notes || 'Oddzwonienie z kolejki Telefonia.',
+                              callbackId: x.id,
+                              key: `cb-${x.id}`,
+                            })}
+                          >
+                            {startingCallKey === `cb-${x.id}` ? 'Start...' : 'Zadzwon i zapisz'}
+                          </button>
                         ) : null}
                         {x.task_id ? (
                           <button type="button" style={s.rowBtn} onClick={() => navigate(`/zlecenia/${x.task_id}`)}>

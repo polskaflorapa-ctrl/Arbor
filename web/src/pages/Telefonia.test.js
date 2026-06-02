@@ -203,3 +203,43 @@ test('one-click branch telephony setup saves branch numbers before copying provi
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('48111222333'));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ARBOR-KRK'));
 });
+
+test('specialist can register an incoming client call and create callback', async () => {
+  renderTelefonia();
+
+  await userEvent.click(await screen.findByRole('button', { name: /oddzwonienia/i }));
+  expect(await screen.findByText('Przyjmij telefon od klienta')).toBeInTheDocument();
+
+  const selects = screen.getAllByRole('combobox');
+  await userEvent.selectOptions(selects[0], '7');
+  await userEvent.type(screen.getByPlaceholderText('Telefon klienta'), '+48600111222');
+  await userEvent.type(screen.getByPlaceholderText('Klient / firma'), 'Jan Klient');
+  await userEvent.selectOptions(selects[1], 'missed');
+  await userEvent.type(screen.getByPlaceholderText('Co klient powiedzial / czego potrzebuje...'), 'Prosi o pilny kontakt');
+  await userEvent.click(screen.getByRole('button', { name: 'Zapisz przychodzace' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/telephony/calls',
+      expect.objectContaining({
+        oddzial_id: 7,
+        phone: '+48600111222',
+        call_type: 'inbound',
+        status: 'missed',
+        lead_name: 'Jan Klient',
+        notes: 'Prosi o pilny kontakt',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(api.post).toHaveBeenCalledWith(
+    '/telephony/callbacks',
+    expect.objectContaining({
+      oddzial_id: 7,
+      phone: '+48600111222',
+      priority: 'high',
+      lead_name: 'Jan Klient',
+    }),
+    expect.objectContaining({ headers: expect.any(Object) })
+  );
+});
