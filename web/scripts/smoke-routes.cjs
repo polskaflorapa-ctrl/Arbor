@@ -250,7 +250,7 @@ async function main() {
 
       await sleep(700);
       let result = await evaluateRoute(route);
-      for (let i = 0; i < 8; i += 1) {
+      for (let i = 0; i < 20; i += 1) {
         if (result.login || (result.textLength >= 40 && !result.loading)) break;
         await sleep(500);
         result = await evaluateRoute(route);
