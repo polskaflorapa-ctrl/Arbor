@@ -83,6 +83,7 @@
     "verify:kommo-idempotency-retry": "node ./scripts/kommo-idempotency-retry-check.cjs",
     "verify:ops-alert-ownership": "node ./scripts/ops-alert-ownership-check.cjs",
     "verify:ops-alert-owner-ui": "node ./scripts/ops-alert-owner-ui-check.cjs",
+    "verify:ops-owner-control": "node ./scripts/ops-owner-control-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",

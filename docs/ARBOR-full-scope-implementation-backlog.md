@@ -99,7 +99,8 @@
 - [x] **P0 Kommo idempotency retry**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` opisuje idempotencje inbound/outbound Kommo, stabilny `idempotency_key`, kontrolowany retry i dead-letter; `npm run verify:kommo-idempotency-retry` pilnuje webhookow, kolejki i diagnostyki.
 - [x] **P0 ops alert ownership**: `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md` opisuje wlascicieli alertow Kommo/SMS/SLO; `kierownik-today` pokazuje `kommo_sync` z `owner_label`, `owner_role`, `escalation`, a `npm run verify:ops-alert-ownership` pilnuje kontraktu.
 - [x] **P0 ops alert owner UI**: Panel Integracje i Telefonia pokazuja `owner_label`, `owner_role`, `escalation`, maja filtr `oddzial_id` i zapis potwierdzenia przez `/ops/risk-report/actions`; `npm run verify:ops-alert-owner-ui` pilnuje kontraktu.
-- [ ] **Nastepny pakiet**: EPIC 9.7 - rejestr potwierdzen ownerow alertow w kontroli operacyjnej z filtrem Kommo/SMS.
+- [x] **P0 ops owner control register**: Kontrola operacyjna pokazuje rejestr `risk_acknowledge`, filtruje potwierdzenia ownerow po `risk_type=kommo_sync` albo `sms_delivery`, a `/ops/action-history` przyjmuje alias `risk_type`; `npm run verify:ops-owner-control` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: EPIC 9.8 - status domkniecia potwierdzen ownerow w digest/export CSV z KPI Kommo/SMS.
 
 ---
 

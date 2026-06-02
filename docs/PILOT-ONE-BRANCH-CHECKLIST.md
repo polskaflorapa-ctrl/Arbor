@@ -17,6 +17,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:kommo-idempotency-retry` potwierdza idempotencje Kommo inbound/outbound, retry i dead-letter.
 - [ ] `npm run verify:ops-alert-ownership` potwierdza ownerow alertow Kommo/SMS/SLO i zapis decyzji w `ops_action_events`.
 - [ ] `npm run verify:ops-alert-owner-ui` potwierdza ownerow i potwierdzenia alertow w Integracje/Telefonia z filtrem oddzialu.
+- [ ] `npm run verify:ops-owner-control` potwierdza rejestr potwierdzen ownerow Kommo/SMS w kontroli operacyjnej.
 - [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
 - [ ] `npm run verify:web-tti` potwierdza prog TTI panelu i komendy smoke web.
 - [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.

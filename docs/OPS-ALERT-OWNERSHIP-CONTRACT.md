@@ -13,6 +13,7 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - `ops_action_events` jest pamiecia decyzji ownera: kto, kiedy, jaki risk, jaka notatka.
 - Panel Integracje pokazuje ownera i eskalacje przy Kommo retry/dead-letter oraz inbound conflict, pozwala filtrowac po oddziale i potwierdzac alert.
 - Panel Telefonia pokazuje ownera i eskalacje przy historii SMS delivery, pozwala filtrowac po oddziale i potwierdzac bledy dostawy.
+- Kontrola operacyjna pokazuje rejestr potwierdzen ownerow, filtruje `risk_acknowledge` po `risk_type=kommo_sync` albo `risk_type=sms_delivery` i korzysta z tego samego `/ops/action-history`.
 
 ## Kommo
 
@@ -37,9 +38,11 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 
 - `npm run verify:ops-alert-ownership` przechodzi.
 - `npm run verify:ops-alert-owner-ui` przechodzi.
+- `npm run verify:ops-owner-control` przechodzi.
 - `kierownik-today` zwraca licznik `kommo_sync_risks`.
 - Panel Kierownika pokazuje ownera przy ryzyku i pozwala potwierdzic `kommo_sync`.
 - Panel Integracje i Panel Telefonia pozwalaja ownerowi zapisac potwierdzenie do `ops_action_events`.
+- Kontrola operacyjna pozwala dyrekcji filtrowac potwierdzenia ownerow Kommo/SMS.
 - Kommo/SMS dead-letter nie zostaje bez ownera i zapisu w `ops_action_events`.
 
 ## NO-GO

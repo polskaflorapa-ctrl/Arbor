@@ -37,10 +37,18 @@ const ACTION_FILTERS = [
   { value: '', label: 'Wszystkie decyzje' },
   { value: 'risk_resend_sms', label: 'Zadarma/SMS' },
   { value: 'risk_queue_call', label: 'Telefon Zadarma' },
+  { value: 'risk_acknowledge', label: 'Potwierdzenie ownera' },
   { value: 'risk_reassign_team', label: 'Przepiecie ekipy' },
   { value: 'risk_replace_equipment', label: 'Przepiecie sprzetu' },
   { value: 'mark_reason', label: 'Powod odchylenia' },
   { value: 'set_duration', label: 'Czas planu' },
+];
+
+const OWNER_ACK_FILTERS = [
+  { value: '', label: 'Wszystkie ryzyka' },
+  { value: 'all', label: 'Wszystkie potwierdzenia' },
+  { value: 'kommo_sync', label: 'Kommo sync' },
+  { value: 'sms_delivery', label: 'SMS delivery' },
 ];
 
 export default function KontrolaOperacyjna() {
@@ -50,6 +58,7 @@ export default function KontrolaOperacyjna() {
   const [range, setRange] = useState('week');
   const [oddzialId, setOddzialId] = useState('');
   const [actionType, setActionType] = useState('');
+  const [ownerAckFilter, setOwnerAckFilter] = useState('');
   const [query, setQuery] = useState('');
   const [branches, setBranches] = useState([]);
   const [history, setHistory] = useState({ items: [], summary: { actions: [], issues: [] }, total: 0 });
@@ -72,14 +81,18 @@ export default function KontrolaOperacyjna() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
 
-  const params = useMemo(() => ({
-    date,
-    range,
-    limit: 80,
-    ...(oddzialId ? { oddzial_id: oddzialId } : {}),
-    ...(actionType ? { action_type: actionType } : {}),
-    ...(query.trim() ? { q: query.trim() } : {}),
-  }), [actionType, date, oddzialId, query, range]);
+  const params = useMemo(() => {
+    const ownerAckActive = ownerAckFilter && ownerAckFilter !== '';
+    return {
+      date,
+      range,
+      limit: 80,
+      ...(oddzialId ? { oddzial_id: oddzialId } : {}),
+      ...(ownerAckActive ? { action_type: 'risk_acknowledge' } : actionType ? { action_type: actionType } : {}),
+      ...(ownerAckFilter && ownerAckFilter !== 'all' ? { risk_type: ownerAckFilter } : {}),
+      ...(query.trim() ? { q: query.trim() } : {}),
+    };
+  }, [actionType, date, oddzialId, ownerAckFilter, query, range]);
 
   const loadBranches = useCallback(async () => {
     if (!canChooseBranch) return;
@@ -237,6 +250,11 @@ export default function KontrolaOperacyjna() {
   const items = history.items || [];
   const actionSummary = history.summary?.actions || [];
   const issueSummary = history.summary?.issues || [];
+  const ownerAckCount = actionSummary
+    .filter((item) => item.action_type === 'risk_acknowledge')
+    .reduce((sum, item) => sum + Number(item.count || 0), 0);
+  const ownerAckRows = items.filter((item) => item.action_type === 'risk_acknowledge');
+  const kommoSmsAckCount = ownerAckRows.filter((item) => ['kommo_sync', 'sms_delivery'].includes(item.risk_type)).length;
   const zadarmaCount = actionSummary
     .filter((item) => ['risk_queue_call', 'risk_resend_sms'].includes(item.action_type))
     .reduce((sum, item) => sum + Number(item.count || 0), 0);
@@ -295,9 +313,33 @@ export default function KontrolaOperacyjna() {
           ) : null}
           <label style={s.field}>
             <span style={s.label}>Typ decyzji</span>
-            <select style={s.input} value={actionType} onChange={(e) => setActionType(e.target.value)}>
+            <select
+              style={s.input}
+              value={actionType}
+              onChange={(e) => {
+                setActionType(e.target.value);
+                if (e.target.value) setOwnerAckFilter('');
+              }}
+              disabled={Boolean(ownerAckFilter)}
+            >
               {ACTION_FILTERS.map((option) => (
                 <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label style={s.field}>
+            <span style={s.label}>Potwierdzenia ownerow</span>
+            <select
+              style={s.input}
+              value={ownerAckFilter}
+              onChange={(e) => {
+                setOwnerAckFilter(e.target.value);
+                if (e.target.value) setActionType('');
+              }}
+              aria-label="Filtr potwierdzen ownerow"
+            >
+              {OWNER_ACK_FILTERS.map((option) => (
+                <option key={option.value || 'all-risk'} value={option.value}>{option.label}</option>
               ))}
             </select>
           </label>
@@ -317,12 +359,41 @@ export default function KontrolaOperacyjna() {
             <strong style={s.kpiValue}>{zadarmaCount}</strong>
           </div>
           <div style={s.kpi}>
+            <span style={s.kpiLabel}>Potwierdzenia ownerow</span>
+            <strong style={s.kpiValue}>{ownerAckCount || kommoSmsAckCount}</strong>
+          </div>
+          <div style={s.kpi}>
             <span style={s.kpiLabel}>Typy akcji</span>
             <strong style={s.kpiValue}>{actionSummary.length}</strong>
           </div>
           <div style={s.kpi}>
             <span style={s.kpiLabel}>Ryzyka</span>
             <strong style={s.kpiValue}>{issueSummary.length}</strong>
+          </div>
+        </section>
+
+        <section className="kontrola-panel kontrola-owner-acks" style={s.digestPanel}>
+          <div style={s.panelHeader}>
+            <div>
+              <h2 style={s.h2}>Rejestr potwierdzen ownerow</h2>
+              <p style={s.muted}>Potwierdzenia alertow Kommo/SMS zapisane w `ops_action_events` z ownerem, ryzykiem i oddzialem.</p>
+            </div>
+            <span style={s.badge}>{ownerAckRows.length} potwierdzen</span>
+          </div>
+          <div style={s.ownerAckList}>
+            {ownerAckRows.slice(0, 8).map((item) => (
+              <div key={`ack-${item.id}`} style={s.ownerAckItem}>
+                <div>
+                  <strong>{item.risk_type || item.issue_label || 'risk_report'}</strong>
+                  <div style={s.subLine}>{item.actor_name || '-'} / {item.oddzial_nazwa || item.oddzial_id || 'global'} / {formatDateTime(item.created_at)}</div>
+                </div>
+                <div style={s.ownerAckMeta}>
+                  <span>{item.risk_id || '-'}</span>
+                  <span>{item.numer || '-'}</span>
+                </div>
+              </div>
+            ))}
+            {!ownerAckRows.length ? <div style={s.emptyLine}>Brak potwierdzen ownerow dla wybranych filtrow.</div> : null}
           </div>
         </section>
 
@@ -508,6 +579,9 @@ const s = {
   runList: { display: 'grid', gap: 8, padding: 16 },
   runItem: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.5)' },
   runNumbers: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700 },
+  ownerAckList: { display: 'grid', gap: 8, padding: 16 },
+  ownerAckItem: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.5)' },
+  ownerAckMeta: { display: 'flex', gap: 8, flexWrap: 'wrap', color: 'var(--text-sub)', fontSize: 12, fontWeight: 700, justifyContent: 'flex-end' },
   emptyLine: { color: 'var(--text-sub)', fontSize: 13 },
   panel: { border: '1px solid rgba(15,95,58,0.13)', background: '#ffffff', borderRadius: 8, overflow: 'hidden', boxShadow: '0 12px 30px rgba(31,79,50,0.065)' },
   panelHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', padding: 18, borderBottom: '1px solid rgba(15,95,58,0.1)' },

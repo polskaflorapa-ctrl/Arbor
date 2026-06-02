@@ -935,6 +935,71 @@ describe('GET /api/ops/action-history', () => {
     expect(res.body.summary.actions[0]).toMatchObject({ action_type: 'risk_reassign_team', count: 1 });
   });
 
+  it('filters owner acknowledgements by risk_type alias', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('COUNT(*)::int AS total')) {
+        expect(text).toContain('e.oddzial_id = $2');
+        expect(text).toContain('e.action_type = $3');
+        expect(text).toContain("COALESCE(e.metadata->>'risk_type', e.issue_key, '') = $4");
+        expect(params).toEqual(['2026-05-26', 7, 'risk_acknowledge', 'kommo_sync']);
+        return { rows: [{ total: 1 }] };
+      }
+      if (text.includes('SELECT e.id, e.task_id') && text.includes('LIMIT $5 OFFSET $6')) {
+        expect(params).toEqual(['2026-05-26', 7, 'risk_acknowledge', 'kommo_sync', 20, 0]);
+        return {
+          rows: [{
+            id: 701,
+            task_id: 77,
+            oddzial_id: 7,
+            actor_id: 1,
+            action_type: 'risk_acknowledge',
+            issue_key: 'kommo_sync',
+            reason_code: null,
+            delta_minutes: null,
+            planned_minutes: null,
+            real_minutes: null,
+            note: 'Potwierdzono Kommo',
+            metadata: { risk_id: 'kommo_sync:501', risk_type: 'kommo_sync' },
+            created_at: '2026-05-26T10:00:00.000Z',
+            numer: 'ARB-77',
+            klient_nazwa: 'Klient Kommo',
+            oddzial_nazwa: 'Krakow',
+            actor_name: 'Test Dyspozytor',
+          }],
+        };
+      }
+      if (text.includes('GROUP BY e.action_type')) return { rows: [{ action_type: 'risk_acknowledge', count: 1 }] };
+      if (text.includes('GROUP BY e.issue_key')) return { rows: [{ issue_key: 'kommo_sync', count: 1 }] };
+      if (text.includes("GROUP BY COALESCE(e.metadata->>'risk_type'")) {
+        return { rows: [{ risk_type: 'kommo_sync', count: 1, last_ack_at: '2026-05-26T10:00:00.000Z' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/action-history?date=2026-05-26&action_type=risk_acknowledge&risk_type=kommo_sync&limit=20')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.filters).toMatchObject({ action_type: 'risk_acknowledge', risk_type: 'kommo_sync' });
+    expect(res.body.items[0]).toMatchObject({
+      action_label: 'Potwierdzenie ryzyka',
+      risk_id: 'kommo_sync:501',
+      risk_type: 'kommo_sync',
+      outcome: 'Potwierdzone: kommo_sync',
+      actor_name: 'Test Dyspozytor',
+    });
+    expect(res.body.summary.acknowledgements[0]).toMatchObject({
+      risk_type: 'kommo_sync',
+      owner_label: 'Owner: integracje Kommo',
+      count: 1,
+    });
+  });
+
   it('exports operational decision history as CSV for director control', async () => {
     pool.query.mockImplementation(async (sql, params = []) => {
       const text = String(sql);

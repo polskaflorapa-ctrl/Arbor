@@ -1822,7 +1822,7 @@ function getTestModeMockResponse(config) {
     const oddzialId = config?.params?.oddzial_id || null;
     const range = config?.params?.range === 'today' ? 'today' : 'week';
     const actionType = config?.params?.action_type || '';
-    const issueKey = config?.params?.issue_key || '';
+    const issueKey = config?.params?.issue_key || config?.params?.risk_type || '';
     const format = String(config?.params?.format || '').toLowerCase();
     const taskId = Number(config?.params?.task_id || 0);
     const q = String(config?.params?.q || '').toLowerCase();
@@ -1837,6 +1837,7 @@ function getTestModeMockResponse(config) {
       recommendation_feedback: 'Feedback rekomendacji',
       risk_resend_sms: 'Ponowienie SMS ryzyka',
       risk_queue_call: 'Telefon Zadarma z ryzyka',
+      risk_acknowledge: 'Potwierdzenie ryzyka',
       risk_reassign_team: 'Przepiecie ekipy z ryzyka',
       risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
     };
@@ -1845,7 +1846,7 @@ function getTestModeMockResponse(config) {
       if (created < fromDate || created >= toDate) return false;
       if (oddzialId && String(event.oddzial_id || '') !== String(oddzialId)) return false;
       if (actionType && event.action_type !== actionType) return false;
-      if (issueKey && event.issue_key !== issueKey) return false;
+      if (issueKey && event.issue_key !== issueKey && event.risk_type !== issueKey) return false;
       if (taskId > 0 && Number(event.task_id || 0) !== taskId) return false;
       if (q && !JSON.stringify(event).toLowerCase().includes(q)) return false;
       return true;
@@ -1862,7 +1863,7 @@ function getTestModeMockResponse(config) {
       action_label: actionLabels[event.action_type] || event.action_type,
       issue_label: event.issue_key || '',
       risk_id: event.risk_id || null,
-      risk_type: event.issue_key || null,
+      risk_type: event.risk_type || event.issue_key || null,
       outcome: event.action_type === 'risk_reassign_team'
         ? 'Ekipa przepieta'
         : event.action_type === 'risk_replace_equipment'

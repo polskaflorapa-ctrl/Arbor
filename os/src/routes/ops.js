@@ -50,6 +50,11 @@ const OPS_ACTION_LABELS = {
   dispatch_gps_checklist: 'Checklist GPS dispatchera',
 };
 
+const ALERT_SOURCE_FILTERS = {
+  kommo: ['kommo_sync'],
+  sms: ['sms_delivery'],
+};
+
 const RISK_OWNER_META = {
   kommo_sync: {
     owner_role: 'Dyspozytor/Admin',
@@ -1105,6 +1110,9 @@ function recommendationTaskIds(value) {
 
 function decisionOutcome(row) {
   const meta = safeMetadata(row.metadata);
+  if (row.action_type === 'risk_acknowledge') {
+    return `Potwierdzone: ${meta.risk_type || row.issue_key || 'ryzyko'}`;
+  }
   if (row.action_type === 'risk_reassign_team') {
     return `Ekipa ${meta.old_team_id || '-'} -> ${meta.new_team_id || '-'}`;
   }
@@ -1856,8 +1864,11 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
   const offset = Math.max(0, Number(req.query.offset || 0));
   const actionType = cleanText(req.query.action_type, 60);
   const issueKey = cleanText(req.query.issue_key, 60);
+  const riskType = cleanText(req.query.risk_type, 60);
   const taskId = Number(req.query.task_id || 0);
   const search = cleanText(req.query.q, 120);
+  const alertSource = cleanText(req.query.alert_source, 20).toLowerCase();
+  const alertRiskTypes = ALERT_SOURCE_FILTERS[alertSource] || [];
 
   const filters = [];
   const params = [date];
@@ -1874,9 +1885,17 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
     params.push(issueKey);
     filters.push(`e.issue_key = $${params.length}`);
   }
+  if (riskType) {
+    params.push(riskType);
+    filters.push(`COALESCE(e.metadata->>'risk_type', e.issue_key, '') = $${params.length}`);
+  }
   if (Number.isInteger(taskId) && taskId > 0) {
     params.push(taskId);
     filters.push(`e.task_id = $${params.length}`);
+  }
+  if (alertRiskTypes.length) {
+    params.push(alertRiskTypes);
+    filters.push(`COALESCE(e.metadata->>'risk_type', e.issue_key, '') = ANY($${params.length}::text[])`);
   }
   if (search) {
     params.push(`%${search.replace(/[%_]/g, '\\$&')}%`);
@@ -1894,7 +1913,7 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
 
   try {
     await ensureOpsActionEventsTable();
-    const [countResult, rowsResult, actionResult, issueResult] = await Promise.all([
+    const [countResult, rowsResult, actionResult, issueResult, acknowledgementResult] = await Promise.all([
       pool.query(
         `SELECT COUNT(*)::int AS total
          FROM ops_action_events e
@@ -1945,6 +1964,20 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
          ORDER BY count DESC`,
         params
       ),
+      pool.query(
+        `SELECT COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report') AS risk_type,
+                COUNT(*)::int AS count,
+                MAX(e.created_at) AS last_ack_at
+         FROM ops_action_events e
+         LEFT JOIN tasks t ON t.id = e.task_id
+         WHERE e.created_at >= ${fromSql}
+           AND e.created_at < ($1::date + INTERVAL '1 day')
+           ${whereExtra}
+           AND e.action_type = 'risk_acknowledge'
+         GROUP BY COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report')
+         ORDER BY count DESC`,
+        params
+      ),
     ]);
 
     const items = rowsResult.rows.map((row) => {
@@ -1988,7 +2021,15 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
       date,
       range,
       oddzial_id: oddzialId,
-      filters: { action_type: actionType || null, issue_key: issueKey || null, task_id: Number.isInteger(taskId) && taskId > 0 ? taskId : null, q: search || null, format: format || null },
+      filters: {
+        action_type: actionType || null,
+        issue_key: issueKey || null,
+        risk_type: riskType || null,
+        alert_source: alertRiskTypes.length ? alertSource : null,
+        task_id: Number.isInteger(taskId) && taskId > 0 ? taskId : null,
+        q: search || null,
+        format: format || null,
+      },
       total: countResult.rows[0]?.total || 0,
       limit,
       offset,
@@ -2003,6 +2044,12 @@ router.get('/action-history', authMiddleware, requireRole(...MANAGER_ROLES), asy
           issue_key: row.issue_key,
           label: PLAN_REAL_ISSUE_LABELS[row.issue_key] || row.issue_key,
           count: Number(row.count || 0),
+        })),
+        acknowledgements: acknowledgementResult.rows.map((row) => ({
+          risk_type: row.risk_type,
+          owner_label: riskOwner(row.risk_type).owner_label,
+          count: Number(row.count || 0),
+          last_ack_at: row.last_ack_at,
         })),
       },
       generated_at: new Date().toISOString(),
