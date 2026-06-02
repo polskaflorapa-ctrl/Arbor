@@ -104,12 +104,6 @@ const getTwilioClient = () => {
   return twilio(accountSid, authToken);
 };
 
-const normalizeOutboundCallerId = (raw) => normalizeToE164(raw);
-
-function pickOutboundCallerId(branchPhone) {
-  return normalizeOutboundCallerId(branchPhone) || normalizeOutboundCallerId(env.TWILIO_PHONE);
-}
-
 const publicBaseUrl = () => {
   const u = env.PUBLIC_BASE_URL;
   if (!u || typeof u !== 'string') return null;
@@ -145,16 +139,7 @@ router.post(
         requestId: req.requestId,
       });
     }
-    const { rows } = await pool.query(
-      `
-        SELECT u.telefon AS staff_telefon, o.telefon AS oddzial_telefon
-        FROM users u
-        LEFT JOIN oddzialy o ON o.id = u.oddzial_id
-        WHERE u.id = $1
-      `,
-      [req.user.id]
-    );
-    const fromNumber = pickOutboundCallerId(rows[0]?.oddzial_telefon);
+    const fromNumber = env.TWILIO_PHONE;
     if (!fromNumber) {
       return res.status(503).json({
         error: req.t('errors.telefon.twilioFromMissing'),
@@ -163,7 +148,8 @@ router.post(
       });
     }
 
-    const staffRaw = rows[0]?.staff_telefon ?? rows[0]?.telefon;
+    const { rows } = await pool.query('SELECT telefon FROM users WHERE id = $1', [req.user.id]);
+    const staffRaw = rows[0]?.telefon;
     const staffE164 = normalizeToE164(staffRaw);
     if (!staffE164) {
       return res.status(400).json({
@@ -195,7 +181,6 @@ router.post(
         do: doE164,
         task_id: req.body.task_id ?? null,
         user_id: req.user.id,
-        caller_id: fromNumber,
       },
       env.JWT_SECRET,
       { expiresIn: '10m', audience: 'twilio-twiml' }
@@ -267,11 +252,10 @@ router.get('/twiml/dial', async (req, res) => {
         ? ` recordingStatusCallback="${escapeXml(`${base}/api/telefon/webhooks/recording`)}" recordingStatusCallbackMethod="POST" recordingStatusCallbackEvent="completed"`
         : '';
 
-    const callerId = normalizeOutboundCallerId(decoded.caller_id) || normalizeOutboundCallerId(env.TWILIO_PHONE) || '';
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say language="pl-PL">Laczenie z numerem klienta. Rozmowa moze byc nagrywana.</Say>
-  <Dial callerId="${escapeXml(callerId)}" record="record-from-answer-dual"${recordCb}>
+  <Dial callerId="${escapeXml(env.TWILIO_PHONE || '')}" record="record-from-answer-dual"${recordCb}>
     <Number>${escapeXml(num)}</Number>
   </Dial>
 </Response>`;
