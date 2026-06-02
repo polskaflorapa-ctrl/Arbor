@@ -45,6 +45,7 @@ const OPS_ACTION_LABELS = {
   risk_queue_call: 'Telefon Zadarma z ryzyka',
   risk_acknowledge: 'Potwierdzenie ryzyka',
   risk_owner_escalate: 'Eskalacja ownera ryzyka',
+  risk_owner_auto_remediate: 'Auto-remediacja ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
   risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
   dispatch_auto_assign_team: 'Auto-przypisanie ekipy',
@@ -2138,6 +2139,199 @@ router.post('/owner-alerts/actions', authMiddleware, requireRole(...MANAGER_ROLE
     });
   } catch (e) {
     logger.error('ops owner-alerts actions', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+function ownerRemediationDailyLimit() {
+  const raw = Number(env.OPS_OWNER_REMEDIATION_DAILY_LIMIT || 3);
+  return Number.isFinite(raw) && raw > 0 ? Math.min(20, Math.floor(raw)) : 3;
+}
+
+async function findOwnerEscalation({ riskId, riskType, user }) {
+  const branchSql = isDyrektorOrAdmin(user) ? '' : 'AND e.oddzial_id = $3';
+  const params = isDyrektorOrAdmin(user)
+    ? [riskId, riskType]
+    : [riskId, riskType, user.oddzial_id || null];
+  const result = await pool.query(
+    `SELECT e.id, e.created_at, e.actor_id
+     FROM ops_action_events e
+     WHERE e.action_type = 'risk_owner_escalate'
+       AND e.metadata->>'risk_id' = $1
+       AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = $2
+       AND e.created_at >= CURRENT_DATE
+       ${branchSql}
+     ORDER BY e.created_at DESC
+     LIMIT 1`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+async function countOwnerRemediations({ riskId, riskType, user }) {
+  const branchSql = isDyrektorOrAdmin(user) ? '' : 'AND e.oddzial_id = $3';
+  const params = isDyrektorOrAdmin(user)
+    ? [riskId, riskType]
+    : [riskId, riskType, user.oddzial_id || null];
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS used
+     FROM ops_action_events e
+     WHERE e.action_type = 'risk_owner_auto_remediate'
+       AND e.metadata->>'risk_id' = $1
+       AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = $2
+       AND e.created_at >= CURRENT_DATE
+       ${branchSql}`,
+    params
+  );
+  return Number(result.rows[0]?.used || 0);
+}
+
+router.post('/owner-alerts/remediation', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const action = cleanText(req.body?.action, 50);
+  const allowedActions = new Set(['retry_kommo', 'resend_sms']);
+  if (!allowedActions.has(action)) {
+    return res.status(400).json({ error: 'Nieznana auto-remediacja owner alert.' });
+  }
+
+  const riskId = cleanText(req.body?.risk_id, 120);
+  const riskType = cleanText(req.body?.risk_type || req.body?.type, 60);
+  const taskId = Number(req.body?.task_id || 0);
+  const noteText = cleanText(req.body?.note, 800);
+  if (!riskId || !['kommo_sync', 'sms_delivery'].includes(riskType)) {
+    return res.status(400).json({ error: 'Auto-remediacja wymaga risk_id i risk_type Kommo/SMS.' });
+  }
+  if ((action === 'retry_kommo' && riskType !== 'kommo_sync') || (action === 'resend_sms' && riskType !== 'sms_delivery')) {
+    return res.status(400).json({ error: 'Akcja auto-remediacji nie pasuje do typu ryzyka.' });
+  }
+
+  try {
+    await ensureOpsActionEventsTable();
+    const escalation = await findOwnerEscalation({ riskId, riskType, user: req.user });
+    if (!escalation) {
+      return res.status(409).json({ error: 'Auto-remediacja wymaga jawnej eskalacji ownera z dzisiaj.' });
+    }
+
+    const dailyLimit = ownerRemediationDailyLimit();
+    const usedToday = await countOwnerRemediations({ riskId, riskType, user: req.user });
+    if (usedToday >= dailyLimit) {
+      return res.status(429).json({
+        error: 'Dzienny limit auto-remediacji dla tego alertu zostal wykorzystany.',
+        limit: dailyLimit,
+        used: usedToday,
+      });
+    }
+
+    let task = null;
+    if (Number.isInteger(taskId) && taskId > 0) {
+      const resolved = await getRiskTask(taskId, req.user);
+      if (resolved.error) return res.status(resolved.error.status).json({ error: resolved.error.message });
+      task = resolved.task;
+    }
+
+    if (action === 'retry_kommo') {
+      const queueId = Number(riskId.match(/^kommo_sync:(\d+)$/)?.[1] || 0) || null;
+      const retry = await pool.query(
+        `UPDATE task_kommo_sync_queue
+         SET status = 'failed',
+             next_retry_at = NOW(),
+             updated_at = NOW()
+         WHERE status IN ('failed', 'dead_letter')
+           AND (
+             ($1::int IS NOT NULL AND id = $1)
+             OR ($2::int IS NOT NULL AND task_id = $2)
+           )
+         RETURNING id, task_id, status, retry_count, next_retry_at`,
+        [queueId, task?.id || null]
+      );
+      if (!retry.rows.length) {
+        return res.status(404).json({ error: 'Nie znaleziono kolejki Kommo do odblokowania retry.' });
+      }
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: 'risk_owner_auto_remediate',
+        issueKey: riskType,
+        note: noteText || `Odblokowano retry Kommo po eskalacji ownera: ${riskId}`,
+        metadata: {
+          risk_id: riskId,
+          risk_type: riskType,
+          remediation_action: action,
+          escalation_event_id: escalation.id,
+          queue_id: retry.rows[0].id,
+          daily_limit: dailyLimit,
+          used_before: usedToday,
+        },
+      });
+      return res.status(202).json({
+        message: 'Retry Kommo odblokowane po eskalacji ownera',
+        action,
+        remediation: retry.rows[0],
+        event,
+        limit: dailyLimit,
+        used: usedToday + 1,
+        requestId: req.requestId,
+      });
+    }
+
+    if (!task) return res.status(400).json({ error: 'Ponowienie SMS wymaga task_id.' });
+    if (!truthyText(task.klient_telefon)) {
+      return res.status(409).json({ error: 'Zlecenie nie ma telefonu klienta.' });
+    }
+    const smsHistoryId = Number(riskId.match(/^sms_delivery:(\d+)$/)?.[1] || 0) || null;
+    let smsText = '';
+    if (smsHistoryId) {
+      const smsResult = await pool.query(
+        `SELECT h.id, h.tresc, h.task_id
+         FROM sms_history h
+         LEFT JOIN tasks t ON t.id = h.task_id
+         WHERE h.id = $1
+           AND ($2::int IS NULL OR h.task_id = $2)
+           AND ($3::int IS NULL OR t.oddzial_id = $3)
+         ORDER BY h.created_at DESC
+         LIMIT 1`,
+        [smsHistoryId, task.id, isDyrektorOrAdmin(req.user) ? null : req.user.oddzial_id]
+      );
+      smsText = cleanText(smsResult.rows[0]?.tresc, 640);
+    }
+    if (!smsText) {
+      smsText = `ARBOR: ponawiamy wiadomosc dotyczaca zlecenia ${task.numer || `#${task.id}`}. Prosimy o kontakt w sprawie terminu.`;
+    }
+    const sms = await sendSmsGateway({
+      to: task.klient_telefon,
+      body: smsText,
+      taskId: task.id,
+      oddzialId: task.oddzial_id,
+    });
+    const event = await recordOpsActionEvent({
+      task,
+      user: req.user,
+      actionType: 'risk_owner_auto_remediate',
+      issueKey: riskType,
+      note: noteText || `Ponowiono SMS po eskalacji ownera: ${riskId}`,
+      metadata: {
+        risk_id: riskId,
+        risk_type: riskType,
+        remediation_action: action,
+        escalation_event_id: escalation.id,
+        provider: sms.provider || null,
+        sid: sms.sid || sms.id || sms.message_id || null,
+        ok: Boolean(sms.ok),
+        error: sms.error || null,
+        daily_limit: dailyLimit,
+        used_before: usedToday,
+      },
+    });
+    return res.status(sms.ok ? 200 : 502).json({
+      message: sms.ok ? 'SMS ponowiony po eskalacji ownera' : 'Nie udalo sie ponowic SMS po eskalacji ownera',
+      action,
+      sms,
+      event,
+      limit: dailyLimit,
+      used: usedToday + 1,
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops owner-alerts remediation', { message: e.message, requestId: req.requestId });
     return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });

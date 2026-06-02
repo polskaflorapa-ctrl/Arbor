@@ -1058,6 +1058,89 @@ describe('GET /api/ops/owner-alerts/open', () => {
     expect(escalationInsert[1][4]).toBe('kommo_sync');
     expect(JSON.parse(escalationInsert[1][10])).toMatchObject({ risk_id: 'kommo_sync:501', bulk_action: 'bulk_escalate' });
   });
+
+  it('requires owner escalation before auto-remediation', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'risk_owner_escalate'")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/owner-alerts/remediation')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'retry_kommo',
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain('eskalacji ownera');
+  });
+
+  it('unlocks Kommo retry only after owner escalation and daily limit check', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('COUNT(*)::int AS used')) {
+        expect(params).toEqual(['kommo_sync:501', 'kommo_sync', 7]);
+        return { rows: [{ used: 0 }] };
+      }
+      if (text.includes("e.action_type = 'risk_owner_escalate'")) {
+        expect(params).toEqual(['kommo_sync:501', 'kommo_sync', 7]);
+        return { rows: [{ id: 701, created_at: '2026-05-26T10:00:00.000Z', actor_id: 1 }] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('WHERE t.id = $1')) {
+        expect(params[0]).toBe(77);
+        return { rows: [{ id: 77, numer: 'ARB-77', klient_telefon: '+48123123123', oddzial_id: 7 }] };
+      }
+      if (text.includes('UPDATE task_kommo_sync_queue')) {
+        expect(params).toEqual([501, 77]);
+        return { rows: [{ id: 501, task_id: 77, status: 'failed', retry_count: 3 }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[3]).toBe('risk_owner_auto_remediate');
+        expect(params[4]).toBe('kommo_sync');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'kommo_sync:501',
+          risk_type: 'kommo_sync',
+          remediation_action: 'retry_kommo',
+          escalation_event_id: 701,
+          daily_limit: 3,
+          used_before: 0,
+        });
+        return { rows: [{ id: 902, task_id: 77, action_type: 'risk_owner_auto_remediate' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/owner-alerts/remediation')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'retry_kommo',
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+      });
+
+    expect(res.status).toBe(202);
+    expect(res.body).toMatchObject({
+      action: 'retry_kommo',
+      limit: 3,
+      used: 1,
+      remediation: { id: 501, status: 'failed' },
+    });
+  });
 });
 
 describe('GET /api/ops/action-history', () => {

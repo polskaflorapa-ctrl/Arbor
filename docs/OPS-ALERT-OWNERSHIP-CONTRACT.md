@@ -17,6 +17,7 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - Dzienny digest pokazuje KPI domkniecia potwierdzen ownerow: lacznie, Kommo i SMS. CSV z `/ops/action-history?format=csv` eksportuje `Owner` oraz `Status potwierdzenia`.
 - `/ops/owner-alerts/open` pokazuje alerty Kommo/SMS bez potwierdzenia ownera, wylicza aging, `sla_status` i eskalacje `P1`/`P2`.
 - `/ops/owner-alerts/actions` pozwala masowo potwierdzic widoczne alerty jako `risk_acknowledge` albo zapisac eskalacje `risk_owner_escalate` bez zamykania alertu.
+- `/ops/owner-alerts/remediation` uruchamia auto-remediacje dopiero po jawnej eskalacji ownera z dzisiaj: `retry_kommo` odblokowuje kolejke Kommo, `resend_sms` ponawia SMS przez gateway, a dzienny limit kontroluje `OPS_OWNER_REMEDIATION_DAILY_LIMIT` (domyslnie 3 na alert).
 
 ## Kommo
 
@@ -49,6 +50,7 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - Digest i CSV pozwalaja sprawdzic, ile potwierdzen Kommo/SMS zostalo domknietych danego dnia.
 - Kontrola operacyjna pokazuje niedomkniete alerty ownerow z aging SLA; Kommo dead-letter po SLA eskaluje do P1, SMS do P2.
 - Akcje masowe ownerow zawsze zapisuja audyt w `ops_action_events` z `bulk_owner_action`, `risk_id`, `risk_type`, `sla_status` i eskalacja.
+- Auto-remediacja ownerow zawsze wymaga `risk_owner_escalate`, respektuje limit dzienny i zapisuje `risk_owner_auto_remediate` z `remediation_action`, `escalation_event_id`, `daily_limit` i `used_before`.
 - Kommo/SMS dead-letter nie zostaje bez ownera i zapisu w `ops_action_events`.
 
 ## NO-GO
@@ -56,4 +58,5 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - `kommo_sync` istnieje tylko w panelu Integracje i nie trafia do raportu ryzyk dnia.
 - Ryzyko nie ma `owner_label` lub `owner_role`.
 - Potwierdzenie ryzyka nie zapisuje `ops_action_events`.
+- Retry Kommo albo ponowienie SMS odpala sie bez jawnej eskalacji ownera lub bez limitu dziennego.
 - SLO P1/P2 nie ma wlasciciela.

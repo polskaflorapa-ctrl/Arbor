@@ -103,7 +103,8 @@
 - [x] **P0 ops owner digest/export status**: Dzienny digest pokazuje KPI `owner_acknowledgements`, `kommo_owner_acknowledgements`, `sms_owner_acknowledgements`, a CSV historii decyzji eksportuje ownera i status domkniecia potwierdzenia; `npm run verify:ops-owner-control` pilnuje digestu i CSV.
 - [x] **P0 ops owner open alerts SLA**: `/api/ops/owner-alerts/open` pokazuje niedomkniete alerty Kommo/SMS bez `risk_acknowledge`, liczy aging, `sla_status` i eskalacje P1/P2; Kontrola operacyjna ma panel niedomknietych alertow, a `npm run verify:ops-owner-control` pilnuje endpointu i UI.
 - [x] **P0 ops owner bulk actions**: `/api/ops/owner-alerts/actions` zapisuje masowe `acknowledge` jako `risk_acknowledge` i `escalate` jako `risk_owner_escalate`; Kontrola operacyjna ma przyciski `Potwierdz widoczne` i `Eskaluj widoczne`, a audyt trafia do `ops_action_events`.
-- [ ] **Nastepny pakiet**: EPIC 9.11 - playbook auto-remediacji ownerow Kommo/SMS: retry Kommo/SMS tylko po jawnej eskalacji i z limitem dziennym.
+- [x] **P0 ops owner auto-remediation playbook**: `/api/ops/owner-alerts/remediation` pozwala uruchomic `retry_kommo` albo `resend_sms` dopiero po jawnej eskalacji `risk_owner_escalate`, pilnuje dziennego limitu `OPS_OWNER_REMEDIATION_DAILY_LIMIT` i zapisuje audyt `risk_owner_auto_remediate`.
+- [ ] **Nastepny pakiet**: EPIC 9.12 - widok dyrektorski skutecznosci remediacji ownerow Kommo/SMS: licznik retry, sukcesy, blokady limitu i nierozwiazane P1/P2.
 
 ---
 
