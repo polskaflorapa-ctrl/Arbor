@@ -720,7 +720,7 @@ export default function AutoplanDniaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
       <ScreenHeader title={t('autoplan.title')} />
       <ScrollView
         style={S.scroll}

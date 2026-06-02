@@ -97,7 +97,8 @@
 - [x] **P0 team competency assignment block**: `docs/TEAM-COMPETENCY-ASSIGNMENT-BLOCK-CONTRACT.md` opisuje twarda blokade przypisania zlecenia do ekipy bez wymaganych `tasks.wymagane_kompetencje`; `npm run verify:team-competency-assignment-block` pilnuje API, UI, testow i dispatch apply.
 - [x] **P0 dispatcher competency consistency**: `docs/DISPATCHER-COMPETENCY-CONSISTENCY-CONTRACT.md` opisuje spojnosc VRP/AutoDispatch/dispatch apply z twarda blokada kompetencji; `npm run verify:dispatcher-competency-consistency` pilnuje aktywnych `data_waznosci`, `unassigned.missing_competencies` i UI blokady.
 - [x] **P0 Kommo idempotency retry**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` opisuje idempotencje inbound/outbound Kommo, stabilny `idempotency_key`, kontrolowany retry i dead-letter; `npm run verify:kommo-idempotency-retry` pilnuje webhookow, kolejki i diagnostyki.
-- [ ] **Nastepny pakiet**: EPIC 9.5 - domkniecie operacyjnego ownership dla Kommo/SMS dead-letter i SLO alert owner.
+- [x] **P0 ops alert ownership**: `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md` opisuje wlascicieli alertow Kommo/SMS/SLO; `kierownik-today` pokazuje `kommo_sync` z `owner_label`, `owner_role`, `escalation`, a `npm run verify:ops-alert-ownership` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: EPIC 9.6 - potwierdzenie ownerow alertow w UI Integracje/Telefonia z filtrem po oddziale.
 
 ---
 
@@ -222,6 +223,7 @@ flowchart LR
 - [x] **9.2** Test API p95 (<500 ms na krytycznych listach — zdefiniować zestaw). `smoke:p95` mierzy `/api/ready`, `/api/health`, auth-boundary list oraz po zalogowaniu `/api/auth/me`, `/api/tasks/wszystkie`, `/api/ops/kierownik-today`, `/api/bi/drill`.
 - [x] **9.3** Strategia backupów RPO/RTO (procedura + infrastruktura). `docs/BACKUP-RPO-RTO-RUNBOOK.md` opisuje RPO <= 24h, RTO <= 4h, backup <= 15 min po zmianie produkcyjnej, restore drill na bazie replaceable i dowody; `verify:backup-rpo` pilnuje kompletnego minimum.
 - [x] **9.4** Skalowanie horyzontalne (sesje, uploady, worker dispatch). `docs/HORIZONTAL-SCALING-READINESS.md` definiuje GO/NO-GO dla wielu instancji API: stateless JWT, S3/R2, Redis limiter, jeden wlasciciel cronow/workerow, DB pool i ograniczenia SSE/dispatcher.
+- [x] **9.5** Ownership alertow Kommo/SMS/SLO. `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md` wymaga `owner_role`, `owner_label`, `escalation` i zapisu decyzji w `ops_action_events`; `kierownik-today` dodaje `kommo_sync` z `task_kommo_sync_queue`, a panel Kierownika pokazuje ownera i potwierdzenie ryzyka.
 
 ---
 

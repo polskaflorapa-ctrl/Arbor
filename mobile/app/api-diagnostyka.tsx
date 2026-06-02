@@ -621,7 +621,7 @@ export default function ApiDiagnostykaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
       <View style={S.header}>
         <TouchableOpacity
           onPress={() => {

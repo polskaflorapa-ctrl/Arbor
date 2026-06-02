@@ -275,7 +275,7 @@ export default function WycenaScreen() {
   // ─── MAIN VIEW ────────────────────────────────────────────────────────────
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
 
       {/* Header */}
       <View style={S.header}>

@@ -117,7 +117,7 @@ export default function WyceniajacyFinanseScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
       <ScreenHeader title={t('estimatorFinance.title')} />
 
       <ScrollView

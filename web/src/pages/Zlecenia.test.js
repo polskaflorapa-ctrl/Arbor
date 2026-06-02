@@ -1,5 +1,5 @@
 import '../i18n';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi } from 'vitest';
 import Zlecenia from './Zlecenia';
@@ -279,6 +279,54 @@ test('blocks office plan when selected team vehicle is in repair', async () => {
   await waitFor(() => {
     expect(document.body.textContent).toContain('Auto: Mercedes Sprinter KR12345');
     expect(document.body.textContent).toContain('Zasoby w naprawie');
+  }, SLOW_FORM_RENDER);
+}, 15000);
+
+test('shows backend team resource block details while saving office plan', async () => {
+  mockZleceniaApi({
+    task: {
+      ...TASK,
+      ekipa_id: 3,
+      ekipa_nazwa: 'Brygada Alfa',
+      data_planowana: '2026-06-02T08:00:00.000Z',
+      godzina_rozpoczecia: '08:00',
+    },
+  });
+  api.put.mockRejectedValue({
+    response: {
+      data: {
+        code: 'TEAM_RESOURCE_UNAVAILABLE',
+        items: [
+          { kind: 'Sprzet', label: 'Rebak Forst', status: 'W naprawie' },
+          { kind: 'Auto', label: 'Mercedes Sprinter KR1ARB', status: 'Serwis' },
+        ],
+      },
+    },
+  });
+
+  renderRoute('/zlecenia/42?focus=officePlan');
+
+  expect(await screen.findByText('Do zaplanowania dla ekipy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  const officePlanSection = document.querySelector('[data-detail-section="officePlan"]');
+  expect(officePlanSection).toBeTruthy();
+  fireEvent.change(officePlanSection.querySelector('input[type="date"]'), {
+    target: { value: '2026-06-02' },
+  });
+  fireEvent.change(officePlanSection.querySelector('input[type="time"]'), {
+    target: { value: '08:00' },
+  });
+  fireEvent.change(officePlanSection.querySelector('input[type="number"]'), {
+    target: { value: '3' },
+  });
+  fireEvent.change(officePlanSection.querySelector('select:not([multiple])'), {
+    target: { value: '3' },
+  });
+  const saveButton = await within(officePlanSection).findByRole('button', { name: 'Zapisz i ustaw Zaplanowane' }, SLOW_FORM_RENDER);
+  await waitFor(() => expect(saveButton).not.toBeDisabled(), SLOW_FORM_RENDER);
+  fireEvent.click(saveButton);
+
+  await waitFor(() => {
+    expect(document.body.textContent).toContain('Ekipa ma zasoby w naprawie: Sprzet: Rebak Forst (W naprawie), Auto: Mercedes Sprinter KR1ARB (Serwis).');
   }, SLOW_FORM_RENDER);
 }, 15000);
 

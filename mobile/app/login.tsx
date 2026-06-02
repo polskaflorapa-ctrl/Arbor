@@ -201,7 +201,7 @@ export default function Login() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
       <StatusBar
-        barStyle={'light-content'}
+        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={theme.bg}
       />
 
@@ -341,19 +341,19 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     backgroundColor: t.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   shell: {
     width: '100%',
     maxWidth: 460,
     alignSelf: 'center',
   },
-  brandArea: { alignItems: 'center', marginBottom: 28 },
+  brandArea: { alignItems: 'center', marginBottom: 22 },
   logoCircle: {
-    width: 82, height: 82, borderRadius: 24,
+    width: 74, height: 74, borderRadius: 20,
     backgroundColor: t.accent,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.28,
       radius: t.shadowRadius * 0.5,
@@ -362,14 +362,14 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     }),
   },
   appName: {
-    fontSize: 31, fontWeight: '900',
+    fontSize: 29, fontWeight: '900',
     color: t.text, letterSpacing: 0, marginBottom: 5,
   },
   tagline: { fontSize: 13, color: t.textSub, letterSpacing: 0, fontWeight: '700' },
   card: {
     width: '100%',
     backgroundColor: t.surface,
-    borderRadius: t.radiusXl, padding: 22,
+    borderRadius: t.radiusLg, padding: 20,
     borderWidth: 1, borderColor: t.cardBorder,
     ...shadowStyle(t, {
       offsetY: Math.max(2, t.shadowOffsetY),
@@ -377,8 +377,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     }),
   },
   cardTitle: {
-    fontSize: 21, fontWeight: '900',
-    color: t.text, marginBottom: 18, letterSpacing: 0,
+    fontSize: 20, fontWeight: '900',
+    color: t.text, marginBottom: 16, letterSpacing: 0,
   },
   serverRow: {
     flexDirection: 'row',
@@ -404,9 +404,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: t.inputBg,
-    borderWidth: 1.25, borderColor: t.inputBorder,
-    borderRadius: 14, paddingHorizontal: 14,
-    marginBottom: 14, height: 52,
+    borderWidth: 1, borderColor: t.inputBorder,
+    borderRadius: 12, paddingHorizontal: 13,
+    marginBottom: 12, height: 50,
   },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 16, color: t.inputText },
@@ -454,8 +454,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   lockInfoText: { fontSize: 12, color: t.warning, fontWeight: '600' },
   btn: {
-    backgroundColor: t.accent, borderRadius: 14,
-    height: 52, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: t.accent, borderRadius: 12,
+    height: 50, alignItems: 'center', justifyContent: 'center',
     marginTop: 6,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.2,

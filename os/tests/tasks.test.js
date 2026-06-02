@@ -1067,6 +1067,52 @@ describe('Tasks routes', () => {
     expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
   });
 
+  it('PUT /tasks/:id/office-plan blocks a crew with assigned resources in repair', async () => {
+    const token = jwt.sign(
+      { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql) => {
+      const s = String(sql);
+      if (s.startsWith('CREATE TABLE') || s.startsWith('ALTER TABLE') || s.startsWith('CREATE INDEX')) return { rows: [] };
+      if (s.includes('SELECT id FROM tasks t WHERE')) return { rows: [{ id: 12 }] };
+      if (s.includes('SELECT id, status, oddzial_id, notatki_wewnetrzne')) {
+        return { rows: [{ id: 12, status: 'Do_Zatwierdzenia', oddzial_id: 5, notatki_wewnetrzne: '' }] };
+      }
+      if (s.includes('FROM teams t') && s.includes('has_delegation')) {
+        return { rows: [{ id: 9, nazwa: 'Ekipa A', oddzial_id: 5, has_delegation: false }] };
+      }
+      if (s.includes('FROM equipment_items') && s.includes('UNION ALL') && s.includes('FROM vehicles')) {
+        return {
+          rows: [
+            { kind: 'Sprzet', id: 21, label: 'Rebak Forst', status: 'W naprawie' },
+            { kind: 'Auto', id: 7, label: 'Mercedes Sprinter KR1ARB', status: 'Serwis' },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .put('/api/tasks/12/office-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        data_planowana: '2026-06-01',
+        godzina_rozpoczecia: '08:00',
+        czas_planowany_godziny: 3,
+        ekipa_id: 9,
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('TEAM_RESOURCE_UNAVAILABLE');
+    expect(res.body.error).toMatch(/zasoby w naprawie/i);
+    expect(res.body.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'Sprzet', label: 'Rebak Forst', status: 'W naprawie' }),
+      expect.objectContaining({ kind: 'Auto', label: 'Mercedes Sprinter KR1ARB', status: 'Serwis' }),
+    ]));
+    expect(pool.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE tasks'))).toBe(false);
+  });
+
   it('PUT /tasks/:id/office-plan blocks an absent crew without manager override', async () => {
     const token = jwt.sign(
       { id: 3, rola: 'Kierownik', oddzial_id: 5, login: 'anna' },

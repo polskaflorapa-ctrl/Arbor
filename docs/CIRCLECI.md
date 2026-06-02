@@ -39,6 +39,12 @@ Nie ustawiaj `deploy-ready-green` jako wymaganego statusu dla każdego PR. Ten w
 
 ## Checklista Pierwszego Runu
 
+Przed podpięciem albo po zmianach w `.circleci/config.yml` odpal lokalnie:
+
+```powershell
+npm run verify:circleci
+```
+
 Po pierwszym uruchomieniu sprawdź:
 
 - CircleCI wykrył `.circleci/config.yml`.

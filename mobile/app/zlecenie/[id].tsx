@@ -4051,7 +4051,7 @@ export default function ZlecenieDetailScreen() {
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
     <View style={S.container}>
       <StatusBar
-        barStyle={'light-content'}
+        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={theme.headerBg}
       />
 

@@ -1099,6 +1099,70 @@ async function ensureEquipmentReservationTaskSchema(db) {
   equipmentReservationTaskSchemaReady = true;
 }
 
+function resourceStatusBlocksPlanning(status) {
+  const text = String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return text.includes('napraw') || text.includes('serwis') || text.includes('awari') || text.includes('wycof');
+}
+
+async function assertTeamResourcesAvailableForPlan(db, teamId) {
+  const id = toInt(teamId);
+  if (!id) return { ok: true, items: [] };
+  const result = await db.query(
+    `SELECT 'Sprzet' AS kind,
+            id,
+            COALESCE(NULLIF(nazwa, ''), 'Sprzet #' || id::text) AS label,
+            status
+       FROM equipment_items
+      WHERE ekipa_id = $1
+        AND (
+          LOWER(COALESCE(status, '')) LIKE '%napraw%' OR
+          LOWER(COALESCE(status, '')) LIKE '%serwis%' OR
+          LOWER(COALESCE(status, '')) LIKE '%awari%' OR
+          LOWER(COALESCE(status, '')) LIKE '%wycof%'
+        )
+      UNION ALL
+     SELECT 'Auto' AS kind,
+            id,
+            COALESCE(
+              NULLIF(TRIM(CONCAT(COALESCE(marka, ''), ' ', COALESCE(model, ''), ' ', COALESCE(nr_rejestracyjny, ''))), ''),
+              'Auto #' || id::text
+            ) AS label,
+            status
+       FROM vehicles
+      WHERE ekipa_id = $1
+        AND (
+          LOWER(COALESCE(status, '')) LIKE '%napraw%' OR
+          LOWER(COALESCE(status, '')) LIKE '%serwis%' OR
+          LOWER(COALESCE(status, '')) LIKE '%awari%' OR
+          LOWER(COALESCE(status, '')) LIKE '%wycof%'
+        )`,
+    [id]
+  );
+  const items = (result.rows || [])
+    .filter((item) => resourceStatusBlocksPlanning(item.status))
+    .map((item) => ({
+      kind: item.kind || 'Zasob',
+      id: item.id,
+      label: item.label || `#${item.id}`,
+      status: item.status || '',
+    }));
+  if (!items.length) return { ok: true, items: [] };
+  const detail = items
+    .slice(0, 4)
+    .map((item) => `${item.kind}: ${item.label}${item.status ? ` (${item.status})` : ''}`)
+    .join(', ');
+  return {
+    ok: false,
+    status: 409,
+    code: 'TEAM_RESOURCE_UNAVAILABLE',
+    error: `Ekipa ma zasoby w naprawie lub serwisie: ${detail}. Zamknij naprawe albo wybierz inna ekipe przed planowaniem.`,
+    items,
+  };
+}
+
 async function syncTaskEquipmentReservations(db, {
   taskId,
   oddzialId,
@@ -1151,8 +1215,7 @@ async function syncTaskEquipmentReservations(db, {
         code: 'EQUIPMENT_BRANCH_MISMATCH',
       };
     }
-    const itemStatus = String(item.status || '').toLowerCase();
-    if (itemStatus.includes('serwis') || itemStatus.includes('awari') || itemStatus.includes('wycof')) {
+    if (resourceStatusBlocksPlanning(item.status)) {
       return {
         ok: false,
         status: 409,
@@ -4141,6 +4204,14 @@ router.put('/:id/office-plan', authMiddleware, validateParams(taskIdParamsSchema
       plannedDate: plannedDateTime,
     });
     if (!competencyCheck.ok) return sendCompetencyBlock(res, competencyCheck);
+    const resourceCheck = await assertTeamResourcesAvailableForPlan(pool, teamId);
+    if (!resourceCheck.ok) {
+      return res.status(resourceCheck.status || 409).json({
+        error: resourceCheck.error,
+        code: resourceCheck.code,
+        items: resourceCheck.items,
+      });
+    }
     const teamAttendance = await getTeamAttendanceForPlan(teamId, plannedDateTime);
     if (teamAttendance?.present === false && absence_override !== true) {
       return res.status(409).json({
@@ -4282,6 +4353,14 @@ router.put('/:id/przypisz', authMiddleware, validateParams(taskIdParamsSchema), 
       plannedDate: task.data_planowana,
     });
     if (!competencyCheck.ok) return sendCompetencyBlock(res, competencyCheck);
+    const resourceCheck = await assertTeamResourcesAvailableForPlan(pool, Number(ekipa_id));
+    if (!resourceCheck.ok) {
+      return res.status(resourceCheck.status || 409).json({
+        error: resourceCheck.error,
+        code: resourceCheck.code,
+        items: resourceCheck.items,
+      });
+    }
     const teamAttendance = await getTeamAttendanceForPlan(Number(ekipa_id), task.data_planowana);
     if (teamAttendance?.present === false && absence_override !== true) {
       return res.status(409).json({

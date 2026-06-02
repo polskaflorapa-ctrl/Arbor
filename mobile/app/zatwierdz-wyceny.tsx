@@ -229,7 +229,7 @@ export default function ZatwierdzWycenyScreen() {
   return (
     <KeyboardSafeScreen style={S.root}>
       <StatusBar
-        barStyle={'light-content'}
+        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={theme.headerBg}
       />
 

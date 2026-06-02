@@ -144,7 +144,7 @@ export default function OddzialyScreen() {
     return (
       <View style={S.container}>
         <StatusBar
-          barStyle={'light-content'}
+          barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={theme.headerBg}
         />
         <View style={S.header}>
@@ -270,7 +270,7 @@ export default function OddzialyScreen() {
   return (
     <View style={S.container}>
       <StatusBar
-        barStyle={'light-content'}
+        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={theme.headerBg}
       />
       <View style={S.header}>

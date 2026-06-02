@@ -50,6 +50,39 @@ const OPS_ACTION_LABELS = {
   dispatch_gps_checklist: 'Checklist GPS dispatchera',
 };
 
+const RISK_OWNER_META = {
+  kommo_sync: {
+    owner_role: 'Dyspozytor/Admin',
+    owner_label: 'Owner: integracje Kommo',
+    escalation: 'P1 gdy dead-letter > 0 po 30 min',
+  },
+  sms_delivery: {
+    owner_role: 'Kierownik/Dyspozytor',
+    owner_label: 'Owner: kontakt z klientem',
+    escalation: 'P2 gdy brak dostarczenia po 30 min',
+  },
+  client_window: {
+    owner_role: 'Kierownik',
+    owner_label: 'Owner: plan dnia',
+    escalation: 'P2 przed startem ekipy',
+  },
+  team_conflict: {
+    owner_role: 'Dyspozytor',
+    owner_label: 'Owner: dispatcher',
+    escalation: 'P1 jesli konflikt blokuje start',
+  },
+  equipment_conflict: {
+    owner_role: 'Kierownik floty/Dyspozytor',
+    owner_label: 'Owner: zasoby',
+    escalation: 'P1 jesli brak zamiennika',
+  },
+  margin: {
+    owner_role: 'Dyrektor/Ksiegowosc',
+    owner_label: 'Owner: rentownosc',
+    escalation: 'P2 przed zamknieciem dnia',
+  },
+};
+
 let opsActionEventsReady = false;
 let riskTelephonyCallbacksReady = false;
 
@@ -237,9 +270,18 @@ function buildRiskText(report) {
   return lines.join('\n');
 }
 
-function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = [], proposalRows = [], equipmentRows = [] }) {
+function riskOwner(type) {
+  return RISK_OWNER_META[type] || {
+    owner_role: 'Kierownik',
+    owner_label: 'Owner: operacje',
+    escalation: 'P2 do przegladu dziennego',
+  };
+}
+
+function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = [], proposalRows = [], equipmentRows = [], kommoRows = [] }) {
   const items = [];
   const add = (item) => {
+    const owner = riskOwner(item.type);
     items.push({
       id: item.id || `${item.type}:${items.length + 1}`,
       type: item.type,
@@ -249,6 +291,9 @@ function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = 
       detail: item.detail || '',
       action: item.action || 'Sprawdz w kokpicie kierownika.',
       action_path: item.action_path || (item.task_id ? `/zlecenia/${item.task_id}` : '/kierownik'),
+      owner_role: item.owner_role || owner.owner_role,
+      owner_label: item.owner_label || owner.owner_label,
+      escalation: item.escalation || owner.escalation,
     });
   };
 
@@ -300,6 +345,22 @@ function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = 
       detail: `${row.telefon || 'brak numeru'} / ${row.provider_status || row.status || 'brak statusu'}${row.delivery_error_code ? ` / ${row.delivery_error_code}` : ''}.`,
       action: 'Ponow kontakt z Telefonii albo zadzwon przez Zadarma.',
       action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/telefonia',
+    });
+  }
+
+  for (const row of kommoRows || []) {
+    const status = String(row.status || '').toLowerCase();
+    add({
+      id: `kommo_sync:${row.id || row.task_id}`,
+      type: 'kommo_sync',
+      severity: status === 'dead_letter' ? 'critical' : 'warning',
+      task_id: row.task_id || null,
+      title: `Kommo sync ${status === 'dead_letter' ? 'dead-letter' : 'do retry'}: ${row.numer || `#${row.task_id || row.id}`}`,
+      detail: `${row.event || 'task.sync'} / proby: ${Number(row.retry_count || 0)}${row.last_error ? ` / ${String(row.last_error).slice(0, 120)}` : ''}.`,
+      action: status === 'dead_letter'
+        ? 'Sprawdz konflikt w Integracjach i wykonaj kommo-retry z force=true po decyzji ownera.'
+        : 'Sprawdz kolejke Kommo i poczekaj na retry albo ponow pojedyncze zlecenie.',
+      action_path: row.task_id ? `/zlecenia/${row.task_id}?tab=integracje` : '/integracje',
     });
   }
 
@@ -368,6 +429,7 @@ function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = 
     warning: items.filter((item) => item.severity === 'warning').length,
     client_window: items.filter((item) => item.type === 'client_window').length,
     sms_delivery: items.filter((item) => item.type === 'sms_delivery').length,
+    kommo_sync: items.filter((item) => item.type === 'kommo_sync').length,
     team_conflict: items.filter((item) => item.type === 'team_conflict').length,
     equipment_conflict: items.filter((item) => item.type === 'equipment_conflict').length,
     margin: items.filter((item) => item.type === 'margin').length,
@@ -1116,6 +1178,8 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
 
   const teamBranchSql = oddzialId != null ? 'AND tm.oddzial_id = $2' : '';
   const reservationBranchSql = oddzialId != null ? 'AND r1.oddzial_id = $2' : '';
+  const kommoSyncBranchSql = oddzialId != null ? 'AND t.oddzial_id = $1' : '';
+  const kommoSyncParams = oddzialId != null ? [oddzialId] : [];
 
   try {
     const [
@@ -1124,6 +1188,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
       notificationsResult,
       marginRiskResult,
       smsRiskResult,
+      kommoSyncRiskResult,
       proposalRiskResult,
       equipmentConflictResult,
     ] = await Promise.all([
@@ -1279,6 +1344,20 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
         taskParams
       ),
       pool.query(
+        `SELECT q.id, q.task_id, q.event, q.status, q.retry_count, q.next_retry_at,
+                q.last_error, q.last_http_status, q.updated_at, t.numer, t.klient_nazwa
+         FROM task_kommo_sync_queue q
+         LEFT JOIN tasks t ON t.id = q.task_id
+         WHERE q.status IN ('failed', 'dead_letter')
+           ${kommoSyncBranchSql}
+         ORDER BY
+           CASE q.status WHEN 'dead_letter' THEN 0 ELSE 1 END,
+           q.updated_at DESC NULLS LAST,
+           q.id DESC
+         LIMIT 12`,
+        kommoSyncParams
+      ),
+      pool.query(
         `SELECT DISTINCT ON (p.task_id)
                 p.id, p.task_id, p.status, p.expires_at, p.created_at,
                 t.numer, t.klient_nazwa
@@ -1411,6 +1490,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
       tasks: tasksResult.rows,
       marginRisks,
       smsRows: smsRiskResult.rows,
+      kommoRows: kommoSyncRiskResult.rows,
       proposalRows: proposalRiskResult.rows,
       equipmentRows: equipmentConflictResult.rows,
     });
@@ -1441,6 +1521,7 @@ router.get('/kierownik-today', authMiddleware, requireRole(...MANAGER_ROLES), as
         day_risks: riskReport.counts.total,
         critical_day_risks: riskReport.counts.critical,
         zadarma_sms_risks: riskReport.counts.sms_delivery,
+        kommo_sync_risks: riskReport.counts.kommo_sync,
         unread_notifications: unreadNotifications,
         active_teams: teams.length,
         assigned_teams: teams.filter((team) => team.tasks_total > 0).length,

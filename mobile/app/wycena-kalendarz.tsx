@@ -568,7 +568,7 @@ export default function WycenaKalendarzScreen() {
 
   return (
     <KeyboardSafeScreen style={s.root}>
-      <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
 
       {/* Header */}
       <View style={s.header}>

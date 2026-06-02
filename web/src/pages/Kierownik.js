@@ -826,6 +826,12 @@ export default function Kierownik() {
                 tone={(cockpitRiskCounts.sms_delivery ?? 0) > 0 ? 'warning' : 'ok'}
               />
               <CockpitMetric
+                label="Kommo"
+                value={cockpitLoading ? '...' : cockpitRiskCounts.kommo_sync ?? 0}
+                detail="retry i dead-letter"
+                tone={(cockpitRiskCounts.kommo_sync ?? 0) > 0 ? 'danger' : 'ok'}
+              />
+              <CockpitMetric
                 label="Okna klienta"
                 value={cockpitLoading ? '...' : cockpitRiskCounts.client_window ?? 0}
                 detail="poza planem lub bez zgody"
@@ -855,6 +861,9 @@ export default function Kierownik() {
                       <span style={styles.riskReportBody}>
                         <strong>{risk.title}</strong>
                         <small>{risk.detail || risk.action}</small>
+                        {risk.owner_label || risk.owner_role ? (
+                          <small>{[risk.owner_label, risk.escalation].filter(Boolean).join(' / ')}</small>
+                        ) : null}
                       </span>
                       <span style={styles.riskReportType}>{risk.type}</span>
                       <span style={styles.riskActionGroup}>
@@ -893,6 +902,16 @@ export default function Kierownik() {
                             onClick={() => runConflictFix(risk)}
                           >
                             {planActionSaving === `risk:${risk.id}:fix_conflict` ? 'Sprawdzam' : 'Napraw'}
+                          </button>
+                        ) : null}
+                        {['kommo_sync', 'margin'].includes(risk.type) || !risk.task_id ? (
+                          <button
+                            type="button"
+                            style={styles.planActionGhost}
+                            disabled={planActionSaving === `risk:${risk.id}:acknowledge`}
+                            onClick={() => runRiskAction(risk, 'acknowledge')}
+                          >
+                            {planActionSaving === `risk:${risk.id}:acknowledge` ? 'Zapisuje' : 'Potwierdz'}
                           </button>
                         ) : null}
                       </span>

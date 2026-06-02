@@ -294,3 +294,50 @@ test('loads the latest dispatcher plan into manager cockpit and applies it', asy
     );
   });
 });
+
+test('shows Kommo sync risk owner and acknowledges the alert', async () => {
+  COCKPIT.summary = {
+    ...COCKPIT.summary,
+    kommo_sync_risks: 1,
+  };
+  COCKPIT.risk_report = {
+    counts: { total: 1, critical: 1, warning: 0, sms_delivery: 0, kommo_sync: 1, client_window: 0, team_conflict: 0, equipment_conflict: 0 },
+    items: [{
+      id: 'kommo_sync:501',
+      type: 'kommo_sync',
+      severity: 'critical',
+      task_id: 77,
+      title: 'Kommo sync dead-letter: ARB-77',
+      detail: 'task.sync / proby: 3 / HTTP 500',
+      action_path: '/zlecenia/77?tab=integracje',
+      owner_label: 'Owner: integracje Kommo',
+      owner_role: 'Dyspozytor/Admin',
+      escalation: 'P1 gdy dead-letter > 0 po 30 min',
+    }],
+  };
+  api.post.mockImplementation(async (path) => {
+    if (path === '/ops/risk-report/actions') {
+      return { data: { message: 'Ryzyko oznaczone jako sprawdzone' } };
+    }
+    return { data: {} };
+  });
+
+  renderPage();
+
+  expect(await screen.findByText('Kommo sync dead-letter: ARB-77')).toBeInTheDocument();
+  expect(screen.getByText(/Owner: integracje Kommo/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Potwierdz' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith(
+      '/ops/risk-report/actions',
+      expect.objectContaining({
+        action: 'acknowledge',
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+});

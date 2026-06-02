@@ -449,7 +449,7 @@ export default function RaportDzienny() {
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
-    <StatusBar barStyle={'light-content'} backgroundColor={theme.headerBg} />
+    <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
     <ScrollView
       style={[S.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={{ paddingBottom: 48 }}

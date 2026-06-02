@@ -206,6 +206,51 @@ describe('GET /api/ops/kierownik-today', () => {
       }),
     ]);
   });
+
+  it('adds Kommo sync dead-letter risks with an operational owner', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('FROM tasks t') && text.includes('LEFT JOIN teams e')) return { rows: [] };
+      if (text.includes('FROM teams tm')) return { rows: [] };
+      if (text.includes('FROM notifications')) return { rows: [{ unread: 0 }] };
+      if (text.includes('FROM task_kommo_sync_queue q')) {
+        expect(params).toEqual([7]);
+        expect(text).toContain('t.oddzial_id = $1');
+        return {
+          rows: [{
+            id: 501,
+            task_id: 77,
+            event: 'task.sync',
+            status: 'dead_letter',
+            retry_count: 3,
+            last_error: 'HTTP 500 Kommo',
+            numer: 'ARB-77',
+            klient_nazwa: 'Klient Kommo',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/kierownik-today?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.kommo_sync_risks).toBe(1);
+    expect(res.body.risk_report.counts.kommo_sync).toBe(1);
+    expect(res.body.risk_report.items).toEqual([
+      expect.objectContaining({
+        id: 'kommo_sync:501',
+        type: 'kommo_sync',
+        severity: 'critical',
+        task_id: 77,
+        owner_role: 'Dyspozytor/Admin',
+        owner_label: 'Owner: integracje Kommo',
+        escalation: expect.stringContaining('P1'),
+      }),
+    ]);
+  });
 });
 
 describe('GET /api/ops/plan-vs-real', () => {
