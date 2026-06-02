@@ -29,17 +29,35 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function usage() {
+  return [
+    'Usage: npm run pilot:gates:run -- --date YYYY-MM-DD [--dry-run] [--full] [--continue-on-fail]',
+    '',
+    'Runs automated pilot gates and writes docs/pilot-runs/PILOT-AUTOMATED-GATES-YYYY-MM-DD.md.',
+    '',
+    'Options:',
+    '  --date YYYY-MM-DD       Pilot run date.',
+    '  --dry-run               Print planned gates without running them.',
+    '  --full                  Include slower full gates: check, operational smoke and demo e2e.',
+    '  --continue-on-fail      Keep running gates after a failure.',
+    '  --help                  Show this help.',
+  ].join('\n');
+}
+
 function parseArgs(argv) {
   const options = {
     date: todayIso(),
     dryRun: false,
     full: false,
     continueOnFail: false,
+    help: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--dry-run') {
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
+    } else if (arg === '--dry-run') {
       options.dryRun = true;
     } else if (arg === '--full') {
       options.full = true;
@@ -137,7 +155,12 @@ function runPilotGates(options = parseArgs(process.argv.slice(2))) {
 
 if (require.main === module) {
   try {
-    runPilotGates();
+    const options = parseArgs(process.argv.slice(2));
+    if (options.help) {
+      console.log(usage());
+      process.exit(0);
+    }
+    runPilotGates(options);
   } catch (error) {
     console.error(`[pilot-gates] FAILED: ${error.message}`);
     process.exit(1);
@@ -149,5 +172,6 @@ module.exports = {
   FULL_GATES,
   parseArgs,
   runPilotGates,
+  usage,
   writeReport,
 };

@@ -34,6 +34,7 @@ assertFiles([
   'docs/PILOT-ONE-BRANCH-CHECKLIST.md',
   'docs/pilot-runs/.gitkeep',
   'scripts/create-pilot-run-report.cjs',
+  'scripts/prepare-pilot-run.cjs',
   'scripts/run-pilot-gates.cjs',
   'scripts/pilot-run-tools.test.cjs',
 ]);
@@ -41,6 +42,7 @@ assertFiles([
 assertPackageScripts('package.json', [
   'verify:pilot-execution',
   'pilot:run:new',
+  'pilot:run:prepare',
   'pilot:gates:run',
   'verify:pilot-closure',
   'status:json:strict',
@@ -60,6 +62,7 @@ assertIncludes('docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md', [
   'Oddzial ID / nazwa:',
   'Zlecenia testowe ID:',
   'Wlasciciel decyzji:',
+  'Automatyczne bramki:',
   'PASS',
   'FAIL',
   'SKIP',
@@ -82,11 +85,30 @@ assertIncludes('docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md', [
 
 assertIncludes('scripts/create-pilot-run-report.cjs', [
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
+  'defaultGatesReport',
   'docs',
   'pilot-runs',
   'PILOT-GO-NO-GO-',
+  'PILOT-AUTOMATED-GATES-',
   '--date',
   '--force',
+  '--gates-report',
+  '--help',
+  'Usage:',
+  'YYYY-MM-DD',
+]);
+
+assertIncludes('scripts/prepare-pilot-run.cjs', [
+  'createPilotRunReport',
+  'defaultGatesReport',
+  'runPilotGates',
+  'pilot:gates:run',
+  '--run-gates',
+  '--dry-run',
+  '--full',
+  '--stop-on-fail',
+  '--help',
+  'Usage:',
   'YYYY-MM-DD',
 ]);
 
@@ -103,6 +125,8 @@ assertIncludes('scripts/run-pilot-gates.cjs', [
   '--dry-run',
   '--full',
   '--continue-on-fail',
+  '--help',
+  'Usage:',
   'PILOT-AUTOMATED-GATES-',
 ]);
 
@@ -120,7 +144,7 @@ assertIncludes('docs/PILOT-CLOSURE-GO-LIVE-GATE.md', [
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
   'docs/pilot-runs',
   'verify:pilot-execution',
-  'pilot:run:new',
+  'pilot:run:prepare',
   'pilot:gates:run',
 ]);
 
@@ -128,13 +152,14 @@ assertIncludes('docs/PILOT-ONE-BRANCH-CHECKLIST.md', [
   'verify:pilot-execution',
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
   'pilot:run:new',
+  'pilot:run:prepare',
   'pilot:gates:run',
 ]);
 
 assertIncludes('docs/ARBOR-full-scope-implementation-backlog.md', [
   'pilot execution evidence template',
   'verify:pilot-execution',
-  'pilot:run:new',
+  'pilot:run:prepare',
   'pilot:gates:run',
 ]);
 

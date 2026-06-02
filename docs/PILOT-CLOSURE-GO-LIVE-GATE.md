@@ -10,6 +10,7 @@ Uruchom przed decyzja GO:
 
 ```powershell
 cd C:\Users\paha1\arbor
+npm run pilot:run:prepare -- --date YYYY-MM-DD
 npm run status:json:strict
 npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail
 npm run verify:pilot-closure
@@ -98,4 +99,4 @@ Po probie zapisz:
 - liste wyjatkow z wlascicielem i terminem;
 - decyzje GO albo NO-GO podpisana przez wlasciciela pilota.
 
-Uzyj szablonu `docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md`, a wypelniony raport zapisz w `docs/pilot-runs/`. Najprosciej utworzyc raport komenda `npm run pilot:run:new -- --date YYYY-MM-DD`, a automatyczne wyniki bramek zebrac przez `npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail`. Bramka `npm run verify:pilot-execution` pilnuje, ze szablon zawiera wymagane pola decyzji, wyniki smoke, wyjatki i podpis GO/NO-GO.
+Uzyj szablonu `docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md`, a wypelniony raport zapisz w `docs/pilot-runs/`. Najprosciej przygotowac probe komenda `npm run pilot:run:prepare -- --date YYYY-MM-DD`, ktora tworzy raport decyzji i linkuje `docs/pilot-runs/PILOT-AUTOMATED-GATES-YYYY-MM-DD.md`; automatyczne wyniki bramek zbierz przez `npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail`. Bramka `npm run verify:pilot-execution` pilnuje, ze szablon zawiera wymagane pola decyzji, wyniki smoke, wyjatki i podpis GO/NO-GO.
