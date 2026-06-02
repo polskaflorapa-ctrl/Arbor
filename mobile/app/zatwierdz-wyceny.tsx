@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
@@ -32,6 +31,7 @@ import { PlatinumPressable } from '../components/ui/platinum-pressable';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { PLATINUM_MOTION } from '../constants/motion';
 import { triggerHaptic } from '../utils/haptics';
+import { apiFetch, apiJsonFetch } from '../utils/api-client';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
 const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
@@ -86,10 +86,9 @@ export default function ZatwierdzWycenyScreen() {
     try {
       const authToken = tokenOverride || token;
       if (!authToken) { router.replace('/login'); return; }
-      const headers = { Authorization: `Bearer ${authToken}` };
       const [wRes, eRes] = await Promise.all([
-        fetch(`${API_URL}/wyceny`, { headers }),
-        fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers }),
+        apiFetch('/wyceny', { token: authToken }),
+        apiFetch('/ekipy?include_delegacje=1', { token: authToken }),
       ]);
       if (wRes.ok) {
         const wData = await wRes.json();
@@ -163,9 +162,9 @@ export default function ZatwierdzWycenyScreen() {
         wartosc_planowana: approveForm.wartosc ? parseFloat(approveForm.wartosc) : undefined,
         uwagi: approveForm.uwagi,
       };
-      const res = await fetch(`${API_URL}/wyceny/${approving.id}/zatwierdz`, {
+      const res = await apiJsonFetch(`/wyceny/${approving.id}/zatwierdz`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        token,
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -191,9 +190,9 @@ export default function ZatwierdzWycenyScreen() {
     setSaving(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/wyceny/${rejecting.id}/odrzuc`, {
+      const res = await apiJsonFetch(`/wyceny/${rejecting.id}/odrzuc`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        token,
         body: JSON.stringify({ powod: rejectReason }),
       });
       if (!res.ok) {

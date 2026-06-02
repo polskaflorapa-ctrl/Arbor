@@ -17,7 +17,6 @@ import { router } from 'expo-router';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import * as Clipboard from 'expo-clipboard';
@@ -29,6 +28,7 @@ import {
   type AutoplanRules,
 } from '../utils/autoplan-rules-local';
 import { appendAutoplanHistory, loadAutoplanHistory, type AutoplanHistoryItem } from '../utils/autoplan-history';
+import { apiFetch, apiJsonFetch, apiUrl } from '../utils/api-client';
 import {
   cancelAutoplanDailyReminder,
   getAutoplanReminderTime,
@@ -284,15 +284,14 @@ export default function AutoplanDniaScreen() {
       setRefreshing(false);
       return;
     }
-    const headers = { Authorization: `Bearer ${token}` };
     try {
       const rulesSnapshot = await loadAutoplanRules();
       setRulesMaxDraft(String(rulesSnapshot.maxTasksPerTeam));
       setRulesDenyDraft(rulesSnapshot.cityDenylist.join(', '));
 
       const [tasksRes, teamsRes] = await Promise.all([
-        fetch(`${API_URL}/tasks/wszystkie`, { headers }),
-        fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers }),
+        apiFetch('/tasks/wszystkie', { token }),
+        apiFetch('/ekipy?include_delegacje=1', { token }),
       ]);
       const tasksData = tasksRes.ok ? await tasksRes.json() : [];
       const teamsPayload = teamsRes.ok ? await teamsRes.json() : [];
@@ -410,12 +409,12 @@ export default function AutoplanDniaScreen() {
           let queued = 0;
           const appliedSnapshot: AppliedChange[] = [];
           for (const row of actionable) {
-            const url = `${API_URL}/tasks/${row.taskId}`;
+            const url = apiUrl(`/tasks/${row.taskId}`);
             const body = { ekipa_id: Number(row.suggestedTeamId), status: 'Zaplanowane' };
             try {
-              const res = await fetch(url, {
+              const res = await apiJsonFetch(url, {
                 method: 'PUT',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                token,
                 body: JSON.stringify(body),
               });
               if (res.ok) {
@@ -478,12 +477,12 @@ export default function AutoplanDniaScreen() {
           let ok = 0;
           let queued = 0;
           for (const ch of lastApplied) {
-            const url = `${API_URL}/tasks/${ch.taskId}`;
+            const url = apiUrl(`/tasks/${ch.taskId}`);
             const body = { ekipa_id: ch.prevTeamId ? Number(ch.prevTeamId) : null, status: ch.prevStatus || 'Nowe' };
             try {
-              const res = await fetch(url, {
+              const res = await apiJsonFetch(url, {
                 method: 'PUT',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                token,
                 body: JSON.stringify(body),
               });
               if (res.ok) ok += 1;
@@ -1168,4 +1167,3 @@ function makeStyles(theme: Theme) {
     reason: { marginTop: 6, color: theme.textMuted, fontSize: 12 },
   });
 }
-

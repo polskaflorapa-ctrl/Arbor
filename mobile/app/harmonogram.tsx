@@ -17,11 +17,11 @@ import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
+import { apiFetch } from '../utils/api-client';
 import { subscribeOfflineFlushDone, subscribeTaskSync } from '../utils/offline-queue-sync-events';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { openAddressInMaps, openRouteInMaps } from '../utils/maps-link';
@@ -425,12 +425,11 @@ export default function HarmonogramScreen() {
     setLoading(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const h = { Authorization: `Bearer ${token}` };
       const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const lastDay = new Date(year, month + 1, 0).getDate();
       const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      const res = await fetch(`${API_URL}/tasks/wszystkie?from=${from}&to=${to}`, { headers: h });
+      const res = await apiFetch(`/tasks/wszystkie?from=${from}&to=${to}`, { token });
       if (res.ok) {
         const data = await res.json();
         const tasks: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
@@ -444,7 +443,7 @@ export default function HarmonogramScreen() {
         setMarkedDays(counts);
       }
 
-      const reservationRes = await fetch(`${API_URL}/flota/rezerwacje?from=${from}&to=${to}`, { headers: h });
+      const reservationRes = await apiFetch(`/flota/rezerwacje?from=${from}&to=${to}`, { token });
       if (reservationRes.ok) {
         const data = await reservationRes.json().catch(() => []);
         setEquipmentReservations(Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []);
@@ -458,9 +457,9 @@ export default function HarmonogramScreen() {
       if (isManager) {
         const branchId = user?.oddzial_id != null ? String(user.oddzial_id) : '';
         const eUrl = branchId
-          ? `${API_URL}/oddzialy/${branchId}/zasoby?date=${from}`
-          : `${API_URL}/ekipy`;
-        const eRes = await fetch(eUrl, { headers: h });
+          ? `/oddzialy/${branchId}/zasoby?date=${from}`
+          : '/ekipy';
+        const eRes = await apiFetch(eUrl, { token });
         if (eRes.ok) {
           const data = await eRes.json();
           setEkipy(Array.isArray(data?.ekipy) ? data.ekipy : Array.isArray(data) ? data : []);
@@ -479,9 +478,7 @@ export default function HarmonogramScreen() {
     try {
       if (!token) { router.replace('/login'); return; }
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const res = await fetch(`${API_URL}/tasks/wszystkie?from=${dateStr}&to=${dateStr}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/tasks/wszystkie?from=${dateStr}&to=${dateStr}`, { token });
       if (res.ok) {
         const data = await res.json();
         const all: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];

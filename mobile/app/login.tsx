@@ -12,12 +12,13 @@ import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
+import { CUSTOM_API_URL_STORAGE_KEY, setRuntimeApiUrl } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { triggerHaptic } from '../utils/haptics';
 import { saveStoredSession } from '../utils/session';
 import { tryRegisterPushTokenAfterAuth } from '../utils/expo-push-backend';
+import { apiUrl } from '../utils/api-client';
 
 const LAST_LOGIN_KEY = 'last_login_value';
 const REMEMBER_LOGIN_KEY = 'remember_login_enabled';
@@ -49,7 +50,7 @@ export default function Login() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SERVER_PROBE_TIMEOUT_MS);
     try {
-      const response = await fetch(`${API_URL}${path}`, { signal: controller.signal });
+      const response = await fetch(apiUrl(path), { signal: controller.signal });
       return response.status;
     } catch {
       return null;
@@ -78,14 +79,19 @@ export default function Login() {
   }, [probeStatus]);
 
   useEffect(() => {
-    void checkServer();
-    AsyncStorage.multiGet([LAST_LOGIN_KEY, REMEMBER_LOGIN_KEY]).then((pairs) => {
+    void (async () => {
+      const [customUrl, pairs] = await Promise.all([
+        AsyncStorage.getItem(CUSTOM_API_URL_STORAGE_KEY).catch(() => null),
+        AsyncStorage.multiGet([LAST_LOGIN_KEY, REMEMBER_LOGIN_KEY]),
+      ]);
+      if (customUrl) setRuntimeApiUrl(customUrl);
+      await checkServer();
       const savedLogin = pairs[0]?.[1] ?? '';
       const savedRemember = pairs[1]?.[1];
       const remember = savedRemember === null ? true : savedRemember === 'true';
       setRememberLogin(remember);
       if (remember && savedLogin) setLogin(savedLogin);
-    });
+    })();
   }, [checkServer]);
 
   useEffect(() => {
@@ -131,7 +137,7 @@ export default function Login() {
 
       const loginController = new AbortController();
       const loginTimeout = setTimeout(() => loginController.abort(), 20000);
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(apiUrl('/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ login: login.trim(), haslo }),

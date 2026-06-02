@@ -303,6 +303,10 @@ export default function TelefoniaMobileScreen() {
     if (callbackStatusFilter === 'all') return callbacks;
     return callbacks.filter((row) => (row.status || 'open') === callbackStatusFilter);
   }, [callbacks, callbackStatusFilter]);
+  const openCallbacks = useMemo(
+    () => callbacks.filter((row) => (row.status || 'open') === 'open' || row.status === 'in_progress').length,
+    [callbacks],
+  );
 
   const openDial = async (raw: string | null | undefined) => {
     if (!raw) return;
@@ -325,6 +329,20 @@ export default function TelefoniaMobileScreen() {
     <View style={S.root}>
       <AppStatusBar />
       <ScreenHeader title="Telefonia i SMS" />
+      <View style={S.statsRow}>
+        <View style={S.statPill}>
+          <Text style={S.statValue}>{calls.length}</Text>
+          <Text style={S.statLabel}>rozmow</Text>
+        </View>
+        <View style={S.statPill}>
+          <Text style={S.statValue}>{openCallbacks}</Text>
+          <Text style={S.statLabel}>do oddzw.</Text>
+        </View>
+        <View style={S.statPill}>
+          <Text style={S.statValue}>{smsRows.length}</Text>
+          <Text style={S.statLabel}>SMS</Text>
+        </View>
+      </View>
       <View style={S.tabRow}>
         <TouchableOpacity style={[S.tabBtn, tab === 'calls' && S.tabBtnActive]} onPress={() => setTab('calls')}>
           <Text style={[S.tabText, tab === 'calls' && S.tabTextActive]}>Polaczenia</Text>
@@ -588,19 +606,39 @@ const makeStyles = (t: Theme) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: t.bg },
     center: { flex: 1, backgroundColor: t.bg, justifyContent: 'center', alignItems: 'center' },
-    tabRow: {
+    statsRow: {
       flexDirection: 'row',
       gap: 8,
       paddingHorizontal: 12,
       paddingTop: 10,
       paddingBottom: 8,
     },
+    statPill: {
+      flex: 1,
+      minHeight: 54,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: t.cardBorder,
+      backgroundColor: t.cardBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statValue: { color: t.text, fontSize: 18, fontWeight: '900' },
+    statLabel: { color: t.textSub, fontSize: 11, fontWeight: '800', marginTop: 1 },
+    tabRow: {
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingTop: 2,
+      paddingBottom: 8,
+      backgroundColor: t.bg,
+    },
     tabBtn: {
       flex: 1,
-      minHeight: 40,
-      borderRadius: 10,
+      minHeight: 44,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: t.border,
+      borderColor: t.cardBorder,
       backgroundColor: t.surface2,
       alignItems: 'center',
       justifyContent: 'center',
@@ -609,43 +647,43 @@ const makeStyles = (t: Theme) =>
       borderColor: t.accent,
       backgroundColor: t.accentLight,
     },
-    tabText: { color: t.textSub, fontWeight: '600', fontSize: 13 },
-    tabTextActive: { color: t.accent, fontWeight: '700' },
+    tabText: { color: t.textSub, fontWeight: '800', fontSize: 13 },
+    tabTextActive: { color: t.accent, fontWeight: '900' },
     scroll: { flex: 1, paddingHorizontal: 12 },
     sectionCard: {
       borderWidth: 1,
       borderColor: t.cardBorder,
-      borderRadius: 14,
+      borderRadius: 12,
       backgroundColor: t.cardBg,
       padding: 12,
       marginBottom: 10,
-      gap: 8,
+      gap: 9,
     },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    flex: { flex: 1 },
-    smallInput: { width: 100 },
-    sectionTitle: { color: t.text, fontWeight: '800', fontSize: 15 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    flex: { flex: 1, minWidth: 190 },
+    smallInput: { width: 100, flexGrow: 1 },
+    sectionTitle: { color: t.text, fontWeight: '900', fontSize: 15 },
     input: {
       borderWidth: 1,
       borderColor: t.inputBorder,
       borderRadius: 10,
-      paddingHorizontal: 10,
-      paddingVertical: 9,
+      paddingHorizontal: 11,
+      minHeight: 46,
       color: t.inputText,
       backgroundColor: t.inputBg,
     },
     textarea: { minHeight: 78, textAlignVertical: 'top' },
     helper: { color: t.textMuted, fontSize: 11 },
     primaryBtn: {
-      minHeight: 42,
-      borderRadius: 11,
+      minHeight: 50,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: t.accent,
       borderWidth: 1,
       borderColor: t.accentDark,
     },
-    primaryBtnText: { color: t.accentText, fontWeight: '700', fontSize: 13 },
+    primaryBtnText: { color: t.accentText, fontWeight: '900', fontSize: 14 },
     listLabel: {
       color: t.textSub,
       fontSize: 12,
@@ -654,7 +692,7 @@ const makeStyles = (t: Theme) =>
       marginBottom: 6,
       marginTop: 4,
     },
-    filterWrap: { marginLeft: 'auto', flexDirection: 'row', gap: 6 },
+    filterWrap: { marginLeft: 'auto', flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', flex: 1 },
     filterChip: {
       minHeight: 28,
       borderRadius: 14,
@@ -668,7 +706,7 @@ const makeStyles = (t: Theme) =>
     filterChipActive: { borderColor: t.accent, backgroundColor: t.accentLight },
     filterChipText: { color: t.textSub, fontSize: 10, fontWeight: '700' },
     filterChipTextActive: { color: t.accent },
-    priorityRow: { flexDirection: 'row', gap: 6 },
+    priorityRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     priorityChip: {
       minHeight: 38,
       borderRadius: 9,
@@ -698,12 +736,12 @@ const makeStyles = (t: Theme) =>
       borderColor: t.cardBorder,
       borderRadius: 12,
       backgroundColor: t.cardBg,
-      padding: 11,
+      padding: 12,
       marginBottom: 8,
-      gap: 4,
+      gap: 6,
     },
-    rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    rowTitle: { color: t.text, fontWeight: '700', fontSize: 13 },
+    rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+    rowTitle: { color: t.text, fontWeight: '900', fontSize: 14, flex: 1 },
     badge: {
       color: t.accent,
       fontSize: 11,
@@ -726,10 +764,10 @@ const makeStyles = (t: Theme) =>
       marginTop: 2,
     },
     inlineAction: {
-      marginTop: 4,
-      minHeight: 36,
+      marginTop: 5,
+      minHeight: 40,
       alignSelf: 'flex-start',
-      borderRadius: 9,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.surface2,

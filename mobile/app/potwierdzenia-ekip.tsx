@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
@@ -23,6 +22,7 @@ import {
   upsertAttendance,
   type AttendanceEntry,
 } from '../utils/attendance-local';
+import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -43,9 +43,9 @@ function normalizeAttendanceItem(item: any, fallbackDate: string): AttendanceEnt
 }
 
 async function saveRemoteAttendance(auth: string, team: EkipaRow, entry: AttendanceEntry): Promise<AttendanceEntry> {
-  const res = await fetch(`${API_URL}/ekipy/${team.id}/attendance`, {
+  const res = await apiJsonFetch(`/ekipy/${team.id}/attendance`, {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' },
+    token: auth,
     body: JSON.stringify({
       dateYmd: entry.dateYmd,
       present: entry.present,
@@ -72,9 +72,7 @@ export default function PotwierdzeniaEkipScreen() {
   const refreshAttendance = useCallback(async (auth?: string | null, date = dateYmd) => {
     if (auth) {
       try {
-        const res = await fetch(`${API_URL}/ekipy/attendance?date=${encodeURIComponent(date)}`, {
-          headers: { Authorization: `Bearer ${auth}` },
-        });
+        const res = await apiFetch(`/ekipy/attendance?date=${encodeURIComponent(date)}`, { token: auth });
         if (res.ok) {
           const data = await res.json();
           const remoteItems = Array.isArray(data?.items)
@@ -92,7 +90,7 @@ export default function PotwierdzeniaEkipScreen() {
   }, [dateYmd]);
 
   const loadEkipy = useCallback(async (auth: string) => {
-    const res = await fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers: { Authorization: `Bearer ${auth}` } });
+    const res = await apiFetch('/ekipy?include_delegacje=1', { token: auth });
     if (!res.ok) {
       setEkipy([]);
       return;
