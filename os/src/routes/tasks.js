@@ -955,6 +955,19 @@ function timeHmToMinutes(value) {
   return h * 60 + m;
 }
 
+function lastSundayOfMonthUtc(year, monthIndex) {
+  const date = new Date(Date.UTC(year, monthIndex + 1, 0, 1, 0, 0));
+  date.setUTCDate(date.getUTCDate() - date.getUTCDay());
+  return date;
+}
+
+function warsawOffsetMinutesForInstant(date) {
+  const year = date.getUTCFullYear();
+  const dstStart = lastSundayOfMonthUtc(year, 2);
+  const dstEnd = lastSundayOfMonthUtc(year, 9);
+  return date >= dstStart && date < dstEnd ? 120 : 60;
+}
+
 function plannedDateTimeToWarsawMinutes(value) {
   const raw = String(value || '').trim();
   const inlineTime = raw.match(/(?:T|\s)(\d{1,2}):(\d{2})/);
@@ -970,16 +983,8 @@ function plannedDateTimeToWarsawMinutes(value) {
   const planned = new Date(value);
   if (Number.isNaN(planned.getTime())) return null;
 
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Warsaw',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(planned);
-  const hh = Number(parts.find((part) => part.type === 'hour')?.value);
-  const mm = Number(parts.find((part) => part.type === 'minute')?.value);
-  if (!Number.isInteger(hh) || !Number.isInteger(mm)) return null;
-  return hh * 60 + mm;
+  const utcMinutes = planned.getUTCHours() * 60 + planned.getUTCMinutes();
+  return (utcMinutes + warsawOffsetMinutesForInstant(planned)) % (24 * 60);
 }
 
 function planWindowViolation({ oknoOd, oknoDo, plannedDateTime, godzinaRozpoczecia, durationHours }) {
