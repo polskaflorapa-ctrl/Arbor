@@ -311,7 +311,33 @@ function resourceStatusBlocksPlanning(status) {
   return text.includes('napraw') || text.includes('serwis') || text.includes('awari') || text.includes('wycof');
 }
 
-function getTeamResourceRepairSummary(teamId, equipment = [], vehicles = []) {
+function repairIsClosed(status) {
+  const text = String(status || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return text.includes('zakoncz') || text.includes('zamkn') || text.includes('gotow');
+}
+
+function normalizeRepairResourceKind(value) {
+  const text = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (['auto', 'pojazd', 'vehicle', 'car'].includes(text)) return 'Auto';
+  if (['sprzet', 'equipment', 'tool'].includes(text)) return 'Sprzet';
+  return '';
+}
+
+function findActiveRepairForResource(kind, resourceId, repairs = []) {
+  return (repairs || []).find((repair) => (
+    normalizeRepairResourceKind(repair?.typ_zasobu) === kind
+    && String(repair?.zasob_id || '') === String(resourceId || '')
+    && !repairIsClosed(repair?.status)
+  )) || null;
+}
+
+function getTeamResourceRepairSummary(teamId, equipment = [], vehicles = [], repairs = []) {
   const selectedTeamId = String(teamId || '').trim();
   if (!selectedTeamId) {
     return { readyToCheck: false, ok: true, hardConflict: false, items: [], label: 'Zasoby ekipy', detail: 'Wybierz ekipe, aby sprawdzic przypisany sprzet i auta.' };
@@ -324,6 +350,7 @@ function getTeamResourceRepairSummary(teamId, equipment = [], vehicles = []) {
         kind: 'Auto',
         label: [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ') || `Auto #${item.id}`,
         status: item.status,
+        repair: findActiveRepairForResource('Auto', item.id, repairs),
       })),
     ...equipment
       .filter((item) => String(item.ekipa_id || '') === selectedTeamId && resourceStatusBlocksPlanning(item.status))
@@ -332,6 +359,7 @@ function getTeamResourceRepairSummary(teamId, equipment = [], vehicles = []) {
         kind: 'Sprzet',
         label: [item.nazwa, item.typ].filter(Boolean).join(' / ') || `Sprzet #${item.id}`,
         status: item.status,
+        repair: findActiveRepairForResource('Sprzet', item.id, repairs),
       })),
   ];
   return {
@@ -3706,6 +3734,7 @@ export default function Zlecenia() {
   const [sprzetItems, setSprzetItems] = useState([]);
   const [branchEquipment, setBranchEquipment] = useState([]);
   const [branchVehicles, setBranchVehicles] = useState([]);
+  const [branchRepairs, setBranchRepairs] = useState([]);
   const [tryb, setTryb] = useState(() => {
     const v = localStorage.getItem(VIEW_MODE_KEY) || 'lista';
     return ZLECENIA_TRYBY.has(v) ? v : 'lista';
@@ -3997,6 +4026,7 @@ export default function Zlecenia() {
       setBranchTeams([]);
       setBranchEquipment([]);
       setBranchVehicles([]);
+      setBranchRepairs([]);
       return undefined;
     }
 
@@ -4013,23 +4043,27 @@ export default function Zlecenia() {
           },
           dedupe: false,
         };
-        const [{ data }, equipmentRes, vehiclesRes] = await Promise.all([
+        const [{ data }, equipmentRes, vehiclesRes, repairsRes] = await Promise.all([
           api.get('/ekipy', requestConfig),
           api.get('/flota/sprzet', requestConfig).catch(() => ({ data: [] })),
           api.get('/flota/pojazdy', requestConfig).catch(() => ({ data: [] })),
+          api.get('/flota/naprawy', requestConfig).catch(() => ({ data: [] })),
         ]);
         if (!cancelled) {
           setBranchTeams(Array.isArray(data) ? data : (data?.items || []));
           const equipmentData = equipmentRes.data;
           const vehiclesData = vehiclesRes.data;
+          const repairsData = repairsRes.data;
           setBranchEquipment(Array.isArray(equipmentData) ? equipmentData : (equipmentData?.items || []));
           setBranchVehicles(Array.isArray(vehiclesData) ? vehiclesData : (vehiclesData?.items || []));
+          setBranchRepairs(Array.isArray(repairsData) ? repairsData : (repairsData?.items || []));
         }
       } catch {
         if (!cancelled) {
           setBranchTeams([]);
           setBranchEquipment([]);
           setBranchVehicles([]);
+          setBranchRepairs([]);
         }
       }
     };
@@ -5068,6 +5102,41 @@ export default function Zlecenia() {
     } catch (err) {
       pokazKomunikat(getApiErrorMessage(err, 'Nie udało się zaplanować zlecenia'), 'error');
       return false;
+    } finally {
+      setOfficePlanSaving(false);
+    }
+  };
+
+  const zakonczNapraweZPlanuBiura = async (repair) => {
+    if (!repair?.id || officePlanSaving) return;
+    setOfficePlanSaving(true);
+    try {
+      const token = getStoredToken();
+      await api.put(`/flota/naprawy/${repair.id}`, {
+        ...repair,
+        status: 'Zakonczona',
+        opis_naprawy: repair.opis_naprawy || 'Zakonczono naprawe z planu biura',
+      }, { headers: authHeaders(token) });
+      pokazKomunikat('Naprawa zakonczona. Odświeżam zasoby ekipy.');
+      const requestConfig = {
+        headers: authHeaders(token),
+        params: {
+          oddzial_id: wybraneZlecenie?.oddzial_id || currentUser?.oddzial_id || '',
+          include_delegacje: '1',
+          date: officePlan.data_planowana || taskDateOnly(wybraneZlecenie?.data_planowana) || '',
+        },
+        dedupe: false,
+      };
+      const [equipmentRes, vehiclesRes, repairsRes] = await Promise.all([
+        api.get('/flota/sprzet', requestConfig).catch(() => ({ data: [] })),
+        api.get('/flota/pojazdy', requestConfig).catch(() => ({ data: [] })),
+        api.get('/flota/naprawy', requestConfig).catch(() => ({ data: [] })),
+      ]);
+      setBranchEquipment(Array.isArray(equipmentRes.data) ? equipmentRes.data : (equipmentRes.data?.items || []));
+      setBranchVehicles(Array.isArray(vehiclesRes.data) ? vehiclesRes.data : (vehiclesRes.data?.items || []));
+      setBranchRepairs(Array.isArray(repairsRes.data) ? repairsRes.data : (repairsRes.data?.items || []));
+    } catch (err) {
+      pokazKomunikat(getApiErrorMessage(err, 'Nie udalo sie zakonczyc naprawy'), 'error');
     } finally {
       setOfficePlanSaving(false);
     }
@@ -6430,7 +6499,7 @@ export default function Zlecenia() {
     ? getOfficePlanTeamConflictSummary(zlecenia, wybraneZlecenie, officePlan)
     : { readyToCheck: false, ok: false, hardConflict: false, warning: false, outsideWorkday: false, conflicts: [], label: '', detail: '' };
   const officePlanTeamResourceSummary = wybraneZlecenie
-    ? getTeamResourceRepairSummary(officePlan.ekipa_id || wybraneZlecenie.ekipa_id, sprzetPlanowania, branchVehicles)
+    ? getTeamResourceRepairSummary(officePlan.ekipa_id || wybraneZlecenie.ekipa_id, sprzetPlanowania, branchVehicles, branchRepairs)
     : { readyToCheck: false, ok: true, hardConflict: false, items: [], label: '', detail: '' };
   const detailEquipmentOptions = wybraneZlecenie
     ? [...sprzetPlanowania]
@@ -8857,6 +8926,16 @@ export default function Zlecenia() {
                           {officePlanTeamResourceSummary.items.map((item) => (
                             <span key={`${item.kind}-${item.id}`}>
                               {item.kind}: {item.label}{item.status ? ` - ${item.status}` : ''}
+                              {item.repair?.id ? (
+                                <button
+                                  type="button"
+                                  style={s.officePlanInlineRepairBtn}
+                                  disabled={officePlanSaving}
+                                  onClick={() => zakonczNapraweZPlanuBiura(item.repair)}
+                                >
+                                  Zakoncz naprawe
+                                </button>
+                              ) : null}
                             </span>
                           ))}
                         </div>
@@ -13624,6 +13703,20 @@ const s = {
     fontWeight: 850,
     lineHeight: 1.25,
     textAlign: 'right',
+  },
+  officePlanInlineRepairBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    padding: '4px 7px',
+    borderRadius: 7,
+    border: '1px solid rgba(20,131,79,0.28)',
+    background: 'rgba(20,131,79,0.12)',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+    fontSize: 10,
+    fontWeight: 900,
   },
   officePlanConflictActions: {
     display: 'flex',

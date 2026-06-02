@@ -83,6 +83,7 @@ function mockZleceniaApi(options = {}) {
   const task = options.task || TASK;
   const vehicles = options.vehicles || [];
   const equipment = options.equipment || [];
+  const repairs = options.repairs || [];
   api.get.mockImplementation((url) => {
     if (url === '/tasks/wszystkie') return Promise.resolve({ data: [task] });
     if (url === '/tasks/42') return Promise.resolve({ data: task });
@@ -91,6 +92,7 @@ function mockZleceniaApi(options = {}) {
     if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Wroclaw' }] });
     if (url === '/flota/sprzet') return Promise.resolve({ data: equipment });
     if (url === '/flota/pojazdy') return Promise.resolve({ data: vehicles });
+    if (url === '/flota/naprawy') return Promise.resolve({ data: repairs });
     if (url === '/tasks/client-contacts') return Promise.resolve({ data: null });
     if (url === '/tasks/closure-events') return Promise.resolve({ data: null });
     if (String(url).startsWith('/ekipy/gps-history?')) {
@@ -294,6 +296,59 @@ test('blocks office plan when selected team vehicle is in repair', async () => {
   expect(screen.getByTestId('location-probe')).toHaveTextContent('kind=Auto');
   expect(screen.getByTestId('location-probe')).toHaveTextContent('resource=5');
   expect(screen.getByTestId('location-probe')).toHaveTextContent('returnTo=%2Fzlecenia%2F42%3Ffocus%3DofficePlan');
+}, 15000);
+
+test('closes matched team resource repair directly from office plan', async () => {
+  mockZleceniaApi({
+    task: {
+      ...TASK,
+      ekipa_id: 3,
+      ekipa_nazwa: 'Brygada Alfa',
+      data_planowana: '2026-06-02T08:00:00.000Z',
+      godzina_rozpoczecia: '08:00',
+    },
+    vehicles: [
+      {
+        id: 5,
+        marka: 'Mercedes',
+        model: 'Sprinter',
+        nr_rejestracyjny: 'KR12345',
+        status: 'W naprawie',
+        ekipa_id: 3,
+        oddzial_id: 7,
+      },
+    ],
+    repairs: [
+      {
+        id: 90,
+        typ_zasobu: 'Pojazd',
+        zasob_id: 5,
+        status: 'W toku',
+        opis_usterki: 'Alternator',
+      },
+    ],
+  });
+  api.put.mockResolvedValue({ data: { id: 90, status: 'Zakonczona' } });
+
+  renderRoute('/zlecenia/42?focus=officePlan');
+
+  expect(await screen.findByText('Do zaplanowania dla ekipy', {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  const officePlanSection = document.querySelector('[data-detail-section="officePlan"]');
+  expect(officePlanSection).toBeTruthy();
+  const closeRepairBtn = await within(officePlanSection).findByRole('button', { name: 'Zakoncz naprawe' }, SLOW_FORM_RENDER);
+  fireEvent.click(closeRepairBtn);
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/flota/naprawy/90',
+      expect.objectContaining({
+        id: 90,
+        status: 'Zakonczona',
+        opis_naprawy: 'Zakonczono naprawe z planu biura',
+      }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
 }, 15000);
 
 test('shows backend team resource block details while saving office plan', async () => {
