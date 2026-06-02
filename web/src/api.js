@@ -1998,6 +1998,56 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ops/owner-alerts/remediation-report' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const events = getMockOpsEvents()
+      .filter((event) => String(event.created_at || '').slice(0, 10) === date)
+      .filter((event) => ['risk_owner_auto_remediate', 'risk_owner_remediation_blocked'].includes(event.action_type))
+      .filter((event) => !oddzialId || String(event.oddzial_id || '') === String(oddzialId));
+    const items = events.map((event) => ({
+      id: event.id,
+      task_id: event.task_id || null,
+      numer: event.numer || null,
+      klient_nazwa: event.klient_nazwa || null,
+      oddzial_id: event.oddzial_id || null,
+      action_type: event.action_type,
+      risk_type: event.risk_type || event.issue_key,
+      risk_id: event.risk_id || null,
+      remediation_action: event.remediation_action || event.metadata?.remediation_action || null,
+      success: event.action_type === 'risk_owner_auto_remediate' && event.ok !== false,
+      blocked: event.action_type === 'risk_owner_remediation_blocked',
+      block_reason: event.block_reason || event.metadata?.block_reason || null,
+      daily_limit: event.daily_limit || event.metadata?.daily_limit || null,
+      used_before: event.used_before || event.metadata?.used_before || null,
+      created_at: event.created_at,
+      note: event.note || '',
+    }));
+    return {
+      data: {
+        date,
+        range: config?.params?.range || 'week',
+        oddzial_id: oddzialId,
+        summary: {
+          total: items.length,
+          retry_kommo: items.filter((item) => item.remediation_action === 'retry_kommo').length,
+          resend_sms: items.filter((item) => item.remediation_action === 'resend_sms').length,
+          success: items.filter((item) => item.success).length,
+          failed: items.filter((item) => item.action_type === 'risk_owner_auto_remediate' && item.success === false).length,
+          limit_blocks: items.filter((item) => item.block_reason === 'daily_limit').length,
+          blocked: items.filter((item) => item.blocked).length,
+        },
+        items,
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/automations/daily-digest/preview' && method === 'get') {
     const date = getRequestDate(config);
     const events = getMockOpsEvents().filter((event) => String(event.created_at || '').slice(0, 10) === date);

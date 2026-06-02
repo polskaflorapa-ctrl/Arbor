@@ -1141,6 +1141,131 @@ describe('GET /api/ops/owner-alerts/open', () => {
       remediation: { id: 501, status: 'failed' },
     });
   });
+
+  it('audits owner remediation blocked by daily limit', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type = 'risk_owner_escalate'")) {
+        return { rows: [{ id: 711, created_at: '2026-05-26T10:00:00.000Z', actor_id: 1 }] };
+      }
+      if (text.includes('FROM tasks t') && text.includes('WHERE t.id = $1')) {
+        return { rows: [{ id: 77, numer: 'ARB-77', klient_telefon: '+48123123123', oddzial_id: 7 }] };
+      }
+      if (text.includes('COUNT(*)::int AS used')) {
+        return { rows: [{ used: 3 }] };
+      }
+      if (text.includes('INSERT INTO ops_action_events')) {
+        expect(params[3]).toBe('risk_owner_remediation_blocked');
+        expect(JSON.parse(params[10])).toMatchObject({
+          risk_id: 'kommo_sync:501',
+          remediation_action: 'retry_kommo',
+          block_reason: 'daily_limit',
+          daily_limit: 3,
+          used_before: 3,
+        });
+        return { rows: [{ id: 903, task_id: 77, action_type: 'risk_owner_remediation_blocked' }] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .post('/api/ops/owner-alerts/remediation')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({
+        action: 'retry_kommo',
+        risk_id: 'kommo_sync:501',
+        risk_type: 'kommo_sync',
+        task_id: 77,
+      });
+
+    expect(res.status).toBe(429);
+    expect(res.body).toMatchObject({ limit: 3, used: 3, event: { action_type: 'risk_owner_remediation_blocked' } });
+  });
+});
+
+describe('GET /api/ops/owner-alerts/remediation-report', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+  });
+
+  it('reports owner remediation retry, success and daily limit blockers', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes("e.action_type IN ('risk_owner_auto_remediate', 'risk_owner_remediation_blocked')")) {
+        expect(text).toContain('e.oddzial_id = $2');
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [
+            {
+              id: 901,
+              task_id: 77,
+              oddzial_id: 7,
+              action_type: 'risk_owner_auto_remediate',
+              issue_key: 'kommo_sync',
+              note: 'Retry Kommo',
+              metadata: { risk_id: 'kommo_sync:501', risk_type: 'kommo_sync', remediation_action: 'retry_kommo' },
+              created_at: '2026-05-26T11:00:00.000Z',
+              numer: 'ARB-77',
+              klient_nazwa: 'Klient Kommo',
+              oddzial_nazwa: 'Krakow',
+            },
+            {
+              id: 902,
+              task_id: 88,
+              oddzial_id: 7,
+              action_type: 'risk_owner_auto_remediate',
+              issue_key: 'sms_delivery',
+              note: 'SMS failed',
+              metadata: { risk_id: 'sms_delivery:55', risk_type: 'sms_delivery', remediation_action: 'resend_sms', ok: false },
+              created_at: '2026-05-26T11:05:00.000Z',
+              numer: 'ARB-88',
+              klient_nazwa: 'Klient SMS',
+              oddzial_nazwa: 'Krakow',
+            },
+            {
+              id: 903,
+              task_id: 77,
+              oddzial_id: 7,
+              action_type: 'risk_owner_remediation_blocked',
+              issue_key: 'kommo_sync',
+              note: 'Limit',
+              metadata: { risk_id: 'kommo_sync:501', risk_type: 'kommo_sync', remediation_action: 'retry_kommo', block_reason: 'daily_limit' },
+              created_at: '2026-05-26T11:10:00.000Z',
+              numer: 'ARB-77',
+              klient_nazwa: 'Klient Kommo',
+              oddzial_nazwa: 'Krakow',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/owner-alerts/remediation-report?date=2026-05-26&range=today')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary).toMatchObject({
+      total: 3,
+      retry_kommo: 2,
+      resend_sms: 1,
+      success: 1,
+      failed: 1,
+      limit_blocks: 1,
+      blocked: 1,
+    });
+    expect(res.body.items[0]).toMatchObject({
+      risk_id: 'kommo_sync:501',
+      remediation_action: 'retry_kommo',
+    });
+  });
 });
 
 describe('GET /api/ops/action-history', () => {

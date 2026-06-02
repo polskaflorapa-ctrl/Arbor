@@ -104,7 +104,8 @@
 - [x] **P0 ops owner open alerts SLA**: `/api/ops/owner-alerts/open` pokazuje niedomkniete alerty Kommo/SMS bez `risk_acknowledge`, liczy aging, `sla_status` i eskalacje P1/P2; Kontrola operacyjna ma panel niedomknietych alertow, a `npm run verify:ops-owner-control` pilnuje endpointu i UI.
 - [x] **P0 ops owner bulk actions**: `/api/ops/owner-alerts/actions` zapisuje masowe `acknowledge` jako `risk_acknowledge` i `escalate` jako `risk_owner_escalate`; Kontrola operacyjna ma przyciski `Potwierdz widoczne` i `Eskaluj widoczne`, a audyt trafia do `ops_action_events`.
 - [x] **P0 ops owner auto-remediation playbook**: `/api/ops/owner-alerts/remediation` pozwala uruchomic `retry_kommo` albo `resend_sms` dopiero po jawnej eskalacji `risk_owner_escalate`, pilnuje dziennego limitu `OPS_OWNER_REMEDIATION_DAILY_LIMIT` i zapisuje audyt `risk_owner_auto_remediate`.
-- [ ] **Nastepny pakiet**: EPIC 9.12 - widok dyrektorski skutecznosci remediacji ownerow Kommo/SMS: licznik retry, sukcesy, blokady limitu i nierozwiazane P1/P2.
+- [x] **P0 ops owner remediation effectiveness**: `/api/ops/owner-alerts/remediation-report` zwraca retry Kommo, ponowienia SMS, sukcesy, bledy i blokady limitu; Kontrola operacyjna pokazuje skutecznosc remediacji ownerow obok nierozwiazanych P1/P2.
+- [ ] **Nastepny pakiet**: EPIC 9.13 - automatyczny alert digestu dla nierozwiazanych P1/P2 po remediacji: eskalacja do dyrektora z lista ownerow i ostatnich decyzji.
 
 ---
 

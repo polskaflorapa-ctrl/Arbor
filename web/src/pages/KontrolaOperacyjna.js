@@ -38,6 +38,8 @@ const ACTION_FILTERS = [
   { value: 'risk_resend_sms', label: 'Zadarma/SMS' },
   { value: 'risk_queue_call', label: 'Telefon Zadarma' },
   { value: 'risk_acknowledge', label: 'Potwierdzenie ownera' },
+  { value: 'risk_owner_auto_remediate', label: 'Auto-remediacja ownera' },
+  { value: 'risk_owner_remediation_blocked', label: 'Blokady remediacji' },
   { value: 'risk_reassign_team', label: 'Przepiecie ekipy' },
   { value: 'risk_replace_equipment', label: 'Przepiecie sprzetu' },
   { value: 'mark_reason', label: 'Powod odchylenia' },
@@ -63,6 +65,7 @@ export default function KontrolaOperacyjna() {
   const [branches, setBranches] = useState([]);
   const [history, setHistory] = useState({ items: [], summary: { actions: [], issues: [] }, total: 0 });
   const [openOwnerAlerts, setOpenOwnerAlerts] = useState({ items: [], summary: {}, total: 0 });
+  const [ownerRemediationReport, setOwnerRemediationReport] = useState({ items: [], summary: {} });
   const [digest, setDigest] = useState(null);
   const [digestHistory, setDigestHistory] = useState({ items: [], total: 0 });
   const [digestSettings, setDigestSettings] = useState([]);
@@ -143,6 +146,23 @@ export default function KontrolaOperacyjna() {
     }
   }, [date, oddzialId]);
 
+  const loadOwnerRemediationReport = useCallback(async () => {
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/ops/owner-alerts/remediation-report', {
+        params: {
+          date,
+          range,
+          ...(oddzialId ? { oddzial_id: oddzialId } : {}),
+        },
+        headers: authHeaders(token),
+      });
+      setOwnerRemediationReport(res.data || { items: [], summary: {} });
+    } catch {
+      setOwnerRemediationReport({ items: [], summary: {} });
+    }
+  }, [date, oddzialId, range]);
+
   const loadDigestHistory = useCallback(async () => {
     try {
       const token = getStoredToken();
@@ -197,6 +217,10 @@ export default function KontrolaOperacyjna() {
   useEffect(() => {
     loadOpenOwnerAlerts();
   }, [loadOpenOwnerAlerts]);
+
+  useEffect(() => {
+    loadOwnerRemediationReport();
+  }, [loadOwnerRemediationReport]);
 
   useEffect(() => {
     loadDigestHistory();
@@ -296,7 +320,7 @@ export default function KontrolaOperacyjna() {
           source: item.source || null,
         })),
       }, { headers: authHeaders(token) });
-      await Promise.all([loadOpenOwnerAlerts(), loadHistory()]);
+      await Promise.all([loadOpenOwnerAlerts(), loadOwnerRemediationReport(), loadHistory()]);
     } catch (e) {
       setError(getApiErrorMessage(e, 'Nie udalo sie zapisac akcji ownerow.'));
     } finally {
@@ -313,6 +337,8 @@ export default function KontrolaOperacyjna() {
   const ownerAckRows = items.filter((item) => item.action_type === 'risk_acknowledge');
   const openOwnerItems = openOwnerAlerts.items || [];
   const openOwnerSummary = openOwnerAlerts.summary || {};
+  const ownerRemediationSummary = ownerRemediationReport.summary || {};
+  const ownerRemediationItems = ownerRemediationReport.items || [];
   const kommoSmsAckCount = ownerAckRows.filter((item) => ['kommo_sync', 'sms_delivery'].includes(item.risk_type)).length;
   const zadarmaCount = actionSummary
     .filter((item) => ['risk_queue_call', 'risk_resend_sms'].includes(item.action_type))
@@ -426,6 +452,14 @@ export default function KontrolaOperacyjna() {
             <strong style={s.kpiValue}>{(openOwnerSummary.p1 || 0) + (openOwnerSummary.p2 || 0)}</strong>
           </div>
           <div style={s.kpi}>
+            <span style={s.kpiLabel}>Remediacje ownerow</span>
+            <strong style={s.kpiValue}>{ownerRemediationSummary.success || 0}/{ownerRemediationSummary.total || 0}</strong>
+          </div>
+          <div style={s.kpi}>
+            <span style={s.kpiLabel}>Blokady limitu</span>
+            <strong style={s.kpiValue}>{ownerRemediationSummary.limit_blocks || 0}</strong>
+          </div>
+          <div style={s.kpi}>
             <span style={s.kpiLabel}>Typy akcji</span>
             <strong style={s.kpiValue}>{actionSummary.length}</strong>
           </div>
@@ -484,6 +518,39 @@ export default function KontrolaOperacyjna() {
             {!ownerAlertsLoading && !openOwnerItems.length ? (
               <div style={s.emptyLine}>Brak niedomknietych alertow ownerow Kommo/SMS.</div>
             ) : null}
+          </div>
+        </section>
+
+        <section className="kontrola-panel kontrola-owner-remediation" style={s.digestPanel}>
+          <div style={s.panelHeader}>
+            <div>
+              <h2 style={s.h2}>Skutecznosc remediacji ownerow</h2>
+              <p style={s.muted}>Retry Kommo i ponowienia SMS uruchomione po eskalacji ownera, z blokadami limitu dziennego.</p>
+            </div>
+            <span style={s.badge}>{ownerRemediationSummary.success || 0} skutecznych</span>
+          </div>
+          <div style={s.ownerAlertSummary}>
+            <div style={s.digestMetric}><span>Retry Kommo</span><strong>{ownerRemediationSummary.retry_kommo || 0}</strong></div>
+            <div style={s.digestMetric}><span>Ponowienia SMS</span><strong>{ownerRemediationSummary.resend_sms || 0}</strong></div>
+            <div style={s.digestMetric}><span>Sukcesy</span><strong>{ownerRemediationSummary.success || 0}</strong></div>
+            <div style={s.digestMetric}><span>Bledy</span><strong>{ownerRemediationSummary.failed || 0}</strong></div>
+            <div style={s.digestMetric}><span>Limit</span><strong>{ownerRemediationSummary.limit_blocks || 0}</strong></div>
+            <div style={s.digestMetric}><span>Nierozwiazane P1/P2</span><strong>{(openOwnerSummary.p1 || 0) + (openOwnerSummary.p2 || 0)}</strong></div>
+          </div>
+          <div style={s.ownerAckList}>
+            {ownerRemediationItems.slice(0, 6).map((item) => (
+              <div key={`rem-${item.id}`} style={s.ownerAckItem}>
+                <div>
+                  <strong>{item.remediation_action || item.action_type} / {item.blocked ? 'blokada' : item.success ? 'sukces' : 'blad'}</strong>
+                  <div style={s.subLine}>{item.risk_type || '-'} / {item.risk_id || '-'} / {formatDateTime(item.created_at)}</div>
+                </div>
+                <div style={s.ownerAckMeta}>
+                  <span>{item.numer || '-'}</span>
+                  <span>{item.block_reason || item.klient_nazwa || '-'}</span>
+                </div>
+              </div>
+            ))}
+            {!ownerRemediationItems.length ? <div style={s.emptyLine}>Brak auto-remediacji ownerow w wybranym zakresie.</div> : null}
           </div>
         </section>
 

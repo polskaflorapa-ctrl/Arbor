@@ -46,6 +46,7 @@ const OPS_ACTION_LABELS = {
   risk_acknowledge: 'Potwierdzenie ryzyka',
   risk_owner_escalate: 'Eskalacja ownera ryzyka',
   risk_owner_auto_remediate: 'Auto-remediacja ownera',
+  risk_owner_remediation_blocked: 'Blokada auto-remediacji ownera',
   risk_reassign_team: 'Przepiecie ekipy z ryzyka',
   risk_replace_equipment: 'Przepiecie sprzetu z ryzyka',
   dispatch_auto_assign_team: 'Auto-przypisanie ekipy',
@@ -2213,19 +2214,35 @@ router.post('/owner-alerts/remediation', authMiddleware, requireRole(...MANAGER_
 
     const dailyLimit = ownerRemediationDailyLimit();
     const usedToday = await countOwnerRemediations({ riskId, riskType, user: req.user });
-    if (usedToday >= dailyLimit) {
-      return res.status(429).json({
-        error: 'Dzienny limit auto-remediacji dla tego alertu zostal wykorzystany.',
-        limit: dailyLimit,
-        used: usedToday,
-      });
-    }
-
     let task = null;
     if (Number.isInteger(taskId) && taskId > 0) {
       const resolved = await getRiskTask(taskId, req.user);
       if (resolved.error) return res.status(resolved.error.status).json({ error: resolved.error.message });
       task = resolved.task;
+    }
+    if (usedToday >= dailyLimit) {
+      const event = await recordOpsActionEvent({
+        task,
+        user: req.user,
+        actionType: 'risk_owner_remediation_blocked',
+        issueKey: riskType,
+        note: noteText || `Zablokowano auto-remediacje limitem dziennym: ${riskId}`,
+        metadata: {
+          risk_id: riskId,
+          risk_type: riskType,
+          remediation_action: action,
+          escalation_event_id: escalation.id,
+          block_reason: 'daily_limit',
+          daily_limit: dailyLimit,
+          used_before: usedToday,
+        },
+      });
+      return res.status(429).json({
+        error: 'Dzienny limit auto-remediacji dla tego alertu zostal wykorzystany.',
+        limit: dailyLimit,
+        used: usedToday,
+        event,
+      });
     }
 
     if (action === 'retry_kommo') {
@@ -2332,6 +2349,83 @@ router.post('/owner-alerts/remediation', authMiddleware, requireRole(...MANAGER_
     });
   } catch (e) {
     logger.error('ops owner-alerts remediation', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.get('/owner-alerts/remediation-report', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const date = parseDateParam(req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+  const range = req.query.range === 'today' ? 'today' : 'week';
+  const requestedOddzial = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  const fromSql = range === 'today' ? '$1::date' : "($1::date - INTERVAL '6 days')";
+  const branchSql = oddzialId != null ? 'AND e.oddzial_id = $2' : '';
+  const params = oddzialId != null ? [date, oddzialId] : [date];
+  try {
+    await ensureOpsActionEventsTable();
+    const { rows } = await pool.query(
+      `SELECT e.id, e.task_id, e.oddzial_id, e.action_type, e.issue_key, e.note,
+              e.metadata, e.created_at, t.numer, t.klient_nazwa, b.nazwa AS oddzial_nazwa
+       FROM ops_action_events e
+       LEFT JOIN tasks t ON t.id = e.task_id
+       LEFT JOIN branches b ON b.id = e.oddzial_id
+       WHERE e.created_at >= ${fromSql}
+         AND e.created_at < $1::date + INTERVAL '1 day'
+         ${branchSql}
+         AND e.action_type IN ('risk_owner_auto_remediate', 'risk_owner_remediation_blocked')
+       ORDER BY e.created_at DESC, e.id DESC
+       LIMIT 80`,
+      params
+    );
+    const items = rows.map((row) => {
+      const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+      return {
+        id: row.id,
+        task_id: row.task_id,
+        numer: row.numer,
+        klient_nazwa: row.klient_nazwa,
+        oddzial_id: row.oddzial_id,
+        oddzial_nazwa: row.oddzial_nazwa,
+        action_type: row.action_type,
+        risk_type: metadata.risk_type || row.issue_key,
+        risk_id: metadata.risk_id || null,
+        remediation_action: metadata.remediation_action || null,
+        success: row.action_type === 'risk_owner_auto_remediate' && metadata.ok !== false,
+        blocked: row.action_type === 'risk_owner_remediation_blocked',
+        block_reason: metadata.block_reason || null,
+        daily_limit: metadata.daily_limit || null,
+        used_before: metadata.used_before || null,
+        created_at: row.created_at,
+        note: row.note,
+      };
+    });
+    const summary = {
+      total: items.length,
+      retry_kommo: items.filter((item) => item.remediation_action === 'retry_kommo').length,
+      resend_sms: items.filter((item) => item.remediation_action === 'resend_sms').length,
+      success: items.filter((item) => item.success).length,
+      failed: items.filter((item) => item.action_type === 'risk_owner_auto_remediate' && item.success === false).length,
+      limit_blocks: items.filter((item) => item.block_reason === 'daily_limit').length,
+      blocked: items.filter((item) => item.blocked).length,
+    };
+    return res.json({
+      date,
+      range,
+      oddzial_id: oddzialId,
+      summary,
+      items,
+      generated_at: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops owner-alerts remediation-report', { message: e.message, requestId: req.requestId });
     return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });

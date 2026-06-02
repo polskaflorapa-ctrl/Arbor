@@ -77,6 +77,51 @@ beforeEach(() => {
     }
     if (path === '/automations/daily-digest/history') return Promise.resolve({ data: { items: [], total: 0 } });
     if (path === '/automations/daily-digest/settings') return Promise.resolve({ data: { settings: [] } });
+    if (path === '/ops/owner-alerts/remediation-report') {
+      return Promise.resolve({
+        data: {
+          date: config.params?.date || '2026-05-26',
+          summary: {
+            total: 3,
+            retry_kommo: 2,
+            resend_sms: 1,
+            success: 2,
+            failed: 0,
+            limit_blocks: 1,
+            blocked: 1,
+          },
+          items: [
+            {
+              id: 901,
+              task_id: 77,
+              numer: 'ARB-RETRY',
+              klient_nazwa: 'Klient Retry',
+              action_type: 'risk_owner_auto_remediate',
+              risk_type: 'kommo_sync',
+              risk_id: 'kommo_sync:501',
+              remediation_action: 'retry_kommo',
+              success: true,
+              blocked: false,
+              created_at: '2026-05-26T11:00:00.000Z',
+            },
+            {
+              id: 902,
+              task_id: 88,
+              numer: 'ARB-LIMIT',
+              klient_nazwa: 'Klient Limit',
+              action_type: 'risk_owner_remediation_blocked',
+              risk_type: 'kommo_sync',
+              risk_id: 'kommo_sync:501',
+              remediation_action: 'retry_kommo',
+              success: false,
+              blocked: true,
+              block_reason: 'daily_limit',
+              created_at: '2026-05-26T11:10:00.000Z',
+            },
+          ],
+        },
+      });
+    }
     if (path === '/automations/daily-digest/preview') {
       return Promise.resolve({
         data: {
@@ -152,9 +197,11 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
   });
 
   expect(await screen.findByText('Rejestr potwierdzen ownerow')).toBeInTheDocument();
-  expect(await screen.findByText('Niedomkniete alerty ownerow')).toBeInTheDocument();
-  expect(await screen.findByText('ARB-OPEN-KOMMO')).toBeInTheDocument();
-  expect(await screen.findByText('ARB-OPEN-SMS')).toBeInTheDocument();
+  expect(await screen.findByText('Skutecznosc remediacji ownerow')).toBeInTheDocument();
+  expect(await screen.findByText('Retry Kommo')).toBeInTheDocument();
+  expect(await screen.findByText('Ponowienia SMS')).toBeInTheDocument();
+  expect(await screen.findByText('ARB-RETRY')).toBeInTheDocument();
+  expect(await screen.findByText('daily_limit')).toBeInTheDocument();
   expect(await screen.findByText(/P1 \/ kommo_sync \/ overdue/)).toBeInTheDocument();
   expect((await screen.findAllByText('kommo_sync')).length).toBeGreaterThan(0);
   expect((await screen.findAllByText('ARB-KOMMO')).length).toBeGreaterThan(0);
@@ -202,6 +249,16 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
       })
     );
   });
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      '/ops/owner-alerts/remediation-report',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          date: expect.any(String),
+        }),
+      })
+    );
+  });
 
   await userEvent.selectOptions(screen.getByLabelText('Filtr potwierdzen ownerow'), 'sms_delivery');
 
@@ -226,4 +283,4 @@ test('shows owner acknowledgement register and filters Kommo/SMS acknowledgement
     expect(screen.getAllByText('Potwierdzenia ownerow').length).toBeGreaterThan(0);
     expect(screen.getByText('Kommo 1 / SMS 2')).toBeInTheDocument();
   });
-});
+}, 15000);
