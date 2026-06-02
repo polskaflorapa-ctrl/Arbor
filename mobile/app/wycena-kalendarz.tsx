@@ -19,7 +19,6 @@ import {
   Platform,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
-import { API_URL } from '../constants/api';
 import { PLATINUM_MOTION } from '../constants/motion';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
@@ -31,6 +30,7 @@ import { getStoredSession, type StoredUser } from '../utils/session';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { elevationCard, shadowStyle } from '../constants/elevation';
 import { triggerHaptic } from '../utils/haptics';
+import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 
 import { AppStatusBar } from '../components/ui/app-status-bar';
@@ -367,12 +367,11 @@ export default function WycenaKalendarzScreen() {
           return;
         }
         const u = sessionUser ?? user;
-        const headers = { Authorization: `Bearer ${authToken}` };
         const [wRes, eRes] = await Promise.all([
-          fetch(`${API_URL}/wyceny`, { headers }),
-          fetch(`${API_URL}/ekipy?include_delegacje=1`, { headers }),
+          apiFetch('/wyceny', { token: authToken }),
+          apiFetch('/ekipy?include_delegacje=1', { token: authToken }),
         ]);
-        const liveRes = await fetch(`${API_URL}/ekipy/live-locations`, { headers }).catch(() => null);
+        const liveRes = await apiFetch('/ekipy/live-locations', { token: authToken }).catch(() => null);
         if (wRes.ok) {
           const wData = await wRes.json();
           let list = Array.isArray(wData) ? wData : wData.wyceny || [];
@@ -470,9 +469,7 @@ export default function WycenaKalendarzScreen() {
     if (!draft.ekipa_id || !draft.data || !token) return;
     try {
       setSlotLoading(true);
-      const res = await fetch(`${API_URL}/wyceny/availability/slots?ekipa_id=${encodeURIComponent(draft.ekipa_id)}&data=${encodeURIComponent(draft.data)}&exclude_wycena_id=${wycenaId}&wycena_id=${wycenaId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/wyceny/availability/slots?ekipa_id=${encodeURIComponent(draft.ekipa_id)}&data=${encodeURIComponent(draft.data)}&exclude_wycena_id=${wycenaId}&wycena_id=${wycenaId}`, { token });
       const data = await res.json().catch(() => ({}));
       const slots = (Array.isArray(data?.items) ? data.items : []).sort(
         (a: { score?: number }, b: { score?: number }) => (b.score || 0) - (a.score || 0),
@@ -494,9 +491,9 @@ export default function WycenaKalendarzScreen() {
     }
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/wyceny/${reserveModal.id}/rezerwuj-termin`, {
+      const res = await apiJsonFetch(`/wyceny/${reserveModal.id}/rezerwuj-termin`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        token,
         body: JSON.stringify({
           ekipa_id: reserveDraft.ekipa_id,
           data_wykonania: reserveDraft.data,

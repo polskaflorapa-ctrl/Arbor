@@ -24,7 +24,7 @@ import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
 import { PLATINUM_MOTION } from '../constants/motion';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_BASE_URL, API_URL } from '../constants/api';
+import { API_BASE_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
@@ -33,6 +33,7 @@ import { getRoleDisplayName } from '../utils/role-display';
 import { filterQuotesForEstimatorRole } from '../utils/estimator-compensation';
 import { openAddressInMaps } from '../utils/maps-link';
 import { triggerHaptic } from '../utils/haptics';
+import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { safeBack } from '../utils/navigation';
 
@@ -125,7 +126,7 @@ export default function WycenaScreen() {
         const authTok = tokenOverride || await getToken();
         const u = sessionUser ?? user;
         const params = selectedOddzial ? `?oddzial_id=${selectedOddzial}` : '';
-        const res = await fetch(`${API_URL}/wyceny${params}`, { headers: { Authorization: `Bearer ${authTok}` } });
+        const res = await apiFetch(`/wyceny${params}`, { token: authTok });
         if (res.ok) {
           const d = await res.json();
           let list = Array.isArray(d) ? d : [];
@@ -143,7 +144,7 @@ export default function WycenaScreen() {
   const fetchOddzialy = useCallback(async (tokenOverride?: string | null) => {
     try {
       const authTok = tokenOverride || await getToken();
-      const res = await fetch(`${API_URL}/oddzialy`, { headers: { Authorization: `Bearer ${authTok}` } });
+      const res = await apiFetch('/oddzialy', { token: authTok });
       if (res.ok) { const d = await res.json(); setOddzialy(Array.isArray(d) ? d : []); }
     } catch { }
   }, [getToken]);
@@ -221,7 +222,7 @@ export default function WycenaScreen() {
     setSelectedWycena(w); setShowDetail(true); setLoadingDetail(true);
     try {
       const token = await getToken();
-      const res = await fetch(`${API_URL}/wyceny/${w.id}/zdjecia`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await apiFetch(`/wyceny/${w.id}/zdjecia`, { token });
       if (res.ok) { const d = await res.json(); setDetailPhotos(Array.isArray(d) ? d : []); }
     } catch { }
     finally { setLoadingDetail(false); }
@@ -230,9 +231,9 @@ export default function WycenaScreen() {
   const changeStatus = async (id: number, status: string) => {
     try {
       const token = await getToken();
-      await fetch(`${API_URL}/wyceny/${id}/status`, {
+      await apiJsonFetch(`/wyceny/${id}/status`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify({ status }),
       });
       setShowDetail(false); fetchWyceny();
@@ -244,9 +245,7 @@ export default function WycenaScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.yes'), onPress: async () => {
         const token = await getToken();
-        const res = await fetch(`${API_URL}/wyceny/${w.id}/konwertuj`, {
-          method: 'POST', headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await apiFetch(`/wyceny/${w.id}/konwertuj`, { method: 'POST', token });
         if (res.ok) {
           const data = await res.json();
           setShowDetail(false); fetchWyceny();

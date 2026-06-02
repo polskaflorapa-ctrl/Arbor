@@ -97,6 +97,8 @@ export default function KlienciMobileScreen() {
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const S = makeStyles(theme);
+  const totalOrders = useMemo(() => list.reduce((sum, row) => sum + Number(row.liczba_zlecen || 0), 0), [list]);
+  const totalInspections = useMemo(() => list.reduce((sum, row) => sum + Number(row.liczba_ogledzen || 0), 0), [list]);
 
   const selectedTitle = useMemo(() => {
     if (!detail) return '';
@@ -331,6 +333,21 @@ export default function KlienciMobileScreen() {
         />
       </View>
 
+      <View style={S.statsRow}>
+        <View style={S.statPill}>
+          <Text style={S.statValue}>{list.length}</Text>
+          <Text style={S.statLabel}>klientow</Text>
+        </View>
+        <View style={S.statPill}>
+          <Text style={S.statValue}>{totalOrders}</Text>
+          <Text style={S.statLabel}>zlecen</Text>
+        </View>
+        <View style={S.statPill}>
+          <Text style={S.statValue}>{totalInspections}</Text>
+          <Text style={S.statLabel}>ogledzin</Text>
+        </View>
+      </View>
+
       <ScrollView
         style={S.scroll}
         refreshControl={(
@@ -361,18 +378,24 @@ export default function KlienciMobileScreen() {
             const fullName = `${row.imie || ''} ${row.nazwisko || ''}`.trim();
             const name = row.firma?.trim() || fullName || `Klient #${row.id}`;
             return (
-              <TouchableOpacity key={row.id} style={[S.rowCard, isActive && S.rowCardActive]} onPress={() => void onPressClient(row.id)}>
+              <TouchableOpacity key={row.id} style={[S.rowCard, isActive && S.rowCardActive]} activeOpacity={0.84} onPress={() => void onPressClient(row.id)}>
                 <View style={S.rowTop}>
-                  <Text style={S.rowName}>{name}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                  <View style={S.avatar}>
+                    <Text style={S.avatarText}>{name.slice(0, 1).toUpperCase()}</Text>
+                  </View>
+                  <View style={S.rowText}>
+                    <Text style={S.rowName}>{name}</Text>
+                    <Text style={S.rowMeta}>
+                      {row.telefon || 'Brak telefonu'}
+                      {row.miasto ? ` / ${row.miasto}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={isActive ? theme.accent : theme.textMuted} />
                 </View>
-                <Text style={S.rowMeta}>
-                  {row.telefon || 'Brak telefonu'}
-                  {row.miasto ? `  •  ${row.miasto}` : ''}
-                </Text>
-                <Text style={S.rowStats}>
-                  zlecenia: {Number(row.liczba_zlecen || 0)}  •  ogledziny: {Number(row.liczba_ogledzen || 0)}
-                </Text>
+                <View style={S.rowStatsLine}>
+                  <Text style={S.rowStatChip}>zlecenia {Number(row.liczba_zlecen || 0)}</Text>
+                  <Text style={S.rowStatChip}>ogledziny {Number(row.liczba_ogledzen || 0)}</Text>
+                </View>
               </TouchableOpacity>
             );
           })
@@ -389,14 +412,16 @@ export default function KlienciMobileScreen() {
           </View>
         ) : (
           <View style={S.detailCard}>
-            <Text style={S.detailTitle}>{selectedTitle}</Text>
+            <View style={S.detailHead}>
+              <Text style={S.detailTitle}>{selectedTitle}</Text>
+              <Text style={S.detailBadge}>{detail.zrodlo || 'inne'}</Text>
+            </View>
             <Text style={S.detailLine}>Telefon: {detail.telefon || 'brak'}</Text>
             <Text style={S.detailLine}>Email: {detail.email || 'brak'}</Text>
             <Text style={S.detailLine}>
               Adres: {detail.adres || '-'}
               {detail.miasto ? `, ${detail.miasto}` : ''}
             </Text>
-            <Text style={S.detailLine}>Zrodlo: {detail.zrodlo || 'inne'}</Text>
             {detail.notatki ? <Text style={S.note}>{detail.notatki}</Text> : null}
 
             <View style={S.actionsRow}>
@@ -518,6 +543,24 @@ const makeStyles = (t: Theme) =>
       paddingVertical: 10,
       fontSize: 14,
     },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 12,
+      marginBottom: 10,
+    },
+    statPill: {
+      flex: 1,
+      minHeight: 54,
+      borderWidth: 1,
+      borderColor: t.cardBorder,
+      borderRadius: 12,
+      backgroundColor: t.cardBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statValue: { color: t.text, fontSize: 18, fontWeight: '900' },
+    statLabel: { color: t.textSub, fontSize: 11, fontWeight: '800', marginTop: 1 },
     scroll: { flex: 1, paddingHorizontal: 12 },
     sectionTitle: {
       color: t.textSub,
@@ -543,18 +586,40 @@ const makeStyles = (t: Theme) =>
       borderWidth: 1,
       borderColor: t.cardBorder,
       borderRadius: 12,
-      paddingHorizontal: 11,
-      paddingVertical: 10,
+      padding: 11,
       marginBottom: 8,
     },
     rowCardActive: {
       borderColor: t.accent,
       backgroundColor: t.accentLight,
     },
-    rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    rowName: { color: t.text, fontWeight: '700', fontSize: 14, flex: 1, paddingRight: 8 },
+    rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: t.accentLight,
+      borderWidth: 1,
+      borderColor: t.accent + '33',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { color: t.accent, fontWeight: '900', fontSize: 15 },
+    rowText: { flex: 1 },
+    rowName: { color: t.text, fontWeight: '900', fontSize: 14, paddingRight: 8 },
     rowMeta: { color: t.textSub, fontSize: 12, marginTop: 4 },
-    rowStats: { color: t.textMuted, fontSize: 11, marginTop: 3 },
+    rowStatsLine: { flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' },
+    rowStatChip: {
+      color: t.textSub,
+      fontSize: 11,
+      fontWeight: '800',
+      backgroundColor: t.surface2,
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
     detailLoading: {
       borderWidth: 1,
       borderColor: t.border,
@@ -568,13 +633,24 @@ const makeStyles = (t: Theme) =>
     detailCard: {
       borderWidth: 1,
       borderColor: t.cardBorder,
-      borderRadius: 14,
+      borderRadius: 12,
       backgroundColor: t.cardBg,
       padding: 12,
       marginBottom: 8,
-      gap: 5,
+      gap: 7,
     },
-    detailTitle: { color: t.text, fontWeight: '800', fontSize: 16, marginBottom: 2 },
+    detailHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 2 },
+    detailTitle: { color: t.text, fontWeight: '900', fontSize: 17, flex: 1 },
+    detailBadge: {
+      color: t.accent,
+      fontSize: 11,
+      fontWeight: '900',
+      backgroundColor: t.accentLight,
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      overflow: 'hidden',
+    },
     detailLine: { color: t.textSub, fontSize: 12 },
     note: {
       borderWidth: 1,
@@ -586,10 +662,10 @@ const makeStyles = (t: Theme) =>
       padding: 8,
       marginTop: 4,
     },
-    actionsRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 4, flexWrap: 'wrap' },
+    actionsRow: { flexDirection: 'row', gap: 8, marginTop: 10, marginBottom: 4, flexWrap: 'wrap' },
     actionBtn: {
       minHeight: 40,
-      paddingHorizontal: 10,
+      paddingHorizontal: 11,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: t.border,
