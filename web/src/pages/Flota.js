@@ -371,7 +371,7 @@ export default function Flota() {
     }
   };
 
-  const closeRepair = async (repair) => {
+  const closeRepair = async (repair, options = {}) => {
     if (!repair || repairSaving) return;
     setRepairSaving(true);
     try {
@@ -383,6 +383,9 @@ export default function Flota() {
       }, { headers: authHeaders(token) });
       showMsg(successMessage('Naprawa zakonczona. Zasob jest dostepny.'));
       await loadAll();
+      if (options.returnTo) {
+        navigate(options.returnTo);
+      }
     } catch (err) {
       showMsg(errorMessage(getApiErrorMessage(err, 'Nie udalo sie zakonczyc naprawy.')));
     } finally {
@@ -960,9 +963,21 @@ export default function Flota() {
                       <span style={S.repairValue}>{n.wykonawca || '-'}</span>
                     </div>
                     {!repairIsClosed(n.status) && canEdit && (
-                      <button type="button" style={S.repairCloseBtn} disabled={repairSaving} onClick={() => closeRepair(n)}>
-                        {repairSaving ? 'Zapisywanie...' : 'Zakoncz naprawe'}
-                      </button>
+                      <div style={S.repairCloseActions}>
+                        {repairFocus.returnTo && (
+                          <button
+                            type="button"
+                            style={S.repairCloseBtn}
+                            disabled={repairSaving}
+                            onClick={() => closeRepair(n, { returnTo: repairFocus.returnTo })}
+                          >
+                            {repairSaving ? 'Zapisywanie...' : 'Zakoncz i wroc do planu biura'}
+                          </button>
+                        )}
+                        <button type="button" style={repairFocus.returnTo ? S.repairCloseBtnSecondary : S.repairCloseBtn} disabled={repairSaving} onClick={() => closeRepair(n)}>
+                          {repairSaving ? 'Zapisywanie...' : 'Zakoncz naprawe'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1205,5 +1220,7 @@ const S = {
   repairRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   repairLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0, fontWeight: 700 },
   repairValue: { fontSize: 12, color: 'var(--text-sub)', textAlign: 'right', fontWeight: 600 },
+  repairCloseActions: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 },
   repairCloseBtn: { marginTop: 4, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.28)', background: 'var(--accent-gradient)', color: 'var(--on-accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
+  repairCloseBtnSecondary: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-glass)', color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
 };

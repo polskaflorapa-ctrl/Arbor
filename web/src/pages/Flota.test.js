@@ -266,9 +266,18 @@ test('filters repairs tab from office plan resource deep link and returns to off
   expect(document.body.textContent).toContain('Rebak Forst');
   expect(screen.getByText('Noze do wymiany')).toBeInTheDocument();
   expect(screen.queryByText('Alternator')).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: 'Wroc do planu biura' }));
-  const finalSearch = screen.getAllByTestId('location-search').at(-1);
-  expect(finalSearch).toHaveTextContent('focus=officePlan');
+  await userEvent.click(screen.getByRole('button', { name: 'Zakoncz i wroc do planu biura' }));
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/flota/naprawy/91',
+      expect.objectContaining({ status: 'Zakonczona' }),
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  await waitFor(() => {
+    const finalSearch = screen.getAllByTestId('location-search').at(-1);
+    expect(finalSearch).toHaveTextContent('focus=officePlan');
+  });
 });
 
 test('adds broken chipper assigned to a team in one form submit', async () => {
