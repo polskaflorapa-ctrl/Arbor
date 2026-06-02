@@ -1285,6 +1285,14 @@ export default function MapaLive() {
 
         {error ? <div style={S.error}><WarningAmberOutlined style={{ fontSize: 18 }} />{error}</div> : null}
 
+        <section className="mapa-live-source-status" style={{ ...S.sourceStatus, ...(isNarrow ? S.sourceStatusNarrow : null) }}>
+          <span><strong>Zrodla GPS:</strong> {rows.length ? `${rows.length} sygnalow z API` : 'brak sygnalow z API'}</span>
+          <span><strong>Widoczne po filtrze:</strong> {filteredRows.length}</span>
+          {!rows.length ? (
+            <span>Jesli to nie demo, sprawdz wysylke pozycji z mobilki albo integracje GPS pojazdow.</span>
+          ) : null}
+        </section>
+
         {isNarrow ? commandCenter : null}
 
         <section className="mapa-live-toolbar" style={{ ...S.toolbar, ...(isNarrow ? S.toolbarNarrow : null) }}>
@@ -2600,6 +2608,27 @@ const S = {
     background: 'rgba(254,226,226,0.72)',
     color: '#BE123C',
     fontWeight: 700,
+  },
+  sourceStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+    marginBottom: 14,
+    padding: '9px 11px',
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.14)',
+    background: 'rgba(255,255,255,0.86)',
+    color: 'var(--text-sub)',
+    fontSize: 12,
+    fontWeight: 750,
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+  },
+  sourceStatusNarrow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    alignItems: 'stretch',
+    overflowWrap: 'anywhere',
   },
   toolbar: {
     ...glass,

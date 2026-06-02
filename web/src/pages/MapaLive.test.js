@@ -172,6 +172,9 @@ test('keeps mobile command view and selected task in the URL', async () => {
   const decisionsTab = await screen.findByRole('tab', { name: /Decyzje/i }, { timeout: 10000 });
   expect(decisionsTab).toHaveAttribute('aria-selected', 'true');
   expect(await screen.findByText('Panel akcji')).toBeInTheDocument();
+  expect(screen.getByText(/Zrodla GPS:/i)).toBeInTheDocument();
+  expect(screen.getByText(/1 sygnalow z API/i)).toBeInTheDocument();
+  expect(screen.getByText(/Widoczne po filtrze:/i)).toBeInTheDocument();
   expect(screen.getAllByText('Osiedle Lesne Tarasy').length).toBeGreaterThan(0);
   expect(screen.getByRole('button', { name: /Osiedle Lesne Tarasy.*Wybrane/i })).toHaveAttribute('aria-pressed', 'true');
   expect(screen.getByRole('button', { name: /Dopnij plan/i })).toBeInTheDocument();
