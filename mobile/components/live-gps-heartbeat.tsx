@@ -6,7 +6,7 @@ import { AppState, Platform, StyleSheet, Text, View, type AppStateStatus } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../constants/ThemeContext';
 import { shadowStyle } from '../constants/elevation';
-import { apiJsonFetch } from '../utils/api-client';
+import { apiJsonFetch, readApiError } from '../utils/api-client';
 import { getStoredSession, type StoredUser } from '../utils/session';
 
 const SEND_INTERVAL_MS = 55000;
@@ -118,14 +118,32 @@ function locationPayload(location: Location.LocationObject) {
   };
 }
 
-async function sendLocationHeartbeat(token: string, location: Location.LocationObject) {
+type HeartbeatResult =
+  | { ok: true }
+  | { ok: false; authExpired: boolean; message: string; status: number };
+
+function shortApiMessage(message: string) {
+  const normalized = String(message || '').trim();
+  if (!normalized) return 'serwer nie przyjal pozycji';
+  return normalized.length > 80 ? `${normalized.slice(0, 77)}...` : normalized;
+}
+
+async function sendLocationHeartbeat(token: string, location: Location.LocationObject): Promise<HeartbeatResult> {
   const response = await apiJsonFetch('/mobile/me/location', {
     method: 'POST',
     token,
     body: JSON.stringify(locationPayload(location)),
   });
 
-  return response.ok;
+  if (response.ok) return { ok: true };
+
+  const message = await readApiError(response, 'serwer nie przyjal pozycji');
+  return {
+    ok: false,
+    authExpired: response.status === 401 || response.status === 403,
+    message: shortApiMessage(message),
+    status: response.status,
+  };
 }
 
 function formatSyncTime(timestamp: number) {
@@ -175,10 +193,14 @@ export function LiveGpsHeartbeat() {
       if (!force && now - lastSentAtRef.current < SEND_INTERVAL_MS) return;
       lastSentAtRef.current = now;
       try {
-        const ok = await sendLocationHeartbeat(token, location);
-        if (!ok) {
-          tokenRef.current = null;
-          setGpsStatus({ kind: 'warning', message: 'GPS LIVE: serwer nie przyjal pozycji', reason: 'server' });
+        const result = await sendLocationHeartbeat(token, location);
+        if (!result.ok) {
+          if (result.authExpired) {
+            tokenRef.current = null;
+            setGpsStatus({ kind: 'blocked', message: `GPS LIVE: zaloguj ponownie (${result.status})`, reason: 'role_or_session' });
+            return;
+          }
+          setGpsStatus({ kind: 'warning', message: `GPS LIVE: API ${result.status} - ${result.message}`, reason: 'server' });
           return;
         }
         setGpsStatus({ kind: 'active', message: `GPS LIVE - sync ${formatSyncTime(now)}`, sentAt: now });
