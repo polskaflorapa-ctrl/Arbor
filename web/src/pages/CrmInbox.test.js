@@ -164,6 +164,30 @@ test('renders unified CRM inbox and applies filters', async () => {
   });
 });
 
+test('explains stale backend 404 for unified inbox route', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/messages/inbox') {
+      return Promise.reject({
+        response: {
+          status: 404,
+          data: { path: '/api/crm/messages/inbox' },
+        },
+        config: { url },
+      });
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmInbox />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText(/backend nie ma aktualnej trasy/i)).toBeInTheDocument();
+  expect(screen.getByText(/Zrestartuj backend/i)).toBeInTheDocument();
+});
+
 test('filters inbox from configured channel sources', async () => {
   render(
     <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

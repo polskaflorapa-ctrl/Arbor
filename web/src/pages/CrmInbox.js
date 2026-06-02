@@ -23,6 +23,15 @@ const CHANNEL_LABELS = {
 };
 const OPEN_STATUSES = new Set(['received', 'queued', 'processing', 'failed']);
 
+function getInboxLoadErrorMessage(error) {
+  const status = error?.response?.status;
+  const path = error?.response?.data?.path || error?.config?.url || '';
+  if (status === 404 && String(path).includes('/crm/messages/inbox')) {
+    return 'Unified Inbox jest w panelu, ale backend nie ma aktualnej trasy /api/crm/messages/inbox. Zrestartuj backend i odswiez panel.';
+  }
+  return getApiErrorMessage(error, 'Nie udalo sie pobrac skrzynki CRM');
+}
+
 function formatDate(value) {
   if (!value) return '-';
   try {
@@ -101,7 +110,7 @@ export default function CrmInbox() {
       setMessages(rows);
       setSelectedId((current) => (rows.some((row) => String(row.id) === String(current)) ? current : rows[0]?.id || null));
     } catch (e) {
-      setMsg(getApiErrorMessage(e, 'Nie udalo sie pobrac skrzynki CRM'));
+      setMsg(getInboxLoadErrorMessage(e));
     } finally {
       setLoading(false);
     }
