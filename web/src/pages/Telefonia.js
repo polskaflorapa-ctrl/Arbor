@@ -174,6 +174,7 @@ export default function Telefonia() {
     task_id: '',
     status: 'answered',
     notes: '',
+    create_lead: true,
     create_callback: false,
     priority: 'high',
   });
@@ -1319,6 +1320,26 @@ export default function Telefonia() {
         },
         { headers: authHeaders(token) }
       );
+      if (incomingForm.create_lead) {
+        await api.post(
+          '/crm/leads',
+          {
+            title: incomingForm.lead_name.trim() || `Telefon od ${phone}`,
+            oddzial_id: oid,
+            stage: 'Lead',
+            source: 'telefonia',
+            phone,
+            value: 0,
+            notes: [
+              `Telefon przychodzacy: ${incomingForm.status}`,
+              incomingForm.notes.trim(),
+              taskId ? `Powiazane zlecenie: #${taskId}` : '',
+            ].filter(Boolean).join('\n'),
+            tags: ['telefonia', 'telefon-przychodzacy'],
+          },
+          { headers: authHeaders(token) }
+        );
+      }
       if (incomingForm.create_callback || incomingForm.status === 'missed') {
         await api.post(
           '/telephony/callbacks',
@@ -1341,6 +1362,7 @@ export default function Telefonia() {
         task_id: '',
         status: 'answered',
         notes: '',
+        create_lead: true,
         create_callback: false,
       }));
       await loadTelephonyExtras();
@@ -3427,6 +3449,14 @@ export default function Telefonia() {
                   style={s.textarea}
                 />
                 <div style={s.inlineActions}>
+                  <label style={s.checkboxWrap}>
+                    <input
+                      type="checkbox"
+                      checked={incomingForm.create_lead}
+                      onChange={(e) => setIncomingForm((f) => ({ ...f, create_lead: e.target.checked }))}
+                    />
+                    Utworz leada CRM
+                  </label>
                   <label style={s.checkboxWrap}>
                     <input
                       type="checkbox"

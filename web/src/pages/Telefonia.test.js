@@ -233,6 +233,18 @@ test('specialist can register an incoming client call and create callback', asyn
     );
   });
   expect(api.post).toHaveBeenCalledWith(
+    '/crm/leads',
+    expect.objectContaining({
+      title: 'Jan Klient',
+      oddzial_id: 7,
+      stage: 'Lead',
+      source: 'telefonia',
+      phone: '+48600111222',
+      tags: ['telefonia', 'telefon-przychodzacy'],
+    }),
+    expect.objectContaining({ headers: expect.any(Object) })
+  );
+  expect(api.post).toHaveBeenCalledWith(
     '/telephony/callbacks',
     expect.objectContaining({
       oddzial_id: 7,
