@@ -96,7 +96,8 @@
 - [x] **P0 competency assignment guard**: `docs/COMPETENCY-ASSIGNMENT-GUARD-CONTRACT.md` opisuje twarda blokade recznego przypisania zlecenia do ekipy bez aktywnych wymaganych kompetencji; `npm run verify:competency-assignment-guard` pilnuje API, testu i UI helpera.
 - [x] **P0 dispatch competency guard**: `docs/DISPATCH-COMPETENCY-GUARD-CONTRACT.md` opisuje spojna blokade kompetencji w solverze i przy zastosowaniu zapisanego planu dispatchera; `npm run verify:dispatch-competency-guard` pilnuje API, testu i AutoDispatch.
 - [x] **P0 Kommo idempotency retry contract**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` spina outbound `task.sync` retry/dead-letter, inbound idempotency/conflict handling i diagnostyke; `npm run verify:kommo-idempotency-retry` pilnuje kontraktu.
-- [ ] **Nastepny pakiet**: Pilot closure - finalny smoke end-to-end i checklist go-live.
+- [x] **P0 pilot closure go-live gate**: `docs/PILOT-CLOSURE-GO-LIVE-GATE.md` spina finalny smoke end-to-end, GO/NO-GO, dowody pilota i wyjatki; `npm run verify:pilot-closure` pilnuje kompletnej bramki.
+- [ ] **Nastepny pakiet**: Pilot execution - uruchomienie finalnych smoke na docelowym srodowisku i zapis decyzji GO/NO-GO.
 
 ---
 
