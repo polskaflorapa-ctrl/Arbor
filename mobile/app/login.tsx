@@ -46,6 +46,7 @@ export default function Login() {
   const [lockUntil, setLockUntil] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
   const [lastAttemptLogin, setLastAttemptLogin] = useState<string>('');
+  const [apiHostLabel, setApiHostLabel] = useState('');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isLocked = lockUntil !== null && nowMs < lockUntil;
@@ -91,6 +92,12 @@ export default function Login() {
         AsyncStorage.multiGet([LAST_LOGIN_KEY, REMEMBER_LOGIN_KEY]),
       ]);
       if (customUrl) setRuntimeApiUrl(customUrl);
+      try {
+        const url = new URL(apiUrl('/health'));
+        setApiHostLabel(url.host);
+      } catch {
+        setApiHostLabel('');
+      }
       await checkServer();
       const savedLogin = pairs[0]?.[1] ?? '';
       const savedRemember = pairs[1]?.[1];
@@ -246,6 +253,7 @@ export default function Login() {
               {serverStatus === 'online' ? t('login.backendOnline') : serverStatus === 'offline' ? t('login.backendOffline') : t('login.backendChecking')}
             </Text>
           </View>
+          {apiHostLabel ? <Text style={S.apiHostText}>API: {apiHostLabel}</Text> : null}
           {serverStatus === 'offline' ? (
             <TouchableOpacity style={S.retryBtn} onPress={() => void checkServer()} disabled={checkingServer}>
               {checkingServer ? <ActivityIndicator size="small" color={theme.accentText} /> : <Ionicons name="refresh-outline" size={14} color={theme.accentText} />}
@@ -408,6 +416,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     marginBottom: 12,
   },
   serverText: { fontSize: 12, fontWeight: '600' },
+  apiHostText: {
+    color: t.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: -8,
+    marginBottom: 12,
+  },
   retryBtn: {
     marginTop: -2,
     marginBottom: 12,
