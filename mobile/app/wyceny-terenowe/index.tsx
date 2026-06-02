@@ -381,7 +381,7 @@ export default function WycenyTerenoweScreen() {
   const [legacyItems, setLegacyItems] = useState<LegacyQuoteRow[]>([]);
   const [err, setErr] = useState('');
   const [mode, setMode] = useState<WycenyMode>('field');
-  const [fieldFilter, setFieldFilter] = useState<FieldListMode>('today');
+  const [fieldFilter, setFieldFilter] = useState<FieldListMode>('all');
 
   const load = useCallback(async () => {
     try {

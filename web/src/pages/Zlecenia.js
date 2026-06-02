@@ -57,6 +57,9 @@ const TASK_SORT_KEY = 'zlecenia_sort_mode';
 const CLIENT_CONTACT_KEY = 'zlecenia_client_contact_state';
 const CLOSURE_DECISION_KEY = 'zlecenia_closure_decision_events';
 const QUICK_CALL_DRAFT_KEY = 'zlecenia_quick_call_draft';
+const SMART_FILTER_INTENT_KEY = 'zlecenia_smart_filter_intent_at';
+const SMART_FILTER_INTENT_MAX_AGE_MS = 15_000;
+const VOLATILE_SMART_FILTERS = new Set(['today']);
 const ZLECENIA_TRYBY = new Set(['lista', 'kanban', 'nowy', 'edytuj', 'szczegoly']);
 const SMART_FILTERS = [
   { key: 'myTurn', label: 'Moje teraz' },
@@ -98,6 +101,11 @@ const TASK_SORT_OPTIONS = [
   { key: 'newest', label: 'Najnowsze', detail: 'Ostatnio dodane' },
 ];
 const TASK_SORT_KEYS = new Set(TASK_SORT_OPTIONS.map((option) => option.key));
+function hasFreshSmartFilterIntent() {
+  const raw = Number(localStorage.getItem(SMART_FILTER_INTENT_KEY) || 0);
+  return raw > 0 && Date.now() - raw < SMART_FILTER_INTENT_MAX_AGE_MS;
+}
+
 const COMMAND_TABS = [
   { key: 'dispatch', label: 'Dyspozytor', detail: 'kolejka, trasa, odprawa' },
   { key: 'finance', label: 'Finanse', detail: 'marża, ryzyko, jakość' },
@@ -3746,7 +3754,11 @@ export default function Zlecenia() {
   const [filtrOddzial, setFiltrOddzial] = useState('');
   const [filtrEkipa, setFiltrEkipa] = useState('');
   const [szukaj, setSzukaj] = useState('');
-  const [smartFilter, setSmartFilter] = useState(() => localStorage.getItem(SMART_FILTER_KEY) || '');
+  const [smartFilter, setSmartFilter] = useState(() => {
+    const stored = localStorage.getItem(SMART_FILTER_KEY) || '';
+    if (!VOLATILE_SMART_FILTERS.has(stored)) return stored;
+    return hasFreshSmartFilterIntent() ? stored : '';
+  });
   const [sortMode, setSortMode] = useState(() => {
     const stored = localStorage.getItem(TASK_SORT_KEY) || 'risk';
     return TASK_SORT_KEYS.has(stored) ? stored : 'risk';
@@ -3843,8 +3855,13 @@ export default function Zlecenia() {
   }, []);
 
   useEffect(() => {
-    if (smartFilter) localStorage.setItem(SMART_FILTER_KEY, smartFilter);
-    else localStorage.removeItem(SMART_FILTER_KEY);
+    if (smartFilter && !VOLATILE_SMART_FILTERS.has(smartFilter)) {
+      localStorage.setItem(SMART_FILTER_KEY, smartFilter);
+      localStorage.removeItem(SMART_FILTER_INTENT_KEY);
+    } else {
+      localStorage.removeItem(SMART_FILTER_KEY);
+      localStorage.removeItem(SMART_FILTER_INTENT_KEY);
+    }
   }, [smartFilter]);
 
   useEffect(() => {

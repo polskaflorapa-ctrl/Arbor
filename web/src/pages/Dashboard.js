@@ -16,6 +16,9 @@ import {
   isTaskInProgress,
 } from '../utils/taskWorkflow';
 
+const SMART_FILTER_KEY = 'zlecenia_smart_filter';
+const SMART_FILTER_INTENT_KEY = 'zlecenia_smart_filter_intent_at';
+
 function taskDateKey(task) {
   return String(task?.data_planowana || task?.data_wykonania || '').slice(0, 10);
 }
@@ -268,7 +271,10 @@ export default function Dashboard() {
   }, [navigate, loadAll]);
 
   const openSmartTaskFilter = useCallback((filterKey) => {
-    if (filterKey) localStorage.setItem('zlecenia_smart_filter', filterKey);
+    if (filterKey) {
+      localStorage.setItem(SMART_FILTER_KEY, filterKey);
+      localStorage.setItem(SMART_FILTER_INTENT_KEY, String(Date.now()));
+    }
     navigate('/zlecenia');
   }, [navigate]);
 

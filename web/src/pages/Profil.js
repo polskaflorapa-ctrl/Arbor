@@ -12,6 +12,9 @@ import { useTheme, THEMES } from '../ThemeContext';
 import { getRolaColor } from '../theme';
 import { isTaskClosed } from '../utils/taskWorkflow';
 
+const SMART_FILTER_KEY = 'zlecenia_smart_filter';
+const SMART_FILTER_INTENT_KEY = 'zlecenia_smart_filter_intent_at';
+
 const FIELD_ROLES = new Set(['Brygadzista', 'Pomocnik', 'Pomocnik bez doświadczenia']);
 const MANAGEMENT_ROLES = new Set(['Administrator', 'Dyrektor', 'Kierownik']);
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -841,8 +844,13 @@ export default function Profil() {
   };
 
   const goToOrders = (smartFilter = '') => {
-    if (smartFilter) localStorage.setItem('zlecenia_smart_filter', smartFilter);
-    else localStorage.removeItem('zlecenia_smart_filter');
+    if (smartFilter) {
+      localStorage.setItem(SMART_FILTER_KEY, smartFilter);
+      localStorage.setItem(SMART_FILTER_INTENT_KEY, String(Date.now()));
+    } else {
+      localStorage.removeItem(SMART_FILTER_KEY);
+      localStorage.removeItem(SMART_FILTER_INTENT_KEY);
+    }
     navigate('/zlecenia');
   };
 
