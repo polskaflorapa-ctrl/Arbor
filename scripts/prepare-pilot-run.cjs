@@ -9,6 +9,23 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function usage() {
+  return [
+    'Usage: npm run pilot:run:prepare -- --date YYYY-MM-DD [--force] [--run-gates] [--dry-run] [--full] [--stop-on-fail]',
+    '',
+    'Creates the pilot GO/NO-GO report and points it at the matching automated gates report.',
+    '',
+    'Options:',
+    '  --date YYYY-MM-DD       Pilot run date.',
+    '  --force                 Overwrite an existing decision report.',
+    '  --run-gates             Run automated gates immediately after creating the decision report.',
+    '  --dry-run               Print planned gates instead of running them.',
+    '  --full                  Include slower full gates.',
+    '  --stop-on-fail          Stop gates at first failure instead of continuing.',
+    '  --help                  Show this help.',
+  ].join('\n');
+}
+
 function parseArgs(argv) {
   const options = {
     date: todayIso(),
@@ -17,11 +34,14 @@ function parseArgs(argv) {
     dryRun: false,
     full: false,
     continueOnFail: true,
+    help: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--force') {
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
+    } else if (arg === '--force') {
       options.force = true;
     } else if (arg === '--run-gates') {
       options.runGates = true;
@@ -81,7 +101,12 @@ function preparePilotRun(options = parseArgs(process.argv.slice(2))) {
 
 if (require.main === module) {
   try {
-    preparePilotRun();
+    const options = parseArgs(process.argv.slice(2));
+    if (options.help) {
+      console.log(usage());
+      process.exit(0);
+    }
+    preparePilotRun(options);
   } catch (error) {
     console.error(`[pilot-run] FAILED: ${error.message}`);
     process.exit(1);
@@ -92,4 +117,5 @@ module.exports = {
   gateCommand,
   parseArgs,
   preparePilotRun,
+  usage,
 };

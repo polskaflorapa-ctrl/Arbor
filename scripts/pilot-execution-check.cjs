@@ -93,6 +93,8 @@ assertIncludes('scripts/create-pilot-run-report.cjs', [
   '--date',
   '--force',
   '--gates-report',
+  '--help',
+  'Usage:',
   'YYYY-MM-DD',
 ]);
 
@@ -105,6 +107,8 @@ assertIncludes('scripts/prepare-pilot-run.cjs', [
   '--dry-run',
   '--full',
   '--stop-on-fail',
+  '--help',
+  'Usage:',
   'YYYY-MM-DD',
 ]);
 
@@ -121,6 +125,8 @@ assertIncludes('scripts/run-pilot-gates.cjs', [
   '--dry-run',
   '--full',
   '--continue-on-fail',
+  '--help',
+  'Usage:',
   'PILOT-AUTOMATED-GATES-',
 ]);
 

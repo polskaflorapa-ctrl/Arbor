@@ -13,11 +13,27 @@ function defaultGatesReport(date) {
   return `docs/pilot-runs/PILOT-AUTOMATED-GATES-${date}.md`;
 }
 
+function usage() {
+  return [
+    'Usage: npm run pilot:run:new -- --date YYYY-MM-DD [--force] [--gates-report path]',
+    '',
+    'Creates docs/pilot-runs/PILOT-GO-NO-GO-YYYY-MM-DD.md from the pilot decision template.',
+    '',
+    'Options:',
+    '  --date YYYY-MM-DD       Pilot run date.',
+    '  --force                 Overwrite an existing decision report.',
+    '  --gates-report path     Link a custom automated gates report path.',
+    '  --help                  Show this help.',
+  ].join('\n');
+}
+
 function parseArgs(argv) {
-  const options = { date: todayIso(), force: false, gatesReport: null };
+  const options = { date: todayIso(), force: false, gatesReport: null, help: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--force') {
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
+    } else if (arg === '--force') {
       options.force = true;
     } else if (arg === '--gates-report') {
       options.gatesReport = argv[index + 1];
@@ -63,7 +79,12 @@ function createPilotRunReport(options = parseArgs(process.argv.slice(2))) {
 
 if (require.main === module) {
   try {
-    const outputPath = createPilotRunReport();
+    const options = parseArgs(process.argv.slice(2));
+    if (options.help) {
+      console.log(usage());
+      process.exit(0);
+    }
+    const outputPath = createPilotRunReport(options);
     console.log(`Created ${path.relative(root, outputPath)}`);
   } catch (error) {
     console.error(`[pilot-run-report] FAILED: ${error.message}`);
@@ -75,4 +96,5 @@ module.exports = {
   createPilotRunReport,
   defaultGatesReport,
   parseArgs,
+  usage,
 };

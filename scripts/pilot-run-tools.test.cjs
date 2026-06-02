@@ -7,9 +7,22 @@ const {
   createPilotRunReport,
   defaultGatesReport,
   parseArgs: parseReportArgs,
+  usage: reportUsage,
 } = require('./create-pilot-run-report.cjs');
-const { gateCommand, parseArgs: parsePrepareArgs, preparePilotRun } = require('./prepare-pilot-run.cjs');
-const { CORE_GATES, FULL_GATES, parseArgs: parseGateArgs, runPilotGates, writeReport } = require('./run-pilot-gates.cjs');
+const {
+  gateCommand,
+  parseArgs: parsePrepareArgs,
+  preparePilotRun,
+  usage: prepareUsage,
+} = require('./prepare-pilot-run.cjs');
+const {
+  CORE_GATES,
+  FULL_GATES,
+  parseArgs: parseGateArgs,
+  runPilotGates,
+  usage: gatesUsage,
+  writeReport,
+} = require('./run-pilot-gates.cjs');
 
 const root = path.resolve(__dirname, '..');
 const runsDir = path.join(root, 'docs', 'pilot-runs');
@@ -47,12 +60,16 @@ test('pilot run report parser accepts date and force flags', () => {
     date: '2099-12-31',
     force: true,
     gatesReport: 'docs/pilot-runs/PILOT-AUTOMATED-GATES-2099-12-31.md',
+    help: false,
   });
   assert.deepEqual(parseReportArgs(['--date=2099-12-31', '--gates-report', 'custom.md']), {
     date: '2099-12-31',
     force: false,
     gatesReport: 'custom.md',
+    help: false,
   });
+  assert.equal(parseReportArgs(['--help']).help, true);
+  assert.match(reportUsage(), /pilot:run:new/);
   assert.throws(() => parseReportArgs(['--date', '31-12-2099']), /YYYY-MM-DD/);
 });
 
@@ -94,8 +111,11 @@ test('pilot prepare parser and gate command support execution flags', () => {
     dryRun: true,
     full: true,
     continueOnFail: false,
+    help: false,
   });
   assert.equal(gateCommand(options), 'npm run pilot:gates:run -- --date 2099-12-31 --full');
+  assert.equal(parsePrepareArgs(['--help']).help, true);
+  assert.match(prepareUsage(), /pilot:run:prepare/);
   assert.throws(() => parsePrepareArgs(['--date=nope']), /YYYY-MM-DD/);
 });
 
@@ -105,7 +125,10 @@ test('pilot gates parser supports dry-run, full and continue-on-fail flags', () 
     dryRun: true,
     full: true,
     continueOnFail: true,
+    help: false,
   });
+  assert.equal(parseGateArgs(['--help']).help, true);
+  assert.match(gatesUsage(), /pilot:gates:run/);
   assert.throws(() => parseGateArgs(['--date', 'tomorrow']), /YYYY-MM-DD/);
 });
 
