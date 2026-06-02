@@ -955,15 +955,41 @@ function timeHmToMinutes(value) {
   return h * 60 + m;
 }
 
+function plannedDateTimeToWarsawMinutes(value) {
+  const raw = String(value || '').trim();
+  const inlineTime = raw.match(/(?:T|\s)(\d{1,2}):(\d{2})/);
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  if (inlineTime && !hasExplicitZone) {
+    const hh = Number(inlineTime[1]);
+    const mm = Number(inlineTime[2]);
+    if (Number.isInteger(hh) && Number.isInteger(mm) && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      return hh * 60 + mm;
+    }
+  }
+
+  const planned = new Date(value);
+  if (Number.isNaN(planned.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Warsaw',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(planned);
+  const hh = Number(parts.find((part) => part.type === 'hour')?.value);
+  const mm = Number(parts.find((part) => part.type === 'minute')?.value);
+  if (!Number.isInteger(hh) || !Number.isInteger(mm)) return null;
+  return hh * 60 + mm;
+}
+
 function planWindowViolation({ oknoOd, oknoDo, plannedDateTime, godzinaRozpoczecia, durationHours }) {
   const windowStart = timeHmToMinutes(oknoOd);
   const windowEnd = timeHmToMinutes(oknoDo);
   if (windowStart == null || windowEnd == null || windowEnd <= windowStart) return null;
   const explicitStart = timeHmToMinutes(godzinaRozpoczecia);
-  const planned = new Date(plannedDateTime);
   const startMin = explicitStart != null
     ? explicitStart
-    : (!Number.isNaN(planned.getTime()) ? planned.getHours() * 60 + planned.getMinutes() : null);
+    : plannedDateTimeToWarsawMinutes(plannedDateTime);
   if (startMin == null) return null;
   const durMin = Math.max(15, Math.round(Number(durationHours || 2) * 60));
   const endMin = startMin + durMin;
