@@ -3401,6 +3401,17 @@ function requestActorName(req) {
     || 'Operator';
 }
 
+function kommoSyncOwnerMeta(row = {}) {
+  const status = String(row.status || '').toLowerCase();
+  return {
+    owner_role: 'Dyspozytor/Admin',
+    owner_label: 'Dyspozytor/Admin - integracje Kommo',
+    escalation: status === 'dead_letter'
+      ? 'P1 gdy dead-letter > 0 po 30 min'
+      : 'P2 gdy retry failed nie wraca do sent po 30 min',
+  };
+}
+
 router.get('/kommo-sync/diagnostics', authMiddleware, async (req, res) => {
   if (!canManageTaskBackoffice(req.user) && !isSalesDirector(req.user)) {
     return res.status(403).json({ error: req.t('errors.http.forbidden') });
@@ -3411,13 +3422,33 @@ router.get('/kommo-sync/diagnostics', authMiddleware, async (req, res) => {
     await ensureKommoInboundEventTable();
     const limit = Math.min(100, Math.max(1, Number(req.query.limit || 30)));
     const status = String(req.query.status || '').trim();
+    const requestedBranchId = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+    const branchId = isKierownik(req.user)
+      ? Number(req.user.oddzial_id || 0) || null
+      : requestedBranchId;
+    if (requestedBranchId && isKierownik(req.user) && Number(requestedBranchId) !== Number(req.user.oddzial_id)) {
+      return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+    }
     const queueParams = [];
-    let queueWhere = '';
+    const queueWhereParts = [];
     if (status) {
       queueParams.push(status);
-      queueWhere = `WHERE q.status = $${queueParams.length}`;
+      queueWhereParts.push(`q.status = $${queueParams.length}`);
     }
+    if (branchId) {
+      queueParams.push(branchId);
+      queueWhereParts.push(`t.oddzial_id = $${queueParams.length}`);
+    }
+    const queueWhere = queueWhereParts.length ? `WHERE ${queueWhereParts.join(' AND ')}` : '';
+    const inboundParams = [];
+    const inboundWhereParts = [];
+    if (branchId) {
+      inboundParams.push(branchId);
+      inboundWhereParts.push(`t.oddzial_id = $${inboundParams.length}`);
+    }
+    const inboundWhere = inboundWhereParts.length ? `WHERE ${inboundWhereParts.join(' AND ')}` : '';
     queueParams.push(limit);
+    inboundParams.push(limit);
     const [queueResult, inboundResult] = await Promise.all([
       pool.query(
         `SELECT
@@ -3438,17 +3469,24 @@ router.get('/kommo-sync/diagnostics', authMiddleware, async (req, res) => {
            t.numer, t.klient_nazwa, t.status AS task_status, t.oddzial_id
          FROM task_kommo_inbound_events e
          LEFT JOIN tasks t ON t.id = e.task_id
+         ${inboundWhere}
          ORDER BY e.created_at DESC, e.id DESC
-         LIMIT $1`,
-        [limit]
+         LIMIT $${inboundParams.length}`,
+        inboundParams
       ),
     ]);
     res.json({
-      queue: queueResult.rows,
-      inbound_events: inboundResult.rows,
+      queue: queueResult.rows.map((row) => ({ ...row, ...kommoSyncOwnerMeta(row) })),
+      inbound_events: inboundResult.rows.map((row) => ({
+        ...row,
+        owner_role: 'Dyspozytor/Admin',
+        owner_label: 'Dyspozytor/Admin - inbound Kommo',
+        escalation: row.status === 'conflict' ? 'P2 gdy konflikt statusu nie ma decyzji ownera po 30 min' : 'Monitoruj w standardowym trybie',
+      })),
       summary: {
         queue_errors: queueResult.rows.filter((row) => ['failed', 'dead_letter'].includes(row.status)).length,
         inbound_conflicts: inboundResult.rows.filter((row) => row.status === 'conflict').length,
+        oddzial_id: branchId,
       },
     });
   } catch (err) {

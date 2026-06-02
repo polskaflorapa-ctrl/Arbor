@@ -97,6 +97,66 @@ describe('Tasks routes', () => {
     );
   });
 
+  it('GET /tasks/kommo-sync/diagnostics filters by branch and returns alert owners', async () => {
+    const token = jwt.sign(
+      { id: 1, rola: 'Dyrektor', oddzial_id: null },
+      env.JWT_SECRET
+    );
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('FROM task_kommo_sync_queue q')) {
+        expect(text).toContain('q.status = $1');
+        expect(text).toContain('t.oddzial_id = $2');
+        expect(text).toContain('LIMIT $3');
+        expect(params).toEqual(['dead_letter', 7, 5]);
+        return {
+          rows: [{
+            id: 501,
+            task_id: 77,
+            status: 'dead_letter',
+            retry_count: 3,
+            oddzial_id: 7,
+            last_error: 'HTTP 500',
+          }],
+        };
+      }
+      if (text.includes('FROM task_kommo_inbound_events e')) {
+        expect(text).toContain('t.oddzial_id = $1');
+        expect(text).toContain('LIMIT $2');
+        expect(params).toEqual([7, 5]);
+        return {
+          rows: [{
+            id: 701,
+            task_id: 77,
+            status: 'conflict',
+            oddzial_id: 7,
+            conflict_reason: 'closed task',
+          }],
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .get('/api/tasks/kommo-sync/diagnostics?oddzial_id=7&status=dead_letter&limit=5')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary).toEqual(expect.objectContaining({
+      queue_errors: 1,
+      inbound_conflicts: 1,
+      oddzial_id: 7,
+    }));
+    expect(res.body.queue[0]).toEqual(expect.objectContaining({
+      owner_role: 'Dyspozytor/Admin',
+      owner_label: 'Dyspozytor/Admin - integracje Kommo',
+      escalation: expect.stringContaining('P1'),
+    }));
+    expect(res.body.inbound_events[0]).toEqual(expect.objectContaining({
+      owner_label: 'Dyspozytor/Admin - inbound Kommo',
+    }));
+  });
+
   it('filters task list by planned date range', async () => {
     const token = jwt.sign(
       { id: 1, rola: 'Dyrektor', oddzial_id: 5 },

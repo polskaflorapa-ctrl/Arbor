@@ -11,6 +11,8 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 - SMS delivery pozostaje `sms_delivery`, ale ma jawnego ownera kontaktu z klientem.
 - Ryzyka bez automatycznej naprawy mozna potwierdzic akcja `acknowledge`, ktora zapisuje decyzje do `ops_action_events`.
 - `ops_action_events` jest pamiecia decyzji ownera: kto, kiedy, jaki risk, jaka notatka.
+- Panel Integracje pokazuje ownera i eskalacje przy Kommo retry/dead-letter oraz inbound conflict, pozwala filtrowac po oddziale i potwierdzac alert.
+- Panel Telefonia pokazuje ownera i eskalacje przy historii SMS delivery, pozwala filtrowac po oddziale i potwierdzac bledy dostawy.
 
 ## Kommo
 
@@ -34,8 +36,10 @@ EPIC 9.5 domyka operacyjna odpowiedzialnosc za alerty, ktore nie moga zostac ano
 ## GO
 
 - `npm run verify:ops-alert-ownership` przechodzi.
+- `npm run verify:ops-alert-owner-ui` przechodzi.
 - `kierownik-today` zwraca licznik `kommo_sync_risks`.
 - Panel Kierownika pokazuje ownera przy ryzyku i pozwala potwierdzic `kommo_sync`.
+- Panel Integracje i Panel Telefonia pozwalaja ownerowi zapisac potwierdzenie do `ops_action_events`.
 - Kommo/SMS dead-letter nie zostaje bez ownera i zapisu w `ops_action_events`.
 
 ## NO-GO

@@ -98,7 +98,8 @@
 - [x] **P0 dispatcher competency consistency**: `docs/DISPATCHER-COMPETENCY-CONSISTENCY-CONTRACT.md` opisuje spojnosc VRP/AutoDispatch/dispatch apply z twarda blokada kompetencji; `npm run verify:dispatcher-competency-consistency` pilnuje aktywnych `data_waznosci`, `unassigned.missing_competencies` i UI blokady.
 - [x] **P0 Kommo idempotency retry**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` opisuje idempotencje inbound/outbound Kommo, stabilny `idempotency_key`, kontrolowany retry i dead-letter; `npm run verify:kommo-idempotency-retry` pilnuje webhookow, kolejki i diagnostyki.
 - [x] **P0 ops alert ownership**: `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md` opisuje wlascicieli alertow Kommo/SMS/SLO; `kierownik-today` pokazuje `kommo_sync` z `owner_label`, `owner_role`, `escalation`, a `npm run verify:ops-alert-ownership` pilnuje kontraktu.
-- [ ] **Nastepny pakiet**: EPIC 9.6 - potwierdzenie ownerow alertow w UI Integracje/Telefonia z filtrem po oddziale.
+- [x] **P0 ops alert owner UI**: Panel Integracje i Telefonia pokazuja `owner_label`, `owner_role`, `escalation`, maja filtr `oddzial_id` i zapis potwierdzenia przez `/ops/risk-report/actions`; `npm run verify:ops-alert-owner-ui` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: EPIC 9.7 - rejestr potwierdzen ownerow alertow w kontroli operacyjnej z filtrem Kommo/SMS.
 
 ---
 
@@ -224,6 +225,7 @@ flowchart LR
 - [x] **9.3** Strategia backupów RPO/RTO (procedura + infrastruktura). `docs/BACKUP-RPO-RTO-RUNBOOK.md` opisuje RPO <= 24h, RTO <= 4h, backup <= 15 min po zmianie produkcyjnej, restore drill na bazie replaceable i dowody; `verify:backup-rpo` pilnuje kompletnego minimum.
 - [x] **9.4** Skalowanie horyzontalne (sesje, uploady, worker dispatch). `docs/HORIZONTAL-SCALING-READINESS.md` definiuje GO/NO-GO dla wielu instancji API: stateless JWT, S3/R2, Redis limiter, jeden wlasciciel cronow/workerow, DB pool i ograniczenia SSE/dispatcher.
 - [x] **9.5** Ownership alertow Kommo/SMS/SLO. `docs/OPS-ALERT-OWNERSHIP-CONTRACT.md` wymaga `owner_role`, `owner_label`, `escalation` i zapisu decyzji w `ops_action_events`; `kierownik-today` dodaje `kommo_sync` z `task_kommo_sync_queue`, a panel Kierownika pokazuje ownera i potwierdzenie ryzyka.
+- [x] **9.6** UI ownerow alertow. Panel Integracje i Telefonia pokazuja `owner_label`, `owner_role`, `escalation`, filtr `oddzial_id` i zapis `acknowledge` do `ops_action_events`.
 
 ---
 

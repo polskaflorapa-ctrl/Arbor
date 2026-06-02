@@ -96,9 +96,7 @@ function assertStoreTestResults(jobName, job) {
   }
 }
 
-function main() {
-  const config = readConfig();
-
+function validateCircleciConfig(config) {
   if (config.version !== 2.1) {
     fail("Expected CircleCI version 2.1");
   }
@@ -149,8 +147,27 @@ function main() {
   if (!osTestsCommand.includes("--reporters=jest-junit") || !osTestsCommand.includes("test-results/jest")) {
     fail("OS test job does not generate Jest JUnit output");
   }
+}
+
+function main() {
+  validateCircleciConfig(readConfig());
 
   console.info("[circleci-config-check] OK");
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  assertHasJobs,
+  assertMainlineOnly,
+  assertRequires,
+  assertStoreTestResults,
+  assertWorkflowContains,
+  commandText,
+  getWorkflowJobConfig,
+  main,
+  validateCircleciConfig,
+  workflowJobNames,
+};

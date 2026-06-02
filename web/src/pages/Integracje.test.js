@@ -88,6 +88,10 @@ function setupGetMocks({ crmApps = [], branchStatuses = null, auditItems = [] } 
             status: 'dead_letter',
             retry_count: 3,
             last_error: 'HTTP 500',
+            oddzial_id: 2,
+            owner_role: 'Dyspozytor/Admin',
+            owner_label: 'Dyspozytor/Admin - integracje Kommo',
+            escalation: 'P1 gdy dead-letter > 0 po 30 min',
           }],
           inbound_events: [{
             id: 20,
@@ -96,6 +100,10 @@ function setupGetMocks({ crmApps = [], branchStatuses = null, auditItems = [] } 
             incoming_status: 'Anulowane',
             conflict_reason: 'Zlecenie jest juz zamkniete',
             created_at: '2026-05-28T08:00:00.000Z',
+            oddzial_id: 2,
+            owner_role: 'Dyspozytor/Admin',
+            owner_label: 'Dyspozytor/Admin - inbound Kommo',
+            escalation: 'P2 gdy konflikt statusu nie ma decyzji ownera po 30 min',
           }],
         },
       });
@@ -174,6 +182,61 @@ describe('Integracje (integration-style)', () => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringMatching(/^\/integrations\/logs/),
         expect.any(Object)
+      );
+    });
+  });
+
+  test('shows Kommo alert owner and acknowledges queue risk', async () => {
+    renderIntegracje();
+
+    expect(await screen.findByText('Dyspozytor/Admin - integracje Kommo')).toBeInTheDocument();
+    expect(screen.getByText('P1 gdy dead-letter > 0 po 30 min')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Filtr oddzialu Kommo' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Potwierdz' })[0]);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/ops/risk-report/actions',
+        expect.objectContaining({
+          action: 'acknowledge',
+          risk_type: 'kommo_sync',
+          risk_id: 'kommo_sync:10',
+          task_id: 101,
+        }),
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+  });
+
+  test('filters Kommo diagnostics by branch and acknowledges owner alert', async () => {
+    renderIntegracje();
+
+    expect(await screen.findByText('Kommo task.sync')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Filtr oddzialu Kommo'), '2');
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        '/tasks/kommo-sync/diagnostics',
+        expect.objectContaining({
+          params: expect.objectContaining({ oddzial_id: 2 }),
+        })
+      );
+    });
+
+    const confirmButtons = await screen.findAllByRole('button', { name: 'Potwierdz' });
+    await userEvent.click(confirmButtons[0]);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        '/ops/risk-report/actions',
+        expect.objectContaining({
+          action: 'acknowledge',
+          risk_type: 'kommo_sync',
+          risk_id: 'kommo_sync:10',
+          task_id: 101,
+        }),
+        expect.objectContaining({ headers: expect.any(Object) })
       );
     });
   });

@@ -66,6 +66,7 @@ const smsTemplateBodySchema = z.object({
 const smsHistoriaQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+  oddzial_id: z.coerce.number().int().positive().optional(),
   q: z.string().max(200).optional(),
   status: z.string().max(80).optional(),
   date_from: z.string().max(10).optional(),
@@ -79,6 +80,18 @@ function parseHistoriaDate(s) {
   const t = String(s).trim().slice(0, 10);
   if (!isoDateOnly.test(t)) return null;
   return t;
+}
+
+function smsDeliveryOwnerMeta(row = {}) {
+  const status = String(row.status || row.provider_status || '').toLowerCase();
+  const failed = Boolean(row.error) || ['blad', 'błąd', 'failed', 'undelivered', 'rejected'].some((x) => status.includes(x));
+  return {
+    owner_role: 'Kierownik/Dyspozytor',
+    owner_label: 'Kierownik/Dyspozytor - kontakt z klientem',
+    escalation: failed
+      ? 'P2 gdy brak dostarczenia po 30 min'
+      : 'Monitoruj dostarczenie SMS w standardowym trybie',
+  };
 }
 
 // Thin wrapper — historia jest zapisywana przez smsGateway
@@ -365,12 +378,19 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
     const userRole = req.user.rola;
     const whereParts = [];
     const params = [];
+    const requestedBranchId = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
     if (userRole === 'Kierownik') {
+      if (requestedBranchId && Number(requestedBranchId) !== Number(req.user.oddzial_id)) {
+        return res.status(403).json({ error: req.t('errors.auth.branchAccessDenied') });
+      }
       whereParts.push(`t.oddzial_id = $${params.length + 1}`);
       params.push(req.user.oddzial_id);
     } else if (userRole !== 'Dyrektor' && userRole !== 'Administrator') {
       whereParts.push(`t.brygadzista_id = $${params.length + 1}`);
       params.push(req.user.id);
+    } else if (requestedBranchId) {
+      whereParts.push(`t.oddzial_id = $${params.length + 1}`);
+      params.push(requestedBranchId);
     }
     if (statusF && statusF.toLowerCase() !== 'all') {
       whereParts.push(`h.status = $${params.length + 1}`);
@@ -403,7 +423,7 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
     const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
     const base = `FROM sms_history h LEFT JOIN tasks t ON h.task_id = t.id LEFT JOIN branches b ON t.oddzial_id = b.id ${whereSql}`;
     const orderBy = 'ORDER BY h.created_at DESC';
-    const selectList = `SELECT h.*, t.klient_nazwa, t.adres, t.typ_uslugi, b.nazwa as oddzial_nazwa ${base} ${orderBy}`;
+    const selectList = `SELECT h.*, t.oddzial_id, t.klient_nazwa, t.adres, t.typ_uslugi, b.nazwa as oddzial_nazwa ${base} ${orderBy}`;
     if (limit != null) {
       const lim = Number(limit);
       const off = Number(offset ?? 0);
@@ -412,10 +432,10 @@ router.get('/historia', authMiddleware, validateQuery(smsHistoriaQuerySchema), a
       const limIdx = params.length + 1;
       const offIdx = params.length + 2;
       const result = await pool.query(`${selectList} LIMIT $${limIdx} OFFSET $${offIdx}`, [...params, lim, off]);
-      return res.json({ items: result.rows, total, limit: lim, offset: off });
+      return res.json({ items: result.rows.map((row) => ({ ...row, ...smsDeliveryOwnerMeta(row) })), total, limit: lim, offset: off });
     }
     const result = await pool.query(`${selectList} LIMIT 100`, params);
-    res.json(result.rows);
+    res.json(result.rows.map((row) => ({ ...row, ...smsDeliveryOwnerMeta(row) })));
   } catch (err) {
     logger.error('Blad pobierania historii SMS', { message: err.message, requestId: req.requestId });
     res.status(500).json({ error: req.t('errors.http.serverError') });

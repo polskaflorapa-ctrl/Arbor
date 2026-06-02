@@ -86,6 +86,8 @@ export default function Integracje() {
   const [branchSetupFilter, setBranchSetupFilter] = useState('todo');
   const [branchSetupShowAll, setBranchSetupShowAll] = useState(false);
   const [expandedBranchHistoryId, setExpandedBranchHistoryId] = useState(null);
+  const [kommoBranchFilter, setKommoBranchFilter] = useState('');
+  const [kommoAckSavingId, setKommoAckSavingId] = useState(null);
   const [kommoSync, setKommoSync] = useState({ queue: [], inbound_events: [], summary: {} });
   const [kommoConfig, setKommoConfig] = useState(KOMMO_DEFAULT_CONFIG);
   const [kommoConfigForm, setKommoConfigForm] = useState({
@@ -131,7 +133,8 @@ export default function Integracje() {
       const branchSetupRes = await api.get('/telephony/voice-agent/polska-flora/integrations/status', { headers }).catch(() => ({
         data: { items: [] },
       }));
-      const kommoSyncRes = await api.get('/tasks/kommo-sync/diagnostics', { headers }).catch(() => ({
+      const kommoParams = kommoBranchFilter ? { oddzial_id: Number(kommoBranchFilter) } : {};
+      const kommoSyncRes = await api.get('/tasks/kommo-sync/diagnostics', { headers, params: kommoParams }).catch(() => ({
         data: { queue: [], inbound_events: [], summary: {} },
       }));
       const kommoConfigRes = await api.get('/kommo/config?account_key=default', { headers }).catch(() => ({
@@ -181,7 +184,7 @@ export default function Integracje() {
     } finally {
       setLoading(false);
     }
-  }, [filters.channel, filters.status, filters.task_id, page, pageSize, sortBy, sortDir, navigate, showMessage]);
+  }, [filters.channel, filters.status, filters.task_id, kommoBranchFilter, page, pageSize, sortBy, sortDir, navigate, showMessage]);
 
   useEffect(() => {
     loadData();
@@ -270,6 +273,28 @@ export default function Integracje() {
       loadData();
     } catch (err) {
       showMessage(errorMessage('Brak uprawnień lub błąd zapisu denylisty.'));
+    }
+  };
+
+  const acknowledgeKommoRisk = async (row, source = 'queue') => {
+    const id = `${source}:${row.id}`;
+    setKommoAckSavingId(id);
+    try {
+      const token = getStoredToken();
+      const riskType = source === 'inbound' ? 'kommo_inbound' : 'kommo_sync';
+      await api.post('/ops/risk-report/actions', {
+        action: 'acknowledge',
+        risk_type: riskType,
+        risk_id: `${riskType}:${row.id}`,
+        task_id: row.task_id || undefined,
+        note: `${row.owner_label || 'Owner Kommo'} potwierdzil alert w panelu Integracje.`,
+      }, { headers: authHeaders(token) });
+      showMessage(successMessage('Alert Kommo potwierdzony i zapisany w decyzjach operacyjnych.'));
+      await loadData();
+    } catch (err) {
+      showMessage(errorMessage('Nie udalo sie potwierdzic alertu Kommo.'));
+    } finally {
+      setKommoAckSavingId(null);
     }
   };
 
@@ -1248,6 +1273,19 @@ export default function Integracje() {
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Outbound retry/dead-letter oraz inbound konflikty statusow z Kommo.</div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <select
+                style={styles.input}
+                value={kommoBranchFilter}
+                onChange={(e) => setKommoBranchFilter(e.target.value)}
+                aria-label="Filtr oddzialu Kommo"
+              >
+                <option value="">Wszystkie oddzialy</option>
+                {branchSetupRows.map((row) => (
+                  <option key={row.oddzial_id} value={row.oddzial_id}>
+                    {`Kommo: ${row.oddzial_name || `Oddzial #${row.oddzial_id}`}`}
+                  </option>
+                ))}
+              </select>
               <span style={styles.statusPill}>Bledy: {kommoSync.summary?.queue_errors || 0}</span>
               <span style={styles.statusPill}>Konflikty: {kommoSync.summary?.inbound_conflicts || 0}</span>
             </div>
@@ -1260,10 +1298,27 @@ export default function Integracje() {
                   key={`queue-${row.id}`}
                   title={`#${row.task_id} ${row.klient_nazwa || ''}`.trim()}
                   subtitle={row.last_error || row.task_status || 'Brak bledu'}
-                  meta={`retry ${row.retry_count || 0}`}
                   tone={row.status === 'dead_letter' ? 'danger' : row.status === 'failed' ? 'warning' : 'success'}
                   status={row.status}
                   statusValue={row.status}
+                  metrics={[
+                    { label: 'Retry', value: row.retry_count || 0 },
+                    { label: 'Owner', value: row.owner_label || row.owner_role || 'Dyspozytor/Admin', mono: false },
+                    { label: 'Eskalacja', value: row.escalation || 'monitoruj', mono: false, tone: row.status === 'dead_letter' ? 'danger' : undefined },
+                    { label: 'Oddzial', value: row.oddzial_id || 'brak' },
+                  ]}
+                  actions={
+                    ['failed', 'dead_letter'].includes(String(row.status || '')) ? (
+                      <button
+                        type="button"
+                        style={styles.retryBtn}
+                        disabled={kommoAckSavingId === `queue:${row.id}`}
+                        onClick={() => acknowledgeKommoRisk(row, 'queue')}
+                      >
+                        {kommoAckSavingId === `queue:${row.id}` ? 'Zapisuje...' : 'Potwierdz'}
+                      </button>
+                    ) : null
+                  }
                 />
               ))}
             </div>
@@ -1274,10 +1329,26 @@ export default function Integracje() {
                   key={`inbound-${event.id}`}
                   title={`#${event.task_id || '-'} ${event.incoming_status || 'bez statusu'}`}
                   subtitle={event.conflict_reason || event.klient_nazwa || event.event_key}
-                  meta={event.created_at ? new Date(event.created_at).toLocaleString('pl-PL') : ''}
                   tone={event.status === 'conflict' || event.status === 'error' ? 'danger' : 'success'}
                   status={event.status}
                   statusValue={event.status}
+                  metrics={[
+                    { label: 'Owner', value: event.owner_label || event.owner_role || 'Dyspozytor/Admin', mono: false },
+                    { label: 'Eskalacja', value: event.escalation || 'monitoruj', mono: false, tone: event.status === 'conflict' ? 'danger' : undefined },
+                    { label: 'Oddzial', value: event.oddzial_id || 'brak' },
+                  ]}
+                  actions={
+                    event.status === 'conflict' || event.status === 'error' ? (
+                      <button
+                        type="button"
+                        style={styles.retryBtn}
+                        disabled={kommoAckSavingId === `inbound:${event.id}`}
+                        onClick={() => acknowledgeKommoRisk(event, 'inbound')}
+                      >
+                        {kommoAckSavingId === `inbound:${event.id}` ? 'Zapisuje...' : 'Potwierdz'}
+                      </button>
+                    ) : null
+                  }
                 />
               ))}
             </div>

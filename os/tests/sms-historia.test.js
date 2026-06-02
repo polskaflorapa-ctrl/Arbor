@@ -44,7 +44,12 @@ describe('GET /api/sms/historia', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
-      items: [{ id: 1 }],
+      items: [expect.objectContaining({
+        id: 1,
+        owner_role: 'Kierownik/Dyspozytor',
+        owner_label: 'Kierownik/Dyspozytor - kontakt z klientem',
+        escalation: expect.stringContaining('Monitoruj'),
+      })],
       total: 3,
       limit: 15,
       offset: 0,
@@ -120,5 +125,32 @@ describe('GET /api/sms/historia', () => {
     const countParams = pool.query.mock.calls[0][1];
     expect(countSql).toContain('t.brygadzista_id = $1');
     expect(countParams[0]).toBe(99);
+  });
+
+  it('Dyrektor moze filtrowac historie SMS po oddziale', async () => {
+    mockHistoriaPipeline({ total: 1, rows: [{ id: 2, error: 'provider failed' }] });
+
+    const res = await request(app)
+      .get('/api/sms/historia?limit=5&offset=0&oddzial_id=7')
+      .set('Authorization', `Bearer ${tokenForUser({ id: 1, rola: 'Dyrektor' })}`);
+
+    expect(res.status).toBe(200);
+    const countSql = pool.query.mock.calls[0][0];
+    const countParams = pool.query.mock.calls[0][1];
+    expect(countSql).toContain('t.oddzial_id = $1');
+    expect(countParams[0]).toBe(7);
+    expect(res.body.items[0]).toEqual(expect.objectContaining({
+      owner_role: 'Kierownik/Dyspozytor',
+      escalation: 'P2 gdy brak dostarczenia po 30 min',
+    }));
+  });
+
+  it('Kierownik nie moze pobrac historii SMS z cudzego oddzialu', async () => {
+    const res = await request(app)
+      .get('/api/sms/historia?limit=5&offset=0&oddzial_id=8')
+      .set('Authorization', `Bearer ${tokenForUser({ id: 2, rola: 'Kierownik', oddzial_id: 7 })}`);
+
+    expect(res.status).toBe(403);
+    expect(pool.query).not.toHaveBeenCalled();
   });
 });

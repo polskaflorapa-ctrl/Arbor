@@ -52,11 +52,13 @@ export default function Telefonia() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [smsBranchFilter, setSmsBranchFilter] = useState(() => searchParams.get('oddzial_id') || '');
   const [updatedByFilter, setUpdatedByFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [onlyUpdatedToday, setOnlyUpdatedToday] = useState(false);
   const [sendingId, setSendingId] = useState(null);
+  const [acknowledgingSmsId, setAcknowledgingSmsId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [manualSending, setManualSending] = useState(false);
   const [page, setPage] = useState(1);
@@ -231,6 +233,7 @@ export default function Telefonia() {
         qs.set('offset', String((pageNum - 1) * SMS_HIST_PAGE_SIZE));
         const qt = query.trim().slice(0, 200);
         if (qt) qs.set('q', qt);
+        if (smsBranchFilter) qs.set('oddzial_id', smsBranchFilter);
         if (statusFilter && statusFilter !== 'all') qs.set('status', statusFilter);
         if (dateFrom) qs.set('date_from', dateFrom);
         if (dateTo) qs.set('date_to', dateTo);
@@ -252,13 +255,13 @@ export default function Telefonia() {
         setLoading(false);
       }
     },
-    [query, statusFilter, dateFrom, dateTo]
+    [query, smsBranchFilter, statusFilter, dateFrom, dateTo]
   );
 
   useEffect(() => {
     const user = getLocalStorageJson('user');
     if (!user || !getStoredToken()) return;
-    const serverSig = `${query}\t${statusFilter}\t${dateFrom}\t${dateTo}`;
+    const serverSig = `${query}\t${statusFilter}\t${smsBranchFilter}\t${dateFrom}\t${dateTo}`;
     const clientSig = `${updatedByFilter}\t${onlyUpdatedToday}`;
     if (!smsInitialLoadDone.current) {
       smsInitialLoadDone.current = true;
@@ -289,7 +292,16 @@ export default function Telefonia() {
       return;
     }
     loadSms(page);
-  }, [page, query, statusFilter, dateFrom, dateTo, updatedByFilter, onlyUpdatedToday, loadSms]);
+  }, [page, query, statusFilter, smsBranchFilter, dateFrom, dateTo, updatedByFilter, onlyUpdatedToday, loadSms]);
+
+  useEffect(() => {
+    const user = getLocalStorageJson('user');
+    if (!user || !getStoredToken() || oddzialy.length) return;
+    const token = getStoredToken();
+    api.get('/oddzialy', { headers: authHeaders(token) })
+      .then((res) => setOddzialy(Array.isArray(res.data) ? res.data : []))
+      .catch(() => {});
+  }, [oddzialy.length]);
 
   const loadTelephonyExtras = async () => {
     setTelLoading(true);
@@ -1287,6 +1299,7 @@ export default function Telefonia() {
         !dateTo ||
         (date && date <= new Date(`${dateTo}T23:59:59`));
       const statusOk = statusFilter === 'all' || String(x.status || '') === statusFilter;
+      const branchOk = !smsBranchFilter || String(x.oddzial_id || '') === String(smsBranchFilter);
       const updatedByOk = updatedByFilter === 'all' || x.updated_by_name === updatedByFilter;
       const todayOk = !onlyUpdatedToday || (
         x.updated_at &&
@@ -1308,12 +1321,13 @@ export default function Telefonia() {
         ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(q));
-      return dateOkFrom && dateOkTo && statusOk && updatedByOk && todayOk && qOk;
+      return dateOkFrom && dateOkTo && statusOk && branchOk && updatedByOk && todayOk && qOk;
     });
   }, [
     serverPaging,
     sms,
     query,
+    smsBranchFilter,
     statusFilter,
     updatedByFilter,
     dateFrom,
@@ -1577,6 +1591,38 @@ export default function Telefonia() {
     if (address) parts.push(`adres: ${address}`);
     return `${parts.join(', ')}. W razie pytan prosimy o kontakt.`.slice(0, SMS_LIMIT);
   };
+
+  const acknowledgeSmsRisk = async (row) => {
+    setAcknowledgingSmsId(row.id);
+    setError('');
+    try {
+      const token = getStoredToken();
+      await api.post('/ops/risk-report/actions', {
+        action: 'acknowledge',
+        risk_type: 'sms_delivery',
+        risk_id: `sms_delivery:${row.id}`,
+        task_id: row.task_id || undefined,
+        note: `${row.owner_label || 'Owner SMS'} potwierdzil alert dostawy w panelu Telefonia.`,
+      }, { headers: authHeaders(token) });
+      await loadSms(page);
+    } catch (e) {
+      setError(getApiErrorMessage(e, 'Nie udalo sie potwierdzic alertu SMS.'));
+    } finally {
+      setAcknowledgingSmsId(null);
+    }
+  };
+
+  const smsNeedsOwnerAck = (row) => {
+    const status = String(row?.status || row?.provider_status || '').toLowerCase();
+    return Boolean(row?.error)
+      || status.includes('fail')
+      || status.includes('error')
+      || status.includes('undeliver')
+      || status.includes('rejected')
+      || status.includes('blad')
+      || status.includes('niedostar');
+  };
+
   const agentServiceLabel = (value) => {
     const v = String(value || '').toLowerCase();
     if (v === 'dach') return 'Dach';
@@ -3483,6 +3529,14 @@ export default function Telefonia() {
                 </option>
               ))}
             </select>
+            <select value={smsBranchFilter} onChange={(e) => setSmsBranchFilter(e.target.value)} style={s.select} aria-label="Filtr oddzialu SMS">
+              <option value="">Wszystkie oddzialy</option>
+              {oddzialy.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nazwa || `Oddzial #${o.id}`}
+                </option>
+              ))}
+            </select>
             <select value={updatedByFilter} onChange={(e) => setUpdatedByFilter(e.target.value)} style={s.select}>
               <option value="all">Wszyscy (ostatnia zmiana)</option>
               {updatedByOptions.map((u) => (
@@ -3534,6 +3588,8 @@ export default function Telefonia() {
                       { label: 'Typ', value: x.typ || 'manual' },
                       { label: 'Provider', value: x.provider || 'brak' },
                       { label: 'Provider status', value: x.provider_status || 'brak', tone: x.error ? 'danger' : undefined },
+                      { label: 'Owner', value: x.owner_label || x.owner_role || 'Kierownik/Dyspozytor', mono: false, tone: smsNeedsOwnerAck(x) ? 'danger' : undefined },
+                      { label: 'Eskalacja', value: x.escalation || 'monitoruj', mono: false, tone: smsNeedsOwnerAck(x) ? 'danger' : undefined },
                       { label: 'Wyslal', value: x.created_by_name || 'system', mono: false },
                       { label: 'Ost. zmiana', value: x.updated_at ? new Date(x.updated_at).toLocaleString('pl-PL') : 'brak' },
                       { label: 'Dostawa', value: x.delivery_updated_at ? new Date(x.delivery_updated_at).toLocaleString('pl-PL') : x.sid || 'brak', mono: false, tone: x.error ? 'danger' : undefined },
@@ -3558,6 +3614,16 @@ export default function Telefonia() {
                         >
                           {sendingId === x.id ? 'Wysylanie...' : 'Ponow SMS'}
                         </button>
+                        {smsNeedsOwnerAck(x) ? (
+                          <button
+                            type="button"
+                            style={s.rowBtn}
+                            disabled={acknowledgingSmsId === x.id}
+                            onClick={() => acknowledgeSmsRisk(x)}
+                          >
+                            {acknowledgingSmsId === x.id ? 'Zapisuje...' : 'Potwierdz'}
+                          </button>
+                        ) : null}
                         {x._fromOsApi ? (
                           <span style={s.twilioLock} title="ARBOR-OS: status dostawy ustawia provider webhook">
                             {x.provider || 'Webhook'}

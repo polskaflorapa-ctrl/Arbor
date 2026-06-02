@@ -33,7 +33,7 @@
     "status:json:strict": "node ./scripts/status.cjs --json --strict",
     "ci:check": "node ./scripts/ci-check.cjs",
     "verify:circleci": "node ./scripts/circleci-config-check.cjs",
-    "verify:scripts": "npm run test:scripts",
+    "verify:scripts": "npm run test:scripts && npm run verify:circleci",
     "verify:mobile": "npm run typecheck -w arbor-mobile && npm run lint -w arbor-mobile",
     "verify:web:test": "npm test -w arbor-web",
     "verify:web": "npm run build -w arbor-web",
@@ -81,6 +81,7 @@
     "verify:dispatcher-competency-consistency": "node ./scripts/dispatcher-competency-consistency-check.cjs",
     "verify:kommo-idempotency-retry": "node ./scripts/kommo-idempotency-retry-check.cjs",
     "verify:ops-alert-ownership": "node ./scripts/ops-alert-ownership-check.cjs",
+    "verify:ops-alert-owner-ui": "node ./scripts/ops-alert-owner-ui-check.cjs",
     "deploy:env:print": "node ./scripts/print-production-env-template.cjs",
     "deploy:prod:dry-run": "node ./scripts/production-dry-run-check.cjs",
     "deploy:ready:check": "node ./scripts/deploy-ready-check.cjs",
@@ -118,7 +119,8 @@
     "@emotion/styled": "^11.14.1",
     "@types/react": "19.2.14",
     "concurrently": "^9.2.1",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "yaml": "^2.9.0"
   },
   "overrides": {
     "react": "19.1.0",
