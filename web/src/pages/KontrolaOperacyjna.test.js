@@ -40,6 +40,38 @@ beforeEach(() => {
   api.put.mockResolvedValue({ data: {} });
   api.get.mockImplementation((path, config = {}) => {
     if (path === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Oddzial Krakow' }] });
+    if (path === '/ops/owner-alerts/open') {
+      return Promise.resolve({
+        data: {
+          date: config.params?.date || '2026-05-26',
+          summary: { open_total: 2, kommo_sync: 1, sms_delivery: 1, p1: 1, p2: 1, overdue: 2 },
+          items: [
+            {
+              id: 'kommo_sync:501',
+              risk_id: 'kommo_sync:501',
+              risk_type: 'kommo_sync',
+              escalation_level: 'P1',
+              sla_status: 'overdue',
+              aging_minutes: 72,
+              owner_label: 'Owner: integracje Kommo',
+              numer: 'ARB-OPEN-KOMMO',
+              klient_nazwa: 'Klient Kommo Open',
+            },
+            {
+              id: 'sms_delivery:9',
+              risk_id: 'sms_delivery:9',
+              risk_type: 'sms_delivery',
+              escalation_level: 'P2',
+              sla_status: 'overdue',
+              aging_minutes: 44,
+              owner_label: 'Owner: kontakt z klientem',
+              numer: 'ARB-OPEN-SMS',
+              klient_nazwa: 'Klient SMS Open',
+            },
+          ],
+        },
+      });
+    }
     if (path === '/automations/daily-digest/history') return Promise.resolve({ data: { items: [], total: 0 } });
     if (path === '/automations/daily-digest/settings') return Promise.resolve({ data: { settings: [] } });
     if (path === '/automations/daily-digest/preview') {
@@ -100,7 +132,27 @@ afterEach(() => {
 test('shows owner acknowledgement register and filters Kommo/SMS acknowledgements', async () => {
   renderKontrola();
 
+  expect(await screen.findByText('Niedomkniete alerty ownerow')).toBeInTheDocument();
+  expect(await screen.findByText('ARB-OPEN-KOMMO')).toBeInTheDocument();
+  expect(await screen.findByText('ARB-OPEN-SMS')).toBeInTheDocument();
+  expect((await screen.findAllByText('P1')).length).toBeGreaterThan(0);
+  expect((await screen.findAllByText('P2')).length).toBeGreaterThan(0);
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith(
+      '/ops/owner-alerts/open',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          date: expect.any(String),
+        }),
+      })
+    );
+  });
+
   expect(await screen.findByText('Rejestr potwierdzen ownerow')).toBeInTheDocument();
+  expect(await screen.findByText('Niedomkniete alerty ownerow')).toBeInTheDocument();
+  expect(await screen.findByText('ARB-OPEN-KOMMO')).toBeInTheDocument();
+  expect(await screen.findByText('ARB-OPEN-SMS')).toBeInTheDocument();
+  expect(await screen.findByText(/P1 \/ kommo_sync \/ overdue/)).toBeInTheDocument();
   expect((await screen.findAllByText('kommo_sync')).length).toBeGreaterThan(0);
   expect((await screen.findAllByText('ARB-KOMMO')).length).toBeGreaterThan(0);
 

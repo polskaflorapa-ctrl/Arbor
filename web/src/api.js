@@ -1914,6 +1914,161 @@ function getTestModeMockResponse(config) {
     };
   }
 
+  if (path === '/ops/owner-alerts/open' && method === 'get') {
+    const source = String(config?.params?.source || '').toLowerCase();
+    const now = Date.now();
+    const all = [
+      {
+        id: 'kommo_sync:501',
+        source_id: 501,
+        type: 'kommo_sync',
+        risk_id: 'kommo_sync:501',
+        task_id: 77,
+        numer: 'ARB-KOMMO',
+        klient_nazwa: 'Klient Kommo',
+        status: 'dead_letter',
+        error: 'Demo dead-letter Kommo',
+        created_at: new Date(now - 75 * 60 * 1000).toISOString(),
+        age_minutes: 75,
+        severity: 'critical',
+        owner_role: 'Dyspozytor/Admin',
+        owner_label: 'Owner: integracje Kommo',
+        escalation: 'P1',
+        sla_status: 'breach',
+        sla_minutes: 30,
+        action_path: '/integracje',
+      },
+      {
+        id: 'sms_delivery:55',
+        source_id: 55,
+        type: 'sms_delivery',
+        risk_id: 'sms_delivery:55',
+        task_id: 88,
+        numer: 'ARB-SMS',
+        klient_nazwa: 'Klient SMS',
+        status: 'failed',
+        provider_status: 'failed',
+        error: 'undelivered',
+        created_at: new Date(now - 45 * 60 * 1000).toISOString(),
+        age_minutes: 45,
+        severity: 'warning',
+        owner_role: 'Kierownik/Dyspozytor',
+        owner_label: 'Owner: kontakt z klientem',
+        escalation: 'P2',
+        sla_status: 'due',
+        sla_minutes: 30,
+        action_path: '/telefonia',
+      },
+    ];
+    const items = all.filter((item) => !source || source === 'all' || (source === 'kommo' && item.type === 'kommo_sync') || (source === 'sms' && item.type === 'sms_delivery'));
+    return {
+      data: {
+        oddzial_id: config?.params?.oddzial_id || null,
+        source: source || 'all',
+        total: items.length,
+        summary: {
+          kommo_sync: items.filter((item) => item.type === 'kommo_sync').length,
+          sms_delivery: items.filter((item) => item.type === 'sms_delivery').length,
+          p1: items.filter((item) => item.escalation === 'P1').length,
+          p2: items.filter((item) => item.escalation === 'P2').length,
+          breach: items.filter((item) => item.sla_status === 'breach').length,
+          due: items.filter((item) => item.sla_status === 'due').length,
+        },
+        items,
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
+  if (path === '/ops/owner-alerts/open' && method === 'get') {
+    const date = getRequestDate(config);
+    const oddzialId = config?.params?.oddzial_id || null;
+    const now = Date.now();
+    const acknowledgedRiskIds = new Set(
+      getMockOpsEvents()
+        .filter((event) => event.action_type === 'risk_acknowledge')
+        .filter((event) => String(event.created_at || '').slice(0, 10) === date)
+        .map((event) => event.risk_id)
+        .filter(Boolean)
+    );
+    const rawItems = [
+      {
+        id: 'kommo_sync:demo-501',
+        risk_id: 'kommo_sync:demo-501',
+        risk_type: 'kommo_sync',
+        source: 'kommo',
+        severity: 'critical',
+        status: 'dead_letter',
+        task_id: 501,
+        numer: 'ARB-KOMMO',
+        klient_nazwa: 'Klient Kommo',
+        oddzial_id: 7,
+        oddzial_nazwa: 'Oddzial Krakow',
+        owner_label: 'Owner: integracje Kommo',
+        owner_role: 'Dyspozytor/Admin',
+        escalation: 'P1 gdy dead-letter > 0 po 30 min',
+        escalation_level: 'P1',
+        sla_status: 'overdue',
+        aging_minutes: 72,
+        sla_minutes: 30,
+        sla_deadline_at: new Date(now - 42 * 60000).toISOString(),
+        action_path: '/integracje',
+      },
+      {
+        id: 'sms_delivery:demo-9',
+        risk_id: 'sms_delivery:demo-9',
+        risk_type: 'sms_delivery',
+        source: 'sms',
+        severity: 'warning',
+        status: 'failed',
+        task_id: 502,
+        numer: 'ARB-SMS',
+        klient_nazwa: 'Klient SMS',
+        oddzial_id: 7,
+        oddzial_nazwa: 'Oddzial Krakow',
+        owner_label: 'Owner: kontakt z klientem',
+        owner_role: 'Kierownik/Dyspozytor',
+        escalation: 'P2 gdy brak dostarczenia po 30 min',
+        escalation_level: 'P2',
+        sla_status: 'overdue',
+        aging_minutes: 44,
+        sla_minutes: 30,
+        sla_deadline_at: new Date(now - 14 * 60000).toISOString(),
+        action_path: '/telefonia',
+      },
+    ].filter((item) => {
+      if (oddzialId && String(item.oddzial_id || '') !== String(oddzialId)) return false;
+      if (acknowledgedRiskIds.has(item.risk_id)) return false;
+      return true;
+    });
+    return {
+      data: {
+        date,
+        oddzial_id: oddzialId,
+        summary: {
+          open_total: rawItems.length,
+          kommo_sync: rawItems.filter((item) => item.risk_type === 'kommo_sync').length,
+          sms_delivery: rawItems.filter((item) => item.risk_type === 'sms_delivery').length,
+          p1: rawItems.filter((item) => item.escalation_level === 'P1').length,
+          p2: rawItems.filter((item) => item.escalation_level === 'P2').length,
+          overdue: rawItems.filter((item) => item.sla_status === 'overdue').length,
+        },
+        items: rawItems,
+        generated_at: new Date().toISOString(),
+      },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      request: {},
+    };
+  }
+
   if (path === '/automations/daily-digest/preview' && method === 'get') {
     const date = getRequestDate(config);
     const events = getMockOpsEvents().filter((event) => String(event.created_at || '').slice(0, 10) === date);

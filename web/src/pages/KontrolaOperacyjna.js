@@ -62,6 +62,7 @@ export default function KontrolaOperacyjna() {
   const [query, setQuery] = useState('');
   const [branches, setBranches] = useState([]);
   const [history, setHistory] = useState({ items: [], summary: { actions: [], issues: [] }, total: 0 });
+  const [openOwnerAlerts, setOpenOwnerAlerts] = useState({ items: [], summary: {}, total: 0 });
   const [digest, setDigest] = useState(null);
   const [digestHistory, setDigestHistory] = useState({ items: [], total: 0 });
   const [digestSettings, setDigestSettings] = useState([]);
@@ -77,6 +78,7 @@ export default function KontrolaOperacyjna() {
     extra_emails: '',
   });
   const [loading, setLoading] = useState(false);
+  const [ownerAlertsLoading, setOwnerAlertsLoading] = useState(false);
   const [digestLoading, setDigestLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -119,6 +121,26 @@ export default function KontrolaOperacyjna() {
       setLoading(false);
     }
   }, [params]);
+
+  const loadOpenOwnerAlerts = useCallback(async () => {
+    setOwnerAlertsLoading(true);
+    try {
+      const token = getStoredToken();
+      const res = await api.get('/ops/owner-alerts/open', {
+        params: {
+          date,
+          limit: 20,
+          ...(oddzialId ? { oddzial_id: oddzialId } : {}),
+        },
+        headers: authHeaders(token),
+      });
+      setOpenOwnerAlerts(res.data || { items: [], summary: {}, total: 0 });
+    } catch {
+      setOpenOwnerAlerts({ items: [], summary: {}, total: 0 });
+    } finally {
+      setOwnerAlertsLoading(false);
+    }
+  }, [date, oddzialId]);
 
   const loadDigestHistory = useCallback(async () => {
     try {
@@ -170,6 +192,10 @@ export default function KontrolaOperacyjna() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  useEffect(() => {
+    loadOpenOwnerAlerts();
+  }, [loadOpenOwnerAlerts]);
 
   useEffect(() => {
     loadDigestHistory();
@@ -254,6 +280,8 @@ export default function KontrolaOperacyjna() {
     .filter((item) => item.action_type === 'risk_acknowledge')
     .reduce((sum, item) => sum + Number(item.count || 0), 0);
   const ownerAckRows = items.filter((item) => item.action_type === 'risk_acknowledge');
+  const openOwnerItems = openOwnerAlerts.items || [];
+  const openOwnerSummary = openOwnerAlerts.summary || {};
   const kommoSmsAckCount = ownerAckRows.filter((item) => ['kommo_sync', 'sms_delivery'].includes(item.risk_type)).length;
   const zadarmaCount = actionSummary
     .filter((item) => ['risk_queue_call', 'risk_resend_sms'].includes(item.action_type))
@@ -363,12 +391,50 @@ export default function KontrolaOperacyjna() {
             <strong style={s.kpiValue}>{ownerAckCount || kommoSmsAckCount}</strong>
           </div>
           <div style={s.kpi}>
+            <span style={s.kpiLabel}>Niedomkniete P1/P2</span>
+            <strong style={s.kpiValue}>{(openOwnerSummary.p1 || 0) + (openOwnerSummary.p2 || 0)}</strong>
+          </div>
+          <div style={s.kpi}>
             <span style={s.kpiLabel}>Typy akcji</span>
             <strong style={s.kpiValue}>{actionSummary.length}</strong>
           </div>
           <div style={s.kpi}>
             <span style={s.kpiLabel}>Ryzyka</span>
             <strong style={s.kpiValue}>{issueSummary.length}</strong>
+          </div>
+        </section>
+
+        <section className="kontrola-panel kontrola-owner-open-alerts" style={s.digestPanel}>
+          <div style={s.panelHeader}>
+            <div>
+              <h2 style={s.h2}>Niedomkniete alerty ownerow</h2>
+              <p style={s.muted}>Kommo/SMS bez potwierdzenia ownera, z agingiem SLA i eskalacja P1/P2.</p>
+            </div>
+            <span style={s.badge}>{ownerAlertsLoading ? 'Ladowanie' : `${openOwnerSummary.open_total ?? openOwnerItems.length} otwarte`}</span>
+          </div>
+          <div style={s.ownerAlertSummary}>
+            <div style={s.digestMetric}><span>Kommo</span><strong>{openOwnerSummary.kommo_sync || 0}</strong></div>
+            <div style={s.digestMetric}><span>SMS</span><strong>{openOwnerSummary.sms_delivery || 0}</strong></div>
+            <div style={s.digestMetric}><span>P1</span><strong>{openOwnerSummary.p1 || 0}</strong></div>
+            <div style={s.digestMetric}><span>P2</span><strong>{openOwnerSummary.p2 || 0}</strong></div>
+            <div style={s.digestMetric}><span>Po SLA</span><strong>{openOwnerSummary.overdue || 0}</strong></div>
+          </div>
+          <div style={s.ownerAckList}>
+            {openOwnerItems.slice(0, 8).map((item) => (
+              <div key={item.id || item.risk_id} style={s.ownerAckItem}>
+                <div>
+                  <strong>{item.escalation || item.escalation_level || 'P2'} / {item.type || item.risk_type || 'alert'} / {item.sla_status || 'ok'}</strong>
+                  <div style={s.subLine}>{item.owner_label || 'Owner: operacje'} / {item.age_minutes ?? item.aging_minutes ?? '-'} min / {item.risk_id || '-'}</div>
+                </div>
+                <div style={s.ownerAckMeta}>
+                  <span>{item.numer || '-'}</span>
+                  <span>{item.klient_nazwa || '-'}</span>
+                </div>
+              </div>
+            ))}
+            {!ownerAlertsLoading && !openOwnerItems.length ? (
+              <div style={s.emptyLine}>Brak niedomknietych alertow ownerow Kommo/SMS.</div>
+            ) : null}
           </div>
         </section>
 
@@ -579,6 +645,7 @@ const s = {
   digestMetric: { border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, padding: 12, background: 'rgba(241,249,244,0.68)' },
   digestList: { display: 'grid', gap: 8, padding: 16 },
   digestAlert: { display: 'grid', gap: 4, padding: 12, border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: 'rgba(241,249,244,0.58)' },
+  ownerAlertSummary: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, padding: 16, borderBottom: '1px solid rgba(15,95,58,0.1)' },
   settingsForm: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end', padding: 16 },
   checkField: { display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 40, color: 'var(--text)', fontWeight: 700 },
   runList: { display: 'grid', gap: 8, padding: 16 },

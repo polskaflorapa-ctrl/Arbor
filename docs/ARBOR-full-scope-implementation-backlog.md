@@ -101,7 +101,8 @@
 - [x] **P0 ops alert owner UI**: Panel Integracje i Telefonia pokazuja `owner_label`, `owner_role`, `escalation`, maja filtr `oddzial_id` i zapis potwierdzenia przez `/ops/risk-report/actions`; `npm run verify:ops-alert-owner-ui` pilnuje kontraktu.
 - [x] **P0 ops owner control register**: Kontrola operacyjna pokazuje rejestr `risk_acknowledge`, filtruje potwierdzenia ownerow po `risk_type=kommo_sync` albo `sms_delivery`, a `/ops/action-history` przyjmuje alias `risk_type`; `npm run verify:ops-owner-control` pilnuje kontraktu.
 - [x] **P0 ops owner digest/export status**: Dzienny digest pokazuje KPI `owner_acknowledgements`, `kommo_owner_acknowledgements`, `sms_owner_acknowledgements`, a CSV historii decyzji eksportuje ownera i status domkniecia potwierdzenia; `npm run verify:ops-owner-control` pilnuje digestu i CSV.
-- [ ] **Nastepny pakiet**: EPIC 9.9 - raport niedomknietych alertow ownerow Kommo/SMS z aging SLA i eskalacja P1/P2.
+- [x] **P0 ops owner open alerts SLA**: `/api/ops/owner-alerts/open` pokazuje niedomkniete alerty Kommo/SMS bez `risk_acknowledge`, liczy aging, `sla_status` i eskalacje P1/P2; Kontrola operacyjna ma panel niedomknietych alertow, a `npm run verify:ops-owner-control` pilnuje endpointu i UI.
+- [ ] **Nastepny pakiet**: EPIC 9.10 - akcje masowe ownerow: potwierdz/eskaluj z panelu niedomknietych alertow Kommo/SMS z audytem.
 
 ---
 

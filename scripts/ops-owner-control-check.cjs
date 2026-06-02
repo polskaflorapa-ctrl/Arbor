@@ -27,6 +27,12 @@ function main() {
   assertIncludes('os/src/services/opsDigest.js', 'kommo_owner_acknowledgements', 'Kommo owner acknowledgement digest KPI');
   assertIncludes('os/src/services/opsDigest.js', 'sms_owner_acknowledgements', 'SMS owner acknowledgement digest KPI');
   assertIncludes('os/src/routes/ops.js', 'owner_ack_status', 'CSV owner acknowledgement status');
+  assertIncludes('os/src/routes/ops.js', "/owner-alerts/open", 'open owner alerts endpoint');
+  assertIncludes('os/src/routes/ops.js', 'ownerAlertSla', 'owner alert SLA aging');
+  assertIncludes('os/tests/ops-kierownik-today.test.js', 'reports unacknowledged Kommo/SMS owner alerts with SLA aging', 'open owner alerts backend test');
+  assertIncludes('web/src/pages/KontrolaOperacyjna.js', 'Niedomkniete alerty ownerow', 'open owner alerts UI');
+  assertIncludes('web/src/api.js', '/ops/owner-alerts/open', 'test-mode open owner alerts API');
+  assertIncludes('web/src/pages/KontrolaOperacyjna.test.js', 'ARB-OPEN-KOMMO', 'open owner alerts UI test');
   assertIncludes('os/tests/opsDigest.test.js', 'Potwierdzenia ownerow: 3 domkniete', 'digest acknowledgement text test');
   assertIncludes('os/tests/ops-kierownik-today.test.js', 'Status potwierdzenia', 'CSV acknowledgement status test');
   assertIncludes('docs/OPS-ALERT-OWNERSHIP-CONTRACT.md', 'Kontrola operacyjna', 'contract control note');

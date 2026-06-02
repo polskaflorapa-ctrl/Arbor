@@ -283,6 +283,32 @@ function riskOwner(type) {
   };
 }
 
+function ownerAlertSla(riskType, severity, alertAt) {
+  const startedAt = new Date(alertAt || Date.now()).getTime();
+  const now = Date.now();
+  const agingMinutes = Number.isFinite(startedAt) ? Math.max(0, Math.round((now - startedAt) / 60000)) : 0;
+  const overdue = agingMinutes >= 30;
+  const isCritical = String(severity || '').toLowerCase() === 'critical';
+  const escalationLevel = riskType === 'kommo_sync'
+    ? (overdue || isCritical ? 'P1' : 'watch')
+    : (overdue || isCritical ? 'P2' : 'watch');
+  return {
+    aging_minutes: agingMinutes,
+    sla_minutes: 30,
+    sla_status: overdue ? 'overdue' : 'watch',
+    escalation_level: escalationLevel,
+    sla_deadline_at: Number.isFinite(startedAt) ? new Date(startedAt + 30 * 60000).toISOString() : null,
+  };
+}
+
+function ownerAlertAckKeys(riskType, riskId, taskId) {
+  return [
+    riskId ? `id:${riskId}` : '',
+    taskId ? `task:${riskType}:${taskId}` : '',
+    `type:${riskType}`,
+  ].filter(Boolean);
+}
+
 function buildManagerRiskReport({ date, tasks = [], marginRisks = [], smsRows = [], proposalRows = [], equipmentRows = [], kommoRows = [] }) {
   const items = [];
   const add = (item) => {
@@ -1844,6 +1870,186 @@ router.get('/action-insights', authMiddleware, requireRole(...MANAGER_ROLES), as
   } catch (e) {
     logger.error('ops action-insights', { message: e.message, requestId: req.requestId });
     res.status(500).json({ error: e.message, requestId: req.requestId });
+  }
+});
+
+router.get('/owner-alerts/open', authMiddleware, requireRole(...MANAGER_ROLES), async (req, res) => {
+  const date = parseDateParam(req.query.date);
+  if (!date) {
+    return res.status(400).json({ error: 'Nieprawidlowa data. Uzyj YYYY-MM-DD.' });
+  }
+
+  const requestedOddzial = req.query.oddzial_id ? Number(req.query.oddzial_id) : null;
+  const oddzialId = scopedOddzialId(req.user, Number.isFinite(requestedOddzial) ? requestedOddzial : null);
+  if (!isDyrektorOrAdmin(req.user) && oddzialId == null) {
+    return res.status(403).json({ error: 'Kierownik nie ma przypisanego oddzialu.' });
+  }
+
+  const riskTypeFilter = cleanText(req.query.risk_type, 60);
+  const allowedRiskTypes = new Set(['kommo_sync', 'sms_delivery']);
+  const activeRiskTypes = allowedRiskTypes.has(riskTypeFilter) ? [riskTypeFilter] : ['kommo_sync', 'sms_delivery'];
+  const branchSql = oddzialId != null ? 'AND t.oddzial_id = $2' : '';
+  const eventBranchSql = oddzialId != null ? 'AND e.oddzial_id = $2' : '';
+  const params = oddzialId != null ? [date, oddzialId] : [date];
+
+  try {
+    await ensureOpsActionEventsTable();
+    const [smsResult, kommoResult, ackResult] = await Promise.all([
+      activeRiskTypes.includes('sms_delivery') ? pool.query(
+        `/* ops.open_owner_sms_alerts */
+         SELECT h.id, h.task_id, h.telefon, h.status, h.provider_status, h.delivery_error_code,
+                h.created_at AS alert_at, t.numer, t.klient_nazwa, t.oddzial_id, b.nazwa AS oddzial_nazwa
+         FROM sms_history h
+         LEFT JOIN tasks t ON t.id = h.task_id
+         LEFT JOIN branches b ON b.id = t.oddzial_id
+         WHERE h.created_at >= $1::date
+           AND h.created_at < $1::date + INTERVAL '1 day'
+           ${branchSql}
+           AND (
+             h.delivery_error_code IS NOT NULL
+             OR LOWER(COALESCE(h.status, '')) LIKE 'blad%'
+             OR LOWER(COALESCE(h.provider_status, '')) IN ('failed', 'undelivered', 'rejected', 'denied', 'error')
+             OR (
+               h.provider_status IS NULL
+               AND h.created_at < NOW() - INTERVAL '30 minutes'
+               AND LOWER(COALESCE(h.status, '')) NOT IN ('dostarczony', 'delivered')
+             )
+           )
+         ORDER BY h.created_at ASC
+         LIMIT 100`,
+        params
+      ) : Promise.resolve({ rows: [] }),
+      activeRiskTypes.includes('kommo_sync') ? pool.query(
+        `/* ops.open_owner_kommo_alerts */
+         SELECT q.id, q.task_id, q.event, q.status, q.retry_count, q.last_error,
+                COALESCE(q.updated_at, q.created_at, q.next_retry_at) AS alert_at,
+                t.numer, t.klient_nazwa, t.oddzial_id, b.nazwa AS oddzial_nazwa
+         FROM task_kommo_sync_queue q
+         LEFT JOIN tasks t ON t.id = q.task_id
+         LEFT JOIN branches b ON b.id = t.oddzial_id
+         WHERE q.status IN ('failed', 'dead_letter')
+           AND COALESCE(q.updated_at, q.created_at, q.next_retry_at) >= $1::date
+           AND COALESCE(q.updated_at, q.created_at, q.next_retry_at) < $1::date + INTERVAL '1 day'
+           ${branchSql}
+         ORDER BY CASE q.status WHEN 'dead_letter' THEN 0 ELSE 1 END, alert_at ASC NULLS LAST
+         LIMIT 100`,
+        params
+      ) : Promise.resolve({ rows: [] }),
+      pool.query(
+        `/* ops.owner_alert_acknowledgements */
+         SELECT e.task_id,
+                e.issue_key,
+                COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report') AS risk_type,
+                e.metadata->>'risk_id' AS risk_id,
+                MAX(e.created_at) AS acknowledged_at
+         FROM ops_action_events e
+         WHERE e.created_at >= $1::date
+           AND e.created_at < $1::date + INTERVAL '1 day'
+           ${eventBranchSql}
+           AND e.action_type = 'risk_acknowledge'
+           AND COALESCE(e.metadata->>'risk_type', e.issue_key, '') = ANY($${params.length + 1}::text[])
+         GROUP BY e.task_id, e.issue_key, COALESCE(e.metadata->>'risk_type', e.issue_key, 'risk_report'), e.metadata->>'risk_id'`,
+        [...params, activeRiskTypes]
+      ),
+    ]);
+
+    const acknowledged = new Map();
+    for (const row of ackResult.rows || []) {
+      for (const key of ownerAlertAckKeys(row.risk_type, row.risk_id, row.task_id)) {
+        acknowledged.set(key, row.acknowledged_at);
+      }
+    }
+
+    const items = [];
+    for (const row of kommoResult.rows || []) {
+      const riskType = 'kommo_sync';
+      const riskId = `kommo_sync:${row.id || row.task_id}`;
+      const ackKeys = ownerAlertAckKeys(riskType, riskId, row.task_id);
+      if (ackKeys.some((key) => acknowledged.has(key))) continue;
+      const owner = riskOwner(riskType);
+      const severity = String(row.status || '').toLowerCase() === 'dead_letter' ? 'critical' : 'warning';
+      items.push({
+        id: riskId,
+        risk_id: riskId,
+        risk_type: riskType,
+        type: riskType,
+        source: 'kommo',
+        severity,
+        status: row.status || 'failed',
+        task_id: row.task_id || null,
+        numer: row.numer || null,
+        klient_nazwa: row.klient_nazwa || null,
+        oddzial_id: row.oddzial_id || oddzialId || null,
+        oddzial_nazwa: row.oddzial_nazwa || null,
+        title: `Kommo ${row.status || 'failed'}: ${row.numer || `#${row.task_id || row.id}`}`,
+        detail: `${row.event || 'task.sync'} / proby: ${Number(row.retry_count || 0)}${row.last_error ? ` / ${String(row.last_error).slice(0, 120)}` : ''}`,
+        alert_at: row.alert_at,
+        owner_role: owner.owner_role,
+        owner_label: owner.owner_label,
+        escalation: owner.escalation,
+        action_path: row.task_id ? `/zlecenia/${row.task_id}?tab=integracje` : '/integracje',
+        ...ownerAlertSla(riskType, severity, row.alert_at),
+      });
+    }
+
+    for (const row of smsResult.rows || []) {
+      const riskType = 'sms_delivery';
+      const riskId = `sms_delivery:${row.id}`;
+      const ackKeys = ownerAlertAckKeys(riskType, riskId, row.task_id);
+      if (ackKeys.some((key) => acknowledged.has(key))) continue;
+      const owner = riskOwner(riskType);
+      const severity = String(row.status || '').toLowerCase().includes('blad') || row.delivery_error_code ? 'critical' : 'warning';
+      items.push({
+        id: riskId,
+        risk_id: riskId,
+        risk_type: riskType,
+        type: riskType,
+        source: 'sms',
+        severity,
+        status: row.provider_status || row.status || 'pending',
+        task_id: row.task_id || null,
+        numer: row.numer || null,
+        klient_nazwa: row.klient_nazwa || null,
+        oddzial_id: row.oddzial_id || oddzialId || null,
+        oddzial_nazwa: row.oddzial_nazwa || null,
+        title: `SMS delivery: ${row.numer || `#${row.task_id || row.id}`}`,
+        detail: `${row.telefon || 'brak numeru'} / ${row.provider_status || row.status || 'brak statusu'}${row.delivery_error_code ? ` / ${row.delivery_error_code}` : ''}`,
+        alert_at: row.alert_at,
+        owner_role: owner.owner_role,
+        owner_label: owner.owner_label,
+        escalation: owner.escalation,
+        action_path: row.task_id ? `/zlecenia/${row.task_id}` : '/telefonia',
+        ...ownerAlertSla(riskType, severity, row.alert_at),
+      });
+    }
+
+    const sorted = items.sort((a, b) => {
+      const levelRank = { P1: 0, P2: 1, watch: 2 };
+      return (levelRank[a.escalation_level] ?? 9) - (levelRank[b.escalation_level] ?? 9)
+        || (b.aging_minutes || 0) - (a.aging_minutes || 0);
+    });
+    const summary = {
+      open_total: sorted.length,
+      kommo_sync: sorted.filter((item) => item.risk_type === 'kommo_sync').length,
+      sms_delivery: sorted.filter((item) => item.risk_type === 'sms_delivery').length,
+      p1: sorted.filter((item) => item.escalation_level === 'P1').length,
+      p2: sorted.filter((item) => item.escalation_level === 'P2').length,
+      overdue: sorted.filter((item) => item.sla_status === 'overdue').length,
+      acknowledged_total: ackResult.rows.length,
+    };
+
+    return res.json({
+      date,
+      oddzial_id: oddzialId,
+      filters: { risk_type: riskTypeFilter || '' },
+      summary,
+      items: sorted.slice(0, 100),
+      generated_at: new Date().toISOString(),
+      requestId: req.requestId,
+    });
+  } catch (e) {
+    logger.error('ops owner-alerts open', { message: e.message, requestId: req.requestId });
+    return res.status(500).json({ error: e.message, requestId: req.requestId });
   }
 });
 

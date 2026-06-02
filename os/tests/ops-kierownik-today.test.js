@@ -866,6 +866,141 @@ describe('GET /api/ops/action-insights', () => {
   });
 });
 
+describe('GET /api/ops/owner-alerts/open', () => {
+  beforeEach(() => {
+    pool.query.mockReset();
+  });
+
+  it('reports unacknowledged Kommo/SMS owner alerts with SLA aging and P1/P2 escalation', async () => {
+    pool.query.mockImplementation(async (sql, params = []) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('ops.open_owner_sms_alerts')) {
+        expect(text).toContain('AND t.oddzial_id = $2');
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [{
+            id: 9,
+            task_id: 77,
+            telefon: '+48111111111',
+            status: 'blad',
+            provider_status: 'failed',
+            delivery_error_code: 'undelivered',
+            alert_at: new Date(Date.now() - 45 * 60000).toISOString(),
+            numer: 'ARB-SMS',
+            klient_nazwa: 'Klient SMS',
+            oddzial_id: 7,
+            oddzial_nazwa: 'Krakow',
+          }],
+        };
+      }
+      if (text.includes('ops.open_owner_kommo_alerts')) {
+        expect(text).toContain('AND t.oddzial_id = $2');
+        expect(params).toEqual(['2026-05-26', 7]);
+        return {
+          rows: [{
+            id: 501,
+            task_id: 88,
+            event: 'task.sync',
+            status: 'dead_letter',
+            retry_count: 4,
+            last_error: '409 conflict',
+            alert_at: new Date(Date.now() - 75 * 60000).toISOString(),
+            numer: 'ARB-KOMMO',
+            klient_nazwa: 'Klient Kommo',
+            oddzial_id: 7,
+            oddzial_nazwa: 'Krakow',
+          }],
+        };
+      }
+      if (text.includes('ops.owner_alert_acknowledgements')) {
+        expect(text).toContain('AND e.oddzial_id = $2');
+        expect(params).toEqual(['2026-05-26', 7, ['kommo_sync', 'sms_delivery']]);
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/owner-alerts/open?date=2026-05-26')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary).toMatchObject({
+      open_total: 2,
+      kommo_sync: 1,
+      sms_delivery: 1,
+      p1: 1,
+      p2: 1,
+      overdue: 2,
+    });
+    expect(res.body.items[0]).toMatchObject({
+      risk_type: 'kommo_sync',
+      risk_id: 'kommo_sync:501',
+      owner_label: 'Owner: integracje Kommo',
+      escalation_level: 'P1',
+      sla_status: 'overdue',
+    });
+    expect(res.body.items[1]).toMatchObject({
+      risk_type: 'sms_delivery',
+      risk_id: 'sms_delivery:9',
+      owner_label: 'Owner: kontakt z klientem',
+      escalation_level: 'P2',
+      sla_status: 'overdue',
+    });
+  });
+
+  it('excludes owner alerts that already have acknowledgement events', async () => {
+    pool.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.includes('CREATE TABLE IF NOT EXISTS ops_action_events') || text.includes('CREATE INDEX IF NOT EXISTS idx_ops_action_events')) {
+        return { rows: [] };
+      }
+      if (text.includes('ops.open_owner_sms_alerts')) {
+        return {
+          rows: [{
+            id: 9,
+            task_id: 77,
+            telefon: '+48111111111',
+            status: 'blad',
+            provider_status: 'failed',
+            delivery_error_code: 'undelivered',
+            alert_at: new Date(Date.now() - 45 * 60000).toISOString(),
+            numer: 'ARB-SMS',
+            klient_nazwa: 'Klient SMS',
+            oddzial_id: 7,
+            oddzial_nazwa: 'Krakow',
+          }],
+        };
+      }
+      if (text.includes('ops.open_owner_kommo_alerts')) return { rows: [] };
+      if (text.includes('ops.owner_alert_acknowledgements')) {
+        return {
+          rows: [{
+            task_id: 77,
+            issue_key: 'sms_delivery',
+            risk_type: 'sms_delivery',
+            risk_id: 'sms_delivery:9',
+            acknowledged_at: '2026-05-26T10:10:00.000Z',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const res = await request(app)
+      .get('/api/ops/owner-alerts/open?date=2026-05-26&risk_type=sms_delivery')
+      .set('Authorization', `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.summary.open_total).toBe(0);
+    expect(res.body.summary.acknowledged_total).toBe(1);
+    expect(res.body.items).toEqual([]);
+  });
+});
+
 describe('GET /api/ops/action-history', () => {
   beforeEach(() => {
     pool.query.mockReset();
