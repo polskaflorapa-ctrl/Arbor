@@ -127,6 +127,8 @@ assertIncludes('scripts/run-pilot-gates.cjs', [
   '--continue-on-fail',
   '--help',
   'Usage:',
+  'Complete:',
+  'Completed gates:',
   'PILOT-AUTOMATED-GATES-',
 ]);
 

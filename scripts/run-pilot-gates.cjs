@@ -104,11 +104,15 @@ function runGate(gate) {
 function writeReport(options, results) {
   fs.mkdirSync(runsDir, { recursive: true });
   const reportPath = path.join(runsDir, `PILOT-AUTOMATED-GATES-${options.date}.md`);
+  const expectedGateCount = options.full ? CORE_GATES.length + FULL_GATES.length : CORE_GATES.length;
+  const complete = results.length === expectedGateCount;
   const lines = [
     `# Pilot automated gates - ${options.date}`,
     '',
     `Mode: ${options.full ? 'full' : 'core'}`,
     `Continue on fail: ${options.continueOnFail ? 'yes' : 'no'}`,
+    `Complete: ${complete ? 'yes' : 'no'}`,
+    `Completed gates: ${results.length}/${expectedGateCount}`,
     '',
     '| Gate | Result | Exit | Duration ms |',
     '| --- | --- | --- | --- |',
@@ -143,6 +147,7 @@ function runPilotGates(options = parseArgs(process.argv.slice(2))) {
     const result = runGate(gate);
     console.log(`[pilot-gates] ${result.status} (${result.durationMs} ms)`);
     results.push(result);
+    writeReport(options, results);
     if (result.status === 'FAIL' && !options.continueOnFail) break;
   }
 

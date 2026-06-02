@@ -8,6 +8,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 
 - [ ] `npm run status:json:strict` przechodzi na srodowisku testowym albo produkcyjnym.
 - [ ] `npm run check` przechodzi lokalnie przed wydaniem.
+- [ ] `npm run verify:pilot-launch` potwierdza `PILOT-LAUNCH-INDEX.md`: merge stack, dane startowe, komendy i GO/NO-GO.
 - [ ] `npm run pilot:run:prepare -- --date YYYY-MM-DD` tworzy raport decyzji i wskazuje raport automatycznych bramek.
 - [ ] `npm run pilot:run:new -- --date YYYY-MM-DD` tworzy raport decyzji w `docs/pilot-runs/` przed realna proba.
 - [ ] `npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail` zapisuje automatyczne PASS/FAIL do `docs/pilot-runs/`.
@@ -54,6 +55,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Backup bazy jest wykonany po migracjach i bootstrapie admina.
 - [ ] Zespol wie, gdzie sa runbooki: `docs/ENVIRONMENT-RUNBOOK.md`, `docs/backup-restore.md`, `docs/MOBILE-OFFLINE-CONTRACT.md`.
 - [ ] Zespol zna produkcyjny dry-run: `docs/PRODUCTION-DEPLOY-DRY-RUN.md`.
+- [ ] Zespol zna indeks startu pilota: `docs/PILOT-LAUNCH-INDEX.md`.
 - [ ] Zespol zna finalna bramke go-live pilota: `docs/PILOT-CLOSURE-GO-LIVE-GATE.md`.
 - [ ] Zespol zna szablon decyzji pilota: `docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md`.
 - [ ] Zespol zna minimum SLO i alertow: `docs/OBSERVABILITY-SLO-RUNBOOK.md`.
@@ -143,6 +145,7 @@ Minimalna bramka przed dniem pilota:
 
 ```powershell
 cd C:\Users\paha1\arbor
+npm run verify:pilot-launch
 npm run pilot:run:prepare -- --date YYYY-MM-DD
 npm run pilot:run:new -- --date YYYY-MM-DD
 npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail
