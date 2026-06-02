@@ -27,6 +27,15 @@ Workflow `deploy-ready` działa tylko na `main` i `master`:
 5. Upewnij się, że CircleCI wskazuje `.circleci/config.yml`.
 6. Uruchom pierwszy pipeline na branchu `master`.
 
+Po podpięciu projektu możesz uruchomić pipeline z repo, jeśli masz token CircleCI:
+
+```powershell
+$env:CIRCLECI_TOKEN="..."
+npm run circleci:trigger -- --branch master
+```
+
+Skrypt używa domyślnie project slug `gh/polskaflorapa-ctrl/Arbor`. Inny slug można podać przez `--project-slug`.
+
 ## GitHub Branch Protection
 
 Jako wymagany status dla pull requestów ustaw:

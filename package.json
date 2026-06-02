@@ -32,6 +32,7 @@
     "status:json": "node ./scripts/status.cjs --json",
     "status:json:strict": "node ./scripts/status.cjs --json --strict",
     "ci:check": "node ./scripts/ci-check.cjs",
+    "circleci:trigger": "node ./scripts/circleci-trigger-pipeline.cjs",
     "verify:circleci": "node ./scripts/circleci-config-check.cjs",
     "verify:scripts": "npm run test:scripts && npm run verify:circleci",
     "verify:mobile": "npm run typecheck -w arbor-mobile && npm run lint -w arbor-mobile",
