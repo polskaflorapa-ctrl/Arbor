@@ -284,6 +284,7 @@ test('blocks office plan when selected team vehicle is in repair', async () => {
     expect(document.body.textContent).toContain('Auto: Mercedes Sprinter KR12345');
     expect(document.body.textContent).toContain('Rebak Forst');
     expect(document.body.textContent).toContain('Zasoby w naprawie');
+    expect(document.body.textContent).toContain('brak aktywnej naprawy');
   }, SLOW_FORM_RENDER);
   const officePlanSection = document.querySelector('[data-detail-section="officePlan"]');
   expect(officePlanSection).toBeTruthy();
@@ -349,6 +350,10 @@ test('closes matched team resource repair directly from office plan', async () =
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
+  await waitFor(() => {
+    expect(within(officePlanSection).queryByRole('button', { name: 'Zakoncz naprawe' })).not.toBeInTheDocument();
+    expect(document.body.textContent).toContain('Zasoby ekipy gotowe');
+  }, SLOW_FORM_RENDER);
 }, 15000);
 
 test('shows backend team resource block details while saving office plan', async () => {

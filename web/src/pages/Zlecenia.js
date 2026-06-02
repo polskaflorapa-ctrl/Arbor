@@ -5118,6 +5118,23 @@ export default function Zlecenia() {
         opis_naprawy: repair.opis_naprawy || 'Zakonczono naprawe z planu biura',
       }, { headers: authHeaders(token) });
       pokazKomunikat('Naprawa zakonczona. Odświeżam zasoby ekipy.');
+      const repairKind = normalizeRepairResourceKind(repair.typ_zasobu);
+      const repairResourceId = String(repair.zasob_id || '');
+      setBranchRepairs((prev) => (prev || []).map((item) => (
+        String(item.id) === String(repair.id)
+          ? { ...item, status: 'Zakonczona', opis_naprawy: item.opis_naprawy || 'Zakonczono naprawe z planu biura' }
+          : item
+      )));
+      if (repairKind === 'Auto') {
+        setBranchVehicles((prev) => (prev || []).map((item) => (
+          String(item.id) === repairResourceId ? { ...item, status: 'Dostepny' } : item
+        )));
+      }
+      if (repairKind === 'Sprzet') {
+        setBranchEquipment((prev) => (prev || []).map((item) => (
+          String(item.id) === repairResourceId ? { ...item, status: 'Dostepny' } : item
+        )));
+      }
       const requestConfig = {
         headers: authHeaders(token),
         params: {
@@ -5132,9 +5149,20 @@ export default function Zlecenia() {
         api.get('/flota/pojazdy', requestConfig).catch(() => ({ data: [] })),
         api.get('/flota/naprawy', requestConfig).catch(() => ({ data: [] })),
       ]);
-      setBranchEquipment(Array.isArray(equipmentRes.data) ? equipmentRes.data : (equipmentRes.data?.items || []));
-      setBranchVehicles(Array.isArray(vehiclesRes.data) ? vehiclesRes.data : (vehiclesRes.data?.items || []));
-      setBranchRepairs(Array.isArray(repairsRes.data) ? repairsRes.data : (repairsRes.data?.items || []));
+      const nextEquipment = Array.isArray(equipmentRes.data) ? equipmentRes.data : (equipmentRes.data?.items || []);
+      const nextVehicles = Array.isArray(vehiclesRes.data) ? vehiclesRes.data : (vehiclesRes.data?.items || []);
+      const nextRepairs = Array.isArray(repairsRes.data) ? repairsRes.data : (repairsRes.data?.items || []);
+      setBranchEquipment(nextEquipment.map((item) => (
+        repairKind === 'Sprzet' && String(item.id) === repairResourceId ? { ...item, status: 'Dostepny' } : item
+      )));
+      setBranchVehicles(nextVehicles.map((item) => (
+        repairKind === 'Auto' && String(item.id) === repairResourceId ? { ...item, status: 'Dostepny' } : item
+      )));
+      setBranchRepairs(nextRepairs.map((item) => (
+        String(item.id) === String(repair.id)
+          ? { ...item, status: 'Zakonczona', opis_naprawy: item.opis_naprawy || 'Zakonczono naprawe z planu biura' }
+          : item
+      )));
     } catch (err) {
       pokazKomunikat(getApiErrorMessage(err, 'Nie udalo sie zakonczyc naprawy'), 'error');
     } finally {
@@ -8935,7 +8963,9 @@ export default function Zlecenia() {
                                 >
                                   Zakoncz naprawe
                                 </button>
-                              ) : null}
+                              ) : (
+                                <span style={s.officePlanMissingRepairBadge}>brak aktywnej naprawy</span>
+                              )}
                             </span>
                           ))}
                         </div>
@@ -13715,6 +13745,19 @@ const s = {
     background: 'rgba(20,131,79,0.12)',
     color: 'var(--accent)',
     cursor: 'pointer',
+    fontSize: 10,
+    fontWeight: 900,
+  },
+  officePlanMissingRepairBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    padding: '4px 7px',
+    borderRadius: 7,
+    border: '1px solid rgba(242,184,75,0.38)',
+    background: 'rgba(242,184,75,0.12)',
+    color: '#9a5f00',
     fontSize: 10,
     fontWeight: 900,
   },
