@@ -2,20 +2,22 @@
 
 Mode: core
 Continue on fail: yes
+Complete: yes
+Completed gates: 11/11
 
 | Gate | Result | Exit | Duration ms |
 | --- | --- | --- | --- |
-| `npm run status:json:strict` | PASS | 0 | 845 |
-| `npm run verify:pilot-closure` | PASS | 0 | 785 |
-| `npm run verify:pilot-execution` | PASS | 0 | 596 |
-| `npm run verify:pilot-hardening` | PASS | 0 | 606 |
-| `npm run verify:rbac-scope` | PASS | 0 | 630 |
-| `npm run verify:kommo-idempotency-retry` | PASS | 0 | 736 |
-| `npm run verify:kommo-sms-drill` | PASS | 0 | 1027 |
-| `npm run verify:backup-rpo` | PASS | 0 | 1033 |
-| `npm run verify:observability` | PASS | 0 | 935 |
-| `npm run verify:web-tti` | PASS | 0 | 891 |
-| `npm run smoke:critical-path` | PASS | 0 | 9154 |
+| `npm run status:json:strict` | PASS | 0 | 692 |
+| `npm run verify:pilot-closure` | PASS | 0 | 636 |
+| `npm run verify:pilot-execution` | PASS | 0 | 946 |
+| `npm run verify:pilot-hardening` | PASS | 0 | 885 |
+| `npm run verify:rbac-scope` | PASS | 0 | 779 |
+| `npm run verify:kommo-idempotency-retry` | PASS | 0 | 676 |
+| `npm run verify:kommo-sms-drill` | PASS | 0 | 2178 |
+| `npm run verify:backup-rpo` | PASS | 0 | 2010 |
+| `npm run verify:observability` | PASS | 0 | 855 |
+| `npm run verify:web-tti` | PASS | 0 | 694 |
+| `npm run smoke:critical-path` | PASS | 0 | 6225 |
 
 ## Logs
 
@@ -138,7 +140,7 @@ Kommo idempotency/retry/dead-letter contract check passed
 Test Suites: 1 passed, 1 total
 Tests:       1 passed, 1 total
 Snapshots:   0 total
-Time:        6.002 s, estimated 7 s
+Time:        3.988 s
 Ran all test suites matching tests/critical-path-smoke.test.js.
 ```
 

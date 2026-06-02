@@ -156,9 +156,30 @@ test('pilot gates writer creates markdown PASS/FAIL evidence', () => {
 
     assert.equal(outputPath, gateReportPath);
     assert.match(text, /# Pilot automated gates - 2099-12-31/);
+    assert.match(text, /Complete: no/);
+    assert.match(text, /Completed gates: 2\/11/);
     assert.match(text, /\| `npm run status:json:strict` \| PASS \| 0 \| 12 \|/);
     assert.match(text, /\| `npm run check` \| FAIL \| 1 \| 34 \|/);
     assert.match(text, /### FAIL - npm run check/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('pilot gates writer marks partial evidence as incomplete', () => {
+  cleanup();
+  try {
+    const outputPath = writeReport(
+      { date: '2099-12-31', full: false, continueOnFail: true },
+      [
+        { command: 'npm run status:json:strict', status: 'PASS', exitCode: 0, durationMs: 12, output: 'ok' },
+      ],
+    );
+    const text = fs.readFileSync(outputPath, 'utf8');
+
+    assert.equal(outputPath, gateReportPath);
+    assert.match(text, /Complete: no/);
+    assert.match(text, /Completed gates: 1\/11/);
   } finally {
     cleanup();
   }
