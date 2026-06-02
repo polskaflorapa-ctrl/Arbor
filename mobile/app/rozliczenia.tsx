@@ -10,9 +10,9 @@ import { OfflineQueueBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiJsonFetch, apiUrl } from '../utils/api-client';
 import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback } from '../utils/offline-queue';
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession, type StoredUser } from '../utils/session';
@@ -67,17 +67,16 @@ export default function RozliczeniaScreen() {
       const flushInfo = await flushOfflineQueue(storedToken);
       setOfflineQueueCount(flushInfo.left);
       setUser(u);
-      const h = { Authorization: `Bearer ${storedToken}` };
 
       if (task_id) {
-        const res = await fetch(`${API_URL}/rozliczenia/zadanie/${task_id}`, { headers: h });
+        const res = await apiFetch(`/rozliczenia/zadanie/${task_id}`, { token: storedToken });
         if (res.ok) {
           const data = await res.json();
           setTask(data.task);
           setPomocnicy(data.pomocnicy);
           setRozliczenie(data.rozliczenie);
           // Zainicjuj formGodziny na podstawie ekipy
-          const ekipaRes = await fetch(`${API_URL}/ekipy/${data.task?.ekipa_id}`, { headers: h });
+          const ekipaRes = await apiFetch(`/ekipy/${data.task?.ekipa_id}`, { token: storedToken });
           if (ekipaRes.ok) {
             const ekipa = await ekipaRes.json();
             const czlonkowie = ekipa.czlonkowie || [];
@@ -106,11 +105,11 @@ export default function RozliczeniaScreen() {
       // Podsumowanie dnia
       if (u?.id) {
         const dzisiaj = toDateKey();
-        const dRes = await fetch(`${API_URL}/rozliczenia/dzien/${u.id}?data=${dzisiaj}`, { headers: h });
+        const dRes = await apiFetch(`/rozliczenia/dzien/${u.id}?data=${dzisiaj}`, { token: storedToken });
         if (dRes.ok) setPodsumowanieDnia(await dRes.json());
       }
       try {
-        const ov = await fetch(`${API_URL}/mobile/me/settlements-overview`, { headers: h });
+        const ov = await apiFetch('/mobile/me/settlements-overview', { token: storedToken });
         if (ov.ok) setMySettlementOverview(await ov.json());
       } catch {
         setMySettlementOverview(null);
@@ -156,7 +155,6 @@ export default function RozliczeniaScreen() {
   const dzisiaj = toDateKey();
     try {
       if (!token) { router.replace('/login'); return; }
-      const h = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
       for (const p of formGodziny) {
         if (!p.godziny || parseFloat(p.godziny) <= 0) continue;
@@ -166,14 +164,15 @@ export default function RozliczeniaScreen() {
           stawka_godzinowa: parseFloat(p.stawka_godzinowa),
           data_pracy: dzisiaj,
         };
-        const res = await fetch(`${API_URL}/rozliczenia/zadanie/${task_id}/godziny`, {
+        const hoursUrl = apiUrl(`/rozliczenia/zadanie/${task_id}/godziny`);
+        const res = await apiJsonFetch(hoursUrl, {
           method: 'POST',
-          headers: h,
+          token,
           body: JSON.stringify(body)
         });
         if (!res.ok) {
           const queued = await queueRequestWithOfflineFallback({
-            url: `${API_URL}/rozliczenia/zadanie/${task_id}/godziny`,
+            url: hoursUrl,
             method: 'POST',
             body: body as Record<string, unknown>,
           });
@@ -187,7 +186,7 @@ export default function RozliczeniaScreen() {
       for (const p of formGodziny) {
         if (!p.godziny || parseFloat(p.godziny) <= 0) continue;
         const queued = await queueRequestWithOfflineFallback({
-          url: `${API_URL}/rozliczenia/zadanie/${task_id}/godziny`,
+          url: apiUrl(`/rozliczenia/zadanie/${task_id}/godziny`),
           method: 'POST',
           body: {
             pomocnik_id: p.pomocnik_id,
@@ -207,9 +206,10 @@ export default function RozliczeniaScreen() {
   const zatwierdz = async (godzinyId: number, status: string) => {
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/rozliczenia/godziny/${godzinyId}/zatwierdz`, {
+      const approveUrl = apiUrl(`/rozliczenia/godziny/${godzinyId}/zatwierdz`);
+      const res = await apiJsonFetch(approveUrl, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify({ status })
       });
       if (res.ok) {
@@ -217,7 +217,7 @@ export default function RozliczeniaScreen() {
         loadAll();
       } else {
         const queued = await queueRequestWithOfflineFallback({
-          url: `${API_URL}/rozliczenia/godziny/${godzinyId}/zatwierdz`,
+          url: approveUrl,
           method: 'PUT',
           body: { status },
         });
@@ -226,7 +226,7 @@ export default function RozliczeniaScreen() {
       }
     } catch {
       const queued = await queueRequestWithOfflineFallback({
-        url: `${API_URL}/rozliczenia/godziny/${godzinyId}/zatwierdz`,
+        url: apiUrl(`/rozliczenia/godziny/${godzinyId}/zatwierdz`),
         method: 'PUT',
         body: { status },
       });
@@ -243,9 +243,10 @@ export default function RozliczeniaScreen() {
     setSaving(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/rozliczenia/zadanie/${task_id}`, {
+      const settlementUrl = apiUrl(`/rozliczenia/zadanie/${task_id}`);
+      const res = await apiJsonFetch(settlementUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(formKalkulator)
       });
       const data = await res.json();
@@ -255,7 +256,7 @@ export default function RozliczeniaScreen() {
         loadAll();
       } else {
         const queued = await queueRequestWithOfflineFallback({
-          url: `${API_URL}/rozliczenia/zadanie/${task_id}`,
+          url: settlementUrl,
           method: 'POST',
           body: formKalkulator as Record<string, unknown>,
         });
@@ -264,7 +265,7 @@ export default function RozliczeniaScreen() {
       }
     } catch {
       const queued = await queueRequestWithOfflineFallback({
-        url: `${API_URL}/rozliczenia/zadanie/${task_id}`,
+        url: apiUrl(`/rozliczenia/zadanie/${task_id}`),
         method: 'POST',
         body: formKalkulator as Record<string, unknown>,
       });

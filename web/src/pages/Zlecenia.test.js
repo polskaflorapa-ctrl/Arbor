@@ -113,6 +113,8 @@ function renderRoute(path) {
         <Route path="/zlecenia/:id" element={<Zlecenia />} />
         <Route path="/auto-dispatch" element={<div>Powrot do AI Dyspozytora</div>} />
         <Route path="/harmonogram" element={<LocationProbe label="Harmonogram fokus" />} />
+        <Route path="/flota" element={<LocationProbe label="Flota fokus" />} />
+        <Route path="/ekipy" element={<LocationProbe label="Ekipy fokus" />} />
         <Route path="/" element={<div>Login</div>} />
       </Routes>
     </MemoryRouter>
@@ -278,8 +280,16 @@ test('blocks office plan when selected team vehicle is in repair', async () => {
   await waitFor(() => expect(screen.getAllByText('Zasoby ekipy').length).toBeGreaterThan(0), SLOW_FORM_RENDER);
   await waitFor(() => {
     expect(document.body.textContent).toContain('Auto: Mercedes Sprinter KR12345');
+    expect(document.body.textContent).toContain('Rebak Forst');
     expect(document.body.textContent).toContain('Zasoby w naprawie');
   }, SLOW_FORM_RENDER);
+  const officePlanSection = document.querySelector('[data-detail-section="officePlan"]');
+  expect(officePlanSection).toBeTruthy();
+  expect(within(officePlanSection).getByRole('button', { name: 'Otworz naprawy' })).toBeInTheDocument();
+  expect(within(officePlanSection).getByRole('button', { name: 'Otworz ekipy' })).toBeInTheDocument();
+  fireEvent.click(within(officePlanSection).getByRole('button', { name: 'Otworz naprawy' }));
+  expect(await screen.findByText(/Flota fokus:/, {}, SLOW_FORM_RENDER)).toBeInTheDocument();
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('tab=naprawy');
 }, 15000);
 
 test('shows backend team resource block details while saving office plan', async () => {

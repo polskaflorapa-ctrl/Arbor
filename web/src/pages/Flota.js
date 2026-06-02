@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import Sidebar from '../components/Sidebar';
@@ -82,9 +82,18 @@ function repairIsClosed(status) {
     .includes('zakoncz');
 }
 
+function normalizeFleetTab(value) {
+  const text = String(value || '').toLowerCase();
+  if (['sprzet', 'equipment'].includes(text)) return 'sprzet';
+  if (['naprawy', 'repairs', 'repair'].includes(text)) return 'naprawy';
+  if (['pojazdy', 'vehicles', 'vehicle'].includes(text)) return 'pojazdy';
+  return 'pojazdy';
+}
+
 export default function Flota() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [pojazdy, setPojazdy] = useState([]);
   const [sprzet, setSprzet] = useState([]);
   const [naprawy, setNaprawy] = useState([]);
@@ -113,6 +122,12 @@ export default function Flota() {
     ekipa_id: '', data_przegladu: '', koszt_motogodziny: '',
     notatki: '', oddzial_id: ''
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    const tab = params.get('tab');
+    if (tab) setActiveTab(normalizeFleetTab(tab));
+  }, [location.search]);
 
   const loadAll = useCallback(async () => {
     try {

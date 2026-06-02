@@ -108,10 +108,10 @@ function mockFlotaApi() {
   });
 }
 
-function renderFlota() {
+function renderFlota(path = '/flota') {
   return render(
     <MemoryRouter
-      initialEntries={['/flota']}
+      initialEntries={[path]}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <LocationProbe />
@@ -230,6 +230,15 @@ test('closes an open repair from fleet repairs tab', async () => {
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
+});
+
+test('opens repairs tab from fleet deep link', async () => {
+  mockFlotaApi();
+
+  renderFlota('/flota?tab=naprawy');
+
+  expect(await screen.findByText('Noze do wymiany')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Zakoncz naprawe' })).toBeInTheDocument();
 });
 
 test('adds broken chipper assigned to a team in one form submit', async () => {

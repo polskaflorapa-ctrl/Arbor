@@ -1,4 +1,4 @@
-const ANDROID_PREVIEW_BUILD_ID = "11b7dd68-da12-424d-a893-1f403d7d29ea";
+const ANDROID_PREVIEW_BUILD_ID = "fbfcac3c-bf86-404a-a5c0-0fd7ce7f134e";
 const ANDROID_PREVIEW_URL = `https://expo.dev/accounts/arboros/projects/arbor-mobile/builds/${ANDROID_PREVIEW_BUILD_ID}`;
 
 function getAndroidPreviewUrl() {

@@ -68,6 +68,6 @@ console.log("");
 
 console.log("QA docs");
 console.log("-------");
-console.log("docs/mobile-preview-release-2026-06-01-android.md");
+console.log("docs/mobile-preview-release-2026-06-02-android.md");
 console.log("docs/mobile-device-smoke-checklist.md");
 console.log("docs/mobile-store-readiness-checklist.md");

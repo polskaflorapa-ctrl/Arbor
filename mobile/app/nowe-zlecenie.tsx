@@ -3371,6 +3371,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   officeIntakeSecondaryText: { color: t.accent, fontSize: 13, fontWeight: '900' },
   journeyPanel: {
+    display: 'none',
     marginHorizontal: 12,
     marginTop: 10,
     borderWidth: 1,
@@ -3504,6 +3505,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   },
   fieldHeroCheckText: { fontSize: 11, fontWeight: '900' },
   fieldHeroMetrics: {
+    display: 'none',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
@@ -3577,13 +3579,13 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   fieldHeroSecondaryText: { color: t.accent, fontSize: 13, fontWeight: '900' },
   quickClientCard: {
     marginHorizontal: 12,
-    marginTop: 10,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: t.cardBorder,
     backgroundColor: t.cardBg,
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
+    borderRadius: 13,
+    padding: 12,
+    gap: 10,
   },
   quickClientHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   quickClientIcon: {

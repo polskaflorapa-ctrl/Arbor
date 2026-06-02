@@ -8837,6 +8837,41 @@ export default function Zlecenia() {
                     ) : null}
                   </div>
                 ) : null}
+                {officePlanTeamResourceSummary.readyToCheck ? (
+                  <div
+                    style={{
+                      ...s.officePlanConflictBox,
+                      ...(officePlanTeamResourceSummary.hardConflict
+                        ? s.officePlanConflictBox_danger
+                        : s.officePlanConflictBox_good),
+                    }}
+                  >
+                    <div>
+                      <span style={s.detailOpsEyebrow}>Zasoby przypisane do ekipy</span>
+                      <strong style={s.officePlanConflictTitle}>{officePlanTeamResourceSummary.label}</strong>
+                      <small style={s.officePlanConflictDetail}>{officePlanTeamResourceSummary.detail}</small>
+                    </div>
+                    {officePlanTeamResourceSummary.items.length ? (
+                      <>
+                        <div style={s.officePlanConflictList}>
+                          {officePlanTeamResourceSummary.items.map((item) => (
+                            <span key={`${item.kind}-${item.id}`}>
+                              {item.kind}: {item.label}{item.status ? ` - ${item.status}` : ''}
+                            </span>
+                          ))}
+                        </div>
+                        <div style={s.officePlanConflictActions}>
+                          <button type="button" style={s.officePlanAssistantBtnSecondary} onClick={() => navigate('/flota?tab=naprawy')}>
+                            Otworz naprawy
+                          </button>
+                          <button type="button" style={s.officePlanAssistantBtnSecondary} onClick={() => navigate('/ekipy')}>
+                            Otworz ekipy
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
                 {officePlanEquipmentConflictSummary.readyToCheck ? (
                   <div
                     style={{
@@ -13573,6 +13608,13 @@ const s = {
     fontWeight: 850,
     lineHeight: 1.25,
     textAlign: 'right',
+  },
+  officePlanConflictActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
   },
   officePlanGrid: {
     display: 'grid',

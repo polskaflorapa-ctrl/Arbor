@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
+import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
 const STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane'] as const;
@@ -121,9 +121,7 @@ export default function CrmPipelineMobileScreen() {
     if (!tokenToUse || !leadId) return;
     setLoadingActivities(true);
     try {
-      const res = await fetch(`${API_URL}/crm/leads/${leadId}/activities`, {
-        headers: { Authorization: `Bearer ${tokenToUse}` },
-      });
+      const res = await apiFetch(`/crm/leads/${leadId}/activities`, { token: tokenToUse });
       const data = await parseResponse(res);
       if (!res.ok) {
         throw new Error(typeof data === 'object' && data && 'error' in data ? String((data as { error?: string }).error) : 'Blad aktywnosci');
@@ -145,12 +143,8 @@ export default function CrmPipelineMobileScreen() {
     try {
       const qs = oddzialToUse ? `?oddzial_id=${oddzialToUse}` : '';
       const [overviewRes, leadsRes] = await Promise.all([
-        fetch(`${API_URL}/crm/overview${qs}`, {
-          headers: { Authorization: `Bearer ${tokenToUse}` },
-        }),
-        fetch(`${API_URL}/crm/leads${qs}`, {
-          headers: { Authorization: `Bearer ${tokenToUse}` },
-        }),
+        apiFetch(`/crm/overview${qs}`, { token: tokenToUse }),
+        apiFetch(`/crm/leads${qs}`, { token: tokenToUse }),
       ]);
       const overviewData = await parseResponse(overviewRes);
       const leadsData = await parseResponse(leadsRes);
@@ -210,12 +204,9 @@ export default function CrmPipelineMobileScreen() {
         source: leadSource.trim() || 'mobile',
         value: Number(leadValue) || 0,
       };
-      const res = await fetch(`${API_URL}/crm/leads`, {
+      const res = await apiJsonFetch('/crm/leads', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify(payload),
       });
       const data = await parseResponse(res);
@@ -243,12 +234,9 @@ export default function CrmPipelineMobileScreen() {
     if (nextIdx === idx) return;
     const nextStage = STAGES[nextIdx];
     try {
-      const res = await fetch(`${API_URL}/crm/leads/${lead.id}`, {
+      const res = await apiJsonFetch(`/crm/leads/${lead.id}`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify({ stage: nextStage }),
       });
       const data = await parseResponse(res);
@@ -270,12 +258,9 @@ export default function CrmPipelineMobileScreen() {
     }
     setActivityBusy(true);
     try {
-      const res = await fetch(`${API_URL}/crm/leads/${selectedLead.id}/activities`, {
+      const res = await apiJsonFetch(`/crm/leads/${selectedLead.id}/activities`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify({ type: activityType, text: activityText.trim() }),
       });
       const data = await parseResponse(res);
@@ -297,12 +282,9 @@ export default function CrmPipelineMobileScreen() {
   const markTaskDone = async (activityId: number) => {
     if (!token || !selectedLead) return;
     try {
-      const res = await fetch(`${API_URL}/crm/leads/${selectedLead.id}/activities/${activityId}`, {
+      const res = await apiJsonFetch(`/crm/leads/${selectedLead.id}/activities/${activityId}`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        token,
         body: JSON.stringify({ completed: true }),
       });
       if (!res.ok) throw new Error('Nie udalo sie zamknac zadania.');

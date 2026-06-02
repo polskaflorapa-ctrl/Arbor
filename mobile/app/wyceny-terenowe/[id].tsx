@@ -20,8 +20,8 @@ import {
 } from 'react-native';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { useTheme } from '../../constants/ThemeContext';
-import { API_URL } from '../../constants/api';
 import type { Theme } from '../../constants/theme';
+import { apiFetch, apiJsonFetch, apiUrl, authHeaders } from '../../utils/api-client';
 import { supportsQuotationsModule } from '../../utils/api-capabilities';
 import { getStoredSession } from '../../utils/session';
 
@@ -131,9 +131,9 @@ export default function WycenaTerenowaDetailScreen() {
       }
       setLegacyFallback(false);
       const [rq, ri, rn] = await Promise.all([
-        fetch(`${API_URL}/quotations/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/quotations/${id}/items`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/quotations/norms/service-times`, { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch(`/quotations/${id}`, { token }),
+        apiFetch(`/quotations/${id}/items`, { token }),
+        apiFetch('/quotations/norms/service-times', { token }),
       ]);
       if (!rq.ok) {
         if (rq.status === 404) {
@@ -173,17 +173,16 @@ export default function WycenaTerenowaDetailScreen() {
 
   const gatunki = useMemo(() => [...new Set(norms.map((n) => n.gatunek_key))], [norms]);
 
-  const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const { token } = await getStoredSession();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return authHeaders(token);
   }, []);
 
   const postJson = async (path: string, body: object) => {
-    const h = await authHeaders();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...h };
-    return fetch(`${API_URL}${path}`, {
+    const { token } = await getStoredSession();
+    return apiJsonFetch(path, {
       method: 'POST',
-      headers,
+      token,
       body: JSON.stringify(body),
     });
   };
@@ -230,11 +229,10 @@ export default function WycenaTerenowaDetailScreen() {
       return;
     }
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    const patchH = await authHeaders();
-    const patchHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...patchH };
-    await fetch(`${API_URL}/quotations/${id}`, {
+    const { token } = await getStoredSession();
+    await apiJsonFetch(`/quotations/${id}`, {
       method: 'PATCH',
-      headers: patchHeaders,
+      token,
       body: JSON.stringify({
         waznosc_do: waznoscIso,
         korekta_uzasadnienie: korektaTxt || null,
@@ -280,11 +278,11 @@ export default function WycenaTerenowaDetailScreen() {
     const pick = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
     if (pick.canceled || !pick.assets[0]) return;
     const asset = pick.assets[0];
-    const h = await authHeaders();
+    const h = await getAuthHeaders();
     const formData = new FormData();
     formData.append('zdjecie', { uri: asset.uri, name: 'photo.jpg', type: 'image/jpeg' } as any);
     formData.append('photo_kind', 'general');
-    const res = await fetch(`${API_URL}/quotations/${id}/items/${itemId}/zdjecia`, {
+    const res = await fetch(apiUrl(`/quotations/${id}/items/${itemId}/zdjecia`), {
       method: 'POST',
       headers: h as Record<string, string>,
       body: formData,
