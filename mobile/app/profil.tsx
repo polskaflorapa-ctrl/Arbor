@@ -3,7 +3,16 @@ import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, StatusBar } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { isPrivacyLockEnabled, setPrivacyLockEnabled } from '../components/app-privacy-lock';
 import {
   getLiveGpsStatusSnapshot,
@@ -23,7 +32,7 @@ import { getRoleDisplayName } from '../utils/role-display';
 import { clearStoredSession, getStoredSession, type StoredUser } from '../utils/session';
 import { unregisterExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export default function ProfilScreen() {
@@ -167,7 +176,7 @@ export default function ProfilScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
 
       {/* Header z awatarem */}
       <View style={S.heroHeader}>

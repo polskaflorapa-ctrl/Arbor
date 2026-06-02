@@ -6,7 +6,6 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -25,7 +24,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type OgledzinyLite = {
   id: number;
   status?: string;
@@ -227,7 +226,7 @@ export default function WyceniajacyHubScreen() {
   if (!guard.ready || loading) {
     return (
       <View style={S.root}>
-        <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+        <AppStatusBar />
         <DashboardSkeleton />
       </View>
     );
@@ -239,7 +238,7 @@ export default function WyceniajacyHubScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />

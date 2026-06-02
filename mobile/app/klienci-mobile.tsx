@@ -8,7 +8,6 @@ import {
   Modal,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -22,6 +21,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type ClientListItem = {
   id: number;
   imie?: string | null;
@@ -309,7 +309,7 @@ export default function KlienciMobileScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader
         title="Klienci"
         right={(

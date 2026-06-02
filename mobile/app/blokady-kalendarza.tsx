@@ -5,7 +5,6 @@ import {
   Alert,
   Modal,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +20,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { triggerHaptic } from '../utils/haptics';
 import { type CalendarBlock, loadCalendarBlocks, saveCalendarBlocks } from '../utils/calendar-blocks';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 function isYmd(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
@@ -94,7 +94,7 @@ export default function BlokadyKalendarzaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader
         title={t('calendarBlocks.title')}
         right={

@@ -1,18 +1,21 @@
-import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, StatusBar,
-  StyleSheet, Text, TouchableOpacity, View
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useTheme } from '../constants/ThemeContext';
 import { getApiUrl } from '../constants/api';
 import type { Theme } from '../constants/theme';
 import { getStoredSession } from '../utils/session';
-import { triggerHaptic } from '../utils/haptics';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
+import { ScreenHeader } from '../components/ui/screen-header';
 export default function PomocnikScreen() {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
@@ -61,27 +64,15 @@ export default function PomocnikScreen() {
 
   return (
     <View style={S.container}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
-      {/* Header */}
-      <View style={S.header}>
-        <TouchableOpacity
-          onPress={() => {
-            void triggerHaptic('light');
-            safeBack();
-          }}
-          style={S.backBtn}
-        >
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
-        </TouchableOpacity>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-          <Ionicons name="people-outline" size={20} color={theme.headerText} />
-          <Text style={S.title}>Moja ekipa</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Moja ekipa"
+        titleAlign="start"
+        titleIcon={<Ionicons name="people-outline" size={20} color={theme.headerText} />}
+        paddingTop={56}
+        edgeSlotWidth={48}
+      />
 
       <FlatList
         style={{ flex: 1, padding: 12 }}
@@ -120,14 +111,6 @@ export default function PomocnikScreen() {
 const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: t.bg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: t.bg },
-  header: {
-    backgroundColor: t.headerBg, paddingHorizontal: 16,
-    paddingTop: 56, paddingBottom: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderBottomWidth: 1, borderBottomColor: t.border,
-  },
-  backBtn: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: 'bold', color: t.headerText },
   card: {
     backgroundColor: t.cardBg, padding: 16, borderRadius: 14, marginBottom: 10,
     flexDirection: 'row', alignItems: 'center', gap: 12,

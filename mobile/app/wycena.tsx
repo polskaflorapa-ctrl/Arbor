@@ -14,8 +14,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Animated, Image, Linking,
   Modal, Platform, RefreshControl, ScrollView, Share,
-  StyleSheet, Text, TouchableOpacity, View, StatusBar,
+  StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { AppStatusBar } from '../components/ui/app-status-bar';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
@@ -37,7 +38,6 @@ import { safeBack } from '../utils/navigation';
 
 // ─── Typy ─────────────────────────────────────────────────────────────────────
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
 const WYNIKI_BASE: { value: string; icon: IoniconName }[] = [
@@ -275,7 +275,7 @@ export default function WycenaScreen() {
   // ─── MAIN VIEW ────────────────────────────────────────────────────────────
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
 
       {/* Header */}
       <View style={S.header}>

@@ -5,8 +5,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View, StatusBar,
+  StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { AppStatusBar } from '../components/ui/app-status-bar';
 import { DashboardSkeleton } from '../components/ui/skeleton-block';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
 import { PlatinumCard } from '../components/ui/platinum-card';
@@ -635,10 +636,7 @@ export default function DashboardScreen() {
   if (loading) {
     return (
       <View style={S.root}>
-        <StatusBar
-          barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={ARBOR_UI.paper}
-        />
+        <AppStatusBar backgroundColor={ARBOR_UI.paper} />
         <DashboardSkeleton />
       </View>
     );
@@ -646,10 +644,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={ARBOR_UI.paper}
-      />
+      <AppStatusBar backgroundColor={ARBOR_UI.paper} />
 
       {/* ─── HEADER ─────────────────────────────────────────────────────────── */}
       <View style={S.header}>

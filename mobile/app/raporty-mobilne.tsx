@@ -3,8 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, RefreshControl, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View, StatusBar,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
@@ -14,7 +19,7 @@ import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession } from '../utils/session';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 interface ReportStats {
   total_tasks: number;
   total_hours: number;
@@ -94,10 +99,7 @@ export default function RaportyMobilneScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>

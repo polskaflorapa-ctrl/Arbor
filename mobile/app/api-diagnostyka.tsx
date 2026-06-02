@@ -4,7 +4,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, Share, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import { API_URL, CUSTOM_API_URL_STORAGE_KEY, EXPECTED_API_VERSION, WEB_APP_URL, getApiUrl, setRuntimeApiUrl } from '../constants/api';
@@ -37,6 +48,7 @@ import {
   type LiveGpsStatusSnapshot,
 } from '../components/live-gps-heartbeat';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type DiagnosticResult = {
   name: string;
   status: 'idle' | 'ok' | 'error';
@@ -621,7 +633,7 @@ export default function ApiDiagnostykaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity
           onPress={() => {

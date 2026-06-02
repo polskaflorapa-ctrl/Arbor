@@ -1,8 +1,16 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Linking, Modal, RefreshControl, ScrollView, Share,
-  StyleSheet, StatusBar, Text, TouchableOpacity, View
+  ActivityIndicator,
+  Linking,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
@@ -21,6 +29,7 @@ import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { TASK_STATUS, isTaskClosed, makeTaskStatusColorMap } from '../constants/task-workflow';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const FIELD_PHOTO_REQUIREMENTS = [
   { key: 'photo_wycena', label: 'Wycena', icon: 'camera-outline' },
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
@@ -905,10 +914,7 @@ export default function HarmonogramScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       <ScrollView
         style={S.container}

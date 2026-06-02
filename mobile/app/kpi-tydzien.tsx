@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { API_URL } from '../constants/api';
 import { useLanguage } from '../constants/LanguageContext';
@@ -11,6 +18,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { loadAutoplanHistory, type AutoplanHistoryItem } from '../utils/autoplan-history';
 import { getStoredSession } from '../utils/session';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type RankingRow = {
   rank: number;
   team_id: number;
@@ -132,7 +140,7 @@ export default function KpiTydzienScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title={t('kpiWeek.title')} />
       <ScrollView
         style={S.scroll}

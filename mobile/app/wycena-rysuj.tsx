@@ -1,4 +1,3 @@
-import { safeBack } from '../utils/navigation';
 /**
  * Ekran rysowania na zdjęciu wyceny
  * Nawigacja: router.push(`/wycena-rysuj?uri=${encodeURIComponent(photoUri)}&wycenaId=${id}`)
@@ -9,10 +8,11 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, PanResponder,
-  ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar, useWindowDimensions,
+  ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
+import { AppStatusBar } from '../components/ui/app-status-bar';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
@@ -22,6 +22,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { createOfflineRequestId, enqueueOfflineRequest, queueTaskPhotoOffline } from '../utils/offline-queue';
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
+import { safeBack } from '../utils/navigation';
 
 /** Stała paleta kreślarska (nie motyw UI — musi być czytelna na zdjęciu). */
 const KOLORY = [
@@ -360,7 +361,7 @@ export default function WycenaRysujScreen() {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       {/* Toolbar górny */}
       <View style={s.toolbar}>
         <TouchableOpacity

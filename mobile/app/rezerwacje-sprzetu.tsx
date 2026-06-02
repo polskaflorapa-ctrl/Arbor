@@ -14,7 +14,6 @@ import {
   RefreshControl,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -47,7 +46,7 @@ import {
   updateLocalStatus,
 } from '../utils/sprzet-rezerwacje';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const CREATE_ALLOWED_STATUSES: RezerwacjaStatus[] = ['Zarezerwowane', 'Wydane'];
 
 const STATUS_TRANSITIONS: Record<RezerwacjaStatus, RezerwacjaStatus[]> = {
@@ -569,7 +568,7 @@ export default function RezerwacjeSprzetuScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

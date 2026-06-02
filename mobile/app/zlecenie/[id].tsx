@@ -6,9 +6,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, RefreshControl,
-  ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity,
-  View, StatusBar,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  PanResponder,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
@@ -118,9 +131,8 @@ import {
   type PhotoTypeKey,
 } from '../../utils/zlecenie-detail';
 
-
+import { AppStatusBar } from '../../components/ui/app-status-bar';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
 
 interface GpsCoords {
   lat: number;
@@ -4050,10 +4062,7 @@ export default function ZlecenieDetailScreen() {
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
     <View style={S.container}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       {/* ── HEADER ── */}
       <View style={S.header}>

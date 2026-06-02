@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -37,7 +36,7 @@ import {
 } from '../utils/oddzial-features';
 import { getStoredSession } from '../utils/session';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 export default function OddzialFunkcjeAdminScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -178,7 +177,7 @@ export default function OddzialFunkcjeAdminScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={22} color={theme.headerText} />

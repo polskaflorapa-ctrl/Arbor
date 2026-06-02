@@ -15,7 +15,6 @@ import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
-import { API_URL } from '../constants/api';
 import { shadowStyle } from '../constants/elevation';
 import {
   TASK_PRIORITIES,
@@ -49,11 +48,12 @@ import {
 } from '../utils/field-protocol';
 import { triggerHaptic } from '../utils/haptics';
 import { openAddressInMaps } from '../utils/maps-link';
+import { apiFetch, apiJsonFetch, apiUrl, authHeaders } from '../utils/api-client';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { isPositiveNumber, isValidIsoDate, isValidPolishPhone, isValidTimeHHMM } from '../utils/validators';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
   return String(value || '');
@@ -402,17 +402,13 @@ export default function NoweZlecenieScreen() {
     setEkipyLoading(true);
     try {
       const day = dateValue || new Date().toISOString().split('T')[0];
-      const res = await fetch(`${API_URL}/oddzialy/${oddzialId}/zasoby?date=${encodeURIComponent(day)}`, {
-        headers: { Authorization: `Bearer ${storedToken}` },
-      });
+      const res = await apiFetch(`/oddzialy/${oddzialId}/zasoby?date=${encodeURIComponent(day)}`, { token: storedToken });
       if (!res.ok) throw new Error('branch_resources_failed');
       const data = await res.json();
       setEkipy(Array.isArray(data?.ekipy) ? data.ekipy : []);
     } catch {
       try {
-        const fallback = await fetch(`${API_URL}/ekipy?oddzial_id=${encodeURIComponent(oddzialId)}&include_delegacje=1&date=${encodeURIComponent(dateValue || new Date().toISOString().split('T')[0])}`, {
-          headers: { Authorization: `Bearer ${storedToken}` },
-        });
+        const fallback = await apiFetch(`/ekipy?oddzial_id=${encodeURIComponent(oddzialId)}&include_delegacje=1&date=${encodeURIComponent(dateValue || new Date().toISOString().split('T')[0])}`, { token: storedToken });
         if (fallback.ok) {
           const data = await fallback.json();
           setEkipy(Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []);
@@ -433,10 +429,9 @@ export default function NoweZlecenieScreen() {
       setToken(storedToken);
       await flushOfflineQueue(storedToken);
       setUser(u);
-      const h = { Authorization: `Bearer ${storedToken}` };
       const [oRes, eRes] = await Promise.all([
-        fetch(`${API_URL}/oddzialy`, { headers: h }),
-        fetch(`${API_URL}/ekipy`, { headers: h }),
+        apiFetch('/oddzialy', { token: storedToken }),
+        apiFetch('/ekipy', { token: storedToken }),
       ]);
       if (oRes.ok) setOddzialy(await oRes.json());
       if (eRes.ok) setEkipy(await eRes.json());
@@ -1097,9 +1092,9 @@ export default function NoweZlecenieScreen() {
           type: 'image/jpeg',
         } as any);
 
-        const res = await fetch(`${API_URL}/tasks/${taskId}/zdjecia`, {
+        const res = await fetch(apiUrl(`/tasks/${taskId}/zdjecia`), {
           method: 'POST',
-          headers: { Authorization: `Bearer ${authToken}`, 'Idempotency-Key': idempotencyKey },
+          headers: authHeaders(authToken, { 'Idempotency-Key': idempotencyKey }),
           body: formData,
         });
 
@@ -1108,7 +1103,7 @@ export default function NoweZlecenieScreen() {
         } else if (res.status >= 500) {
           queued = await queueTaskPhotoOffline({
             id: idempotencyKey,
-            url: `${API_URL}/tasks/${taskId}/zdjecia`,
+            url: apiUrl(`/tasks/${taskId}/zdjecia`),
             fileUri: photo.uri,
             typ: photo.typ,
             lat: photo.lat,
@@ -1122,7 +1117,7 @@ export default function NoweZlecenieScreen() {
       } catch {
         queued = await queueTaskPhotoOffline({
           id: idempotencyKey,
-          url: `${API_URL}/tasks/${taskId}/zdjecia`,
+          url: apiUrl(`/tasks/${taskId}/zdjecia`),
           fileUri: photo.uri,
           typ: photo.typ,
           lat: photo.lat,
@@ -1147,13 +1142,10 @@ export default function NoweZlecenieScreen() {
       notatki_wyniki: note,
     };
     try {
-      const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/status`, {
+      const res = await apiJsonFetch(`/ogledziny/${inspectionId}/status`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': requestId,
-        },
+        token: authToken,
+        headers: { 'Idempotency-Key': requestId },
         body: JSON.stringify(body),
       });
       if (res.ok) return { ok: true, queued: false };
@@ -1161,7 +1153,7 @@ export default function NoweZlecenieScreen() {
         await enqueueOfflineRequest({
           id: requestId,
           dedupeKey: `ogledziny:${inspectionId}:draft-status`,
-          url: `${API_URL}/ogledziny/${inspectionId}/status`,
+          url: apiUrl(`/ogledziny/${inspectionId}/status`),
           method: 'PUT',
           body,
         });
@@ -1172,7 +1164,7 @@ export default function NoweZlecenieScreen() {
       await enqueueOfflineRequest({
         id: requestId,
         dedupeKey: `ogledziny:${inspectionId}:draft-status`,
-        url: `${API_URL}/ogledziny/${inspectionId}/status`,
+        url: apiUrl(`/ogledziny/${inspectionId}/status`),
         method: 'PUT',
         body,
       });
@@ -1207,13 +1199,10 @@ export default function NoweZlecenieScreen() {
       const requestId = createOfflineRequestId(`ogledziny-${inspectionId}-wycena-${wycenaId}`);
       const body = { wycena_id: wycenaId };
       try {
-        const res = await fetch(`${API_URL}/ogledziny/${inspectionId}/wycena`, {
+        const res = await apiJsonFetch(`/ogledziny/${inspectionId}/wycena`, {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${args.authToken}`,
-            'Content-Type': 'application/json',
-            'Idempotency-Key': requestId,
-          },
+          token: args.authToken,
+          headers: { 'Idempotency-Key': requestId },
           body: JSON.stringify(body),
         });
         if (res.ok) {
@@ -1222,7 +1211,7 @@ export default function NoweZlecenieScreen() {
           await enqueueOfflineRequest({
             id: requestId,
             dedupeKey: `ogledziny:${inspectionId}:wycena`,
-            url: `${API_URL}/ogledziny/${inspectionId}/wycena`,
+            url: apiUrl(`/ogledziny/${inspectionId}/wycena`),
             method: 'POST',
             body,
           });
@@ -1232,7 +1221,7 @@ export default function NoweZlecenieScreen() {
         await enqueueOfflineRequest({
           id: requestId,
           dedupeKey: `ogledziny:${inspectionId}:wycena`,
-          url: `${API_URL}/ogledziny/${inspectionId}/wycena`,
+          url: apiUrl(`/ogledziny/${inspectionId}/wycena`),
           method: 'POST',
           body,
         });
@@ -1272,9 +1261,7 @@ export default function NoweZlecenieScreen() {
   const loadNextInspectionCandidate = async (authToken: string) => {
     const currentId = prefillInspectionId ? String(prefillInspectionId) : '';
     try {
-      const res = await fetch(`${API_URL}/ogledziny`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+      const res = await apiFetch('/ogledziny', { token: authToken });
       if (!res.ok) return null;
       const data = await res.json();
       const list: NextInspectionCandidate[] = Array.isArray(data) ? data : [];
@@ -1457,9 +1444,9 @@ export default function NoweZlecenieScreen() {
     setSaving(true);
     try {
       if (!token) { router.replace('/login'); return; }
-      const res = await fetch(`${API_URL}/tasks/nowe`, {
+      const res = await apiJsonFetch('/tasks/nowe', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        token,
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
@@ -1559,7 +1546,7 @@ export default function NoweZlecenieScreen() {
       }
     } catch {
       await enqueueOfflineRequest({
-        url: `${API_URL}/tasks/nowe`,
+        url: apiUrl('/tasks/nowe'),
         method: 'POST',
         body: payload as Record<string, unknown>,
       });
@@ -1598,10 +1585,7 @@ export default function NoweZlecenieScreen() {
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
       <ScrollView
         style={S.container}
         contentContainerStyle={{ paddingBottom: 48, flexGrow: 1 }}

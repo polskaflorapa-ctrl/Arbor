@@ -11,13 +11,13 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppStatusBar } from '../../components/ui/app-status-bar';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { useTheme } from '../../constants/ThemeContext';
 import type { Theme } from '../../constants/theme';
@@ -308,7 +308,7 @@ export default function WycenaTerenowaDetailScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={s.center}>
-        <StatusBar barStyle={'light-content'} />
+        <AppStatusBar />
         <ActivityIndicator color={theme.accent} />
       </KeyboardSafeScreen>
     );
@@ -317,7 +317,7 @@ export default function WycenaTerenowaDetailScreen() {
   if (!q) {
     return (
       <KeyboardSafeScreen style={s.screen}>
-        <StatusBar barStyle={'light-content'} />
+        <AppStatusBar />
         <View style={s.header}>
           <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
@@ -350,7 +350,7 @@ export default function WycenaTerenowaDetailScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
-      <StatusBar barStyle={'light-content'} />
+      <AppStatusBar />
       <View style={s.header}>
         <TouchableOpacity onPress={() => safeBack()} style={s.backBtn}>
           <Ionicons name="chevron-back" size={26} color={theme.text} />

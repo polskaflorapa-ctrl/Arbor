@@ -6,7 +6,6 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +19,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const STAGES = ['Lead', 'Oferta', 'W realizacji', 'Wygrane', 'Przegrane'] as const;
 type StageName = (typeof STAGES)[number];
 type ActivityType = 'note' | 'call' | 'task';
@@ -306,7 +306,7 @@ export default function CrmPipelineMobileScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title="CRM Pipeline" />
       <ScrollView
         style={S.scroll}

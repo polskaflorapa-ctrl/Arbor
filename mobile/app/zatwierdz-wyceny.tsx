@@ -2,9 +2,19 @@ import { safeBack } from '../utils/navigation';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, RefreshControl, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, Animated,
-  KeyboardAvoidingView, Platform,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
@@ -22,7 +32,7 @@ import { PlatinumPressable } from '../components/ui/platinum-pressable';
 import { PLATINUM_MOTION } from '../constants/motion';
 import { triggerHaptic } from '../utils/haptics';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const APPROVE_ROLES = ['Kierownik', 'Administrator', 'Dyrektor', 'Specjalista'];
 
 const TABS = ['oczekuje', 'rezerwacja_wstepna', 'do_specjalisty', 'zatwierdzono', 'odrzucono'] as const;
@@ -228,10 +238,7 @@ export default function ZatwierdzWycenyScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       {/* Header */}
       <View style={S.header}>

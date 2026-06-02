@@ -6,7 +6,6 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +19,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { apiFetch, apiJsonFetch } from '../utils/api-client';
 import { getStoredSession } from '../utils/session';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type SmsRow = {
   id: number;
   task_id?: number | null;
@@ -323,7 +323,7 @@ export default function TelefoniaMobileScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title="Telefonia i SMS" />
       <View style={S.tabRow}>
         <TouchableOpacity style={[S.tabBtn, tab === 'calls' && S.tabBtnActive]} onPress={() => setTab('calls')}>

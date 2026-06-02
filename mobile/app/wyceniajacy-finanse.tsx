@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -27,6 +26,7 @@ import {
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getStoredSession, type StoredUser } from '../utils/session';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 function ymFromDate(d: Date) {
   const y = d.getFullYear();
   const m = d.getMonth() + 1;
@@ -117,7 +117,7 @@ export default function WyceniajacyFinanseScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title={t('estimatorFinance.title')} />
 
       <ScrollView

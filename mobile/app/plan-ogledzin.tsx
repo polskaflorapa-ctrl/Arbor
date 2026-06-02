@@ -9,7 +9,6 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,7 +28,7 @@ import { buildNewOrderRoute } from '../utils/new-order-route';
 import { getStoredSession } from '../utils/session';
 import { getRoleDisplayName } from '../utils/role-display';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 function paramString(value: unknown) {
   if (Array.isArray(value)) return String(value[0] || '');
   return String(value || '');
@@ -553,7 +552,7 @@ export default function PlanOgledzinScreen() {
   if (!guard.ready || loading) {
     return (
       <KeyboardSafeScreen style={styles.center}>
-        <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+        <AppStatusBar />
         <ActivityIndicator color={theme.accent} size="large" />
       </KeyboardSafeScreen>
     );
@@ -569,7 +568,7 @@ export default function PlanOgledzinScreen() {
 
   return (
     <KeyboardSafeScreen style={styles.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => safeBack()}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

@@ -1,11 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { ScreenHeader } from '../components/ui/screen-header';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type HubCard = {
   id: string;
   title: string;
@@ -68,7 +75,7 @@ export default function CrmMobileScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title="CRM i klienci" />
       <View style={S.content}>
         <Text style={S.hint}>

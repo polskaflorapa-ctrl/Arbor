@@ -6,8 +6,16 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Platform, RefreshControl, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
@@ -27,6 +35,7 @@ import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 import { registerExpoPushTokenWithBackend } from '../utils/expo-push-backend';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -460,7 +469,7 @@ export default function Powiadomienia() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
 
       <ScreenHeader
         title={t('notif.title')}

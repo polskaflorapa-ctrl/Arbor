@@ -3,17 +3,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    StatusBar,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { OfflineQueueBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
@@ -29,7 +28,7 @@ import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type ZadanieFormItem = {
   task_id: number;
   czas_minuty: string;
@@ -449,7 +448,7 @@ export default function RaportDzienny() {
 
   return (
     <KeyboardSafeScreen style={{ flex: 1, backgroundColor: theme.bg }}>
-    <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+    <AppStatusBar />
     <ScrollView
       style={[S.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={{ paddingBottom: 48 }}

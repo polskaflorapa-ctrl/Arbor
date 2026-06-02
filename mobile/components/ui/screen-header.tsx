@@ -10,6 +10,8 @@ import { PlatinumIconBadge } from './platinum-icon-badge';
 
 export type ScreenHeaderProps = {
   title: string;
+  titleIcon?: React.ReactNode;
+  titleAlign?: 'center' | 'start';
   onBackPress?: () => void;
   /** Prawa kolumna, np. przycisk plus. Pusty slot utrzymuje tytul w osi ekranu. */
   right?: React.ReactNode;
@@ -21,6 +23,8 @@ export type ScreenHeaderProps = {
 
 export function ScreenHeader({
   title,
+  titleIcon,
+  titleAlign = 'center',
   onBackPress,
   right,
   backIconSize = 24,
@@ -51,9 +55,12 @@ export function ScreenHeader({
           style={styles.backIconBadge}
         />
       </TouchableOpacity>
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
+      <View style={[styles.titleWrap, titleAlign === 'start' && styles.titleWrapStart]}>
+        {titleIcon ? <View style={styles.titleIcon}>{titleIcon}</View> : null}
+        <Text style={[styles.title, titleAlign === 'start' && styles.titleStart]} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
       <View style={[styles.rightWrap, { width: edgeSlotWidth }]}>
         {right ?? null}
       </View>
@@ -97,8 +104,26 @@ function makeStyles(
       fontWeight: '900',
       letterSpacing: 0,
       color: t.headerText,
-      flex: 1,
+      minWidth: 0,
       textAlign: 'center',
+    },
+    titleStart: {
+      textAlign: 'left',
+    },
+    titleWrap: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    titleWrapStart: {
+      justifyContent: 'flex-start',
+    },
+    titleIcon: {
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     rightWrap: {
       minHeight: opts.edgeSlotWidth,

@@ -2,8 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Linking, Platform, RefreshControl, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar,
+  ActivityIndicator,
+  Linking,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { EmptyState, ErrorBanner } from '../components/ui/app-state';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
@@ -28,6 +36,7 @@ import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } 
 import { getOfflineQueueStatus, type OfflineQueueStatus } from '../utils/offline-queue';
 import { TASK_STATUS, TASK_STATUS_FILTERS, isTaskClosed, makeTaskStatusColorMap, normalizeTaskStatus } from '../constants/task-workflow';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const FIELD_PHOTO_REQUIREMENTS = [
   { key: 'photo_wycena', label: 'Wycena', icon: 'camera-outline' },
   { key: 'photo_szkic', label: 'Szkic', icon: 'create-outline' },
@@ -1093,7 +1102,7 @@ export default function ZleceniaScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
 
       <ScreenHeader
         title={t('zlecenia.title')}

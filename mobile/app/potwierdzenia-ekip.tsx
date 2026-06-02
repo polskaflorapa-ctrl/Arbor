@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -26,6 +25,7 @@ import {
 } from '../utils/attendance-local';
 import { getStoredSession } from '../utils/session';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type EkipaRow = { id: number; nazwa: string };
 
 function normalizeAttendanceItem(item: any, fallbackDate: string): AttendanceEntry {
@@ -188,7 +188,7 @@ export default function PotwierdzeniaEkipScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

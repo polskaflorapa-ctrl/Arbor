@@ -10,7 +10,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -31,6 +30,7 @@ import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { triggerHaptic } from '../utils/haptics';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type FieldDraft = {
   id: number;
   klient_nazwa?: string;
@@ -667,7 +667,7 @@ export default function WycenyDoBiuraScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={S.center}>
-        <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+        <AppStatusBar />
         <ActivityIndicator color={theme.accent} size="large" />
       </KeyboardSafeScreen>
     );
@@ -675,7 +675,7 @@ export default function WycenyDoBiuraScreen() {
 
   return (
     <KeyboardSafeScreen style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title="Do opracowania" edgeSlotWidth={48} />
 
       <ScrollView

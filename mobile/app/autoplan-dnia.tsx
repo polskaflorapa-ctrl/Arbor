@@ -6,7 +6,6 @@ import {
   RefreshControl,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -43,6 +42,7 @@ import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession } from '../utils/session';
 import { isTaskClosed } from '../constants/task-workflow';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type TaskLite = {
   id: string | number;
   klient_nazwa?: string;
@@ -720,7 +720,7 @@ export default function AutoplanDniaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <ScreenHeader title={t('autoplan.title')} />
       <ScrollView
         style={S.scroll}

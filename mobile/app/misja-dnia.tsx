@@ -8,7 +8,6 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,7 +28,7 @@ import { getStoredSession } from '../utils/session';
 import { getTaskFieldExecutionSummary } from '../utils/task-field-execution';
 import { formatTaskListCacheNotice, loadTodayTaskListCache, saveTaskListCache } from '../utils/task-list-cache';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type TaskItem = {
   id: number;
   klient_nazwa?: string;
@@ -676,10 +675,7 @@ export default function MisjaDniaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>

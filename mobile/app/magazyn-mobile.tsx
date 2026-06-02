@@ -6,7 +6,6 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -26,6 +25,7 @@ import {
   type MagazynItem,
 } from '../utils/magazyn-local';
 
+import { AppStatusBar } from '../components/ui/app-status-bar';
 export default function MagazynMobileScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
@@ -60,7 +60,7 @@ export default function MagazynMobileScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

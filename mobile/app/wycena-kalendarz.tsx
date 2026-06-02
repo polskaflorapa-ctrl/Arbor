@@ -5,9 +5,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
 import {
-  ActivityIndicator, Alert, Modal, RefreshControl, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, Animated,
-  KeyboardAvoidingView, Platform,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { API_URL } from '../constants/api';
@@ -23,7 +33,7 @@ import { elevationCard, shadowStyle } from '../constants/elevation';
 import { triggerHaptic } from '../utils/haptics';
 import { buildNewOrderRoute } from '../utils/new-order-route';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const WYCENA_ROLES = ['Wyceniający', 'Kierownik', 'Administrator', 'Dyrektor'];
 
 function approvalStatusColors(theme: Theme) {
@@ -568,7 +578,7 @@ export default function WycenaKalendarzScreen() {
 
   return (
     <KeyboardSafeScreen style={s.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
 
       {/* Header */}
       <View style={s.header}>

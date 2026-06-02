@@ -11,12 +11,12 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppStatusBar } from '../../components/ui/app-status-bar';
 import { KeyboardSafeScreen } from '../../components/ui/keyboard-safe-screen';
 import { PlatinumAppear } from '../../components/ui/platinum-appear';
 import { useTheme } from '../../constants/ThemeContext';
@@ -485,7 +485,7 @@ export default function WycenyTerenoweScreen() {
   if (loading) {
     return (
       <KeyboardSafeScreen style={s.center}>
-        <StatusBar barStyle={'light-content'} />
+        <AppStatusBar />
         <ActivityIndicator color={theme.accent} />
       </KeyboardSafeScreen>
     );
@@ -493,7 +493,7 @@ export default function WycenyTerenoweScreen() {
 
   return (
     <KeyboardSafeScreen style={s.screen}>
-      <StatusBar barStyle={'light-content'} />
+      <AppStatusBar />
       <View style={s.header}>
         <TouchableOpacity onPress={() => safeBack()} style={s.backBtn} accessibilityLabel="Wróć">
           <Ionicons name="chevron-back" size={26} color={theme.text} />

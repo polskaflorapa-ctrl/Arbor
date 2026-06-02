@@ -3,8 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, RefreshControl, ScrollView, StatusBar,
-  StyleSheet, Text, TouchableOpacity, View
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
@@ -17,7 +22,7 @@ import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 import { isTaskInProgress, makeTaskStatusColorMap } from '../constants/task-workflow';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 interface Oddzial {
   id?: number;
   nazwa?: string;
@@ -143,10 +148,7 @@ export default function OddzialyScreen() {
   if (selected) {
     return (
       <View style={S.container}>
-        <StatusBar
-          barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={theme.headerBg}
-        />
+        <AppStatusBar />
         <View style={S.header}>
           <TouchableOpacity onPress={() => { setSelected(null); setDetailData(null); }} style={S.backBtn}>
             <Ionicons name="arrow-back" size={21} color={theme.accent} />
@@ -269,10 +271,7 @@ export default function OddzialyScreen() {
 
   return (
     <View style={S.container}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
           <Ionicons name="arrow-back" size={21} color={theme.accent} />

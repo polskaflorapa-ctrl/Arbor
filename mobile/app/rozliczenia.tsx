@@ -1,13 +1,20 @@
-import { safeBack } from '../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Platform, ScrollView, StyleSheet,
-    StatusBar, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { OfflineQueueBanner } from '../components/ui/app-state';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
+import { ScreenHeader } from '../components/ui/screen-header';
 import { useLanguage } from '../constants/LanguageContext';
 import { useTheme } from '../constants/ThemeContext';
 import type { Theme } from '../constants/theme';
@@ -17,7 +24,7 @@ import { flushOfflineQueue, getOfflineQueueSize, queueRequestWithOfflineFallback
 import { subscribeOfflineFlushDone } from '../utils/offline-queue-sync-events';
 import { getStoredSession, type StoredUser } from '../utils/session';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 function hourStatusLabel(status: string, tr: (key: string) => string) {
   const k = `settlements.hourStatus.${status}`;
   const r = tr(k);
@@ -308,13 +315,8 @@ export default function RozliczeniaScreen() {
 
   return (
     <KeyboardSafeScreen style={[S.container, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
-      <View style={[S.header, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={theme.headerText} />
-        </TouchableOpacity>
-        <Text style={[S.headerTitle, { color: theme.headerText }]}>{t('settlements.title')}</Text>
-      </View>
+      <AppStatusBar />
+      <ScreenHeader title={t('settlements.title')} paddingTop={56} edgeSlotWidth={48} />
 
       {msg ? <View style={[S.msgBox, { backgroundColor: theme.successBg }]}><Text style={[S.msgText, { color: theme.success }]}>{msg}</Text></View> : null}
       <OfflineQueueBanner
@@ -694,9 +696,6 @@ export default function RozliczeniaScreen() {
 const makeStyles = (t: Theme) => StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 14, paddingTop: 56, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1 },
-  backBtn: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '700' },
   msgBox: { padding: 12, margin: 12, borderRadius: 10 },
   msgText: { fontWeight: '600', textAlign: 'center' },
   tabs: { flexDirection: 'row', borderBottomWidth: 1 },

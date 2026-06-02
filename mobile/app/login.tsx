@@ -5,8 +5,9 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView,
   Platform, StyleSheet, Text, TextInput,
-  TouchableOpacity, View, StatusBar,
+  TouchableOpacity, View,
 } from 'react-native';
+import { AppStatusBar } from '../components/ui/app-status-bar';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../constants/LanguageContext';
@@ -200,10 +201,7 @@ export default function Login() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.bg}
-      />
+      <AppStatusBar backgroundColor={theme.bg} />
 
       <View style={S.shell}>
         <View style={S.brandArea}>

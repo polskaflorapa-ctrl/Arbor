@@ -4,9 +4,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, RefreshControl,
-  ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, TouchableOpacity, View,
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { PlatinumCTA } from '../components/ui/platinum-cta';
 import { PlatinumAppear } from '../components/ui/platinum-appear';
@@ -26,7 +36,7 @@ import { getStoredSession } from '../utils/session';
 import { openAddressInMaps } from '../utils/maps-link';
 import { buildNewOrderRoute, currentNewOrderDateTime } from '../utils/new-order-route';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const STATUSY = ['Zaplanowane', 'W_Trakcie', 'Zakonczone', 'Anulowane'] as const;
 type Status = typeof STATUSY[number];
 const ZONE_ORDER = ['Krakow-POLNOC', 'Krakow-WSCHOD', 'Krakow-POŁUDNIE', 'Krakow-ZACHOD'] as const;
@@ -496,10 +506,7 @@ export default function OgledzinyScreen() {
 
   return (
     <View style={S.container}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       <View style={S.header}>
         <TouchableOpacity onPress={() => safeBack()} style={S.backBtn}>

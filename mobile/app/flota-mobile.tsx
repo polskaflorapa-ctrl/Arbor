@@ -3,8 +3,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, RefreshControl, StatusBar,
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { PlatinumIconBadge } from '../components/ui/platinum-icon-badge';
@@ -17,7 +27,7 @@ import { apiFetch, apiJsonFetch, readApiError } from '../utils/api-client';
 import { getStoredSession, type StoredUser } from '../utils/session';
 import { isFeatureEnabledForOddzial } from '../utils/oddzial-features';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 const FLEET_STATUS_ORDER = ['Dostępny', 'W_Użyciu', 'Naprawa', 'Wycofany'] as const;
 
 function fleetStatusLabel(status: string, tr: (key: string) => string) {
@@ -241,10 +251,7 @@ export default function FlotaMobileScreen() {
 
   return (
     <KeyboardSafeScreen style={S.container}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       {/* Header */}
       <View style={S.header}>

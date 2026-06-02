@@ -9,7 +9,6 @@ import {
   Image,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -46,7 +45,7 @@ import {
 import { triggerHaptic } from '../utils/haptics';
 import { getStoredSession } from '../utils/session';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type UploadEntry = {
   kind: 'photo' | 'video' | 'draft';
   label: string;
@@ -685,7 +684,7 @@ export default function OgledzinyDokumentacjaScreen() {
 
   return (
     <View style={S.root}>
-      <StatusBar barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'} backgroundColor={theme.headerBg} />
+      <AppStatusBar />
       <View style={S.header}>
         <TouchableOpacity
           style={S.backBtn}

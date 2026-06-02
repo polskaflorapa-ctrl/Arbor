@@ -3,8 +3,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Platform, RefreshControl, ScrollView, StatusBar,
-  StyleSheet, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { KeyboardSafeScreen } from '../components/ui/keyboard-safe-screen';
 import { useLanguage } from '../constants/LanguageContext';
@@ -16,7 +23,7 @@ import { useOddzialFeatureGuard } from '../hooks/use-oddzial-feature-guard';
 import { getRoleDisplayName } from '../utils/role-display';
 import { getStoredSession } from '../utils/session';
 
-
+import { AppStatusBar } from '../components/ui/app-status-bar';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export default function UzytkownicyScreen() {
@@ -109,10 +116,7 @@ export default function UzytkownicyScreen() {
 
   return (
     <KeyboardSafeScreen style={S.container}>
-      <StatusBar
-        barStyle={theme.name === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={theme.headerBg}
-      />
+      <AppStatusBar />
 
       {/* Header */}
       <View style={S.header}>
