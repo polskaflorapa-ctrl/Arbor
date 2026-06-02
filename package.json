@@ -52,6 +52,7 @@
     "verify:pilot-hardening": "node ./scripts/pilot-hardening-check.cjs",
     "verify:pilot-closure": "node ./scripts/pilot-closure-check.cjs",
     "verify:pilot-execution": "node ./scripts/pilot-execution-check.cjs",
+    "verify:pilot-launch": "node ./scripts/pilot-launch-check.cjs",
     "pilot:run:new": "node ./scripts/create-pilot-run-report.cjs",
     "pilot:run:prepare": "node ./scripts/prepare-pilot-run.cjs",
     "pilot:gates:run": "node ./scripts/run-pilot-gates.cjs",

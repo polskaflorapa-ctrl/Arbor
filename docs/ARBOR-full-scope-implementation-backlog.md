@@ -98,6 +98,7 @@
 - [x] **P0 Kommo idempotency retry contract**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` spina outbound `task.sync` retry/dead-letter, inbound idempotency/conflict handling i diagnostyke; `npm run verify:kommo-idempotency-retry` pilnuje kontraktu.
 - [x] **P0 pilot closure go-live gate**: `docs/PILOT-CLOSURE-GO-LIVE-GATE.md` spina finalny smoke end-to-end, GO/NO-GO, dowody pilota i wyjatki; `npm run verify:pilot-closure` pilnuje kompletnej bramki.
 - [x] **P0 pilot execution evidence template**: `docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md` daje formularz wynikow smoke, manualnego A-Z, wyjatkow, ownerow i podpisanej decyzji; `npm run pilot:run:prepare -- --date YYYY-MM-DD` przygotowuje raport i link do bramek, `npm run pilot:gates:run -- --date YYYY-MM-DD --continue-on-fail` zbiera automatyczne PASS/FAIL, a `npm run verify:pilot-execution` pilnuje artefaktu.
+- [x] **P0 pilot launch index**: `docs/PILOT-LAUNCH-INDEX.md` zbiera kolejnosc merge stacka, dane startowe, komendy przygotowania, automatyczne bramki i decyzje GO/NO-GO; `npm run verify:pilot-launch` pilnuje indeksu.
 - [ ] **Nastepny pakiet**: Pilot execution - realne uruchomienie smoke na docelowym srodowisku i wypelnienie raportu GO/NO-GO.
 
 ---
