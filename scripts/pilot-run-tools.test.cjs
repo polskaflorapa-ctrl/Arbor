@@ -3,7 +3,11 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createPilotRunReport, parseArgs: parseReportArgs } = require('./create-pilot-run-report.cjs');
+const {
+  createPilotRunReport,
+  defaultGatesReport,
+  parseArgs: parseReportArgs,
+} = require('./create-pilot-run-report.cjs');
 const { CORE_GATES, FULL_GATES, parseArgs: parseGateArgs, runPilotGates, writeReport } = require('./run-pilot-gates.cjs');
 
 const root = path.resolve(__dirname, '..');
@@ -26,6 +30,7 @@ test('pilot run report generator creates a dated decision artifact', () => {
     assert.equal(outputPath, decisionReportPath);
     assert.match(text, /# Pilot GO \/ NO-GO decision - 2099-12-31/);
     assert.match(text, /- Data: 2099-12-31/);
+    assert.match(text, /- Automatyczne bramki: docs\/pilot-runs\/PILOT-AUTOMATED-GATES-2099-12-31\.md/);
     assert.match(text, /Arbor OS URL:/);
     assert.throws(
       () => createPilotRunReport({ date: '2099-12-31', force: false }),
@@ -40,12 +45,21 @@ test('pilot run report parser accepts date and force flags', () => {
   assert.deepEqual(parseReportArgs(['--date', '2099-12-31', '--force']), {
     date: '2099-12-31',
     force: true,
+    gatesReport: 'docs/pilot-runs/PILOT-AUTOMATED-GATES-2099-12-31.md',
   });
-  assert.deepEqual(parseReportArgs(['--date=2099-12-31']), {
+  assert.deepEqual(parseReportArgs(['--date=2099-12-31', '--gates-report', 'custom.md']), {
     date: '2099-12-31',
     force: false,
+    gatesReport: 'custom.md',
   });
   assert.throws(() => parseReportArgs(['--date', '31-12-2099']), /YYYY-MM-DD/);
+});
+
+test('pilot run report default gates report matches the selected date', () => {
+  assert.equal(
+    defaultGatesReport('2099-12-31'),
+    'docs/pilot-runs/PILOT-AUTOMATED-GATES-2099-12-31.md',
+  );
 });
 
 test('pilot gates parser supports dry-run, full and continue-on-fail flags', () => {

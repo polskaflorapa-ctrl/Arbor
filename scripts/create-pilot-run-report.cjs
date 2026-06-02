@@ -9,12 +9,21 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function defaultGatesReport(date) {
+  return `docs/pilot-runs/PILOT-AUTOMATED-GATES-${date}.md`;
+}
+
 function parseArgs(argv) {
-  const options = { date: todayIso(), force: false };
+  const options = { date: todayIso(), force: false, gatesReport: null };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--force') {
       options.force = true;
+    } else if (arg === '--gates-report') {
+      options.gatesReport = argv[index + 1];
+      index += 1;
+    } else if (arg.startsWith('--gates-report=')) {
+      options.gatesReport = arg.slice('--gates-report='.length);
     } else if (arg === '--date') {
       options.date = argv[index + 1];
       index += 1;
@@ -25,6 +34,7 @@ function parseArgs(argv) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(options.date)) {
     throw new Error(`Invalid --date value "${options.date}". Use YYYY-MM-DD.`);
   }
+  if (!options.gatesReport) options.gatesReport = defaultGatesReport(options.date);
   return options;
 }
 
@@ -32,6 +42,7 @@ function createPilotRunReport(options = parseArgs(process.argv.slice(2))) {
   if (!fs.existsSync(templatePath)) {
     throw new Error('Missing docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md');
   }
+  const gatesReport = options.gatesReport || defaultGatesReport(options.date);
 
   fs.mkdirSync(runsDir, { recursive: true });
   const outputPath = path.join(runsDir, `PILOT-GO-NO-GO-${options.date}.md`);
@@ -43,7 +54,8 @@ function createPilotRunReport(options = parseArgs(process.argv.slice(2))) {
   const content = template
     .replace('# Pilot GO / NO-GO decision template', `# Pilot GO / NO-GO decision - ${options.date}`)
     .replace('Ten plik jest szablonem; po probie skopiuj go do artefaktu z data, np. `docs/pilot-runs/PILOT-GO-NO-GO-2026-06-02.md`.', `Artefakt utworzony z szablonu w dniu ${options.date}.`)
-    .replace('- Data:', `- Data: ${options.date}`);
+    .replace('- Data:', `- Data: ${options.date}`)
+    .replace('- Automatyczne bramki:', `- Automatyczne bramki: ${gatesReport}`);
 
   fs.writeFileSync(outputPath, content);
   return outputPath;
@@ -61,5 +73,6 @@ if (require.main === module) {
 
 module.exports = {
   createPilotRunReport,
+  defaultGatesReport,
   parseArgs,
 };

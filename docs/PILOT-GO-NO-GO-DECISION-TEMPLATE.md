@@ -14,6 +14,7 @@ Cel: zapisac wynik realnego uruchomienia finalnych smoke i manualnego przebiegu 
 - Ekipy ID:
 - Zlecenia testowe ID:
 - Wlasciciel decyzji:
+- Automatyczne bramki:
 
 ## 2. Wyniki automatycznych bramek
 

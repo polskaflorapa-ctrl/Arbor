@@ -60,6 +60,7 @@ assertIncludes('docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md', [
   'Oddzial ID / nazwa:',
   'Zlecenia testowe ID:',
   'Wlasciciel decyzji:',
+  'Automatyczne bramki:',
   'PASS',
   'FAIL',
   'SKIP',
@@ -82,11 +83,14 @@ assertIncludes('docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md', [
 
 assertIncludes('scripts/create-pilot-run-report.cjs', [
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
+  'defaultGatesReport',
   'docs',
   'pilot-runs',
   'PILOT-GO-NO-GO-',
+  'PILOT-AUTOMATED-GATES-',
   '--date',
   '--force',
+  '--gates-report',
   'YYYY-MM-DD',
 ]);
 
