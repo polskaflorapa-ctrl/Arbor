@@ -90,6 +90,16 @@ function normalizeFleetTab(value) {
   return 'pojazdy';
 }
 
+function normalizeRepairKind(value) {
+  const text = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (['auto', 'pojazd', 'vehicle', 'vehicles', 'car'].includes(text)) return 'pojazd';
+  if (['sprzet', 'equipment', 'tool'].includes(text)) return 'sprzet';
+  return '';
+}
+
 export default function Flota() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -493,6 +503,66 @@ export default function Flota() {
     { key: 'sprzet', label: t('pages.flota.tabEquipment', { count: filtrSprzet.length }) },
     { key: 'naprawy', label: t('pages.flota.tabRepairs', { count: naprawy.length }) },
   ]), [t, filtrPojazdy.length, filtrSprzet.length, naprawy.length]);
+
+  const repairFocus = useMemo(() => {
+    const params = new URLSearchParams(location.search || '');
+    return {
+      teamId: params.get('team') || '',
+      kind: normalizeRepairKind(params.get('kind')),
+      resourceId: params.get('resource') || '',
+      returnTo: params.get('returnTo') || '',
+      returnLabel: params.get('returnLabel') || '',
+    };
+  }, [location.search]);
+  const repairFocusActive = Boolean(repairFocus.teamId || repairFocus.kind || repairFocus.resourceId);
+  const repairAssetMetaByKey = useMemo(() => {
+    const rows = new Map();
+    for (const item of pojazdy) {
+      rows.set(`pojazd:${item.id}`, {
+        kind: 'pojazd',
+        id: item.id,
+        teamId: item.ekipa_id,
+        label: [item.marka, item.model, item.nr_rejestracyjny].filter(Boolean).join(' ') || `Pojazd #${item.id}`,
+      });
+    }
+    for (const item of sprzet) {
+      rows.set(`sprzet:${item.id}`, {
+        kind: 'sprzet',
+        id: item.id,
+        teamId: item.ekipa_id,
+        label: [item.nazwa, item.typ].filter(Boolean).join(' / ') || `Sprzet #${item.id}`,
+      });
+    }
+    return rows;
+  }, [pojazdy, sprzet]);
+  const filteredNaprawy = useMemo(() => {
+    if (!repairFocusActive) return naprawy;
+    return naprawy.filter((repair) => {
+      const kind = normalizeRepairKind(repair.typ_zasobu);
+      const asset = repairAssetMetaByKey.get(`${kind}:${repair.zasob_id}`);
+      if (repairFocus.kind && kind !== repairFocus.kind) return false;
+      if (repairFocus.resourceId && String(repair.zasob_id || '') !== String(repairFocus.resourceId)) return false;
+      if (repairFocus.teamId && String(asset?.teamId || '') !== String(repairFocus.teamId)) return false;
+      return true;
+    });
+  }, [naprawy, repairAssetMetaByKey, repairFocus.kind, repairFocus.resourceId, repairFocus.teamId, repairFocusActive]);
+  const repairFocusLabel = useMemo(() => {
+    const parts = [];
+    if (repairFocus.teamId) {
+      const team = ekipy.find((item) => String(item.id) === String(repairFocus.teamId));
+      parts.push(team?.nazwa || `Ekipa #${repairFocus.teamId}`);
+    }
+    if (repairFocus.kind && repairFocus.resourceId) {
+      const asset = repairAssetMetaByKey.get(`${repairFocus.kind}:${repairFocus.resourceId}`);
+      parts.push(asset?.label || `Zasob #${repairFocus.resourceId}`);
+    }
+    return parts.join(' / ');
+  }, [ekipy, repairAssetMetaByKey, repairFocus.kind, repairFocus.resourceId, repairFocus.teamId]);
+  const getRepairAssetLabel = useCallback((repair) => {
+    const kind = normalizeRepairKind(repair?.typ_zasobu);
+    const asset = repairAssetMetaByKey.get(`${kind}:${repair?.zasob_id}`);
+    return asset?.label ? `${asset.label} (#${repair.zasob_id})` : `ID: ${repair?.zasob_id || '-'}`;
+  }, [repairAssetMetaByKey]);
   const isPojazdFormValid = Boolean(
     formPojazd.marka.trim() &&
     formPojazd.model.trim() &&
@@ -830,17 +900,36 @@ export default function Flota() {
 
         {/* ===== NAPRAWY ===== */}
         {activeTab === 'naprawy' && (
-          loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : naprawy.length === 0 ? (
+          loading ? <LoadingBox text={t('pages.flota.loadingFleet')} /> : filteredNaprawy.length === 0 ? (
             <EmptyBox icon={<ConstructionOutlined sx={{ fontSize: 48, opacity: 0.55 }} />} text={t('pages.flota.emptyRepairs')} />
           ) : (
             <div className="fleet-repairs-wrap" style={S.repairsWrap}>
+              {repairFocusActive && (
+                <div style={S.repairFocusBox}>
+                  <div>
+                    <span style={S.repairFocusEyebrow}>Widok z planu biura</span>
+                    <strong style={S.repairFocusTitle}>Naprawy zawężone</strong>
+                    <small style={S.repairFocusDetail}>{repairFocusLabel || 'Wybrany zasob albo ekipa'}</small>
+                  </div>
+                  <div style={S.repairFocusActions}>
+                    {repairFocus.returnTo && (
+                      <button type="button" style={S.primarySoftBtn} onClick={() => navigate(repairFocus.returnTo)}>
+                        Wroc do planu biura
+                      </button>
+                    )}
+                    <button type="button" style={S.ghostBtn} onClick={() => navigate('/flota?tab=naprawy')}>
+                      Pokaz wszystkie naprawy
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="fleet-repairs-header" style={S.repairsHeader}>
                 {(repairHeaders.length ? repairHeaders : ['Typ', 'Zasób', 'Data', 'Koszt', 'Usterka', 'Wykonawca', 'Status']).slice(0, 7).map((h) => (
                   <span key={h} style={S.repairsHeaderChip}>{h}</span>
                 ))}
               </div>
               <div className="fleet-repairs-grid" style={S.repairsGrid}>
-                {naprawy.map((n) => (
+                {filteredNaprawy.map((n) => (
                   <div className="fleet-repair-card" key={n.id} style={S.repairCard}>
                     <div style={S.repairTop}>
                       <span style={S.repairType}>{n.typ_zasobu}</span>
@@ -850,7 +939,7 @@ export default function Flota() {
                     </div>
                     <div style={S.repairRow}>
                       <span style={S.repairLabel}>Zasób</span>
-                      <span style={S.repairValue}>ID: {n.zasob_id}</span>
+                      <span style={S.repairValue}>{getRepairAssetLabel(n)}</span>
                     </div>
                     <div style={S.repairRow}>
                       <span style={S.repairLabel}>Data</span>
@@ -1081,6 +1170,22 @@ const S = {
   modalGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 },
   modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 },
   repairsWrap: { display: 'flex', flexDirection: 'column', gap: 10 },
+  repairFocusBox: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+    border: '1px solid rgba(248,113,113,0.34)',
+    borderRadius: 8,
+    background: 'rgba(248,113,113,0.08)',
+    padding: 12,
+  },
+  repairFocusEyebrow: { display: 'block', fontSize: 10, fontWeight: 900, color: 'var(--danger)', textTransform: 'uppercase', letterSpacing: 0 },
+  repairFocusTitle: { display: 'block', fontSize: 15, fontWeight: 950, color: 'var(--text)', marginTop: 2 },
+  repairFocusDetail: { display: 'block', fontSize: 12, fontWeight: 750, color: 'var(--text-sub)', marginTop: 3 },
+  repairFocusActions: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' },
+  primarySoftBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid rgba(20,131,79,0.28)', background: 'rgba(20,131,79,0.12)', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 900 },
   repairsHeader: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   repairsHeaderChip: { fontSize: 11, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 8px', background: 'var(--surface-field)' },
   repairsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 },

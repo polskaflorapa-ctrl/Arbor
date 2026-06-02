@@ -8861,7 +8861,23 @@ export default function Zlecenia() {
                           ))}
                         </div>
                         <div style={s.officePlanConflictActions}>
-                          <button type="button" style={s.officePlanAssistantBtnSecondary} onClick={() => navigate('/flota?tab=naprawy')}>
+                          <button
+                            type="button"
+                            style={s.officePlanAssistantBtnSecondary}
+                            onClick={() => {
+                              const params = new URLSearchParams({ tab: 'naprawy' });
+                              const teamId = officePlan.ekipa_id || wybraneZlecenie?.ekipa_id;
+                              const firstItem = officePlanTeamResourceSummary.items[0];
+                              if (teamId) params.set('team', String(teamId));
+                              if (firstItem?.kind) params.set('kind', firstItem.kind);
+                              if (firstItem?.id) params.set('resource', String(firstItem.id));
+                              if (wybraneZlecenie?.id) {
+                                params.set('returnTo', `/zlecenia/${wybraneZlecenie.id}?focus=officePlan`);
+                                params.set('returnLabel', `Plan zlecenia #${wybraneZlecenie.id}`);
+                              }
+                              navigate(`/flota?${params.toString()}`);
+                            }}
+                          >
                             Otworz naprawy
                           </button>
                           <button type="button" style={s.officePlanAssistantBtnSecondary} onClick={() => navigate('/ekipy')}>

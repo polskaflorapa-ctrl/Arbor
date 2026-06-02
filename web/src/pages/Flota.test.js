@@ -57,6 +57,7 @@ function mockFlotaApi() {
             data_przegladu: ymd(-4),
             data_ubezpieczenia: ymd(12),
             przebieg: 125000,
+            ekipa_id: 3,
           },
         ],
       });
@@ -99,6 +100,16 @@ function mockFlotaApi() {
             wykonawca: 'Serwis Forst',
             status: 'W toku',
           },
+          {
+            id: 92,
+            typ_zasobu: 'Pojazd',
+            zasob_id: 5,
+            data_naprawy: ymd(-7),
+            koszt: 900,
+            opis_usterki: 'Alternator',
+            wykonawca: 'Auto Serwis',
+            status: 'Zakonczona',
+          },
         ],
       });
     }
@@ -127,6 +138,7 @@ function renderFlota(path = '/flota') {
             </div>
           )}
         />
+        <Route path="/zlecenia/:id" element={<LocationProbe />} />
       </Routes>
     </MemoryRouter>
   );
@@ -238,7 +250,25 @@ test('opens repairs tab from fleet deep link', async () => {
   renderFlota('/flota?tab=naprawy');
 
   expect(await screen.findByText('Noze do wymiany')).toBeInTheDocument();
+  expect(screen.getByText('Alternator')).toBeInTheDocument();
+  expect(screen.getByText('Rebak Forst / Rebak (#11)')).toBeInTheDocument();
+  expect(screen.getByText('Mercedes Sprinter KR12345 (#5)')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Zakoncz naprawe' })).toBeInTheDocument();
+});
+
+test('filters repairs tab from office plan resource deep link and returns to office plan', async () => {
+  mockFlotaApi();
+
+  renderFlota('/flota?tab=naprawy&team=3&kind=Sprzet&resource=11&returnTo=%2Fzlecenia%2F42%3Ffocus%3DofficePlan&returnLabel=Plan%20zlecenia%20%2342');
+
+  expect(await screen.findByText('Naprawy zawężone')).toBeInTheDocument();
+  expect(document.body.textContent).toContain('Brygada Alfa');
+  expect(document.body.textContent).toContain('Rebak Forst');
+  expect(screen.getByText('Noze do wymiany')).toBeInTheDocument();
+  expect(screen.queryByText('Alternator')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Wroc do planu biura' }));
+  const finalSearch = screen.getAllByTestId('location-search').at(-1);
+  expect(finalSearch).toHaveTextContent('focus=officePlan');
 });
 
 test('adds broken chipper assigned to a team in one form submit', async () => {

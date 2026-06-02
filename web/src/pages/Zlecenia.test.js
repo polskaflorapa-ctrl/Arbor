@@ -290,6 +290,10 @@ test('blocks office plan when selected team vehicle is in repair', async () => {
   fireEvent.click(within(officePlanSection).getByRole('button', { name: 'Otworz naprawy' }));
   expect(await screen.findByText(/Flota fokus:/, {}, SLOW_FORM_RENDER)).toBeInTheDocument();
   expect(screen.getByTestId('location-probe')).toHaveTextContent('tab=naprawy');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('team=3');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('kind=Auto');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('resource=5');
+  expect(screen.getByTestId('location-probe')).toHaveTextContent('returnTo=%2Fzlecenia%2F42%3Ffocus%3DofficePlan');
 }, 15000);
 
 test('shows backend team resource block details while saving office plan', async () => {
