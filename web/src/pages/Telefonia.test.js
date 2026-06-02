@@ -254,4 +254,7 @@ test('specialist can register an incoming client call and create callback', asyn
     }),
     expect.objectContaining({ headers: expect.any(Object) })
   );
+  expect(await screen.findByText(/Telefon przychodzacy zapisany/i)).toBeInTheDocument();
+  expect(screen.getByText(/Lead CRM utworzony/i)).toBeInTheDocument();
+  expect(screen.getByText(/Oddzwonienie utworzone/i)).toBeInTheDocument();
 });

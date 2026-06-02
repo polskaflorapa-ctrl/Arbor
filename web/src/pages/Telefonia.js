@@ -82,6 +82,7 @@ export default function Telefonia() {
   const [callbacks, setCallbacks] = useState([]);
   const [telLoading, setTelLoading] = useState(false);
   const [telError, setTelError] = useState('');
+  const [telMessage, setTelMessage] = useState('');
   const [savingCall, setSavingCall] = useState(false);
   const [savingCb, setSavingCb] = useState(false);
   const [startingCallKey, setStartingCallKey] = useState(null);
@@ -1202,10 +1203,11 @@ export default function Telefonia() {
     }
     setSavingCall(true);
     setTelError('');
+    setTelMessage('');
     try {
       const token = getStoredToken();
       const taskId = toIntLocal(callForm.task_id);
-      await api.post(
+      const { data } = await api.post(
         '/telephony/calls',
         {
           oddzial_id: oid,
@@ -1228,6 +1230,7 @@ export default function Telefonia() {
         task_id: '',
       }));
       await loadTelephonyExtras();
+      setTelMessage(`Polaczenie zapisane w logu${data?.id ? ` (#${data.id})` : ''}.`);
     } catch (e2) {
       setTelError(getApiErrorMessage(e2, 'Nie udało się zapisać połączenia.'));
     } finally {
@@ -1250,6 +1253,7 @@ export default function Telefonia() {
     const callKey = key || `${oid}:${targetPhone}:${callbackId || 'manual'}`;
     setStartingCallKey(callKey);
     setTelError('');
+    setTelMessage('');
     try {
       const token = getStoredToken();
       const taskId = toIntLocal(task_id);
@@ -1281,6 +1285,7 @@ export default function Telefonia() {
         notes: '',
       }));
       await loadTelephonyExtras();
+      setTelMessage(callbackId ? 'Polaczenie rozpoczete i callback oznaczony jako w toku.' : 'Polaczenie rozpoczete i zapisane w logu.');
       window.location.href = href;
     } catch (e2) {
       setTelError(getApiErrorMessage(e2, 'Nie udalo sie rozpoczac polaczenia specjalisty.'));
@@ -1303,10 +1308,11 @@ export default function Telefonia() {
     }
     setSavingCall(true);
     setTelError('');
+    setTelMessage('');
     try {
       const token = getStoredToken();
       const taskId = toIntLocal(incomingForm.task_id);
-      await api.post(
+      const callResult = await api.post(
         '/telephony/calls',
         {
           oddzial_id: oid,
@@ -1320,8 +1326,9 @@ export default function Telefonia() {
         },
         { headers: authHeaders(token) }
       );
+      let leadId = null;
       if (incomingForm.create_lead) {
-        await api.post(
+        const leadResult = await api.post(
           '/crm/leads',
           {
             title: incomingForm.lead_name.trim() || `Telefon od ${phone}`,
@@ -1339,9 +1346,11 @@ export default function Telefonia() {
           },
           { headers: authHeaders(token) }
         );
+        leadId = leadResult.data?.id || null;
       }
+      let callbackId = null;
       if (incomingForm.create_callback || incomingForm.status === 'missed') {
-        await api.post(
+        const callbackResult = await api.post(
           '/telephony/callbacks',
           {
             oddzial_id: oid,
@@ -1354,6 +1363,7 @@ export default function Telefonia() {
           },
           { headers: authHeaders(token) }
         );
+        callbackId = callbackResult.data?.id || null;
       }
       setIncomingForm((f) => ({
         ...f,
@@ -1366,6 +1376,11 @@ export default function Telefonia() {
         create_callback: false,
       }));
       await loadTelephonyExtras();
+      setTelMessage([
+        `Telefon przychodzacy zapisany${callResult.data?.id ? ` (#${callResult.data.id})` : ''}.`,
+        incomingForm.create_lead ? `Lead CRM ${leadId ? `#${leadId}` : 'utworzony'}.` : '',
+        (incomingForm.create_callback || incomingForm.status === 'missed') ? `Oddzwonienie ${callbackId ? `#${callbackId}` : 'utworzone'}.` : '',
+      ].filter(Boolean).join(' '));
     } catch (e2) {
       setTelError(getApiErrorMessage(e2, 'Nie udalo sie zapisac telefonu przychodzacego.'));
     } finally {
@@ -1387,10 +1402,11 @@ export default function Telefonia() {
     }
     setSavingCb(true);
     setTelError('');
+    setTelMessage('');
     try {
       const token = getStoredToken();
       const cbTaskId = toIntLocal(cbForm.task_id);
-      await api.post(
+      const { data } = await api.post(
         '/telephony/callbacks',
         {
           oddzial_id: oid,
@@ -1412,6 +1428,7 @@ export default function Telefonia() {
         task_id: '',
       }));
       await loadTelephonyExtras();
+      setTelMessage(`Oddzwonienie dodane do kolejki${data?.id ? ` (#${data.id})` : ''}.`);
     } catch (e2) {
       setTelError(getApiErrorMessage(e2, 'Nie udało się dodać zadania oddzwonienia.'));
     } finally {
@@ -1422,10 +1439,12 @@ export default function Telefonia() {
   const patchCallback = async (id, status) => {
     setUpdatingCbId(id);
     setTelError('');
+    setTelMessage('');
     try {
       const token = getStoredToken();
       await api.patch(`/telephony/callbacks/${id}/status`, { status }, { headers: authHeaders(token) });
       await loadTelephonyExtras();
+      setTelMessage(status === 'done' ? 'Oddzwonienie zamkniete jako gotowe.' : status === 'cancelled' ? 'Oddzwonienie anulowane.' : 'Status oddzwonienia zaktualizowany.');
     } catch (e2) {
       setTelError(getApiErrorMessage(e2, 'Nie udało się zaktualizować statusu.'));
     } finally {
@@ -2293,6 +2312,11 @@ export default function Telefonia() {
         {!!telError && tab === 'calls' && (
           <div style={{ marginBottom: 12 }}>
             <StatusMessage message={telError} tone="error" />
+          </div>
+        )}
+        {!!telMessage && tab === 'calls' && (
+          <div style={{ marginBottom: 12 }}>
+            <StatusMessage message={telMessage} tone="success" />
           </div>
         )}
         {!!agentError && tab === 'agent' && (
