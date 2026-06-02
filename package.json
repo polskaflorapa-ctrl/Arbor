@@ -51,6 +51,7 @@
     "verify:env-runbook": "node ./scripts/env-runbook-check.cjs",
     "verify:pilot-hardening": "node ./scripts/pilot-hardening-check.cjs",
     "verify:pilot-closure": "node ./scripts/pilot-closure-check.cjs",
+    "verify:pilot-execution": "node ./scripts/pilot-execution-check.cjs",
     "verify:observability": "node ./scripts/observability-check.cjs",
     "verify:incident-runbook": "node ./scripts/incident-runbook-check.cjs",
     "verify:kommo-sms-drill": "node ./scripts/kommo-sms-drill-check.cjs",

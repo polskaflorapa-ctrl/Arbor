@@ -96,3 +96,5 @@ Po probie zapisz:
 - screenshoty web/mobile z kluczowych ekranow;
 - liste wyjatkow z wlascicielem i terminem;
 - decyzje GO albo NO-GO podpisana przez wlasciciela pilota.
+
+Uzyj szablonu `docs/PILOT-GO-NO-GO-DECISION-TEMPLATE.md`, a wypelniony raport zapisz w `docs/pilot-runs/`. Bramka `npm run verify:pilot-execution` pilnuje, ze szablon zawiera wymagane pola decyzji, wyniki smoke, wyjatki i podpis GO/NO-GO.
