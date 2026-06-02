@@ -327,15 +327,17 @@ export default function RozliczeniaScreen() {
       />
 
       {/* Tabs */}
-      <View style={[S.tabs, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-        {tabs.map((tab) => (
-          <TouchableOpacity key={tab.key}
-            style={[S.tab, activeTab === tab.key && { borderBottomColor: theme.accent }]}
-            onPress={() => setActiveTab(tab.key as any)}>
-            <Ionicons name={tab.icon} size={16} color={activeTab === tab.key ? theme.accent : theme.textMuted} />
-            <Text style={[S.tabText, { color: theme.textMuted }, activeTab === tab.key && { color: theme.accent, fontWeight: '700' }]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={S.tabsWrap}>
+        <View style={S.tabs}>
+          {tabs.map((tab) => (
+            <TouchableOpacity key={tab.key}
+              style={[S.tab, activeTab === tab.key && S.tabActive]}
+              onPress={() => setActiveTab(tab.key as any)}>
+              <Ionicons name={tab.icon} size={16} color={activeTab === tab.key ? theme.accent : theme.textMuted} />
+              <Text style={[S.tabText, activeTab === tab.key && S.tabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <ScrollView
@@ -698,12 +700,15 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   msgBox: { padding: 12, margin: 12, borderRadius: 10 },
   msgText: { fontWeight: '600', textAlign: 'center' },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', gap: 3, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 11, fontWeight: '500' },
+  tabsWrap: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, backgroundColor: t.bg },
+  tabs: { flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: t.cardBorder, borderRadius: 12, backgroundColor: t.surface2, padding: 4 },
+  tab: { flex: 1, minHeight: 42, borderRadius: 9, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  tabActive: { backgroundColor: t.accentLight, borderWidth: 1, borderColor: t.accent + '55' },
+  tabText: { fontSize: 11, fontWeight: '800', color: t.textMuted },
+  tabTextActive: { color: t.accent, fontWeight: '900' },
   scroll: { flex: 1 },
-  section: { backgroundColor: t.cardBg, margin: 12, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: t.cardBorder, elevation: 1 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: t.text, marginBottom: 8 },
+  section: { backgroundColor: t.cardBg, margin: 12, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: t.cardBorder, elevation: 0 },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: t.text, marginBottom: 8 },
   sectionSub: { fontSize: 12, color: t.textMuted, marginBottom: 12 },
   taskInfo: { backgroundColor: t.surface2, borderRadius: 10, padding: 12, marginBottom: 14 },
   taskNazwa: { fontSize: 15, fontWeight: '700', color: t.text },
@@ -721,7 +726,7 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   inputRow: { flexDirection: 'row', gap: 10 },
   inputGroup: { flex: 1, marginBottom: 10 },
   inputLabel: { fontSize: 12, color: t.textMuted, fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: t.inputBorder, borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: t.inputBg, color: t.inputText },
+  input: { borderWidth: 1, borderColor: t.inputBorder, borderRadius: 10, paddingHorizontal: 11, minHeight: 46, fontSize: 14, backgroundColor: t.inputBg, color: t.inputText },
   kosztRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: t.successBg, padding: 8, borderRadius: 8 },
   kosztLabel: { fontSize: 13, color: t.textSub },
   kosztValue: { fontSize: 13, fontWeight: '700', color: t.success },
@@ -730,8 +735,8 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   btnOdrzucText: { color: t.danger, fontWeight: '600', fontSize: 13 },
   btnZatwierdz: { flex: 1, backgroundColor: t.successBg, padding: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: t.success + '44' },
   btnZatwierdzText: { color: t.success, fontWeight: '600', fontSize: 13 },
-  saveBtn: { backgroundColor: t.accent, padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 12 },
-  saveBtnText: { color: t.accentText, fontWeight: '700', fontSize: 15 },
+  saveBtn: { backgroundColor: t.accent, minHeight: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  saveBtnText: { color: t.accentText, fontWeight: '900', fontSize: 15 },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border },
   savedNazwa: { flex: 1, fontSize: 13, fontWeight: '600', color: t.text },
   savedGodziny: { fontSize: 12, color: t.textMuted },
