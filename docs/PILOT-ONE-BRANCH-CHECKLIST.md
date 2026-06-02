@@ -8,6 +8,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 
 - [ ] `npm run status:json:strict` przechodzi na srodowisku testowym albo produkcyjnym.
 - [ ] `npm run check` przechodzi lokalnie przed wydaniem.
+- [ ] `npm run verify:pilot-closure` potwierdza `PILOT-CLOSURE-GO-LIVE-GATE.md`: finalny smoke end-to-end, GO/NO-GO i komplet dowodow pilota.
 - [ ] `npm run verify:env-runbook` przechodzi po ostatnich zmianach env.
 - [ ] `npm run verify:pilot-hardening` potwierdza checklisty, smoke i role Kierownik/Brygadzista.
 - [ ] `npm run verify:rbac-scope` potwierdza role, `oddzial_id`, team scope, ukrycie finansow i web route guards.
@@ -49,6 +50,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Backup bazy jest wykonany po migracjach i bootstrapie admina.
 - [ ] Zespol wie, gdzie sa runbooki: `docs/ENVIRONMENT-RUNBOOK.md`, `docs/backup-restore.md`, `docs/MOBILE-OFFLINE-CONTRACT.md`.
 - [ ] Zespol zna produkcyjny dry-run: `docs/PRODUCTION-DEPLOY-DRY-RUN.md`.
+- [ ] Zespol zna finalna bramke go-live pilota: `docs/PILOT-CLOSURE-GO-LIVE-GATE.md`.
 - [ ] Zespol zna minimum SLO i alertow: `docs/OBSERVABILITY-SLO-RUNBOOK.md`.
 - [ ] Zespol zna runbook incydentow: `docs/PRODUCTION-INCIDENT-RUNBOOK.md`.
 - [ ] Zespol zna RBAC/branch scope: `docs/RBAC-BRANCH-SCOPE-AUDIT.md`.
@@ -137,6 +139,7 @@ Minimalna bramka przed dniem pilota:
 ```powershell
 cd C:\Users\paha1\arbor
 npm run status:json:strict
+npm run verify:pilot-closure
 npm run verify:dispatcher-adr
 npm run verify:resource-calendar-week
 npm run verify:resource-calendar-dnd
