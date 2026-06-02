@@ -34,11 +34,14 @@ assertFiles([
   'docs/PILOT-ONE-BRANCH-CHECKLIST.md',
   'docs/pilot-runs/.gitkeep',
   'scripts/create-pilot-run-report.cjs',
+  'scripts/run-pilot-gates.cjs',
+  'scripts/pilot-run-tools.test.cjs',
 ]);
 
 assertPackageScripts('package.json', [
   'verify:pilot-execution',
   'pilot:run:new',
+  'pilot:gates:run',
   'verify:pilot-closure',
   'status:json:strict',
   'check',
@@ -87,23 +90,52 @@ assertIncludes('scripts/create-pilot-run-report.cjs', [
   'YYYY-MM-DD',
 ]);
 
+assertIncludes('scripts/run-pilot-gates.cjs', [
+  'CORE_GATES',
+  'FULL_GATES',
+  'status:json:strict',
+  'verify:pilot-closure',
+  'verify:pilot-execution',
+  'verify:pilot-hardening',
+  'smoke:critical-path',
+  'smoke:operational',
+  'smoke:demo:e2e',
+  '--dry-run',
+  '--full',
+  '--continue-on-fail',
+  'PILOT-AUTOMATED-GATES-',
+]);
+
+assertIncludes('scripts/pilot-run-tools.test.cjs', [
+  'createPilotRunReport',
+  'parseReportArgs',
+  'parseGateArgs',
+  'runPilotGates',
+  'writeReport',
+  'PILOT-GO-NO-GO-2099-12-31.md',
+  'PILOT-AUTOMATED-GATES-2099-12-31.md',
+]);
+
 assertIncludes('docs/PILOT-CLOSURE-GO-LIVE-GATE.md', [
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
   'docs/pilot-runs',
   'verify:pilot-execution',
   'pilot:run:new',
+  'pilot:gates:run',
 ]);
 
 assertIncludes('docs/PILOT-ONE-BRANCH-CHECKLIST.md', [
   'verify:pilot-execution',
   'PILOT-GO-NO-GO-DECISION-TEMPLATE.md',
   'pilot:run:new',
+  'pilot:gates:run',
 ]);
 
 assertIncludes('docs/ARBOR-full-scope-implementation-backlog.md', [
   'pilot execution evidence template',
   'verify:pilot-execution',
   'pilot:run:new',
+  'pilot:gates:run',
 ]);
 
 console.log('pilot execution evidence template check passed');
