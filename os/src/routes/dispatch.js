@@ -101,6 +101,30 @@ function distinctPositiveInts(values) {
   return [...new Set(values.map(parsePositiveInt).filter(Boolean))];
 }
 
+function normalizeTextList(value) {
+  if (Array.isArray(value)) return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try {
+      return normalizeTextList(JSON.parse(raw));
+    } catch {
+      // fall through to delimiter parsing
+    }
+  }
+  return [...new Set(
+    raw
+      .replace(/^[{[]|[}\]]$/g, '')
+      .split(/[,\n;]+/)
+      .map((item) => item.replace(/^"+|"+$/g, '').trim())
+      .filter(Boolean)
+  )];
+}
+
+function normalizeCompetencyKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function queryPositiveInts(value) {
   if (Array.isArray(value)) return distinctPositiveInts(value);
   return distinctPositiveInts(String(value || '').split(/[,\s]+/));
@@ -207,7 +231,8 @@ async function fetchTeamsForDispatch(client, oddzialId, date) {
               (SELECT array_agg(DISTINCT uc.nazwa)
                FROM user_competencies uc
                JOIN team_members tm ON tm.user_id = uc.user_id
-               WHERE tm.team_id = e.id),
+               WHERE tm.team_id = e.id
+                 AND (uc.data_waznosci IS NULL OR uc.data_waznosci >= CURRENT_DATE)),
               '{}'
              ) AS kompetencje
      FROM teams e
@@ -259,6 +284,52 @@ async function findAbsentTeamsForPlan(client, teamIds, date) {
     note: row.note || '',
     actor: row.actor_name || '',
   }));
+}
+
+async function findCompetencyBlockedAssignments(client, assignments) {
+  const cleanAssignments = (assignments || [])
+    .map((item) => ({
+      task_id: parsePositiveInt(item?.task_id),
+      team_id: parsePositiveInt(item?.team_id),
+    }))
+    .filter((item) => item.task_id && item.team_id);
+  if (!cleanAssignments.length) return [];
+
+  const taskIds = cleanAssignments.map((item) => item.task_id);
+  const teamIds = cleanAssignments.map((item) => item.team_id);
+  const r = await client.query(
+    `WITH assignments AS (
+       SELECT * FROM UNNEST($1::int[], $2::int[]) AS a(task_id, team_id)
+     )
+     SELECT a.task_id,
+            a.team_id,
+            t.wymagane_kompetencje,
+            COALESCE(array_agg(DISTINCT uc.nazwa) FILTER (WHERE uc.nazwa IS NOT NULL), '{}') AS team_competencies
+       FROM assignments a
+       JOIN tasks t ON t.id = a.task_id
+       LEFT JOIN team_members tm ON tm.team_id = a.team_id
+       LEFT JOIN user_competencies uc ON uc.user_id = tm.user_id
+        AND (uc.data_waznosci IS NULL OR uc.data_waznosci >= CURRENT_DATE)
+      GROUP BY a.task_id, a.team_id, t.wymagane_kompetencje
+      ORDER BY a.task_id`,
+    [taskIds, teamIds]
+  );
+
+  return (r.rows || [])
+    .map((row) => {
+      const required = normalizeTextList(row.wymagane_kompetencje);
+      if (!required.length) return null;
+      const available = new Set(normalizeTextList(row.team_competencies).map(normalizeCompetencyKey));
+      const missing = required.filter((name) => !available.has(normalizeCompetencyKey(name)));
+      if (!missing.length) return null;
+      return {
+        task_id: Number(row.task_id),
+        team_id: Number(row.team_id),
+        required_competencies: required,
+        missing_competencies: missing,
+      };
+    })
+    .filter(Boolean);
 }
 
 // ─── POST /api/dispatch/plan ──────────────────────────────────────────────────
@@ -388,6 +459,21 @@ router.post('/apply/:id', async (req, res) => {
           dateYmd: absentTeams[0].date_ymd,
           absent: absentTeams,
         },
+      });
+    }
+    const assignments = [];
+    for (const route of plan.routes || []) {
+      for (const stop of route.stops || []) {
+        assignments.push({ task_id: stop.task_id, team_id: route.team_id });
+      }
+    }
+    const competencyBlocks = await findCompetencyBlockedAssignments(client, assignments);
+    if (competencyBlocks.length) {
+      return res.status(409).json({
+        error: 'Nie mozna zastosowac planu: co najmniej jedna ekipa nie ma wymaganych kompetencji.',
+        code: 'TEAM_COMPETENCY_BLOCKED',
+        blocked_assignments: competencyBlocks,
+        missing_competencies: [...new Set(competencyBlocks.flatMap((item) => item.missing_competencies || []))],
       });
     }
 

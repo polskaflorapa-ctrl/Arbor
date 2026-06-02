@@ -30,6 +30,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:worklog-time-ledger` potwierdza `WORKLOG-TIME-LEDGER-CONTRACT.md`: automatyczna ECP z work logow, branch scope i robocza regule nadgodzin.
 - [ ] `npm run verify:credential-expiry-cards` potwierdza `CREDENTIAL-EXPIRY-CARDS-CONTRACT.md`: karty pracownika i HR pokazują wygasle/wygasajace uprawnienia.
 - [ ] `npm run verify:competency-assignment-guard` potwierdza `COMPETENCY-ASSIGNMENT-GUARD-CONTRACT.md`: reczne przypisanie zlecenia blokuje ekipe bez wymaganych kompetencji.
+- [ ] `npm run verify:dispatch-competency-guard` potwierdza `DISPATCH-COMPETENCY-GUARD-CONTRACT.md`: zapisany plan dispatchera nie omija twardej blokady kompetencji.
 - [ ] `npm run verify:mobile-problem-flow` potwierdza PROBLEM w mobile, pending offline, zdjecie problemu i powiadomienie kierownika.
 - [ ] `npm run verify:mobile-photo-enforcement` potwierdza blokade finish bez wymaganych zdjec Przed/Po.
 - [ ] `npm run verify:mobile-before-after-photo` potwierdza konfiguracje per oddzial i offline pending dla zdjec Przed/Po.
