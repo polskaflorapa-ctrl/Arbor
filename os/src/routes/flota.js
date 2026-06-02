@@ -99,6 +99,20 @@ async function getFleetResource(table, id) {
   return result.rows[0] || null;
 }
 
+async function assertFleetTeamBranch(user, ekipaId, oddzialId) {
+  if (!ekipaId) return { ok: true };
+  const result = await pool.query('SELECT id, oddzial_id FROM teams WHERE id = $1', [ekipaId]);
+  const team = result.rows[0];
+  if (!team) return { ok: false, status: 404, error: 'Ekipa nie istnieje' };
+  if (!isDyrektor(user) && Number(team.oddzial_id) !== Number(user.oddzial_id)) {
+    return { ok: false, status: 403, error: 'Brak dostepu do tej ekipy' };
+  }
+  if (oddzialId && Number(team.oddzial_id) !== Number(oddzialId)) {
+    return { ok: false, status: 400, error: 'Ekipa i zasob musza byc z tego samego oddzialu' };
+  }
+  return { ok: true, team };
+}
+
 function canAccessFleetResource(user, row) {
   return Boolean(row) && (isDyrektor(user) || Number(row.oddzial_id) === Number(user.oddzial_id));
 }
@@ -213,6 +227,8 @@ router.post('/pojazdy', authMiddleware, validateBody(pojazdCreateSchema), async 
   try {
     const { marka, model, nr_rejestracyjny, rok_produkcji, typ, status, ekipa_id, data_przegladu, data_ubezpieczenia, przebieg, notatki, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
+    const teamCheck = await assertFleetTeamBranch(req.user, ekipa_id, finalOddzialId);
+    if (!teamCheck.ok) return res.status(teamCheck.status).json({ error: teamCheck.error });
     const result = await pool.query(
       `INSERT INTO vehicles (oddzial_id, marka, model, nr_rejestracyjny, rok_produkcji, typ, status, ekipa_id, data_przegladu, data_ubezpieczenia, przebieg, notatki)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
@@ -235,6 +251,8 @@ router.put('/pojazdy/:id', authMiddleware, validateParams(flotaIdParamsSchema), 
     }
     const data = req.body || {};
     const nextOddzialId = fleetBranchForWrite(req.user, data.oddzial_id, current.oddzial_id);
+    const teamCheck = await assertFleetTeamBranch(req.user, data.ekipa_id, nextOddzialId);
+    if (!teamCheck.ok) return res.status(teamCheck.status).json({ error: teamCheck.error });
     const result = await pool.query(
       `UPDATE vehicles
           SET oddzial_id = $1,
@@ -374,6 +392,8 @@ router.post('/sprzet', authMiddleware, validateBody(sprzetCreateSchema), async (
   try {
     const { nazwa, typ, status, nr_seryjny, rok_produkcji, ekipa_id, data_przegladu, koszt_motogodziny, notatki, oddzial_id } = req.body;
     const finalOddzialId = isDyrektor(req.user) ? (oddzial_id || req.user.oddzial_id) : req.user.oddzial_id;
+    const teamCheck = await assertFleetTeamBranch(req.user, ekipa_id, finalOddzialId);
+    if (!teamCheck.ok) return res.status(teamCheck.status).json({ error: teamCheck.error });
     const result = await pool.query(
       `INSERT INTO equipment_items (oddzial_id, nazwa, typ, status, nr_seryjny, rok_produkcji, ekipa_id, data_przegladu, koszt_motogodziny, notatki)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
@@ -396,6 +416,8 @@ router.put('/sprzet/:id', authMiddleware, validateParams(flotaIdParamsSchema), v
     }
     const data = req.body || {};
     const nextOddzialId = fleetBranchForWrite(req.user, data.oddzial_id, current.oddzial_id);
+    const teamCheck = await assertFleetTeamBranch(req.user, data.ekipa_id, nextOddzialId);
+    if (!teamCheck.ok) return res.status(teamCheck.status).json({ error: teamCheck.error });
     const result = await pool.query(
       `UPDATE equipment_items
           SET oddzial_id = $1,

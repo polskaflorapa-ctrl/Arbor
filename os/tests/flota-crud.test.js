@@ -20,7 +20,9 @@ describe('Flota CRUD kart zasobow', () => {
   });
 
   it('creates broken equipment with team assignment in one request', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ id: 99 }] });
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 99 }] });
 
     const res = await request(app)
       .post('/api/flota/sprzet')
@@ -44,6 +46,7 @@ describe('Flota CRUD kart zasobow', () => {
   it('updates an equipment card in manager branch scope', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] })
       .mockResolvedValueOnce({ rows: [{ id: 11 }] });
 
     const res = await request(app)
@@ -82,9 +85,31 @@ describe('Flota CRUD kart zasobow', () => {
     expect(res.status).toBe(403);
   });
 
+  it('blocks assigning equipment to a team from another branch', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 4, oddzial_id: 2 }] });
+
+    const res = await request(app)
+      .put('/api/flota/sprzet/11')
+      .set('Authorization', `Bearer ${token({ rola: 'Dyrektor' })}`)
+      .send({
+        nazwa: 'Rebak Forst',
+        typ: 'Rebak',
+        status: 'Dostepny',
+        ekipa_id: 4,
+        oddzial_id: 1,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/tego samego oddzialu/i);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
   it('updates and deletes a vehicle card', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 5, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] })
       .mockResolvedValueOnce({ rows: [{ id: 5 }] })
       .mockResolvedValueOnce({ rows: [{ id: 5, oddzial_id: 1 }] })
       .mockResolvedValueOnce({ rows: [] });

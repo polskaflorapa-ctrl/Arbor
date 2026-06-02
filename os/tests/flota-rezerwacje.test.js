@@ -65,6 +65,7 @@ describe('Flota rezerwacje sprzetu', () => {
   it('PUT /sprzet updates equipment card assignment inside branch scope', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: 11, oddzial_id: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 3, oddzial_id: 1 }] })
       .mockResolvedValueOnce({ rows: [{ id: 11 }] });
 
     const res = await request(app)
@@ -86,8 +87,9 @@ describe('Flota rezerwacje sprzetu', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(expect.objectContaining({ id: 11, message: 'Sprzet zapisany' }));
     expect(pool.query).toHaveBeenNthCalledWith(1, 'SELECT id, oddzial_id FROM equipment_items WHERE id = $1', [11]);
+    expect(pool.query).toHaveBeenNthCalledWith(2, 'SELECT id, oddzial_id FROM teams WHERE id = $1', [3]);
     expect(pool.query).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.stringContaining('UPDATE equipment_items'),
       [1, 'Rebak Forst ST8', 'Rebak', 'W naprawie', 'RF-11', 2023, 3, '2026-07-01', 42, 'Po przegladzie', 11]
     );
