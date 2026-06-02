@@ -51,6 +51,34 @@ describe('Auth routes', () => {
     expect(typeof res.body.requestId).toBe('string');
   });
 
+  it('returns 401 instead of 500 when stored password hash is missing', async () => {
+    pool.query.mockResolvedValue({
+      rows: [
+        {
+          id: 7,
+          login: 'jan',
+          haslo_hash: null,
+          rola: 'Administrator',
+          aktywny: true,
+        },
+      ],
+    });
+
+    const res = await request(app).post('/api/auth/login').send({
+      login: 'jan',
+      haslo: 'secret123',
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        error: 'Nieprawidlowy login lub haslo',
+        code: 'LOGIN_INVALID_CREDENTIALS',
+      })
+    );
+    expect(typeof res.body.requestId).toBe('string');
+  });
+
   it('returns token and user data for valid credentials', async () => {
     const hash = await bcrypt.hash('secret123', 10);
     pool.query.mockResolvedValue({

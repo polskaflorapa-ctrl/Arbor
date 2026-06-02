@@ -40,7 +40,23 @@ router.post('/login', loginLimiter, validateBody(loginSchema), async (req, res, 
       });
     }
     const user = result.rows[0];
-    const hasloPoprawne = await bcrypt.compare(haslo, user.haslo_hash);
+    if (typeof user.haslo_hash !== 'string' || !user.haslo_hash.trim()) {
+      return res.status(401).json({
+        error: req.t('errors.login.invalidCredentials'),
+        code: LOGIN_INVALID_CREDENTIALS,
+        requestId: req.requestId,
+      });
+    }
+    let hasloPoprawne = false;
+    try {
+      hasloPoprawne = await bcrypt.compare(haslo, user.haslo_hash);
+    } catch {
+      return res.status(401).json({
+        error: req.t('errors.login.invalidCredentials'),
+        code: LOGIN_INVALID_CREDENTIALS,
+        requestId: req.requestId,
+      });
+    }
     if (!hasloPoprawne) {
       return res.status(401).json({
         error: req.t('errors.login.invalidCredentials'),
