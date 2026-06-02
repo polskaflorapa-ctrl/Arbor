@@ -53,6 +53,7 @@
     "verify:pilot-closure": "node ./scripts/pilot-closure-check.cjs",
     "verify:pilot-execution": "node ./scripts/pilot-execution-check.cjs",
     "pilot:run:new": "node ./scripts/create-pilot-run-report.cjs",
+    "pilot:gates:run": "node ./scripts/run-pilot-gates.cjs",
     "verify:observability": "node ./scripts/observability-check.cjs",
     "verify:incident-runbook": "node ./scripts/incident-runbook-check.cjs",
     "verify:kommo-sms-drill": "node ./scripts/kommo-sms-drill-check.cjs",
