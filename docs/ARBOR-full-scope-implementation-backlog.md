@@ -95,7 +95,8 @@
 - [x] **P0 credential expiry cards**: `docs/CREDENTIAL-EXPIRY-CARDS-CONTRACT.md` opisuje monitoring waznosci uprawnien na kartach pracownika i summary w HR; `npm run verify:credential-expiry-cards` pilnuje backendu, panelu HR, testow i checklist.
 - [x] **P0 competency assignment guard**: `docs/COMPETENCY-ASSIGNMENT-GUARD-CONTRACT.md` opisuje twarda blokade recznego przypisania zlecenia do ekipy bez aktywnych wymaganych kompetencji; `npm run verify:competency-assignment-guard` pilnuje API, testu i UI helpera.
 - [x] **P0 dispatch competency guard**: `docs/DISPATCH-COMPETENCY-GUARD-CONTRACT.md` opisuje spojna blokade kompetencji w solverze i przy zastosowaniu zapisanego planu dispatchera; `npm run verify:dispatch-competency-guard` pilnuje API, testu i AutoDispatch.
-- [ ] **Nastepny pakiet**: EPIC 8.1 - decyzja i kontrakt dla nastepnego obszaru po HR.
+- [x] **P0 Kommo idempotency retry contract**: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` spina outbound `task.sync` retry/dead-letter, inbound idempotency/conflict handling i diagnostyke; `npm run verify:kommo-idempotency-retry` pilnuje kontraktu.
+- [ ] **Nastepny pakiet**: Pilot closure - finalny smoke end-to-end i checklist go-live.
 
 ---
 
@@ -209,7 +210,7 @@ flowchart LR
 
 - [x] **8.1** Kommo -> ARBOR: mapowanie pol (adres, geokodowanie, zakres, wartosc, zalaczniki) przy statusie "Do realizacji". Inbound `task.sync` obsluguje status/status_id, klienta, adres, miasto, zakres, wartosc, priorytet, termin, oddzial, ekipe, pinezke, zapisuje zalaczniki jako dokumenty, potrafi kopiowac binaria do storage ARBOR oraz ma `/api/kommo/config` i panel Integracje dla mapowan per konto Kommo.
 - [x] **8.2** ARBOR -> Kommo: status, zdjecia, czas rzeczywisty, zuzycie, kosztorys z marza, link statusowy. `task.sync` buduje jedna paczke operacyjno-finansowa z `work_time`, `photos`, `documents`, `material_usage`, `financials`, `settlement` i `status_url`.
-- [ ] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. **Czesciowo:** ARBOR -> Kommo `task.sync` ma juz retry/dead-letter, a Kommo -> ARBOR ma idempotencje eventow.
+- [x] **8.3** Idempotencja webhookow, kolejka retry, dead-letter. ARBOR -> Kommo `task.sync` ma kolejke `task_kommo_sync_queue`, retry metadata, `dead_letter` i guard `force=true`; Kommo -> ARBOR ma `task_kommo_inbound_events`, stabilny `event_key`, duplikaty bez ponownej aktualizacji oraz konflikty inbound w diagnostyce. Kontrakt pilnuje `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md` + `verify:kommo-idempotency-retry`.
 - [x] **8.4** Panel diagnostyczny sync (ostatni blad, HTTP, payload): API diagnostyczne + panel Integracje dla kolejki outbound i inbound konfliktow.
 
 ---

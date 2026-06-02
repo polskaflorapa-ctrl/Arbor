@@ -53,6 +53,7 @@
     "verify:observability": "node ./scripts/observability-check.cjs",
     "verify:incident-runbook": "node ./scripts/incident-runbook-check.cjs",
     "verify:kommo-sms-drill": "node ./scripts/kommo-sms-drill-check.cjs",
+    "verify:kommo-idempotency-retry": "node ./scripts/kommo-idempotency-retry-check.cjs",
     "verify:backup-rpo": "node ./scripts/backup-rpo-check.cjs",
     "verify:web-tti": "node ./scripts/web-tti-check.cjs",
     "verify:scale-readiness": "node ./scripts/scale-readiness-check.cjs",

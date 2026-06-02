@@ -14,6 +14,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] `npm run verify:observability` potwierdza health/ready/metrics, progi 5xx/p95 i storage smoke.
 - [ ] `npm run verify:incident-runbook` potwierdza reakcje na down API, p95, storage, Kommo/SMS i restore.
 - [ ] `npm run verify:kommo-sms-drill` potwierdza drill Kommo dead-letter, retry i SMS delivery fallback.
+- [ ] `npm run verify:kommo-idempotency-retry` potwierdza `KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md`: outbound retry/dead-letter, inbound idempotency i konflikty w diagnostyce.
 - [ ] `npm run verify:backup-rpo` potwierdza RPO/RTO, retencje, restore drill i artefakty backupu.
 - [ ] `npm run verify:web-tti` potwierdza prog TTI panelu i komendy smoke web.
 - [ ] `npm run verify:scale-readiness` potwierdza horizontal scaling: JWT, S3, Redis login limiter, crony i DB pool.
@@ -66,6 +67,7 @@ Zakres pilota: jedno srodowisko, jeden oddzial, realny kierownik, jedna lub dwie
 - [ ] Zespol zna START/STOP work log edge cases: `docs/MOBILE-START-STOP-WORKLOG-EDGE-CASES.md`.
 - [ ] Zespol zna RPO/RTO i restore drill: `docs/BACKUP-RPO-RTO-RUNBOOK.md`.
 - [ ] Zespol zna drill integracji: `docs/KOMMO-SMS-INCIDENT-DRILL.md`.
+- [ ] Zespol zna kontrakt Kommo idempotency/retry/dead-letter: `docs/KOMMO-IDEMPOTENCY-RETRY-DEADLETTER-CONTRACT.md`.
 - [ ] Przebieg rolowy jest opisany w `docs/PILOT-HARDENING-KIEROWNIK-BRYGADZISTA.md`.
 
 ## 2. Dane startowe
@@ -150,6 +152,7 @@ npm run verify:mobile-today-cache
 npm run verify:mobile-offline-conflicts
 npm run verify:mobile-start-stop-edge
 npm run verify:rbac-scope
+npm run verify:kommo-idempotency-retry
 npm run verify:pilot-hardening
 npm run check
 npm run verify:env-runbook
