@@ -137,7 +137,7 @@ export default function Telefonia() {
   });
   const [agentForm, setAgentForm] = useState({
     oddzial_id: '',
-    provider: 'external',
+    provider: 'zadarma',
     provider_account_id: '',
     provider_api_key: '',
     status: 'active',
@@ -415,7 +415,7 @@ export default function Telefonia() {
       setAgentForm((f) => ({
         ...f,
         oddzial_id: String(oddzialId),
-        provider: data.integration?.provider || f.provider || 'external',
+        provider: data.integration?.provider || f.provider || 'zadarma',
         provider_account_id: data.integration?.provider_account_id || f.provider_account_id || '',
         provider_api_key: '',
         status: data.integration?.status || f.status || 'active',
@@ -536,7 +536,7 @@ export default function Telefonia() {
       const token = getStoredToken();
       const { data } = await api.post('/telephony/voice-agent/polska-flora/integration', {
         oddzial_id: Number(agentForm.oddzial_id),
-        provider: agentForm.provider || 'external',
+        provider: agentForm.provider || 'zadarma',
         provider_account_id: agentForm.provider_account_id || null,
         provider_api_key: agentForm.provider_api_key || null,
         status: agentForm.status || 'active',
@@ -619,7 +619,7 @@ export default function Telefonia() {
       const token = getStoredToken();
       const { data } = await api.post('/telephony/voice-agent/polska-flora/integration', {
         oddzial_id: Number(agentForm.oddzial_id),
-        provider: agentForm.provider || agentIntegration?.provider || 'external',
+        provider: agentForm.provider || agentIntegration?.provider || 'zadarma',
         provider_account_id: agentForm.provider_account_id || agentIntegration?.provider_account_id || null,
         provider_api_key: null,
         status,
@@ -777,7 +777,7 @@ export default function Telefonia() {
   };
 
   const buildPreparedProviderPackage = ({ integration, row }) => JSON.stringify({
-    provider: integration?.provider || agentForm.provider || row?.provider || 'external',
+    provider: integration?.provider || agentForm.provider || row?.provider || 'zadarma',
     provider_account_id: integration?.provider_account_id || agentForm.provider_account_id || row?.provider_account_id || null,
     branch: {
       oddzial_id: row?.oddzial_id ? Number(row.oddzial_id) : null,
@@ -812,6 +812,17 @@ export default function Telefonia() {
     },
   }, null, 2);
 
+  const branchSetupPhonePatch = () => ({
+    telefon: branchTelephonyForm.telefon.trim(),
+    sms_sender_id: branchTelephonyForm.sms_sender_id.trim(),
+  });
+
+  const mergeBranchTelephonyIntoStatus = (row, patch) => ({
+    ...row,
+    telefon: patch.telefon || row?.telefon || '',
+    sms_sender_id: patch.sms_sender_id || row?.sms_sender_id || '',
+  });
+
   const prepareBranchProviderConnection = async (row = selectedBranchStatus) => {
     if (!row?.oddzial_id) {
       setAgentError('Wybierz oddzial do podpiecia.');
@@ -822,12 +833,18 @@ export default function Telefonia() {
     setAgentMessage('');
     try {
       const token = getStoredToken();
+      const branchPatch = branchSetupPhonePatch();
+      const hasBranchPatch = branchPatch.telefon || branchPatch.sms_sender_id;
+      if (hasBranchPatch) {
+        await api.put(`/oddzialy/${row.oddzial_id}`, branchPatch, { headers: authHeaders(token) });
+      }
+      const preparedRow = mergeBranchTelephonyIntoStatus(row, branchPatch);
       const body = {
-        oddzial_id: Number(row.oddzial_id),
-        provider: row.provider || agentForm.provider || 'external',
-        provider_account_id: row.provider_account_id || agentForm.provider_account_id || null,
+        oddzial_id: Number(preparedRow.oddzial_id),
+        provider: preparedRow.provider || agentForm.provider || 'zadarma',
+        provider_account_id: preparedRow.provider_account_id || agentForm.provider_account_id || null,
         provider_api_key: null,
-        status: row.integration_status === 'paused' ? 'paused' : 'active',
+        status: preparedRow.integration_status === 'paused' ? 'paused' : 'active',
       };
       const { data } = await api.post('/telephony/voice-agent/polska-flora/integration', body, { headers: authHeaders(token) });
       const integration = data.integration || null;
@@ -843,15 +860,16 @@ export default function Telefonia() {
       }));
       setBranchTelephonyForm((f) => ({
         ...f,
-        telefon: row.telefon || f.telefon,
-        sms_sender_id: row.sms_sender_id || f.sms_sender_id,
+        telefon: preparedRow.telefon || f.telefon,
+        sms_sender_id: preparedRow.sms_sender_id || f.sms_sender_id,
       }));
-      await navigator.clipboard.writeText(buildPreparedProviderPackage({ integration, row }));
-      setAgentMessage(`Podpiecie oddzialu ${row.oddzial_name || `#${row.oddzial_id}`} gotowe i skopiowane. Wklej paczke u providera, potem uruchom Test calosci oddzialu.`);
+      await navigator.clipboard.writeText(buildPreparedProviderPackage({ integration, row: preparedRow }));
+      setAgentMessage(`Podpiecie oddzialu ${preparedRow.oddzial_name || `#${preparedRow.oddzial_id}`} gotowe i skopiowane. Numery oddzialu sa zapisane, wklej paczke u providera, potem uruchom Test calosci oddzialu.`);
       await Promise.all([
-        loadVoiceAgentIntegration(row.oddzial_id),
-        loadIntegrationTestLogs(row.oddzial_id),
-        loadAgentReminderPreview(row.oddzial_id),
+        hasBranchPatch ? loadTelephonyExtras() : Promise.resolve(),
+        loadVoiceAgentIntegration(preparedRow.oddzial_id),
+        loadIntegrationTestLogs(preparedRow.oddzial_id),
+        loadAgentReminderPreview(preparedRow.oddzial_id),
         loadBranchIntegrationStatuses(),
       ]);
     } catch (err) {
@@ -891,7 +909,7 @@ export default function Telefonia() {
   };
 
   const buildAgentProviderPackage = () => JSON.stringify({
-    provider: agentIntegration?.provider || agentForm.provider || 'external',
+    provider: agentIntegration?.provider || agentForm.provider || 'zadarma',
     branch: {
       oddzial_id: agentForm.oddzial_id ? Number(agentForm.oddzial_id) : null,
       name: oddzialLabel(agentForm.oddzial_id),
@@ -926,7 +944,7 @@ export default function Telefonia() {
   const buildBranchProviderPackage = (row) => {
     const readiness = branchReadiness(row);
     return JSON.stringify({
-      provider: agentIntegration?.provider || agentForm.provider || row?.provider || 'external',
+      provider: agentIntegration?.provider || agentForm.provider || row?.provider || 'zadarma',
       provider_account_id: agentIntegration?.provider_account_id || agentForm.provider_account_id || row?.provider_account_id || null,
       branch: {
         oddzial_id: row?.oddzial_id ? Number(row.oddzial_id) : (agentForm.oddzial_id ? Number(agentForm.oddzial_id) : null),
@@ -969,7 +987,7 @@ export default function Telefonia() {
 
   const buildBranchProviderBrief = (row) => {
     const readiness = branchReadiness(row);
-    const provider = agentIntegration?.provider || agentForm.provider || row?.provider || 'external';
+    const provider = agentIntegration?.provider || agentForm.provider || row?.provider || 'zadarma';
     return [
       `Podpiecie telefonii AI - ${row?.oddzial_name || oddzialLabel(agentForm.oddzial_id)}`,
       '',
@@ -998,7 +1016,7 @@ export default function Telefonia() {
   };
 
   const buildProviderChecklist = () => {
-    const provider = agentIntegration?.provider || agentForm.provider || 'external';
+    const provider = agentIntegration?.provider || agentForm.provider || 'zadarma';
     const providerName = {
       external: 'Provider zewnetrzny',
       vapi: 'Vapi',
@@ -1093,7 +1111,7 @@ export default function Telefonia() {
   };
 
   const buildProviderSetupGuide = () => {
-    const provider = agentIntegration?.provider || agentForm.provider || 'external';
+    const provider = agentIntegration?.provider || agentForm.provider || 'zadarma';
     const webhookUrl = agentIntegration?.webhook_url || '/api/telephony/voice-agent/polska-flora/intake';
     const secret = agentIntegration?.webhook_secret || '';
     const guides = {
@@ -1946,7 +1964,7 @@ export default function Telefonia() {
       label: 'Agent AI',
       value: agentIntegration?.status === 'active' ? 'Aktywny' : agentIntegration?.status === 'paused' ? 'Pauza' : 'Niepodlaczony',
       tone: agentIntegration?.status === 'active' ? 'ok' : agentIntegration?.status === 'paused' ? 'warn' : 'bad',
-      detail: agentIntegration ? `${agentIntegration.provider || 'external'}${agentIntegration.provider_account_id ? ` / ${agentIntegration.provider_account_id}` : ''}` : 'Najpierw wlacz agenta dla oddzialu.',
+      detail: agentIntegration ? `${agentIntegration.provider || 'zadarma'}${agentIntegration.provider_account_id ? ` / ${agentIntegration.provider_account_id}` : ''}` : 'Najpierw wlacz agenta dla oddzialu.',
     },
     {
       label: 'Sekret webhooka',
@@ -1991,6 +2009,29 @@ export default function Telefonia() {
       value: String(agentReminderPreview.total || 0),
       tone: agentIntegration?.status === 'active' ? 'ok' : 'warn',
       detail: agentIntegration?.status === 'active' ? 'Automat obejmuje aktywne podpiecie oddzialu.' : 'Pauza lub brak podpiecia zatrzyma automat.',
+    },
+  ];
+  const selectedBranchSetupSteps = [
+    {
+      label: '1. Numery oddzialu',
+      ready: !!(branchTelephonyForm.telefon.trim() || selectedBranchStatus?.telefon),
+      detail: branchTelephonyForm.telefon.trim()
+        || selectedBranchStatus?.telefon
+        || 'Wpisz numer oddzialu, z ktorego beda wychodzic polaczenia.',
+    },
+    {
+      label: '2. Pakiet providera',
+      ready: !!agentIntegration?.webhook_secret,
+      detail: agentIntegration?.webhook_secret
+        ? 'Webhook i sekret sa gotowe do skopiowania.'
+        : 'Kliknij Przygotuj jednym kliknieciem.',
+    },
+    {
+      label: '3. Test calosci',
+      ready: selectedBranchStatus ? branchHasFreshOkTest(selectedBranchStatus) : false,
+      detail: selectedBranchStatus && branchHasFreshOkTest(selectedBranchStatus)
+        ? branchLastTestLabel(selectedBranchStatus)
+        : 'Po wklejeniu danych u providera uruchom Test calosci oddzialu.',
     },
   ];
   const filteredAgentIntakes = agentIntakes.filter((x) => {
@@ -2588,6 +2629,35 @@ export default function Telefonia() {
                   {integrationTestLogsLoading ? 'Ladowanie testow...' : 'Brak zapisanych testow integracji dla tego oddzialu.'}
                 </div>
               )}
+            </div>
+            <div style={s.branchQuickStartBox}>
+              <div style={s.providerChecklistHead}>
+                <div>
+                  <div style={s.manualTitle}>Szybki start oddzialu</div>
+                  <div style={s.agentHistoryMeta}>
+                    Jeden przeplyw dla menadzerki: zapisz numery, przygotuj podpiecie, odpal test.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  style={s.rowBtnActive}
+                  onClick={() => prepareBranchProviderConnection(selectedBranchStatus)}
+                  disabled={!selectedBranchStatus || branchQuickConnectingId === Number(agentForm.oddzial_id)}
+                >
+                  {branchQuickConnectingId === Number(agentForm.oddzial_id) ? 'Przygotowuje...' : 'Przygotuj jednym kliknieciem'}
+                </button>
+              </div>
+              <div style={s.branchQuickStartSteps}>
+                {selectedBranchSetupSteps.map((step) => (
+                  <div key={step.label} style={s.branchQuickStartStep}>
+                    <span style={step.ready ? s.okBadge : s.reviewBadge}>{step.ready ? 'OK' : 'Do zrobienia'}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <strong>{step.label}</strong>
+                      <div style={s.agentHistoryMeta}>{step.detail}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             <div style={s.agentGrid}>
               <form style={s.callForm} onSubmit={saveVoiceAgentIntegration}>
@@ -4416,6 +4486,29 @@ const s = {
     borderRadius: 8,
     border: '1px solid var(--border)',
     background: 'var(--surface-glass)',
+  },
+  branchQuickStartBox: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.16)',
+    background: 'rgba(15,95,58,0.045)',
+  },
+  branchQuickStartSteps: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+    gap: 8,
+  },
+  branchQuickStartStep: {
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: 'auto minmax(0, 1fr)',
+    gap: 8,
+    alignItems: 'start',
+    padding: 9,
+    borderRadius: 8,
+    border: '1px solid rgba(15,95,58,0.10)',
+    background: '#ffffff',
   },
   providerChecklistBox: {
     marginBottom: 12,

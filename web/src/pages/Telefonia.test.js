@@ -17,6 +17,7 @@ vi.mock('../api', () => ({
     get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -46,7 +47,14 @@ beforeEach(() => {
   api.get.mockReset();
   api.post.mockReset();
   api.patch.mockReset();
+  api.put.mockReset();
   api.post.mockResolvedValue({ data: { message: 'OK' } });
+  api.put.mockResolvedValue({ data: { success: true } });
+  Object.assign(navigator, {
+    clipboard: {
+      writeText: vi.fn().mockResolvedValue(undefined),
+    },
+  });
   api.get.mockImplementation((url) => {
     const path = String(url).split('?')[0];
     if (path === '/oddzialy') {
@@ -76,6 +84,40 @@ beforeEach(() => {
           }],
         },
       });
+    }
+    if (path === '/telephony/voice-agent/polska-flora/integrations/status') {
+      return Promise.resolve({
+        data: {
+          items: [{
+            oddzial_id: 7,
+            oddzial_name: 'Oddzial Krakow',
+            miasto: 'Krakow',
+            telefon: '',
+            sms_sender_id: '',
+            integration_id: null,
+            integration_status: null,
+            provider: null,
+            provider_account_id: null,
+            intakes_total: 0,
+            needs_review: 0,
+            sms_errors: 0,
+            last_test_log_at: null,
+            last_test_log_status: null,
+          }],
+        },
+      });
+    }
+    if (path === '/telephony/voice-agent/polska-flora/integration') {
+      return Promise.resolve({ data: { config: {}, integration: null } });
+    }
+    if (path === '/telephony/voice-agent/polska-flora/intakes') {
+      return Promise.resolve({ data: { items: [], total: 0, summary: {} } });
+    }
+    if (path === '/automations/inspection-sms-reminders/preview') {
+      return Promise.resolve({ data: { total: 0, items: [] } });
+    }
+    if (path === '/telephony/integration-test-logs') {
+      return Promise.resolve({ data: { items: [] } });
     }
     return Promise.resolve({ data: [] });
   });
@@ -115,4 +157,49 @@ test('filters SMS history by branch and acknowledges delivery owner alert', asyn
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });
+});
+
+test('one-click branch telephony setup saves branch numbers before copying provider package', async () => {
+  api.post.mockImplementation((url) => {
+    if (url === '/telephony/voice-agent/polska-flora/integration') {
+      return Promise.resolve({
+        data: {
+          config: {},
+          integration: {
+            id: 31,
+            oddzial_id: 7,
+            provider: 'zadarma',
+            status: 'active',
+            webhook_url: '/api/telephony/voice-agent/polska-flora/intake',
+            webhook_secret: 'secret-krk',
+          },
+        },
+      });
+    }
+    return Promise.resolve({ data: { message: 'OK' } });
+  });
+
+  renderTelefonia();
+
+  await userEvent.click(await screen.findByRole('button', { name: 'Agent AI' }));
+  expect(await screen.findByText('Szybki start oddzialu')).toBeInTheDocument();
+
+  await userEvent.type(screen.getByPlaceholderText('+48...'), '+48111222333');
+  await userEvent.type(screen.getByPlaceholderText('np. ARBOR-KRK albo numer SMS'), 'ARBOR-KRK');
+  await userEvent.click(screen.getAllByRole('button', { name: 'Przygotuj jednym kliknieciem' })[0]);
+
+  await waitFor(() => {
+    expect(api.put).toHaveBeenCalledWith(
+      '/oddzialy/7',
+      { telefon: '48111222333', sms_sender_id: 'ARBOR-KRK' },
+      expect.objectContaining({ headers: expect.any(Object) })
+    );
+  });
+  expect(api.post).toHaveBeenCalledWith(
+    '/telephony/voice-agent/polska-flora/integration',
+    expect.objectContaining({ oddzial_id: 7, provider: 'zadarma', status: 'active' }),
+    expect.objectContaining({ headers: expect.any(Object) })
+  );
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('48111222333'));
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('ARBOR-KRK'));
 });
