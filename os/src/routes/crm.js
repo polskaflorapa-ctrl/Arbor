@@ -107,6 +107,104 @@ function pct(part, total) {
   return t > 0 ? Math.round((p / t) * 100) : 0;
 }
 
+function hoursSince(value) {
+  if (!value) return null;
+  const t = new Date(value).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / (60 * 60 * 1000)));
+}
+
+function commandItemForLead(row) {
+  const stage = normStage(row.stage);
+  const value = Number(row.value || 0);
+  const lastMessageHours = hoursSince(row.last_message_at);
+  const nextActionHours = row.next_action_at ? hoursSince(row.next_action_at) : null;
+  const openTasks = Number(row.open_tasks || 0);
+  const overdueTasks = Number(row.overdue_tasks || 0);
+  const calls30d = Number(row.calls_30d || 0);
+  const reasons = [];
+  let score = 0;
+
+  if (!row.owner_user_id) {
+    score += 24;
+    reasons.push({ key: 'unassigned', label: 'Brak ownera', severity: 'high' });
+  }
+  if (overdueTasks > 0) {
+    score += 30 + Math.min(20, overdueTasks * 5);
+    reasons.push({ key: 'overdue_tasks', label: `${overdueTasks} zalegle zadania`, severity: 'critical' });
+  }
+  if (row.next_action_at && nextActionHours !== null && nextActionHours > 0) {
+    score += 22 + Math.min(20, Math.floor(nextActionHours / 12));
+    reasons.push({ key: 'next_action_overdue', label: `Termin akcji minelo ${nextActionHours}h temu`, severity: 'critical' });
+  }
+  if (row.last_direction === 'outbound' && lastMessageHours !== null && lastMessageHours >= 24) {
+    score += 18 + Math.min(18, Math.floor(lastMessageHours / 24) * 4);
+    reasons.push({ key: 'no_reply', label: `Brak odpowiedzi po ${lastMessageHours}h`, severity: 'high' });
+  }
+  if (!row.phone && !row.email) {
+    score += 18;
+    reasons.push({ key: 'missing_contact', label: 'Brak telefonu i emaila', severity: 'high' });
+  }
+  if (value >= 5000) {
+    score += 18;
+    reasons.push({ key: 'high_value', label: `Wysoka wartosc: ${Math.round(value)} PLN`, severity: 'medium' });
+  } else if (value > 0) {
+    score += 8;
+  }
+  if (calls30d > 0 && !row.next_action_at && openTasks === 0) {
+    score += 14;
+    reasons.push({ key: 'call_without_next_step', label: 'Byla rozmowa, brak nastepnego kroku', severity: 'medium' });
+  }
+  if (openTasks > 0) {
+    score += Math.min(14, openTasks * 4);
+  }
+  if (['Lead', 'OglÄ™dziny', 'Do zatwierdzenia'].includes(stage)) {
+    score += 8;
+  }
+  if (['Wygrane', 'Przegrane', 'Techniczny'].includes(stage)) {
+    score = Math.max(0, score - 40);
+  }
+
+  const primary = reasons[0]?.key || 'next_step';
+  const nextBestAction =
+    primary === 'unassigned'
+      ? 'Przypisz ownera i zaplanuj pierwszy kontakt.'
+      : primary === 'overdue_tasks' || primary === 'next_action_overdue'
+        ? 'Wykonaj zalegle zadanie albo ustaw nowy termin follow-up.'
+        : primary === 'no_reply'
+          ? 'Zadzwon lub wyslij krotki follow-up do klienta.'
+          : primary === 'missing_contact'
+            ? 'Uzupelnij dane kontaktowe zanim lead ostygnie.'
+            : primary === 'call_without_next_step'
+              ? 'Dopisz po rozmowie konkretny nastepny krok.'
+              : 'Ustal nastepny krok i zapisz go w CRM.';
+
+  return {
+    id: row.id,
+    title: row.title,
+    oddzial_id: row.oddzial_id,
+    stage,
+    source: row.source || null,
+    value,
+    phone: row.phone || null,
+    email: row.email || null,
+    owner_user_id: row.owner_user_id || null,
+    owner_name: row.owner_user_id
+      ? [row.owner_imie, row.owner_nazwisko].filter(Boolean).join(' ').trim() || row.owner_login || `#${row.owner_user_id}`
+      : null,
+    next_action_at: row.next_action_at || null,
+    last_message_at: row.last_message_at || null,
+    last_direction: row.last_direction || null,
+    open_tasks: openTasks,
+    overdue_tasks: overdueTasks,
+    calls_30d: calls30d,
+    score: Math.max(0, Math.min(100, score)),
+    priority: score >= 70 ? 'critical' : score >= 45 ? 'high' : score >= 25 ? 'medium' : 'normal',
+    reasons,
+    next_best_action: nextBestAction,
+  };
+}
+
 async function mapLeadRow(client, row) {
   const owner = row.owner_user_id
     ? (await client.query('SELECT imie, nazwisko, login FROM users WHERE id = $1', [row.owner_user_id])).rows[0]
@@ -456,6 +554,96 @@ router.get('/overview', async (req, res) => {
   } catch (err) {
     logger.error('crm.overview', { message: err.message });
     res.status(500).json({ error: 'Błąd odczytu overview CRM' });
+  }
+});
+
+router.get('/command-center', async (req, res) => {
+  try {
+    const oddzialId = scopedOddzialId(req.user, toInt(req.query.oddzial_id));
+    const limit = Math.min(Math.max(toInt(req.query.limit) || 25, 1), 100);
+    const params = [];
+    let where = `WHERE l.stage NOT IN ('Wygrane', 'Przegrane', 'Techniczny')`;
+    if (oddzialId) {
+      params.push(oddzialId);
+      where += ` AND l.oddzial_id = $${params.length}`;
+    }
+    params.push(limit * 4);
+    const limitParam = params.length;
+
+    const { rows } = await pool.query(
+      `WITH last_message AS (
+         SELECT DISTINCT ON (m.lead_id)
+           m.lead_id,
+           m.direction AS last_direction,
+           m.channel AS last_channel,
+           m.created_at AS last_message_at
+         FROM crm_lead_messages m
+         ORDER BY m.lead_id, m.created_at DESC, m.id DESC
+       ),
+       activity_stats AS (
+         SELECT
+           a.lead_id,
+           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL)::int AS open_tasks,
+           COUNT(*) FILTER (WHERE a.type = 'task' AND a.completed_at IS NULL AND a.due_at < NOW())::int AS overdue_tasks
+         FROM crm_lead_activities a
+         GROUP BY a.lead_id
+       ),
+       call_stats AS (
+         SELECT
+           regexp_replace(COALESCE(p.client_number, ''), '\\D', '', 'g') AS phone_digits,
+           COUNT(*)::int AS calls_30d
+         FROM phone_call_conversations p
+         WHERE p.created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY 1
+       )
+       SELECT
+         l.id, l.title, l.oddzial_id, l.stage, l.source, l.value, l.phone, l.email,
+         l.owner_user_id, l.next_action_at, l.created_at, l.updated_at,
+         o.imie AS owner_imie, o.nazwisko AS owner_nazwisko, o.login AS owner_login,
+         lm.last_direction, lm.last_channel, lm.last_message_at,
+         COALESCE(ast.open_tasks, 0)::int AS open_tasks,
+         COALESCE(ast.overdue_tasks, 0)::int AS overdue_tasks,
+         COALESCE(cs.calls_30d, 0)::int AS calls_30d
+       FROM crm_leads l
+       LEFT JOIN users o ON o.id = l.owner_user_id
+       LEFT JOIN last_message lm ON lm.lead_id = l.id
+       LEFT JOIN activity_stats ast ON ast.lead_id = l.id
+       LEFT JOIN call_stats cs ON cs.phone_digits = regexp_replace(COALESCE(l.phone, ''), '\\D', '', 'g')
+       ${where}
+       ORDER BY
+         (CASE WHEN l.next_action_at IS NOT NULL AND l.next_action_at < NOW() THEN 0 ELSE 1 END),
+         COALESCE(ast.overdue_tasks, 0) DESC,
+         COALESCE(l.value, 0) DESC,
+         l.updated_at DESC NULLS LAST,
+         l.id DESC
+       LIMIT $${limitParam}`,
+      params
+    );
+
+    const priorities = rows
+      .map(commandItemForLead)
+      .sort((a, b) => b.score - a.score || b.value - a.value || b.id - a.id)
+      .slice(0, limit);
+    const summary = {
+      total: priorities.length,
+      critical: priorities.filter((item) => item.priority === 'critical').length,
+      high: priorities.filter((item) => item.priority === 'high').length,
+      overdue: priorities.filter((item) => item.overdue_tasks > 0 || (item.reasons || []).some((r) => r.key === 'next_action_overdue')).length,
+      unassigned: priorities.filter((item) => !item.owner_user_id).length,
+      value_at_risk: priorities
+        .filter((item) => ['critical', 'high'].includes(item.priority))
+        .reduce((sum, item) => sum + Number(item.value || 0), 0),
+    };
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      oddzial_id: oddzialId || null,
+      summary,
+      priorities,
+    });
+  } catch (err) {
+    logger.error('crm.commandCenter', { message: err.message });
+    res.status(500).json({ error: 'Blad odczytu CRM Command Center' });
   }
 });
 
