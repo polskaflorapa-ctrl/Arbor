@@ -1,5 +1,5 @@
 const expoBabelPreset = require.resolve('babel-preset-expo');
-const { expoRouterBabelPlugin } = require('babel-preset-expo/build/expo-router-plugin');
+const { expoRouterBabelPlugin } = require('babel-preset-expo/build/plugins/expo-router-plugin');
 
 module.exports = function (api) {
   api.cache(true);

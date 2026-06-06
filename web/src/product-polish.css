@@ -572,11 +572,33 @@ button[style*='var(--accent-gradient)'] {
   text-align: left !important;
 }
 
+.raporty-centrum-main {
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.raporty-centrum-opsbar {
+  background: #ffffff !important;
+}
+
+.raporty-centrum-card {
+  box-shadow: none !important;
+}
+
+.raporty-centrum-card:hover {
+  transform: none !important;
+  box-shadow: 0 0 0 2px rgba(15, 118, 80, 0.1) !important;
+}
+
 @media (max-width: 760px) {
   .module-page-header,
   .module-page-header-hero,
   .module-page-header-plain {
     padding: 14px !important;
+  }
+
+  .raporty-centrum-main {
+    padding-bottom: 110px !important;
   }
 
   .app-main,

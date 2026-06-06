@@ -100,6 +100,49 @@ function verifyWebhookSignature(body = {}, signatureHeader) {
   }
 }
 
+function timingSafeSignatureEqual(signature, expected) {
+  try {
+    const actualBuffer = Buffer.from(String(signature || '').trim());
+    const expectedBuffer = Buffer.from(String(expected || '').trim());
+    if (actualBuffer.length !== expectedBuffer.length) return false;
+    return crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+  } catch {
+    return false;
+  }
+}
+
+function zadarmaHmacSha1(source) {
+  return crypto.createHmac('sha1', env.ZADARMA_API_SECRET).update(source).digest('base64');
+}
+
+function zadarmaSmsStatusSignatureSources(body = {}) {
+  const sources = [];
+  const result = body.result != null ? String(body.result) : '';
+  if (result) sources.push(result);
+
+  const messageId = String(body.message_id || body.messageId || body.sms_id || body.smsId || body.id || body.sid || '').trim();
+  const status = String(body.status || body.sms_status || body.message_status || body.delivery_status || body.event || '').trim();
+  const errorCode = String(body.error_code || body.code || '').trim();
+  const errorMessage = String(body.error_message || body.error || body.reason || body.message || '').trim();
+  if (messageId && status) {
+    sources.push(`${messageId}${status}${errorCode}${errorMessage}`);
+  }
+
+  return [...new Set(sources.filter(Boolean))];
+}
+
+function verifySmsStatusWebhookSignature(body = {}, signatureHeader) {
+  if (env.ZADARMA_SKIP_SIGNATURE_VALIDATION) return true;
+  if (!env.ZADARMA_API_SECRET) return false;
+  const signature = String(signatureHeader || body.signature || '').trim();
+  if (!signature) return false;
+
+  const sources = zadarmaSmsStatusSignatureSources(body);
+  if (!sources.length) return false;
+
+  return sources.some((source) => timingSafeSignatureEqual(signature, zadarmaHmacSha1(source)));
+}
+
 /**
  * Wysyła SMS przez Zadarma.
  * POST /v1/sms/send/
@@ -169,6 +212,7 @@ module.exports = {
   normalizePhone,
   requestCallback,
   sendSms,
+  verifySmsStatusWebhookSignature,
   verifyWebhookSignature,
   zadarmaRequest,
 };

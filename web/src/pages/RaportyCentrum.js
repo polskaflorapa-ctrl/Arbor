@@ -92,10 +92,9 @@ export default function RaportyCentrum() {
       <main className="app-main raporty-centrum-main" style={S.main}>
         <section className="raporty-centrum-hero" style={S.hero}>
           <div>
-            <div style={S.eyebrow}>Centrum raportow</div>
-            <h1 style={S.title}>Jedno miejsce na wyniki, raport dnia i KPI</h1>
+            <h1 style={S.title}>Centrum raportow</h1>
             <p style={S.subtitle}>
-              Raporty sa teraz uporzadkowane wedlug pracy firmy: zarzad, teren, mobilka i planowanie.
+              Przeglad wynikow, raportow dnia i kontroli wykonania dla operacji terenowych.
             </p>
           </div>
           <div style={S.heroStats}>
@@ -110,11 +109,18 @@ export default function RaportyCentrum() {
           </div>
         </section>
 
+        <section className="raporty-centrum-opsbar" style={S.opsbar}>
+          <button type="button" style={S.opsButton} onClick={() => navigate('/raporty/dzienny')}>Raport dnia</button>
+          <button type="button" style={S.opsButton} onClick={() => navigate('/raporty/analityka')}>Analityka</button>
+          <button type="button" style={S.opsButton} onClick={() => navigate('/raporty/kpi-tydzien')}>KPI tygodnia</button>
+          <button type="button" style={S.primaryButton} onClick={() => navigate('/raporty/autoplan')}>Autoplan</button>
+        </section>
+
         <section className="raporty-centrum-section" style={S.section}>
           <div style={S.sectionHead}>
             <div>
-              <div style={S.eyebrow}>Najwazniejsze</div>
-              <h2 style={S.sectionTitle}>Raporty do decyzji</h2>
+              <div style={S.eyebrow}>Decyzje</div>
+              <h2 style={S.sectionTitle}>Raporty do kontroli</h2>
             </div>
           </div>
           <div className="raporty-centrum-grid" style={S.grid}>
@@ -134,7 +140,7 @@ export default function RaportyCentrum() {
         <section className="raporty-centrum-section" style={S.section}>
           <div style={S.sectionHead}>
             <div>
-              <div style={S.eyebrow}>Operacyjnie</div>
+              <div style={S.eyebrow}>Operacje</div>
               <h2 style={S.sectionTitle}>Plan dnia i kontrola wykonania</h2>
             </div>
           </div>
@@ -154,80 +160,113 @@ export default function RaportyCentrum() {
 }
 
 const S = {
-  wrap: { display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg, #f6faf7 0%, #ffffff 46%, #eaf4ee 100%)' },
-  main: { flex: 1, width: '100%', padding: '22px clamp(16px, 2.4vw, 30px) 40px', maxWidth: 1240, margin: '0 auto', minWidth: 0 },
+  wrap: { display: 'flex', minHeight: '100vh', background: '#f5f7f8' },
+  main: { flex: 1, width: '100%', padding: '18px clamp(16px, 2.4vw, 30px) 40px', minWidth: 0 },
   hero: {
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) auto',
-    gap: 18,
+    gap: 16,
     alignItems: 'center',
-    border: '1px solid rgba(15,95,58,0.14)',
+    border: '1px solid rgba(18,32,26,0.1)',
+    borderLeft: '4px solid var(--accent)',
     borderRadius: 8,
-    background: 'linear-gradient(90deg, rgba(15,107,63,0.045) 1px, transparent 1px), linear-gradient(0deg, rgba(15,107,63,0.04) 1px, transparent 1px), linear-gradient(135deg, rgba(255,255,255,0.98), rgba(241,249,244,0.95))',
-    backgroundSize: '34px 34px, 34px 34px, auto',
-    boxShadow: '0 16px 40px rgba(31,79,50,0.09)',
-    padding: '18px clamp(16px, 2.2vw, 24px)',
-    marginBottom: 14,
+    background: '#ffffff',
+    boxShadow: 'var(--shadow-sm)',
+    padding: '18px 20px',
+    marginBottom: 12,
   },
   eyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
-  title: { margin: '4px 0 8px', color: 'var(--text)', fontSize: 28, lineHeight: 1.15, fontWeight: 950, letterSpacing: 0 },
-  subtitle: { margin: 0, color: 'var(--text-sub)', fontSize: 14, lineHeight: 1.5, maxWidth: 680, fontWeight: 650 },
+  title: { margin: 0, color: 'var(--text)', fontSize: 30, lineHeight: 1.12, fontWeight: 900, letterSpacing: 0 },
+  subtitle: { margin: '6px 0 0', color: 'var(--text-sub)', fontSize: 13, lineHeight: 1.45, maxWidth: 680, fontWeight: 650 },
   heroStats: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(92px, 1fr))', gap: 10 },
   statBox: {
     border: '1px solid rgba(15,95,58,0.13)',
     borderRadius: 8,
     background: '#ffffff',
-    padding: '12px 14px',
-    minHeight: 76,
+    padding: '10px 12px',
+    minHeight: 64,
     display: 'grid',
     alignContent: 'space-between',
   },
   statLabel: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
-  statValue: { color: 'var(--accent)', fontSize: 24, fontWeight: 950 },
-  section: {
-    border: '1px solid rgba(15,95,58,0.13)',
+  statValue: { color: 'var(--accent)', fontSize: 22, fontWeight: 950 },
+  opsbar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    border: '1px solid rgba(18,32,26,0.1)',
     borderRadius: 8,
     background: '#ffffff',
-    boxShadow: '0 12px 30px rgba(31,79,50,0.065)',
+    boxShadow: 'var(--shadow-sm)',
+    padding: 10,
+    marginBottom: 12,
+  },
+  opsButton: {
+    minHeight: 36,
+    border: '1px solid rgba(18,32,26,0.12)',
+    borderRadius: 6,
+    background: '#ffffff',
+    color: 'var(--text)',
+    padding: '0 12px',
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  primaryButton: {
+    minHeight: 36,
+    border: '1px solid rgba(15,118,80,0.3)',
+    borderRadius: 6,
+    background: 'var(--accent)',
+    color: '#ffffff',
+    padding: '0 14px',
+    fontSize: 13,
+    fontWeight: 850,
+    cursor: 'pointer',
+  },
+  section: {
+    border: '1px solid rgba(18,32,26,0.1)',
+    borderRadius: 8,
+    background: '#ffffff',
+    boxShadow: 'var(--shadow-sm)',
     padding: 14,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   sectionHead: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10 },
   sectionTitle: { margin: 0, color: 'var(--text)', fontSize: 17, fontWeight: 900, letterSpacing: 0 },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 10 },
   compactGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 10 },
   card: {
-    minHeight: 158,
+    minHeight: 136,
     textAlign: 'left',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(18,32,26,0.1)',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
     padding: 13,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: 'none',
     display: 'grid',
     gap: 9,
     cursor: 'pointer',
     fontFamily: 'inherit',
   },
   compactCard: {
-    minHeight: 126,
+    minHeight: 112,
     textAlign: 'left',
-    border: '1px solid rgba(15,95,58,0.13)',
+    border: '1px solid rgba(18,32,26,0.1)',
     borderRadius: 8,
     background: '#ffffff',
     color: 'var(--text)',
     padding: 12,
-    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    boxShadow: 'none',
     display: 'grid',
     gap: 7,
     cursor: 'pointer',
     fontFamily: 'inherit',
   },
-  green: { border: '1px solid rgba(52,211,153,0.28)', background: 'linear-gradient(135deg, #ffffff, rgba(52,211,153,0.08))' },
-  blue: { border: '1px solid rgba(96,165,250,0.28)', background: 'linear-gradient(135deg, #ffffff, rgba(96,165,250,0.08))' },
-  cyan: { border: '1px solid rgba(34,211,238,0.25)', background: 'linear-gradient(135deg, #ffffff, rgba(34,211,238,0.07))' },
-  amber: { border: '1px solid rgba(249,168,37,0.3)', background: 'linear-gradient(135deg, #ffffff, rgba(249,168,37,0.09))' },
+  green: { borderLeft: '4px solid #0f7650' },
+  blue: { borderLeft: '4px solid #2563eb' },
+  cyan: { borderLeft: '4px solid #0891b2' },
+  amber: { borderLeft: '4px solid #d97706' },
   cardEyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
   cardTop: { display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between' },
   cardTitle: { color: 'var(--text)', fontSize: 16, lineHeight: 1.25, fontWeight: 900 },
