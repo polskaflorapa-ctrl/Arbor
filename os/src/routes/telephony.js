@@ -209,10 +209,15 @@ router.post('/zadarma/test', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     logger.warn('telephony.zadarma.test', { message: err.message, requestId: req.requestId });
+    const zadarmaMessage = String(err.message || '');
+    const isAuthFailure = /not authorized|unauthori[sz]ed|forbidden|401|403/i.test(zadarmaMessage);
     return res.status(400).json({
       ok: false,
       provider: 'zadarma',
-      error: err.message,
+      code: isAuthFailure ? 'ZADARMA_AUTH_FAILED' : 'ZADARMA_TEST_FAILED',
+      error: isAuthFailure
+        ? 'Zadarma odrzucila klucze API. Sprawdz API key i API secret w panelu Zadarma, zapisz je ponownie i uruchom Test API.'
+        : (zadarmaMessage || 'Test Zadarmy nie przeszedl.'),
       settings: publicZadarmaSettings(await getZadarmaRuntimeConfig().catch(() => ({}))),
     });
   }
