@@ -1,8 +1,10 @@
 const request = require('supertest');
 
 jest.mock('../src/services/phone-call-pipeline', () => ({
+  markCallCompleted: jest.fn().mockResolvedValue(undefined),
   markRecordingReady: jest.fn().mockResolvedValue(undefined),
   processRecordingPipeline: jest.fn().mockResolvedValue(undefined),
+  upsertCallLegFromTwiml: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../src/services/zadarma', () => ({
@@ -28,7 +30,12 @@ jest.mock('../src/config/env', () => {
   };
 });
 
-const { markRecordingReady, processRecordingPipeline } = require('../src/services/phone-call-pipeline');
+const {
+  markCallCompleted,
+  markRecordingReady,
+  processRecordingPipeline,
+  upsertCallLegFromTwiml,
+} = require('../src/services/phone-call-pipeline');
 const {
   requestPbxRecord,
   verifyWebhookSignatureAsync,
@@ -102,5 +109,25 @@ describe('Telefon webhooks (Twilio)', () => {
     );
     await new Promise((r) => setImmediate(r));
     expect(processRecordingPipeline).toHaveBeenCalledWith('zadarma:pbx-1');
+  });
+
+  it('POST /zadarma records outbound call metadata before recording notification arrives', async () => {
+    const res = await request(app)
+      .post('/api/telefon/webhooks/zadarma')
+      .type('application/x-www-form-urlencoded')
+      .send('event=NOTIFY_OUT_END&pbx_call_id=pbx-2&internal=100&destination=%2B48500111222&duration=88&disposition=answered&signature=sig');
+
+    expect(res.status).toBe(204);
+    expect(upsertCallLegFromTwiml).toHaveBeenCalledWith(expect.objectContaining({
+      callSid: 'zadarma:pbx-2',
+      staffNumber: '100',
+      clientNumber: '+48500111222',
+    }));
+    expect(markCallCompleted).toHaveBeenCalledWith(expect.objectContaining({
+      callSid: 'zadarma:pbx-2',
+      durationSec: '88',
+      status: 'answered',
+    }));
+    expect(requestPbxRecord).not.toHaveBeenCalled();
   });
 });

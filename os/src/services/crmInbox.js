@@ -57,10 +57,14 @@ async function ensureCrmLeadMessagesTable() {
 async function findLeadForContact({ oddzialId, phone, email }) {
   const normalizedPhone = digitsOnly(phone);
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (!oddzialId || (!normalizedPhone && !normalizedEmail)) return null;
+  if (!normalizedPhone && !normalizedEmail) return null;
 
-  const params = [oddzialId];
-  const clauses = ['l.oddzial_id = $1'];
+  const params = [];
+  const clauses = [];
+  if (oddzialId) {
+    params.push(oddzialId);
+    clauses.push(`l.oddzial_id = $${params.length}`);
+  }
   const contactClauses = [];
   if (normalizedPhone) {
     params.push(normalizedPhone);

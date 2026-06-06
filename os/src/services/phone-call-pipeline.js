@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
 const Anthropic = require('@anthropic-ai/sdk');
+const { appendCrmMessageForContact } = require('./crmInbox');
 const { persistPhoneRecording } = require('./phone-recording-storage');
 
 let _tableEnsured = false;
@@ -69,6 +70,23 @@ async function upsertCallLegFromTwiml({ callSid, userId, taskId, staffNumber, cl
       client_number = COALESCE(NULLIF(EXCLUDED.client_number, ''), phone_call_conversations.client_number),
       updated_at = NOW()`,
     [callSid, userId || null, taskId || null, staffNumber || null, clientNumber || null]
+  );
+}
+
+async function markCallCompleted({ callSid, durationSec, status = 'completed' }) {
+  await ensurePhoneCallsTable();
+  const dur = durationSec != null && durationSec !== '' ? parseInt(String(durationSec), 10) : null;
+  const d = Number.isFinite(dur) ? dur : null;
+  await pool.query(
+    `UPDATE phone_call_conversations SET
+      recording_duration_sec = COALESCE($2, recording_duration_sec),
+      status = CASE
+        WHEN recording_url IS NOT NULL THEN status
+        ELSE $3
+      END,
+      updated_at = NOW()
+    WHERE twilio_call_sid = $1`,
+    [callSid, d, status]
   );
 }
 
@@ -279,6 +297,14 @@ async function processRecordingPipeline(callSid) {
         `UPDATE phone_call_conversations SET raport = $2, wskazowki_specjalisty = $3, status = 'analyzed', updated_at = NOW() WHERE twilio_call_sid = $1`,
         [callSid, summary.raport, summary.wskazowki_specjalisty]
       );
+      await appendPhoneCallCrmNote({
+        callSid,
+        clientNumber: row.client_number,
+        transcript,
+        raport: summary.raport,
+        wskazowki: summary.wskazowki_specjalisty,
+        status: 'analyzed',
+      });
     } else {
       await pool.query(
         `UPDATE phone_call_conversations SET
@@ -290,6 +316,14 @@ async function processRecordingPipeline(callSid) {
         WHERE twilio_call_sid = $1`,
         [callSid]
       );
+      await appendPhoneCallCrmNote({
+        callSid,
+        clientNumber: row.client_number,
+        transcript,
+        raport: null,
+        wskazowki: null,
+        status: 'transcribed',
+      });
     }
   } catch (e) {
     logger.error('phone-call-pipeline blad', { callSid, message: e.message });
@@ -297,9 +331,34 @@ async function processRecordingPipeline(callSid) {
   }
 }
 
+async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, raport, wskazowki, status }) {
+  if (!clientNumber) return null;
+  const parts = [
+    'Rozmowa telefoniczna Zadarma/ARBOR',
+    raport ? `Raport: ${raport}` : null,
+    transcript ? `Transkrypcja: ${String(transcript).slice(0, 4000)}` : null,
+    wskazowki ? `Wskazowki: ${wskazowki}` : null,
+  ].filter(Boolean);
+  if (!parts.length) return null;
+  return appendCrmMessageForContact({
+    phone: clientNumber,
+    channel: 'phone',
+    direction: 'outbound',
+    senderHandle: null,
+    recipientHandle: clientNumber,
+    body: parts.join('\n\n'),
+    status: 'received',
+    externalMessageId: callSid,
+    templateKey: 'phone_call_recording',
+    metadata: { source: 'phone.recording', call_sid: callSid, status },
+  });
+}
+
 module.exports = {
   ensurePhoneCallsTable,
+  markCallCompleted,
   upsertCallLegFromTwiml,
   markRecordingReady,
   processRecordingPipeline,
+  appendPhoneCallCrmNote,
 };

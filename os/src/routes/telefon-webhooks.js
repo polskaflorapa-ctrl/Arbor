@@ -3,8 +3,10 @@ const twilioLib = require('twilio');
 const logger = require('../config/logger');
 const { env } = require('../config/env');
 const {
+  markCallCompleted,
   markRecordingReady,
   processRecordingPipeline,
+  upsertCallLegFromTwiml,
 } = require('../services/phone-call-pipeline');
 const {
   extractPbxRecordUrl,
@@ -82,6 +84,28 @@ router.post('/zadarma', express.urlencoded({ extended: false }), async (req, res
     if (!(await verifyZadarmaWebhookSignature(req.body || {}, req.get('signature') || req.get('x-zadarma-signature')))) {
       logger.warn('Zadarma phone webhook: niepoprawny podpis', { event });
       return res.status(403).type('text/plain').send('Forbidden');
+    }
+
+    if (event === 'NOTIFY_OUT_END' || event === 'NOTIFY_END') {
+      const pbxCallId = String(req.body?.pbx_call_id || '').trim();
+      if (!pbxCallId) return res.status(204).send();
+      const conversationId = `zadarma:${pbxCallId}`;
+      const isOutbound = event === 'NOTIFY_OUT_END';
+      const clientNumber = String(isOutbound ? req.body?.destination || '' : req.body?.caller_id || '').trim();
+      const staffNumber = String(req.body?.internal || req.body?.caller_id || req.body?.called_did || '').trim();
+      await upsertCallLegFromTwiml({
+        callSid: conversationId,
+        userId: null,
+        taskId: null,
+        staffNumber,
+        clientNumber,
+      });
+      await markCallCompleted({
+        callSid: conversationId,
+        durationSec: req.body?.duration,
+        status: req.body?.disposition || 'completed',
+      });
+      return res.status(204).send();
     }
 
     if (event !== 'NOTIFY_RECORD') return res.status(204).send();
