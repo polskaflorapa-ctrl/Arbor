@@ -116,6 +116,22 @@ ZADARMA_CALLER_ID=ARBOR
 PUBLIC_BASE_URL=https://api.twoja-domena.pl
 ```
 
+`ZADARMA_API_KEY` i `ZADARMA_API_SECRET` bierz z panelu Zadarma: **Settings / Integrations and API / API keys**.
+Po ustawieniu tych zmiennych ARBOR uzywa Zadarmy jako pierwszego dostawcy dla:
+
+- wysylki SMS,
+- statusow dostarczenia SMS,
+- przycisku `Telefon / polacz do klienta` przez Zadarma Callback API.
+
+Przycisk `polacz do klienta` dzwoni najpierw na numer telefonu zapisany w profilu uzytkownika ARBOR, a po odebraniu laczy z numerem klienta.
+Dlatego kazdy uzytkownik, ktory ma dzwonic z panelu, musi miec uzupelnione pole `telefon` w formacie `+48...`.
+
+Polaczenia przychodzace ustawiasz w panelu Zadarma po stronie numeru/PBX:
+
+- podlacz kupiony numer DID do SIP/PBX/scenariusza albo przekierowania na telefon pracownika,
+- dla zwyklego odbierania telefonow ARBOR nie musi posredniczyc w audio,
+- jezeli chcesz automatyczne intake/lead z rozmow przychodzacych, wlacz oddzielnie integracje agenta glosowego w module Telefonia.
+
 W panelu Zadarma wlacz webhook notifications dla SMS i ustaw:
 
 ```text

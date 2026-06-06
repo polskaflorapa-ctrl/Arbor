@@ -19,6 +19,7 @@ const {
   upsertCallLegFromTwiml,
 } = require('../services/phone-call-pipeline');
 const { sendRecordingToHttpResponse } = require('../services/phone-recording-storage');
+const { isZadarmaConfigured, requestCallback } = require('../services/zadarma');
 
 const router = express.Router();
 
@@ -113,8 +114,8 @@ const publicBaseUrl = () => {
 
 /**
  * POST /api/telefon/polacz-do-klienta
- * Dzwoni na telefon pracownika z profilu; po odebraniu TwiML łączy z numerem klienta (`do`).
- * Nagrywanie obu stron + webhook → transkrypcja (OpenAI) + raport (Anthropic).
+ * Dzwoni na telefon pracownika z profilu i laczy z numerem klienta (`do`).
+ * Zadarma Callback jest preferowana; Twilio zostaje fallbackiem dla instalacji, ktore nadal go uzywaja.
  */
 router.post(
   '/polacz-do-klienta',
@@ -123,31 +124,6 @@ router.post(
   validateBody(polaczDoKlientaSchema),
   async (req, res) => {
   try {
-    const base = publicBaseUrl();
-    if (!base) {
-      return res.status(503).json({
-        error: req.t('errors.telefon.publicUrlMissing'),
-        code: TELEFON_PUBLIC_URL_MISSING,
-        requestId: req.requestId,
-      });
-    }
-    const client = getTwilioClient();
-    if (!client) {
-      return res.status(503).json({
-        error: req.t('errors.telefon.twilioNotConfigured'),
-        code: TELEFON_TWILIO_NOT_CONFIGURED,
-        requestId: req.requestId,
-      });
-    }
-    const fromNumber = env.TWILIO_PHONE;
-    if (!fromNumber) {
-      return res.status(503).json({
-        error: req.t('errors.telefon.twilioFromMissing'),
-        code: TELEFON_TWILIO_FROM_MISSING,
-        requestId: req.requestId,
-      });
-    }
-
     const { rows } = await pool.query('SELECT telefon FROM users WHERE id = $1', [req.user.id]);
     const staffRaw = rows[0]?.telefon;
     const staffE164 = normalizeToE164(staffRaw);
@@ -171,6 +147,42 @@ router.post(
       return res.status(400).json({
         error: req.t('errors.telefon.sameNumber'),
         code: VALIDATION_FAILED,
+        requestId: req.requestId,
+      });
+    }
+
+    if (isZadarmaConfigured()) {
+      const result = await requestCallback({ from: staffE164, to: doE164 });
+      return res.json({
+        success: true,
+        provider: 'zadarma',
+        result,
+        message: req.t('messages.telefon.callStarted'),
+        requestId: req.requestId,
+      });
+    }
+
+    const base = publicBaseUrl();
+    if (!base) {
+      return res.status(503).json({
+        error: req.t('errors.telefon.publicUrlMissing'),
+        code: TELEFON_PUBLIC_URL_MISSING,
+        requestId: req.requestId,
+      });
+    }
+    const client = getTwilioClient();
+    if (!client) {
+      return res.status(503).json({
+        error: req.t('errors.telefon.twilioNotConfigured'),
+        code: TELEFON_TWILIO_NOT_CONFIGURED,
+        requestId: req.requestId,
+      });
+    }
+    const fromNumber = env.TWILIO_PHONE;
+    if (!fromNumber) {
+      return res.status(503).json({
+        error: req.t('errors.telefon.twilioFromMissing'),
+        code: TELEFON_TWILIO_FROM_MISSING,
         requestId: req.requestId,
       });
     }

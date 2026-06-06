@@ -150,7 +150,7 @@
   "messages": {
     "passwordChanged": "Haslo zostalo zmienione",
     "telefon": {
-      "callStarted": "Zainicjowano polaczenie — Twilio dzwoni na Twoj numer, po odebraniu nastapi polaczenie z klientem"
+      "callStarted": "Zainicjowano polaczenie — system zadzwoni na Twoj numer, po odebraniu nastapi polaczenie z klientem"
     }
   }
 }

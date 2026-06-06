@@ -33,8 +33,14 @@ jest.mock('twilio', () => {
   return factory;
 });
 
+jest.mock('../src/services/zadarma', () => ({
+  isZadarmaConfigured: jest.fn(() => false),
+  requestCallback: jest.fn().mockResolvedValue({ status: 'success', request_id: 'ZD_callback_1' }),
+}));
+
 const pool = require('../src/config/database');
 const { env } = require('../src/config/env');
+const { isZadarmaConfigured, requestCallback } = require('../src/services/zadarma');
 const telefonRoutes = require('../src/routes/telefon');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -52,6 +58,7 @@ describe('Telefon (Twilio Voice)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    isZadarmaConfigured.mockReturnValue(false);
   });
 
   it('POST /polacz-do-klienta returns 401 without token', async () => {
@@ -94,6 +101,28 @@ describe('Telefon (Twilio Voice)', () => {
     expect(create.mock.calls[0][0].to).toBe('+48600111222');
     expect(create.mock.calls[0][0].from).toBe('+48111222333');
     expect(create.mock.calls[0][0].url).toContain('/api/telefon/twiml/dial?t=');
+  });
+
+  it('POST /polacz-do-klienta prefers Zadarma callback when configured', async () => {
+    isZadarmaConfigured.mockReturnValue(true);
+    pool.query.mockResolvedValueOnce({ rows: [{ telefon: '+48600111222' }] });
+
+    const res = await request(app)
+      .post('/api/telefon/polacz-do-klienta')
+      .set('Authorization', `Bearer ${bearerKierownik()}`)
+      .send({ do: '791333444' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        success: true,
+        provider: 'zadarma',
+        result: expect.objectContaining({ request_id: 'ZD_callback_1' }),
+      })
+    );
+    expect(requestCallback).toHaveBeenCalledWith({ from: '+48600111222', to: '+48791333444' });
+    const twilioFactory = require('twilio');
+    expect(twilioFactory.__callsCreate).not.toHaveBeenCalled();
   });
 
   it('GET /twiml/dial returns TwiML with Dial for valid token', async () => {

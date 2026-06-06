@@ -564,6 +564,159 @@ button[style*='var(--accent-gradient)'] {
   border-left-color: rgba(196, 38, 53, 0.72) !important;
 }
 
+.fleet-shell {
+  background: #f5f7f8 !important;
+}
+
+.fleet-main {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px 28px 112px !important;
+}
+
+.fleet-main .module-page-header,
+.fleet-main .module-page-header-hero,
+.fleet-main .module-page-header-plain {
+  min-height: 106px !important;
+  margin-bottom: 12px !important;
+  padding: 18px 20px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  border-left: 4px solid var(--accent) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.fleet-main .module-page-header h1,
+.fleet-main .module-page-header-hero h1,
+.fleet-main .module-page-header-plain h1 {
+  font-size: 30px !important;
+  line-height: 1.12 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+.fleet-main .module-page-header p,
+.fleet-main .module-page-header-hero p,
+.fleet-main .module-page-header-plain p {
+  max-width: 680px !important;
+  color: var(--text-sub) !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.fleet-kpi-grid {
+  gap: 12px !important;
+  margin-bottom: 12px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.fleet-kpi-card {
+  min-height: 86px !important;
+  border: 1px solid var(--border) !important;
+  border-left-width: 4px !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.fleet-resource-cards-panel {
+  margin-bottom: 12px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: var(--shadow-sm) !important;
+  padding: 14px !important;
+}
+
+.fleet-resource-cards-panel h2 {
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+}
+
+.fleet-resource-cards-panel article,
+.fleet-resource-cards-empty {
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.fleet-resource-cards-panel article button {
+  min-height: 36px !important;
+  background: #f8faf9 !important;
+}
+
+.fleet-tabs {
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+  padding: 10px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.fleet-tabs button {
+  min-height: 38px !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px !important;
+  margin-bottom: 0 !important;
+  padding: 0 14px !important;
+  font-weight: 850 !important;
+}
+
+.fleet-tabs button[style*='var(--accent)'] {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: rgba(15, 118, 80, 0.3) !important;
+}
+
+.fleet-list-panel {
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.fleet-resource-row {
+  min-height: 118px !important;
+  background: #ffffff !important;
+  padding: 14px 16px !important;
+}
+
+.fleet-resource-row select {
+  min-width: 136px !important;
+  border-width: 1px !important;
+  background: #ffffff !important;
+}
+
+.fleet-resource-row:hover {
+  background: #f8faf9 !important;
+}
+
+.fleet-form-panel {
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.fleet-repairs-wrap {
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: var(--shadow-sm) !important;
+  padding: 14px !important;
+}
+
+.fleet-repairs-header {
+  margin-bottom: 2px !important;
+}
+
+.fleet-repair-card {
+  box-shadow: none !important;
+}
+
 .raporty-centrum-hero {
   background-image: none !important;
 }
