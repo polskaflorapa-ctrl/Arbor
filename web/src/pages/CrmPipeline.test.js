@@ -80,6 +80,46 @@ test('prefills branch and owner for a new lead from stored user context', async 
   expect(selects[1]).toHaveValue('9001');
 });
 
+test('opens a lead detail panel from lead_id URL parameter', async () => {
+  api.get.mockImplementation((url) => {
+    if (url === '/crm/leads') {
+      return Promise.resolve({
+        data: [{
+          id: 51,
+          title: 'Deep linked lead',
+          stage: 'Do zatwierdzenia',
+          oddzial_id: 7,
+          owner_user_id: 9001,
+          value: 4200,
+          phone: '+48500100200',
+          source: 'command-center',
+        }],
+      });
+    }
+    if (url === '/crm/leads/51/activities') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/messages') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/workflow-events') return Promise.resolve({ data: [] });
+    if (url === '/crm/leads/51/nps-surveys') return Promise.resolve({ data: [] });
+    if (url === '/oddzialy') return Promise.resolve({ data: [{ id: 7, nazwa: 'Smoke oddzial' }] });
+    if (url === '/uzytkownicy') return Promise.resolve({ data: [{ id: 9001, imie: 'Smoke', nazwisko: 'Admin' }] });
+    if (url === '/klienci') return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [] });
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/crm/pipeline?lead_id=51']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <CrmPipeline />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Deep linked lead');
+  expect(await screen.findByText('Unified Inbox')).toBeInTheDocument();
+  await waitFor(() => {
+    expect(api.get).toHaveBeenCalledWith('/crm/leads/51/activities', expect.objectContaining({ headers: expect.any(Object) }));
+    expect(api.get).toHaveBeenCalledWith('/crm/leads/51/messages', expect.objectContaining({ headers: expect.any(Object) }));
+  });
+});
+
 test('lets a user add a unified inbox message to a lead', async () => {
   api.get.mockImplementation((url) => {
     if (url === '/crm/leads') {

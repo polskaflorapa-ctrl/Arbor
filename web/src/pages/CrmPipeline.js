@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import api from '../api';
@@ -111,6 +112,7 @@ export default function CrmPipeline() {
   const currentUser = useMemo(() => readStoredUser(), []);
   const requestHeaders = useMemo(() => authHeaders(getStoredToken()), []);
   const lng = (i18n.language || 'pl').split('-')[0];
+  const [searchParams] = useSearchParams();
 
   const loadData = useCallback(async () => {
     try {
@@ -186,6 +188,16 @@ export default function CrmPipeline() {
     () => (selectedLeadId ? leads.find((l) => Number(l.id) === Number(selectedLeadId)) : null),
     [leads, selectedLeadId]
   );
+
+  useEffect(() => {
+    const linkedLeadId = searchParams.get('lead_id');
+    if (!linkedLeadId || leads.length === 0) return;
+    const linkedLead = leads.find((lead) => Number(lead.id) === Number(linkedLeadId));
+    if (!linkedLead) return;
+    setSelectedLeadId(linkedLead.id);
+    if (STAGES.includes(linkedLead.stage)) setActiveStage(linkedLead.stage);
+  }, [leads, searchParams]);
+
   const roundRobinOwners = useMemo(() => {
     const branchId = Number(workflowOddzialId || 0);
     return owners
