@@ -1861,12 +1861,10 @@ export default function Telefonia() {
     try {
       const token = getStoredToken();
       await api.post(
-        '/sms/manual',
+        '/sms/wyslij',
         {
-          recipient_name: manualForm.recipient_name.trim() || null,
-          recipient_phone: normalizePhone(manualForm.recipient_phone.trim()),
-          text: manualForm.text.trim().slice(0, SMS_LIMIT),
-          typ: 'manual_text',
+          telefon: normalizePhone(manualForm.recipient_phone.trim()),
+          tresc: manualForm.text.trim().slice(0, SMS_LIMIT),
         },
         { headers: authHeaders(token) }
       );
