@@ -51,10 +51,11 @@ function buildQuery(params = {}) {
 function signZadarmaPath(path, params = {}, secret = env.ZADARMA_API_SECRET || '') {
   const paramsStr = buildQuery(params);
   const paramsMd5 = crypto.createHash('md5').update(paramsStr).digest('hex');
-  return crypto
+  const hmacHex = crypto
     .createHmac('sha1', secret)
     .update(`${path}${paramsStr}${paramsMd5}`)
-    .digest('base64');
+    .digest('hex');
+  return Buffer.from(hmacHex).toString('base64');
 }
 
 async function zadarmaRequest(method, path, params = {}) {
@@ -264,6 +265,7 @@ module.exports = {
   normalizePhone,
   requestCallback,
   sendSms,
+  signZadarmaPath,
   verifySmsStatusWebhookSignatureAsync,
   verifySmsStatusWebhookSignature,
   verifyWebhookSignature,

@@ -51,4 +51,16 @@ describe('Zadarma webhook signatures', () => {
 
     expect(verifySmsStatusWebhookSignature({ status: 'delivered' }, sign(''))).toBe(false);
   });
+
+  it('signs API requests using Zadarma hex-HMAC base64 format', () => {
+    const { signZadarmaPath } = loadZadarmaWithEnv();
+    const params = { to: '+48500100200', from: '+48123123123' };
+    const paramsStr = 'from=%2B48123123123&to=%2B48500100200';
+    const md5 = crypto.createHash('md5').update(paramsStr).digest('hex');
+    const hmacHex = crypto.createHmac('sha1', 'zadarma-secret').update(`/v1/request/callback/${paramsStr}${md5}`).digest('hex');
+    const rawHmacBase64 = crypto.createHmac('sha1', 'zadarma-secret').update(`/v1/request/callback/${paramsStr}${md5}`).digest('base64');
+
+    expect(signZadarmaPath('/v1/request/callback/', params)).toBe(Buffer.from(hmacHex).toString('base64'));
+    expect(signZadarmaPath('/v1/request/callback/', params)).not.toBe(rawHmacBase64);
+  });
 });
