@@ -28,6 +28,19 @@ function sourceStatusLabel(status) {
   if (status === 'missing_schema') return 'Brak pola';
   return status || '---';
 }
+function marginConfidenceLabel(fin = {}) {
+  if (!fin || fin.complete) return 'Kompletna';
+  if (fin.margin_confidence === 'no_revenue') return 'Brak przychodu';
+  if (fin.margin_confidence === 'high_risk_margin') return 'Wysokie ryzyko';
+  if (fin.margin_confidence === 'medium_risk_margin') return 'Srednie ryzyko';
+  if (fin.margin_confidence === 'low_risk_margin') return 'Niskie ryzyko';
+  return 'Niepelna';
+}
+function marginConfidenceTone(fin = {}) {
+  if (!fin || fin.complete) return 'success';
+  if (fin.margin_confidence === 'high_risk_margin' || fin.margin_confidence === 'no_revenue') return 'danger';
+  return 'warning';
+}
 function delta(n) {
   if (n == null) return null;
   return { label: `${n >= 0 ? '+' : ''}${n}%`, color: n >= 0 ? '#16a34a' : '#dc2626' };
@@ -73,6 +86,7 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
                 const hasFinancials = Boolean(t.financials);
                 const fin = t.financials || {};
                 const sources = Array.isArray(fin.cost_sources) ? fin.cost_sources : [];
+                const missingCostFields = Array.isArray(fin.missing_cost_fields) ? fin.missing_cost_fields : [];
                 return (
                   <div key={t.id} style={dm.drillItem}>
                     <ModernDataRow
@@ -89,9 +103,16 @@ function DrillModal({ title, tasks, loading, onClose, onOpenTask }) {
                         { label: 'Ekipa', value: t.ekipa_nazwa || '---', mono: false },
                         { label: 'Przychod', value: hasFinancials ? pln(fin.revenue_net ?? t.wartosc_planowana) : 'Ukryte', tone: hasFinancials ? 'success' : 'info' },
                         { label: 'Koszt znany', value: hasFinancials ? pln(fin.total_known_cost) : 'Ukryte', tone: hasFinancials ? 'warning' : 'info' },
-                        { label: 'Marza', value: hasFinancials ? `${pln(fin.gross_margin)} / ${pct(fin.margin_pct)}` : 'Ukryte', tone: hasFinancials && fin.margin_pct >= 30 ? 'success' : hasFinancials ? 'danger' : 'info' },
+                        { label: 'Marza ze znanych kosztow', value: hasFinancials ? `${pln(fin.gross_margin)} / ${pct(fin.margin_pct)}` : 'Ukryte', tone: hasFinancials && fin.margin_pct >= 30 ? 'success' : hasFinancials ? 'danger' : 'info' },
+                        { label: 'Kompletnosc', value: hasFinancials ? marginConfidenceLabel(fin) : 'Ukryte', tone: hasFinancials ? marginConfidenceTone(fin) : 'info' },
                       ]}
                     />
+                    {hasFinancials && missingCostFields.length > 0 && (
+                      <div style={dm.marginWarning}>
+                        <strong>Nie traktuj tej marzy jako finalnej.</strong>
+                        <span> Brakuje: {missingCostFields.join(', ')}.</span>
+                      </div>
+                    )}
                     <div style={dm.actions}>
                       <button type="button" style={dm.openTaskBtn} onClick={() => onOpenTask?.(t.id)}>
                         Otworz zlecenie
@@ -146,6 +167,7 @@ const dm = {
   costValue: { fontSize: 13, color: 'var(--text)' },
   costOk: { fontSize: 10, color: '#15803d', fontWeight: 800 },
   costMissing: { fontSize: 10, color: '#c2410c', fontWeight: 800 },
+  marginWarning: { padding: '10px 12px', borderTop: '1px solid rgba(194,65,12,0.24)', background: 'rgba(245,158,11,0.10)', color: '#9a3412', fontSize: 12, lineHeight: 1.4 },
   redacted: { padding: '10px 12px', borderTop: '1px solid var(--border)', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   finNote: { padding: '0 12px 10px', color: 'var(--text-sub)', fontSize: 12, lineHeight: 1.4 },
   actions: { display: 'flex', justifyContent: 'flex-end', padding: '0 12px 10px' },

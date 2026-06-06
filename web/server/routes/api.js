@@ -22,6 +22,7 @@ const UPLOAD_ROOT = path.join(__dirname, '..', 'uploads', 'wyceny');
 const UP_TASK_PHOTOS = path.join(__dirname, '..', 'uploads', 'tasks');
 const UP_OGLEDZINY_MEDIA = path.join(__dirname, '..', 'uploads', 'ogledziny');
 const UP_EMPLOYEE_DOCUMENTS = path.join(__dirname, '..', 'uploads', 'employee-documents');
+const UP_PROFILE_PHOTOS = path.join(__dirname, '..', 'uploads', 'profile-photos');
 const KOMMO_WEBHOOK_URL =
   (process.env.KOMMO_WEBHOOK_URL || process.env.KOMMO_CMR_WEBHOOK_URL || '').trim();
 /** Osobny URL dla pushy CRM (zlecenie / klient). Gdy pusty — używany jest KOMMO_WEBHOOK_URL. */
@@ -1464,6 +1465,29 @@ const diskEmployeeDocuments = multer.diskStorage({
 });
 const upEmployeeDocument = multer({ storage: diskEmployeeDocuments, limits: { fileSize: 50 * 1024 * 1024 } });
 
+const diskProfilePhotos = multer.diskStorage({
+  destination: (req, _file, cb) => {
+    const userId = safeUploadName(req.params.id);
+    const dir = path.join(UP_PROFILE_PHOTOS, userId);
+    ensureDir(dir);
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const originalExt = path.extname(file.originalname || '').toLowerCase();
+    const ext = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(originalExt) ? originalExt : '.jpg';
+    cb(null, `avatar_${Date.now()}${ext}`);
+  },
+});
+const upProfilePhoto = multer({
+  storage: diskProfilePhotos,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mime = String(file.mimetype || '');
+    if (mime.startsWith('image/')) return cb(null, true);
+    return cb(new Error('Dozwolone sa tylko zdjecia'));
+  },
+});
+
 router.post('/wyceny/:id/wideo', requireAuth, up.single('wideo'), (req, res) => {
   try {
     const zlecenieId = toNum(req.params.id);
@@ -1618,6 +1642,20 @@ function stripUser(u) {
   return rest;
 }
 
+function canEditProfilePhoto(actor, target) {
+  if (!actor || !target) return false;
+  if (Number(actor.id) === Number(target.id)) return true;
+  if (['Administrator', 'Dyrektor', 'Prezes'].includes(actor.rola)) return true;
+  if (actor.rola === 'Kierownik') {
+    return String(actor.oddzial_id || '') === String(target.oddzial_id || '');
+  }
+  return false;
+}
+
+function canEditUserProfileData(actor, target) {
+  return canEditProfilePhoto(actor, target);
+}
+
 router.get('/uzytkownicy', requireAuth, (req, res) => {
   const rolaQ = req.query.rola;
   const branchId = toNum(req.query.oddzial_id);
@@ -1640,6 +1678,62 @@ router.get('/uzytkownicy', requireAuth, (req, res) => {
     return rows;
   });
   res.json(list);
+});
+
+router.post('/uzytkownicy/:id/avatar', requireAuth, upProfilePhoto.single('avatar'), (req, res) => {
+  const userId = toNum(req.params.id);
+  if (!userId) return res.status(400).json({ error: 'Nieprawidlowe ID uzytkownika' });
+  if (!req.file) return res.status(400).json({ error: 'Brak pliku zdjecia' });
+
+  const row = withStore((state) => {
+    const target = (state.users || []).find((u) => Number(u.id) === Number(userId));
+    if (!target) return null;
+    if (!canEditProfilePhoto(req.user, target)) return { _forbidden: true };
+    const rel = path.relative(path.join(__dirname, '..', 'uploads'), req.file.path).split(path.sep).join('/');
+    const url = `/api/uploads/${rel}`;
+    target.avatar_url = url;
+    target.profile_photo_url = url;
+    target.updated_at = new Date().toISOString();
+    return stripUser(target);
+  });
+
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do zmiany zdjecia' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono uzytkownika' });
+  return res.json({ user: row, avatar_url: row.avatar_url, profile_photo_url: row.profile_photo_url });
+});
+
+router.put('/uzytkownicy/:id', requireAuth, (req, res) => {
+  const userId = toNum(req.params.id);
+  if (!userId) return res.status(400).json({ error: 'Nieprawidlowe ID uzytkownika' });
+
+  const allowedFields = [
+    'imie',
+    'nazwisko',
+    'email',
+    'telefon',
+    'stanowisko',
+    'data_zatrudnienia',
+    'adres_zamieszkania',
+    'kontakt_awaryjny_imie',
+    'kontakt_awaryjny_telefon',
+    'notatki',
+  ];
+  const body = req.body || {};
+
+  const row = withStore((state) => {
+    const target = (state.users || []).find((u) => Number(u.id) === Number(userId));
+    if (!target) return null;
+    if (!canEditUserProfileData(req.user, target)) return { _forbidden: true };
+    allowedFields.forEach((field) => {
+      if (body[field] !== undefined) target[field] = String(body[field] || '').trim();
+    });
+    target.updated_at = new Date().toISOString();
+    return stripUser(target);
+  });
+
+  if (row?._forbidden) return res.status(403).json({ error: 'Brak uprawnien do edycji profilu' });
+  if (!row) return res.status(404).json({ error: 'Nie znaleziono uzytkownika' });
+  return res.json(row);
 });
 
 function przeniesSpecjaliste(req, res) {

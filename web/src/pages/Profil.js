@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName } from '../utils/roleDisplay';
@@ -564,9 +564,26 @@ export default function Profil() {
   const [positionAckBusy, setPositionAckBusy] = useState(false);
   const [positionAckMessage, setPositionAckMessage] = useState('');
   const employeeDocFileRef = useRef(null);
+  const profilePhotoFileRef = useRef(null);
   const [employeeDocDraft, setEmployeeDocDraft] = useState(EMPTY_EMPLOYEE_DOCUMENT_DRAFT);
   const [employeeDocBusy, setEmployeeDocBusy] = useState(false);
   const [employeeDocMessage, setEmployeeDocMessage] = useState('');
+  const [profilePhotoBusy, setProfilePhotoBusy] = useState(false);
+  const [profilePhotoMessage, setProfilePhotoMessage] = useState('');
+  const [profileEditDraft, setProfileEditDraft] = useState({
+    imie: '',
+    nazwisko: '',
+    email: '',
+    telefon: '',
+    stanowisko: '',
+    data_zatrudnienia: '',
+    adres_zamieszkania: '',
+    kontakt_awaryjny_imie: '',
+    kontakt_awaryjny_telefon: '',
+    notatki: '',
+  });
+  const [profileEditBusy, setProfileEditBusy] = useState(false);
+  const [profileEditMessage, setProfileEditMessage] = useState('');
   const [profileAccessMessage, setProfileAccessMessage] = useState('');
 
   useEffect(() => {
@@ -597,6 +614,23 @@ export default function Profil() {
     if (!user?.id) return;
     setDocAck(localStorage.getItem(getDocAckKey(user, docType)) || '');
   }, [user?.id, docType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setProfileEditDraft({
+      imie: user.imie || '',
+      nazwisko: user.nazwisko || '',
+      email: user.email || '',
+      telefon: user.telefon || '',
+      stanowisko: user.stanowisko || '',
+      data_zatrudnienia: user.data_zatrudnienia ? String(user.data_zatrudnienia).slice(0, 10) : '',
+      adres_zamieszkania: user.adres_zamieszkania || '',
+      kontakt_awaryjny_imie: user.kontakt_awaryjny_imie || '',
+      kontakt_awaryjny_telefon: user.kontakt_awaryjny_telefon || '',
+      notatki: user.notatki || '',
+    });
+    setProfileEditMessage('');
+  }, [user?.id]);
 
   useEffect(() => {
     if (!actorId) return;
@@ -675,6 +709,7 @@ export default function Profil() {
   const initials =
     `${String(user?.imie?.[0] || '').toUpperCase()}${String(user?.nazwisko?.[0] || '').toUpperCase()}` ||
     '?';
+  const profilePhotoUrl = user?.profile_photo_url || user?.avatar_url || user?.photo_url || '';
 
   const dashboard = useMemo(() => {
     const relatedTasks = ops.tasks.filter((task) => isTaskRelatedToUser(task, user));
@@ -745,6 +780,11 @@ export default function Profil() {
   const permissions = useMemo(() => buildRolePermissions(user), [user]);
   const canAssignTasks = MANAGEMENT_ROLES.has(actorUser?.rola);
   const canConfirmDocument = Number(actorUser?.id) === Number(user?.id);
+  const canEditProfilePhoto =
+    Number(actorUser?.id) === Number(user?.id) ||
+    ['Administrator', 'Dyrektor', 'Prezes'].includes(actorUser?.rola) ||
+    (actorUser?.rola === 'Kierownik' && String(actorUser?.oddzial_id || '') === String(user?.oddzial_id || ''));
+  const canEditProfileData = canEditProfilePhoto;
   const assignableUsers = useMemo(() => {
     const rows = ops.users.filter((row) => row.aktywny !== false);
     if (actorUser?.rola === 'Kierownik') {
@@ -968,6 +1008,66 @@ export default function Profil() {
     }
   };
 
+  const mergeUserInState = (nextUser) => {
+    if (!nextUser?.id) return;
+    setUser((prev) => (prev && Number(prev.id) === Number(nextUser.id) ? { ...prev, ...nextUser } : prev));
+    setActorUser((prev) => (prev && Number(prev.id) === Number(nextUser.id) ? { ...prev, ...nextUser } : prev));
+    setOps((prev) => ({
+      ...prev,
+      users: prev.users.map((row) => (Number(row.id) === Number(nextUser.id) ? { ...row, ...nextUser } : row)),
+    }));
+    if (Number(actorUser?.id) === Number(nextUser.id)) {
+      const stored = readStoredUser() || {};
+      localStorage.setItem('user', JSON.stringify({ ...stored, ...nextUser }));
+    }
+  };
+
+  const uploadProfilePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !user?.id || !canEditProfilePhoto) return;
+    if (!String(file.type || '').startsWith('image/')) {
+      setProfilePhotoMessage('Wybierz plik obrazu.');
+      event.target.value = '';
+      return;
+    }
+
+    setProfilePhotoBusy(true);
+    setProfilePhotoMessage('');
+    try {
+      const form = new FormData();
+      form.append('avatar', file);
+      const response = await api.post(`/uzytkownicy/${user.id}/avatar`, form);
+      const nextUser = response.data?.user || response.data;
+      mergeUserInState(nextUser);
+      setProfilePhotoMessage('Zdjecie zapisane.');
+    } catch (err) {
+      setProfilePhotoMessage(err?.response?.data?.error || 'Nie udalo sie zapisac zdjecia.');
+    } finally {
+      setProfilePhotoBusy(false);
+      event.target.value = '';
+    }
+  };
+
+  const updateProfileDraft = (field, value) => {
+    setProfileEditDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const saveProfileData = async (event) => {
+    event.preventDefault();
+    if (!user?.id || !canEditProfileData) return;
+    setProfileEditBusy(true);
+    setProfileEditMessage('');
+    try {
+      const response = await api.put(`/uzytkownicy/${user.id}`, profileEditDraft);
+      mergeUserInState(response.data);
+      setProfileEditMessage('Dane profilu zapisane.');
+    } catch (err) {
+      setProfileEditMessage(err?.response?.data?.error || 'Nie udalo sie zapisac danych profilu.');
+    } finally {
+      setProfileEditBusy(false);
+    }
+  };
+
   const archiveEmployeeDocument = async (doc) => {
     if (!doc?.id || !canAssignTasks) return;
     setEmployeeDocBusy(doc.id);
@@ -1036,6 +1136,20 @@ export default function Profil() {
     eyebrow: { color: 'var(--text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase' },
     title: { margin: '3px 0 6px', fontSize: 26, color: 'var(--text)', fontWeight: 900, lineHeight: 1.15 },
     subtitle: { color: 'var(--text-sub)', fontSize: 14, lineHeight: 1.45, fontWeight: 650 },
+    photoActions: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 },
+    photoBtn: {
+      minHeight: 34,
+      padding: '7px 11px',
+      borderRadius: 8,
+      border: '1px solid var(--border)',
+      background: 'var(--surface-field)',
+      color: 'var(--accent)',
+      fontSize: 12,
+      fontWeight: 850,
+      fontFamily: 'inherit',
+      cursor: 'pointer',
+    },
+    photoMessage: { color: 'var(--text-muted)', fontSize: 12, fontWeight: 750 },
     badgeRow: { gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start' },
     profileSwitch: { display: 'grid', gap: 5, maxWidth: 360, marginTop: 10 },
     inlineNotice: {
@@ -1238,6 +1352,8 @@ export default function Profil() {
       fontFamily: 'inherit',
     },
     identityGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, marginBottom: 10 },
+    editGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 },
+    editWide: { gridColumn: '1 / -1' },
     identityItem: {
       border: '1px solid var(--border)',
       borderRadius: 8,
@@ -1448,16 +1564,38 @@ export default function Profil() {
   };
 
   return (
-    <div className="profile-shell app-shell" style={S.wrap}>
-      <Sidebar />
+    <div className="profile-shell app-shell command-os-shell" style={S.wrap}>
+      <CommandSidebar active="profile" user={actorUser || user} />
       <main className="profile-main app-main" style={S.main}>
         <header className="profile-header" style={S.header}>
-          <div style={S.avatar}>{initials}</div>
+          <div className={profilePhotoUrl ? 'profile-avatar profile-avatar-has-photo' : 'profile-avatar'} style={S.avatar}>
+            {profilePhotoUrl ? <img src={profilePhotoUrl} alt={`Zdjecie profilowe ${operatorName}`} /> : initials}
+          </div>
           <div style={{ minWidth: 0 }}>
             <div style={S.eyebrow}>Centrum operatora</div>
             <h1 style={S.title}>{operatorName}</h1>
             <div style={S.subtitle}>
               {user?.stanowisko || getRoleDisplayName(user?.rola, 'Stanowisko')} · {user?.oddzial_nazwa || `Oddział #${user?.oddzial_id || 'brak'}`}
+            </div>
+            <div style={S.photoActions}>
+              <input
+                ref={profilePhotoFileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={uploadProfilePhoto}
+              />
+              {canEditProfilePhoto ? (
+                <button
+                  type="button"
+                  style={S.photoBtn}
+                  onClick={() => profilePhotoFileRef.current?.click()}
+                  disabled={profilePhotoBusy}
+                >
+                  {profilePhotoBusy ? 'Wgrywam...' : profilePhotoUrl ? 'Zmien zdjecie' : 'Dodaj zdjecie'}
+                </button>
+              ) : null}
+              {profilePhotoMessage ? <span style={S.photoMessage}>{profilePhotoMessage}</span> : null}
             </div>
             {canAssignTasks ? (
               <label style={S.profileSwitch}>
@@ -1529,6 +1667,125 @@ export default function Profil() {
 
         <div className="profile-grid" style={S.grid}>
           <div className="profile-column" style={S.column}>
+            <section className="profile-panel profile-edit-panel" style={S.panel}>
+              <div style={S.panelHeader}>
+                <div>
+                  <div style={S.eyebrow}>Profil 360</div>
+                  <div style={S.panelTitle}>Dane kontaktowe i kadrowe</div>
+                </div>
+                <span style={{ ...S.badge, ...(canEditProfileData ? S.okBadge : S.warnBadge) }}>
+                  {canEditProfileData ? 'Edycja wlaczona' : 'Tylko podglad'}
+                </span>
+              </div>
+              <form style={S.editGrid} onSubmit={saveProfileData}>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Imie</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.imie}
+                    onChange={(event) => updateProfileDraft('imie', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Nazwisko</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.nazwisko}
+                    onChange={(event) => updateProfileDraft('nazwisko', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Telefon</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.telefon}
+                    onChange={(event) => updateProfileDraft('telefon', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="+48 ..."
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>E-mail</span>
+                  <input
+                    style={S.input}
+                    type="email"
+                    value={profileEditDraft.email}
+                    onChange={(event) => updateProfileDraft('email', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="email@firma.pl"
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Stanowisko</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.stanowisko}
+                    onChange={(event) => updateProfileDraft('stanowisko', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="np. Kierownik brygad"
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Data zatrudnienia</span>
+                  <input
+                    style={S.input}
+                    type="date"
+                    value={profileEditDraft.data_zatrudnienia}
+                    onChange={(event) => updateProfileDraft('data_zatrudnienia', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Kontakt awaryjny</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.kontakt_awaryjny_imie}
+                    onChange={(event) => updateProfileDraft('kontakt_awaryjny_imie', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="Imie i nazwisko"
+                  />
+                </label>
+                <label style={S.fieldGroup}>
+                  <span style={S.identityLabel}>Telefon awaryjny</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.kontakt_awaryjny_telefon}
+                    onChange={(event) => updateProfileDraft('kontakt_awaryjny_telefon', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="+48 ..."
+                  />
+                </label>
+                <label style={{ ...S.fieldGroup, ...S.editWide }}>
+                  <span style={S.identityLabel}>Adres</span>
+                  <input
+                    style={S.input}
+                    value={profileEditDraft.adres_zamieszkania}
+                    onChange={(event) => updateProfileDraft('adres_zamieszkania', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="Adres zamieszkania"
+                  />
+                </label>
+                <label style={{ ...S.fieldGroup, ...S.editWide }}>
+                  <span style={S.identityLabel}>Notatki kadrowe</span>
+                  <textarea
+                    style={S.textarea}
+                    value={profileEditDraft.notatki}
+                    onChange={(event) => updateProfileDraft('notatki', event.target.value)}
+                    disabled={!canEditProfileData || profileEditBusy}
+                    placeholder="Ustalenia, preferencje, uwagi kadrowe..."
+                  />
+                </label>
+                <div style={{ ...S.editorActions, ...S.editWide }}>
+                  <button type="submit" style={S.assignBtn} disabled={!canEditProfileData || profileEditBusy}>
+                    {profileEditBusy ? 'Zapisuje...' : 'Zapisz dane profilu'}
+                  </button>
+                  {profileEditMessage ? <div style={S.formHint}>{profileEditMessage}</div> : null}
+                </div>
+              </form>
+            </section>
+
             <section className="profile-panel" style={S.panel}>
               <div style={S.panelHeader}>
                 <div>

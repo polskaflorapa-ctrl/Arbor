@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import { getStoredToken } from '../utils/storedToken';
 import { readStoredUser } from '../utils/readStoredUser';
 
@@ -88,7 +88,7 @@ export default function RaportyCentrum() {
 
   return (
     <div className="app-shell raporty-centrum-shell" style={S.wrap}>
-      <Sidebar />
+      <CommandSidebar active="reports" user={user} />
       <main className="app-main raporty-centrum-main" style={S.main}>
         <section className="raporty-centrum-hero" style={S.hero}>
           <div>

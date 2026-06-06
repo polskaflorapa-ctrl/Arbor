@@ -228,7 +228,7 @@ test('closes an open repair from fleet repairs tab', async () => {
 
   renderFlota();
 
-  await userEvent.click(await screen.findByRole('button', { name: /Naprawy/i }));
+  await userEvent.click(await screen.findByRole('button', { name: /^Naprawy$/i }));
   await userEvent.click(await screen.findByRole('button', { name: 'Zakoncz naprawe' }));
 
   await waitFor(() => {

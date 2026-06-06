@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import CityInput from '../components/CityInput';
+import { Button } from '../components/ui/Button';
 import api from '../api';
+import { Eye, Pencil, Plus, RefreshCw, Save, Search, Send, Trash2, X } from 'lucide-react';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { telHref } from '../utils/telLink';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
@@ -224,7 +226,7 @@ export default function Klienci() {
 
   return (
     <div className="app-shell clients-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
-      <Sidebar />
+      <CommandSidebar active="crm" user={currentUser} />
       <main className="clients-main" style={{ flex: 1, display: 'flex', overflow: 'hidden', height: '100vh', minWidth: 0 }}>
 
         {/* ── LEWA KOLUMNA: lista ── */}
@@ -238,10 +240,9 @@ export default function Klienci() {
                   {klienci.length} rekordów
                 </p>
               </div>
-              <button onClick={openAddForm} style={btn.primary}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <Button size="sm" leftIcon={Plus} onClick={openAddForm}>
                 Nowy
-              </button>
+              </Button>
             </div>
             <div style={{ position: 'relative' }}>
               <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -276,14 +277,20 @@ export default function Klienci() {
                 <p>Brak klientów</p>
               </div>
             ) : klienci.map(k => (
-              <div
+              <button
                 className="clients-list-row"
                 key={k.id}
+                type="button"
                 onClick={() => loadDetail(k.id)}
                 style={{
+                  width: '100%',
+                  appearance: 'none',
                   padding: '12px 16px',
                   borderBottom: '1px solid var(--border)',
+                  borderTop: 0,
+                  borderRight: 0,
                   cursor: 'pointer',
+                  textAlign: 'left',
                   background: selected === k.id ? 'var(--accent-surface)' : '#ffffff',
                   borderLeft: `3px solid ${selected === k.id ? 'var(--accent)' : 'transparent'}`,
                   transition: 'all 0.15s',
@@ -331,7 +338,7 @@ export default function Klienci() {
                     )}
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -367,22 +374,16 @@ export default function Klienci() {
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => navigate(`/ogledziny?klient=${detail.id}`)}
-                    style={btn.secondary}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <Button size="sm" variant="outline" leftIcon={Search} onClick={() => navigate(`/ogledziny?klient=${detail.id}`)}>
                     Zaplanuj oględziny
-                  </button>
-                  <button onClick={openEditForm} style={btn.secondary}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </Button>
+                  <Button size="sm" variant="outline" leftIcon={Pencil} onClick={openEditForm}>
                     Edytuj
-                  </button>
+                  </Button>
                   {canDelete && (
-                    <button onClick={handleDelete} style={btn.danger}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                    <Button size="sm" variant="danger" leftIcon={Trash2} onClick={handleDelete}>
                       Usuń
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -442,21 +443,22 @@ export default function Klienci() {
                   {t('kommoCrm.klientSectionHint')}
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <button type="button" onClick={pushKlientKommo} disabled={pushingKlientKommo} style={btn.secondary}>
+                  <Button size="sm" variant="outline" loading={pushingKlientKommo} leftIcon={Send} onClick={pushKlientKommo}>
                     {pushingKlientKommo ? '…' : t('kommoCrm.push')}
-                  </button>
-                  <button type="button" onClick={toggleKlientKommoPayload} style={btn.secondary}>
+                  </Button>
+                  <Button size="sm" variant="outline" leftIcon={Eye} onClick={toggleKlientKommoPayload}>
                     {showKlientKommoPayload ? t('kommoCrm.hidePayload') : t('kommoCrm.showPayload')}
-                  </button>
+                  </Button>
                   {showKlientKommoPayload && (
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      loading={loadingKlientKommoPayload}
+                      leftIcon={RefreshCw}
                       onClick={loadKlientKommoPayload}
-                      disabled={loadingKlientKommoPayload}
-                      style={btn.secondary}
                     >
                       {loadingKlientKommoPayload ? '…' : t('kommoCrm.refreshPayload')}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {detail.kommo_last_sync_at ? (
@@ -558,9 +560,7 @@ export default function Klienci() {
           <div style={modal.box}>
             <div style={modal.header}>
               <h3 style={modal.title}>{editMode ? 'Edytuj klienta' : 'Nowy klient'}</h3>
-              <button onClick={() => setShowForm(false)} style={modal.closeBtn}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              <Button size="sm" variant="ghost" leftIcon={X} onClick={() => setShowForm(false)} style={modal.closeBtn} aria-label="Zamknij" />
             </div>
             <div style={{ overflowY: 'auto', maxHeight: 'calc(85vh - 120px)', padding: '4px 0' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 12, padding: '0 24px 20px' }}>
@@ -622,10 +622,10 @@ export default function Klienci() {
               </div>
             </div>
             <div style={modal.footer}>
-              <button onClick={() => setShowForm(false)} style={btn.secondaryGhost}>Anuluj</button>
-              <button onClick={handleSave} disabled={saving} style={btn.primary}>
+              <Button variant="outline" onClick={() => setShowForm(false)}>Anuluj</Button>
+              <Button loading={saving} leftIcon={Save} onClick={handleSave}>
                 {saving ? 'Zapisuję...' : editMode ? 'Zapisz zmiany' : 'Dodaj klienta'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

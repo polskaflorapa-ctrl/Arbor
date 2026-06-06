@@ -118,7 +118,6 @@ test('reports equipment repair from team asset list', async () => {
 
   const { container } = renderEkipy();
 
-  await screen.findByText('Brygada Alfa');
   await waitFor(() => expect(container.querySelector('.ekipy-team-card')).toBeTruthy());
   await userEvent.click(container.querySelector('.ekipy-team-card'));
   expect(await screen.findByText('Sprzet i auta ekipy')).toBeInTheDocument();
@@ -147,7 +146,6 @@ test('closes equipment repair from team asset history', async () => {
 
   const { container } = renderEkipy();
 
-  await screen.findByText('Brygada Alfa');
   await waitFor(() => expect(container.querySelector('.ekipy-team-card')).toBeTruthy());
   await userEvent.click(container.querySelector('.ekipy-team-card'));
 

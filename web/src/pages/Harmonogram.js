@@ -4,7 +4,6 @@ import api from '../api';
 import { getApiErrorMessage } from '../utils/apiError';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
-import Sidebar from '../components/Sidebar';
 import AddOutlined from '@mui/icons-material/AddOutlined';
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined';
 import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined';
@@ -985,12 +984,18 @@ export default function Harmonogram() {
     const packageBlocked = selectedDayTasks.filter((task) => !getCrewPackageReadiness(task).ready).length;
     const unassigned = selectedDayTasks.filter((task) => !task?.ekipa_id).length;
     const loadMinutes = dispatchRows.reduce((sum, row) => sum + row.loadMinutes, 0);
+    const readyCount = selectedDayTasks.length - packageBlocked;
+    const overloadedTeams = dispatchRows.filter((row) => row.loadMinutes > 8 * 60).length;
+    const idleTeams = dispatchRows.filter((row) => row.tasks.length === 0).length;
     return {
       scheduled: selectedDayTasks.length,
       loadLabel: formatMinutesAsHours(loadMinutes),
       conflictCount: dispatchConflictIds.size,
       packageBlocked,
       unassigned,
+      readyCount,
+      overloadedTeams,
+      idleTeams,
     };
   }, [selectedDayTasks, dispatchRows, dispatchConflictIds]);
 
@@ -1006,6 +1011,46 @@ export default function Harmonogram() {
     }
     return stats;
   }, [dispatchRows, liveByTeam]);
+
+  const dispatchDecisionCards = useMemo(() => {
+    return [
+      {
+        key: 'conflicts',
+        label: 'Konflikty',
+        value: dispatchStats.conflictCount,
+        detail: dispatchStats.conflictCount ? 'wymaga zmiany godzin' : 'sloty czyste',
+        tone: dispatchStats.conflictCount ? 'danger' : 'ok',
+      },
+      {
+        key: 'packages',
+        label: 'Pakiety ekip',
+        value: `${dispatchStats.readyCount}/${dispatchStats.scheduled || 0}`,
+        detail: dispatchStats.packageBlocked ? `${dispatchStats.packageBlocked} z brakami` : 'gotowe do odprawy',
+        tone: dispatchStats.packageBlocked ? 'warn' : 'ok',
+      },
+      {
+        key: 'unassigned',
+        label: 'Bez ekipy',
+        value: dispatchStats.unassigned,
+        detail: dispatchStats.unassigned ? 'czeka w kolejce' : 'brak blokady',
+        tone: dispatchStats.unassigned ? 'danger' : 'ok',
+      },
+      {
+        key: 'load',
+        label: 'Obciazenie',
+        value: dispatchStats.loadLabel,
+        detail: dispatchStats.overloadedTeams ? `${dispatchStats.overloadedTeams} ekip > 8h` : `${dispatchStats.idleTeams} ekip wolnych`,
+        tone: dispatchStats.overloadedTeams ? 'warn' : 'neutral',
+      },
+      {
+        key: 'gps',
+        label: 'GPS online',
+        value: `${dispatchGpsStats.online}/${dispatchGpsStats.total}`,
+        detail: dispatchGpsStats.offline || dispatchGpsStats.missing ? 'sprawdz sygnal' : 'teren widoczny',
+        tone: dispatchGpsStats.offline || dispatchGpsStats.missing ? 'warn' : 'ok',
+      },
+    ];
+  }, [dispatchGpsStats, dispatchStats]);
 
   useEffect(() => {
     setLoadedDispatchPlan(null);
@@ -1446,10 +1491,58 @@ export default function Harmonogram() {
   };
 
   const filtrowaneEkipy = ekipy.filter(e => !filtrOddzial || e.oddzial_id?.toString() === filtrOddzial);
+  const commandNav = [
+    { label: 'Pulpit', path: '/dashboard' },
+    { label: 'Zlecenia', path: '/zlecenia' },
+    { label: 'CRM', path: '/crm' },
+    { label: 'Harmonogram', path: '/harmonogram', active: true },
+    { label: 'Ekipy', path: '/ekipy' },
+    { label: 'Flota', path: '/flota' },
+    { label: 'Raporty', path: '/raporty' },
+  ];
 
   return (
     <div className="app-shell harmonogram-shell" style={styles.container}>
-      <Sidebar />
+      <aside className="command-native-sidebar" aria-label="ARBOR Command navigation">
+        <button type="button" className="command-native-brand" onClick={() => navigate('/dashboard')}>
+          <span>AR</span>
+          <div>
+            <strong>ARBOR-OS</strong>
+            <small>System zarzadzania</small>
+          </div>
+        </button>
+        <nav className="command-native-nav">
+          {commandNav.map((item) => (
+            <button
+              key={item.path}
+              type="button"
+              className={item.active ? 'is-active' : undefined}
+              onClick={() => navigate(item.path)}
+            >
+              <span aria-hidden />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="command-native-actions">
+          <span>Szybkie akcje</span>
+          <button type="button" onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
+          <button type="button" onClick={() => navigate('/klienci')}>Nowy klient</button>
+          <button type="button" onClick={goToday}>Plan dnia</button>
+          <button type="button" onClick={() => navigate('/raporty')}>Raport dzienny</button>
+        </div>
+        <button type="button" className="command-native-system" onClick={() => navigate('/powiadomienia')}>
+          <strong>System online</strong>
+          <small>Wszystkie uslugi dzialaja</small>
+        </button>
+        <button type="button" className="command-native-user" onClick={() => navigate('/profil')}>
+          <span>{currentUser?.imie?.[0] || 'J'}{currentUser?.nazwisko?.[0] || 'A'}</span>
+          <div>
+            <strong>{currentUser?.imie || 'Jan'} {currentUser?.nazwisko || 'Administrator'}</strong>
+            <small>{currentUser?.rola || 'Operator'}</small>
+          </div>
+        </button>
+      </aside>
       <main className="app-main harmonogram-main" style={styles.main}>
         <div className="harmonogram-header" style={styles.headerRow}>
           <div style={styles.navRow}>
@@ -1604,31 +1697,38 @@ export default function Harmonogram() {
               </div>
             ) : null}
 
-            <div className="harmonogram-dispatch-kpis" style={styles.dispatchKpis}>
-              <div style={styles.dispatchKpi}>
-                <span>Prace w dniu</span>
-                <strong>{dispatchStats.scheduled}</strong>
+            <div className="harmonogram-radar" style={styles.dispatchRadar}>
+              <div style={styles.dispatchRadarLead}>
+                <span>Radar operacyjny</span>
+                <strong>{selectedDayLabel}</strong>
+                <small>{dispatchStats.scheduled} prac / {dispatchRows.length} ekip / {dispatchStats.loadLabel}</small>
               </div>
-              <div style={styles.dispatchKpi}>
-                <span>Planowane godziny</span>
-                <strong>{dispatchStats.loadLabel}</strong>
-              </div>
-              <div style={{ ...styles.dispatchKpi, ...(dispatchStats.conflictCount ? styles.dispatchKpiDanger : {}) }}>
-                <span>Konflikty</span>
-                <strong>{dispatchStats.conflictCount}</strong>
-              </div>
-              <div style={{ ...styles.dispatchKpi, ...(dispatchStats.packageBlocked ? styles.dispatchKpiWarn : {}) }}>
-                <span>Braki pakietu</span>
-                <strong>{dispatchStats.packageBlocked}</strong>
-              </div>
-              <div style={{ ...styles.dispatchKpi, ...(dispatchStats.unassigned ? styles.dispatchKpiWarn : {}) }}>
-                <span>Bez ekipy</span>
-                <strong>{dispatchStats.unassigned}</strong>
-              </div>
-              <div style={{ ...styles.dispatchKpi, ...((dispatchGpsStats.stale || dispatchGpsStats.offline || dispatchGpsStats.missing) ? styles.dispatchKpiWarn : {}) }}>
-                <span>GPS online</span>
-                <strong>{dispatchGpsStats.online}/{dispatchGpsStats.total}</strong>
-              </div>
+              {dispatchDecisionCards.map((card) => (
+                <button
+                  key={card.key}
+                  type="button"
+                  style={{
+                    ...styles.dispatchDecisionCard,
+                    ...(card.tone === 'danger' ? styles.dispatchDecisionDanger : {}),
+                    ...(card.tone === 'warn' ? styles.dispatchDecisionWarn : {}),
+                    ...(card.tone === 'ok' ? styles.dispatchDecisionOk : {}),
+                  }}
+                  onClick={() => {
+                    if (card.key === 'unassigned') {
+                      const first = dispatchQueue.find((task) => !task.ekipa_id || !task.data_planowana);
+                      if (first?.id) setSelectedTaskId(String(first.id));
+                    }
+                    if (card.key === 'conflicts') {
+                      const firstConflictId = Array.from(dispatchConflictIds)[0];
+                      if (firstConflictId) setSelectedTaskId(String(firstConflictId));
+                    }
+                  }}
+                >
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <small>{card.detail}</small>
+                </button>
+              ))}
             </div>
 
             <div className="harmonogram-slot-board" style={styles.dispatchSlotBoard} data-testid="harmonogram-dispatch-slot-board">
@@ -2141,6 +2241,12 @@ const styles = {
   dispatchLoadedRoutes: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 },
   dispatchLoadedRoute: { border: '1px solid rgba(15,95,58,0.12)', borderRadius: 8, background: '#ffffff', padding: '8px 10px', display: 'grid', gap: 3, color: 'var(--text)', fontSize: 12, fontWeight: 850 },
   dispatchLoadedRouteMuted: { border: '1px dashed rgba(15,95,58,0.18)', borderRadius: 8, background: 'rgba(255,255,255,0.7)', padding: '8px 10px', color: 'var(--text-muted)', fontSize: 12, fontWeight: 900 },
+  dispatchRadar: { display: 'grid', gridTemplateColumns: 'minmax(220px, 0.9fr) repeat(5, minmax(128px, 1fr))', gap: 8, marginBottom: 12 },
+  dispatchRadarLead: { minHeight: 84, borderRadius: 8, padding: '12px 14px', display: 'grid', alignContent: 'center', gap: 3, background: 'linear-gradient(135deg, #07301f 0%, #0f5f3a 100%)', color: '#fff', boxShadow: '0 12px 28px rgba(10,72,45,0.16)' },
+  dispatchDecisionCard: { minHeight: 84, border: '1px solid rgba(15,95,58,0.13)', borderLeft: '4px solid rgba(15,95,58,0.26)', borderRadius: 8, background: '#ffffff', color: 'var(--text)', padding: '10px 12px', display: 'grid', alignContent: 'center', gap: 2, textAlign: 'left', cursor: 'pointer', boxShadow: '0 10px 24px rgba(31,79,50,0.055)', fontFamily: 'inherit' },
+  dispatchDecisionOk: { borderLeftColor: 'var(--accent)', background: 'linear-gradient(180deg, #ffffff, rgba(34,197,94,0.07))' },
+  dispatchDecisionWarn: { borderLeftColor: 'var(--warning)', background: 'linear-gradient(180deg, #ffffff, rgba(245,158,11,0.09))' },
+  dispatchDecisionDanger: { borderLeftColor: 'var(--danger)', background: 'linear-gradient(180deg, #ffffff, rgba(239,68,68,0.09))' },
   dispatchKpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginBottom: 12 },
   dispatchKpi: { minHeight: 62, border: '1px solid rgba(15,95,58,0.13)', borderRadius: 8, background: '#ffffff', padding: '10px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 10px 24px rgba(31,79,50,0.055)' },
   dispatchKpiWarn: { borderColor: 'rgba(245,158,11,0.42)', background: 'rgba(245,158,11,0.09)' },

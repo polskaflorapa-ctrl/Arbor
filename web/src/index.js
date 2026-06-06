@@ -7,6 +7,7 @@ import App from './App';
 import './animations.css';
 import './product-polish.css';
 import './operational-final.css';
+import './arbor-command-redesign.css';
 import reportWebVitals from './reportWebVitals';
 import { BUILD_STAMP } from './buildStamp';
 

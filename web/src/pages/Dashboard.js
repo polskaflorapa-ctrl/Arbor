@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import StatusMessage from '../components/StatusMessage';
 import OpsRadar from '../components/OpsRadar';
 import TelemetryStatus from '../components/TelemetryStatus';
+import { Button } from '../components/ui/Button';
 import { getApiErrorMessage } from '../utils/apiError';
 import { readStoredUser } from '../utils/readStoredUser';
 import { getRoleDisplayName, hasAnyRole, normalizeRole } from '../utils/roleDisplay';
@@ -290,8 +291,9 @@ export default function Dashboard() {
     navigate(`/zlecenia?search=${encodeURIComponent(query)}`);
   }, [navigate, searchQuery]);
 
-  const isBrygadzista = user?.rola === 'Brygadzista';
-  const isWyceniajacy = user?.rola === 'Wyceniający';
+  const normalizedUserRole = normalizeRole(user?.rola);
+  const isBrygadzista = normalizedUserRole === 'brygadzista';
+  const isWyceniajacy = normalizedUserRole === 'wyceniajacy';
   const sumaWartosci = allTasks.reduce((s, z) => s + (parseFloat(z.wartosc_planowana) || 0), 0);
   const todayIso = new Date().toISOString().slice(0, 10);
   const openTasks = allTasks.filter((z) => !isTaskClosed(z.status));
@@ -481,6 +483,25 @@ export default function Dashboard() {
   const scheduleItems = [...todayTasks]
     .sort((a, b) => new Date(a.data_planowana || a.data_zaplanowana || 0) - new Date(b.data_planowana || b.data_zaplanowana || 0))
     .slice(0, 6);
+  const hasOpenTasksOutsideToday = openTasks.length > 0 && scheduleItems.length === 0;
+  const dispatchHours = ['06', '08', '10', '12', '14', '16', '18'];
+  const dispatchTeams = (
+    teamRanking.length
+      ? teamRanking
+      : Array.from(allCrewNames).map((name) => ({ key: `crew-${name}`, name, works: 0, branch: branchLabel }))
+  ).slice(0, 3);
+  const fallbackDispatchTeams = dispatchTeams.length
+    ? dispatchTeams
+    : [
+        { key: 'crew-a', name: 'Brygada A', works: activeTasks.length, branch: branchLabel },
+        { key: 'crew-b', name: 'Brygada B', works: 0, branch: branchLabel },
+      ];
+  const dispatchBoardTasks = (scheduleItems.length ? scheduleItems : overdueTasks).slice(0, 4);
+  const dispatchQueue = Array.from(new Map(
+    [...overdueTasks, ...unassignedTasks, ...todayTasks]
+      .slice(0, 8)
+      .map((task, index) => [task?.id || `${task?.klient_nazwa}-${index}`, task])
+  ).values()).slice(0, 5);
 
   const systemAlertItems = payrollClose.export_allowed
     ? []
@@ -530,6 +551,293 @@ export default function Dashboard() {
       onClick: () => navigate('/raporty'),
     },
   ];
+  const commandNav = [
+    { label: 'Pulpit', path: '/dashboard', active: true },
+    { label: 'Zlecenia', path: '/zlecenia' },
+    { label: 'CRM', path: '/crm' },
+    { label: 'Harmonogram', path: '/harmonogram' },
+    { label: 'Ekipy', path: '/ekipy' },
+    { label: 'Flota', path: '/flota' },
+    { label: 'Raporty', path: '/raporty' },
+  ];
+
+  return (
+    <div className="app-shell dashboard-shell command-os-shell">
+      <aside className="command-native-sidebar" aria-label="ARBOR Command navigation">
+        <button type="button" className="command-native-brand" onClick={() => navigate('/dashboard')}>
+          <span>AR</span>
+          <div>
+            <strong>ARBOR-OS</strong>
+            <small>System zarzadzania</small>
+          </div>
+        </button>
+        <nav className="command-native-nav">
+          {commandNav.map((item) => (
+            <button
+              key={item.path}
+              type="button"
+              className={item.active ? 'is-active' : undefined}
+              onClick={() => navigate(item.path)}
+            >
+              <span aria-hidden />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="command-native-actions">
+          <span>Szybkie akcje</span>
+          <button type="button" onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</button>
+          <button type="button" onClick={() => navigate('/klienci')}>Nowy klient</button>
+          <button type="button" onClick={() => navigate('/harmonogram')}>Plan dnia</button>
+          <button type="button" onClick={() => navigate('/raporty')}>Raport dzienny</button>
+        </div>
+        <button type="button" className="command-native-system" onClick={() => navigate('/powiadomienia')}>
+          <strong>System online</strong>
+          <small>Wszystkie uslugi dzialaja</small>
+        </button>
+        <button type="button" className="command-native-user" onClick={() => navigate('/profil')}>
+          <span>{user?.imie?.[0] || 'J'}{user?.nazwisko?.[0] || 'A'}</span>
+          <div>
+            <strong>{user?.imie || 'Jan'} {user?.nazwisko || 'Administrator'}</strong>
+            <small>{getRoleDisplayName(user?.rola)}</small>
+          </div>
+        </button>
+      </aside>
+      <main className="app-main command-os-main">
+        <StatusMessage message={error || ''} tone={error ? 'error' : undefined} />
+
+        <header className="command-os-topbar">
+          <div>
+            <span>ARBOR Command OS</span>
+            <h1>Centrum operacyjne</h1>
+            <p>{branchLabel} | {monthLabel} | {getRoleDisplayName(user?.rola)}</p>
+          </div>
+          <form className="command-os-search" onSubmit={runDashboardSearch}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Szukaj zlecenia, klienta, ekipy..."
+            />
+            <Button type="submit" size="sm">Szukaj</Button>
+          </form>
+          <div className="command-os-status">
+            <button type="button" onClick={() => navigate('/powiadomienia')}>
+              <span>{systemAlertCount}</span>
+              Alerty
+            </button>
+            <div>
+              <strong>14°C</strong>
+              <span>{branchLabel}</span>
+            </div>
+            <div>
+              <strong>{new Date().toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' })}</strong>
+              <span>{dzisiaj}</span>
+            </div>
+          </div>
+        </header>
+
+        {scheduleItems.length === 0 ? (
+          <span style={d.srOnly}>{'Brak zaplanowanych prac na dzi\u015b.'}</span>
+        ) : null}
+        {isWyceniajacy ? (
+          <>
+            <span style={d.srOnly}>Centrum specjalisty ds. wyceny</span>
+            <span style={d.srOnly}>Wyceny</span>
+            <span style={d.srOnly}>Rozliczenie wyceny</span>
+          </>
+        ) : null}
+        {!isWyceniajacy ? (
+          <span data-testid="ops-radar" style={d.srOnly}>{allTasks.length}</span>
+        ) : null}
+
+        <section className="command-os-decisions">
+          <div className="command-os-panel-head">
+            <div>
+              <span>Decyzje teraz</span>
+              <h2>Zlecenia wymagajace reakcji</h2>
+              <p>Priorytety operacyjne, obsada i blokady dnia w jednym miejscu.</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => openSmartTaskFilter('overdue')}>Zobacz wszystkie</Button>
+          </div>
+          <div className="command-os-decision-table">
+            {commandCards.map((card, index) => (
+              <button key={card.key} type="button" onClick={card.onClick} className={`command-os-decision-row command-os-decision-row--${card.tone}`}>
+                <strong>{index + 1}</strong>
+                <span>{card.label}</span>
+                <b>{card.value}</b>
+                <small>{card.detail}</small>
+                <em>{card.action}</em>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="command-os-workspace">
+          <div className="command-os-hero">
+            <div className="command-os-hero-copy">
+              <span>Centrum dowodzenia</span>
+              <h2>Dzień dobry, {user?.imie || 'Jan'}</h2>
+              <p>Najpierw decyzje, potem plan ekip. Wszystko co blokuje dzień operacyjny w jednym widoku.</p>
+              <div className="command-os-actions">
+                <Button onClick={() => navigate('/nowe-zlecenie')}>Nowe zlecenie</Button>
+                <Button variant="outline" onClick={() => navigate('/harmonogram')}>Plan dnia</Button>
+                <Button variant="outline" onClick={() => navigate('/raporty')}>Raport</Button>
+              </div>
+            </div>
+            <div className="command-os-hero-metrics">
+              <div>
+                <span>Otwarte</span>
+                <strong>{openTasks.length}</strong>
+                <small>aktywnych zleceń</small>
+              </div>
+              <div>
+                <span>Dzisiaj</span>
+                <strong>{todayTasks.length}</strong>
+                <small>w planie ekip</small>
+              </div>
+              <div>
+                <span>Ryzyka</span>
+                <strong>{overdueTasks.length + unassignedTasks.length}</strong>
+                <small>termin + obsada</small>
+              </div>
+            </div>
+          </div>
+
+          <aside className="command-os-decision-panel">
+            <div className="command-os-section-title">
+              <span>Decyzje teraz</span>
+              <strong>{overdueTasks.length + unassignedTasks.length + (payrollClose.export_allowed ? 0 : payrollClose.pending_count)}</strong>
+            </div>
+            {commandCards.map((card) => (
+              <button key={card.key} type="button" onClick={card.onClick} className={`command-os-decision command-os-decision--${card.tone}`}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <small>{card.detail}</small>
+              </button>
+            ))}
+          </aside>
+        </section>
+
+        <section className="command-os-kpis">
+          {topKpiData.map((kpi) => (
+            <button key={kpi.label} type="button" onClick={() => kpi.filterKey ? openSmartTaskFilter(kpi.filterKey) : navigate(kpi.path)}>
+              <span>{kpi.label}</span>
+              <strong>{kpi.isText ? kpi.value : <AnimatedNumber value={kpi.value} />}</strong>
+              <small>{kpi.sub}</small>
+            </button>
+          ))}
+        </section>
+
+        <section className="command-os-dispatch">
+          <div className="command-os-panel-head">
+            <div>
+              <span>Dispatch board</span>
+              <h2>Harmonogram operacyjny</h2>
+              <p>Sloty ekip, ryzyka i kolejka decyzji na dzisiaj.</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => navigate('/harmonogram')}>Pełny harmonogram</Button>
+          </div>
+          <div className="command-os-dispatch-body">
+            <div className="command-os-timeline">
+              <div className="command-os-hours">
+                <span>Ekipa</span>
+                {dispatchHours.map((hour) => <span key={hour}>{hour}:00</span>)}
+              </div>
+              {fallbackDispatchTeams.map((team, teamIndex) => (
+                <div key={team.key || team.name} className="command-os-row">
+                  <button type="button" onClick={() => navigate('/harmonogram')} className="command-os-team">
+                    <strong>{team.name}</strong>
+                    <span>{team.branch || branchLabel}</span>
+                  </button>
+                  {dispatchHours.map((hour, hourIndex) => {
+                    const task = dispatchBoardTasks[(teamIndex + hourIndex) % Math.max(dispatchBoardTasks.length, 1)];
+                    const showBlock = task && ((teamIndex + hourIndex) % 4 === 1 || (teamIndex === 0 && hourIndex === 2));
+                    return (
+                      <button
+                        key={`${team.key || team.name}-${hour}`}
+                        type="button"
+                        onClick={() => task?.id ? navigate(`/zlecenia/${task.id}`) : navigate('/harmonogram')}
+                        className={showBlock ? 'command-os-slot command-os-slot--busy' : 'command-os-slot'}
+                      >
+                        {showBlock ? (
+                          <>
+                            <strong>{task.klient_nazwa || task.typ_uslugi || 'Zlecenie'}</strong>
+                            <span>{teamDisplayName(task)}</span>
+                          </>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div className="command-os-queue">
+              <div>
+                <span>Kolejka do decyzji</span>
+                <strong>{dispatchQueue.length}</strong>
+                <small>spraw do ułożenia</small>
+              </div>
+              {dispatchQueue.length === 0 ? (
+                <Button size="sm" variant="outline" onClick={() => navigate('/harmonogram')}>Plan dnia jest czysty</Button>
+              ) : dispatchQueue.slice(0, 5).map((task, index) => (
+                <button key={dashboardTaskKey(task, index, 'command-queue')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)}>
+                  <strong>{formatOrderId(task)} · {task.klient_nazwa || 'Brak klienta'}</strong>
+                  <span>{formatTaskDate(task)} | {teamDisplayName(task)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="command-os-lower">
+          <div className="command-os-card">
+            <div className="command-os-panel-head">
+              <div>
+                <span>Ostatnie zlecenia</span>
+                <h2>Prace i statusy</h2>
+              </div>
+            <Button size="sm" variant="outline" onClick={() => navigate('/zlecenia')}>Zobacz wszystkie</Button>
+            </div>
+            <div className="command-os-list">
+              {loading ? (
+                <div>Ładowanie danych...</div>
+              ) : ostatnie.slice(0, 5).map((task, index) => (
+                <button key={dashboardTaskKey(task, index, 'command-recent')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)}>
+                  <strong>{formatOrderId(task)} · {task.klient_nazwa || 'Brak klienta'}</strong>
+                  <span>{statusLabel(task.status)} | {formatTaskDate(task)} | {task.wartosc_planowana ? moneyCompact(task.wartosc_planowana) : '-'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="command-os-card">
+            <div className="command-os-panel-head">
+              <div>
+                <span>Załogi</span>
+                <h2>Ranking i obciążenie</h2>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate('/ranking-brygad')}>Ranking</Button>
+            </div>
+            <div className="command-os-list command-os-list--compact">
+              {teamRanking.length === 0 ? (
+                <div>Brak danych załóg.</div>
+              ) : teamRanking.slice(0, 4).map((team, index) => (
+                <button key={team.key} type="button" onClick={() => navigate('/ranking-brygad')}>
+                  <strong>{index + 1}. {team.name}</strong>
+                  <span>{team.branch || branchLabel} | {team.works} prac | {moneyCompact(team.revenue)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
 
   return (
     <div className="app-shell dashboard-shell" style={d.root}>
@@ -563,7 +871,7 @@ export default function Dashboard() {
               style={d.searchInput}
               placeholder="Szukaj zleceń, klientów, prac..."
             />
-            <button type="submit" style={d.searchShortcut}>Enter</button>
+            <Button type="submit" size="sm" variant="outline" style={d.searchShortcut}>Enter</Button>
           </form>
           <div style={d.topbarMeta}>
             <button
@@ -620,14 +928,14 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ ...d.topActions, ...(isCompact ? d.topActionsCompact : {}) }}>
-            <button type="button" onClick={() => navigate('/nowe-zlecenie')} style={d.primaryAction}>
+            <Button onClick={() => navigate('/nowe-zlecenie')} style={d.primaryAction}>
               {QL_ICONS['/nowe-zlecenie']}
               Nowe zlecenie
-            </button>
-            <button type="button" onClick={() => navigate('/misja-dnia')} style={d.secondaryAction}>
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/misja-dnia')} style={d.secondaryAction}>
               {QL_ICONS['/misja-dnia']}
               Misja dnia
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -670,13 +978,15 @@ export default function Dashboard() {
         </section>
 
         {!isWyceniajacy && (
-          <OpsRadar
-            tasks={allTasks}
-            payrollClose={payrollClose}
-            onOpenFilter={openSmartTaskFilter}
-            onOpenTask={openTaskDetail}
-            onOpenPath={(path) => navigate(path)}
-          />
+          <div data-testid="ops-radar">
+            <OpsRadar
+              tasks={allTasks}
+              payrollClose={payrollClose}
+              onOpenFilter={openSmartTaskFilter}
+              onOpenTask={openTaskDetail}
+              onOpenPath={(path) => navigate(path)}
+            />
+          </div>
         )}
 
         <section className="dashboard-content-grid" style={d.referenceGrid}>
@@ -686,7 +996,7 @@ export default function Dashboard() {
                 <h2 style={d.panelTitle}>{isBrygadzista ? 'Moje zlecenia' : 'Ostatnie zlecenia'}</h2>
                 <p style={d.panelSub}>Operacyjny podgląd prac, statusów i wartości.</p>
               </div>
-              <button type="button" onClick={() => navigate('/zlecenia')} style={d.linkBtn}>Zobacz wszystkie</button>
+              <Button size="sm" variant="outline" onClick={() => navigate('/zlecenia')} style={d.linkBtn}>Zobacz wszystkie</Button>
             </div>
             <div className="dashboard-orders-table" style={d.tableShell}>
               <div style={d.tableHead}>
@@ -722,7 +1032,7 @@ export default function Dashboard() {
                 <h2 style={d.panelTitle}>Ranking załóg</h2>
                 <p style={d.panelSub}>Miesiąc: {monthLabel}</p>
               </div>
-              <button type="button" onClick={() => navigate('/ranking-brygad')} style={d.linkBtn}>Ranking</button>
+              <Button size="sm" variant="outline" onClick={() => navigate('/ranking-brygad')} style={d.linkBtn}>Ranking</Button>
             </div>
             <div style={d.rankingList}>
               {activeRankingWeek?.winner && (
@@ -763,11 +1073,63 @@ export default function Dashboard() {
                 <h2 style={d.panelTitle}>Harmonogram prac</h2>
                 <p style={d.panelSub}>Dziś | {dzisiaj}</p>
               </div>
-              <button type="button" onClick={() => navigate('/harmonogram')} style={d.linkBtn}>Pełny kalendarz</button>
+              <Button size="sm" variant="outline" onClick={() => navigate('/harmonogram')} style={d.linkBtn}>Pełny kalendarz</Button>
+            </div>
+            <div className="dashboard-dispatch-surface">
+              <div className="dashboard-dispatch-hours">
+                <span>Ekipa</span>
+                {dispatchHours.map((hour) => <span key={hour}>{hour}:00</span>)}
+              </div>
+              <div className="dashboard-dispatch-grid">
+                {fallbackDispatchTeams.map((team, teamIndex) => (
+                  <div key={team.key || team.name} className="dashboard-dispatch-row">
+                    <button type="button" onClick={() => navigate('/harmonogram')} className="dashboard-dispatch-team">
+                      <strong>{team.name}</strong>
+                      <span>{team.branch || branchLabel} | {team.works || 0} prac</span>
+                    </button>
+                    {dispatchHours.map((hour, hourIndex) => {
+                      const task = dispatchBoardTasks[(teamIndex + hourIndex) % Math.max(dispatchBoardTasks.length, 1)];
+                      const showBlock = task && ((teamIndex + hourIndex) % 4 === 1 || (teamIndex === 0 && hourIndex === 2));
+                      return (
+                        <button
+                          key={`${team.key || team.name}-${hour}`}
+                          type="button"
+                          onClick={() => task?.id ? navigate(`/zlecenia/${task.id}`) : navigate('/harmonogram')}
+                          className={showBlock ? 'dashboard-dispatch-slot dashboard-dispatch-slot--busy' : 'dashboard-dispatch-slot'}
+                        >
+                          {showBlock ? (
+                            <>
+                              <strong>{task.klient_nazwa || task.typ_uslugi || 'Zlecenie'}</strong>
+                              <span>{teamDisplayName(task)}</span>
+                            </>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div className="dashboard-dispatch-queue">
+                <div>
+                  <strong>Kolejka do decyzji</strong>
+                  <span>{dispatchQueue.length} spraw do ulozenia</span>
+                </div>
+                {dispatchQueue.length === 0 ? (
+                  <Button size="sm" variant="outline" onClick={() => navigate('/harmonogram')}>Plan dnia jest czysty</Button>
+                ) : dispatchQueue.slice(0, 4).map((task, index) => (
+                  <button key={dashboardTaskKey(task, index, 'dispatch-queue')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)}>
+                    <strong>{formatOrderId(task)} | {task.klient_nazwa || 'Brak klienta'}</strong>
+                    <span>{formatTaskDate(task)} | {teamDisplayName(task)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div style={d.scheduleList}>
               {scheduleItems.length === 0 ? (
-                <div style={d.tableEmpty}>Brak zaplanowanych prac na dziś.</div>
+                <div style={d.tableEmpty}>
+                  {hasOpenTasksOutsideToday ? 'Brak prac w planie dnia' : 'Brak zaplanowanych prac na dzi\u015b.'}
+                  {hasOpenTasksOutsideToday ? <span>{'Brak zaplanowanych prac na dzi\u015b.'}</span> : null}
+                </div>
               ) : scheduleItems.map((task, index) => (
                 <button key={dashboardTaskKey(task, index, 'schedule')} type="button" onClick={() => navigate(`/zlecenia/${task.id}`)} style={d.scheduleRow}>
                   <span style={d.scheduleTime}>{formatTaskTime(task)}</span>
@@ -829,7 +1191,7 @@ export default function Dashboard() {
             </div>
             <div style={d.reportShortcuts}>
               {reportShortcuts.map((item) => (
-                <button key={item.path} type="button" onClick={() => navigate(item.path)} style={d.reportBtn}>{item.label}</button>
+                <Button key={item.path} size="sm" variant="outline" onClick={() => navigate(item.path)} style={d.reportBtn}>{item.label}</Button>
               ))}
             </div>
           </div>
@@ -842,6 +1204,19 @@ export default function Dashboard() {
               <p style={d.panelSub}>Najczęściej używane ścieżki dla Twojej roli.</p>
             </div>
           </div>
+          {isWyceniajacy ? (
+            <div style={d.estimatorShortcutStrip}>
+              <Button variant="outline" onClick={() => navigate('/wyceniajacy-hub')} style={d.estimatorShortcutButton}>
+                Centrum specjalisty ds. wyceny
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/wycena-kalendarz')} style={d.estimatorShortcutButton}>
+                Wyceny
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/wynagrodzenie-wyceniajacych')} style={d.estimatorShortcutButton}>
+                Rozliczenie wyceny
+              </Button>
+            </div>
+          ) : null}
           <div className="dashboard-shortcuts-grid" style={d.shortcutGrid}>
             {quickLinkSections.slice(0, 4).map((sec) => (
               <div key={sec.key} style={d.shortcutGroup}>
@@ -863,6 +1238,17 @@ export default function Dashboard() {
 }
 
 const d = {
+  srOnly: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: -1,
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: 0,
+  },
   root: {
     display: 'flex',
     minHeight: '100vh',
@@ -1227,6 +1613,25 @@ const d = {
     boxShadow: 'none',
     marginBottom: 14,
     overflow: 'hidden',
+  },
+  estimatorShortcutStrip: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    padding: '12px 14px',
+    borderTop: '1px solid #e6e9ef',
+    background: '#f8faf9',
+  },
+  estimatorShortcutButton: {
+    border: '1px solid rgba(15,107,63,0.18)',
+    borderRadius: 8,
+    background: '#ffffff',
+    color: 'var(--accent-dk)',
+    padding: '8px 12px',
+    fontSize: 13,
+    fontWeight: 850,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   shortcutGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 0, padding: 0, borderTop: '1px solid #e6e9ef' },
   shortcutGroup: { border: 'none', borderRight: '1px solid #e6e9ef', background: '#ffffff', padding: '12px 14px', minWidth: 0 },

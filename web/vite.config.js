@@ -58,11 +58,17 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
-            if (id.includes('@mui') || id.includes('@emotion')) return 'vendor-mui';
-            if (id.includes('react') || id.includes('react-router')) return 'vendor-react';
+            const normalizedId = id.replace(/\\/g, '/');
+            if (/[\/]node_modules[\/](react|react-dom|react-router|react-router-dom|scheduler)[\/]/.test(normalizedId)) {
+              return 'vendor-react';
+            }
+            if (normalizedId.includes('/node_modules/@remix-run/router/')) return 'vendor-react';
+            if (normalizedId.includes('/node_modules/@mui/') || normalizedId.includes('/node_modules/@emotion/')) {
+              return 'vendor-mui';
+            }
             if (id.includes('i18next')) return 'vendor-i18n';
             if (id.includes('axios')) return 'vendor-http';
-            return 'vendor';
+            return undefined;
           },
         },
       },

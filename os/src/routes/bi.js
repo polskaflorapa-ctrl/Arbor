@@ -94,6 +94,15 @@ function buildTaskFinancialDrilldown(row) {
   if (!Number(row.koszt_materialow_count || 0)) missing.push('materialy');
   if (!Number(row.koszt_utylizacji_count || 0)) missing.push('utylizacja');
   if (!Number(row.koszt_inne_count || 0)) missing.push('inne');
+  const marginConfidence = margin.revenue_net <= 0
+    ? 'no_revenue'
+    : missing.length >= 3
+      ? 'high_risk_margin'
+      : missing.length === 2
+        ? 'medium_risk_margin'
+        : missing.length === 1
+          ? 'low_risk_margin'
+          : 'complete_enough';
 
   return {
     revenue_net: margin.revenue_net,
@@ -110,6 +119,7 @@ function buildTaskFinancialDrilldown(row) {
     margin_pct: margin.margin_pct,
     complete: missing.length === 0,
     missing_cost_fields: missing,
+    margin_confidence: marginConfidence,
     note: hasSettlement
       ? 'Marza liczona ze znanych kosztow z rozliczenia i kosztow operacyjnych zapisanych przy finish.'
       : 'Brak rozliczenia zlecenia. Marza opiera sie tylko na znanym przychodzie, bez kosztow operacyjnych.',

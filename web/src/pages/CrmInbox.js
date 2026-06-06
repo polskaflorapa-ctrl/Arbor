@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowRight, Check, Filter, RefreshCw, Send, Settings, XCircle } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { authHeaders, getStoredToken } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -350,7 +352,7 @@ export default function CrmInbox() {
                 Szukaj
                 <input className="ios-field" value={filters.q} onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))} placeholder="Lead, klient, tresc..." />
               </label>
-              <button className="ios-btn ios-btn-primary" type="submit" disabled={loading}>{loading ? 'Laduje...' : 'Filtruj'}</button>
+              <Button type="submit" loading={loading} leftIcon={Filter} disabled={loading}>{loading ? 'Laduje...' : 'Filtruj'}</Button>
             </form>
           </section>
 
@@ -375,15 +377,15 @@ export default function CrmInbox() {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' }}>
               {Object.entries(inboxStats.byChannel).slice(0, 6).map(([channel, count]) => (
-                <button key={channel} className="ios-btn" type="button" onClick={() => applyPreset({ channel })} style={{ minHeight: 34 }}>
+                <Button key={channel} size="sm" variant="outline" onClick={() => applyPreset({ channel })}>
                   {CHANNEL_LABELS[channel] || channel}: {count}
-                </button>
+                </Button>
               ))}
-              {activeFiltersCount ? <button className="ios-btn" type="button" onClick={resetFilters}>Wyczysc filtry</button> : null}
-              <button className="ios-btn" type="button" onClick={loadInbox} disabled={loading}>Odswiez</button>
-              <button className="ios-btn ios-btn-primary" type="button" onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
+              {activeFiltersCount ? <Button size="sm" variant="ghost" onClick={resetFilters}>Wyczysc filtry</Button> : null}
+              <Button size="sm" variant="outline" leftIcon={RefreshCw} onClick={loadInbox} disabled={loading}>Odswiez</Button>
+              <Button size="sm" loading={loading || timelineLoading} leftIcon={RefreshCw} onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
                 Odswiez wszystko
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -395,12 +397,12 @@ export default function CrmInbox() {
                   Podpiete webhooki Unified Inbox per oddzial. Gotowe: {channelReadinessSummary.ready}/{channelReadinessSummary.total}.
                 </div>
               </div>
-              <button className="ios-btn" type="button" onClick={() => navigate('/integracje')}>
+              <Button size="sm" variant="outline" leftIcon={Settings} onClick={() => navigate('/integracje')}>
                 Konfiguruj
-              </button>
-              <button className="ios-btn" type="button" onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
+              </Button>
+              <Button size="sm" variant="outline" leftIcon={RefreshCw} onClick={refreshInboxWorkspace} disabled={loading || timelineLoading}>
                 Odswiez zrodla
-              </button>
+              </Button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8, marginBottom: 10 }}>
               {channelReadiness.map((row) => (
@@ -517,21 +519,21 @@ export default function CrmInbox() {
                         {selected.channel} / {selected.direction} / {selected.status}
                       </div>
                     </div>
-                    <button className="ios-btn" type="button" onClick={() => navigate('/crm/pipeline')}>Pipeline</button>
+                    <Button size="sm" variant="outline" rightIcon={ArrowRight} onClick={() => navigate('/crm/pipeline')}>Pipeline</Button>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'read')}>
+                    <Button size="sm" variant="outline" leftIcon={Check} disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'read')}>
                       Przeczytane
-                    </button>
-                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'sent')}>
+                    </Button>
+                    <Button size="sm" leftIcon={Send} disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'sent')}>
                       Wyslane
-                    </button>
-                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'queued')}>
+                    </Button>
+                    <Button size="sm" variant="warning" leftIcon={RefreshCw} disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'queued')}>
                       Ponow
-                    </button>
-                    <button className="ios-btn" type="button" disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'failed')}>
+                    </Button>
+                    <Button size="sm" variant="danger" leftIcon={XCircle} disabled={statusSavingId === selected.id} onClick={() => updateMessageStatus(selected.id, 'failed')}>
                       Blad
-                    </button>
+                    </Button>
                   </div>
                   <div className="ios-inset-list">
                     <div className="ios-inset-row">
@@ -621,9 +623,9 @@ export default function CrmInbox() {
                       />
                     </label>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                      <button className="ios-btn ios-btn-primary" type="submit" disabled={replySending || !replyBody.trim()}>
+                      <Button type="submit" loading={replySending} leftIcon={Send} disabled={replySending || !replyBody.trim()}>
                         {replySending ? 'Dodaje...' : 'Dodaj do kolejki'}
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 </>

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import { Activity, Bot, CheckCircle, MessageSquarePlus, Play, Plus, RefreshCw, RotateCcw, Send, Star, Trash2, X, XCircle } from 'lucide-react';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -719,7 +721,7 @@ export default function CrmPipeline() {
 
   return (
     <div className="app-shell crm-pipeline-shell">
-      <Sidebar />
+      <CommandSidebar active="crm" user={currentUser} />
       <main className="app-main crm-pipeline-main">
         <div className="app-content crm-pipeline-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
@@ -741,12 +743,12 @@ export default function CrmPipeline() {
               />
             </div>
             <div className="crm-kommo-actions">
-              <button type="button" className="ios-btn" onClick={loadData}>
+              <Button variant="outline" leftIcon={RefreshCw} onClick={loadData}>
                 Odśwież
-              </button>
-              <button type="button" className="ios-btn ios-btn-primary" disabled={saving} onClick={handleCreate}>
+              </Button>
+              <Button leftIcon={Plus} disabled={saving} onClick={handleCreate}>
                 {t('crm.pipeline.addLead', { defaultValue: 'Dodaj leada' })}
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -908,9 +910,9 @@ export default function CrmPipeline() {
                 placeholder={t('crm.pipeline.templates.body', { defaultValue: 'Treść, np. Dzień dobry, wracam w sprawie {title}.' })}
                 style={{ gridColumn: '1 / -1' }}
               />
-              <button type="button" className="ios-btn ios-btn-primary" disabled={savingTemplate || !templateForm.name.trim() || !templateForm.body.trim()} onClick={createTemplate}>
+              <Button leftIcon={MessageSquarePlus} disabled={savingTemplate || !templateForm.name.trim() || !templateForm.body.trim()} onClick={createTemplate}>
                 {t('crm.pipeline.templates.add', { defaultValue: 'Dodaj szablon' })}
-              </button>
+              </Button>
             </div>
             <div className="ios-inset-list" style={{ marginTop: 10, maxHeight: 180, overflow: 'auto' }}>
               {messageTemplates.map((template) => (
@@ -937,33 +939,36 @@ export default function CrmPipeline() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="ios-btn"
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={RotateCcw}
                   disabled={savingWorkflow || workflows.some((rule) => rule.trigger_type === 'no_response_after_hours')}
                   onClick={createNoResponseWorkflow}
                 >
                   {t('crm.pipeline.workflows.addNoResponse', { defaultValue: '+ brak odpowiedzi 24h' })}
-                </button>
-                <button
-                  type="button"
-                  className="ios-btn"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={RefreshCw}
                   disabled={savingWorkflow || roundRobinOwners.length < 2 || workflows.some((rule) => rule.action_type === 'assign_round_robin')}
                   onClick={createRoundRobinWorkflow}
                 >
                   {t('crm.pipeline.workflows.addRoundRobin', { defaultValue: '+ round-robin' })}
-                </button>
-                <button
-                  type="button"
-                  className="ios-btn"
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={Send}
                   disabled={savingWorkflow || messageTemplates.length === 0 || workflows.some((rule) => rule.action_type === 'send_template_message')}
                   onClick={createTemplateWorkflow}
                 >
                   {t('crm.pipeline.workflows.addTemplate', { defaultValue: '+ wyślij szablon 24h' })}
-                </button>
-                <button type="button" className="ios-btn ios-btn-primary" disabled={savingWorkflow || workflows.length === 0} onClick={runWorkflows}>
+                </Button>
+                <Button size="sm" leftIcon={Play} disabled={savingWorkflow || workflows.length === 0} onClick={runWorkflows}>
                   {t('crm.pipeline.workflows.run', { defaultValue: 'Uruchom workflow' })}
-                </button>
+                </Button>
               </div>
             </div>
             <div className="ios-inset-list" style={{ marginTop: 10 }}>
@@ -1078,17 +1083,17 @@ export default function CrmPipeline() {
                         ))}
                       </select>
                       <div className="crm-kommo-card-actions">
-                        <button type="button" className="ios-btn" onClick={() => setSelectedLeadId(lead.id)}>
+                        <Button size="sm" variant="outline" leftIcon={Activity} onClick={() => setSelectedLeadId(lead.id)}>
                           {t('crm.pipeline.activities.toggleShow', { defaultValue: 'Aktywności' })}
-                        </button>
+                        </Button>
                         {!isClosedLeadStage(lead.stage) ? (
-                          <button type="button" className="ios-btn" onClick={() => setCloseDialog({ leadId: lead.id, requestedStage: 'Przegrane', reason: '' })}>
+                          <Button size="sm" variant="warning" leftIcon={XCircle} onClick={() => setCloseDialog({ leadId: lead.id, requestedStage: 'Przegrane', reason: '' })}>
                             {t('crm.pipeline.closeLead', { defaultValue: 'Zamknij lead' })}
-                          </button>
+                          </Button>
                         ) : null}
-                        <button type="button" className="ios-btn" onClick={() => handleDelete(lead.id)}>
+                        <Button size="sm" variant="danger" leftIcon={Trash2} onClick={() => handleDelete(lead.id)}>
                         {t('crm.pipeline.deleteLead', { defaultValue: 'Usuń' })}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1161,12 +1166,12 @@ export default function CrmPipeline() {
                 : t('crm.pipeline.closeLostHint', { defaultValue: 'Ten powód zamknie lead jako przegrany.' })}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className="ios-btn" onClick={() => setCloseDialog(null)}>
+              <Button variant="outline" leftIcon={X} onClick={() => setCloseDialog(null)}>
                 {t('common.cancel', { defaultValue: 'Anuluj' })}
-              </button>
-              <button type="button" className="ios-btn ios-btn-primary" disabled={!closeDialog.reason} onClick={submitCloseLead}>
+              </Button>
+              <Button variant="warning" leftIcon={XCircle} disabled={!closeDialog.reason} onClick={submitCloseLead}>
                 {t('crm.pipeline.closeConfirm', { defaultValue: 'Zamknij lead' })}
-              </button>
+              </Button>
             </div>
           </section>
         </>
@@ -1222,9 +1227,9 @@ export default function CrmPipeline() {
                   <span>{selectedLead.email || 'brak e-maila'}</span>
                 </div>
               </div>
-              <button type="button" className="ios-btn" onClick={() => setSelectedLeadId(null)}>
+              <Button size="sm" variant="outline" leftIcon={X} onClick={() => setSelectedLeadId(null)}>
                 {t('crm.pipeline.activities.close', { defaultValue: 'Zamknij' })}
-              </button>
+              </Button>
             </div>
 
             <div className="ios-inset crm-inspector-panel crm-inspector-ai" style={{ padding: 10, display: 'grid', gap: 8 }}>
@@ -1237,9 +1242,9 @@ export default function CrmPipeline() {
                     {t('crm.pipeline.ai.subtitle', { defaultValue: 'Podsumowanie, następna akcja i propozycja odpowiedzi.' })}
                   </div>
                 </div>
-                <button type="button" className="ios-btn ios-btn-primary" disabled={aiLoading} onClick={runLeadAi}>
+                <Button loading={aiLoading} leftIcon={Bot} disabled={aiLoading} onClick={runLeadAi}>
                   {aiLoading ? t('common.loading', { defaultValue: 'Ładowanie...' }) : t('crm.pipeline.ai.run', { defaultValue: 'Analizuj' })}
-                </button>
+                </Button>
               </div>
               {aiLead ? (
                 <div className="ios-inset-list">
@@ -1345,9 +1350,9 @@ export default function CrmPipeline() {
                 onChange={(e) => setMessageForm((prev) => ({ ...prev, body: e.target.value }))}
                 placeholder={t('crm.pipeline.messages.body', { defaultValue: 'Treść wiadomości...' })}
               />
-              <button type="button" className="ios-btn ios-btn-primary" disabled={savingMessage || (!messageForm.body.trim() && !messageForm.template_id)} onClick={submitMessage}>
+              <Button leftIcon={Send} disabled={savingMessage || (!messageForm.body.trim() && !messageForm.template_id)} onClick={submitMessage}>
                 {t('crm.pipeline.messages.add', { defaultValue: 'Zapisz wiadomość' })}
-              </button>
+              </Button>
               <div className="ios-inset-list" style={{ maxHeight: 260, overflow: 'auto' }}>
                 {messages.map((message) => (
                   <div key={message.id} className="ios-inset-row" style={{ display: 'grid', gap: 5 }}>
@@ -1411,9 +1416,9 @@ export default function CrmPipeline() {
                 onChange={(e) => setNpsForm((prev) => ({ ...prev, comment: e.target.value }))}
                 placeholder={t('crm.pipeline.nps.comment', { defaultValue: 'Komentarz klienta...' })}
               />
-              <button type="button" className="ios-btn ios-btn-primary" disabled={savingNps} onClick={submitNps}>
+              <Button leftIcon={Star} disabled={savingNps} onClick={submitNps}>
                 {t('crm.pipeline.nps.add', { defaultValue: 'Zapisz NPS' })}
-              </button>
+              </Button>
               <div className="ios-inset-list" style={{ maxHeight: 180, overflow: 'auto' }}>
                 {npsSurveys.map((survey) => (
                   <div key={survey.id} className="ios-inset-row" style={{ display: 'grid', gap: 4 }}>
@@ -1514,9 +1519,9 @@ export default function CrmPipeline() {
                   />
                 </label>
               ) : null}
-              <button type="button" className="ios-btn ios-btn-primary" disabled={savingActivity || !activityForm.text.trim()} onClick={submitActivity}>
+              <Button leftIcon={Plus} disabled={savingActivity || !activityForm.text.trim()} onClick={submitActivity}>
                 {t('crm.pipeline.activities.add', { defaultValue: 'Dodaj wpis' })}
-              </button>
+              </Button>
             </div>
 
             {activitiesLoading ? (
@@ -1540,9 +1545,9 @@ export default function CrmPipeline() {
                     {a.type === 'task' && a.due_at ? ` · ${formatActivityWhen(a.due_at, lng)}` : ''}
                   </div>
                   {a.type === 'task' && !a.completed_at ? (
-                    <button type="button" className="ios-btn" onClick={() => completeActivity(a.id)}>
+                    <Button size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => completeActivity(a.id)}>
                       {t('crm.pipeline.activities.markDone', { defaultValue: 'Oznacz wykonane' })}
-                    </button>
+                    </Button>
                   ) : null}
                   {a.type === 'task' && a.completed_at ? (
                     <div style={{ fontSize: 11, color: 'var(--accent)' }}>

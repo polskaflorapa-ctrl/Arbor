@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Sidebar from '../components/Sidebar';
+import { ArrowRight, ExternalLink } from 'lucide-react';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
+import { Button } from '../components/ui/Button';
 import { getStoredToken } from '../utils/storedToken';
 
 const KOMMO_URL = (process.env.REACT_APP_KOMMO_APP_URL || '').trim();
@@ -30,10 +32,19 @@ export default function Crm() {
   );
 
   return (
-    <div className="app-shell">
-      <Sidebar />
-      <main className="app-main">
-        <PageHeader title={t('crm.title')} subtitle={t('crm.subtitle')} variant="hero" />
+    <div className="app-shell crm-command-shell">
+      <CommandSidebar active="crm" />
+      <main className="app-main crm-command-main">
+        <PageHeader
+          title={t('crm.title')}
+          subtitle={t('crm.subtitle')}
+          variant="hero"
+          actions={(
+            <Button type="button" rightIcon={ArrowRight} onClick={() => navigate('/crm/pipeline')}>
+              Pipeline
+            </Button>
+          )}
+        />
         <div
           className="app-content"
           style={{
@@ -86,15 +97,12 @@ export default function Crm() {
               {t('crm.kommoBody')}
             </p>
             {KOMMO_URL ? (
-              <a
-                href={KOMMO_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ios-btn ios-btn-primary"
-                style={{ display: 'inline-flex', textDecoration: 'none' }}
+              <Button
+                rightIcon={ExternalLink}
+                onClick={() => window.open(KOMMO_URL, '_blank', 'noopener,noreferrer')}
               >
                 {t('crm.openKommo')}
-              </a>
+              </Button>
             ) : (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>
                 {t('crm.kommoEnvHint')}

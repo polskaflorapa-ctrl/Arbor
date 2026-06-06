@@ -2,12 +2,12 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
+import { Button } from '../components/ui/Button';
+import { Calculator, CheckCircle, ExternalLink, Pencil, Plus, Save, Trophy, Trash2, Unlink, UserPlus, Wrench, X } from 'lucide-react';
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined';
-import EditOutlined from '@mui/icons-material/EditOutlined';
-import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import { getApiErrorMessage } from '../utils/apiError';
 import { errorMessage, successMessage, warningMessage } from '../utils/statusMessage';
 import useTimedMessage from '../hooks/useTimedMessage';
@@ -424,12 +424,58 @@ export default function Ekipy() {
     return map;
   }, [pojazdy, sprzet]);
   const selectedAssetProblems = selectedEkipa?.id ? (problemyZasobowEkip.get(String(selectedEkipa.id)) || []) : [];
+  const teamCommand = useMemo(() => {
+    const byTeam = new Map();
+    filtrowaneEkipy.forEach((team) => {
+      const teamId = String(team.id);
+      const teamVehicles = pojazdy.filter((item) => String(item.ekipa_id || '') === teamId);
+      const teamEquipment = sprzet.filter((item) => String(item.ekipa_id || '') === teamId);
+      const assetProblems = problemyZasobowEkip.get(teamId) || [];
+      const missing = [];
+      if (!team.brygadzista_id && !team.brygadzista_imie) missing.push('brygadzista');
+      if (!Number(team.liczba_czlonkow || 0)) missing.push('pomocnicy');
+      if (!teamVehicles.length) missing.push('auto');
+      if (!teamEquipment.length) missing.push('sprzet');
+      if (assetProblems.length) missing.push('naprawy');
+      const readiness = Math.max(
+        0,
+        100
+          - (assetProblems.length * 22)
+          - (!team.brygadzista_id && !team.brygadzista_imie ? 22 : 0)
+          - (!Number(team.liczba_czlonkow || 0) ? 16 : 0)
+          - (!teamVehicles.length ? 14 : 0)
+          - (!teamEquipment.length ? 10 : 0)
+      );
+      const tone = readiness >= 80 ? 'good' : readiness >= 55 ? 'warning' : 'danger';
+      byTeam.set(teamId, {
+        readiness,
+        tone,
+        vehicles: teamVehicles.length,
+        equipment: teamEquipment.length,
+        problems: assetProblems,
+        missing,
+        action: missing.length ? `Domknij: ${missing[0]}` : 'Gotowa do planu',
+      });
+    });
+    const items = Array.from(byTeam.values());
+    const ready = items.filter((item) => item.readiness >= 80).length;
+    const warning = items.filter((item) => item.readiness >= 55 && item.readiness < 80).length;
+    const blocked = items.filter((item) => item.readiness < 55).length;
+    const repairs = items.reduce((sum, item) => sum + item.problems.length, 0);
+    const average = items.length ? Math.round(items.reduce((sum, item) => sum + item.readiness, 0) / items.length) : 0;
+    const best = filtrowaneEkipy
+      .map((team) => ({ team, insight: byTeam.get(String(team.id)) }))
+      .filter((item) => item.insight)
+      .sort((a, b) => b.insight.readiness - a.insight.readiness)[0];
+    return { byTeam, ready, warning, blocked, repairs, average, best };
+  }, [filtrowaneEkipy, pojazdy, problemyZasobowEkip, sprzet]);
+  const selectedTeamInsight = selectedEkipa?.id ? teamCommand.byTeam.get(String(selectedEkipa.id)) : null;
   const isEkipaFormValid = Boolean(form.nazwa.trim() && (!isDyrektor || form.oddzial_id));
   const isAddCzlonekValid = Boolean(formCzlonek.user_id);
 
   return (
     <div className="app-shell ekipy-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
-      <Sidebar />
+      <CommandSidebar active="teams" user={currentUser} />
       <main className="app-main ekipy-main" style={{ flex: 1, padding: 28, position: 'relative' }}>
 
         <PageHeader
@@ -455,39 +501,49 @@ export default function Ekipy() {
                 </select>
               )}
               {canEdit && (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  leftIcon={showForm ? X : Plus}
                   onClick={() => {
                     setEditEkipa(null);
                     setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' });
                     setShowForm(!showForm);
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: 'var(--surface-field)',
-                    color: 'var(--accent)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s ease',
-                  }}
                 >
                   {showForm ? t('common.cancel') : t('pages.ekipy.newTeam')}
-                </button>
+                </Button>
               )}
             </>
           }
         />
+        <section className="ekipy-command-radar">
+          <div className="ekipy-command-lead">
+            <span>Centrum brygad</span>
+            <strong>{teamCommand.average}%</strong>
+            <small>srednia gotowosc operacyjna</small>
+          </div>
+          {[
+            { label: 'Gotowe', value: teamCommand.ready, detail: 'mozna planowac dzisiaj', tone: 'good' },
+            { label: 'Do kontroli', value: teamCommand.warning, detail: 'braki do domkniecia', tone: 'warning' },
+            { label: 'Blokady', value: teamCommand.blocked, detail: 'ryzyko dla harmonogramu', tone: 'danger' },
+            { label: 'Naprawy', value: teamCommand.repairs, detail: 'zasoby w serwisie', tone: teamCommand.repairs ? 'danger' : 'good' },
+            { label: 'Najlepsza', value: teamCommand.best?.team?.nazwa || '-', detail: teamCommand.best ? `${teamCommand.best.insight.readiness}% gotowosci` : 'brak ekip', tone: 'blue' },
+          ].map((card) => (
+            <div key={card.label} className={`ekipy-command-card is-${card.tone}`}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+            </div>
+          ))}
+          <div className="ekipy-command-actions">
+            <Button leftIcon={Plus} onClick={() => { setEditEkipa(null); setForm({ nazwa: '', brygadzista_id: '', oddzial_id: '' }); setShowForm(true); }}>
+              Nowa ekipa
+            </Button>
+            <Button variant="outline" leftIcon={Trophy} onClick={() => navigate('/ranking-brygad')}>
+              Ranking
+            </Button>
+          </div>
+        </section>
         <div className="ekipy-summary-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 12, marginBottom: 16 }}>
           <div className="ekipy-summary-card" style={{ background: 'var(--surface-glass)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '12px 14px', boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Centrum ekip</div>
@@ -558,10 +614,10 @@ export default function Ekipy() {
                 </div>
               </Field>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
-                <button type="button" style={S.cancelBtn} onClick={() => { setShowForm(false); setEditEkipa(null); }}>Anuluj</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isEkipaFormValid}>
-                  {saving ? t('common.saving') : editEkipa ? t('pages.ekipy.saveTeam') : t('pages.ekipy.createTeam')}
-                </button>
+                <Button variant="outline" onClick={() => { setShowForm(false); setEditEkipa(null); }}>Anuluj</Button>
+                <Button type="submit" loading={saving} disabled={!isEkipaFormValid} leftIcon={Save}>
+                  {editEkipa ? t('pages.ekipy.saveTeam') : t('pages.ekipy.createTeam')}
+                </Button>
               </div>
             </form>
           </div>
@@ -587,6 +643,7 @@ export default function Ekipy() {
               </div>
             ) : filtrowaneEkipy.map((e, i) => {
               const assetProblems = problemyZasobowEkip.get(String(e.id)) || [];
+              const insight = teamCommand.byTeam.get(String(e.id)) || {};
               return (
               <div
                 className="ekipy-team-card"
@@ -621,29 +678,25 @@ export default function Ekipy() {
                   </div>
                   {canEdit && (
                     <div style={{ display: 'flex', gap: 6 }} onClick={ev => ev.stopPropagation()}>
-                      <button
-                        type="button"
+                      <Button
+                        size="sm"
+                        variant="outline"
                         title={t('common.edit')}
                         aria-label={t('common.edit')}
-                        onMouseEnter={e2 => e2.currentTarget.style.backgroundColor = 'var(--surface-field)'}
-                        onMouseLeave={e2 => e2.currentTarget.style.backgroundColor = 'var(--surface-field)'}
-                        style={{ padding: '6px 10px', backgroundColor: 'var(--surface-field)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--accent)', transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center' }}
+                        leftIcon={Pencil}
+                        style={{ minHeight: 32, padding: '6px 9px' }}
                         onClick={() => handleEdit(e)}
-                      >
-                        <EditOutlined style={{ fontSize: 18 }} />
-                      </button>
+                      />
                       {isDyrektor && (
-                        <button
-                          type="button"
+                        <Button
+                          size="sm"
+                          variant="danger"
                           title={t('common.delete')}
                           aria-label={t('common.delete')}
-                          onMouseEnter={e2 => e2.currentTarget.style.backgroundColor = '#FFCDD2'}
-                          onMouseLeave={e2 => e2.currentTarget.style.backgroundColor = '#FFEBEE'}
-                          style={{ padding: '6px 10px', backgroundColor: 'rgba(248,113,113,0.1)', borderWidth: 1, borderStyle: 'solid', borderColor: '#FFCDD2', borderRadius: 6, cursor: 'pointer', color: '#EF5350', transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center' }}
+                          leftIcon={Trash2}
+                          style={{ minHeight: 32, padding: '6px 9px' }}
                           onClick={() => handleDelete(e.id)}
-                        >
-                          <DeleteOutline style={{ fontSize: 18 }} />
-                        </button>
+                        />
                       )}
                     </div>
                   )}
@@ -653,6 +706,17 @@ export default function Ekipy() {
                     {assetProblems.length} zasob w naprawie: {assetProblems.slice(0, 2).map((item) => item.label).join(', ')}
                   </div>
                 )}
+                <div className="ekipy-team-readiness">
+                  <div>
+                    <span>Gotowosc</span>
+                    <strong>{insight.readiness ?? 0}%</strong>
+                  </div>
+                  <div>
+                    <span>Zasoby</span>
+                    <strong>{insight.vehicles || 0} / {insight.equipment || 0}</strong>
+                  </div>
+                  <small className={`is-${insight.tone || 'warning'}`}>{insight.action || 'Do kontroli'}</small>
+                </div>
                 {e.brygadzista_imie && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-sub)', marginBottom: 6 }}>
                     <span style={{ backgroundColor: '#66BB6A', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold' }}>Brygadzista</span>
@@ -682,6 +746,27 @@ export default function Ekipy() {
                   {ekipaDetail.nazwa}
                 </h2>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{ekipaDetail.oddzial_nazwa}</span>
+                <div className="ekipy-detail-radar">
+                  <div>
+                    <span>Gotowosc</span>
+                    <strong>{selectedTeamInsight?.readiness ?? 0}%</strong>
+                  </div>
+                  <div>
+                    <span>Ludzie</span>
+                    <strong>{ekipaDetail.czlonkowie?.length || 0}</strong>
+                  </div>
+                  <div>
+                    <span>Auta</span>
+                    <strong>{zasobyEkipy.pojazdy.length}</strong>
+                  </div>
+                  <div>
+                    <span>Sprzet</span>
+                    <strong>{zasobyEkipy.sprzet.length}</strong>
+                  </div>
+                  <small className={`is-${selectedTeamInsight?.tone || 'warning'}`}>
+                    {selectedTeamInsight?.action || 'Do kontroli'}
+                  </small>
+                </div>
               </div>
 
               {selectedAssetProblems.length > 0 && (
@@ -785,10 +870,10 @@ export default function Ekipy() {
                       </select>
                     </Field>
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                      <button type="button" style={S.cancelBtn} onClick={() => setShowAddCzlonek(false)}>Anuluj</button>
-                      <button type="submit" style={S.submitBtn} disabled={memberSaving || !isAddCzlonekValid}>
+                      <Button variant="outline" onClick={() => setShowAddCzlonek(false)}>Anuluj</Button>
+                      <Button type="submit" loading={memberSaving} disabled={!isAddCzlonekValid} leftIcon={UserPlus}>
                         {memberSaving ? '⏳...' : '+ Dodaj do ekipy'}
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 )}
@@ -835,7 +920,7 @@ export default function Ekipy() {
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FFEBEE'}
                         style={{ padding: '4px 10px', backgroundColor: 'rgba(248,113,113,0.1)', border: '1px solid #FFCDD2', borderRadius: 6, cursor: memberSaving ? 'not-allowed' : 'pointer', fontSize: 13, color: '#EF5350', transition: 'all 0.15s', opacity: memberSaving ? 0.7 : 1 }}>
                         ✕
-                      </button>
+            </button>
                     )}
                   </div>
                 ))}
@@ -849,7 +934,7 @@ export default function Ekipy() {
                       {zasobyEkipy.pojazdy.length} aut / {zasobyEkipy.sprzet.length} sprzetu przypisane do tej ekipy.
                     </div>
                   </div>
-                  <button type="button" style={S.cancelBtn} onClick={() => navigate('/flota')}>Otworz flote</button>
+                  <Button variant="outline" leftIcon={ExternalLink} onClick={() => navigate('/flota')}>Otworz flote</Button>
                 </div>
 
                 {canEdit && (
@@ -864,9 +949,9 @@ export default function Ekipy() {
                             </option>
                           ))}
                         </select>
-                        <button type="button" style={S.submitBtn} disabled={assetSaving || !formZasoby.pojazd_id} onClick={() => handleAssignAsset('pojazd')}>
+                        <Button loading={assetSaving} disabled={!formZasoby.pojazd_id} leftIcon={CheckCircle} onClick={() => handleAssignAsset('pojazd')}>
                           Przypisz
-                        </button>
+                        </Button>
                       </div>
                     </Field>
                     <Field label="Przypisz sprzet">
@@ -879,9 +964,9 @@ export default function Ekipy() {
                             </option>
                           ))}
                         </select>
-                        <button type="button" style={S.submitBtn} disabled={assetSaving || !formZasoby.sprzet_id} onClick={() => handleAssignAsset('sprzet')}>
+                        <Button loading={assetSaving} disabled={!formZasoby.sprzet_id} leftIcon={CheckCircle} onClick={() => handleAssignAsset('sprzet')}>
                           Przypisz
-                        </button>
+                        </Button>
                       </div>
                     </Field>
                   </div>
@@ -1005,13 +1090,9 @@ function KalkulatorWynagrodzenia({ ekipa }) {
           </div>
         ))}
       </div>
-      <button
-        onClick={oblicz}
-        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--accent-dk)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--accent)'; e.currentTarget.style.transform = 'none'; }}
-        style={{ width: '100%', padding: 10, background: 'var(--accent-gradient)', color: 'var(--on-accent)', border: '1px solid rgba(20,131,79,0.22)', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 'bold', marginBottom: 14, transition: 'all 0.2s' }}>
+      <Button fullWidth leftIcon={Calculator} onClick={oblicz} style={{ marginBottom: 14 }}>
         Oblicz wynagrodzenie
-      </button>
+      </Button>
       {wynik && (
         <div style={{ backgroundColor: 'var(--surface-field)', borderRadius: 8, padding: 16, border: '1px solid var(--border)' }}>
           {[
@@ -1068,24 +1149,24 @@ function AssetList({ title, empty, items, renderName, renderMeta, canEdit, savin
                       {formatRepairDate(lastRepair.data_naprawy)} - {lastRepair.opis_usterki || lastRepair.opis_naprawy || 'Bez opisu'}
                     </span>
                     {canEdit && !repairIsClosed(lastRepair.status) && (
-                      <button type="button" style={S.assetCloseRepairBtn} disabled={repairSaving} onClick={() => onCloseRepair(lastRepair)}>
+                      <Button size="sm" loading={repairSaving} leftIcon={CheckCircle} onClick={() => onCloseRepair(lastRepair)} style={{ marginLeft: 'auto', minHeight: 28, padding: '4px 8px', fontSize: 11 }}>
                         {repairSaving ? '...' : 'Zakoncz'}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
               </div>
               {canEdit && (
                 <div style={S.assetActions}>
-                  <button type="button" style={S.assetReportRepairBtn} disabled={saving} onClick={() => onReportRepair(item)}>
+                  <Button size="sm" variant="warning" loading={saving} leftIcon={Wrench} onClick={() => onReportRepair(item)}>
                     Zglos naprawe
-                  </button>
-                  <button type="button" style={S.assetRepairBtn} disabled={saving || inRepair} onClick={() => onRepair(item)}>
+                  </Button>
+                  <Button size="sm" variant="danger" loading={saving} disabled={inRepair} leftIcon={Wrench} onClick={() => onRepair(item)}>
                     W naprawie
-                  </button>
-                  <button type="button" style={S.assetUnassignBtn} disabled={saving} onClick={() => onUnassign(item)}>
+                  </Button>
+                  <Button size="sm" variant="outline" loading={saving} leftIcon={Unlink} onClick={() => onUnassign(item)}>
                     Odepnij
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -1108,7 +1189,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
             <h3 style={S.modalTitle}>Zglos naprawe</h3>
             <p style={S.modalSubtitle}>{draft.label || `Zasob #${draft.zasob_id}`}</p>
           </div>
-          <button type="button" style={S.modalCloseBtn} onClick={onClose}>x</button>
+          <Button size="sm" variant="ghost" leftIcon={X} onClick={onClose} style={S.modalCloseBtn} aria-label="Zamknij" />
         </div>
         <div style={S.modalGrid}>
           <Field label="Data">
@@ -1134,10 +1215,10 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
           <textarea style={{ ...S.input, minHeight: 70, resize: 'vertical' }} value={draft.opis_naprawy} onChange={(e) => setField('opis_naprawy', e.target.value)} placeholder="Opcjonalnie, gdy naprawa jest zakonczona" />
         </Field>
         <div style={S.modalActions}>
-          <button type="button" style={S.cancelBtn} onClick={onClose}>Anuluj</button>
-          <button type="submit" style={S.submitBtn} disabled={saving || !draft.opis_usterki.trim()}>
-            {saving ? 'Zapisywanie...' : 'Zapisz naprawe'}
-          </button>
+          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button type="submit" loading={saving} disabled={!draft.opis_usterki.trim()} leftIcon={Save}>
+            Zapisz naprawe
+          </Button>
         </div>
       </form>
     </div>

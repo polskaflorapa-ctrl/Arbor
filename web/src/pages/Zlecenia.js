@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
+import { Button } from '../components/ui/Button';
 import CityInput from '../components/CityInput';
 import TelemetryStatus from '../components/TelemetryStatus';
+import { ArrowLeft, ArrowRight, LayoutList, Plus, Save, Trash2, X } from 'lucide-react';
 import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
 import ViewKanbanOutlined from '@mui/icons-material/ViewKanbanOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
@@ -4659,6 +4661,13 @@ export default function Zlecenia() {
     setFormRepairFocus(null);
     setTaskPhotoRepairFocus(null);
     if (z?.id) {
+      if (String(routeTaskId || '') !== String(z.id)) {
+        const detailPath = `/zlecenia/${z.id}`;
+        navigate(detailPath);
+        if (typeof window !== 'undefined' && window.location.hash !== `#${detailPath}`) {
+          window.history.pushState(null, '', `${window.location.pathname}${window.location.search}#${detailPath}`);
+        }
+      }
       loadTaskPhotos(z.id, { silent: true });
       loadTaskProblems(z.id, { silent: true });
       refreshTaskDetail(z.id, z);
@@ -6804,6 +6813,51 @@ export default function Zlecenia() {
       tone: selectedTaskPhotos.length ? 'blue' : 'warning',
     },
   ] : [];
+  const detailCommandCards = wybraneZlecenie ? [
+    {
+      key: 'readiness',
+      label: 'Gotowosc',
+      value: detailReadinessScore !== null ? `${detailReadinessScore}/100` : 'Brak',
+      detail: detailRequiredIssues[0]?.detail || detailSafetyRequiredIssues[0]?.detail || 'bez krytycznych blokad',
+      tone: detailHeroTone,
+      action: () => scrollToDetailSection('decision'),
+    },
+    {
+      key: 'plan',
+      label: 'Plan ekipy',
+      value: officePlanStatusLabel,
+      detail: officePlanTeamLabel || 'ekipa i termin do potwierdzenia',
+      tone: officePlanStatusTone === 'danger' ? 'danger' : officePlanStatusTone === 'warning' ? 'warning' : 'good',
+      action: () => scrollToDetailSection('officePlan'),
+    },
+    {
+      key: 'client',
+      label: 'Klient',
+      value: detailContactOption.label,
+      detail: wybraneZlecenie.klient_telefon || 'brak telefonu klienta',
+      tone: detailContactOption.tone === 'danger' || !wybraneZlecenie.klient_telefon ? 'danger' : detailContactOption.tone === 'warning' ? 'warning' : 'good',
+      action: () => scrollToDetailSection('contact'),
+    },
+    {
+      key: 'photos',
+      label: 'Dokumentacja',
+      value: `${selectedTaskPhotos.length} zdj.`,
+      detail: fieldPhotoCount ? `${fieldPhotoCount} dowodow z terenu` : 'dodaj szkic albo zdjecia',
+      tone: fieldPhotoCount ? 'good' : 'warning',
+      action: () => scrollToDetailSection('photos'),
+    },
+    {
+      key: 'route',
+      label: 'Teren',
+      value: getMapsHref(wybraneZlecenie) ? 'Trasa OK' : 'Brak GPS',
+      detail: getTaskAddressLine(wybraneZlecenie) || 'uzupelnij adres zlecenia',
+      tone: getMapsHref(wybraneZlecenie) ? 'blue' : 'danger',
+      action: () => {
+        const href = getMapsHref(wybraneZlecenie);
+        if (href && typeof window !== 'undefined') window.open(href, '_blank', 'noopener,noreferrer');
+      },
+    },
+  ] : [];
   const formRepairStep = formRepairFocus?.field ? FORM_REPAIR_FIELD_STEPS[formRepairFocus.field] : '';
   const formRepairStepLabel = FORM_STEPS.find((step) => step.key === formRepairStep)?.label || currentFormStep.label;
   const formRepairReturnLabel = formRepairFocus?.returnLabel || 'AI Dyspozytor';
@@ -6860,7 +6914,7 @@ export default function Zlecenia() {
  
   return (
     <div className="app-shell zlecenia-shell">
-      <Sidebar />
+      <CommandSidebar active="orders" user={currentUser} />
       <main className="app-main zlecenia-main" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div className="zlecenia-surface" style={s.main}>
  
@@ -6877,7 +6931,7 @@ export default function Zlecenia() {
                 <div style={s.copyFallbackEyebrow}>Tekst do skopiowania</div>
                 <div style={s.copyFallbackTitle}>{copyFallback.title}</div>
               </div>
-              <button type="button" style={s.bulkBtnSecondary} onClick={() => setCopyFallback(null)}>Zamknij</button>
+              <Button size="sm" variant="outline" leftIcon={X} onClick={() => setCopyFallback(null)}>Zamknij</Button>
             </div>
             <textarea
               readOnly
@@ -6899,8 +6953,8 @@ export default function Zlecenia() {
                 {t('pages.zlecenia.deleteBody', { id: potwierdzUsuniecie.id, client: potwierdzUsuniecie.klient_nazwa })}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-                <button style={s.btnDanger} onClick={() => usunZlecenie(potwierdzUsuniecie.id)}>{t('pages.zlecenia.deleteYes')}</button>
-                <button style={s.btnGray} onClick={() => setPotwierdzUsuniecie(null)}>{t('common.cancel')}</button>
+                <Button variant="danger" leftIcon={Trash2} onClick={() => usunZlecenie(potwierdzUsuniecie.id)}>{t('pages.zlecenia.deleteYes')}</Button>
+                <Button variant="outline" onClick={() => setPotwierdzUsuniecie(null)}>{t('common.cancel')}</Button>
               </div>
             </div>
           </div>
@@ -6952,16 +7006,16 @@ export default function Zlecenia() {
               ) : null}
               <div style={s.closeGuardActions}>
                 {closeGuard.canForceClose ? (
-                  <button type="button" style={s.btnPrimary} onClick={continueCloseGuard}>
+                  <Button leftIcon={Save} onClick={continueCloseGuard}>
                     Zamknij mimo uwag
-                  </button>
+                  </Button>
                 ) : null}
-                <button type="button" style={s.btnSecondary} onClick={fixCloseGuard}>
+                <Button variant="outline" onClick={fixCloseGuard}>
                   {closeGuard.mode === 'form' ? 'Wróć do formularza' : 'Popraw dane'}
-                </button>
-                <button type="button" style={s.btnGray} onClick={() => setCloseGuard(null)}>
+                </Button>
+                <Button variant="outline" onClick={() => setCloseGuard(null)}>
                   Anuluj
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -6977,8 +7031,8 @@ export default function Zlecenia() {
               icon={<AssignmentOutlined style={{ fontSize: 26 }} />}
               actions={
                 <>
-                  <button type="button" style={s.btnSecondary} onClick={() => { setFiltrStatus(''); setTryb('kanban'); }}>{t('pages.zlecenia.kanbanTitle')}</button>
-                  {mozeTworzyc && <button type="button" style={s.btnPrimary} onClick={otworzNowe}>+ {t('common.newOrder')}</button>}
+                  <Button variant="outline" leftIcon={LayoutList} onClick={() => { setFiltrStatus(''); setTryb('kanban'); }}>{t('pages.zlecenia.kanbanTitle')}</Button>
+                  {mozeTworzyc && <Button leftIcon={Plus} onClick={otworzNowe}>+ {t('common.newOrder')}</Button>}
                 </>
               }
             />
@@ -8219,12 +8273,12 @@ export default function Zlecenia() {
               icon={<ViewKanbanOutlined style={{ fontSize: 26 }} />}
               actions={
                 <>
-                  <button type="button" style={s.btnSecondary} onClick={exportFilteredCsv}>{t('common.exportCsv')}</button>
-                  <button type="button" style={s.btnSecondary} onClick={() => setShowWorkflowPanel((v) => !v)}>
+                  <Button variant="outline" onClick={exportFilteredCsv}>{t('common.exportCsv')}</Button>
+                  <Button variant="outline" onClick={() => setShowWorkflowPanel((v) => !v)}>
                     {t('pages.zlecenia.workflow')}
-                  </button>
-                  <button type="button" style={s.btnSecondary} onClick={() => setTryb('lista')}>{t('pages.zlecenia.listView')}</button>
-                  {mozeTworzyc && <button type="button" style={s.btnPrimary} onClick={otworzNowe}>+ {t('common.newOrder')}</button>}
+                  </Button>
+                  <Button variant="outline" leftIcon={LayoutList} onClick={() => setTryb('lista')}>{t('pages.zlecenia.listView')}</Button>
+                  {mozeTworzyc && <Button leftIcon={Plus} onClick={otworzNowe}>+ {t('common.newOrder')}</Button>}
                 </>
               }
             />
@@ -8459,6 +8513,29 @@ export default function Zlecenia() {
                 </>
               }
             />
+
+            <section className="zlecenia-detail-command" style={s.detailCommandPanel}>
+              <div style={s.detailCommandLead}>
+                <span>Command detail</span>
+                <strong>#{wybraneZlecenie.id}</strong>
+                <small>{wybraneZlecenie.status || 'Nowe'} / {wybraneZlecenie.ekipa_nazwa || 'bez ekipy'}</small>
+              </div>
+              {detailCommandCards.map((card) => (
+                <button
+                  key={card.key}
+                  type="button"
+                  style={{
+                    ...s.detailCommandCard,
+                    ...(s[`detailCommandCard_${card.tone}`] || {}),
+                  }}
+                  onClick={card.action}
+                >
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <small>{card.detail}</small>
+                </button>
+              ))}
+            </section>
 
             <section className="zlecenia-detail-hero" style={s.detailHeroPanel}>
               <div style={s.detailHeroMain}>
@@ -9908,42 +9985,44 @@ export default function Zlecenia() {
             )}
  
             <div style={s.formWizardActions}>
-              <button
+              <Button
                 type="button"
-                style={{ ...s.btnGray, ...(isFirstFormStep ? s.formWizardBtnDisabled : {}) }}
+                variant="outline"
+                leftIcon={ArrowLeft}
+                style={isFirstFormStep ? s.formWizardBtnDisabled : undefined}
                 onClick={goPrevFormStep}
                 disabled={isFirstFormStep}
               >
                 Wstecz
-              </button>
+              </Button>
               {formRepairFocus && tryb === 'edytuj' ? (
                 <>
-                  <button
+                  <Button
                     type="button"
-                    style={s.btnPrimary}
+                    leftIcon={Save}
                     onClick={() => zapiszZlecenie(formRepairFocus.returnTo ? { returnToRepairSource: true } : { returnToDetails: true })}
                   >
                     {formRepairFocus.returnTo ? `Zapisz i wróć do ${formRepairReturnLabel}` : 'Zapisz poprawkę i wróć do karty'}
-                  </button>
+                  </Button>
                   {formRepairFocus.returnTo ? (
-                    <button type="button" style={s.btnGray} onClick={() => zapiszZlecenie({ returnToDetails: true })}>
+                    <Button type="button" variant="outline" onClick={() => zapiszZlecenie({ returnToDetails: true })}>
                       Zapisz i sprawdź kartę
-                    </button>
+                    </Button>
                   ) : null}
-                  <button type="button" style={s.btnGray} onClick={() => setFormStepSafe('summary')}>
+                  <Button type="button" variant="outline" onClick={() => setFormStepSafe('summary')}>
                     Podsumowanie
-                  </button>
+                  </Button>
                 </>
               ) : isLastFormStep ? (
-                <button type="button" style={s.btnPrimary} onClick={() => zapiszZlecenie()}>
+                <Button type="button" leftIcon={Save} onClick={() => zapiszZlecenie()}>
                   {tryb === 'nowy' ? t('pages.zlecenia.submitCreate') : t('pages.zlecenia.submitSave')}
-                </button>
+                </Button>
               ) : (
-                <button type="button" style={s.btnPrimary} onClick={goNextFormStep}>
+                <Button type="button" rightIcon={ArrowRight} onClick={goNextFormStep}>
                   Dalej
-                </button>
+                </Button>
               )}
-              <button type="button" style={s.btnGray} onClick={anulujFormularz}>{t('common.cancel')}</button>
+              <Button type="button" variant="outline" onClick={anulujFormularz}>{t('common.cancel')}</Button>
             </div>
           </>
         )}
@@ -12732,6 +12811,55 @@ const s = {
     fontSize: 12,
     lineHeight: 1.35,
     fontWeight: 760,
+  },
+  detailCommandPanel: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(190px, 0.8fr) repeat(5, minmax(122px, 1fr))',
+    gap: 8,
+    marginBottom: 12,
+  },
+  detailCommandLead: {
+    minHeight: 82,
+    borderRadius: 8,
+    padding: '12px 14px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 3,
+    background: 'linear-gradient(135deg, #071f17 0%, #0f5f3a 100%)',
+    color: '#fff',
+    boxShadow: '0 12px 28px rgba(10,72,45,0.16)',
+  },
+  detailCommandCard: {
+    minHeight: 82,
+    border: '1px solid rgba(15,95,58,0.13)',
+    borderLeft: '4px solid rgba(15,95,58,0.26)',
+    borderRadius: 8,
+    background: '#ffffff',
+    color: 'var(--text)',
+    padding: '10px 12px',
+    display: 'grid',
+    alignContent: 'center',
+    gap: 2,
+    textAlign: 'left',
+    cursor: 'pointer',
+    boxShadow: '0 10px 24px rgba(31,79,50,0.055)',
+    fontFamily: 'inherit',
+  },
+  detailCommandCard_good: {
+    borderLeftColor: 'var(--accent)',
+    background: 'linear-gradient(180deg, #ffffff, rgba(34,197,94,0.07))',
+  },
+  detailCommandCard_blue: {
+    borderLeftColor: '#0e7490',
+    background: 'linear-gradient(180deg, #ffffff, rgba(14,116,144,0.08))',
+  },
+  detailCommandCard_warning: {
+    borderLeftColor: 'var(--warning)',
+    background: 'linear-gradient(180deg, #ffffff, rgba(245,158,11,0.09))',
+  },
+  detailCommandCard_danger: {
+    borderLeftColor: 'var(--danger)',
+    background: 'linear-gradient(180deg, #ffffff, rgba(239,68,68,0.09))',
   },
   detailHeroPanel: {
     display: 'grid',

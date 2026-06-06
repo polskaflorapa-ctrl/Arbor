@@ -3267,6 +3267,23 @@ function buildMockTaskFinancials(task = {}, settlement = null) {
   const totalKnownCost = roundMoney(helperCost + crewLeadPay + operationalCost);
   const grossMargin = roundMoney(revenueNet - totalKnownCost);
   const marginPct = revenueNet > 0 ? roundPct((grossMargin / revenueNet) * 100) : null;
+  const costSources = [
+    { key: 'helper_cost', label: 'Pomocnicy', value: helperCost, source: 'demo_settlement', status: 'ok' },
+    { key: 'crew_lead_pay', label: 'Brygadzista', value: crewLeadPay, source: 'demo_settlement', status: 'ok' },
+    { key: 'operational_cost', label: 'Koszty operacyjne', value: operationalCost, source: 'demo_finish', status: operationalCost > 0 ? 'ok' : 'missing' },
+  ];
+  const missingCostFields = costSources
+    .filter((source) => source.status !== 'ok')
+    .map((source) => source.key);
+  const marginConfidence = revenueNet <= 0
+    ? 'no_revenue'
+    : missingCostFields.length >= 3
+      ? 'high_risk_margin'
+      : missingCostFields.length === 2
+        ? 'medium_risk_margin'
+        : missingCostFields.length === 1
+          ? 'low_risk_margin'
+          : 'complete_enough';
   return {
     revenue_net: revenueNet,
     direct_labor_cost: roundMoney(helperCost + crewLeadPay),
@@ -3276,12 +3293,13 @@ function buildMockTaskFinancials(task = {}, settlement = null) {
     total_known_cost: totalKnownCost,
     gross_margin: grossMargin,
     margin_pct: marginPct,
-    cost_sources: [
-      { key: 'helper_cost', label: 'Pomocnicy', value: helperCost, source: 'demo_settlement', status: 'ok' },
-      { key: 'crew_lead_pay', label: 'Brygadzista', value: crewLeadPay, source: 'demo_settlement', status: 'ok' },
-      { key: 'operational_cost', label: 'Koszty operacyjne', value: operationalCost, source: 'demo_finish', status: operationalCost > 0 ? 'ok' : 'missing' },
-    ],
-    note: 'Tryb demo: finanse liczone z rozliczenia zlecenia i zakonczonej pracy.',
+    complete: missingCostFields.length === 0,
+    missing_cost_fields: missingCostFields,
+    margin_confidence: marginConfidence,
+    cost_sources: costSources,
+    note: missingCostFields.length
+      ? 'Marza ze znanych kosztow. Uzupelnij brakujace zrodla, zanim potraktujesz wynik jako finalny.'
+      : 'Tryb demo: finanse liczone z rozliczenia zlecenia i zakonczonej pracy.',
   };
 }
 

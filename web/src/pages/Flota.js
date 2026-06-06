@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import StatusMessage from '../components/StatusMessage';
 import PageHeader from '../components/PageHeader';
+import { Button } from '../components/ui/Button';
+import { CalendarDays, CheckCircle, Pencil, Plus, Save, Trash2, Wrench, X } from 'lucide-react';
 import AutorenewOutlined from '@mui/icons-material/AutorenewOutlined';
 import BuildOutlined from '@mui/icons-material/BuildOutlined';
 import CalendarTodayOutlined from '@mui/icons-material/CalendarTodayOutlined';
@@ -484,6 +486,33 @@ export default function Flota() {
     () => resourceCards.filter((card) => card.alerts.some((alert) => alert.state === 'expired')).length,
     [resourceCards],
   );
+  const fleetCommand = useMemo(() => {
+    const allResources = [...filtrPojazdy, ...filtrSprzet];
+    const total = allResources.length;
+    const available = allResources.filter((item) => ['Dostepny', 'Dostępny'].includes(item.status)).length;
+    const inUse = allResources.filter((item) => ['W uzyciu', 'W użyciu'].includes(item.status)).length;
+    const inRepair = allResources.filter((item) => String(item.status || '').toLowerCase().includes('napraw')).length;
+    const openRepairs = naprawy.filter((repair) => !repairIsClosed(repair.status)).length;
+    const readiness = total ? Math.max(0, Math.round(((available + inUse * 0.7) / total) * 100) - overdueResourceCount * 8 - openRepairs * 4) : 0;
+    const nextRisk = resourceRiskCards[0];
+    const nextAction = openRepairs
+      ? 'Domknij naprawy'
+      : overdueResourceCount
+        ? 'Sprawdz terminy'
+        : resourceAlertCount
+          ? 'Kontrola przed planem'
+          : 'Zasoby gotowe';
+    return {
+      total,
+      available,
+      inUse,
+      inRepair,
+      openRepairs,
+      readiness,
+      nextRisk,
+      nextAction,
+    };
+  }, [filtrPojazdy, filtrSprzet, naprawy, overdueResourceCount, resourceAlertCount, resourceRiskCards]);
 
   const openResourceCalendar = (card) => {
     const params = new URLSearchParams({ tab: 'equipment', modal: '0' });
@@ -575,7 +604,7 @@ export default function Flota() {
 
   return (
     <div className="app-shell fleet-shell" style={{ display: 'flex', minHeight: '100vh', background: 'transparent' }}>
-      <Sidebar />
+      <CommandSidebar active="fleet" user={currentUser} />
       <main className="app-main fleet-main" style={{ flex: 1, padding: 28, overflowX: 'hidden' }}>
 
         <PageHeader
@@ -601,33 +630,43 @@ export default function Flota() {
                 </select>
               )}
               {canEdit && (
-                <button
-                  type="button"
-                  onClick={handleToggleForm}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'none';
-                  }}
-                  style={{
-                    padding: '10px 20px',
-                    background: 'var(--accent-gradient)',
-                    color: 'var(--on-accent)',
-                    border: '1px solid var(--accent)',
-                    borderRadius: 10,
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s',
-                  }}
-                >
+                <Button onClick={handleToggleForm} leftIcon={showForm ? X : Plus}>
                   {showForm ? t('common.cancel') : `+ ${t('pages.flota.add')}`}
-                </button>
+                </Button>
               )}
             </>
           }
         />
+
+        <section className="fleet-command-radar">
+          <div className="fleet-command-lead">
+            <span>Command Fleet</span>
+            <strong>{fleetCommand.readiness}%</strong>
+            <small>{fleetCommand.nextAction}</small>
+          </div>
+          {[
+            { label: 'Zasoby', value: fleetCommand.total, detail: `${filtrPojazdy.length} aut / ${filtrSprzet.length} sprzetu`, tone: 'blue' },
+            { label: 'Gotowe', value: fleetCommand.available, detail: 'dostepne do planu', tone: 'good' },
+            { label: 'W pracy', value: fleetCommand.inUse, detail: 'aktywnie przypisane', tone: 'blue' },
+            { label: 'Naprawy', value: fleetCommand.openRepairs || fleetCommand.inRepair, detail: 'otwarte blokady', tone: (fleetCommand.openRepairs || fleetCommand.inRepair) ? 'danger' : 'good' },
+            { label: 'Alerty', value: resourceAlertCount, detail: overdueResourceCount ? `${overdueResourceCount} po terminie` : 'przeglady i OC', tone: resourceAlertCount ? 'warning' : 'good' },
+            { label: 'Najblizsze', value: fleetCommand.nextRisk?.title || '-', detail: fleetCommand.nextRisk?.alerts?.find((alert) => alert.state !== 'ok')?.label || 'brak ryzyk', tone: fleetCommand.nextRisk ? 'warning' : 'good' },
+          ].map((card) => (
+            <div key={card.label} className={`fleet-command-card is-${card.tone}`}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+            </div>
+          ))}
+          <div className="fleet-command-actions">
+            <button type="button" onClick={() => navigate('/kalendarz-zasobow')}>
+              Kalendarz
+            </button>
+            <button type="button" onClick={() => setActiveTab('naprawy')}>
+              Naprawy
+            </button>
+          </div>
+        </section>
 
         {/* KPI */}
         <div className="fleet-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 0, marginBottom: 24, border: '1px solid var(--glass-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface-glass)', boxShadow: 'var(--shadow-md)' }}>
@@ -679,8 +718,8 @@ export default function Flota() {
             <h3 style={S.formTitle}>{editingPojazdId ? 'Edytuj pojazd' : t('pages.flota.newVehicleTitle')}</h3>
             <form onSubmit={handleAddPojazd}>
               <div style={S.quickRow}>
-                <button type="button" style={S.ghostBtn} onClick={() => setFormPojazd((prev) => ({ ...prev, typ: 'Samochod', status: 'W naprawie' }))}>Samochod w naprawie</button>
-                <button type="button" style={S.ghostBtn} onClick={() => setFormPojazd((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</button>
+                <Button size="sm" variant="warning" leftIcon={Wrench} onClick={() => setFormPojazd((prev) => ({ ...prev, typ: 'Samochod', status: 'W naprawie' }))}>Samochod w naprawie</Button>
+                <Button size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => setFormPojazd((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</Button>
               </div>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldBrand')}><input style={S.input} value={formPojazd.marka} onChange={e => setFormPojazd({ ...formPojazd, marka: e.target.value })} required placeholder="np. Mercedes" /></Field>
@@ -716,8 +755,8 @@ export default function Flota() {
                 )}
               </div>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => { setShowForm(false); resetPojazdForm(); }}>{t('common.cancel')}</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isPojazdFormValid}>{saving ? t('common.saving') : (editingPojazdId ? 'Zapisz pojazd' : t('pages.flota.addVehicle'))}</button>
+                <Button variant="outline" onClick={() => { setShowForm(false); resetPojazdForm(); }}>{t('common.cancel')}</Button>
+                <Button type="submit" loading={saving} disabled={!isPojazdFormValid} leftIcon={Save}>{editingPojazdId ? 'Zapisz pojazd' : t('pages.flota.addVehicle')}</Button>
               </div>
             </form>
           </div>
@@ -729,8 +768,8 @@ export default function Flota() {
             <h3 style={S.formTitle}>{editingSprzetId ? 'Edytuj sprzet' : t('pages.flota.newEquipmentTitle')}</h3>
             <form onSubmit={handleAddSprzet}>
               <div style={S.quickRow}>
-                <button type="button" style={S.ghostBtn} onClick={() => setFormSprzet((prev) => ({ ...prev, typ: 'Rebak', status: 'W naprawie' }))}>Rebak w naprawie</button>
-                <button type="button" style={S.ghostBtn} onClick={() => setFormSprzet((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</button>
+                <Button size="sm" variant="warning" leftIcon={Wrench} onClick={() => setFormSprzet((prev) => ({ ...prev, typ: 'Rebak', status: 'W naprawie' }))}>Rebak w naprawie</Button>
+                <Button size="sm" variant="outline" leftIcon={CheckCircle} onClick={() => setFormSprzet((prev) => ({ ...prev, status: 'Dostepny' }))}>Dostepny</Button>
               </div>
               <div style={S.grid}>
                 <Field label={t('pages.flota.fieldName')}><input aria-label={t('pages.flota.fieldName')} style={S.input} value={formSprzet.nazwa} onChange={e => setFormSprzet((prev) => ({ ...prev, nazwa: e.target.value }))} required placeholder="np. Piłarka Husqvarna 572XP" /></Field>
@@ -764,8 +803,8 @@ export default function Flota() {
                 )}
               </div>
               <div style={S.btnRow}>
-                <button type="button" style={S.cancelBtn} onClick={() => { setShowForm(false); resetSprzetForm(); }}>{t('common.cancel')}</button>
-                <button type="submit" style={S.submitBtn} disabled={saving || !isSprzetFormValid}>{saving ? t('common.saving') : (editingSprzetId ? 'Zapisz sprzet' : t('pages.flota.addEquipment'))}</button>
+                <Button variant="outline" onClick={() => { setShowForm(false); resetSprzetForm(); }}>{t('common.cancel')}</Button>
+                <Button type="submit" loading={saving} disabled={!isSprzetFormValid} leftIcon={Save}>{editingSprzetId ? 'Zapisz sprzet' : t('pages.flota.addEquipment')}</Button>
               </div>
             </form>
           </div>
@@ -801,9 +840,9 @@ export default function Flota() {
                     </select>
                     {canEdit && (
                       <div style={S.cardActions}>
-                        <button type="button" style={S.warningBtn} onClick={() => openRepairDraft('pojazd', p)}>Zglos naprawe</button>
-                        <button type="button" style={S.ghostBtn} onClick={() => startEditPojazd(p)}>Edytuj</button>
-                        <button type="button" style={S.dangerBtn} onClick={() => deleteFleetItem('pojazdy', p.id)}>Usun</button>
+                        <Button size="sm" variant="warning" leftIcon={Wrench} onClick={() => openRepairDraft('pojazd', p)}>Zglos naprawe</Button>
+                        <Button size="sm" variant="outline" leftIcon={Pencil} onClick={() => startEditPojazd(p)}>Edytuj</Button>
+                        <Button size="sm" variant="danger" leftIcon={Trash2} onClick={() => deleteFleetItem('pojazdy', p.id)}>Usun</Button>
                       </div>
                     )}
                   </div>
@@ -870,9 +909,9 @@ export default function Flota() {
                     </select>
                     {canEdit && (
                       <div style={S.cardActions}>
-                        <button type="button" style={S.warningBtn} onClick={() => openRepairDraft('sprzet', s)}>Zglos naprawe</button>
-                        <button type="button" style={S.ghostBtn} onClick={() => startEditSprzet(s)}>Edytuj</button>
-                        <button type="button" style={S.dangerBtn} onClick={() => deleteFleetItem('sprzet', s.id)}>Usun</button>
+                        <Button size="sm" variant="warning" leftIcon={Wrench} onClick={() => openRepairDraft('sprzet', s)}>Zglos naprawe</Button>
+                        <Button size="sm" variant="outline" leftIcon={Pencil} onClick={() => startEditSprzet(s)}>Edytuj</Button>
+                        <Button size="sm" variant="danger" leftIcon={Trash2} onClick={() => deleteFleetItem('sprzet', s.id)}>Usun</Button>
                       </div>
                     )}
                   </div>
@@ -916,13 +955,13 @@ export default function Flota() {
                   </div>
                   <div style={S.repairFocusActions}>
                     {repairFocus.returnTo && (
-                      <button type="button" style={S.primarySoftBtn} onClick={() => navigate(repairFocus.returnTo)}>
+                      <Button size="sm" onClick={() => navigate(repairFocus.returnTo)}>
                         Wroc do planu biura
-                      </button>
+                      </Button>
                     )}
-                    <button type="button" style={S.ghostBtn} onClick={() => navigate('/flota?tab=naprawy')}>
+                    <Button size="sm" variant="outline" onClick={() => navigate('/flota?tab=naprawy')}>
                       Pokaz wszystkie naprawy
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -965,18 +1004,13 @@ export default function Flota() {
                     {!repairIsClosed(n.status) && canEdit && (
                       <div style={S.repairCloseActions}>
                         {repairFocus.returnTo && (
-                          <button
-                            type="button"
-                            style={S.repairCloseBtn}
-                            disabled={repairSaving}
-                            onClick={() => closeRepair(n, { returnTo: repairFocus.returnTo })}
-                          >
-                            {repairSaving ? 'Zapisywanie...' : 'Zakoncz i wroc do planu biura'}
-                          </button>
+                          <Button fullWidth loading={repairSaving} onClick={() => closeRepair(n, { returnTo: repairFocus.returnTo })}>
+                            Zakoncz i wroc do planu biura
+                          </Button>
                         )}
-                        <button type="button" style={repairFocus.returnTo ? S.repairCloseBtnSecondary : S.repairCloseBtn} disabled={repairSaving} onClick={() => closeRepair(n)}>
-                          {repairSaving ? 'Zapisywanie...' : 'Zakoncz naprawe'}
-                        </button>
+                        <Button fullWidth variant={repairFocus.returnTo ? 'outline' : 'primary'} loading={repairSaving} onClick={() => closeRepair(n)}>
+                          Zakoncz naprawe
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1067,13 +1101,15 @@ function ResourceCardsPanel({ cards, total, alertCount, onOpenCalendar }) {
                   ))}
                 </div>
 
-                <button
-                  type="button"
+                <Button
+                  fullWidth
+                  variant="outline"
+                  leftIcon={CalendarDays}
                   onClick={() => onOpenCalendar(card)}
-                  style={{ marginTop: 12, width: '100%', border: '1px solid var(--border)', background: 'var(--surface-field)', color: 'var(--text)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', fontWeight: 700 }}
+                  style={{ marginTop: 12 }}
                 >
                   Kalendarz zasobow
-                </button>
+                </Button>
               </article>
             );
           })}
@@ -1125,7 +1161,7 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
             <h3 style={S.modalTitle}>Zglos naprawe</h3>
             <p style={S.modalSubtitle}>{draft.label || `Zasob #${draft.zasob_id}`}</p>
           </div>
-          <button type="button" style={S.modalCloseBtn} onClick={onClose}>x</button>
+          <Button size="sm" variant="ghost" leftIcon={X} onClick={onClose} style={S.modalCloseBtn} aria-label="Zamknij" />
         </div>
         <div style={S.modalGrid}>
           <Field label="Data">
@@ -1151,10 +1187,10 @@ function RepairDialog({ draft, saving, onChange, onSubmit, onClose }) {
           <textarea style={{ ...S.input, minHeight: 70, resize: 'vertical' }} value={draft.opis_naprawy} onChange={(e) => setField('opis_naprawy', e.target.value)} placeholder="Opcjonalnie, gdy naprawa jest zakonczona" />
         </Field>
         <div style={S.modalActions}>
-          <button type="button" style={S.cancelBtn} onClick={onClose}>Anuluj</button>
-          <button type="submit" style={S.submitBtn} disabled={saving || !draft.opis_usterki.trim()}>
-            {saving ? 'Zapisywanie...' : 'Zapisz naprawe'}
-          </button>
+          <Button variant="outline" onClick={onClose}>Anuluj</Button>
+          <Button type="submit" loading={saving} disabled={!draft.opis_usterki.trim()} leftIcon={Save}>
+            Zapisz naprawe
+          </Button>
         </div>
       </form>
     </div>

@@ -20,7 +20,7 @@ import TrackChangesOutlined from '@mui/icons-material/TrackChangesOutlined';
 import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined';
 import api from '../api';
 import PageHeader from '../components/PageHeader';
-import Sidebar from '../components/Sidebar';
+import CommandSidebar from '../components/CommandSidebar';
 import TaskStatusIcon from '../components/TaskStatusIcon';
 import ModernDataRow from '../components/ModernDataRow';
 import { getLocalStorageJson } from '../utils/safeJsonLocalStorage';
@@ -671,7 +671,7 @@ export default function Raporty() {
  
   return (
     <div className="app-shell raporty-shell" style={styles.container}>
-      <Sidebar />
+      <CommandSidebar active="reports" user={currentUser} />
       <main className="app-main raporty-main" style={styles.main}>
         <PageHeader
           variant="hero"
