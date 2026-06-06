@@ -37,9 +37,14 @@ const KOMMO_CF_PHONE_ID = toNum(process.env.KOMMO_CF_PHONE_ID);
 const KOMMO_CF_GOODS_SUMMARY_ID = toNum(process.env.KOMMO_CF_GOODS_SUMMARY_ID);
 const KOMMO_CF_KLIENT_RECORD_ID = toNum(process.env.KOMMO_CF_KLIENT_RECORD_ID);
 const KOMMO_TASK_SYNC_EVENT = 'task.sync';
+const KOMMO_PHONE_CALL_EVENT = 'phone_call.recording';
 
 function kommoTaskSyncIdempotencyKey(taskId) {
   return `arbor:${KOMMO_TASK_SYNC_EVENT}:task:${taskId}`;
+}
+
+function kommoPhoneCallIdempotencyKey(callSid) {
+  return `arbor:${KOMMO_PHONE_CALL_EVENT}:call:${callSid}`;
 }
 
 function kommoPayloadIdempotencyKey(payload) {
@@ -433,6 +438,62 @@ function buildKommoKlientPayload(row, actor = null) {
   };
 }
 
+function buildKommoPhoneCallPayload({
+  callSid,
+  clientNumber = null,
+  transcript = null,
+  raport = null,
+  wskazowki = null,
+  status = null,
+  crmMessage = null,
+  recordingUrl = null,
+  recordingArchiveUrl = null,
+}) {
+  const noteText = toCompactText(crmMessage?.body)
+    || [
+      'Rozmowa telefoniczna ARBOR',
+      raport ? `Raport: ${raport}` : null,
+      transcript ? `Transkrypcja: ${String(transcript).slice(0, 4000)}` : null,
+      wskazowki ? `Wskazowki: ${wskazowki}` : null,
+    ].filter(Boolean).join('\n\n');
+  const leadId = crmMessage?.lead_id ?? crmMessage?.leadId ?? null;
+  const crmMessageId = crmMessage?.id ?? null;
+  const idempotencyKey = kommoPhoneCallIdempotencyKey(callSid);
+
+  return {
+    source: 'arbor-os',
+    event: KOMMO_PHONE_CALL_EVENT,
+    idempotency_key: idempotencyKey,
+    sent_at: new Date().toISOString(),
+    integration: { provider: 'kommo', version: '1' },
+    kommo: {
+      note: {
+        entity_type: 'lead',
+        note_type: 'common',
+        external_id: idempotencyKey,
+        match: {
+          phone: toCompactText(clientNumber),
+          arbor_lead_id: leadId,
+        },
+        text: noteText || null,
+      },
+    },
+    phone_call: {
+      call_sid: callSid,
+      provider: String(callSid || '').startsWith('zadarma:') ? 'zadarma' : 'twilio',
+      client_number: toCompactText(clientNumber),
+      transcript: toCompactText(transcript),
+      raport: toCompactText(raport),
+      wskazowki_specjalisty: toCompactText(wskazowki),
+      status: toCompactText(status),
+      recording_url: toCompactText(recordingUrl),
+      recording_archive_url: toCompactText(recordingArchiveUrl),
+      crm_message_id: crmMessageId,
+      crm_lead_id: leadId,
+    },
+  };
+}
+
 function resolveKommoWebhookUrl(kind) {
   if (kind === 'crm' && KOMMO_CRM_WEBHOOK_URL) return KOMMO_CRM_WEBHOOK_URL;
   return KOMMO_WEBHOOK_URL;
@@ -506,15 +567,24 @@ async function syncTaskToKommo(pool, taskRow, actor = null) {
   }
 }
 
+async function syncPhoneCallToKommo(args) {
+  if (!kommoWebhookConfigured('crm')) return null;
+  const payload = buildKommoPhoneCallPayload(args);
+  return postKommoWebhook(payload, 'crm');
+}
+
 module.exports = {
   buildKommoTaskPayload,
   buildKommoKlientPayload,
+  buildKommoPhoneCallPayload,
   postKommoWebhook,
   syncTaskToKommo,
+  syncPhoneCallToKommo,
   kommoWebhookConfigured,
   ensureKommoTaskSyncQueue,
   getKommoTaskSyncQueueRow,
   markKommoTaskSyncSuccess,
   recordKommoTaskSyncFailure,
   kommoTaskSyncIdempotencyKey,
+  kommoPhoneCallIdempotencyKey,
 };

@@ -4,6 +4,7 @@ const { env } = require('../config/env');
 const Anthropic = require('@anthropic-ai/sdk');
 const { appendCrmMessageForContact } = require('./crmInbox');
 const { persistPhoneRecording } = require('./phone-recording-storage');
+const { syncPhoneCallToKommo } = require('./kommo');
 
 let _tableEnsured = false;
 
@@ -224,7 +225,7 @@ async function setStatusError(callSid, message) {
 async function processRecordingPipeline(callSid) {
   await ensurePhoneCallsTable();
   const { rows } = await pool.query(
-    `SELECT id, twilio_call_sid, twilio_recording_sid, recording_url, client_number FROM phone_call_conversations WHERE twilio_call_sid = $1`,
+    `SELECT id, twilio_call_sid, twilio_recording_sid, recording_url, recording_archive_url, client_number FROM phone_call_conversations WHERE twilio_call_sid = $1`,
     [callSid]
   );
   if (!rows.length || !rows[0].recording_url) {
@@ -232,6 +233,7 @@ async function processRecordingPipeline(callSid) {
     return;
   }
   const row = rows[0];
+  let recordingArchiveUrl = row.recording_archive_url || null;
   try {
     await pool.query(
       `UPDATE phone_call_conversations SET status = 'transcribing', updated_at = NOW() WHERE twilio_call_sid = $1`,
@@ -248,6 +250,7 @@ async function processRecordingPipeline(callSid) {
         recordingSid: row.twilio_recording_sid || null,
       });
       if (arch) {
+        recordingArchiveUrl = arch.url || recordingArchiveUrl;
         await pool.query(
           `UPDATE phone_call_conversations SET
             recording_archive_backend = $1,
@@ -297,13 +300,15 @@ async function processRecordingPipeline(callSid) {
         `UPDATE phone_call_conversations SET raport = $2, wskazowki_specjalisty = $3, status = 'analyzed', updated_at = NOW() WHERE twilio_call_sid = $1`,
         [callSid, summary.raport, summary.wskazowki_specjalisty]
       );
-      await appendPhoneCallCrmNote({
+      await publishPhoneCallArtifacts({
         callSid,
         clientNumber: row.client_number,
         transcript,
         raport: summary.raport,
         wskazowki: summary.wskazowki_specjalisty,
         status: 'analyzed',
+        recordingUrl: row.recording_url,
+        recordingArchiveUrl,
       });
     } else {
       await pool.query(
@@ -316,13 +321,15 @@ async function processRecordingPipeline(callSid) {
         WHERE twilio_call_sid = $1`,
         [callSid]
       );
-      await appendPhoneCallCrmNote({
+      await publishPhoneCallArtifacts({
         callSid,
         clientNumber: row.client_number,
         transcript,
         raport: null,
         wskazowki: null,
         status: 'transcribed',
+        recordingUrl: row.recording_url,
+        recordingArchiveUrl,
       });
     }
   } catch (e) {
@@ -354,6 +361,17 @@ async function appendPhoneCallCrmNote({ callSid, clientNumber, transcript, rapor
   });
 }
 
+async function publishPhoneCallArtifacts(args) {
+  const crmMessage = await appendPhoneCallCrmNote(args);
+  await syncPhoneCallToKommo({ ...args, crmMessage }).catch((err) => {
+    logger.warn('phone-call-pipeline kommo sync failed', {
+      callSid: args.callSid,
+      message: err.message,
+    });
+  });
+  return crmMessage;
+}
+
 module.exports = {
   ensurePhoneCallsTable,
   markCallCompleted,
@@ -361,4 +379,5 @@ module.exports = {
   markRecordingReady,
   processRecordingPipeline,
   appendPhoneCallCrmNote,
+  publishPhoneCallArtifacts,
 };
