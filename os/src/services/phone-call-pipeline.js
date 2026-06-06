@@ -95,14 +95,15 @@ async function markRecordingReady({ callSid, recordingSid, recordingUrl, duratio
 }
 
 async function downloadTwilioRecording(recordingUrl) {
-  const sid = env.TWILIO_ACCOUNT_SID;
-  const token = env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token || !recordingUrl) throw new Error('Brak konfiguracji Twilio lub URL nagrania');
-  const auth = Buffer.from(`${sid}:${token}`).toString('base64');
-  const res = await fetch(recordingUrl, {
-    headers: { Authorization: `Basic ${auth}` },
-    redirect: 'follow',
-  });
+  if (!recordingUrl) throw new Error('Brak URL nagrania');
+  const headers = {};
+  if (/twilio\.com/i.test(recordingUrl)) {
+    const sid = env.TWILIO_ACCOUNT_SID;
+    const token = env.TWILIO_AUTH_TOKEN;
+    if (!sid || !token) throw new Error('Brak konfiguracji Twilio');
+    headers.Authorization = `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`;
+  }
+  const res = await fetch(recordingUrl, { headers, redirect: 'follow' });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
     throw new Error(`Pobieranie nagrania HTTP ${res.status}: ${t.slice(0, 200)}`);

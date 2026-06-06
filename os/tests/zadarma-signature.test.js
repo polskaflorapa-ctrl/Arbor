@@ -63,4 +63,12 @@ describe('Zadarma webhook signatures', () => {
     expect(signZadarmaPath('/v1/request/callback/', params)).toBe(Buffer.from(hmacHex).toString('base64'));
     expect(signZadarmaPath('/v1/request/callback/', params)).not.toBe(rawHmacBase64);
   });
+
+  it('extracts PBX recording URL from Zadarma record responses', () => {
+    const { extractPbxRecordUrl } = loadZadarmaWithEnv();
+
+    expect(extractPbxRecordUrl({ record_url: 'https://zadarma.test/a.mp3' })).toBe('https://zadarma.test/a.mp3');
+    expect(extractPbxRecordUrl({ record_urls: [{ url: 'https://zadarma.test/b.mp3' }] })).toBe('https://zadarma.test/b.mp3');
+    expect(extractPbxRecordUrl({ result: { download_url: 'https://zadarma.test/c.mp3' } })).toBe('https://zadarma.test/c.mp3');
+  });
 });

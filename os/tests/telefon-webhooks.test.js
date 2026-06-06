@@ -5,6 +5,12 @@ jest.mock('../src/services/phone-call-pipeline', () => ({
   processRecordingPipeline: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../src/services/zadarma', () => ({
+  extractPbxRecordUrl: jest.fn((data) => data.record_url || ''),
+  requestPbxRecord: jest.fn().mockResolvedValue({ record_url: 'https://zadarma.test/record.mp3' }),
+  verifyWebhookSignatureAsync: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock('../src/config/env', () => {
   const real = jest.requireActual('../src/config/env');
   const overlay = {
@@ -23,6 +29,10 @@ jest.mock('../src/config/env', () => {
 });
 
 const { markRecordingReady, processRecordingPipeline } = require('../src/services/phone-call-pipeline');
+const {
+  requestPbxRecord,
+  verifyWebhookSignatureAsync,
+} = require('../src/services/zadarma');
 const telefonWebhooksRoutes = require('../src/routes/telefon-webhooks');
 const { createTestApp } = require('./helpers/create-test-app');
 
@@ -62,5 +72,35 @@ describe('Telefon webhooks (Twilio)', () => {
 
     expect(res.status).toBe(204);
     expect(markRecordingReady).not.toHaveBeenCalled();
+  });
+
+  it('GET /zadarma echoes zd_echo for Zadarma webhook activation', async () => {
+    const res = await request(app).get('/api/telefon/webhooks/zadarma?zd_echo=abc123');
+
+    expect(res.status).toBe(200);
+    expect(res.text).toBe('abc123');
+  });
+
+  it('POST /zadarma stores recording URL on NOTIFY_RECORD and schedules pipeline', async () => {
+    const res = await request(app)
+      .post('/api/telefon/webhooks/zadarma')
+      .type('application/x-www-form-urlencoded')
+      .send('event=NOTIFY_RECORD&pbx_call_id=pbx-1&call_id_with_rec=rec-1&signature=sig');
+
+    expect(res.status).toBe(204);
+    expect(verifyWebhookSignatureAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'NOTIFY_RECORD', pbx_call_id: 'pbx-1', call_id_with_rec: 'rec-1', signature: 'sig' }),
+      undefined
+    );
+    expect(requestPbxRecord).toHaveBeenCalledWith({ callId: 'rec-1', pbxCallId: 'pbx-1' });
+    expect(markRecordingReady).toHaveBeenCalledWith(
+      expect.objectContaining({
+        callSid: 'zadarma:pbx-1',
+        recordingSid: 'rec-1',
+        recordingUrl: 'https://zadarma.test/record.mp3',
+      })
+    );
+    await new Promise((r) => setImmediate(r));
+    expect(processRecordingPipeline).toHaveBeenCalledWith('zadarma:pbx-1');
   });
 });

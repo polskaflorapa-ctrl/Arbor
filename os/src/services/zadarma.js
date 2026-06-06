@@ -110,6 +110,29 @@ function getWebrtcKey({ sip }) {
   return zadarmaRequest('GET', '/v1/webrtc/get_key/', { sip });
 }
 
+function requestPbxRecord({ callId, pbxCallId }) {
+  const params = {};
+  if (callId) params.call_id = callId;
+  else if (pbxCallId) params.pbx_call_id = pbxCallId;
+  return zadarmaRequest('GET', '/v1/pbx/record/request/', params);
+}
+
+function extractPbxRecordUrl(data = {}) {
+  const direct = data.record_url || data.recordUrl || data.url || data.link || data.download_url || data.downloadUrl;
+  if (direct) return String(direct);
+  const urls = data.record_urls || data.recordUrls || data.records || data.files;
+  if (Array.isArray(urls)) {
+    const first = urls.find(Boolean);
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object') {
+      return String(first.url || first.link || first.download_url || first.downloadUrl || '');
+    }
+  }
+  const result = data.result;
+  if (result && typeof result === 'object') return extractPbxRecordUrl(result);
+  return '';
+}
+
 function verifyWebhookSignature(body = {}, signatureHeader) {
   if (env.ZADARMA_SKIP_SIGNATURE_VALIDATION) return true;
   if (!env.ZADARMA_API_SECRET) return false;
@@ -132,6 +155,27 @@ function verifyWebhookSignature(body = {}, signatureHeader) {
   } catch {
     return false;
   }
+}
+
+async function verifyWebhookSignatureAsync(body = {}, signatureHeader) {
+  if (env.ZADARMA_SKIP_SIGNATURE_VALIDATION) return true;
+  const config = await getZadarmaRuntimeConfig();
+  if (!config.apiSecret) return false;
+  const signature = String(signatureHeader || body.signature || '').trim();
+  if (!signature) return false;
+  const event = String(body.event || '').trim();
+  let source;
+  if (event === 'NOTIFY_RECORD') {
+    source = `${body.pbx_call_id || ''}${body.call_id_with_rec || ''}`;
+  } else if (event === 'NOTIFY_OUT_START' || event === 'NOTIFY_OUT_END') {
+    source = `${body.internal || ''}${body.destination || ''}${body.call_start || ''}`;
+  } else if (event === 'NOTIFY_ANSWER') {
+    source = `${body.caller_id || ''}${body.destination || ''}${body.call_start || ''}`;
+  } else {
+    source = `${body.caller_id || ''}${body.called_did || ''}${body.call_start || ''}`;
+  }
+  const expected = crypto.createHmac('sha1', config.apiSecret).update(source).digest('base64');
+  return timingSafeSignatureEqual(signature, expected);
 }
 
 function timingSafeSignatureEqual(signature, expected) {
@@ -260,14 +304,17 @@ function normalizePhone(raw) {
 module.exports = {
   getWebrtcKey,
   getZadarmaRuntimeConfig,
+  extractPbxRecordUrl,
   isZadarmaConfigured,
   isZadarmaConfiguredAsync,
   normalizePhone,
+  requestPbxRecord,
   requestCallback,
   sendSms,
   signZadarmaPath,
   verifySmsStatusWebhookSignatureAsync,
   verifySmsStatusWebhookSignature,
+  verifyWebhookSignatureAsync,
   verifyWebhookSignature,
   zadarmaRequest,
 };
