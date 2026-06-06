@@ -46,14 +46,9 @@
     "smoke:api": "node ./scripts/smoke-api-rezerwacje.cjs"
   },
   "dependencies": {
-    "@expo/config-plugins": "~56.0.8",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-picker/picker": "2.11.4",
-    "@react-navigation/bottom-tabs": "^7.4.0",
-    "@react-navigation/elements": "^2.6.3",
-    "@react-navigation/native": "^7.2.2",
-    "@react-navigation/stack": "^7.8.9",
     "@sentry/react-native": "^8.13.0",
     "@types/lodash": "^4.17.24",
     "expo": "56.0.9",
@@ -103,7 +98,6 @@
   "expo": {
     "install": {
       "exclude": [
-        "@react-navigation/native",
         "@sentry/react-native"
       ]
     }
