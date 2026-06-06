@@ -23,14 +23,24 @@ const { env } = require('../src/config/env');
 
 describe('SMS CRM inbox bridge', () => {
   const app = createTestApp('/api/sms', smsRoutes);
+  const previousPublicBaseUrl = process.env.PUBLIC_BASE_URL;
 
   const token = (overrides = {}) =>
     jwt.sign({ id: 7, login: 'tester', rola: 'Dyrektor', oddzial_id: 1, ...overrides }, env.JWT_SECRET, { expiresIn: '1h' });
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.PUBLIC_BASE_URL = '';
     sendSmsGateway.mockResolvedValue({ ok: true, provider: 'mock', sid: 'SM123' });
     pool.query.mockResolvedValue({ rows: [], rowCount: 0 });
+  });
+
+  afterEach(() => {
+    if (previousPublicBaseUrl === undefined) {
+      delete process.env.PUBLIC_BASE_URL;
+    } else {
+      process.env.PUBLIC_BASE_URL = previousPublicBaseUrl;
+    }
   });
 
   it('mirrors manual task SMS into CRM lead inbox', async () => {
@@ -281,7 +291,7 @@ describe('SMS CRM inbox bridge', () => {
     expect(res.status).toBe(200);
     expect(sendSmsGateway).toHaveBeenCalledWith(expect.objectContaining({
       to: '+48999111222',
-      body: 'Custom Wycinka http://localhost:3005/track/tok_sms_12345678901234567890',
+      body: 'Custom Wycinka /track/tok_sms_12345678901234567890',
       taskId: 88,
     }));
   });
