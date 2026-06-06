@@ -778,6 +778,7 @@ export default function ZleceniaScreen() {
   const [search, setSearch] = useState('');
   const [filtrStatus, setFiltrStatus] = useState('');
   const [quickMode, setQuickMode] = useState<OrderQuickMode>(() => normalizeOrderQuickMode(params.mode) || 'all');
+  const [showStatusFilters, setShowStatusFilters] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineQueueStatus, setOfflineQueueStatus] = useState<OfflineQueueStatus>({
     count: 0,
@@ -1327,23 +1328,65 @@ export default function ZleceniaScreen() {
         ) : null}
       </View>
 
-      {/* Filtry */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        style={S.filtryScroll} contentContainerStyle={S.filtryContent}>
-        {TASK_STATUS_FILTERS.map(s => (
-          <PlatinumFilterChip
-            key={s}
-            style={S.filtrBtn}
-            active={filtrStatus === s}
-            color={theme.accent}
-            label={statusLabel(s)}
+      {/* Filtry statusu */}
+      <View style={S.statusFilterControl}>
+        <TouchableOpacity
+          style={[
+            S.statusFilterToggle,
+            {
+              borderColor: showStatusFilters || filtrStatus ? theme.accent : theme.border,
+              backgroundColor: showStatusFilters || filtrStatus ? theme.accentLight : theme.surface2,
+            },
+          ]}
+          onPress={() => {
+            setShowStatusFilters((current) => !current);
+            void triggerHaptic('light');
+          }}
+        >
+          <Ionicons name="options-outline" size={15} color={showStatusFilters || filtrStatus ? theme.accent : theme.textMuted} />
+          <Text style={[S.statusFilterToggleText, { color: showStatusFilters || filtrStatus ? theme.accent : theme.textSub }]}>
+            Status
+          </Text>
+          {filtrStatus ? (
+            <View style={[S.statusFilterActiveBadge, { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+              <Text style={[S.statusFilterActiveText, { color: theme.accentText }]} numberOfLines={1}>
+                {statusLabel(filtrStatus)}
+              </Text>
+            </View>
+          ) : null}
+          <Ionicons name={showStatusFilters ? 'chevron-up' : 'chevron-down'} size={14} color={showStatusFilters || filtrStatus ? theme.accent : theme.textMuted} />
+        </TouchableOpacity>
+        {filtrStatus ? (
+          <TouchableOpacity
+            style={[S.statusFilterClear, { borderColor: theme.border, backgroundColor: theme.cardBg }]}
             onPress={() => {
+              setFiltrStatus('');
               void triggerHaptic('light');
-              setFiltrStatus(s);
             }}
-          />
-        ))}
-      </ScrollView>
+          >
+            <Ionicons name="close-circle-outline" size={15} color={theme.textMuted} />
+            <Text style={S.statusFilterClearText}>Wyczyść</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      {showStatusFilters ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={S.filtryScroll} contentContainerStyle={S.filtryContent}>
+          {TASK_STATUS_FILTERS.map(s => (
+            <PlatinumFilterChip
+              key={s}
+              style={S.filtrBtn}
+              active={filtrStatus === s}
+              color={theme.accent}
+              label={statusLabel(s)}
+              onPress={() => {
+                void triggerHaptic('light');
+                setFiltrStatus(s);
+              }}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
 
       {/* Błąd */}
       {!isCrew ? (
@@ -2843,7 +2886,9 @@ const makeStyles = (t: Theme) => StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: t.cardBorder,
-    paddingHorizontal: 12, paddingVertical: 10,
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     ...shadowStyle(t, {
       opacity: t.shadowOpacity * 0.08,
       radius: t.shadowRadius * 0.24,
@@ -2854,8 +2899,46 @@ const makeStyles = (t: Theme) => StyleSheet.create({
   searchIconBadge: { width: 28, height: 28, borderRadius: 9, marginRight: 8 },
   clearIconBadge: { width: 28, height: 28, borderRadius: 9 },
   searchInput: { flex: 1, fontSize: 15, color: t.inputText, height: 40 },
-  filtryScroll: { backgroundColor: 'transparent', marginTop: 8 },
-  filtryContent: { paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: 'row' },
+  statusFilterControl: {
+    marginHorizontal: 14,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusFilterToggle: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  statusFilterToggleText: { fontSize: 12, fontWeight: '900' },
+  statusFilterActiveBadge: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  statusFilterActiveText: { fontSize: 11, fontWeight: '900' },
+  statusFilterClear: {
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  statusFilterClearText: { color: t.textMuted, fontSize: 11, fontWeight: '900' },
+  filtryScroll: { backgroundColor: 'transparent', marginTop: 4 },
+  filtryContent: { paddingHorizontal: 14, paddingVertical: 8, gap: 8, flexDirection: 'row' },
   filtrBtn: {},
   counterRow: {
     backgroundColor: 'transparent',

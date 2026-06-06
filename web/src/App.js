@@ -3,8 +3,8 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { ThemeProvider } from './ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import LandingPage from './pages/LandingPage';
 import AiChat from './components/AiChat';
+import { getStoredToken } from './utils/storedToken';
 
 const DevPanel = import.meta.env.DEV
   ? lazy(() => import('./components/DevPanel').then((module) => ({ default: module.DevPanel })))
@@ -86,6 +86,10 @@ function AppChrome() {
   return hideChat ? null : <AiChat />;
 }
 
+function RootEntry() {
+  return getStoredToken() ? <Navigate to="/dashboard" replace /> : <Login />;
+}
+
 export function redirectCleanPathToHashRoute() {
   if (typeof window === 'undefined') return false;
   const { pathname, search, hash } = window.location;
@@ -112,7 +116,7 @@ function App() {
         <Suspense fallback={<div className="loading">Ladowanie...</div>}>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<RootEntry />} />
           <Route path="/login" element={<Login />} />
           <Route path="/arbor-os-spec" element={<ArborSpecPage />} />
 
