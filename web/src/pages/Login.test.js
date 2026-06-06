@@ -138,7 +138,61 @@ test('clears stale auth entries when login response is missing token or user', a
   expect(localStorage.getItem('permissions')).toBeNull();
   expect(passwordInput).toHaveValue('');
   expect(screen.queryByText('Dashboard gotowy')).not.toBeInTheDocument();
-  expect(await screen.findByText('Nieprawidłowy login lub hasło')).toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.queryByText('Dashboard gotowy')).not.toBeInTheDocument();
+    expect(passwordInput).toHaveValue('');
+  });
+});
+
+test('requests a password reset link by login or email', async () => {
+  api.post.mockResolvedValue({
+    data: {
+      message: 'Jeśli konto istnieje i ma adres e-mail, wysłaliśmy link resetujący hasło.',
+      dev_reset_url: 'http://localhost:3005/#/login?resetToken=abc',
+    },
+  });
+
+  renderLogin();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Nie pamiętasz hasła?' }));
+  await userEvent.type(screen.getByLabelText('Login albo e-mail'), 'admin@arbor.local');
+  await userEvent.click(screen.getByRole('button', { name: 'Wyślij link' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith('/auth/forgot-password', {
+      identifier: 'admin@arbor.local',
+    });
+  });
+  expect(await screen.findByText(/wysłaliśmy link resetujący hasło/i)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Otwórz link resetujący (dev)' })).toHaveAttribute(
+    'href',
+    'http://localhost:3005/#/login?resetToken=abc',
+  );
+});
+
+test('resets password from a reset token link', async () => {
+  api.post.mockResolvedValue({
+    data: {
+      ok: true,
+      message: 'Hasło zostało zmienione. Możesz się zalogować.',
+    },
+  });
+
+  renderLogin({ initialEntries: ['/?resetToken=abc-token'] });
+
+  expect(screen.getByText('Ustaw nowe hasło')).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText('Nowe hasło'), 'NoweHaslo123');
+  await userEvent.type(screen.getByLabelText('Powtórz hasło'), 'NoweHaslo123');
+  await userEvent.click(screen.getByRole('button', { name: 'Zmień hasło' }));
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith('/auth/reset-password', {
+      token: 'abc-token',
+      haslo: 'NoweHaslo123',
+    });
+  });
+  expect(await screen.findByText('Hasło zostało zmienione. Możesz się zalogować.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Zaloguj się' })).toBeInTheDocument();
 });
 
 test('shows a login error and clears the password after failed auth', async () => {

@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const multer = require('multer');
 const { readOnly, withStore } = require('../lib/store');
 const { requireAuth, publicUser, signUser } = require('../lib/auth');
@@ -74,6 +75,64 @@ const KOMMO_CF_KLIENT_RECORD_ID = toNum(process.env.KOMMO_CF_KLIENT_RECORD_ID);
 /** Telefon kontaktu — dla zlecenia / klienta (opcjonalnie). */
 const KOMMO_CF_PHONE_ID = toNum(process.env.KOMMO_CF_PHONE_ID);
 const KOMMO_CRM_TAGS = parseCsvStrings(process.env.KOMMO_CRM_TAGS || 'Arbor,CRM');
+
+const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function publicAppBaseUrl(req) {
+  const configured = String(process.env.PUBLIC_APP_URL || process.env.PUBLIC_BASE_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
+  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3002';
+  return `${proto}://${host}`.replace(/\/+$/, '');
+}
+
+async function sendPasswordResetEmail({ to, resetUrl, user }) {
+  const smtpHost = String(process.env.SMTP_HOST || '').trim();
+  const smtpUser = String(process.env.SMTP_USER || '').trim();
+  const smtpPass = String(process.env.SMTP_PASS || '').trim();
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    return { sent: false, skipped: 'no_smtp' };
+  }
+
+  let nodemailer;
+  try {
+    nodemailer = require('nodemailer');
+  } catch {
+    return { sent: false, skipped: 'nodemailer_missing' };
+  }
+
+  const port = Number(process.env.SMTP_PORT || 587);
+  const transporter = nodemailer.createTransport({
+    host: smtpHost,
+    port,
+    secure: String(process.env.SMTP_SECURE || '').trim() === '1' || port === 465,
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || `"ARBOR-OS" <${smtpUser}>`,
+    to,
+    subject: 'Reset hasła ARBOR-OS',
+    text: [
+      `Cześć ${user.imie || user.login || ''},`,
+      '',
+      'Otrzymaliśmy prośbę o reset hasła w ARBOR-OS.',
+      `Kliknij link, aby ustawić nowe hasło: ${resetUrl}`,
+      '',
+      'Link jest ważny przez 30 minut. Jeśli to nie Ty, zignoruj tę wiadomość.',
+    ].join('\n'),
+    html: `
+      <p>Cześć ${String(user.imie || user.login || '').replace(/[<>&]/g, '')},</p>
+      <p>Otrzymaliśmy prośbę o reset hasła w ARBOR-OS.</p>
+      <p><a href="${resetUrl}">Ustaw nowe hasło</a></p>
+      <p>Link jest ważny przez 30 minut. Jeśli to nie Ty, zignoruj tę wiadomość.</p>
+    `,
+  });
+  return { sent: true };
+}
 
 function userName(state, id) {
   if (!id) return null;
@@ -796,6 +855,86 @@ router.post('/auth/login', (req, res) => {
   const token = signUser(u);
   res.json({ token, user: publicUser(u) });
 });
+router.post('/auth/forgot-password', async (req, res) => {
+  const identifier = String(req.body?.identifier || req.body?.email || req.body?.login || '').trim().toLowerCase();
+  const generic = {
+    ok: true,
+    message: 'Jeśli konto istnieje i ma adres e-mail, wysłaliśmy link resetujący hasło.',
+  };
+  if (!identifier) return res.status(400).json({ error: 'Podaj login albo adres e-mail' });
+
+  let resetPayload = null;
+  const user = withStore((state) => {
+    const found = (state.users || []).find((item) =>
+      String(item.login || '').toLowerCase() === identifier ||
+      String(item.email || '').toLowerCase() === identifier
+    );
+    if (!found || !String(found.email || '').trim()) return null;
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const now = Date.now();
+    const expiresAt = new Date(now + PASSWORD_RESET_TTL_MS).toISOString();
+    if (!Array.isArray(state.passwordResetTokens)) state.passwordResetTokens = [];
+    state.passwordResetTokens = state.passwordResetTokens.filter((entry) =>
+      !entry.used_at && new Date(entry.expires_at || 0).getTime() > now
+    );
+    state.passwordResetTokens.push({
+      id: state.passwordResetTokens.length ? Math.max(...state.passwordResetTokens.map((x) => Number(x.id) || 0)) + 1 : 1,
+      user_id: found.id,
+      token_hash: sha256(token),
+      created_at: new Date(now).toISOString(),
+      expires_at: expiresAt,
+      used_at: null,
+    });
+    resetPayload = { token, expiresAt };
+    return found;
+  });
+
+  if (!user || !resetPayload) return res.json(generic);
+
+  const resetUrl = `${publicAppBaseUrl(req)}/#/login?resetToken=${encodeURIComponent(resetPayload.token)}`;
+  let email = { sent: false, skipped: 'not_attempted' };
+  try {
+    email = await sendPasswordResetEmail({ to: user.email, resetUrl, user });
+  } catch (err) {
+    console.error('[arbor-api-local] password reset email failed:', err.message || err);
+    email = { sent: false, error: err.message || 'email_failed' };
+  }
+
+  const response = {
+    ...generic,
+    email,
+    expires_at: resetPayload.expiresAt,
+  };
+  if (process.env.NODE_ENV !== 'production') response.dev_reset_url = resetUrl;
+  res.json(response);
+});
+
+router.post('/auth/reset-password', (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  const haslo = String(req.body?.haslo || req.body?.password || '').trim();
+  if (!token || !haslo) return res.status(400).json({ error: 'Token i nowe hasło są wymagane' });
+  if (haslo.length < 6) return res.status(400).json({ error: 'Hasło musi mieć co najmniej 6 znaków' });
+
+  const row = withStore((state) => {
+    const now = Date.now();
+    const reset = (state.passwordResetTokens || []).find((entry) =>
+      entry.token_hash === sha256(token) &&
+      !entry.used_at &&
+      new Date(entry.expires_at || 0).getTime() > now
+    );
+    if (!reset) return null;
+    const user = (state.users || []).find((item) => Number(item.id) === Number(reset.user_id));
+    if (!user) return null;
+    user.haslo = haslo;
+    reset.used_at = new Date(now).toISOString();
+    return publicUser(user);
+  });
+
+  if (!row) return res.status(400).json({ error: 'Link resetujący jest nieprawidłowy albo wygasł' });
+  res.json({ ok: true, message: 'Hasło zostało zmienione. Możesz się zalogować.', user: row });
+});
+
 
 // Local compatibility for `/api/quotations/*`.
 // The production OS has a dedicated quotations module; this file-db server keeps

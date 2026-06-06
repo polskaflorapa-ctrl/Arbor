@@ -19,6 +19,14 @@ export default function Login() {
   const { t } = useTranslation();
   const [login, setLogin] = useState('');
   const [haslo, setHaslo] = useState('');
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotStatus, setForgotStatus] = useState('');
+  const [forgotDevUrl, setForgotDevUrl] = useState('');
+  const [resetHaslo, setResetHaslo] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetStatus, setResetStatus] = useState('');
+  const [resetComplete, setResetComplete] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,9 +37,14 @@ export default function Login() {
     typeof location.state?.from === 'string' && location.state.from.startsWith('/')
       ? location.state.from
       : '/dashboard';
+  const resetToken = new URLSearchParams(location.search || '').get('resetToken') || '';
+  const isResetMode = Boolean(resetToken) && !resetComplete;
   const loginInputId = useId();
   const passwordInputId = useId();
   const rememberInputId = useId();
+  const forgotInputId = useId();
+  const resetPasswordInputId = useId();
+  const resetConfirmInputId = useId();
 
   useEffect(() => {
     if (getStoredToken()) navigate(returnTo, { replace: true });
@@ -77,6 +90,44 @@ export default function Login() {
     setError('');
   };
 
+  const handleForgotPassword = async (e) => {
+    e?.preventDefault?.();
+    setLoading(true);
+    setError('');
+    setForgotStatus('');
+    setForgotDevUrl('');
+    try {
+      const res = await api.post('/auth/forgot-password', { identifier: forgotIdentifier.trim() });
+      setForgotStatus(res.data?.message || 'Jeśli konto istnieje, wysłaliśmy link resetujący hasło.');
+      if (res.data?.dev_reset_url) setForgotDevUrl(res.data.dev_reset_url);
+    } catch (err) {
+      setError(err.userMessage || err.response?.data?.error || 'Nie udało się wysłać linku resetującego.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setResetStatus('');
+    try {
+      if (resetHaslo.length < 6) throw new Error('Hasło musi mieć co najmniej 6 znaków.');
+      if (resetHaslo !== resetConfirm) throw new Error('Hasła muszą być takie same.');
+      const res = await api.post('/auth/reset-password', { token: resetToken, haslo: resetHaslo });
+      setResetStatus(res.data?.message || 'Hasło zostało zmienione. Możesz się zalogować.');
+      setResetHaslo('');
+      setResetConfirm('');
+      setResetComplete(true);
+      window.history.replaceState(null, '', `${window.location.origin}${window.location.pathname}#/login`);
+    } catch (err) {
+      setError(err.message || err.userMessage || err.response?.data?.error || 'Nie udało się zmienić hasła.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="login-shell" style={s.root}>
       {/* Tlo z efektem */}
@@ -99,6 +150,62 @@ export default function Login() {
           <LanguageSwitcher />
         </div>
 
+        {isResetMode ? (
+          <form className="login-form" onSubmit={handleResetPassword} style={s.form}>
+            <div style={s.resetIntro}>
+              <strong>Ustaw nowe hasło</strong>
+              <span>Wpisz nowe hasło dla konta ARBOR-OS.</span>
+            </div>
+            <div className="login-field" style={s.field}>
+              <label htmlFor={resetPasswordInputId} style={s.label}>Nowe hasło</label>
+              <div className="login-input-wrap" style={s.inputWrap}>
+                <input
+                  id={resetPasswordInputId}
+                  style={{ ...s.input, paddingLeft: 14 }}
+                  placeholder="Minimum 6 znaków"
+                  type="password"
+                  value={resetHaslo}
+                  onChange={(e) => setResetHaslo(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+            <div className="login-field" style={s.field}>
+              <label htmlFor={resetConfirmInputId} style={s.label}>Powtórz hasło</label>
+              <div className="login-input-wrap" style={s.inputWrap}>
+                <input
+                  id={resetConfirmInputId}
+                  style={{ ...s.input, paddingLeft: 14 }}
+                  placeholder="Powtórz nowe hasło"
+                  type="password"
+                  value={resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+            {resetStatus && <div style={s.okBox}>{resetStatus}</div>}
+            {error && (
+              <div className="login-error" style={s.errBox}>
+                <span style={s.errText}>{error}</span>
+              </div>
+            )}
+            <button
+              className="login-submit"
+              style={{ ...s.btn, ...(loading ? { opacity: 0.7 } : {}) }}
+              type="submit"
+              disabled={loading || !resetHaslo || !resetConfirm}
+            >
+              <span>{loading ? 'Zmieniam hasło...' : 'Zmień hasło'}</span>
+            </button>
+            <button type="button" style={s.linkBtn} onClick={() => navigate('/login', { replace: true })}>
+              Wróć do logowania
+            </button>
+          </form>
+        ) : (
+          <>
         {SHOW_DEMO_ACCOUNTS && (
           <div className="login-demo-panel" style={s.demoPanel} aria-label="Konta demo">
             <div style={s.demoTitle}>Konta demo</div>
@@ -181,7 +288,47 @@ export default function Login() {
               />
               <span style={s.checkLabel}>{t('login.rememberMe')}</span>
             </label>
+            <button
+              type="button"
+              style={s.linkBtn}
+              onClick={() => {
+                setForgotOpen((value) => !value);
+                setError('');
+                setForgotStatus('');
+                setResetStatus('');
+              }}
+            >
+              Nie pamiętasz hasła?
+            </button>
           </div>
+
+          {forgotOpen && (
+            <div style={s.forgotPanel}>
+              <label htmlFor={forgotInputId} style={s.label}>Login albo e-mail</label>
+              <div style={s.forgotForm}>
+                <input
+                  id={forgotInputId}
+                  style={{ ...s.input, paddingLeft: 14 }}
+                  placeholder="np. admin albo admin@arbor.local"
+                  value={forgotIdentifier}
+                  onChange={(e) => setForgotIdentifier(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+                <button type="button" style={s.smallBtn} onClick={handleForgotPassword} disabled={loading || !forgotIdentifier.trim()}>
+                  Wyślij link
+                </button>
+              </div>
+              {forgotStatus && <div style={s.okBox}>{forgotStatus}</div>}
+              {forgotDevUrl && (
+                <a style={s.devLink} href={forgotDevUrl}>
+                  Otwórz link resetujący (dev)
+                </a>
+              )}
+            </div>
+          )}
+
+          {resetStatus && <div style={s.okBox}>{resetStatus}</div>}
 
           {error && (
             <div className="login-error" style={s.errBox}>
@@ -205,6 +352,8 @@ export default function Login() {
             }
           </button>
         </form>
+          </>
+        )}
 
         <p style={s.footer}>&copy; {new Date().getFullYear()} ARBOR-OS</p>
       </div>
@@ -319,6 +468,60 @@ const s = {
     cursor: 'pointer',
   },
   checkLabel: { fontSize: 13, color: 'var(--text-sub)' },
+  linkBtn: {
+    border: 0,
+    background: 'transparent',
+    color: 'var(--accent)',
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: 'pointer',
+    padding: 0,
+  },
+  forgotPanel: {
+    padding: 12,
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'rgba(255,255,255,0.72)',
+  },
+  forgotForm: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: 8,
+    marginTop: 8,
+  },
+  smallBtn: {
+    border: '1px solid var(--accent)',
+    borderRadius: 8,
+    background: 'var(--accent)',
+    color: 'var(--on-accent)',
+    fontWeight: 800,
+    padding: '0 12px',
+    cursor: 'pointer',
+    minHeight: 44,
+  },
+  okBox: {
+    padding: '10px 12px',
+    borderRadius: 10,
+    background: 'rgba(20, 131, 79, 0.1)',
+    color: 'var(--accent-strong)',
+    fontSize: 13,
+    lineHeight: 1.45,
+  },
+  devLink: {
+    display: 'inline-block',
+    color: 'var(--accent)',
+    fontSize: 13,
+    fontWeight: 800,
+    marginTop: 8,
+  },
+  resetIntro: {
+    display: 'grid',
+    gap: 4,
+    padding: 12,
+    borderRadius: 10,
+    background: 'rgba(20, 131, 79, 0.08)',
+    color: 'var(--text)',
+  },
   errBox: {
     display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(248,113,113,0.1)',
     border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, padding: '10px 14px',
