@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+import { AlertTriangle, ArrowRight, Check, RefreshCw, Target, UserPlus, XCircle } from 'lucide-react';
+import CommandSidebar from '../components/CommandSidebar';
 import PageHeader from '../components/PageHeader';
 import StatusMessage from '../components/StatusMessage';
+import { Button } from '../components/ui/Button';
 import api from '../api';
 import { getStoredToken, authHeaders } from '../utils/storedToken';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -25,6 +27,7 @@ export default function CrmDashboard() {
     sources: [],
     callbacks: [],
   });
+  const [commandCenter, setCommandCenter] = useState({ summary: {}, priorities: [] });
   const [messageQueue, setMessageQueue] = useState([]);
   const [messageProviders, setMessageProviders] = useState({ worker: {}, channels: [] });
   const [queueStatus, setQueueStatus] = useState('all');
@@ -39,16 +42,18 @@ export default function CrmDashboard() {
       const headers = authHeaders(token);
       const params = oddzialId ? { oddzial_id: oddzialId } : {};
       const queueParams = { ...params, status: queueStatus, limit: 12 };
-      const [overviewRes, oddzialyRes, queueRes, providersRes] = await Promise.all([
+      const [overviewRes, oddzialyRes, queueRes, providersRes, commandRes] = await Promise.all([
         api.get('/crm/overview', { headers, params }),
         api.get('/oddzialy', { headers }).catch(() => ({ data: [] })),
         api.get('/crm/messages/queue', { headers, params: queueParams }).catch(() => ({ data: [] })),
         api.get('/crm/messages/providers', { headers }).catch(() => ({ data: { worker: {}, channels: [] } })),
+        api.get('/crm/command-center', { headers, params: { ...params, limit: 8 } }).catch(() => ({ data: { summary: {}, priorities: [] } })),
       ]);
       setOverview(overviewRes.data || { kpis: {}, pipeline: [], sources: [], callbacks: [] });
       setOddzialy(Array.isArray(oddzialyRes.data) ? oddzialyRes.data : []);
       setMessageQueue(Array.isArray(queueRes.data) ? queueRes.data : []);
       setMessageProviders(providersRes.data || { worker: {}, channels: [] });
+      setCommandCenter(commandRes.data || { summary: {}, priorities: [] });
     } catch (e) {
       const base = getApiErrorMessage(e, t('crm.dashboard.loadError', { defaultValue: 'Nie udało się pobrać dashboardu CRM' }));
       const path = e?.requestDebug?.urlPath || '';
@@ -125,6 +130,8 @@ export default function CrmDashboard() {
   const conversion = overview.analytics?.conversion || {};
   const owners = overview.analytics?.owners || [];
   const nps = overview.analytics?.nps || {};
+  const commandSummary = commandCenter.summary || {};
+  const commandPriorities = Array.isArray(commandCenter.priorities) ? commandCenter.priorities : [];
   const queueCounts = messageQueue.reduce((acc, item) => {
     acc[item.status] = (acc[item.status] || 0) + 1;
     return acc;
@@ -132,7 +139,7 @@ export default function CrmDashboard() {
 
   return (
     <div className="app-shell crm-dashboard-shell">
-      <Sidebar />
+      <CommandSidebar active="crm" />
       <main className="app-main crm-dashboard-main">
         <PageHeader
           title={t('crm.dashboard.title', { defaultValue: 'CRM Dashboard' })}
@@ -142,9 +149,69 @@ export default function CrmDashboard() {
         <div className="app-content crm-dashboard-content">
           <StatusMessage message={msg} tone={msg ? 'error' : undefined} />
           <section className="ios-inset crm-dashboard-action" style={{ marginBottom: 12, padding: 12 }}>
-            <button className="ios-btn ios-btn-primary" type="button" onClick={() => navigate('/crm/pipeline')}>
+            <Button rightIcon={ArrowRight} onClick={() => navigate('/crm/pipeline')}>
               {t('crm.dashboard.openPipeline', { defaultValue: 'Otwórz pipeline leadów' })}
-            </button>
+            </Button>
+          </section>
+
+          <section className="ios-inset crm-dashboard-command-center" style={{ marginBottom: 12, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>
+                  {t('crm.dashboard.commandCenter', { defaultValue: 'Co zrobić teraz' })}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {t('crm.dashboard.commandCenterHint', { defaultValue: 'Najważniejsze leady według ryzyka, wartości i zaległych akcji.' })}
+                </div>
+              </div>
+              <Button size="sm" variant="outline" rightIcon={ArrowRight} onClick={() => navigate('/crm/pipeline')}>
+                {t('crm.dashboard.commandCenterOpenPipeline', { defaultValue: 'Pracuj w pipeline' })}
+              </Button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 10 }}>
+              {[
+                { key: 'critical', icon: AlertTriangle, label: t('crm.dashboard.commandCritical', { defaultValue: 'Krytyczne' }), value: commandSummary.critical || 0 },
+                { key: 'unassigned', icon: UserPlus, label: t('crm.dashboard.commandUnassigned', { defaultValue: 'Bez ownera' }), value: commandSummary.unassigned || 0 },
+                { key: 'value', icon: Target, label: t('crm.dashboard.commandValueAtRisk', { defaultValue: 'Wartość zagrożona' }), value: formatCurrency(commandSummary.value_at_risk || 0) },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.key} className="ios-inset-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Icon size={18} aria-hidden />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{item.label}</div>
+                      <strong style={{ fontSize: 18 }}>{item.value}</strong>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="ios-inset-list">
+              {commandPriorities.map((lead) => (
+                <div key={lead.id} className="ios-inset-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 12, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                      <strong style={{ overflowWrap: 'anywhere' }}>{lead.title || `Lead #${lead.id}`}</strong>
+                      <span style={{ fontSize: 12, color: lead.priority === 'critical' ? 'var(--danger, #b91c1c)' : 'var(--text-muted)' }}>
+                        {lead.priority} · {lead.score}/100
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, marginTop: 4 }}>{lead.next_best_action}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {(lead.reasons || []).map((r) => r.label).join(' · ') || lead.stage}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" rightIcon={ArrowRight} onClick={() => navigate(`/crm/pipeline?lead_id=${lead.id}`)}>
+                    {t('crm.dashboard.commandOpenLead', { defaultValue: 'Otwórz' })}
+                  </Button>
+                </div>
+              ))}
+              {!loading && commandPriorities.length === 0 ? (
+                <div className="ios-inset-row muted">
+                  {t('crm.dashboard.commandEmpty', { defaultValue: 'Brak pilnych leadów. CRM jest czysty.' })}
+                </div>
+              ) : null}
+            </div>
           </section>
 
           <section className="ios-inset crm-dashboard-filters" style={{ marginBottom: 12, padding: 12 }}>
@@ -333,11 +400,11 @@ export default function CrmDashboard() {
                 <option value="failed">{t('crm.dashboard.queueFailed', { defaultValue: 'Bledy' })}</option>
                 <option value="sent">{t('crm.dashboard.queueSent', { defaultValue: 'Wyslane' })}</option>
               </select>
-              <button className="ios-btn ios-btn-primary" type="button" disabled={queueProcessing} onClick={processQueue}>
+              <Button loading={queueProcessing} leftIcon={RefreshCw} disabled={queueProcessing} onClick={processQueue}>
                 {queueProcessing
                   ? t('crm.dashboard.queueProcessing', { defaultValue: 'Przetwarzam...' })
                   : t('crm.dashboard.queueProcessNow', { defaultValue: 'Uruchom kolejke' })}
-              </button>
+              </Button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 10 }}>
               {(messageProviders.channels || []).slice(0, 6).map((provider) => (
@@ -374,18 +441,18 @@ export default function CrmDashboard() {
                   </div>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     {m.status === 'failed' ? (
-                      <button className="ios-btn" type="button" disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'queued')}>
+                      <Button size="sm" variant="outline" leftIcon={RefreshCw} disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'queued')}>
                         {t('crm.dashboard.queueRetry', { defaultValue: 'Ponow' })}
-                      </button>
+                      </Button>
                     ) : null}
                     {m.status === 'queued' || m.status === 'failed' ? (
                       <>
-                        <button className="ios-btn ios-btn-primary" type="button" disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'sent')}>
+                        <Button size="sm" leftIcon={Check} disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'sent')}>
                           {t('crm.dashboard.queueMarkSent', { defaultValue: 'Wyslane' })}
-                        </button>
-                        <button className="ios-btn" type="button" disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'failed')}>
+                        </Button>
+                        <Button size="sm" variant="danger" leftIcon={XCircle} disabled={queueSavingId === m.id} onClick={() => updateQueueMessage(m.id, 'failed')}>
                           {t('crm.dashboard.queueMarkFailed', { defaultValue: 'Blad' })}
-                        </button>
+                        </Button>
                       </>
                     ) : null}
                   </div>

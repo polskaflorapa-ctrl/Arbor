@@ -10,6 +10,11 @@ vi.mock('../components/Sidebar', () => ({
   default: () => null,
 }));
 
+vi.mock('../components/CommandSidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock('../components/PageHeader', () => ({
   __esModule: true,
   default: ({ title, subtitle }) => (
@@ -84,6 +89,28 @@ beforeEach(() => {
         },
       });
     }
+    if (url === '/crm/command-center') {
+      return Promise.resolve({
+        data: {
+          summary: { critical: 1, high: 1, unassigned: 1, value_at_risk: 9000 },
+          priorities: [
+            {
+              id: 77,
+              title: 'Duza wycinka przy domu',
+              stage: 'Lead',
+              priority: 'critical',
+              score: 92,
+              value: 9000,
+              next_best_action: 'Przypisz ownera i zaplanuj pierwszy kontakt.',
+              reasons: [
+                { key: 'unassigned', label: 'Brak ownera' },
+                { key: 'high_value', label: 'Wysoka wartosc: 9000 PLN' },
+              ],
+            },
+          ],
+        },
+      });
+    }
     if (url === '/oddzialy') return Promise.resolve({ data: [] });
     return Promise.resolve({ data: [] });
   });
@@ -108,6 +135,10 @@ test('renders CRM conversion analytics and owner performance', async () => {
   expect(screen.getByText('Anna CRM')).toBeInTheDocument();
   expect(screen.getByText('Satysfakcja klientów')).toBeInTheDocument();
   expect(screen.getByText('Średnia ocena')).toBeInTheDocument();
+  expect(screen.getByText('Co zrobić teraz')).toBeInTheDocument();
+  expect(screen.getByText('Duza wycinka przy domu')).toBeInTheDocument();
+  expect(screen.getByText('Przypisz ownera i zaplanuj pierwszy kontakt.')).toBeInTheDocument();
+  expect(screen.getByText('Wartość zagrożona')).toBeInTheDocument();
   expect(screen.getAllByText('whatsapp').length).toBeGreaterThan(0);
   expect(screen.getByText('Wygrane/przegrane: 1/1')).toBeInTheDocument();
 });
