@@ -460,7 +460,7 @@ describe('Telephony routes', () => {
       .send({});
 
     expect(res.status).toBe(200);
-    expect(zadarmaRequest).toHaveBeenCalledWith('GET', '/v1/info/', {});
+    expect(zadarmaRequest).toHaveBeenCalledWith('GET', '/v1/info/balance/', {});
     expect(res.body).toEqual(expect.objectContaining({
       ok: true,
       provider: 'zadarma',

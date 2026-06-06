@@ -203,7 +203,7 @@ router.post('/zadarma/test', authMiddleware, async (req, res) => {
     if (!canManageGlobalProviderSettings(req.user)) {
       return res.status(403).json({ error: req.t('errors.auth.forbidden') });
     }
-    const info = await zadarmaRequest('GET', '/v1/info/', {});
+    const info = await zadarmaRequest('GET', '/v1/info/balance/', {});
     return res.json({
       ok: true,
       provider: 'zadarma',

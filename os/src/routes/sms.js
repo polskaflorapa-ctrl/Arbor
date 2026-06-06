@@ -489,7 +489,7 @@ router.get('/test', authMiddleware, async (req, res) => {
   if (provider === 'zadarma') {
     try {
       const { zadarmaRequest } = require('../services/zadarma');
-      const info = await zadarmaRequest('GET', '/v1/info/', {});
+      const info = await zadarmaRequest('GET', '/v1/info/balance/', {});
       return res.json({ success: true, provider: 'zadarma', message: 'Zadarma skonfigurowana poprawnie', info });
     } catch (e) {
       return res.json({ success: false, provider: 'zadarma', message: e.message });
