@@ -298,13 +298,13 @@ export default function BiDashboard() {
   ];
 
   const TABS = [
-    { key: 'overview', label: `📈 ${t('biDashboard.tabs.overview')}` },
-    { key: 'branches', label: `🏢 ${t('biDashboard.tabs.branches')}` },
-    { key: 'teams',    label: `👥 ${t('biDashboard.tabs.teams')}` },
-    { key: 'services', label: `🌳 ${t('biDashboard.tabs.services')}` },
-    { key: 'funnel',   label: `🎯 ${t('biDashboard.tabs.funnel')}` },
+    { key: 'overview', label: t('biDashboard.tabs.overview') },
+    { key: 'branches', label: t('biDashboard.tabs.branches') },
+    { key: 'teams',    label: t('biDashboard.tabs.teams') },
+    { key: 'services', label: t('biDashboard.tabs.services') },
+    { key: 'funnel',   label: t('biDashboard.tabs.funnel') },
     { key: 'plan',     label: 'Plan vs real' },
-    { key: 'alerts',   label: `⚡ Alerty` },
+    { key: 'alerts',   label: 'Alerty' },
   ];
 
   const load = useCallback(async () => {
@@ -381,7 +381,7 @@ export default function BiDashboard() {
         {/* Header */}
         <div className="bi-dashboard-topbar" style={s.topbar}>
           <div>
-            <h1 style={s.title}>📊 {t('biDashboard.title')}</h1>
+            <h1 style={s.title}>{t('biDashboard.title')}</h1>
             <p style={s.sub}>{t('biDashboard.subtitle')}</p>
           </div>
           <div className="bi-dashboard-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -395,7 +395,7 @@ export default function BiDashboard() {
               ))}
             </div>
             <button type="button" onClick={load} disabled={loading} style={s.refreshBtn}>
-              {loading ? '⏳' : '↻'}
+              {loading ? 'Laduje...' : 'Odswiez'}
             </button>
             <button type="button" style={s.refreshBtn} title="Eksportuj CSV"
               onClick={() => {
@@ -404,8 +404,8 @@ export default function BiDashboard() {
                 else if (activeTab === 'services') downloadCSV(serviceMix, `uslugi-${days}d.csv`);
                 else if (activeTab === 'plan') downloadCSV(planVsReal?.tasks || [], `plan-vs-real-${days}d.csv`);
                 else if (activeTab === 'overview' && ov) downloadCSV([ov], `kpi-${days}d.csv`);
-              }}>⬇ CSV</button>
-            <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>← Powrót</button>
+              }}>CSV</button>
+            <button type="button" onClick={() => navigate('/kierownik')} style={s.backBtn}>Powrot</button>
           </div>
         </div>
 

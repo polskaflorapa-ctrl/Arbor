@@ -407,6 +407,41 @@ button,
   text-transform: none !important;
 }
 
+button:disabled,
+#root .MuiButton-root.Mui-disabled,
+.ios-btn:disabled {
+  color: #52645b !important;
+  background: #f1f5f3 !important;
+  border-color: rgba(23, 35, 30, 0.16) !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+}
+
+.ios-btn:not(.ios-btn-primary),
+button.ios-btn:not(.ios-btn-primary) {
+  color: var(--green-900) !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(13, 111, 67, 0.18) !important;
+}
+
+.crm-kommo-topbar .crm-kommo-actions .ios-btn:not(.ios-btn-primary),
+.crm-kommo-workspace .ios-btn:not(.ios-btn-primary),
+.crm-inbox-main .ios-btn:not(.ios-btn-primary),
+.crm-dashboard-main .ios-btn:not(.ios-btn-primary) {
+  color: var(--green-900) !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(13, 111, 67, 0.2) !important;
+}
+
+.ios-btn-primary,
+button.ios-btn-primary,
+#root .MuiButton-contained,
+#root .MuiButton-containedPrimary {
+  color: #ffffff !important;
+  background: var(--green-700) !important;
+  border-color: var(--green-700) !important;
+}
+
 input,
 select,
 textarea,
@@ -627,6 +662,24 @@ button:hover,
 
   .crm-pipeline-column {
     min-width: 250px !important;
+  }
+
+  .crm-kommo-search,
+  .crm-kommo-actions,
+  .crm-kommo-create-grid,
+  .crm-kommo-filter-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .crm-kommo-actions .ios-btn,
+  .crm-kommo-actions button,
+  .crm-kommo-create-grid .ios-btn,
+  .crm-kommo-create-grid button {
+    width: 100% !important;
+    justify-content: center !important;
   }
 
   .telefonia-panel,
