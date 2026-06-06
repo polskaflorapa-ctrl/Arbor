@@ -87,7 +87,7 @@ export default function Telefonia() {
   const [zadarmaMessage, setZadarmaMessage] = useState('');
   const [zadarmaError, setZadarmaError] = useState('');
 
-  const [tab, setTab] = useState('sms');
+  const [tab, setTab] = useState(() => (['sms', 'calls', 'zadarma', 'agent'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'sms'));
   const [oddzialy, setOddzialy] = useState([]);
   const [callRows, setCallRows] = useState([]);
   const [callbacks, setCallbacks] = useState([]);
@@ -2357,6 +2357,11 @@ export default function Telefonia() {
               {tab === 'agent' && (
                 <button type="button" style={s.refreshBtn} onClick={exportAgentCsv} disabled={agentExporting || !agentForm.oddzial_id}>
                   {agentExporting ? 'Eksport...' : 'Eksport CSV'}
+                </button>
+              )}
+              {tab !== 'zadarma' && (
+                <button type="button" style={s.refreshBtn} onClick={() => setTab('zadarma')}>
+                  Konfiguracja Zadarma
                 </button>
               )}
               <button
